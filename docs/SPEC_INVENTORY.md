@@ -2057,3 +2057,15 @@ inherit a mandated substrate: persistence goes behind `ArtifactStoreProtocol` an
 graph-storage Protocol (D-IMPL-02/26/27), with MongoDB merely one possible user-supplied
 backend. Marker for substrate mandate: `domain-specific — do not inherit`.
 
+
+---
+
+## Review Appendix (Phase R — §3.1 advisory findings, carried forward)
+
+Cross-AI review (Gemini, Ollama/gpt-oss-120b) + §16 self-audit, 2026-07-25. Zero blocking findings; triage evidence in `.planning/phases/01-phase-r-research/fragments/review-triage.md`, full reviews in `01-REVIEWS.md`.
+
+1. **Non-normativity of numeric examples.** Every numeric value appearing in inventory entries (similarity thresholds such as 0.85/0.75, TTL examples, cost-band multipliers) is illustrative from the whitepaper's worked examples — none is an SDK default. Phase D/I must source all such values from Control Plane configuration per the No-Hardcoding Rule.
+2. **Phase D sequencing guidance.** Resolve D-IMPL-01 (language target) before D-IMPL-41 (single-writer structural enforcement), which depends on it. D-IMPL-30 (8-vs-9 contract elements) gates the Context Product Contract type surface.
+3. **D-NN range is intentionally non-contiguous** — the explicit gap list in the Governance Decisions section is authoritative; audit tooling must not assume a sequential range.
+4. **Load-Bearing Figures list is a superset** (all 50 figures with committed mechanisms); strictly-load-bearing trimming left to Phase D discretion.
+5. **Format drift in §7.8–§7.10 entries** (bullet-style field labels, no `##` group headings) — cosmetic; keys and content complete.
