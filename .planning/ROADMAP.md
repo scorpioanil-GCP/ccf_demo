@@ -34,37 +34,37 @@ exists.
   4. Every open question carries a `D-IMPL-NN` number in `docs/DECISIONS.md`; no design choices or code produced
   5. `/gsd-review --phase Phase R --all` run, findings triaged, blocking findings fixed, Dave approval logged as `D-GATE-R`, `phase-r` merged to `main`
 
-**Plans:** 12 plans
+**Plans:** 11/12 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Repo prerequisites (§14 items 1–5): branches, .gitignore, skeleton, placeholders
+- [x] 01-01-PLAN.md — Repo prerequisites (§14 items 1–5): branches, .gitignore, skeleton, placeholders
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 01-02-PLAN.md — Figure extraction (50) + whitepaper Ch 1–6 conversion (D-01/D-04)
-- [ ] 01-10-PLAN.md — Homecams review → homecams-patterns appendix (RSCH-03)
+- [x] 01-02-PLAN.md — Figure extraction (50) + whitepaper Ch 1–6 conversion (D-01/D-04)
+- [x] 01-10-PLAN.md — Homecams review → homecams-patterns appendix (RSCH-03)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-03-PLAN.md — Whitepaper Ch 7 conversion (mechanism core, pp. 86–180)
+- [x] 01-03-PLAN.md — Whitepaper Ch 7 conversion (mechanism core, pp. 86–180)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 01-04-PLAN.md — Ch 8–9 conversion + D-03 spot-check fidelity gate
+- [x] 01-04-PLAN.md — Ch 8–9 conversion + D-03 spot-check fidelity gate
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 01-05-PLAN.md — Extract Ch 5–6 commitments (13 subsections)
-- [ ] 01-06-PLAN.md — Extract §7.1–§7.4 (layers, graph, operators)
-- [ ] 01-07-PLAN.md — Extract §7.5–§7.7 (projection, products, debt/half-life)
-- [ ] 01-08-PLAN.md — Extract §7.8–§7.10 (planes, closed loop, replay)
-- [ ] 01-09-PLAN.md — Extract Ch 8 (integration patterns, 13 subsections)
+- [x] 01-05-PLAN.md — Extract Ch 5–6 commitments (13 subsections)
+- [x] 01-06-PLAN.md — Extract §7.1–§7.4 (layers, graph, operators)
+- [x] 01-07-PLAN.md — Extract §7.5–§7.7 (projection, products, debt/half-life)
+- [x] 01-08-PLAN.md — Extract §7.8–§7.10 (planes, closed loop, replay)
+- [x] 01-09-PLAN.md — Extract Ch 8 (integration patterns, 13 subsections)
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 01-11-PLAN.md — Synthesis: merge fragments, §16 sections, D-IMPL-30+ numbering
+- [x] 01-11-PLAN.md — Synthesis: merge fragments, §16 sections, D-IMPL-30+ numbering
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
@@ -183,7 +183,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Phase R — Research | 0/? | Not started | - |
+| 1. Phase R — Research | 11/12 | In Progress|  |
 | 2. Phase D — Design | 0/? | Not started | - |
 | 3. Phase F — Feasibility & Scoping | 0/? | Not started | - |
 | 4. Phase I.1 — Fabric Core | 0/? | Not started | - |
