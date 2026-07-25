@@ -84,7 +84,7 @@ Plans:
   3. `docs/diagrams/` contains the complete set: one diagram per Common Pillar (five), plus the harness-adapter seam diagram and the ArtifactStore seam diagram
   4. `/gsd-review --phase Phase D --all` run, triaged, Dave approval logged as `D-GATE-D`, phase branch merged to `main`
 
-**Plans:** 3/11 plans executed
+**Plans:** 4/11 plans executed
 
 Plans:
 **Wave 1**
@@ -95,7 +95,7 @@ Plans:
 
 - [x] 02-02-PLAN.md — Batch 1 rulings: fabric & runtime fundamentals (16 decisions, D-IMPL-01 first)
 - [x] 02-03-PLAN.md — Batch 2 rulings: agent framework, harness, cross-process/trust (14 decisions)
-- [ ] 02-04-PLAN.md — Batch 3 rulings + 49/49 census + provisional register (19 decisions)
+- [x] 02-04-PLAN.md — Batch 3 rulings + 49/49 census + provisional register (19 decisions)
 
 **Wave 5** *(parallel drafting into fragments)*
 
@@ -212,7 +212,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Phase R — Research | 12/12 | Complete   | 2026-07-25 |
-| 2. Phase D — Design | 3/11 | In Progress|  |
+| 2. Phase D — Design | 4/11 | In Progress|  |
 | 3. Phase F — Feasibility & Scoping | 0/? | Not started | - |
 | 4. Phase I.1 — Fabric Core | 0/? | Not started | - |
 | 5. Phase I.2 — Agent Specialization Framework | 0/? | Not started | - |
