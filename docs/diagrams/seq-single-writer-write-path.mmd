@@ -1,0 +1,34 @@
+sequenceDiagram
+    participant SRC as "Source (CDC / MCP ingress)"
+    participant L1 as "L1 Signal Layer"
+    participant L2 as "L2 Context Assembly (sole GraphWriter)"
+    participant CP as "Control Plane"
+    participant L3 as "L3 Context Graph"
+    participant A2A as "A2A Inbound Peer"
+    participant H as "Harness (via adapter)"
+
+    Note over SRC,L3: Normal write path — the only route into L3 (D-IMPL-41)
+    SRC->>L1: source event (CDC change / MCP resource read)
+    L1->>L1: normalize into SignalEnvelope (D-IMPL-33, tenant-scoped, no interpretation)
+    L1->>L2: SignalEnvelope stream
+    L2->>L2: entity resolution (EntityResolutionStrategy, D-IMPL-35)
+    L2->>L2: temporal stitching (valid-time vs observed-time)
+    L2->>CP: resolve in-force policy bundle version
+    CP-->>L2: policy bindings (stamped at assembly time)
+    L2->>L3: idempotent upsert via DI-injected GraphWriter (tenant_id, entity_uri)
+    L3-->>L2: persisted (set-union lineage, logical supersession)
+
+    Note over A2A,L3: Refused path 1 — A2A inbound never writes L3 directly
+    A2A->>CP: inbound Context Product (signed)
+    CP->>CP: verify signature, Policy bindings, contract, lineage (D-IMPL-16)
+    alt verification passes
+        CP->>L2: admit product for assembly
+        L2->>L3: write via the same single GraphWriter
+    else verification fails
+        CP-->>A2A: admission refused (no graph entry)
+    end
+
+    Note over H,L3: Refused path 2 — harness holds no write handle
+    Note over H: direct L3 write impossible by construction — no GraphWriter exists outside L2 (D-IMPL-41)
+    H->>L2: effect capture via governed emission / L2 write-back (D-IMPL-25)
+    L2->>L3: write via the same single GraphWriter
