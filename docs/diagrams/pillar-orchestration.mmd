@@ -34,5 +34,5 @@ flowchart TD
     WFDef --> OrchProto
     WorkflowEngine --> Replay
     OrchProto --> Replay
-    WFState --> ArtifactStore
+    WFState -->|"trace write-through at suspend/terminal<br/>(not execution state — D-IMPL-18/27)"| ArtifactStore
     Replay --> ArtifactStore

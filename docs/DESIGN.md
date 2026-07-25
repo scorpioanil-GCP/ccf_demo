@@ -15,9 +15,9 @@ This is the Phase D design deliverable (DSGN-01): the CCF SDK's architectural sh
 
 **Citation conventions.** Inventory entries are cited inline as `INV-CHx-NN`; decisions as `D-IMPL-NN`; figures as `Fig-CHnn-mm`; whitepaper sections as `§n.n`; CLAUDE.md sections as `CLAUDE.md §n`. Where the SDK extends beyond the whitepaper (the Agent Specialization Framework, the Agent & Task Factory, bidirectional MCP, A2A as first-class, the Harness Adapter surface, the ArtifactStore, the Orchestration Layer, HITL primitives, the Experience Layer), the extension is explicitly labeled **SDK-defined** with its CLAUDE.md anchor and its whitepaper hook.
 
-**Decision-log linkage.** Every design commitment below cites the `D-IMPL-NN` ruling it embodies. All 49 open decisions are RESOLVED with Dave as approver (`docs/DECISIONS.md`, 2026-07-25); D-IMPL-10 (repo shape) remains provisionally resolved as monorepo per CLAUDE.md §2.2 and is not load-bearing for any component in this document.
+**Decision-log linkage.** Every design commitment below cites the `D-IMPL-NN` ruling it embodies. All 49 open decisions are RESOLVED with Dave as approver (`docs/DECISIONS.md`, 2026-07-25; see the Decision Census note there for the 49/50/51 accounting, including D-IMPL-51). D-IMPL-10 (repo shape) is resolved for v0 as monorepo per CLAUDE.md §2.2 — the post-v0 adapter-split remainder is tracked outside Phase D as non-gating deferred scope — and is not load-bearing for any component in this document.
 
-**Provisional-flag legend (locked D-04).** A design element resting on a provisional ruling carries a `> PROVISIONAL basis: D-IMPL-NN` blockquote flag. Because the decision marathon closed with zero provisionals, **this document contains no provisional flags** — every component rests on RESOLVED rulings.
+**Provisional-flag legend (locked D-04).** A design element resting on a provisional ruling carries a `> PROVISIONAL basis: D-IMPL-NN` blockquote flag. Because the decision marathon closed with zero provisional *design-basis* flags, **this document contains no provisional flags** — every component rests on RESOLVED rulings. (D-IMPL-10 remains a provisional monorepo *orientation* per CLAUDE.md §2.2; it is not a design basis for any component here and carries no flag.)
 
 **Pillar map and diagram index.** One architecture diagram per pillar, one per mandated seam, and four D-09 sequence diagrams for load-bearing runtime flows:
 
@@ -71,7 +71,7 @@ The write side is where the whitepaper's conceptual commitments become persisted
 
 - **Responsibility:** Fix the responsibility boundaries this chapter designs within. The fabric decomposes into six layers — L1 Signal → L2 Assembly → L3 Graph → L4 Operators → L5 Projection → L6 Products — each owning a single responsibility, artifact, and handoff (INV-CH7-01, Fig-CH07-02). The layers are responsibility boundaries, not a sequential pipeline. Orthogonally, the fabric realizes four concerns — State (§7.3), Computation (§7.4), Interpretation (§7.5), Delivery (§7.6) — as complementary views of one architecture (INV-CH7-09).
 - **Protocol/type signatures:** The SDK package structure mirrors the layer stack (CLAUDE.md §10): `ccf.signal` (L1), `ccf.assembly` (L2), `ccf.graph` (L3), with L4–L6 modules designed in Part B. The layered view is realized as module boundaries plus the DI composition root (§2A.5), not as a runtime pipeline object.
-- **Invariants enforced:** Layer-boundary discipline — L4 operators are read-only (INV-CH7-11, mechanism in Part B), interpretation is isolated at L5 (INV-CH7-06), delivery happens only via the contracted artifact at L6 (INV-CH7-07, INV-CH7-13). This chapter's write side guarantees the complementary half: nothing above L2 writes graph state (§2A.5). L4/L5/L6 layered-view commitments (INV-CH7-05, INV-CH7-06, INV-CH7-07) and the three per-concern mechanism entries for Computation/Interpretation/Delivery (INV-CH7-11, INV-CH7-12, INV-CH7-13) bind here at the boundary and are designed in mechanism detail in Part B (see-also per the ownership table).
+- **Invariants enforced:** Layer-boundary discipline — L4 operators are read-only (INV-CH7-11, mechanism in Part B), interpretation is isolated at L5 (INV-CH7-06), delivery happens only via the contracted artifact at L6 (INV-CH7-07, INV-CH7-13). This chapter's write side guarantees the complementary half: nothing above L2 writes graph state (§2A.5). L4/L5/L6 layered-view commitments (INV-CH7-05, INV-CH7-06, INV-CH7-07) and the three per-concern mechanism entries for Computation/Interpretation/Delivery (INV-CH7-11, INV-CH7-12, INV-CH7-13) bind here at the boundary; their primary mechanism design lives in Part B (§2B.1–§2B.3, primary per the traceability matrix), with this section as see-also.
 - **Seams:** Control Plane and Data Plane cut across all six layers (INV-CH7-08): policy definitions binding L2, operator parameterization, λ_c calibration, D_c thresholds, and materialization policy are Control Plane configuration; L1 ingestion, L2 assembly, and L3 persistence execute on the Data Plane within those constraints. Runtime plane-separation mechanism is Part B (§7.8 entries); this chapter consumes the separation as a design constraint — every threshold or table named below is a Control Plane value, never SDK code (No-Hardcoding, CLAUDE.md §6.4).
 - **D-IMPL rulings embodied:** D-IMPL-01 (Python 3.12+ sole target; typed contracts as Pydantic v2 `extra=forbid`; Protocol-based seams — every signature below assumes it); D-IMPL-04 (two packages, `ccf` library + `ccf-runtime`; fabric core stays sync on the operator path, ingestion adapters may be async in the runtime package).
 
@@ -284,7 +284,7 @@ Scope of §2B: the read side of the fabric pillar — L4 Context Operators, L5 C
   1. **empty-operator guard** — rejects a Contract whose `operators_invoked` is empty; refusal is a structured rejection, never silent acceptance (INV-CH7-46).
   2. **lineage strict equality** — declared `operators_invoked` set must equal the engine-resolved operator set; forgery, omission, and drift all fail; passage-level anchors verified for every unstructured-derived claim (INV-CH7-47; restated at the plane boundary as INV-CH7-73(c); L6-gate placement per INV-CH7-13).
   3. **TTL bounds** — `now < expires_at ≤ now + MAX_TTL`, re-verified at cache-write time (INV-CH7-48). Per the **D-IMPL-39 ruling** MAX_TTL is required Control Plane configuration per product class — no SDK default; an unregistered MAX_TTL fails Control Plane validation at product-class registration; the in-force MAX_TTL version lands in the policy-bindings replay dimension.
-  No invalid product reaches an agent, enters the cache, or contaminates the replay record; the three-gate sequence (Schema Validator, Policy Gate, Lineage Completeness Checker) runs before any cache write or delivery, and the cache lookup key is the composite `(tenant, schema_name, plan_id, graph_snapshot_id, principal binding)` (INV-CH7-52) — tenant-first per the D-IMPL-05 ruling.
+  No invalid product reaches an agent, enters the cache, or contaminates the replay record; the canonical three-gate sequence — empty-operator guard, lineage strict equality, TTL bounds — runs before any cache write or delivery, and the cache lookup key is the composite `(tenant, schema_name, plan_id, graph_snapshot_id, principal binding)` (INV-CH7-52) — tenant-first per the D-IMPL-05 ruling.
   TTL granularity follows the **D-IMPL-31 ruling**: two granularities with a declared per-class derivation rule — signal-level validity envelopes derived from type λ_c, and product-level `expires_at = min(class MAX_TTL ceiling, derivation over constituent signal validities)`, with constituent-validity floors whose breach refuses assembly (the mixing-refusal rule) rather than emitting a product fresher-labeled than its stalest load-bearing constituent (INV-CH6-04 Step 4).
 - **Seams:** Egress via in-process call, the MCP egress server (L6 Context Products as Resources, permitted agent invocations as Tools, per the D-IMPL-13 ruling — one server, two resource families; INV-CH8-07 Pattern 3), or A2A endpoint (§8 owns the transport design). MCP remains the access layer, CCF the construction layer — MCP never manages state, enforces temporal logic, applies policy, or constructs context (INV-CH6-06, owned by §6/§8; noted here as the L6 boundary).
 - **D-IMPL rulings embodied:** D-IMPL-30, D-IMPL-31, D-IMPL-39, D-IMPL-01, D-IMPL-05, D-IMPL-13.
@@ -495,9 +495,9 @@ The whitepaper's archetype mapping framework (§8.11) commits a **platform-versu
 
 Component diagram: `docs/diagrams/pillar-orchestration.mmd`.
 
-Both pillars are **SDK-defined extensions** — they cite CLAUDE.md §8.1 and §8.2 as their canonical surface, not the whitepaper. The whitepaper hooks they attach to are cited per inventory entry (INV-CHx-NN). Contract altitude per locked D-07: responsibilities, Protocol/type signatures, invariants, seams — no implementation code.
+This pillar is an **SDK-defined extension** — it cites CLAUDE.md §8.1 as its canonical surface, not the whitepaper. The whitepaper hooks it attaches to are cited per inventory entry (INV-CHx-NN). Contract altitude per locked D-07: responsibilities, Protocol/type signatures, invariants, seams — no implementation code.
 
-Owned entries (per the traceability matrix at the end of this document): INV-CH7-55, INV-CH7-56, INV-CH7-65, INV-CH7-67, INV-CH7-68, INV-CH7-82, INV-CH7-88, INV-CH8-16, INV-CH8-18, INV-CH8-19, INV-CH8-23. See-also entries touched here with primary ownership elsewhere: INV-CH6-08, INV-CH7-32, INV-CH7-71, INV-CH7-75, INV-CH8-08.
+Owned entries (per the traceability matrix at the end of this document): INV-CH7-55, INV-CH7-56, INV-CH7-68, INV-CH7-88. See-also entries touched here with primary ownership elsewhere: INV-CH7-32, INV-CH8-08.
 
 ---
 
@@ -543,7 +543,9 @@ Per the D-IMPL-49 ruling, this is recorded explicitly: **swarm-level intent deco
 
 Component diagram: `docs/diagrams/pillar-hitl.mmd`. Gate suspend/resume sequence: `docs/diagrams/seq-hitl-suspend-resume.mmd`.
 
-SDK-defined, cites CLAUDE.md §8.2. Whitepaper hooks: escalation/fail-closed routing (INV-CH7-65, INV-CH7-67, INV-CH8-16, INV-CH8-18), the audit plane (INV-CH7-71), the closed-loop interpretation gate (INV-CH7-75, D-IMPL-43), and replay dimension 2 extension (INV-CH7-82).
+This pillar is an **SDK-defined extension** — it cites CLAUDE.md §8.2 as its canonical surface, not the whitepaper. Whitepaper hooks: escalation/fail-closed routing (INV-CH7-65, INV-CH7-67, INV-CH8-16, INV-CH8-18), the audit plane (INV-CH7-71), the closed-loop interpretation gate (INV-CH7-75, D-IMPL-43), and replay dimension 2 extension (INV-CH7-82).
+
+Owned entries (per the traceability matrix at the end of this document): INV-CH7-65, INV-CH7-67, INV-CH7-82, INV-CH8-16, INV-CH8-18, INV-CH8-19 (deferred per D-IMPL-48), INV-CH8-23. See-also entries touched here with primary ownership elsewhere: INV-CH6-08, INV-CH7-71, INV-CH7-75.
 
 ### The four HITL primitives
 
@@ -594,7 +596,7 @@ Per the D-IMPL-48 ruling, Supervision Quality is **out of v0 SDK scope** — a d
 
 ### Governance and SDLC alignment (INV-CH8-23)
 
-Both pillars produce the governance legibility §8.12 commits to: workflow definitions, HITL policies, approval rules, and escalation thresholds are versioned Control Plane artifacts moving through the same SDLC gates as models and applications; the Control Plane / Data Plane boundary (INV-CH7-70/71, owned by §2B) is what lets a HITL-policy change deploy as a control-plane action without disrupting data-plane assembly. The three governance primitives (λ_c, D_c, Supervision Quality where a deployment builds it) remain measurable because the routing they drive (INV-CH8-16) and the human actions they trigger land in replay by construction.
+The Orchestration (§4) and HITL (§5) pillars together produce the governance legibility §8.12 commits to: workflow definitions, HITL policies, approval rules, and escalation thresholds are versioned Control Plane artifacts moving through the same SDLC gates as models and applications; the Control Plane / Data Plane boundary (INV-CH7-70/71, owned by §2B) is what lets a HITL-policy change deploy as a control-plane action without disrupting data-plane assembly. The three governance primitives (λ_c, D_c, Supervision Quality where a deployment builds it) remain measurable because the routing they drive (INV-CH8-16) and the human actions they trigger land in replay by construction.
 
 ---
 
@@ -721,7 +723,7 @@ Every mutating verb is a Control Plane action; every action is audited; no verb 
 
 Per CLAUDE.md §4, every pillar contributes to Decision Replay. The Experience Layer's contribution is the **calling surface**: which front door (MCP egress, CLI, HTTP), which authenticated principal, and which rendering (for replay-record consumption per INV-CH7-91) are captured on the relevant replay dimensions. HITL actions arriving through the MCP HITL surface (D-IMPL-20) carry the D-IMPL-21 `HumanPrincipalBinding` regardless of front door — notification and authority are separated so audit-by-construction cannot be bypassed from any Experience surface.
 
-### 8.6a Seam-to-seam boundary notes
+### 8.7 Seam-to-seam boundary notes
 
 Three boundaries between the seams themselves are worth stating so Phase I does not blur them:
 
@@ -729,13 +731,13 @@ Three boundaries between the seams themselves are worth stating so Phase I does 
 - **ArtifactStore MCP server vs egress MCP server.** Distinct server contracts, never merged (D-IMPL-13): egress serves live products and Experience access to consumers; the artifact server serves versioned artifacts to the fabric's own mechanism (and to replay tooling). Merging them would put replay substrate and consumer delivery on one trust surface.
 - **Harness adapter vs OrchestrationProtocol.** Ruled under D-IMPL-17/D-IMPL-24: a harness adapter binds the agent-loop seams for one agent execution; an OrchestrationProtocol integration coordinates *many* agent executions. LangGraph appears on both lists as two separate integrations — the DESIGN.md synthesis carries the explicit boundary statement the D-IMPL-17 ruling requires.
 
-### 8.7 Threat dispositions carried by this design (from the plan threat model)
+### 8.8 Threat dispositions carried by this design (from the plan threat model)
 
 - **T-02-25 (Spoofing, A2A producer identity) — mitigated by design:** detached-JWS product signing + consumer-side Control Plane verification per D-IMPL-15/D-IMPL-16; shown as the verification step and reject branch in `seq-a2a-admission.mmd`.
 - **T-02-26 (Tampering, second writer via store or harness) — mitigated by design:** no store→L3 edge (§8.4) and no harness write handle (§8.3 seam 3); both constraints are visually enforced in the two seam diagrams and structurally enforced by the D-IMPL-41 stack.
 - **T-02-27 (Elevation of privilege, harness skill over-exposure) — mitigated by design:** skill exposure is *exactly* the currently-bound skill-set (§8.3 seam 2); the D-IMPL-29 tier-1 compatibility check bounds what can ever be bound.
 
-### 8.8 Phase I hand-off
+### 8.9 Phase I hand-off
 
 
 Phase I.3 (cross-process) implements against §8.1–§8.2 and §8.4: the MCP client library and both server contracts, the WireProtocol default + fallback transports, the IdentityProvider reference implementations, and the ArtifactStoreProtocol with both reference stores. Phase I.4 (harness + experience) implements against §6 and §8.3: the three reference adapters and their conformance suite (including the `effects: unsupported` declared-capability check), the CLI, and the HTTP skeleton with generated OpenAPI. Every implementation module cites the D-IMPL ruling and the whitepaper or CLAUDE.md section it realizes, per CLAUDE.md §11 docstring discipline.
@@ -750,7 +752,7 @@ Per locked D-10, this chapter argues each of the seven named architectural invar
 |-----------|----------------------------------------|-------------------|---------------------|
 | Single-writer enforcement (only L2/Assembly writes L3) | `GraphReader`/`GraphWriter` Protocol split (D-IMPL-34): read-path constructors accept only `GraphReader`, so write-handle absence is a constructor-signature property; the composition root constructs exactly one `GraphWriter` at boot and injects it into L2 only; boot-token backstop (D-IMPL-41 four-layer stack) | DI composition root at boot; strict mypy + writer-module import lint in CI; boot-time token mint | §2A.5.3; `docs/diagrams/seq-single-writer-write-path.mmd` |
 | Composition-preservation `(A∘B)(G) = A(B(G))` | Operators are pure, read-only, sync functions over `GraphReader` views (INV-CH7-22) — no mutation path exists to break commutation with state; every intermediate carries its own provenance sub-chain and is cached on a deterministic key (D-IMPL-36), so a cache hit is by construction the value replay would produce | CI property-test harness over every shipped operator pair (CINV-adjacent test design below) | §2B.1; `docs/diagrams/pillar-data-context.mmd` |
-| Three validation gates (empty-operator guard, lineage strict equality, TTL bounds) | The gate sequence (Schema Validator → Policy Gate → Lineage Completeness Checker) is the **only** construction path of a servable `ContextProductContract` — it runs before any cache write or delivery (INV-CH7-52), and the contract base is `extra=forbid`, so an unvalidated or forged product is a type/validation failure, not a served product | L6 delivery boundary, pre-cache and pre-delivery; MAX_TTL registration validation at the Control Plane (D-IMPL-39) | §2B.3; `docs/diagrams/pillar-data-context.mmd` |
+| Three validation gates (empty-operator guard, lineage strict equality, TTL bounds) | The canonical gate sequence — empty-operator guard → lineage strict equality → TTL bounds — is the **only** construction path of a servable `ContextProductContract` — it runs before any cache write or delivery (INV-CH7-52), and the contract base is `extra=forbid`, so an unvalidated or forged product is a type/validation failure, not a served product | L6 delivery boundary, pre-cache and pre-delivery; MAX_TTL registration validation at the Control Plane (D-IMPL-39) | §2B.3; `docs/diagrams/pillar-data-context.mmd` |
 | Algorithmic ⇄ Semantic Alternation (LLMs never see raw signal) | L1's opaque payload typing makes interpretation structurally unavailable below L2 (§2A.2); LLM access exists only through `LLMClientProtocol` (D-IMPL-09), giving the lint a single crisp import target; algorithmic modules carry the `@algorithmic` tag and cannot import it | CI `@algorithmic` import lint (CINV-03); per-stage lint targets in the Pattern 5 pipeline (D-IMPL-08) | §2B.3 (Alternation component); §2A.2; §2A.4.4 |
 | Audit-by-construction (every HITL action, workflow trace, and skill event replay-recorded) | The typed action record is the **completion token**: a suspended gate transitions only on a validated action record whose `extra=forbid` schema requires `HumanPrincipalBinding` (D-IMPL-21), and the replay append is a defined precondition of the state transition; all ingress/egress rides one `HITLTransportProtocol` queue — webhooks are notify-only (D-IMPL-20); skill grants/revocations are versioned Control Plane artifacts landing in replay dimension 4 | Workflow transition function (replay write precedes transition); Control Plane audit plane (INV-CH7-71); replay-by-construction CI checks (CINV-04) | §5 (Audit-by-construction); `docs/diagrams/seq-hitl-suspend-resume.mmd` |
 | No-Hardcoding Rule (no inline prompts/definitions/values in code) | The Agent & Task Factory is the **only** construction path for agents and tasks — code contains interpreters and factories, never the things interpreted; prompts exist only as Jinja2 artifacts behind versioned URIs (D-IMPL-28); thresholds, tables, and routing values are typed Control Plane parameter artifacts with no SDK-side defaults (D-IMPL-38/39/40) | CI prompt-shaped-literal lint + factory-bypass lint (CINV-01); Control Plane registration validation | §3.5; §7; `docs/diagrams/pillar-agent-types.mmd` |
@@ -815,15 +817,15 @@ Every `INV-CHx-NN` inventory entry (`docs/SPEC_INVENTORY.md`) mapped to the desi
 | INV-CH7-02 | §2A.2.1 | mapped |
 | INV-CH7-03 | §2A.3.1 | mapped |
 | INV-CH7-04 | §2A.3.3 | mapped |
-| INV-CH7-05 | §2A.1 | mapped |
-| INV-CH7-06 | §2A.1 | mapped |
-| INV-CH7-07 | §2A.1 | mapped |
+| INV-CH7-05 | §2B.1 (see-also §2A.1) | mapped |
+| INV-CH7-06 | §2B.2 (see-also §2A.1) | mapped |
+| INV-CH7-07 | §2B.3 (see-also §2A.1) | mapped |
 | INV-CH7-08 | §2A.1 | mapped |
 | INV-CH7-09 | §2A.1 | mapped |
 | INV-CH7-10 | §2A.5.3 | mapped |
-| INV-CH7-11 | §2A.1 | mapped |
-| INV-CH7-12 | §2A.1 | mapped |
-| INV-CH7-13 | §2A.1 | mapped |
+| INV-CH7-11 | §2B.1 (see-also §2A.1) | mapped |
+| INV-CH7-12 | §2B.2 (see-also §2A.1) | mapped |
+| INV-CH7-13 | §2B.3 (see-also §2A.1) | mapped |
 | INV-CH7-14 | §2A.5.1 | mapped |
 | INV-CH7-15 | §2A.5.1 | mapped |
 | INV-CH7-16 | §2A.5.2 | mapped |
