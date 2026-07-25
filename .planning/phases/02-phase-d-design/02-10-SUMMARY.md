@@ -72,3 +72,4 @@ None.
 ## Threat Flags
 
 None — mitigations T-02-28/29/30 (citation-count comparison, per-row structural-argument check, key-set diff) all executed and passing.
+## Self-Check: PASSED

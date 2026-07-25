@@ -28,7 +28,7 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
       construction on paper (§3.1)
 - [x] **DSGN-02**: `docs/DECISIONS.md` — every open `D-IMPL-NN` resolved with
       Dave's ruling or flagged as gating (§12)
-- [ ] **DSGN-03**: `docs/diagrams/` — one diagram per pillar, plus
+- [x] **DSGN-03**: `docs/diagrams/` — one diagram per pillar, plus
       harness-adapter seam and ArtifactStore seam diagrams (§3)
 - [ ] **DSGN-04**: Phase D reviewed, triaged, Dave-approved, `D-GATE-D` logged
 
@@ -160,7 +160,7 @@ All 46 v1 requirements mapped (46/46).
 | RSCH-04 | Phase 1 | Pending |
 | DSGN-01 | Phase 2 | Complete |
 | DSGN-02 | Phase 2 | Complete |
-| DSGN-03 | Phase 2 | Pending |
+| DSGN-03 | Phase 2 | Complete |
 | DSGN-04 | Phase 2 | Pending |
 | FEAS-01 | Phase 3 | Pending |
 | FEAS-02 | Phase 3 | Pending |

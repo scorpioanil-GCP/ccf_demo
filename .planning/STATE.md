@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-25T17:12:11.644Z"
+last_updated: "2026-07-25T17:45:24.200Z"
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 23
-  completed_plans: 16
+  completed_plans: 22
   percent: 13
 ---
 
@@ -27,17 +27,17 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 02 (phase-d-design) — EXECUTING
-Plan: 5 of 11
+Plan: 10 of 11
 
 - **Phase:** 2 of 8 (phase d — design)
-- **Plan:** 02-04 complete (decision marathon batch 3 — 19 rulings RESOLVED; marathon closed 49/49; provisional register: zero provisionals); next 02-05
+- **Plan:** 02-10 complete (DESIGN.md synthesis — 1009 lines, pillar-organized, Invariant Preservation chapter with CINV-01..04 CI design, Appendix A traceability 126/126 key-set-equal, DSGN-01 + DSGN-03 delivered); next 02-11 (review gate)
 - **Status:** Executing Phase 02 on branch `phase-d`
-- **Progress:** [███████░░░] 70%
+- **Progress:** [██████████] 96%
 
 ## Performance Metrics
 
 - Phases complete: 0/8
-- Requirements delivered: 0/46
+- Requirements delivered: 3/46
 - D-GATE entries logged: 0
 
 ## Accumulated Context
@@ -54,6 +54,8 @@ Plan: 5 of 11
 - [Phase 02]: Batch 3 rulings (Dave, 2026-07-25, zero provisionals — marathon complete 49/49): 18 AS RECOMMENDED — D-IMPL-26 hybrid content-hash + versioned-URI addressing; 06 logical snapshots + touched-substate manifests; 17 in-SDK Workflow primitive + OrchestrationProtocol w/ LangGraph two-seam disambiguation; 20 HITLTransportProtocol typed queue, MCP primary + webhook notify-only; 27 substrate split by mutability; 36 deterministic intermediate cache; 44 ReHydrationRecipe + ColdSourceArchiveProtocol; 50 SDK-shipped fidelity lifecycle; 18 workflow state at Control Plane; 21 HumanPrincipalBinding via IdentityProvider family; 22 noun-verb CLI; 23 minimal HTTP skeleton, no L1 endpoint; 43 default human-gated closed loop; 30 nine contract elements, "eight" refs annotated as drift (incl. CLAUDE.md §5, per Dave's ruling); 31 two TTL granularities w/ derivation rule; 32 TrustScorer Protocol conjunctive; 42 prose taxonomy enum canonical; 48 Supervision Quality out of v0 scope. D-IMPL-47 REFINED: DebtFactorScorer Protocol + reference F/C/S computations PLUS evolvability — versioned scorers (scorer_id, scorer_version), Control-Plane-updatable class bindings, per-class custom override, replay pins scorer version in force. Full 12-member Phase I gate list RESOLVED
 - [Phase 02]: Batch 2 rulings (Dave, 2026-07-25, zero provisionals): 13 AS RECOMMENDED — D-IMPL-28 YAML artifacts + Pydantic v2 schemas + Jinja2 prompt URIs; 11 single Agent class + Protocol-typed archetype bundles, no user subclassing; 14 LF A2A default WireProtocol + typed-HTTP fallback; 12 dynamic Control Plane skill catalog, four skill types; 19 ordered archetype composition w/ explicit conflict rules; 25 three seams mandatory, effects:unsupported = conformance-verified absence; 29 two-tier skilling governance; 13 five MCP edges via one client lib + egress server + separate ArtifactStore contract; 15 IdentityProvider Protocol, mTLS + detached JWS; 16 verify every inbound A2A product, no fast path; 45 TraceCorrelationHook + ExternalTraceProviderProtocol; 46 PassageCitationProvider Protocol. D-IMPL-24 DAVE'S OWN RULING: all three harnesses (Google ADK + Claude Agent SDK + LangGraph) ship v0 reference adapters. D-IMPL-49 REFINED: deterministic (perspective, product_class, selection_params) signature + DESIGN.md obligation to document swarm intent decomposition as orchestration-layer, named post-v0 extension
 
+- [Phase 02]: DESIGN.md Appendix A granularity: subsection-level for §2A/§2B/§3/§6, chapter-level for §4/§5/§7; Appendix C (D-IMPL ruling index, 50 rulings) added so decision-log linkage is mechanically checkable
+
 ### Todos
 
 - Plan Phase 1 (`/gsd:plan-phase 1`)
@@ -66,5 +68,5 @@ Plan: 5 of 11
 
 ## Session Continuity
 
-Last action: Completed 02-04-PLAN.md (2026-07-25) — decision marathon batch 3, 19 rulings RESOLVED (Approver: Dave), zero provisionals; D-IMPL-47 refined with evolvability requirement; marathon closed 49/49; provisional register committed; Phase I gate list fully RESOLVED.
-Next action: Execute 02-05-PLAN.md (Wave 5 drafting — D-03 precondition cleared) on branch phase-d.
+Last action: Completed 02-10-PLAN.md (2026-07-25) — DESIGN.md synthesized from five Wave-5 fragments: sections 1-9 + Appendices A/B/C; 126/126 traceability key-set-equal to SPEC_INVENTORY; 7-invariant structural-argument chapter with CINV-01..04 CI enforcement design; diagram-vs-fragment-A consistency verified (no .mmd change needed).
+Next action: Execute 02-11-PLAN.md (Phase D review gate — /gsd-review, triage, present to Dave) on branch phase-d.
