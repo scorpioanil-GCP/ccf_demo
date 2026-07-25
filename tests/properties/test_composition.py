@@ -38,11 +38,13 @@ from hypothesis import given
 from ccf.contracts.canonical import canonical_bytes
 from ccf.graph.protocols import GraphView
 from ccf.operators.base import Operator
+from ccf.operators.params import PolicyFilterParameters
 from ccf.operators.planner import IntermediateCache, compose
 
 from .strategies import (
     BOUNDARY,
     TENANT,
+    CuratedGraph,
     banking_graph_states,
     curated_edge_graphs,
     shipped_operators,
@@ -57,6 +59,9 @@ ORDERED_PAIRS: tuple[tuple[str, str], ...] = tuple(
 )
 
 CURATED = curated_edge_graphs()
+
+#: The Policy operator's registry key — SDK vocabulary, not a domain value.
+POLICY_KEY = "policy.principal-subgraph"
 
 
 def _assert_composition_preserved(
@@ -103,15 +108,60 @@ def test_composition_is_preserved_on_generated_graphs(
 @pytest.mark.parametrize(("outer_key", "inner_key"), ORDERED_PAIRS)
 @pytest.mark.parametrize("case", CURATED, ids=[case.name for case in CURATED])
 def test_composition_is_preserved_on_curated_edge_graphs(
-    outer_key: str, inner_key: str, case: object
+    outer_key: str, inner_key: str, case: CuratedGraph
 ) -> None:
     """The same equality on the edge cases generation is unlikely to find."""
-    graph = getattr(case, "view")
     _assert_composition_preserved(
         outer=REGISTRY.resolve(outer_key),
         inner=REGISTRY.resolve(inner_key),
-        view=graph,
+        view=case.view,
     )
+
+
+@given(view=banking_graph_states())
+def test_the_generated_states_are_not_vacuous(view: GraphView) -> None:
+    """A property over inputs no operator can reduce would prove nothing.
+
+    An equality that holds because both sides are the identity is not evidence
+    of composition preservation, so the harness asserts its own premise on the
+    operator whose exclusion rule is total: whenever a drawn state contains a
+    claim the principal is not admitted to, Policy must remove it.
+    """
+    policy = REGISTRY.resolve(POLICY_KEY)
+    parameters = policy.parameters
+    assert isinstance(parameters, PolicyFilterParameters)
+    inadmissible = [
+        record
+        for record in view.entities
+        if record.policy_bundle_version
+        not in parameters.permitted_policy_bundle_versions
+        or record.claim.attributes.get(
+            parameters.classification_attribute_by_class[record.claim.entity_class]
+        )
+        not in parameters.permitted_classifications
+    ]
+    filtered = policy.apply(
+        view=view, tenant_id=TENANT, temporal_boundary=BOUNDARY, upstream=()
+    ).view
+    assert len(filtered.entities) == len(view.entities) - len(inadmissible)
+
+
+def test_the_policy_filtered_graph_is_actually_emptied_by_policy() -> None:
+    """The curated case earns its name: Policy removes every entity and edge."""
+    case = next(item for item in CURATED if item.name == "policy-filtered")
+    assert case.view.entities and case.view.relationships
+    filtered = (
+        REGISTRY.resolve(POLICY_KEY)
+        .apply(
+            view=case.view,
+            tenant_id=TENANT,
+            temporal_boundary=BOUNDARY,
+            upstream=(),
+        )
+        .view
+    )
+    assert filtered.entities == ()
+    assert filtered.relationships == ()
 
 
 def test_the_curated_set_covers_the_three_named_edge_cases() -> None:
