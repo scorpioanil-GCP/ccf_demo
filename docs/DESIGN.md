@@ -784,3 +784,154 @@ Phase F's test strategy (FEAS-03) and Phase I implement against the following de
 - **Single-writer boot check** (runtime complement to CINV-02's static gate): a boot-sequence assertion that exactly one `GraphWriter` was constructed and its holder is the Assembly worker; construction of a second writer or a writer outside the composition root fails boot. Enforces invariant row 1's runtime backstop.
 
 The three validation gates (invariant row 3) are enforced by mechanism at runtime rather than by lint; their CI coverage is contract-level: gate unit tests (rejection paths for empty-operator, lineage inequality, TTL violation) plus the Control Plane registration test that an unregistered MAX_TTL fails product-class registration (D-IMPL-39).
+
+---
+
+## Appendix A — Traceability Matrix (126/126, D-06)
+
+Every `INV-CHx-NN` inventory entry (`docs/SPEC_INVENTORY.md`) mapped to the design section that realizes it, or explicitly deferred with the ruling that defers it. Key set is exactly the inventory's 126-entry set (mechanically checkable: unique-key diff against the inventory is empty).
+
+| INV key | DESIGN.md section | Status |
+|---------|-------------------|--------|
+| INV-CH5-01 | §2A.0 | mapped |
+| INV-CH5-02 | §2A.0 | mapped |
+| INV-CH5-03 | §2A.0 | mapped |
+| INV-CH5-04 | §2A.0 | mapped |
+| INV-CH5-05 | §2A.0 | mapped |
+| INV-CH5-06 | §2A.0 | mapped |
+| INV-CH5-07 | §2A.0 | mapped |
+| INV-CH5-08 | §2A.0 | mapped |
+| INV-CH5-09 | §2A.0 | mapped |
+| INV-CH5-10 | §2A.0 | mapped |
+| INV-CH6-01 | §2B.3 | mapped |
+| INV-CH6-02 | §2B.3 | mapped |
+| INV-CH6-03 | §2B.3 | mapped |
+| INV-CH6-04 | §2B.3 | mapped |
+| INV-CH6-05 | §3.1 | mapped |
+| INV-CH6-06 | §6.1 | mapped |
+| INV-CH6-07 | §3.2 | mapped |
+| INV-CH6-08 | §3.2 | mapped |
+| INV-CH7-01 | §2A.1 | mapped |
+| INV-CH7-02 | §2A.2.1 | mapped |
+| INV-CH7-03 | §2A.3.1 | mapped |
+| INV-CH7-04 | §2A.3.3 | mapped |
+| INV-CH7-05 | §2A.1 | mapped |
+| INV-CH7-06 | §2A.1 | mapped |
+| INV-CH7-07 | §2A.1 | mapped |
+| INV-CH7-08 | §2A.1 | mapped |
+| INV-CH7-09 | §2A.1 | mapped |
+| INV-CH7-10 | §2A.5.3 | mapped |
+| INV-CH7-11 | §2A.1 | mapped |
+| INV-CH7-12 | §2A.1 | mapped |
+| INV-CH7-13 | §2A.1 | mapped |
+| INV-CH7-14 | §2A.5.1 | mapped |
+| INV-CH7-15 | §2A.5.1 | mapped |
+| INV-CH7-16 | §2A.5.2 | mapped |
+| INV-CH7-17 | §2A.5.2 | mapped |
+| INV-CH7-18 | §2A.3.2 | mapped |
+| INV-CH7-19 | §2A.4.4 | mapped |
+| INV-CH7-20 | §2A.5.2 | mapped |
+| INV-CH7-21 | §2A.3.2 | mapped |
+| INV-CH7-22 | §2B.1 | mapped |
+| INV-CH7-23 | §2B.1 | mapped |
+| INV-CH7-24 | §2B.1 | mapped |
+| INV-CH7-25 | §2B.1 | mapped |
+| INV-CH7-26 | §2B.1 | mapped |
+| INV-CH7-27 | §2B.1 | mapped |
+| INV-CH7-28 | §2B.1 | mapped |
+| INV-CH7-29 | §2B.1 | mapped |
+| INV-CH7-30 | §2B.1 | mapped |
+| INV-CH7-31 | §2B.1 | mapped |
+| INV-CH7-32 | §3.4 | mapped |
+| INV-CH7-33 | §2B.1 | mapped |
+| INV-CH7-40 | §2B.2 | mapped |
+| INV-CH7-41 | §2B.2 | mapped |
+| INV-CH7-42 | §2B.2 | mapped |
+| INV-CH7-43 | §2B.2 | mapped |
+| INV-CH7-44 | §2B.2 | mapped |
+| INV-CH7-45 | §2B.3 | mapped |
+| INV-CH7-46 | §2B.3 | mapped |
+| INV-CH7-47 | §2B.3 | mapped |
+| INV-CH7-48 | §2B.3 | mapped |
+| INV-CH7-49 | §2B.3 | mapped |
+| INV-CH7-50 | §2B.3 | mapped |
+| INV-CH7-51 | §2B.3 | mapped |
+| INV-CH7-52 | §2B.3 | mapped |
+| INV-CH7-53 | §2B.3 | mapped |
+| INV-CH7-54 | §2B.3 | mapped |
+| INV-CH7-55 | §4 | mapped |
+| INV-CH7-56 | §4 | mapped |
+| INV-CH7-57 | §2B.4 | mapped |
+| INV-CH7-58 | §2B.4 | mapped |
+| INV-CH7-59 | §2B.4 | mapped |
+| INV-CH7-60 | §2B.4 | mapped |
+| INV-CH7-61 | §2B.4 | mapped |
+| INV-CH7-62 | §2B.4 | mapped |
+| INV-CH7-63 | §2B.4 | mapped |
+| INV-CH7-64 | §2B.4 | mapped |
+| INV-CH7-65 | §5 | mapped |
+| INV-CH7-66 | §2B.4 | mapped |
+| INV-CH7-67 | §5 | mapped |
+| INV-CH7-68 | §4 | mapped |
+| INV-CH7-70 | §7 | mapped |
+| INV-CH7-71 | §7 | mapped |
+| INV-CH7-72 | §7 | mapped |
+| INV-CH7-73 | §7 | mapped |
+| INV-CH7-74 | §7 | mapped |
+| INV-CH7-75 | §2B.6 | mapped |
+| INV-CH7-76 | §2B.6 | mapped |
+| INV-CH7-77 | §2B.6 | mapped |
+| INV-CH7-78 | §2B.6 | mapped |
+| INV-CH7-79 | §2B.5 | mapped |
+| INV-CH7-80 | §2B.5 | mapped |
+| INV-CH7-81 | §2B.5 | mapped |
+| INV-CH7-82 | §5 | mapped |
+| INV-CH7-83 | §2B.5 | mapped |
+| INV-CH7-84 | §3.6 | mapped |
+| INV-CH7-85 | §2B.5 | mapped |
+| INV-CH7-86 | §2B.5 | mapped |
+| INV-CH7-87 | §2B.5 | mapped |
+| INV-CH7-88 | §4 | mapped |
+| INV-CH7-89 | §2B.5 | mapped |
+| INV-CH7-90 | §2B.5 | mapped |
+| INV-CH7-91 | §6.2 | mapped |
+| INV-CH8-01 | §2A.4 | mapped |
+| INV-CH8-02 | §2A.4 | mapped |
+| INV-CH8-03 | §2A.4 | mapped |
+| INV-CH8-04 | §2A.4 | mapped |
+| INV-CH8-05 | §2A.4.1 | mapped |
+| INV-CH8-06 | §2A.4.3 | mapped |
+| INV-CH8-07 | §6.1 | mapped |
+| INV-CH8-08 | §8.2 | mapped |
+| INV-CH8-09 | §2A.4.4 | mapped |
+| INV-CH8-10 | §2A.4.4 | mapped |
+| INV-CH8-11 | §2A.4 | mapped |
+| INV-CH8-12 | §3.4 | mapped |
+| INV-CH8-13 | §2A.5.1 | mapped |
+| INV-CH8-14 | §2B.4 | mapped |
+| INV-CH8-15 | §2B.5 | mapped |
+| INV-CH8-16 | §5 | mapped |
+| INV-CH8-17 | §2B.1 | mapped |
+| INV-CH8-18 | §5 | mapped |
+| INV-CH8-19 | §5 | deferred: Supervision Quality out of v0 SDK scope per D-IMPL-48 — documented reference pattern (§5), not mechanism |
+| INV-CH8-20 | §2B.5 | mapped |
+| INV-CH8-21 | §6.4 | deferred: Conversational Reporting Layer out of v0 scope per CLAUDE.md §13 (§6.4); underlying primitives (Π, D_c gating, replay) in scope individually |
+| INV-CH8-22 | §3.8 | mapped |
+| INV-CH8-23 | §5 | mapped |
+| INV-CH8-24 | §6.4 | mapped |
+
+**Census:** 126 rows; 124 mapped, 2 deferred (both deferrals are ruled dispositions, not coverage gaps).
+
+---
+
+## Appendix B — Review Appendix (carried-forward findings)
+
+Advisory findings carried forward from the Phase R Review Appendix (`docs/SPEC_INVENTORY.md`), with Phase D dispositions. Zero blocking findings were carried in.
+
+| ID | Finding (Phase R, advisory) | Phase D disposition |
+|----|------------------------------|---------------------|
+| F-1 | Non-normativity of numeric examples — every numeric value in inventory entries (0.85/0.75 thresholds, TTL examples, cost-band multipliers) is illustrative, never an SDK default | Honored throughout: all such values designed as Control Plane configuration (D-IMPL-38/39/40); §2B.1/§2B.3 state the illustrative status inline (INV-CH7-30/50/53) |
+| F-2 | Phase D sequencing guidance — resolve D-IMPL-01 before D-IMPL-41; D-IMPL-30 gates the contract type surface | Followed: D-IMPL-01 ruled in batch 1 before the D-IMPL-41 stack design; D-IMPL-30 (nine elements) ruled before the §2B.3 contract design; the eight-element drift annotation (incl. CLAUDE.md §5) is carried in §2B.3 per the ruling |
+| F-3 | D-NN range intentionally non-contiguous — audit tooling must not assume a sequential range | Carried forward as a constraint on the CINV lint/audit tooling design (§9); no design element assumes contiguity |
+| F-4 | Load-Bearing Figures list is a superset; strictly-load-bearing trimming left to Phase D discretion | Phase D cited figures where load-bearing (Fig-CH07-02/03/04/05/06/10/13, Fig-CH07-24, Fig-CH08-01/02/03); no trimming of the inventory list performed — deferred to Phase F if needed |
+| F-5 | Format drift in §7.8–§7.10 inventory entries (bullet-style labels) — cosmetic | No action needed; keys and content complete; this document's Appendix A keys resolved against the inventory without ambiguity |
