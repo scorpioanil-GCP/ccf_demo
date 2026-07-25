@@ -62,7 +62,12 @@ from pydantic import BaseModel
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["CanonicalizationError", "canonical_bytes", "content_hash"]
+__all__ = [
+    "CanonicalizationError",
+    "canonical_bytes",
+    "canonical_timestamp",
+    "content_hash",
+]
 
 _TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
@@ -145,6 +150,26 @@ def canonical_bytes(obj: object) -> bytes:
             unsupported type).
     """
     return _dumps(_normalize(obj)).encode("utf-8")
+
+
+def canonical_timestamp(value: datetime) -> str:
+    """Return the canonical RFC3339 UTC text rendering of ``value``.
+
+    Exposed because storage backends must write timestamps as text with the
+    *same* form the canonical serializer uses. A backend that formatted its own
+    would be defining a second canonical form — the one thing this module
+    exists to prevent — and would reintroduce exactly the SQLite/Postgres
+    precision drift that makes cross-backend comparison flaky
+    (04-RESEARCH.md Pitfall 3). The fixed-width rendering also sorts
+    lexicographically, so ``ORDER BY`` on the text column is chronological.
+
+    Raises:
+        CanonicalizationError: ``value`` is naive (D-IMPL-38).
+    """
+    rendered = _normalize(value)
+    if not isinstance(rendered, str):  # pragma: no cover - unreachable by type
+        raise CanonicalizationError("datetime did not render as text")
+    return rendered
 
 
 def content_hash(obj: object) -> str:
