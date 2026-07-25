@@ -942,7 +942,7 @@ Advisory findings carried forward from the Phase R Review Appendix (`docs/SPEC_I
 
 ## Appendix C — D-IMPL Ruling Index
 
-Every `D-IMPL-NN` ruling embodied in this design, with the sections that cite it. All rulings are RESOLVED (`docs/DECISIONS.md`, approver: Dave, 2026-07-25); D-IMPL-10 (repo shape) remains provisionally resolved and is cited only for orientation. The D-NN/D-IMPL-NN range is intentionally non-contiguous (Appendix B, F-3).
+Every `D-IMPL-NN` ruling embodied in this design, with the sections that cite it. All rulings are RESOLVED (`docs/DECISIONS.md`, approver: Dave, 2026-07-25); D-IMPL-10 (repo shape) is resolved for v0 as monorepo — the post-v0 adapter-split remainder is non-gating and tracked outside Phase D — and is cited only for orientation. The D-NN/D-IMPL-NN range is intentionally non-contiguous (Appendix B, F-3).
 
 | Ruling | Cited in sections |
 |--------|-------------------|
