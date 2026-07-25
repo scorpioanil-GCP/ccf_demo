@@ -56,7 +56,7 @@ New entries below are assigned sequentially from **D-IMPL-30** by the Phase R sy
 
 **D-IMPL-50 — Replay fidelity-lifecycle mechanism: SDK-shipped or ArtifactStore-delegated.** Open — awaiting Dave. 2026-07-25. Originates: whitepaper §7.10.5 (three-tier compression is committed mechanism); homecams-patterns appendix (one working lifecycle). Does the SDK ship the fidelity-lifecycle mechanism (deterministic compression, severity exemption, retention-reason field) as core, or leave retention entirely to the ArtifactStore implementation? Interacts with D-IMPL-06/D-IMPL-27; distinct in that it allocates the mechanism, not the substrate.
 
-**D-IMPL-51 — Live MongoDB metadata query for Homecams triangulation.** Open — awaiting Dave. 2026-07-25. Originates: CLAUDE.md §2.1 (MongoDB Collections bullet); homecams-patterns appendix. Is a live read-only MongoDB metadata query wanted (requires approving a pymongo install)? The source-code route satisfied the §2.1 triangulation intent with zero installs; a live query would add only collection-level stats/index metadata.
+**D-IMPL-51 — Live MongoDB metadata query for Homecams triangulation.** RESOLVED — Dave approved the live query at the Phase R gate (2026-07-25); executed read-only (metadata listing only, existing Homecams venv pymongo, no install, no credentials recorded) and results recorded in the homecams-patterns appendix (fragments/homecams-patterns.md, "Live MongoDB Metadata Query" section). Originally: 2026-07-25. Originates: CLAUDE.md §2.1 (MongoDB Collections bullet); homecams-patterns appendix. Is a live read-only MongoDB metadata query wanted (requires approving a pymongo install)? The source-code route satisfied the §2.1 triangulation intent with zero installs; a live query would add only collection-level stats/index metadata.
 
 ---
 
@@ -67,3 +67,7 @@ New entries below are assigned sequentially from **D-IMPL-30** by the Phase R sy
 ## Gate Log (D-GATE)
 
 *(No gates logged yet. `D-GATE-R` is recorded here upon Dave's Phase R approval, per CLAUDE.md §3.1.)*
+
+## Gate Log (D-GATE)
+
+**D-GATE-R** — Phase R (Research) approved. Date: 2026-07-25. Approver: Dave. Scope: Phase R deliverables approved after gate feedback was resolved — canonical whitepaper markdown rebuilt from the authoring source at /home/parkave/ccf/whitepaper (replacing the PDF-derived conversion), figures rendering natively (Mermaid + repo-local PNGs), origin remote wired to github.com/drcastillo/ccf_code, and the D-IMPL-51 live MongoDB metadata query executed per Dave's ruling. Deliverables: docs/CCF_Whitepaper_1-2.md + docs/figures/, docs/SPEC_INVENTORY.md (126 entries, §16-complete), docs/DECISIONS.md (D-IMPL-30..51), review + triage evidence (01-REVIEWS.md, fragments/review-triage.md — zero blocking findings). Phase D may begin.
