@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-25T14:06:34.560Z"
+last_updated: "2026-07-25T14:11:23.421Z"
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 23
-  completed_plans: 12
+  completed_plans: 13
   percent: 13
 ---
 
@@ -27,12 +27,12 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 02 (phase-d-design) — EXECUTING
-Plan: 1 of 11
+Plan: 2 of 11
 
 - **Phase:** 2 of 8 (phase d — design)
-- **Plan:** Not started
-- **Status:** Executing Phase 02
-- **Progress:** [--------] 0/8 phases
+- **Plan:** 02-01 complete (branch cut, DECISIONS.md hygiene, entry ownership); next 02-02
+- **Status:** Executing Phase 02 on branch `phase-d`
+- **Progress:** [██████░░░░] 57%
 
 ## Performance Metrics
 
@@ -48,6 +48,8 @@ Plan: 1 of 11
 - Monorepo at `github.com/drcastillo/ccf_code` (provisional D-IMPL-10)
 - Phase branches per CLAUDE.md §2.2 (`phase-r`, `phase-d`, `phase-f`, `phase-i1`..`phase-i5`); merge to `main` only at D-GATE
 - Model mandates: Fable 5 high effort (Phases 1–3 / R, D, F); Opus 5 or Opus 4.8 high effort (Phases 4–8 / I)
+- [Phase 02]: Entry ownership: single primary owner per INV key from pillar mapping; dual-pillar entries get See-also, never two owners
+- [Phase 02]: Phase 2 planning docs carried from phase-r onto phase-d (Rule 3 — required for plan execution; planning metadata only)
 
 ### Todos
 
@@ -61,5 +63,5 @@ Plan: 1 of 11
 
 ## Session Continuity
 
-Last action: Roadmap and state initialized (2026-07-24).
-Next action: Present roadmap for approval, then plan Phase 1.
+Last action: Completed 02-01-PLAN.md (2026-07-25) — phase-d branch, DECISIONS.md hygiene, 126-entry ownership table.
+Next action: Execute 02-02-PLAN.md on branch phase-d.

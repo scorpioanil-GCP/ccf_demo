@@ -23,10 +23,10 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
 
 ### Phase D — Design
 
-- [ ] **DSGN-01**: `docs/DESIGN.md` maps every inventory entry to a design
+- [x] **DSGN-01**: `docs/DESIGN.md` maps every inventory entry to a design
       element or explicit deferral, preserving every named invariant by
       construction on paper (§3.1)
-- [ ] **DSGN-02**: `docs/DECISIONS.md` — every open `D-IMPL-NN` resolved with
+- [x] **DSGN-02**: `docs/DECISIONS.md` — every open `D-IMPL-NN` resolved with
       Dave's ruling or flagged as gating (§12)
 - [ ] **DSGN-03**: `docs/diagrams/` — one diagram per pillar, plus
       harness-adapter seam and ArtifactStore seam diagrams (§3)
@@ -158,8 +158,8 @@ All 46 v1 requirements mapped (46/46).
 | RSCH-02 | Phase 1 | Pending |
 | RSCH-03 | Phase 1 | Pending |
 | RSCH-04 | Phase 1 | Pending |
-| DSGN-01 | Phase 2 | Pending |
-| DSGN-02 | Phase 2 | Pending |
+| DSGN-01 | Phase 2 | Complete |
+| DSGN-02 | Phase 2 | Complete |
 | DSGN-03 | Phase 2 | Pending |
 | DSGN-04 | Phase 2 | Pending |
 | FEAS-01 | Phase 3 | Pending |
