@@ -27,6 +27,13 @@ jobs:
       - name: Install package with dev extras
         run: python -m pip install -e ".[dev]"
 
+      # The checkers are the enforcement mechanism for three named invariants,
+      # so they are themselves tested in CI. `pytest tests` in the test job does
+      # not cover them (testpaths is the shipped suite); run them here, before
+      # the gate they implement.
+      - name: Lint checker unit tests (CINV-01/02/03)
+        run: pytest tools/lints/tests -q
+
       - name: CCF invariant lints (No-Hardcoding, harness imports, @algorithmic)
         run: python -m tools.lints --all
 
