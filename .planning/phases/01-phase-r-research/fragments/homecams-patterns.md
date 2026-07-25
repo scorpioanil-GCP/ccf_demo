@@ -54,6 +54,64 @@ yielded no CCF-relevant patterns beyond deployment plumbing already covered abov
 `si-app` is covered by the UX-surfaces row. All nine `si-*` packages plus
 `start_ccf_agent.py` / `start_property_intelligence.py` were surveyed.
 
+## MongoDB Persistence — ArtifactStore (§7.4) Triangulation Data Point
+
+Derived entirely from Homecams source code (no client install, no live query, per the
+RESEARCH.md zero-install route). Collection names and document shapes only — no
+connection details and no data records appear here. Overall marker for the persistence
+*pattern*: `candidate pattern` (a single system-of-record with typed repositories, a
+declared single writer per collection family, and index-as-invariant discipline);
+the specific collection inventory and all field values are
+`domain-specific — do not inherit`.
+
+**Connection management (mechanism):** a single `MongoDataService`
+(`packages/si-pool-safety/src/si_pool_safety/services/mongo_data_service.py`) owns the
+pymongo client lifecycle (lazy creation, connection pooling, health check); repositories
+receive the database handle from it via the `ServiceContainer`
+(`services/service_container.py`). `candidate pattern` — substrate-handle injection is
+the same shape as the SDK's storage-Protocol + DI-at-boot posture.
+
+**Repository layer (mechanism):** typed repositories per collection, with a shared
+`TenantScopedRepository` base (`packages/si-framework/src/si_framework/repositories/tenant_scoped.py`)
+making tenant filtering structural rather than conventional. `candidate pattern`
+(D-IMPL-05 data point).
+
+**CCF artifact classes persisted, by collection family** (names/shapes as written in
+repository code and Homecams CLAUDE.md §5; counts omitted — live data is out of scope):
+
+| CCF artifact class | Collection(s) | Shape / indexing (from source) | Marker |
+|---|---|---|---|
+| Context Graph state per cycle | `context_graphs` | Per-cycle G(E,R,T,P,Π,L) documents with `fidelity_level` (full/compressed/tombstoned) — `si_framework/repositories/context_graph_repository.py` | candidate pattern (fidelity field); collection inventory domain-specific — do not inherit |
+| Entity/edge registry | `graph_entities` | Idempotent upsert keyed on compound unique index `(tenant_id, entity_uri)` (`graph_entities_tid_uri`); repeat hits `$addToSet`-append to `lineage[]` and advance `last_seen_at`; index absence raises at boot (fail-fast index-as-invariant) — `si_pool_safety/repositories/graph_entities_repository.py` | candidate pattern — directly mirrors whitepaper §7.3 compound-index + multi-source lineage accumulation |
+| Relationship/policy edges | `context_edges` | Triple-shaped docs `(tenant_id, subject_id, predicate, object_id, timestamp)`; forward/reverse/predicate-window traversal indexes plus a unique natural-key index (`uniq_edge`); idempotent bulk insert with in-batch dedup — `si_framework/repositories/context_edge_repository.py` | candidate pattern |
+| Materialized projection outputs | `projection_cache` | TTL index governs lifecycle (docs expire at explicit expiration timestamp); pure-`$set` upsert keyed on `product_id`; deliberately NO lineage index — lineage queries hit `graph_entities` only (architectural boundary between graph state and projection cache) — `si_framework/repositories/projection_cache_repository.py` | candidate pattern |
+| Discriminator quarantine | `context_products_unclassified` | Quarantine for documents that fail the graph-state vs projection-output discriminator during the v5.0 collection split | candidate pattern (migration-safety idea); do-not-inherit as a permanent surface |
+| Assembled fabric instances | `cognitive_context_fabrics` | `activated_product_uris` written by the enrichment worker — `si_framework/repositories/fabric_activation_repository.py` | domain-specific — do not inherit (fabric persistence shape is bound to Homecams' MQTT pipeline) |
+| Decision Replay records | `decision_replay_records` | Full five-dimension decision state persisted per significant decision; alerts additionally embed full dynamic context for self-contained replay — `si_framework/reporting/replay_service.py` | candidate pattern — key ArtifactStore triangulation row: replay records as immutable persisted artifacts |
+| Half-life state | `context_half_life_states` | Per-observation-type decay tracking — `si_framework/services/context_half_life_service.py` | candidate pattern (mechanism); observation types domain-specific — do not inherit |
+| Perception/intelligence time series | `observer_states`, `model_scores`, `monitor_summaries`, `states`, `alerts`, `alert_dispatches` | Timeseries collections (append-only) with a separate mutable regular collection (`alert_dispatches`) for lifecycle state, because timeseries collections cannot mutate | candidate pattern (append-only-vs-mutable split); collections domain-specific — do not inherit |
+| Reference/config data | `cameras`, `camera_topology`, `persons`, `zones`, `vehicles`, `vehicle_embeddings`, `models` | Tenant-scoped (`tenant_id`) reference registries | domain-specific — do not inherit |
+
+**Single-writer discipline over the store:** the enrichment worker is the declared sole
+writer of `graph_entities` / `projection_cache` / `context_products_unclassified` /
+`context_edges` / `cognitive_context_fabrics.activated_product_uris`
+(`si_pool_safety/enrichment_worker/worker.py`; ADR in Homecams CLAUDE.md §3.2/§5.8);
+the hot-path agent writes only its own ingest collections. `candidate pattern` — a
+process-topology realization of "the store is a substrate behind mechanism, never a
+second writer" (CCF CLAUDE.md §7.4).
+
+**Versioning/immutability observations relevant to D-IMPL-26:** Homecams versions by
+embedded fields (model version, prompt template version, policy version inside replay
+records) rather than content-addressing or versioned URIs; artifacts are effectively
+immutable by append-only timeseries semantics plus the compression/tombstone lifecycle.
+This is one data point for the ArtifactStore addressing decision, not a default.
+
+**Cautionary contrast:** Homecams treats MongoDB as the mandated single system-of-record
+("MongoDB is the single system-of-record" — Homecams CLAUDE.md §1.4). The SDK must NOT
+inherit a mandated substrate: persistence goes behind `ArtifactStoreProtocol` and the
+graph-storage Protocol (D-IMPL-02/26/27), with MongoDB merely one possible user-supplied
+backend. Marker for substrate mandate: `domain-specific — do not inherit`.
+
 ## Open Questions (unnumbered)
 
 These record places where the whitepaper is silent and Homecams shows one working
@@ -78,3 +136,7 @@ default to inherit. The synthesis plan should fold these into the D-IMPL log.
 - **Definition-artifact format precedent:** Homecams uses YAML agent/task definitions +
   Jinja2 prompt templates with a CI grep guard. Is this the D-IMPL-28 starting point, or
   does the SDK adopt a schema-validated format instead?
+- **Live MongoDB metadata query:** Is a live read-only MongoDB metadata query wanted
+  (would require approving a pymongo install)? The source-code route above satisfied the
+  §2.1 triangulation intent with zero installs; a live query would only add
+  collection-level stats/index metadata. For Dave via the synthesis plan.
