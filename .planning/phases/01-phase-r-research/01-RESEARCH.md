@@ -260,13 +260,15 @@ Minimal for a docs phase, but two real items:
 | A3 | The 51 embedded raster images map ~1:1 to the 50 figures (some figures could be vector-only) | Conversion | Medium — D-03 spot check catches misses; `pdftoppm` page render is the fallback |
 | A4 | D-NN gaps (e.g., D-24, D-49) are genuinely absent from the whitepaper rather than lost in text extraction | RSCH-02 | Medium — figure/table visual sweep in the D-NN task mitigates |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **MongoDB live query — run it or not?**
+All three questions were resolved during planning; annotations point at the implementing plans.
+
+1. **MongoDB live query — run it or not?** — RESOLVED in plan 01-10: source-code-derived collection inventory is used for the homecams appendix; whether a live read-only metadata query is wanted is surfaced to Dave as a D-IMPL-3x question at the 01-12 checkpoint.
    - Known: port open, connection string found, no client installed; §2.1 says metadata query "will require a readonly query"; CONTEXT.md leaves depth to Claude.
    - Recommendation: source-code-derived collection inventory in the appendix; add one plan question/checkpoint asking Dave whether a live metadata query is wanted (and to approve the pymongo install if so).
-2. **`main` branch creation.** Repo is on `master`; §2.2 assumes `main`. Recommendation: Wave-0 creates `main` from current `master` HEAD and branches `phase-r` from it; note in commit message. (Low risk; within setup discretion.)
-3. **Origin remote timing.** Dave must create the private repo. Recommendation: surface as a checkpoint early (Wave 0) but do not block extraction work on it — only the final merge/push visibility depends on it.
+2. **`main` branch creation.** — RESOLVED in plan 01-01 (Wave 0): `main` is created from current `master` HEAD and `phase-r` branches from it, noted in the commit message.
+3. **Origin remote timing.** — RESOLVED in plans 01-01 and 01-12: the missing origin is surfaced in 01-01 and restated at the 01-12 gate checkpoint; extraction work proceeds without it, the merge stays local, and no push occurs until Dave wires the private origin.
 
 ## Sources
 
