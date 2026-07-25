@@ -177,8 +177,8 @@ Plans:
 - [x] 04-07-PLAN.md — λ_c/D_c mechanism + full Control Plane subsystem *(wave 5)*
 - [x] 04-08-PLAN.md — Replay engine + ArtifactStore conformance + CINV-04 harness *(wave 5)*
 - [x] 04-09-PLAN.md — CDC→G ingress reference in ccf-runtime *(wave 5)*
-- [ ] 04-10-PLAN.md — Postgres GraphStore against the conformance suite + CI leg (D-11) *(wave 6)*
-- [ ] 04-11-PLAN.md — SimilarityIndex: sqlite-vec + Chroma optional extra (D-13) *(wave 6)*
+- [x] 04-10-PLAN.md — Postgres GraphStore against the conformance suite + CI leg (D-11) *(wave 6)*
+- [x] 04-11-PLAN.md — SimilarityIndex: sqlite-vec + Chroma optional extra (D-13) *(wave 6)*
 - [ ] 04-12-PLAN.md — Gate: per-invariant checklist, /gsd-review, Dave approval, D-GATE-I.1, merge *(wave 7)*
 **Process notes**: Model mandate — Opus 5 if available, else Opus 4.8, "high" effort. Branch: `phase-i1` (Phase I work). Redesign needs a Phase D mini-cycle, never in-line. Sub-phase ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.1` before Phase 5 begins.
 
@@ -251,7 +251,7 @@ Plans:
 | 1. Phase R — Research | 12/12 | Complete   | 2026-07-25 |
 | 2. Phase D — Design | 11/11 | Complete   | 2026-07-25 |
 | 3. Phase F — Feasibility & Scoping | 4/4 | Complete   | 2026-07-25 |
-| 4. Phase I.1 — Fabric Core | 9/12 | In Progress|  |
+| 4. Phase I.1 — Fabric Core | 11/12 | In Progress|  |
 | 5. Phase I.2 — Agent Specialization Framework | 0/? | Not started | - |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 0/? | Not started | - |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 0/? | Not started | - |
