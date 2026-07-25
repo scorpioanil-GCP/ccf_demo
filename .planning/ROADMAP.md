@@ -136,7 +136,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 03-02-PLAN.md — docs/ROADMAP.md milestones, v0.1 surface, deferral register (FEAS-02)
+- [x] 03-02-PLAN.md — docs/ROADMAP.md milestones, v0.1 surface, deferral register (FEAS-02)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -231,7 +231,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Phase R — Research | 12/12 | Complete   | 2026-07-25 |
 | 2. Phase D — Design | 11/11 | Complete   | 2026-07-25 |
-| 3. Phase F — Feasibility & Scoping | 1/4 | In Progress|  |
+| 3. Phase F — Feasibility & Scoping | 2/4 | In Progress|  |
 | 4. Phase I.1 — Fabric Core | 0/? | Not started | - |
 | 5. Phase I.2 — Agent Specialization Framework | 0/? | Not started | - |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 0/? | Not started | - |
