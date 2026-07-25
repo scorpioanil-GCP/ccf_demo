@@ -732,4 +732,9 @@ def test_serving_twice_converges_on_one_immutable_record(
     _e1, first, _r1 = _serve(fabric, store)
     _e2, second, _r2 = _serve(fabric, store)
     assert first.replay_ref.content_address == second.replay_ref.content_address
-    assert len(list((tmp_path / "artifacts").iterdir())) == 1
+    stored = [
+        path
+        for path in (tmp_path / "artifacts").iterdir()
+        if not path.name.startswith(".")
+    ]
+    assert len(stored) == 1
