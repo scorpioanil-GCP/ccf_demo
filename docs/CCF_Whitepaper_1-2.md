@@ -155,7 +155,7 @@ Between the fourth quarter of 2024 and the first quarter of 2026, agentic system
 
 ### 2.1 Agents Are Already Here
 
-| Bank | Deployment | What it does | Scale metric | Source |
+| Bank | Deployment | What it does | Scale metric | URL |
 | --- | --- | --- | --- | --- |
 | JPMorgan | LLM Suite | Internal LLM portal across lines of business | ~200K users, 450+ use cases | AI News |
 | Bank of America | Erica / Erica-for-Employees | Consumer virtual assistant plus internal employee assistant | 2.5B cumulative consumer interactions; 90%+ employee adoption (Erica-for-Employees) | BofA Newsroom Mar 2026 |
@@ -1713,7 +1713,7 @@ Chapter 5 §5.2 committed the Context Graph to the six-tuple G(E, R, T, P, Π, L
 | Context Operators | compositional algebra over the Graph | Ch 7 §7.4 |
 | Context Projection (Π) | typed transformation, not access check | Ch 5 §5.6, Ch 7 §7.5 |
 | Context Products | derived at decision time, uniform contract | Ch 5 §5.6, Ch 6, Ch 7 §7.6 |
-| Context Debt and Context Half-life (D_c, λ_c) | per-claim decay and completeness measurement | Ch 7 §7.7 |
+| Context Debt and Context Half-life (λ_c, D_c) | per-claim decay and completeness measurement | Ch 7 §7.7 |
 | Control Plane and Data Plane | Istio-style separation applied to context semantics | Ch 7 §7.8 |
 | Decision Replay | environment replay, not model trace | Ch 7 §7.10 |
 | Assembly Mode | per-Context-Product configuration under trust-path purity: pure algorithmic / + LLM packaging / + agent-swarm | Ch 6 §6.3, Ch 7 §7.6 |
