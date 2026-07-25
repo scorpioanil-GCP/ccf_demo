@@ -935,3 +935,75 @@ Advisory findings carried forward from the Phase R Review Appendix (`docs/SPEC_I
 | F-3 | D-NN range intentionally non-contiguous — audit tooling must not assume a sequential range | Carried forward as a constraint on the CINV lint/audit tooling design (§9); no design element assumes contiguity |
 | F-4 | Load-Bearing Figures list is a superset; strictly-load-bearing trimming left to Phase D discretion | Phase D cited figures where load-bearing (Fig-CH07-02/03/04/05/06/10/13, Fig-CH07-24, Fig-CH08-01/02/03); no trimming of the inventory list performed — deferred to Phase F if needed |
 | F-5 | Format drift in §7.8–§7.10 inventory entries (bullet-style labels) — cosmetic | No action needed; keys and content complete; this document's Appendix A keys resolved against the inventory without ambiguity |
+
+---
+
+## Appendix C — D-IMPL Ruling Index
+
+Every `D-IMPL-NN` ruling embodied in this design, with the sections that cite it. All rulings are RESOLVED (`docs/DECISIONS.md`, approver: Dave, 2026-07-25); D-IMPL-10 (repo shape) remains provisionally resolved and is cited only for orientation. The D-NN/D-IMPL-NN range is intentionally non-contiguous (Appendix B, F-3).
+
+| Ruling | Cited in sections |
+|--------|-------------------|
+| D-IMPL-01 | §2A, §2B |
+| D-IMPL-02 | §2A, §8 |
+| D-IMPL-03 | §2B, §8, §9 |
+| D-IMPL-04 | §2A, §2B, §8 |
+| D-IMPL-05 | §2A, §2B, §7 |
+| D-IMPL-06 | §2B, §8 |
+| D-IMPL-07 | §2A, §2B |
+| D-IMPL-08 | §2A, §3, §9 |
+| D-IMPL-09 | §2A, §2B, §3, §9 |
+| D-IMPL-10 | §1 |
+| D-IMPL-11 | §3, §4 |
+| D-IMPL-12 | §3, §8 |
+| D-IMPL-13 | §2A, §2B, §6, §8 |
+| D-IMPL-14 | §8 |
+| D-IMPL-15 | §5, §8 |
+| D-IMPL-16 | §2A, §4, §8, §9 |
+| D-IMPL-17 | §3, §4, §8, §9 |
+| D-IMPL-18 | §2A, §3, §4, §5, §8 |
+| D-IMPL-19 | §3, §4 |
+| D-IMPL-20 | §5, §6, §8, §9 |
+| D-IMPL-21 | §5, §8, §9 |
+| D-IMPL-22 | §5, §6, §8 |
+| D-IMPL-23 | §2A, §6, §9 |
+| D-IMPL-24 | §3, §4, §8, §9 |
+| D-IMPL-25 | §2A, §8, §9 |
+| D-IMPL-26 | §2B, §3, §4, §5, §6, §8 |
+| D-IMPL-27 | §2A, §2B, §4, §8, §9 |
+| D-IMPL-28 | §3, §4, §7, §9 |
+| D-IMPL-29 | §3, §8 |
+| D-IMPL-30 | §2B |
+| D-IMPL-31 | §2B |
+| D-IMPL-32 | §2B, §3, §5 |
+| D-IMPL-33 | §2A, §6, §8 |
+| D-IMPL-34 | §2A, §7, §9 |
+| D-IMPL-35 | §2A |
+| D-IMPL-36 | §2A, §2B, §8, §9 |
+| D-IMPL-37 | §2B, §5 |
+| D-IMPL-38 | §2B, §3, §5, §7, §9 |
+| D-IMPL-39 | §2B, §7, §9 |
+| D-IMPL-40 | §2B, §5 |
+| D-IMPL-41 | §2A, §7, §8, §9 |
+| D-IMPL-42 | §2B |
+| D-IMPL-43 | §2B, §5, §7 |
+| D-IMPL-44 | §2A, §2B |
+| D-IMPL-45 | §2B, §8 |
+| D-IMPL-46 | §2A, §2B, §5 |
+| D-IMPL-47 | §2B |
+| D-IMPL-48 | §5 |
+| D-IMPL-49 | §2B, §3, §4 |
+| D-IMPL-50 | §2B, §8 |
+
+**Census:** 50 distinct rulings cited across the design body (§1–§9).
+### Replay contributions by pillar (CLAUDE.md §4 cross-check)
+
+Every pillar contributes to the five-dimension Decision Replay record; the design realizes each contribution as follows:
+
+| Pillar | Replay contribution | Designed in |
+|--------|--------------------|-------------|
+| Data and Context Layer | Context fabric snapshot, policy bindings, model versions, content generation path (dimensions 1–3, 5) | §2B.5 |
+| Core Agent Types | Agent identity, version, configuration, and skill-set in force (dimension 4) | §3.6, §3.7 |
+| Orchestration Layer | Workflow trace and calling chain (dimensions 4–5); Mode 3 record primitives | §4 |
+| Human in the Loop and Control | Human actions with `HumanPrincipalBinding` (dimension 2 extension) | §5 |
+| Experience Layer | Calling surface, authenticated principal, rendering selection | §8.6 |
