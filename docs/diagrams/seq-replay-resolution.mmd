@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant Aud as Auditor / CLI (ccf replay)
+    participant RE as Replay Engine
+    participant CPl as Control Plane (versioned-URI map)
+    participant AS as ArtifactStore (content-addressed)
+    participant L2 as L2 Assembly (pinned versions)
+
+    Aud->>RE: replay(decision_id)
+    RE->>AS: get replay record by decision temporal boundary
+    AS-->>RE: five-dimension record (hashes, never latest)
+    Note over RE,AS: Every reference is a sha256 content hash (D-IMPL-26).<br/>Exact versions, never "latest".
+    RE->>AS: resolve graph snapshot (graph_snapshot_id + substate hash)
+    AS-->>RE: touched-substate artifact (D-IMPL-06)
+    RE->>AS: resolve policy bundle @ pinned version
+    AS-->>RE: policy bindings snapshot (dimension 2)
+    RE->>AS: resolve agent definition @ pinned agent version
+    AS-->>RE: agent artifact (dimension 4)
+    RE->>AS: resolve skill-set in force at decision time
+    AS-->>RE: skill grants (versioned, dimension 4 extension)
+    RE->>AS: resolve prompt artifacts @ pinned versions
+    AS-->>RE: prompt/instruction artifacts (D-IMPL-28)
+    RE->>CPl: verify append-only URI-to-hash bindings
+    CPl-->>RE: bindings confirmed (a version is never rebound)
+    RE->>L2: re-derive Context Product under pinned config
+    L2-->>RE: reproduced Context Product
+    RE->>RE: assert lineage strict equality + substrate hash match
+    alt bit-for-bit match
+        RE-->>Aud: deterministic reproduction (INV-CH7-74)
+    else mismatch
+        RE-->>Aud: fail loudly — never a silent approximation (D-IMPL-44)
+    end
