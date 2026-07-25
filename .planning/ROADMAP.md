@@ -31,7 +31,21 @@ exists.
   3. The `homecams-patterns` appendix exists with explicit "candidate pattern" / "domain-specific — do not inherit" markers, including MongoDB persistence as an ArtifactStore triangulation data point
   4. Every open question carries a `D-IMPL-NN` number in `docs/DECISIONS.md`; no design choices or code produced
   5. `/gsd-review --phase Phase R --all` run, findings triaged, blocking findings fixed, Dave approval logged as `D-GATE-R`, `phase-r` merged to `main`
-**Plans**: TBD
+**Plans:** 12 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Repo prerequisites (§14 items 1–5): branches, .gitignore, skeleton, placeholders
+- [ ] 01-02-PLAN.md — Figure extraction (50) + whitepaper Ch 1–6 conversion (D-01/D-04)
+- [ ] 01-03-PLAN.md — Whitepaper Ch 7 conversion (mechanism core, pp. 86–180)
+- [ ] 01-04-PLAN.md — Ch 8–9 conversion + D-03 spot-check fidelity gate
+- [ ] 01-05-PLAN.md — Extract Ch 5–6 commitments (13 subsections)
+- [ ] 01-06-PLAN.md — Extract §7.1–§7.4 (layers, graph, operators)
+- [ ] 01-07-PLAN.md — Extract §7.5–§7.7 (projection, products, debt/half-life)
+- [ ] 01-08-PLAN.md — Extract §7.8–§7.10 (planes, closed loop, replay)
+- [ ] 01-09-PLAN.md — Extract Ch 8 (integration patterns, 13 subsections)
+- [ ] 01-10-PLAN.md — Homecams review → homecams-patterns appendix (RSCH-03)
+- [ ] 01-11-PLAN.md — Synthesis: merge fragments, §16 sections, D-IMPL-30+ numbering
+- [ ] 01-12-PLAN.md — §3.1 gate: self-audit, /gsd-review, Dave approval, D-GATE-R, merge
 **Process notes**: Model mandate — Anthropic Fable 5, "high" effort. Branch: `phase-r`. No production code (§3). Ends with review → triage → Dave approval → `D-GATE-R` before Phase 2 begins.
 
 ### Phase 2: Phase D — Design
