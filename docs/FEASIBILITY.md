@@ -366,6 +366,50 @@ No component analysis above surfaced a genuinely new design gap: every verdict i
 
 ---
 
+## 11. Test Strategy — Per-Invariant Verification (FEAS-03, D-07)
+
+Per CLAUDE.md §3.1 (Phase F review criteria), the test strategy names how each CI-enforced invariant will be verified. The rows below **transpose DESIGN.md §9 — the invariant table, the CINV-01..04 enforcement designs, the composition-preservation harness, the single-writer boot check, and the three-gates contract tests — verbatim in substance**; Phase I implements against these designs rather than re-deriving them. Exactly two rows are new Phase F content (the D-08 staged-execution equivalence test class and the D-09 hash-verified re-hydration test class), marked as such. The canonical three-gate naming is used verbatim throughout: **empty-operator guard → lineage strict equality → TTL bounds**.
+
+| Invariant | Verification mechanism (lint / test harness / boot check) | CI job | Pass criterion | DESIGN.md §9 ref |
+|-----------|------------------------------------------------------------|--------|----------------|-------------------|
+| No-Hardcoding Rule | **CINV-01** — two lint passes over `/src`, `/runtime`, `/examples`: (a) prompt-shaped-literal lint (multi-sentence imperative prose, role-preamble patterns, template-brace density heuristics; pragma allow-list for error/log strings); (b) factory-bypass AST lint rejecting any `Agent`/`Task` construction outside `AgentFactory`/`TaskFactory`, including in tests (fixture artifacts only) | `cinv-01-no-hardcoding` (lint) | Zero prompt-shaped literals outside artifact directories; zero factory-bypass instantiation sites | §9 CINV-01; invariant row 6 |
+| Zero harness imports in core | **CINV-02** — import lint over `/src`: any import of Google ADK, Claude Agent SDK, LangGraph, or any package on the configured harness deny-list is a build failure | `cinv-02-harness-imports` (lint) | Zero harness imports resolvable from `/src` | §9 CINV-02; invariant row 7 |
+| Single-writer enforcement (static gate) | Same CINV-02 machinery hosts the single-writer static gate: `GraphWriter` module importable only by `ccf.assembly` and the composition root; strict mypy rejects non-L2 `GraphWriter` type references | `cinv-02-harness-imports` + `mypy-strict` (lint/type check) | Zero out-of-L2 writer imports or type references; mypy strict passes | §9 CINV-02; invariant row 1 |
+| Single-writer enforcement (runtime backstop) | Single-writer **boot check** — boot-sequence assertion that exactly one `GraphWriter` was constructed and its holder is the Assembly worker; a second writer or a writer outside the composition root fails boot | `boot-check` (runtime test in CI) | Boot succeeds with exactly one writer; injected second-writer fixture fails boot | §9 single-writer boot check |
+| Algorithmic ⇄ Semantic Alternation | **CINV-03** — `@algorithmic`-tagged modules may not import `LLMClientProtocol` or any LLM vendor SDK (D-IMPL-09 single crisp target); applied per-stage in the Pattern 5 pipeline per D-IMPL-08 | `cinv-03-algorithmic` (lint) | Zero LLM-client imports in `@algorithmic` modules and Mode-1 pipeline stages | §9 CINV-03; invariant row 4 |
+| Audit-by-construction (HITL, workflow, skill-set) | **CINV-04** — test-harness assertions that every completion path emits its replay write before state transition: (a) all four HITL primitives append a bound action record (with `HumanPrincipalBinding`); (b) every workflow transition appends to the execution trace, suspend/terminal states write through to the ArtifactStore; (c) grant/revoke actions version the grant artifacts and the in-force skill-set serializes into dimension 4 at decision time | `cinv-04-replay-construction` (test harness) | Every completion path's replay append precedes its state transition; no unrecorded-action path exists | §9 CINV-04; invariant row 5 |
+| Composition-preservation `(A∘B)(G) = A(B(G))` | Algebraic property-test class parameterized over **every shipped operator pair** `(A, B)` asserting `(A∘B)(G) = A(B(G))` bit-for-bit on generated fixture graphs, under fixed `(graph_state, control_plane_config, temporal_boundary)`; plus the Similarity determinism tuple asserted against version-pinned index reads | `composition-preservation` (property-test harness) | Bit-for-bit equality for all shipped operator pairs on all fixtures | §9 composition-preservation harness; invariant row 2 |
+| Three validation gates (empty-operator guard → lineage strict equality → TTL bounds) | Contract-level unit tests: rejection paths for empty-operator, lineage inequality, and TTL violation; plus the Control Plane registration test that an unregistered MAX_TTL fails product-class registration (D-IMPL-39). Runtime enforcement is mechanism; CI coverage is contract-level | `gates-contract-tests` (unit tests) | All three rejection paths produce structured refusals; unregistered MAX_TTL fails registration | §9 three-gates paragraph; invariant row 3 |
+| Staged-execution equivalence (D-08 test class 2 — **new Phase F content**) | Test class asserting the two-stage projection plan's output (operator plan → projection plan, per §2B.2) equals direct composition of the same operators under the same `(graph_state, control_plane_config, temporal_boundary)` | `composition-preservation` (second test class in the same harness) | Staged output == direct-composition output, bit-for-bit, for every shipped projection | new Phase F row (D-08); complements invariant row 2 |
+| Hash-verified re-hydration (D-09 — **new Phase F content**; a Phase I test class, not a CI lint) | Test class asserting that replaying a `ReHydrationRecipe` (re-running L2 assembly against archived source signals under pinned Control Plane versions) reproduces artifacts whose content hashes match the pinned hashes, per the D-IMPL-26/44 hybrid addressing — bit-for-bit or the re-hydration fails loudly | `rehydration-hash-verify` (test harness) | Re-hydrated substate hash == stored hash for every compressed-record fixture; mismatch raises, never approximates | new Phase F row (D-09); grounded in §2B.5 / D-IMPL-44 |
+
+Every CI-enforced invariant named in CLAUDE.md §3.1's Phase I review list has a row above; the two new rows extend the DESIGN.md §9 set with the Phase 3 locked D-08/D-09 test classes and do not alter any §9 design.
+
+---
+
+## 12. Phase I Gate-List Verification (FEAS-03)
+
+The CLAUDE.md §12 gating discipline names 12 decisions that must be resolved before Phase I begins. Checked against `docs/DECISIONS.md`: **49 marathon rulings, 50 cited rulings, 51 total entries — consistent by construction** (the Decision Census note). D-IMPL-10 is *not* one of the 12; its status is quoted for completeness: D-IMPL-10 (repo shape) is resolved for v0 as monorepo — the post-v0 adapter-split remainder is non-gating and tracked outside Phase D.
+
+| ID | Ruling one-liner | Status | DECISIONS.md ref |
+|----|------------------|--------|-------------------|
+| D-IMPL-01 | Python 3.12+ sole v0 target; Pydantic v2 `extra=forbid` contracts; Protocol-based seams | RESOLVED | Status note, 2026-07-25, approver Dave |
+| D-IMPL-02 | `GraphStore` Protocol + reference Postgres impl + SQLite-for-dev impl | RESOLVED | Status note, 2026-07-25, approver Dave |
+| D-IMPL-03 | `SimilarityIndex` Protocol + sqlite-vec reference (dev default), Chroma second if budget allows | RESOLVED | Status note, 2026-07-25, approver Dave |
+| D-IMPL-04 | Two packages (`ccf` + `ccf-runtime`) in the monorepo; async-first runtime with sync facades, sync fabric core | RESOLVED | Status note, 2026-07-25, approver Dave |
+| D-IMPL-05 | Multi-tenant with `tenant_id` first-class; single-tenant is the degenerate case | RESOLVED | Status note, 2026-07-25, approver Dave |
+| D-IMPL-11 | Single concrete `Agent` runtime class; archetypes as Protocol-typed composable bundles; no subclassing | RESOLVED | Status note, 2026-07-25, approver Dave |
+| D-IMPL-14 | Linux Foundation A2A protocol (JSON-RPC over HTTPS) as v0 default `WireProtocol`; typed-HTTP fallback | RESOLVED | Status note, 2026-07-25, approver Dave |
+| D-IMPL-17 | Minimal in-SDK Workflow primitive + `OrchestrationProtocol` for external orchestrators | RESOLVED | Status note, 2026-07-25, approver Dave |
+| D-IMPL-20 | `HITLTransportProtocol` typed queue; MCP-endpoint reference transport primary, notify-only webhooks secondary | RESOLVED | Status note, 2026-07-25, approver Dave |
+| D-IMPL-24 | All three harnesses ship reference adapters in v0 — Google ADK + Claude Agent SDK (must-haves) + LangGraph (Dave's own ruling) | RESOLVED | Status note, 2026-07-25, approver Dave |
+| D-IMPL-26 | Hybrid artifact addressing: content-hash canonical identity + versioned-URI naming; `@latest` forbidden in replay records | RESOLVED | Status note, 2026-07-25, approver Dave |
+| D-IMPL-28 | YAML definition artifacts validated by Pydantic v2 with exported JSON Schema; Jinja2 prompt artifacts by versioned URI; two-field versioning | RESOLVED | Status note, 2026-07-25, approver Dave |
+
+**Conclusion:** all 12 Phase I gate entries are RESOLVED (batch-3 rulings, 2026-07-25, per the DECISIONS.md gating summary). The Phase I gate is satisfiable — Phase 4 (milestone I.1) may begin upon `D-GATE-F`.
+
+---
+
 ## Appendix A — Inventory Verdict Matrix (126/126, D-01)
 
 Every `INV-CHx-NN` inventory entry (`docs/SPEC_INVENTORY.md`) mapped — via its DESIGN.md realizing section (per DESIGN.md Appendix A, including its see-also composite refs and the two ruled deferred statuses) — to the §2–§10 component that owns that section, carrying that component's verdict. Key set is exactly the inventory's 126-entry set (mechanically checkable: unique-key diff against the inventory is empty).
