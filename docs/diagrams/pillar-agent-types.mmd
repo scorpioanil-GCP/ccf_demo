@@ -1,0 +1,43 @@
+flowchart TD
+    subgraph SRC["SDK mechanism (/src)"]
+        AgentBase["Agent base<br/>(single concrete class, D-IMPL-11)"]
+        WA["WorkflowAgent / TaskAgent"]
+        DIA["DocumentIntelligenceAgent"]
+        AIA["AnalyticsInsightsAgent"]
+        MSA["MonitoringSurveillanceAgent"]
+        CGA["ContentGenerationAgent"]
+        CAA["ContextAssemblyAgent"]
+        Factory["Agent &amp; Task Factory<br/>(sole construction path)"]
+        Compat["Policy-compatibility check<br/>(tier 1, non-waivable, D-IMPL-29)"]
+    end
+
+    subgraph CP["Control Plane artifacts (user values)"]
+        AgentDef["Agent definitions<br/>(YAML + Pydantic schema, D-IMPL-28)"]
+        TaskDef["Task definitions"]
+        PromptArt["Prompt artifacts<br/>(versioned URI, never inline)"]
+        SkillCat["Skill catalog entries<br/>(typed requirements, D-IMPL-12)"]
+        Grants["Skill grants / revocations<br/>(versioned, audited)"]
+    end
+
+    Agent["Declared agent<br/>(identity + version + composed archetypes)"]
+    Replay["Decision Replay record<br/>dimension 4: agent version + skill-set in force"]
+
+    WA -->|"ordered composition (D-IMPL-19)"| Factory
+    DIA --> Factory
+    AIA --> Factory
+    MSA --> Factory
+    CGA --> Factory
+    CAA --> Factory
+    AgentBase --> Factory
+
+    AgentDef -->|"read by"| Factory
+    TaskDef -->|"read by"| Factory
+    PromptArt -->|"axis-6 references"| AgentDef
+    Factory -->|"produces (only path)"| Agent
+
+    SkillCat -->|"grant request"| Compat
+    Compat -->|"refuses excess requirements"| Grants
+    Grants -->|"bind by reference (channel 2)"| Agent
+
+    Agent -->|"agent version + configuration"| Replay
+    Grants -->|"skill-set in force"| Replay
