@@ -147,7 +147,7 @@
 - **Invariants:** Three validation gates attach to this contract at mechanism level (empty-operator guard, lineage strict equality, TTL bounds — Ch 7 §7.6, Ch 7 fragment). Policy Binding is enforced at construction. Assembly Mode is a documented governance-time decision, not an emergent runtime property. Trust-path purity holds invariant across all three modes.
 - **Dependencies:** INV-CH6-01 (8-property test); INV-CH6-04 (lifecycle integration); Ch 7 §7.6 (validation gates + Assembly Mode mechanism) — Ch 7 fragment.
 - **Figures:** none
-- **Open question:** The element count is internally inconsistent in the `.md`. §6.3 prose opens "Nine elements jointly specify the contract" and the table lists nine (Assembly Mode included; §6.4 calls it "the §6.3 specification's ninth element"), yet the same §6.3 prose describes the §6.1 contract test as "the § 6.1 canonical 8-property table" and says "the 8-property test names what the contract carries; the 9-element specification names which contract surface each property maps to" — while CLAUDE.md §5 refers to "the eight-element specification per §6.3." Readings: (a) the contract has nine elements and the "eight" references (8-property test, CLAUDE.md) denote the external comparison test only — consequence: the SDK Context Product Contract base must carry all nine fields including Assembly Mode; (b) the contract has eight elements and Assembly Mode is a distinct per-product *configuration* property layered on the contract rather than a contract element — consequence: Assembly Mode lives in Control Plane product-class registration, not in the product schema; (c) the whitepaper drifted between revisions and the count is editorial — consequence: Dave rules which count is canonical and CLAUDE.md or the inventory annotates the discrepancy. The mapping from the 8 test properties to the 9 elements is asserted but never tabulated, so the property→element correspondence is also unspecified.
+- **Open question (D-IMPL-30):** The element count is internally inconsistent in the `.md`. §6.3 prose opens "Nine elements jointly specify the contract" and the table lists nine (Assembly Mode included; §6.4 calls it "the §6.3 specification's ninth element"), yet the same §6.3 prose describes the §6.1 contract test as "the § 6.1 canonical 8-property table" and says "the 8-property test names what the contract carries; the 9-element specification names which contract surface each property maps to" — while CLAUDE.md §5 refers to "the eight-element specification per §6.3." Readings: (a) the contract has nine elements and the "eight" references (8-property test, CLAUDE.md) denote the external comparison test only — consequence: the SDK Context Product Contract base must carry all nine fields including Assembly Mode; (b) the contract has eight elements and Assembly Mode is a distinct per-product *configuration* property layered on the contract rather than a contract element — consequence: Assembly Mode lives in Control Plane product-class registration, not in the product schema; (c) the whitepaper drifted between revisions and the count is editorial — consequence: Dave rules which count is canonical and CLAUDE.md or the inventory annotates the discrepancy. The mapping from the 8 test properties to the 9 elements is asserted but never tabulated, so the property→element correspondence is also unspecified.
 
 ### INV-CH6-04 — Eight-step Context Product Lifecycle with closed-loop audit feedback
 
@@ -157,7 +157,7 @@
 - **Invariants:** Append-plus-supersession (no overwrite); assembly-vs-reasoning division of labor (Step 7 does no assembly); trust-path purity across all Assembly Modes (substrate is artifact-of-record; lineage recorded at substrate, not rendering; replay re-derives the substrate deterministically from the same graph state); Algorithmic ⇄ Semantic Alternation; the Step 8 → Step 1 feedback edge closes the loop.
 - **Dependencies:** INV-CH6-03 (contract elements enforced through the lifecycle); Ch 7 §7.4 (Operators as the algorithmic-stage combination mechanism), §7.6 (Assembly Mode mechanism) — Ch 7 fragment.
 - **Figures:** Fig-CH06-02 (eight-step lifecycle with dotted feedback edge)
-- **Open question:** §6.4 Step 4 states "Temporal Validation assigns TTL to each mutation," while §6.3 defines TTL as a per-product contract element and §6.4's Counterparty thread gives per-product TTLs (four hours trading-desk, twenty-four hours committee) alongside per-signal TTLs ("an intraday trade-blotter entry carries a TTL of fifteen minutes"). Readings: (a) TTL exists at two granularities — per-mutation/per-signal validity in T and per-product validity in the contract — and the product TTL is derived from (e.g., min over) constituent signal validities; consequence: the SDK needs both a signal-level validity primitive and a product-level TTL with a defined derivation rule; (b) "TTL" in Step 4 loosely means the T-dimension validity envelope (half-life driven) and only the contract-level TTL is properly named TTL; consequence: naming must be disambiguated in the SDK type surface to avoid conflating half-life-derived validity with contract TTL; (c) product TTL is independently configured per product class and Step 4 only validates constituent signals against it; consequence: no derivation rule is required but a mixing-refusal rule (asymmetric-freshness refusal) still needs formal definition. The whitepaper does not specify the derivation or refusal rule; Ch 7 §7.7 may partially resolve this (Ch 7 fragment to cross-check).
+- **Open question (D-IMPL-31):** §6.4 Step 4 states "Temporal Validation assigns TTL to each mutation," while §6.3 defines TTL as a per-product contract element and §6.4's Counterparty thread gives per-product TTLs (four hours trading-desk, twenty-four hours committee) alongside per-signal TTLs ("an intraday trade-blotter entry carries a TTL of fifteen minutes"). Readings: (a) TTL exists at two granularities — per-mutation/per-signal validity in T and per-product validity in the contract — and the product TTL is derived from (e.g., min over) constituent signal validities; consequence: the SDK needs both a signal-level validity primitive and a product-level TTL with a defined derivation rule; (b) "TTL" in Step 4 loosely means the T-dimension validity envelope (half-life driven) and only the contract-level TTL is properly named TTL; consequence: naming must be disambiguated in the SDK type surface to avoid conflating half-life-derived validity with contract TTL; (c) product TTL is independently configured per product class and Step 4 only validates constituent signals against it; consequence: no derivation rule is required but a mixing-refusal rule (asymmetric-freshness refusal) still needs formal definition. The whitepaper does not specify the derivation or refusal rule; Ch 7 §7.7 may partially resolve this (Ch 7 fragment to cross-check).
 
 ### INV-CH6-05 — Seven Context Product key principles
 
@@ -197,18 +197,10 @@
 - **Invariants:** Conjunctive semantics — weakness in any leg degrades aggregate trust regardless of the other two; low aggregate trust forbids action (escalate/re-request/surface).
 - **Dependencies:** INV-CH6-07 (loop it gates); INV-CH6-03 (TTL, Lineage elements the legs consume); Ch 7 §7.7 (half-life, Context Debt) and §7.10 (lineage/replay) — Ch 7 fragment.
 - **Figures:** Fig-CH06-03 (Trust Triangle, conjunctive edges)
-- **Open question:** §6.6.3 specifies each leg's inputs ("Combines model scores, source reliability, and consensus…") and the conjunctive semantics, but no aggregation function, scale, or threshold mechanics for any leg or for aggregate Context Trust — "when all three legs hold, the recursion may terminate" leaves "hold" undefined. Readings: (a) the aggregation/thresholds are deliberately Control-Plane-configurable values (mechanism ships scoring interfaces; institutions supply thresholds) — consequence: the SDK defines a TrustScore Protocol with pluggable per-leg scorers and a conjunctive combinator, values in configuration per the mechanism-not-values rule; (b) a canonical formula is implied elsewhere (e.g., via Ch 7 §7.7 D_c mechanics) and the legs are derived quantities — consequence: cross-check the Ch 7 fragment before designing an independent trust primitive; (c) the triangle is advisory vocabulary, not a mechanism commitment — consequence: no SDK primitive required, only replay-record capture of whatever trust inputs the deployment computes. The choice gates whether v0 ships a trust-scoring surface.
+- **Open question (D-IMPL-32):** §6.6.3 specifies each leg's inputs ("Combines model scores, source reliability, and consensus…") and the conjunctive semantics, but no aggregation function, scale, or threshold mechanics for any leg or for aggregate Context Trust — "when all three legs hold, the recursion may terminate" leaves "hold" undefined. Readings: (a) the aggregation/thresholds are deliberately Control-Plane-configurable values (mechanism ships scoring interfaces; institutions supply thresholds) — consequence: the SDK defines a TrustScore Protocol with pluggable per-leg scorers and a conjunctive combinator, values in configuration per the mechanism-not-values rule; (b) a canonical formula is implied elsewhere (e.g., via Ch 7 §7.7 D_c mechanics) and the legs are derived quantities — consequence: cross-check the Ch 7 fragment before designing an independent trust primitive; (c) the triangle is advisory vocabulary, not a mechanism commitment — consequence: no SDK primitive required, only replay-record capture of whatever trust inputs the deployment computes. The choice gates whether v0 ships a trust-scoring surface.
 
 ---
 
-## Open Questions (unnumbered)
-
-*(Emitted unnumbered for synthesis pickup; plan 01-11 assigns D-IMPL-30+.)*
-
-- *(from Ch 5 extraction)* None surfaced — Ch 5 is conceptual and defers all mechanism ambiguity to Ch 7, whose fragment carries those questions.
-- *(from §6.3, INV-CH6-03)* Contract element count discrepancy — "Nine elements jointly specify the contract" vs the "canonical 8-property table" and CLAUDE.md §5's "eight-element specification per §6.3"; the 8-property→9-element mapping is asserted but never tabulated. Three readings with consequences recorded at INV-CH6-03.
-- *(from §6.4, INV-CH6-04)* TTL granularity ambiguity — per-mutation/per-signal TTL (Step 4 "assigns TTL to each mutation") vs per-product contract TTL; no derivation rule or formal asymmetric-freshness refusal rule specified. Three readings with consequences recorded at INV-CH6-04; cross-check Ch 7 §7.7 fragment.
-- *(from §6.6.3, INV-CH6-08)* Context Trust Triangle mechanics unspecified — no aggregation function, scale, or thresholds for the three legs or the aggregate; "when all three legs hold" leaves "hold" undefined. Three readings with consequences recorded at INV-CH6-08; gates whether v0 ships a trust-scoring surface.
 
 ---
 
@@ -234,7 +226,7 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
 - **Invariants:** L1 does not interpret; no entity/relationship typing at L1; unstructured and structured co-equal at ingress.
 - **Dependencies:** INV-CH7-03 (L2 consumes the normalized stream).
 - **Figures:** Fig-CH07-02.
-- **Open question:** "whatever raw payload the upstream system emitted" — the canonical event envelope's formal schema is not specified; a general-purpose SDK must commit to one. (unnumbered — see Open Questions)
+- **Open question (D-IMPL-33):** "whatever raw payload the upstream system emitted" — the canonical event envelope's formal schema is not specified; a general-purpose SDK must commit to one.
 
 ### INV-CH7-03
 - **Section:** §7.1
@@ -359,7 +351,7 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
 - **Invariants:** **Single-writer** (DI-enforced at boot); supersession-not-deletion; append-not-reconstruct for downstream stages.
 - **Dependencies:** INV-CH7-10, INV-CH7-14.
 - **Figures:** Fig-CH07-04 (logical six-tuple ↔ physical collection pattern).
-- **Open question:** "the physical representation maps to ~10 collections" — the exact collection decomposition is reference-implementation grounding, not a normative count; what the SDK's storage Protocol must require versus leave to backends is a design question. (unnumbered — see Open Questions)
+- **Open question (D-IMPL-34):** "the physical representation maps to ~10 collections" — the exact collection decomposition is reference-implementation grounding, not a normative count; what the SDK's storage Protocol must require versus leave to backends is a design question.
 
 ### INV-CH7-16
 - **Section:** §7.3.2
@@ -413,7 +405,7 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
 - **Invariants:** **Append-only-forward-with-supersession** (overwrite-in-place prohibited — overwriting "would make Decision Replay at T+2 years structurally impossible"); canonical-E convergence regardless of querying line of business.
 - **Dependencies:** INV-CH7-14 (T, L axes), INV-CH7-17, §7.7 supersession-as-Policy-event, §7.10 replay.
 - **Figures:** Fig-CH07-05 (graph mutation on supersession sequence), Fig-CH07-06 (entity resolution sequence).
-- **Open question:** The Entity Resolver's correlation mechanism ("shared attributes … where it does not") is described at pattern level; the SDK's resolver contract — pluggable strategy vs shipped mechanism — is a design question. (unnumbered — see Open Questions)
+- **Open question (D-IMPL-35):** The Entity Resolver's correlation mechanism ("shared attributes … where it does not") is described at pattern level; the SDK's resolver contract — pluggable strategy vs shipped mechanism — is a design question.
 
 ---
 
@@ -444,7 +436,7 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
 - **Invariants:** Bounded expansion; read-only purity (INV-CH7-22); thresholds/floors are Control Plane configuration, not code constants.
 - **Dependencies:** INV-CH7-14 (R axis), INV-CH7-20 (worked topology), INV-CH7-23.
 - **Figures:** Fig-CH07-07, Fig-CH07-09.
-- **Open question:** None.
+- **Open question:** Threshold declaration/versioning schema is open — see D-IMPL-38.
 
 ### INV-CH7-25
 - **Section:** §7.4 (category: Temporal; walked in §7.4.4)
@@ -480,7 +472,7 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
 - **Invariants:** Topological ordering respects composition dependencies; plan generation is deterministic because the registry it reads is deterministic at runtime (INV-CH7-29).
 - **Dependencies:** INV-CH7-22..27, INV-CH7-29, §7.5 projection engine (executes the plan).
 - **Figures:** Fig-CH07-09 (Planner fan-out across the four worked compositions — design space, not one request's path).
-- **Open question:** How the Planner schedules and materializes intermediates (caching policy, reuse decisions for replay invocations) is specified at property level (Fig-CH07-08's reuse note) but not at scheduling-mechanism level; Homecams shows one resolution — do NOT inherit it (CLAUDE.md §2.1). (unnumbered — see Open Questions)
+- **Open question (D-IMPL-36):** How the Planner schedules and materializes intermediates (caching policy, reuse decisions for replay invocations) is specified at property level (Fig-CH07-08's reuse note) but not at scheduling-mechanism level; Homecams shows one resolution — do NOT inherit it (CLAUDE.md §2.1).
 
 ### INV-CH7-29
 - **Section:** §7.4.2
@@ -489,7 +481,7 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
 - **Invariants:** **Boot-time registry with fail-fast duplicate registration** (CI-tested); batched (DataLoader-style) operator resolution.
 - **Dependencies:** INV-CH7-28, §7.6 SLO envelope, §7.8 invariants (plan 01-08's key range).
 - **Figures:** Fig-CH07-09.
-- **Open question:** None.
+- **Open question:** Registry population surface for user-supplied operators is open — see D-IMPL-37.
 
 ### INV-CH7-30
 - **Section:** §7.4.3–§7.4.6
@@ -529,14 +521,6 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
 
 ---
 
-## Open Questions (unnumbered)
-
-- **Canonical event envelope schema (§7.1, L1).** "every signal tagged with its source, its ingestion timestamp, its observed-time where known, and whatever raw payload the upstream system emitted" — the whitepaper enumerates envelope fields in prose but gives no formal schema. The SDK must commit to a typed L1 envelope contract.
-- **Physical collection decomposition (§7.3.1).** "the physical representation maps to ~10 collections" is reference-implementation grounding (Homecams-adjacent), not a normative count. What the SDK's graph-storage Protocol must require of a backend (indexes, supersession semantics, per-relationship-type lineage) versus what stays backend-internal is a design decision. Do NOT inherit the Homecams collection layout as the resolution.
-- **Entity Resolver contract (§7.3.5).** Correlation via "shared attributes (the LEI where one exists, registered address and authorized-signatory metadata where it does not)" is a domain-flavored pattern. The SDK needs a general-purpose resolution Protocol; attribute-correlation strategies are user configuration.
-- **Operator DAG planner intermediate scheduling (§7.4.2, Fig-CH07-08).** The whitepaper commits the contract — intermediates are persistable, cache-coherent under λ_c-driven invalidation, and reusable for replay ("the Planner reads against [associativity] when it decides whether an intermediate can be reused for a replay invocation") — but does not specify the scheduling/materialization mechanism (when intermediates are cached, eviction, reuse policy). Homecams shows one working resolution; per CLAUDE.md §2.1 it is one data point, not the canonical answer — do NOT inherit.
-- **Operator registry population surface (§7.4.2).** "import-time / boot-time loaded" with fail-fast duplicates is committed, but how user-supplied operators register against the SDK's registry (entry points, explicit registration API, config-driven) is unspecified — a general-purpose SDK design choice.
-- **Materiality/threshold configuration binding (§7.4.6, §7.4.3).** Thresholds ("configurable floor", `threshold=0.85` / `0.75`) are stated as contract-carried parameters; the whitepaper does not specify where they are declared (Control Plane bundle shape) or how they version. Interacts with the Control Plane configuration surface (§7.8) and the No-Hardcoding Rule (CLAUDE.md §6.4).
 
 ## §7.5 — Context Projection (Π), System of Interpretation
 
@@ -632,7 +616,7 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
 **Invariants:** Gate condition: `now < expires_at ≤ now + MAX_TTL`; re-verified at cache-write time.
 **Dependencies:** INV-CH7-45 (expires_at, ttl_anchor); INV-CH7-51 (cache coherency)
 **Figures:** Fig-CH07-16
-**Open question:** "TTL bounds rejects a Contract whose expires_at is in the past or beyond a MAX_TTL envelope" — the whitepaper never specifies where MAX_TTL is configured or its default. Readings: (a) MAX_TTL is a Control Plane configuration per Context Product class (consistent with §7.8's configuration posture; consequence: SDK ships mechanism, users supply values); (b) MAX_TTL is a single fabric-wide constant (simpler, but a hard-coded threshold would collide with the mechanism/values boundary); (c) MAX_TTL derives from the product's λ_c band (elegant but nowhere stated). Left unnumbered for synthesis.
+**Open question (D-IMPL-39):** "TTL bounds rejects a Contract whose expires_at is in the past or beyond a MAX_TTL envelope" — the whitepaper never specifies where MAX_TTL is configured or its default. Readings: (a) MAX_TTL is a Control Plane configuration per Context Product class (consistent with §7.8's configuration posture; consequence: SDK ships mechanism, users supply values); (b) MAX_TTL is a single fabric-wide constant (simpler, but a hard-coded threshold would collide with the mechanism/values boundary); (c) MAX_TTL derives from the product's λ_c band (elegant but nowhere stated). Left unnumbered for synthesis.
 
 ### INV-CH7-49 — Per-product independent semver lanes
 
@@ -806,7 +790,7 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
 **Invariants:** D_c thresholds are class-specific configuration (Control Plane, not code); Forced LLM reasons with the gap visible, never around it; the routing is the economic engine bounding LLM cost.
 **Dependencies:** INV-CH7-61/62 (D_c inputs), INV-CH7-53 (cost bands), Control Plane thresholds (§7.8, plan 01-08)
 **Figures:** Fig-CH07-19
-**Open question:** "threat_level ≤ LOW" and "class-specific threshold" — the whitepaper does not specify the threat-level scale, its source, or how the class-specific D_c threshold is set. Readings: (a) both are Control Plane configuration per decision class (consistent with §7.8 posture; SDK ships the routing mechanism only); (b) threat level is computed by the fabric from signal characteristics (would require a specified computation the paper never gives). Left unnumbered for synthesis.
+**Open question (D-IMPL-40):** "threat_level ≤ LOW" and "class-specific threshold" — the whitepaper does not specify the threat-level scale, its source, or how the class-specific D_c threshold is set. Readings: (a) both are Control Plane configuration per decision class (consistent with §7.8 posture; SDK ships the routing mechanism only); (b) threat level is computed by the fabric from signal characteristics (would require a specified computation the paper never gives). Left unnumbered for synthesis.
 
 ### INV-CH7-66 — Trust Triangle debt-mapping (Ch 6 forward-ref resolution)
 
@@ -840,10 +824,6 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
 
 ---
 
-## Open Questions (unnumbered)
-
-- (INV-CH7-48, §7.6.1/§7.6.4) "TTL bounds rejects a Contract whose expires_at is in the past or beyond a MAX_TTL envelope" — where is MAX_TTL configured and what governs its value? Readings: (a) Control Plane configuration per Context Product class; (b) fabric-wide constant (collides with the mechanism/values boundary); (c) derived from the product's λ_c band. Consequences per reading noted in the entry.
-- (INV-CH7-65, §7.7.7) "ELIF threat_level ≤ LOW → Conditional … ELIF D_c above the class-specific threshold → Forced LLM" — the threat-level scale, its source, and how class-specific D_c thresholds are set are unspecified. Readings: (a) both are Control Plane configuration per decision class; (b) threat level is fabric-computed from signal characteristics (no computation given). Consequences per reading noted in the entry.
 
 ### INV-CH7-70 — Control Plane / Data Plane separation as first-class primitives
 
@@ -968,7 +948,7 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
   purity; §7.6 validation gates (stage-3a/3b) — cross-links to slice A/B
   entries. Governance D-43 (invariants as first-class commitments).
 - **Figure refs:** Fig-CH07-21 (invariant-enforcement boundary).
-- **Open question (quoted, unnumbered):** "The invariant is enforced by
+- **Open question (D-IMPL-41):** "The invariant is enforced by
   dependency injection at boot time — the read-path services' DI containers
   simply do not receive write-capable handles… and the compilation of those
   services against write-capable interfaces is prevented by the type system
@@ -1070,7 +1050,7 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
   divergence within the whitepaper itself.
 - **Figure refs:** Fig-CH07-24 (signal categorization; load-bearing —
   three-category routing as graph-level, not gradient-descent, operation).
-- **Open question (quoted, unnumbered):** The categorization mechanism's
+- **Open question (D-IMPL-42):** The categorization mechanism's
   naming differs between prose ("Outcome signals… Context validity
   signals… Audit/lineage signals") and figure caption ("Outcome Signal
   Handler… Correction Signal Handler… Metadata Signal Handler") — the SDK
@@ -1192,7 +1172,7 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
   replay-record node → five audit-question classes; canonical visual for
   §7.10); Fig-CH07-27 (examiner re-trace sequence: five parallel reads
   reconciled into deterministic reproduction).
-- **Open question (quoted, unnumbered):** "made available through the
+- **Open question (D-IMPL-44):** "made available through the
   replay interface at any future time the audit obligation requires" —
   snapshot storage strategy that makes replay tractable at year-scale is
   under-specified; interacts with D-IMPL-06 (snapshot management) and
@@ -1213,7 +1193,7 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
 - **Dependencies:** Context Graph six-tuple (§7.3, slice A entries);
   INV-CH7-74 (deterministic re-read).
 - **Figure refs:** Fig-CH07-26; Fig-CH07-27 (Context Graph historical read).
-- **Open question (quoted, unnumbered):** Full-fidelity graph substate per
+- **Open question (D-IMPL-44):** Full-fidelity graph substate per
   decision at "millions of decisions each day" scale — the whitepaper
   defers cost to compression (§7.10.5) but leaves the snapshot substrate
   open; interacts with D-IMPL-06.
@@ -1411,7 +1391,7 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
   retention windows are Control Plane configuration (domain values, not
   SDK content).
 - **Figure refs:** none.
-- **Open question (quoted, unnumbered):** "The graph substate itself is
+- **Open question (D-IMPL-44):** "The graph substate itself is
   reduced to a deterministic hash of the five-dimension record, so that
   the exact substate can be re-hydrated if ever needed from a
   source-record archive" — the cold-archive substrate and re-hydration
@@ -1464,44 +1444,6 @@ Chapter 7 is inventoried in three key blocks: INV-CH7-01..39 (§7.1–§7.4), IN
 - **Open question:** none.
 
 ---
-
-## Open Questions (unnumbered)
-
-Quoted, unnumbered per Pattern 2 discipline — `D-IMPL-NN` numbers are
-assigned only by the synthesis task (starting at D-IMPL-30).
-
-1. **Build-time invariant enforcement substrate (§7.8.4).** "the
-   compilation of those services against write-capable interfaces is
-   prevented by the type system at build time" — how the SDK realizes
-   compile-time single-writer prevention depends on D-IMPL-01 (language
-   target); in Python, structural typing + DI can approximate but not
-   equal build-time prevention.
-2. **Learning-signal taxonomy naming (§7.9.2 vs Fig-CH07-24).** Prose
-   categories (outcome / context-validity / audit-lineage) vs figure
-   handler names (Outcome / Correction / Metadata) diverge; the SDK's
-   typed learning-signal enum must pick one canonical taxonomy.
-3. **Control Plane interpretation step (§7.9.1).** "The interpretation
-   step is where business judgment, statistical significance, and
-   regulatory calibration constraints enter the loop" — the whitepaper
-   does not specify whether interpretation is automated, human-gated, or
-   configurable; interacts with the SDK's HITL primitives (CLAUDE.md
-   §8.2, SDK-defined) and D-IMPL-29-adjacent governance depth.
-4. **Snapshot tractability at year-scale (§7.10.1, §7.10.5).** Replay
-   "at any future time the audit obligation requires" plus per-decision
-   graph substate at millions-of-decisions/day scale — snapshot storage,
-   hash-based re-hydration, and the cold-archive contract are
-   unspecified; interacts with D-IMPL-06 (snapshot management),
-   D-IMPL-26 (artifact addressing), and D-IMPL-27 (substrate split).
-5. **Model-trace composition seam (§7.10.2).** The whitepaper assumes a
-   mature deployment composes CCF environment replay with an external
-   model-trace tool (LangSmith/Weave) but specifies no interface for the
-   composition; the SDK's replay-hook seam (CLAUDE.md §7.3 seam 4,
-   SDK-defined) is the natural attachment point — a design question for
-   Phase D.
-6. **Citations-primitive pluggability contract (§7.10.3).** "populated by
-   whatever component primitive the deployment has selected" — the
-   Protocol shape for a pluggable passage-citation provider (and its
-   relationship to D-IMPL-09 LLM access) is unspecified.
 
 
 ---
@@ -1626,7 +1568,7 @@ assigned only by the synthesis task (starting at D-IMPL-30).
 - **Invariants:** Algorithmic ⇄ Semantic Alternation (Ch 7 §7.6 architectural primitive — LLMs never see raw signal; algorithmic stages never perform semantic interpretation); Policy-before-Similarity within Verification; below-threshold candidate edges carried forward as distinct; project-then-retrieve, not retrieve-then-filter; every claim in synthesis output passage-anchored.
 - **Dependencies:** **Links to the §7.6.6 alternation invariant** — Ch 7 §7.6 committed the alternation as a primitive the delivery layer respects; §8.4 walks the same primitive end to end (CI-enforced structural invariant in the SDK per CLAUDE.md §5, §11 `@algorithmic` lint). Also: §8.3/§8.3.1 Pattern 5 (Perception substrate), Ch 7 §7.4 compositions (a) and (c), Ch 7 §7.5 (Π projection), Ch 7 §7.7 (D_c trigger on missing/stale inputs), Ch 6 §6.3 (contract fields), Ch 7 §7.10 (replay).
 - **Figure refs:** Fig-CH08-04 (renders the four stages, boundary crossings, distance-weighted deduplication, and the persist-into-G feedback arrow).
-- **Open question:** "Where the whitepaper specifies the deduplication confidence threshold as Control-Plane-governed but gives no threshold schema or defaulting rule, the SDK must decide the Control Plane parameter shape for operator thresholds." (unnumbered; synthesis task assigns any D-IMPL number).
+- **Open question (D-IMPL-38):** "Where the whitepaper specifies the deduplication confidence threshold as Control-Plane-governed but gives no threshold schema or defaulting rule, the SDK must decide the Control Plane parameter shape for operator thresholds." (unnumbered; synthesis task assigns any D-IMPL number).
 
 ### INV-CH8-13 — Six-dimensional graph, domain lens (weight patterns)
 
@@ -1666,7 +1608,7 @@ assigned only by the synthesis task (starting at D-IMPL-30).
 - **Invariants:** λ_c/D_c persisted into replay; routing decision captured as a regulatory artifact; debt computed algorithmically before semantic invocation; λ_c values are calibration outputs, never fixed constants (for the SDK: λ_c tables live in Control Plane configuration, not code — CLAUDE.md §5).
 - **Dependencies:** Ch 7 §7.7 (mechanism owner — §8.7.1 applies it to governance); Ch 6 §6.3 (D_c as declarative contract field); Ch 7 §7.10 (replay capture).
 - **Figure refs:** Fig-CH08-06 (Conditional Assessment Routing decision tree; supplementary, not load-bearing per the text).
-- **Open question:** "The extended form D_c = 1 − (F · C · S) is given without specification of how F, C, and S are individually computed or weighted; the SDK must commit a computable definition per factor." (unnumbered; synthesis assigns numbering).
+- **Open question (D-IMPL-47):** "The extended form D_c = 1 − (F · C · S) is given without specification of how F, C, and S are individually computed or weighted; the SDK must commit a computable definition per factor." (unnumbered; synthesis assigns numbering).
 
 ### INV-CH8-17 — MNPI governance via Policy-before-Similarity (subgraph substitution)
 
@@ -1696,7 +1638,7 @@ assigned only by the synthesis task (starting at D-IMPL-30).
 - **Invariants:** Score persisted with the decision; threshold is policy-bound (Control Plane), never hard-coded; the two controls (D_c, Supervision Quality) are non-substitutable.
 - **Dependencies:** Ch 7 §7.10 (replay persistence), §8.7.1 (D_c complement), Control Plane thresholds (Ch 7 §7.8). Whitepaper notes reduction-to-practice in a property-intelligence reference implementation (Homecams triangulation data point — see homecams-patterns appendix; the scoring calibration is domain-specific, do not inherit values). SDK hook: complements HITL primitives per CLAUDE.md §8.2 (SDK-defined).
 - **Figure refs:** None.
-- **Open question:** "The composite scoring function combining the five behavioral axes with VLM/LLM reasoning outputs is not specified — axis weights, fusion function, and score semantics are open for design." (unnumbered; synthesis assigns numbering).
+- **Open question (D-IMPL-48):** "The composite scoring function combining the five behavioral axes with VLM/LLM reasoning outputs is not specified — axis weights, fusion function, and score semantics are open for design." (unnumbered; synthesis assigns numbering).
 
 ### INV-CH8-20 — Auditability at scale: replay binding and the three-tier compression lifecycle
 
@@ -1749,15 +1691,6 @@ assigned only by the synthesis task (starting at D-IMPL-30).
 - **Open question:** None.
 
 ---
-
-## Open Questions (unnumbered)
-
-Quoted for the synthesis task; numbering (new D-IMPL-NN from D-IMPL-30 onward) is assigned only at synthesis. Existing CLAUDE.md §12 numbers are referenced where the question already exists.
-
-- "Where the whitepaper specifies the deduplication confidence threshold as Control-Plane-governed but gives no threshold schema or defaulting rule, the SDK must decide the Control Plane parameter shape for operator thresholds." (from §8.4 Algorithmic Verification — INV-CH8-12)
-- "The extended form D_c = 1 − (F · C · S) is given without specification of how F, C, and S are individually computed or weighted; the SDK must commit a computable definition per factor." (from §8.7.1 — INV-CH8-16)
-- "The composite scoring function combining the five behavioral axes with VLM/LLM reasoning outputs is not specified — axis weights, fusion function, and score semantics are open for design." (from §8.8 Supervision Quality — INV-CH8-19; also raises whether Supervision Quality is SDK mechanism at all or a reference pattern users implement — CLAUDE.md §13 does not list it in v0 scope)
-- Existing-number cross-references surfaced by Ch 8 (not new): D-IMPL-06 (snapshot management vs §8.9 compression tiers), D-IMPL-07 (embedder abstraction, §8.3.1), D-IMPL-08 (Pattern 5 stage pluggability), D-IMPL-13 (MCP role allocation), D-IMPL-14/15/16 (A2A transport, identity, admission scope, §8.3 Pattern 4).
 
 
 ---
@@ -1978,6 +1911,38 @@ All 36 target subsections of whitepaper Chapters 5–8 covered (Ch 5: 7, Ch 6: 6
 
 ---
 
+## Open Questions for Phase D
+
+Every open question Phase D must resolve, per CLAUDE.md §16. Full entries live in `docs/DECISIONS.md`; inventory entries cross-reference them in their Open-question fields.
+
+- **From CLAUDE.md §12 (pre-existing scaffolding):** D-IMPL-01 through D-IMPL-29 — canonical home is CLAUDE.md §12; D-IMPL-10 provisionally resolved (monorepo). The §12 Phase I gate list (D-IMPL-01..05, 11, 14, 17, 20, 24, 26, 28) stands.
+- **New from Phase R extraction (assigned at synthesis, 2026-07-25):**
+  - D-IMPL-30 — Contract element count, eight vs nine (§6.3; INV-CH6-03)
+  - D-IMPL-31 — TTL granularity, per-signal vs per-product (§6.4; INV-CH6-04)
+  - D-IMPL-32 — Trust Triangle scoring mechanics (§6.6.3; INV-CH6-08)
+  - D-IMPL-33 — Canonical L1 event envelope schema (§7.1; INV-CH7-02)
+  - D-IMPL-34 — Graph-storage Protocol requirement surface (§7.3.1; INV-CH7-15)
+  - D-IMPL-35 — Entity Resolver contract (§7.3.5; INV-CH7-21)
+  - D-IMPL-36 — Operator-plan intermediate scheduling/materialization (§7.4.2; INV-CH7-28)
+  - D-IMPL-37 — Operator registry population surface (§7.4.2; INV-CH7-29)
+  - D-IMPL-38 — Control Plane parameter schema for operator thresholds (§7.4.3/§7.4.6/§8.4; INV-CH7-24, INV-CH8-12)
+  - D-IMPL-39 — MAX_TTL configuration locus (§7.6.1/§7.6.4; INV-CH7-48)
+  - D-IMPL-40 — CAR threat-level scale and class D_c thresholds (§7.7.7; INV-CH7-65)
+  - D-IMPL-41 — Build-time single-writer enforcement substrate (§7.8.4; INV-CH7-73)
+  - D-IMPL-42 — Learning-signal taxonomy naming (§7.9.2; INV-CH7-76)
+  - D-IMPL-43 — Closed-loop interpretation step, automated vs human-gated (§7.9.1; INV-CH7-75)
+  - D-IMPL-44 — Cold-archive re-hydration contract (§7.10.1/§7.10.5; INV-CH7-80/81/89)
+  - D-IMPL-45 — Model-trace composition seam (§7.10.2; INV-CH7-86)
+  - D-IMPL-46 — Passage-citation provider Protocol (§7.10.3; INV-CH7-87)
+  - D-IMPL-47 — Computable F/C/S debt-factor definitions (§7.7.4/§8.7.1; INV-CH7-62, INV-CH8-16)
+  - D-IMPL-48 — Supervision Quality scoring and SDK-scope disposition (§8.8; INV-CH8-19)
+  - D-IMPL-49 — Projection-plan selection signature (§7.5 silence; homecams-patterns)
+  - D-IMPL-50 — Replay fidelity-lifecycle: SDK-shipped or ArtifactStore-delegated (§7.10.5; homecams-patterns)
+  - D-IMPL-51 — Live MongoDB metadata query approval (CLAUDE.md §2.1; homecams-patterns)
+- **Stated non-commitment (not a gap):** per-domain λ_c calibration methodology is explicitly withheld by the whitepaper as trade-secret (INV-CH8-11).
+
+---
+
 ## Appendix: homecams-patterns
 
 Read-only pattern review of `/home/parkave/homecams_v2` per CCF CLAUDE.md §2.1 discipline.
@@ -2092,31 +2057,3 @@ inherit a mandated substrate: persistence goes behind `ArtifactStoreProtocol` an
 graph-storage Protocol (D-IMPL-02/26/27), with MongoDB merely one possible user-supplied
 backend. Marker for substrate mandate: `domain-specific — do not inherit`.
 
-## Open Questions (unnumbered)
-
-These record places where the whitepaper is silent and Homecams shows one working
-resolution. Per CCF CLAUDE.md §2.1, each is a data point requiring a decision — never a
-default to inherit. The synthesis plan should fold these into the D-IMPL log.
-
-- **Operator intermediate materialization:** Homecams caches materialized projection
-  outputs in a TTL-indexed `projection_cache` collection separate from graph state
-  (`si_framework/repositories/projection_cache_repository.py`). Should the SDK's operator
-  DAG planner support materialized intermediates, and where do they persist (interacts
-  with D-IMPL-06/D-IMPL-27)?
-- **Projection-plan selection inputs:** Homecams derives a projection plan from the
-  (agent role, decision intent, product contract) triple. Is this triple the SDK's
-  canonical projection-selection signature, or is intent modeling out of scope?
-- **Replay-record compression lifecycle:** Homecams' three-tier fidelity
-  (full/compressed/tombstoned with never-compress exceptions) is one resolution of
-  year-scale replay storage (D-IMPL-06). Does the SDK ship a fidelity-lifecycle
-  mechanism, or leave retention entirely to the ArtifactStore implementation?
-- **Sync/async runtime split:** Homecams' operationally-proven pattern is a purely
-  synchronous hot path plus an out-of-process async enrichment worker. Does this inform
-  D-IMPL-04(b) (sync/async posture of the SDK runtime)?
-- **Definition-artifact format precedent:** Homecams uses YAML agent/task definitions +
-  Jinja2 prompt templates with a CI grep guard. Is this the D-IMPL-28 starting point, or
-  does the SDK adopt a schema-validated format instead?
-- **Live MongoDB metadata query:** Is a live read-only MongoDB metadata query wanted
-  (would require approving a pymongo install)? The source-code route above satisfied the
-  §2.1 triangulation intent with zero installs; a live query would only add
-  collection-level stats/index metadata. For Dave via the synthesis plan.
