@@ -10,7 +10,16 @@ That restriction is worth exactly as much as the completeness of this module:
 if a backend shipped its writer next to its reader, the lint would guard one
 module while the actual write path lived somewhere unguarded. So the rule is
 structural rather than stylistic — **a new backend adds a writer class here, it
-does not add a writer module elsewhere.**
+does not add a writer module elsewhere.** :class:`SqliteGraphWriter` and
+:class:`PostgresGraphWriter` are that rule honoured: both are here, and both
+are the same algorithm.
+
+**One algorithm, two dialects.** :class:`BaseGraphWriter` holds the whole write
+semantic — content identity, lineage set-union, chain restitching, tenant-scope
+refusal — and a backend contributes only its SQL and its transaction handling.
+Two hand-written copies of the supersession restitch would be two chances to
+get late-arriving observations wrong, and the conformance suite could only tell
+us *that* they disagreed, not which one was right.
 
 The four layers, for the reader who arrives here first (DESIGN.md §2A.5.3):
 
@@ -42,20 +51,24 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator, Sequence
+from contextlib import AbstractContextManager, contextmanager
+from typing import Any, ClassVar, Protocol
+
+import psycopg
 
 from ccf.contracts.canonical import canonical_timestamp, content_hash
 from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
-from ccf.graph.backends.sqlite import (
-    ENTITY_KIND,
-    RELATIONSHIP_KIND,
-    SqliteGraphStore,
-)
+from ccf.graph.backends.postgres import PostgresGraphStore
+from ccf.graph.backends.sqlite import SqliteGraphStore
 from ccf.graph.protocols import UpsertResult
+from ccf.graph.reader import ENTITY_KIND, RELATIONSHIP_KIND, Row
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "BootToken",
+    "PostgresGraphWriter",
     "SingleWriterViolation",
     "SqliteGraphWriter",
     "mint_boot_token",
@@ -134,72 +147,6 @@ def mint_boot_token(*, graph_identity: str) -> BootToken:
     return BootToken(graph_identity=graph_identity, mint_key=_MINT_KEY)
 
 
-_UPSERT_ENTITY_NODE = """
-    INSERT INTO entities (
-        tenant_id, entity_uri, entity_class, first_observed_at, last_observed_at
-    ) VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT (tenant_id, entity_uri) DO UPDATE SET
-        first_observed_at =
-            MIN(entities.first_observed_at, excluded.first_observed_at),
-        last_observed_at =
-            MAX(entities.last_observed_at, excluded.last_observed_at)
-"""
-
-_INSERT_ENTITY_CLAIM = """
-    INSERT OR IGNORE INTO entity_claims (
-        tenant_id, entity_uri, claim_id, claim_json, observed_at,
-        policy_bundle_version
-    ) VALUES (?, ?, ?, ?, ?, ?)
-"""
-
-_SELECT_ENTITY_CHAIN = """
-    SELECT claim_id, observed_at FROM entity_claims
-    WHERE tenant_id = ? AND entity_uri = ?
-    ORDER BY observed_at, rowid
-"""
-
-_UPDATE_ENTITY_SUPERSESSION = """
-    UPDATE entity_claims SET superseded_by = ?, superseded_at = ?
-    WHERE tenant_id = ? AND entity_uri = ? AND claim_id = ?
-"""
-
-_UPSERT_RELATIONSHIP_NODE = """
-    INSERT INTO relationships (
-        tenant_id, relationship_key, relationship_type, subject_uri,
-        object_uri, first_observed_at, last_observed_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT (tenant_id, relationship_key) DO UPDATE SET
-        first_observed_at =
-            MIN(relationships.first_observed_at, excluded.first_observed_at),
-        last_observed_at =
-            MAX(relationships.last_observed_at, excluded.last_observed_at)
-"""
-
-_INSERT_RELATIONSHIP_CLAIM = """
-    INSERT OR IGNORE INTO relationship_claims (
-        tenant_id, relationship_key, claim_id, claim_json, observed_at,
-        policy_bundle_version
-    ) VALUES (?, ?, ?, ?, ?, ?)
-"""
-
-_SELECT_RELATIONSHIP_CHAIN = """
-    SELECT claim_id, observed_at FROM relationship_claims
-    WHERE tenant_id = ? AND relationship_key = ?
-    ORDER BY observed_at, rowid
-"""
-
-_UPDATE_RELATIONSHIP_SUPERSESSION = """
-    UPDATE relationship_claims SET superseded_by = ?, superseded_at = ?
-    WHERE tenant_id = ? AND relationship_key = ? AND claim_id = ?
-"""
-
-_INSERT_LINEAGE = """
-    INSERT OR IGNORE INTO lineage (
-        tenant_id, claim_kind, node_key, claim_id, lineage_id, entry_json
-    ) VALUES (?, ?, ?, ?, ?, ?)
-"""
-
-
 def _entity_content_key(claim: EntityClaim) -> dict[str, object]:
     """The fields that make one entity claim the *same claim* as another.
 
@@ -248,14 +195,35 @@ def relationship_key(claim: RelationshipClaim) -> str:
     )
 
 
-class SqliteGraphWriter:
-    """The single ``GraphWriter`` over one SQLite graph.
+class _Store(Protocol):
+    """What the shared writer needs of a backend store: its identity."""
+
+    @property
+    def graph_identity(self) -> str: ...
+
+
+class _Txn(Protocol):
+    """One open write transaction, in whichever dialect.
+
+    ``execute`` returns the number of rows the statement actually changed —
+    zero for an ignored duplicate. That number is the whole of how the writer
+    distinguishes a new claim from a re-arrival, so it is part of the contract
+    a backend implements rather than an incidental driver detail.
+    """
+
+    def execute(self, sql: str, params: tuple[object, ...]) -> int: ...
+
+    def query(self, sql: str, params: tuple[object, ...]) -> Sequence[Row]: ...
+
+
+class BaseGraphWriter:
+    """The single ``GraphWriter`` over one graph — semantics, minus the dialect.
 
     Whitepaper §7.3; DESIGN.md §2A.5.3/§2A.5.4 step 4. Structurally conforms to
     :class:`ccf.graph.protocols.GraphWriter`.
 
     Args:
-        store: The backend whose connection this writer mutates.
+        store: The backend whose graph this writer mutates.
         token: The boot token authorizing this writer. Required, keyword-only,
             and single-use — omitting it is a ``TypeError`` and forging it is a
             :class:`SingleWriterViolation`.
@@ -265,7 +233,22 @@ class SqliteGraphWriter:
             spent, or authorizes a different graph than ``store``.
     """
 
-    def __init__(self, *, store: SqliteGraphStore, token: BootToken) -> None:
+    #: Node-identity upsert. Widens the observed-time window; never deletes.
+    UPSERT_ENTITY_NODE: ClassVar[str]
+    #: Append a claim, ignoring an exact re-arrival.
+    INSERT_ENTITY_CLAIM: ClassVar[str]
+    #: The node's whole claim chain in observed-time order.
+    SELECT_ENTITY_CHAIN: ClassVar[str]
+    #: Set (or clear) one claim's supersession edge.
+    UPDATE_ENTITY_SUPERSESSION: ClassVar[str]
+    UPSERT_RELATIONSHIP_NODE: ClassVar[str]
+    INSERT_RELATIONSHIP_CLAIM: ClassVar[str]
+    SELECT_RELATIONSHIP_CHAIN: ClassVar[str]
+    UPDATE_RELATIONSHIP_SUPERSESSION: ClassVar[str]
+    #: Append one lineage entry, ignoring one already recorded.
+    INSERT_LINEAGE: ClassVar[str]
+
+    def __init__(self, *, store: _Store, token: BootToken) -> None:
         if not isinstance(token, BootToken):
             raise SingleWriterViolation(
                 "a GraphWriter requires a BootToken minted by the composition "
@@ -277,16 +260,18 @@ class SqliteGraphWriter:
                 "paired with"
             )
         self._graph_identity = token.consume()
-        self._store = store
         self._closed = False
 
-    def _connection(self) -> sqlite3.Connection:
+    def _check_open(self) -> None:
         if self._closed:
             raise SingleWriterViolation(
                 "this GraphWriter has been closed; obtain a new fabric through "
                 "the composition root"
             )
-        return self._store.connection
+
+    def _transaction(self) -> AbstractContextManager[_Txn]:
+        """Open one all-or-nothing write transaction."""
+        raise NotImplementedError
 
     def close(self) -> None:
         """Retire this writer and release its graph for a subsequent boot.
@@ -301,7 +286,7 @@ class SqliteGraphWriter:
 
     def _write_lineage(
         self,
-        connection: sqlite3.Connection,
+        txn: _Txn,
         *,
         tenant_id: str,
         kind: str,
@@ -311,16 +296,16 @@ class SqliteGraphWriter:
     ) -> int:
         """Accumulate lineage by set-union; return how many entries were new.
 
-        ``INSERT OR IGNORE`` on the full entry identity *is* the set-union: a
-        re-delivered envelope collides and is dropped, a second source does not
-        (INV-CH7-17). Nothing here overwrites — an ``UPDATE`` of a lineage
+        Ignore-on-conflict against the full entry identity *is* the set-union:
+        a re-delivered envelope collides and is dropped, a second source does
+        not (INV-CH7-17). Nothing here overwrites — an ``UPDATE`` of a lineage
         column would satisfy an idempotence test while destroying the
         multi-source evidence the L axis exists to hold.
         """
-        before = connection.total_changes
+        added = 0
         for entry in entries:
-            connection.execute(
-                _INSERT_LINEAGE,
+            added += txn.execute(
+                self.INSERT_LINEAGE,
                 (
                     tenant_id,
                     kind,
@@ -330,12 +315,11 @@ class SqliteGraphWriter:
                     json.dumps(entry.model_dump(mode="json"), sort_keys=True),
                 ),
             )
-        added = connection.total_changes - before
-        return int(added)
+        return added
 
+    @staticmethod
     def _restitch_chain(
-        self,
-        connection: sqlite3.Connection,
+        txn: _Txn,
         *,
         select_sql: str,
         update_sql: str,
@@ -353,13 +337,13 @@ class SqliteGraphWriter:
 
         Returns the ``claim_id`` this write superseded, if any.
         """
-        chain = connection.execute(select_sql, (tenant_id, node_key)).fetchall()
+        chain = txn.query(select_sql, (tenant_id, node_key))
         superseded: str | None = None
         for position, row in enumerate(chain):
             is_last = position == len(chain) - 1
             successor = None if is_last else chain[position + 1]["claim_id"]
             successor_at = None if is_last else chain[position + 1]["observed_at"]
-            connection.execute(
+            txn.execute(
                 update_sql,
                 (successor, successor_at, tenant_id, node_key, row["claim_id"]),
             )
@@ -385,15 +369,15 @@ class SqliteGraphWriter:
     ) -> UpsertResult:
         """Idempotently upsert an entity claim, accumulating lineage by union."""
         self._require_scope(tenant_id=tenant_id, claim_tenant_id=claim.tenant_id)
-        connection = self._connection()
+        self._check_open()
         claim_id = content_hash(_entity_content_key(claim))
         observed_at = canonical_timestamp(claim.observed_at)
         payload = json.dumps(
             claim.model_dump(mode="json", exclude={"lineage"}), sort_keys=True
         )
-        with connection:
-            connection.execute(
-                _UPSERT_ENTITY_NODE,
+        with self._transaction() as txn:
+            txn.execute(
+                self.UPSERT_ENTITY_NODE,
                 (
                     tenant_id,
                     claim.entity_uri,
@@ -402,20 +386,22 @@ class SqliteGraphWriter:
                     observed_at,
                 ),
             )
-            cursor = connection.execute(
-                _INSERT_ENTITY_CLAIM,
-                (
-                    tenant_id,
-                    claim.entity_uri,
-                    claim_id,
-                    payload,
-                    observed_at,
-                    policy_bundle_version,
-                ),
+            created = (
+                txn.execute(
+                    self.INSERT_ENTITY_CLAIM,
+                    (
+                        tenant_id,
+                        claim.entity_uri,
+                        claim_id,
+                        payload,
+                        observed_at,
+                        policy_bundle_version,
+                    ),
+                )
+                == 1
             )
-            created = cursor.rowcount == 1
             lineage_added = self._write_lineage(
-                connection,
+                txn,
                 tenant_id=tenant_id,
                 kind=ENTITY_KIND,
                 node_key=claim.entity_uri,
@@ -424,9 +410,9 @@ class SqliteGraphWriter:
             )
             superseded = (
                 self._restitch_chain(
-                    connection,
-                    select_sql=_SELECT_ENTITY_CHAIN,
-                    update_sql=_UPDATE_ENTITY_SUPERSESSION,
+                    txn,
+                    select_sql=self.SELECT_ENTITY_CHAIN,
+                    update_sql=self.UPDATE_ENTITY_SUPERSESSION,
                     tenant_id=tenant_id,
                     node_key=claim.entity_uri,
                     new_claim_id=claim_id,
@@ -451,16 +437,16 @@ class SqliteGraphWriter:
     ) -> UpsertResult:
         """Idempotently upsert a relationship claim, with per-edge lineage."""
         self._require_scope(tenant_id=tenant_id, claim_tenant_id=claim.tenant_id)
-        connection = self._connection()
+        self._check_open()
         key = relationship_key(claim)
         claim_id = content_hash(_relationship_content_key(claim))
         observed_at = canonical_timestamp(claim.observed_at)
         payload = json.dumps(
             claim.model_dump(mode="json", exclude={"lineage"}), sort_keys=True
         )
-        with connection:
-            connection.execute(
-                _UPSERT_RELATIONSHIP_NODE,
+        with self._transaction() as txn:
+            txn.execute(
+                self.UPSERT_RELATIONSHIP_NODE,
                 (
                     tenant_id,
                     key,
@@ -471,20 +457,22 @@ class SqliteGraphWriter:
                     observed_at,
                 ),
             )
-            cursor = connection.execute(
-                _INSERT_RELATIONSHIP_CLAIM,
-                (
-                    tenant_id,
-                    key,
-                    claim_id,
-                    payload,
-                    observed_at,
-                    policy_bundle_version,
-                ),
+            created = (
+                txn.execute(
+                    self.INSERT_RELATIONSHIP_CLAIM,
+                    (
+                        tenant_id,
+                        key,
+                        claim_id,
+                        payload,
+                        observed_at,
+                        policy_bundle_version,
+                    ),
+                )
+                == 1
             )
-            created = cursor.rowcount == 1
             lineage_added = self._write_lineage(
-                connection,
+                txn,
                 tenant_id=tenant_id,
                 kind=RELATIONSHIP_KIND,
                 node_key=key,
@@ -493,9 +481,9 @@ class SqliteGraphWriter:
             )
             superseded = (
                 self._restitch_chain(
-                    connection,
-                    select_sql=_SELECT_RELATIONSHIP_CHAIN,
-                    update_sql=_UPDATE_RELATIONSHIP_SUPERSESSION,
+                    txn,
+                    select_sql=self.SELECT_RELATIONSHIP_CHAIN,
+                    update_sql=self.UPDATE_RELATIONSHIP_SUPERSESSION,
                     tenant_id=tenant_id,
                     node_key=key,
                     new_claim_id=claim_id,
@@ -510,3 +498,194 @@ class SqliteGraphWriter:
             lineage_added=lineage_added,
             superseded_claim_id=superseded,
         )
+
+
+class _SqliteTxn:
+    """``_Txn`` over a ``sqlite3`` connection inside a ``with connection`` block."""
+
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        self._connection = connection
+
+    def execute(self, sql: str, params: tuple[object, ...]) -> int:
+        cursor = self._connection.execute(sql, params)
+        return max(cursor.rowcount, 0)
+
+    def query(self, sql: str, params: tuple[object, ...]) -> Sequence[Row]:
+        return self._connection.execute(sql, params).fetchall()
+
+
+class SqliteGraphWriter(BaseGraphWriter):
+    """The single ``GraphWriter`` over one SQLite graph — the D-IMPL-02 dev backend."""
+
+    UPSERT_ENTITY_NODE: ClassVar[str] = """
+        INSERT INTO entities (
+            tenant_id, entity_uri, entity_class, first_observed_at,
+            last_observed_at
+        ) VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT (tenant_id, entity_uri) DO UPDATE SET
+            first_observed_at =
+                MIN(entities.first_observed_at, excluded.first_observed_at),
+            last_observed_at =
+                MAX(entities.last_observed_at, excluded.last_observed_at)
+    """
+    INSERT_ENTITY_CLAIM: ClassVar[str] = """
+        INSERT INTO entity_claims (
+            tenant_id, entity_uri, claim_id, claim_json, observed_at,
+            policy_bundle_version
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (tenant_id, entity_uri, claim_id) DO NOTHING
+    """
+    SELECT_ENTITY_CHAIN: ClassVar[str] = """
+        SELECT claim_id, observed_at FROM entity_claims
+        WHERE tenant_id = ? AND entity_uri = ?
+        ORDER BY observed_at, rowid
+    """
+    UPDATE_ENTITY_SUPERSESSION: ClassVar[str] = """
+        UPDATE entity_claims SET superseded_by = ?, superseded_at = ?
+        WHERE tenant_id = ? AND entity_uri = ? AND claim_id = ?
+    """
+    UPSERT_RELATIONSHIP_NODE: ClassVar[str] = """
+        INSERT INTO relationships (
+            tenant_id, relationship_key, relationship_type, subject_uri,
+            object_uri, first_observed_at, last_observed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (tenant_id, relationship_key) DO UPDATE SET
+            first_observed_at =
+                MIN(relationships.first_observed_at, excluded.first_observed_at),
+            last_observed_at =
+                MAX(relationships.last_observed_at, excluded.last_observed_at)
+    """
+    INSERT_RELATIONSHIP_CLAIM: ClassVar[str] = """
+        INSERT INTO relationship_claims (
+            tenant_id, relationship_key, claim_id, claim_json, observed_at,
+            policy_bundle_version
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (tenant_id, relationship_key, claim_id) DO NOTHING
+    """
+    SELECT_RELATIONSHIP_CHAIN: ClassVar[str] = """
+        SELECT claim_id, observed_at FROM relationship_claims
+        WHERE tenant_id = ? AND relationship_key = ?
+        ORDER BY observed_at, rowid
+    """
+    UPDATE_RELATIONSHIP_SUPERSESSION: ClassVar[str] = """
+        UPDATE relationship_claims SET superseded_by = ?, superseded_at = ?
+        WHERE tenant_id = ? AND relationship_key = ? AND claim_id = ?
+    """
+    INSERT_LINEAGE: ClassVar[str] = """
+        INSERT INTO lineage (
+            tenant_id, claim_kind, node_key, claim_id, lineage_id, entry_json
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (tenant_id, claim_kind, node_key, claim_id, lineage_id)
+        DO NOTHING
+    """
+
+    def __init__(self, *, store: SqliteGraphStore, token: BootToken) -> None:
+        super().__init__(store=store, token=token)
+        self._store = store
+
+    @contextmanager
+    def _transaction(self) -> Iterator[_Txn]:
+        self._check_open()
+        connection = self._store.connection
+        with connection:
+            yield _SqliteTxn(connection)
+
+
+class _PostgresTxn:
+    """``_Txn`` over a psycopg cursor inside an explicit transaction."""
+
+    def __init__(self, cursor: psycopg.Cursor[dict[str, Any]]) -> None:
+        self._cursor = cursor
+
+    def execute(self, sql: str, params: tuple[object, ...]) -> int:
+        self._cursor.execute(sql.encode(), params)
+        return max(self._cursor.rowcount, 0)
+
+    def query(self, sql: str, params: tuple[object, ...]) -> Sequence[Row]:
+        self._cursor.execute(sql.encode(), params)
+        return self._cursor.fetchall()
+
+
+class PostgresGraphWriter(BaseGraphWriter):
+    """The single ``GraphWriter`` over one Postgres graph — the D-IMPL-02 production backend.
+
+    Same algorithm as :class:`SqliteGraphWriter`, inherited rather than
+    restated. What differs is dialect: ``%s`` placeholders,
+    ``LEAST``/``GREATEST`` for the observed-time window, and ``seq`` where
+    SQLite reads ``rowid``.
+    """
+
+    UPSERT_ENTITY_NODE: ClassVar[str] = """
+        INSERT INTO entities (
+            tenant_id, entity_uri, entity_class, first_observed_at,
+            last_observed_at
+        ) VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (tenant_id, entity_uri) DO UPDATE SET
+            first_observed_at =
+                LEAST(entities.first_observed_at, excluded.first_observed_at),
+            last_observed_at =
+                GREATEST(entities.last_observed_at, excluded.last_observed_at)
+    """
+    INSERT_ENTITY_CLAIM: ClassVar[str] = """
+        INSERT INTO entity_claims (
+            tenant_id, entity_uri, claim_id, claim_json, observed_at,
+            policy_bundle_version
+        ) VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (tenant_id, entity_uri, claim_id) DO NOTHING
+    """
+    SELECT_ENTITY_CHAIN: ClassVar[str] = """
+        SELECT claim_id, observed_at FROM entity_claims
+        WHERE tenant_id = %s AND entity_uri = %s
+        ORDER BY observed_at, seq
+    """
+    UPDATE_ENTITY_SUPERSESSION: ClassVar[str] = """
+        UPDATE entity_claims SET superseded_by = %s, superseded_at = %s
+        WHERE tenant_id = %s AND entity_uri = %s AND claim_id = %s
+    """
+    UPSERT_RELATIONSHIP_NODE: ClassVar[str] = """
+        INSERT INTO relationships (
+            tenant_id, relationship_key, relationship_type, subject_uri,
+            object_uri, first_observed_at, last_observed_at
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (tenant_id, relationship_key) DO UPDATE SET
+            first_observed_at =
+                LEAST(relationships.first_observed_at,
+                      excluded.first_observed_at),
+            last_observed_at =
+                GREATEST(relationships.last_observed_at,
+                         excluded.last_observed_at)
+    """
+    INSERT_RELATIONSHIP_CLAIM: ClassVar[str] = """
+        INSERT INTO relationship_claims (
+            tenant_id, relationship_key, claim_id, claim_json, observed_at,
+            policy_bundle_version
+        ) VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (tenant_id, relationship_key, claim_id) DO NOTHING
+    """
+    SELECT_RELATIONSHIP_CHAIN: ClassVar[str] = """
+        SELECT claim_id, observed_at FROM relationship_claims
+        WHERE tenant_id = %s AND relationship_key = %s
+        ORDER BY observed_at, seq
+    """
+    UPDATE_RELATIONSHIP_SUPERSESSION: ClassVar[str] = """
+        UPDATE relationship_claims SET superseded_by = %s, superseded_at = %s
+        WHERE tenant_id = %s AND relationship_key = %s AND claim_id = %s
+    """
+    INSERT_LINEAGE: ClassVar[str] = """
+        INSERT INTO lineage (
+            tenant_id, claim_kind, node_key, claim_id, lineage_id, entry_json
+        ) VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (tenant_id, claim_kind, node_key, claim_id, lineage_id)
+        DO NOTHING
+    """
+
+    def __init__(self, *, store: PostgresGraphStore, token: BootToken) -> None:
+        super().__init__(store=store, token=token)
+        self._store = store
+
+    @contextmanager
+    def _transaction(self) -> Iterator[_Txn]:
+        self._check_open()
+        connection = self._store.connection
+        with connection.transaction(), connection.cursor() as cursor:
+            yield _PostgresTxn(cursor)

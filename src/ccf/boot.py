@@ -33,6 +33,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 from types import TracebackType
+from typing import Protocol
 
 from ccf.assembly.worker import (
     AssemblyWorker,
@@ -40,7 +41,14 @@ from ccf.assembly.worker import (
     SpecDrivenEntityResolution,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol
-from ccf.graph._writer import SqliteGraphWriter, mint_boot_token
+from ccf.graph._writer import (
+    BaseGraphWriter,
+    BootToken,
+    PostgresGraphWriter,
+    SqliteGraphWriter,
+    mint_boot_token,
+)
+from ccf.graph.backends.postgres import DEFAULT_SCHEMA, PostgresGraphStore
 from ccf.graph.backends.sqlite import SqliteGraphStore
 from ccf.graph.protocols import GraphReader
 
@@ -92,16 +100,64 @@ class FabricHandle:
         self.close()
 
 
+class _Backend(Protocol):
+    """What ``boot`` needs of a graph backend, whichever substrate it is."""
+
+    @property
+    def graph_identity(self) -> str: ...
+
+    @property
+    def reader(self) -> GraphReader: ...
+
+    def close(self) -> None: ...
+
+
+def _open_backend(
+    *,
+    database_path: Path | str | None,
+    postgres_dsn: str | None,
+    postgres_schema: str,
+) -> tuple[_Backend, Callable[[BootToken], BaseGraphWriter]]:
+    """Select and open the graph backend named by explicit configuration.
+
+    Selection is by explicit argument, never by inference from the shape of a
+    string: a fabric that guessed its own substrate could silently boot against
+    a development SQLite file in production and would still pass every test.
+    SQLite remains the *default* (D-IMPL-02) precisely because it is the
+    development backend; Postgres is chosen by saying so.
+
+    Raises:
+        ValueError: neither backend was named, or both were.
+    """
+    if (database_path is None) == (postgres_dsn is None):
+        raise ValueError(
+            "boot requires exactly one of database_path (SQLite) or "
+            "postgres_dsn (Postgres); the fabric does not infer its substrate"
+        )
+    if postgres_dsn is not None:
+        pg_store = PostgresGraphStore(dsn=postgres_dsn, schema=postgres_schema)
+        return pg_store, lambda token: PostgresGraphWriter(
+            store=pg_store, token=token
+        )
+    assert database_path is not None  # narrowed by the exclusivity check above
+    sqlite_store = SqliteGraphStore(database_path=database_path)
+    return sqlite_store, lambda token: SqliteGraphWriter(
+        store=sqlite_store, token=token
+    )
+
+
 def boot(
     *,
-    database_path: Path | str,
+    database_path: Path | str | None = None,
+    postgres_dsn: str | None = None,
+    postgres_schema: str = DEFAULT_SCHEMA,
     registry: ControlPlaneProtocol,
     resolution_spec_key: str,
     resolution_spec_version: str,
     policy_bundle_key: str,
     policy_bundle_version: str,
 ) -> FabricHandle:
-    """Construct a fabric over one SQLite graph and return its handle.
+    """Construct a fabric over one graph and return its handle.
 
     Every Control Plane binding is an explicit, pinned ``(key, version)`` pair.
     There are no defaults and no "latest": a fabric whose configuration could
@@ -109,8 +165,13 @@ def boot(
     (D-IMPL-38, whitepaper §7.10).
 
     Args:
-        database_path: The graph to attach to. Also the graph identity the
-            single-writer check keys on.
+        database_path: SQLite file to attach to. Mutually exclusive with
+            ``postgres_dsn``; exactly one must be given.
+        postgres_dsn: libpq connection string for the Postgres backend. Comes
+            from the deployment's environment; it is never persisted and never
+            reproduced in the graph identity the single-writer check uses.
+        postgres_schema: Postgres schema the fabric's tables live in. Two
+            schemas on one database are two graphs.
         registry: Control Plane the resolution spec and policy bundle come from.
         resolution_spec_key: Key of the :class:`EntityResolutionSpec` artifact.
         resolution_spec_version: Pinned version of that artifact.
@@ -118,6 +179,8 @@ def boot(
         policy_bundle_version: Pinned version of that bundle.
 
     Raises:
+        ValueError: neither or both of ``database_path`` / ``postgres_dsn``
+            were given.
         ccf.graph._writer.SingleWriterViolation: a live writer already exists
             for this graph.
         ccf.controlplane.registry.ControlPlaneMissing: a pinned key or version
@@ -125,14 +188,18 @@ def boot(
         TypeError: the resolution-spec artifact is not an
             :class:`EntityResolutionSpec`.
     """
-    store = SqliteGraphStore(database_path=database_path)
+    store, make_writer = _open_backend(
+        database_path=database_path,
+        postgres_dsn=postgres_dsn,
+        postgres_schema=postgres_schema,
+    )
     try:
         token = mint_boot_token(graph_identity=store.graph_identity)
     except BaseException:
         store.close()
         raise
 
-    writer = SqliteGraphWriter(store=store, token=token)
+    writer = make_writer(token)
 
     def shutdown() -> None:
         writer.close()

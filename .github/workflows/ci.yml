@@ -66,6 +66,11 @@ jobs:
     env:
       # Consumed by the D-16 parametrized Protocol conformance suite.
       CCF_TEST_POSTGRES_DSN: postgresql://ccf:ccf_test_password@localhost:5432/ccf_test
+      # In CI, "no Postgres available" is a failure, not a skip. Without this
+      # the postgres leg below would go green by collecting real tests and then
+      # skipping every one of them (D-10 requires the same suite on the real
+      # substrate, not the option of it).
+      CCF_REQUIRE_POSTGRES: "1"
 
     steps:
       - uses: actions/checkout@v4
@@ -81,8 +86,12 @@ jobs:
       - name: Quick suite (no external substrates)
         run: pytest tests -q -m "not postgres and not chroma"
 
+      # The same twelve GraphStore conformance semantics the quick suite runs
+      # on SQLite, run again on the service container through the `postgres`
+      # param of the `graph_backend` fixture (D-11/D-16). `-rs` surfaces any
+      # skip in the log; CCF_REQUIRE_POSTGRES above makes one fail the job.
       - name: Postgres leg (service container)
-        run: pytest tests -q -m postgres
+        run: pytest tests -q -m postgres -rs
 
       # Coverage is informational only — D-17 sets no numeric gate.
       - name: Coverage (informational)
