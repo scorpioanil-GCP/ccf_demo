@@ -10,10 +10,23 @@ they compose under
 with ``∘`` read right-to-left, which is why the planner's dependency order runs
 Policy → Similarity → Temporal → Traversal.
 
-This package holds the operator contract (:mod:`ccf.operators.base`) and the
-slice's one genuine operator per category (:mod:`ccf.operators.categories`).
-The registry, parameterization surface, and the full composition-preservation
-harness widen in the operator subsystem plan.
+The package is five modules, split along the mechanism/values line:
+
+:mod:`ccf.operators.base`
+    The operator contract, the canonical categories, and the provenance
+    sub-chain every invocation contributes.
+:mod:`ccf.operators.params`
+    The declared parameter contracts — schema only, never a value, never a
+    default (D-IMPL-38).
+:mod:`ccf.operators.categories`
+    One genuine operator per canonical category.
+:mod:`ccf.operators.registry`
+    What a fabric may run, under what key, category, parameter schema, and
+    version (INV-CH7-29, D-IMPL-37).
+:mod:`ccf.operators.planner`
+    Declared keys in, totally-ordered plan out; the per-execution intermediate
+    memo (D-IMPL-36); and :func:`~ccf.operators.planner.compose`, the composite
+    ``A∘B`` the composition-preservation property asserts against.
 
 Algorithmic package (CINV-03): L4 computes, it never interprets.
 """

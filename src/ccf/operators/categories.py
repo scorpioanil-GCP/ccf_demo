@@ -7,8 +7,11 @@ substitution, INV-CH7-27 corpus-scoped similarity); DESIGN.md §2B.1.
 These four are minimal in *coverage* and deliberately not minimal in
 *behavior*: each one actually removes or reshapes graph state, so a chain of
 them is a chain, not four identity functions wearing category names (D-02).
-The registry, the full parameter surface, and additional operators per category
-arrive with the operator subsystem plan.
+
+Their declared parameter contracts live in :mod:`ccf.operators.params`, they
+are registered with their category and parameter schema in
+:mod:`ccf.operators.registry`, and :mod:`ccf.operators.planner` is what puts
+them in the canonical dependency order.
 
 **Substitution, not filtering.** Every operator here returns a view that is
 itself a valid graph for the principal (INV-CH7-40): when an entity is removed,
@@ -27,7 +30,6 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from datetime import datetime
 
 from ccf.graph.protocols import EntityRecord, GraphView, RelationshipRecord
@@ -35,9 +37,14 @@ from ccf.operators.base import (
     Operator,
     OperatorCategory,
     OperatorOutput,
-    OperatorParameters,
     OperatorProvenance,
     mint_provenance,
+)
+from ccf.operators.params import (
+    PolicyFilterParameters,
+    SimilaritySelectParameters,
+    TemporalAsOfParameters,
+    TraversalNeighborhoodParameters,
 )
 from ccf.similarity.protocol import SimilarityIndexProtocol
 
@@ -79,28 +86,6 @@ def _substitute(
         relationships=kept,
     )
 
-
-class PolicyFilterParameters(OperatorParameters):
-    """Declared parameters of the Policy operator.
-
-    Attributes:
-        permitted_policy_bundle_versions: Which Control Plane policy-bundle
-            versions this principal is admitted to read state stamped under.
-        classification_attribute_by_class: ``entity_class -> attribute key``
-            carrying that class's classification. Per class rather than one
-            global key, because classes carry their sensitivity in their own
-            vocabulary — two classes in the same deployment routinely carry
-            their sensitivity in differently-named fields. An entity class
-            absent from this mapping is inadmissible.
-        permitted_classifications: The classification values the principal may
-            see. Everything else — *including an entity carrying no
-            classification at all* — is excluded: the fabric does not admit
-            state it cannot prove is admissible.
-    """
-
-    permitted_policy_bundle_versions: frozenset[str]
-    classification_attribute_by_class: Mapping[str, str]
-    permitted_classifications: frozenset[str]
 
 
 class PolicyFilter:
@@ -153,24 +138,6 @@ class PolicyFilter:
             provenance=mint_provenance(self, upstream=upstream),
         )
 
-
-class SimilaritySelectParameters(OperatorParameters):
-    """Declared parameters of the Similarity operator.
-
-    Attributes:
-        query: The corpus query. A *parameter*, not a prompt: it is matched
-            lexically by the index, never sent to a model (Mode 1).
-        minimum_score_percent: Integer inclusion floor on the ``0..100`` scale.
-            Integer because floats have no canonical rendering.
-        ranked_entity_classes: Which entity classes are subject to ranking.
-            Classes outside this set pass through untouched — a similarity
-            operator that silently deleted every entity class it was not asked
-            about would not be ranking, it would be filtering.
-    """
-
-    query: str
-    minimum_score_percent: int
-    ranked_entity_classes: frozenset[str]
 
 
 class SimilaritySelect:
@@ -244,20 +211,6 @@ class SimilaritySelect:
             ),
         )
 
-
-class TemporalAsOfParameters(OperatorParameters):
-    """Declared parameters of the Temporal operator.
-
-    Attributes:
-        require_valid_at_boundary: When true, a claim survives only if its
-            *valid* interval covers the boundary, not merely if the fabric had
-            observed it by then. The two questions — "what did we know?" and
-            "what was true?" — are the two axes of the bitemporal model, and
-            which one a decision needs is a decision-class property, so it is
-            declared rather than assumed.
-    """
-
-    require_valid_at_boundary: bool
 
 
 class TemporalAsOf:
@@ -340,23 +293,6 @@ class TemporalAsOf:
             provenance=mint_provenance(self, upstream=upstream),
         )
 
-
-class TraversalNeighborhoodParameters(OperatorParameters):
-    """Declared parameters of the Traversal operator.
-
-    Attributes:
-        seed_entity_classes: Where the walk starts, in ontology vocabulary.
-        relationship_types: Which typed edges the walk may cross. Typed, per
-            INV-CH7-20 — a walk over "all edges" is not a bounded expansion of
-            relevance, it is a table scan with extra steps.
-        depth_limit: Maximum hops from a seed. Required, no default: the bound
-            is the operator's entire correctness claim (INV-CH7-24), and a
-            default bound is one nobody chose.
-    """
-
-    seed_entity_classes: frozenset[str]
-    relationship_types: frozenset[str]
-    depth_limit: int
 
 
 class TraversalNeighborhood:
