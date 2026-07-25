@@ -1,22 +1,39 @@
 """Control Plane registry tests (FABR-07; DESIGN.md §7; D-IMPL-38).
 
 The registry is the one config surface every later subsystem reads through, so
-its three load-bearing properties are pinned here before anything depends on
-them: append-only versioning, explicit-pin resolution, and no-silent-default.
+its load-bearing properties are pinned here before anything depends on them:
+append-only versioning, explicit-pin resolution, no-silent-default, typed
+registration against declared artifact classes, and an audit plane that records
+reads as well as writes (INV-CH7-71).
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
+from ccf.controlplane.artifacts import (
+    DEBT_PROFILE,
+    HALF_LIFE_TABLE,
+    ArtifactLoadError,
+    DebtProfile,
+    DeclaredArtifact,
+    HalfLifeEntry,
+    HalfLifeTable,
+    declared_artifact_class,
+    load_artifact,
+    parse_artifact,
+)
+from ccf.controlplane.audit import AuditLog
 from ccf.controlplane.registry import (
     ControlPlaneMissing,
     ControlPlaneProtocol,
     ControlPlaneRegistry,
+    ReplayResolver,
 )
 
 
@@ -128,3 +145,217 @@ def test_module_is_tagged_algorithmic() -> None:
     import ccf.controlplane.registry as registry_mod
 
     assert registry_mod.__ccf_mode__ == "algorithmic"
+
+
+# --- typed registration ----------------------------------------------------
+
+
+def _half_life_table() -> HalfLifeTable:
+    """A one-row λ_c table. The row's values are this test's, not the SDK's."""
+    return HalfLifeTable(
+        semver="1.0.0",
+        entries={
+            "kyc-sanctions-match": HalfLifeEntry(
+                half_life_seconds=3600,
+                decay_driver="real-time sanctions feed",
+                supersession_event="new match or clearance",
+            )
+        },
+    )
+
+
+def _debt_profile() -> DebtProfile:
+    return DebtProfile(
+        semver="1.0.0",
+        risk_sensitivity=Decimal("0.5"),
+        forced_llm_threshold=Decimal("0.4"),
+        fail_closed_threshold=Decimal("0.9"),
+    )
+
+
+def test_typed_registration_stores_and_records_the_class() -> None:
+    registry = _registry()
+    key = "acme-bank/half-life/wholesale"
+    version = registry.register_typed(key, _half_life_table(), HALF_LIFE_TABLE)
+    assert registry.resolve(key, version) == _half_life_table()
+    assert registry.artifact_class_of(key) == HALF_LIFE_TABLE.class_id
+    assert registry.audit_events()[0].artifact_class == HALF_LIFE_TABLE.class_id
+
+
+def test_typed_registration_rejects_an_artifact_of_the_wrong_class() -> None:
+    registry = _registry()
+    with pytest.raises(TypeError):
+        registry.register_typed("acme/half-life", _debt_profile(), HALF_LIFE_TABLE)
+
+
+def test_typed_registration_rejects_an_untyped_mapping() -> None:
+    registry = _registry()
+    with pytest.raises(TypeError):
+        registry.register_typed("acme/half-life", {"entries": {}}, HALF_LIFE_TABLE)
+
+
+def test_a_key_cannot_be_rebound_to_a_different_artifact_class() -> None:
+    registry = _registry()
+    key = "acme/config"
+    registry.register_typed(key, _half_life_table(), HALF_LIFE_TABLE)
+    with pytest.raises(TypeError):
+        registry.register_typed(key, _debt_profile(), DEBT_PROFILE)
+
+
+def test_typed_registration_is_append_only_like_the_untyped_path() -> None:
+    registry = _registry()
+    key = "acme/half-life"
+    v1 = registry.register_typed(key, _half_life_table(), HALF_LIFE_TABLE)
+    widened = _half_life_table().model_copy(update={"semver": "1.1.0"})
+    v2 = registry.register_typed(key, widened, HALF_LIFE_TABLE)
+    assert registry.versions(key) == (v1, v2)
+    assert registry.resolve(key, v1) == _half_life_table()
+
+
+def test_a_user_declared_artifact_class_is_registrable() -> None:
+    """Policy bundles and operator parameter sets have deployment schemas."""
+    registry = _registry()
+    policy = declared_artifact_class("acme-bank.policy-bundle")
+    artifact = DeclaredArtifact(
+        semver="2.0.0",
+        class_id=policy.class_id,
+        declaration={"regime": "acme-bank-credit", "jurisdiction": "NL"},
+    )
+    version = registry.register_typed("acme/policy", artifact, policy)
+    assert registry.resolve("acme/policy", version) == artifact
+
+
+# --- artifact contracts and loading ---------------------------------------
+
+
+def test_an_artifact_without_a_semver_lane_is_refused() -> None:
+    with pytest.raises(ValueError):
+        HalfLifeTable.model_validate({"entries": {}})
+
+
+def test_a_malformed_semver_lane_is_refused() -> None:
+    declared = _half_life_table().model_dump()
+    declared["semver"] = "one"
+    with pytest.raises(ValueError):
+        HalfLifeTable.model_validate(declared)
+
+
+def test_an_empty_half_life_table_is_refused() -> None:
+    """A deployment that declared no calibration gets an error, not a default."""
+    with pytest.raises(ValueError):
+        HalfLifeTable.model_validate({"semver": "1.0.0", "entries": {}})
+
+
+def test_loading_a_float_valued_artifact_is_refused() -> None:
+    text = "\n".join(
+        (
+            "semver: '1.0.0'",
+            "risk_sensitivity: 0.5",
+            "forced_llm_threshold: '0.4'",
+            "fail_closed_threshold: '0.9'",
+        )
+    )
+    with pytest.raises(ArtifactLoadError):
+        load_artifact(text, DEBT_PROFILE)
+
+
+def test_loading_a_quoted_decimal_artifact_succeeds() -> None:
+    text = "\n".join(
+        (
+            "semver: '1.0.0'",
+            "risk_sensitivity: '0.5'",
+            "forced_llm_threshold: '0.4'",
+            "fail_closed_threshold: '0.9'",
+        )
+    )
+    loaded = load_artifact(text, DEBT_PROFILE)
+    assert loaded == _debt_profile()
+
+
+def test_loading_a_document_of_the_wrong_shape_is_refused() -> None:
+    with pytest.raises(ArtifactLoadError):
+        parse_artifact({"semver": "1.0.0"}, DEBT_PROFILE)
+
+
+def test_a_loaded_artifact_registers_and_content_addresses_identically() -> None:
+    registry = _registry()
+    text = "\n".join(
+        (
+            "semver: '1.0.0'",
+            "risk_sensitivity: '0.5'",
+            "forced_llm_threshold: '0.4'",
+            "fail_closed_threshold: '0.9'",
+        )
+    )
+    loaded = load_artifact(text, DEBT_PROFILE)
+    from_code = registry.register_typed("acme/debt", _debt_profile(), DEBT_PROFILE)
+    from_yaml = registry.register_typed("acme/debt", loaded, DEBT_PROFILE)
+    assert from_code == from_yaml
+
+
+# --- the audit plane -------------------------------------------------------
+
+
+def test_the_audit_log_grows_on_every_register_and_resolve() -> None:
+    registry = _registry()
+    before = len(registry.audit_events())
+    version = registry.register_typed(
+        "acme/half-life", _half_life_table(), HALF_LIFE_TABLE
+    )
+    after_register = len(registry.audit_events())
+    registry.resolve("acme/half-life", version)
+    after_resolve = len(registry.audit_events())
+    assert before < after_register < after_resolve
+
+
+def test_an_actor_is_recorded_when_stated_and_never_invented() -> None:
+    registry = _registry()
+    registry.register("acme/policy", _Bundle(label="a"), actor="ops@acme-bank")
+    registry.register("acme/policy", _Bundle(label="b"))
+    events = registry.audit_events()
+    assert events[0].actor == "ops@acme-bank"
+    assert events[1].actor is None
+
+
+def test_the_audit_log_is_append_only() -> None:
+    log = AuditLog()
+    log.append(
+        action="register",
+        key="k",
+        version="v",
+        resolved=True,
+        occurred_at=datetime(2026, 7, 25, tzinfo=UTC),
+    )
+    assert isinstance(log.events(), tuple)
+    assert not hasattr(log, "clear")
+    assert not hasattr(log, "remove")
+
+
+def test_audit_sequence_numbers_are_assigned_by_the_log() -> None:
+    log = AuditLog()
+    for _ in range(3):
+        log.append(
+            action="resolve",
+            key="k",
+            version="v",
+            resolved=False,
+            occurred_at=datetime(2026, 7, 25, tzinfo=UTC),
+        )
+    assert [event.sequence for event in log.events()] == [0, 1, 2]
+
+
+# --- the replay path -------------------------------------------------------
+
+
+def test_the_replay_resolver_cannot_reach_latest() -> None:
+    registry = _registry()
+    version = registry.register("acme/policy", _Bundle(label="a"))
+    resolver = ReplayResolver(registry)
+    assert resolver.resolve("acme/policy", version) == _Bundle(label="a")
+    assert not hasattr(resolver, "resolve_latest")
+
+
+def test_the_replay_resolver_propagates_a_missing_version() -> None:
+    resolver = ReplayResolver(_registry())
+    with pytest.raises(ControlPlaneMissing):
+        resolver.resolve("acme/policy", "not-a-version")

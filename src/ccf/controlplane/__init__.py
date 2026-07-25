@@ -12,8 +12,17 @@ v0 realization is an in-process versioned registry with a remote extension
 point (:class:`ccf.controlplane.registry.ControlPlaneProtocol`). It holds
 mechanism only — every value in it arrives from user configuration
 (CLAUDE.md §11, CINV-01).
+
+Three modules, one responsibility each:
+
+* :mod:`ccf.controlplane.artifacts` — the typed artifact classes and the one
+  supported path from a serialized artifact to a validated one.
+* :mod:`ccf.controlplane.audit` — the audit-event contract and append-only log
+  that make the Control Plane the audit plane (INV-CH7-71).
+* :mod:`ccf.controlplane.registry` — versioned, append-only storage and
+  resolution, plus the replay-only resolver that cannot reach "latest".
 """
 
 from __future__ import annotations
 
-__all__ = ["registry"]
+__all__ = ["artifacts", "audit", "registry"]

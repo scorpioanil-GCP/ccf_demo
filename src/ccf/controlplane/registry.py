@@ -1,4 +1,4 @@
-"""Minimal versioned Control Plane registry (SDK-defined mechanism).
+"""The versioned Control Plane registry (SDK-defined mechanism).
 
 Whitepaper §7.8 (Control Plane / Data Plane separation; the Control Plane as
 audit plane) and DESIGN.md §7; registry mechanics themselves are SDK-defined
@@ -26,9 +26,18 @@ and no ``default=`` parameter: a missing configuration value is a deployment
 error that must surface at the point of use, not a condition the fabric papers
 over with a number nobody chose.
 
+**Typed registration.** :meth:`ControlPlaneRegistry.register_typed` validates an
+artifact against a declared :class:`~ccf.controlplane.artifacts.ArtifactClass`
+before it is stored. Untyped :meth:`~ControlPlaneRegistry.register` remains,
+because artifact classes whose schema belongs to a deployment rather than to
+the SDK must still be registrable — but anything the SDK *has* a contract for
+should go through the typed path, where registering the wrong shape under a key
+is caught at registration rather than at the decision that reads it.
+
 Every register and resolve — including failed resolutions — emits an
-:class:`AuditEvent`, because the audit plane is only credible if it records
-lookups that found nothing.
+:class:`~ccf.controlplane.audit.AuditEvent`, because the audit plane is only
+credible if it records lookups that found nothing (whitepaper §7.8.2: the
+Control Plane *is* the audit plane).
 
 This module holds no values: no thresholds, no tables, no key names, no
 defaults (CLAUDE.md §11, CINV-01). Algorithmic module (CINV-03).
@@ -38,10 +47,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Literal, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
-from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
+from ccf.controlplane.artifacts import ArtifactClass
+from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
 
 __ccf_mode__ = "algorithmic"
 
@@ -50,9 +60,8 @@ __all__ = [
     "ControlPlaneMissing",
     "ControlPlaneProtocol",
     "ControlPlaneRegistry",
+    "ReplayResolver",
 ]
-
-AuditAction = Literal["register", "resolve", "resolve_latest"]
 
 
 class ControlPlaneMissing(LookupError):
@@ -63,40 +72,27 @@ class ControlPlaneMissing(LookupError):
     """
 
 
-class AuditEvent(CCFContract):
-    """One audit-plane record of a Control Plane interaction (INV-CH7-71).
-
-    Attributes:
-        sequence: Monotonic position in this registry's audit log.
-        action: Which interaction occurred.
-        key: The configuration key involved.
-        version: The version involved, or the version requested when the
-            resolution failed.
-        resolved: Whether the interaction succeeded. Failed resolutions are
-            recorded too — an audit plane that only logs successes cannot
-            answer "what did the deployment ask for and not have?"
-        occurred_at: Timestamp from the injected clock.
-    """
-
-    sequence: int
-    action: AuditAction
-    key: str
-    version: str
-    resolved: bool
-    occurred_at: datetime
-
-
 @runtime_checkable
 class ControlPlaneProtocol(Protocol):
     """The read/write surface a Control Plane must offer.
 
     Declared as a Protocol so a remote or externally-governed control plane can
     substitute for the in-process registry without any Data Plane component
-    knowing (FABR-07 extension point; CLAUDE.md §13).
+    knowing (FABR-07 extension point; CLAUDE.md §13). The in-process
+    :class:`ControlPlaneRegistry` is the reference implementation, not a
+    privileged one — the audit and typed-registration obligations are on the
+    surface precisely so a remote plane cannot conform while quietly dropping
+    them.
     """
 
     def register(self, key: str, artifact: object) -> str:
         """Append ``artifact`` under ``key``; return its version."""
+        ...
+
+    def register_typed(
+        self, key: str, artifact: object, artifact_class: ArtifactClass
+    ) -> str:
+        """Append ``artifact`` after validating it against ``artifact_class``."""
         ...
 
     def resolve(self, key: str, version: str) -> object:
@@ -105,6 +101,10 @@ class ControlPlaneProtocol(Protocol):
 
     def resolve_latest(self, key: str) -> tuple[str, object]:
         """Return the most recently registered ``(version, artifact)``."""
+        ...
+
+    def audit_events(self) -> tuple[AuditEvent, ...]:
+        """Return the append-only audit log, oldest first."""
         ...
 
 
@@ -129,7 +129,8 @@ class ControlPlaneRegistry:
         self._clock: Callable[[], datetime] = clock or _utc_now
         self._versions: dict[str, list[str]] = {}
         self._artifacts: dict[tuple[str, str], object] = {}
-        self._audit: list[AuditEvent] = []
+        self._classes: dict[str, str] = {}
+        self._audit = AuditLog()
 
     def _record(
         self,
@@ -138,19 +139,20 @@ class ControlPlaneRegistry:
         key: str,
         version: str,
         resolved: bool,
+        actor: str | None = None,
+        artifact_class: str | None = None,
     ) -> None:
         self._audit.append(
-            AuditEvent(
-                sequence=len(self._audit),
-                action=action,
-                key=key,
-                version=version,
-                resolved=resolved,
-                occurred_at=self._clock(),
-            )
+            action=action,
+            key=key,
+            version=version,
+            resolved=resolved,
+            occurred_at=self._clock(),
+            actor=actor,
+            artifact_class=artifact_class or self._classes.get(key),
         )
 
-    def register(self, key: str, artifact: object) -> str:
+    def register(self, key: str, artifact: object, *, actor: str | None = None) -> str:
         """Append ``artifact`` under ``key`` and return its content version.
 
         The artifact must be canonically serializable; anything that is not
@@ -169,8 +171,67 @@ class ControlPlaneRegistry:
         if version not in versions:
             versions.append(version)
             self._artifacts[(key, version)] = artifact
-        self._record(action="register", key=key, version=version, resolved=True)
+        self._record(
+            action="register", key=key, version=version, resolved=True, actor=actor
+        )
         return version
+
+    def register_typed(
+        self,
+        key: str,
+        artifact: object,
+        artifact_class: ArtifactClass,
+        *,
+        actor: str | None = None,
+    ) -> str:
+        """Validate ``artifact`` against ``artifact_class``, then register it.
+
+        The typed path exists because a key is only a string: a mapping stored
+        under a λ_c key is indistinguishable from a λ_c table until something
+        decides against it. Validating at registration moves that failure to
+        the moment a human made the mistake.
+
+        A key is bound to one artifact class for the life of the registry. A
+        later registration under a *different* class is refused rather than
+        silently accepted — a key whose class changes mid-history cannot be
+        resolved coherently at replay time, because the resolver would not know
+        which contract to read the older versions under.
+
+        Raises:
+            TypeError: the artifact does not satisfy the class contract, or the
+                key is already bound to a different artifact class.
+            ccf.contracts.canonical.CanonicalizationError: the artifact has no
+                canonical form.
+        """
+        bound = self._classes.get(key)
+        if bound is not None and bound != artifact_class.class_id:
+            raise TypeError(
+                f"key {key!r} is already bound to artifact class {bound!r};"
+                f" refusing to rebind it to {artifact_class.class_id!r}"
+            )
+        artifact_class.validate(artifact)
+        version = content_hash(artifact)
+        versions = self._versions.setdefault(key, [])
+        if version not in versions:
+            versions.append(version)
+            self._artifacts[(key, version)] = artifact
+        self._classes[key] = artifact_class.class_id
+        self._record(
+            action="register_typed",
+            key=key,
+            version=version,
+            resolved=True,
+            actor=actor,
+            artifact_class=artifact_class.class_id,
+        )
+        return version
+
+    def artifact_class_of(self, key: str) -> str | None:
+        """Return the artifact class bound to ``key``, if it was typed.
+
+        Introspection only — not audited, because it resolves nothing.
+        """
+        return self._classes.get(key)
 
     def resolve(self, key: str, version: str) -> object:
         """Return the exact artifact registered as ``(key, version)``.
@@ -221,4 +282,30 @@ class ControlPlaneRegistry:
 
     def audit_events(self) -> tuple[AuditEvent, ...]:
         """Return the append-only audit log, oldest first (INV-CH7-71)."""
-        return tuple(self._audit)
+        return self._audit.events()
+
+
+class ReplayResolver:
+    """A Control Plane view that can only resolve exact versions.
+
+    Replay reproduces a decision against the configuration in force when it was
+    made (whitepaper §7.10), so the replay path must never reach a "latest"
+    lookup. :meth:`ControlPlaneRegistry.resolve_latest` is separately named to
+    make that reach visible — this wrapper goes further and makes it
+    *unreachable*: the method is not on the object, so a replay path cannot
+    drift onto a moving target even by mistake.
+
+    Wraps any :class:`ControlPlaneProtocol`, including a remote one, so the
+    guarantee survives substituting the plane (D-IMPL-26).
+    """
+
+    def __init__(self, control_plane: ControlPlaneProtocol) -> None:
+        self._control_plane = control_plane
+
+    def resolve(self, key: str, version: str) -> object:
+        """Return the exact artifact registered as ``(key, version)``.
+
+        Raises:
+            ControlPlaneMissing: no such key, or no such version under it.
+        """
+        return self._control_plane.resolve(key, version)
