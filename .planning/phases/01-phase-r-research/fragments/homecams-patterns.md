@@ -140,3 +140,35 @@ default to inherit. The synthesis plan should fold these into the D-IMPL log.
   (would require approving a pymongo install)? The source-code route above satisfied the
   §2.1 triangulation intent with zero installs; a live query would only add
   collection-level stats/index metadata. For Dave via the synthesis plan.
+
+---
+
+## Live MongoDB Metadata Query (D-IMPL-51 — resolved, executed 2026-07-25)
+
+Dave approved a live read-only metadata query at the Phase R gate. Executed via the Homecams venv's existing pymongo (no install) against the Homecams instance with `readPreference=secondaryPreferred`; listing operations only (server_info, list_database_names, list_collection_names, estimated_document_count, list_indexes). No document reads, no writes, no credentials recorded. Server: MongoDB 8.0.19, database `rtdetect`, 55 collections.
+
+### CCF-relevant collections (triangulation for ArtifactStore §7.4, D-IMPL-26/27)
+
+| Collection | ~Docs | Key indexes | CCF mapping |
+|---|---|---|---|
+| `context_edges` | 319,226 | `uniq_edge (tenant_id, subject_id, predicate, object_id, timestamp) UNIQUE`; `forward_traverse`/`reverse_traverse`/`predicate_window` all tenant-prefixed with `timestamp: -1` | L3 graph R-dimension; confirms tenant-first compound-unique upsert identity and bidirectional traversal indexing (INV-CH7 graph entries) |
+| `graph_entities` | 51,256 | `_id` | L3 E-dimension |
+| `context_graphs` | 66,658 | `_id` | Graph snapshots / assembled state |
+| `cognitive_context_fabrics` | 91,129 | `_id` | Assembled fabric state records |
+| `zone_context_fabrics` | 138,639 | `_id` | Domain-scoped fabric partitions (domain-specific — do not inherit the zone partitioning) |
+| `context_products_retired_20260524` | 20,866 | `uniq_product_id UNIQUE`; `tenant_type_observed (tenant_id, product_type, observed_at -1)`; `tenant_lineage (tenant_id, lineage_graph)` | L6 Context Products at rest; suffix-dated retirement = logical supersession via collection rotation (candidate pattern: versioned retirement; the date-suffix mechanics are domain ops, do not inherit) |
+| `projection_cache` | 122,821 | `uniq_product_id UNIQUE`; TTL-style `projection_cache_ttl_expires (expires_at)`; `tenant_perspective_cam_type_observed (tenant_id, perspective.cam_id, product_type, observed_at -1)` | L5 Π output caching with perspective-conditioned index — live confirmation that perspective is a first-class query axis |
+| `decision_replay_records` | 70,667 | `_id` | §7.10 five-dimension replay store — replay at scale is real (70k records) |
+| `classification_lineages` | 10,626 | `_id` | L-dimension lineage records |
+| `context_half_life_states` | 19,277 | `_id` | §7.7 λ_c decay state materialized per observation |
+| `context_debt` | 11 | `_id` | §7.7 D_c records (small: debt is computed, sparsely persisted) |
+| `dynamic_context_assessments` | 7,411 | `_id` | CAR/debt assessment outputs |
+| `tenants` | 1 | `_id` | Single-tenant deployment; `tenant_id` still first in every compound index — live confirmation of the multi-tenant-ready single-tenant posture (D-IMPL-05 data point) |
+
+### Live-query observations for Phase D
+
+1. **`tenant_id` leads every governance-bearing compound index** even in a one-tenant deployment — supports the `tenant_id`-first-class reading of D-IMPL-05.
+2. **Uniqueness discipline matches the whitepaper §7.3 commitment**: unique compound identity on edges (`uniq_edge`) and products (`uniq_product_id`), with append-only + supersession realized via collection rotation (`*_retired_YYYYMMDD`) rather than in-place deletes.
+3. **TTL enforcement is index-level** (`expires_at` on `projection_cache`, `chat_sessions` 30d TTL) — a data point for D-IMPL-31 (TTL locus).
+4. **Quarantine collection exists** (`context_products_unclassified` with tenant/observed index) — admission-gating pattern consistent with Control-Plane-verified admission (candidate pattern).
+5. High-volume operational collections (`heartbeats` 1.5M, `model_scores` 768k, `observer_states` 612k, `zone_processor_results` 563k) are domain telemetry — do not inherit.
