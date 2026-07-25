@@ -19,6 +19,7 @@ Runtime package, async per D-IMPL-04(b).
 
 from __future__ import annotations
 
+from ccf_runtime.cdc.adapter import CDCSourceAdapter
 from ccf_runtime.cdc.envelope_map import (
     CDCMappingError,
     ChangeEvent,
@@ -32,6 +33,7 @@ from ccf_runtime.cdc.envelope_map import (
 
 __all__ = [
     "CDCMappingError",
+    "CDCSourceAdapter",
     "ChangeEvent",
     "ChangeSource",
     "change_image",
