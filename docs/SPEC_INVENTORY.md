@@ -1762,6 +1762,222 @@ Quoted for the synthesis task; numbering (new D-IMPL-NN from D-IMPL-30 onward) i
 
 ---
 
+## Governance Decisions (D-NN)
+
+Every governance decision (D-NN) the whitepaper makes that the SDK must honor, per CLAUDE.md §16. Sweep method: exhaustive `D-[0-9]` grep of `docs/CCF_Whitepaper_1-2.md` with per-hit context reads, plus visual inspection of extracted figure images (`docs/figures/`) for decision boxes/tables the text extraction might have dropped (Fig-CH05-01, Fig-CH06-01, Fig-CH07-04, Fig-CH07-13, Fig-CH07-21, Fig-CH07-26, Fig-CH08-01 checked; no D-NN content appears in figures).
+
+**41 unique D-NN entries found. Verified range D-05..D-56, non-contiguous.**
+
+| D-NN | Name | Whitepaper section | Committed mechanism |
+|------|------|--------------------|---------------------|
+| D-05 | Mode 1 replay exemplar (AML alert triage) | §7.10.4 (cited as "Phase 12 D-05") | Pure-algorithmic product's replay record: five dimensions exactly, model version "N/A" (INV-CH7-88) |
+| D-06 | Mode 2 replay exemplar (credit-memo narrative packaging) | §7.10.4 (cited as "Phase 12 D-06") | Algorithmic substrate as artifact-of-record + four pinned LLM-rendering primitives (INV-CH7-88) |
+| D-07 | Mode 3 replay exemplar (syndicated covenant cross-reference) | §7.10.4 (cited as "Phase 12 D-07") | Orchestration-layer determinism boundary; recursive per-agent records (INV-CH7-88) |
+| D-10 | Bitemporal validity-as-state as a contract-element-level commitment | §6.1 contract-test table (cited as "Phase 12 D-10") | T carried at the §6.3-element level, not as substrate refresh cadence (INV-CH6-01/03) |
+| D-11 | Context Graph as first-class persisted computational primitive | §7.3.1, §7.3.5 | Persisted typed graph with its own invariants/write path/lifecycle (INV-CH7-15, INV-CH7-21) |
+| D-13 | Regulatory large-exposure regime binding in policy scope | §7.3.4, §7.4.6 | P carries applicable regulatory regime bindings at subgraph resolution (INV-CH7-20, INV-CH7-30(d)) |
+| D-14 | Algebraic operator composition | §7.4 | `ContextProduct = Π ∘ Traversal ∘ Temporal ∘ Policy ∘ Similarity` (INV-CH7-23) |
+| D-15 | Operator Plan DAG generator — AND (second use) Per-Mode Replay Footprint | §7.4.2; §7.6.8 (via §7.10.4) | Runtime intent→operator-plan generation (INV-CH7-28); per-mode replay footprint (INV-CH7-56). **Informational: the whitepaper reuses D-15 for two distinct commitments — an internal numbering collision, recorded here, both commitments inventoried.** |
+| D-16 | Five Disciplines for Mixed-Mode Assembly | §7.6.9 (via §7.10.4) | Artifact-of-record, pinning, smoothing watchpoint, cost internalization, failure-mode inventory (INV-CH7-56) |
+| D-17 | Operator composition determinism | §7.4.7 | Function-determinism with permitted value-variance; bit-for-bit reconstruction tuple (INV-CH7-31) |
+| D-18 | Consolidated Rebuttal #11 + #13 answer | §7.4 | Policy-before-Similarity structural prevention; project-then-retrieve (INV-CH7-26) |
+| D-19 | Π performs subgraph substitution, not subgraph filter | §7.5 | Projection output is a valid Context Graph for the principal (INV-CH7-40) |
+| D-20 | ProjectionPlan Protocol as two-method structural interface | §7.5.1 | `required_operators()` + `invoke()`, structural typing dispatch (INV-CH7-41) |
+| D-21 | Lineage source-neutrality | §8.5 (referenced from §8.1) | L records source identity, not source location — migration-proof (INV-CH8-01, INV-CH8-13) |
+| D-22 | Role-shaped views from one shared graph | §7.5.3 (extended §8.9) | Same resolved context, structurally different products per Π, zero state duplication (INV-CH7-43, INV-CH8-20) |
+| D-23 | Runtime conditioning | §7.5.4 | Projection resolved at request time by (role, intent, temporal context, policy); avoids precompute-everything (INV-CH7-43) |
+| D-25 | ContextProductContract base with extra=forbid | §7.6.1 | Seven-field typed base; forbid-extra CI invariant (INV-CH7-45, INV-CH7-33) |
+| D-27 | Materialization policy with conditional write | §7.6.3 | Three-signal per-class materialization decision; cache coherency state machine (INV-CH7-51) |
+| D-28 | Per-class cost envelope | §7.6.5 | Four illustrative cost multiple bands ×1/×3–5/×2–4/×8–15 (INV-CH7-53) |
+| D-30 | SAR-triage replay anticipation | §7.6 (anticipation; resolved by D-55 at §7.10.6) | Worked replay example anticipated at delivery layer, resolved at replay layer (INV-CH7-90) |
+| D-31 | λ_c formula as configuration | §7.7.1–§7.7.2 | `R(t) = R₀ × (1/2)^((t − t₀) / λ_c)`; per-observation-type values in Control Plane config (INV-CH7-57/58) |
+| D-33 | Supersession as Policy event | §7.7.3 | Logical supersession (`superseded_by` + `superseded_at`); Control-Plane-versioned invalidation; lazy re-derivation (INV-CH7-60, INV-CH7-21) |
+| D-34 | D_c formulas | §7.7.4 | Basic `D_c = 1 − (C_available / C_required)`; extended `D_c = 1 − (F · C · S)` (INV-CH7-61/62) |
+| D-35 | Three debt components | §7.7.6 | Source-availability, as-of-staleness, entity-resolution-confidence debt with runtime signals (INV-CH7-64) |
+| D-37 | Trust Triangle debt-mapping | §7.7.8 | Structural mapping of the three debt components onto the §6.6 Trust Triangle legs (INV-CH7-66) |
+| D-38 | Conservative fail-closed bias | §7.7.9 | Elevated D_c biases urgency upward; fail-closed default; uncertainty routed, never smoothed (INV-CH7-67) |
+| D-39 | Debt cascade across agent handoff | §7.7.10–§7.7.11 | D_c recomputed at every handoff; per-claim debt decomposition (INV-CH7-68) |
+| D-40 | Service-mesh Control/Data Plane ancestry | §7.8 | Istio/Envoy-pattern plane separation with CCF-specific cargo (INV-CH7-70) |
+| D-41 | Control-plane-is-audit-plane | §7.8.2 | Every runtime decision auditable against exact rule-state in force; versioned policy events (INV-CH7-71) |
+| D-42 | Configuration surface enumeration | §7.8.3 | Six versioned configuration classes (policy, operator rules, projection logic, D_c, λ_c, materialization) (INV-CH7-72) |
+| D-44 | Data Plane determinism | §7.8.5 | Bit-for-bit identical product under fixed (graph state, config, temporal boundary) (INV-CH7-74) |
+| D-45 | Closed-loop write-back pseudocode | §7.9.1 | `processOutcomeSignal(...) -> ControlPlaneUpdate`; typed OutcomeSignal with own λ_c (INV-CH7-75) |
+| D-46 | Three learning-signal categories | §7.9.2 | Outcome / context-validity / audit-lineage signals, one-event-one-handler (INV-CH7-76) |
+| D-47 | Loop-is-in-the-graph | §7.9.3 | Four Control-Plane-owned refinement targets; no model retraining in the CCF loop (INV-CH7-77) |
+| D-48 | Learning-as-governance | §7.9.4–§7.9.5 | Closed-loop updates under the same versioning/approval/rollback regime as initial config (INV-CH7-78) |
+| D-51 | Five-dimension replay record | §7.10.1 | Fabric Snapshot, Policy Bindings, Model Version, Perspective Conditioning, Content Generation Path — structure inviolate (INV-CH7-80) |
+| D-52 | Environment replay vs model trace | §7.10.2 | CCF reconstructs the decision environment; model trace explicitly out of scope (INV-CH7-86) |
+| D-53 | Anthropic Citations API as passage-level L component primitive | §7.10.3 | Passage-level Lineage populated by a pluggable citation primitive; Evidence Chain (INV-CH7-87) |
+| D-54 | Three-tier compression with severity exemption | §7.10.5 | Full fidelity / Compressed / Tombstoned; severity-exempt decisions retained permanently (INV-CH7-89) |
+| D-55 | AML SAR triage worked replay example | §7.10.6 | End-to-end composition of record + Evidence Chain + compression policy (INV-CH7-90) |
+| D-56 | Three audiences, three renderings | §7.10.7 | One record, three Π-projections; recursive application of the §7.5 primitive (INV-CH7-91) |
+
+**Gap numbers — not found in whitepaper** (verified against text sweep and visual figure check): D-01, D-02, D-03, D-04, D-08, D-09, D-12, D-24, D-26, D-29, D-32, D-36, D-43, D-49, D-50.
+
+Disambiguated false positives: "locked D-01"/"D-02/D-03"/"D-04" in the converter preamble are this project's *conversion* decisions (Phase R history), not whitepaper governance decisions; "Phase 12 D-05/06/07/10" is the whitepaper's own project-history phrasing but each points at a genuine inventoried commitment (rows above); "D1–D5" in Fig-CH07-26 are timeline day markers, not decision identifiers.
+
+---
+
+## Load-Bearing Figures
+
+All 50 figures (`Fig-CHNN-MM`), per CLAUDE.md §16, with the mechanism each commits. Captions abbreviated from the `.md` placeholders (visually reconstructed at conversion per locked D-04); mechanisms cross-checked against the inventory entries citing each figure.
+
+| Figure | Caption (abbreviated) | Mechanism committed |
+|--------|----------------------|---------------------|
+| Fig-CH01-01 | Structural Fragmentation — LoB footprint vs disparate system categories | Motivating condition: estate heterogeneity as the operating state (grounds INV-CH8-01) |
+| Fig-CH01-02 | The Forensic Data Gap | Evidence-trail / as-of / role-view / passage reconstruction as the missing capability (grounds INV-CH8-02) |
+| Fig-CH01-03 | Client 360 — snapshot vs dynamic assembly | Aggregate-vs-assemble distinction; decision-time assembly posture |
+| Fig-CH02-01 | Peer-Bank Agent Adoption Benchmark | Existence proof of agentic scale; no mechanism |
+| Fig-CH02-02 | The Enterprise Agent Stack — five tiers | The fabric tier as the unnamed tier between document-understanding and the data estate; MCP/A2A as the open wire protocols |
+| Fig-CH03-01 | Anatomy of an Agent — five capabilities | Context as one of five composing agent capabilities |
+| Fig-CH03-02 | The Agent Execution Loop — eight stages | Context assembly as the critical inflection of the loop |
+| Fig-CH03-03 | Multidimensional vs scalar context | Multi-dimension convergence per decision, each with freshness/policy/perspective annotations |
+| Fig-CH03-04 | Context Debt Cascade | Compounding degradation across agent invocations (companion to Fig-CH07-20) |
+| Fig-CH04-01 | Three Structural Choices of BI | HITL/snapshot/role-as-dashboard patterns breaking under agentic load |
+| Fig-CH04-02 | The Structural Discontinuity | The missing context-construction layer between data representation and machine reasoning |
+| Fig-CH05-01 | Six-tuple strictly extends (M, D, T, J) | P, Π, L as first-class formalism dimensions (INV-CH5-03/04) |
+| Fig-CH05-02 | Three-tier architectural model | Cognition tier composed above Record and Signal tiers (INV-CH5-01/07/08) |
+| Fig-CH06-01 | Context Product vs Data Product lifecycle | Persistent-vs-ephemeral posture; closing replay edge (INV-CH6-01) |
+| Fig-CH06-02 | Eight-Step Context Product Lifecycle | Lifecycle loop with Step 8 → Step 1 feedback edge (INV-CH6-04) |
+| Fig-CH06-03 | Context Trust Triangle | Conjunctive quality gate over Confidence/Freshness/Lineage-integrity legs (INV-CH6-08) |
+| Fig-CH07-01 | Fabric as Persistent Institutional Memory | Closed-loop fabric posture; plane separation context (INV-CH7-01/08) |
+| Fig-CH07-02 | L1–L6 Logical Architecture | Six responsibility layers; "Missing" annotation on L2/L3/L4 (INV-CH7-01..08) |
+| Fig-CH07-03 | Six-Dimensional Decision Architecture | Every decision as the reconciled output of all six dimensions (INV-CH7-14) |
+| Fig-CH07-04 | Logical six-tuple ↔ physical collection pattern | Per-dimension persistence surfaces; L resolved to Decision Replay records (INV-CH7-15..19) |
+| Fig-CH07-05 | Graph mutation on supersession | Supersession sequence: prior claim retained, edge written, lineage accumulates, invalidation emitted (INV-CH7-21) |
+| Fig-CH07-06 | Entity resolution across source systems | Fragmented identifiers converge to one canonical E node (INV-CH7-21) |
+| Fig-CH07-07 | Context Operators — compositional algebra | Four categories composing into Π and the Context Product; typed read-only contracts (INV-CH7-22/23) |
+| Fig-CH07-08 | Operator composition lifecycle | Intermediate caching, associativity preservation, replay reuse (INV-CH7-23, INV-CH7-31) |
+| Fig-CH07-09 | Operator Plan DAG generator fan-out | Intent → four example compositions (design space, not one path) (INV-CH7-28..30) |
+| Fig-CH07-10 | End-to-end assembly sequence | Intent → plan → four operators → Π → contract-validated cached product (INV-CH7-33; runtime enactment of D-14/D-15/D-17/D-25) |
+| Fig-CH07-11 | Π — typed subgraph substitution vs RBAC filter | Substitution-not-filtering projection semantics (INV-CH7-40) |
+| Fig-CH07-12 | Π runtime conditioning — three principals | Role-shaped products from one shared graph read (INV-CH7-40..43) |
+| Fig-CH07-13 | Anatomy of a Context Product | Contract spec sidebar + eight-step assembly path; "agents never directly query lake tables" (INV-CH7-45) |
+| Fig-CH07-14 | Cache coherency state machine | Fresh → Near-Expiry → Invalidated/expiry → Re-Derived lifecycle under λ_c and supersession (INV-CH7-51) |
+| Fig-CH07-15 | Derivation paths (cache hit vs miss) | Keyed lookup, conditional cache write, p99 envelope (INV-CH7-52) |
+| Fig-CH07-16 | Three sequential validation gates | Empty-operator guard, policy gate, lineage completeness — refusal before cache/delivery (INV-CH7-46..48, 52) |
+| Fig-CH07-17 | Trust Triangle with Half-Life and Freshness Budget | λ_c decay composition against decision-class budgets (INV-CH7-57..59, 66) |
+| Fig-CH07-18 | Supersession as a Policy event | Control Plane → Policy Store → λ_c Calibrator → Data Plane invalidation propagation (INV-CH7-60) |
+| Fig-CH07-19 | Conditional Assessment Routing matrix | Skip / Conditional / Standard LLM / Forced LLM decision tree (INV-CH7-65) |
+| Fig-CH07-20 | Debt cascade across agent handoff | D_c accumulation and fail-closed breach across A→B→C workflow (INV-CH7-68) |
+| Fig-CH07-21 | Control Plane and Data Plane | Plane separation with CCF-specific cargo; invariant-enforcement boundary (INV-CH7-70/73) |
+| Fig-CH07-22 | Control ⇄ Data Plane message exchange | Versioned audit entry; event-published invalidation (runtime enactment of D-40/41/42/44) (INV-CH7-71/72) |
+| Fig-CH07-23 | Closed-loop graph write-back | Decision captured → evidence persisted → graph refined → next invocation reads improved state (INV-CH7-75) |
+| Fig-CH07-24 | Learning signal categorization | One evidence event → one of three handlers → distinct graph-level refinement target (INV-CH7-76) |
+| Fig-CH07-25 | Closed-loop feedback cycle | Outcome signals propagate as Control Plane updates (supplementary) (INV-CH7-78) |
+| Fig-CH07-26 | Decision Replayability Architecture | Five input dimensions → single indexed record → audience renderings; "what did the agent know at 2:14 PM last Tuesday" test (INV-CH7-80) |
+| Fig-CH07-27 | Decision Replay re-trace | Examiner query; five parallel reads reassembled bit-for-bit under audience projection (INV-CH7-80/86/90/91) |
+| Fig-CH07-28 | Evidence Chain for Decision Replay | Claim → passage-level L → Citations reference → WORM source passage; XC-05 carried to audit surface (INV-CH7-87) |
+| Fig-CH08-01 | Non-Invasive Integration Reference Architecture | Layering posture: legacy/mesh tiers unchanged; Patterns 1–5 as Perception ingress; algorithmic/semantic firewall; replay closes the loop (INV-CH8-03/04) |
+| Fig-CH08-02 | Pattern 5 ingestion path (tiers 1–4) | Parser dispatch by data classification, chunking, embedding (INV-CH8-09/10) |
+| Fig-CH08-03 | Pattern 5 retrieval/extraction/persistence path (tiers 5–7) | Policy-before-Similarity retrieval, typed extraction, passage-level L persistence (INV-CH8-09/10) |
+| Fig-CH08-04 | Alternating Derivation Pipeline | Four-stage algorithmic ⇄ semantic alternation with distance-weighted deduplication and persist-into-G feedback (INV-CH8-12) |
+| Fig-CH08-05 | 6D Context Graph — Wholesale Banking rendering | Illustrative domain lens; T/P/Π/L as projections over one E-R subgraph (supplementary) (INV-CH8-13) |
+| Fig-CH08-06 | Conditional Assessment Routing decision tree | Bypass / Conditional / Forced Escalation governance rendering (supplementary) (INV-CH8-16) |
+
+50/50 figures cataloged (CH01: 3, CH02: 2, CH03: 4, CH04: 2, CH05: 2, CH06: 3, CH07: 28, CH08: 6).
+
+---
+
+## Named Architectural Invariants
+
+Per CLAUDE.md §16 — every named architectural invariant, with origin and the inventory entries realizing it.
+
+| Invariant | Origin | Realizing inventory entries |
+|-----------|--------|-----------------------------|
+| Single-writer enforcement (only L2/Assembly writes L3; DI at boot) | Whitepaper §7.2, §7.3.1, §7.8.4(a); CLAUDE.md §10 (extends across A2A admission, harness effect capture, ArtifactStore) | INV-CH7-10, INV-CH7-15, INV-CH7-73; INV-CH8-05 (CDC writes only via Assembly) |
+| Composition-preservation `(A∘B)(G) = A(B(G))` | Whitepaper §7.4.1, §7.2; CLAUDE.md §11 (tested per shipped operator pair) | INV-CH7-11, INV-CH7-23, INV-CH7-31, INV-CH7-33 |
+| Three validation gates (empty-operator guard, lineage strict equality, TTL bounds) | Whitepaper §7.6.1, §7.6.4, §7.8.4(c)(d); CLAUDE.md §5 | INV-CH7-13, INV-CH7-46, INV-CH7-47, INV-CH7-48, INV-CH7-52 |
+| Algorithmic ⇄ Semantic Alternation (LLMs never see raw signal) | Whitepaper §6.4, §7.6.6; CLAUDE.md §11 (`@algorithmic` CI lint) | INV-CH6-04, INV-CH7-54, INV-CH8-12 |
+| Audit-by-construction (every HITL action, workflow trace, and skill event replay-recorded) | Whitepaper §7.8.2, §7.10 (record enforced at write time); CLAUDE.md §8.1, §8.2, §6.2 (HITL/workflow/skilling extensions — SDK-defined) | INV-CH7-71, INV-CH7-79, INV-CH7-80..85 |
+| No-Hardcoding Rule (no inline prompts/definitions/values in code) | CLAUDE.md §6.4 (SDK-defined structural invariant); whitepaper hooks: λ_c/thresholds as Control Plane config (§7.7.2, §7.8.3) | INV-CH7-58, INV-CH7-59, INV-CH7-72 (config-surface posture); homecams-patterns appendix (CI-guard precedent row) |
+| Zero harness imports in core | CLAUDE.md §1, §7.3, §11 (SDK-defined; CI import lint) | No whitepaper counterpart (the whitepaper does not ship an agent loop); attaches to the Ch 3 agents-as-consumers posture and INV-CH6-06 (MCP as access layer, fabric internals opaque to consumers) |
+
+Additional whitepaper-named structural invariants inventoried (subsidiary to the seven above): tenant invariant / kw-only tenant scoping (INV-CH7-16, INV-CH7-73(e)); operator read-only purity (INV-CH7-11, INV-CH7-22); Policy-before-Similarity ordering (INV-CH7-26, INV-CH8-17); append-only-forward-with-supersession (INV-CH7-04, INV-CH7-21, INV-CH7-60); Similarity determinism contract (INV-CH7-27); boot-time registry fail-fast (INV-CH7-29); stateless projection (INV-CH7-73(b)); five-dimension record inviolate (INV-CH7-80); severity exemption (INV-CH7-89).
+
+---
+
+## SDK Extensions and Whitepaper Hooks
+
+Every SDK extension CLAUDE.md commits to (per §16), labeled SDK-defined, with the whitepaper hook each attaches to.
+
+| SDK extension (CLAUDE.md) | CLAUDE.md section | Whitepaper hook |
+|---------------------------|-------------------|-----------------|
+| Agent Specialization Framework with archetype/agent separation | §6, §6.1 | Ch 3 agents-as-consumers of the fabric; §6.5/§6.6 agent consumption discipline (INV-CH6-05/07: agents never self-assemble context) |
+| Six Archetypes (`WorkflowAgent`/`TaskAgent`, `DocumentIntelligenceAgent`, `AnalyticsInsightsAgent`, `MonitoringSurveillanceAgent`, `ContentGenerationAgent`, `ContextAssemblyAgent`) | §6.3 | §7.4.9 swarm-realized operators and §6.6 recursive enrichment (ContextAssembly); §7.10.3 passage-anchored generation (ContentGeneration/DocumentIntelligence); §7.7 λ_c-driven re-evaluation (Monitoring); T-dimension analysis (Analytics) |
+| Agent & Task Factory + No-Hardcoding Rule | §6.4 | §7.8.3 Control Plane configuration surface (INV-CH7-72 — agent/task/prompt/skill artifacts as additional Control Plane classes, SDK-defined) |
+| Dual-channel specialization (specialization + skilling) with governance and replay capture | §6.2 | §7.10.1 dimension 4 Perspective Conditioning (INV-CH7-84 — agent version and skill-set in force extend it); §7.8.2 audit plane |
+| Bidirectional MCP (client at L1/L4–L5/Experience; server at L6 and ArtifactStore) | §7.1 | §8.3 Pattern 3 export (INV-CH8-07 — whitepaper commits egress only); §6.5.1 MCP as access layer (INV-CH6-06); §6.6 search-inference content acquisition (INV-CH6-07) |
+| A2A federation first-class in v0 (WireProtocol, identity/signing, admission verification) | §7.2 | §8.3 Pattern 4 (INV-CH8-08 — whitepaper commits the architectural surface; consumer-side Control Plane verification); §7.6.7 Mode 3 cross-organizational assembly (INV-CH7-55) |
+| Harness Adapter surface (`HarnessAdapterProtocol`, four seams, zero-harness-imports lint) | §7.3 | Ch 2 §2.5 / Ch 3 (harness ecosystem exists outside the fabric); §6.5.1 access-layer boundary (INV-CH6-06); §7.10.1 replay hooks into dimensions 3–5 |
+| ArtifactStore Protocol with MCP-backed reference implementation | §7.4 | §7.10.1/§7.10.5 replay record retention and snapshot tractability (INV-CH7-80, INV-CH7-89); §7.8.3 Control Plane bundle persistence (INV-CH7-72) |
+| Orchestration Layer (Workflow primitive + OrchestrationProtocol) | §8.1 | §7.7.10 multi-agent handoff topology (INV-CH7-68); §7.10.1 dimensions 4/5 (workflow traces extend Perspective Conditioning and Content Generation Path) |
+| HITL primitives (ApprovalGate, ExceptionEscalation, OverrideBoundary, ReviewQueue) with audit-by-construction | §8.2 | §7.7.9 fail-closed escalation routing (INV-CH7-67); §8.8 Supervision Quality complement (INV-CH8-19); §7.10.1 dimension 2 (HITL actions extend Policy Bindings Snapshot) |
+| Experience Layer (MCP server, `ccf` CLI, HTTP API skeleton) | §8.3 | §6.5.1 MCP access surface (INV-CH6-06); §8.3 Pattern 3 (INV-CH8-07); Conversational Reporting Layer §8.10 explicitly out of v0 scope (INV-CH8-21) |
+
+---
+
+## Pillar-by-Pillar Mapping
+
+For each of the five Common Pillars (CLAUDE.md §4), the inventory entries that contribute to it — the primary cross-reference for Phase D.
+
+| Pillar | Contributing inventory entries |
+|--------|-------------------------------|
+| **Data and Context Layer** | Ch 5 all (INV-CH5-01..10); Ch 6 all (INV-CH6-01..08); Ch 7 fabric mechanism: INV-CH7-01..33 (layers, decomposition, graph, operators), INV-CH7-40..56 (projection, delivery), INV-CH7-57..68 (half-life, debt), INV-CH7-70..78 (planes, closed loop), INV-CH7-79..91 (replay); Ch 8 integration: INV-CH8-01..11 (patterns), INV-CH8-13/14 (graph lens, temporal layer), INV-CH8-20 (auditability at scale) |
+| **Orchestration Layer** | INV-CH7-32 (swarm-realized operators), INV-CH7-55/56 (Mode 3 orchestration + replay footprint), INV-CH7-68 (debt cascade across handoff), INV-CH7-88 (Mode 3 record: orchestration plan ID, agent manifest); INV-CH8-08 (A2A federation as cross-org orchestration ingress). SDK-defined mechanism (Workflow primitive, OrchestrationProtocol) per CLAUDE.md §8.1 |
+| **Core Agent Types** | INV-CH6-05 (agents consume context, not data), INV-CH6-07 (search-inference loop; assembly stays in architecture), INV-CH6-08 (trust-gated action), INV-CH7-32 (assembler-swarm archetype grounding), INV-CH7-84 (agent identity/role/tools/delegation in replay), INV-CH8-12/14/20/21 (the four archetypes of agentic work as functional templates). SDK-defined mechanism (archetypes, factory, skilling) per CLAUDE.md §6 |
+| **Human in the Loop and Control** | INV-CH7-65 (Forced LLM / escalation routing), INV-CH7-67 (fail-closed, human-escalation paths), INV-CH7-68 (threshold-breach fail-closed routing), INV-CH7-71 (audit plane), INV-CH7-82 (HITL extension of Policy Bindings Snapshot), INV-CH8-16 (forced-escalation pathway), INV-CH8-18 (escalate-or-refuse), INV-CH8-19 (Supervision Quality). SDK-defined primitives per CLAUDE.md §8.2 |
+| **Experience Layer** | INV-CH6-05 (Discoverable/Interoperable principles), INV-CH6-06 (MCP as the access layer; request path), INV-CH8-07 (MCP export surface), INV-CH7-91 (three audiences / three renderings as consumption surfaces), INV-CH8-21 (Conversational Reporting Layer — inventoried, out of v0 scope). SDK-defined surfaces (MCP server, CLI, HTTP API) per CLAUDE.md §8.3 |
+
+---
+
+## Subsection Coverage
+
+All 36 target subsections of whitepaper Chapters 5–8 covered (Ch 5: 7, Ch 6: 6, Ch 7: 10, Ch 8: 13). Coverage proven by enumeration:
+
+| Subsection | Covered by | ✓ |
+|------------|-----------|---|
+| §5.1 | INV-CH5-01, INV-CH5-02 | ✓ |
+| §5.2 | INV-CH5-03, INV-CH5-04 | ✓ |
+| §5.3 | INV-CH5-05 | ✓ |
+| §5.4 | INV-CH5-06 | ✓ |
+| §5.5 | INV-CH5-08 | ✓ |
+| §5.6 | INV-CH5-07 | ✓ |
+| §5.7 (incl. §5.7.1) | INV-CH5-09, INV-CH5-10 | ✓ |
+| §6.1 | INV-CH6-01 | ✓ |
+| §6.2 | INV-CH6-02 | ✓ |
+| §6.3 | INV-CH6-03 | ✓ |
+| §6.4 | INV-CH6-04 | ✓ |
+| §6.5 (incl. §6.5.1) | INV-CH6-05, INV-CH6-06 | ✓ |
+| §6.6 (incl. §6.6.1–§6.6.4) | INV-CH6-07, INV-CH6-08 | ✓ |
+| §7.1 | INV-CH7-01..08 | ✓ |
+| §7.2 | INV-CH7-09..13 | ✓ |
+| §7.3 | INV-CH7-14..21 | ✓ |
+| §7.4 | INV-CH7-22..33 | ✓ |
+| §7.5 | INV-CH7-40..44 | ✓ |
+| §7.6 | INV-CH7-45..56 | ✓ |
+| §7.7 | INV-CH7-57..68 | ✓ |
+| §7.8 | INV-CH7-70..74 | ✓ |
+| §7.9 | INV-CH7-75..78 | ✓ |
+| §7.10 | INV-CH7-79..91 | ✓ |
+| §8.1 | INV-CH8-01, INV-CH8-02 | ✓ |
+| §8.2 | INV-CH8-03 | ✓ |
+| §8.3 (incl. §8.3.1, §8.3.2) | INV-CH8-04..11 | ✓ |
+| §8.4 | INV-CH8-12 | ✓ |
+| §8.5 | INV-CH8-13 | ✓ |
+| §8.6 | INV-CH8-14 | ✓ |
+| §8.7 (incl. §8.7.1–§8.7.3) | INV-CH8-15..18 | ✓ |
+| §8.8 | INV-CH8-19 | ✓ |
+| §8.9 | INV-CH8-20 | ✓ |
+| §8.10 | INV-CH8-21 | ✓ |
+| §8.11 | INV-CH8-22 | ✓ |
+| §8.12 | INV-CH8-23 | ✓ |
+| §8.13 | INV-CH8-24 | ✓ |
+
+36/36 subsections covered.
+
+---
+
 ## Appendix: homecams-patterns
 
 Read-only pattern review of `/home/parkave/homecams_v2` per CCF CLAUDE.md §2.1 discipline.
