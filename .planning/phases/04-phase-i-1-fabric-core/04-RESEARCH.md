@@ -403,13 +403,13 @@ Not applicable — greenfield phase; `/src`, `/runtime`, `/tests` are empty (ver
 
 All load-bearing architectural claims are `[CITED: docs/DESIGN.md / docs/DECISIONS.md / CLAUDE.md]` — the project's own resolved rulings, not external sources. No assumption above needs a user ruling; all are contained behind Protocols or the Wave 1 scaffold.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Which contracts are "the slice subset" (D-05)?**
+1. **Which contracts are "the slice subset" (D-05)?** *(RESOLVED — recommendation adopted: slice subset as listed below in plans 04-03/04-04/04-05; hash-verified re-hydration lands in the replay subsystem plan 04-08 Task 2.)*
    - Known: slice needs SignalEnvelope, entity/relationship/lineage claim types, GraphReader/Writer, one operator per category (minimal params), one ProjectionPlan, ContextProductContract + gates, replay record, minimal Control Plane registry surface.
    - Recommendation (Claude's discretion, granted): exactly that list; defer DebtFactorScorer/TrustScorer, fidelity-lifecycle, re-hydration, closed-loop types to their subsystem waves. Note D-IMPL-44 re-hydration and D-IMPL-50 lifecycle are §2B.5 components — planner should decide whether they're I.1 scope or flagged; FABR-06 names "record + engine," and FEASIBILITY lists them as I.1-adjacent components — recommend a late I.1 subsystem plan covering hash-verified re-hydration test class (FEAS-03 D-09 row) at minimum against the file-backed store.
-2. **Banking fixture ontology specifics** — Claude's discretion; recommend counterparty/facility/guarantee/covenant topology per whitepaper INV-CH7-20 (it is the whitepaper's own worked domain, so fidelity review is easy), with values exclusively in YAML fixture artifacts.
-3. **CINV-04 partial applicability in I.1** — HITL/workflow/skill capture checks can't run until I.2/I.4. Recommend: harness scaffold with the product-serve replay check + boot check active, and explicit `not-yet-applicable` markers the gate review can read (avoids a false "CINV-04 green" claim).
+2. **Banking fixture ontology specifics** *(RESOLVED — recommendation adopted: counterparty/facility/guarantee/covenant topology per whitepaper INV-CH7-20, values exclusively in YAML fixture artifacts; implemented in plan 04-05 Task 3 fixtures.)* — Claude's discretion; recommend counterparty/facility/guarantee/covenant topology per whitepaper INV-CH7-20 (it is the whitepaper's own worked domain, so fidelity review is easy), with values exclusively in YAML fixture artifacts.
+3. **CINV-04 partial applicability in I.1** *(RESOLVED — recommendation adopted: harness scaffold with product-serve replay check + single-writer boot check active, explicit not-yet-applicable markers; implemented in plan 04-08 Task 3 and read by the plan 04-12 gate review.)* — HITL/workflow/skill capture checks can't run until I.2/I.4. Recommend: harness scaffold with the product-serve replay check + boot check active, and explicit `not-yet-applicable` markers the gate review can read (avoids a false "CINV-04 green" claim).
 
 ## Environment Availability
 

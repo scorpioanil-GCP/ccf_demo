@@ -60,6 +60,8 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
       extension point
 - [ ] **FABR-08**: ArtifactStore Protocol with MCP-backed reference impl and
       file-backed dev impl (§7.4)
+      *(D-12 deferral: Phase I.1 delivers the Protocol + file-backed dev impl
+      only; the MCP-backed reference impl lands in Phase 6.)*
 - [ ] **FABR-09**: CDC→G ingress reference (Pattern 1)
 
 ### Phase I — Core Agent Types
