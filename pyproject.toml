@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ccf"
+version = "0.1.0.dev0"
+description = "Cognitive Context Fabric SDK — governed, typed, replay-ready context for AI agents"
+requires-python = ">=3.12"
+license = "LicenseRef-Proprietary"
+authors = [{ name = "drcastillo" }]
+
+# Pins per 04-RESEARCH.md Standard Stack (all slopcheck-audited 2026-07-25).
+dependencies = [
+  "pydantic==2.13.4",
+  "pyyaml==6.0.3",
+  "sqlite-vec==0.1.9",
+  "psycopg[binary]==3.3.4",
+]
+
+[project.optional-dependencies]
+# chromadb is NEVER a core dependency (heavy transitive tree) — 04-RESEARCH.md Standard Stack.
+chroma = ["chromadb==1.5.9"]
+dev = [
+  "pytest==9.1.1",
+  "hypothesis==6.161.5",
+  "testcontainers==4.15.0",
+  "mypy==2.3.0",
+  "pytest-cov==7.1.0",
+]
+
+# Single distribution for v0 shipping two packages: the `ccf` library (src layout,
+# CLAUDE.md §10 L1–L6) and the `ccf_runtime` host package (CLAUDE.md §14) — D-05.
+[tool.setuptools.packages.find]
+where = ["src", "runtime"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "postgres: requires a Postgres backend (service container in CI, testcontainers locally) — D-10",
+  "chroma: requires the optional `chroma` extra — D-13",
+  "conformance: shared parametrized Protocol conformance suite — D-16",
+]
+
+[tool.mypy]
+files = ["src"]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
