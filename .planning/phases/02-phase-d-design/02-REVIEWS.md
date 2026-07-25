@@ -1,7 +1,8 @@
 ---
 phase: 2
-reviewers: [gemini, ollama, codex]
-reviewers_failed: [cursor (not logged in), claude (skipped — self)]
+reviewers: [gemini, ollama, codex, cursor]
+reviewers_failed: [claude (skipped — self)]
+cursor_note: initial run failed (no login); succeeded 2026-07-25 via CURSOR_API_KEY
 codex_note: initial runs failed (revoked ChatGPT auth, then quota); succeeded 2026-07-25 after CODEX_API_KEY re-login + billing fix
 reviewed_at: 2026-07-25T17:52:13Z
 scope: Phase D deliverables (docs/DESIGN.md, docs/DECISIONS.md, docs/diagrams/*.mmd) reviewed against CLAUDE.md §3.1 Phase D verification criteria
@@ -147,33 +148,89 @@ The Phase D deliverables are substantially complete and generally strong: the de
 
 ---
 
-## Consensus Summary (3 reviewers: Gemini, Ollama gpt-oss:120b, Codex gpt-5)
+## Cursor Review
 
-### Agreed Strengths (all three)
-- Complete 126/126 traceability with only the two documented, ruled deferrals
-- Structural invariant arguments robust — single-writer (D-IMPL-41 four-layer stack), audit-by-construction, No-Hardcoding, zero-harness-imports all mechanism-backed
-- Mechanism/values discipline held throughout — thresholds/TTLs/λ_c/prompts all Control Plane artifacts
-- Diagram set exceeds the minimum (5 pillar + 2 seam + 4 sequence); seams cleanly decoupled with distinct trust postures
-- Replay design mature (exact versions, no @latest, logical snapshots, re-hydration recipes)
+# Cross-AI Review — Phase D (Design)
 
-### Agreed Concerns (2+ reviewers)
-- **D-IMPL-10 provisional status / decision-census consistency** (Ollama HIGH; Codex HIGH; Gemini not flagged). Codex sharpened the real defect: DESIGN.md claims "zero provisionals / all resolved" while DECISIONS.md carries D-IMPL-10 as "provisionally resolved" with a post-v0 sub-question — an internal inconsistency, not merely a strict criterion reading. Fix at the gate: reconcile the census (state D-IMPL-10 as "Resolved for v0: monorepo; post-v0 adapter split tracked outside Phase D; non-gating" or flag it gating), and add a Decision Census note covering why D-IMPL-51 counts differently. **TRIAGE: BLOCKING (doc-consistency fix, small).**
-- **Python single-writer residual** (Ollama C-2 MEDIUM; Gemini lint-dependency LOW): both accept the four-layer stack and honest-residual framing; reinforce the residual-risk narrative. TRIAGE: ADVISORY (already present per D-IMPL-41 ruling; strengthen wording).
+## 1. Summary
 
-### Codex-unique items (for triage)
-- MEDIUM — "Three validation gates" naming drift: some text names "Schema Validator → Policy Gate → Lineage Completeness Checker" instead of the canonical empty-operator guard / lineage strict equality / TTL bounds. TRIAGE: BLOCKING (naming normalization — invariant identity must be unambiguous for the row-by-row gate check).
-- MEDIUM — Composition-preservation argument should be rephrased around deterministic, lineage-preserving, cache-coherent staged execution (the equation alone is definitional). TRIAGE: ADVISORY → fold into Phase F test strategy.
-- LOW — Some traceability rows map to boundary sections (§2A.1) where mechanism lives in §2B; consider dual mapping. TRIAGE: ADVISORY.
-- LOW — Dense diagrams function as concept maps; emphasize enforcement points visually. TRIAGE: ADVISORY.
+Phase D deliverables meet the §3.1 verification bar: a 126-row traceability matrix with two ruled deferrals, D-IMPL-01..51 closed (Phase I gating set fully RESOLVED; D-IMPL-10 provisional monorepo only), the required seven architecture diagrams plus four load-bearing sequences, and a §9 invariant chapter that argues each of the seven named invariants structurally rather than by assertion. Contract altitude holds; domain values are consistently pushed to Control Plane configuration. Residual issues are documentation accuracy and Phase F scope pressure (three harness adapters), not missing design or unsupported invariants.
 
-### Reviewer-unique items (Gemini / Ollama, carried from 2-reviewer pass)
-- Gemini MEDIUM: re-hydration fragility (D-IMPL-44) — Phase F test strategy for hash-verified re-hydration. ADVISORY → Phase F.
-- Gemini LOW: Control Plane centralization at scale (v0-appropriate). ADVISORY.
-- Gemini suggestion: dev/mock IdentityProvider for examples 00–02. ADVISORY → Phase F/I.
-- Ollama LOW: C-3 gates runtime-only; C-4 illustrative numerics disclaimer; C-5 migration notes for the two deferrals. ADVISORY.
+## 2. Strengths
 
-### Overall
-- Gemini: LOW risk — "Approved. Phase D is complete."
-- Ollama: MEDIUM (drops to LOW once D-IMPL-10 status reconciled).
-- Codex: MEDIUM (same driver: "once the D-IMPL census and D-IMPL-10 status are cleaned up, the residual risk drops to LOW").
-- **Net triage: 2 BLOCKING doc-consistency fixes (D-IMPL-10 census reconciliation; validation-gate naming normalization) + advisory items carried to the gate appendix and Phase F. No blocking findings against the design substance.**
+- **Traceability is first-class.** Appendix A claims 126/126 with census; matrix row count matches inventory entry headers (126). Deferrals (INV-CH8-19, INV-CH8-21) cite D-IMPL-48 / CLAUDE.md §13 as ruled dispositions, not silent gaps.
+- **Invariant preservation is structural.** §9 + D-IMPL-41 (reader/writer split, DI, CI lint, boot token), L6 gate-as-sole-construction-path, HITL action-as-completion-token, factory-as-sole-construction-path, and harness-only-in-`/runtime` are real design constructs, not aspiration.
+- **Seam discipline is clear.** MCP five-edge allocation, A2A verify-every-admission → L2-only write, ArtifactStore never second writer, LangGraph harness-vs-orchestrator split, and HTTP deliberately without L1 ingestion all protect single-writer.
+- **Mechanism/values boundary is enforced in design.** λ_c, MAX_TTL, CAR thresholds, operator parameters, and illustrative 0.85/0.75 figures are Control Plane / illustrative, with D-IMPL-38/39/40 as the schema discipline.
+- **Decision log quality is high.** Ambiguous whitepaper passages (D-IMPL-30/31/32/39/40/etc.) quote the text, offer readings, and record Dave’s ruling with date/approver. Phase I gate list is explicitly marked RESOLVED.
+- **Diagram set is complete and useful.** Five pillar diagrams, two mandated seams, plus sequences for write path, HITL suspend/resume, A2A admission, and replay resolution — the sequences actually demonstrate refused paths, not only happy paths.
+- **SDK extensions are labeled.** Agent framework, HITL, orchestration, harness adapters, ArtifactStore, and bidirectional MCP cite CLAUDE.md and whitepaper hooks without pretending they are whitepaper-native.
+
+## 3. Concerns
+
+- **MEDIUM — Traceability primary-section drift for L4–L6 layer entries.** INV-CH7-05/06/07/11/12/13 map to §2A.1, which only binds them at the layer boundary and says mechanism lives in Part B. The design *exists* in §2B, so this is not a coverage miss, but the matrix understates the real home and weakens mechanical “unique-key → design element” audit.
+- **MEDIUM — §4/§5 ownership paste residue.** §4 opens with “Both pillars…” and lists owned entries that Appendix A assigns to §5 (e.g. INV-CH7-65/67/82, INV-CH8-16/18/19/23). Design content is present; ownership metadata is inconsistent and will confuse Phase F/I implementers.
+- **MEDIUM — `pillar-orchestration.mmd` edge ambiguity.** `WFState --> ArtifactStore` sits next to “trace write-through,” but D-IMPL-18/27 put *mutable* suspended execution state on the Control Plane store, not the ArtifactStore. A reader can infer state persistence in the ArtifactStore, which would violate the mutability split.
+- **MEDIUM — Three-harness v0 scope (D-IMPL-24) as Phase F pressure.** Design correctly records Dave’s ruling (ADK + Claude Agent SDK + LangGraph). That does not fail Phase D criteria, but it expands example 03, CI legs, and adapter conformance — Phase F must size this explicitly or the design becomes an unvalidated schedule risk.
+- **LOW — “Zero provisionals” wording vs D-IMPL-10.** DESIGN §1 says the marathon closed with zero provisionals; D-IMPL-10 remains provisionally resolved (post-v0 adapter-split remainder open). Not load-bearing for components here, but the claim is slightly overstated.
+- **LOW — Duplicate §8.6 / §8.6a numbering.** Minor navigation defect in an otherwise careful document.
+- **LOW — Composition-preservation leans on purity + empirical CI.** The structural story (pure `GraphReader` operators, deterministic intermediate keys) is adequate for Phase D; Phase F still needs to nail intermediate-type equality and non-commutativity traps so “bit-for-bit” tests are well-defined.
+
+No **HIGH** findings against the stated Phase D verification criteria (no missing inventory mapping, no unresolved gating decision, no missing required diagram, no assertion-only invariant, no implementation code bodies, no domain values baked into mechanism).
+
+## 4. Suggestions
+
+- Retarget Appendix A primary sections for INV-CH7-05/06/07/11/12/13 to §2B.1–§2B.3 (keep §2A.1 as see-also).
+- Split the §4 owned-entry list to match Appendix A; remove the “Both pillars…” leftover from the §4/§5 merge.
+- In `pillar-orchestration.mmd`, replace `WFState --> ArtifactStore` with something like `Replay --> ArtifactStore` only, or label the edge `trace write-through (not execution state)`.
+- Add a one-line Phase F note under D-IMPL-24: adapter/conformance/example-03 cost as an explicit feasibility input.
+- Soften §1 “zero provisionals” to “zero provisional *design-basis* flags; D-IMPL-10 remains provisional monorepo orientation.”
+- Before Dave’s D-GATE-D, run a mechanical unique-key diff of inventory headers vs Appendix A (claimed empty; worth proving in the review report).
+
+## 5. Risk Assessment
+
+**Overall: LOW** for Phase D gate readiness.
+
+Justification: every verification criterion is satisfied on the evidence reviewed — inventory coverage with ruled deferrals, decisions resolved (gating set complete), diagram set complete, invariants argued structurally with CI designs named (CINV-01..04), contract altitude preserved, and mechanism/values discipline held. Remaining issues are editorial consistency and forward-looking feasibility load from the three-adapter ruling; they should be cleaned or recorded before presentation to Dave, but they do not block a Phase D pass under §3.1.
+
+---
+
+## Consensus Summary (4 reviewers: Gemini, Ollama gpt-oss:120b, Codex gpt-5, Cursor)
+
+### Agreed Strengths (all four)
+- Complete 126/126 traceability with two ruled deferrals; decision log quality high (quoted ambiguities, readings, dated rulings with approver)
+- Structural invariant arguments, not assertions — single-writer four-layer stack, gate-as-sole-construction-path, factory-as-sole-path, harness-only-in-/runtime
+- Mechanism/values discipline held; illustrative numerics correctly non-normative
+- Diagram set exceeds minimum; sequences demonstrate refused paths, not just happy paths
+- Seam discipline protects single-writer at every boundary (MCP, A2A, ArtifactStore, HTTP-no-ingestion)
+
+### Agreed Concerns (2+ reviewers) — triage
+1. **D-IMPL-10 "zero provisionals" wording inconsistency** (Codex HIGH; Ollama HIGH; Cursor LOW as wording; Gemini not flagged). DESIGN.md §1 overstates "zero provisionals" while DECISIONS.md keeps D-IMPL-10 provisional (post-v0 adapter split). Fix: reconcile census — "Resolved for v0: monorepo; post-v0 adapter split non-gating" + Decision Census note (incl. D-IMPL-51 accounting). **BLOCKING (small doc fix).**
+2. **Traceability primary-section drift for L4–L6 entries** (Codex LOW; Cursor MEDIUM): INV-CH7-05/06/07/11/12/13 map to §2A.1 boundary rather than §2B mechanism sections. Fix: retarget primary to §2B.1–§2B.3, keep §2A.1 see-also. **BLOCKING-lite (mechanical edit, do at gate).**
+3. **Python single-writer residual** (Ollama MEDIUM; Gemini LOW): accepted with honest-residual framing; strengthen wording. ADVISORY.
+
+### Single-reviewer items — triage
+- Codex MEDIUM — validation-gate naming drift ("Schema Validator → Policy Gate → Lineage Completeness Checker" vs canonical empty-operator guard / lineage strict equality / TTL bounds). **BLOCKING (naming normalization).**
+- Cursor MEDIUM — §4/§5 ownership paste residue ("Both pillars…" + misassigned owned-entry lists). **BLOCKING-lite (editorial fix at gate).**
+- Cursor MEDIUM — pillar-orchestration.mmd `WFState --> ArtifactStore` edge implies mutable state in ArtifactStore, contradicting D-IMPL-18/27. **BLOCKING-lite (relabel edge "trace write-through (not execution state)").**
+- Cursor MEDIUM — three-harness v0 scope is Phase F sizing pressure. ADVISORY → explicit Phase F feasibility input under D-IMPL-24.
+- Codex MEDIUM — composition-preservation phrasing (definitional equation vs staged-execution invariant); Cursor LOW concurs re Phase F test definition. ADVISORY → Phase F test strategy.
+- Cursor LOW — duplicate §8.6/§8.6a numbering. Fix at gate.
+- Gemini MEDIUM — re-hydration fragility → Phase F hash-verified re-hydration test strategy. ADVISORY.
+- Gemini LOW — Control Plane centralization at scale; dev/mock IdentityProvider suggestion. ADVISORY.
+- Ollama LOW — gates runtime-only note; numerics disclaimer; deferral migration notes. ADVISORY.
+
+### Overall verdicts
+- Gemini: LOW — "Approved. Phase D is complete."
+- Cursor: LOW — "does not block a Phase D pass under §3.1"; explicitly zero HIGH findings against the criteria.
+- Ollama: MEDIUM → LOW once D-IMPL-10 reconciled.
+- Codex: MEDIUM → LOW once census + gate naming cleaned.
+
+### Net triage for the 02-11 gate
+**Blocking (all doc-consistency, no design-substance defects):**
+B1. D-IMPL-10 census reconciliation + Decision Census note (D-IMPL-51 accounting) + soften §1 wording.
+B2. Validation-gate naming normalization to the canonical three gates.
+B3. Appendix A primary-section retarget for the six L4–L6 entries (§2B primary, §2A.1 see-also).
+B4. §4/§5 ownership-list residue cleanup.
+B5. pillar-orchestration.mmd edge relabel (trace write-through, not execution state) + fix §8.6/§8.6a numbering.
+**Advisory (record in gate appendix, carry to Phase F):** three-adapter sizing input, composition-preservation test definition, hash-verified re-hydration strategy, residual-risk wording, numerics disclaimer, deferral migration notes, dev IdentityProvider.
