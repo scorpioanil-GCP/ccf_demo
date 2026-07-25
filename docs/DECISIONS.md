@@ -62,11 +62,7 @@ New entries below are assigned sequentially from **D-IMPL-30** by the Phase R sy
 
 ### Pending gate actions (not design decisions)
 
-- **BLOCKER (Dave):** create the private repo `github.com/drcastillo/ccf_code` and wire `origin` per CLAUDE.md §2.2. Blocks push/merge visibility only, not local phase work (surfaced in 01-01; still open as of 2026-07-25).
-
-## Gate Log (D-GATE)
-
-*(No gates logged yet. `D-GATE-R` is recorded here upon Dave's Phase R approval, per CLAUDE.md §3.1.)*
+- ~~BLOCKER (Dave): create the private repo and wire `origin`~~ — RESOLVED 2026-07-25: Dave created `github.com/drcastillo/ccf_code`; `origin` wired via SSH; `main` and `phase-r` pushed.
 
 ## Gate Log (D-GATE)
 
