@@ -1,0 +1,82 @@
+# CCF SDK continuous integration — D-09 (GitHub Actions: lint job + test matrix,
+# Postgres as a service container). Lints are blocking from the first fabric
+# commit per D-07; they are never report-only.
+#
+# NOTE: the `python -m tools.lints` runner lands in plan 04-02. Until it does,
+# the lint job on this branch fails by design — D-07 forbids making the step
+# non-blocking to paper over the gap.
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  lint:
+    name: lint (CINV-01..03) + strict types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package with dev extras
+        run: python -m pip install -e ".[dev]"
+
+      - name: CCF invariant lints (No-Hardcoding, harness imports, @algorithmic)
+        run: python -m tools.lints --all
+
+      - name: mypy --strict
+        run: mypy --strict src
+
+  test:
+    name: tests (python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ccf
+          POSTGRES_PASSWORD: ccf_test_password
+          POSTGRES_DB: ccf_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ccf -d ccf_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Consumed by the D-16 parametrized Protocol conformance suite.
+      CCF_TEST_POSTGRES_DSN: postgresql://ccf:ccf_test_password@localhost:5432/ccf_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package with dev extras
+        run: python -m pip install -e ".[dev]"
+
+      - name: Quick suite (no external substrates)
+        run: pytest tests -q -m "not postgres and not chroma"
+
+      - name: Postgres leg (service container)
+        run: pytest tests -q -m postgres
+
+      # Coverage is informational only — D-17 sets no numeric gate.
+      - name: Coverage (informational)
+        run: pytest tests -q -m "not postgres and not chroma" --cov=ccf --cov-report=term
