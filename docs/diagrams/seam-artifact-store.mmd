@@ -1,0 +1,29 @@
+flowchart LR
+    subgraph Mechanism["CCF mechanism (single access path)"]
+        CP["Control Plane<br/>versioned-URI to hash mapping (D-IMPL-26)"]
+        L2["L2 Context Assembly<br/>(only writer to L3)"]
+        L3["L3 Context Graph<br/>(live state on GraphStore, D-IMPL-02)"]
+        ReplayEng["Replay engine +<br/>fidelity lifecycle (D-IMPL-50)"]
+        L2 --> L3
+    end
+
+    subgraph Store["ArtifactStoreProtocol (D-IMPL-26/27)"]
+        Proto["ArtifactStoreProtocol"]
+        MCPImpl["MCP-backed reference store<br/>(separate server contract)"]
+        FileImpl["File-backed dev store"]
+        Proto --- MCPImpl
+        Proto --- FileImpl
+    end
+
+    subgraph Classes["Immutable artifact classes (D-IMPL-27 mutability split)"]
+        RR["Decision Replay records"]
+        Snap["Graph-substate + index snapshots"]
+        CPAtRest["Context Products at rest"]
+        Bundles["Control Plane bundles"]
+        NoHard["No-Hardcoding artifacts<br/>(agent/task/prompt/skill)"]
+    end
+
+    CP -->|"resolve + put/get<br/>(hash or versioned URI)"| Proto
+    ReplayEng -->|"exact-version reads,<br/>never @latest"| Proto
+    Proto --- Classes
+    Store -.->|"retrieved artifacts enter the graph<br/>ONLY via L2 — no direct store edge to L3"| L2
