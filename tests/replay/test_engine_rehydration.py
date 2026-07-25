@@ -68,7 +68,6 @@ from ccf.replay.record import (
 from ccf.replay.serve import ReplayWriter, serve
 from ccf.replay.snapshots import SnapshotReader, SnapshotScopeViolation
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
-from tests.conftest import POLICY_BUNDLE_KEY
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
@@ -79,6 +78,7 @@ BOUNDARY = datetime(2026, 3, 15, tzinfo=UTC)
 NOW = datetime(2026, 3, 15, 12, tzinfo=UTC)
 T_JULY = datetime(2026, 7, 1, tzinfo=UTC)
 
+POLICY_BUNDLE_KEY = "test/policy-bundle"
 MAX_TTL_KEY = "test/max-ttl"
 PLAN_ID = "test/exposure-summary"
 ARTIFACT_CLASS = "decision-replay-record"
@@ -104,7 +104,7 @@ class _SummaryPlan:
     """The deployment's Π — thin, and entirely test-owned."""
 
     def required_operators(self) -> tuple[str, ...]:
-        return ("temporal.as-of", "traversal.neighborhood")
+        return ("temporal.as-of-boundary", "traversal.typed-neighborhood")
 
     @property
     def plan_id(self) -> str:
@@ -387,6 +387,34 @@ def test_the_product_replays_exactly_after_the_graph_has_moved_on(
         record.context_fabric_snapshot.graph_snapshot_id
     )
     assert outcome.product.payload["entities"][0]["name"] == "Northwind Freight"
+
+
+def test_the_as_of_view_is_byte_identical_after_the_graph_moves_on(
+    deployment: _Deployment,
+) -> None:
+    """INV-CH7-14, asserted on bytes — the precondition replay stands on.
+
+    "Claims superseded later are still current" has to mean *current*, not
+    "present but carrying a pointer to their replacement". Likewise a lineage
+    entry the fabric had not received yet is future information. Either leak
+    changes the content hash of a view that must be identical to the one the
+    decision saw, and would make every replay after any subsequent write
+    diverge for a reason that has nothing to do with the decision.
+    """
+    before = deployment.handle.reader.as_of(tenant_id=TENANT, at=BOUNDARY)
+    deployment.handle.worker.ingest(
+        _envelope(
+            envelope_id="env-later",
+            payload={
+                "counterparty_lei": "LEI-AAA",
+                "counterparty_name": "Northwind Logistics PLC",
+                "jurisdiction": "GB",
+            },
+            observed_time=T_JULY,
+        )
+    )
+    after = deployment.handle.reader.as_of(tenant_id=TENANT, at=BOUNDARY)
+    assert content_hash(after) == content_hash(before)
 
 
 def test_replay_is_idempotent(deployment: _Deployment) -> None:
