@@ -182,6 +182,131 @@
 
 ---
 
+## §7.7 — Context Debt and Context Half-life
+
+### INV-CH7-57 — Context Half-life λ_c formal decay model
+
+**Section:** §7.7.1
+**Commitment:** Context decays because the world it describes changes; the fabric commits to a formal decay model: a piece of context observed at t₀ with initial decision-relevance R₀ has decision-relevance R(t) at time t given by the formula below, where λ_c is the Context Half-life — the duration over which decision-relevance halves. The formula deliberately mirrors radioactive decay, including composition under re-observation (a new observation at t₁ resets the decay clock). Consequence: the fabric reasons about context-age probabilistically rather than as a binary fresh-or-expired TTL check. A product assembled at decision time t_d from observations at t₀¹, t₀², ..., t₀ⁿ has a per-observation freshness distribution; the Freshness Budget for a decision class is the composition of per-observation decay curves against a decision-class-specific λ_c × Risk Sensitivity bound (high-risk classes consume freshness budget faster). Discrete implementation committed: a sequential-window observer-buffer pattern — a sliding window of decay-weighted samples per observation type; decision-time queries return a freshness-weighted composite, not the most-recent-observation-only answer (Patent Claim 2).
+**Type signature:** `R(t) = R₀ × (1/2)^((t − t₀) / λ_c)`
+**Invariants:** λ_c is not a TTL — a TTL is a hard purge/invalidate cutoff; λ_c is a continuous decay curve for confidence reasoning. Data past its λ_c remains accessible for historical reconstruction (Decision Replay depends on this) but does not count as current for decision purposes — physical retention is separated from logical decision-relevance.
+**Dependencies:** Freshness Budget / Trust Triangle (§6.6 via plan 01-05; INV-CH7-66); Decision Replay (§7.10, plan 01-08)
+**Figures:** Fig-CH07-17
+**Open question:** none
+
+### INV-CH7-58 — λ_c as Control Plane configuration, never code
+
+**Section:** §7.7.1–§7.7.2
+**Commitment:** λ_c is domain-specific and observation-type-specific (a 10-K has λ_c in months; a Bloomberg IB chat has λ_c of 1 hour for trading and 5 years for compliance retention; a sanctions-screening match has λ_c in minutes at most). The fabric stores λ_c as a Control Plane configuration per observation type, not as a per-document attribute, so a policy change propagates consistently across every instance of that observation type without rewriting graph state. The λ_c values are illustrative calibrations, not universal constants — "These values are illustrative, not empirical — production calibration against observed decision-reversal data and regulatory expectations is required."
+**Type signature:** per-observation-type λ_c configuration entry (band, dominant decay driver, supersession event)
+**Invariants:** Mechanism/values boundary: the architecture "does not dictate the numbers; it dictates that the numbers be named per observation type, stored on the Control Plane, and auditable as first-class Policy configuration." λ_c values live in Control Plane config, never in code — the SDK ships the machinery, users supply the calibrations (CLAUDE.md §11 "Mechanism, not values" enforces this as the SDK realization).
+**Dependencies:** Control Plane (§7.8, plan 01-08); INV-CH7-57
+**Figures:** Fig-CH07-17
+**Open question:** none
+
+### INV-CH7-59 — λ_c configuration surface shape (illustrative document-type table)
+
+**Section:** §7.7.2
+**Commitment:** A seventeen-row illustrative table of wholesale-banking observation types commits the shape of the λ_c configuration surface, not the numbers: every observation type gets its own bounded band (not a single number), a named dominant decay driver (so the choice of λ_c is auditable back to the phenomenon it models), and a named supersession event (so the fabric knows when continuous decay is cut short by a discrete event). Example rows: 10-K, 12 months, quarterly/annual supersession, new 10-K filing; KYC sanctions match, hours, real-time sanctions feed, new match or clearance; Bloomberg IB chat, dual retention (1 hour markets / 5 years compliance). The table is explicitly non-exhaustive; production deployments extend it.
+**Type signature:** table row: (document type, illustrative λ_c band, dominant decay driver, supersession event)
+**Invariants:** The three-column-plus-type shape is the commitment; the numbers are domain values out of SDK scope.
+**Dependencies:** INV-CH7-58; INV-CH7-60 (supersession event column)
+**Figures:** Fig-CH07-17
+**Open question:** none
+
+### INV-CH7-60 — Supersession as a Policy event with logical (not physical) supersession
+
+**Section:** §7.7.3
+**Commitment:** Supersession is a Policy event, not just time decay: a new 10-K collapses λ_c on the old 10-K for current-value queries the moment it is filed, regardless of remaining continuous-decay budget. The fabric must listen for supersession events, not only clock ticks. Two committed properties: (1) logical supersession, not physical deletion — the superseded observation remains in the graph with a `superseded_by` edge to the new observation and a `superseded_at` timestamp; the assembly engine filters superseded observations out of current-value queries by default but retains them for temporal queries bound to pre-supersession windows (foundation for SR 11-7 / OCC re-tracing years later; resolved in full by §7.10). (2) Supersession propagates through the Control Plane as a versioned Policy event that (i) marks the old filing superseded in the graph, (ii) publishes an invalidation cascading through Data Plane cache coherency, (iii) triggers lazy re-derivation on next request — never eager re-materialization (avoiding the thundering-herd cost spike on quarterly earnings cycles). Every invalidation is a versioned Policy event with its own audit lineage in the Policy Store, never a silent runtime side-effect (contrast with direct-wire cache-eviction).
+**Type signature:** `superseded_by` edge + `superseded_at` timestamp on the superseded observation
+**Invariants:** Logical supersession only (append-only with supersession, consistent with §7.3); invalidation always travels through the Control Plane; re-derivation is lazy; historical reconstruction sees the superseded observation.
+**Dependencies:** INV-CH7-51 (InvalidatedBySupersession state), §7.3 append-only graph (plan 01-06), §7.8 Policy Store (plan 01-08), §7.10 replay (plan 01-08)
+**Figures:** Fig-CH07-14, Fig-CH07-18
+**Open question:** none
+
+### INV-CH7-61 — Context Debt D_c basic formula
+
+**Section:** §7.7.4
+**Commitment:** Context Debt is the fabric's structural measurement of how far short assembled context falls from the coverage the current decision requires, computed at assembly time and consumed by the agent as a first-class decision input, not a log line. C_available is the aggregate contextual coverage the fabric can actually assemble at decision time; C_required is the coverage the decision class nominally requires. D_c = 0 means full coverage; D_c = 1 means nothing relevant assembled. The basic form captures quantity-of-coverage only (missing statements, missing certificate, broken connection each lift D_c), not quality-of-coverage.
+**Type signature:** `D_c = 1 − (C_available / C_required)`, `D_c ∈ [0, 1]`
+**Invariants:** D_c ∈ [0, 1]; a runtime signal consumed as a decision input before the decision is taken, never post-hoc audit metadata.
+**Dependencies:** INV-CH7-62 (extended form), INV-CH7-65 (CAR consumes D_c)
+**Figures:** none
+**Open question:** none
+
+### INV-CH7-62 — Context Debt D_c extended multiplicative formula
+
+**Section:** §7.7.4
+**Commitment:** The extended form incorporates three independent multiplicative factors for dimensions along which coverage degrades even when all required sources are nominally present: F is freshness (composition of per-observation decay curves against the decision-class λ_c × Risk Sensitivity bound), C is completeness (fraction of required fields actually populated across assembled sources), S is semantic consistency (fraction of assembled sources whose structured assertions agree on the entities, relationships, and magnitudes the decision cares about). The factors compose multiplicatively because they are gating: any one factor at zero drives D_c to 1.
+**Type signature:** `D_c = 1 − (F · C · S)`, `D_c ∈ [0, 1]`, F, C, S ∈ [0, 1]
+**Invariants:** Multiplicative (conjunctive) composition; any single factor at zero drives D_c to 1; codomain [0, 1] by construction.
+**Dependencies:** INV-CH7-57 (F derives from λ_c decay curves), INV-CH7-63 (defense of the form), INV-CH7-64 (runtime components), INV-CH7-66 (Trust Triangle algebra)
+**Figures:** none
+**Open question:** none
+
+### INV-CH7-63 — Why multiplicative-conjunctive, not weighted-additive
+
+**Section:** §7.7.5
+**Commitment:** The multiplicative form is a defended choice against the named alternative `D_c_alt = 1 − (w_F · F + w_C · C + w_S · S)` (weights summing to 1, each ≥ 0). Rejection rationale: any-factor-near-zero-collapses-whole — the multiplicative form refuses to average a near-zero quality dimension against strong values from the others, forcing the decision into Conditional Assessment Routing; the weighted-additive form masks a collapsed factor (near-zero factor × small weight leaves the sum low-debt). Worked example: guarantor-share disagreement (50% vs 100% across two sources) yields S = 0.05 with F = C = 0.95; multiplicative gives D_c ≈ 0.955 → Forced LLM with the inconsistency surfaced; weighted-additive (w_F = w_C = 0.4, w_S = 0.2) gives D_c_alt = 0.23 → Standard LLM with the inconsistency masked and unflagged. The multiplicative-conjunctive commitment is what makes the D_c signal regulator-defensible (fail-closed under an adversarial SR 11-7 reading) and is the formal defense of the §7.6.9 smoothing-failure-mode watchpoint.
+**Type signature:** rejected alternative: `D_c_alt = 1 − (w_F · F + w_C · C + w_S · S)`
+**Invariants:** The SDK must implement the multiplicative-conjunctive form; the weighted-additive form is architecturally rejected, not a tuning preference.
+**Dependencies:** INV-CH7-62; INV-CH7-56 (discipline 3 cross-cite); INV-CH7-65 (routing consequence)
+**Figures:** none
+**Open question:** none
+
+### INV-CH7-64 — Three debt components with runtime signals
+
+**Section:** §7.7.6
+**Commitment:** The fabric instantiates the extended formula at runtime through three named debt components, each rolling up into F, C, or S, each with a concrete assembly-engine signal: (1) data-source-availability-debt — a required source was attempted and failed; the engine records the attempt, failure mode, and expected source in the product's lineage and lifts D_c; a mature deployment distinguishes "source returned nothing" (zero-length response is information) from "source failed to return" (silence is not information — biases toward caution). (2) as-of-time-staleness-debt — temporal staleness beyond the decision class's λ_c × Risk Sensitivity budget, with explicit disambiguation between "no activity" (low-debt: the world is quiet) and "source failure" (high-debt: the fabric does not know what the world is doing). (3) entity-resolution-confidence-debt — the fabric's own confidence in entity resolution / extraction / schema-matching of unstructured sources below the decision class's semantic-consistency floor (e.g., UBO chain resolution at 0.72 vs a 0.90 floor); must surface as first-class signal, not buried extraction metadata.
+**Type signature:** none given (components roll up to F / C / S factors)
+**Invariants:** Failed-retrieval attempts recorded in lineage; the no-activity vs source-failure disambiguation is architecturally required; confidence debt is first-class agent-visible signal.
+**Dependencies:** INV-CH7-62; INV-CH7-66 (leg mapping)
+**Figures:** none
+**Open question:** none
+
+### INV-CH7-65 — Conditional Assessment Routing (CAR): Skip / Conditional / Standard LLM / Forced LLM
+
+**Section:** §7.7.7
+**Commitment:** CAR is a routing matrix consuming D_c, decision-class threat level, and relevant-signal count to select one of four states. Routing logic verbatim: IF total_relevant_signals == 0 → Skip (decision resolves algorithmically); ELIF threat_level ≤ LOW → Conditional (route to LLM only if context changed significantly since the last cached assessment); ELIF D_c above the class-specific threshold → Forced LLM (context is partial or stale; the LLM must be invoked with explicit awareness of the debt and must reason conservatively against it); ELSE → Standard LLM. In the reference pattern this routing empirically skips LLM for 75–85% of cycles — the mechanism-level answer to "derived-at-runtime is expensive": a naive all-LLM deployment at ×8–15 baseline collapses to full LLM cost on roughly a sixth of cycles. Forced LLM is the distinct behavior in which the prompt includes explicit debt-awareness and reconciliation reasoning is required (e.g., a missing covenant-compliance certificate drives one of 500 credits into Forced; the memo surfaces the gap rather than reasoning around it).
+**Type signature:** routing predicate chain as quoted; states ∈ {Skip, Conditional, Standard LLM, Forced LLM}
+**Invariants:** D_c thresholds are class-specific configuration (Control Plane, not code); Forced LLM reasons with the gap visible, never around it; the routing is the economic engine bounding LLM cost.
+**Dependencies:** INV-CH7-61/62 (D_c inputs), INV-CH7-53 (cost bands), Control Plane thresholds (§7.8, plan 01-08)
+**Figures:** Fig-CH07-19
+**Open question:** "threat_level ≤ LOW" and "class-specific threshold" — the whitepaper does not specify the threat-level scale, its source, or how the class-specific D_c threshold is set. Readings: (a) both are Control Plane configuration per decision class (consistent with §7.8 posture; SDK ships the routing mechanism only); (b) threat level is computed by the fabric from signal characteristics (would require a specified computation the paper never gives). Left unnumbered for synthesis.
+
+### INV-CH7-66 — Trust Triangle debt-mapping (Ch 6 forward-ref resolution)
+
+**Section:** §7.7.8
+**Commitment:** The mapping from the three debt components to the Chapter 6 §6.6 Trust Triangle legs is structural, not metaphorical: confidence-debt (entity-resolution-confidence-debt) → Confidence leg; freshness-debt (as-of-time-staleness-debt) → Freshness leg; lineage-integrity-debt (data-source-availability-debt and provenance breaks) → Lineage leg. The triangle is conjunctive — weak legs degrade the whole; a Context Product with any weak leg fails the triangle regardless of the other two. A product arriving at an agent carries the composite D_c, the three component debt scores, and the three leg strengths derived from them, so the agent's decision policy reasons against explicit signals, never an opaque "trust" label. The multiplicative D_c = 1 − (F · C · S) is the algebraic statement of the triangle's conjunctive gating.
+**Type signature:** per-product signal set: composite D_c + three component debt scores + three leg strengths
+**Invariants:** Conjunctive gating (weak leg fails the whole); the three-signal decomposition is runtime, measurable, and agent-visible at assembly time.
+**Dependencies:** §6.6 Trust Triangle (plan 01-05), INV-CH7-62, INV-CH7-64
+**Figures:** Fig-CH07-17
+**Open question:** none
+
+### INV-CH7-67 — Conservative bias and Fail-Closed under elevated D_c
+
+**Section:** §7.7.9
+**Commitment:** Elevated D_c biases urgency upward, not downward: debt is a risk amplifier, not a risk mitigator. The architectural posture is fail-closed by default — the absence of strong evidence against a suspicion is an argument for caution, not for clearing it. The fabric explicitly rejects two nearby postures: cache-first (missing data as a latency/availability problem) and permissive LLM-first (the model fills the gap from general knowledge) — both minimize apparent uncertainty, which a regulated-enterprise decision agent must not do. Instead the fabric makes uncertainty visible and routes upward into human-escalation, additional-source-fetch, or decision-decline paths preserving accountability (Patent Claim 7). This is the mechanism-level resolution of the upstream-source-break objection (Rebuttal #10): an upstream break produces elevated D_c and Forced-LLM/human-escalation routing — a bounded outage with auditable degradation, not a silent correctness failure.
+**Type signature:** none given
+**Invariants:** Fail-closed by default under elevated D_c; uncertainty is surfaced and routed, never smoothed; decision-reversal exposure bounded to decisions actually dependent on the broken source.
+**Dependencies:** INV-CH7-65 (Forced LLM / escalation routing), HITL escalation surface (SDK extension, CLAUDE.md §8.2 ExceptionEscalation hooks on D_c threshold breach)
+**Figures:** none
+**Open question:** none
+
+### INV-CH7-68 — Debt cascade across multi-agent handoff
+
+**Section:** §7.7.10–§7.7.11
+**Commitment:** In multi-agent workflows (intake → escalation → resolution), the debt a downstream agent consumes is the cumulative debt of upstream agents' context carried forward, not a per-agent metric: each handoff inherits the upstream context plus interim observations, with D_c recomputed against aged observations (inherited staleness plus elapsed λ_c decay); the composition F · C · S degrades across handoffs until a class-threshold breach triggers fail-closed routing (the resolution agent declines to act and routes to human escalation). "Debt compounds at agent speed, not human speed." The credit-memo worked example (§7.7.11) additionally commits per-claim debt decomposition: with inputs (a)–(d) present and (e) overdue, D_c is non-zero for the compliance-status claim specifically while other claims remain at D_c = 0; CAR routes to Forced LLM, which surfaces the absence in the memo output ("compliance status cannot be affirmed…") as a first-class input to the next-action recommendation — the gap shapes the decision before it is taken.
+**Type signature:** none given (per-claim D_c decomposition within one Context Product)
+**Invariants:** D_c is recomputed at every handoff boundary against inherited plus new observations; threshold breach at any handoff triggers fail-closed routing; gaps are decision inputs, not log lines.
+**Dependencies:** INV-CH7-62, INV-CH7-65, INV-CH7-67; workflow/orchestration surface (SDK extension, CLAUDE.md §8.1)
+**Figures:** Fig-CH07-20 (companion: Fig-CH03-04)
+**Open question:** none
+
+---
+
 ## Open Questions (unnumbered)
 
 - (INV-CH7-48, §7.6.1/§7.6.4) "TTL bounds rejects a Contract whose expires_at is in the past or beyond a MAX_TTL envelope" — where is MAX_TTL configured and what governs its value? Readings: (a) Control Plane configuration per Context Product class; (b) fabric-wide constant (collides with the mechanism/values boundary); (c) derived from the product's λ_c band. Consequences per reading noted in the entry.
+- (INV-CH7-65, §7.7.7) "ELIF threat_level ≤ LOW → Conditional … ELIF D_c above the class-specific threshold → Forced LLM" — the threat-level scale, its source, and how class-specific D_c thresholds are set are unspecified. Readings: (a) both are Control Plane configuration per decision class; (b) threat level is fabric-computed from signal characteristics (no computation given). Consequences per reading noted in the entry.
