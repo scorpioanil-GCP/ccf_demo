@@ -34,7 +34,7 @@ exists.
   4. Every open question carries a `D-IMPL-NN` number in `docs/DECISIONS.md`; no design choices or code produced
   5. `/gsd-review --phase Phase R --all` run, findings triaged, blocking findings fixed, Dave approval logged as `D-GATE-R`, `phase-r` merged to `main`
 
-**Plans:** 10/12 plans executed
+**Plans:** 11/12 plans executed
 
 Plans:
 **Wave 1**
@@ -64,7 +64,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 01-11-PLAN.md — Synthesis: merge fragments, §16 sections, D-IMPL-30+ numbering
+- [x] 01-11-PLAN.md — Synthesis: merge fragments, §16 sections, D-IMPL-30+ numbering
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
@@ -183,7 +183,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Phase R — Research | 10/12 | In Progress|  |
+| 1. Phase R — Research | 11/12 | In Progress|  |
 | 2. Phase D — Design | 0/? | Not started | - |
 | 3. Phase F — Feasibility & Scoping | 0/? | Not started | - |
 | 4. Phase I.1 — Fabric Core | 0/? | Not started | - |
