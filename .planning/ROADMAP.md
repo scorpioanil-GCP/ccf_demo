@@ -192,23 +192,7 @@ Plans:
   3. Skill catalog supports registration, discovery, and runtime grant/revoke; the policy-compatibility check refuses a grant exceeding the agent's policy regime or context contract; every grant/revocation and the skill-set in force land in the replay record
   4. All six specialization axes (archetype binding, context contract, perspective, policy regime, half-life/debt profile, instruction bindings) are expressible in the definition artifact and versioned — changing any axis produces a new agent version visible in replay
 
-**Plans**: 12 plans
-
-Plans:
-**Wave 1**
-
-- [ ] 04-01-PLAN.md — Scaffold: phase-i1 branch, packaging, CI workflow, D-03/D-12 doc amendments
-- [ ] 04-02-PLAN.md — CINV-01..03 AST lint checkers + allowlist, blocking in CI (D-06..D-08) *(wave 2)*
-- [ ] 04-03-PLAN.md — Slice contracts, canonical serializer, minimal Control Plane registry *(wave 2)*
-- [ ] 04-04-PLAN.md — Graph Protocols, SQLite backend, six-semantics conformance, assembly + single-writer boot *(wave 3)*
-- [ ] 04-05-PLAN.md — Vertical slice serve path: operators/projection/gates/replay/ArtifactStore + banking proto-quickstart *(wave 4)*
-- [ ] 04-06-PLAN.md — Operator registry/planner + composition-preservation property harness (D-14) *(wave 5)*
-- [ ] 04-07-PLAN.md — λ_c/D_c mechanism + full Control Plane subsystem *(wave 5)*
-- [ ] 04-08-PLAN.md — Replay engine + ArtifactStore conformance + CINV-04 harness *(wave 5)*
-- [ ] 04-09-PLAN.md — CDC→G ingress reference in ccf-runtime *(wave 5)*
-- [ ] 04-10-PLAN.md — Postgres GraphStore against the conformance suite + CI leg (D-11) *(wave 6)*
-- [ ] 04-11-PLAN.md — SimilarityIndex: sqlite-vec + Chroma optional extra (D-13) *(wave 6)*
-- [ ] 04-12-PLAN.md — Gate: per-invariant checklist, /gsd-review, Dave approval, D-GATE-I.1, merge *(wave 7)*
+**Plans**: TBD
 **Process notes**: Model mandate — Opus 5 (fallback Opus 4.8), "high" effort. Branch: `phase-i2`. Ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.2` before Phase 6 begins.
 
 ### Phase 6: Phase I.3 — Cross-Process & Harness Adapters
