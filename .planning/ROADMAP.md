@@ -158,7 +158,9 @@ Plans:
   1. Context Graph primitive persists to both reference backends (Postgres + SQLite per D-IMPL-02) with idempotent upsert, multi-source lineage accumulation, and single-writer enforcement at boot; only L2 holds a write handle to L3
   2. All four operator categories ship with composition-preservation tests passing for every shipped operator pair `(A∘B)(G) = A(B(G))`; projection engine executes the two-stage plan via structural typing
   3. Context Product Contract enforces `extra=forbid` and all three validation gates (empty-operator guard, lineage strict equality, TTL bounds); `λ_c`/`D_c` computation draws every value from Control Plane config with zero hard-coded tables in `/src`
-  4. Five-dimension Decision Replay record is written at product-serve time by construction; ArtifactStore Protocol works against both the file-backed dev impl and the MCP-backed reference impl; CDC→G ingress reference ingests to L1
+  4. Five-dimension Decision Replay record is written at product-serve time by construction; ArtifactStore Protocol works against the file-backed dev impl; CDC→G ingress reference ingests to L1
+
+     > **⚠ SCOPE AMENDMENT (04-CONTEXT.md D-12, Dave, 2026-07-25).** This criterion previously required the ArtifactStore Protocol to work against "both the file-backed dev impl **and the MCP-backed reference impl**." Phase 4 (I.1) scope is now **Protocol + file-backed dev impl only**; the MCP-backed reference implementation is **deferred to Phase 6 (I.3)**, where it lands with the rest of the MCP machinery. Gate review for Phase 4 verifies the amended criterion above, not the original. Phase 6 inherits the MCP-backed impl as an explicit deliverable, and criterion 3 of Phase 8 (example 07's file-backed → MCP-backed swap) depends on it.
   5. CI invariant scaffolding runs green on the fabric: No-Hardcoding lint, zero-harness-imports lint, `@algorithmic` lint, replay-by-construction and single-writer boot checks (CINV-01..04)
 
 **Plans**: 12 plans
@@ -206,6 +208,7 @@ Plans:
   2. A2A federation exchanges typed Context Products across processes behind the WireProtocol abstraction (D-IMPL-14 default), with identity/signing (D-IMPL-15) and inbound products admitted to L3 only through L2 after Control Plane policy-binding verification, lineage extended by set-union
   3. `HarnessAdapterProtocol` + reference adapters for the D-IMPL-24 harnesses bind all four seams (context injection, skill exposure of exactly the currently-bound skill-set, effect capture with no harness write handle, replay hooks); the zero-harness-imports-in-`/src` lint stays green
   4. Single-writer invariant demonstrably holds across the A2A boundary, the adapter boundary, and the ArtifactStore
+  5. **MCP-backed ArtifactStore reference implementation ships** and passes the same shared ArtifactStore Protocol conformance suite as the file-backed dev impl, with no other deployment change required to swap between them *(inherited from Phase 4 per the D-12 scope amendment recorded on Phase 4 criterion 4)*
 
 **Plans**: TBD
 **Process notes**: Model mandate — Opus 5 (fallback Opus 4.8), "high" effort. Branch: `phase-i3`. Ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.3` before Phase 7 begins.

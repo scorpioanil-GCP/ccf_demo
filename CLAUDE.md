@@ -831,10 +831,16 @@ release ships practical, runnable, domain-neutral examples instead.
 - **A README per example** stating what it demonstrates, which whitepaper
   sections and which sections of this document it exercises, and what the
   user should change first to adapt it.
-- **One coherent neutral domain across the suite** — a non-banking,
-  non-property-intelligence scenario (e.g., field-service / logistics
-  operations) so generality is demonstrable from day one and no example
-  can be mistaken for a domain pack.
+- **A horizontal mix of domains across the suite** (D-IMPL-52, Dave,
+  2026-07-25 — this *replaces* the former "one coherent neutral domain"
+  rule). Examples deliberately span unrelated domains, because a suite
+  that visibly crosses domains demonstrates generality more convincingly
+  than a single neutral domain held constant. **`examples/00-quickstart`
+  — and the Phase I.1 vertical-slice fixtures that precede it — are a
+  banking scenario**, which also puts realistic policy and regulatory
+  pressure on the fabric. What does not change: no example is a domain
+  pack, and everything domain-specific lives in definition artifacts,
+  never in example code (the No-Hardcoding Rule, §6.4).
 
 ### The v0 suite
 
