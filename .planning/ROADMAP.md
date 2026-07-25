@@ -12,7 +12,7 @@ exists.
 
 - [x] **Phase 1: Phase R — Research** - Extract every whitepaper commitment into `docs/SPEC_INVENTORY.md` with homecams-patterns appendix (completed 2026-07-25)
 - [x] **Phase 2: Phase D — Design** - SDK architectural shape: `docs/DESIGN.md`, `docs/DECISIONS.md`, full diagram set (completed 2026-07-25)
-- [ ] **Phase 3: Phase F — Feasibility & Scoping** - Per-component verdicts, v0.1 surface, test strategy; verify Phase I gate list
+- [x] **Phase 3: Phase F — Feasibility & Scoping** - Per-component verdicts, v0.1 surface, test strategy; verify Phase I gate list (completed 2026-07-25)
 - [ ] **Phase 4: Phase I.1 — Fabric Core** - L1–L6 Data and Context Layer plus CI invariant scaffolding
 - [ ] **Phase 5: Phase I.2 — Agent Specialization Framework** - Agent base, six archetypes, Agent & Task Factory, skilling
 - [ ] **Phase 6: Phase I.3 — Cross-Process & Harness Adapters** - Bidirectional MCP, A2A federation, HarnessAdapterProtocol + reference adapters
@@ -144,7 +144,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 03-04-PLAN.md — Review, triage, Dave approval, D-GATE-F, merge to main (FEAS-04)
+- [x] 03-04-PLAN.md — Review, triage, Dave approval, D-GATE-F, merge to main (FEAS-04)
 
 **Process notes**: Model mandate — Fable 5, "high" effort. Branch: `phase-f`. Ends with review → triage → Dave approval → `D-GATE-F` before Phase 4 begins. **Hard gate:** Phase I cannot start until D-IMPL-01..05, 11, 14, 17, 20, 24, 26, 28 are provisionally resolved.
 
@@ -231,7 +231,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Phase R — Research | 12/12 | Complete   | 2026-07-25 |
 | 2. Phase D — Design | 11/11 | Complete   | 2026-07-25 |
-| 3. Phase F — Feasibility & Scoping | 3/4 | In Progress|  |
+| 3. Phase F — Feasibility & Scoping | 4/4 | Complete   | 2026-07-25 |
 | 4. Phase I.1 — Fabric Core | 0/? | Not started | - |
 | 5. Phase I.2 — Agent Specialization Framework | 0/? | Not started | - |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 0/? | Not started | - |
