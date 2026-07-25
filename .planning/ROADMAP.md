@@ -130,9 +130,20 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 03-01-PLAN.md — FEASIBILITY.md component verdicts + 126-entry appendix matrix (FEAS-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 03-02-PLAN.md — docs/ROADMAP.md milestones, v0.1 surface, deferral register (FEAS-02)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 03-03-PLAN.md — Test-strategy table, gate-list check, advisory dispositions, DESIGN.md fixes (FEAS-03)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 03-04-PLAN.md — Review, triage, Dave approval, D-GATE-F, merge to main (FEAS-04)
 
 **Process notes**: Model mandate — Fable 5, "high" effort. Branch: `phase-f`. Ends with review → triage → Dave approval → `D-GATE-F` before Phase 4 begins. **Hard gate:** Phase I cannot start until D-IMPL-01..05, 11, 14, 17, 20, 24, 26, 28 are provisionally resolved.
