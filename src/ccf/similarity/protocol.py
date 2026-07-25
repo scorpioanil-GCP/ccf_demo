@@ -15,12 +15,29 @@ serializer refuses floats outright (they are not bit-stable across platforms),
 and a similarity score that cannot be canonically serialized cannot appear in a
 provenance chain that replay compares bit-for-bit.
 
-The slice ships :class:`TokenOverlapIndex`, a deterministic in-memory reference
-implementation. It is a *reference*, not a recommendation: Jaccard overlap over
-whitespace tokens is exactly enough to make the Similarity category genuine
-(it ranks, it thresholds, it pins a version) and deliberately not enough to be
-mistaken for production retrieval. The corpus it ranks over is supplied by the
-deployment — the SDK holds no corpus and no vocabulary (CLAUDE.md §11).
+**Two protocols, because the operator needs less than the fabric does.**
+:class:`SimilarityIndexProtocol` is read-only, and that is deliberately all the
+Similarity operator is typed against: an operator that could admit content to
+the corpus would be a second writer wearing a different name (CLAUDE.md §10).
+:class:`MutableSimilarityIndexProtocol` adds the corpus-admission surface —
+``upsert`` and ``delete`` — and is what a deployment's assembly path holds. The
+conformance suite runs against the mutable one because a suite that could not
+populate a corpus could only test an index someone else had already built.
+
+Corpus admission takes **text, not vectors**. The text-to-vector step lives
+behind :mod:`ccf.similarity.embedder` (D-IMPL-07), so it belongs to the index
+that chose an embedder, not to the caller. Taking vectors would also make the
+lexical reference index unimplementable against the same Protocol, and one
+shared conformance suite (D-16) is worth more than a vector-shaped signature.
+
+The SDK ships three implementations behind this seam: :class:`TokenOverlapIndex`
+here (deterministic, in-memory, no embedder), ``SqliteVecIndex`` (the dev
+default, D-IMPL-03), and ``ChromaIndex`` (optional extra, D-13). The first is a
+*reference*, not a recommendation: Jaccard overlap over whitespace tokens is
+exactly enough to make the Similarity category genuine (it ranks, it
+thresholds, it pins a version) and deliberately not enough to be mistaken for
+production retrieval. The corpus every one of them ranks over is supplied by
+the deployment — the SDK holds no corpus and no vocabulary (CLAUDE.md §11).
 
 Algorithmic module (CINV-03): ranking here is lexical, never semantic. A
 semantic index is a *different implementation of this Protocol*, living in its
@@ -37,9 +54,11 @@ from ccf.contracts.base import CCFContract
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "MutableSimilarityIndexProtocol",
     "SimilarityHit",
     "SimilarityIndexProtocol",
     "TokenOverlapIndex",
+    "order_hits",
 ]
 
 #: Scores are expressed on this integer scale (percent). Named rather than
@@ -89,6 +108,50 @@ class SimilarityIndexProtocol(Protocol):
         ...
 
 
+@runtime_checkable
+class MutableSimilarityIndexProtocol(SimilarityIndexProtocol, Protocol):
+    """A ranking index whose corpus a deployment can admit content to.
+
+    Separate from :class:`SimilarityIndexProtocol` so the Similarity operator
+    can be typed against the read-only half. An operator holding this Protocol
+    could edit the corpus its own provenance pins a version of, which is the
+    single-writer discipline (CLAUDE.md §10) failing one layer over.
+    """
+
+    def upsert(self, *, tenant_id: str, entity_uri: str, text: str) -> None:
+        """Admit ``text`` as the current corpus content for ``entity_uri``.
+
+        Replaces rather than accumulates, mirroring the graph's logical
+        supersession: one URI holds one current text per tenant. An index that
+        accumulated would keep answering from state the deployment had already
+        superseded, and the caller would have no way to tell a stale hit from a
+        fresh one.
+        """
+        ...
+
+    def delete(self, *, tenant_id: str, entity_uri: str) -> None:
+        """Remove ``entity_uri`` from the tenant's corpus.
+
+        Idempotent: deleting something absent is a no-op, so a resumed
+        supersession sweep is safe to re-run over ground it already covered.
+        """
+        ...
+
+
+def order_hits(hits: list[SimilarityHit]) -> tuple[SimilarityHit, ...]:
+    """Impose the canonical total order: descending score, ascending URI.
+
+    Shared by every implementation rather than re-derived by each, because
+    "descending score" alone is a *partial* order and the residue is settled by
+    whatever the substrate's iteration happened to do — a dict's insertion
+    order here, a B-tree's key order there. Two conformant indexes would then
+    disagree about a tie, and a replay comparing provenance bit for bit would
+    call that a changed decision.
+    """
+    hits.sort(key=lambda hit: (-hit.score_percent, hit.entity_uri))
+    return tuple(hits)
+
+
 class TokenOverlapIndex:
     """Deterministic in-memory reference index over deployment-supplied text.
 
@@ -102,25 +165,35 @@ class TokenOverlapIndex:
     nondeterminism a bit-for-bit replay assertion catches at the worst moment.
 
     Args:
-        corpus: ``(tenant_id, entity_uri) -> text``. Supplied by the
-            deployment; the SDK ships no corpus.
         index_version: Version identity the deployment assigns to this corpus
             state. Required, with no default — an unversioned index is one
             that cannot be replayed against (D-IMPL-38).
+        corpus: Optional seed content, ``(tenant_id, entity_uri) -> text``.
+            Supplied by the deployment; the SDK ships no corpus. Equivalent to
+            an :meth:`upsert` per entry, and offered only because building a
+            whole corpus in one expression reads better at a boot site.
     """
 
     def __init__(
         self,
         *,
-        corpus: Mapping[tuple[str, str], str],
         index_version: str,
+        corpus: Mapping[tuple[str, str], str] | None = None,
     ) -> None:
-        self._corpus = dict(corpus)
+        self._corpus: dict[tuple[str, str], str] = dict(corpus or {})
         self._index_version = index_version
 
     @property
     def index_version(self) -> str:
         return self._index_version
+
+    def upsert(self, *, tenant_id: str, entity_uri: str, text: str) -> None:
+        """Replace this tenant's corpus content for ``entity_uri``."""
+        self._corpus[(tenant_id, entity_uri)] = text
+
+    def delete(self, *, tenant_id: str, entity_uri: str) -> None:
+        """Drop this tenant's corpus content for ``entity_uri``, if any."""
+        self._corpus.pop((tenant_id, entity_uri), None)
 
     @staticmethod
     def _tokens(text: str) -> frozenset[str]:
@@ -147,5 +220,4 @@ class TokenOverlapIndex:
                     score_percent=(overlap * SCORE_SCALE) // len(union),
                 )
             )
-        hits.sort(key=lambda hit: (-hit.score_percent, hit.entity_uri))
-        return tuple(hits)
+        return order_hits(hits)
