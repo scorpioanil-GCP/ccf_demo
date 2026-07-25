@@ -1,0 +1,41 @@
+flowchart TD
+    subgraph Triggers["Trigger sources"]
+        Gate["Workflow HITL gate"]
+        DcBreach["D_c threshold breach<br/>(CAR forced escalation)"]
+        AgentOut["Agent output<br/>(value / generated content)"]
+    end
+
+    subgraph Primitives["HITL primitives"]
+        ApprovalGate["ApprovalGate"]
+        ExceptionEscalation["ExceptionEscalation"]
+        OverrideBoundary["OverrideBoundary"]
+        ReviewQueue["ReviewQueue"]
+    end
+
+    subgraph Transport["HITLTransportProtocol (D-IMPL-20)"]
+        Queue["Typed HITL queue<br/>(sole action ingress/egress)"]
+        MCP["MCP server endpoints<br/>(Resources + Tools, primary)"]
+        Webhook["Webhooks<br/>(notify-only, secondary)"]
+    end
+
+    Identity["HumanPrincipalBinding<br/>(IdentityProvider, D-IMPL-21)"]
+    Replay["Decision Replay record<br/>(dimension 2 extension)"]
+
+    Gate --> ApprovalGate
+    DcBreach --> ExceptionEscalation
+    AgentOut --> OverrideBoundary
+    AgentOut --> ReviewQueue
+
+    ApprovalGate --> Queue
+    ExceptionEscalation --> Queue
+    OverrideBoundary --> Queue
+    ReviewQueue --> Queue
+    Queue --> MCP
+    Queue -.notify only.-> Webhook
+    Webhook -.action returns via queue.-> Queue
+    Identity --> Queue
+
+    ApprovalGate ==audit by construction==> Replay
+    ExceptionEscalation ==audit by construction==> Replay
+    OverrideBoundary ==audit by construction==> Replay
+    ReviewQueue ==audit by construction==> Replay

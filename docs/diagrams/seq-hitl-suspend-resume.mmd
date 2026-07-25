@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant WF as Workflow primitive
+    participant CP as Control Plane
+    participant Q as HITL queue (HITLTransportProtocol)
+    participant H as Human (via MCP endpoint / ccf hitl CLI)
+    participant IdP as IdentityProvider (D-IMPL-21)
+    participant RR as Decision Replay record
+    participant AS as ArtifactStore
+
+    WF->>WF: reach ApprovalGate node
+    WF->>CP: persist WorkflowExecutionState (D-IMPL-18)
+    CP->>AS: write execution trace through (suspend point)
+    WF->>Q: enqueue pending event (gate id, state ref, Context Product hash, deadline policy)
+    Note over WF: suspend (state machine parked at gate)
+    Q-->>H: pending approval visible (MCP Resource)
+    H->>IdP: authenticate (OIDC/SAML or dev auth context)
+    IdP-->>H: HumanPrincipalBinding (subject, auth context, assurance)
+    H->>Q: approve + annotations (MCP Tool action)
+    Q->>Q: validate action record (extra=forbid, binding required)
+    Q->>RR: append HITL action (identity, time, product hash seen, annotations)
+    Note over RR: replay write precedes state transition (audit by construction)
+    Q->>WF: deliver validated action record
+    WF->>CP: load persisted state
+    WF->>WF: resume — transition to next node
