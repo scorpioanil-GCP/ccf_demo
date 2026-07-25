@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-25T17:45:24.200Z"
+last_updated: "2026-07-25T18:45:47.808Z"
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 23
-  completed_plans: 22
-  percent: 13
+  completed_plans: 23
+  percent: 25
 ---
 
 # STATE — CCF SDK
@@ -22,23 +22,23 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 02 — phase-d-design
+**Current focus:** Phase 03 — phase-f-feasibility (next; Phase 02 complete)
 
 ## Current Position
 
-Phase: 02 (phase-d-design) — EXECUTING
-Plan: 10 of 11
+Phase: 02 (phase-d-design) — COMPLETE (D-GATE-D logged 2026-07-25; merged to main)
+Plan: 11 of 11
 
-- **Phase:** 2 of 8 (phase d — design)
-- **Plan:** 02-10 complete (DESIGN.md synthesis — 1009 lines, pillar-organized, Invariant Preservation chapter with CINV-01..04 CI design, Appendix A traceability 126/126 key-set-equal, DSGN-01 + DSGN-03 delivered); next 02-11 (review gate)
-- **Status:** Executing Phase 02 on branch `phase-d`
-- **Progress:** [██████████] 96%
+- **Phase:** 2 of 8 (phase d — design) — COMPLETE
+- **Plan:** 02-11 complete (Phase D gate: self-audit 4/4, 4-reviewer review, 5 blocking fixed in-phase, 7 advisory to Phase F, Dave approved 2026-07-25 with zero provisionals, D-GATE-D logged, phase-d merged to main --no-ff); next: Phase 3 (Phase F — Feasibility & Scoping)
+- **Status:** Phase 02 closed on `main`; Phase F unblocked
+- **Progress:** [██████████] 100%
 
 ## Performance Metrics
 
-- Phases complete: 0/8
+- Phases complete: 2/8
 - Requirements delivered: 3/46
-- D-GATE entries logged: 0
+- D-GATE entries logged: 2 (D-GATE-R, D-GATE-D)
 
 ## Accumulated Context
 
@@ -55,6 +55,7 @@ Plan: 10 of 11
 - [Phase 02]: Batch 2 rulings (Dave, 2026-07-25, zero provisionals): 13 AS RECOMMENDED — D-IMPL-28 YAML artifacts + Pydantic v2 schemas + Jinja2 prompt URIs; 11 single Agent class + Protocol-typed archetype bundles, no user subclassing; 14 LF A2A default WireProtocol + typed-HTTP fallback; 12 dynamic Control Plane skill catalog, four skill types; 19 ordered archetype composition w/ explicit conflict rules; 25 three seams mandatory, effects:unsupported = conformance-verified absence; 29 two-tier skilling governance; 13 five MCP edges via one client lib + egress server + separate ArtifactStore contract; 15 IdentityProvider Protocol, mTLS + detached JWS; 16 verify every inbound A2A product, no fast path; 45 TraceCorrelationHook + ExternalTraceProviderProtocol; 46 PassageCitationProvider Protocol. D-IMPL-24 DAVE'S OWN RULING: all three harnesses (Google ADK + Claude Agent SDK + LangGraph) ship v0 reference adapters. D-IMPL-49 REFINED: deterministic (perspective, product_class, selection_params) signature + DESIGN.md obligation to document swarm intent decomposition as orchestration-layer, named post-v0 extension
 
 - [Phase 02]: DESIGN.md Appendix A granularity: subsection-level for §2A/§2B/§3/§6, chapter-level for §4/§5/§7; Appendix C (D-IMPL ruling index, 50 rulings) added so decision-log linkage is mechanically checkable
+- [Phase 02]: D-GATE-D logged 2026-07-25 (approver Dave, zero provisionals; 5 blocking findings fixed in-phase, 7 advisory carried to Phase F); phase-d merged to main --no-ff — Phase F unblocked
 
 ### Todos
 
@@ -68,5 +69,5 @@ Plan: 10 of 11
 
 ## Session Continuity
 
-Last action: Completed 02-10-PLAN.md (2026-07-25) — DESIGN.md synthesized from five Wave-5 fragments: sections 1-9 + Appendices A/B/C; 126/126 traceability key-set-equal to SPEC_INVENTORY; 7-invariant structural-argument chapter with CINV-01..04 CI enforcement design; diagram-vs-fragment-A consistency verified (no .mmd change needed).
-Next action: Execute 02-11-PLAN.md (Phase D review gate — /gsd-review, triage, present to Dave) on branch phase-d.
+Last action: Completed 02-11-PLAN.md (2026-07-25) — Phase D gate closed: Dave approved, D-GATE-D logged in docs/DECISIONS.md, phase-d merged to main (--no-ff, 4873f40), main + phase-d pushed to origin.
+Next action: Plan and execute Phase 3 (Phase F — Feasibility & Scoping) on branch phase-f.

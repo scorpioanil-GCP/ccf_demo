@@ -11,7 +11,7 @@ exists.
 ## Phases
 
 - [x] **Phase 1: Phase R — Research** - Extract every whitepaper commitment into `docs/SPEC_INVENTORY.md` with homecams-patterns appendix (completed 2026-07-25)
-- [ ] **Phase 2: Phase D — Design** - SDK architectural shape: `docs/DESIGN.md`, `docs/DECISIONS.md`, full diagram set
+- [x] **Phase 2: Phase D — Design** - SDK architectural shape: `docs/DESIGN.md`, `docs/DECISIONS.md`, full diagram set (completed 2026-07-25)
 - [ ] **Phase 3: Phase F — Feasibility & Scoping** - Per-component verdicts, v0.1 surface, test strategy; verify Phase I gate list
 - [ ] **Phase 4: Phase I.1 — Fabric Core** - L1–L6 Data and Context Layer plus CI invariant scaffolding
 - [ ] **Phase 5: Phase I.2 — Agent Specialization Framework** - Agent base, six archetypes, Agent & Task Factory, skilling
@@ -84,7 +84,7 @@ Plans:
   3. `docs/diagrams/` contains the complete set: one diagram per Common Pillar (five), plus the harness-adapter seam diagram and the ArtifactStore seam diagram
   4. `/gsd-review --phase Phase D --all` run, triaged, Dave approval logged as `D-GATE-D`, phase branch merged to `main`
 
-**Plans:** 10/11 plans executed
+**Plans:** 11/11 plans complete
 
 Plans:
 **Wave 1**
@@ -111,7 +111,7 @@ Plans:
 
 **Wave 7**
 
-- [ ] 02-11-PLAN.md — §3.1 gate: self-audit, /gsd-review, Dave approval, D-GATE-D, merge to main
+- [x] 02-11-PLAN.md — §3.1 gate: self-audit, /gsd-review, Dave approval, D-GATE-D, merge to main
 
 **Process notes**: Model mandate — Fable 5, "high" effort. Branch: `phase-d`. No implementation code (§3). Ends with review → triage → Dave approval → `D-GATE-D` before Phase 3 begins.
 
@@ -212,7 +212,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Phase R — Research | 12/12 | Complete   | 2026-07-25 |
-| 2. Phase D — Design | 10/11 | In Progress|  |
+| 2. Phase D — Design | 11/11 | Complete   | 2026-07-25 |
 | 3. Phase F — Feasibility & Scoping | 0/? | Not started | - |
 | 4. Phase I.1 — Fabric Core | 0/? | Not started | - |
 | 5. Phase I.2 — Agent Specialization Framework | 0/? | Not started | - |
