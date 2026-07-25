@@ -127,7 +127,14 @@ Plans:
   3. Test strategy names how each CI-enforced invariant will be verified; the Phase I gate list (D-IMPL-01..05, 11, 14, 17, 20, 24, 26, 28) is checked against actual resolution status — Phase 4 does not start until all are at least provisionally resolved
   4. `/gsd-review --phase Phase F --all` run, triaged, Dave approval logged as `D-GATE-F`, phase branch merged to `main`
 
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — FEASIBILITY.md component verdicts + 126-entry appendix matrix (FEAS-01)
+- [ ] 03-02-PLAN.md — docs/ROADMAP.md milestones, v0.1 surface, deferral register (FEAS-02)
+- [ ] 03-03-PLAN.md — Test-strategy table, gate-list check, advisory dispositions, DESIGN.md fixes (FEAS-03)
+- [ ] 03-04-PLAN.md — Review, triage, Dave approval, D-GATE-F, merge to main (FEAS-04)
+
 **Process notes**: Model mandate — Fable 5, "high" effort. Branch: `phase-f`. Ends with review → triage → Dave approval → `D-GATE-F` before Phase 4 begins. **Hard gate:** Phase I cannot start until D-IMPL-01..05, 11, 14, 17, 20, 24, 26, 28 are provisionally resolved.
 
 ### Phase 4: Phase I.1 — Fabric Core
