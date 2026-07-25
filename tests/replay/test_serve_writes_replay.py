@@ -243,7 +243,10 @@ def test_identical_content_yields_one_immutable_artifact(tmp_path: Path) -> None
     )
     assert second.content_address == first.content_address
     assert store.get(content_address=first.content_address) == before
-    assert len(list(tmp_path.iterdir())) == 1
+    # Content-addressed artifacts only: the naming index is store bookkeeping
+    # and is deliberately named with a leading dot so it can never collide with
+    # a content address (which is hexadecimal).
+    assert len([p for p in tmp_path.iterdir() if not p.name.startswith(".")]) == 1
 
 
 def test_getting_an_unknown_address_raises(tmp_path: Path) -> None:

@@ -264,17 +264,66 @@ class SqliteGraphReader:
         self._connection = connection
 
     def _lineage(
-        self, *, tenant_id: str, kind: str, node_key: str, claim_id: str
+        self,
+        *,
+        tenant_id: str,
+        kind: str,
+        node_key: str,
+        claim_id: str,
+        boundary: datetime | None = None,
     ) -> frozenset[LineageEntry]:
+        """Return the claim's lineage as it stood at ``boundary``.
+
+        L accumulates by set-union over a claim's life (INV-CH7-17), so a claim
+        current in March can pick up corroborating evidence in July. Under
+        INV-CH7-14 that evidence must not appear in a March view: an entry the
+        fabric had not received yet is future information exactly as a
+        later-superseding claim is. ``boundary`` of ``None`` means a history
+        read, where the whole accumulated set is the answer.
+        """
         rows = self._connection.execute(
             _SELECT_LINEAGE, (tenant_id, kind, node_key, claim_id)
         ).fetchall()
-        return frozenset(
+        entries = (
             LineageEntry.model_validate(json.loads(row["entry_json"])) for row in rows
         )
+        if boundary is None:
+            return frozenset(entries)
+        return frozenset(entry for entry in entries if entry.observed_at <= boundary)
+
+    @staticmethod
+    def _supersession_as_of(
+        row: sqlite3.Row, *, boundary: datetime | None
+    ) -> tuple[str | None, datetime | None]:
+        """Render the supersession edge as it stood at ``boundary``.
+
+        INV-CH7-14 is explicit that an as-of read re-renders the state the
+        fabric held at ``at``, and that *claims superseded later are still
+        current*. The row filter already keeps such a claim in the view; this
+        keeps its supersession edge out of it. Without this, a claim read as of
+        March would carry a pointer to the claim that replaced it in July —
+        future information, leaking through the one field the temporal filter
+        does not cover, and enough to change the content hash of a view that is
+        supposed to be identical to the one the decision saw.
+
+        ``boundary`` is ``None`` for history reads, where the whole supersession
+        chain is the answer being asked for.
+        """
+        superseded_at = _parse_timestamp(row["superseded_at"])
+        if (
+            boundary is not None
+            and superseded_at is not None
+            and superseded_at > boundary
+        ):
+            return None, None
+        return row["superseded_by"], superseded_at
 
     def _entity_records(
-        self, rows: Iterable[sqlite3.Row], *, tenant_id: str
+        self,
+        rows: Iterable[sqlite3.Row],
+        *,
+        tenant_id: str,
+        boundary: datetime | None = None,
     ) -> tuple[EntityRecord, ...]:
         records: list[EntityRecord] = []
         for row in rows:
@@ -286,21 +335,29 @@ class SqliteGraphReader:
                     kind=ENTITY_KIND,
                     node_key=row["entity_uri"],
                     claim_id=row["claim_id"],
+                    boundary=boundary,
                 )
             ]
+            superseded_by, superseded_at = self._supersession_as_of(
+                row, boundary=boundary
+            )
             records.append(
                 EntityRecord(
                     claim_id=row["claim_id"],
                     claim=EntityClaim.model_validate(payload),
                     policy_bundle_version=row["policy_bundle_version"],
-                    superseded_by=row["superseded_by"],
-                    superseded_at=_parse_timestamp(row["superseded_at"]),
+                    superseded_by=superseded_by,
+                    superseded_at=superseded_at,
                 )
             )
         return tuple(records)
 
     def _relationship_records(
-        self, rows: Iterable[sqlite3.Row], *, tenant_id: str
+        self,
+        rows: Iterable[sqlite3.Row],
+        *,
+        tenant_id: str,
+        boundary: datetime | None = None,
     ) -> tuple[RelationshipRecord, ...]:
         records: list[RelationshipRecord] = []
         for row in rows:
@@ -312,16 +369,20 @@ class SqliteGraphReader:
                     kind=RELATIONSHIP_KIND,
                     node_key=row["relationship_key"],
                     claim_id=row["claim_id"],
+                    boundary=boundary,
                 )
             ]
+            superseded_by, superseded_at = self._supersession_as_of(
+                row, boundary=boundary
+            )
             records.append(
                 RelationshipRecord(
                     relationship_key=row["relationship_key"],
                     claim_id=row["claim_id"],
                     claim=RelationshipClaim.model_validate(payload),
                     policy_bundle_version=row["policy_bundle_version"],
-                    superseded_by=row["superseded_by"],
-                    superseded_at=_parse_timestamp(row["superseded_at"]),
+                    superseded_by=superseded_by,
+                    superseded_at=superseded_at,
                 )
             )
         return tuple(records)
@@ -338,9 +399,11 @@ class SqliteGraphReader:
         return GraphView(
             tenant_id=tenant_id,
             as_of=at,
-            entities=self._entity_records(entity_rows, tenant_id=tenant_id),
+            entities=self._entity_records(
+                entity_rows, tenant_id=tenant_id, boundary=at
+            ),
             relationships=self._relationship_records(
-                relationship_rows, tenant_id=tenant_id
+                relationship_rows, tenant_id=tenant_id, boundary=at
             ),
         )
 
