@@ -10,7 +10,7 @@ exists.
 
 ## Phases
 
-- [ ] **Phase 1: Phase R — Research** - Extract every whitepaper commitment into `docs/SPEC_INVENTORY.md` with homecams-patterns appendix
+- [x] **Phase 1: Phase R — Research** - Extract every whitepaper commitment into `docs/SPEC_INVENTORY.md` with homecams-patterns appendix (completed 2026-07-25)
 - [ ] **Phase 2: Phase D — Design** - SDK architectural shape: `docs/DESIGN.md`, `docs/DECISIONS.md`, full diagram set
 - [ ] **Phase 3: Phase F — Feasibility & Scoping** - Per-component verdicts, v0.1 surface, test strategy; verify Phase I gate list
 - [ ] **Phase 4: Phase I.1 — Fabric Core** - L1–L6 Data and Context Layer plus CI invariant scaffolding
@@ -34,7 +34,7 @@ exists.
   4. Every open question carries a `D-IMPL-NN` number in `docs/DECISIONS.md`; no design choices or code produced
   5. `/gsd-review --phase Phase R --all` run, findings triaged, blocking findings fixed, Dave approval logged as `D-GATE-R`, `phase-r` merged to `main`
 
-**Plans:** 11/12 plans executed
+**Plans:** 12/12 plans complete
 
 Plans:
 **Wave 1**
@@ -68,7 +68,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 01-12-PLAN.md — §3.1 gate: self-audit, /gsd-review, Dave approval, D-GATE-R, merge
+- [x] 01-12-PLAN.md — §3.1 gate: self-audit, /gsd-review, Dave approval, D-GATE-R, merge
 
 **Process notes**: Model mandate — Anthropic Fable 5, "high" effort. Branch: `phase-r`. No production code (§3). Ends with review → triage → Dave approval → `D-GATE-R` before Phase 2 begins.
 
@@ -84,7 +84,35 @@ Plans:
   3. `docs/diagrams/` contains the complete set: one diagram per Common Pillar (five), plus the harness-adapter seam diagram and the ArtifactStore seam diagram
   4. `/gsd-review --phase Phase D --all` run, triaged, Dave approval logged as `D-GATE-D`, phase branch merged to `main`
 
-**Plans**: TBD
+**Plans:** 11 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 02-01-PLAN.md — Setup: phase-d branch, DECISIONS.md hygiene, 126-entry ownership map
+
+**Waves 2–4** *(decision marathon — serial, interactive, D-03 gate on drafting)*
+
+- [ ] 02-02-PLAN.md — Batch 1 rulings: fabric & runtime fundamentals (16 decisions, D-IMPL-01 first)
+- [ ] 02-03-PLAN.md — Batch 2 rulings: agent framework, harness, cross-process/trust (14 decisions)
+- [ ] 02-04-PLAN.md — Batch 3 rulings + 49/49 census + provisional register (19 decisions)
+
+**Wave 5** *(parallel drafting into fragments)*
+
+- [ ] 02-05-PLAN.md — Data & Context pillar A (L1–L3, single-writer) + seq diagram
+- [ ] 02-06-PLAN.md — Data & Context pillar B (L4–L6, replay, planes) + pillar/replay diagrams
+- [ ] 02-07-PLAN.md — Core Agent Types pillar + diagram
+- [ ] 02-08-PLAN.md — Orchestration + HITL pillars + 3 diagrams
+- [ ] 02-09-PLAN.md — Experience pillar + seams chapter + 4 diagrams (both seam diagrams)
+
+**Wave 6**
+
+- [ ] 02-10-PLAN.md — Synthesize DESIGN.md: pillars, Invariant Preservation chapter, 126-row traceability matrix
+
+**Wave 7**
+
+- [ ] 02-11-PLAN.md — §3.1 gate: self-audit, /gsd-review, Dave approval, D-GATE-D, merge to main
+
 **Process notes**: Model mandate — Fable 5, "high" effort. Branch: `phase-d`. No implementation code (§3). Ends with review → triage → Dave approval → `D-GATE-D` before Phase 3 begins.
 
 ### Phase 3: Phase F — Feasibility & Scoping
@@ -183,8 +211,8 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Phase R — Research | 11/12 | In Progress|  |
-| 2. Phase D — Design | 0/? | Not started | - |
+| 1. Phase R — Research | 12/12 | Complete   | 2026-07-25 |
+| 2. Phase D — Design | 0/11 | Not started | - |
 | 3. Phase F — Feasibility & Scoping | 0/? | Not started | - |
 | 4. Phase I.1 — Fabric Core | 0/? | Not started | - |
 | 5. Phase I.2 — Agent Specialization Framework | 0/? | Not started | - |
