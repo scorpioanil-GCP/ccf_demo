@@ -51,3 +51,9 @@ Both fixes applied directly to docs/CCF_Whitepaper_1-2.md in this plan's Task-2 
 The PDF's embedded fonts render several math symbols as notdef (invisible on the page, not merely mangled by pdftotext): ∘, ⇄, →, λ, ∈, ≥/≤, ≈, ε, and numeric subscripts. These were reconstructed from context per the policy established in 01-02 and extended in 01-03; Ch 8 added two instances (`Algorithmic ⇄ Semantic Alternation` back-reference in §8.3.1/§8.4; `Tier-2 ⇄ Tier-3` boundary in §8.3.2, confirmed notdef on the PDF p.202 render). Flag stands for Dave at the phase gate if LaTeX-source fidelity review is desired.
 
 VERDICT: PASS
+
+---
+
+## Addendum (2026-07-25, plan 01-12 gate feedback): canonical source replaced
+
+Dave surfaced at the phase gate that the PDF→markdown conversion was not clean and the authoring source exists at `/home/parkave/ccf/whitepaper/` (the exact files that build CCF_Whitepaper_1-2.pdf via build.sh, chapter files dated 2026-05-19 hours before the 1-2 PDF build). `docs/CCF_Whitepaper_1-2.md` was rebuilt by concatenating the authoring source in PDF order (Front Matter, Executive Summary, Abstract, Ch 1–9); 42 figures are native Mermaid fences (render in preview), 8 PNGs copied to `docs/figures/CH03|CH07/` with all links resolving. Re-census against the D-03 gate: subsections 7/6/10/13 identical; 50/50 figure IDs; all load-bearing formulas present verbatim in source (no glyph reconstruction anywhere — the 01-02/01-03 glyph-reconstruction flags are now moot). The PDF-derived md this replaces had passed D-03 against the same PDF, so inventory extractions (which cite section numbers) remain valid.
