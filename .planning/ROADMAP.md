@@ -84,7 +84,7 @@ Plans:
   3. `docs/diagrams/` contains the complete set: one diagram per Common Pillar (five), plus the harness-adapter seam diagram and the ArtifactStore seam diagram
   4. `/gsd-review --phase Phase D --all` run, triaged, Dave approval logged as `D-GATE-D`, phase branch merged to `main`
 
-**Plans:** 4/11 plans executed
+**Plans:** 9/11 plans executed
 
 Plans:
 **Wave 1**
@@ -99,11 +99,11 @@ Plans:
 
 **Wave 5** *(parallel drafting into fragments)*
 
-- [ ] 02-05-PLAN.md — Data & Context pillar A (L1–L3, single-writer) + seq diagram
-- [ ] 02-06-PLAN.md — Data & Context pillar B (L4–L6, replay, planes) + pillar/replay diagrams
-- [ ] 02-07-PLAN.md — Core Agent Types pillar + diagram
-- [ ] 02-08-PLAN.md — Orchestration + HITL pillars + 3 diagrams
-- [ ] 02-09-PLAN.md — Experience pillar + seams chapter + 4 diagrams (both seam diagrams)
+- [x] 02-05-PLAN.md — Data & Context pillar A (L1–L3, single-writer) + seq diagram
+- [x] 02-06-PLAN.md — Data & Context pillar B (L4–L6, replay, planes) + pillar/replay diagrams
+- [x] 02-07-PLAN.md — Core Agent Types pillar + diagram
+- [x] 02-08-PLAN.md — Orchestration + HITL pillars + 3 diagrams
+- [x] 02-09-PLAN.md — Experience pillar + seams chapter + 4 diagrams (both seam diagrams)
 
 **Wave 6**
 
@@ -212,7 +212,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Phase R — Research | 12/12 | Complete   | 2026-07-25 |
-| 2. Phase D — Design | 4/11 | In Progress|  |
+| 2. Phase D — Design | 9/11 | In Progress|  |
 | 3. Phase F — Feasibility & Scoping | 0/? | Not started | - |
 | 4. Phase I.1 — Fabric Core | 0/? | Not started | - |
 | 5. Phase I.2 — Agent Specialization Framework | 0/? | Not started | - |
