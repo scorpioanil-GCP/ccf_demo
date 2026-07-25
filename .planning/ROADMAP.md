@@ -132,7 +132,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — FEASIBILITY.md component verdicts + 126-entry appendix matrix (FEAS-01)
+- [x] 03-01-PLAN.md — FEASIBILITY.md component verdicts + 126-entry appendix matrix (FEAS-01)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -231,7 +231,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Phase R — Research | 12/12 | Complete   | 2026-07-25 |
 | 2. Phase D — Design | 11/11 | Complete   | 2026-07-25 |
-| 3. Phase F — Feasibility & Scoping | 0/? | Not started | - |
+| 3. Phase F — Feasibility & Scoping | 1/4 | In Progress|  |
 | 4. Phase I.1 — Fabric Core | 0/? | Not started | - |
 | 5. Phase I.2 — Agent Specialization Framework | 0/? | Not started | - |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 0/? | Not started | - |
