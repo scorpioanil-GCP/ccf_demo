@@ -47,3 +47,11 @@ files = ["src"]
 python_version = "3.12"
 strict = true
 warn_unreachable = true
+
+# PyYAML ships no inline types and the stub package is not a runtime dependency
+# of the SDK. The single `src` import of it (the Control Plane artifact loader)
+# immediately validates whatever it parses through a typed artifact contract, so
+# the untyped boundary is one call deep and closed by validation, not by trust.
+[[tool.mypy.overrides]]
+module = ["yaml"]
+ignore_missing_imports = true
