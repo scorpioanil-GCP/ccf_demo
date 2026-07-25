@@ -207,8 +207,123 @@
 
 ---
 
+## §7.4 Context Operators — System of Computation
+
+### INV-CH7-22
+- **Section:** §7.4
+- **Commitment:** Four canonical operator categories cover the space of operations the fabric performs: Traversal — bounded relationship walks parameterized by edge types, depth limits, and materiality thresholds; Temporal — valid-time and observed-time reconciliation against as-of alignments; Policy — principal, jurisdiction, and entitlement subgraph substitution applied before downstream operators see data; Similarity — corpus-scoped ranking with pinned index version, thresholded by contract, composed under policy pre-projection rather than as unconstrained retrieval. §7.4's threefold mechanism commitment: (1) operators compose algebraically; (2) composition is composition-preserving (intermediates individually replayable, cache-coherent under half-life-driven invalidation, lineage-complete); (3) operator plans are generated dynamically at runtime from agent intent by the Operator Plan DAG generator (text cites inline decision "D-15").
+- **Type signature:** Category contracts per the parenthetical parameterizations above; each operator "typed in its inputs, in its outputs, and in its side-effect-free-read-only-sync contract against the graph" (Fig-CH07-07 caption).
+- **Invariants:** **Operator purity** — side-effect-free, read-only-sync; every composition reads across multiple six-tuple axes simultaneously.
+- **Dependencies:** INV-CH7-05, INV-CH7-14; category mechanism entries INV-CH7-24..27.
+- **Figures:** Fig-CH07-07 (compositional algebra: four categories → Π → Context Product).
+- **Open question:** None.
+
+### INV-CH7-23
+- **Section:** §7.4.1
+- **Commitment:** The compositional form the fabric commits to is the operator algebra, with ∘ read right-to-left (Similarity first … Π last). A specific request need not exercise all five categories — three- and four-operator compositions are normal; the algebra defines the composition surface, a request picks its operators from it. The algebraic property the fabric reads against is composition-preservation — associativity of composition under the typed operator algebra — with three concrete consequences: (1) intermediate operator outputs are individually replayable (persistable, diffable, re-executable against same input state — the §7.10 replay mechanism); (2) intermediates are cache-coherent under λ_c-driven invalidation (supersession invalidates downstream intermediates predictably, no full recomputation); (3) every intermediate is lineage-complete (L carries forward operators invoked, parameters, and graph state read — each intermediate carries its own provenance sub-chain). Formal ancestry acknowledged (relational algebra, service-mesh filter composition, graph algebra); the novelty claim is the semantic-domain application plus typed contract plus closed-loop feedback, not the algebra itself. Inline decisions cited at Fig-CH07-08: "D-14 algebraic composition, D-17 determinism, and D-18's consolidated Rebuttal #11 + #13 answer."
+- **Type signature:** `ContextProduct = Π ∘ Traversal ∘ Temporal ∘ Policy ∘ Similarity`; composition-preservation: `(A ∘ B)(G) = A(B(G))`.
+- **Invariants:** **Composition-preservation `(A∘B)(G) = A(B(G))`** — named invariant required for replay determinism; intermediates replayable / cache-coherent / lineage-complete.
+- **Dependencies:** INV-CH7-11, §7.10 Decision Replay, §7.7 λ_c invalidation.
+- **Figures:** Fig-CH07-07, Fig-CH07-08 (composition lifecycle: B(G) cached, A consumes intermediate, associativity preserved).
+- **Open question:** None.
+
+### INV-CH7-24
+- **Section:** §7.4 (category: Traversal; walked in §7.4.6)
+- **Commitment:** Traversal operators walk relationship edges from seed entities to a bounded subgraph — parameterized by `relationship-types` (e.g., structural-risk-carrying edges), `depth-limit`, and `materiality-threshold` (configurable floors). The traversal produces "a bounded-expansion-of-relevance rather than exhaustive-expansion-of-connection"; cost scales with projected subgraph, not full graph (composition (d): a naive Tier-1 walk could touch hundreds of thousands of nodes; the bounded, policy-projected, materiality-thresholded traversal resolves in tens to low hundreds). This is the mechanism answer to the PITFALLS Zone A3 derived-at-runtime cost objection.
+- **Type signature:** `Traversal(relationship-types, depth-limit, materiality-threshold)`.
+- **Invariants:** Bounded expansion; read-only purity (INV-CH7-22); thresholds/floors are Control Plane configuration, not code constants.
+- **Dependencies:** INV-CH7-14 (R axis), INV-CH7-20 (worked topology), INV-CH7-23.
+- **Figures:** Fig-CH07-07, Fig-CH07-09.
+- **Open question:** None.
+
+### INV-CH7-25
+- **Section:** §7.4 (category: Temporal; walked in §7.4.4)
+- **Commitment:** Temporal operators reconcile valid-time (when a fact is effective in the world) against observed-time (when the fabric learned of it) at the as-of boundary a decision requires. The reconciliation is a temporal correctness semantic, not a TTL filter: the fabric structurally expresses the difference between "we don't have this yet" and "this hasn't happened yet" (composition (b): executed-not-settled payment has future valid-time / present observed-time; cleared-not-posted has present valid-time / future observed-time — an as-of-now reconciliation resolves both without flattening). Half-life (λ_c, §7.7) sits ON TOP of this operator-layer temporal correctness — the answer to Rebuttal #5 ("Half-life is just TTL").
+- **Type signature:** `Temporal(as-of-T)` over bitemporal (valid-time, observed-time) state.
+- **Invariants:** Bitemporal reconciliation without flattening; no future-information leakage into as-of views (INV-CH7-03).
+- **Dependencies:** INV-CH7-14 (T axis), §7.7 half-life (plan 01-08's key range).
+- **Figures:** Fig-CH07-07, Fig-CH07-09.
+- **Open question:** None.
+
+### INV-CH7-26
+- **Section:** §7.4 (category: Policy; walked in §7.4.5)
+- **Commitment:** Policy operators enforce principal, jurisdiction, and entitlement by subgraph SUBSTITUTION at the Context Graph layer — "not a row-level filter on an index." Inadmissible content (e.g., MNPI-tagged documents outside the principal's wall-crossing context) "are not hidden by a visibility predicate appended to a retrieval query — they are structurally absent from the subgraph the principal's Policy-projected graph consists of." Jurisdictional constraints bake into the same projection. The ordering commitment is load-bearing: **the Policy Operator runs before the Similarity Operator, not after** — similarity ranks only over the principal-permissible subgraph; "no filter runs after retrieval because no retrieval of inadmissible content happened." This is the structural (not post-hoc) prevention of the wrong-chunk-through-wrong-principal failure class (Rebuttals #11, #13).
+- **Type signature:** `Policy(principal, jurisdiction, entitlement)` → subgraph substitution.
+- **Invariants:** **Policy-before-Similarity composition ordering**; structural absence, not post-retrieval filtering.
+- **Dependencies:** INV-CH7-14 (P axis), INV-CH7-27, INV-CH7-23 (ordering within algebra).
+- **Figures:** Fig-CH07-07 (ordering rendered), Fig-CH07-09.
+- **Open question:** None.
+
+### INV-CH7-27
+- **Section:** §7.4 (category: Similarity; contract in §7.4.7)
+- **Commitment:** Similarity operators surface non-obvious relevant context (analogs, cohorts, patterns) via corpus-scoped ranking. The determinism contract is structural: "given same corpus version, same embedding model version, same query, same threshold, same policy regime → same result." The index version is pinned in L (the output subgraph's L carries the embedding index identifier and version), so replay needs no external knowledge of which index was live; the threshold is part of the contract, not runtime-tuned; and composition with Policy runs before Similarity, so a different principal sees a different ranking because the input corpus is structurally different — not because ranking is nondeterministic. This contract-level determinism is the stated distinction from GraphRAG, whose intermediate pipeline outputs are not individually replayable and whose runtime-tunable parameters are not persisted in the decision record.
+- **Type signature:** `Similarity(threshold)` with contract tuple `(corpus_version, embedding_model_version, query, threshold, policy_regime) → result`; index version pinned in L.
+- **Invariants:** **Similarity determinism contract**; threshold carried through composition and re-invoked identically at replay; policy-pre-projection.
+- **Dependencies:** INV-CH7-26 (ordering), INV-CH7-23, §7.10 replay.
+- **Figures:** Fig-CH07-07, Fig-CH07-09.
+- **Open question:** None.
+
+### INV-CH7-28
+- **Section:** §7.4.2
+- **Commitment:** The Operator Plan DAG generator (Planner) is the runtime that selects which operators a specific request needs and orders them into a dependency-correct execution plan. Given an agent intent — "typically a tuple of role, decision class, and entity reference" — three stages: Stage 1 maps intent to required operators via operator-registry lookup; Stage 2 topologically orders them into the composition tree respecting dependencies ("Policy before Similarity; Temporal before Traversal where Traversal reads temporally-reconciled state"); Stage 3 hands the plan to the projection engine, which resolves intermediate contexts and reconciles them into the final Context Product. Pseudocode signature given in text (embedded in prose in the `.md` conversion).
+- **Type signature:** `planOperators(agent_intent: {role, decision_class, entity_ref}, operator_registry: Registry) -> OperatorPlan`.
+- **Invariants:** Topological ordering respects composition dependencies; plan generation is deterministic because the registry it reads is deterministic at runtime (INV-CH7-29).
+- **Dependencies:** INV-CH7-22..27, INV-CH7-29, §7.5 projection engine (executes the plan).
+- **Figures:** Fig-CH07-09 (Planner fan-out across the four worked compositions — design space, not one request's path).
+- **Open question:** How the Planner schedules and materializes intermediates (caching policy, reuse decisions for replay invocations) is specified at property level (Fig-CH07-08's reuse note) but not at scheduling-mechanism level; Homecams shows one resolution — do NOT inherit it (CLAUDE.md §2.1). (unnumbered — see Open Questions)
+
+### INV-CH7-29
+- **Section:** §7.4.2
+- **Commitment:** Two Planner mechanism commitments. (1) The Planner batch-resolves operator references via a DataLoader-style pattern — one query per operator type per call (N+1 avoidance): all Traversal references resolve in one batched call, all Temporal references in another. This amortizes per-operator cost and is how compositions stay within the §7.6 illustrative SLO envelope. (2) The operator registry is import-time / boot-time loaded, and duplicate registration fails fast: registering two operators under the same reference key is a boot-time failure that "prevents the fabric from serving any traffic until the duplicate is resolved" — not a runtime error during a request. The invariant is CI-tested (§7.8 Architectural Invariants carries the broader framing).
+- **Type signature:** Registry: boot-time-loaded map of reference key → operator; duplicate key → boot failure.
+- **Invariants:** **Boot-time registry with fail-fast duplicate registration** (CI-tested); batched (DataLoader-style) operator resolution.
+- **Dependencies:** INV-CH7-28, §7.6 SLO envelope, §7.8 invariants (plan 01-08's key range).
+- **Figures:** Fig-CH07-09.
+- **Open question:** None.
+
+### INV-CH7-30
+- **Section:** §7.4.3–§7.4.6
+- **Commitment:** Four worked compositions demonstrate the algebra's design space (each closes on the rebuttal/pitfall it architecturally answers): (a) Covenant cross-reference (unstructured-primary): `Traversal(covenant-of) ∘ Temporal(as-of-T) ∘ Similarity(threshold=0.85)` — Similarity returns passage-level graph anchors (not raw chunks), Temporal selects the active covenant version, Traversal walks covenant-of → defined-by → measured-by; the architectural claim is project-then-retrieve versus RAG's retrieve-then-filter (Rebuttal #11). (b) Intraday liquidity (Temporal-primary): `Temporal(as-of-now) ∘ Traversal(exposure) ∘ Policy(reg-limit)` — bitemporal reconciliation as correctness semantic (Rebuttal #5). (c) AML Policy-before-Similarity (four-operator): `Policy(MNPI + role-entitlement + jurisdiction) ∘ Similarity(threshold=0.75) ∘ Temporal(as-of-decision) ∘ Traversal(transaction-pattern)` — subgraph substitution enforced by Π, structural MNPI-leakage prevention (Rebuttal #13). (d) Credit-exposure traversal (Traversal-primary): `Traversal(relationship-types, depth-limit, materiality-threshold) ∘ Temporal(as-of-now) ∘ Policy(exposure-limit)` — bounded-expansion cost discipline (PITFALLS Zone A3). **Inventory note:** the compositions are domain-flavored worked examples (banking values — thresholds 0.85/0.75, Reg O, FinCEN, MNPI regimes are illustrative configuration, not SDK content); the mechanism commitments they carry are the algebraic forms and the ordering/threshold-as-contract disciplines already keyed at INV-CH7-23..27. Text cites inline decision "D-13 §7.3" in composition (d).
+- **Type signature:** The four algebraic forms quoted above, verbatim.
+- **Invariants:** As per INV-CH7-23..27; exactly one composition resolves per request (Fig-CH07-09 fan-out shows the design space, not an execution path).
+- **Dependencies:** INV-CH7-19 (passage anchors), INV-CH7-20 (topology), INV-CH7-22..27.
+- **Figures:** Fig-CH07-09.
+- **Open question:** None.
+
+### INV-CH7-31
+- **Section:** §7.4.7
+- **Commitment:** The determinism bar: "Given same graph state + Control Plane config + temporal boundary + execution plan, the operator composition produces the bit-for-bit same Context Product." A decision made under (G_yesterday, C_yesterday, T_yesterday, P_yesterday) is reconstructible today byte-for-byte. Precision commitment: **determinism is a property of the function, not the value.** The composition is function-deterministic (behaves as a mathematical function on its inputs; the function does not drift between invocations) while the returned value is legitimately time-varying because graph state is time-varying under bitemporal reconciliation and per-signal half-life — "identical inputs to the Temporal operator produce different liquidity snapshots minute-over-minute … and that legitimate value-variance is precisely what the function-deterministic composition is supposed to surface rather than smooth away." §7.7's decay `R(t) = R₀ × (1/2)^((t − t₀) / λ_c)` is the continuous instance of the same property; supersession-as-Policy-event is the discrete-event form. The §7.6 three-mode Assembly Mode model scopes function-determinism differently per mode (Mode 1 whole assembly; Mode 2 algorithmic substrate; Mode 3 orchestration layer) while value-variance handling is identical across modes.
+- **Type signature:** Determinism tuple: `(graph_state, control_plane_config, temporal_boundary, execution_plan) → bit-for-bit identical ContextProduct`.
+- **Invariants:** **Function-determinism** (with value-variance explicitly permitted and expected); replay reconstructibility.
+- **Dependencies:** INV-CH7-23, INV-CH7-27, §7.6 modes and §7.7 half-life (plan 01-07/01-08 key ranges), §7.10.
+- **Figures:** Fig-CH07-08.
+- **Open question:** None.
+
+### INV-CH7-32
+- **Section:** §7.4.9
+- **Commitment:** A Context Operator need not be a code-and-pipeline artifact; it may be realized as an agent swarm whose sole job is slot-filling a typed Context Product from the graph (detection, classification, reconciliation, policy-filtered emission) — "under the determinism guarantee that the output contract (the Context Product schema) holds even when the mechanism uses LLM-driven extraction internally." The algebra is the determinism surface; valid realizations include code-and-pipeline, SQL-backed, graph-traversal, and swarm operators — what matters at the typed boundary is that the product emerges with its schema, its λ_c, and its passage-level L intact. The downstream reasoning agent consumes the completed product plus seed context and does not re-assemble context de novo. The assembly/consumption boundary is typed and enforceable — this is what makes multi-agent architectures governable: auditors see two distinct replayable artifacts (assembler swarm's Context Product; reasoning agent's inference trace composed against it) interrogable independently, both bound to the §7.10 five-dimension envelope. Agent-swarm assembly is not retrieval: Policy is composed before Similarity at every step the swarm takes. Mode selection (when to choose swarm assembly per product) belongs to §7.6's Mode 3 — "§7.4 owns the operator-realization mechanism, §7.6 owns the per-product mode-selection decision."
+- **Type signature:** Swarm-realized operator honors the same typed output contract (schema + λ_c + passage-level L) as any other realization.
+- **Invariants:** Typed assembly/consumption boundary; Policy-before-Similarity holds inside swarm steps; output-contract determinism regardless of internal realization.
+- **Dependencies:** INV-CH7-22, INV-CH7-26, §7.6 Mode 3, §7.10.
+- **Figures:** None specific.
+- **Open question:** None.
+
+### INV-CH7-33
+- **Section:** §7.4.10
+- **Commitment:** The end-to-end interaction from agent intent to delivered Context Product is committed as a single sequence (counterparty credit exposure, Wholesale Banking worked case): Planner receives intent → resolves required operators against the import-time-loaded registry → fans out four typed operator invocations against the §7.3 topology → Traversal (bounded, materiality) → Temporal (bitemporal as-of-now reconciliation) → Policy before Similarity (canonical inversion) → Similarity (index version pinned in L) → composition-preservation checkpoint `(A ∘ B)(G) = A(B(G))` read by the Planner for intermediate-reuse decisions → Π projects for the role → Context Product Cache wraps the payload under the typed ContextProductContract and writes with TTL, so subsequent requests within the materialization window serve from cache without re-derivation. Fig-CH07-10's caption names the interaction "the operational realization of D-14 algebraic composition, D-15 Operator Plan DAG generator, D-17 determinism, and D-25 ContextProductContract population" (inline D-NN references quoted; catalog is plan 01-11's job).
+- **Type signature:** Sequence: intent → OperatorPlan → 4-operator execution in dependency order → Π → contract-validated product → TTL cache write.
+- **Invariants:** Composition-preservation observed as a runtime checkpoint; cache serves only contract-validated products within TTL.
+- **Dependencies:** INV-CH7-20, INV-CH7-23, INV-CH7-28; §7.5 Π and §7.6 contract (plan 01-07's key range).
+- **Figures:** Fig-CH07-10 (end-to-end assembly sequence — the §7.4 → §7.6 bridge).
+- **Open question:** None.
+
+---
+
 ## Open Questions (unnumbered)
 
 - **Canonical event envelope schema (§7.1, L1).** "every signal tagged with its source, its ingestion timestamp, its observed-time where known, and whatever raw payload the upstream system emitted" — the whitepaper enumerates envelope fields in prose but gives no formal schema. The SDK must commit to a typed L1 envelope contract.
 - **Physical collection decomposition (§7.3.1).** "the physical representation maps to ~10 collections" is reference-implementation grounding (Homecams-adjacent), not a normative count. What the SDK's graph-storage Protocol must require of a backend (indexes, supersession semantics, per-relationship-type lineage) versus what stays backend-internal is a design decision. Do NOT inherit the Homecams collection layout as the resolution.
 - **Entity Resolver contract (§7.3.5).** Correlation via "shared attributes (the LEI where one exists, registered address and authorized-signatory metadata where it does not)" is a domain-flavored pattern. The SDK needs a general-purpose resolution Protocol; attribute-correlation strategies are user configuration.
+- **Operator DAG planner intermediate scheduling (§7.4.2, Fig-CH07-08).** The whitepaper commits the contract — intermediates are persistable, cache-coherent under λ_c-driven invalidation, and reusable for replay ("the Planner reads against [associativity] when it decides whether an intermediate can be reused for a replay invocation") — but does not specify the scheduling/materialization mechanism (when intermediates are cached, eviction, reuse policy). Homecams shows one working resolution; per CLAUDE.md §2.1 it is one data point, not the canonical answer — do NOT inherit.
+- **Operator registry population surface (§7.4.2).** "import-time / boot-time loaded" with fail-fast duplicates is committed, but how user-supplied operators register against the SDK's registry (entry points, explicit registration API, config-driven) is unspecified — a general-purpose SDK design choice.
+- **Materiality/threshold configuration binding (§7.4.6, §7.4.3).** Thresholds ("configurable floor", `threshold=0.85` / `0.75`) are stated as contract-carried parameters; the whitepaper does not specify where they are declared (Control Plane bundle shape) or how they version. Interacts with the Control Plane configuration surface (§7.8) and the No-Hardcoding Rule (CLAUDE.md §6.4).
