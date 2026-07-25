@@ -363,3 +363,140 @@ No component analysis above surfaced a genuinely new design gap: every verdict i
 ### Verdict census
 
 50 components: 47 `strong fit`, 0 `needs design choice`, 3 `out of scope for v0` (swarm-level intent decomposition per D-IMPL-49; Supervision Quality per D-IMPL-48; Conversational Reporting Layer per CLAUDE.md §13). Risk distribution: 19 low, 27 med, 4 high (MCP client library, A2A federation, Google ADK adapter, LangGraph adapter). The high ratings cluster exactly where the rubric predicts: external-dependency and cross-process surfaces with emergent 2026-state standards.
+
+---
+
+## Appendix A — Inventory Verdict Matrix (126/126, D-01)
+
+Every `INV-CHx-NN` inventory entry (`docs/SPEC_INVENTORY.md`) mapped — via its DESIGN.md realizing section (per DESIGN.md Appendix A, including its see-also composite refs and the two ruled deferred statuses) — to the §2–§10 component that owns that section, carrying that component's verdict. Key set is exactly the inventory's 126-entry set (mechanically checkable: unique-key diff against the inventory is empty).
+
+| INV key | DESIGN.md section | Owning component | Verdict |
+|---------|-------------------|------------------|---------|
+| INV-CH5-01 | §2A.0 | Layered architecture frame and conceptual foundations | strong fit |
+| INV-CH5-02 | §2A.0 | Layered architecture frame and conceptual foundations | strong fit |
+| INV-CH5-03 | §2A.0 | Layered architecture frame and conceptual foundations | strong fit |
+| INV-CH5-04 | §2A.0 | Layered architecture frame and conceptual foundations | strong fit |
+| INV-CH5-05 | §2A.0 | Layered architecture frame and conceptual foundations | strong fit |
+| INV-CH5-06 | §2A.0 | Layered architecture frame and conceptual foundations | strong fit |
+| INV-CH5-07 | §2A.0 | Layered architecture frame and conceptual foundations | strong fit |
+| INV-CH5-08 | §2A.0 | Layered architecture frame and conceptual foundations | strong fit |
+| INV-CH5-09 | §2A.0 | Layered architecture frame and conceptual foundations | strong fit |
+| INV-CH5-10 | §2A.0 | Layered architecture frame and conceptual foundations | strong fit |
+| INV-CH6-01 | §2B.3 | ContextProductContract and the three validation gates | strong fit |
+| INV-CH6-02 | §2B.3 | ContextProductContract and the three validation gates | strong fit |
+| INV-CH6-03 | §2B.3 | ContextProductContract and the three validation gates | strong fit |
+| INV-CH6-04 | §2B.3 | Algorithmic ⇄ Semantic Alternation, Assembly Modes, LLMClientProtocol | strong fit |
+| INV-CH6-05 | §3.1 | Agent base and ArchetypeComponent Protocol | strong fit |
+| INV-CH6-06 | §6.1 | MCP egress server (Experience front door) | strong fit |
+| INV-CH6-07 | §3.2 | The six archetypes | strong fit |
+| INV-CH6-08 | §3.2 | The six archetypes | strong fit |
+| INV-CH7-01 | §2A.1 | Layered architecture frame and conceptual foundations | strong fit |
+| INV-CH7-02 | §2A.2.1 | L1 Signal Layer — SignalEnvelope and SignalSourceProtocol | strong fit |
+| INV-CH7-03 | §2A.3.1 | L2 Context Assembly worker | strong fit |
+| INV-CH7-04 | §2A.3.3 | L2 Context Assembly worker | strong fit |
+| INV-CH7-05 | §2B.1 (see-also §2A.1) | Operator algebra and the four canonical categories | strong fit |
+| INV-CH7-06 | §2B.2 (see-also §2A.1) | Context Projection engine Π | strong fit |
+| INV-CH7-07 | §2B.3 (see-also §2A.1) | ContextProductContract and the three validation gates | strong fit |
+| INV-CH7-08 | §2A.1 | Layered architecture frame and conceptual foundations | strong fit |
+| INV-CH7-09 | §2A.1 | Layered architecture frame and conceptual foundations | strong fit |
+| INV-CH7-10 | §2A.5.3 | Single-writer enforcement stack (D-IMPL-41) | strong fit |
+| INV-CH7-11 | §2B.1 (see-also §2A.1) | Operator algebra and the four canonical categories | strong fit |
+| INV-CH7-12 | §2B.2 (see-also §2A.1) | Context Projection engine Π | strong fit |
+| INV-CH7-13 | §2B.3 (see-also §2A.1) | ContextProductContract and the three validation gates | strong fit |
+| INV-CH7-14 | §2A.5.1 | ContextGraph state primitive | strong fit |
+| INV-CH7-15 | §2A.5.1 | ContextGraph state primitive | strong fit |
+| INV-CH7-16 | §2A.5.2 | GraphStore Protocol and reference backends | strong fit |
+| INV-CH7-17 | §2A.5.2 | GraphStore Protocol and reference backends | strong fit |
+| INV-CH7-18 | §2A.3.2 | EntityResolutionStrategy Protocol and reference resolver | strong fit |
+| INV-CH7-19 | §2A.4.4 | Pattern 5 unstructured ingestion pipeline | strong fit |
+| INV-CH7-20 | §2A.5.2 | GraphStore Protocol and reference backends | strong fit |
+| INV-CH7-21 | §2A.3.2 | EntityResolutionStrategy Protocol and reference resolver | strong fit |
+| INV-CH7-22 | §2B.1 | Operator algebra and the four canonical categories | strong fit |
+| INV-CH7-23 | §2B.1 | Operator algebra and the four canonical categories | strong fit |
+| INV-CH7-24 | §2B.1 | Operator algebra and the four canonical categories | strong fit |
+| INV-CH7-25 | §2B.1 | Operator algebra and the four canonical categories | strong fit |
+| INV-CH7-26 | §2B.1 | Operator algebra and the four canonical categories | strong fit |
+| INV-CH7-27 | §2B.1 | SimilarityIndex Protocol and EmbedderProtocol | strong fit |
+| INV-CH7-28 | §2B.1 | Operator Plan DAG generator (Planner), registry, intermediate cache | strong fit |
+| INV-CH7-29 | §2B.1 | Operator Plan DAG generator (Planner), registry, intermediate cache | strong fit |
+| INV-CH7-30 | §2B.1 | Operator algebra and the four canonical categories | strong fit |
+| INV-CH7-31 | §2B.1 | Operator algebra and the four canonical categories | strong fit |
+| INV-CH7-32 | §3.4 | The six archetypes | strong fit |
+| INV-CH7-33 | §2B.1 | Operator Plan DAG generator (Planner), registry, intermediate cache | strong fit |
+| INV-CH7-40 | §2B.2 | Context Projection engine Π | strong fit |
+| INV-CH7-41 | §2B.2 | Context Projection engine Π | strong fit |
+| INV-CH7-42 | §2B.2 | Context Projection engine Π | strong fit |
+| INV-CH7-43 | §2B.2 | Context Projection engine Π | strong fit |
+| INV-CH7-44 | §2B.2 | Context Projection engine Π | strong fit |
+| INV-CH7-45 | §2B.3 | ContextProductContract and the three validation gates | strong fit |
+| INV-CH7-46 | §2B.3 | ContextProductContract and the three validation gates | strong fit |
+| INV-CH7-47 | §2B.3 | ContextProductContract and the three validation gates | strong fit |
+| INV-CH7-48 | §2B.3 | ContextProductContract and the three validation gates | strong fit |
+| INV-CH7-49 | §2B.3 | ContextProductContract and the three validation gates | strong fit |
+| INV-CH7-50 | §2B.3 | SLO envelope, materialization policy, cache lifecycle | strong fit |
+| INV-CH7-51 | §2B.3 | SLO envelope, materialization policy, cache lifecycle | strong fit |
+| INV-CH7-52 | §2B.3 | ContextProductContract and the three validation gates | strong fit |
+| INV-CH7-53 | §2B.3 | SLO envelope, materialization policy, cache lifecycle | strong fit |
+| INV-CH7-54 | §2B.3 | Algorithmic ⇄ Semantic Alternation, Assembly Modes, LLMClientProtocol | strong fit |
+| INV-CH7-55 | §4 | Workflow primitive | strong fit |
+| INV-CH7-56 | §4 | Workflow primitive | strong fit |
+| INV-CH7-57 | §2B.4 | Half-life λ_c machinery | strong fit |
+| INV-CH7-58 | §2B.4 | Half-life λ_c machinery | strong fit |
+| INV-CH7-59 | §2B.4 | Half-life λ_c machinery | strong fit |
+| INV-CH7-60 | §2B.4 | Half-life λ_c machinery | strong fit |
+| INV-CH7-61 | §2B.4 | Debt machinery — DebtFactorScorer, TrustScorer, CAR routing | strong fit |
+| INV-CH7-62 | §2B.4 | Debt machinery — DebtFactorScorer, TrustScorer, CAR routing | strong fit |
+| INV-CH7-63 | §2B.4 | Debt machinery — DebtFactorScorer, TrustScorer, CAR routing | strong fit |
+| INV-CH7-64 | §2B.4 | Debt machinery — DebtFactorScorer, TrustScorer, CAR routing | strong fit |
+| INV-CH7-65 | §5 | The four HITL primitives | strong fit |
+| INV-CH7-66 | §2B.4 | Debt machinery — DebtFactorScorer, TrustScorer, CAR routing | strong fit |
+| INV-CH7-67 | §5 | The four HITL primitives | strong fit |
+| INV-CH7-68 | §4 | Workflow primitive | strong fit |
+| INV-CH7-70 | §7 | Control Plane registry | strong fit |
+| INV-CH7-71 | §7 | Control Plane registry | strong fit |
+| INV-CH7-72 | §7 | Control Plane registry | strong fit |
+| INV-CH7-73 | §7 | Control Plane registry | strong fit |
+| INV-CH7-74 | §7 | Control Plane registry | strong fit |
+| INV-CH7-75 | §2B.6 | Closed-Loop Self-Learning | strong fit |
+| INV-CH7-76 | §2B.6 | Closed-Loop Self-Learning | strong fit |
+| INV-CH7-77 | §2B.6 | Closed-Loop Self-Learning | strong fit |
+| INV-CH7-78 | §2B.6 | Closed-Loop Self-Learning | strong fit |
+| INV-CH7-79 | §2B.5 | Decision Replay record | strong fit |
+| INV-CH7-80 | §2B.5 | Decision Replay record | strong fit |
+| INV-CH7-81 | §2B.5 | Decision Replay record | strong fit |
+| INV-CH7-82 | §5 | The four HITL primitives | strong fit |
+| INV-CH7-83 | §2B.5 | Decision Replay record | strong fit |
+| INV-CH7-84 | §3.6 | Channel 1 — specialization record (six axes) | strong fit |
+| INV-CH7-85 | §2B.5 | Decision Replay record | strong fit |
+| INV-CH7-86 | §2B.5 | Replay provider seams — PassageCitationProvider, TraceCorrelationHook | strong fit |
+| INV-CH7-87 | §2B.5 | Replay provider seams — PassageCitationProvider, TraceCorrelationHook | strong fit |
+| INV-CH7-88 | §4 | Workflow primitive | strong fit |
+| INV-CH7-89 | §2B.5 | Fidelity lifecycle engine and cold-archive re-hydration | strong fit |
+| INV-CH7-90 | §2B.5 | Decision Replay record | strong fit |
+| INV-CH7-91 | §6.2 | ccf CLI | strong fit |
+| INV-CH8-01 | §2A.4 | Ingress pattern frame and CDC→G reference ingress | strong fit |
+| INV-CH8-02 | §2A.4 | Ingress pattern frame and CDC→G reference ingress | strong fit |
+| INV-CH8-03 | §2A.4 | Ingress pattern frame and CDC→G reference ingress | strong fit |
+| INV-CH8-04 | §2A.4 | Ingress pattern frame and CDC→G reference ingress | strong fit |
+| INV-CH8-05 | §2A.4.1 | Ingress pattern frame and CDC→G reference ingress | strong fit |
+| INV-CH8-06 | §2A.4.3 | Semantic-layer metadata import (Pattern 2) | strong fit |
+| INV-CH8-07 | §6.1 | MCP egress server (Experience front door) | strong fit |
+| INV-CH8-08 | §8.2 | A2A federation (WireProtocol, signing, admission) | strong fit |
+| INV-CH8-09 | §2A.4.4 | Pattern 5 unstructured ingestion pipeline | strong fit |
+| INV-CH8-10 | §2A.4.4 | Pattern 5 unstructured ingestion pipeline | strong fit |
+| INV-CH8-11 | §2A.4 | Ingress pattern frame and CDC→G reference ingress | strong fit |
+| INV-CH8-12 | §3.4 | The six archetypes | strong fit |
+| INV-CH8-13 | §2A.5.1 | ContextGraph state primitive | strong fit |
+| INV-CH8-14 | §2B.4 | Half-life λ_c machinery | strong fit |
+| INV-CH8-15 | §2B.5 | Fidelity lifecycle engine and cold-archive re-hydration | strong fit |
+| INV-CH8-16 | §5 | The four HITL primitives | strong fit |
+| INV-CH8-17 | §2B.1 | Operator algebra and the four canonical categories | strong fit |
+| INV-CH8-18 | §5 | The four HITL primitives | strong fit |
+| INV-CH8-19 | §5 (deferred per D-IMPL-48) | Supervision Quality (documented reference pattern) | out of scope for v0 |
+| INV-CH8-20 | §2B.5 | Fidelity lifecycle engine and cold-archive re-hydration | strong fit |
+| INV-CH8-21 | §6.4 (deferred per CLAUDE.md §13) | Conversational Reporting Layer (adjacency, not designed) | out of scope for v0 |
+| INV-CH8-22 | §3.8 | The six archetypes | strong fit |
+| INV-CH8-23 | §5 | The four HITL primitives | strong fit |
+| INV-CH8-24 | §6.4 | MCP egress server (Experience front door) | strong fit |
+
+**Census:** 126 rows; 124 carry `strong fit` via their owning component; 2 carry `out of scope for v0` (INV-CH8-19 per D-IMPL-48; INV-CH8-21 per CLAUDE.md §13) — both are ruled deferral dispositions mirrored from DESIGN.md Appendix A, not coverage gaps.
