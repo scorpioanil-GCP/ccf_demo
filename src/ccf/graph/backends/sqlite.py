@@ -6,7 +6,8 @@ reference backend, load-bearing for the §9 examples discipline).
 
 **What this module deliberately does not contain: any way to write.**
 :class:`SqliteGraphStore` owns the connection and the schema; the read path is
-here; every ``INSERT`` and every supersession ``UPDATE`` lives in
+here (as five statements handed to :class:`ccf.graph.reader.BaseGraphReader`);
+every ``INSERT`` and every supersession ``UPDATE`` lives in
 ``ccf.graph._writer``, which the CINV-02 lint confines to ``ccf.assembly`` and
 ``ccf.boot``. Putting a "convenience" write helper here would hand a write path
 to every module that legitimately needs to read (04-RESEARCH.md anti-patterns).
@@ -46,25 +47,17 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-import json
 import sqlite3
-from collections.abc import Iterable
-from datetime import datetime
+from collections.abc import Sequence
 from pathlib import Path
 from types import TracebackType
-from typing import Any
+from typing import ClassVar
 
-from ccf.contracts.canonical import canonical_timestamp
-from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
-from ccf.graph.protocols import EntityRecord, GraphView, RelationshipRecord
+from ccf.graph.reader import ENTITY_KIND, RELATIONSHIP_KIND, BaseGraphReader, Row
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = ["ENTITY_KIND", "RELATIONSHIP_KIND", "SqliteGraphReader", "SqliteGraphStore"]
-
-# Discriminators for the shared lineage table. Vocabulary of this module only.
-ENTITY_KIND = "entity"
-RELATIONSHIP_KIND = "relationship"
 
 _SCHEMA = (
     """
@@ -136,57 +129,6 @@ _SCHEMA = (
     """,
 )
 
-_SELECT_LINEAGE = """
-    SELECT entry_json FROM lineage
-    WHERE tenant_id = ? AND claim_kind = ? AND node_key = ? AND claim_id = ?
-"""
-
-_SELECT_ENTITY_HISTORY = """
-    SELECT entity_uri, claim_id, claim_json, policy_bundle_version,
-           superseded_by, superseded_at
-    FROM entity_claims
-    WHERE tenant_id = ? AND entity_uri = ?
-    ORDER BY observed_at, rowid
-"""
-
-_SELECT_RELATIONSHIP_HISTORY = """
-    SELECT relationship_key, claim_id, claim_json, policy_bundle_version,
-           superseded_by, superseded_at
-    FROM relationship_claims
-    WHERE tenant_id = ? AND relationship_key = ?
-    ORDER BY observed_at, rowid
-"""
-
-# The bitemporal read. `observed_at <= ?` excludes what the fabric had not yet
-# learned at the read boundary; the supersession clause keeps a claim current
-# until the instant it was superseded. Together: no future information leaks
-# into a historical view (INV-CH7-14).
-_SELECT_ENTITIES_AS_OF = """
-    SELECT entity_uri, claim_id, claim_json, policy_bundle_version,
-           superseded_by, superseded_at
-    FROM entity_claims
-    WHERE tenant_id = ?
-      AND observed_at <= ?
-      AND (superseded_at IS NULL OR superseded_at > ?)
-    ORDER BY entity_uri
-"""
-
-_SELECT_RELATIONSHIPS_AS_OF = """
-    SELECT relationship_key, claim_id, claim_json, policy_bundle_version,
-           superseded_by, superseded_at
-    FROM relationship_claims
-    WHERE tenant_id = ?
-      AND observed_at <= ?
-      AND (superseded_at IS NULL OR superseded_at > ?)
-    ORDER BY relationship_key
-"""
-
-
-def _parse_timestamp(value: str | None) -> datetime | None:
-    if value is None:
-        return None
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
-
 
 class SqliteGraphStore:
     """Connection and schema owner for the SQLite reference backend.
@@ -252,175 +194,59 @@ class SqliteGraphStore:
         self.close()
 
 
-class SqliteGraphReader:
-    """``GraphReader`` implementation over a SQLite connection.
+class SqliteGraphReader(BaseGraphReader):
+    """``GraphReader`` over a SQLite connection — dialect and rows only.
 
-    Structurally conforms to :class:`ccf.graph.protocols.GraphReader`; there is
-    no method here that mutates state, and that absence is the point (DESIGN.md
-    §2A.5.3 layer 1).
+    The bitemporal rendering rules live in
+    :class:`ccf.graph.reader.BaseGraphReader`; what is here is the SQLite
+    dialect of the five reads and the connection they run on. ``rowid`` is the
+    insertion-order tiebreak within one observed-time instant, which is what
+    keeps history ordering total rather than merely chronological.
+    """
+
+    # The bitemporal read. `observed_at <= ?` excludes what the fabric had not
+    # yet learned at the read boundary; the supersession clause keeps a claim
+    # current until the instant it was superseded. Together: no future
+    # information leaks into a historical view (INV-CH7-14).
+    SELECT_LINEAGE: ClassVar[str] = """
+        SELECT entry_json FROM lineage
+        WHERE tenant_id = ? AND claim_kind = ? AND node_key = ? AND claim_id = ?
+    """
+    SELECT_ENTITY_HISTORY: ClassVar[str] = """
+        SELECT entity_uri, claim_id, claim_json, policy_bundle_version,
+               superseded_by, superseded_at
+        FROM entity_claims
+        WHERE tenant_id = ? AND entity_uri = ?
+        ORDER BY observed_at, rowid
+    """
+    SELECT_RELATIONSHIP_HISTORY: ClassVar[str] = """
+        SELECT relationship_key, claim_id, claim_json, policy_bundle_version,
+               superseded_by, superseded_at
+        FROM relationship_claims
+        WHERE tenant_id = ? AND relationship_key = ?
+        ORDER BY observed_at, rowid
+    """
+    SELECT_ENTITIES_AS_OF: ClassVar[str] = """
+        SELECT entity_uri, claim_id, claim_json, policy_bundle_version,
+               superseded_by, superseded_at
+        FROM entity_claims
+        WHERE tenant_id = ?
+          AND observed_at <= ?
+          AND (superseded_at IS NULL OR superseded_at > ?)
+        ORDER BY entity_uri
+    """
+    SELECT_RELATIONSHIPS_AS_OF: ClassVar[str] = """
+        SELECT relationship_key, claim_id, claim_json, policy_bundle_version,
+               superseded_by, superseded_at
+        FROM relationship_claims
+        WHERE tenant_id = ?
+          AND observed_at <= ?
+          AND (superseded_at IS NULL OR superseded_at > ?)
+        ORDER BY relationship_key
     """
 
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._connection = connection
 
-    def _lineage(
-        self,
-        *,
-        tenant_id: str,
-        kind: str,
-        node_key: str,
-        claim_id: str,
-        boundary: datetime | None = None,
-    ) -> frozenset[LineageEntry]:
-        """Return the claim's lineage as it stood at ``boundary``.
-
-        L accumulates by set-union over a claim's life (INV-CH7-17), so a claim
-        current in March can pick up corroborating evidence in July. Under
-        INV-CH7-14 that evidence must not appear in a March view: an entry the
-        fabric had not received yet is future information exactly as a
-        later-superseding claim is. ``boundary`` of ``None`` means a history
-        read, where the whole accumulated set is the answer.
-        """
-        rows = self._connection.execute(
-            _SELECT_LINEAGE, (tenant_id, kind, node_key, claim_id)
-        ).fetchall()
-        entries = (
-            LineageEntry.model_validate(json.loads(row["entry_json"])) for row in rows
-        )
-        if boundary is None:
-            return frozenset(entries)
-        return frozenset(entry for entry in entries if entry.observed_at <= boundary)
-
-    @staticmethod
-    def _supersession_as_of(
-        row: sqlite3.Row, *, boundary: datetime | None
-    ) -> tuple[str | None, datetime | None]:
-        """Render the supersession edge as it stood at ``boundary``.
-
-        INV-CH7-14 is explicit that an as-of read re-renders the state the
-        fabric held at ``at``, and that *claims superseded later are still
-        current*. The row filter already keeps such a claim in the view; this
-        keeps its supersession edge out of it. Without this, a claim read as of
-        March would carry a pointer to the claim that replaced it in July —
-        future information, leaking through the one field the temporal filter
-        does not cover, and enough to change the content hash of a view that is
-        supposed to be identical to the one the decision saw.
-
-        ``boundary`` is ``None`` for history reads, where the whole supersession
-        chain is the answer being asked for.
-        """
-        superseded_at = _parse_timestamp(row["superseded_at"])
-        if (
-            boundary is not None
-            and superseded_at is not None
-            and superseded_at > boundary
-        ):
-            return None, None
-        return row["superseded_by"], superseded_at
-
-    def _entity_records(
-        self,
-        rows: Iterable[sqlite3.Row],
-        *,
-        tenant_id: str,
-        boundary: datetime | None = None,
-    ) -> tuple[EntityRecord, ...]:
-        records: list[EntityRecord] = []
-        for row in rows:
-            payload: dict[str, Any] = json.loads(row["claim_json"])
-            payload["lineage"] = [
-                entry.model_dump(mode="json")
-                for entry in self._lineage(
-                    tenant_id=tenant_id,
-                    kind=ENTITY_KIND,
-                    node_key=row["entity_uri"],
-                    claim_id=row["claim_id"],
-                    boundary=boundary,
-                )
-            ]
-            superseded_by, superseded_at = self._supersession_as_of(
-                row, boundary=boundary
-            )
-            records.append(
-                EntityRecord(
-                    claim_id=row["claim_id"],
-                    claim=EntityClaim.model_validate(payload),
-                    policy_bundle_version=row["policy_bundle_version"],
-                    superseded_by=superseded_by,
-                    superseded_at=superseded_at,
-                )
-            )
-        return tuple(records)
-
-    def _relationship_records(
-        self,
-        rows: Iterable[sqlite3.Row],
-        *,
-        tenant_id: str,
-        boundary: datetime | None = None,
-    ) -> tuple[RelationshipRecord, ...]:
-        records: list[RelationshipRecord] = []
-        for row in rows:
-            payload: dict[str, Any] = json.loads(row["claim_json"])
-            payload["lineage"] = [
-                entry.model_dump(mode="json")
-                for entry in self._lineage(
-                    tenant_id=tenant_id,
-                    kind=RELATIONSHIP_KIND,
-                    node_key=row["relationship_key"],
-                    claim_id=row["claim_id"],
-                    boundary=boundary,
-                )
-            ]
-            superseded_by, superseded_at = self._supersession_as_of(
-                row, boundary=boundary
-            )
-            records.append(
-                RelationshipRecord(
-                    relationship_key=row["relationship_key"],
-                    claim_id=row["claim_id"],
-                    claim=RelationshipClaim.model_validate(payload),
-                    policy_bundle_version=row["policy_bundle_version"],
-                    superseded_by=superseded_by,
-                    superseded_at=superseded_at,
-                )
-            )
-        return tuple(records)
-
-    def as_of(self, *, tenant_id: str, at: datetime) -> GraphView:
-        """Return the state ``tenant_id``'s graph held at observed-time ``at``."""
-        boundary = canonical_timestamp(at)
-        entity_rows = self._connection.execute(
-            _SELECT_ENTITIES_AS_OF, (tenant_id, boundary, boundary)
-        ).fetchall()
-        relationship_rows = self._connection.execute(
-            _SELECT_RELATIONSHIPS_AS_OF, (tenant_id, boundary, boundary)
-        ).fetchall()
-        return GraphView(
-            tenant_id=tenant_id,
-            as_of=at,
-            entities=self._entity_records(
-                entity_rows, tenant_id=tenant_id, boundary=at
-            ),
-            relationships=self._relationship_records(
-                relationship_rows, tenant_id=tenant_id, boundary=at
-            ),
-        )
-
-    def entity_history(
-        self, *, tenant_id: str, entity_uri: str
-    ) -> tuple[EntityRecord, ...]:
-        """Return every claim ever made about ``entity_uri``, oldest first."""
-        rows = self._connection.execute(
-            _SELECT_ENTITY_HISTORY, (tenant_id, entity_uri)
-        ).fetchall()
-        return self._entity_records(rows, tenant_id=tenant_id)
-
-    def relationship_history(
-        self, *, tenant_id: str, relationship_key: str
-    ) -> tuple[RelationshipRecord, ...]:
-        """Return every claim ever made about one edge, oldest first."""
-        rows = self._connection.execute(
-            _SELECT_RELATIONSHIP_HISTORY, (tenant_id, relationship_key)
-        ).fetchall()
-        return self._relationship_records(rows, tenant_id=tenant_id)
+    def _query(self, sql: str, params: tuple[object, ...]) -> Sequence[Row]:
+        return self._connection.execute(sql, params).fetchall()
