@@ -35,7 +35,6 @@ CINV-03 is worth more as a claim than as a decoration.
 
 from __future__ import annotations
 
-import math
 import sqlite3
 
 # sqlite-vec 0.1.9 ships no py.typed marker. The ignore is scoped to this one
@@ -47,8 +46,8 @@ import sqlite_vec  # type: ignore[import-untyped]
 
 from ccf.similarity.embedder import EmbedderProtocol
 from ccf.similarity.protocol import (
-    SCORE_SCALE,
     SimilarityHit,
+    cosine_score_percent,
     order_hits,
 )
 
@@ -63,29 +62,6 @@ DEFAULT_TABLE = "ccf_similarity_vectors"
 #: conservative width keeps a large candidate set from depending on which
 #: SQLite build the deployment happens to link against.
 _PARAMETER_BATCH = 400
-
-
-def _score_percent(distance: float) -> int:
-    """Render a cosine *distance* as an integer similarity percent.
-
-    ``vec_distance_cosine`` returns ``1 - cos``, so similarity is ``1 -
-    distance``, clamped to the ``0..100`` scale. Negative cosine (vectors
-    pointing apart) is reported as 0 rather than as a negative score: "less
-    than nothing in common" is not a distinction the operator's
-    ``minimum_score_percent`` floor can act on, and a negative integer on a
-    percent scale invites exactly one arithmetic bug.
-
-    A non-finite distance means at least one side was the zero vector — text
-    the embedder had nothing to say about. That is 0 similarity, not an error:
-    an empty document is in the corpus and irrelevant, which the contract
-    already distinguishes from being absent.
-    """
-    if not math.isfinite(distance):
-        return 0
-    similarity = 1.0 - distance
-    if similarity <= 0.0:
-        return 0
-    return min(SCORE_SCALE, int(round(similarity * SCORE_SCALE)))
 
 
 class SqliteVecIndex:
@@ -207,7 +183,7 @@ class SqliteVecIndex:
             hits.extend(
                 SimilarityHit(
                     entity_uri=str(entity_uri),
-                    score_percent=_score_percent(float(distance)),
+                    score_percent=cosine_score_percent(float(distance)),
                 )
                 for entity_uri, distance in rows
             )

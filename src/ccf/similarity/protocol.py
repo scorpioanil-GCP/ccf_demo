@@ -46,6 +46,7 @@ own untagged module.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from typing import Protocol, runtime_checkable
 
@@ -58,6 +59,7 @@ __all__ = [
     "SimilarityHit",
     "SimilarityIndexProtocol",
     "TokenOverlapIndex",
+    "cosine_score_percent",
     "order_hits",
 ]
 
@@ -136,6 +138,32 @@ class MutableSimilarityIndexProtocol(SimilarityIndexProtocol, Protocol):
         supersession sweep is safe to re-run over ground it already covered.
         """
         ...
+
+
+def cosine_score_percent(distance: float) -> int:
+    """Render a cosine *distance* as an integer similarity percent.
+
+    Shared by every vector-backed implementation, because both sqlite-vec and
+    Chroma report ``1 - cos`` and two independent renderings of the same number
+    would let a deployment's scores shift when it swapped substrates — with the
+    operator's ``minimum_score_percent`` floor still set for the old one.
+
+    Negative cosine (vectors pointing apart) is reported as 0 rather than as a
+    negative score: "less than nothing in common" is not a distinction a
+    percent floor can act on, and a negative integer on a percent scale invites
+    exactly one arithmetic bug.
+
+    A non-finite distance means at least one side was the zero vector — text
+    the embedder had nothing to say about. That is 0 similarity, not an error:
+    an empty document is *in the corpus and irrelevant*, which the contract
+    already distinguishes from being absent.
+    """
+    if not math.isfinite(distance):
+        return 0
+    similarity = 1.0 - distance
+    if similarity <= 0.0:
+        return 0
+    return min(SCORE_SCALE, int(round(similarity * SCORE_SCALE)))
 
 
 def order_hits(hits: list[SimilarityHit]) -> tuple[SimilarityHit, ...]:

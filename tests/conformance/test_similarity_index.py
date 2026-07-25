@@ -38,7 +38,10 @@ backends can be conformance-tested without one.
 from __future__ import annotations
 
 import hashlib
+import importlib
+import importlib.util
 import sqlite3
+import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -99,7 +102,28 @@ class _HashingEmbedder:
 IndexFactory = Callable[[], MutableSimilarityIndexProtocol]
 
 
-@pytest.fixture(params=["token-overlap", "sqlite-vec"])
+def _chroma_param() -> object:
+    """The Chroma param, carrying its own marker and its own skip condition.
+
+    Both live on the param rather than on the tests so that ``-m chroma``
+    selects the Chroma leg *of every test in this module* — the point of one
+    parametrized suite (D-16) is that the backend is the axis, and a
+    module-level marker would have made it the whole module.
+    """
+    return pytest.param(
+        "chroma",
+        marks=(
+            pytest.mark.chroma,
+            pytest.mark.skipif(
+                importlib.util.find_spec("chromadb") is None,
+                reason="the optional `chroma` extra is not installed"
+                " — install ccf[chroma] to run this leg",
+            ),
+        ),
+    )
+
+
+@pytest.fixture(params=["token-overlap", "sqlite-vec", _chroma_param()])
 def index_factory(
     request: pytest.FixtureRequest, tmp_path: Path
 ) -> Iterator[IndexFactory]:
@@ -133,6 +157,21 @@ def index_factory(
         yield sqlite_vec_factory
         for connection in connections:
             connection.close()
+        return
+
+    if request.param == "chroma":
+        from ccf.similarity.chroma_index import ChromaIndex
+
+        store = tmp_path / "chroma"
+
+        def chroma_factory() -> MutableSimilarityIndexProtocol:
+            return ChromaIndex(
+                embedder=_HashingEmbedder(),
+                index_version=INDEX_VERSION,
+                path=store,
+            )
+
+        yield chroma_factory
         return
 
     raise NotImplementedError(request.param)
@@ -391,3 +430,150 @@ def test_the_test_embedder_conforms_to_the_protocol_structurally() -> None:
     conformance-testable in I.1, where no LLM or embedding model exists yet.
     """
     assert isinstance(_HashingEmbedder(), EmbedderProtocol)
+
+
+# --- the algebra above the seam --------------------------------------------
+
+
+def test_composition_is_preserved_whichever_backend_ranks(
+    index_factory: IndexFactory,
+) -> None:
+    """``(A∘B)(G) = A(B(G))`` holds with *any* conformant index underneath.
+
+    The composition-preservation suite (``tests/properties/test_composition.py``)
+    runs the Similarity operator over the in-memory reference index. That leaves
+    one thing unasserted that D-IMPL-03 actually claims: the property is a
+    property of the *operator*, not of the substrate that happened to be behind
+    it. So the same assertion is made here once per shipped backend, over the
+    corpus and the curated graphs the property suite uses.
+
+    An index that consulted mutable state between the two invocations — a cache
+    keyed on the last query, a connection that saw an interleaved write — would
+    fail here and pass everywhere else.
+    """
+    from ccf.contracts.canonical import canonical_bytes
+    from ccf.operators.categories import SimilaritySelect, TemporalAsOf
+    from ccf.operators.params import SimilaritySelectParameters, TemporalAsOfParameters
+    from ccf.operators.planner import IntermediateCache, compose
+    # ``tests/`` carries no ``__init__.py``, so pytest's rootdir insertion makes
+    # the suite packages importable by their bare names. Imported inside the
+    # test rather than at module scope to keep the conformance suite's imports
+    # a statement about the SDK, not about its other test packages.
+    from properties.strategies import (
+        BOUNDARY,
+        CONTROL,
+        TENANT as PROPERTY_TENANT,
+        _corpus,
+        curated_edge_graphs,
+    )
+
+    backend = index_factory()
+    for (tenant_id, entity_uri), text in _corpus().items():
+        backend.upsert(tenant_id=tenant_id, entity_uri=entity_uri, text=text)
+
+    declared = CONTROL["operator_parameters"]
+    similarity = SimilaritySelect(
+        parameters=SimilaritySelectParameters(
+            query=declared["similarity"]["query"],
+            minimum_score_percent=declared["similarity"]["minimum_score_percent"],
+            ranked_entity_classes=frozenset(
+                declared["similarity"]["ranked_entity_classes"]
+            ),
+        ),
+        index=backend,
+    )
+    temporal = TemporalAsOf(
+        parameters=TemporalAsOfParameters(
+            require_valid_at_boundary=declared["temporal"]["require_valid_at_boundary"]
+        )
+    )
+
+    for curated in curated_edge_graphs():
+        for outer, inner in ((similarity, temporal), (temporal, similarity)):
+            composed = compose(outer, inner, cache=IntermediateCache()).apply(
+                view=curated.view,
+                tenant_id=PROPERTY_TENANT,
+                temporal_boundary=BOUNDARY,
+                upstream=(),
+            )
+            intermediate = inner.apply(
+                view=curated.view,
+                tenant_id=PROPERTY_TENANT,
+                temporal_boundary=BOUNDARY,
+                upstream=(),
+            )
+            direct = outer.apply(
+                view=intermediate.view,
+                tenant_id=PROPERTY_TENANT,
+                temporal_boundary=BOUNDARY,
+                upstream=(intermediate.provenance,),
+            )
+            assert canonical_bytes(composed) == canonical_bytes(direct)
+
+
+def test_the_operator_pins_whichever_index_version_it_was_given(
+    index: MutableSimilarityIndexProtocol,
+) -> None:
+    """INV-CH7-27: provenance carries the index version, whatever backend it is.
+
+    Pinned rather than logged — a replay resolves the index state the decision
+    was made against, and a version that lived only in a log line would not
+    travel with the decision.
+    """
+    from ccf.operators.categories import SimilaritySelect
+    from ccf.operators.params import SimilaritySelectParameters
+
+    operator = SimilaritySelect(
+        parameters=SimilaritySelectParameters(
+            query=QUERY, minimum_score_percent=1, ranked_entity_classes=frozenset()
+        ),
+        index=index,
+    )
+    assert operator._index.index_version == index.index_version
+
+
+# --- chromadb stays optional (T-04-26) -------------------------------------
+
+
+def test_the_chroma_module_imports_without_chromadb_installed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``import ccf`` must not depend on the optional extra.
+
+    Asserted by blocking ``chromadb`` at the import machinery and re-importing
+    the module from a cleared cache — which reproduces an environment without
+    the extra without requiring a second venv to run the suite in. The failure
+    it catches is a top-level ``import chromadb`` creeping back in, and that
+    failure is silent in any environment where the extra happens to be present.
+    """
+    blocked = "chromadb"
+
+    class _Blocker:
+        def find_module(self, name: str, path: object = None) -> None:
+            return None
+
+        def find_spec(
+            self, name: str, path: object = None, target: object = None
+        ) -> None:
+            if name == blocked or name.startswith(f"{blocked}."):
+                raise ModuleNotFoundError(f"No module named {blocked!r}")
+            return None
+
+    monkeypatch.setitem(sys.modules, blocked, None)  # type: ignore[misc]
+    for module in [name for name in sys.modules if name.startswith(blocked)]:
+        monkeypatch.delitem(sys.modules, module, raising=False)
+    monkeypatch.syspath_prepend("")
+    monkeypatch.setattr(sys, "meta_path", [_Blocker(), *sys.meta_path])
+
+    for module in [
+        name for name in sys.modules if name == "ccf" or name.startswith("ccf.")
+    ]:
+        monkeypatch.delitem(sys.modules, module, raising=False)
+
+    importlib.import_module("ccf")
+    chroma_module = importlib.import_module("ccf.similarity.chroma_index")
+
+    with pytest.raises(ModuleNotFoundError):
+        chroma_module.ChromaIndex(
+            embedder=_HashingEmbedder(), index_version=INDEX_VERSION
+        )
