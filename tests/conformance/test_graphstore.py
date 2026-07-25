@@ -44,17 +44,30 @@ T1 = datetime(2026, 2, 1, tzinfo=UTC)
 T2 = datetime(2026, 3, 1, tzinfo=UTC)
 
 
-@pytest.fixture(params=["sqlite"])
+@pytest.fixture(
+    params=[
+        pytest.param("sqlite"),
+        pytest.param("postgres", marks=pytest.mark.postgres),
+    ]
+)
 def graph_backend(
     request: pytest.FixtureRequest, fabric_boot: Callable[..., "FabricHandle"]
 ) -> "FabricHandle":
     """A booted fabric per backend under test.
 
-    The Postgres reference backend adds its own param here when it lands
-    (D-11); the test bodies below do not change.
+    The Postgres reference backend (D-11) landed as a *param*, exactly as this
+    fixture's original note promised: not one test body below changed, and no
+    test body knows which substrate it is running on. That is what makes the
+    suite evidence of parity rather than two suites that happen to agree.
+
+    The ``postgres`` param carries ``pytest.mark.postgres``, so
+    ``-m "not postgres"`` still gives a run with no external substrate while
+    ``-m postgres`` runs the same twelve semantics against a real server.
     """
     if request.param == "sqlite":
         return fabric_boot()
+    if request.param == "postgres":
+        return fabric_boot(backend="postgres")
     raise NotImplementedError(request.param)
 
 
