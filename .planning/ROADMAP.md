@@ -161,7 +161,23 @@ Plans:
   4. Five-dimension Decision Replay record is written at product-serve time by construction; ArtifactStore Protocol works against both the file-backed dev impl and the MCP-backed reference impl; CDC→G ingress reference ingests to L1
   5. CI invariant scaffolding runs green on the fabric: No-Hardcoding lint, zero-harness-imports lint, `@algorithmic` lint, replay-by-construction and single-writer boot checks (CINV-01..04)
 
-**Plans**: TBD
+**Plans**: 12 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Scaffold: phase-i1 branch, packaging, CI workflow, D-03/D-12 doc amendments
+- [ ] 04-02-PLAN.md — CINV-01..03 AST lint checkers + allowlist, blocking in CI (D-06..D-08) *(wave 2)*
+- [ ] 04-03-PLAN.md — Slice contracts, canonical serializer, minimal Control Plane registry *(wave 2)*
+- [ ] 04-04-PLAN.md — Graph Protocols, SQLite backend, six-semantics conformance, assembly + single-writer boot *(wave 3)*
+- [ ] 04-05-PLAN.md — Vertical slice serve path: operators/projection/gates/replay/ArtifactStore + banking proto-quickstart *(wave 4)*
+- [ ] 04-06-PLAN.md — Operator registry/planner + composition-preservation property harness (D-14) *(wave 5)*
+- [ ] 04-07-PLAN.md — λ_c/D_c mechanism + full Control Plane subsystem *(wave 5)*
+- [ ] 04-08-PLAN.md — Replay engine + ArtifactStore conformance + CINV-04 harness *(wave 5)*
+- [ ] 04-09-PLAN.md — CDC→G ingress reference in ccf-runtime *(wave 5)*
+- [ ] 04-10-PLAN.md — Postgres GraphStore against the conformance suite + CI leg (D-11) *(wave 6)*
+- [ ] 04-11-PLAN.md — SimilarityIndex: sqlite-vec + Chroma optional extra (D-13) *(wave 6)*
+- [ ] 04-12-PLAN.md — Gate: per-invariant checklist, /gsd-review, Dave approval, D-GATE-I.1, merge *(wave 7)*
 **Process notes**: Model mandate — Opus 5 if available, else Opus 4.8, "high" effort. Branch: `phase-i1` (Phase I work). Redesign needs a Phase D mini-cycle, never in-line. Sub-phase ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.1` before Phase 5 begins.
 
 ### Phase 5: Phase I.2 — Agent Specialization Framework
@@ -176,7 +192,23 @@ Plans:
   3. Skill catalog supports registration, discovery, and runtime grant/revoke; the policy-compatibility check refuses a grant exceeding the agent's policy regime or context contract; every grant/revocation and the skill-set in force land in the replay record
   4. All six specialization axes (archetype binding, context contract, perspective, policy regime, half-life/debt profile, instruction bindings) are expressible in the definition artifact and versioned — changing any axis produces a new agent version visible in replay
 
-**Plans**: TBD
+**Plans**: 12 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Scaffold: phase-i1 branch, packaging, CI workflow, D-03/D-12 doc amendments
+- [ ] 04-02-PLAN.md — CINV-01..03 AST lint checkers + allowlist, blocking in CI (D-06..D-08) *(wave 2)*
+- [ ] 04-03-PLAN.md — Slice contracts, canonical serializer, minimal Control Plane registry *(wave 2)*
+- [ ] 04-04-PLAN.md — Graph Protocols, SQLite backend, six-semantics conformance, assembly + single-writer boot *(wave 3)*
+- [ ] 04-05-PLAN.md — Vertical slice serve path: operators/projection/gates/replay/ArtifactStore + banking proto-quickstart *(wave 4)*
+- [ ] 04-06-PLAN.md — Operator registry/planner + composition-preservation property harness (D-14) *(wave 5)*
+- [ ] 04-07-PLAN.md — λ_c/D_c mechanism + full Control Plane subsystem *(wave 5)*
+- [ ] 04-08-PLAN.md — Replay engine + ArtifactStore conformance + CINV-04 harness *(wave 5)*
+- [ ] 04-09-PLAN.md — CDC→G ingress reference in ccf-runtime *(wave 5)*
+- [ ] 04-10-PLAN.md — Postgres GraphStore against the conformance suite + CI leg (D-11) *(wave 6)*
+- [ ] 04-11-PLAN.md — SimilarityIndex: sqlite-vec + Chroma optional extra (D-13) *(wave 6)*
+- [ ] 04-12-PLAN.md — Gate: per-invariant checklist, /gsd-review, Dave approval, D-GATE-I.1, merge *(wave 7)*
 **Process notes**: Model mandate — Opus 5 (fallback Opus 4.8), "high" effort. Branch: `phase-i2`. Ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.2` before Phase 6 begins.
 
 ### Phase 6: Phase I.3 — Cross-Process & Harness Adapters
@@ -191,7 +223,23 @@ Plans:
   3. `HarnessAdapterProtocol` + reference adapters for the D-IMPL-24 harnesses bind all four seams (context injection, skill exposure of exactly the currently-bound skill-set, effect capture with no harness write handle, replay hooks); the zero-harness-imports-in-`/src` lint stays green
   4. Single-writer invariant demonstrably holds across the A2A boundary, the adapter boundary, and the ArtifactStore
 
-**Plans**: TBD
+**Plans**: 12 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Scaffold: phase-i1 branch, packaging, CI workflow, D-03/D-12 doc amendments
+- [ ] 04-02-PLAN.md — CINV-01..03 AST lint checkers + allowlist, blocking in CI (D-06..D-08) *(wave 2)*
+- [ ] 04-03-PLAN.md — Slice contracts, canonical serializer, minimal Control Plane registry *(wave 2)*
+- [ ] 04-04-PLAN.md — Graph Protocols, SQLite backend, six-semantics conformance, assembly + single-writer boot *(wave 3)*
+- [ ] 04-05-PLAN.md — Vertical slice serve path: operators/projection/gates/replay/ArtifactStore + banking proto-quickstart *(wave 4)*
+- [ ] 04-06-PLAN.md — Operator registry/planner + composition-preservation property harness (D-14) *(wave 5)*
+- [ ] 04-07-PLAN.md — λ_c/D_c mechanism + full Control Plane subsystem *(wave 5)*
+- [ ] 04-08-PLAN.md — Replay engine + ArtifactStore conformance + CINV-04 harness *(wave 5)*
+- [ ] 04-09-PLAN.md — CDC→G ingress reference in ccf-runtime *(wave 5)*
+- [ ] 04-10-PLAN.md — Postgres GraphStore against the conformance suite + CI leg (D-11) *(wave 6)*
+- [ ] 04-11-PLAN.md — SimilarityIndex: sqlite-vec + Chroma optional extra (D-13) *(wave 6)*
+- [ ] 04-12-PLAN.md — Gate: per-invariant checklist, /gsd-review, Dave approval, D-GATE-I.1, merge *(wave 7)*
 **Process notes**: Model mandate — Opus 5 (fallback Opus 4.8), "high" effort. Branch: `phase-i3`. Ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.3` before Phase 7 begins.
 
 ### Phase 7: Phase I.4 — Orchestration, HITL, Experience
@@ -206,7 +254,23 @@ Plans:
   3. OrchestrationProtocol allows an external orchestrator to drive workflows without touching SDK internals
   4. All three front doors work: MCP server egress exposing products and agents, the `ccf` CLI covering workflow invocation / HITL inspection / replay queries / Control Plane config / agent declaration / skilling / artifact inspection (per D-IMPL-22), and the HTTP API skeleton with a valid OpenAPI spec (per D-IMPL-23)
 
-**Plans**: TBD
+**Plans**: 12 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Scaffold: phase-i1 branch, packaging, CI workflow, D-03/D-12 doc amendments
+- [ ] 04-02-PLAN.md — CINV-01..03 AST lint checkers + allowlist, blocking in CI (D-06..D-08) *(wave 2)*
+- [ ] 04-03-PLAN.md — Slice contracts, canonical serializer, minimal Control Plane registry *(wave 2)*
+- [ ] 04-04-PLAN.md — Graph Protocols, SQLite backend, six-semantics conformance, assembly + single-writer boot *(wave 3)*
+- [ ] 04-05-PLAN.md — Vertical slice serve path: operators/projection/gates/replay/ArtifactStore + banking proto-quickstart *(wave 4)*
+- [ ] 04-06-PLAN.md — Operator registry/planner + composition-preservation property harness (D-14) *(wave 5)*
+- [ ] 04-07-PLAN.md — λ_c/D_c mechanism + full Control Plane subsystem *(wave 5)*
+- [ ] 04-08-PLAN.md — Replay engine + ArtifactStore conformance + CINV-04 harness *(wave 5)*
+- [ ] 04-09-PLAN.md — CDC→G ingress reference in ccf-runtime *(wave 5)*
+- [ ] 04-10-PLAN.md — Postgres GraphStore against the conformance suite + CI leg (D-11) *(wave 6)*
+- [ ] 04-11-PLAN.md — SimilarityIndex: sqlite-vec + Chroma optional extra (D-13) *(wave 6)*
+- [ ] 04-12-PLAN.md — Gate: per-invariant checklist, /gsd-review, Dave approval, D-GATE-I.1, merge *(wave 7)*
 **Process notes**: Model mandate — Opus 5 (fallback Opus 4.8), "high" effort. Branch: `phase-i4`. Ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.4` before Phase 8 begins.
 
 ### Phase 8: Phase I.5 — Examples Suite & Full CI Verification
@@ -222,7 +286,23 @@ Plans:
   4. Every example ships code + artifacts side by side with a README citing the whitepaper and CLAUDE.md sections it exercises; no example's code runs meaningfully with its artifacts deleted (No-Hardcoding demonstrated)
   5. Full Phase I review passes: all CI invariants green (CINV-01..04 across `/src`, `/runtime`, `/examples`), composition-preservation tests for every shipped operator pair, and the whitepaper-fidelity spot check on sampled public class docstrings
 
-**Plans**: TBD
+**Plans**: 12 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Scaffold: phase-i1 branch, packaging, CI workflow, D-03/D-12 doc amendments
+- [ ] 04-02-PLAN.md — CINV-01..03 AST lint checkers + allowlist, blocking in CI (D-06..D-08) *(wave 2)*
+- [ ] 04-03-PLAN.md — Slice contracts, canonical serializer, minimal Control Plane registry *(wave 2)*
+- [ ] 04-04-PLAN.md — Graph Protocols, SQLite backend, six-semantics conformance, assembly + single-writer boot *(wave 3)*
+- [ ] 04-05-PLAN.md — Vertical slice serve path: operators/projection/gates/replay/ArtifactStore + banking proto-quickstart *(wave 4)*
+- [ ] 04-06-PLAN.md — Operator registry/planner + composition-preservation property harness (D-14) *(wave 5)*
+- [ ] 04-07-PLAN.md — λ_c/D_c mechanism + full Control Plane subsystem *(wave 5)*
+- [ ] 04-08-PLAN.md — Replay engine + ArtifactStore conformance + CINV-04 harness *(wave 5)*
+- [ ] 04-09-PLAN.md — CDC→G ingress reference in ccf-runtime *(wave 5)*
+- [ ] 04-10-PLAN.md — Postgres GraphStore against the conformance suite + CI leg (D-11) *(wave 6)*
+- [ ] 04-11-PLAN.md — SimilarityIndex: sqlite-vec + Chroma optional extra (D-13) *(wave 6)*
+- [ ] 04-12-PLAN.md — Gate: per-invariant checklist, /gsd-review, Dave approval, D-GATE-I.1, merge *(wave 7)*
 **Process notes**: Model mandate — Opus 5 (fallback Opus 4.8), "high" effort. Branch: `phase-i5`. Ends with `/gsd-review --phase Phase I --all` → triage → Dave approval → `D-GATE-I` before v0 is declared. Homecams-on-SDK rebuild is post-v0 (deferred).
 
 ## Progress
