@@ -34,7 +34,7 @@ exists.
   4. Every open question carries a `D-IMPL-NN` number in `docs/DECISIONS.md`; no design choices or code produced
   5. `/gsd-review --phase Phase R --all` run, findings triaged, blocking findings fixed, Dave approval logged as `D-GATE-R`, `phase-r` merged to `main`
 
-**Plans:** 4/12 plans executed
+**Plans:** 5/12 plans executed
 
 Plans:
 **Wave 1**
@@ -52,7 +52,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 01-04-PLAN.md — Ch 8–9 conversion + D-03 spot-check fidelity gate
+- [x] 01-04-PLAN.md — Ch 8–9 conversion + D-03 spot-check fidelity gate
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -183,7 +183,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Phase R — Research | 4/12 | In Progress|  |
+| 1. Phase R — Research | 5/12 | In Progress|  |
 | 2. Phase D — Design | 0/? | Not started | - |
 | 3. Phase F — Feasibility & Scoping | 0/? | Not started | - |
 | 4. Phase I.1 — Fabric Core | 0/? | Not started | - |
