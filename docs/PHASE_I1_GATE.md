@@ -45,13 +45,13 @@ silently omitted, so "suite green" cannot be misread as "invariant holds":
 
 | # | Invariant | Named verification mechanism | Result |
 |---|-----------|------------------------------|--------|
-| 1 | **Single-writer enforcement — static gate** | `tools/lints/harness_imports.py` — the `ccf.graph._writer` module restriction (only `ccf.assembly` / `ccf.boot` may import it), run by `python -m tools.lints --all`; plus `mypy --strict` rejecting non-L2 `GraphWriter` type references | ✅ zero findings; mypy clean |
+| 1 | **Single-writer enforcement — static gate** | `tools/lints/harness_imports.py` rule `cinv02-graph-writer` — the `ccf.graph._writer` module restriction, `WRITER_OK_MODULES = {ccf.assembly, ccf.boot}`, run by `python -m tools.lints --all`. In practice only `ccf.boot` imports it today. **Scope note (review finding R-1):** `mypy --strict` is a *supporting* build step (it types the reader/writer Protocol split), **not** an enforcer of "no non-L2 `GraphWriter` reference" — no mypy plugin implements that restriction. The load-bearing static gate is the CINV-02 lint alone. | ✅ zero findings; mypy clean. Mutation-probed: see §6.2 |
 | 2 | **Single-writer enforcement — runtime backstop** | `tests/invariants/test_single_writer_boot.py` — boot-check assertion that exactly one `GraphWriter` is constructed per graph identity; a second-writer fixture fails boot (`BootToken`, `SingleWriterViolation`) | ✅ passing |
 | 3 | **Composition-preservation `(A∘B)(G) = A(B(G))`** | `tests/properties/test_composition.py` — Hypothesis property harness parametrized over **every shipped operator pair** enumerated from the `OperatorRegistry` via `itertools.product`, asserting bit-for-bit equality on `canonical_bytes`; plus curated banking edge graphs (D-14) | ✅ passing, `ci` profile |
 | 4 | **Staged-execution equivalence** (FEASIBILITY §11 D-08 test class 2) | `tests/properties/test_staged_vs_direct.py` — two-stage projection plan output == direct composition output under fixed `(graph_state, control_plane_config, temporal_boundary)` | ✅ passing |
 | 5 | **Three validation gates** — empty-operator guard → lineage strict equality → TTL bounds | `tests/gates/test_product_gates.py` — the three rejection paths (`EmptyOperatorRefusal`, `LineageMismatchRefusal`, `TTLRefusal`), the `GateBypassError` construction guard, and the Control-Plane registration test that an unregistered `MAX_TTL` fails product-class registration (D-IMPL-39) | ✅ passing |
 | 6 | **Algorithmic ⇄ Semantic Alternation** | **CINV-03** — `tools/lints/algorithmic.py`, keyed on `__ccf_mode__ = "algorithmic"`, rejecting any import of `ccf.llm.LLMClientProtocol` or an LLM vendor SDK; own tests in `tools/lints/tests/test_algorithmic.py` | ✅ zero findings; 45 checker tests pass |
-| 7 | **Audit-by-construction / replay-by-construction (CINV-04)** | `tests/invariants/test_replay_by_construction.py` — active checks: `serve()` cannot deliver without a recorded decision (the replay append *returns* the delivery capability; `CapabilityForgeryError` closes the forged path). Deferred checks are emitted as **explicit skips carrying their activating phase** — see §1 table: HITL + workflow → **I.4**, skill-set → **I.2** | ✅ active checks pass; 3 deferrals explicitly not-yet-applicable, never silently absent |
+| 7 | **Audit-by-construction / replay-by-construction (CINV-04)** | Two distinct layers, separated here per review finding R-2. **(a) The behavioral assertions** — the load-bearing tests: `tests/replay/test_serve_writes_replay.py::test_a_failing_store_yields_no_delivery` (a failing replay append yields *no* delivery), `::test_serve_writes_the_record_then_delivers` (ordering), `::test_the_delivery_capability_cannot_be_constructed_directly` (`CapabilityForgeryError` closes the forged path), `tests/invariants/test_single_writer_boot.py::test_booting_the_same_graph_twice_raises`, and `tests/replay/test_engine_rehydration.py::test_the_product_replays_exactly_after_the_graph_has_moved_on`. **(b) The status registry** — `tests/invariants/test_replay_by_construction.py` holds the CINV-04 check registry and asserts its *integrity* (every active check names an owning test that exists; every deferred check names its activating phase). It does not itself prove the behavioral invariants; it prevents the gate report going stale when a named test is renamed or deleted. Deferrals: HITL + workflow → **I.4**, skill-set → **I.2** | ✅ 3 active behavioral checks pass; registry integrity passes; 3 deferrals explicitly not-yet-applicable, never silently absent |
 | 8 | **No-Hardcoding Rule** | **CINV-01** — `tools/lints/no_hardcoding.py`: prompt-shaped-literal heuristics + numeric-table/dict constant detection + factory-bypass AST check over `/src`, `/runtime`, `/examples`, with the versioned reviewed allowlist `tools/lints/allowlist.yaml` (D-08; findings carry `[fp=<sha256>]` so entries key on the literal, not the line) | ✅ zero findings |
 | 9 | **Zero harness imports in core** | **CINV-02** — `tools/lints/harness_imports.py` import lint over `/src` against the configured harness deny-list (Google ADK, Claude Agent SDK, LangGraph) | ✅ zero findings |
 | 10 | **Hash-verified re-hydration** (FEASIBILITY §11 D-09 test class) | `tests/replay/test_engine_rehydration.py` — replaying a recorded decision reproduces artifacts whose content hashes match the pinned hashes; divergence **raises**, never returns as a value | ✅ passing |
@@ -166,12 +166,15 @@ mechanically across all 20 owning modules). Recorded as advisory finding A-1 in 
 `/gsd-review --phase "Phase I.1" --all` was run against the phase deliverables. Reviewer
 availability and outcome:
 
-| Reviewer | Status | Notes |
-|----------|--------|-------|
+| Reviewer | Status | Outcome |
+|----------|--------|---------|
 | In-repo verification matrix (§1) | ✅ ran | Authoritative leg — all eight commands green |
 | Structural self-audit against §3.1 Phase I criteria | ✅ ran | Per-criterion results in the table below |
 | Whitepaper-fidelity spot check (§5) | ✅ ran | 12/12 |
-| Cross-AI (Codex, Cursor) | see §6.1 | credentials per CLAUDE.md §3.1 |
+| Lint mutation probe (§6.2) | ✅ ran | CINV-02 proven to be a real gate, not a no-op |
+| **Codex** (gpt-5.5) | ✅ ran (2nd attempt) | 2 findings raised as blocking — **1 upheld** (R-2), **1 refuted** by the code (see §6.1) |
+| **Cursor** | ✅ ran (2nd attempt) | **NO BLOCKING FINDINGS**; 7 advisories, **3 upheld as gate-doc accuracy defects** (R-1, R-3, R-4) |
+| **Gemini** | ✅ ran | **NO BLOCKING FINDINGS**; 5 advisories, all corroborating |
 
 ### §3.1 Phase I criteria, checked one by one
 
@@ -180,7 +183,7 @@ availability and outcome:
 | No-Hardcoding lint green | ✅ CINV-01, zero findings |
 | Harness import lint green | ✅ CINV-02, zero findings |
 | `@algorithmic` lint green | ✅ CINV-03, zero findings |
-| Composition-preservation tests for **every shipped operator pair** | ✅ pairs enumerated from the registry via `itertools.product` — n² by construction, so a new operator cannot escape coverage by omission from a list |
+| Composition-preservation tests for **every shipped operator pair** | ✅ all 4 shipped operators, all 16 ordered pairs. **Precise claim (review finding R-3):** pairs are `itertools.product` over the `shipped_operators()` registry built in `tests/properties/strategies.py`, so *pair* coverage is n² automatically — but that registry is assembled by hand, not discovered from `/src`. A newly shipped operator must be added to `shipped_operators()`; adding it then earns its 2n new pairs for free. Coverage is complete today; the residual maintenance obligation is recorded as advisory A-7. |
 | Replay-by-construction checks (HITL, workflow, skill-set capture) | ⚠️ **partially applicable in I.1 by design** — the three checks belong to surfaces I.1 does not ship (HITL/workflow → I.4, skilling → I.2). They exist in the registry and emit phase-tagged skips. The I.1-applicable leg (serve-path replay capture) is active and green. |
 | Full §9 examples suite passing end-to-end, incl. the two-harness assertion | ⚠️ **not in I.1 scope** — the §9 examples suite is Phase 8 and the harness adapters are Phase 6 (I.3). I.1's analogue is the **proto-quickstart** (`tests/integration/test_proto_quickstart.py`, D-02), the private fixture precursor of `examples/00-quickstart`. |
 | Whitepaper-fidelity spot check | ✅ §5, 12/12 |
@@ -190,19 +193,63 @@ are written for Phase I as a whole, and Phase I is sliced into I.1–I.5 (Phases
 item has a named receiving phase. They are recorded as advisory findings A-2 and A-3 so the
 carry-forward is explicit rather than assumed.
 
-### 6.1 Cross-AI reviewer availability
+### 6.1 Cross-AI review — execution record and finding dispositions
 
 Per CLAUDE.md §3.1, Codex authenticates with `CODEX_API_KEY` (not `OPENAI_API_KEY`) and
-Cursor with an exported `CURSOR_API_KEY`, both sourced from
-`/home/parkave/homecams_v2/.env` — **never committed to this repo**. Per the phase-executor
-instruction, an unavailable or erroring external CLI is recorded here and does not block the
-checkpoint. Availability at gate-assembly time is recorded in the phase execution summary;
-the in-repo verification matrix (§1) is the authoritative leg either way, since every
-invariant claim in §2 is backed by a runnable command rather than by a reviewer opinion.
+Cursor with an exported `CURSOR_API_KEY`, both sourced from `/home/parkave/homecams_v2/.env`
+— **never committed to this repo**.
 
-**Threat T-04-27 check (credential disclosure):** `git diff` for this plan touches only
-`docs/PHASE_I1_GATE.md`; no key-shaped material enters the tree. Keys live in the environment
-only.
+**Environment problems encountered and worked around (recorded per §3.1 rather than hidden):**
+
+- **Codex, attempt 1 — failed.** Login succeeded (`printenv CODEX_API_KEY | codex login
+  --with-api-key`), but the Linux sandbox could not start: `bwrap: loopback: Failed
+  RTM_NEWADDR: Operation not permitted`. Codex correctly refused to review files it could not
+  read and returned "I cannot honestly say NO BLOCKING FINDINGS without access to the files."
+- **Codex, attempt 2 — succeeded.** Re-run with the review material piped inline on stdin, so
+  no repo file access was required. This produced a substantive review.
+- **Cursor, attempt 1 — failed.** Workspace-trust prompt refused the non-interactive run.
+  (Note for CLAUDE.md §3.1: the installed Cursor version *does* accept `--trust` / `--yolo` /
+  `-f`, contradicting the standing note that "`--trust` does not exist"; `-f` worked.)
+- **Cursor, attempt 2 — succeeded** with `cursor agent -p -f --mode ask`.
+- **Gemini — succeeded** first attempt, added as a third reviewer.
+
+**Finding dispositions.** Four findings had a real kernel and were **fixed in this document
+before presentation** (§3.1 step 2 — blocking findings are fixed inside the phase). All four
+were gate-document accuracy defects; **none was a code defect**, and no code changed.
+
+| ID | Raised by | Finding | Disposition |
+|----|-----------|---------|-------------|
+| **R-1** | Cursor | Checklist row 1 claimed `mypy --strict` "rejects non-L2 `GraphWriter` type references". There is no mypy plugin implementing that restriction; the real static gate is the CINV-02 lint. | **Upheld — row 1 rewritten.** mypy is now described as a supporting build step, not an enforcer. The invariant is still enforced; only the doc's account of *what* enforces it was wrong. |
+| **R-2** | Codex | Checklist row 7 pointed at `tests/invariants/test_replay_by_construction.py` as if it proved the serve-path invariant. That module is a status **registry** plus an integrity check; the behavioral proof lives in `tests/replay/test_serve_writes_replay.py`. As written the row could read as a tautological green. | **Upheld — row 7 rewritten** to separate (a) the named behavioral tests from (b) registry integrity. Gemini independently flagged the same module as a *strength* (it prevents stale gate reports); both readings are correct and the row now states both. |
+| **R-3** | Cursor | §6 claimed "a new operator cannot escape composition coverage by list omission". Pairs are enumerated from a hand-built `shipped_operators()` fixture, so the *pair* expansion is automatic but registry membership is not. | **Upheld — claim narrowed** and the residual maintenance obligation recorded as advisory A-7. Today's coverage (4 operators, 16 ordered pairs) is complete. |
+| **R-4** | Cursor | §7 stated both amendments are recorded in `docs/DECISIONS.md`. Only D-03/`D-IMPL-52` is; **D-12 lives on `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md` and 04-CONTEXT.md**, not in `DECISIONS.md`. | **Upheld — §7 corrected** to state each amendment's actual location. Verified: `grep "D-12" docs/DECISIONS.md` returns nothing. |
+| **R-5** | Codex | Claimed the single-writer allowlist is inconsistent — doc says `ccf.assembly` + `ccf.boot`, but a test asserts the only importer is `ccf/boot.py`. | **Refuted by the code.** `tools/lints/harness_imports.py` defines `WRITER_OK_MODULES = frozenset({"ccf.assembly", "ccf.boot"})` — exactly what the doc claims. The test asserts the *current factual* importer set (only `boot.py` imports it today), which is narrower than the permitted set by circumstance, not by contradiction. Row 1 now states both facts explicitly so the distinction cannot be misread again. |
+
+Codex's two remaining points (CINV-04 row wording; inability to judge lint strength from the
+inline excerpt) are absorbed by the R-2 fix and by the mutation probe in §6.2 respectively.
+Cursor's advisories 5–7 and Gemini's five advisories required no change; the substantive ones
+are carried into §7.
+
+### 6.2 Lint mutation probe
+
+A gate that reports "zero lint findings" proves nothing unless the lint can fail. CINV-02 was
+mutation-probed: `import langgraph` was appended to `src/ccf/operators/base.py`, and
+`python -m tools.lints --all` was re-run.
+
+```
+1 CCF invariant violation(s).
+src/ccf/operators/base.py:179 cinv02-harness harness import 'langgraph' is forbidden in
+  core (CLAUDE.md §7.3); bind harnesses in runtime/adapters/<harness>/ instead
+EXIT=1
+```
+
+The probe was reverted and the lint returned to exit 0 (`git status` clean). **The zero-finding
+result in §1 is a real green, not a lint that never fires.** The checkers additionally carry 45
+of their own unit tests covering positive-detection cases.
+
+**Threat T-04-27 check (credential disclosure):** the diff for this plan touches only
+`docs/PHASE_I1_GATE.md` and `.gitignore`; no key-shaped material enters the tree. Keys were
+sourced into the process environment only, never written to a file in the repo.
 
 ---
 
@@ -214,10 +261,21 @@ deferred-scope observation.
 
 ### Blocking findings
 
-**None.** Every named invariant maps to a named passing test or lint (§2); the fidelity spot
-check is 12/12 (§5); no deliverable element of Phase 4 is missing against the amended criteria
-(§3, §4); and no decision is unsurfaced — both scope amendments were ruled by Dave and are
-already recorded in `docs/DECISIONS.md` and `.planning/ROADMAP.md` (§4).
+**None outstanding.** Four findings with a real kernel (R-1 … R-4, §6.1) were raised by the
+cross-AI reviewers and **fixed in this document before presentation**, per §3.1 step 2. All
+four were accuracy defects in the gate document's account of its own evidence; **no code
+defect was found by any reviewer, and no source file changed as a result of the review.**
+
+After those fixes: every named invariant maps to a named passing test or lint (§2); the
+fidelity spot check is 12/12 (§5); no deliverable element of Phase 4 is missing against the
+amended criteria (§3, §4); and no decision is unsurfaced.
+
+**Amendment recording — precise locations** (corrected per R-4):
+
+| Amendment | Where it is recorded |
+|-----------|----------------------|
+| **D-03** → `D-IMPL-52` | `docs/DECISIONS.md` (the ruling, approver Dave, 2026-07-25); CLAUDE.md §9 amended in place; 04-CONTEXT.md |
+| **D-12** (MCP ArtifactStore → I.3) | `.planning/ROADMAP.md` (Phase 4 criterion 4 amendment note **and** Phase 6 criterion 5, the receiving deliverable); `.planning/REQUIREMENTS.md` (FABR-08); 04-CONTEXT.md. **Not in `docs/DECISIONS.md`** — it is a phase-scope amendment carried on the roadmap, not a `D-IMPL-NN` ruling. Flagged for Dave in §8 in case he wants it mirrored into the decision log. |
 
 ### Advisory findings (carried forward per §3.1)
 
@@ -229,6 +287,10 @@ already recorded in `docs/DECISIONS.md` and `.planning/ROADMAP.md` (§4).
 | **A-4** | FABR-08 is partially delivered (Protocol + file-backed impl; MCP-backed impl deferred). | Advisory — this is the **D-12 amendment**, ruled by Dave, with a receiving deliverable already written into Phase 6 criterion 5. Recorded so the requirements ledger is not marked complete on a half-delivery without the reader seeing why. |
 | **A-5** | `src/ccf/llm/__init__.py` shows 0% coverage. | Advisory and *expected*: the module exists solely as the single crisp import target CINV-03 lints against (D-IMPL-09). It declares a Protocol with no implementation in `/src` by design. Coverage is informational under D-17 in any case. |
 | **A-6** | The Postgres leg skips silently on a machine without Docker. | Advisory, already mitigated: `CCF_REQUIRE_POSTGRES=1` converts the skip to a failure, and CI sets it via the postgres service container. Verified in §1 — the mandatory run passes 12/12. |
+| **A-7** | *(from R-3, Cursor)* `shipped_operators()` in `tests/properties/strategies.py` is assembled by hand, so a newly shipped operator must be added there to enter the n² pair expansion. | Advisory. All 4 shipped operators are present and all 16 ordered pairs are green today. Carried to I.2/I.3 as an operator-onboarding checklist item; a registry-discovery variant would remove the obligation entirely and is worth considering when the operator set next grows. |
+| **A-8** | *(Cursor)* CINV-01's factory-bypass leg (CINV-01c) is scaffold-only until I.2, since no `Agent`/`Task` factory exists yet; `allowlist.yaml` is correspondingly empty. | Advisory and expected — the factory surface lands in **I.2**. The lint's own docstring already states this. The prompt-literal and numeric-table legs of CINV-01 are fully active today. |
+| **A-9** | *(Cursor)* `test_a_retired_writer_refuses_further_writes` proves re-boot succeeds after `close()`; it does not assert that a post-`close()` write fails (the implementation does set `_closed`). | Advisory — a test-strength gap, not an invariant hole; the single-writer invariant itself is covered by the boot-refusal tests. Carried to I.2 as a one-line assertion to add. |
+| **A-10** | Cross-AI reviewer CLIs both needed a second attempt for environment reasons (Codex sandbox `bwrap`, Cursor workspace trust), and CLAUDE.md §3.1's note that Cursor's `--trust` flag "does not exist" is now out of date — `-f` works. | Advisory. Recorded in §6.1. Worth a small CLAUDE.md §3.1 correction at Dave's discretion so the next phase gate does not re-derive the workaround. |
 
 ---
 
@@ -240,7 +302,16 @@ already recorded in `docs/DECISIONS.md` and `.planning/ROADMAP.md` (§4).
 3. Note the two recorded amendments: **D-03/D-IMPL-52** (banking example 00, horizontal domain
    mix, CLAUDE.md §9 amended) and **D-12** (MCP-backed ArtifactStore deferred to I.3, with
    Phase 6 criterion 5 as the receiving deliverable).
-4. **Approve or reject the Phase I.1 gate.**
+4. Note two small items surfaced by the review that are **yours to rule on, not the
+   executor's** (neither blocks the gate):
+   - **D-12 placement** — the ArtifactStore scope amendment lives on the roadmap and
+     requirements, not in `docs/DECISIONS.md`. Mirror it into the decision log as a
+     `D-IMPL-NN`, or leave it as roadmap-carried scope?
+   - **CLAUDE.md §3.1 credential note** — the standing note says Cursor's `--trust` flag does
+     not exist; the installed version accepts `-f` / `--trust` / `--yolo`, and Codex needs
+     stdin-inlined input because its bubblewrap sandbox cannot start here. Worth correcting
+     for the next gate (advisory A-10).
+5. **Approve or reject the Phase I.1 gate.**
 
 On approval — and only on approval — the executor appends the `D-GATE-I.1` entry to
 `docs/DECISIONS.md` (mirroring the `D-GATE-F` format), merges `phase-i1` into `main` with a
