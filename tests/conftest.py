@@ -82,6 +82,12 @@ def _policy_bundle() -> dict[str, str]:
 
 
 @pytest.fixture
+def banking_spec() -> Any:
+    """The fixture resolution spec, for tests that boot a fabric by hand."""
+    return _resolution_spec()
+
+
+@pytest.fixture
 def fabric_boot(tmp_path: Path) -> Iterator[Callable[..., "FabricHandle"]]:
     """Yield a factory that boots a fresh fabric over its own temp database.
 
