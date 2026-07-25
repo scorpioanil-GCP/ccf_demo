@@ -100,7 +100,15 @@ def _normalize(value: object) -> Any:
     if isinstance(value, date):
         return value.isoformat()
     if isinstance(value, BaseModel):
-        return _normalize(value.model_dump(mode="python"))
+        # Field-by-field rather than `model_dump()`: a model dumped to Python
+        # rebuilds set-valued fields *as sets of dicts*, which are unhashable,
+        # so a contract holding `frozenset[LineageEntry]` — that is, every
+        # claim in the fabric — cannot be dumped at all. Walking the fields
+        # keeps each nested model a model until this function renders it.
+        return {
+            name: _normalize(getattr(value, name))
+            for name in type(value).model_fields
+        }
     if isinstance(value, Mapping):
         normalized: dict[str, Any] = {}
         for key, item in value.items():

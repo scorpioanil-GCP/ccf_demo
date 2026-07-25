@@ -27,6 +27,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 
 from ccf.graph.protocols import EntityRecord, GraphView, RelationshipRecord
@@ -85,8 +86,12 @@ class PolicyFilterParameters(OperatorParameters):
     Attributes:
         permitted_policy_bundle_versions: Which Control Plane policy-bundle
             versions this principal is admitted to read state stamped under.
-        classification_attribute: The attribute key carrying an entity's
-            classification, in the deployment's own ontology vocabulary.
+        classification_attribute_by_class: ``entity_class -> attribute key``
+            carrying that class's classification. Per class rather than one
+            global key, because classes carry their sensitivity in their own
+            vocabulary — two classes in the same deployment routinely carry
+            their sensitivity in differently-named fields. An entity class
+            absent from this mapping is inadmissible.
         permitted_classifications: The classification values the principal may
             see. Everything else — *including an entity carrying no
             classification at all* — is excluded: the fabric does not admit
@@ -94,7 +99,7 @@ class PolicyFilterParameters(OperatorParameters):
     """
 
     permitted_policy_bundle_versions: frozenset[str]
-    classification_attribute: str
+    classification_attribute_by_class: Mapping[str, str]
     permitted_classifications: frozenset[str]
 
 
@@ -116,14 +121,16 @@ class PolicyFilter:
     def parameters(self) -> PolicyFilterParameters:
         return self._parameters
 
-    def _admits(self, policy_bundle_version: str, attributes: object) -> bool:
+    def _admits(self, record: EntityRecord) -> bool:
         params = self._parameters
-        if policy_bundle_version not in params.permitted_policy_bundle_versions:
+        if record.policy_bundle_version not in params.permitted_policy_bundle_versions:
             return False
-        if not isinstance(attributes, dict):  # pragma: no cover - typed upstream
+        attribute = params.classification_attribute_by_class.get(
+            record.claim.entity_class
+        )
+        if attribute is None:
             return False
-        classification = attributes.get(params.classification_attribute)
-        return classification in params.permitted_classifications
+        return record.claim.attributes.get(attribute) in params.permitted_classifications
 
     def apply(
         self,
@@ -134,11 +141,7 @@ class PolicyFilter:
         upstream: tuple[OperatorProvenance, ...],
     ) -> OperatorOutput:
         """Substitute the principal-permissible subgraph for the full graph."""
-        entities = tuple(
-            record
-            for record in view.entities
-            if self._admits(record.policy_bundle_version, dict(record.claim.attributes))
-        )
+        entities = tuple(record for record in view.entities if self._admits(record))
         edges = tuple(
             edge
             for edge in view.relationships

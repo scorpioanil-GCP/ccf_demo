@@ -1,0 +1,79 @@
+# Banking fixture ontology — the proto-quickstart's user-declared vocabulary.
+#
+# D-02/D-03: the I.1 slice is pressure-tested against a realistic banking
+# scenario, and the whitepaper's own worked topology (counterparty / facility /
+# guarantee / covenant, INV-CH7-20) is the one used, so fidelity review is a
+# matter of reading §7.3 alongside this file.
+#
+# EVERYTHING here is a *value*, and values live in artifacts. There is no entity
+# class, no relationship type, no attribute name and no identifier anywhere in
+# `/src` (CLAUDE.md §6.4 No-Hardcoding Rule, §11). The test code that loads this
+# file is thin: it maps these declarations onto SDK mechanism and asserts.
+
+tenant_id: acme-bank
+
+# Source payload vocabulary -> E nodes. `match_key` selects the rule by
+# *presence*; `identity_keys` mint the canonical URI (INV-CH7-18), so the same
+# counterparty arriving from core banking and from the KYC registry converges
+# on one node without either system knowing about the other.
+entity_rules:
+  - match_key: counterparty_lei
+    entity_class: counterparty
+    identity_keys: [counterparty_lei]
+    attribute_keys:
+      - counterparty_name
+      - jurisdiction
+      - counterparty_classification
+
+  - match_key: facility_id
+    entity_class: facility
+    identity_keys: [facility_id]
+    attribute_keys:
+      - facility_type
+      - currency
+      - facility_description
+      - facility_classification
+
+  - match_key: guarantee_id
+    entity_class: guarantee
+    identity_keys: [guarantee_id]
+    attribute_keys:
+      - guarantee_type
+      - guarantee_description
+      - guarantee_classification
+
+  - match_key: covenant_id
+    entity_class: covenant
+    identity_keys: [covenant_id]
+    attribute_keys:
+      - covenant_test
+      - covenant_classification
+
+# Typed first-class edges (INV-CH7-20), emitted when one envelope resolves both
+# endpoint classes — co-occurrence in one source event is the evidence.
+relationship_rules:
+  - relationship_type: obligor_of
+    subject_entity_class: counterparty
+    object_entity_class: facility
+
+  - relationship_type: guarantees
+    subject_entity_class: guarantee
+    object_entity_class: facility
+
+  - relationship_type: governs
+    subject_entity_class: covenant
+    object_entity_class: facility
+
+# Which attribute carries each class's policy classification. Per class, because
+# a covenant's sensitivity and a counterparty's are different fields in any
+# ontology that has thought about it.
+classification_attribute_by_class:
+  counterparty: counterparty_classification
+  facility: facility_classification
+  guarantee: guarantee_classification
+  covenant: covenant_classification
+
+# The attribute the similarity corpus is built from, per ranked class. The SDK
+# holds no corpus; the deployment says what text means "this facility".
+similarity_corpus_attribute_by_class:
+  facility: facility_description
