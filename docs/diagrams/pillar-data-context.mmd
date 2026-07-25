@@ -1,0 +1,57 @@
+flowchart TD
+    subgraph CP["Control Plane (also the audit plane — INV-CH7-70/71)"]
+        Policies["Policy definitions +<br/>entitlements"]
+        Params["OperatorParameterSets<br/>(D-IMPL-38)"]
+        Lambda["λ_c tables +<br/>D_c thresholds"]
+        MatPol["Materialization policy +<br/>MAX_TTL per class (D-IMPL-39)"]
+        Artifacts["SDK artifact classes:<br/>agents, tasks, prompts, skills<br/>(D-IMPL-28)"]
+    end
+
+    subgraph FABRIC["Data Plane — Fabric L1–L6"]
+        subgraph L1["L1 Signal Layer"]
+            CDC["CDC ingress"]
+            MCPin["MCP client ingress"]
+        end
+        subgraph L2["L2 Context Assembly (sole writer)"]
+            Assembly["Entity resolution, temporal stitching,<br/>policy binding, operator invocation"]
+        end
+        subgraph L3["L3 Context Graph"]
+            Graph["G(E, R, T, P, &Pi;, L)<br/>append-only + supersession"]
+        end
+        subgraph L4["L4 Context Operators (read-only)"]
+            Ops["Traversal &#8728; Temporal &#8728;<br/>Policy &#8728; Similarity"]
+            Planner["Operator Plan DAG generator"]
+        end
+        subgraph L5["L5 Context Projection (read-only)"]
+            Pi["&Pi; — required_operators() + invoke()<br/>selection: (perspective, class, params)"]
+        end
+        subgraph L6["L6 Context Products"]
+            Gates["Three validation gates:<br/>empty-operator guard,<br/>lineage strict equality, TTL bounds"]
+            Cache["Product cache<br/>(Fresh / Near-Expiry /<br/>Invalidated / Re-Derived)"]
+        end
+    end
+
+    subgraph EGRESS["L6 egress"]
+        InProc["In-process call"]
+        MCPout["MCP egress server"]
+        A2A["A2A endpoint"]
+    end
+
+    Store["ArtifactStore<br/>(behind mechanism —<br/>never a second writer;<br/>D-IMPL-26/27)"]
+    Replay["Decision Replay record<br/>(five dimensions;<br/>exact versions, never latest)"]
+
+    CDC --> Assembly
+    MCPin --> Assembly
+    Assembly -- "sole write handle (D-IMPL-41)" --> Graph
+    Graph -- "read-only" --> Ops
+    Planner --> Ops
+    Ops --> Pi
+    Pi --> Gates
+    Gates --> Cache
+    Cache --> InProc
+    Cache --> MCPout
+    Cache --> A2A
+    CP -. "versioned config,<br/>controlled handoff" .-> FABRIC
+    Gates -- "replay-ready by construction" --> Replay
+    Replay --> Store
+    Store -. "artifacts re-enter only via L2 /<br/>Control Plane mechanism" .-> CP
