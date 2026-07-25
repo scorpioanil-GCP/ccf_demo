@@ -125,3 +125,135 @@
 - **Dependencies:** **Links to the §7.6.6 alternation invariant** — Ch 7 §7.6 committed the alternation as a primitive the delivery layer respects; §8.4 walks the same primitive end to end (CI-enforced structural invariant in the SDK per CLAUDE.md §5, §11 `@algorithmic` lint). Also: §8.3/§8.3.1 Pattern 5 (Perception substrate), Ch 7 §7.4 compositions (a) and (c), Ch 7 §7.5 (Π projection), Ch 7 §7.7 (D_c trigger on missing/stale inputs), Ch 6 §6.3 (contract fields), Ch 7 §7.10 (replay).
 - **Figure refs:** Fig-CH08-04 (renders the four stages, boundary crossings, distance-weighted deduplication, and the persist-into-G feedback arrow).
 - **Open question:** "Where the whitepaper specifies the deduplication confidence threshold as Control-Plane-governed but gives no threshold schema or defaulting rule, the SDK must decide the Control Plane parameter shape for operator thresholds." (unnumbered; synthesis task assigns any D-IMPL number).
+
+### INV-CH8-13 — Six-dimensional graph, domain lens (weight patterns)
+
+- **Whitepaper section:** §8.5
+- **Commitment (paraphrase):** §8.5 does not re-specify G(E, R, T, P, Π, L); it renders each dimension in Wholesale Banking vocabulary and commits the *weight-pattern* observation: different archetypes weight the six dimensions differently while the graph primitive stays the same. E: typed URI-addressable entities whose identity persists across sources and time; ingestion never overwrites a resolved entity — it appends enrichments. R: typed, directed relationships as first-class persisted state, not derived query-side joins. T: layered, not scalar — each source class carries its own λ_c and the layers reconcile through explicit windows rather than silent averaging. P: a frozen policy-version identifier plus serialized parameters bound at construction time; policy projection runs before any similarity or traversal operator sees graph state. Π: a typed transformation from graph substructure to principal-conditioned payload — not an RBAC filter; two agents on the same graph state legitimately receive different Context Products. L: records source identity, not source location (migration-proof); pins to page/paragraph/bounding-box, transaction records, WORM archive locations. Archetype weightings: Document-Heavy Compositional E-R-L heavy; Temporal Reconciliation T-dominant; Forensic-Defensibility P-L-Π heavy; Conversational Synthesis Π-heavy and D_c-aware.
+- **Type signature:** `G(E, R, T, P, Π, L)` (by reference to Ch 5 §5.2, Ch 7 §7.3).
+- **Invariants:** T/P/Π/L are typed dimensions of the same persisted state read simultaneously by every operator composition — not independent graphs stitched query-side; append-only entity enrichment (single-writer discipline per Ch 7 §7.3); L source-neutrality.
+- **Dependencies:** Ch 5 §5.2 (six-tuple), Ch 7 §7.3 (persisted state), Ch 7 §7.4 compositions (a)/(c)/(d), Ch 7 §7.5 (Π), Ch 7 §7.7 (λ_c 17-row illustrative table), Ch 7 §7.10 (passage-level L), Ch 1 §1.4 (Client 360 five-traversal challenge resolved against this substrate). Domain vocabulary (Reg O, PRA 9/17, MiFID II, borrower/guarantor ontology) is illustrative — for the SDK these are user-supplied configuration values, never mechanism (CLAUDE.md §1, §13).
+- **Figure refs:** Fig-CH08-05 (supplementary: E-R plane with T/P/Π/L as dotted projections over the same subgraph; illustrative client).
+- **Open question:** None.
+
+### INV-CH8-14 — Temporal Abstraction Layer (Temporal Reconciliation archetype)
+
+- **Whitepaper section:** §8.6
+- **Commitment (paraphrase):** The CCF is a temporal abstraction layer over the data ecosystem: it decouples the timing of data production from the timing of decision consumption by distinguishing valid-time (when a fact was true) from observed-time (when the fabric learned of it) — a bitemporal discipline **enforced at the graph mutation boundary**, not reconstructed downstream by agents. "Real time" is a property of assembly and interpretation at moment of use, not of the data. The layer reconciles 6–10 source systems with unaligned cadences to a single as-of time, generating explicit valid-time-vs-observed-time disambiguation where they diverge (e.g., "signed-but-not-yet-settled-as-of-now," not "failed-to-settle"). The mechanism is neutral to structured vs unstructured and batch vs streaming sources — batch-overnight ASR transcripts and streaming chat reconcile to the same as-of time via the same layer. When a reconciliation gap surfaces, D_c fires on the freshness axis and routes conservatively (escalation, secondary verification, or a flagged narrative naming the gap) rather than answering with silent missing-data confidence.
+- **Type signature:** Output is a typed Context Product (e.g., `FXPostTradeContext`) honoring the Ch 6 §6.3 contract with per-component freshness SLA and TTL bounds.
+- **Invariants:** Bitemporal enforcement at the mutation boundary; single as-of binding per reconciliation; divergence surfaced explicitly, never averaged; conservative-bias routing under debt (Ch 7 §7.7).
+- **Dependencies:** Ch 7 §7.4 composition (b) (Temporal Operator mechanism — not re-specified in §8.6); Ch 7 §7.7 (λ_c per source class, D_c firing); Ch 7 §7.5 (Π rendering per role); Ch 7 §7.10 (replay makes supervisory review tractable); §8.5 T-dominant weighting.
+- **Figure refs:** None in §8.6.
+- **Open question:** None.
+
+### INV-CH8-15 — Regulatory regime → artifact mapping
+
+- **Whitepaper section:** §8.7
+- **Commitment (paraphrase):** The fabric's primitives produce, as first-class outputs, the artifact classes ten regulatory regimes require (tabulated: SR 26-2, ECOA/CFPB 2023-03, EU AI Act Annex III, BCBS 239, DORA, OCC Interagency TPRM, GDPR Art 22, NIST AI 600-1, NYDFS AI letter, FS AI RMF). Each obligation is discharged by a named fabric primitive: reconstructability by the five-dimension Decision Replay record + frozen policy binding; reason-specificity by passage-level L + Π reasoning trace; operational resilience by D_c fail-closed posture; etc. The regulatory landscape is a first-class design input, not a post-hoc compliance layer.
+- **Type signature:** None (regime→artifact table).
+- **Invariants:** Artifacts are composed at decision time by the same mechanism that makes decisioning work, never reconstructed at examination time.
+- **Dependencies:** Ch 7 §7.10 (replay), Ch 7 §7.7 (λ_c/D_c), §8.7.1–§8.7.3, §8.8 (supervision quality), §8.12 (the "how"). For the SDK: specific regime bundles are user-supplied policy configuration, explicitly "Not the SDK's problem" per CLAUDE.md §13 — the SDK ships the artifact-producing mechanism only.
+- **Figure refs:** None (table in text).
+- **Open question:** None.
+
+### INV-CH8-16 — λ_c and D_c as governance primitives; Conditional Assessment Routing
+
+- **Whitepaper section:** §8.7.1
+- **Commitment (paraphrase):** λ_c and D_c are first-class fields on the graph, persisted into the Decision Replay record, becoming regulatory artifacts at audit time. Domain-decay form: `R(t) = R_0 × (1/2)^((t − t_0) / λ_c)`, calibrated per source class; all published λ_c values carry the illustrative qualifier (deployment teams calibrate against their own corpus). Basic debt form: `D_c = 1 − (C_available / C_required)`; extended form `D_c = 1 − (F · C · S)` (freshness, completeness, semantic consistency) decomposes the scalar so governance can identify which axis produces the debt — the three factors are not substitutes, and the extended form makes routing auditable. D_c drives Conditional Assessment Routing with three architecturally distinct pathways: **bypass** (no relevant entities/threats — skip LLM inference entirely), **conditional** (low debt, routine — standard LLM assessment), **forced escalation** (high debt — incomplete information treated as a risk amplifier; human-in-the-loop or multi-modal verification). High debt is detected at the Comprehension boundary *before* the semantic stage sees the context, making the overconfident-sparse-context LLM failure mode structurally impossible for routed workflows; the routing decision itself lands in the replay record.
+- **Type signature:** `R(t) = R_0 × (1/2)^((t − t_0) / λ_c)`; `D_c = 1 − (C_available / C_required)`; extended `D_c = 1 − (F · C · S)`.
+- **Invariants:** λ_c/D_c persisted into replay; routing decision captured as a regulatory artifact; debt computed algorithmically before semantic invocation; λ_c values are calibration outputs, never fixed constants (for the SDK: λ_c tables live in Control Plane configuration, not code — CLAUDE.md §5).
+- **Dependencies:** Ch 7 §7.7 (mechanism owner — §8.7.1 applies it to governance); Ch 6 §6.3 (D_c as declarative contract field); Ch 7 §7.10 (replay capture).
+- **Figure refs:** Fig-CH08-06 (Conditional Assessment Routing decision tree; supplementary, not load-bearing per the text).
+- **Open question:** "The extended form D_c = 1 − (F · C · S) is given without specification of how F, C, and S are individually computed or weighted; the SDK must commit a computable definition per factor." (unnumbered; synthesis assigns numbering).
+
+### INV-CH8-17 — MNPI governance via Policy-before-Similarity (subgraph substitution)
+
+- **Whitepaper section:** §8.7.2
+- **Commitment (paraphrase):** The Policy Operator runs before the Similarity Operator, not after — similarity-first-filter-later systems allow restricted signal to influence ranking, scoring, and candidate neighborhoods before any entitlement check. At the graph layer, restricted-information enforcement is **subgraph substitution enforced by Π**, not a row-level index filter: Π projects a different subgraph per principal clearance, and the entire downstream composition runs against the principal-specific subgraph from the first operator onward. Leakage is structurally prevented, not post-hoc mitigated (a 99%-effective post-hoc filter leaks 1%, which is where the exposure sits; post-hoc filters cannot be replay-verified as reliably blocking).
+- **Type signature:** None (ordering + substitution commitment).
+- **Invariants:** Policy-before-Similarity operator ordering (Ch 7 §7.4 composition (c)); subgraph substitution as a typed transformation auditable under Π's stability-layer contract; structural prevention is the only posture that withstands reconstructability expectations.
+- **Dependencies:** Ch 7 §7.4 composition (c) (mechanism), Ch 7 §7.5 (Π stability contract — mechanism side lives there, governance side here); §8.3.1 retrieval tier (enforcement point); §8.7 regime table (artifacts produced).
+- **Figure refs:** None.
+- **Open question:** None.
+
+### INV-CH8-18 — Fail-closed under degraded sources
+
+- **Whitepaper section:** §8.7.3
+- **Commitment (paraphrase):** The fabric cannot prevent upstream degradation; its posture when degradation occurs is a three-step fail-closed mechanism inherited from Ch 7 §7.7: (1) Context Debt detects degradation (D_c computation at the Comprehension boundary before the Context Product is issued); (2) the Context Product inherits the Debt (every Context Product carries assembly-time D_c as a declarative field per Ch 6 §6.3); (3) the agent escalates or refuses (Conditional Assessment Routing). A silently-high-Debt Context Product is architecturally precluded from being the substrate of a consequential decision. Bias direction: elevated D_c biases urgency **upward**, not downward — inverting both cache-first (missing data = cache miss, return what you have) and permissive-LLM-first (missing data = reason from general knowledge) postures. Uncertainty is made visible and routed into escalation, additional-source-fetch, or decision-decline paths; the routing is captured in replay.
+- **Type signature:** Detect (D_c) → inherit (contract field) → escalate/refuse (routing).
+- **Invariants:** Each step is architectural, not advisory; no decision path exists on a silently-high-Debt product; conservative bias under debt.
+- **Dependencies:** Ch 7 §7.7 (mechanism side), Ch 6 §6.3 (contract inheritance), §8.7.1 (routing), Ch 7 §7.10 (routing captured in replay). SDK hook: gates Forced LLM / Fail-Closed behavior per half-life-and-debt profile, specialization axis 5 (CLAUDE.md §6.2 — SDK-defined).
+- **Figure refs:** None.
+- **Open question:** None.
+
+### INV-CH8-19 — Supervision Quality Assessment (presence → engagement)
+
+- **Whitepaper section:** §8.8
+- **Commitment (paraphrase):** The fabric evaluates *depth of engagement* rather than the fact of sign-off. Five behavioral-signal axes (time-on-case; cross-system query logs; historical precedent vs the reviewer's own comparable-case pattern and the institutional average; supporting-documents opened; relevant queries checked) fuse with VLM/LLM reasoning over case artifacts (does the disposition narrative substantively address flagged conditions, or is it boilerplate). The signals combine into a composite supervision quality score bounded in [0, 1], persisted alongside the decision in the Decision Replay record; below a policy-defined, Control-Plane-governed threshold, the fabric identifies a rubber-stamp approval and triggers escalation to secondary review. Supervision Quality is the complement of Context Debt: D_c measures completeness of what the agent saw; Supervision Quality measures how the human engaged with what the agent produced — the two are independent, jointly-required empirical controls.
+- **Type signature:** Composite score ∈ [0, 1], persisted in the replay record.
+- **Invariants:** Score persisted with the decision; threshold is policy-bound (Control Plane), never hard-coded; the two controls (D_c, Supervision Quality) are non-substitutable.
+- **Dependencies:** Ch 7 §7.10 (replay persistence), §8.7.1 (D_c complement), Control Plane thresholds (Ch 7 §7.8). Whitepaper notes reduction-to-practice in a property-intelligence reference implementation (Homecams triangulation data point — see homecams-patterns appendix; the scoring calibration is domain-specific, do not inherit values). SDK hook: complements HITL primitives per CLAUDE.md §8.2 (SDK-defined).
+- **Figure refs:** None.
+- **Open question:** "The composite scoring function combining the five behavioral axes with VLM/LLM reasoning outputs is not specified — axis weights, fusion function, and score semantics are open for design." (unnumbered; synthesis assigns numbering).
+
+### INV-CH8-20 — Auditability at scale: replay binding and the three-tier compression lifecycle
+
+- **Whitepaper section:** §8.9
+- **Commitment (paraphrase):** The Forensic-Defensibility archetype binds Decision Replay, Π projection, and passage-level L to the evidentiary chain a filed report rests on: every narrative claim traces narrative claim → passage → source → Decision Replay record, with citations produced at extraction, persisted as passage-level Lineage in L, and retained when the decision is recorded. Reconstruction is Ch 7 §7.10 Decision Replay queried by temporal boundary and decision identifier at T+2/T+5 years. The compression regime is the three-tier lifecycle (Ch 7 §7.10 D-54, referenced by name): **Full-Fidelity** (retained indefinitely for decisions exceeding severity thresholds — the severity exemption is the mechanism by which decisions that matter most for review outlive any otherwise-applicable retention limit); **Compressed** (routine cycles reduced to essential aggregated metrics — composite D_c, entity counts, outcome, decision class — sufficient for longitudinal analysis, not full replay); **Tombstoned** (minimal metadata: timestamps, decision IDs, outcome class — audit adjacency preserved, storage recovered). Compression is Control-Plane-governed; severity thresholds are policy-bound, not hard-coded. Π renders the same record as three distinct role-shaped views (auditor / investigator / compliance-officer) from one underlying record with no state duplication. The fabric never becomes the record of record for WORM-regulated archives; it references them via L.
+- **Type signature:** Three-tier lifecycle: Full-Fidelity | Compressed | Tombstoned.
+- **Invariants:** Every claim carries both a passage-level L anchor and a replay anchor; severity asymmetry (routine reduced aggressively, high-severity preserved indefinitely); thresholds policy-bound; one record, N Π-projections; WORM archives remain records of record.
+- **Dependencies:** Ch 7 §7.10 (replay mechanism, D-53 Citations, D-54 lifecycle), Ch 7 §7.5 D-22 (three-view precedent), §8.8 (Supervision Quality as complementary reviewer-side control), Fig-CH07-07 Evidence Chain (load-bearing rendering, by reference). SDK hook: interacts with snapshot management and ArtifactStore (CLAUDE.md §7.4; D-IMPL-06, D-IMPL-26/27).
+- **Figure refs:** Fig-CH07-07 (by reference); none new in §8.9.
+- **Open question:** "Snapshot management for replay — storage strategy for graph snapshots and similarity-index snapshots making §7.10 replay tractable at year-scale." (existing D-IMPL-06; quoted from CLAUDE.md §12 — the three-tier lifecycle constrains but does not resolve it).
+
+### INV-CH8-21 — Conversational Reporting Layer (Conversational Synthesis archetype)
+
+- **Whitepaper section:** §8.10
+- **Commitment (paraphrase):** A conversational surface over the same Context Graph the other archetypes operate on — not a chatbot over a warehouse. Three stages: (1) **intent classification** routes a natural-language request into an archetype category (advisory synthesis, transactional lookup, attestation reconstruction, benchmark comparison), each selecting a different Π projection; (2) **Π projection over Decision Replay records and passage-level Lineage** composes the response against a specific substrate, not a free-form retrieval corpus (the "what changed" pattern is a Π projection over replay records since the last review plus incremental graph mutation since that horizon); (3) the **Context Debt Awareness Mechanism** gates the response against substrate freshness — if D_c is elevated on any dimension the answer depends on, the gap is surfaced as a first-class signal rather than masked by fluent prose ("fluent prose is the most dangerous surface on which to carry a freshness hole"). Every claim cites its source passage via the Ch 7 §7.10 D-53 Citations mechanism.
+- **Type signature:** intent classification → Π projection → D_c-aware gating; output honoring the Ch 6 §6.3 contract.
+- **Invariants:** The response may never sound more confident than the context warrants; missing feeds produce named gaps and deferred claims, never fabrication; same substrate underwrites the conversational answer as underwrites §8.4/§8.9 outputs.
+- **Dependencies:** §8.5 Π-heavy/D_c-aware weighting, §8.6 temporal mechanism, §8.7.1 (D_c), Ch 7 §7.5 (Π), Ch 7 §7.10 (replay + Citations). **Scope note: the Conversational Reporting Layer is out of SDK v0 scope per CLAUDE.md §13** ("The Conversational Reporting Layer (§8.10 of the whitepaper)" is on the explicit out-of-scope list) — inventoried here for completeness, not designed; its underlying primitives (Π, D_c gating, replay) are in scope individually.
+- **Figure refs:** None.
+- **Open question:** None (out-of-scope disposition is a settled CLAUDE.md §13 ruling, not an open design question).
+
+### INV-CH8-22 — Archetype mapping framework, pilot criteria, and platform/domain split
+
+- **Whitepaper section:** §8.11
+- **Commitment (paraphrase):** A diagnostic framework places any use case on the four-archetype typology by which binding work dominates (extraction/evidence chains; multi-system as-of reconciliation; adversarial-examination reconstruction; role-conditioned projection under a freshness gate); hybrid cases compose archetypes (Client 360 exercises all four). Seven narrative pilot-selection criteria: domain readiness, regulatory pressure, data-access maturity, executive sponsorship, time-to-value, accumulation, risk appetite — prioritization itself is deliberately left to leadership. Organizational commitment: a platform-versus-domain split — the platform team owns fabric primitives (Graph, Operators, Control Plane, Replay Storage); domain teams own domain-specific Operators and domain Context Products, analogous to Data Mesh domain ownership extended to context products. Pilots do not wait on data modernization: source re-binding is an ingestion-layer operation, not pilot-level rework. The first archetype delivers reusable components (entity reconciliation logic, policy binding templates, replay storage, passage-L pinning harness, λ_c calibration methodology) that accelerate every subsequent archetype — accumulation is the enterprise-capability mechanism.
+- **Type signature:** None (framework + criteria enumeration).
+- **Invariants:** The framework is illustrative, not exhaustive or prescriptive; the architecture deliberately does not preempt prioritization.
+- **Dependencies:** §8.4/§8.6/§8.9/§8.10 (the four archetypes), §8.5 (weight patterns), Ch 1 §1.4 (Client 360 arc closed at the framework level). For the SDK: the platform/domain split maps directly onto the mechanism-vs-values boundary — platform-team assets are SDK mechanism; domain Operators/Products are user configuration (CLAUDE.md §1, §13).
+- **Figure refs:** None.
+- **Open question:** None.
+
+### INV-CH8-23 — Governance and SDLC alignment
+
+- **Whitepaper section:** §8.12
+- **Commitment (paraphrase):** Governance becomes measurable because the primitives are measurable: regulatory artifacts are a first-class output of the same mechanism that performs decisioning, composed at decision time rather than reconstructed at examination time. Three governance primitives unify the surface — λ_c makes freshness regulatorily legible, D_c makes completeness legible (traceable against the routing traversed), Supervision Quality makes review engagement legible — supporting threshold-setting per decision class, replay-record sampling audits, and score-distribution review. SDLC alignment: Context Operator definitions, Π projection logic, policy bindings, replay storage, and compression tiers are versioned, tested, and approved through the same SDLC gates that govern models and applications; the Ch 7 §7.8 Control Plane / Data Plane separation is the architectural boundary that lets SDLC gates map 1:1 to control-plane deployments without disrupting the data-plane assembly path.
+- **Type signature:** None.
+- **Invariants:** Governance artifacts produced by mechanism, not by a separate governance track; operator/policy changes move through the same gates as model changes; Control Plane vs Data Plane boundary (Ch 7 §7.8) is what makes SDLC tractable.
+- **Dependencies:** §8.7 (regime table — the "what"; §8.12 is the "how"), §8.7.1–§8.7.3, §8.8, Ch 7 §7.8 (plane separation — the audit plane). SDK hook: Control Plane as versioned in-process registry with audit obligations (CLAUDE.md §5, §13).
+- **Figure refs:** None.
+- **Open question:** None.
+
+### INV-CH8-24 — Chapter conclusion: coexistence as the single architectural commitment
+
+- **Whitepaper section:** §8.13
+- **Commitment (paraphrase):** The chapter's elements — four archetypes, five integration patterns, the domain graph rendering, the regulatory taxonomy, supervision quality, the auditability regime, the conversational surface, the adoption framework, the governance posture — are one architectural commitment: coexistence rather than replacement, enabling the System-of-Record → System-of-Cognition path as layered composition. The fluid-ecosystem posture is restated as a design condition: pilots launch mid-migration; source moves re-bind via ingestion updates, not rework; heterogeneity is the condition the architecture was designed for, not retrofitted to.
+- **Type signature:** None (conclusion; no new mechanism).
+- **Invariants:** None new (restates §8.1–§8.2 commitments).
+- **Dependencies:** §8.1–§8.12 (summarized), Ch 9 (hand-off).
+- **Figure refs:** None.
+- **Open question:** None.
+
+---
+
+## Open Questions (unnumbered)
+
+Quoted for the synthesis task; numbering (new D-IMPL-NN from D-IMPL-30 onward) is assigned only at synthesis. Existing CLAUDE.md §12 numbers are referenced where the question already exists.
+
+- "Where the whitepaper specifies the deduplication confidence threshold as Control-Plane-governed but gives no threshold schema or defaulting rule, the SDK must decide the Control Plane parameter shape for operator thresholds." (from §8.4 Algorithmic Verification — INV-CH8-12)
+- "The extended form D_c = 1 − (F · C · S) is given without specification of how F, C, and S are individually computed or weighted; the SDK must commit a computable definition per factor." (from §8.7.1 — INV-CH8-16)
+- "The composite scoring function combining the five behavioral axes with VLM/LLM reasoning outputs is not specified — axis weights, fusion function, and score semantics are open for design." (from §8.8 Supervision Quality — INV-CH8-19; also raises whether Supervision Quality is SDK mechanism at all or a reference pattern users implement — CLAUDE.md §13 does not list it in v0 scope)
+- Existing-number cross-references surfaced by Ch 8 (not new): D-IMPL-06 (snapshot management vs §8.9 compression tiers), D-IMPL-07 (embedder abstraction, §8.3.1), D-IMPL-08 (Pattern 5 stage pluggability), D-IMPL-13 (MCP role allocation), D-IMPL-14/15/16 (A2A transport, identity, admission scope, §8.3 Pattern 4).
+
