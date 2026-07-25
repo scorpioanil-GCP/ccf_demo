@@ -150,4 +150,53 @@ Per CLAUDE.md §13:
 
 ## Traceability
 
-(Filled by roadmap.)
+All 46 v1 requirements mapped (46/46).
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| RSCH-01 | Phase 1 | Pending |
+| RSCH-02 | Phase 1 | Pending |
+| RSCH-03 | Phase 1 | Pending |
+| RSCH-04 | Phase 1 | Pending |
+| DSGN-01 | Phase 2 | Pending |
+| DSGN-02 | Phase 2 | Pending |
+| DSGN-03 | Phase 2 | Pending |
+| DSGN-04 | Phase 2 | Pending |
+| FEAS-01 | Phase 3 | Pending |
+| FEAS-02 | Phase 3 | Pending |
+| FEAS-03 | Phase 3 | Pending |
+| FEAS-04 | Phase 3 | Pending |
+| FABR-01 | Phase 4 | Pending |
+| FABR-02 | Phase 4 | Pending |
+| FABR-03 | Phase 4 | Pending |
+| FABR-04 | Phase 4 | Pending |
+| FABR-05 | Phase 4 | Pending |
+| FABR-06 | Phase 4 | Pending |
+| FABR-07 | Phase 4 | Pending |
+| FABR-08 | Phase 4 | Pending |
+| FABR-09 | Phase 4 | Pending |
+| CINV-01 | Phase 4 | Pending |
+| CINV-02 | Phase 4 | Pending |
+| CINV-03 | Phase 4 | Pending |
+| CINV-04 | Phase 4 | Pending |
+| AGNT-01 | Phase 5 | Pending |
+| AGNT-02 | Phase 5 | Pending |
+| AGNT-03 | Phase 5 | Pending |
+| XPRC-01 | Phase 6 | Pending |
+| XPRC-02 | Phase 6 | Pending |
+| XPRC-03 | Phase 6 | Pending |
+| ORCH-01 | Phase 7 | Pending |
+| ORCH-02 | Phase 7 | Pending |
+| HITL-01 | Phase 7 | Pending |
+| EXPR-01 | Phase 7 | Pending |
+| EXPR-02 | Phase 7 | Pending |
+| EXPR-03 | Phase 7 | Pending |
+| EXAM-01 | Phase 8 | Pending |
+| EXAM-02 | Phase 8 | Pending |
+| EXAM-03 | Phase 8 | Pending |
+| EXAM-04 | Phase 8 | Pending |
+| EXAM-05 | Phase 8 | Pending |
+| EXAM-06 | Phase 8 | Pending |
+| EXAM-07 | Phase 8 | Pending |
+| EXAM-08 | Phase 8 | Pending |
+| EXAM-09 | Phase 8 | Pending |
