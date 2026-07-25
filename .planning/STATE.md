@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-25T21:46:01.537Z"
+last_updated: "2026-07-25T21:53:28.527Z"
 progress:
   total_phases: 8
   completed_phases: 3
   total_plans: 39
-  completed_plans: 27
+  completed_plans: 28
   percent: 38
 ---
 
@@ -26,19 +26,23 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 03 (phase-f-feasibility-scoping) — EXECUTING
-Plan: 1 of 4
+Phase: 04 (phase-i-1-fabric-core) — EXECUTING
+Plan: 2 of 12
 
 - **Phase:** 4 of 8 (phase i.1 — fabric core)
-- **Plan:** Not started
-- **Status:** Ready to execute
-- **Progress:** [██████████] 100%
+- **Plan:** 04-01 complete; next is 04-02 (CINV-01..03 AST lint checkers)
+- **Status:** Executing on branch `phase-i1`
+- **Progress:** [███████░░░] 72%
 
 ## Performance Metrics
 
-- Phases complete: 2/8
+- Phases complete: 3/8
 - Requirements delivered: 3/46
-- D-GATE entries logged: 2 (D-GATE-R, D-GATE-D)
+- D-GATE entries logged: 3 (D-GATE-R, D-GATE-D, D-GATE-F)
+
+| Phase-Plan | Duration | Tasks | Files |
+| ---------- | -------- | ----- | ----- |
+| 04-01      | ~12 min  | 3     | 10    |
 
 ## Accumulated Context
 
@@ -56,6 +60,11 @@ Plan: 1 of 4
 
 - [Phase 02]: DESIGN.md Appendix A granularity: subsection-level for §2A/§2B/§3/§6, chapter-level for §4/§5/§7; Appendix C (D-IMPL ruling index, 50 rulings) added so decision-log linkage is mechanically checkable
 - [Phase 02]: D-GATE-D logged 2026-07-25 (approver Dave, zero provisionals; 5 blocking findings fixed in-phase, 7 advisory carried to Phase F); phase-d merged to main --no-ff — Phase F unblocked
+- [Phase 04]: D-IMPL-52 logged (Dave, 2026-07-25): v0 examples suite is a horizontal mix of domains; example 00 + the I.1 slice fixtures are banking — replaces CLAUDE.md §9's single-neutral-domain rule (§9 amended in 04-01)
+- [Phase 04]: D-12 scope amendment recorded on ROADMAP Phase 4 criterion 4 — I.1 ships ArtifactStore Protocol + file-backed dev impl only; the MCP-backed reference impl was added to Phase 6 success criteria so the deferral has a receiving deliverable
+- [Phase 04]: Packaging shape — one v0 distribution ships both `ccf` (src layout) and `ccf_runtime` via `packages.find where = ["src","runtime"]`; chromadb confined to the `chroma` extra, never a core dep
+- [Phase 04]: CI lint job is intentionally red on `phase-i1` until plan 04-02 lands `tools/lints` — D-07 forbids making the step non-blocking to hide the gap
+- [Phase 04]: Assumption A1 resolved empirically — mypy 2.3.0 `--strict` flag surface is unchanged from the 1.x expectation
 
 ### Todos
 
@@ -69,5 +78,5 @@ Plan: 1 of 4
 
 ## Session Continuity
 
-Last action: Completed 02-11-PLAN.md (2026-07-25) — Phase D gate closed: Dave approved, D-GATE-D logged in docs/DECISIONS.md, phase-d merged to main (--no-ff, 4873f40), main + phase-d pushed to origin.
-Next action: Plan and execute Phase 3 (Phase F — Feasibility & Scoping) on branch phase-f.
+Last action: Completed 04-01-PLAN.md (2026-07-25) — Phase I.1 scaffold on branch `phase-i1`: ccf + ccf_runtime editable install green (pytest 2 passed, mypy --strict clean), GitHub Actions CI with blocking lint job + postgres service container, and the D-03/D-12 governance amendments (CLAUDE.md §9, D-IMPL-52, ROADMAP criteria for Phases 4 and 6). Commits c87eb11, 52d7f65, 61fdca0.
+Next action: Execute 04-02-PLAN.md — CINV-01..03 AST lint checkers + versioned allowlist, which turns the CI lint job green (D-06..D-08).

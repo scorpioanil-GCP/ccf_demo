@@ -168,7 +168,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Scaffold: phase-i1 branch, packaging, CI workflow, D-03/D-12 doc amendments
+- [x] 04-01-PLAN.md — Scaffold: phase-i1 branch, packaging, CI workflow, D-03/D-12 doc amendments
 - [ ] 04-02-PLAN.md — CINV-01..03 AST lint checkers + allowlist, blocking in CI (D-06..D-08) *(wave 2)*
 - [ ] 04-03-PLAN.md — Slice contracts, canonical serializer, minimal Control Plane registry *(wave 2)*
 - [ ] 04-04-PLAN.md — Graph Protocols, SQLite backend, six-semantics conformance, assembly + single-writer boot *(wave 3)*
@@ -251,7 +251,7 @@ Plans:
 | 1. Phase R — Research | 12/12 | Complete   | 2026-07-25 |
 | 2. Phase D — Design | 11/11 | Complete   | 2026-07-25 |
 | 3. Phase F — Feasibility & Scoping | 4/4 | Complete   | 2026-07-25 |
-| 4. Phase I.1 — Fabric Core | 0/? | Not started | - |
+| 4. Phase I.1 — Fabric Core | 1/12 | In Progress|  |
 | 5. Phase I.2 — Agent Specialization Framework | 0/? | Not started | - |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 0/? | Not started | - |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 0/? | Not started | - |
