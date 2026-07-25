@@ -544,3 +544,19 @@ Every `INV-CHx-NN` inventory entry (`docs/SPEC_INVENTORY.md`) mapped — via its
 | INV-CH8-24 | §6.4 | MCP egress server (Experience front door) | strong fit |
 
 **Census:** 126 rows; 124 carry `strong fit` via their owning component; 2 carry `out of scope for v0` (INV-CH8-19 per D-IMPL-48; INV-CH8-21 per CLAUDE.md §13) — both are ruled deferral dispositions mirrored from DESIGN.md Appendix A, not coverage gaps.
+
+---
+
+## Appendix B — Advisory Disposition (D-11)
+
+The seven advisory findings carried forward from the Phase D gate (`.planning/phases/02-phase-d-design/02-REVIEWS.md`, net triage), each with its Phase F disposition — DESIGN.md Appendix B table style. No new design gaps surfaced during Phase F feasibility analysis (§10 D-02 gap check: zero `needs design choice` verdicts), so `docs/DECISIONS.md` carries no new `D-IMPL-52+` entry from this phase.
+
+| # | Finding (source reviewer/severity) | Disposition (where addressed / why no action) |
+|---|-------------------------------------|-----------------------------------------------|
+| 1 | Three-adapter sizing input — three-harness v0 scope is Phase F sizing pressure (Cursor MEDIUM) | Addressed by the D-10 per-harness verdicts in §9 of this document: individually-sized entries for the Google ADK (high), Claude Agent SDK (med), and LangGraph (high) adapters, with the stage-LangGraph-later-within-I.3 recommendation for Dave at D-GATE-F — a recommendation, never a scope change; the D-IMPL-24 ruling stands |
+| 2 | Composition-preservation test definition — definitional equation vs staged-execution invariant (Codex MEDIUM / Cursor LOW) | Closed by the D-08 two test classes in the §11 test-strategy table: the algebraic property test `(A∘B)(G) = A(B(G))` over every shipped operator pair, plus the staged-execution equivalence class asserting two-stage projection-plan output equals direct composition |
+| 3 | Hash-verified re-hydration strategy — re-hydration fragility (Gemini MEDIUM) | Closed by the D-09 row in the §11 test-strategy table: replaying a `ReHydrationRecipe` must reproduce artifacts whose content hashes match the pinned hashes (D-IMPL-26/44 hybrid addressing), bit-for-bit or the re-hydration fails loudly — a Phase I test class |
+| 4 | Python single-writer residual-risk wording (Ollama MEDIUM / Gemini LOW) | In-place DESIGN.md fix, commit `8062b50`: the D-IMPL-41 honest residual claim ("no unforced path exists, and every forced path fails CI or fails at boot") now governs every enforcement-strength assertion in §9 and is cross-referenced from §2A.5.3; absolute prevention is asserted nowhere |
+| 5 | Numerics disclaimer (Ollama LOW) | In-place DESIGN.md fix, commit `d946f12`: the Appendix B F-1 posture extended into an explicit disclaimer in §2B.3 where illustrative SLO/cost-band numbers are cited — every numeric value is illustrative, never an SDK default; values are Control Plane configuration per D-IMPL-38/39/40 |
+| 6 | Deferral migration notes (Ollama LOW) | Closed by the D-06 deferral register in `docs/ROADMAP.md` §3: seven rows (five mandatory + Chroma per D-IMPL-03 + remote Control Plane), each with source, reason deferred, and earliest re-entry milestone |
+| 7 | Dev/mock IdentityProvider (Gemini LOW) | Assessed as a v0.1-surface line item in `docs/ROADMAP.md` §2: NOT required for v0.1 (examples 00–01 are in-process, no A2A boundary crossed); the dev/mock `IdentityProvider` enters as the first deliverable of milestone I.3's A2A work |
