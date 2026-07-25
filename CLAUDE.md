@@ -220,6 +220,19 @@ If a blocking finding cannot be fixed without a decision Dave hasn't
 made, that is a `D-IMPL-NN` entry and a stop — the phase does not
 complete around it.
 
+**Cross-AI reviewer credentials.** When `/gsd-review` invokes external
+CLIs, Codex and Cursor authenticate via environment variables sourced
+from `/home/parkave/homecams_v2/.env` (never committed to this repo):
+
+- **Codex** — use `CODEX_API_KEY` (not `OPENAI_API_KEY`; that key's
+  project lacks API credit). Authenticate with
+  `printenv CODEX_API_KEY | codex login --with-api-key` before
+  `codex exec`. The ChatGPT-account login is unreliable (revoked
+  refresh tokens); prefer API-key auth.
+- **Cursor** — export `CURSOR_API_KEY` into the environment before
+  `cursor agent -p --mode ask` (the `--trust` flag does not exist in
+  the installed version; omit it).
+
 **What each phase's review verifies, minimally:**
 
 - **Phase R** — the inventory satisfies every element of §16, entry by

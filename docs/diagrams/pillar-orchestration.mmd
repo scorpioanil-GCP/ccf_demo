@@ -1,0 +1,38 @@
+flowchart TD
+    subgraph ControlPlane["Control Plane (audit plane)"]
+        TaskFactory["Task Factory<br/>(interprets definition artifacts)"]
+        WFDef["WorkflowDefinition artifact<br/>(versioned, D-IMPL-28)"]
+        WFState["WorkflowExecutionState<br/>(suspended state, D-IMPL-18)"]
+    end
+
+    subgraph WorkflowEngine["Workflow primitive (state machine)"]
+        SkillNode["SkillNode<br/>(skill invocation)"]
+        AgentNode["AgentNode<br/>(agent definition, harness-neutral)"]
+        GateNode["HITLGateNode<br/>(suspend point)"]
+        ExcPath["Exception path<br/>(first-class transition)"]
+    end
+
+    subgraph External["External orchestrators"]
+        OrchProto["OrchestrationProtocol"]
+        Engine["Temporal-class engine /<br/>LangGraph-as-orchestrator"]
+    end
+
+    HarnessAdapter["Harness Adapter binding<br/>(ADK | Claude Agent SDK | LangGraph)"]
+    HITL["HITL primitives<br/>(pillar-hitl.mmd)"]
+    Replay["Decision Replay record<br/>(dims 4 + 5: trace by construction)"]
+    ArtifactStore["ArtifactStore<br/>(trace write-through at suspend/terminal)"]
+
+    TaskFactory --> WFDef
+    WFDef --> WorkflowEngine
+    WorkflowEngine <--> WFState
+    AgentNode --> HarnessAdapter
+    GateNode --> HITL
+    SkillNode -.-> ExcPath
+    AgentNode -.-> ExcPath
+    ExcPath --> HITL
+    OrchProto --> Engine
+    WFDef --> OrchProto
+    WorkflowEngine --> Replay
+    OrchProto --> Replay
+    WFState -->|"trace write-through at suspend/terminal<br/>(not execution state — D-IMPL-18/27)"| ArtifactStore
+    Replay --> ArtifactStore

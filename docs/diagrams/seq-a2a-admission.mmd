@@ -1,0 +1,19 @@
+sequenceDiagram
+    participant P as Producer agent (org A)
+    participant W as WireProtocol (LF A2A default, D-IMPL-14)
+    participant CCP as Consumer Control Plane
+    participant L2 as Consumer L2 Assembly (only writer)
+    participant L3 as Consumer L3 Graph
+
+    P->>P: Sign product (detached JWS over canonical serialization, D-IMPL-15)
+    P->>W: Emit typed Context Product (artifact payload)
+    W->>CCP: Deliver inbound product (mTLS transport identity)
+    CCP->>CCP: Verify signature (producer identity, version, key id)
+    CCP->>CCP: Verify Policy bindings + contract validation + lineage integrity (D-IMPL-16, every product, no fast path)
+    alt Verification passes
+        CCP->>L2: Admit product for assembly
+        L2->>L3: Write with lineage set-union (inbound L extends consumer L - producer plan, snapshot, policy version preserved)
+    else Verification fails
+        CCP->>CCP: Reject admission - audited rejection record, product never reaches L3
+        CCP-->>W: Rejection response to producer
+    end

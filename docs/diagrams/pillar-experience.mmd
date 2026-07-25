@@ -1,0 +1,37 @@
+flowchart TD
+    subgraph UserBuilds["User builds (out of v0 scope)"]
+        Mobile["Mobile SDK"]
+        Chat["Chat adapter"]
+        WebUI["Web UI"]
+        Inbox["Human task inbox"]
+    end
+
+    subgraph Experience["Experience Layer (SDK v0 front doors)"]
+        MCPSrv["MCP egress server<br/>Products as Resources, agent Tools,<br/>HITL queues (D-IMPL-13, D-IMPL-20)"]
+        CLI["ccf CLI<br/>noun-verb surface (D-IMPL-22)"]
+        HTTP["HTTP API skeleton + OpenAPI<br/>(D-IMPL-23, no L1 ingestion)"]
+    end
+
+    subgraph Fabric["CCF Fabric + SDK extensions"]
+        CP["Control Plane<br/>factories, audit, config"]
+        L6["L6 Context Products"]
+        Replay["Decision Replay engine<br/>three renderings via recursive Pi (INV-CH7-91)"]
+        HITL["HITL primitives"]
+        WF["Workflow primitive"]
+    end
+
+    ExtAgents["External MCP-capable<br/>agent runtimes"] --> MCPSrv
+    Mobile --> HTTP
+    Chat --> HTTP
+    WebUI --> HTTP
+    Inbox --> MCPSrv
+
+    CLI -->|"thin client"| HTTP
+    CLI -.->|"--local dev mode"| CP
+    MCPSrv --> L6
+    MCPSrv --> HITL
+    HTTP --> CP
+    HTTP --> L6
+    HTTP --> Replay
+    HTTP --> WF
+    CP --> Replay

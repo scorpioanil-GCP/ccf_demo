@@ -1,0 +1,26 @@
+flowchart LR
+    subgraph Core["CCF core (/src) — zero harness imports"]
+        L2["L2 Context Assembly<br/>(only writer)"]
+        L3["L3 Context Graph"]
+        L6["L6 Context Products"]
+        SkillSet["Currently-bound skill-set<br/>(channel 2, D-IMPL-12/29)"]
+        ReplayRec["Five-dimension<br/>Decision Replay record"]
+        AgentDef["Agent definition artifact<br/>(Control Plane, D-IMPL-28)"]
+        L2 --> L3
+    end
+
+    subgraph Adapter["/runtime/adapters/&lt;harness&gt;/ — HarnessAdapterProtocol (D-IMPL-24/25)"]
+        HA["Harness Adapter<br/>ADK | Claude Agent SDK | LangGraph"]
+    end
+
+    subgraph Harness["Agent harness (external — owns the loop)"]
+        Loop["Reasoning / tool-calling loop"]
+    end
+
+    AgentDef --> HA
+    L6 -->|"seam 1: context injection<br/>(typed products only, never L3/raw signal)"| HA
+    SkillSet -->|"seam 2: skill exposure<br/>(exactly the bound set)"| HA
+    HA -->|"seam 3: effect capture<br/>(governed emission / L2 write-back)"| L2
+    HA -->|"seam 4: replay hooks<br/>(model + prompt versions, trace)"| ReplayRec
+
+    HA <--> Loop
