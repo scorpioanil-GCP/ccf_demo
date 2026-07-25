@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-25T21:53:28.527Z"
+last_updated: "2026-07-25T22:25:20.164Z"
 progress:
   total_phases: 8
   completed_phases: 3
   total_plans: 39
-  completed_plans: 28
+  completed_plans: 31
   percent: 38
 ---
 
@@ -27,12 +27,12 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 04 (phase-i-1-fabric-core) — EXECUTING
-Plan: 2 of 12
+Plan: 5 of 12
 
 - **Phase:** 4 of 8 (phase i.1 — fabric core)
-- **Plan:** 04-01 complete; next is 04-02 (CINV-01..03 AST lint checkers)
+- **Plan:** 04-01..04-04 complete; next is 04-05
 - **Status:** Executing on branch `phase-i1`
-- **Progress:** [███████░░░] 72%
+- **Progress:** [████████░░] 79%
 
 ## Performance Metrics
 
@@ -43,6 +43,9 @@ Plan: 2 of 12
 | Phase-Plan | Duration | Tasks | Files |
 | ---------- | -------- | ----- | ----- |
 | 04-01      | ~12 min  | 3     | 10    |
+| 04-02      | ~20 min  | 3     | 14    |
+| 04-03      | ~25 min  | 3     | 13    |
+| 04-04      | ~35 min  | 3     | 16    |
 
 ## Accumulated Context
 
@@ -65,6 +68,9 @@ Plan: 2 of 12
 - [Phase 04]: Packaging shape — one v0 distribution ships both `ccf` (src layout) and `ccf_runtime` via `packages.find where = ["src","runtime"]`; chromadb confined to the `chroma` extra, never a core dep
 - [Phase 04]: CI lint job is intentionally red on `phase-i1` until plan 04-02 lands `tools/lints` — D-07 forbids making the step non-blocking to hide the gap
 - [Phase 04]: Assumption A1 resolved empirically — mypy 2.3.0 `--strict` flag surface is unchanged from the 1.x expectation
+- [Phase 04]: Single-writer keyed on graph identity (database path), not one-boot-per-process — the invariant is one writer per graph; a process singleton would forbid multi-fabric hosting
+- [Phase 04]: Every backend's GraphWriter class lives in ccf.graph._writer, never beside its reader — otherwise the CINV-02 lint guards a module while the real write path lives unguarded
+- [Phase 04]: claim_id excludes lineage and observed_at — corroboration accumulates instead of manufacturing supersessions, and a claim stays addressable while its evidence grows
 
 ### Todos
 
