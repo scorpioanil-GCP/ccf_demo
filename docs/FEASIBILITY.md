@@ -97,7 +97,7 @@ This is the Phase F feasibility deliverable (FEAS-01): a per-component implement
 #### Component: Operator algebra and the four canonical operator categories
 
 - **Verdict:** strong fit
-- **Rationale:** §2B.1 commits the algebra `ContextProduct = Π ∘ Traversal ∘ Temporal ∘ Policy ∘ Similarity` with typed, read-only, sync operators (**D-IMPL-04**), parameterized exclusively through **D-IMPL-38** `OperatorParameterSet` artifacts. Composition-preservation `(A∘B)(G) = A(B(G))` and the function-determinism contract are properties Phase I must verify empirically for every shipped operator pair (§9 test-strategy rows, added in a later plan) — an empirical bar, not a design gap.
+- **Rationale:** §2B.1 commits the algebra `ContextProduct = Π ∘ Traversal ∘ Temporal ∘ Policy ∘ Similarity` with typed, read-only, sync operators (**D-IMPL-04**), parameterized exclusively through **D-IMPL-38** `OperatorParameterSet` artifacts. Composition-preservation `(A∘B)(G) = A(B(G))` and the function-determinism contract are properties Phase I must verify empirically for every shipped operator pair (§11 test-strategy rows) — an empirical bar, not a design gap.
 - **Risk:** med
 
 #### Component: Operator Plan DAG generator (Planner), registry, and intermediate cache
@@ -412,7 +412,7 @@ The CLAUDE.md §12 gating discipline names 12 decisions that must be resolved be
 
 ## Appendix A — Inventory Verdict Matrix (126/126, D-01)
 
-Every `INV-CHx-NN` inventory entry (`docs/SPEC_INVENTORY.md`) mapped — via its DESIGN.md realizing section (per DESIGN.md Appendix A, including its see-also composite refs and the two ruled deferred statuses) — to the §2–§10 component that owns that section, carrying that component's verdict. Key set is exactly the inventory's 126-entry set (mechanically checkable: unique-key diff against the inventory is empty).
+Every `INV-CHx-NN` inventory entry (`docs/SPEC_INVENTORY.md`) mapped — via its DESIGN.md realizing section (per DESIGN.md Appendix A, including its see-also composite refs and the two ruled deferred statuses) — to the §2–§10 component that owns that section, carrying that component's verdict. Key set is exactly the inventory's 126-entry set (mechanically checkable: unique-key diff against the inventory is empty — re-verified at the Phase F gate review: 126 unique keys extracted from each document, diff empty). The inventory's `INV-CH7` numbering is non-contiguous at source (keys 34–39 and 69 do not exist); absent numbers are absent from `docs/SPEC_INVENTORY.md` itself, not missing rows. INV-CH8-24 (coexistence/layering onto existing estates) maps via DESIGN.md §6.4's coexistence-not-replacement boundary statement; its in-scope surface is the Experience front doors, so the MCP egress server component carries its verdict (the §6.4 Conversational Reporting deferral is a separate entry, INV-CH8-21).
 
 | INV key | DESIGN.md section | Owning component | Verdict |
 |---------|-------------------|------------------|---------|

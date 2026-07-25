@@ -183,4 +183,4 @@ is intra-I.3 sequencing advice for Dave at D-GATE-F, not a deferral.
 - Decision log and gate entries: `docs/DECISIONS.md` (`D-GATE-I.n` entries
   land there as each milestone closes per CLAUDE.md §3.1).
 - Test strategy (FEAS-03): the per-invariant spec table chapter in
-  `docs/FEASIBILITY.md` (added by the Phase F plan following this one).
+  `docs/FEASIBILITY.md` §11.
