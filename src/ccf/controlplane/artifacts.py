@@ -56,6 +56,7 @@ __all__ = [
     "declared_artifact_class",
     "load_artifact",
     "parse_artifact",
+    "validate_semver",
 ]
 
 #: Semantic Versioning ``MAJOR.MINOR.PATCH`` with optional pre-release/build.
@@ -67,6 +68,23 @@ _SEMVER_RE = re.compile(
 
 _UNIT = Decimal(1)
 _ZERO = Decimal(0)
+
+
+def validate_semver(value: str) -> str:
+    """Return ``value`` if it is a well-formed semantic version, else raise.
+
+    The one place the semver grammar lives (whitepaper §6.3 requires semver on
+    contracts). Every versioned artifact field — the single-lane ``semver`` of
+    SDK artifact classes here, and the D-IMPL-28 two-field lanes on agent and
+    prompt artifacts — validates through this function rather than re-declaring
+    the regex, so the grammar cannot drift between modules.
+
+    Raises:
+        ValueError: ``value`` is not a semantic version.
+    """
+    if not _SEMVER_RE.match(value):
+        raise ValueError(f"{value!r} is not a semantic version")
+    return value
 
 
 class ArtifactLoadError(ValueError):
@@ -121,9 +139,7 @@ class _VersionedArtifact(CCFContract):
     @field_validator("semver")
     @classmethod
     def _semver_is_well_formed(cls, value: str) -> str:
-        if not _SEMVER_RE.match(value):
-            raise ValueError(f"{value!r} is not a semantic version")
-        return value
+        return validate_semver(value)
 
 
 class DeclaredArtifact(_VersionedArtifact):
