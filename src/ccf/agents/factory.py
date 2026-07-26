@@ -37,7 +37,6 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Mapping
-from typing import Protocol, runtime_checkable
 
 from ccf.agents.agent import Agent, AgentIdentity
 from ccf.agents.archetypes import ARCHETYPES, ArchetypeComponent
@@ -56,10 +55,7 @@ from ccf.agents.prompts import validate_instruction_binding
 from ccf.artifacts.protocol import artifact_uri, parse_artifact_uri
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
-from ccf.controlplane.registry import (
-    AmbiguousPinnedVersionError,
-    ControlPlaneMissing,
-)
+from ccf.controlplane.resolution import ControlPlaneResolution, resolve_pinned
 from ccf.skills.grants import BoundSkillView
 
 __ccf_mode__ = "algorithmic"
@@ -73,50 +69,18 @@ __all__ = [
 ]
 
 
-@runtime_checkable
-class ControlPlaneResolution(Protocol):
-    """The read surface the factory resolves through (DESIGN.md §3.5).
-
-    A Protocol so a remote or externally-governed Control Plane substitutes
-    without the factory knowing (CLAUDE.md §13 — Protocols over inheritance);
-    :class:`~ccf.controlplane.registry.ControlPlaneRegistry` is the reference
-    conformer. Deliberately read-only and exact-version: the factory never
-    registers anything and never resolves "latest".
-    """
-
-    def resolve(self, key: str, version: str) -> object:
-        """Return the exact artifact registered as ``(key, version)``."""
-        ...
-
-    def versions(self, key: str) -> tuple[str, ...]:
-        """Return every version registered under ``key``, oldest first."""
-        ...
-
-    def peek(self, key: str, version: str) -> object:
-        """Return the artifact at ``(key, version)`` without auditing."""
-        ...
-
-    def artifact_class_of(self, key: str) -> str | None:
-        """Return the artifact class bound to ``key``, if it was typed."""
-        ...
-
-
 def _resolve_pinned(control_plane: ControlPlaneResolution, uri: str) -> object:
-    """Resolve one pinned ``ccf-artifact://`` reference via the plane.
+    """Resolve one pinned ``ccf-artifact://`` reference, or refuse.
 
-    Shared by both factories (DESIGN.md §3.5 — the factory reads through
-    Control Plane resolution, never raw storage). The URI's naming triple
-    maps onto the Control Plane key ``{tenant}/{artifact_class}/{name}``; the
-    URI's version is the author's declared version (``artifact_version`` or
-    ``semver``), matched against the declared version of each registered
-    content version under that key. Content hashes are also accepted as URI
-    versions, since a content address is the D-IMPL-26 canonical identity.
-
-    Declared-version matching scans *every* registered content (via the
-    unaudited :meth:`~ControlPlaneResolution.peek` — probes are not
-    resolutions, WR-08 side effect) and refuses when the declared version is
-    ambiguous; only the resolution actually returned is audited, through one
-    :meth:`~ControlPlaneResolution.resolve` call on the single match.
+    The factory's wrapper around the shared
+    :func:`~ccf.controlplane.resolution.resolve_pinned` (IN-01 — one
+    implementation of the pinned-resolution rule, not two): the shared helper
+    performs the key derivation, the content-hash fast path, the unaudited
+    declared-version probe loop, and the WR-08 ambiguity refusal, and this
+    wrapper supplies the factory's own reading of a miss. A reference the
+    factory cannot follow is a broken definition (DESIGN.md §3.5 — the
+    factory reads through Control Plane resolution, never raw storage), so
+    the miss is raised rather than returned.
 
     Raises:
         AgentDefinitionError: the reference names nothing the Control Plane
@@ -127,31 +91,16 @@ def _resolve_pinned(control_plane: ControlPlaneResolution, uri: str) -> object:
         ccf.artifacts.protocol.MovingTargetRefused: the URI asks for
             ``@latest`` (defense in depth; the schema refuses it first).
     """
-    name = parse_artifact_uri(uri)
-    key = f"{name.tenant_id}/{name.artifact_class}/{name.name}"
-    versions = control_plane.versions(key)
-    if name.artifact_version in versions:
-        return control_plane.resolve(key, name.artifact_version)
-    matches: list[str] = []
-    for version in versions:
-        try:
-            artifact = control_plane.peek(key, version)
-        except ControlPlaneMissing:  # pragma: no cover - versions listed
-            continue
-        declared = getattr(artifact, "artifact_version", None) or getattr(
-            artifact, "semver", None
+    artifact = resolve_pinned(control_plane, uri)
+    if artifact is None:
+        name = parse_artifact_uri(uri)
+        key = f"{name.tenant_id}/{name.artifact_class}/{name.name}"
+        raise AgentDefinitionError(
+            f"reference {uri!r} resolves to nothing the Control Plane has"
+            f" registered under {key!r}; the factory reads through Control"
+            " Plane resolution at pinned versions only (DESIGN.md §3.5)"
         )
-        if declared == name.artifact_version:
-            matches.append(version)
-    if len(matches) > 1:
-        raise AmbiguousPinnedVersionError(key, name.artifact_version, matches)
-    if matches:
-        return control_plane.resolve(key, matches[0])
-    raise AgentDefinitionError(
-        f"reference {uri!r} resolves to nothing the Control Plane has"
-        f" registered under {key!r}; the factory reads through Control"
-        " Plane resolution at pinned versions only (DESIGN.md §3.5)"
-    )
+    return artifact
 
 
 def _validated_instruction_artifacts(

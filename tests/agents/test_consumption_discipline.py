@@ -56,6 +56,13 @@ ALLOWED_CCF_PREFIXES = (
     "ccf.contracts",
     "ccf.controlplane.artifacts",
     "ccf.controlplane.registry",
+    # IN-01 (05-11): the shared pinned-resolution helper and the read-surface
+    # Protocol it is typed against. Same tier as `ccf.controlplane.registry`
+    # above — a read-only, exact-version Control Plane resolution surface
+    # reaching no fabric layer, so binding it opens no path from Agent to
+    # L1–L5. It exists so the factory and the grant ledger apply *one*
+    # pinned-resolution rule rather than two copies that drift.
+    "ccf.controlplane.resolution",
     "ccf.products.contract",
     "ccf.replay.record",
     # Channel 2 (05-06): the skill catalog/dispatch surface is Control Plane

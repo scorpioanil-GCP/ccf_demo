@@ -48,17 +48,15 @@ from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 from pydantic import field_validator
 
-from ccf.artifacts.protocol import parse_artifact_uri
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import ArtifactClass, validate_semver
 from ccf.controlplane.audit import AuditAction, AuditLog
 from ccf.controlplane.registry import (
-    AmbiguousPinnedVersionError,
-    ControlPlaneMissing,
     ControlPlaneRegistry,
     RegistrationRefusal,
 )
+from ccf.controlplane.resolution import resolve_pinned
 from ccf.replay.record import NO_GRANTS_SET_HASH
 from ccf.skills.catalog import SkillCatalog, SkillCatalogEntry
 
@@ -452,41 +450,26 @@ class GrantLedger:
     def _resolve_policy_regime(self, ref: str) -> object | None:
         """Resolve the definition's pinned policy-regime ref, or ``None``.
 
-        The same ``{tenant}/{class}/{name}`` key convention and declared-
-        version matching the Agent Factory applies (DESIGN.md §3.5); a
-        content hash is also accepted as the URI version (D-IMPL-26).
-        Declared-version matching probes through the unaudited
-        :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.peek` and
-        audits only the resolution actually returned (WR-08).
+        Delegates to the shared
+        :func:`~ccf.controlplane.resolution.resolve_pinned` (IN-01), which is
+        the same pinned-resolution rule the Agent Factory applies (DESIGN.md
+        §3.5): ``{tenant}/{class}/{name}`` key derivation, a content hash
+        accepted as the URI version (D-IMPL-26), declared-version probing
+        through the unaudited
+        :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.peek`, and one
+        audited resolution on the content actually returned (WR-08).
+
+        The ledger keeps the helper's ``None`` as ``None``: an unresolvable
+        regime is a governance outcome here (tier 1 returns
+        :class:`PolicyRegimeUnresolvable`), not the definition error the
+        factory raises on the same miss.
 
         Raises:
             AmbiguousPinnedVersionError: two different contents under the key
                 declare the same semver the ref pins (WR-08) — the tier-1
                 governance input must be exactly one content.
         """
-        name = parse_artifact_uri(ref)
-        key = f"{name.tenant_id}/{name.artifact_class}/{name.name}"
-        versions = self._control_plane.versions(key)
-        if name.artifact_version in versions:
-            return self._control_plane.resolve(key, name.artifact_version)
-        matches: list[str] = []
-        for version in versions:
-            try:
-                artifact = self._control_plane.peek(key, version)
-            except ControlPlaneMissing:  # pragma: no cover - versions listed
-                continue
-            declared = getattr(artifact, "artifact_version", None) or getattr(
-                artifact, "semver", None
-            )
-            if declared == name.artifact_version:
-                matches.append(version)
-        if len(matches) > 1:
-            raise AmbiguousPinnedVersionError(
-                key, name.artifact_version, matches
-            )
-        if matches:
-            return self._control_plane.resolve(key, matches[0])
-        return None
+        return resolve_pinned(self._control_plane, ref)
 
     def _governance(
         self, regime: object, ref: str
