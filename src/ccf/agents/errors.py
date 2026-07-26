@@ -16,7 +16,13 @@ from __future__ import annotations
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["AgentDefinitionError", "PromptValidationError"]
+__all__ = [
+    "AgentConstructionError",
+    "AgentDefinitionError",
+    "ConsumptionRefused",
+    "PromptValidationError",
+    "SkillNotBound",
+]
 
 
 class AgentDefinitionError(ValueError):
@@ -36,4 +42,37 @@ class PromptValidationError(ValueError):
     declared parameters differ in either direction, when a binding's declared
     parameters mismatch the artifact's, or when the template itself does not
     parse (D-13; CLAUDE.md §6.2 axis 6).
+    """
+
+
+class AgentConstructionError(ValueError):
+    """The inputs handed to ``Agent`` do not describe one coherent agent.
+
+    Raised by the ``Agent`` constructor when the identity block, the
+    definition, and the composed components disagree — a mismatched content
+    hash, a composition that is not the definition's declared archetype list,
+    or components that do not realize it. The factory computes these inputs
+    from one resolved definition, so this firing means construction was
+    attempted around the factory or against drifted state (CLAUDE.md §6.4;
+    D-12: the constructor validates, the lint enforces no-bypass — no token).
+    """
+
+
+class SkillNotBound(KeyError):
+    """An agent was asked to invoke a skill no grant has bound to it.
+
+    ``KeyError``-shaped because the bound skill-set is a mapping and an absent
+    capability is an absent key — but typed, because "this agent does not
+    currently have that capability" is a governance fact (CLAUDE.md §6.2
+    channel 2), not a lookup accident. Grants land with the skilling wave.
+    """
+
+
+class ConsumptionRefused(ValueError):
+    """A Context Product was refused at the agent's consumption seam.
+
+    Raised — never degraded around — when a product falls outside the agent's
+    context contract (axis 2), belongs to another tenant, or is TTL-expired:
+    an expired product is contract-invalid, not stale (INV-CH6-05; DESIGN.md
+    §3.1 — the base refuses rather than degrading).
     """
