@@ -38,19 +38,32 @@ referenced_artifacts:
       forced_llm_threshold: "0.35"
       fail_closed_threshold: "0.70"
 
+# The D-03 test-double drive values: which (unbound) skill the slice attempts
+# and what the agent emits. Values here, never in test code (§6.4).
+slice:
+  skill_name: summarize-covenants
+  effect_payload:
+    finding: covenant-headroom-narrowing
+    subject: counterparty:hollis-industrial
+
 agent_definition:
   schema_version: "1.0.0"
-  artifact_version: "1.0.0"
+  # 1.2.0: context_contract now names the real I.1 banking product class the
+  # fabric serves (an axis change is a new agent version — D-05; the bump
+  # skips 1.1.0, which the hash-verified-bump suite uses for its own mutants).
+  artifact_version: "1.2.0"
   name: covenant-analytics
   tenant: acme-bank
 
   # axis 1 — ordered archetype list (D-IMPL-19)
   archetypes: [analytics_insights]
 
-  # axis 2 — context contract: which Context Product schemas the agent reads
+  # axis 2 — context contract: which Context Product schemas the agent reads.
+  # This names the product class the I.1 banking fabric actually serves, so
+  # the slice agent consumes a real gated product (D-01/D-02 realism bar).
   context_contract:
     consumes:
-      - product_class: acme.covenant-exposure
+      - product_class: acme-bank.credit-exposure-summary
         schema_version: "1.0.0"
 
   # axis 3 — perspective (Π role-conditioning)
