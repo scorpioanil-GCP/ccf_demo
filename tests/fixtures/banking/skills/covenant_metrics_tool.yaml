@@ -54,6 +54,16 @@ variants:
       required_scopes: [portfolio-read]
       required_context_products: [acme-bank.credit-exposure-summary]
 
+# Dispatch drive values (05-06, D-08): the typed arguments the dispatch suite
+# supplies and the output the fixture callable derives from them. Values
+# here, never in test code (§6.4).
+dispatch:
+  arguments:
+    entity_name: hollis-industrial
+  expected_output:
+    invoked: covenant-metrics
+    entity_name: hollis-industrial
+
 # Structural mutation material for the D-05 unbumped-change refusal test: an
 # additional requirement identifier the mutant grafts onto the entry above
 # without bumping artifact_version. A fixture value, never a test literal.

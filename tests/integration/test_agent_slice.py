@@ -58,12 +58,17 @@ from ccf.boot import boot
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.controlplane.audit import AuditLog
 from ccf.products.gates import ServableProduct, run_gates
 from ccf.replay.record import (
     NO_GRANTS_SET_HASH,
     PolicyBinding,
     build_replay_record,
 )
+from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog, SkillCatalogEntry
+from ccf.skills.dispatch import ToolInvocation
+from ccf.skills.grants import GrantLedger, SkillGrant
+from skills.sinks import ScriptedApprovalSink
 from integration.test_proto_quickstart import (
     _Fabric,
     _candidate,
@@ -213,7 +218,7 @@ def test_the_fixture_agent_runs_the_three_seams_against_the_fabric(
         effect_payload=dict(slice_values["effect_payload"]),
     )
     assert consumed is gated.product
-    assert isinstance(unbound, SkillNotBound)  # grants land in 05-05
+    assert isinstance(unbound, SkillNotBound)  # ungranted name — the negative
     assert isinstance(effect, EmittedEffect)
     assert effect.agent_definition_hash == content_hash(definition)
     assert effect.payload == slice_values["effect_payload"]
@@ -271,6 +276,120 @@ def test_dimension_4_carries_the_complete_d06_field_set(fabric: _Fabric) -> None
     assert conditioning.archetype_composition == ("analytics_insights",)
     assert conditioning.grant_set_hash == NO_GRANTS_SET_HASH
     assert conditioning.delegation_chain == (principal_id,)
+
+
+# --- channel 2: a real granted skill through the seam (05-06; D-07/D-08) ----------
+
+
+def _granted_agent(
+    fabric: _Fabric,
+) -> tuple[Agent, AgentDefinition, GrantLedger, dict[str, Any]]:
+    """Grant the fixture tool skill to the fixture agent through the ledger."""
+    key, version, definition = _register_agent_artifacts(fabric)
+    granted_values: dict[str, Any] = _agent_fixture()["slice"]["granted_skill"]
+    catalog = SkillCatalog(fabric.registry)
+    tool_fixture: dict[str, Any] = yaml.safe_load(
+        (FIXTURES / "skills" / "covenant_metrics_tool.yaml").read_text()
+    )
+    entry = parse_artifact(tool_fixture["entry"], SKILL_CATALOG_ENTRY)
+    assert isinstance(entry, SkillCatalogEntry)
+    assert isinstance(catalog.register(entry), str)
+    ledger = GrantLedger(
+        control_plane=fabric.registry,
+        catalog=catalog,
+        audit=AuditLog(),
+        sink=ScriptedApprovalSink(
+            approve=True, approver_id=granted_values["approver_id"]
+        ),
+        clock=lambda: fabric.now,
+    )
+    grant = SkillGrant(
+        agent_definition_hash=content_hash(definition),
+        **granted_values["grant"],
+    )
+    outcome = ledger.request(
+        grant, definition=definition, actor=granted_values["requesting_actor"]
+    )
+    assert isinstance(outcome, str)
+    factory = AgentFactory(control_plane=fabric.registry)
+    agent = factory.construct(
+        definition_key=key,
+        definition_version=version,
+        bound_skills=ledger.bound_view(content_hash(definition)),
+    )
+    return agent, definition, ledger, granted_values
+
+
+def test_a_granted_skill_dispatches_through_the_agent_seam(
+    fabric: _Fabric,
+) -> None:
+    """Channel 2 live: the granted tool exists from the agent's view and
+    dispatches; an ungranted name still does not exist (CLAUDE.md §6.2)."""
+    agent, _definition, _ledger, granted_values = _granted_agent(fabric)
+    invocation = agent.invoke_skill(
+        granted_values["grant"]["skill_name"],
+        arguments=granted_values["arguments"],
+    )
+    assert isinstance(invocation, ToolInvocation)
+    assert dict(invocation.arguments) == granted_values["arguments"]
+    with pytest.raises(SkillNotBound):
+        agent.invoke_skill(_agent_fixture()["slice"]["skill_name"])
+
+
+def test_a_granted_decision_captures_the_grant_set_hash_in_dimension_4(
+    fabric: _Fabric,
+) -> None:
+    """CINV-04 skill-set-capture, active form (D-10): the in-force D-07
+    grant-set hash lands in replay dimension 4 by construction, and a
+    post-revocation decision carries the updated (no-grants) claim —
+    while the agent's definition hash never moves (channel separation)."""
+    agent, definition, ledger, granted_values = _granted_agent(fabric)
+    gated = _servable(fabric)
+    execution = _execute(fabric)
+    perspective_values = fabric.control["perspective"]
+    principal_id = perspective_values["principal_id"]
+
+    def _record() -> Any:
+        return build_replay_record(
+            execution=execution,
+            product=gated.product,
+            perspective=Perspective(
+                principal_id=principal_id, role=perspective_values["role"]
+            ),
+            policy_bindings=(
+                PolicyBinding(
+                    key=fabric.control["keys"]["policy_bundle"],
+                    version=fabric.policy_version,
+                ),
+            ),
+            assembly_mode=fabric.control["product_class"]["assembly_mode"],
+            recorded_at=fabric.now,
+            agent_conditioning=agent.perspective_conditioning(
+                principal_id=principal_id,
+                grant_set_hash=ledger.grant_set_hash(),
+            ),
+        )
+
+    granted_record = _record()
+    in_force = ledger.grant_set_hash()
+    assert in_force != NO_GRANTS_SET_HASH
+    assert granted_record.perspective_conditioning.grant_set_hash == in_force
+    assert granted_record.perspective_conditioning.agent_definition_hash == (
+        content_hash(definition)
+    )
+
+    grant = SkillGrant(
+        agent_definition_hash=content_hash(definition),
+        **granted_values["grant"],
+    )
+    ledger.revoke(content_hash(grant), actor=granted_values["requesting_actor"])
+    revoked_record = _record()
+    assert revoked_record.perspective_conditioning.grant_set_hash == (
+        NO_GRANTS_SET_HASH
+    )
+    assert revoked_record.perspective_conditioning.agent_definition_hash == (
+        content_hash(definition)
+    )
 
 
 # --- the double stays a linear script (D-03) --------------------------------------

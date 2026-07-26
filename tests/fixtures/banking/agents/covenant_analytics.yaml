@@ -24,10 +24,18 @@ referenced_artifacts:
   policy_regime:
     key: acme-bank/policy-bundle/wholesale-credit
     class_id: policy-bundle
-    semver: "1.0.0"
+    # 1.1.0: skill_governance envelope added so 05-06 grants can pass the
+    # tier-1 check (a declaration change is a content change — D-05).
+    semver: "1.1.0"
     declaration:
       regime: wholesale-credit
       permitted_classifications: [internal, public]
+      # The D-IMPL-29 skilling envelope: which requirement identifiers agents
+      # under this regime may bind, and whether grants need tier-2 approval.
+      # Deployment statements, never code.
+      skill_governance:
+        permitted_scopes: [portfolio-read]
+        grant_requires_approval: false
   halflife_debt_profile:
     key: acme-bank/debt-profile/annual-credit-review
     class_id: debt-profile
@@ -45,13 +53,31 @@ slice:
   effect_payload:
     finding: covenant-headroom-narrowing
     subject: counterparty:hollis-industrial
+  # The 05-06 granted-skill drive: the grant document binding the fixture
+  # tool entry to this agent, the typed arguments the invocation carries,
+  # and the acting principals. The agent_definition_hash is derived identity,
+  # computed by mechanism at request time (D-IMPL-26).
+  granted_skill:
+    grant:
+      schema_version: "1.0.0"
+      artifact_version: "1.0.0"
+      name: covenant-analytics-covenant-metrics
+      tenant: acme-bank
+      skill_name: covenant-metrics
+      skill_version: "1.0.0"
+    arguments:
+      entity_name: hollis-industrial
+    requesting_actor: platform-operator
+    approver_id: risk-officer-7
 
 agent_definition:
   schema_version: "1.0.0"
   # 1.2.0: context_contract now names the real I.1 banking product class the
   # fabric serves (an axis change is a new agent version — D-05; the bump
   # skips 1.1.0, which the hash-verified-bump suite uses for its own mutants).
-  artifact_version: "1.2.0"
+  # 1.3.0: policy_regime ref re-pinned to the 1.1.0 bundle carrying the
+  # skill_governance envelope (an axis-4 change is a new agent version).
+  artifact_version: "1.3.0"
   name: covenant-analytics
   tenant: acme-bank
 
@@ -74,7 +100,7 @@ agent_definition:
 
   # axis 4 — policy regime (versioned-URI ref, never inline)
   policy_regime:
-    ref: "ccf-artifact://acme-bank/policy-bundle/wholesale-credit@1.0.0"
+    ref: "ccf-artifact://acme-bank/policy-bundle/wholesale-credit@1.1.0"
 
   # axis 5 — half-life and debt profile (versioned-URI ref)
   halflife_debt_profile:
