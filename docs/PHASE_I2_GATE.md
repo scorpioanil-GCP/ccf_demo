@@ -75,8 +75,8 @@ The executed wave order matches the ruled pillar-concern sequence exactly:
 | 3 | **No-Hardcoding — factory bypass (CINV-01c, activated this phase per D-12)** | Lint rule `cinv01c-factory-bypass` + the behavioral fixture suite `tests/lints/test_cinv01c_behavioral.py` — `::test_agent_construction_outside_a_factory_fires_the_lint`, `::test_task_construction_outside_a_factory_fires_the_lint`, `::test_a_module_level_alias_of_a_factory_only_name_is_caught`, `::test_the_real_tree_yields_zero_factory_bypass_findings`. The lint is proven to *fire* on bypass, not merely to stay silent | ✅ zero findings on the real tree; positive-detection fixtures pass |
 | 4 | **Zero harness imports in core (CINV-02)** | Lint rule `cinv02-harness` (`tools/lints/harness_imports.py`) over `/src`; corroborated by the §1 grep. The D-03 harness test double lives in `tests/agents/harness_double.py`, outside `/src` | ✅ zero findings |
 | 5 | **Algorithmic ⇄ Semantic Alternation (CINV-03)** | Lint rule `cinv03-algorithmic` (`tools/lints/algorithmic.py`). Every I.2 module declares `__ccf_mode__ = "algorithmic"` (D-13: no LLM invocation anywhere in the phase); Jinja2 use is `Environment.parse` + `meta.find_undeclared_variables` only | ✅ zero findings |
-| 6 | **Replay-by-construction — skill-set capture (CINV-04, ACTIVATED this phase per D-10)** | Registry entry `skill-set-capture` in `tests/invariants/test_replay_by_construction.py`, `status="active"`, owning test `tests/integration/test_agent_slice.py::test_a_granted_decision_captures_the_grant_set_hash_in_dimension_4`. Registry integrity check asserts the owning test exists; suite skips dropped 3 → 2 | ✅ active and passing |
-| 7 | **Audit-by-construction for grants** | `tests/skills/test_grants.py::TestAudit::test_every_transition_lands_in_the_audit_log_with_the_injected_clock`, `::test_a_tier_1_refusal_is_audited_as_unresolved`, `::test_a_sink_rejection_is_audited_with_the_approver_as_actor` — every `GrantLedger` state transition, including refusals, writes a `grant_*` `AuditEvent` through the one existing `AuditLog`; a conforming `ApprovalSink` cannot drop the obligation (the ledger owns the write) | ✅ passing |
+| 6 | **Replay-by-construction — skill-set capture (CINV-04, ACTIVATED this phase per D-10)** | Registry entry `skill-set-capture` in `tests/invariants/test_replay_by_construction.py`, `status="active"`, owning test `tests/integration/test_agent_slice.py::test_a_granted_decision_captures_the_grant_set_hash_in_dimension_4`. Registry integrity check asserts the owning test exists; suite skips dropped 3 → 2. Mechanism after gap closure (CR-01/WR-01, plans 05-08/05-09): `grant_set_hash` is a **required** keyword argument to `Agent.perspective_conditioning` — no silent no-grants default — and a false `NO_GRANTS_SET_HASH` claim on an agent holding effective grants is refused with `FalseGrantClaimError`; the ledger's `grant_set_hash(agent_definition_hash)` is computed per-agent over exactly that agent's effective grants (D-07), so a grant to another agent sharing the ledger never moves it | ✅ active and passing |
+| 7 | **Audit-by-construction for grants** | `tests/skills/test_grants.py::TestAudit::test_every_transition_lands_in_the_audit_log_with_the_injected_clock`, `::test_a_tier_1_refusal_is_audited_as_unresolved`, `::test_a_sink_rejection_is_audited_with_the_approver_as_actor` — every `GrantLedger` state transition, including refusals, writes a `grant_*` `AuditEvent`. Mechanism after gap closure (WR-07, plan 05-09): `ControlPlaneRegistry` accepts an injected `AuditLog` and composition sites hand the **same instance** to the `GrantLedger`, so registration and grant-lifecycle events share one log, one sequence, one clock (whitepaper §7.8.2 — the Control Plane is the audit plane, singular); a conforming `ApprovalSink` cannot drop the obligation (the ledger owns the write) | ✅ passing |
 | 8 | **Tier-1 policy-compatibility check is non-waivable (D-IMPL-29)** | `tests/skills/test_grants.py::test_excess_scopes_are_refused_naming_the_excess_identifiers`, `::test_excess_context_products_are_refused_naming_the_excess`, `::test_a_missing_policy_regime_refuses_rather_than_defaults`, `::test_tier_1_refuses_before_tier_2_is_ever_consulted` | ✅ passing |
 | 9 | **Single-writer across the agent boundary** | `tests/agents/test_consumption_discipline.py::test_agents_modules_import_only_the_consumption_surface` (import allowlist guard over `ccf.agents`), `::test_the_agent_public_surface_holds_no_write_surface_object`, `::test_agent_methods_accept_only_typed_context_products`. No module in this phase acquires a `GraphWriter`; the I.1 static gate `cinv02-graph-writer` remains green | ✅ passing; lint zero findings |
 | 10 | **D-05 version discipline (hash-verified bump)** | `tests/controlplane/test_hash_verified_bump.py` — all seven cases (idempotent re-registration, changed-content-without-bump refused, bump-without-change refused, refusals as contract values, every outcome audited); plus the six-axis matrix, row 12 | ✅ passing |
@@ -101,6 +101,40 @@ existing, passing test `file::function` or lint rule id.** The D-17 gate bar is 
 
 All three requirement ids — **AGNT-01, AGNT-02, AGNT-03** — are covered; ROADMAP marks each
 complete after plans 05-03, 05-04, and 05-06 respectively.
+
+### Gap-closure note (plans 05-08 · 05-09 · 05-10)
+
+The phase code review (`05-REVIEW.md`, 2026-07-26) found 1 critical, 8 warning, and 8 info
+findings. Plans **05-08**, **05-09**, and **05-10** closed the following before this gate is
+presented: **CR-01** (per-agent D-07 grant-set hash), **WR-01** (required `grant_set_hash`
+argument with `FalseGrantClaimError` refusal of false zero-grants claims), **WR-02**
+(tenant-coherence refusal `TenantMismatch` on the grant path), **WR-03** (typed
+`BoundSkillView` seam whose only producer is `GrantLedger.bound_view`), **WR-04**
+(catalog-entry resolution before any ledger state mutation — no wedged `requested` grants),
+**WR-05** (`GrantCollisionError` on same-name double-effective grants), **WR-06** (CINV-01c
+import-alias tracking + explicit factory-path allowlist replacing the `"factory"` substring
+exemption), **WR-07** (single shared `AuditLog` injected into registry and ledger), **WR-08**
+(`AmbiguousPinnedVersionError` when one declared semver names two contents; unaudited probes
+via `peek`), **IN-01** (this document's rows 6–7 corrected to describe the fixed mechanisms),
+**IN-02** (stale harness-double pragma cleared), **IN-03** (`SkillCatalog.discover` derived
+from registry state via `keys_of_class`, volatile per-instance index deleted), and **IN-08**
+(`TaskFactory` refuses an `agent` step whose ref resolves to a non-`AgentDefinition` class).
+
+**Advisory carry-forward (IN-07, per the review's fix suggestion):**
+`tests/agents/test_agent.py` constructs `Agent` directly for constructor-validation unit
+tests — a documented deviation from CLAUDE.md §6.4's "tests construct agents the same way,
+from fixture artifacts." The scoping decision: the CINV-01c lint's mechanism-of-record scope
+is `/src`, `/runtime`, `/examples`; constructor-refusal tests must exercise the constructor's
+own guards and cannot do so through the factory. Recorded here as an advisory triage item
+for the §3.1 review, not silently in a test docstring.
+
+**Gap-closure re-verification sweep** (executed after plan 05-10, 2026-07-26):
+
+| Leg | Command | Result |
+|-----|---------|--------|
+| Full suite | `.venv/bin/python -m pytest -q -m "not postgres"` | **577 passed, 2 skipped** (exit 0 — the 2 skips are exactly the declared I.4 CINV-04 deferrals, `hitl-action-capture` and `workflow-trace-capture`) |
+| Invariant lints | `.venv/bin/python -m tools.lints` | **exit 0, zero findings** |
+| Strict typing | `.venv/bin/python -m mypy --strict src tools` | **Success: no issues found in 74 source files** |
 
 ---
 

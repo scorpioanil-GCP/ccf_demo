@@ -211,11 +211,14 @@ def skill_catalog_key(entry: SkillCatalogEntry) -> str:
 class SkillCatalog:
     """Registration and discovery over the Control Plane (D-IMPL-12).
 
-    A thin, stateless-about-content view: every entry lives in the injected
+    A thin, stateless view: every entry lives in the injected
     :class:`~ccf.controlplane.registry.ControlPlaneRegistry` and nowhere
-    else. The catalog keeps only the *keys* it has registered — an index for
-    discovery, never a second store — so resolution always reads the same
-    versioned, audited artifacts every other Control Plane consumer reads.
+    else — including discovery membership, which is derived from registry
+    state (keys bound to the entry artifact class) rather than any
+    per-instance index (IN-03): a second catalog constructed over the same
+    registry discovers exactly the same entries, and a process restart
+    loses nothing. Resolution always reads the same versioned, audited
+    artifacts every other Control Plane consumer reads.
 
     Discovery (:meth:`discover`) answers "what is currently offered" and
     reads latest versions; it is a browsing surface, never a replay path.
@@ -228,7 +231,6 @@ class SkillCatalog:
 
     def __init__(self, control_plane: ControlPlaneRegistry) -> None:
         self._control_plane = control_plane
-        self._keys: list[str] = []
 
     def register(
         self, entry: SkillCatalogEntry, *, actor: str | None = None
@@ -241,17 +243,19 @@ class SkillCatalog:
         audited by the registry (I.1 refusal-vs-exception line).
         """
         key = skill_catalog_key(entry)
-        outcome = self._control_plane.register_versioned(
+        return self._control_plane.register_versioned(
             key, entry, SKILL_CATALOG_ENTRY, actor=actor
         )
-        if isinstance(outcome, str) and key not in self._keys:
-            self._keys.append(key)
-        return outcome
 
     def discover(
         self, *, skill_type: str | None = None
     ) -> tuple[SkillCatalogEntry, ...]:
         """List the latest version of every registered entry, oldest first.
+
+        Membership is derived from registry state — the keys the Control
+        Plane binds to the entry artifact class — never from a per-instance
+        index (IN-03): any catalog over the same registry sees the same
+        entries, whoever registered them.
 
         Args:
             skill_type: Restrict to one of the four D-IMPL-12 types; ``None``
@@ -259,7 +263,9 @@ class SkillCatalog:
                 is a query, and an empty answer is a true one.
         """
         entries: list[SkillCatalogEntry] = []
-        for key in self._keys:
+        for key in self._control_plane.keys_of_class(
+            SKILL_CATALOG_ENTRY.class_id
+        ):
             _version, artifact = self._control_plane.resolve_latest(key)
             entry = SKILL_CATALOG_ENTRY.validate(artifact)
             assert isinstance(entry, SkillCatalogEntry)

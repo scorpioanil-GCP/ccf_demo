@@ -359,3 +359,46 @@ def test_the_replay_resolver_propagates_a_missing_version() -> None:
     resolver = ReplayResolver(_registry())
     with pytest.raises(ControlPlaneMissing):
         resolver.resolve("acme/policy", "not-a-version")
+
+
+# --- introspection surfaces backing WR-08 / IN-03 ----------------------------
+
+
+def test_peek_returns_the_artifact_without_auditing() -> None:
+    """Declared-version probes are not resolutions (WR-08 side effect)."""
+    registry = _registry()
+    version = registry.register("acme/policy", _Bundle(label="a"))
+    before = len(registry.audit_events())
+    assert registry.peek("acme/policy", version) == _Bundle(label="a")
+    assert len(registry.audit_events()) == before
+
+
+def test_peek_of_a_missing_version_raises_without_auditing() -> None:
+    registry = _registry()
+    before = len(registry.audit_events())
+    with pytest.raises(ControlPlaneMissing):
+        registry.peek("acme/policy", "not-a-version")
+    assert len(registry.audit_events()) == before
+
+
+def test_keys_of_class_lists_only_keys_bound_to_that_class() -> None:
+    """Discovery membership derives from registry state, not a second index."""
+    registry = _registry()
+    bundle_class = declared_artifact_class("policy-bundle")
+    other_class = declared_artifact_class("debt-profile")
+    bundle = DeclaredArtifact(
+        class_id="policy-bundle", semver="1.0.0", declaration={"x": 1}
+    )
+    other = DeclaredArtifact(
+        class_id="debt-profile", semver="1.0.0", declaration={"y": 2}
+    )
+    registry.register_typed("acme/policy-bundle/a", bundle, bundle_class)
+    registry.register_typed("acme/debt-profile/b", other, other_class)
+    registry.register("acme/untyped", _Bundle(label="a"))
+    assert registry.keys_of_class(bundle_class.class_id) == (
+        "acme/policy-bundle/a",
+    )
+    assert registry.keys_of_class(other_class.class_id) == (
+        "acme/debt-profile/b",
+    )
+    assert registry.keys_of_class("ccf.never-registered") == ()

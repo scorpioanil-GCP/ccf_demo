@@ -48,7 +48,13 @@ from ccf.agents.errors import (
     AgentDefinitionError,
     PromptValidationError,
 )
-from ccf.agents.factory import AgentFactory, ControlPlaneResolution, Task, TaskFactory
+from ccf.agents.factory import (
+    AgentFactory,
+    ControlPlaneResolution,
+    Task,
+    TaskFactory,
+    _resolve_pinned,
+)
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import (
     ArtifactLoadError,
@@ -56,7 +62,11 @@ from ccf.controlplane.artifacts import (
     load_artifact,
     parse_artifact,
 )
-from ccf.controlplane.registry import ControlPlaneRegistry, RefuseUnbumpedChange
+from ccf.controlplane.registry import (
+    AmbiguousPinnedVersionError,
+    ControlPlaneRegistry,
+    RefuseUnbumpedChange,
+)
 from ccf.replay.record import NO_GRANTS_SET_HASH
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
@@ -541,3 +551,120 @@ def test_a_raw_mapping_is_refused_at_the_factory_bound_skills_seam(
             definition_version=version,
             bound_skills={"summarize-covenants": object()},  # type: ignore[dict-item, arg-type]
         )
+
+
+# --- pinned resolution refuses ambiguity and audits only what it returns (WR-08) ---
+
+
+def _rival_declared_artifact(
+    reference: dict[str, Any], *, semver: str | None = None
+) -> tuple[Any, Any]:
+    """A same-key DeclaredArtifact with different declaration content."""
+    artifact_class = declared_artifact_class(reference["class_id"])
+    rival = parse_artifact(
+        {
+            "class_id": reference["class_id"],
+            "semver": semver if semver is not None else reference["semver"],
+            "declaration": {**reference["declaration"], "rival": "content"},
+        },
+        artifact_class,
+    )
+    return rival, artifact_class
+
+
+def test_an_ambiguous_pinned_declared_version_is_refused(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Two contents declaring one semver under one key refuse resolution.
+
+    WR-08: ``register_typed`` carries no D-05 bump check, so a second
+    content can declare the same semver. A "pinned" ref resolving to
+    whichever registered first is a moving target (D-IMPL-26) — the factory
+    must refuse with the typed ambiguity error, never silently return the
+    oldest.
+    """
+    reference = _agent_fixture()["referenced_artifacts"]["policy_regime"]
+    rival, artifact_class = _rival_declared_artifact(reference)
+    registry.register_typed(reference["key"], rival, artifact_class)
+    definition = _definition()
+    key = _agent_fixture()["keys"]["agent_definition"]
+    version = _registered_definition(registry, definition, key)
+    with pytest.raises(AmbiguousPinnedVersionError) as excinfo:
+        AgentFactory(control_plane=registry).construct(
+            definition_key=key, definition_version=version
+        )
+    assert excinfo.value.key == reference["key"]
+    assert excinfo.value.declared_version == reference["semver"]
+    assert len(excinfo.value.content_hashes) == 2
+
+
+def test_declared_version_probes_are_not_audited_as_resolutions(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Only the resolution actually returned lands in the audit log (WR-08).
+
+    Declared-version matching examines every registered content under the
+    key; those probes must not be recorded as ``resolve`` events — the audit
+    plane records reads that happened, not reads the factory only probed.
+    """
+    reference = _agent_fixture()["referenced_artifacts"]["policy_regime"]
+    rival, artifact_class = _rival_declared_artifact(reference, semver="9.9.9")
+    registry.register_typed(reference["key"], rival, artifact_class)
+    ref_key = reference["key"]
+    before = [
+        event
+        for event in registry.audit_events()
+        if event.action == "resolve" and event.key == ref_key
+    ]
+    tenant, class_segment, name = ref_key.split("/")
+    resolved = _resolve_pinned(
+        registry, f"ccf-artifact://{tenant}/{class_segment}/{name}@9.9.9"
+    )
+    assert getattr(resolved, "semver", None) == "9.9.9"
+    after = [
+        event
+        for event in registry.audit_events()
+        if event.action == "resolve" and event.key == ref_key
+    ]
+    assert len(after) == len(before) + 1
+    assert after[-1].resolved is True
+
+
+# --- an agent step must reference an agent definition (IN-08) -------------------
+
+
+def test_an_agent_step_resolving_to_a_non_agent_definition_is_refused(
+    task_registry: ControlPlaneRegistry,
+) -> None:
+    """A construct-time refusal, not an I.4 execution surprise (IN-08).
+
+    The Control Plane knows every key's bound artifact class; an ``agent``
+    step whose pinned ref resolves to a debt profile is a miswired task
+    definition and is refused at construction, naming the step and the
+    actual class.
+    """
+    profile_ref = _agent_fixture()["referenced_artifacts"][
+        "halflife_debt_profile"
+    ]
+    tenant, class_segment, name = profile_ref["key"].split("/")
+    wrong_ref = (
+        f"ccf-artifact://{tenant}/{class_segment}/{name}"
+        f"@{profile_ref['semver']}"
+    )
+    original = _task_definition()
+    steps = tuple(
+        step.model_copy(update={"ref": wrong_ref})
+        if step.kind == "agent"
+        else step
+        for step in original.steps
+    )
+    definition = original.model_copy(update={"steps": steps})
+    key = "acme-bank/tasks/misref-mutant"
+    version = task_registry.register_versioned(key, definition, TASK_DEFINITION)
+    assert isinstance(version, str)
+    with pytest.raises(AgentDefinitionError) as excinfo:
+        TaskFactory(control_plane=task_registry).construct(
+            definition_key=key, definition_version=version
+        )
+    assert "agent step" in str(excinfo.value)
+    assert AGENT_DEFINITION.class_id in str(excinfo.value)

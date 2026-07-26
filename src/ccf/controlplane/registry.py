@@ -45,7 +45,7 @@ defaults (CLAUDE.md §11, CINV-01). Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from typing import Protocol, runtime_checkable
 
@@ -57,6 +57,7 @@ from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "AmbiguousPinnedVersionError",
     "AuditEvent",
     "ControlPlaneMissing",
     "ControlPlaneProtocol",
@@ -119,6 +120,33 @@ class ControlPlaneMissing(LookupError):
     Raised instead of returning a default. See the module docstring
     (D-IMPL-38, no-silent-default).
     """
+
+
+class AmbiguousPinnedVersionError(RuntimeError):
+    """One declared semver names two different contents under one key (WR-08).
+
+    The ``register_typed`` path carries no D-05 bump check, so two different
+    contents can both declare ``semver: "1.1.0"`` under the same key. A
+    "pinned" resolution against that declared version would be a moving
+    target — exactly the shape D-IMPL-26 forbids — so resolution refuses
+    with this typed error instead of silently returning the oldest match.
+    Carries the key, the declared version, and every matching content hash.
+    """
+
+    def __init__(
+        self, key: str, declared_version: str, content_hashes: Sequence[str]
+    ) -> None:
+        self.key = key
+        self.declared_version = declared_version
+        self.content_hashes = tuple(content_hashes)
+        super().__init__(
+            f"declared version {declared_version!r} under key {key!r} matches"
+            f" {len(self.content_hashes)} different contents"
+            f" ({', '.join(repr(h) for h in self.content_hashes)}); a pinned"
+            " resolution must name exactly one content — re-register with a"
+            " bumped declared version or pin by content hash"
+            " (D-IMPL-26; WR-08)"
+        )
 
 
 @runtime_checkable
@@ -425,6 +453,37 @@ class ControlPlaneRegistry:
         Introspection only — not audited, because it resolves nothing.
         """
         return self._classes.get(key)
+
+    def keys_of_class(self, class_id: str) -> tuple[str, ...]:
+        """Every key bound to ``class_id``, in first-registration order.
+
+        Introspection only — not audited, because it resolves nothing. The
+        surface catalog discovery derives membership from (IN-03): registry
+        state is the single store; no consumer keeps a volatile second index.
+        """
+        return tuple(
+            key for key, bound in self._classes.items() if bound == class_id
+        )
+
+    def peek(self, key: str, version: str) -> object:
+        """Return the artifact at ``(key, version)`` without auditing.
+
+        Introspection only — deliberately unaudited, unlike :meth:`resolve`:
+        declared-version matching has to *examine* every registered content
+        under a key to find the one whose declared semver matches, and
+        auditing those probes as resolutions would record reads that never
+        happened (WR-08 side effect). Callers audit the resolution they
+        actually return by calling :meth:`resolve` on the match.
+
+        Raises:
+            ControlPlaneMissing: no such key, or no such version under it.
+        """
+        try:
+            return self._artifacts[(key, version)]
+        except KeyError:
+            raise ControlPlaneMissing(
+                f"no Control Plane artifact registered as ({key!r}, {version!r})"
+            ) from None
 
     def resolve(self, key: str, version: str) -> object:
         """Return the exact artifact registered as ``(key, version)``.

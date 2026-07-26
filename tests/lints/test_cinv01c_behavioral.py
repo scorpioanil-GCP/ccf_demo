@@ -56,12 +56,58 @@ def test_task_construction_outside_a_factory_fires_the_lint(
     assert "Task construction outside a factory" in findings[0]
 
 
-def test_construction_inside_a_factory_module_yields_no_finding(
+def test_construction_inside_the_allowlisted_factory_yields_no_finding(
     tmp_path: pathlib.Path,
 ) -> None:
-    source = 'agent = Agent("legitimate")\ntask = Task(definition)\n'
+    """Only the exact allowlisted factory path is exempt (WR-06)."""
+    factory = tmp_path / "src" / "ccf" / "agents" / "factory.py"
+    factory.parent.mkdir(parents=True)
+    factory.write_text(
+        'agent = Agent("legitimate")\ntask = Task(definition)\n',
+        encoding="utf-8",
+    )
+    assert check(factory, "ccf.agents.factory") == []
+
+
+def test_a_factory_named_module_is_no_longer_exempt(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The old ``"factory" in path`` substring exemption no longer fires.
+
+    Pre-WR-06, ``my_factory_helpers.py`` (or anything under a ``factories/``
+    directory, or ``task_factory.py``) was fully exempt on its name alone.
+    Exemption is now an explicit allowlist of exact factory module paths —
+    no path earns it by naming.
+    """
+    source = 'agent = Agent("bypass-via-naming")\n'
+    findings = _findings_for(tmp_path, source, "my_factory_helpers.py")
+    assert _rules(findings) == [RULE_FACTORY_BYPASS]
     findings = _findings_for(tmp_path, source, "task_factory.py")
-    assert findings == []
+    assert _rules(findings) == [RULE_FACTORY_BYPASS]
+
+
+def test_an_import_alias_of_a_factory_only_name_is_caught(
+    tmp_path: pathlib.Path,
+) -> None:
+    """``from ... import Agent as A; A(...)`` must not be a silent hole.
+
+    A one-line static rename via an import alias is exactly the bypass shape
+    the module-level-assignment alias tracking claims to close (WR-06); the
+    D-12 accepted residual stays *dynamic* construction only.
+    """
+    source = (
+        "from ccf.agents.agent import Agent as A\n"
+        "agent = A('aliased-import-bypass')\n"
+    )
+    findings = _findings_for(tmp_path, source, "sneaky_module.py")
+    assert _rules(findings) == [RULE_FACTORY_BYPASS]
+    assert "Agent construction outside a factory" in findings[0]
+
+
+def test_a_plain_import_alias_is_caught(tmp_path: pathlib.Path) -> None:
+    source = "import Agent as A\nagent = A('plain-import-bypass')\n"
+    findings = _findings_for(tmp_path, source, "sneaky_module.py")
+    assert _rules(findings) == [RULE_FACTORY_BYPASS]
 
 
 def test_a_module_level_alias_of_a_factory_only_name_is_caught(
@@ -79,11 +125,20 @@ def test_a_module_level_alias_of_a_factory_only_name_is_caught(
     assert _rules(findings) == [RULE_FACTORY_BYPASS]
 
 
-def test_an_alias_inside_a_factory_module_yields_no_finding(
+def test_an_alias_inside_the_allowlisted_factory_yields_no_finding(
     tmp_path: pathlib.Path,
 ) -> None:
-    source = "A = Agent\nagent = A('legitimate')\n"
-    assert _findings_for(tmp_path, source, "task_factory.py") == []
+    factory = tmp_path / "src" / "ccf" / "agents" / "factory.py"
+    factory.parent.mkdir(parents=True)
+    factory.write_text("A = Agent\nagent = A('legitimate')\n", encoding="utf-8")
+    assert check(factory, "ccf.agents.factory") == []
+
+
+def test_the_real_factory_module_remains_exempt() -> None:
+    """The shipped factory — the single legitimate call site — stays exempt."""
+    factory = REPO_ROOT / "src" / "ccf" / "agents" / "factory.py"
+    findings = check(factory, "ccf.agents.factory")
+    assert [f for f in findings if RULE_FACTORY_BYPASS in f] == []
 
 
 def test_an_unrelated_module_level_alias_is_not_flagged(
