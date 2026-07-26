@@ -5,11 +5,25 @@
 **Gate bar:** D-17 pattern carried from I.1 — the per-invariant checklist green, each named
 invariant mapping to a *named passing* test or lint. No numeric coverage gate.
 
-> **Status: AWAITING REVIEW.** This package is the plan 05-07 deliverable. The
-> `/gsd-review --phase "Phase I.2" --all` run, triage, Dave's approval, the `D-GATE-I.2`
-> entry, and the merge of `phase-i2` to `main` all happen through the §3.1 protocol
-> *after* this document — none of them is performed here, and `docs/DECISIONS.md`
-> deliberately contains no `D-GATE-I.2` entry yet.
+> **Status: GATED AND MERGED.** `D-GATE-I.2` approved by Dave 2026-07-26
+> (`docs/DECISIONS.md`); `phase-i2` merged to `main` `--no-ff` at `ba0088e`.
+>
+> This document was assembled as the plan 05-07 deliverable and originally read
+> "AWAITING REVIEW" — accurate when written, stale once the gate closed. Two
+> cross-AI reviewers (Codex, Cursor) independently caught the drift in the
+> retrospective review; see `05-REVIEWS.md` finding A5.
+>
+> **Evidence-section counts below are point-in-time snapshots, not the final
+> state.** §1 records 568 passed and §3 records 577 — the counts at those
+> waves. The phase closed at **627 passed / 2 skipped**, mypy `--strict` clean
+> across 80 files, `tools.lints` exit 0, verified independently on `main` after
+> the merge. `05-VERIFICATION.md` is the authoritative outcome record.
+>
+> **Protocol note.** §3.1 step 1 calls for `/gsd-review --phase <Phase> --all`
+> *before* presentation to Dave. Phase I.2's gate used `/gsd-code-review`
+> instead; the cross-AI review was run retrospectively and is recorded in
+> `05-REVIEWS.md`. Its findings are advisories carried into Phase I.3 — they
+> did not and cannot alter this gate.
 
 ---
 
