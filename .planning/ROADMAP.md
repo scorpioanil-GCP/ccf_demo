@@ -194,7 +194,7 @@ Plans:
   3. Skill catalog supports registration, discovery, and runtime grant/revoke; the policy-compatibility check refuses a grant exceeding the agent's policy regime or context contract; every grant/revocation and the skill-set in force land in the replay record
   4. All six specialization axes (archetype binding, context contract, perspective, policy regime, half-life/debt profile, instruction bindings) are expressible in the definition artifact and versioned — changing any axis produces a new agent version visible in replay
 
-**Plans:** 6 plans
+**Plans:** 7 plans
 
 Plans:
 **Wave 1**
@@ -215,11 +215,15 @@ Plans:
 
 **Wave 5**
 
-- [ ] 05-05-PLAN.md — Skill catalog (4 types), two-tier governance + ApprovalSink (D-09), dispatch + NotYetBound (D-08), grant-set hash (D-07), replay capture + CINV-04 activation (D-10)
+- [ ] 05-05-PLAN.md — Skill catalog: 4-type entry schema (D-IMPL-12), typed requirements declaration, registration/discovery via Control Plane, banking skill fixtures
 
 **Wave 6**
 
-- [ ] 05-06-PLAN.md — Gate wave: full verification sweep, per-invariant gate checklist, success-criteria evidence map, I.3 handoff notes
+- [ ] 05-06-PLAN.md — Skilling governance + dispatch: two-tier grants + ApprovalSink (D-09), grant-set hash (D-07), dispatch + NotYetBound (D-08), replay capture + CINV-04 activation (D-10)
+
+**Wave 7**
+
+- [ ] 05-07-PLAN.md — Gate wave: full verification sweep, per-invariant gate checklist, success-criteria evidence map, I.3 handoff notes
 
 **Process notes**: Model mandate — Opus 5 (fallback Opus 4.8), "high" effort. Branch: `phase-i2`. Ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.2` before Phase 6 begins.
 

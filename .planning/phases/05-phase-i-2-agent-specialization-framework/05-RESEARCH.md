@@ -325,14 +325,18 @@ Not applicable — greenfield feature phase, no rename/refactor/migration. (Sect
 
 ## Open Questions
 
-1. **Where does the skill catalog module live — `src/ccf/skills/` vs `src/ccf/controlplane/`?**
+1. **(RESOLVED — planner, 2026-07-26) Where does the skill catalog module live — `src/ccf/skills/` vs `src/ccf/controlplane/`?**
    - What we know: D-IMPL-12 makes catalog entries and grants Control Plane artifacts; CONTEXT integration points name "skill catalog under Control Plane" but leave module layout to discretion.
    - Recommendation: separate `src/ccf/skills/` package holding schemas + state machine + dispatch, with registration flowing through the existing `ControlPlaneRegistry` — keeps `controlplane/` mechanism-generic.
-2. **NotYetBound: exception or typed refusal?**
+   - **Resolution:** recommendation adopted — plans 05-05/05-06 create `src/ccf/skills/` with registration through the existing `ControlPlaneRegistry`.
+2. **(RESOLVED — planner, 2026-07-26) NotYetBound: exception or typed refusal?**
    - What we know: I.1 discipline — refusals returned, exceptions for broken deployments. Dispatching an MCP skill in I.2 is arguably a deployment misconfiguration (the transport doesn't exist yet), suggesting exception; but a granted-and-valid skill that merely isn't dispatchable yet resembles a refusal.
    - Recommendation: typed exception (subclass in the agents/skills error taxonomy) — nothing about the *artifact* is bad; the SDK build lacks the transport. Document the choice in the plan; it's Claude's discretion per CONTEXT.
-3. **Dimension-4 delegation chain in I.2.** DESIGN.md §3.6 lists "delegation chain complete from originating principal to acting agent" in the dimension-4 serialization, but workflow calling chains are I.4. Recommendation: include a delegation-chain field with a single-element (originating principal → agent) value in I.2, extended by I.4 — avoids a second contract change (Pitfall 1 logic).
-4. **Do task definition artifacts get their own dimension-4/5 capture in I.2?** D-11 ships schema + construction only; nothing executes a Task, so no replay capture should exist for tasks this phase. Verify the plan does not invent one.
+   - **Resolution:** typed exception adopted — plan 05-06 Task 2 adds `NotYetBound` to `src/ccf/agents/errors.py`, choice documented per PATTERNS "Refusal vs exception line".
+3. **(RESOLVED — planner, 2026-07-26) Dimension-4 delegation chain in I.2.** DESIGN.md §3.6 lists "delegation chain complete from originating principal to acting agent" in the dimension-4 serialization, but workflow calling chains are I.4. Recommendation: include a delegation-chain field with a single-element (originating principal → agent) value in I.2, extended by I.4 — avoids a second contract change (Pitfall 1 logic).
+   - **Resolution:** recommendation adopted — plan 05-01 Task 3 adds `delegation_chain: tuple[str, ...]` to PerspectiveConditioning in the same one-shot dimension-4 extension, single-element in I.2, extended (not re-shaped) by I.4.
+4. **(RESOLVED — planner, 2026-07-26) Do task definition artifacts get their own dimension-4/5 capture in I.2?** D-11 ships schema + construction only; nothing executes a Task, so no replay capture should exist for tasks this phase. Verify the plan does not invent one.
+   - **Resolution:** no — no plan creates task replay capture; the 05-07 gate sweep verifies none was invented.
 
 ## Environment Availability
 
