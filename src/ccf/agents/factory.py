@@ -36,6 +36,7 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import warnings
+from collections.abc import Mapping
 from typing import Protocol, runtime_checkable
 
 from ccf.agents.agent import Agent, AgentIdentity
@@ -44,18 +45,28 @@ from ccf.agents.composition import compose
 from ccf.agents.definitions import (
     AGENT_DEFINITION,
     PROMPT_ARTIFACT,
+    TASK_DEFINITION,
     AgentDefinition,
+    InstructionBinding,
     PromptArtifact,
+    TaskDefinition,
 )
 from ccf.agents.errors import AgentDefinitionError
 from ccf.agents.prompts import validate_instruction_binding
 from ccf.artifacts.protocol import artifact_uri, parse_artifact_uri
+from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneMissing
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["AgentFactory", "ControlPlaneResolution"]
+__all__ = [
+    "AgentFactory",
+    "ControlPlaneResolution",
+    "Task",
+    "TaskFactory",
+    "TaskIdentity",
+]
 
 
 @runtime_checkable
@@ -76,6 +87,67 @@ class ControlPlaneResolution(Protocol):
     def versions(self, key: str) -> tuple[str, ...]:
         """Return every version registered under ``key``, oldest first."""
         ...
+
+
+def _resolve_pinned(control_plane: ControlPlaneResolution, uri: str) -> object:
+    """Resolve one pinned ``ccf-artifact://`` reference via the plane.
+
+    Shared by both factories (DESIGN.md §3.5 — the factory reads through
+    Control Plane resolution, never raw storage). The URI's naming triple
+    maps onto the Control Plane key ``{tenant}/{artifact_class}/{name}``; the
+    URI's version is the author's declared version (``artifact_version`` or
+    ``semver``), matched against the declared version of each registered
+    content version under that key. Content hashes are also accepted as URI
+    versions, since a content address is the D-IMPL-26 canonical identity.
+
+    Raises:
+        AgentDefinitionError: the reference names nothing the Control Plane
+            has registered.
+        ccf.artifacts.protocol.MovingTargetRefused: the URI asks for
+            ``@latest`` (defense in depth; the schema refuses it first).
+    """
+    name = parse_artifact_uri(uri)
+    key = f"{name.tenant_id}/{name.artifact_class}/{name.name}"
+    for version in control_plane.versions(key):
+        if version == name.artifact_version:
+            return control_plane.resolve(key, version)
+        try:
+            artifact = control_plane.resolve(key, version)
+        except ControlPlaneMissing:  # pragma: no cover - versions listed
+            continue
+        declared = getattr(artifact, "artifact_version", None) or getattr(
+            artifact, "semver", None
+        )
+        if declared == name.artifact_version:
+            return artifact
+    raise AgentDefinitionError(
+        f"reference {uri!r} resolves to nothing the Control Plane has"
+        f" registered under {key!r}; the factory reads through Control"
+        " Plane resolution at pinned versions only (DESIGN.md §3.5)"
+    )
+
+
+def _validated_instruction_artifacts(
+    control_plane: ControlPlaneResolution,
+    bindings: tuple[InstructionBinding, ...],
+) -> dict[str, PromptArtifact]:
+    """Resolve and validate every instruction binding (axis 6; D-13).
+
+    Raises:
+        PromptValidationError: a binding fails parse-only validation against
+            its resolved prompt artifact.
+        AgentDefinitionError: a prompt reference resolves to nothing.
+        TypeError: a resolved artifact is not a prompt artifact.
+    """
+    resolved: dict[str, PromptArtifact] = {}
+    for binding in bindings:
+        prompt = PROMPT_ARTIFACT.validate(
+            _resolve_pinned(control_plane, binding.prompt)
+        )
+        assert isinstance(prompt, PromptArtifact)
+        validate_instruction_binding(binding, prompt)
+        resolved[binding.prompt] = prompt
+    return resolved
 
 
 def _compose(archetypes: tuple[str, ...]) -> tuple[ArchetypeComponent, ...]:
@@ -134,41 +206,8 @@ class AgentFactory:
         self._control_plane = control_plane
 
     def _resolve_reference(self, uri: str) -> object:
-        """Resolve one pinned ``ccf-artifact://`` reference via the plane.
-
-        The URI's naming triple maps onto the Control Plane key
-        ``{tenant}/{artifact_class}/{name}``; the URI's version is the
-        author's declared version (``artifact_version`` or ``semver``),
-        matched against the declared version of each registered content
-        version under that key. Content hashes are also accepted as URI
-        versions, since a content address is the D-IMPL-26 canonical
-        identity.
-
-        Raises:
-            AgentDefinitionError: the reference names nothing the Control
-                Plane has registered.
-            ccf.artifacts.protocol.MovingTargetRefused: the URI asks for
-                ``@latest`` (defense in depth; the schema refuses it first).
-        """
-        name = parse_artifact_uri(uri)
-        key = f"{name.tenant_id}/{name.artifact_class}/{name.name}"
-        for version in self._control_plane.versions(key):
-            if version == name.artifact_version:
-                return self._control_plane.resolve(key, version)
-            try:
-                artifact = self._control_plane.resolve(key, version)
-            except ControlPlaneMissing:  # pragma: no cover - versions listed
-                continue
-            declared = getattr(artifact, "artifact_version", None) or getattr(
-                artifact, "semver", None
-            )
-            if declared == name.artifact_version:
-                return artifact
-        raise AgentDefinitionError(
-            f"reference {uri!r} resolves to nothing the Control Plane has"
-            f" registered under {key!r}; the factory reads through Control"
-            " Plane resolution at pinned versions only (DESIGN.md §3.5)"
-        )
+        """Resolve one pinned reference via :func:`_resolve_pinned`."""
+        return _resolve_pinned(self._control_plane, uri)
 
     def construct(self, *, definition_key: str, definition_version: str) -> Agent:
         """Resolve, validate, compose, and instantiate one agent.
@@ -204,14 +243,9 @@ class AgentFactory:
         components = _compose(definition.archetypes)
 
         # Axis 6: every binding validated against its resolved artifact.
-        instruction_artifacts: dict[str, PromptArtifact] = {}
-        for binding in definition.instruction_bindings:
-            prompt = PROMPT_ARTIFACT.validate(
-                self._resolve_reference(binding.prompt)
-            )
-            assert isinstance(prompt, PromptArtifact)
-            validate_instruction_binding(binding, prompt)
-            instruction_artifacts[binding.prompt] = prompt
+        instruction_artifacts = _validated_instruction_artifacts(
+            self._control_plane, definition.instruction_bindings
+        )
 
         identity = AgentIdentity(
             definition_hash=content_hash(definition),
@@ -229,4 +263,164 @@ class AgentFactory:
             components=components,
             instruction_artifacts=instruction_artifacts,
             bound_skills={},
+        )
+
+
+class TaskIdentity(CCFContract):
+    """A constructed task's identity block (D-IMPL-26; D-11).
+
+    The same derived-at-construction discipline as
+    :class:`~ccf.agents.agent.AgentIdentity`: content hash as canonical
+    identity, versioned URI carried as annotation.
+
+    Attributes:
+        definition_hash: Content hash of the task definition.
+        definition_uri: The definition's versioned URI annotation.
+    """
+
+    definition_hash: str
+    definition_uri: str
+
+
+class Task:
+    """One declared task, constructed form — data, never execution (D-11).
+
+    SDK-defined (CLAUDE.md §6.4/§8.1). A validated task definition plus its
+    identity block and the artifacts its steps and bindings resolved to.
+    **There is no execution surface here and none ships in I.2**: no
+    ``execute``, ``run``, ``step``, ``loop``, or ``plan`` — the Workflow
+    primitive that interprets constructed tasks is I.4 scope (D-11), and no
+    replay capture exists for tasks because nothing executes and therefore
+    nothing records. Construct through :class:`TaskFactory` only (§6.4);
+    the CINV-01c lint holds the codebase to it (D-12).
+
+    Args:
+        definition: The validated task definition this object realizes.
+        identity: The construction-time identity block; must agree with
+            ``definition``, or construction is refused.
+        resolved_refs: The step-referenced artifacts, keyed by versioned URI.
+        instruction_artifacts: Resolved prompt artifacts keyed by the
+            binding's versioned URI (validated per D-13).
+
+    Raises:
+        AgentDefinitionError: the identity block does not describe
+            ``definition`` (content identity is task identity, D-IMPL-26).
+    """
+
+    def __init__(
+        self,
+        *,
+        definition: TaskDefinition,
+        identity: TaskIdentity,
+        resolved_refs: Mapping[str, object],
+        instruction_artifacts: Mapping[str, PromptArtifact],
+    ) -> None:
+        expected_hash = content_hash(definition)
+        if identity.definition_hash != expected_hash:
+            raise AgentDefinitionError(
+                "identity.definition_hash does not equal the content hash of"
+                f" the task definition ({identity.definition_hash!r} !="
+                f" {expected_hash!r}); task identity is content identity"
+                " (D-IMPL-26)"
+            )
+        self._definition = definition
+        self._identity = identity
+        self._resolved_refs = dict(resolved_refs)
+        self._instruction_artifacts = dict(instruction_artifacts)
+
+    @property
+    def definition(self) -> TaskDefinition:
+        """The validated task definition this object realizes."""
+        return self._definition
+
+    @property
+    def identity(self) -> TaskIdentity:
+        """The construction-time identity block (D-IMPL-26)."""
+        return self._identity
+
+    def resolved_ref(self, uri: str) -> object:
+        """Return the artifact a step's ``uri`` resolved to at construction.
+
+        Introspection only — nothing dispatches (D-11).
+
+        Raises:
+            KeyError: no step in the definition references ``uri``.
+        """
+        return self._resolved_refs[uri]
+
+    def instruction_artifact(self, prompt_uri: str) -> PromptArtifact:
+        """Return the resolved prompt artifact bound under ``prompt_uri``.
+
+        Raises:
+            KeyError: no instruction binding references ``prompt_uri``.
+        """
+        return self._instruction_artifacts[prompt_uri]
+
+
+class TaskFactory:
+    """Constructs tasks from definition artifacts — the only supported path.
+
+    CLAUDE.md §6.4; D-11; D-IMPL-28. Mirrors :class:`AgentFactory`'s
+    resolve → validate → instantiate flow minus archetype composition:
+    tasks bind no archetypes, and nothing constructed here can execute —
+    execution semantics are I.4's Workflow primitive scope. The single
+    legitimate ``Task(...)`` call site is this module, enforced by the
+    CINV-01c factory-bypass lint (D-12).
+
+    Args:
+        control_plane: The injected resolution surface (constructor
+            injection, never ambient lookup), as for :class:`AgentFactory`.
+    """
+
+    def __init__(self, *, control_plane: ControlPlaneResolution) -> None:
+        self._control_plane = control_plane
+
+    def construct(self, *, definition_key: str, definition_version: str) -> Task:
+        """Resolve, validate, and instantiate one task (D-11 — no execution).
+
+        Steps in order: (1) resolve the definition at its pinned version and
+        hold it to its artifact class; (2) resolve every skill/agent step
+        reference through Control Plane resolution (hitl-gate steps carry no
+        reference in I.2); (3) validate every instruction binding against its
+        resolved prompt artifact (D-13). Only then is the identity block
+        computed and the ``Task`` instantiated.
+
+        Raises:
+            AgentDefinitionError: a step reference resolves to nothing.
+            PromptValidationError: an instruction binding fails parse-only
+                validation against its prompt artifact (D-13).
+            TypeError: a resolved artifact does not satisfy its declared
+                artifact class.
+            ControlPlaneMissing: no definition is registered as
+                ``(definition_key, definition_version)``.
+        """
+        resolved = self._control_plane.resolve(definition_key, definition_version)
+        definition = TASK_DEFINITION.validate(resolved)
+        assert isinstance(definition, TaskDefinition)
+
+        resolved_refs: dict[str, object] = {}
+        for step in definition.steps:
+            if step.ref is not None:
+                resolved_refs[step.ref] = _resolve_pinned(
+                    self._control_plane, step.ref
+                )
+
+        instruction_artifacts = _validated_instruction_artifacts(
+            self._control_plane, definition.instruction_bindings
+        )
+
+        identity = TaskIdentity(
+            definition_hash=content_hash(definition),
+            definition_uri=artifact_uri(
+                tenant_id=definition.tenant,
+                artifact_class=TASK_DEFINITION.class_id,
+                name=definition.name,
+                artifact_version=definition.artifact_version,
+            ),
+        )
+        return Task(
+            definition=definition,
+            identity=identity,
+            resolved_refs=resolved_refs,
+            instruction_artifacts=instruction_artifacts,
         )

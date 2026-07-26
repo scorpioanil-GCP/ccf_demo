@@ -47,12 +47,16 @@ __all__ = [
     "AGENT_DEFINITION",
     "ARCHETYPE_IDS",
     "PROMPT_ARTIFACT",
+    "TASK_DEFINITION",
+    "TASK_STEP_KINDS",
     "AgentDefinition",
     "ConsumedProduct",
     "ContextContract",
     "InstructionBinding",
     "PerspectiveBinding",
     "PromptArtifact",
+    "TaskDefinition",
+    "TaskStep",
     "VersionedRef",
 ]
 
@@ -229,6 +233,84 @@ class AgentDefinition(_TwoLaneVersioned):
         return self
 
 
+#: The three step kinds a workflow step can declare (CLAUDE.md §8.1: "each
+#: step in a workflow is either a skill invocation, an agent invocation, or a
+#: HITL gate"). Mechanism identifiers, not domain values.
+TASK_STEP_KINDS: frozenset[str] = frozenset({"skill", "agent", "hitl-gate"})
+
+
+class TaskStep(CCFContract):
+    """One ordered step declaration in a task definition (CLAUDE.md §8.1; D-11).
+
+    SDK-defined. ``skill`` and ``agent`` steps carry a pinned
+    ``ccf-artifact://`` reference to the capability or agent definition they
+    invoke — a ref, never the artifact, and never a moving target
+    (D-IMPL-26). ``hitl-gate`` steps validate structurally and carry **no
+    behavior and no reference in I.2**: gate semantics are I.4's Workflow
+    primitive scope (D-11), and binding an approval policy before anything
+    can execute would be a claim the artifact cannot yet honor.
+    """
+
+    kind: str
+    name: str
+    ref: str | None = None
+
+    @field_validator("kind")
+    @classmethod
+    def _kind_is_a_known_step_kind(cls, value: str) -> str:
+        if value not in TASK_STEP_KINDS:
+            raise ValueError(
+                f"unknown step kind {value!r}; a step is a skill invocation,"
+                f" an agent invocation, or a hitl-gate"
+                f" ({sorted(TASK_STEP_KINDS)}; CLAUDE.md §8.1)"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _ref_agrees_with_kind(self) -> "TaskStep":
+        if self.kind == "hitl-gate":
+            if self.ref is not None:
+                raise ValueError(
+                    f"hitl-gate step {self.name!r} must not carry a ref:"
+                    " gate steps validate structurally and carry no behavior"
+                    " in I.2 (D-11; gate semantics are I.4 scope)"
+                )
+            return self
+        if self.ref is None:
+            raise ValueError(
+                f"{self.kind} step {self.name!r} must reference its target by"
+                " pinned versioned URI (D-IMPL-26; CLAUDE.md §8.1)"
+            )
+        _validate_artifact_ref(self.ref)
+        return self
+
+
+class TaskDefinition(_TwoLaneVersioned):
+    """A declared, versioned task — schema + validation only (D-11; §6.4/§8.1).
+
+    SDK-defined (CLAUDE.md §6.4; D-IMPL-28). The artifact the Task Factory
+    interprets; nothing here is executable, and no execution engine exists in
+    I.2 — the Workflow primitive that will interpret constructed tasks is
+    I.4 scope (D-11). Steps are ordered and reference agent definitions and
+    skills by pinned versioned URI, in the same refs-never-inline discipline
+    as agent definitions.
+    """
+
+    name: str
+    tenant: str
+    steps: tuple[TaskStep, ...]
+    instruction_bindings: tuple[InstructionBinding, ...] = ()
+
+    @model_validator(mode="after")
+    def _steps_are_nonempty(self) -> "TaskDefinition":
+        if not self.steps:
+            raise ValueError(
+                "a task must declare at least one step; a task with no steps"
+                " describes no work (CLAUDE.md §8.1)"
+            )
+        return self
+
+
 class PromptArtifact(_TwoLaneVersioned):
     """A versioned prompt/instruction artifact (axis 6; §6.4; D-13).
 
@@ -251,3 +333,5 @@ AGENT_DEFINITION = ArtifactClass(
 )
 #: The prompt-artifact class (CLAUDE.md §6.2 axis 6; D-13).
 PROMPT_ARTIFACT = ArtifactClass(class_id="ccf.prompt-artifact", contract=PromptArtifact)
+#: The task-definition artifact class (CLAUDE.md §6.4/§8.1; D-11).
+TASK_DEFINITION = ArtifactClass(class_id="ccf.task-definition", contract=TaskDefinition)

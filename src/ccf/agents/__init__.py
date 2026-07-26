@@ -35,7 +35,13 @@ from ccf.agents.composition import (
     DefaultConflict,
     compose,
 )
-from ccf.agents.factory import AgentFactory, ControlPlaneResolution
+from ccf.agents.factory import (
+    AgentFactory,
+    ControlPlaneResolution,
+    Task,
+    TaskFactory,
+    TaskIdentity,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -52,6 +58,9 @@ __all__ = [
     "DefaultConflict",
     "EmittedEffect",
     "ReplayObligation",
+    "Task",
+    "TaskFactory",
+    "TaskIdentity",
     "analytics_insights",
     "compose",
     "content_generation",
