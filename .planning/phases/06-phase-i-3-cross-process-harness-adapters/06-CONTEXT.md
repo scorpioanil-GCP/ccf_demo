@@ -180,6 +180,53 @@ and the Experience Layer front doors (all Phase 7 / I.4); the polished
   different SDKs would either fail always or force those fields out of the
   record entirely.
 
+### Inherited constraints from the Phase I.2 retrospective review
+
+Source: `.planning/phases/05-phase-i-2-agent-specialization-framework/05-REVIEWS.md`
+(gemini, codex, cursor, ollama — run after `D-GATE-I.2`, so all findings are
+advisory to I.2 and **binding as planning constraints here**). The reviewers'
+shared theme: several I.2 properties documented as "by construction" are in fact
+enforced by lint scope, paired-call discipline, or docstring convention. I.3
+removes the two conditions that made that tolerable — in-repo artifacts and a
+single process.
+
+- **D-19 (from A1, unanimous HIGH):** the `local_callable` dispatch control is a
+  **blocking checklist item in the A2A/MCP wave**, not a follow-up. No wave may
+  admit a non-fixture catalog source until one of — registered-callable table,
+  Control-Plane admission allowlist, or provenance/signature check — is selected
+  and implemented. Ollama's concrete case: a third-party catalog entry naming
+  `os.system`. This upgrades the §5 handoff note from "carry forward" to "gate".
+- **D-20 (from A2, 3/4 + verifier ADV-02):** `ControlPlaneStateStore.put` neither
+  audits nor requires a token; the audit pairing in `grants.py` is convention.
+  **I.3 must not add a second consumer of that seam without an audit-bearing write
+  path**, because I.4's workflow suspend/resume multiplies the call sites and one
+  missed pair is silent state with no audit record (INV-CH7-71). If a wave here
+  needs the state seam, closing this comes first.
+- **D-21 (from A3, 4/4):** **scope invariant claims to their actual enforcement.**
+  Write "lint-enforced in shipped surfaces" or "audited by the current
+  implementation" rather than "no path" / "by construction", unless the state is
+  genuinely unrepresentable. Applies to `HarnessAdapterProtocol` seam claims and
+  the D-10 `effects: unsupported` verification wording especially — a
+  conformance-verified absence is exactly the kind of claim that degrades into
+  convention.
+- **D-22 (from A6, codex + verifier ADV-03):** `test_consumption_discipline.py`
+  is a **direct-import** check with no transitive closure, while the AGNT-01
+  claim it encodes is "no path from Agent to L1–L5". Adapter modules enter that
+  import graph this phase. Any widening of `ALLOWED_CCF_PREFIXES` requires a
+  transitive-closure argument, as the I.2 `ccf.controlplane.resolution` widening
+  received — never a precedent argument.
+- **D-23 (from Cursor's divergent finding):** CR-01 was a **planning** defect, not
+  an implementation bug — plan 05-06's must-haves specified
+  `content_hash(frozenset(...))` with no per-agent filter, so no two-agent test
+  was ever required. Constraint for this phase: **any set-identity, admission
+  decision, or replay claim computed over shared Control Plane state must carry a
+  multi-principal case in its plan's `must_haves`** — two tenants, two agents, two
+  peers — not just the happy single-principal path. Directly relevant to A2A
+  admission (D-12) and lineage set-union (D-14).
+- **Process (from Cursor):** draft gate-checklist rows from *tests that fail under
+  the broken implementation*, not from plan intent. I.2's initial gate prose
+  overclaimed and had to be rewritten in 05-10.
+
 ### Claude's Discretion
 
 - **Harness skip mechanism** (D-09 corollary): how a conformance leg behaves
@@ -262,6 +309,11 @@ and the Experience Layer front doors (all Phase 7 / I.4); the polished
 - `.planning/phases/05-phase-i-2-agent-specialization-framework/05-CONTEXT.md`
   — the slice-first pattern (D-01) and the test-double-harness boundary
   (D-03: harness doubles live in `/tests` only, never `/src` or `/runtime`).
+- `.planning/phases/05-phase-i-2-agent-specialization-framework/05-REVIEWS.md`
+  — **required reading.** Four-reviewer retrospective on I.2, run after the gate.
+  Its "Agreed Concerns" and "Disposition" sections are the source of D-19..D-23
+  above. Read the Disposition table for the routing of each finding into this
+  phase.
 
 </canonical_refs>
 
