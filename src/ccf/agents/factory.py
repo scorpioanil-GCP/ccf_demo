@@ -316,6 +316,19 @@ class Task:
                 f" {expected_hash!r}); task identity is content identity"
                 " (D-IMPL-26)"
             )
+        expected_uri = artifact_uri(
+            tenant_id=definition.tenant,
+            artifact_class=TASK_DEFINITION.class_id,
+            name=definition.name,
+            artifact_version=definition.artifact_version,
+        )
+        if identity.definition_uri != expected_uri:
+            raise AgentDefinitionError(
+                "identity.definition_uri does not name the task definition"
+                f" ({identity.definition_uri!r} != {expected_uri!r}); the URI"
+                " is derived from the definition's own naming triple and"
+                " version (D-IMPL-26; IN-02, applied to the sibling path)"
+            )
         self._definition = definition
         self._identity = identity
         self._resolved_refs = dict(resolved_refs)

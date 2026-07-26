@@ -44,13 +44,18 @@ from datetime import datetime
 from typing import Any
 
 from ccf.agents.archetypes import ArchetypeComponent
-from ccf.agents.definitions import AgentDefinition, PromptArtifact
+from ccf.agents.definitions import (
+    AGENT_DEFINITION,
+    AgentDefinition,
+    PromptArtifact,
+)
 from ccf.agents.errors import (
     AgentConstructionError,
     ConsumptionRefused,
     FalseGrantClaimError,
     SkillNotBound,
 )
+from ccf.artifacts.protocol import artifact_uri
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.products.contract import ContextProductContract
@@ -177,6 +182,22 @@ class Agent:
                 f" the definition ({identity.definition_hash!r} !="
                 f" {expected_hash!r}); agent identity is content identity"
                 " (D-06, D-IMPL-26)"
+            )
+        expected_uri = artifact_uri(
+            tenant_id=definition.tenant,
+            artifact_class=AGENT_DEFINITION.class_id,
+            name=definition.name,
+            artifact_version=definition.artifact_version,
+        )
+        if identity.definition_uri != expected_uri:
+            raise AgentConstructionError(
+                "identity.definition_uri does not name the definition"
+                f" ({identity.definition_uri!r} != {expected_uri!r}); the URI"
+                " is derived from the definition's own naming triple and"
+                " version, and replay dimension 4 serializes it verbatim —"
+                " a drifted annotation would describe the decision as having"
+                " been made under an artifact it was not (D-IMPL-26;"
+                " DESIGN.md §3.6; IN-02)"
             )
         if identity.archetype_composition != definition.archetypes:
             raise AgentConstructionError(

@@ -139,6 +139,28 @@ def test_a_mismatched_archetype_composition_is_refused() -> None:
         )
 
 
+def test_a_drifted_definition_uri_is_refused() -> None:
+    """IN-02: the URI annotation replay serializes must name the definition."""
+    definition = _definition()
+    drifted = (
+        f"ccf-artifact://{definition.tenant}/{AGENT_DEFINITION.class_id}/"
+        f"{definition.name}@99.99.99"
+    )
+    with pytest.raises(AgentConstructionError):
+        _agent(identity=_identity(definition, definition_uri=drifted))
+
+
+def test_a_foreign_tenant_in_the_definition_uri_is_refused() -> None:
+    """IN-02: every component of the naming triple is checked, not just the version."""
+    definition = _definition()
+    foreign = (
+        f"ccf-artifact://other-bank/{AGENT_DEFINITION.class_id}/"
+        f"{definition.name}@{definition.artifact_version}"
+    )
+    with pytest.raises(AgentConstructionError):
+        _agent(identity=_identity(definition, definition_uri=foreign))
+
+
 def test_components_must_match_the_declared_composition() -> None:
     with pytest.raises(AgentConstructionError):
         _agent(components=())
