@@ -24,8 +24,11 @@ Four modules, one responsibility each:
 * :mod:`ccf.controlplane.resolution` — the read-surface Protocol and the one
   implementation of pinned ``ccf-artifact://`` reference resolution, shared
   by every consumer that follows a versioned reference (IN-01).
+* :mod:`ccf.controlplane.state` — the pluggable seam for mutable-until-terminal
+  state records, per D-IMPL-27's mutability split and D-IMPL-18's ruling that
+  such state lives on the Control Plane's storage seam (WR-05).
 """
 
 from __future__ import annotations
 
-__all__ = ["artifacts", "audit", "registry", "resolution"]
+__all__ = ["artifacts", "audit", "registry", "resolution", "state"]

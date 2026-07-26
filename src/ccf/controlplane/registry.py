@@ -53,6 +53,7 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import ArtifactClass
 from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
+from ccf.controlplane.state import ControlPlaneStateStore, InMemoryStateStore
 
 __ccf_mode__ = "algorithmic"
 
@@ -207,6 +208,14 @@ class ControlPlaneRegistry:
             the audit plane, singular (whitepaper §7.8.2; WR-07). The
             default constructs a fresh log, preserving existing behavior
             for callers that do not inject.
+        state_store: Where mutable-until-terminal state records live
+            (D-IMPL-27's mutability split; D-IMPL-18's "Control Plane's
+            storage seam"). Injected so a deployment can make that state
+            durable without any consumer knowing. The default constructs an
+            :class:`~ccf.controlplane.state.InMemoryStateStore`, matching the
+            in-process posture of the registry itself (CLAUDE.md §13).
+            Registered *artifacts* never route here — they are immutable and
+            versioned, and stay on the append-only path above.
     """
 
     def __init__(
@@ -214,6 +223,7 @@ class ControlPlaneRegistry:
         *,
         clock: Callable[[], datetime] | None = None,
         audit_log: AuditLog | None = None,
+        state_store: ControlPlaneStateStore | None = None,
     ) -> None:
         self._clock: Callable[[], datetime] = clock or _utc_now
         self._versions: dict[str, list[str]] = {}
@@ -221,6 +231,21 @@ class ControlPlaneRegistry:
         self._classes: dict[str, str] = {}
         self._bumps: dict[str, dict[str, tuple[str, str]]] = {}
         self._audit = audit_log if audit_log is not None else AuditLog()
+        self._state_store: ControlPlaneStateStore = (
+            state_store if state_store is not None else InMemoryStateStore()
+        )
+
+    @property
+    def state_store(self) -> ControlPlaneStateStore:
+        """The mutable-state seam this Control Plane offers (D-IMPL-18/27).
+
+        Exposed for the same reason as :attr:`audit_log`: state that belongs
+        to the Control Plane must be reachable from the Control Plane, so
+        every service over one registry reads one state, rather than each
+        caching its own and disagreeing (WR-05). Holding the reference
+        confers no capability the Protocol does not.
+        """
+        return self._state_store
 
     @property
     def audit_log(self) -> AuditLog:

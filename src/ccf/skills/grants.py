@@ -70,6 +70,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "GOVERNANCE_FIELD",
+    "GRANT_STATE",
     "SKILL_GRANT",
     "ApprovalOutcome",
     "ApprovalRejected",
@@ -80,6 +81,7 @@ __all__ = [
     "GrantLedger",
     "GrantRefusal",
     "GrantState",
+    "GrantStateRecord",
     "GrantTransitionError",
     "PolicyRegimeGovernance",
     "PolicyRegimeUnresolvable",
@@ -98,6 +100,13 @@ __all__ = [
 GrantState = Literal[
     "requested", "pending-approval", "effective", "refused", "revoked"
 ]
+
+#: The record class grant state occupies on the Control Plane's state seam
+#: (:mod:`ccf.controlplane.state`). Namespaces grant state away from every
+#: other mutable-state machine sharing one store — I.4's suspended workflow
+#: state foremost. Mechanism identifier, not a domain value.
+GRANT_STATE = "ccf.skill-grant-state"
+
 
 CHECK_TIER_1 = "tier-1-policy-compatibility"
 CHECK_TIER_2 = "tier-2-approval"
@@ -200,6 +209,26 @@ def skill_grant_key(grant: SkillGrant) -> str:
     caller.
     """
     return f"{grant.tenant}/{SKILL_GRANT.class_id}/{grant.name}"
+
+
+class GrantStateRecord(CCFContract):
+    """One grant's mutable state, as it lives on the Control Plane seam.
+
+    Mutable *until terminal* in the D-IMPL-27 sense — the machine replaces
+    this record as the grant transitions — while the record itself is a
+    value, like every contract here. It pairs the state with the grant it
+    describes because the ledger's replay-facing folds need the grant's
+    ``agent_definition_hash`` and ``skill_name`` to answer per-agent
+    questions, and re-resolving each from the registry on every fold would
+    make a set-identity computation depend on resolution succeeding.
+
+    Attributes:
+        state: Where this grant sits in the D-09 machine.
+        grant: The grant artifact this state belongs to.
+    """
+
+    state: GrantState
+    grant: SkillGrant
 
 
 class PolicyRegimeGovernance(CCFContract):
@@ -385,33 +414,30 @@ class GrantLedger:
     the constructor-injection discipline of every Control Plane service:
     the ledger holds no keys, no vocabulary, and no wall clock of its own.
 
-    **Scope: in-process and single-instance (I.2), stated deliberately.**
-    Grant *artifacts* are durable — they register append-only into the
-    Control Plane, and every transition lands in the audit log. Grant
-    *state* is not: ``_states`` and ``_grants`` live in this instance for
-    this process. Two consequences a deployment must plan around, neither of
-    them accidental:
+    **The ledger holds no state of its own (WR-05).** Grant *artifacts* are
+    immutable and register append-only into the Control Plane; grant *state*
+    is mutable until terminal and therefore lives on the Control Plane's
+    state seam (:class:`~ccf.controlplane.state.ControlPlaneStateStore`),
+    which is exactly where D-IMPL-27's mutability split and D-IMPL-18's
+    "Control Plane's storage seam" place it. Two properties follow, and both
+    are pinned by tests:
 
-    * A second ledger over the same registry does not see the first
-      ledger's effective grants. It reports an empty
-      :meth:`effective_hashes` and the positive
-      :data:`~ccf.replay.record.NO_GRANTS_SET_HASH` claim, while the
-      registry holds the registered grants and the log holds their
-      ``grant_effective`` events.
-    * The same holds across a process restart: nothing rehydrates state
-      from the registry or the audit journal at construction.
+    * Any ledger over one Control Plane agrees with every other about which
+      grants are effective. Reading state from the plane rather than from
+      the reader makes divergence unrepresentable — the same shape as the
+      catalog, whose membership derives from registry state (IN-03).
+    * :meth:`grant_set_hash` is therefore reproducible on a freshly
+      constructed ledger, which is what CLAUDE.md §6.2 requires of replay:
+      a decision replays against the skill-set the agent actually had, and a
+      set identity that only the deciding instance could compute would not
+      survive the replay it exists to serve.
 
-    This is narrower than the catalog, whose membership derives from
-    registry state so that any catalog over one registry agrees with every
-    other (IN-03). The asymmetry is a scope boundary, not an oversight: a
-    ledger that rehydrated would have to decide *where* durable grant state
-    lives and how a suspended (``pending-approval``) grant survives a
-    restart — which is the same question D-IMPL-18 asks of suspended
-    workflow state and D-IMPL-27 asks of the artifact/native-storage split,
-    both open and both Dave's to rule. Committing an answer here would
-    preempt them. I.2 therefore ships one ledger per process, holds itself
-    to that in tests, and carries durable state forward to I.4 alongside the
-    suspending ApprovalGate that makes it necessary.
+    Durability across a restart is the injected store's business, not the
+    ledger's. The v0 default is in-process, matching the Control Plane it
+    sits in (CLAUDE.md §13); a deployment that needs grant state to outlive
+    the process supplies a conforming store and changes nothing here. The
+    suspending ApprovalGate that I.4 brings inherits this seam rather than
+    introducing a second answer.
 
     Args:
         control_plane: The registry grants register into and policy regimes
@@ -428,6 +454,11 @@ class GrantLedger:
             prefer to name the log they are wiring.
         sink: The tier-2 decision surface (D-09).
         clock: Time source for audit timestamps. Injected, never read.
+
+    Note:
+        Grant state is read from and written to ``control_plane.state_store``
+        under the :data:`GRANT_STATE` record class. The ledger caches none of
+        it (WR-05).
 
     Raises:
         SplitAuditPlaneError: ``audit`` is a log other than
@@ -458,8 +489,40 @@ class GrantLedger:
         self._audit = audit
         self._sink = sink
         self._clock = clock
-        self._states: dict[str, GrantState] = {}
-        self._grants: dict[str, SkillGrant] = {}
+        self._state_store = control_plane.state_store
+
+    # -- state (on the Control Plane seam, never on this instance) -----------
+
+    def _record_for(self, grant_hash: str) -> GrantStateRecord | None:
+        """The state record for one grant, or ``None`` if unseen."""
+        record = self._state_store.get(GRANT_STATE, grant_hash)
+        if record is None:
+            return None
+        if not isinstance(record, GrantStateRecord):
+            raise GrantTransitionError(
+                f"the Control Plane state store returned a"
+                f" {type(record).__name__} under grant state key"
+                f" {grant_hash!r}, not a GrantStateRecord; the"
+                f" {GRANT_STATE!r} record class is the grant machine's alone"
+                " (D-IMPL-18/27)"
+            )
+        return record
+
+    def _put_state(
+        self, grant_hash: str, state: GrantState, grant: SkillGrant
+    ) -> None:
+        """Write one grant's state through to the Control Plane seam."""
+        self._state_store.put(
+            GRANT_STATE, grant_hash, GrantStateRecord(state=state, grant=grant)
+        )
+
+    def _records(self) -> tuple[tuple[str, GrantStateRecord], ...]:
+        """Every grant state record on this Control Plane, hash-sorted."""
+        return tuple(
+            (grant_hash, record)
+            for grant_hash, record in self._state_store.items(GRANT_STATE)
+            if isinstance(record, GrantStateRecord)
+        )
 
     # -- audit ---------------------------------------------------------------
 
@@ -640,8 +703,10 @@ class GrantLedger:
         is left in a state the machine defines no exit from.
 
         Raises:
-            GrantTransitionError: this ledger has already seen this grant —
-                a grant artifact is single-use; issue a new grant artifact.
+            GrantTransitionError: this Control Plane has already seen this
+                grant — a grant artifact is single-use; issue a new grant
+                artifact. Single-use is a property of the plane, not of the
+                ledger instance that first saw it (WR-05).
             GrantTransitionError: ``grant.agent_definition_hash`` is not the
                 content hash of ``definition`` — broken wiring, not a
                 governance outcome.
@@ -652,8 +717,9 @@ class GrantLedger:
                 what it turned away without wedging a phantom request.
         """
         grant_hash = content_hash(grant)
-        if grant_hash in self._states:
-            state = self._states[grant_hash]
+        seen = self._record_for(grant_hash)
+        if seen is not None:
+            state = seen.state
             decided = state not in ("requested", "pending-approval")
             raise GrantTransitionError(
                 f"grant {grant.name!r} ({grant_hash!r}) was already"
@@ -683,8 +749,7 @@ class GrantLedger:
         # resolvable there. Everything the check needs is already in hand.
         mismatch = self._tenant_mismatch(grant, definition, entry)
         if mismatch is not None:
-            self._states[grant_hash] = "refused"
-            self._grants[grant_hash] = grant
+            self._put_state(grant_hash, "refused", grant)
             self._record(grant, "grant_refused", resolved=False, actor=actor)
             return mismatch
 
@@ -701,8 +766,7 @@ class GrantLedger:
         if isinstance(registered, RegistrationRefusal):
             return registered
 
-        self._states[grant_hash] = "requested"
-        self._grants[grant_hash] = grant
+        self._put_state(grant_hash, "requested", grant)
         self._record(grant, "grant_requested", resolved=True, actor=actor)
 
         # No wedged states, on any path (WR-01). Everything after the first
@@ -720,7 +784,7 @@ class GrantLedger:
                 grant, grant_hash, definition=definition, entry=entry, actor=actor
             )
         except Exception:
-            self._states[grant_hash] = "refused"
+            self._put_state(grant_hash, "refused", grant)
             self._record(grant, "grant_refused", resolved=False, actor=actor)
             raise
 
@@ -774,18 +838,18 @@ class GrantLedger:
         """
         verdict = self._tier_1(grant, definition, entry)
         if isinstance(verdict, GrantRefusal):
-            self._states[grant_hash] = "refused"
+            self._put_state(grant_hash, "refused", grant)
             self._record(grant, "grant_refused", resolved=False, actor=actor)
             return verdict
 
         if verdict.grant_requires_approval:
-            self._states[grant_hash] = "pending-approval"
+            self._put_state(grant_hash, "pending-approval", grant)
             self._record(
                 grant, "grant_pending_approval", resolved=True, actor=actor
             )
             outcome = self._sink.decide(grant)
             if not outcome.approved:
-                self._states[grant_hash] = "refused"
+                self._put_state(grant_hash, "refused", grant)
                 self._record(
                     grant,
                     "grant_refused",
@@ -804,7 +868,7 @@ class GrantLedger:
         else:
             effective_actor = actor
 
-        self._states[grant_hash] = "effective"
+        self._put_state(grant_hash, "effective", grant)
         self._record(
             grant, "grant_effective", resolved=True, actor=effective_actor
         )
@@ -814,20 +878,20 @@ class GrantLedger:
         """Revoke one effective grant.
 
         Raises:
-            GrantTransitionError: the hash names no grant this ledger has
-                decided, or the grant is not currently effective — the
+            GrantTransitionError: the hash names no grant decided on this
+                Control Plane, or the grant is not currently effective — the
                 machine defines revocation from ``effective`` only.
         """
-        state = self._states.get(grant_hash)
-        if state != "effective":
+        record = self._record_for(grant_hash)
+        state = None if record is None else record.state
+        if record is None or state != "effective":
             raise GrantTransitionError(
                 f"cannot revoke grant {grant_hash!r}: its state is"
                 f" {state!r}, and revocation is defined from 'effective'"
                 " only (D-09)"
             )
-        grant = self._grants[grant_hash]
-        self._states[grant_hash] = "revoked"
-        self._record(grant, "grant_revoked", resolved=True, actor=actor)
+        self._put_state(grant_hash, "revoked", record.grant)
+        self._record(record.grant, "grant_revoked", resolved=True, actor=actor)
 
     # -- introspection and identity --------------------------------------------
 
@@ -835,9 +899,12 @@ class GrantLedger:
         """Return the current state of one decided grant.
 
         Raises:
-            KeyError: the hash names no grant this ledger has seen.
+            KeyError: the hash names no grant on this Control Plane.
         """
-        return self._states[grant_hash]
+        record = self._record_for(grant_hash)
+        if record is None:
+            raise KeyError(grant_hash)
+        return record.state
 
     def effective_hashes(self, agent_definition_hash: str | None = None) -> frozenset[str]:
         """The content hashes of currently-effective grants.
@@ -851,12 +918,11 @@ class GrantLedger:
         """
         return frozenset(
             grant_hash
-            for grant_hash, state in self._states.items()
-            if state == "effective"
+            for grant_hash, record in self._records()
+            if record.state == "effective"
             and (
                 agent_definition_hash is None
-                or self._grants[grant_hash].agent_definition_hash
-                == agent_definition_hash
+                or record.grant.agent_definition_hash == agent_definition_hash
             )
         )
 
@@ -883,8 +949,9 @@ class GrantLedger:
     ) -> dict[str, SkillCatalogEntry]:
         entries: dict[str, SkillCatalogEntry] = {}
         holders: dict[str, str] = {}
+        effective = dict(self._records())
         for grant_hash in sorted(self.effective_hashes()):
-            grant = self._grants[grant_hash]
+            grant = effective[grant_hash].grant
             if grant.agent_definition_hash != agent_definition_hash:
                 continue
             if grant.skill_name in holders:

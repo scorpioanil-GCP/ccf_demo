@@ -45,6 +45,7 @@ from ccf.replay.record import NO_GRANTS_SET_HASH
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog, SkillCatalogEntry
 from ccf.skills.catalog import SkillNotInCatalog
 from ccf.skills.grants import (
+    GRANT_STATE,
     SKILL_GRANT,
     ApprovalRejected,
     ApprovalSink,
@@ -52,6 +53,7 @@ from ccf.skills.grants import (
     GrantCollisionError,
     GrantLedger,
     GrantRefusal,
+    GrantStateRecord,
     GrantTransitionError,
     PolicyRegimeUnresolvable,
     RequirementsExceedRegime,
@@ -713,22 +715,24 @@ class TestGovernanceSeams:
         assert isinstance(refusal, RefuseUnbumpedChange)
 
 
-    def test_ledger_state_is_in_process_and_does_not_rehydrate(
+    def test_every_ledger_over_one_control_plane_agrees(
         self, fixture: dict[str, Any], instant: datetime
     ) -> None:
-        """WR-05: the I.2 scope boundary, pinned rather than left implicit.
+        """WR-05: grant state lives on the plane, so readers cannot diverge.
 
-        Grant artifacts are durable — registered append-only, every
-        transition audited. Grant *state* is per-ledger and per-process: a
-        second ledger over the same registry sees no effective grants. That
-        is narrower than the catalog, whose membership derives from registry
-        state (IN-03), and the asymmetry is deliberate — rehydrating would
-        require ruling where durable grant state lives and how a suspended
-        grant survives a restart (D-IMPL-18 / D-IMPL-27, both open).
+        Grant *artifacts* are immutable and register append-only; grant
+        *state* is mutable until terminal and therefore lives on the Control
+        Plane's state seam, per D-IMPL-27's mutability split and D-IMPL-18's
+        ruling that such state sits on the Control Plane's storage seam.
 
-        This test exists so the boundary cannot move by accident: if a
-        future ledger *does* rehydrate, this test fails and the change is
-        made on purpose, with the decision recorded.
+        The property that matters is agreement: a ledger constructed after
+        the fact reports the same effective set, the same per-agent
+        ``grant_set_hash``, the same bound view, and the same state for a
+        given hash. Before this fix the successor reported an empty set and
+        the positive ``NO_GRANTS_SET_HASH`` claim while the registry held the
+        grant and the log held its ``grant_effective`` event — so a
+        replay-facing set identity was reproducible only on the instance that
+        computed it, which is not what CLAUDE.md §6.2 asks of replay.
         """
         world = _World(fixture, instant)
         definition = world.definition("auto")
@@ -738,17 +742,17 @@ class TestGovernanceSeams:
             str,
         )
         definition_hash = content_hash(definition)
+        grant_hash = content_hash(grant)
         assert world.ledger.effective_hashes(definition_hash) == frozenset(
-            {content_hash(grant)}
+            {grant_hash}
         )
 
-        # The durable half: the artifact is in the registry, the transition
-        # is in the log. A second ledger can see both.
+        # The artifact is in the registry and the transition is in the log.
         key = skill_grant_key(grant)
-        assert world.registry.resolve(key, content_hash(grant)) == grant
+        assert world.registry.resolve(key, grant_hash) == grant
         assert "grant_effective" in [e.action for e in world.audit.events()]
 
-        # The volatile half: state does not travel with them.
+        # A ledger built afterwards agrees on every replay-facing answer.
         successor = GrantLedger(
             control_plane=world.registry,
             catalog=world.catalog,
@@ -756,11 +760,82 @@ class TestGovernanceSeams:
             sink=world.sink,
             clock=lambda: instant,
         )
-        assert successor.effective_hashes(definition_hash) == frozenset()
-        assert successor.grant_set_hash(definition_hash) == NO_GRANTS_SET_HASH
-        assert dict(successor.bound_view(definition_hash)) == {}
-        with pytest.raises(KeyError):
-            successor.state(content_hash(grant))
+        assert successor.effective_hashes(definition_hash) == frozenset(
+            {grant_hash}
+        )
+        assert successor.grant_set_hash(
+            definition_hash
+        ) == world.ledger.grant_set_hash(definition_hash)
+        assert successor.grant_set_hash(definition_hash) != NO_GRANTS_SET_HASH
+        assert dict(successor.bound_view(definition_hash)) == dict(
+            world.ledger.bound_view(definition_hash)
+        )
+        assert successor.state(grant_hash) == "effective"
+
+    def test_a_revocation_on_one_ledger_is_seen_by_another(
+        self, fixture: dict[str, Any], instant: datetime
+    ) -> None:
+        """Agreement holds across transitions, not only at first read.
+
+        The seam would be worth little if readers agreed on the initial
+        state and then drifted: a revocation through one ledger must be
+        visible to every other over the same Control Plane, because that is
+        what makes ``grant_set_hash`` answer "what was in force" rather than
+        "what this instance was told".
+        """
+        world = _World(fixture, instant)
+        definition = world.definition("auto")
+        grant = world.grant("metrics_tool", definition)
+        grant_hash = world.ledger.request(
+            grant, definition=definition, actor=world.actor
+        )
+        assert isinstance(grant_hash, str)
+        definition_hash = content_hash(definition)
+
+        reader = GrantLedger(
+            control_plane=world.registry,
+            catalog=world.catalog,
+            audit=world.audit,
+            sink=world.sink,
+            clock=lambda: instant,
+        )
+        before = reader.grant_set_hash(definition_hash)
+
+        world.ledger.revoke(grant_hash, actor=world.actor)
+
+        assert reader.state(grant_hash) == "revoked"
+        assert reader.effective_hashes(definition_hash) == frozenset()
+        assert reader.grant_set_hash(definition_hash) == NO_GRANTS_SET_HASH
+        assert reader.grant_set_hash(definition_hash) != before
+
+    def test_grant_state_is_addressed_on_the_control_plane_state_seam(
+        self, fixture: dict[str, Any], instant: datetime
+    ) -> None:
+        """The state is on the seam, not on the ledger instance (D-IMPL-18/27).
+
+        Pins the structural claim rather than only its consequence: an
+        implementation that satisfied the agreement tests by, say, sharing a
+        class-level cache between ledgers would pass those and still not be
+        the ruled design.
+        """
+        world = _World(fixture, instant)
+        definition = world.definition("auto")
+        grant = world.grant("metrics_tool", definition)
+        grant_hash = world.ledger.request(
+            grant, definition=definition, actor=world.actor
+        )
+        assert isinstance(grant_hash, str)
+
+        record = world.registry.state_store.get(GRANT_STATE, grant_hash)
+        assert isinstance(record, GrantStateRecord)
+        assert record.state == "effective"
+        assert record.grant == grant
+
+        # The ledger caches nothing of its own.
+        assert not any(
+            isinstance(value, dict) and grant_hash in value
+            for value in vars(world.ledger).values()
+        )
 
 
 # --- WR-01: no path leaves a grant wedged -------------------------------------
