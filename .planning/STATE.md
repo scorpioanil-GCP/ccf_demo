@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-26T08:36:52.344Z"
+last_updated: "2026-07-26T08:44:04.025Z"
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 46
-  completed_plans: 43
+  completed_plans: 44
   percent: 50
 ---
 
@@ -27,12 +27,12 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 05 (phase-i-2-agent-specialization-framework) — EXECUTING
-Plan: 3 of 7 (05-02 complete)
+Plan: 6 of 7 (05-05 complete)
 
 - **Phase:** 4 of 8 complete; next is Phase 5 (Phase I.2)
 - **Plan:** all 12 complete
 - **Status:** Executing Phase 05
-- **Progress:** [█████████░] 93%
+- **Progress:** [██████████] 96%
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ Plan: 3 of 7 (05-02 complete)
 | 04-05      | ~50 min  | 3     | 24    |
 | 05-01      | ~35 min  | 3     | 16    |
 | 05-02      | ~10 min  | 3     | 12    |
+| 05-05      | ~6 min   | 1     | 7     |
 
 ## Accumulated Context
 
@@ -85,6 +86,8 @@ Plan: 3 of 7 (05-02 complete)
 - [Phase 05]: delegation_chain defaults to single-element NO_AGENT_DEFINITION chain; build_replay_record passes single-element originating-principal chain (I.2)
 - [Phase 05]: Factory resolves ccf-artifact:// refs via Control Plane key {tenant}/{class}/{name}, matching URI version against each registered version's declared artifact_version/semver (content hashes also accepted); reads through Control Plane resolution only, never raw storage
 - [Phase 05]: Agent seam failures (ConsumptionRefused, SkillNotBound, AgentConstructionError) are typed exceptions, not returned refusals — broken wiring, not expected artifact outcomes (I.1 refusal-vs-exception line)
+- [Phase 05]: SkillCatalog stores only a key index; the registry stays the single source of skill entry content — discovery/resolution read the same audited versions as every Control Plane consumer (05-05)
+- [Phase 05]: Skill bindings are pure descriptors in 05-05 (D-08) — no transport or resolution code for any of the four types until 05-06 dispatch
 - [Phase 05]: build_replay_record gained optional agent_conditioning seam — agent-serialized dimension-4 conditioning recorded verbatim; None keeps I.1 behavior byte for byte (no contract change)
 
 ### Todos
@@ -99,5 +102,5 @@ Plan: 3 of 7 (05-02 complete)
 
 ## Session Continuity
 
-Last action: Completed 05-02-PLAN.md (2026-07-26) on branch phase-i2 — ArchetypeComponent + analytics_insights bundle, concrete final Agent (no loop, no token), AgentFactory as the sole construction path, D-03 harness double, end-to-end banking slice with D-06 dimension-4 capture; suite 442 passed / 3 skipped, mypy strict clean, lints exit 0, no allowlist entries.
-Next action: Execute 05-03-PLAN.md (wave 3 — all six archetypes + D-IMPL-19 composition rules).
+Last action: Completed 05-05-PLAN.md (2026-07-26) on branch phase-i2 — 4-type D-IMPL-12 skill catalog (SkillCatalogEntry + SkillRequirements + SkillCatalog) registering through the D-05 versioned Control Plane path, both banking skill fixtures discoverable, schema export extended; suite 532 passed / 3 skipped, mypy strict clean, lints exit 0, no allowlist entries.
+Next action: Execute 05-06-PLAN.md (wave 6 — grants, two-tier governance, dispatch, CINV-04 activation).
