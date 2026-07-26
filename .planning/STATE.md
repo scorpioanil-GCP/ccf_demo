@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-26T07:53:26.705Z"
+last_updated: "2026-07-26T08:12:28.390Z"
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 46
-  completed_plans: 40
+  completed_plans: 41
   percent: 50
 ---
 
@@ -27,12 +27,12 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 05 (phase-i-2-agent-specialization-framework) — EXECUTING
-Plan: 2 of 7 (05-01 complete)
+Plan: 3 of 7 (05-02 complete)
 
 - **Phase:** 4 of 8 complete; next is Phase 5 (Phase I.2)
 - **Plan:** all 12 complete
 - **Status:** Executing Phase 05
-- **Progress:** [█████████░] 87%
+- **Progress:** [█████████░] 89%
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Plan: 2 of 7 (05-01 complete)
 | 04-04      | ~35 min  | 3     | 16    |
 | 04-05      | ~50 min  | 3     | 24    |
 | 05-01      | ~35 min  | 3     | 16    |
+| 05-02      | ~10 min  | 3     | 12    |
 
 ## Accumulated Context
 
@@ -82,6 +83,9 @@ Plan: 2 of 7 (05-01 complete)
 - [Phase 04]: claim_id excludes lineage and observed_at — corroboration accumulates instead of manufacturing supersessions, and a claim stays addressable while its evidence grows
 - [Phase 05]: D-05 content comparison uses version-normalized fingerprint (artifact_version blanked) so a bump alone never reads as a content change
 - [Phase 05]: delegation_chain defaults to single-element NO_AGENT_DEFINITION chain; build_replay_record passes single-element originating-principal chain (I.2)
+- [Phase 05]: Factory resolves ccf-artifact:// refs via Control Plane key {tenant}/{class}/{name}, matching URI version against each registered version's declared artifact_version/semver (content hashes also accepted); reads through Control Plane resolution only, never raw storage
+- [Phase 05]: Agent seam failures (ConsumptionRefused, SkillNotBound, AgentConstructionError) are typed exceptions, not returned refusals — broken wiring, not expected artifact outcomes (I.1 refusal-vs-exception line)
+- [Phase 05]: build_replay_record gained optional agent_conditioning seam — agent-serialized dimension-4 conditioning recorded verbatim; None keeps I.1 behavior byte for byte (no contract change)
 
 ### Todos
 
@@ -95,5 +99,5 @@ Plan: 2 of 7 (05-01 complete)
 
 ## Session Continuity
 
-Last action: Completed 05-01-PLAN.md (2026-07-26) on branch phase-i2 — six-axis D-IMPL-28 schemas, D-13 parse-only prompt validation, D-05 hash-verified bump, D-06 dimension-4 replay extension; suite 411 passed / 3 skipped, mypy strict clean, lints exit 0.
-Next action: Execute 05-02-PLAN.md (wave 2 — vertical slice: Agent + factory against these contracts).
+Last action: Completed 05-02-PLAN.md (2026-07-26) on branch phase-i2 — ArchetypeComponent + analytics_insights bundle, concrete final Agent (no loop, no token), AgentFactory as the sole construction path, D-03 harness double, end-to-end banking slice with D-06 dimension-4 capture; suite 442 passed / 3 skipped, mypy strict clean, lints exit 0, no allowlist entries.
+Next action: Execute 05-03-PLAN.md (wave 3 — all six archetypes + D-IMPL-19 composition rules).

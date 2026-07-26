@@ -66,7 +66,7 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
 
 ### Phase I — Core Agent Types
 
-- [ ] **AGNT-01**: Unified Agent base + six archetypes (Workflow/Task,
+- [x] **AGNT-01**: Unified Agent base + six archetypes (Workflow/Task,
       DocumentIntelligence, AnalyticsInsights, MonitoringSurveillance,
       ContentGeneration, ContextAssembly) as SDK mechanism (§6.1, §6.3)
 - [x] **AGNT-02**: Agent & Task Factory + declarative definition-artifact
@@ -181,7 +181,7 @@ All 46 v1 requirements mapped (46/46).
 | CINV-02 | Phase 4 | Pending |
 | CINV-03 | Phase 4 | Pending |
 | CINV-04 | Phase 4 | Pending |
-| AGNT-01 | Phase 5 | Pending |
+| AGNT-01 | Phase 5 | Complete |
 | AGNT-02 | Phase 5 | Complete |
 | AGNT-03 | Phase 5 | Pending |
 | XPRC-01 | Phase 6 | Pending |
