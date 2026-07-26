@@ -29,6 +29,7 @@ import pytest
 import yaml
 
 from ccf.agents.agent import Agent
+from ccf.agents.archetypes import analytics_insights
 from ccf.agents.definitions import (
     AGENT_DEFINITION,
     PROMPT_ARTIFACT,
@@ -172,8 +173,15 @@ def test_an_unresolvable_reference_fails_construction() -> None:
 
 def test_a_declared_archetype_without_a_shipped_bundle_is_refused(
     registry: ControlPlaneRegistry,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Valid schema identifier, no bundle yet — typed construction error."""
+    """Valid schema identifier, no realizing bundle — typed construction
+    error, never a silent no-op. All six bundles ship as of 05-03, so the
+    unrealized state is simulated by narrowing the factory's registry view."""
+    monkeypatch.setattr(
+        "ccf.agents.factory.ARCHETYPES",
+        {"analytics_insights": analytics_insights},
+    )
     definition = _definition().model_copy(update={"archetypes": ("workflow",)})
     with pytest.raises(AgentDefinitionError):
         _construct(registry, definition, "acme-bank/agents/workflow-mutant")
