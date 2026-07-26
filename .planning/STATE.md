@@ -6,11 +6,11 @@ status: ready_to_plan
 last_updated: 2026-07-26T14:59:21.378Z
 progress:
   total_phases: 8
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 49
   completed_plans: 49
   percent: 50
-stopped_at: Phase 05 complete (10/10) — awaiting D-GATE-I.2 approval and merge to main
+stopped_at: Phase 05 gated (D-GATE-I.2, merged to main) — ready to plan Phase 6
 ---
 
 # STATE — CCF SDK
@@ -27,14 +27,13 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 05 (phase-i-2-agent-specialization-framework) — COMPLETE, AWAITING GATE
+Phase: 05 (phase-i-2-agent-specialization-framework) — COMPLETE, GATED
 Plan: 10 of 10
 
 - **Phase:** 5 of 8 executed; 6 (phase i.3 — cross process & harness adapters) is next
 - **Plan:** 10/10 complete
-- **Status:** Awaiting Dave's approval at D-GATE-I.2 (drafted in docs/DECISIONS.md,
-  date and approver pending). Phase 6 does not begin until the gate is approved and
-  `phase-i2` is merged to `main` (CLAUDE.md §3.1 step 4, §2.2).
+- **Status:** D-GATE-I.2 approved (Dave, 2026-07-26); `phase-i2` merged to `main`
+  --no-ff per §2.2. Phase 6 ready to plan.
 - **Progress:** [██████████] 100% of Phase 5 plans
 
 **Nothing blocks Phase 6 planning on the decision log.** The 12-item Phase I
@@ -42,15 +41,13 @@ gate list is RESOLVED in full (D-GATE-D, 2026-07-25). D-IMPL-24 in particular
 is ruled — Dave's own ruling, differing from the recommendation: **all three**
 harnesses ship v0 reference adapters (Google ADK + Claude Agent SDK +
 LangGraph), which means three adapter legs, three CI legs, and three
-example-03 variants in Phase 6 scope. The only precondition is procedural:
-D-GATE-I.2 approval and the merge to `main`.
+example-03 variants in Phase 6 scope. Both procedural preconditions are met: gate approved, branch merged.
 
 ## Performance Metrics
 
-- Phases executed: 5/8 — gated: 4/8 (Phase 5 awaiting D-GATE-I.2)
+- Phases complete and gated: 5/8
 - Requirements delivered: 3/46
-- D-GATE entries logged: 4 (D-GATE-R, D-GATE-D, D-GATE-F, D-GATE-I.1);
-  D-GATE-I.2 drafted, unapproved
+- D-GATE entries logged: 5 (D-GATE-R, D-GATE-D, D-GATE-F, D-GATE-I.1, D-GATE-I.2)
 
 | Phase-Plan | Duration | Tasks | Files |
 | ---------- | -------- | ----- | ----- |
