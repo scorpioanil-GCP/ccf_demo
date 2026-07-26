@@ -223,6 +223,54 @@ class TestDiscovery:
         with pytest.raises(SkillNotInCatalog):
             catalog.resolve(entry.tenant, entry.tenant, entry.artifact_version)
 
+    def test_resolution_audits_only_the_entry_actually_returned(self) -> None:
+        """WR-03: the declared-version search probes unaudited.
+
+        Pinned resolution has to examine every content under the key to find
+        the one whose declared version matches. Auditing each probe as a
+        `resolve` would record reads of artifacts no caller ever received —
+        and every grant request and every BoundSkillView access comes through
+        here, so the audit plane would fill with phantom reads. One audited
+        resolution per successful call: the entry returned (the WR-08
+        discipline, applied to its sibling path).
+        """
+        registry = ControlPlaneRegistry()
+        catalog = SkillCatalog(registry)
+        fixture = _tool_fixture()
+        first = SkillCatalogEntry.model_validate(fixture["entry"])
+        assert isinstance(catalog.register(first), str)
+        major, minor, patch = (
+            int(part) for part in first.artifact_version.split(".")
+        )
+        second = first.model_copy(
+            update={
+                "artifact_version": f"{major}.{minor}.{patch + 1}",
+                "requirements": SkillRequirements(
+                    required_scopes=first.requirements.required_scopes
+                    | {fixture["mutation"]["extra_scope"]},
+                    required_context_products=(
+                        first.requirements.required_context_products
+                    ),
+                ),
+            }
+        )
+        assert isinstance(catalog.register(second), str)
+        key = skill_catalog_key(first)
+        assert len(registry.versions(key)) == 2
+
+        before = len(registry.audit_events())
+        assert catalog.resolve(second.tenant, second.name, second.artifact_version) == (
+            second
+        )
+        resolutions = [
+            event
+            for event in registry.audit_events()[before:]
+            if event.action == "resolve"
+        ]
+        assert len(resolutions) == 1
+        assert resolutions[0].key == key
+        assert resolutions[0].version == content_hash(second)
+
     def test_resolving_an_unknown_version_raises(self) -> None:
         catalog, entries = self._populated()
         entry = entries[0]

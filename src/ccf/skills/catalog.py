@@ -279,7 +279,13 @@ class SkillCatalog:
         ``version`` matches either the author's declared ``artifact_version``
         or the registry's content-hash version — the same dual acceptance the
         Agent Factory applies to ``ccf-artifact://`` refs, and always through
-        Control Plane resolution, never raw storage.
+        the Control Plane, never raw storage. Exactly one audited
+        :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.resolve` is
+        recorded per successful call — the entry actually returned; the
+        declared-version search itself probes through the unaudited
+        :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.peek`, so the
+        audit plane never records a read of an artifact no caller received
+        (WR-03; the WR-08 discipline).
 
         Raises:
             SkillNotInCatalog: no entry is registered under that name, or no
@@ -287,10 +293,17 @@ class SkillCatalog:
         """
         key = f"{tenant}/{SKILL_CATALOG_ENTRY.class_id}/{name}"
         for content_version in self._control_plane.versions(key):
-            artifact = self._control_plane.resolve(key, content_version)
+            # Probe unaudited, audit the read that actually happens (WR-03).
+            # Declared-version matching has to examine every content under the
+            # key; auditing each probe as a resolution would record reads of
+            # artifacts nobody read — and every grant request and every
+            # BoundSkillView access comes through here. Same discipline the
+            # Agent Factory and the grant ledger apply to pinned refs (WR-08).
+            artifact = self._control_plane.peek(key, content_version)
             entry = SKILL_CATALOG_ENTRY.validate(artifact)
             assert isinstance(entry, SkillCatalogEntry)
             if version in (entry.artifact_version, content_hash(entry)):
+                self._control_plane.resolve(key, content_version)
                 return entry
         raise SkillNotInCatalog(
             f"no skill catalog entry registered as ({key!r}, {version!r});"
