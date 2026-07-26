@@ -20,10 +20,15 @@ Three declarations make up a bundle, and their types are deliberate:
   D-IMPL-19 composition rules (dedupe / declaration-order-with-warning /
   construction error) compare on when multi-archetype composition lands.
 
-Only the ``analytics_insights`` bundle ships in this plan (the D-02 slice
-archetype); the remaining five land with the composition wave. The registry
-maps definition-artifact ``archetypes``-axis identifiers onto bundle
-instances, so the factory and the schema share one vocabulary
+All six archetypes ship as bundles (CLAUDE.md §6.3; DESIGN.md §3.2): each
+carries the *patterns* of its functional category as typed, decidable
+values — never a prompt, a threshold, a half-life, or a domain vocabulary
+word. Any tunable an archetype's pattern implies (an activation threshold,
+a staleness tolerance) is a Control Plane value (D-IMPL-38); the bundle
+declares only the mechanism identifier that says the value must exist and
+must land in replay. The registry maps definition-artifact
+``archetypes``-axis identifiers onto bundle instances, so the factory and
+the schema share one vocabulary
 (:data:`~ccf.agents.definitions.ARCHETYPE_IDS`).
 
 Algorithmic module (CINV-03).
@@ -44,6 +49,11 @@ __all__ = [
     "ConfigurationDefault",
     "ReplayObligation",
     "analytics_insights",
+    "content_generation",
+    "context_assembly",
+    "document_intelligence",
+    "monitoring_surveillance",
+    "workflow_task",
 ]
 
 
@@ -145,15 +155,225 @@ class _AnalyticsInsightsComponent:
         return ()
 
 
-#: The shipped AnalyticsInsights bundle instance — mechanism, not an agent
-#: (CLAUDE.md §6.1: archetypes are SDK code; agents are declared artifacts).
+class _WorkflowTaskComponent:
+    """The Workflow/Task bundle (CLAUDE.md §6.3; DESIGN.md §3.2 — SDK
+    extension).
+
+    Procedural, multi-step decisioning against a task graph declared through
+    the Task Factory — never code. The bundle carries the state-machine
+    execution shape, deterministic step ordering, and structured idempotency
+    as obligations; the task graph itself is a Control Plane artifact
+    (No-Hardcoding Rule §6.4), and no step, route, or example workflow
+    appears here as a value.
+    """
+
+    @property
+    def archetype_id(self) -> str:
+        return "workflow"
+
+    def fabric_interaction_pattern(self) -> str:
+        return "task-graph-state-machine"
+
+    def replay_obligations(self) -> tuple[ReplayObligation, ...]:
+        return (
+            ReplayObligation(
+                name="step-sequence-trace",
+                obligation=(
+                    "the executed step sequence lands in dimension 5; the"
+                    " calling chain in dimension 4"
+                ),
+            ),
+            ReplayObligation(
+                name="structured-idempotency",
+                obligation=(
+                    "re-invocation with identical inputs and Control Plane"
+                    " state is a no-op or an identical result, and the"
+                    " record shows which"
+                ),
+            ),
+        )
+
+    def configuration_defaults(self) -> tuple[ConfigurationDefault, ...]:
+        # No defaults: routing tables and retry calibrations are Control
+        # Plane artifacts (D-IMPL-38), never bundle values.
+        return ()
+
+
+class _DocumentIntelligenceComponent:
+    """The DocumentIntelligence bundle (CLAUDE.md §6.3; DESIGN.md §3.2).
+
+    Ingest, metadata extraction, analysis, and generation over the Pattern 5
+    unstructured pipeline, with passage-level lineage (whitepaper §7.10.3)
+    baked into every output as an obligation — the anchors themselves are
+    fabric-produced, never bundle values.
+    """
+
+    @property
+    def archetype_id(self) -> str:
+        return "document_intelligence"
+
+    def fabric_interaction_pattern(self) -> str:
+        return "unstructured-pipeline-derivation"
+
+    def replay_obligations(self) -> tuple[ReplayObligation, ...]:
+        return (
+            ReplayObligation(
+                name="passage-level-lineage",
+                obligation=(
+                    "passage anchors land in the L dimension of every"
+                    " emitted product"
+                ),
+            ),
+            ReplayObligation(
+                name="document-derivation-trace",
+                obligation=(
+                    "the document-derivation path lands in dimension 5"
+                ),
+            ),
+        )
+
+    def configuration_defaults(self) -> tuple[ConfigurationDefault, ...]:
+        return ()
+
+
+class _MonitoringSurveillanceComponent:
+    """The MonitoringSurveillance bundle (CLAUDE.md §6.3; DESIGN.md §3.2).
+
+    Long-running, trigger-driven watch: event subscription against L1
+    streams, threshold-based activation, λ_c-driven continuous
+    re-evaluation. Activation conditions and thresholds are versioned
+    Control Plane values (D-IMPL-38) — the bundle obliges their capture, it
+    never supplies them.
+    """
+
+    @property
+    def archetype_id(self) -> str:
+        return "monitoring_surveillance"
+
+    def fabric_interaction_pattern(self) -> str:
+        return "trigger-driven-reevaluation"
+
+    def replay_obligations(self) -> tuple[ReplayObligation, ...]:
+        return (
+            ReplayObligation(
+                name="trigger-activation-record",
+                obligation=(
+                    "trigger condition, threshold version, and activation"
+                    " timestamp land per invocation; each activation is an"
+                    " independently replayable decision"
+                ),
+            ),
+            ReplayObligation(
+                name="freshness-reevaluation",
+                obligation=(
+                    "half-life-driven re-evaluation captures the decay"
+                    " profile version in force at each activation"
+                ),
+            ),
+        )
+
+    def configuration_defaults(self) -> tuple[ConfigurationDefault, ...]:
+        return ()
+
+
+class _ContentGenerationComponent:
+    """The ContentGeneration bundle (CLAUDE.md §6.3; DESIGN.md §3.2).
+
+    Structured LLM output under template binding: templates are versioned
+    prompt artifacts (axis 6), never inline (D-13/No-Hardcoding §6.4), and
+    every claim is passage-anchored (whitepaper §7.10.3). Draft-and-review
+    HITL integration is a seam declared here, realized by the HITL pillar.
+    """
+
+    @property
+    def archetype_id(self) -> str:
+        return "content_generation"
+
+    def fabric_interaction_pattern(self) -> str:
+        return "template-bound-generation"
+
+    def replay_obligations(self) -> tuple[ReplayObligation, ...]:
+        return (
+            ReplayObligation(
+                name="passage-anchored-claims",
+                obligation=(
+                    "every generated claim is passage-anchored; citation"
+                    " lineage lands with the output"
+                ),
+            ),
+            ReplayObligation(
+                name="prompt-artifact-versions",
+                obligation=(
+                    "prompt-artifact versions in force land in dimensions"
+                    " 3 and 5; review actions extend dimension 2"
+                ),
+            ),
+        )
+
+    def configuration_defaults(self) -> tuple[ConfigurationDefault, ...]:
+        return ()
+
+
+class _ContextAssemblyComponent:
+    """The ContextAssembly bundle (CLAUDE.md §6.3; DESIGN.md §3.2/§3.4).
+
+    Assembler producing typed Context Products for other agents — the
+    recursive-enrichment and swarm-realized-operator case (whitepaper
+    §6.6/§7.4.9, INV-CH7-32). The emission *pattern* is declared here:
+    products reach L3 only through L2 mechanism (single-writer, CLAUDE.md
+    §10); the transports (in-process, MCP egress, A2A) bind in I.3.
+    """
+
+    @property
+    def archetype_id(self) -> str:
+        return "context_assembly"
+
+    def fabric_interaction_pattern(self) -> str:
+        return "typed-product-emission"
+
+    def replay_obligations(self) -> tuple[ReplayObligation, ...]:
+        return (
+            ReplayObligation(
+                name="emitted-product-replay-envelope",
+                obligation=(
+                    "the emitted product is itself a replayable artifact"
+                    " bound to the five-dimension envelope, distinct from"
+                    " any consumer's inference trace; emission routes"
+                    " through the single-writer assembly mechanism"
+                ),
+            ),
+            ReplayObligation(
+                name="policy-before-similarity",
+                obligation=(
+                    "policy composes before similarity at every assembly"
+                    " step the archetype takes"
+                ),
+            ),
+        )
+
+    def configuration_defaults(self) -> tuple[ConfigurationDefault, ...]:
+        return ()
+
+
+#: The shipped bundle instances — mechanism, not agents (CLAUDE.md §6.1:
+#: archetypes are SDK code; agents are declared artifacts).
 analytics_insights = _AnalyticsInsightsComponent()
+workflow_task = _WorkflowTaskComponent()
+document_intelligence = _DocumentIntelligenceComponent()
+monitoring_surveillance = _MonitoringSurveillanceComponent()
+content_generation = _ContentGenerationComponent()
+context_assembly = _ContextAssemblyComponent()
 
 #: Definition-artifact archetype identifiers → shipped bundle instances.
-#: Deliberately a subset of :data:`~ccf.agents.definitions.ARCHETYPE_IDS`
-#: until the remaining five bundles land: a definition declaring an archetype
-#: the schema knows but no bundle realizes yet is a typed factory
-#: construction error, never a silent no-op.
+#: Exactly the six identifiers the definition schema admits
+#: (:data:`~ccf.agents.definitions.ARCHETYPE_IDS`): the factory and the
+#: schema share one vocabulary, and a definition can never declare an
+#: archetype no bundle realizes.
 ARCHETYPES: Mapping[str, ArchetypeComponent] = {
+    "workflow": workflow_task,
+    "document_intelligence": document_intelligence,
     "analytics_insights": analytics_insights,
+    "monitoring_surveillance": monitoring_surveillance,
+    "content_generation": content_generation,
+    "context_assembly": context_assembly,
 }

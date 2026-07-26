@@ -23,6 +23,11 @@ from ccf.agents.archetypes import (
     ConfigurationDefault,
     ReplayObligation,
     analytics_insights,
+    content_generation,
+    context_assembly,
+    document_intelligence,
+    monitoring_surveillance,
+    workflow_task,
 )
 from ccf.agents.factory import AgentFactory, ControlPlaneResolution
 
@@ -39,4 +44,9 @@ __all__ = [
     "EmittedEffect",
     "ReplayObligation",
     "analytics_insights",
+    "content_generation",
+    "context_assembly",
+    "document_intelligence",
+    "monitoring_surveillance",
+    "workflow_task",
 ]
