@@ -183,6 +183,27 @@ class TestDiscovery:
             expected = {e for e in entries if e.skill_type == skill_type}
             assert set(catalog.discover(skill_type=skill_type)) == expected
 
+    def test_a_second_catalog_over_the_same_registry_discovers_everything(
+        self,
+    ) -> None:
+        """Discovery derives from registry state, never an instance index.
+
+        IN-03: a second catalog constructed over the same registry — or the
+        same catalog after a process restart — must discover exactly the
+        entries registered through the first, because the registry is the
+        single store and the catalog keeps no volatile membership of its own.
+        """
+        registry = ControlPlaneRegistry()
+        first = SkillCatalog(registry)
+        entries = [
+            SkillCatalogEntry.model_validate(d) for d in _all_entry_documents()
+        ]
+        for entry in entries:
+            assert isinstance(first.register(entry), str)
+        second = SkillCatalog(registry)
+        assert set(second.discover()) == set(entries)
+        assert set(second.discover()) == set(first.discover())
+
     def test_pinned_resolution_by_artifact_version(self) -> None:
         catalog, entries = self._populated()
         entry = entries[0]

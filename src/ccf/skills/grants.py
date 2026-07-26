@@ -54,6 +54,7 @@ from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import ArtifactClass, validate_semver
 from ccf.controlplane.audit import AuditAction, AuditLog
 from ccf.controlplane.registry import (
+    AmbiguousPinnedVersionError,
     ControlPlaneMissing,
     ControlPlaneRegistry,
     RegistrationRefusal,
@@ -426,21 +427,37 @@ class GrantLedger:
         The same ``{tenant}/{class}/{name}`` key convention and declared-
         version matching the Agent Factory applies (DESIGN.md §3.5); a
         content hash is also accepted as the URI version (D-IMPL-26).
+        Declared-version matching probes through the unaudited
+        :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.peek` and
+        audits only the resolution actually returned (WR-08).
+
+        Raises:
+            AmbiguousPinnedVersionError: two different contents under the key
+                declare the same semver the ref pins (WR-08) — the tier-1
+                governance input must be exactly one content.
         """
         name = parse_artifact_uri(ref)
         key = f"{name.tenant_id}/{name.artifact_class}/{name.name}"
-        for version in self._control_plane.versions(key):
-            if version == name.artifact_version:
-                return self._control_plane.resolve(key, version)
+        versions = self._control_plane.versions(key)
+        if name.artifact_version in versions:
+            return self._control_plane.resolve(key, name.artifact_version)
+        matches: list[str] = []
+        for version in versions:
             try:
-                artifact = self._control_plane.resolve(key, version)
+                artifact = self._control_plane.peek(key, version)
             except ControlPlaneMissing:  # pragma: no cover - versions listed
                 continue
             declared = getattr(artifact, "artifact_version", None) or getattr(
                 artifact, "semver", None
             )
             if declared == name.artifact_version:
-                return artifact
+                matches.append(version)
+        if len(matches) > 1:
+            raise AmbiguousPinnedVersionError(
+                key, name.artifact_version, matches
+            )
+        if matches:
+            return self._control_plane.resolve(key, matches[0])
         return None
 
     def _governance(

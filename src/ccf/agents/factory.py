@@ -56,7 +56,10 @@ from ccf.agents.prompts import validate_instruction_binding
 from ccf.artifacts.protocol import artifact_uri, parse_artifact_uri
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
-from ccf.controlplane.registry import ControlPlaneMissing
+from ccf.controlplane.registry import (
+    AmbiguousPinnedVersionError,
+    ControlPlaneMissing,
+)
 from ccf.skills.grants import BoundSkillView
 
 __ccf_mode__ = "algorithmic"
@@ -89,6 +92,14 @@ class ControlPlaneResolution(Protocol):
         """Return every version registered under ``key``, oldest first."""
         ...
 
+    def peek(self, key: str, version: str) -> object:
+        """Return the artifact at ``(key, version)`` without auditing."""
+        ...
+
+    def artifact_class_of(self, key: str) -> str | None:
+        """Return the artifact class bound to ``key``, if it was typed."""
+        ...
+
 
 def _resolve_pinned(control_plane: ControlPlaneResolution, uri: str) -> object:
     """Resolve one pinned ``ccf-artifact://`` reference via the plane.
@@ -101,26 +112,41 @@ def _resolve_pinned(control_plane: ControlPlaneResolution, uri: str) -> object:
     content version under that key. Content hashes are also accepted as URI
     versions, since a content address is the D-IMPL-26 canonical identity.
 
+    Declared-version matching scans *every* registered content (via the
+    unaudited :meth:`~ControlPlaneResolution.peek` — probes are not
+    resolutions, WR-08 side effect) and refuses when the declared version is
+    ambiguous; only the resolution actually returned is audited, through one
+    :meth:`~ControlPlaneResolution.resolve` call on the single match.
+
     Raises:
         AgentDefinitionError: the reference names nothing the Control Plane
             has registered.
+        ccf.controlplane.registry.AmbiguousPinnedVersionError: two different
+            contents under the key declare the same semver the URI pins
+            (WR-08) — a pinned ref must name exactly one content.
         ccf.artifacts.protocol.MovingTargetRefused: the URI asks for
             ``@latest`` (defense in depth; the schema refuses it first).
     """
     name = parse_artifact_uri(uri)
     key = f"{name.tenant_id}/{name.artifact_class}/{name.name}"
-    for version in control_plane.versions(key):
-        if version == name.artifact_version:
-            return control_plane.resolve(key, version)
+    versions = control_plane.versions(key)
+    if name.artifact_version in versions:
+        return control_plane.resolve(key, name.artifact_version)
+    matches: list[str] = []
+    for version in versions:
         try:
-            artifact = control_plane.resolve(key, version)
+            artifact = control_plane.peek(key, version)
         except ControlPlaneMissing:  # pragma: no cover - versions listed
             continue
         declared = getattr(artifact, "artifact_version", None) or getattr(
             artifact, "semver", None
         )
         if declared == name.artifact_version:
-            return artifact
+            matches.append(version)
+    if len(matches) > 1:
+        raise AmbiguousPinnedVersionError(key, name.artifact_version, matches)
+    if matches:
+        return control_plane.resolve(key, matches[0])
     raise AgentDefinitionError(
         f"reference {uri!r} resolves to nothing the Control Plane has"
         f" registered under {key!r}; the factory reads through Control"
@@ -422,6 +448,24 @@ class TaskFactory:
                 resolved_refs[step.ref] = _resolve_pinned(
                     self._control_plane, step.ref
                 )
+                if step.kind == "agent":
+                    ref_name = parse_artifact_uri(step.ref)
+                    ref_key = (
+                        f"{ref_name.tenant_id}/{ref_name.artifact_class}/"
+                        f"{ref_name.name}"
+                    )
+                    actual_class = self._control_plane.artifact_class_of(
+                        ref_key
+                    )
+                    if actual_class != AGENT_DEFINITION.class_id:
+                        raise AgentDefinitionError(
+                            f"agent step {step.name!r} references"
+                            f" {step.ref!r}, which the Control Plane binds to"
+                            f" artifact class {actual_class!r}, not"
+                            f" {AGENT_DEFINITION.class_id!r}; an agent step"
+                            " must reference an agent definition (IN-08;"
+                            " CLAUDE.md §8.1)"
+                        )
 
         instruction_artifacts = _validated_instruction_artifacts(
             self._control_plane, definition.instruction_bindings
