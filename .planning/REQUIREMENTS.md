@@ -71,7 +71,7 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
       ContentGeneration, ContextAssembly) as SDK mechanism (§6.1, §6.3)
 - [x] **AGNT-02**: Agent & Task Factory + declarative definition-artifact
       schema (per D-IMPL-28); no path to an agent bypassing the factory (§6.4)
-- [ ] **AGNT-03**: Skill catalog primitives — registration, discovery,
+- [x] **AGNT-03**: Skill catalog primitives — registration, discovery,
       governance, runtime grant/revoke with policy-compatibility check and
       replay capture (§6.2)
 
@@ -183,7 +183,7 @@ All 46 v1 requirements mapped (46/46).
 | CINV-04 | Phase 4 | Pending |
 | AGNT-01 | Phase 5 | Complete |
 | AGNT-02 | Phase 5 | Complete |
-| AGNT-03 | Phase 5 | Pending |
+| AGNT-03 | Phase 5 | Complete |
 | XPRC-01 | Phase 6 | Pending |
 | XPRC-02 | Phase 6 | Pending |
 | XPRC-03 | Phase 6 | Pending |

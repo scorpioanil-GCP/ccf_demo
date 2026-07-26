@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-26T08:44:04.025Z"
+last_updated: "2026-07-26T09:08:37.136Z"
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 46
-  completed_plans: 44
+  completed_plans: 45
   percent: 50
 ---
 
@@ -27,12 +27,12 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 05 (phase-i-2-agent-specialization-framework) — EXECUTING
-Plan: 6 of 7 (05-05 complete)
+Plan: 7 of 7 (05-06 complete)
 
 - **Phase:** 4 of 8 complete; next is Phase 5 (Phase I.2)
 - **Plan:** all 12 complete
 - **Status:** Executing Phase 05
-- **Progress:** [██████████] 96%
+- **Progress:** [██████████] 98%
 
 ## Performance Metrics
 
@@ -50,6 +50,7 @@ Plan: 6 of 7 (05-05 complete)
 | 05-01      | ~35 min  | 3     | 16    |
 | 05-02      | ~10 min  | 3     | 12    |
 | 05-05      | ~6 min   | 1     | 7     |
+| 05-06      | ~12 min  | 2     | 20    |
 
 ## Accumulated Context
 
@@ -89,6 +90,10 @@ Plan: 6 of 7 (05-05 complete)
 - [Phase 05]: SkillCatalog stores only a key index; the registry stays the single source of skill entry content — discovery/resolution read the same audited versions as every Control Plane consumer (05-05)
 - [Phase 05]: Skill bindings are pure descriptors in 05-05 (D-08) — no transport or resolution code for any of the four types until 05-06 dispatch
 - [Phase 05]: build_replay_record gained optional agent_conditioning seam — agent-serialized dimension-4 conditioning recorded verbatim; None keeps I.1 behavior byte for byte (no contract change)
+- [Phase 05]: Tier-1 governance envelope reads a `skill_governance` field (typed PolicyRegimeGovernance) from the policy-regime declaration — field name is mechanism schema; permitted scopes and the tier-2 flag are deployment YAML statements (05-06)
+- [Phase 05]: Grant transitions audit as new grant_* AuditAction members through the one existing AuditLog — no parallel log type (05-06)
+- [Phase 05]: NotYetBound is a typed RuntimeError for mcp/a2a dispatch (build lacks the transport; artifact is fine) — RESEARCH Open Question 2 resolution; tool dispatch returns a ToolInvocation value, the SDK executes no command (05-06)
+- [Phase 05]: Agent holds bound_skills by reference to the GrantLedger's live view — grants/revocations take effect at invoke time without touching agent identity; ledger.grant_set_hash() returns the NO_GRANTS sentinel when empty, pure fn stays content_hash(frozenset) (D-07, 05-06)
 
 ### Todos
 
@@ -102,5 +107,5 @@ Plan: 6 of 7 (05-05 complete)
 
 ## Session Continuity
 
-Last action: Completed 05-05-PLAN.md (2026-07-26) on branch phase-i2 — 4-type D-IMPL-12 skill catalog (SkillCatalogEntry + SkillRequirements + SkillCatalog) registering through the D-05 versioned Control Plane path, both banking skill fixtures discoverable, schema export extended; suite 532 passed / 3 skipped, mypy strict clean, lints exit 0, no allowlist entries.
-Next action: Execute 05-06-PLAN.md (wave 6 — grants, two-tier governance, dispatch, CINV-04 activation).
+Last action: Completed 05-06-PLAN.md (2026-07-26) on branch phase-i2 — two-tier D-IMPL-29 grant governance (tier-1 structural check + state machine behind ApprovalSink), local/tool dispatch with NotYetBound for mcp/a2a, D-07 grant-set hash in replay dimension 4, CINV-04 skill-set-capture ACTIVE (3 → 2 skips); suite 568 passed / 2 skipped, mypy strict clean, lints exit 0. AGNT-03 complete.
+Next action: Execute 05-07-PLAN.md (wave 7 — final Phase I.2 plan).

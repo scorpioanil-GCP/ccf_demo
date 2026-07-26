@@ -194,7 +194,7 @@ Plans:
   3. Skill catalog supports registration, discovery, and runtime grant/revoke; the policy-compatibility check refuses a grant exceeding the agent's policy regime or context contract; every grant/revocation and the skill-set in force land in the replay record
   4. All six specialization axes (archetype binding, context contract, perspective, policy regime, half-life/debt profile, instruction bindings) are expressible in the definition artifact and versioned — changing any axis produces a new agent version visible in replay
 
-**Plans:** 5/7 plans executed
+**Plans:** 6/7 plans executed
 
 Plans:
 **Wave 1**
@@ -219,7 +219,7 @@ Plans:
 
 **Wave 6**
 
-- [ ] 05-06-PLAN.md — Skilling governance + dispatch: two-tier grants + ApprovalSink (D-09), grant-set hash (D-07), dispatch + NotYetBound (D-08), replay capture + CINV-04 activation (D-10)
+- [x] 05-06-PLAN.md — Skilling governance + dispatch: two-tier grants + ApprovalSink (D-09), grant-set hash (D-07), dispatch + NotYetBound (D-08), replay capture + CINV-04 activation (D-10)
 
 **Wave 7**
 
@@ -282,7 +282,7 @@ Plans:
 | 2. Phase D — Design | 11/11 | Complete   | 2026-07-25 |
 | 3. Phase F — Feasibility & Scoping | 4/4 | Complete   | 2026-07-25 |
 | 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
-| 5. Phase I.2 — Agent Specialization Framework | 5/7 | In Progress|  |
+| 5. Phase I.2 — Agent Specialization Framework | 6/7 | In Progress|  |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 0/? | Not started | - |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 0/? | Not started | - |
 | 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |
