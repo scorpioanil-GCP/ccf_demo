@@ -397,23 +397,66 @@ class TestGrantSetHash:
                     ),
                     str,
                 )
-        assert one.ledger.grant_set_hash() == two.ledger.grant_set_hash()
+        assert one.ledger.grant_set_hash(
+            content_hash(definition)
+        ) == two.ledger.grant_set_hash(content_hash(definition))
 
     def test_revocation_restores_the_prior_hash(self, world: _World) -> None:
         definition = world.definition("auto")
+        agent_hash = content_hash(definition)
         first = world.grant("metrics_tool", definition)
         world.ledger.request(first, definition=definition, actor=world.actor)
-        before = world.ledger.grant_set_hash()
+        before = world.ledger.grant_set_hash(agent_hash)
         second = world.grant("metrics_local", definition)
         world.ledger.request(second, definition=definition, actor=world.actor)
-        assert world.ledger.grant_set_hash() != before
+        assert world.ledger.grant_set_hash(agent_hash) != before
         world.ledger.revoke(content_hash(second), actor=world.actor)
-        assert world.ledger.grant_set_hash() == before
+        assert world.ledger.grant_set_hash(agent_hash) == before
 
     def test_no_grants_in_force_is_the_positive_sentinel(
         self, world: _World
     ) -> None:
-        assert world.ledger.grant_set_hash() == NO_GRANTS_SET_HASH
+        definition = world.definition("auto")
+        assert (
+            world.ledger.grant_set_hash(content_hash(definition))
+            == NO_GRANTS_SET_HASH
+        )
+
+    def test_grant_set_hash_is_per_agent_across_two_agents(
+        self, world: _World
+    ) -> None:
+        """CR-01 regression: two agents share one ledger; a grant to agent B
+        never moves agent A's D-07 grant-set hash — dimension 4 records the
+        skills *this* agent actually had (CLAUDE.md §6.2)."""
+        agent_a = world.definition("auto")
+        agent_b = world.definition("gated")
+        hash_a = content_hash(agent_a)
+        hash_b = content_hash(agent_b)
+
+        grant_b = world.grant("metrics_tool", agent_b)
+        outcome = world.ledger.request(
+            grant_b, definition=agent_b, actor=world.actor
+        )
+        assert isinstance(outcome, str)
+        assert world.ledger.grant_set_hash(hash_a) == NO_GRANTS_SET_HASH
+        b_after_own_grant = world.ledger.grant_set_hash(hash_b)
+        assert b_after_own_grant != NO_GRANTS_SET_HASH
+
+        grant_a = world.grant("metrics_local", agent_a)
+        outcome = world.ledger.request(
+            grant_a, definition=agent_a, actor=world.actor
+        )
+        assert isinstance(outcome, str)
+        assert world.ledger.grant_set_hash(hash_b) == b_after_own_grant
+        assert world.ledger.grant_set_hash(hash_a) == grant_set_hash(
+            frozenset({content_hash(grant_a)})
+        )
+        assert world.ledger.effective_hashes(hash_a) == frozenset(
+            {content_hash(grant_a)}
+        )
+        assert world.ledger.effective_hashes() == frozenset(
+            {content_hash(grant_a), content_hash(grant_b)}
+        )
 
     def test_the_agent_definition_hash_is_unchanged_across_grants(
         self, world: _World

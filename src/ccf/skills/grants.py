@@ -582,22 +582,41 @@ class GrantLedger:
         """
         return self._states[grant_hash]
 
-    def effective_hashes(self) -> frozenset[str]:
-        """The content hashes of every currently-effective grant."""
+    def effective_hashes(self, agent_definition_hash: str | None = None) -> frozenset[str]:
+        """The content hashes of currently-effective grants.
+
+        With ``agent_definition_hash`` supplied, only that agent's effective
+        grants are returned — the per-agent view every replay-facing caller
+        must use (CLAUDE.md §6.2: a decision replays against the skills *the
+        agent* actually had). With ``None``, the ledger-wide view across all
+        agents is returned — an operator-inspection convenience only, never
+        an identity input for any one agent's replay record.
+        """
         return frozenset(
             grant_hash
             for grant_hash, state in self._states.items()
             if state == "effective"
+            and (
+                agent_definition_hash is None
+                or self._grants[grant_hash].agent_definition_hash
+                == agent_definition_hash
+            )
         )
 
-    def grant_set_hash(self) -> str:
-        """The D-07 identity of the in-force skill-set, at this instant.
+    def grant_set_hash(self, agent_definition_hash: str) -> str:
+        """The D-07 identity of one agent's in-force skill-set, at this instant.
+
+        Per-agent, deliberately required: the value lands in replay
+        dimension 4 as *this agent's* skill-set in force, so it is computed
+        over exactly the grants referencing ``agent_definition_hash`` — a
+        grant to another agent sharing this ledger never moves it
+        (CLAUDE.md §6.2; CR-01).
 
         The positive :data:`~ccf.replay.record.NO_GRANTS_SET_HASH` claim when
-        nothing is in force — "this ledger holds zero effective grants" is
-        asserted, never left as an absence a reader must interpret.
+        nothing is in force for this agent — "this agent holds zero effective
+        grants" is asserted, never left as an absence a reader must interpret.
         """
-        active = self.effective_hashes()
+        active = self.effective_hashes(agent_definition_hash)
         if not active:
             return NO_GRANTS_SET_HASH
         return grant_set_hash(active)
