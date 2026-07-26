@@ -558,6 +558,16 @@ class GrantLedger:
         on the sink. Tier 1 always runs before tier 2; a sink never sees a
         grant tier 1 refused.
 
+        **No path leaves a grant wedged (WR-01).** Once the first state
+        mutation happens, every remaining step runs under an exception guard:
+        any exception — including one raised by the injected
+        :class:`ApprovalSink`, which is arbitrary Protocol code the ledger
+        does not trust to return — settles the grant in the terminal
+        ``refused`` state, audits the refusal, and re-raises unchanged. A
+        grant is therefore never observable in ``requested`` or
+        ``pending-approval`` after this call returns or raises, and no grant
+        is left in a state the machine defines no exit from.
+
         Raises:
             GrantTransitionError: this ledger has already seen this grant —
                 a grant artifact is single-use; issue a new grant artifact.
@@ -604,6 +614,40 @@ class GrantLedger:
         self._grants[grant_hash] = grant
         self._record(grant, "grant_requested", resolved=True, actor=actor)
 
+        # No wedged states, on any path (WR-01). Everything after the first
+        # state mutation runs under this guard: an exception raised downstream
+        # — an ambiguous pinned policy regime, or an ApprovalSink (arbitrary
+        # Protocol code) that raises rather than returning a verdict — would
+        # otherwise strand the grant in `requested` / `pending-approval`
+        # forever, states the machine defines no exit from (revocation is
+        # defined from `effective` only). The guard settles the grant in the
+        # terminal `refused` state and audits the refusal (T-05-16: the audit
+        # plane records what it turned away) before re-raising the original
+        # exception unchanged — the caller still sees the real failure.
+        try:
+            return self._decide(
+                grant, grant_hash, definition=definition, entry=entry, actor=actor
+            )
+        except Exception:
+            self._states[grant_hash] = "refused"
+            self._record(grant, "grant_refused", resolved=False, actor=actor)
+            raise
+
+    def _decide(
+        self,
+        grant: SkillGrant,
+        grant_hash: str,
+        *,
+        definition: AgentDefinition,
+        entry: SkillCatalogEntry,
+        actor: str,
+    ) -> str | GrantRefusal:
+        """Tenant coherence, tier 1, then tier 2 — the decided part of the run.
+
+        Split out of :meth:`request` so every post-mutation path sits inside
+        one exception guard (WR-01); it carries no state-machine rule of its
+        own beyond the transitions it performs.
+        """
         if (
             grant.tenant != definition.tenant
             or entry.tenant != definition.tenant

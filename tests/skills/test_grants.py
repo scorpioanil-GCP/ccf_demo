@@ -36,7 +36,10 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.audit import AuditLog
-from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.controlplane.registry import (
+    AmbiguousPinnedVersionError,
+    ControlPlaneRegistry,
+)
 from ccf.replay.record import NO_GRANTS_SET_HASH
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog, SkillCatalogEntry
 from ccf.skills.catalog import SkillNotInCatalog
@@ -56,7 +59,7 @@ from ccf.skills.grants import (
     grant_set_hash,
     skill_grant_key,
 )
-from skills.sinks import ScriptedApprovalSink
+from skills.sinks import RaisingApprovalSink, ScriptedApprovalSink
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking" / "skills"
 
@@ -600,6 +603,89 @@ class TestGovernanceSeams:
         }
         world.ledger.revoke(content_hash(first), actor=world.actor)
         assert set(view) == {second.skill_name}
+
+
+# --- WR-01: no path leaves a grant wedged -------------------------------------
+
+
+class TestNoWedgedStates:
+    """Every post-mutation failure path settles the grant in a terminal state.
+
+    `requested` and `pending-approval` are transient by construction: the
+    machine defines no exit from either (revocation is defined from
+    `effective` only), so a grant stranded in one of them is unrecoverable
+    governance state. The guard in ``GrantLedger.request`` must therefore
+    hold for exceptions raised *after* the first state mutation, not only for
+    the catalog-resolution failure the earlier fix covered.
+    """
+
+    def test_a_raising_approval_sink_refuses_rather_than_wedging(
+        self, fixture: dict[str, Any], instant: datetime
+    ) -> None:
+        """The sink is arbitrary Protocol code and may raise; the ledger must
+        not be left holding a `pending-approval` grant it can never settle."""
+        world = _World(fixture, instant)
+        error = RuntimeError("the approval queue is unreachable")
+        # A ledger over the same registry, catalog, and audit log, decided by
+        # a sink that raises — everything injected, nothing patched.
+        world.ledger = GrantLedger(
+            control_plane=world.registry,
+            catalog=world.catalog,
+            audit=world.audit,
+            sink=RaisingApprovalSink(error),
+            clock=lambda: instant,
+        )
+        definition = world.definition("gated")
+        grant = world.grant("metrics_tool", definition)
+
+        with pytest.raises(RuntimeError) as excinfo:
+            world.ledger.request(grant, definition=definition, actor=world.actor)
+        assert excinfo.value is error  # re-raised unchanged, never swallowed
+
+        assert world.ledger.state(content_hash(grant)) == "refused"
+        refused = world.audit.events()[-1]
+        assert refused.action == "grant_refused"
+        assert refused.resolved is False
+        assert refused.key == skill_grant_key(grant)
+        # The terminal state is real: the grant confers nothing and does not
+        # move this agent's D-07 set identity.
+        assert world.ledger.effective_hashes(content_hash(definition)) == frozenset()
+        assert world.ledger.grant_set_hash(content_hash(definition)) == (
+            NO_GRANTS_SET_HASH
+        )
+
+    def test_an_ambiguous_policy_regime_refuses_rather_than_wedging(
+        self, fixture: dict[str, Any], instant: datetime
+    ) -> None:
+        """`_resolve_policy_regime` raises AmbiguousPinnedVersionError from
+        inside tier 1 — after the `requested` mutation. The grant must end
+        `refused`, not stranded in `requested`."""
+        world = _World(fixture, instant)
+        regime = fixture["policy_regimes"]["auto"]
+        artifact_class = declared_artifact_class(regime["class_id"])
+        # A second content under the same key declaring the same semver: two
+        # candidate governance inputs for one pinned ref.
+        rival_declaration = dict(regime["declaration"])
+        rival_declaration["ccf_test_disambiguator"] = "rival"
+        rival = parse_artifact(
+            {
+                "class_id": regime["class_id"],
+                "semver": regime["semver"],
+                "declaration": rival_declaration,
+            },
+            artifact_class,
+        )
+        world.registry.register_typed(regime["key"], rival, artifact_class)
+
+        definition = world.definition("auto")
+        grant = world.grant("metrics_tool", definition)
+        with pytest.raises(AmbiguousPinnedVersionError):
+            world.ledger.request(grant, definition=definition, actor=world.actor)
+
+        assert world.ledger.state(content_hash(grant)) == "refused"
+        refused = world.audit.events()[-1]
+        assert refused.action == "grant_refused"
+        assert refused.resolved is False
 
 
 # --- the Protocol is runtime-checkable ----------------------------------------

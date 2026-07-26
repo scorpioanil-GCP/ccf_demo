@@ -35,3 +35,24 @@ class ScriptedApprovalSink:
         """Record ``grant`` and return the scripted outcome."""
         self.decided.append(grant)
         return ApprovalOutcome(approved=self._approve, approver_id=self._approver_id)
+
+
+class RaisingApprovalSink:
+    """A conforming sink that raises instead of returning a verdict (WR-01).
+
+    Nothing in the :class:`~ccf.skills.grants.ApprovalSink` Protocol forbids
+    raising, and a real sink reaching a queue, a webhook, or a human task
+    system will eventually fail that way. This double exists to hold the
+    ledger to its no-wedged-states guarantee: a raising sink must leave the
+    grant in a terminal state with the refusal audited, not stranded in
+    ``pending-approval``.
+    """
+
+    def __init__(self, error: Exception) -> None:
+        self._error = error
+        self.decided: list[SkillGrant] = []
+
+    def decide(self, grant: SkillGrant) -> ApprovalOutcome:
+        """Record ``grant``, then raise the configured error."""
+        self.decided.append(grant)
+        raise self._error
