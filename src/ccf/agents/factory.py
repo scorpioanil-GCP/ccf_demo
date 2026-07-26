@@ -23,9 +23,12 @@ Construction is deterministic: identical definition version plus identical
 referenced-artifact versions produce an identical ``Agent`` configuration,
 which is what makes agent identity replayable (DESIGN.md §3.5; D-06).
 
-The composition step is deliberately a single seam (:func:`_compose`): the
-full D-IMPL-19 conflict rules land in the widening wave's ``composition.py``
-and swap in behind the same call without changing ``construct``'s signature.
+The composition step is a single seam (:func:`_compose`): bundle lookup
+happens here, the D-IMPL-19 rules themselves are the pure functions of
+:mod:`ccf.agents.composition`, and each order-resolved default conflict the
+composition reports becomes a ``warnings.warn`` here — the factory is where
+side effects live; composition stays pure. A hard contradiction propagates
+as a construction failure (D-IMPL-19 rule 3).
 
 Algorithmic module (CINV-03).
 """
@@ -37,6 +40,7 @@ from typing import Protocol, runtime_checkable
 
 from ccf.agents.agent import Agent, AgentIdentity
 from ccf.agents.archetypes import ARCHETYPES, ArchetypeComponent
+from ccf.agents.composition import compose
 from ccf.agents.definitions import (
     AGENT_DEFINITION,
     PROMPT_ARTIFACT,
@@ -77,14 +81,18 @@ class ControlPlaneResolution(Protocol):
 def _compose(archetypes: tuple[str, ...]) -> tuple[ArchetypeComponent, ...]:
     """Attach the declared bundles in declaration order (D-IMPL-19).
 
-    The slice composes a single archetype trivially; the full conflict rules
-    (dedupe identical obligations, declaration-order defaults with a factory
-    warning, error on hard contradiction) swap in behind this seam in the
-    widening wave without changing :meth:`AgentFactory.construct`.
+    Lookup here, rules in :func:`ccf.agents.composition.compose` (pure —
+    dedupe identical obligations, declaration-order defaults, typed conflict
+    facts, contradiction error), warnings here: each order-resolved default
+    conflict the composition reports becomes one ``warnings.warn`` naming
+    the key and both archetypes.
 
     Raises:
         AgentDefinitionError: a declared archetype identifier is known to the
             schema but realized by no shipped bundle.
+        ccf.agents.composition.CompositionContradiction: two declared
+            archetypes contribute mutually exclusive obligations (rule 3);
+            propagates as a construction failure.
     """
     components: list[ArchetypeComponent] = []
     for identifier in archetypes:
@@ -96,17 +104,16 @@ def _compose(archetypes: tuple[str, ...]) -> tuple[ArchetypeComponent, ...]:
                 " cannot be constructed (CLAUDE.md §6.3)"
             )
         components.append(bundle)
-    seen: dict[str, str] = {}
-    for component in components:
-        for default in component.configuration_defaults():
-            if default.name in seen and seen[default.name] != default.value:
-                warnings.warn(
-                    f"configuration default {default.name!r} contributed twice"
-                    " with different values; declaration order wins"
-                    " (D-IMPL-19)",
-                    stacklevel=3,
-                )
-            seen.setdefault(default.name, default.value)
+    composed = compose(components)
+    for conflict in composed.conflicts:
+        warnings.warn(
+            f"configuration default {conflict.key!r} contributed by both"
+            f" {conflict.winning_archetype!r} ({conflict.winning_value!r},"
+            f" declared first — wins) and {conflict.losing_archetype!r}"
+            f" ({conflict.losing_value!r}); declaration order wins"
+            " (D-IMPL-19)",
+            stacklevel=3,
+        )
     return tuple(components)
 
 

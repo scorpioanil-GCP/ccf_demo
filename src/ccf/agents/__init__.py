@@ -29,6 +29,12 @@ from ccf.agents.archetypes import (
     monitoring_surveillance,
     workflow_task,
 )
+from ccf.agents.composition import (
+    ComposedArchetype,
+    CompositionContradiction,
+    DefaultConflict,
+    compose,
+)
 from ccf.agents.factory import AgentFactory, ControlPlaneResolution
 
 __ccf_mode__ = "algorithmic"
@@ -39,11 +45,15 @@ __all__ = [
     "AgentFactory",
     "AgentIdentity",
     "ArchetypeComponent",
+    "ComposedArchetype",
+    "CompositionContradiction",
     "ConfigurationDefault",
     "ControlPlaneResolution",
+    "DefaultConflict",
     "EmittedEffect",
     "ReplayObligation",
     "analytics_insights",
+    "compose",
     "content_generation",
     "context_assembly",
     "document_intelligence",
