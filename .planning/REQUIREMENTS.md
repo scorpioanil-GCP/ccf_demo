@@ -69,7 +69,7 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
 - [ ] **AGNT-01**: Unified Agent base + six archetypes (Workflow/Task,
       DocumentIntelligence, AnalyticsInsights, MonitoringSurveillance,
       ContentGeneration, ContextAssembly) as SDK mechanism (§6.1, §6.3)
-- [ ] **AGNT-02**: Agent & Task Factory + declarative definition-artifact
+- [x] **AGNT-02**: Agent & Task Factory + declarative definition-artifact
       schema (per D-IMPL-28); no path to an agent bypassing the factory (§6.4)
 - [ ] **AGNT-03**: Skill catalog primitives — registration, discovery,
       governance, runtime grant/revoke with policy-compatibility check and
@@ -182,7 +182,7 @@ All 46 v1 requirements mapped (46/46).
 | CINV-03 | Phase 4 | Pending |
 | CINV-04 | Phase 4 | Pending |
 | AGNT-01 | Phase 5 | Pending |
-| AGNT-02 | Phase 5 | Pending |
+| AGNT-02 | Phase 5 | Complete |
 | AGNT-03 | Phase 5 | Pending |
 | XPRC-01 | Phase 6 | Pending |
 | XPRC-02 | Phase 6 | Pending |

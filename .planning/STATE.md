@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-26T07:33:47.219Z"
+last_updated: "2026-07-26T07:53:26.705Z"
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 46
-  completed_plans: 39
+  completed_plans: 40
   percent: 50
 ---
 
@@ -22,17 +22,17 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 4 — phase i.1 — fabric core
+**Current focus:** Phase 05 — phase-i-2-agent-specialization-framework
 
 ## Current Position
 
-Phase: 04 (phase-i-1-fabric-core) — COMPLETE (D-GATE-I.1, 2026-07-25)
-Plan: 12 of 12
+Phase: 05 (phase-i-2-agent-specialization-framework) — EXECUTING
+Plan: 2 of 7 (05-01 complete)
 
 - **Phase:** 4 of 8 complete; next is Phase 5 (Phase I.2)
 - **Plan:** all 12 complete
-- **Status:** Ready to execute
-- **Progress:** [██████████] 100%
+- **Status:** Executing Phase 05
+- **Progress:** [█████████░] 87%
 
 ## Performance Metrics
 
@@ -47,6 +47,7 @@ Plan: 12 of 12
 | 04-03      | ~25 min  | 3     | 13    |
 | 04-04      | ~35 min  | 3     | 16    |
 | 04-05      | ~50 min  | 3     | 24    |
+| 05-01      | ~35 min  | 3     | 16    |
 
 ## Accumulated Context
 
@@ -79,6 +80,8 @@ Plan: 12 of 12
 - [Phase 04]: canonical.py normalizes models field-by-field rather than via model_dump() — dumping rebuilds set-valued fields as sets of dicts, making every claim in the fabric unhashable
 - [Phase 04]: Every backend's GraphWriter class lives in ccf.graph._writer, never beside its reader — otherwise the CINV-02 lint guards a module while the real write path lives unguarded
 - [Phase 04]: claim_id excludes lineage and observed_at — corroboration accumulates instead of manufacturing supersessions, and a claim stays addressable while its evidence grows
+- [Phase 05]: D-05 content comparison uses version-normalized fingerprint (artifact_version blanked) so a bump alone never reads as a content change
+- [Phase 05]: delegation_chain defaults to single-element NO_AGENT_DEFINITION chain; build_replay_record passes single-element originating-principal chain (I.2)
 
 ### Todos
 
@@ -92,5 +95,5 @@ Plan: 12 of 12
 
 ## Session Continuity
 
-Last action: Phase I.1 gate closed (2026-07-25) — Dave approved docs/PHASE_I1_GATE.md; D-GATE-I.1 logged in docs/DECISIONS.md; phase-i1 merged to main --no-ff; ROADMAP Phase 4 marked 12/12 complete; verification re-run green (383 passed / 3 deferral skips, lints exit 0).
-Next action: Plan Phase 5 (Phase I.2 — Agent Specialization Framework: factory, archetypes, skilling) via /gsd-plan-phase 5.
+Last action: Completed 05-01-PLAN.md (2026-07-26) on branch phase-i2 — six-axis D-IMPL-28 schemas, D-13 parse-only prompt validation, D-05 hash-verified bump, D-06 dimension-4 replay extension; suite 411 passed / 3 skipped, mypy strict clean, lints exit 0.
+Next action: Execute 05-02-PLAN.md (wave 2 — vertical slice: Agent + factory against these contracts).
