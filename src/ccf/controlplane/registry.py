@@ -335,6 +335,7 @@ class ControlPlaneRegistry:
         artifact_class: ArtifactClass,
         *,
         actor: str | None = None,
+        reissuable: bool = False,
     ) -> str | RegistrationRefusal:
         """Register an author-versioned artifact under the D-05 bump check.
 
@@ -356,6 +357,26 @@ class ControlPlaneRegistry:
         refusals included — is audited (``resolved=False`` on refusal).
         :meth:`register_typed` itself is untouched: artifact classes without
         author versioning keep their existing behavior byte for byte.
+
+        The empty-bump outcome reads a re-registration as a *revision* of an
+        evolving document, which is the wrong reading for a single-use
+        *request* artifact — one whose whole purpose is to be submitted,
+        decided, and (if declined) submitted again unchanged. ``reissuable``
+        is how a caller declares that reading at the call site: with it set,
+        a version bump over byte-identical content is admitted as a new
+        request rather than refused. The unbumped-change refusal is
+        unaffected either way — content still never changes under a version
+        already claimed. The flag is a call-site statement, deliberately, so
+        the registry holds no list of which artifact classes behave which
+        way (CLAUDE.md §11: mechanism, not values).
+
+        Args:
+            key: The Control Plane key to append under.
+            artifact: The artifact to validate and register.
+            artifact_class: The class the artifact must satisfy.
+            actor: Who is registering, for the audit record.
+            reissuable: Admit a bump over byte-identical content as a new
+                request instead of refusing it as an empty bump.
 
         Raises:
             TypeError: the artifact fails the class contract, the key is bound
@@ -415,7 +436,7 @@ class ControlPlaneRegistry:
                     ),
                 )
             )
-        if existing is None:
+        if existing is None and not reissuable:
             for prior_version, (_prior_hash, prior_print) in bumps.items():
                 if prior_print == fingerprint:
                     return _refused(

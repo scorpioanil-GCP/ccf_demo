@@ -558,6 +558,16 @@ class GrantLedger:
         on the sink. Tier 1 always runs before tier 2; a sink never sees a
         grant tier 1 refused.
 
+        **Retry after a refusal is a re-issued grant (WR-02).** A grant is
+        single-use: once decided it is never re-requested. The supported
+        retry — after a tier-2 rejection, or after a tier-1 refusal the
+        deployment has since remedied by widening the regime — is a new grant
+        artifact with a bumped ``artifact_version``, registered under the
+        same key. Its content hash differs, so the state machine sees a fresh
+        request, and the registration is admitted as a re-issue rather than
+        refused as an empty bump. Renaming the grant is *not* required and is
+        the wrong move: it mints a second Control Plane key for one request.
+
         **No path leaves a grant wedged (WR-01).** Once the first state
         mutation happens, every remaining step runs under an exception guard:
         any exception — including one raised by the injected
@@ -588,7 +598,8 @@ class GrantLedger:
                 f"grant {grant.name!r} ({grant_hash!r}) was already"
                 f" {'decided' if decided else 'seen'} (state {state!r}); a"
                 " grant artifact is single-use — issue a new grant artifact"
-                " (D-09)"
+                " with a bumped artifact_version, which registers as a new"
+                " request rather than an empty bump (D-09; WR-02)"
             )
         if grant.agent_definition_hash != content_hash(definition):
             raise GrantTransitionError(
@@ -604,8 +615,15 @@ class GrantLedger:
         except LookupError:
             self._record(grant, "grant_refused", resolved=False, actor=actor)
             raise
+        # `reissuable` because a grant is a single-use *request*, not an
+        # evolving document (WR-02). The documented remediation after a
+        # tier-2 rejection is to issue a new grant artifact; that re-issue
+        # legitimately differs from the declined one in `artifact_version`
+        # alone, which the D-05 empty-bump refusal would otherwise reject —
+        # leaving the retry path reachable only by renaming the grant, i.e.
+        # by minting a second Control Plane key for the same request.
         registered = self._control_plane.register_versioned(
-            skill_grant_key(grant), grant, SKILL_GRANT, actor=actor
+            skill_grant_key(grant), grant, SKILL_GRANT, actor=actor, reissuable=True
         )
         if isinstance(registered, RegistrationRefusal):
             return registered

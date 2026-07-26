@@ -39,6 +39,7 @@ from ccf.controlplane.audit import AuditLog
 from ccf.controlplane.registry import (
     AmbiguousPinnedVersionError,
     ControlPlaneRegistry,
+    RefuseUnbumpedChange,
 )
 from ccf.replay.record import NO_GRANTS_SET_HASH
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog, SkillCatalogEntry
@@ -603,6 +604,78 @@ class TestGovernanceSeams:
         }
         world.ledger.revoke(content_hash(first), actor=world.actor)
         assert set(view) == {second.skill_name}
+
+
+    def test_a_rejected_grant_can_be_re_issued_with_a_bumped_version(
+        self, fixture: dict[str, Any], instant: datetime
+    ) -> None:
+        """WR-02: the documented remediation actually works.
+
+        `GrantTransitionError` sends the caller to a new grant artifact, and
+        a re-issued grant legitimately differs from the declined one in
+        `artifact_version` alone. The D-05 empty-bump refusal must not close
+        that path — otherwise the only retry is renaming the grant, minting a
+        second Control Plane key for one request.
+        """
+        world = _World(fixture, instant, approve=False)
+        definition = world.definition("gated")
+        grant = world.grant("metrics_tool", definition)
+        rejected = world.ledger.request(
+            grant, definition=definition, actor=world.actor
+        )
+        assert isinstance(rejected, ApprovalRejected)
+        assert world.ledger.state(content_hash(grant)) == "refused"
+
+        major, minor, patch = (int(part) for part in grant.artifact_version.split("."))
+        reissued = grant.model_copy(
+            update={"artifact_version": f"{major}.{minor}.{patch + 1}"}
+        )
+        assert content_hash(reissued) != content_hash(grant)
+
+        # The approver relents; the same request is submitted again.
+        world.ledger = GrantLedger(
+            control_plane=world.registry,
+            catalog=world.catalog,
+            audit=world.audit,
+            sink=ScriptedApprovalSink(
+                approve=True, approver_id=fixture["approval"]["approver_id"]
+            ),
+            clock=lambda: instant,
+        )
+        outcome = world.ledger.request(
+            reissued, definition=definition, actor=world.actor
+        )
+        assert outcome == content_hash(reissued)
+        assert world.ledger.state(content_hash(reissued)) == "effective"
+        # One key, two registered versions — not a second key for one request.
+        key = skill_grant_key(grant)
+        assert skill_grant_key(reissued) == key
+        assert set(world.registry.versions(key)) == {
+            content_hash(grant),
+            content_hash(reissued),
+        }
+
+    def test_an_unbumped_content_change_is_still_refused(
+        self, world: _World
+    ) -> None:
+        """The re-issue allowance is not a licence to mutate content under a
+        version already claimed: D-05's unbumped-change refusal still fires."""
+        definition = world.definition("auto")
+        grant = world.grant("metrics_tool", definition)
+        assert isinstance(
+            world.ledger.request(grant, definition=definition, actor=world.actor),
+            str,
+        )
+        # Same artifact_version, different content, same key.
+        divergent = grant.model_copy(update={"agent_definition_hash": "0" * 64})
+        refusal = world.registry.register_versioned(
+            skill_grant_key(divergent),
+            divergent,
+            SKILL_GRANT,
+            actor=world.actor,
+            reissuable=True,
+        )
+        assert isinstance(refusal, RefuseUnbumpedChange)
 
 
 # --- WR-01: no path leaves a grant wedged -------------------------------------
