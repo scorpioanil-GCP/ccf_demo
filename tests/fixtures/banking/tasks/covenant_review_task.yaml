@@ -1,0 +1,50 @@
+# Banking fixture task definition — the D-11 covenant-review task
+# (CLAUDE.md §6.4/§8.1; D-IMPL-28; SDK-defined).
+#
+# Schema + construction/validation only: nothing in this artifact executes in
+# I.2 (D-11 — the Workflow primitive that will interpret it is I.4 scope).
+# Every step value lives here, never in code (No-Hardcoding Rule §6.4). Steps
+# reference agents and skills by pinned versioned URI (D-IMPL-26); the
+# hitl-gate step validates structurally and carries no behavior in I.2.
+
+keys:
+  task_definition: acme-bank/tasks/covenant-review
+  # The agent step's reference resolves through Control Plane resolution at
+  # the URI-derived key {tenant}/{artifact_class}/{name} (DESIGN.md §3.5);
+  # the suite registers the covenant_analytics fixture definition there.
+  referenced_agent_definition: acme-bank/ccf.agent-definition/covenant-analytics
+
+# The skill the first step references, registered as a deployment-declared
+# artifact so the factory can resolve the pinned ref. Skill *catalog*
+# mechanism is the skilling wave's scope; this is only a resolvable target.
+referenced_artifacts:
+  fetch_certificates_skill:
+    key: acme-bank/skill/fetch-covenant-certificates
+    class_id: skill
+    semver: "1.0.0"
+    declaration:
+      capability: fetch-covenant-certificates
+      source: document-repository
+
+task_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: covenant-review
+  tenant: acme-bank
+
+  # Ordered step declarations (CLAUDE.md §8.1: each step is a skill
+  # invocation, an agent invocation, or a HITL gate).
+  steps:
+    - kind: skill
+      name: fetch-certificates
+      ref: "ccf-artifact://acme-bank/skill/fetch-covenant-certificates@1.0.0"
+    - kind: agent
+      name: analyze-covenants
+      ref: "ccf-artifact://acme-bank/ccf.agent-definition/covenant-analytics@1.2.0"
+    - kind: hitl-gate
+      name: credit-officer-approval
+
+  # Instruction bindings by versioned ref only (axis-6 discipline; D-13).
+  instruction_bindings:
+    - prompt: "ccf-artifact://acme-bank/prompt/covenant-summary@1.0.0"
+      parameters: [entity_name, as_of]

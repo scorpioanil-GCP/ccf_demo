@@ -33,12 +33,14 @@ from ccf.agents.archetypes import analytics_insights
 from ccf.agents.definitions import (
     AGENT_DEFINITION,
     PROMPT_ARTIFACT,
+    TASK_DEFINITION,
     AgentDefinition,
     InstructionBinding,
     PromptArtifact,
+    TaskDefinition,
 )
 from ccf.agents.errors import AgentDefinitionError, PromptValidationError
-from ccf.agents.factory import AgentFactory, ControlPlaneResolution
+from ccf.agents.factory import AgentFactory, ControlPlaneResolution, Task, TaskFactory
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import (
     ArtifactLoadError,
@@ -213,6 +215,168 @@ def test_the_resolved_prompt_artifacts_travel_with_the_agent(
     resolved = agent.instruction_artifact(binding.prompt)
     assert isinstance(resolved, PromptArtifact)
     assert frozenset(resolved.declared_parameters) == frozenset(binding.parameters)
+
+
+# --- the Task Factory: schema + construction only (D-11; CLAUDE.md §6.4/§8.1) ---
+
+
+def _task_fixture() -> dict[str, Any]:
+    loaded: dict[str, Any] = yaml.safe_load(
+        (FIXTURES / "tasks" / "covenant_review_task.yaml").read_text()
+    )
+    return loaded
+
+
+def _task_definition() -> TaskDefinition:
+    definition = parse_artifact(
+        _task_fixture()["task_definition"], TASK_DEFINITION
+    )
+    assert isinstance(definition, TaskDefinition)
+    return definition
+
+
+@pytest.fixture
+def task_registry(registry: ControlPlaneRegistry) -> ControlPlaneRegistry:
+    """The agent registry plus everything the task fixture's steps reference."""
+    fixture = _task_fixture()
+    for reference in fixture["referenced_artifacts"].values():
+        artifact_class = declared_artifact_class(reference["class_id"])
+        declared = parse_artifact(
+            {
+                "class_id": reference["class_id"],
+                "semver": reference["semver"],
+                "declaration": reference["declaration"],
+            },
+            artifact_class,
+        )
+        registry.register_typed(reference["key"], declared, artifact_class)
+    # The agent step resolves the covenant_analytics definition through the
+    # URI-derived Control Plane key (DESIGN.md §3.5).
+    registry.register_versioned(
+        fixture["keys"]["referenced_agent_definition"],
+        _definition(),
+        AGENT_DEFINITION,
+    )
+    return registry
+
+
+def _construct_task(registry: ControlPlaneRegistry) -> Task:
+    fixture = _task_fixture()
+    definition = _task_definition()
+    key = fixture["keys"]["task_definition"]
+    version = registry.register_versioned(key, definition, TASK_DEFINITION)
+    assert isinstance(version, str)
+    return TaskFactory(control_plane=registry).construct(
+        definition_key=key, definition_version=version
+    )
+
+
+def test_the_task_fixture_loads_into_a_task_definition() -> None:
+    definition = _task_definition()
+    assert definition.name == "covenant-review"
+    assert tuple(step.kind for step in definition.steps) == (
+        "skill",
+        "agent",
+        "hitl-gate",
+    )
+
+
+def test_an_unknown_task_field_is_refused() -> None:
+    document = _task_fixture()["task_definition"]
+    document["execution_engine"] = "none"
+    with pytest.raises(ArtifactLoadError):
+        parse_artifact(document, TASK_DEFINITION)
+
+
+def test_a_task_missing_its_artifact_version_is_refused() -> None:
+    document = _task_fixture()["task_definition"]
+    del document["artifact_version"]
+    with pytest.raises(ArtifactLoadError):
+        parse_artifact(document, TASK_DEFINITION)
+
+
+def test_a_skill_or_agent_step_without_a_pinned_ref_is_refused() -> None:
+    document = _task_fixture()["task_definition"]
+    del document["steps"][0]["ref"]
+    with pytest.raises(ArtifactLoadError):
+        parse_artifact(document, TASK_DEFINITION)
+
+
+def test_a_hitl_gate_step_carrying_a_ref_is_refused() -> None:
+    """hitl-gate steps validate structurally and carry no behavior in I.2."""
+    document = _task_fixture()["task_definition"]
+    document["steps"][2]["ref"] = (
+        "ccf-artifact://acme-bank/hitl-policy/credit-approval@1.0.0"
+    )
+    with pytest.raises(ArtifactLoadError):
+        parse_artifact(document, TASK_DEFINITION)
+
+
+def test_the_task_factory_constructs_the_fixture_task(
+    task_registry: ControlPlaneRegistry,
+) -> None:
+    definition = _task_definition()
+    task = _construct_task(task_registry)
+    assert isinstance(task, Task)
+    assert task.definition == definition
+    assert task.identity.definition_hash == content_hash(definition)
+    assert task.identity.definition_uri == (
+        f"ccf-artifact://{definition.tenant}/{TASK_DEFINITION.class_id}/"
+        f"{definition.name}@{definition.artifact_version}"
+    )
+
+
+def test_the_constructed_task_has_no_execution_surface(
+    task_registry: ControlPlaneRegistry,
+) -> None:
+    """D-11: schema + construction/validation only — no execution engine."""
+    task = _construct_task(task_registry)
+    for name in ("execute", "run", "step", "loop", "plan"):
+        assert not hasattr(task, name)
+
+
+def test_no_replay_capture_is_invented_for_tasks(
+    task_registry: ControlPlaneRegistry,
+) -> None:
+    """RESEARCH Open Question 4: nothing executes, so nothing records."""
+    task = _construct_task(task_registry)
+    for name in ("perspective_conditioning", "replay_record", "emit_effect"):
+        assert not hasattr(task, name)
+
+
+def test_an_unresolvable_task_step_ref_fails_construction(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The agent registry alone lacks the skill and agent-step targets."""
+    definition = _task_definition()
+    key = _task_fixture()["keys"]["task_definition"]
+    version = registry.register_versioned(key, definition, TASK_DEFINITION)
+    assert isinstance(version, str)
+    with pytest.raises(AgentDefinitionError):
+        TaskFactory(control_plane=registry).construct(
+            definition_key=key, definition_version=version
+        )
+
+
+def test_a_task_prompt_parameter_mismatch_fails_construction(
+    task_registry: ControlPlaneRegistry,
+) -> None:
+    """D-13 holds for task instruction bindings exactly as for agents."""
+    original = _task_definition()
+    binding = original.instruction_bindings[0]
+    narrowed = InstructionBinding(
+        prompt=binding.prompt, parameters=binding.parameters[:1]
+    )
+    definition = original.model_copy(update={"instruction_bindings": (narrowed,)})
+    version = task_registry.register_versioned(
+        "acme-bank/tasks/mismatch-mutant", definition, TASK_DEFINITION
+    )
+    assert isinstance(version, str)
+    with pytest.raises(PromptValidationError):
+        TaskFactory(control_plane=task_registry).construct(
+            definition_key="acme-bank/tasks/mismatch-mutant",
+            definition_version=version,
+        )
 
 
 def test_construction_is_deterministic_for_the_same_pinned_versions(
