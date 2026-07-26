@@ -49,6 +49,8 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+__ccf_mode__ = "algorithmic"
+
 __all__ = ["ControlPlaneStateStore", "InMemoryStateStore"]
 
 
