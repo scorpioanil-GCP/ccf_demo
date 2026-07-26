@@ -173,6 +173,21 @@ choices are recorded here for the reviewer.
   user-controlled render context) — SSTI surface deferred to I.3; note this in the I.3
   handoff."* I.3 must treat render-context provenance and sandboxing as an explicit
   threat-model item before the first `render(...)` ships.
+- **`local_callable` dispatch is artifact-driven arbitrary code execution (IN-06 —
+  accepted risk, carried forward deliberately).** `src/ccf/skills/dispatch.py` resolves a
+  catalog entry's `callable_ref` with `importlib.import_module` + `getattr`, which
+  executes arbitrary module code at dispatch time. The T-05-18 trust posture that makes
+  this acceptable in I.2 is narrow and *stated as a precondition, not a property*:
+  `callable_ref`s arrive only from Control Plane artifacts registered inside the tenant
+  trust boundary, which in I.2 means in-repo fixtures. **I.3 invalidates the precondition
+  rather than inheriting it** — once artifacts can arrive via MCP artifact stores or A2A
+  federation (CLAUDE.md §7.2/§7.4), a `callable_ref` becomes remote-influenced input and
+  the posture no longer holds by construction. I.3 must therefore re-examine this as an
+  explicit threat-model item alongside the Jinja2 SSTI note above, and decide the control
+  before the first non-in-repo artifact source is admitted: an import allowlist, a
+  registered-callable indirection that removes free-form module paths, or a Control Plane
+  admission check on `callable_ref` provenance. **This is a deliberate deferral, not a
+  gap to be closed inside I.2** — no dispatch semantics were changed for it.
 - **MCP/A2A skill dispatch is `NotYetBound` by ruling (D-08).** `mcp` and `a2a` catalog
   entries validate, register, and grant today; only dispatch raises the typed exception
   naming the deferral. I.3 binds the transports; the dispatch seam in

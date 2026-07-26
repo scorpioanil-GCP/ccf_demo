@@ -80,6 +80,23 @@ def _invoke_local_callable(
     binding: LocalCallableBinding,
     arguments: Mapping[str, str],
 ) -> SkillInvocation:
+    """Import and call the entry's declared callable.
+
+    **Accepted risk, stated so it stays visible (IN-06; T-05-18.)** The
+    ``importlib.import_module`` + ``getattr`` below executes arbitrary module
+    code at dispatch time. What makes that acceptable is a *precondition* on
+    the input, not a property of this function: a ``callable_ref`` reaches
+    here only from a Control Plane artifact registered inside the tenant
+    trust boundary, which in I.2 means an in-repo fixture.
+
+    That precondition does not survive I.3. Once artifacts can arrive over
+    MCP artifact stores or A2A federation (CLAUDE.md §7.2/§7.4), a
+    ``callable_ref`` is remote-influenced input and this becomes a remote
+    code execution path. ``docs/PHASE_I2_GATE.md`` §5 carries it as an
+    explicit I.3 threat-model item, alongside the Jinja2 SSTI deferral; the
+    control must be decided there before the first non-in-repo artifact
+    source is admitted.
+    """
     module_name, _, attribute = binding.callable_ref.rpartition(".")
     if not module_name:
         raise TypeError(
