@@ -1,0 +1,59 @@
+# Banking fixture skill catalog entry — tool type (CLAUDE.md §6.2 channel 2;
+# D-IMPL-12; AGNT-03).
+#
+# Every requirement identifier, binding value, and name the skills suite
+# exercises is here. `/src` holds none of them: the SDK ships the four-type
+# entry schema and the registration/discovery mechanism, never a specific
+# skill or a requirement vocabulary (No-Hardcoding Rule §6.4; 05-RESEARCH.md
+# Pitfall 4 — requirement identifiers are opaque values compared structurally,
+# so what "portfolio-read" means is this deployment's business, not the SDK's).
+#
+# Two-field versioning per D-IMPL-28: `schema_version` is the artifact class's
+# lane; `artifact_version` is the author's bump, hash-verified at registration
+# (D-05).
+
+entry:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: covenant-metrics
+  tenant: acme-bank
+  skill_type: tool
+  binding:
+    command: covenant-metrics-cli
+  requirements:
+    required_scopes: [portfolio-read]
+    required_context_products: [acme-bank.credit-exposure-summary]
+
+# The same capability offered through the other two binding types the suite
+# must prove admissible (D-08: the schema covers all four types from day one;
+# dispatch lands in 05-06). Values live here, never in test code (§6.4) —
+# these are entries in their own right, not templates the tests fill in.
+variants:
+  local_callable:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: covenant-metrics-local
+    tenant: acme-bank
+    skill_type: local_callable
+    binding:
+      callable_ref: acme_bank.skills.covenant_metrics
+    requirements:
+      required_scopes: [portfolio-read]
+      required_context_products: [acme-bank.credit-exposure-summary]
+  a2a:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: covenant-metrics-remote
+    tenant: acme-bank
+    skill_type: a2a
+    binding:
+      endpoint: https://skills.acme-bank.example/covenant-metrics
+    requirements:
+      required_scopes: [portfolio-read]
+      required_context_products: [acme-bank.credit-exposure-summary]
+
+# Structural mutation material for the D-05 unbumped-change refusal test: an
+# additional requirement identifier the mutant grafts onto the entry above
+# without bumping artifact_version. A fixture value, never a test literal.
+mutation:
+  extra_scope: covenant-write

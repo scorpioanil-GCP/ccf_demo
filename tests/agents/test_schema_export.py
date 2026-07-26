@@ -24,6 +24,7 @@ import pytest
 
 from ccf.agents.definitions import AgentDefinition, PromptArtifact, TaskDefinition
 from ccf.contracts.base import CCFContract
+from ccf.skills.catalog import SkillCatalogEntry
 
 PINNED_PYDANTIC = "2.13.4"
 
@@ -42,6 +43,7 @@ ARTIFACT_CONTRACTS: tuple[type[CCFContract], ...] = (
     AgentDefinition,
     TaskDefinition,
     PromptArtifact,
+    SkillCatalogEntry,
 )
 
 #: The six specialization axes (CLAUDE.md §6.2 channel 1), as they appear on
