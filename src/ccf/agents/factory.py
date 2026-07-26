@@ -57,6 +57,7 @@ from ccf.artifacts.protocol import artifact_uri, parse_artifact_uri
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneMissing
+from ccf.skills.grants import BoundSkillView
 
 __ccf_mode__ = "algorithmic"
 
@@ -214,17 +215,20 @@ class AgentFactory:
         *,
         definition_key: str,
         definition_version: str,
-        bound_skills: Mapping[str, object] | None = None,
+        bound_skills: BoundSkillView | None = None,
     ) -> Agent:
         """Resolve, validate, compose, and instantiate one agent.
 
-        ``bound_skills`` is the channel-2 seam (CLAUDE.md §6.2): pass the
-        grant ledger's live view
+        ``bound_skills`` is the channel-2 seam (CLAUDE.md §6.2), typed so its
+        only producer is the grant ledger (WR-03): pass the ledger's live
+        :class:`~ccf.skills.grants.BoundSkillView`
         (:meth:`ccf.skills.grants.GrantLedger.bound_view`) and the agent
         resolves its currently-bound skill-set from ledger state at invoke
         time — grants and revocations never re-construct the agent or touch
-        its identity (D-07). ``None`` binds the empty mapping: an agent
-        granted nothing has no skills, positively.
+        its identity (D-07). An arbitrary mapping is refused at construction:
+        capabilities reach an agent through governed grants exclusively.
+        ``None`` binds nothing: an agent granted nothing has no skills,
+        positively.
 
         The four steps in order: (1) resolve the definition and every
         referenced artifact at pinned versions; (2) hold the resolved
@@ -276,7 +280,7 @@ class AgentFactory:
             identity=identity,
             components=components,
             instruction_artifacts=instruction_artifacts,
-            bound_skills=bound_skills if bound_skills is not None else {},
+            bound_skills=bound_skills,
         )
 
 

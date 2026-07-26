@@ -17,6 +17,7 @@ __all__ = [
     "AgentConstructionError",
     "AgentDefinitionError",
     "ConsumptionRefused",
+    "FalseGrantClaimError",
     "NotYetBound",
     "PromptValidationError",
     "SkillNotBound",
@@ -77,6 +78,19 @@ class NotYetBound(RuntimeError):
     *build* ships no MCP/A2A dispatch transport (D-08; I.3 binds them).
     A missing transport is a deployment-shape fact, like a missing Control
     Plane key, not an expected governance outcome a caller inspects.
+    """
+
+
+class FalseGrantClaimError(ValueError):
+    """A dimension-4 serialization would record a false zero-grants claim.
+
+    Raised — never repaired — when a caller passes the positive
+    ``NO_GRANTS_SET_HASH`` claim to
+    :meth:`~ccf.agents.agent.Agent.perspective_conditioning` while the
+    agent's bound skill-set is non-empty: the agent itself knows zero grants
+    cannot be true, so recording the claim would corrupt replay dimension 4
+    at write time (WR-01; CLAUDE.md §6.2 — the skill-set in force at decision
+    time lands in replay *by construction*, not by caller discipline).
     """
 
 

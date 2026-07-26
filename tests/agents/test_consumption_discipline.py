@@ -63,6 +63,11 @@ ALLOWED_CCF_PREFIXES = (
     # Agent to L1–L5 (CLAUDE.md §6.2; D-08).
     "ccf.skills.catalog",
     "ccf.skills.dispatch",
+    # WR-03 (05-09): the typed bound_skills seam — BoundSkillView, whose only
+    # producer is GrantLedger.bound_view. Grants are Control Plane skilling
+    # mechanism above L6, same class as catalog/dispatch; binding it opens no
+    # path from Agent to L1–L5.
+    "ccf.skills.grants",
 )
 
 #: I.1 write-surface / fabric-internal type names that must be unreachable

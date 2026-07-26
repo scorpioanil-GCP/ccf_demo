@@ -7,9 +7,10 @@ that drives the concrete ``Agent``'s three fabric seams exactly once each,
 in a fixed order, and returns what came back:
 
 1. consume one prepared Context Product,
-2. attempt one bound-skill invocation by name (in the slice the bound set is
-   empty, so the typed ``SkillNotBound`` is the *expected* outcome and is
-   captured, never retried),
+2. attempt one bound-skill invocation by name (for an ungranted name the
+   typed ``SkillNotBound`` is the *expected* outcome and is captured, never
+   retried; for a name a governed grant bound — grants landed in 05-06 —
+   the invocation succeeds and ``None`` is returned in its place),
 3. emit one effect as a returned typed value.
 
 No loop over agent turns, no retries, no branching on outputs, no model, no
@@ -39,9 +40,9 @@ def drive_slice(
 ) -> tuple[ContextProductContract, SkillNotBound | None, EmittedEffect]:
     """Drive the three seams once each, sequentially and deterministically.
 
-    Returns the consumed product, the typed unbound-skill error the slice
-    expects (``None`` only if a grant bound the skill — not the case before
-    the skilling wave), and the emitted effect value.
+    Returns the consumed product, the typed unbound-skill error (``None``
+    when a governed grant bound ``skill_name`` — the live channel-2 path
+    since 05-06), and the emitted effect value.
     """
     consumed = agent.consume(product, now=now)
     unbound: SkillNotBound | None
@@ -49,7 +50,7 @@ def drive_slice(
         agent.invoke_skill(skill_name)
     except SkillNotBound as error:
         unbound = error
-    else:  # pragma: no cover - unreachable until grants land (05-05)
+    else:
         unbound = None
     effect = agent.emit_effect(effect_payload)
     return consumed, unbound, effect

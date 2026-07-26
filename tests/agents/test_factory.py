@@ -43,7 +43,11 @@ from ccf.agents.definitions import (
     TaskDefinition,
     VersionedRef,
 )
-from ccf.agents.errors import AgentDefinitionError, PromptValidationError
+from ccf.agents.errors import (
+    AgentConstructionError,
+    AgentDefinitionError,
+    PromptValidationError,
+)
 from ccf.agents.factory import AgentFactory, ControlPlaneResolution, Task, TaskFactory
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import (
@@ -53,6 +57,7 @@ from ccf.controlplane.artifacts import (
     parse_artifact,
 )
 from ccf.controlplane.registry import ControlPlaneRegistry, RefuseUnbumpedChange
+from ccf.replay.record import NO_GRANTS_SET_HASH
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
 
@@ -513,7 +518,26 @@ def test_a_bumped_axis_change_lands_in_dimension_four(
     agent = AgentFactory(control_plane=registry).construct(
         definition_key=key, definition_version=bumped_version
     )
-    conditioning = agent.perspective_conditioning(principal_id="analyst-1")
+    conditioning = agent.perspective_conditioning(
+        principal_id="analyst-1", grant_set_hash=NO_GRANTS_SET_HASH
+    )
     assert conditioning.agent_definition_hash == content_hash(mutant)
     assert conditioning.agent_definition_hash != content_hash(original)
     assert conditioning.agent_definition_uri.endswith("@1.4.0")
+
+
+def test_a_raw_mapping_is_refused_at_the_factory_bound_skills_seam(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """WR-03: the supported construction path admits only the grant ledger's
+    BoundSkillView — a raw dict is refused at construction, not silently
+    bound as an ungoverned capability source."""
+    original = _definition()
+    key = _agent_fixture()["keys"]["agent_definition"]
+    version = _registered_definition(registry, original, key)
+    with pytest.raises(AgentConstructionError):
+        AgentFactory(control_plane=registry).construct(
+            definition_key=key,
+            definition_version=version,
+            bound_skills={"summarize-covenants": object()},  # type: ignore[dict-item, arg-type]
+        )
