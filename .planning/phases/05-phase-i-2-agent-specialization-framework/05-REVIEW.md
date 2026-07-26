@@ -2,7 +2,7 @@
 phase: 05-phase-i-2-agent-specialization-framework
 reviewed: 2026-07-26T00:00:00Z
 depth: standard
-files_reviewed: 48
+files_reviewed: 50
 files_reviewed_list:
   - docs/PHASE_I2_GATE.md
   - src/ccf/agents/agent.py
@@ -32,6 +32,7 @@ files_reviewed_list:
   - tests/agents/test_schema_export.py
   - tests/conformance/test_approval_sink.py
   - tests/controlplane/test_hash_verified_bump.py
+  - tests/controlplane/test_registry.py
   - tests/fixtures/banking/agents/covenant_analytics.yaml
   - tests/fixtures/banking/agents/deal_monitor_assembler.yaml
   - tests/fixtures/banking/prompts/covenant_summary.yaml
@@ -53,264 +54,228 @@ files_reviewed_list:
   - tests/skills/test_grants.py
   - tools/lints/no_hardcoding.py
 findings:
-  critical: 1
-  warning: 8
-  info: 8
-  total: 17
+  critical: 0
+  warning: 5
+  info: 6
+  total: 11
 status: issues_found
 ---
 
-# Phase 5 (I.2 — Agent Specialization Framework): Code Review Report
+# Phase 5 (I.2): Code Review Report — Re-Review After Gap Closure
 
 **Reviewed:** 2026-07-26
 **Depth:** standard
-**Files Reviewed:** 48
+**Files Reviewed:** 50
 **Status:** issues_found
 
 ## Summary
 
-The I.2 slice is well-disciplined overall: the No-Hardcoding boundary genuinely holds (all
-domain values in `tests/fixtures/banking/`), archetype/agent separation is real, the D-05
-bump check and D-IMPL-19 composition rules match their rulings, and the test suite is
-substantive rather than decorative. However, the grant machinery — the audit-critical
-centerpiece of this phase — has a correctness defect in the D-07 grant-set identity
-(ledger-wide, not per-agent), several governance seams that the mechanism does not actually
-close (arbitrary `bound_skills` injection, cross-tenant grants, silent no-grants default in
-dimension 4), a state-machine dead end, and holes in the CINV-01c lint that is designated
-the "mechanism of record." None of these are caught by the current tests because every test
-world holds exactly one agent, one tenant, and well-behaved callers.
+Re-review after gap-closure plans 05-08/05-09/05-10. The prior review's findings are
+verified closed: the D-07 grant-set hash is per-agent (CR-01), `grant_set_hash` is a
+required argument with `FalseGrantClaimError` on false zero-grants claims (WR-01),
+`TenantMismatch` refuses cross-tenant grants (WR-02), `BoundSkillView` is the only
+admissible `bound_skills` type (WR-03), catalog resolution runs before ledger mutation
+for the missing-entry case (WR-04), `GrantCollisionError` fires on double-effective
+same-name grants (WR-05), the CINV-01c substring exemption is replaced by an exact-path
+allowlist with import-alias tracking (WR-06), a shared `AuditLog` can be injected into
+the registry (WR-07), `AmbiguousPinnedVersionError` + unaudited `peek` handle
+declared-version matching (WR-08), and IN-03/IN-08 are fixed as described. Regression
+tests exist for each and are well targeted.
 
-## Critical Issues
-
-### CR-01: `GrantLedger.grant_set_hash()` is ledger-wide, not per-agent — dimension 4 records the wrong in-force skill-set whenever more than one agent has grants
-
-**File:** `src/ccf/skills/grants.py:585-603` (`effective_hashes`, `grant_set_hash`)
-**Issue:** `effective_hashes()` collects **every** effective grant in the ledger regardless
-of `agent_definition_hash`, and `grant_set_hash()` hashes over that set. But the value is
-documented and consumed as *this agent's* in-force skill-set: `tests/integration/test_agent_slice.py:369`
-passes `ledger.grant_set_hash()` into `agent.perspective_conditioning(...)`, which lands it
-verbatim in replay dimension 4 as "the skill-set in force" for that agent (CLAUDE.md §6.2:
-"a decision replays against the skills the agent actually had"). Contrast
-`_effective_entries()` (line 605), which correctly filters by `agent_definition_hash` — the
-binding view is per-agent, the identity hash is not. The moment a deployment runs two agents
-against one ledger (the normal case — the ledger is the Control Plane grant machinery, not a
-per-agent object), every decision's dimension-4 `grant_set_hash` includes other agents'
-grants, and a grant to agent B changes the recorded skill-set identity of agent A's
-decisions. That is incorrect replay data written by construction. All I.2 tests use one
-agent per ledger, so the suite cannot see it.
-**Fix:**
-```python
-def effective_hashes(self, agent_definition_hash: str | None = None) -> frozenset[str]:
-    return frozenset(
-        h for h, state in self._states.items()
-        if state == "effective"
-        and (agent_definition_hash is None
-             or self._grants[h].agent_definition_hash == agent_definition_hash)
-    )
-
-def grant_set_hash(self, agent_definition_hash: str) -> str:
-    active = self.effective_hashes(agent_definition_hash)
-    return NO_GRANTS_SET_HASH if not active else grant_set_hash(active)
-```
-and update the call site in the slice test to pass `content_hash(definition)`. Add a
-two-agent test asserting agent A's hash is unaffected by a grant to agent B.
+However, the gap-closure changes themselves left new (or newly-visible) defects. The
+most significant: the WR-04 "no wedged states" fix covers only the catalog-resolution
+failure path — the grant state machine can still be permanently wedged in `requested`
+or `pending-approval` by exceptions raised *after* state mutation (new WR-01 below);
+and the state machine's own documented remediation ("issue a new grant artifact") is
+blocked by the D-05 empty-bump refusal for a version-bump-only re-issue (new WR-02
+below). No critical finding: none of these is a security vulnerability or data-loss
+path, but the warnings below should be fixed or explicitly triaged before the gate.
 
 ## Warnings
 
-### WR-01: `Agent.perspective_conditioning` defaults `grant_set_hash` to the positive "no-grants" claim — a skilled agent's caller who omits the argument records a *false* positive assertion
+### WR-01: Grant state machine can still wedge in `requested` / `pending-approval` — exception paths after state mutation
 
-**File:** `src/ccf/agents/agent.py:290-312`
-**Issue:** `grant_set_hash: str = NO_GRANTS_SET_HASH` means the API's path of least
-resistance for an agent that *does* hold effective grants is to silently record "this
-decision ran under zero grants" — a positive, wrong claim in the audit record, which is
-worse than an absent field (the entire rationale for the sentinel, per `record.py:66-70`,
-is that a positive claim is trustworthy). The gate package (docs/PHASE_I2_GATE.md row 6)
-calls skill-set capture "by construction"; it is actually by caller discipline. Nothing
-prevents `agent.perspective_conditioning(principal_id=p)` on a granted agent.
-**Fix:** Make `grant_set_hash` a required keyword argument (callers of ungranted agents
-pass `NO_GRANTS_SET_HASH` explicitly), or have the method refuse the default when
-`self._bound_skills` is non-empty — the agent already knows, without re-deriving hashes,
-that "no-grants" cannot be true.
+**File:** `src/ccf/skills/grants.py:603-663`
+**Issue:** The prior WR-04 fix moved *catalog* resolution before state mutation, but two
+other failure paths mutate state first and can then raise, leaving the grant permanently
+wedged with no defined recovery transition (revoke is defined from `effective` only;
+re-request raises `GrantTransitionError`):
 
-### WR-02: No tenant-coherence check anywhere on the grant path — cross-tenant grants are admissible
+1. `_tier_1` → `_resolve_policy_regime` can raise `AmbiguousPinnedVersionError`
+   (documented in its own docstring, line 456) *after* `self._states[grant_hash] =
+   "requested"` (line 603). The grant is stuck in `requested` forever.
+2. `self._sink.decide(grant)` (line 638) is arbitrary user/Protocol code. If it raises,
+   the grant is stuck in `pending-approval` forever. Nothing in the `ApprovalSink`
+   contract forbids raising, and the ledger does not guard the call.
 
-**File:** `src/ccf/skills/grants.py:468-554` (`request`), `src/ccf/agents/agent.py:240-276` (`invoke_skill`)
-**Issue:** `SkillGrant.tenant` is never compared to `definition.tenant`; the catalog entry
-is resolved under `grant.tenant` (line 515-517), and tier 1 only does subset logic over
-scopes/products. A grant with `tenant: other-bank` naming another tenant's catalog entry
-binds cleanly to an `acme-bank` agent as long as the identifiers happen to be subsets.
-`Agent.consume` enforces tenant isolation strictly (line 227-231); the skilling channel —
-the channel that confers *capabilities* — enforces none. Given the SDK's multi-tenant
-posture (compound `(tenant_id, entity_uri)` identity, per-tenant trust boundary), this is a
-tenant-isolation gap in mechanism, not a deployment value.
-**Fix:** In `GrantLedger.request`, refuse (as a `GrantTransitionError` — broken wiring, or a
-typed tier-1 refusal) when `grant.tenant != definition.tenant`, and verify
-`entry.tenant == definition.tenant` after catalog resolution.
+This is the same defect class the prior WR-04 was raised for, incompletely closed. The
+gate document's "no wedged `requested` grants" claim (PHASE_I2_GATE.md §3) is therefore
+overstated.
+**Fix:** Either resolve the policy regime *before* state mutation (mirroring the
+catalog fix — regime resolution has no dependency on ledger state), or wrap the
+post-mutation section so any exception records a refusal before re-raising:
 
-### WR-03: `AgentFactory.construct(bound_skills=...)` accepts any mapping of any objects — the two-tier governance is structurally bypassable at the supported construction path
+```python
+self._states[grant_hash] = "requested"
+try:
+    verdict = self._tier_1(grant, definition, entry)
+    ...
+    outcome = self._sink.decide(grant)
+except Exception:
+    self._states[grant_hash] = "refused"
+    self._record(grant, "grant_refused", resolved=False, actor=actor)
+    raise
+```
 
-**File:** `src/ccf/agents/factory.py:212-280`, `src/ccf/agents/agent.py:240-276`
-**Issue:** `bound_skills: Mapping[str, object]` is passed through unchecked. A caller can
-hand the factory `{"anything": some_catalog_entry}` (or any object — introspection returns
-it verbatim from `invoke_skill(name)`) and the agent will treat it as a bound capability,
-with no grant artifact, no tier-1 check, no audit event, and no dimension-4 capture. The
-CINV-01c lint guards `Agent(...)` construction, not this parameter, so this is the
-legitimate front door defeating channel-2 governance silently. "Skills the agent has not
-been granted do not exist" (CLAUDE.md §7.3 seam 2) holds only if the mapping came from
-`GrantLedger.bound_view` — nothing enforces or even type-narrows that.
-**Fix:** Type the parameter as the ledger view (accept `Mapping[str, SkillCatalogEntry]` at
-minimum and validate entry types/tenants at construction), or better, accept
-`(ledger: GrantLedger, ...)` / a dedicated `BoundSkillView` type whose only producer is the
-ledger — the same capability-typing move `DeliveryCapability` already makes for replay.
+### WR-02: Documented remediation "issue a new grant artifact" is blocked by the D-05 empty-bump refusal
 
-### WR-04: `GrantLedger.request` wedges a grant in `requested` state when the catalog entry is missing, then reports it as "already decided"
+**File:** `src/ccf/skills/grants.py:577-581` (interacting with `src/ccf/controlplane/registry.py:418-433`)
+**Issue:** After a tier-2 rejection (approver says "not now"), the natural retry is a
+re-issued grant. `GrantTransitionError` explicitly instructs: "a grant artifact is
+single-use — issue a new grant artifact." But a re-issued grant with only
+`artifact_version` bumped is byte-identical modulo the version field, so
+`register_versioned`'s fingerprint check (which normalizes `artifact_version` before
+hashing) returns `RefuseEmptyBump`, and `request()` returns that refusal before any
+state is recorded. The only working retry path is to also change the grant's `name`
+(or another content field), which is documented nowhere and creates a second Control
+Plane key for what is conceptually the same grant. `tests/skills/test_grants.py` never
+exercises re-request-after-rejection, so the dead end is untested and invisible.
+**Fix:** Decide and document the intended retry semantics. Options: (a) exempt
+`SKILL_GRANT` from the empty-bump refusal (a grant re-issue is a new *request*, not a
+content revision); (b) register grants through `register_typed` (content-hash identity,
+no bump check) since grants are single-use requests, not evolving documents; or (c)
+amend the `GrantTransitionError` message and module docs to state that a re-issued
+grant must differ in `name`. Add a regression test for the rejected-then-retried flow.
 
-**File:** `src/ccf/skills/grants.py:505-518, 491-497`
-**Issue:** The sequence is: register artifact → set state `requested` → audit → **then**
-`catalog.resolve(...)`, which raises `SkillNotInCatalog`. The exception propagates after
-state mutation, leaving the grant permanently in `requested`: re-requesting the same grant
-raises `GrantTransitionError` claiming it "was already decided ('requested')" — it was
-never decided — and `revoke` is undefined from `requested`. A transient deployment error
-(entry registered a minute later) permanently burns that grant's content hash; the operator
-must author a new grant artifact and gets a misleading error explaining why. There is also
-no audit record of the failure (`grant_requested` resolved=True is the last event), so the
-audit plane says a request is pending that can never resolve.
-**Fix:** Resolve the catalog entry *before* mutating `self._states`/`self._grants` (it needs
-nothing from them), or catch the lookup failure, transition to `refused`/roll back, and
-audit it. Also correct the `GrantTransitionError` message to distinguish "already seen"
-from "already decided."
+### WR-03: `SkillCatalog.resolve` audits phantom resolutions — the WR-08 defect in a sibling path
 
-### WR-05: `_effective_entries` silently drops a grant when two effective grants bind the same `skill_name`
+**File:** `src/ccf/skills/catalog.py:289-294`
+**Issue:** Pinned resolution loops over every content version under the key and calls
+`self._control_plane.resolve(key, content_version)` — an *audited* resolution — for
+every probe, including versions that are not returned. The WR-08 gap closure
+established (and `GrantLedger._resolve_policy_regime` / `factory._resolve_pinned`
+implement) the discipline that declared-version probing goes through the unaudited
+`peek`, with one audited `resolve` on the match, precisely because "auditing those
+probes as resolutions would record reads that never happened"
+(registry.py:474-476). Every `GrantLedger.request` and every `BoundSkillView` access
+routes through this method, so the audit log accumulates `resolve` events for
+artifacts nobody read.
+**Fix:**
 
-**File:** `src/ccf/skills/grants.py:605-616`
-**Issue:** Entries are keyed by `grant.skill_name`; iteration order is `sorted(grant hashes)`
-— deterministic but semantically arbitrary. Two effective grants for the same agent naming
-the same skill at different versions (the documented upgrade flow: "upgrading a skill is a
-new entry version and a new grant") resolve to whichever grant's hash sorts last, silently.
-During an upgrade window (new grant effective, old not yet revoked) the bound version is
-hash-lottery, and the dimension-4 grant-set hash includes both while dispatch uses one.
-**Fix:** Detect the collision and raise a typed error (two effective grants for one
-skill name on one agent is a governance-state defect), or define last-granted-wins by
-ledger order and record the shadowing as a typed fact.
+```python
+for content_version in self._control_plane.versions(key):
+    artifact = self._control_plane.peek(key, content_version)
+    entry = SKILL_CATALOG_ENTRY.validate(artifact)
+    if version in (entry.artifact_version, content_hash(entry)):
+        self._control_plane.resolve(key, content_version)  # audit the real read
+        return entry
+```
 
-### WR-06: CINV-01c lint has static holes: `from x import Agent as A` bypass, and the `"factory"` path marker exempts any module that puts "factory" anywhere in its path
+### WR-04: CINV-01c static-alias hole — `A = module.Agent; A(...)` escapes the lint
 
-**File:** `tools/lints/no_hardcoding.py:82-84, 275, 349-379`
-**Issue:** D-12 makes this lint "the no-bypass mechanism of record," with *dynamic*
-construction the only accepted residual. Two purely static bypasses exist: (1) alias
-tracking covers only module-level `A = Agent` assignments; `from ccf.agents.agent import
-Agent as A` followed by `A(...)` is invisible (`_called_name` sees `A`, the `ast.Assign`
-scan never sees the import) — that is a one-line static rename, exactly the hole the alias
-extension claims to close. (2) `in_factory_module` is `"factory" in path-or-module-name`
-(substring, lowered), so `my_factory_helpers.py`, anything under a `factories/` directory,
-or a module literally named `bypass_factory.py` is fully exempt from the rule —
-`tests/lints/test_cinv01c_behavioral.py:59-64` demonstrates the exemption fires on the name
-alone. The mechanism of record is narrower than its ruling.
-**Fix:** Track `ast.ImportFrom`/`ast.Import` aliases of `Agent`/`Task` into `checked_names`;
-replace the substring marker with an explicit allowlist of factory module paths
-(`src/ccf/agents/factory.py`), which is one line and cannot be satisfied by naming.
+**File:** `tools/lints/no_hardcoding.py:384-393`
+**Issue:** Alias tracking handles `A = Agent` (Assign whose value is `ast.Name`) and
+import aliases, but not an assignment whose value is an attribute access:
+`import ccf.agents.agent as m` / `A = m.Agent` / `A(...)` yields zero findings — the
+Assign's `node.value` is `ast.Attribute`, so `A` never enters `checked_names`, and the
+call's `_called_name` returns `"A"`. This is a purely *static* one-line rename, which
+contradicts the documented invariant that "the D-12 accepted residual stays *dynamic*
+construction only" (module docstring; `tests/lints/test_cinv01c_behavioral.py:118-122`).
+**Fix:** Extend the alias pass and add a behavioral fixture test:
 
-### WR-07: Grant lifecycle audit events and Control Plane audit events live in two disjoint logs with independent sequences
+```python
+if isinstance(node, ast.Assign) and isinstance(node.value, ast.Attribute) \
+        and node.value.attr in FACTORY_ONLY_NAMES:
+    for target in node.targets:
+        if isinstance(target, ast.Name):
+            checked_names.add(target.id)
+            aliases[target.id] = node.value.attr
+```
 
-**File:** `src/ccf/skills/grants.py:326-361`, `src/ccf/controlplane/registry.py:177-203`
-**Issue:** `ControlPlaneRegistry` constructs its own private `AuditLog`; `GrantLedger` takes
-a second, injected one. A single `request()` therefore writes its `register_versioned`
-event into the registry's log and its `grant_requested`/`grant_effective` events into the
-ledger's log, with unrelated sequence numbers and (in principle) different clocks — the
-tests inject the same instant into both, masking it. Whitepaper §7.8.2 says the Control
-Plane *is* the audit plane, singular: an examiner reading `registry.audit_events()` sees a
-grant artifact registered and no lifecycle; one reading the ledger log sees transitions with
-no registration. The gate package (row 7: "through the one existing AuditLog") describes a
-property the code does not have.
-**Fix:** Have `ControlPlaneRegistry` accept an injected `AuditLog` (defaulting to a fresh
-one) and pass the same instance to `GrantLedger` at composition time — one log, one
-sequence, one clock; or expose the registry's log so the ledger writes into it.
+### WR-05: `GrantLedger` state is volatile while grant artifacts are durable — a restart silently drops every effective grant
 
-### WR-08: Pinned resolution is ambiguous for `register_typed`-path artifacts — the same declared semver can name two different contents, and `_resolve_pinned` silently returns the oldest
-
-**File:** `src/ccf/agents/factory.py:92-127`, `src/ccf/skills/grants.py:365-386`, `src/ccf/controlplane/registry.py:229-277`
-**Issue:** The D-05 bump check applies only to `register_versioned`. Policy bundles, debt
-profiles, and every `DeclaredArtifact` register through `register_typed`, which happily
-appends two different contents both declaring `semver: "1.1.0"` under one key. Both
-`_resolve_pinned` and `_resolve_policy_regime` match the URI version against each
-registered artifact's declared `semver` in oldest-first order and return the **first**
-match — so a "pinned" `ccf-artifact://...@1.1.0` ref resolves to different content
-depending on registration history, silently. That is exactly the moving-target shape
-D-IMPL-26 exists to forbid, on the axis-4/axis-5 refs that gate tier-1 governance. (Side
-effect of the same loop: every non-matching probe emits a resolved=True `resolve` audit
-event, so the audit log records reads of versions the factory only probed.)
-**Fix:** On a declared-version match, continue scanning and raise a typed ambiguity error if
-a second content matches the same declared version; longer-term, route declared artifacts
-through a bump-checked path or resolve by content hash internally.
+**File:** `src/ccf/skills/grants.py:399-400, 694-713`
+**Issue:** IN-03 was fixed for the catalog on the principle "registry state is the
+single store; no consumer keeps a volatile second index" — but the grant ledger is
+exactly such a volatile second index: `_states`/`_grants` are per-instance dicts, while
+the grant *artifacts* persist append-only in the registry. A second `GrantLedger` over
+the same registry (or the same deployment after a process restart) sees zero effective
+grants and `grant_set_hash(...) == NO_GRANTS_SET_HASH`, even though the registry holds
+registered grants and `grant_effective` audit events with no subsequent
+`grant_revoked`. Grant state is not reconstructible from the single store, and two
+ledgers over one registry can disagree about what is in force. Nothing tests or
+documents this asymmetry.
+**Fix:** Minimum: document the volatility explicitly on `GrantLedger` (in-process,
+single-instance, I.2 scope) and pin the intended semantics with a test. Better: derive
+state from the `grant_*` audit-event journal / registry on construction, matching the
+IN-03 discipline.
 
 ## Info
 
-### IN-01: `docs/PHASE_I2_GATE.md` overstates two mechanisms
+### IN-01: Duplicated pinned-resolution logic with divergent not-found semantics
 
-**File:** `docs/PHASE_I2_GATE.md:78-79`
-**Issue:** Row 6 ("skill-set capture ... by construction") is caller-discipline (WR-01), and
-row 7 ("the one existing AuditLog") is two logs (WR-07). Gate prose should match mechanism.
-**Fix:** Reword after fixing, or fix the mechanisms.
+**File:** `src/ccf/skills/grants.py:424-461`, `src/ccf/agents/factory.py:104-154`
+**Issue:** `GrantLedger._resolve_policy_regime` is a near-verbatim copy of
+`factory._resolve_pinned` (key derivation, hash fast-path, peek-probe loop, ambiguity
+refusal), differing only in the miss case (`None` vs `AgentDefinitionError`). Two
+copies of the WR-08 logic will drift.
+**Fix:** Extract a shared `resolve_pinned(control_plane, uri) -> object | None` helper
+(e.g., in `ccf.controlplane`) and wrap the miss case at each call site.
 
-### IN-02: Stale `pragma: no cover` in the harness double
+### IN-02: `Agent` constructor does not validate `identity.definition_uri` coherence
 
-**File:** `tests/agents/harness_double.py:52`
-**Issue:** The `else` branch ("unreachable until grants land (05-05)") is now reachable —
-grants landed; `invoke_skill(name)` on a granted name returns the entry and sets
-`unbound = None`. The comment documents a state two waves old.
-**Fix:** Update the comment; consider a granted-path drive assertion.
+**File:** `src/ccf/agents/agent.py:164-199`
+**Issue:** The constructor validates `definition_hash` and `archetype_composition`
+against the definition but accepts any `definition_uri`, though the docstring says the
+identity block "must agree with `definition`". A drifted URI annotation would be
+serialized verbatim into replay dimension 4.
+**Fix:** Recompute the expected URI via `artifact_uri(...)` from the definition and
+refuse a mismatch, or narrow the docstring claim.
 
-### IN-03: `SkillCatalog.discover` reads a per-instance `_keys` index, not registry state
+### IN-03: WR-07 shared-audit-log wiring relies on caller discipline
 
-**File:** `src/ccf/skills/catalog.py:229-268`
-**Issue:** A second `SkillCatalog` over the same registry (or any restart) discovers
-nothing, despite the class docstring's "never a second store" claim — the membership index
-is exactly a second store, and it is volatile.
-**Fix:** Derive discovery from the registry (e.g., keys whose bound class is
-`SKILL_CATALOG_ENTRY.class_id` via `artifact_class_of`), or document the limitation.
+**File:** `src/ccf/skills/grants.py:385-398`
+**Issue:** `GrantLedger` takes `audit` as an independent constructor argument; a caller
+can pass a log different from `control_plane.audit_log`, silently splitting the
+"singular audit plane" the WR-07 closure established. The parameter is redundant given
+`ControlPlaneRegistry.audit_log` exists on the injected registry.
+**Fix:** Default `audit` to `control_plane.audit_log` (or drop the parameter), or
+refuse construction when `audit is not control_plane.audit_log` for the reference
+registry type.
 
-### IN-04: `register_versioned` bump history is blind to prior `register_typed` content under the same key
+### IN-04: Cross-tenant grant documents are permanently registered before the tenant check
 
-**File:** `src/ccf/controlplane/registry.py:339-387`
-**Issue:** `_bumps` is populated only by the versioned path; content previously stored via
-`register_typed` under the same key never participates in the four-outcome table, so a
-"changed content, unchanged version" drift across the mixed paths is not refused.
-**Fix:** Refuse `register_versioned` on a key that already has non-bump-tracked versions, or
-seed `_bumps` from existing versions' declared fields.
+**File:** `src/ccf/skills/grants.py:597-625`
+**Issue:** `register_versioned` runs before the tenant-coherence check, so a refused
+cross-tenant grant is nonetheless appended forever (append-only) under the *foreign*
+tenant's key namespace (`other-bank/ccf.skill-grant/...`) in this Control Plane. The
+refusal is audited, but the artifact remains resolvable under a tenant prefix the
+requesting deployment does not own.
+**Fix:** Run the tenant check before registration (it needs only `grant`, `entry`,
+`definition`, all already in hand), so an inadmissible cross-tenant document never
+enters the registry.
 
-### IN-05: CINV-01a exempts any string containing `://`
+### IN-05: `TaskFactory` class-checks agent steps but not skill steps
 
-**File:** `tools/lints/no_hardcoding.py:197-207` (`_is_prose_candidate`)
-**Issue:** A prompt-shaped literal that embeds any URL (`"You are ... see https://..."`)
-skips scoring entirely. Prompts routinely contain URLs.
-**Fix:** Only skip when the *whole* stripped string is a URI (no spaces already handles most
-of that case; drop the substring check or require `stripped.startswith`).
+**File:** `src/ccf/agents/factory.py:445-468`
+**Issue:** The IN-08 fix validates that an `agent` step's ref resolves to
+`ccf.agent-definition`, but a `skill` step's ref is accepted whatever class it resolves
+to (a prompt artifact, a debt profile). Partly forced — skill targets may be
+deployment-declared classes — but the asymmetry is undocumented.
+**Fix:** Document the asymmetry in the `construct` docstring, or refuse skill-step refs
+that resolve to SDK-owned non-skill classes (`ccf.agent-definition`,
+`ccf.prompt-artifact`, `ccf.task-definition`).
 
-### IN-06: `ALLOWED_CCF_PREFIXES` matches on raw `startswith` without a module-boundary dot
+### IN-06: `local_callable` dispatch is artifact-driven arbitrary code execution — accepted risk, keep it visible
 
-**File:** `tests/agents/test_consumption_discipline.py:53-66, 107`
-**Issue:** `"ccf.contractsx"` or `"ccf.productsomething"` would pass the allowlist guard.
-Theoretical today, but the guard is load-bearing for invariant row 9.
-**Fix:** Compare against `prefix` == module or `module.startswith(prefix + ".")`.
-
-### IN-07: `tests/agents/test_agent.py` constructs `Agent` directly, outside the lint's tree and contrary to CLAUDE.md §6.4's "tests construct agents the same way"
-
-**File:** `tests/agents/test_agent.py:83-93`
-**Issue:** The divergence is acknowledged in the module docstring (constructor-validation
-unit tests need direct construction, and the lint scopes to `/src`, `/runtime`,
-`/examples`), but CLAUDE.md §6.4 states tests use the factory from fixture artifacts. This
-is a documented rule deviation that should be recorded as such (advisory triage / gate
-note) rather than left implicit in a test docstring.
-**Fix:** Note the scoping decision in the gate package or DECISIONS advisory carry-forward.
-
-### IN-08: `TaskFactory` resolves step refs for existence but never validates the resolved artifact against the step kind
-
-**File:** `src/ccf/agents/factory.py:415-420`
-**Issue:** An `agent` step whose ref resolves to a debt profile (or any registered artifact)
-constructs cleanly; the mismatch surfaces only in I.4 when execution lands. Cheap to catch
-now: the Control Plane already knows each key's bound artifact class.
-**Fix:** For `agent` steps, assert `artifact_class_of(key) == AGENT_DEFINITION.class_id`
-(and similarly if/when skills gain a canonical class), refusing with `AgentDefinitionError`.
+**File:** `src/ccf/skills/dispatch.py:78-107`
+**Issue:** `importlib.import_module` + `getattr` on `callable_ref` executes arbitrary
+module code at dispatch time. The T-05-18 trust posture (refs come only from registered
+Control Plane artifacts inside the tenant trust boundary) is documented and accepted
+for I.2; noted here so the I.3/I.4 threat model re-examines it once refs can arrive via
+MCP/A2A artifact stores rather than in-repo fixtures.
+**Fix:** Carry forward to the I.3 handoff threat-model item alongside the Jinja2 SSTI
+note.
 
 ---
 
