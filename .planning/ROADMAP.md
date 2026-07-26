@@ -13,7 +13,7 @@ exists.
 - [x] **Phase 1: Phase R — Research** - Extract every whitepaper commitment into `docs/SPEC_INVENTORY.md` with homecams-patterns appendix (completed 2026-07-25)
 - [x] **Phase 2: Phase D — Design** - SDK architectural shape: `docs/DESIGN.md`, `docs/DECISIONS.md`, full diagram set (completed 2026-07-25)
 - [x] **Phase 3: Phase F — Feasibility & Scoping** - Per-component verdicts, v0.1 surface, test strategy; verify Phase I gate list (completed 2026-07-25)
-- [ ] **Phase 4: Phase I.1 — Fabric Core** - L1–L6 Data and Context Layer plus CI invariant scaffolding
+- [x] **Phase 4: Phase I.1 — Fabric Core** - L1–L6 Data and Context Layer plus CI invariant scaffolding
 - [ ] **Phase 5: Phase I.2 — Agent Specialization Framework** - Agent base, six archetypes, Agent & Task Factory, skilling
 - [ ] **Phase 6: Phase I.3 — Cross-Process & Harness Adapters** - Bidirectional MCP, A2A federation, HarnessAdapterProtocol + reference adapters
 - [ ] **Phase 7: Phase I.4 — Orchestration, HITL, Experience** - Workflow primitive, HITL primitives, MCP egress / CLI / HTTP front doors
@@ -179,7 +179,7 @@ Plans:
 - [x] 04-09-PLAN.md — CDC→G ingress reference in ccf-runtime *(wave 5)*
 - [x] 04-10-PLAN.md — Postgres GraphStore against the conformance suite + CI leg (D-11) *(wave 6)*
 - [x] 04-11-PLAN.md — SimilarityIndex: sqlite-vec + Chroma optional extra (D-13) *(wave 6)*
-- [ ] 04-12-PLAN.md — Gate: per-invariant checklist, /gsd-review, Dave approval, D-GATE-I.1, merge *(wave 7)*
+- [x] 04-12-PLAN.md — Gate: per-invariant checklist, /gsd-review, Dave approval, D-GATE-I.1, merge *(wave 7)*
 **Process notes**: Model mandate — Opus 5 if available, else Opus 4.8, "high" effort. Branch: `phase-i1` (Phase I work). Redesign needs a Phase D mini-cycle, never in-line. Sub-phase ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.1` before Phase 5 begins.
 
 ### Phase 5: Phase I.2 — Agent Specialization Framework
@@ -251,7 +251,7 @@ Plans:
 | 1. Phase R — Research | 12/12 | Complete   | 2026-07-25 |
 | 2. Phase D — Design | 11/11 | Complete   | 2026-07-25 |
 | 3. Phase F — Feasibility & Scoping | 4/4 | Complete   | 2026-07-25 |
-| 4. Phase I.1 — Fabric Core | 11/12 | In Progress|  |
+| 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
 | 5. Phase I.2 — Agent Specialization Framework | 0/? | Not started | - |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 0/? | Not started | - |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 0/? | Not started | - |

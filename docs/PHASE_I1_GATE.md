@@ -6,10 +6,9 @@
 each named invariant mapping to a *named passing* test or lint. Line coverage is reported
 informationally; there is **no numeric coverage gate**.
 
-> **Status: not yet approved.** This document is the material presented *to* Dave. Approval
-> authority is Dave's alone (CLAUDE.md §3.1 step 3); `/gsd-review` passing is necessary,
-> never sufficient. No `D-GATE-I.1` entry is logged and `phase-i1` is not merged until Dave
-> approves.
+> **Status: APPROVED.** Dave approved this gate package on 2026-07-25 (CLAUDE.md §3.1
+> step 3). The `D-GATE-I.1` entry is logged in docs/DECISIONS.md and `phase-i1` is merged
+> to `main` with a merge commit referencing D-GATE-I.1.
 
 ---
 

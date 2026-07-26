@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: executing
+status: phase-complete
 last_updated: "2026-07-25T22:48:47.020Z"
 progress:
   total_phases: 8
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 39
-  completed_plans: 32
-  percent: 38
+  completed_plans: 39
+  percent: 50
 ---
 
 # STATE — CCF SDK
@@ -26,19 +26,19 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 04 (phase-i-1-fabric-core) — EXECUTING
-Plan: 6 of 12
+Phase: 04 (phase-i-1-fabric-core) — COMPLETE (D-GATE-I.1, 2026-07-25)
+Plan: 12 of 12
 
-- **Phase:** 4 of 8 (phase i.1 — fabric core)
-- **Plan:** 04-01..04-05 complete; next is 04-06
-- **Status:** Executing on branch `phase-i1`
-- **Progress:** [████████░░] 82%
+- **Phase:** 4 of 8 complete; next is Phase 5 (Phase I.2)
+- **Plan:** all 12 complete
+- **Status:** Merged to `main` at D-GATE-I.1
+- **Progress:** [██████████] 100%
 
 ## Performance Metrics
 
-- Phases complete: 3/8
+- Phases complete: 4/8
 - Requirements delivered: 3/46
-- D-GATE entries logged: 3 (D-GATE-R, D-GATE-D, D-GATE-F)
+- D-GATE entries logged: 4 (D-GATE-R, D-GATE-D, D-GATE-F, D-GATE-I.1)
 
 | Phase-Plan | Duration | Tasks | Files |
 | ---------- | -------- | ----- | ----- |
@@ -92,5 +92,5 @@ Plan: 6 of 12
 
 ## Session Continuity
 
-Last action: Completed 04-01-PLAN.md (2026-07-25) — Phase I.1 scaffold on branch `phase-i1`: ccf + ccf_runtime editable install green (pytest 2 passed, mypy --strict clean), GitHub Actions CI with blocking lint job + postgres service container, and the D-03/D-12 governance amendments (CLAUDE.md §9, D-IMPL-52, ROADMAP criteria for Phases 4 and 6). Commits c87eb11, 52d7f65, 61fdca0.
-Next action: Execute 04-02-PLAN.md — CINV-01..03 AST lint checkers + versioned allowlist, which turns the CI lint job green (D-06..D-08).
+Last action: Phase I.1 gate closed (2026-07-25) — Dave approved docs/PHASE_I1_GATE.md; D-GATE-I.1 logged in docs/DECISIONS.md; phase-i1 merged to main --no-ff; ROADMAP Phase 4 marked 12/12 complete; verification re-run green (383 passed / 3 deferral skips, lints exit 0).
+Next action: Plan Phase 5 (Phase I.2 — Agent Specialization Framework: factory, archetypes, skilling) via /gsd-plan-phase 5.
