@@ -172,15 +172,39 @@ class ControlPlaneRegistry:
             harnesses control it; the default reads the wall clock in UTC.
             (A clock is mechanism, not a domain value — but a *hidden* clock
             would make the audit log untestable, so it is a seam.)
+        audit_log: The append-only log this registry records into. Injected
+            so composition sites can share ONE log — one sequence, one clock
+            — between the registry and every other Control Plane service
+            that audits (the grant ledger foremost): the Control Plane is
+            the audit plane, singular (whitepaper §7.8.2; WR-07). The
+            default constructs a fresh log, preserving existing behavior
+            for callers that do not inject.
     """
 
-    def __init__(self, *, clock: Callable[[], datetime] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        clock: Callable[[], datetime] | None = None,
+        audit_log: AuditLog | None = None,
+    ) -> None:
         self._clock: Callable[[], datetime] = clock or _utc_now
         self._versions: dict[str, list[str]] = {}
         self._artifacts: dict[tuple[str, str], object] = {}
         self._classes: dict[str, str] = {}
         self._bumps: dict[str, dict[str, tuple[str, str]]] = {}
-        self._audit = AuditLog()
+        self._audit = audit_log if audit_log is not None else AuditLog()
+
+    @property
+    def audit_log(self) -> AuditLog:
+        """The append-only log this registry records into (§7.8.2; WR-07).
+
+        Exposed so composition sites can hand the SAME instance to other
+        auditing Control Plane services (e.g.
+        :class:`~ccf.skills.grants.GrantLedger`), keeping registration and
+        grant-lifecycle events in one monotonic sequence. The log itself is
+        append-only; holding the reference confers no rewrite capability.
+        """
+        return self._audit
 
     def _record(
         self,

@@ -94,9 +94,13 @@ class _World:
         approve: bool = True,
     ) -> None:
         self.fixture = fixture
-        self.registry = ControlPlaneRegistry(clock=lambda: instant)
-        self.catalog = SkillCatalog(self.registry)
+        # One shared AuditLog between registry and ledger (WR-07): the
+        # Control Plane is the audit plane, singular (whitepaper §7.8.2).
         self.audit = AuditLog()
+        self.registry = ControlPlaneRegistry(
+            clock=lambda: instant, audit_log=self.audit
+        )
+        self.catalog = SkillCatalog(self.registry)
         self.sink = ScriptedApprovalSink(
             approve=approve, approver_id=fixture["approval"]["approver_id"]
         )
@@ -327,14 +331,22 @@ class TestAudit:
         grant = world.grant("metrics_tool", definition)
         world.ledger.request(grant, definition=definition, actor=world.actor)
         world.ledger.revoke(content_hash(grant), actor=world.actor)
-        events = world.audit.events()
+        # The log is shared with the registry (WR-07), so grant lifecycle
+        # events are filtered out of the single unified sequence here.
+        events = [
+            event
+            for event in world.audit.events()
+            if event.action.startswith("grant_")
+        ]
         assert [event.action for event in events] == [
             "grant_requested",
             "grant_pending_approval",
             "grant_effective",
             "grant_revoked",
         ]
-        assert [event.sequence for event in events] == list(range(len(events)))
+        sequences = [event.sequence for event in events]
+        assert sequences == sorted(sequences)
+        assert len(set(sequences)) == len(sequences)
         for event in events:
             assert event.occurred_at == instant
             assert event.key == skill_grant_key(grant)
@@ -347,7 +359,11 @@ class TestAudit:
         definition = world.definition("auto")
         grant = world.grant("writeback", definition)
         world.ledger.request(grant, definition=definition, actor=world.actor)
-        events = world.audit.events()
+        events = [
+            event
+            for event in world.audit.events()
+            if event.action.startswith("grant_")
+        ]
         assert [event.action for event in events] == [
             "grant_requested",
             "grant_refused",
@@ -365,6 +381,39 @@ class TestAudit:
         assert refused.action == "grant_refused"
         assert refused.resolved is False
         assert refused.actor == world.fixture["approval"]["approver_id"]
+
+    def test_registry_and_grant_lifecycle_share_one_audit_sequence(
+        self, world: _World
+    ) -> None:
+        """WR-07: one log, one sequence, one clock — the grant artifact's
+        registration event and its lifecycle events land in the SAME
+        AuditLog with monotonic sequence numbers (whitepaper §7.8.2: the
+        Control Plane is the audit plane, singular)."""
+        definition = world.definition("auto")
+        grant = world.grant("metrics_tool", definition)
+        outcome = world.ledger.request(
+            grant, definition=definition, actor=world.actor
+        )
+        assert isinstance(outcome, str)
+        # Literally one log: the registry's view IS the ledger's view.
+        events = world.audit.events()
+        assert world.registry.audit_events() == events
+        assert world.registry.audit_log is world.audit
+        actions = [event.action for event in events]
+        registration_index = next(
+            index
+            for index, event in enumerate(events)
+            if event.action == "register_versioned"
+            and event.key == skill_grant_key(grant)
+        )
+        assert "grant_requested" in actions
+        assert "grant_effective" in actions
+        # Registration precedes the lifecycle it enables, in one sequence.
+        assert registration_index < actions.index("grant_requested")
+        assert actions.index("grant_requested") < actions.index(
+            "grant_effective"
+        )
+        assert [event.sequence for event in events] == list(range(len(events)))
 
 
 # --- the D-07 grant-set hash --------------------------------------------------

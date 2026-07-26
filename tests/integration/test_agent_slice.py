@@ -58,7 +58,6 @@ from ccf.boot import boot
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.controlplane.audit import AuditLog
 from ccf.products.gates import ServableProduct, run_gates
 from ccf.replay.record import (
     NO_GRANTS_SET_HASH,
@@ -297,7 +296,9 @@ def _granted_agent(
     ledger = GrantLedger(
         control_plane=fabric.registry,
         catalog=catalog,
-        audit=AuditLog(),
+        # The registry's own log, shared (WR-07): one audit plane, one
+        # sequence, across registration and grant lifecycle.
+        audit=fabric.registry.audit_log,
         sink=ScriptedApprovalSink(
             approve=True, approver_id=granted_values["approver_id"]
         ),
