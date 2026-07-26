@@ -55,6 +55,7 @@ from ccf.agents.factory import (
     TaskFactory,
     _resolve_pinned,
 )
+from ccf.artifacts.protocol import parse_artifact_uri
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import (
     ArtifactLoadError,
@@ -668,3 +669,63 @@ def test_an_agent_step_resolving_to_a_non_agent_definition_is_refused(
         )
     assert "agent step" in str(excinfo.value)
     assert AGENT_DEFINITION.class_id in str(excinfo.value)
+
+
+# --- a skill step must not reference an SDK-owned non-skill class (IN-05) ------
+
+
+def test_a_skill_step_resolving_to_an_sdk_owned_non_skill_class_is_refused(
+    task_registry: ControlPlaneRegistry,
+) -> None:
+    """The negative half of the asymmetric step-kind check (IN-05).
+
+    A ``skill`` step cannot be held to one class id — its target may be a
+    deployment-declared class the SDK has no name for — but the SDK's *own*
+    non-skill classes are never a skill target. A skill step pointed at an
+    agent definition is miswiring and is refused at construction.
+    """
+    agent_ref = _task_fixture()["keys"]["referenced_agent_definition"]
+    tenant, class_segment, name = agent_ref.split("/")
+    wrong_ref = (
+        f"ccf-artifact://{tenant}/{class_segment}/{name}"
+        f"@{_definition().artifact_version}"
+    )
+    original = _task_definition()
+    steps = tuple(
+        step.model_copy(update={"ref": wrong_ref})
+        if step.kind == "skill"
+        else step
+        for step in original.steps
+    )
+    definition = original.model_copy(update={"steps": steps})
+    key = "acme-bank/tasks/skillmisref-mutant"
+    version = task_registry.register_versioned(key, definition, TASK_DEFINITION)
+    assert isinstance(version, str)
+    with pytest.raises(AgentDefinitionError) as excinfo:
+        TaskFactory(control_plane=task_registry).construct(
+            definition_key=key, definition_version=version
+        )
+    assert "skill step" in str(excinfo.value)
+    assert AGENT_DEFINITION.class_id in str(excinfo.value)
+
+
+def test_a_skill_step_may_still_reference_a_deployment_declared_class(
+    task_registry: ControlPlaneRegistry,
+) -> None:
+    """The extension point the negative rule deliberately leaves open (IN-05).
+
+    The fixture task's skill step already resolves to a deployment-declared
+    class rather than an SDK one; construction must keep accepting it, or the
+    IN-05 check has over-fired and closed the extension point it was written
+    to preserve.
+    """
+    task = _construct_task(task_registry)
+    skill_steps = [
+        step for step in task.definition.steps if step.kind == "skill"
+    ]
+    assert skill_steps
+    for step in skill_steps:
+        assert step.ref is not None
+        name = parse_artifact_uri(step.ref)
+        assert not name.artifact_class.startswith("ccf.")
+        assert task.resolved_ref(step.ref) is not None

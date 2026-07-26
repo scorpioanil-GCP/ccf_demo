@@ -56,7 +56,14 @@ from ccf.artifacts.protocol import artifact_uri, parse_artifact_uri
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.resolution import ControlPlaneResolution, resolve_pinned
+from ccf.skills.catalog import SKILL_CATALOG_ENTRY
 from ccf.skills.grants import BoundSkillView
+
+#: The namespace prefix every artifact class the SDK itself owns carries.
+#: Mechanism, not a value: it is how a deployment-declared class is told
+#: apart from an SDK one without the SDK enumerating its own classes at every
+#: call site (IN-05).
+SDK_ARTIFACT_CLASS_PREFIX = "ccf."
 
 __ccf_mode__ = "algorithmic"
 
@@ -387,12 +394,25 @@ class TaskFactory:
         Steps in order: (1) resolve the definition at its pinned version and
         hold it to its artifact class; (2) resolve every skill/agent step
         reference through Control Plane resolution (hitl-gate steps carry no
-        reference in I.2); (3) validate every instruction binding against its
-        resolved prompt artifact (D-13). Only then is the identity block
-        computed and the ``Task`` instantiated.
+        reference in I.2) and hold it to what its step kind may reference;
+        (3) validate every instruction binding against its resolved prompt
+        artifact (D-13). Only then is the identity block computed and the
+        ``Task`` instantiated.
+
+        **The two step-kind checks are deliberately asymmetric (IN-05).** An
+        ``agent`` step must resolve to exactly ``ccf.agent-definition`` — the
+        SDK owns both sides of that relationship, so equality is checkable
+        (IN-08). A ``skill`` step cannot be held to one class, because a
+        skill target may be a deployment-declared class the SDK has no name
+        for; holding it to ``ccf.skill-catalog-entry`` would break the
+        extension point. It is instead held to a *negative* rule: the SDK's
+        own non-skill classes are refused, and everything else — including
+        every deployment-declared class — passes.
 
         Raises:
-            AgentDefinitionError: a step reference resolves to nothing.
+            AgentDefinitionError: a step reference resolves to nothing, an
+                ``agent`` step references a non-agent-definition class, or a
+                ``skill`` step references an SDK-owned non-skill class.
             PromptValidationError: an instruction binding fails parse-only
                 validation against its prompt artifact (D-13).
             TypeError: a resolved artifact does not satisfy its declared
@@ -410,15 +430,13 @@ class TaskFactory:
                 resolved_refs[step.ref] = _resolve_pinned(
                     self._control_plane, step.ref
                 )
+                ref_name = parse_artifact_uri(step.ref)
+                ref_key = (
+                    f"{ref_name.tenant_id}/{ref_name.artifact_class}/"
+                    f"{ref_name.name}"
+                )
+                actual_class = self._control_plane.artifact_class_of(ref_key)
                 if step.kind == "agent":
-                    ref_name = parse_artifact_uri(step.ref)
-                    ref_key = (
-                        f"{ref_name.tenant_id}/{ref_name.artifact_class}/"
-                        f"{ref_name.name}"
-                    )
-                    actual_class = self._control_plane.artifact_class_of(
-                        ref_key
-                    )
                     if actual_class != AGENT_DEFINITION.class_id:
                         raise AgentDefinitionError(
                             f"agent step {step.name!r} references"
@@ -427,6 +445,30 @@ class TaskFactory:
                             f" {AGENT_DEFINITION.class_id!r}; an agent step"
                             " must reference an agent definition (IN-08;"
                             " CLAUDE.md §8.1)"
+                        )
+                elif step.kind == "skill":
+                    # Asymmetric with the agent case, necessarily (IN-05): a
+                    # skill step's target may be a deployment-declared class
+                    # the SDK has no name for, so the check cannot be an
+                    # equality against one class id. What it *can* do is
+                    # refuse the SDK's own non-skill classes — an agent
+                    # definition, a prompt artifact, a task definition, a
+                    # grant — which are never a skill target and whose
+                    # appearance here is miswiring rather than an extension
+                    # point. Deployment-declared classes pass untouched.
+                    if (
+                        actual_class is not None
+                        and actual_class.startswith(SDK_ARTIFACT_CLASS_PREFIX)
+                        and actual_class != SKILL_CATALOG_ENTRY.class_id
+                    ):
+                        raise AgentDefinitionError(
+                            f"skill step {step.name!r} references"
+                            f" {step.ref!r}, which the Control Plane binds to"
+                            f" the SDK-owned artifact class"
+                            f" {actual_class!r}; a skill step references a"
+                            f" {SKILL_CATALOG_ENTRY.class_id!r} or a"
+                            " deployment-declared class, never another"
+                            " SDK artifact class (IN-05; CLAUDE.md §8.1)"
                         )
 
         instruction_artifacts = _validated_instruction_artifacts(
