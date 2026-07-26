@@ -31,12 +31,14 @@ entry:
 variants:
   local_callable:
     schema_version: "1.0.0"
-    artifact_version: "1.0.0"
+    # 1.1.0: callable_ref re-pointed at the importable fixture callable so
+    # 05-06 dispatch resolves it (a binding change is a content change — D-05).
+    artifact_version: "1.1.0"
     name: covenant-metrics-local
     tenant: acme-bank
     skill_type: local_callable
     binding:
-      callable_ref: acme_bank.skills.covenant_metrics
+      callable_ref: fixtures.banking.skills.callables.covenant_metrics
     requirements:
       required_scopes: [portfolio-read]
       required_context_products: [acme-bank.credit-exposure-summary]

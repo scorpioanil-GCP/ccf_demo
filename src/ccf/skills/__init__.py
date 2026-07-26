@@ -10,11 +10,12 @@ in library code would be a defect of the same class as a hard-coded λ_c
 table (No-Hardcoding Rule §6.4).
 
 Module layout (05-RESEARCH.md Open Question 1 resolution): schemas and the
-catalog live here in :mod:`ccf.skills.catalog`, with registration flowing
-through the existing :class:`~ccf.controlplane.registry.ControlPlaneRegistry`
-via its D-05 versioned path. Grant/revocation state, governance checks, and
-dispatch land in the next wave (05-06); the schema covers all four skill
-types from day one (D-08) so grants have a stable substrate to bind against.
+catalog live in :mod:`ccf.skills.catalog`, with registration flowing through
+the existing :class:`~ccf.controlplane.registry.ControlPlaneRegistry` via its
+D-05 versioned path; the two-tier grant machinery (D-IMPL-29) lives in
+:mod:`ccf.skills.grants`; dispatch for the local_callable and tool types
+lives in :mod:`ccf.skills.dispatch` — mcp/a2a dispatch raises the typed
+``NotYetBound`` until I.3 binds the transports (D-08).
 """
 
 from ccf.skills.catalog import (
@@ -30,17 +31,47 @@ from ccf.skills.catalog import (
     ToolBinding,
     skill_catalog_key,
 )
+from ccf.skills.grants import (
+    SKILL_GRANT,
+    ApprovalOutcome,
+    ApprovalRejected,
+    ApprovalSink,
+    GovernanceUndeclared,
+    GrantLedger,
+    GrantRefusal,
+    GrantTransitionError,
+    PolicyRegimeGovernance,
+    PolicyRegimeUnresolvable,
+    RequirementsExceedRegime,
+    SkillGrant,
+    grant_set_hash,
+    skill_grant_key,
+)
 
 __all__ = [
     "SKILL_CATALOG_ENTRY",
+    "SKILL_GRANT",
     "SKILL_TYPES",
     "A2ABinding",
+    "ApprovalOutcome",
+    "ApprovalRejected",
+    "ApprovalSink",
+    "GovernanceUndeclared",
+    "GrantLedger",
+    "GrantRefusal",
+    "GrantTransitionError",
     "LocalCallableBinding",
     "McpBinding",
+    "PolicyRegimeGovernance",
+    "PolicyRegimeUnresolvable",
+    "RequirementsExceedRegime",
     "SkillCatalog",
     "SkillCatalogEntry",
+    "SkillGrant",
     "SkillNotInCatalog",
     "SkillRequirements",
     "ToolBinding",
+    "grant_set_hash",
     "skill_catalog_key",
+    "skill_grant_key",
 ]
