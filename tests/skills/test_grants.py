@@ -581,6 +581,40 @@ class TestGovernanceSeams:
         assert refused.action == "grant_refused"
         assert refused.resolved is False
 
+    def test_a_refused_cross_tenant_grant_never_enters_the_registry(
+        self, world: _World
+    ) -> None:
+        """IN-04: registration is append-only, so a refusal that registered
+        anyway would leave the inadmissible document resolvable forever under
+        the *foreign* tenant's key namespace. The tenant check therefore runs
+        before registration, not after."""
+        definition = world.definition("auto")
+        grant = world.grant("crosstenant", definition)
+        key = skill_grant_key(grant)
+        assert key.startswith(f"{grant.tenant}/")
+        assert grant.tenant != definition.tenant
+
+        refusal = world.ledger.request(
+            grant, definition=definition, actor=world.actor
+        )
+        assert isinstance(refusal, TenantMismatch)
+
+        # nothing under the foreign tenant's prefix, by any route
+        assert world.registry.versions(key) == ()
+        assert not any(
+            registered_key.startswith(f"{grant.tenant}/")
+            for registered_key in world.registry.keys_of_class(
+                SKILL_GRANT.class_id
+            )
+        )
+        # and no registration was audited for it
+        assert not any(
+            event.key == key and event.action.startswith("register")
+            for event in world.audit.events()
+        )
+        # the refusal is still terminal and still audited
+        assert world.ledger.state(content_hash(grant)) == "refused"
+
     def test_two_effective_same_skill_name_grants_raise_the_typed_error(
         self, world: _World
     ) -> None:

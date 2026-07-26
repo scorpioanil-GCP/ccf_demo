@@ -598,12 +598,26 @@ class GrantLedger:
 
         The sequence is fixed: resolve the referenced catalog entry (so a
         missing entry leaves the ledger untouched and the same grant content
-        hash re-requestable once the entry exists — WR-04), register the
-        grant artifact (D-05 versioned path), audit ``grant_requested``,
-        verify tenant coherence (a returned :class:`TenantMismatch` refusal —
-        WR-02), run tier 1, then — only if the regime requires it — suspend
-        on the sink. Tier 1 always runs before tier 2; a sink never sees a
-        grant tier 1 refused.
+        hash re-requestable once the entry exists — WR-04), verify tenant
+        coherence (a returned :class:`TenantMismatch` refusal — WR-02),
+        register the grant artifact (D-05 versioned path), audit
+        ``grant_requested``, run tier 1, then — only if the regime requires
+        it — suspend on the sink. Tier 1 always runs before tier 2; a sink
+        never sees a grant tier 1 refused.
+
+        **An inadmissible cross-tenant grant never enters the registry
+        (IN-04).** The tenant check runs *before* registration, not after,
+        because registration is append-only and irreversible: a grant whose
+        tenant differs from its agent's would otherwise be written
+        permanently under the *foreign* tenant's key namespace and stay
+        resolvable there, in a Control Plane the requesting deployment owns
+        but that tenant prefix does not belong to — a refusal that
+        nonetheless leaves a durable artifact behind is not a refusal. The
+        check needs only ``grant``, ``entry``, and ``definition``, all of
+        which are in hand before anything is written. The grant is still
+        settled terminally ``refused`` and the refusal still audited: the
+        deployment learns what was turned away, and the Control Plane keeps
+        nothing it turned away.
 
         **Retry after a refusal is a re-issued grant (WR-02).** A grant is
         single-use: once decided it is never re-requested. The supported
@@ -662,6 +676,18 @@ class GrantLedger:
         except LookupError:
             self._record(grant, "grant_refused", resolved=False, actor=actor)
             raise
+
+        # Before registration, deliberately (IN-04). Registration is
+        # append-only; a cross-tenant grant admitted here would be written
+        # forever under the foreign tenant's key namespace and stay
+        # resolvable there. Everything the check needs is already in hand.
+        mismatch = self._tenant_mismatch(grant, definition, entry)
+        if mismatch is not None:
+            self._states[grant_hash] = "refused"
+            self._grants[grant_hash] = grant
+            self._record(grant, "grant_refused", resolved=False, actor=actor)
+            return mismatch
+
         # `reissuable` because a grant is a single-use *request*, not an
         # evolving document (WR-02). The documented remediation after a
         # tier-2 rejection is to issue a new grant artifact; that re-issue
@@ -698,6 +724,37 @@ class GrantLedger:
             self._record(grant, "grant_refused", resolved=False, actor=actor)
             raise
 
+    def _tenant_mismatch(
+        self,
+        grant: SkillGrant,
+        definition: AgentDefinition,
+        entry: SkillCatalogEntry,
+    ) -> TenantMismatch | None:
+        """The tenant-coherence check, as a pure verdict (WR-02; IN-04).
+
+        Pure — it mutates nothing and audits nothing — precisely so it can
+        run before registration, where the caller still has the option of
+        writing nothing at all.
+        """
+        if (
+            grant.tenant == definition.tenant
+            and entry.tenant == definition.tenant
+        ):
+            return None
+        return TenantMismatch(
+            check=CHECK_TIER_1,
+            grant_tenant=grant.tenant,
+            entry_tenant=entry.tenant,
+            definition_tenant=definition.tenant,
+            detail=(
+                f"grant tenant {grant.tenant!r} / entry tenant"
+                f" {entry.tenant!r} do not both equal the agent"
+                f" definition's tenant {definition.tenant!r}; the"
+                " skilling channel never crosses a tenant boundary"
+                " (WR-02; CLAUDE.md §6.2)"
+            ),
+        )
+
     def _decide(
         self,
         grant: SkillGrant,
@@ -707,32 +764,14 @@ class GrantLedger:
         entry: SkillCatalogEntry,
         actor: str,
     ) -> str | GrantRefusal:
-        """Tenant coherence, tier 1, then tier 2 — the decided part of the run.
+        """Tier 1, then tier 2 — the decided part of the run.
 
         Split out of :meth:`request` so every post-mutation path sits inside
         one exception guard (WR-01); it carries no state-machine rule of its
-        own beyond the transitions it performs.
+        own beyond the transitions it performs. Tenant coherence is *not*
+        checked here — it runs before registration (IN-04), so by the time
+        this method is reached the grant is already known tenant-coherent.
         """
-        if (
-            grant.tenant != definition.tenant
-            or entry.tenant != definition.tenant
-        ):
-            self._states[grant_hash] = "refused"
-            self._record(grant, "grant_refused", resolved=False, actor=actor)
-            return TenantMismatch(
-                check=CHECK_TIER_1,
-                grant_tenant=grant.tenant,
-                entry_tenant=entry.tenant,
-                definition_tenant=definition.tenant,
-                detail=(
-                    f"grant tenant {grant.tenant!r} / entry tenant"
-                    f" {entry.tenant!r} do not both equal the agent"
-                    f" definition's tenant {definition.tenant!r}; the"
-                    " skilling channel never crosses a tenant boundary"
-                    " (WR-02; CLAUDE.md §6.2)"
-                ),
-            )
-
         verdict = self._tier_1(grant, definition, entry)
         if isinstance(verdict, GrantRefusal):
             self._states[grant_hash] = "refused"
