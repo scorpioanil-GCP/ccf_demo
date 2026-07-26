@@ -184,6 +184,17 @@ class Agent:
         """The currently-bound skill names, sorted (channel 2 snapshot)."""
         return tuple(sorted(self._bound_skills))
 
+    def instruction_artifact(self, prompt_uri: str) -> PromptArtifact:
+        """Return the resolved prompt artifact bound under ``prompt_uri``.
+
+        Axis 6 introspection only — nothing here renders (D-13; rendering is
+        adapter work in a later phase).
+
+        Raises:
+            KeyError: no instruction binding references ``prompt_uri``.
+        """
+        return self._instruction_artifacts[prompt_uri]
+
     def consume(
         self, product: ContextProductContract, *, now: datetime
     ) -> ContextProductContract:

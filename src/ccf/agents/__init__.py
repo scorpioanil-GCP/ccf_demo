@@ -24,15 +24,18 @@ from ccf.agents.archetypes import (
     ReplayObligation,
     analytics_insights,
 )
+from ccf.agents.factory import AgentFactory, ControlPlaneResolution
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ARCHETYPES",
     "Agent",
+    "AgentFactory",
     "AgentIdentity",
     "ArchetypeComponent",
     "ConfigurationDefault",
+    "ControlPlaneResolution",
     "EmittedEffect",
     "ReplayObligation",
     "analytics_insights",
