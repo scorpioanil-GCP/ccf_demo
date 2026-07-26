@@ -1,0 +1,201 @@
+# Banking fixture material for the two-tier grant machinery (CLAUDE.md §6.2
+# channel 2; D-IMPL-29; D-09; AGNT-03).
+#
+# Every policy-regime allowance, requirement identifier, grant value, approver
+# id, and clock instant the grants suite exercises is here. `/src` holds none
+# of them: the SDK ships the tier-1 structural check, the state machine, and
+# the ApprovalSink Protocol — never a scope vocabulary, an approval rule, or
+# an approver (No-Hardcoding Rule §6.4; 05-RESEARCH.md Pitfall 4).
+#
+# The `skill_governance` block inside each policy-regime declaration is the
+# mechanism-schema envelope the SDK reads (PolicyRegimeGovernance); which
+# scopes it permits and whether grants need approval are this deployment's
+# statements. Tier-2 requirement is a flag in this fixture data, never code
+# (D-IMPL-29).
+
+policy_regimes:
+  auto:
+    key: acme-bank/policy-bundle/treasury-auto
+    class_id: policy-bundle
+    semver: "1.0.0"
+    declaration:
+      regime: treasury-auto
+      skill_governance:
+        permitted_scopes: [portfolio-read]
+        grant_requires_approval: false
+  gated:
+    key: acme-bank/policy-bundle/treasury-gated
+    class_id: policy-bundle
+    semver: "1.0.0"
+    declaration:
+      regime: treasury-gated
+      skill_governance:
+        permitted_scopes: [portfolio-read]
+        grant_requires_approval: true
+  # A regime that declares no skill_governance block at all: an agent bound
+  # to it cannot be granted anything (no silent defaults, D-IMPL-38).
+  ungoverned:
+    key: acme-bank/policy-bundle/treasury-ungoverned
+    class_id: policy-bundle
+    semver: "1.0.0"
+    declaration:
+      regime: treasury-ungoverned
+
+# Minimal six-axis agent definitions for the grants suite. Instruction
+# bindings are deliberately empty (an allowed author statement) so the suite
+# needs no prompt artifacts; the ledger resolves only the policy regime.
+agents:
+  auto:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: treasury-analytics-auto
+    tenant: acme-bank
+    archetypes: [analytics_insights]
+    context_contract:
+      consumes:
+        - product_class: acme-bank.credit-exposure-summary
+          schema_version: "1.0.0"
+    perspective:
+      role: treasury-analyst
+      selection_params:
+        desk: rates
+    policy_regime:
+      ref: "ccf-artifact://acme-bank/policy-bundle/treasury-auto@1.0.0"
+    halflife_debt_profile:
+      ref: "ccf-artifact://acme-bank/debt-profile/annual-credit-review@1.0.0"
+    instruction_bindings: []
+  gated:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: treasury-analytics-gated
+    tenant: acme-bank
+    archetypes: [analytics_insights]
+    context_contract:
+      consumes:
+        - product_class: acme-bank.credit-exposure-summary
+          schema_version: "1.0.0"
+    perspective:
+      role: treasury-analyst
+      selection_params:
+        desk: rates
+    policy_regime:
+      ref: "ccf-artifact://acme-bank/policy-bundle/treasury-gated@1.0.0"
+    halflife_debt_profile:
+      ref: "ccf-artifact://acme-bank/debt-profile/annual-credit-review@1.0.0"
+    instruction_bindings: []
+  ungoverned:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: treasury-analytics-ungoverned
+    tenant: acme-bank
+    archetypes: [analytics_insights]
+    context_contract:
+      consumes:
+        - product_class: acme-bank.credit-exposure-summary
+          schema_version: "1.0.0"
+    perspective:
+      role: treasury-analyst
+      selection_params:
+        desk: rates
+    policy_regime:
+      ref: "ccf-artifact://acme-bank/policy-bundle/treasury-ungoverned@1.0.0"
+    halflife_debt_profile:
+      ref: "ccf-artifact://acme-bank/debt-profile/annual-credit-review@1.0.0"
+    instruction_bindings: []
+  # A definition whose policy regime is never registered: tier 1 must refuse
+  # rather than default (D-IMPL-38).
+  unresolvable:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: treasury-analytics-unresolvable
+    tenant: acme-bank
+    archetypes: [analytics_insights]
+    context_contract:
+      consumes:
+        - product_class: acme-bank.credit-exposure-summary
+          schema_version: "1.0.0"
+    perspective:
+      role: treasury-analyst
+      selection_params:
+        desk: rates
+    policy_regime:
+      ref: "ccf-artifact://acme-bank/policy-bundle/never-registered@1.0.0"
+    halflife_debt_profile:
+      ref: "ccf-artifact://acme-bank/debt-profile/annual-credit-review@1.0.0"
+    instruction_bindings: []
+
+# Skill catalog entries whose requirements exceed the fixture regimes — the
+# tier-1 excess material. Entries in their own right, same schema as
+# covenant_metrics_tool.yaml.
+skills:
+  writeback:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: covenant-writeback
+    tenant: acme-bank
+    skill_type: tool
+    binding:
+      command: covenant-writeback-cli
+    requirements:
+      required_scopes: [portfolio-read, covenant-write]
+      required_context_products: [acme-bank.credit-exposure-summary]
+  offcontract:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: covenant-offcontract
+    tenant: acme-bank
+    skill_type: tool
+    binding:
+      command: covenant-offcontract-cli
+    requirements:
+      required_scopes: [portfolio-read]
+      required_context_products: [acme-bank.liquidity-summary]
+
+# Grant documents. The agent_definition_hash is derived identity (content
+# hash of the parsed definition), computed by mechanism at request time —
+# a hash is never a fixture value (D-IMPL-26).
+grants:
+  metrics_tool:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: treasury-covenant-metrics
+    tenant: acme-bank
+    skill_name: covenant-metrics
+    skill_version: "1.0.0"
+  metrics_local:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: treasury-covenant-metrics-local
+    tenant: acme-bank
+    skill_name: covenant-metrics-local
+    skill_version: "1.1.0"
+  writeback:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: treasury-covenant-writeback
+    tenant: acme-bank
+    skill_name: covenant-writeback
+    skill_version: "1.0.0"
+  offcontract:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: treasury-covenant-offcontract
+    tenant: acme-bank
+    skill_name: covenant-offcontract
+    skill_version: "1.0.0"
+
+# The tier-1 excess identifiers the refusal must name — fixture statements of
+# expected outcomes, kept beside the entries that produce them.
+expected_excess:
+  scopes: [covenant-write]
+  context_products: [acme-bank.liquidity-summary]
+
+# ApprovalSink double values: the sink supplies an approver id string only —
+# identity binding is D-IMPL-21 (I.4), documented on the sink (T-05-19).
+approval:
+  approver_id: risk-officer-7
+  requesting_actor: platform-operator
+
+# Injected clock instant for audit events (time is injected, never read).
+clock:
+  start: "2026-07-26T12:00:00+00:00"
