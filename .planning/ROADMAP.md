@@ -194,7 +194,33 @@ Plans:
   3. Skill catalog supports registration, discovery, and runtime grant/revoke; the policy-compatibility check refuses a grant exceeding the agent's policy regime or context contract; every grant/revocation and the skill-set in force land in the replay record
   4. All six specialization axes (archetype binding, context contract, perspective, policy regime, half-life/debt profile, instruction bindings) are expressible in the definition artifact and versioned — changing any axis produces a new agent version visible in replay
 
-**Plans**: TBD
+**Plans:** 6 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 05-01-PLAN.md — Slice foundations: jinja2 pin, six-axis definition schemas (D-IMPL-28), prompt parse-only validation (D-13), D-05 hash-verified bump, full D-06 dimension-4 replay extension
+
+**Wave 2**
+
+- [ ] 05-02-PLAN.md — Vertical slice (D-01/D-02/D-03): ArchetypeComponent + analytics_insights, concrete Agent, AgentFactory, test-double harness, end-to-end slice test with dimension-4 assertions
+
+**Wave 3**
+
+- [ ] 05-03-PLAN.md — All six archetypes + D-IMPL-19 composition rules + consumption-discipline test
+
+**Wave 4**
+
+- [ ] 05-04-PLAN.md — Factory hardening: TaskDefinition + TaskFactory (D-11), CINV-01c behavioral lint fixture (D-12), JSON Schema export, six-axis version matrix
+
+**Wave 5**
+
+- [ ] 05-05-PLAN.md — Skill catalog (4 types), two-tier governance + ApprovalSink (D-09), dispatch + NotYetBound (D-08), grant-set hash (D-07), replay capture + CINV-04 activation (D-10)
+
+**Wave 6**
+
+- [ ] 05-06-PLAN.md — Gate wave: full verification sweep, per-invariant gate checklist, success-criteria evidence map, I.3 handoff notes
+
 **Process notes**: Model mandate — Opus 5 (fallback Opus 4.8), "high" effort. Branch: `phase-i2`. Ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.2` before Phase 6 begins.
 
 ### Phase 6: Phase I.3 — Cross-Process & Harness Adapters
