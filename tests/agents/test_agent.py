@@ -87,7 +87,7 @@ def _agent(**overrides: Any) -> Agent:
         "identity": _identity(definition),
         "components": _components(definition),
         "instruction_artifacts": {},
-        "bound_skills": {},
+        "bound_skills": None,
     }
     values.update(overrides)
     return Agent(**values)
@@ -209,7 +209,9 @@ def test_emitted_effects_are_returned_typed_values() -> None:
 def test_perspective_conditioning_is_derived_from_construction_time_identity() -> None:
     agent = _agent()
     definition = _definition()
-    conditioning = agent.perspective_conditioning(principal_id="analyst-4471")
+    conditioning = agent.perspective_conditioning(
+        principal_id="analyst-4471", grant_set_hash=NO_GRANTS_SET_HASH
+    )
     assert isinstance(conditioning, PerspectiveConditioning)
     assert conditioning.principal_id == "analyst-4471"
     assert conditioning.role == definition.perspective.role
@@ -218,3 +220,19 @@ def test_perspective_conditioning_is_derived_from_construction_time_identity() -
     assert conditioning.archetype_composition == definition.archetypes
     assert conditioning.grant_set_hash == NO_GRANTS_SET_HASH
     assert conditioning.delegation_chain == ("analyst-4471",)
+
+
+def test_perspective_conditioning_requires_an_explicit_grant_set_hash() -> None:
+    """WR-01: the grant-set claim is stated, never defaulted — a defaulted
+    zero-grants claim on a skilled agent would be a false positive record."""
+    with pytest.raises(TypeError):
+        _agent().perspective_conditioning(  # type: ignore[call-arg]
+            principal_id="analyst-4471"
+        )
+
+
+def test_a_raw_mapping_is_refused_at_the_bound_skills_seam() -> None:
+    """WR-03: only the grant ledger's BoundSkillView is admissible —
+    capabilities reach an agent through governed grants exclusively."""
+    with pytest.raises(AgentConstructionError):
+        _agent(bound_skills={"summarize-covenants": object()})

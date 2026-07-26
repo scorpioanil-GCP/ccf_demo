@@ -51,7 +51,7 @@ from ccf.agents.definitions import (
     PROMPT_ARTIFACT,
     AgentDefinition,
 )
-from ccf.agents.errors import SkillNotBound
+from ccf.agents.errors import FalseGrantClaimError, SkillNotBound
 from ccf.agents.factory import AgentFactory
 from ccf.artifacts.protocol import artifact_uri
 from ccf.boot import boot
@@ -260,7 +260,7 @@ def test_dimension_4_carries_the_complete_d06_field_set(fabric: _Fabric) -> None
         assembly_mode=fabric.control["product_class"]["assembly_mode"],
         recorded_at=fabric.now,
         agent_conditioning=agent.perspective_conditioning(
-            principal_id=principal_id
+            principal_id=principal_id, grant_set_hash=NO_GRANTS_SET_HASH
         ),
     )
     conditioning = record.perspective_conditioning
@@ -390,6 +390,40 @@ def test_a_granted_decision_captures_the_grant_set_hash_in_dimension_4(
     assert revoked_record.perspective_conditioning.agent_definition_hash == (
         content_hash(definition)
     )
+
+
+def test_a_false_zero_grants_claim_is_refused_on_a_skilled_agent(
+    fabric: _Fabric,
+) -> None:
+    """WR-01: an agent with a non-empty bound skill-set refuses the positive
+    zero-grants claim — no supported path records a false dimension-4 record."""
+    agent, _definition, _ledger, _granted_values = _granted_agent(fabric)
+    perspective_values = fabric.control["perspective"]
+    with pytest.raises(FalseGrantClaimError):
+        agent.perspective_conditioning(
+            principal_id=perspective_values["principal_id"],
+            grant_set_hash=NO_GRANTS_SET_HASH,
+        )
+
+
+def test_the_double_drives_a_granted_skill_without_the_typed_error(
+    fabric: _Fabric,
+) -> None:
+    """The double's granted path (IN-02): with a governed grant in force the
+    bound name exists from the agent's view, so ``unbound`` is ``None``."""
+    agent, definition, _ledger, granted_values = _granted_agent(fabric)
+    gated = _servable(fabric)
+    slice_values = _agent_fixture()["slice"]
+    consumed, unbound, effect = drive_slice(
+        agent=agent,
+        product=gated.product,
+        now=fabric.now,
+        skill_name=granted_values["grant"]["skill_name"],
+        effect_payload=dict(slice_values["effect_payload"]),
+    )
+    assert consumed is gated.product
+    assert unbound is None
+    assert effect.agent_definition_hash == content_hash(definition)
 
 
 # --- the double stays a linear script (D-03) --------------------------------------

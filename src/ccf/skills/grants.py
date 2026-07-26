@@ -44,11 +44,10 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping
 from datetime import datetime
-from typing import Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 from pydantic import field_validator
 
-from ccf.agents.definitions import AgentDefinition
 from ccf.artifacts.protocol import parse_artifact_uri
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
@@ -62,6 +61,12 @@ from ccf.controlplane.registry import (
 from ccf.replay.record import NO_GRANTS_SET_HASH
 from ccf.skills.catalog import SkillCatalog, SkillCatalogEntry
 
+if TYPE_CHECKING:
+    # Annotation-only: importing the agents package at runtime would create a
+    # cycle now that ccf.agents.agent imports BoundSkillView from this module
+    # (WR-03 typed seam).
+    from ccf.agents.definitions import AgentDefinition
+
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
@@ -70,6 +75,7 @@ __all__ = [
     "ApprovalOutcome",
     "ApprovalRejected",
     "ApprovalSink",
+    "BoundSkillView",
     "GovernanceUndeclared",
     "GrantCollisionError",
     "GrantLedger",
@@ -323,7 +329,7 @@ def grant_set_hash(active_grant_hashes: frozenset[str]) -> str:
     return content_hash(frozenset(active_grant_hashes))
 
 
-class _BoundSkills(Mapping[str, SkillCatalogEntry]):
+class BoundSkillView(Mapping[str, SkillCatalogEntry]):
     """A live, read-only view of one agent's currently-bound skill-set.
 
     What the harness adapter surfaces as tools (CLAUDE.md §7.3 seam 2):
@@ -331,6 +337,14 @@ class _BoundSkills(Mapping[str, SkillCatalogEntry]):
     Resolved from ledger state at access time, so grant and revocation are
     visible immediately without the agent's identity ever changing
     (channel separation, §6.2).
+
+    **Constructor discipline is module-private (WR-03).** The only supported
+    producer is :meth:`GrantLedger.bound_view`; nothing outside this module
+    constructs one. The type exists precisely so the Agent Factory's
+    ``bound_skills`` seam admits ledger-produced views and nothing else —
+    an arbitrary mapping cannot be injected at the supported construction
+    path, which is what makes skill-set capture a by-construction property
+    rather than caller discipline (CLAUDE.md §6.2).
     """
 
     def __init__(self, ledger: "GrantLedger", agent_definition_hash: str) -> None:
@@ -718,14 +732,14 @@ class GrantLedger:
             )
         return entries
 
-    def bound_view(
-        self, agent_definition_hash: str
-    ) -> Mapping[str, SkillCatalogEntry]:
+    def bound_view(self, agent_definition_hash: str) -> BoundSkillView:
         """A live read-only view of one agent's currently-bound skill-set.
 
-        The mapping the Agent Factory hands to ``Agent`` as ``bound_skills``:
-        resolved from ledger state at invoke time, so grants and revocations
-        take effect without re-declaring the agent — skill-set changes never
-        touch agent identity (CLAUDE.md §6.2; D-07).
+        The typed :class:`BoundSkillView` the Agent Factory hands to
+        ``Agent`` as ``bound_skills`` — this method is the type's only
+        supported producer (WR-03): resolved from ledger state at invoke
+        time, so grants and revocations take effect without re-declaring the
+        agent — skill-set changes never touch agent identity
+        (CLAUDE.md §6.2; D-07).
         """
-        return _BoundSkills(self, agent_definition_hash)
+        return BoundSkillView(self, agent_definition_hash)

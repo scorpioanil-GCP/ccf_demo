@@ -48,6 +48,7 @@ from ccf.agents.definitions import AgentDefinition, PromptArtifact
 from ccf.agents.errors import (
     AgentConstructionError,
     ConsumptionRefused,
+    FalseGrantClaimError,
     SkillNotBound,
 )
 from ccf.contracts.base import CCFContract
@@ -55,7 +56,8 @@ from ccf.contracts.canonical import content_hash
 from ccf.products.contract import ContextProductContract
 from ccf.replay.record import NO_GRANTS_SET_HASH, PerspectiveConditioning
 from ccf.skills.catalog import SkillCatalogEntry
-from ccf.skills.dispatch import dispatch_skill
+from ccf.skills.dispatch import SkillInvocation, ToolInvocation, dispatch_skill
+from ccf.skills.grants import BoundSkillView
 
 __ccf_mode__ = "algorithmic"
 
@@ -104,6 +106,28 @@ class EmittedEffect(CCFContract):
     payload: Mapping[str, Any]
 
 
+def _validated_bound_skills(bound_skills: object) -> BoundSkillView | None:
+    """Refuse anything but a ledger-produced view at the seam (WR-03).
+
+    Typed ``object`` deliberately: the signature narrows to
+    :class:`~ccf.skills.grants.BoundSkillView` statically, and this runtime
+    check holds the same line against dynamically-injected mappings — the
+    supported construction path admits no capability source other than the
+    grant ledger (CLAUDE.md §6.2 channel 2).
+    """
+    if bound_skills is None:
+        return None
+    if not isinstance(bound_skills, BoundSkillView):
+        raise AgentConstructionError(
+            f"bound_skills is {type(bound_skills).__name__}, not the grant"
+            " ledger's BoundSkillView; capabilities reach an agent only"
+            " through governed grants — pass"
+            " GrantLedger.bound_view(agent_definition_hash) or None"
+            " (WR-03; CLAUDE.md §6.2)"
+        )
+    return bound_skills
+
+
 class Agent:
     """One declared agent, running form (CLAUDE.md §6.1; D-IMPL-11).
 
@@ -122,14 +146,19 @@ class Agent:
             one per declared archetype identifier.
         instruction_artifacts: Resolved prompt artifacts keyed by the
             binding's versioned URI (validated by the factory per D-13).
-        bound_skills: The currently-bound skill mapping (channel 2). Held by
-            reference, deliberately: the factory passes the grant ledger's
-            live view, so grants and revocations take effect at invoke time
+        bound_skills: The currently-bound skill view (channel 2), or ``None``
+            for an agent granted nothing. Only the grant ledger's
+            :class:`~ccf.skills.grants.BoundSkillView` is admissible (WR-03):
+            capabilities reach an agent through governed grants exclusively,
+            so an arbitrary mapping is refused at construction. Held by
+            reference, deliberately: the factory passes the ledger's live
+            view, so grants and revocations take effect at invoke time
             without the agent's identity ever changing (CLAUDE.md §6.2;
             D-07 — skill-set changes never touch agent identity).
 
     Raises:
-        AgentConstructionError: the inputs do not describe one coherent agent.
+        AgentConstructionError: the inputs do not describe one coherent agent,
+            or ``bound_skills`` is not a ledger-produced view.
     """
 
     def __init__(
@@ -139,7 +168,7 @@ class Agent:
         identity: AgentIdentity,
         components: tuple[ArchetypeComponent, ...],
         instruction_artifacts: Mapping[str, PromptArtifact],
-        bound_skills: Mapping[str, object],
+        bound_skills: BoundSkillView | None,
     ) -> None:
         expected_hash = content_hash(definition)
         if identity.definition_hash != expected_hash:
@@ -167,7 +196,7 @@ class Agent:
         self._identity = identity
         self._components = components
         self._instruction_artifacts = dict(instruction_artifacts)
-        self._bound_skills = bound_skills
+        self._bound_skills = _validated_bound_skills(bound_skills)
 
     @property
     def identity(self) -> AgentIdentity:
@@ -184,10 +213,14 @@ class Agent:
         """The composed archetype bundles, in declaration order."""
         return self._components
 
+    def _skills(self) -> Mapping[str, SkillCatalogEntry]:
+        """The currently-bound skill mapping; empty when nothing is granted."""
+        return self._bound_skills if self._bound_skills is not None else {}
+
     @property
     def bound_skill_names(self) -> tuple[str, ...]:
         """The currently-bound skill names, sorted (channel 2 snapshot)."""
-        return tuple(sorted(self._bound_skills))
+        return tuple(sorted(self._skills()))
 
     def instruction_artifact(self, prompt_uri: str) -> PromptArtifact:
         """Return the resolved prompt artifact bound under ``prompt_uri``.
@@ -239,7 +272,7 @@ class Agent:
 
     def invoke_skill(
         self, name: str, *, arguments: Mapping[str, str] | None = None
-    ) -> object:
+    ) -> SkillCatalogEntry | SkillInvocation | ToolInvocation:
         """Invoke (or introspect) the currently-bound skill under ``name``.
 
         The channel-2 seam (CLAUDE.md §7.3 seam 2): skills the agent has not
@@ -247,18 +280,18 @@ class Agent:
         bound catalog entry dispatches through
         :func:`ccf.skills.dispatch.dispatch_skill`; without, the bound entry
         is returned for introspection. Binding is resolved at invoke time
-        from the ledger-backed view the factory injected, so grant and
-        revocation take effect without touching agent identity (D-07).
+        from the ledger-backed :class:`~ccf.skills.grants.BoundSkillView`
+        the factory injected (WR-03 — the view's values are catalog entries
+        by construction), so grant and revocation take effect without
+        touching agent identity (D-07).
 
         Raises:
             SkillNotBound: no grant currently binds ``name`` to this agent.
             ccf.agents.errors.NotYetBound: the bound entry is ``mcp`` or
                 ``a2a`` and this build lacks the transport (D-08).
-            TypeError: dispatch was requested but the bound object is not a
-                catalog entry — broken wiring, not a governance outcome.
         """
         try:
-            bound = self._bound_skills[name]
+            bound = self._skills()[name]
         except KeyError:
             raise SkillNotBound(
                 f"no skill named {name!r} is currently bound to agent"
@@ -267,12 +300,6 @@ class Agent:
             ) from None
         if arguments is None:
             return bound
-        if not isinstance(bound, SkillCatalogEntry):
-            raise TypeError(
-                f"skill {name!r} is bound to {type(bound).__name__}, which is"
-                " not a catalog entry and cannot dispatch; bound skills come"
-                " from the grant ledger's catalog-resolved view (D-08)"
-            )
         return dispatch_skill(bound, arguments=arguments)
 
     def emit_effect(self, payload: Mapping[str, Any]) -> EmittedEffect:
@@ -288,7 +315,7 @@ class Agent:
         )
 
     def perspective_conditioning(
-        self, *, principal_id: str, grant_set_hash: str = NO_GRANTS_SET_HASH
+        self, *, principal_id: str, grant_set_hash: str
     ) -> PerspectiveConditioning:
         """Serialize this agent's dimension-4 conditioning (D-06).
 
@@ -296,11 +323,29 @@ class Agent:
         annotation, composition — plus the in-force grant-set identity.
         ``grant_set_hash`` is the D-07 value the caller *captured* from the
         grant ledger at decision time (a serialized value, never re-derived
-        here from live objects — DESIGN.md §3.6); the default is the positive
-        :data:`~ccf.replay.record.NO_GRANTS_SET_HASH` claim for decisions
-        made under zero grants. The delegation chain is the single-element
-        originating-principal chain in I.2 (extended, not re-shaped, by I.4).
+        here from live objects — DESIGN.md §3.6). **Required, with no
+        default** (WR-01): a defaulted zero-grants claim on a skilled agent
+        would record a false positive assertion into replay dimension 4, so
+        the caller states the claim explicitly — and the positive
+        :data:`~ccf.replay.record.NO_GRANTS_SET_HASH` claim is refused
+        outright when this agent's bound skill-set is non-empty, because the
+        agent itself knows zero grants cannot be true. The delegation chain
+        is the single-element originating-principal chain in I.2 (extended,
+        not re-shaped, by I.4).
+
+        Raises:
+            FalseGrantClaimError: ``grant_set_hash`` is the zero-grants claim
+                while this agent's bound skill-set is non-empty (WR-01).
         """
+        if grant_set_hash == NO_GRANTS_SET_HASH and len(self._skills()) > 0:
+            raise FalseGrantClaimError(
+                f"agent {self._definition.name!r} has"
+                f" {len(self._skills())} currently-bound skill(s), so the"
+                " zero-grants claim cannot be true; capture the in-force"
+                " grant-set hash from"
+                " GrantLedger.grant_set_hash(agent_definition_hash) at"
+                " decision time (WR-01; D-07; CLAUDE.md §6.2)"
+            )
         return PerspectiveConditioning(
             principal_id=principal_id,
             role=self._definition.perspective.role,
