@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-26T09:08:37.136Z"
+last_updated: "2026-07-26T09:14:54.715Z"
 progress:
   total_phases: 8
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 46
-  completed_plans: 45
-  percent: 50
+  completed_plans: 46
+  percent: 63
 ---
 
 # STATE — CCF SDK
@@ -26,13 +26,13 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 05 (phase-i-2-agent-specialization-framework) — EXECUTING
-Plan: 7 of 7 (05-06 complete)
+Phase: 05 (phase-i-2-agent-specialization-framework) — ALL PLANS EXECUTED, awaiting §3.1 gate
+Plan: 7 of 7 (05-07 complete)
 
-- **Phase:** 4 of 8 complete; next is Phase 5 (Phase I.2)
-- **Plan:** all 12 complete
-- **Status:** Executing Phase 05
-- **Progress:** [██████████] 98%
+- **Phase:** 5 of 8 executed; Phase 5 awaits `/gsd-review` → triage → Dave → D-GATE-I.2 → merge to main
+- **Plan:** all 7 complete
+- **Status:** Phase 05 gate-ready (docs/PHASE_I2_GATE.md)
+- **Progress:** [██████████] 100%
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Plan: 7 of 7 (05-06 complete)
 | 05-02      | ~10 min  | 3     | 12    |
 | 05-05      | ~6 min   | 1     | 7     |
 | 05-06      | ~12 min  | 2     | 20    |
+| 05-07      | ~8 min   | 2     | 3     |
 
 ## Accumulated Context
 
@@ -94,6 +95,7 @@ Plan: 7 of 7 (05-06 complete)
 - [Phase 05]: Grant transitions audit as new grant_* AuditAction members through the one existing AuditLog — no parallel log type (05-06)
 - [Phase 05]: NotYetBound is a typed RuntimeError for mcp/a2a dispatch (build lacks the transport; artifact is fine) — RESEARCH Open Question 2 resolution; tool dispatch returns a ToolInvocation value, the SDK executes no command (05-06)
 - [Phase 05]: Agent holds bound_skills by reference to the GrantLedger's live view — grants/revocations take effect at invoke time without touching agent identity; ledger.grant_set_hash() returns the NO_GRANTS sentinel when empty, pure fn stays content_hash(frozenset) (D-07, 05-06)
+- [Phase 05]: Gate package (docs/PHASE_I2_GATE.md) follows the I.1 D-17 format; discretionary in-phase choices recorded in the gate doc §4, not as D-IMPL entries; D-GATE-I.2 deliberately NOT logged pending Dave's approval (05-07)
 
 ### Todos
 
@@ -107,5 +109,5 @@ Plan: 7 of 7 (05-06 complete)
 
 ## Session Continuity
 
-Last action: Completed 05-06-PLAN.md (2026-07-26) on branch phase-i2 — two-tier D-IMPL-29 grant governance (tier-1 structural check + state machine behind ApprovalSink), local/tool dispatch with NotYetBound for mcp/a2a, D-07 grant-set hash in replay dimension 4, CINV-04 skill-set-capture ACTIVE (3 → 2 skips); suite 568 passed / 2 skipped, mypy strict clean, lints exit 0. AGNT-03 complete.
-Next action: Execute 05-07-PLAN.md (wave 7 — final Phase I.2 plan).
+Last action: Completed 05-07-PLAN.md (2026-07-26) on branch phase-i2 — gate wave: full verification sweep all green on first run (568 passed / exactly 2 I.4 skips, mypy --strict 63 files, lints exit 0), docs/PHASE_I2_GATE.md assembled (14-row D-17 checklist, AGNT-01/02/03 evidence map, I.3/I.4 handoff incl. Jinja2 SSTI), ROADMAP Phase 5 at 7/7. No D-GATE-I.2 entry written.
+Next action: Run `/gsd-review --phase "Phase I.2" --all`, triage, present to Dave; on approval log D-GATE-I.2 and merge phase-i2 → main (§3.1).
