@@ -10,7 +10,7 @@ progress:
   total_plans: 49
   completed_plans: 49
   percent: 50
-stopped_at: Phase 05 complete (10/10) — ready to discuss Phase 6
+stopped_at: Phase 05 complete (10/10) — awaiting D-GATE-I.2 approval and merge to main
 ---
 
 # STATE — CCF SDK
@@ -27,19 +27,30 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 05 (phase-i-2-agent-specialization-framework) — EXECUTING
-Plan: 1 of 10
+Phase: 05 (phase-i-2-agent-specialization-framework) — COMPLETE, AWAITING GATE
+Plan: 10 of 10
 
-- **Phase:** 6 of 8 (phase i.3 — cross process & harness adapters)
-- **Plan:** Not started
-- **Status:** Ready to plan
-- **Progress:** [██████████] 100%
+- **Phase:** 5 of 8 executed; 6 (phase i.3 — cross process & harness adapters) is next
+- **Plan:** 10/10 complete
+- **Status:** Awaiting Dave's approval at D-GATE-I.2 (drafted in docs/DECISIONS.md,
+  date and approver pending). Phase 6 does not begin until the gate is approved and
+  `phase-i2` is merged to `main` (CLAUDE.md §3.1 step 4, §2.2).
+- **Progress:** [██████████] 100% of Phase 5 plans
+
+**Nothing blocks Phase 6 planning on the decision log.** The 12-item Phase I
+gate list is RESOLVED in full (D-GATE-D, 2026-07-25). D-IMPL-24 in particular
+is ruled — Dave's own ruling, differing from the recommendation: **all three**
+harnesses ship v0 reference adapters (Google ADK + Claude Agent SDK +
+LangGraph), which means three adapter legs, three CI legs, and three
+example-03 variants in Phase 6 scope. The only precondition is procedural:
+D-GATE-I.2 approval and the merge to `main`.
 
 ## Performance Metrics
 
-- Phases complete: 4/8
+- Phases executed: 5/8 — gated: 4/8 (Phase 5 awaiting D-GATE-I.2)
 - Requirements delivered: 3/46
-- D-GATE entries logged: 4 (D-GATE-R, D-GATE-D, D-GATE-F, D-GATE-I.1)
+- D-GATE entries logged: 4 (D-GATE-R, D-GATE-D, D-GATE-F, D-GATE-I.1);
+  D-GATE-I.2 drafted, unapproved
 
 | Phase-Plan | Duration | Tasks | Files |
 | ---------- | -------- | ----- | ----- |
