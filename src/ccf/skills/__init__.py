@@ -73,6 +73,7 @@ __all__ = [
     "SkillCatalog",
     "SkillCatalogEntry",
     "SkillGrant",
+    "SplitAuditPlaneError",
     "SkillNotInCatalog",
     "SkillRequirements",
     "TenantMismatch",

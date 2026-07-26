@@ -85,6 +85,7 @@ __all__ = [
     "PolicyRegimeUnresolvable",
     "RequirementsExceedRegime",
     "SkillGrant",
+    "SplitAuditPlaneError",
     "TenantMismatch",
     "grant_set_hash",
     "skill_grant_key",
@@ -116,6 +117,20 @@ class GrantTransitionError(RuntimeError):
     refused grant, re-requesting a decided one) is broken wiring in the
     caller, not an expected governance outcome (I.1 refusal-vs-exception
     line: refusals are values; a misused state machine is an exception).
+    """
+
+
+class SplitAuditPlaneError(ValueError):
+    """A ledger was handed an audit log its registry does not record into.
+
+    Raised — never reconciled — because the Control Plane *is* the audit
+    plane (INV-CH7-71; CLAUDE.md §10), singular. A ledger auditing into one
+    log while the registry its grants register into audits into another
+    produces two partial journals and no complete one: the registration of a
+    grant would live in one, its ``grant_effective`` transition in the other,
+    and neither would answer "what was in force" on its own. The WR-07
+    closure established the singular plane by making a shared log
+    *injectable*; this makes it unavoidable (IN-03).
     """
 
 
@@ -404,8 +419,19 @@ class GrantLedger:
         catalog: The skill catalog entries are resolved from, by pinned
             version (05-05).
         audit: The append-only log every transition lands in (T-05-16).
+            Optional, and constrained: the Control Plane is the audit plane
+            and there is one of it (INV-CH7-71), so this defaults to — and
+            may only be — ``control_plane.audit_log``. Passing any other log
+            raises :class:`SplitAuditPlaneError` rather than silently
+            splitting the journal (IN-03). The parameter survives its own
+            redundancy only as an explicitness affordance for callers that
+            prefer to name the log they are wiring.
         sink: The tier-2 decision surface (D-09).
         clock: Time source for audit timestamps. Injected, never read.
+
+    Raises:
+        SplitAuditPlaneError: ``audit`` is a log other than
+            ``control_plane.audit_log``.
     """
 
     def __init__(
@@ -413,10 +439,20 @@ class GrantLedger:
         *,
         control_plane: ControlPlaneRegistry,
         catalog: SkillCatalog,
-        audit: AuditLog,
         sink: ApprovalSink,
         clock: Callable[[], datetime],
+        audit: AuditLog | None = None,
     ) -> None:
+        if audit is not None and audit is not control_plane.audit_log:
+            raise SplitAuditPlaneError(
+                "the ledger's audit log is not the log its Control Plane"
+                " registry records into; grant registrations and grant"
+                " transitions would land in two partial journals and no"
+                " complete one. Omit `audit` (it defaults to"
+                " `control_plane.audit_log`) or pass that same log"
+                " (INV-CH7-71; CLAUDE.md §10; IN-03)"
+            )
+        audit = control_plane.audit_log if audit is None else audit
         self._control_plane = control_plane
         self._catalog = catalog
         self._audit = audit

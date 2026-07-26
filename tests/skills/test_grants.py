@@ -56,6 +56,7 @@ from ccf.skills.grants import (
     PolicyRegimeUnresolvable,
     RequirementsExceedRegime,
     SkillGrant,
+    SplitAuditPlaneError,
     TenantMismatch,
     grant_set_hash,
     skill_grant_key,
@@ -809,6 +810,60 @@ class TestNoWedgedStates:
         refused = world.audit.events()[-1]
         assert refused.action == "grant_refused"
         assert refused.resolved is False
+
+
+class TestSingularAuditPlane:
+    """IN-03: the ledger cannot audit anywhere but its registry's own log."""
+
+    def test_the_audit_log_defaults_to_the_registrys_own(
+        self, fixture: dict[str, Any], instant: datetime
+    ) -> None:
+        world = _World(fixture, instant)
+        ledger = GrantLedger(
+            control_plane=world.registry,
+            catalog=world.catalog,
+            sink=world.sink,
+            clock=lambda: instant,
+        )
+        definition = world.definition("auto")
+        grant = world.grant("metrics_tool", definition)
+        before = len(world.audit.events())
+        result = ledger.request(
+            grant, definition=definition, actor=world.actor
+        )
+        assert isinstance(result, str)
+        # the transitions landed in the registry's log without being named
+        assert len(world.audit.events()) > before
+        assert any(
+            event.action == "grant_effective"
+            for event in world.audit.events()[before:]
+        )
+
+    def test_passing_the_registrys_own_log_is_still_accepted(
+        self, fixture: dict[str, Any], instant: datetime
+    ) -> None:
+        """The parameter survives as an explicitness affordance."""
+        world = _World(fixture, instant)
+        GrantLedger(
+            control_plane=world.registry,
+            catalog=world.catalog,
+            audit=world.registry.audit_log,
+            sink=world.sink,
+            clock=lambda: instant,
+        )
+
+    def test_a_foreign_audit_log_is_refused(
+        self, fixture: dict[str, Any], instant: datetime
+    ) -> None:
+        world = _World(fixture, instant)
+        with pytest.raises(SplitAuditPlaneError):
+            GrantLedger(
+                control_plane=world.registry,
+                catalog=world.catalog,
+                audit=AuditLog(),
+                sink=world.sink,
+                clock=lambda: instant,
+            )
 
 
 # --- the Protocol is runtime-checkable ----------------------------------------
