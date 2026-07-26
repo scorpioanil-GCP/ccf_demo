@@ -35,9 +35,13 @@ from ccf.agents.definitions import (
     PROMPT_ARTIFACT,
     TASK_DEFINITION,
     AgentDefinition,
+    ConsumedProduct,
+    ContextContract,
     InstructionBinding,
+    PerspectiveBinding,
     PromptArtifact,
     TaskDefinition,
+    VersionedRef,
 )
 from ccf.agents.errors import AgentDefinitionError, PromptValidationError
 from ccf.agents.factory import AgentFactory, ControlPlaneResolution, Task, TaskFactory
@@ -48,7 +52,7 @@ from ccf.controlplane.artifacts import (
     load_artifact,
     parse_artifact,
 )
-from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.controlplane.registry import ControlPlaneRegistry, RefuseUnbumpedChange
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
 
@@ -390,3 +394,126 @@ def test_construction_is_deterministic_for_the_same_pinned_versions(
     first = factory.construct(definition_key=key, definition_version=version)
     second = factory.construct(definition_key=key, definition_version=version)
     assert content_hash(first.identity) == content_hash(second.identity)
+
+
+# --- axis change => new version, all six axes (success criterion 4; D-05) -------
+#
+# Mutations are structural transformations of fixture-loaded data only —
+# reordering, swapping a ref version string, reusing another fixture value —
+# never new prompt or domain content (No-Hardcoding Rule §6.4).
+
+
+def _bump_ref_version(ref: str) -> str:
+    """Swap a pinned ref's version string: ...@1.0.0 -> ...@2.0.0."""
+    base, _, version = ref.rpartition("@")
+    major, _, rest = version.partition(".")
+    return f"{base}@{int(major) + 1}.{rest}"
+
+
+def _axis_mutants(original: AgentDefinition) -> dict[str, AgentDefinition]:
+    """One structurally-mutated variant per specialization axis (§6.2)."""
+    consumed = original.context_contract.consumes[0]
+    binding = original.instruction_bindings[0]
+    return {
+        "archetype_binding": original.model_copy(
+            update={"archetypes": original.archetypes + ("context_assembly",)}
+        ),
+        "context_contract": original.model_copy(
+            update={
+                "context_contract": ContextContract(
+                    consumes=(
+                        ConsumedProduct(
+                            product_class=consumed.product_class,
+                            schema_version=_bump_ref_version(
+                                f"@{consumed.schema_version}"
+                            ).lstrip("@"),
+                        ),
+                    )
+                )
+            }
+        ),
+        "perspective": original.model_copy(
+            update={
+                "perspective": PerspectiveBinding(
+                    role=original.name,  # reused fixture value, not new content
+                    selection_params=original.perspective.selection_params,
+                )
+            }
+        ),
+        "policy_regime": original.model_copy(
+            update={
+                "policy_regime": VersionedRef(
+                    ref=_bump_ref_version(original.policy_regime.ref)
+                )
+            }
+        ),
+        "halflife_debt_profile": original.model_copy(
+            update={
+                "halflife_debt_profile": VersionedRef(
+                    ref=_bump_ref_version(original.halflife_debt_profile.ref)
+                )
+            }
+        ),
+        "instruction_bindings": original.model_copy(
+            update={
+                "instruction_bindings": (
+                    InstructionBinding(
+                        prompt=binding.prompt,
+                        parameters=tuple(reversed(binding.parameters)),
+                    ),
+                )
+            }
+        ),
+    }
+
+
+def test_every_axis_mutation_produces_a_distinct_content_hash() -> None:
+    original = _definition()
+    original_hash = content_hash(original)
+    hashes = {
+        axis: content_hash(mutant)
+        for axis, mutant in _axis_mutants(original).items()
+    }
+    for axis, mutated_hash in hashes.items():
+        assert mutated_hash != original_hash, f"axis {axis!r} hash unchanged"
+    assert len(set(hashes.values())) == len(hashes), "two axes collided"
+
+
+def test_every_unbumped_axis_change_is_refused_at_registration(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """D-05: changed content under an unchanged artifact_version is refused."""
+    original = _definition()
+    key = _agent_fixture()["keys"]["agent_definition"]
+    version = _registered_definition(registry, original, key)
+    for axis, mutant in _axis_mutants(original).items():
+        outcome = registry.register_versioned(key, mutant, AGENT_DEFINITION)
+        assert isinstance(outcome, RefuseUnbumpedChange), (
+            f"axis {axis!r}: expected RefuseUnbumpedChange, got {outcome!r}"
+        )
+    # The refused mutants left no trace: the original still resolves alone.
+    assert registry.versions(key) == (version,)
+
+
+def test_a_bumped_axis_change_lands_in_dimension_four(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """A bumped variant registers, constructs, and shows its new hash in the
+    replay record's Perspective Conditioning dimension (D-05, D-06)."""
+    original = _definition()
+    key = _agent_fixture()["keys"]["agent_definition"]
+    _registered_definition(registry, original, key)
+    # The axis-6 mutant (reordered binding parameters) still constructs:
+    # membership matches the prompt artifact's declaration (D-13).
+    mutant = _axis_mutants(original)["instruction_bindings"].model_copy(
+        update={"artifact_version": "1.3.0"}
+    )
+    bumped_version = registry.register_versioned(key, mutant, AGENT_DEFINITION)
+    assert isinstance(bumped_version, str)
+    agent = AgentFactory(control_plane=registry).construct(
+        definition_key=key, definition_version=bumped_version
+    )
+    conditioning = agent.perspective_conditioning(principal_id="analyst-1")
+    assert conditioning.agent_definition_hash == content_hash(mutant)
+    assert conditioning.agent_definition_hash != content_hash(original)
+    assert conditioning.agent_definition_uri.endswith("@1.3.0")
