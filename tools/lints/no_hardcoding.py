@@ -20,7 +20,11 @@ Three heuristics, one AST walk, plus the D-08 allowlist:
 ``cinv01c-factory-bypass``
     ``Agent(...)`` / ``Task(...)`` construction outside a factory module. There
     is no supported path to an agent or task that bypasses the factory (§6.4).
-    Scaffolded here; it has nothing to catch until I.2 ships the archetypes.
+    Also tracks simple module-level aliasing (``A = Agent; A(...)``), so a
+    one-line rename is not a silent hole in the rule. The accepted residual
+    (D-12, Dave's explicit ruling) is *dynamic* construction — ``getattr``,
+    ``globals()``, importlib — which no static check can see; the lint is the
+    mechanism of record and no runtime construction token exists.
 
 Unlike the import rules, CINV-01 has legitimate exceptions, so it takes an
 allowlist: ``tools/lints/allowlist.yaml``, entries of
@@ -342,16 +346,33 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
                         ast.unparse(stmt),
                     )
 
-    # CINV-01c — factory bypass.
+    # CINV-01c — factory bypass. Module-level aliases of factory-only names
+    # (`A = Agent`) join the checked set so a rename is not a silent hole;
+    # dynamic construction stays the D-12 accepted residual.
     if not in_factory_module:
+        checked_names = set(FACTORY_ONLY_NAMES)
+        aliases: dict[str, str] = {}
+        for node in tree.body:
+            if (
+                isinstance(node, ast.Assign)
+                and isinstance(node.value, ast.Name)
+                and node.value.id in FACTORY_ONLY_NAMES
+            ):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        checked_names.add(target.id)
+                        aliases[target.id] = node.value.id
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and _called_name(node.func) in (
-                FACTORY_ONLY_NAMES
+                checked_names
             ):
+                called = _called_name(node.func)
+                assert called is not None
+                canonical = aliases.get(called, called)
                 emit(
                     node,
                     RULE_FACTORY_BYPASS,
-                    f"{_called_name(node.func)} construction outside a factory"
+                    f"{canonical} construction outside a factory"
                     " module — agents and tasks come from the Agent & Task"
                     " Factory reading definition artifacts (CLAUDE.md §6.4)",
                     ast.unparse(node),
