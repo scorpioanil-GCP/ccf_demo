@@ -6,9 +6,10 @@ firing is vacuous, so this module writes synthetic bypassing modules to real
 files and runs the shipped checker over them, asserting the
 ``cinv01c-factory-bypass`` finding fires (and does not fire) exactly per the
 rule: ``Agent(...)`` / ``Task(...)`` construction outside a factory module is
-a finding; the same construction inside a factory-marked path is not; and a
-simple module-level alias of a factory-only name is caught rather than being
-a silent hole.
+a finding; the same construction inside a factory-marked path is not; and
+every *static* one-line alias of a factory-only name — bare-name assignment,
+attribute assignment, and import alias — is caught rather than being a silent
+hole. Dynamic construction remains the D-12 accepted residual.
 
 The final test runs the full lint over the real tree, proving the rule's
 zero-findings state is an observation, not an assumption.
@@ -123,6 +124,54 @@ def test_a_module_level_alias_of_a_factory_only_name_is_caught(
     source = "A = Agent\nagent = A('aliased-bypass')\n"
     findings = _findings_for(tmp_path, source, "sneaky_module.py")
     assert _rules(findings) == [RULE_FACTORY_BYPASS]
+
+
+def test_an_attribute_alias_of_a_factory_only_name_is_caught(
+    tmp_path: pathlib.Path,
+) -> None:
+    """``import m; A = m.Agent; A(...)`` must not be a silent hole (WR-04).
+
+    The bare-name form (``A = Agent``) was covered; the attribute form was
+    not, because the Assign's value is an ``ast.Attribute`` rather than an
+    ``ast.Name``. Both are purely *static* one-line renames the AST can see,
+    and the D-12 accepted residual is dynamic construction only — so both
+    must fire.
+    """
+    source = (
+        "import ccf.agents.agent as m\n"
+        "A = m.Agent\n"
+        "agent = A('attribute-aliased-bypass')\n"
+    )
+    findings = _findings_for(tmp_path, source, "sneaky_module.py")
+    assert _rules(findings) == [RULE_FACTORY_BYPASS]
+    assert "Agent construction outside a factory" in findings[0]
+
+
+def test_an_attribute_alias_of_task_is_caught(tmp_path: pathlib.Path) -> None:
+    source = "import ccf.agents.agent as m\nT = m.Task\ntask = T(definition)\n"
+    findings = _findings_for(tmp_path, source, "sneaky_module.py")
+    assert _rules(findings) == [RULE_FACTORY_BYPASS]
+    assert "Task construction outside a factory" in findings[0]
+
+
+def test_an_unrelated_attribute_alias_is_not_flagged(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The widened alias pass stays scoped to the factory-only names."""
+    source = "import m\nB = m.Backend\nbackend = B('sqlite')\n"
+    assert _findings_for(tmp_path, source, "sneaky_module.py") == []
+
+
+def test_an_attribute_alias_inside_the_allowlisted_factory_yields_no_finding(
+    tmp_path: pathlib.Path,
+) -> None:
+    factory = tmp_path / "src" / "ccf" / "agents" / "factory.py"
+    factory.parent.mkdir(parents=True)
+    factory.write_text(
+        "import ccf.agents.agent as m\nA = m.Agent\nagent = A('legitimate')\n",
+        encoding="utf-8",
+    )
+    assert check(factory, "ccf.agents.factory") == []
 
 
 def test_an_alias_inside_the_allowlisted_factory_yields_no_finding(

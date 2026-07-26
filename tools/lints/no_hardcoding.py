@@ -373,24 +373,37 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
                         ast.unparse(stmt),
                     )
 
-    # CINV-01c — factory bypass. Module-level aliases of factory-only names
-    # (`A = Agent`) and import aliases (`from x import Agent as A`,
-    # `import x as A` where x names a factory-only name — WR-06) join the
-    # checked set so a rename is not a silent hole; dynamic construction
-    # stays the D-12 accepted residual.
+    # CINV-01c — factory bypass. Aliases of factory-only names join the
+    # checked set so a rename is never a silent hole: bare-name assignment
+    # (`A = Agent`), attribute assignment (`A = module.Agent` — WR-04), and
+    # import aliases (`from x import Agent as A`, `import x as A` where x
+    # names a factory-only name — WR-06). Every *static* rename is covered;
+    # dynamic construction (a name resolved at runtime, e.g. through getattr)
+    # stays the D-12 accepted residual, which is the whole point of the
+    # distinction — a one-line static rename must not escape.
     if not in_factory_module:
         checked_names = set(FACTORY_ONLY_NAMES)
         aliases: dict[str, str] = {}
         for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.Assign)
-                and isinstance(node.value, ast.Name)
-                and node.value.id in FACTORY_ONLY_NAMES
+            if isinstance(node, ast.Assign) and (
+                (
+                    isinstance(node.value, ast.Name)
+                    and node.value.id in FACTORY_ONLY_NAMES
+                )
+                or (
+                    isinstance(node.value, ast.Attribute)
+                    and node.value.attr in FACTORY_ONLY_NAMES
+                )
             ):
+                canonical_name = (
+                    node.value.id
+                    if isinstance(node.value, ast.Name)
+                    else node.value.attr
+                )
                 for target in node.targets:
                     if isinstance(target, ast.Name):
                         checked_names.add(target.id)
-                        aliases[target.id] = node.value.id
+                        aliases[target.id] = canonical_name
             elif isinstance(node, (ast.Import, ast.ImportFrom)):
                 for imported in node.names:
                     basename = imported.name.rsplit(".", 1)[-1]
