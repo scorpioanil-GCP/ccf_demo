@@ -1,0 +1,20 @@
+# Banking fixture prompt artifact (CLAUDE.md §6.2 axis 6; D-IMPL-28; D-13).
+#
+# The template text and its declared parameters live here, never in code — a
+# prompt string literal in `/src`, `/runtime`, or test code is the
+# No-Hardcoding Rule (§6.4) firing. Validation is parse-only in I.2 (D-13):
+# `declared_parameters` must exactly equal the set Jinja2's
+# `find_undeclared_variables` reports for `template`; nothing renders.
+
+keys:
+  prompt_artifact: acme-bank/prompt/covenant-summary
+
+prompt_artifact:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: covenant-summary
+  tenant: acme-bank
+  declared_parameters: [entity_name, as_of]
+  template: |
+    Summarise the covenant compliance position for {{ entity_name }}
+    as of {{ as_of }}, citing each covenant certificate consulted.

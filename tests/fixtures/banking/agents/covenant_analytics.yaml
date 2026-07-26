@@ -1,0 +1,49 @@
+# Banking fixture agent definition — the D-02 slice agent (CLAUDE.md §6.1/§6.2;
+# D-IMPL-28; DESIGN.md §3.6).
+#
+# Every axis value the agents suite exercises is here. `/src` holds none of
+# them: the SDK ships the six-axis schema and the factory, never a specific
+# agent (CLAUDE.md §6.1 "any agent found in library code is a defect";
+# No-Hardcoding Rule §6.4). Instruction bindings are versioned-URI refs only —
+# an inline prompt string in this file or anywhere else is a D-13 violation.
+#
+# Two-field versioning per D-IMPL-28: `schema_version` is the artifact class's
+# lane; `artifact_version` is the author's bump, hash-verified at registration
+# (D-05).
+
+keys:
+  agent_definition: acme-bank/agents/covenant-analytics
+
+agent_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: covenant-analytics
+  tenant: acme-bank
+
+  # axis 1 — ordered archetype list (D-IMPL-19)
+  archetypes: [analytics_insights]
+
+  # axis 2 — context contract: which Context Product schemas the agent reads
+  context_contract:
+    consumes:
+      - product_class: acme.covenant-exposure
+        schema_version: "1.0.0"
+
+  # axis 3 — perspective (Π role-conditioning)
+  perspective:
+    role: credit-analyst
+    selection_params:
+      portfolio: wholesale
+
+  # axis 4 — policy regime (versioned-URI ref, never inline)
+  policy_regime:
+    ref: "ccf-artifact://acme-bank/policy-bundle/wholesale-credit@1.0.0"
+
+  # axis 5 — half-life and debt profile (versioned-URI ref)
+  halflife_debt_profile:
+    ref: "ccf-artifact://acme-bank/debt-profile/annual-credit-review@1.0.0"
+
+  # axis 6 — instruction bindings: refs plus declared parameter names (D-13)
+  instruction_bindings:
+    - prompt: "ccf-artifact://acme-bank/prompt/covenant-summary@1.0.0"
+      parameters: [entity_name, as_of]
