@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: phase-complete
-last_updated: "2026-07-25T22:48:47.020Z"
+status: Merged to `main` at D-GATE-I.1
+last_updated: "2026-07-26T05:44:01.523Z"
 progress:
   total_phases: 8
   completed_phases: 4
