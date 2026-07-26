@@ -1,36 +1,25 @@
 ---
 phase: 05-phase-i-2-agent-specialization-framework
-verified: 2026-07-26T09:30:00Z
-status: gaps_found
-score: 3/4 must-haves verified
+verified: 2026-07-26T18:00:00Z
+status: passed
+score: 4/4 must-haves verified
 overrides_applied: 0
-gaps:
-  - truth: "Skill catalog supports registration, discovery, and runtime grant/revoke; the policy-compatibility check refuses a grant exceeding the agent's policy regime or context contract; every grant/revocation and the skill-set in force land in the replay record (ROADMAP SC3)"
-    status: partial
-    reason: "Registration, discovery, grant/revoke, tier-1 refusal, and replay capture all exist and pass tests — but the in-force skill-set identity recorded in replay dimension 4 is ledger-wide, not per-agent (REVIEW CR-01). With more than one agent sharing a GrantLedger (the normal Control Plane topology), every decision's grant_set_hash includes other agents' grants, and a grant to agent B changes the recorded skill-set of agent A's decisions. This is incorrect replay data written by construction — a direct violation of CLAUDE.md §6.2 ('a decision replays against the skills the agent actually had'). Additionally, the capture is caller-discipline rather than by-construction: Agent.perspective_conditioning defaults grant_set_hash to the positive NO_GRANTS claim (WR-01), and AgentFactory.construct(bound_skills=...) accepts arbitrary unvalidated mappings, bypassing the two-tier governance at the supported construction path (WR-03)."
-    artifacts:
-      - path: "src/ccf/skills/grants.py"
-        issue: "effective_hashes() (line ~585) and grant_set_hash() (line ~593) ignore agent_definition_hash; contrast _effective_entries() which correctly filters per-agent. Also: request() wedges grants in 'requested' on missing catalog entry (WR-04); same-skill-name grant collision silently drops one (WR-05); no tenant-coherence check on the grant path (WR-02)"
-      - path: "src/ccf/agents/agent.py"
-        issue: "perspective_conditioning(grant_set_hash: str = NO_GRANTS_SET_HASH) — a skilled agent's caller who omits the argument records a false positive 'zero grants' claim in the audit record (WR-01)"
-      - path: "src/ccf/agents/factory.py"
-        issue: "construct(bound_skills: Mapping[str, object]) passes any objects through unchecked — ungoverned capability injection at the legitimate front door (WR-03)"
-      - path: "tests/integration/test_agent_slice.py"
-        issue: "Line 369 passes ledger.grant_set_hash() (ledger-wide) into dimension 4; all tests use one agent per ledger so the defect is invisible to the suite"
-    missing:
-      - "Scope effective_hashes()/grant_set_hash() by agent_definition_hash; update slice-test call site; add a two-agent test asserting agent A's hash is unaffected by a grant to agent B (CR-01 fix)"
-      - "Make grant_set_hash a required argument of perspective_conditioning, or refuse the NO_GRANTS default when bound_skills is non-empty (WR-01)"
-      - "Type/narrow bound_skills so its only producer is GrantLedger.bound_view (WR-03)"
-      - "Resolve catalog entry before mutating grant state, or roll back + audit on lookup failure (WR-04); refuse or define ordering for same-skill-name grant collisions (WR-05); add tenant-coherence check on the grant path (WR-02)"
+re_verification:
+  previous_status: gaps_found
+  previous_score: 3/4
+  gaps_closed:
+    - "SC3: Skill catalog registration/discovery/grant/revoke with per-agent, by-construction replay capture of the skill-set in force (CR-01 + WR-01..WR-08 + IN-01/02/03/08 closed by plans 05-08..05-10)"
+  gaps_remaining: []
+  regressions: []
 human_verification: []
 ---
 
 # Phase 5: Phase I.2 — Agent Specialization Framework Verification Report
 
 **Phase Goal:** Agents are declared, versioned Control Plane artifacts produced exclusively by the Agent & Task Factory from the six shipped archetypes, specialized through the two governed channels
-**Verified:** 2026-07-26
-**Status:** gaps_found
-**Re-verification:** No — initial verification
+**Verified:** 2026-07-26T18:00:00Z
+**Status:** passed
+**Re-verification:** Yes — after gap-closure plans 05-08, 05-09, 05-10
 
 ## Goal Achievement
 
@@ -38,71 +27,64 @@ human_verification: []
 
 | # | Truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | Unified Agent base + six archetypes in `/src`, no agent instances/prompts/domain values in library code; composition per D-IMPL-11/19 | ✓ VERIFIED | All six archetype IDs (`workflow_task`, `document_intelligence`, `analytics_insights`, `monitoring_surveillance`, `content_generation`, `context_assembly`) implemented in `src/ccf/agents/archetypes.py`; D-IMPL-19 composition (dedupe / declaration-order-wins / typed contradiction error) in `src/ccf/agents/composition.py` with `tests/agents/test_composition.py` passing; No-Hardcoding lint suite exits 0 — all domain values confirmed in `tests/fixtures/banking/` (REVIEW concurs) |
-| 2 | Agent & Task Factory constructs only from definition artifacts (D-IMPL-28); no supported bypass path; No-Hardcoding lint rejects bypass and prompt literals | ✓ VERIFIED | `AgentFactory`/`TaskFactory` in `src/ccf/agents/factory.py` resolve through Control Plane; sole `Agent(...)` call site in factory; CINV-01c behavioral fixture (`tests/lints/test_cinv01c_behavioral.py`) proves the lint fires; `python -m tools.lints` exit 0. Caveats carried as warnings: lint has static bypass holes — `import ... as` alias and `"factory"` path-substring exemption (WR-06); `bound_skills` parameter is an ungoverned side door counted under SC3 (WR-03) |
-| 3 | Skill catalog registration/discovery/grant/revoke; tier-1 refusal; every grant/revocation and the skill-set in force land in replay | ✗ FAILED | Mechanism exists and 556 tests pass, but `GrantLedger.grant_set_hash()` is **ledger-wide, not per-agent** (`src/ccf/skills/grants.py` `effective_hashes`/`grant_set_hash` take no `agent_definition_hash`, verified directly in code) — dimension 4 records the wrong in-force skill-set whenever >1 agent shares a ledger. "By construction" claim is actually caller discipline (WR-01 default sentinel; WR-03 unchecked `bound_skills`). The skill-set-in-force replay commitment (CLAUDE.md §6.2, CINV-04) is not correctly met |
-| 4 | All six specialization axes expressible in the definition artifact and versioned; axis change ⇒ new agent version visible in replay | ✓ VERIFIED | `AgentDefinition` in `src/ccf/agents/definitions.py` carries `archetypes`, `context_contract`, `perspective`, `policy_regime`, `halflife_debt_profile`, `instruction_bindings` (frozen, extra=forbid); six-axis version matrix in `tests/agents/test_factory.py`; D-05 hash-verified bump refusal in `tests/controlplane/test_hash_verified_bump.py`; dimension-4 definition hash + versioned URI asserted in `tests/integration/test_agent_slice.py`. Caveat (warning): `register_typed`-path pinned resolution is ambiguous — same declared semver can name two contents, oldest silently wins (WR-08) |
+| 1 | Unified Agent base + six archetypes in `/src`, no agent instances/prompts/domain values in library code; composition per D-IMPL-11/19 | ✓ VERIFIED | Regression check: all six archetype IDs (`workflow_task`, `document_intelligence`, `analytics_insights`, `monitoring_surveillance`, `content_generation`, `context_assembly`) confirmed in `src/ccf/agents/archetypes.py`; composition module intact; No-Hardcoding lint suite exit 0 |
+| 2 | Agent & Task Factory constructs only from definition artifacts (D-IMPL-28); no supported bypass path; lint rejects bypass and prompt literals | ✓ VERIFIED | Sole `Agent(...)` call site confirmed at `src/ccf/agents/factory.py:304`; WR-06 closed — CINV-01c now tracks `ast.Import`/`ast.ImportFrom` aliases (`no_hardcoding.py:394`) and the `"factory"` substring exemption is gone (grep count 0), replaced by exact `FACTORY_MODULE_ALLOWLIST` (`no_hardcoding.py:90`); alias-bypass behavioral fixtures present in `tests/lints/test_cinv01c_behavioral.py:92-108`; WR-03 side door closed (see SC3) |
+| 3 | Skill catalog registration/discovery/grant/revoke; tier-1 refusal; every grant/revocation and the skill-set in force land in replay | ✓ VERIFIED | **Previously FAILED — now closed, verified directly in code.** CR-01: `GrantLedger.grant_set_hash(agent_definition_hash: str)` is a required per-agent argument (`grants.py:715`), `effective_hashes` filters by agent (`grants.py:694-711`); two-agent regression `test_grant_set_hash_is_per_agent_across_two_agents` (`tests/skills/test_grants.py:477`) passes; slice test passes `content_hash(definition)` at both dimension-4 call sites (`test_agent_slice.py:370,375`). WR-01: `perspective_conditioning(*, principal_id, grant_set_hash)` has no default and raises `FalseGrantClaimError` on a zero-grants claim with non-empty bound skills (`agent.py:317-341`). WR-03: `bound_skills: BoundSkillView | None` (`factory.py:244`), `BoundSkillView` produced only by `GrantLedger.bound_view` (`grants.py:752`). WR-02: `TenantMismatch` tier-1 refusal (`grants.py:261`). WR-04/WR-05: resolve-before-mutate request + `GrantCollisionError` (`grants.py:124`); targeted tests (tenant/collision/wedged/missing) pass. WR-07: `ControlPlaneRegistry(audit_log: AuditLog | None)` injection (`registry.py:216`) with shared-log regression `test_registry_and_grant_lifecycle_share_one_audit_sequence` (`tests/skills/test_grants.py:385`) passing. IN-03: `SkillCatalog.discover` derives from `keys_of_class` (`catalog.py:266`), volatile `_keys` index gone. WR-08: `AmbiguousPinnedVersionError` (`registry.py:125`) raised at both declared-semver loops (`factory.py:147`, `grants.py:456`) |
+| 4 | All six specialization axes expressible in the definition artifact and versioned; axis change ⇒ new agent version visible in replay | ✓ VERIFIED | Regression check: all six axes present on `AgentDefinition` (`definitions.py:212-217`); WR-08 ambiguity refusal removes the pinned-resolution caveat; version-matrix and hash-verified-bump tests in the passing suite; IN-08 closed — TaskFactory class-checks agent-step refs via `artifact_class_of` against `AGENT_DEFINITION.class_id` (`factory.py:457-465`) |
 
-**Score:** 3/4 truths verified
+**Score:** 4/4 truths verified
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
-| `src/ccf/agents/definitions.py` | Six-axis AgentDefinition + TaskDefinition + PromptArtifact schemas | ✓ VERIFIED | All axes present; ArtifactClass constants; JSON Schema export tested |
-| `src/ccf/agents/archetypes.py` | Six ArchetypeComponent bundles | ✓ VERIFIED | All six IDs registered; no domain values |
-| `src/ccf/agents/composition.py` | D-IMPL-19 composition | ✓ VERIFIED | Dedupe/order-wins/error, canonical-bytes identity |
-| `src/ccf/agents/factory.py` | Sole construction path via Control Plane | ⚠️ VERIFIED with warning | Works; `bound_skills: Mapping[str, object]` unvalidated (WR-03); TaskFactory step refs not class-checked (IN-08) |
-| `src/ccf/agents/agent.py` | Concrete Agent, no loop, replay conditioning | ⚠️ VERIFIED with warning | No loop, tenant-isolated consume; WR-01 default sentinel |
-| `src/ccf/agents/prompts.py` | Jinja2 parse-only validation (D-13) | ✓ VERIFIED | `find_undeclared_variables`; no `render()` in /src |
-| `src/ccf/skills/catalog.py` | 4-type entry schema, registration/discovery | ⚠️ VERIFIED with warning | Works; discovery uses volatile per-instance index (IN-03) |
-| `src/ccf/skills/grants.py` | State machine, tier-1, ApprovalSink, grant-set hash | ✗ DEFECTIVE | CR-01 (ledger-wide hash), WR-02, WR-04, WR-05 |
-| `src/ccf/skills/dispatch.py` | local/tool dispatch, NotYetBound for mcp/a2a | ✓ VERIFIED | `tests/skills/test_dispatch.py` passing |
-| `tools/lints/no_hardcoding.py` | CINV-01c factory-bypass lint | ⚠️ VERIFIED with warning | Fires on behavioral fixture; static holes per WR-06 |
-| `docs/PHASE_I2_GATE.md` | Gate checklist + evidence map + I.3 handoff | ⚠️ VERIFIED with warning | Exists with success-criteria evidence map (§3); rows 6–7 overstate mechanism (IN-01: "by construction" is caller discipline; "one AuditLog" is two logs, WR-07) |
+| `src/ccf/agents/definitions.py` | Six-axis AgentDefinition + Task/Prompt schemas | ✓ VERIFIED | Regression check passed; all six axes at lines 212-217 |
+| `src/ccf/agents/archetypes.py` | Six ArchetypeComponent bundles | ✓ VERIFIED | All six IDs confirmed |
+| `src/ccf/agents/composition.py` | D-IMPL-19 composition | ✓ VERIFIED | Regression: suite green |
+| `src/ccf/agents/factory.py` | Sole construction path; governed bound_skills seam | ✓ VERIFIED | Sole `Agent(...)` site line 304; `BoundSkillView | None` seam; `AmbiguousPinnedVersionError`; agent-step class check |
+| `src/ccf/agents/agent.py` | No loop; replay conditioning with no false-claim path | ✓ VERIFIED | Required `grant_set_hash` kwarg; `FalseGrantClaimError` refusal |
+| `src/ccf/agents/errors.py` | Typed errors incl. FalseGrantClaimError | ✓ VERIFIED | `class FalseGrantClaimError` at line 84 |
+| `src/ccf/skills/catalog.py` | 4-type entry schema, registry-derived discovery | ✓ VERIFIED | IN-03 closed: `keys_of_class`-derived discovery |
+| `src/ccf/skills/grants.py` | Per-agent state machine, tier-1 refusals, D-07 hash | ✓ VERIFIED | Previously DEFECTIVE; CR-01/WR-02/WR-04/WR-05 all confirmed fixed in code |
+| `src/ccf/skills/dispatch.py` | local/tool dispatch | ✓ VERIFIED | Regression: suite green |
+| `src/ccf/controlplane/registry.py` | Injected shared AuditLog; peek; keys_of_class | ✓ VERIFIED | `audit_log` injection line 216, read-only property line 226; unaudited `peek` line 468; `keys_of_class` line 457 |
+| `tools/lints/no_hardcoding.py` | CINV-01c with alias tracking + explicit allowlist | ✓ VERIFIED | WR-06 closed; behavioral fixtures exercise both holes |
+| `docs/PHASE_I2_GATE.md` | Accurate gate rows 6-7 + gap-closure note | ✓ VERIFIED | Rows 6-7 describe the actual fixed mechanisms; gap-closure note maps 05-08..05-10 to CR-01/WR-01..WR-08/IN-01/02/03/08 |
 
 ### Key Link Verification
 
 | From | To | Via | Status |
 | --- | --- | --- | --- |
-| definitions.py | contracts/base.py | CCFContract subclassing | ✓ WIRED |
-| factory.py | controlplane/registry.py | Control Plane resolution | ✓ WIRED |
-| factory.py | prompts.py | instruction-binding validation at construct | ✓ WIRED |
-| factory.py | composition.py | compose during construct | ✓ WIRED |
-| skills/catalog.py | controlplane/registry.py | D-05 versioned registration | ✓ WIRED |
-| skills/grants.py | controlplane/audit.py | transitions → AuditLog | ⚠️ PARTIAL — wired, but ledger log is disjoint from registry's private log (WR-07); "Control Plane is the audit plane, singular" (§7.8.2) not held |
-| slice test → replay/record.py | dimension-4 assertions | grant_set_hash / agent_definition_hash | ⚠️ HOLLOW for grants — asserts a ledger-wide value; per-agent correctness untested (all test worlds hold one agent) |
+| tests/integration/test_agent_slice.py | skills/grants.py | per-agent `grant_set_hash(content_hash(definition))` into dimension 4 | ✓ WIRED (previously HOLLOW) |
+| agents/factory.py | skills/grants.py | `BoundSkillView` sole-producer seam | ✓ WIRED |
+| skills/grants.py | controlplane/registry.py | single shared AuditLog at composition time | ✓ WIRED (previously PARTIAL) — one log, one sequence, regression test passing |
+| factory.py / grants.py | registry.py | `AmbiguousPinnedVersionError` at both declared-semver loops | ✓ WIRED |
+| tests/lints/test_cinv01c_behavioral.py | tools/lints/no_hardcoding.py | alias-bypass and allowlist fixtures | ✓ WIRED |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 | --- | --- | --- | --- |
-| Full test suite | `.venv/bin/python -m pytest -q -m "not postgres"` | 556 passed, 2 skipped (exactly the 2 declared invariant skips), 12 deselected | ✓ PASS |
-| Lint suite (CINV-01a/b/c, harness imports, @algorithmic) | `.venv/bin/python -m tools.lints` | exit 0 | ✓ PASS |
+| Full test suite | `.venv/bin/python -m pytest -q -m "not postgres"` | 577 passed, 2 skipped (the two declared CINV-04 deferral skips), 12 deselected | ✓ PASS |
+| Lint suite | `.venv/bin/python -m tools.lints` | exit 0 | ✓ PASS |
 | Strict typing | `.venv/bin/python -m mypy --strict src tools` | no issues in 74 files | ✓ PASS |
-| Debt markers in phase files | grep TBD/FIXME/XXX over src/ccf/agents, src/ccf/skills, lints | none | ✓ PASS |
+| Two-agent grant-hash regression | targeted pytest | 6 passed (TestGrantSetHash) | ✓ PASS |
+| Tenant/collision/wedged/missing regressions | targeted pytest `-k` | 4 passed | ✓ PASS |
+| Debt markers (TBD/FIXME/XXX) in phase-modified modules | grep over agents, skills, lints, registry | none | ✓ PASS |
 
 ### Requirements Coverage
 
 | Requirement | Source Plans | Status | Evidence |
 | --- | --- | --- | --- |
-| AGNT-01 (Agent base + six archetypes) | 05-02, 05-03, 05-07 | ✓ SATISFIED | SC1 verified |
-| AGNT-02 (Agent & Task Factory + D-IMPL-28 artifacts + No-Hardcoding CI) | 05-01, 05-02, 05-04, 05-07 | ✓ SATISFIED | SC2 + SC4 verified |
-| AGNT-03 (Skill catalog: registration, discovery, governed grant/revoke with replay capture) | 05-05, 05-06, 05-07 | ✗ BLOCKED | SC3 failed on CR-01 — replay capture of skill-set in force is incorrect per-agent and not by-construction |
+| AGNT-01 (Agent base + six archetypes) | 05-02, 05-03, 05-07 | ✓ SATISFIED | SC1 verified (regression) |
+| AGNT-02 (Agent & Task Factory + D-IMPL-28 + No-Hardcoding CI) | 05-01, 05-02, 05-04, 05-07, 05-10 | ✓ SATISFIED | SC2 + SC4 verified; WR-06 lint holes closed |
+| AGNT-03 (Skill catalog: registration, discovery, governed grant/revoke with replay capture) | 05-05, 05-06, 05-07, 05-08, 05-09, 05-10 | ✓ SATISFIED | Previously BLOCKED on CR-01; per-agent D-07 hash + by-construction capture now verified in code with two-agent regression |
 
 No orphaned requirements: REQUIREMENTS.md maps exactly AGNT-01/02/03 to Phase 5, all claimed by plans.
 
 ### Anti-Patterns Found
 
-| File | Pattern | Severity | Impact |
-| --- | --- | --- | --- |
-| src/ccf/skills/grants.py:585-603 | Ledger-wide identity used as per-agent replay fact | 🛑 Blocker | Wrong dimension-4 data by construction with >1 agent (CR-01) |
-| src/ccf/agents/agent.py:291 | Positive false-claim default (`= NO_GRANTS_SET_HASH`) | ⚠️ Warning | Audit record integrity depends on caller discipline (WR-01) |
-| src/ccf/agents/factory.py:212+ | Unvalidated `Mapping[str, object]` capability injection | ⚠️ Warning | Channel-2 governance bypass at supported path (WR-03) |
-| src/ccf/skills/grants.py | Cross-tenant grants admissible; wedged `requested` state; silent same-name collision | ⚠️ Warning | WR-02/WR-04/WR-05 |
-| tools/lints/no_hardcoding.py | Alias-import bypass; `"factory"` substring exemption | ⚠️ Warning | Mechanism of record narrower than ruling (WR-06) |
-| controlplane registry vs grant ledger | Two disjoint audit logs | ⚠️ Warning | WR-07; gate doc row 7 overstates |
-| tests/agents/harness_double.py:52 | Stale `pragma: no cover` comment | ℹ️ Info | IN-02 |
+None blocking. The post-gap-closure code review (05-REVIEW.md) carries 5 warnings / 6 info as advisory findings for §3.1 triage (including the IN-07 test-scoping carry-forward recorded in the gate doc); no critical findings remain.
 
 ### Human Verification Required
 
@@ -110,11 +92,11 @@ None. All checks in this phase are programmatically verifiable; no plan carried 
 
 ### Gaps Summary
 
-The phase is close: archetype/agent separation is real, the factory is the sole construction path, the No-Hardcoding boundary genuinely holds, all six axes are expressible and versioned, and the entire suite/lint/mypy sweep is green. The gap is concentrated exactly where the phase's audit claims are strongest — the skilling channel. `grant_set_hash()` records a ledger-wide identity as an agent's in-force skill-set, so replay dimension 4 is wrong the moment two agents share the Control Plane grant machinery, and the surrounding seams (default no-grants sentinel, unchecked `bound_skills`, disjoint audit logs, wedged grant state, missing tenant check) mean "audit by construction" is presently "audit by well-behaved caller." Every test world holds one agent, one tenant, and disciplined callers, which is why the suite is green over the defect. SC3/AGNT-03 cannot be marked achieved until CR-01 is fixed with a two-agent regression test; the WR-level seams should be closed in the same pass since they share the grants.py locus.
+No gaps remain. The prior verification's single FAILED truth (SC3) and its full finding cluster are closed and verified directly in the codebase, not from summary claims: `grant_set_hash` is per-agent with a required argument and a two-agent regression test; the false-zero-grants default is gone and refused with a typed error; the `bound_skills` seam admits only `GrantLedger.bound_view` output; registry and grant-ledger events share one injected AuditLog with one sequence; tenant-coherence, resolve-before-mutate, and same-name-collision refusals are in place; the CINV-01c lint's alias and substring-exemption holes are closed with behavioral fixtures; pinned-semver ambiguity is a typed refusal; catalog discovery is registry-derived; TaskFactory class-checks agent steps; and the gate document now describes the mechanisms as they actually are. Full sweep green: 577 passed / 2 declared skips, lints exit 0, mypy --strict clean. No regressions in the three previously-verified truths.
 
-Note per §3.1: the review's critical finding is a blocking finding — the phase does not complete around it, and `D-GATE-I.2` should not be logged until it is closed.
+Phase goal achieved. The D-GATE-I.2 package is ready to present to Dave per CLAUDE.md §3.1 (approval authority remains Dave's alone).
 
 ---
 
-_Verified: 2026-07-26T09:30:00Z_
+_Verified: 2026-07-26T18:00:00Z_
 _Verifier: Claude (gsd-verifier)_
