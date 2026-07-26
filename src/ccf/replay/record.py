@@ -252,6 +252,7 @@ def build_replay_record(
     policy_bindings: tuple[PolicyBinding, ...],
     assembly_mode: AssemblyMode,
     recorded_at: datetime,
+    agent_conditioning: PerspectiveConditioning | None = None,
 ) -> DecisionReplayRecord:
     """Assemble the record from what the execution and the product already know.
 
@@ -261,6 +262,15 @@ def build_replay_record(
     Nothing is re-observed at record time, because a record that measured
     anything itself would be recording the state at *recording* time rather
     than at decision time.
+
+    ``agent_conditioning`` is the I.2 agent seam (D-06): when an agent made
+    the decision, the caller passes the conditioning the agent serialized
+    from its construction-time identity
+    (:meth:`ccf.agents.agent.Agent.perspective_conditioning`) and it is
+    recorded verbatim — derived, never reconstructed here. When ``None``
+    (every fabric-direct decision, and the whole of I.1), dimension 4 carries
+    the positive no-agent/no-grants claims and the single-element
+    originating-principal delegation chain, exactly as before.
     """
     return DecisionReplayRecord(
         tenant_id=product.tenant_id,
@@ -274,7 +284,8 @@ def build_replay_record(
         ),
         policy_bindings=PolicyBindingsSnapshot(bindings=policy_bindings),
         model_version=ModelVersionRecord(assembly_mode=assembly_mode),
-        perspective_conditioning=PerspectiveConditioning(
+        perspective_conditioning=agent_conditioning
+        or PerspectiveConditioning(
             principal_id=perspective.principal_id,
             role=perspective.role,
             delegation_chain=(perspective.principal_id,),
