@@ -1,0 +1,112 @@
+# Banking fixture agent definition — the D-02 slice agent (CLAUDE.md §6.1/§6.2;
+# D-IMPL-28; DESIGN.md §3.6).
+#
+# Every axis value the agents suite exercises is here. `/src` holds none of
+# them: the SDK ships the six-axis schema and the factory, never a specific
+# agent (CLAUDE.md §6.1 "any agent found in library code is a defect";
+# No-Hardcoding Rule §6.4). Instruction bindings are versioned-URI refs only —
+# an inline prompt string in this file or anywhere else is a D-13 violation.
+#
+# Two-field versioning per D-IMPL-28: `schema_version` is the artifact class's
+# lane; `artifact_version` is the author's bump, hash-verified at registration
+# (D-05).
+
+keys:
+  agent_definition: acme-bank/agents/covenant-analytics
+
+# The referenced Control Plane artifacts the suite registers so the factory
+# can resolve the definition's axis-4/axis-5 refs through Control Plane
+# resolution (DESIGN.md §3.5 — never raw storage). Keys mirror the versioned
+# URIs below: {tenant}/{artifact_class}/{name}. All values live here, none in
+# test code (No-Hardcoding Rule §6.4 applies to fixtures' code too). Decimals
+# are quoted so they parse as text, never as floats (D-IMPL-26).
+referenced_artifacts:
+  policy_regime:
+    key: acme-bank/policy-bundle/wholesale-credit
+    class_id: policy-bundle
+    # 1.1.0: skill_governance envelope added so 05-06 grants can pass the
+    # tier-1 check (a declaration change is a content change — D-05).
+    semver: "1.1.0"
+    declaration:
+      regime: wholesale-credit
+      permitted_classifications: [internal, public]
+      # The D-IMPL-29 skilling envelope: which requirement identifiers agents
+      # under this regime may bind, and whether grants need tier-2 approval.
+      # Deployment statements, never code.
+      skill_governance:
+        permitted_scopes: [portfolio-read]
+        grant_requires_approval: false
+  halflife_debt_profile:
+    key: acme-bank/debt-profile/annual-credit-review
+    class_id: debt-profile
+    semver: "1.0.0"
+    declaration:
+      review_cycle: annual
+      risk_sensitivity: "1.5"
+      forced_llm_threshold: "0.35"
+      fail_closed_threshold: "0.70"
+
+# The D-03 test-double drive values: which (unbound) skill the slice attempts
+# and what the agent emits. Values here, never in test code (§6.4).
+slice:
+  skill_name: summarize-covenants
+  effect_payload:
+    finding: covenant-headroom-narrowing
+    subject: counterparty:hollis-industrial
+  # The 05-06 granted-skill drive: the grant document binding the fixture
+  # tool entry to this agent, the typed arguments the invocation carries,
+  # and the acting principals. The agent_definition_hash is derived identity,
+  # computed by mechanism at request time (D-IMPL-26).
+  granted_skill:
+    grant:
+      schema_version: "1.0.0"
+      artifact_version: "1.0.0"
+      name: covenant-analytics-covenant-metrics
+      tenant: acme-bank
+      skill_name: covenant-metrics
+      skill_version: "1.0.0"
+    arguments:
+      entity_name: hollis-industrial
+    requesting_actor: platform-operator
+    approver_id: risk-officer-7
+
+agent_definition:
+  schema_version: "1.0.0"
+  # 1.2.0: context_contract now names the real I.1 banking product class the
+  # fabric serves (an axis change is a new agent version — D-05; the bump
+  # skips 1.1.0, which the hash-verified-bump suite uses for its own mutants).
+  # 1.3.0: policy_regime ref re-pinned to the 1.1.0 bundle carrying the
+  # skill_governance envelope (an axis-4 change is a new agent version).
+  artifact_version: "1.3.0"
+  name: covenant-analytics
+  tenant: acme-bank
+
+  # axis 1 — ordered archetype list (D-IMPL-19)
+  archetypes: [analytics_insights]
+
+  # axis 2 — context contract: which Context Product schemas the agent reads.
+  # This names the product class the I.1 banking fabric actually serves, so
+  # the slice agent consumes a real gated product (D-01/D-02 realism bar).
+  context_contract:
+    consumes:
+      - product_class: acme-bank.credit-exposure-summary
+        schema_version: "1.0.0"
+
+  # axis 3 — perspective (Π role-conditioning)
+  perspective:
+    role: credit-analyst
+    selection_params:
+      portfolio: wholesale
+
+  # axis 4 — policy regime (versioned-URI ref, never inline)
+  policy_regime:
+    ref: "ccf-artifact://acme-bank/policy-bundle/wholesale-credit@1.1.0"
+
+  # axis 5 — half-life and debt profile (versioned-URI ref)
+  halflife_debt_profile:
+    ref: "ccf-artifact://acme-bank/debt-profile/annual-credit-review@1.0.0"
+
+  # axis 6 — instruction bindings: refs plus declared parameter names (D-13)
+  instruction_bindings:
+    - prompt: "ccf-artifact://acme-bank/prompt/covenant-summary@1.0.0"
+      parameters: [entity_name, as_of]

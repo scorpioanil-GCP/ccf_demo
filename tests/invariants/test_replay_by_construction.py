@@ -7,8 +7,9 @@ CINV-04 is not one check. It is the claim that *every* path producing a
 decision writes its replay record by construction, and CLAUDE.md names five
 such paths: served Context Products, HITL actions (§8.2), workflow traces
 (§8.1), skill grants and revocations, and the skill-set in force at decision
-time (§6.2). Three of those five paths do not exist yet — the pillars that
-produce them land in I.2 and I.4.
+time (§6.2). Two of those five paths do not exist yet — the pillars that
+produce them (HITL, workflows) land in I.4; skill-set capture went active
+with the I.2 skilling wave (D-10).
 
 That leaves a reporting problem, and the way it is usually solved is wrong. A
 suite that asserted only what exists would pass, and "CINV-04: green" would then
@@ -130,8 +131,11 @@ CINV_04_CHECKS: tuple[Check, ...] = (
             "decision time, land in replay dimension 4 by construction "
             "(CLAUDE.md §6.2)"
         ),
-        status="not-yet-applicable",
-        phase="I.2",
+        status="active",
+        owning_test=(
+            "integration/test_agent_slice.py::"
+            "test_a_granted_decision_captures_the_grant_set_hash_in_dimension_4"
+        ),
     ),
 )
 

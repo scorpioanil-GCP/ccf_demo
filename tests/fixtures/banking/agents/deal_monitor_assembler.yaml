@@ -1,0 +1,74 @@
+# Banking fixture agent definition — the multi-archetype composition case
+# (CLAUDE.md §6.3: "a `MonitoringSurveillanceAgent` can produce Context
+# Products (assembler behavior) for downstream `AnalyticsInsightsAgent`s";
+# D-IMPL-19 ordered composition; D-IMPL-28).
+#
+# A deal-monitoring agent that is also an assembler: it watches wholesale
+# credit exposure and emits typed Context Products for downstream analytics
+# agents. Every axis value the composition suite exercises is here; `/src`
+# holds none of them (No-Hardcoding Rule §6.4 — applies to fixtures' code
+# too). Decimals are quoted so they parse as text, never as floats.
+
+keys:
+  agent_definition: acme-bank/agents/deal-monitor-assembler
+
+# Referenced Control Plane artifacts registered by the suite so the factory
+# resolves axis-4/axis-5 refs through Control Plane resolution
+# (DESIGN.md §3.5 — never raw storage).
+referenced_artifacts:
+  policy_regime:
+    key: acme-bank/policy-bundle/deal-monitoring
+    class_id: policy-bundle
+    semver: "1.0.0"
+    declaration:
+      regime: deal-monitoring
+      permitted_classifications: [internal]
+  halflife_debt_profile:
+    key: acme-bank/debt-profile/continuous-deal-watch
+    class_id: debt-profile
+    semver: "1.0.0"
+    declaration:
+      review_cycle: continuous
+      risk_sensitivity: "2.0"
+      forced_llm_threshold: "0.25"
+      fail_closed_threshold: "0.60"
+
+agent_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: deal-monitor-assembler
+  tenant: acme-bank
+
+  # axis 1 — ordered archetype list (D-IMPL-19): declaration order is
+  # channel-1 identity and lands verbatim in replay dimension 4.
+  archetypes: [monitoring_surveillance, context_assembly]
+
+  # axis 2 — context contract: the monitor consumes the exposure summary the
+  # I.1 banking fabric serves; its assembler face emits downstream (emission
+  # transport binds in I.3 — the pattern is declared by the archetype).
+  context_contract:
+    consumes:
+      - product_class: acme-bank.credit-exposure-summary
+        schema_version: "1.0.0"
+
+  # axis 3 — perspective (Π role-conditioning)
+  perspective:
+    role: deal-surveillance
+    selection_params:
+      portfolio: wholesale
+      watch: covenant-headroom
+
+  # axis 4 — policy regime (versioned-URI ref, never inline)
+  policy_regime:
+    ref: "ccf-artifact://acme-bank/policy-bundle/deal-monitoring@1.0.0"
+
+  # axis 5 — half-life and debt profile (versioned-URI ref)
+  halflife_debt_profile:
+    ref: "ccf-artifact://acme-bank/debt-profile/continuous-deal-watch@1.0.0"
+
+  # axis 6 — instruction bindings: refs plus declared parameter names (D-13).
+  # The monitor's escalation narrative binds the covenant-summary prompt the
+  # prompt fixture ships.
+  instruction_bindings:
+    - prompt: "ccf-artifact://acme-bank/prompt/covenant-summary@1.0.0"
+      parameters: [entity_name, as_of]

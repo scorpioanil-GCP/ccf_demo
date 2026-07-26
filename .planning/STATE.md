@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: executing
-last_updated: "2026-07-26T07:33:47.219Z"
+status: ready_to_plan
+last_updated: 2026-07-26T14:59:21.378Z
 progress:
   total_phases: 8
-  completed_phases: 4
-  total_plans: 46
-  completed_plans: 39
+  completed_phases: 5
+  total_plans: 49
+  completed_plans: 49
   percent: 50
+stopped_at: Phase 05 gated (D-GATE-I.2, merged to main) — ready to plan Phase 6
 ---
 
 # STATE — CCF SDK
@@ -22,23 +23,31 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 4 — phase i.1 — fabric core
+**Current focus:** Phase 6 — phase i.3 — cross process & harness adapters
 
 ## Current Position
 
-Phase: 04 (phase-i-1-fabric-core) — COMPLETE (D-GATE-I.1, 2026-07-25)
-Plan: 12 of 12
+Phase: 05 (phase-i-2-agent-specialization-framework) — COMPLETE, GATED
+Plan: 10 of 10
 
-- **Phase:** 4 of 8 complete; next is Phase 5 (Phase I.2)
-- **Plan:** all 12 complete
-- **Status:** Ready to execute
-- **Progress:** [██████████] 100%
+- **Phase:** 5 of 8 executed; 6 (phase i.3 — cross process & harness adapters) is next
+- **Plan:** 10/10 complete
+- **Status:** D-GATE-I.2 approved (Dave, 2026-07-26); `phase-i2` merged to `main`
+  --no-ff per §2.2. Phase 6 ready to plan.
+- **Progress:** [██████████] 100% of Phase 5 plans
+
+**Nothing blocks Phase 6 planning on the decision log.** The 12-item Phase I
+gate list is RESOLVED in full (D-GATE-D, 2026-07-25). D-IMPL-24 in particular
+is ruled — Dave's own ruling, differing from the recommendation: **all three**
+harnesses ship v0 reference adapters (Google ADK + Claude Agent SDK +
+LangGraph), which means three adapter legs, three CI legs, and three
+example-03 variants in Phase 6 scope. Both procedural preconditions are met: gate approved, branch merged.
 
 ## Performance Metrics
 
-- Phases complete: 4/8
+- Phases complete and gated: 5/8
 - Requirements delivered: 3/46
-- D-GATE entries logged: 4 (D-GATE-R, D-GATE-D, D-GATE-F, D-GATE-I.1)
+- D-GATE entries logged: 5 (D-GATE-R, D-GATE-D, D-GATE-F, D-GATE-I.1, D-GATE-I.2)
 
 | Phase-Plan | Duration | Tasks | Files |
 | ---------- | -------- | ----- | ----- |
@@ -47,6 +56,11 @@ Plan: 12 of 12
 | 04-03      | ~25 min  | 3     | 13    |
 | 04-04      | ~35 min  | 3     | 16    |
 | 04-05      | ~50 min  | 3     | 24    |
+| 05-01      | ~35 min  | 3     | 16    |
+| 05-02      | ~10 min  | 3     | 12    |
+| 05-05      | ~6 min   | 1     | 7     |
+| 05-06      | ~12 min  | 2     | 20    |
+| 05-07      | ~8 min   | 2     | 3     |
 
 ## Accumulated Context
 
@@ -79,6 +93,18 @@ Plan: 12 of 12
 - [Phase 04]: canonical.py normalizes models field-by-field rather than via model_dump() — dumping rebuilds set-valued fields as sets of dicts, making every claim in the fabric unhashable
 - [Phase 04]: Every backend's GraphWriter class lives in ccf.graph._writer, never beside its reader — otherwise the CINV-02 lint guards a module while the real write path lives unguarded
 - [Phase 04]: claim_id excludes lineage and observed_at — corroboration accumulates instead of manufacturing supersessions, and a claim stays addressable while its evidence grows
+- [Phase 05]: D-05 content comparison uses version-normalized fingerprint (artifact_version blanked) so a bump alone never reads as a content change
+- [Phase 05]: delegation_chain defaults to single-element NO_AGENT_DEFINITION chain; build_replay_record passes single-element originating-principal chain (I.2)
+- [Phase 05]: Factory resolves ccf-artifact:// refs via Control Plane key {tenant}/{class}/{name}, matching URI version against each registered version's declared artifact_version/semver (content hashes also accepted); reads through Control Plane resolution only, never raw storage
+- [Phase 05]: Agent seam failures (ConsumptionRefused, SkillNotBound, AgentConstructionError) are typed exceptions, not returned refusals — broken wiring, not expected artifact outcomes (I.1 refusal-vs-exception line)
+- [Phase 05]: SkillCatalog stores only a key index; the registry stays the single source of skill entry content — discovery/resolution read the same audited versions as every Control Plane consumer (05-05)
+- [Phase 05]: Skill bindings are pure descriptors in 05-05 (D-08) — no transport or resolution code for any of the four types until 05-06 dispatch
+- [Phase 05]: build_replay_record gained optional agent_conditioning seam — agent-serialized dimension-4 conditioning recorded verbatim; None keeps I.1 behavior byte for byte (no contract change)
+- [Phase 05]: Tier-1 governance envelope reads a `skill_governance` field (typed PolicyRegimeGovernance) from the policy-regime declaration — field name is mechanism schema; permitted scopes and the tier-2 flag are deployment YAML statements (05-06)
+- [Phase 05]: Grant transitions audit as new grant_* AuditAction members through the one existing AuditLog — no parallel log type (05-06)
+- [Phase 05]: NotYetBound is a typed RuntimeError for mcp/a2a dispatch (build lacks the transport; artifact is fine) — RESEARCH Open Question 2 resolution; tool dispatch returns a ToolInvocation value, the SDK executes no command (05-06)
+- [Phase 05]: Agent holds bound_skills by reference to the GrantLedger's live view — grants/revocations take effect at invoke time without touching agent identity; ledger.grant_set_hash() returns the NO_GRANTS sentinel when empty, pure fn stays content_hash(frozenset) (D-07, 05-06)
+- [Phase 05]: Gate package (docs/PHASE_I2_GATE.md) follows the I.1 D-17 format; discretionary in-phase choices recorded in the gate doc §4, not as D-IMPL entries; D-GATE-I.2 deliberately NOT logged pending Dave's approval (05-07)
 
 ### Todos
 
@@ -92,5 +118,5 @@ Plan: 12 of 12
 
 ## Session Continuity
 
-Last action: Phase I.1 gate closed (2026-07-25) — Dave approved docs/PHASE_I1_GATE.md; D-GATE-I.1 logged in docs/DECISIONS.md; phase-i1 merged to main --no-ff; ROADMAP Phase 4 marked 12/12 complete; verification re-run green (383 passed / 3 deferral skips, lints exit 0).
-Next action: Plan Phase 5 (Phase I.2 — Agent Specialization Framework: factory, archetypes, skilling) via /gsd-plan-phase 5.
+Last action: Completed 05-07-PLAN.md (2026-07-26) on branch phase-i2 — gate wave: full verification sweep all green on first run (568 passed / exactly 2 I.4 skips, mypy --strict 63 files, lints exit 0), docs/PHASE_I2_GATE.md assembled (14-row D-17 checklist, AGNT-01/02/03 evidence map, I.3/I.4 handoff incl. Jinja2 SSTI), ROADMAP Phase 5 at 7/7. No D-GATE-I.2 entry written.
+Next action: Run `/gsd-review --phase "Phase I.2" --all`, triage, present to Dave; on approval log D-GATE-I.2 and merge phase-i2 → main (§3.1).

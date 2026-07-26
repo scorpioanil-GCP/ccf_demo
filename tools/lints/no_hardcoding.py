@@ -18,9 +18,15 @@ Three heuristics, one AST walk, plus the D-08 allowlist:
     defaults).
 
 ``cinv01c-factory-bypass``
-    ``Agent(...)`` / ``Task(...)`` construction outside a factory module. There
-    is no supported path to an agent or task that bypasses the factory (§6.4).
-    Scaffolded here; it has nothing to catch until I.2 ships the archetypes.
+    ``Agent(...)`` / ``Task(...)`` construction outside a factory module —
+    "factory module" being an explicit allowlist of exact paths
+    (``FACTORY_MODULE_ALLOWLIST``), never a naming convention (WR-06). Also
+    tracks simple module-level aliasing (``A = Agent; A(...)``) and import
+    aliasing (``from ... import Agent as A; A(...)``), so a
+    one-line rename is not a silent hole in the rule. The accepted residual
+    (D-12, Dave's explicit ruling) is *dynamic* construction — ``getattr``,
+    ``globals()``, importlib — which no static check can see; the lint is the
+    mechanism of record and no runtime construction token exists.
 
 Unlike the import rules, CINV-01 has legitimate exceptions, so it takes an
 allowlist: ``tools/lints/allowlist.yaml``, entries of
@@ -76,7 +82,32 @@ PARAM_SCHEMA_MARKERS: tuple[str, ...] = ("params", "parameters", "thresholds")
 
 #: Construction of these names must go through a factory module.
 FACTORY_ONLY_NAMES: frozenset[str] = frozenset({"Agent", "Task"})
-FACTORY_PATH_MARKER = "factory"
+
+#: The exact factory modules exempt from CINV-01c — an explicit allowlist,
+#: never a naming convention (WR-06). A module earns exemption by *being* the
+#: Agent & Task Factory, not by putting "factory" somewhere in its path; the
+#: entries are the repo-relative file path and its dotted module form.
+FACTORY_MODULE_ALLOWLIST: frozenset[str] = frozenset(
+    {"src/ccf/agents/factory.py", "ccf.agents.factory"}
+)
+
+
+def _is_factory_module(path: pathlib.Path, module_name: str) -> bool:
+    """Whether ``path``/``module_name`` names an allowlisted factory module.
+
+    Matches the dotted module name exactly, or the file path exactly /
+    suffix-anchored at a path-segment boundary (so an absolute path to the
+    real factory file matches, but ``my_factory_helpers.py`` or a
+    ``factories/`` directory cannot earn exemption by naming — WR-06).
+    """
+    if module_name in FACTORY_MODULE_ALLOWLIST:
+        return True
+    posix = path.as_posix()
+    return any(
+        posix == entry or posix.endswith("/" + entry)
+        for entry in FACTORY_MODULE_ALLOWLIST
+        if "/" in entry
+    )
 
 
 def fingerprint(literal: str) -> str:
@@ -268,7 +299,7 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
     tree = read_tree(source, path)
     findings: list[str] = []
     docstrings = _docstring_nodes(tree)
-    in_factory_module = FACTORY_PATH_MARKER in f"{path.as_posix()} {module_name}".lower()
+    in_factory_module = _is_factory_module(path, module_name)
     param_schema = _is_param_schema_module(path, module_name)
 
     def emit(node: ast.AST, rule: str, message: str, literal: str) -> None:
@@ -342,16 +373,54 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
                         ast.unparse(stmt),
                     )
 
-    # CINV-01c — factory bypass.
+    # CINV-01c — factory bypass. Aliases of factory-only names join the
+    # checked set so a rename is never a silent hole: bare-name assignment
+    # (`A = Agent`), attribute assignment (`A = module.Agent` — WR-04), and
+    # import aliases (`from x import Agent as A`, `import x as A` where x
+    # names a factory-only name — WR-06). Every *static* rename is covered;
+    # dynamic construction (a name resolved at runtime, e.g. through getattr)
+    # stays the D-12 accepted residual, which is the whole point of the
+    # distinction — a one-line static rename must not escape.
     if not in_factory_module:
+        checked_names = set(FACTORY_ONLY_NAMES)
+        aliases: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and (
+                (
+                    isinstance(node.value, ast.Name)
+                    and node.value.id in FACTORY_ONLY_NAMES
+                )
+                or (
+                    isinstance(node.value, ast.Attribute)
+                    and node.value.attr in FACTORY_ONLY_NAMES
+                )
+            ):
+                canonical_name = (
+                    node.value.id
+                    if isinstance(node.value, ast.Name)
+                    else node.value.attr
+                )
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        checked_names.add(target.id)
+                        aliases[target.id] = canonical_name
+            elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                for imported in node.names:
+                    basename = imported.name.rsplit(".", 1)[-1]
+                    if basename in FACTORY_ONLY_NAMES and imported.asname:
+                        checked_names.add(imported.asname)
+                        aliases[imported.asname] = basename
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and _called_name(node.func) in (
-                FACTORY_ONLY_NAMES
+                checked_names
             ):
+                called = _called_name(node.func)
+                assert called is not None
+                canonical = aliases.get(called, called)
                 emit(
                     node,
                     RULE_FACTORY_BYPASS,
-                    f"{_called_name(node.func)} construction outside a factory"
+                    f"{canonical} construction outside a factory"
                     " module — agents and tasks come from the Agent & Task"
                     " Factory reading definition artifacts (CLAUDE.md §6.4)",
                     ast.unparse(node),

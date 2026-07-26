@@ -14,7 +14,7 @@ exists.
 - [x] **Phase 2: Phase D — Design** - SDK architectural shape: `docs/DESIGN.md`, `docs/DECISIONS.md`, full diagram set (completed 2026-07-25)
 - [x] **Phase 3: Phase F — Feasibility & Scoping** - Per-component verdicts, v0.1 surface, test strategy; verify Phase I gate list (completed 2026-07-25)
 - [x] **Phase 4: Phase I.1 — Fabric Core** - L1–L6 Data and Context Layer plus CI invariant scaffolding
-- [ ] **Phase 5: Phase I.2 — Agent Specialization Framework** - Agent base, six archetypes, Agent & Task Factory, skilling
+- [x] **Phase 5: Phase I.2 — Agent Specialization Framework** - Agent base, six archetypes, Agent & Task Factory, skilling (completed 2026-07-26)
 - [ ] **Phase 6: Phase I.3 — Cross-Process & Harness Adapters** - Bidirectional MCP, A2A federation, HarnessAdapterProtocol + reference adapters
 - [ ] **Phase 7: Phase I.4 — Orchestration, HITL, Experience** - Workflow primitive, HITL primitives, MCP egress / CLI / HTTP front doors
 - [ ] **Phase 8: Phase I.5 — Examples Suite & Full CI Verification** - Eight-example v0 suite in CI, all invariant lints green, Phase I gate
@@ -194,36 +194,36 @@ Plans:
   3. Skill catalog supports registration, discovery, and runtime grant/revoke; the policy-compatibility check refuses a grant exceeding the agent's policy regime or context contract; every grant/revocation and the skill-set in force land in the replay record
   4. All six specialization axes (archetype binding, context contract, perspective, policy regime, half-life/debt profile, instruction bindings) are expressible in the definition artifact and versioned — changing any axis produces a new agent version visible in replay
 
-**Plans:** 7 plans
+**Plans:** 10/10 plans complete
 
 Plans:
 **Wave 1**
 
-- [ ] 05-01-PLAN.md — Slice foundations: jinja2 pin, six-axis definition schemas (D-IMPL-28), prompt parse-only validation (D-13), D-05 hash-verified bump, full D-06 dimension-4 replay extension
+- [x] 05-01-PLAN.md — Slice foundations: jinja2 pin, six-axis definition schemas (D-IMPL-28), prompt parse-only validation (D-13), D-05 hash-verified bump, full D-06 dimension-4 replay extension
 
 **Wave 2**
 
-- [ ] 05-02-PLAN.md — Vertical slice (D-01/D-02/D-03): ArchetypeComponent + analytics_insights, concrete Agent, AgentFactory, test-double harness, end-to-end slice test with dimension-4 assertions
+- [x] 05-02-PLAN.md — Vertical slice (D-01/D-02/D-03): ArchetypeComponent + analytics_insights, concrete Agent, AgentFactory, test-double harness, end-to-end slice test with dimension-4 assertions
 
 **Wave 3**
 
-- [ ] 05-03-PLAN.md — All six archetypes + D-IMPL-19 composition rules + consumption-discipline test
+- [x] 05-03-PLAN.md — All six archetypes + D-IMPL-19 composition rules + consumption-discipline test
 
 **Wave 4**
 
-- [ ] 05-04-PLAN.md — Factory hardening: TaskDefinition + TaskFactory (D-11), CINV-01c behavioral lint fixture (D-12), JSON Schema export, six-axis version matrix
+- [x] 05-04-PLAN.md — Factory hardening: TaskDefinition + TaskFactory (D-11), CINV-01c behavioral lint fixture (D-12), JSON Schema export, six-axis version matrix
 
 **Wave 5**
 
-- [ ] 05-05-PLAN.md — Skill catalog: 4-type entry schema (D-IMPL-12), typed requirements declaration, registration/discovery via Control Plane, banking skill fixtures
+- [x] 05-05-PLAN.md — Skill catalog: 4-type entry schema (D-IMPL-12), typed requirements declaration, registration/discovery via Control Plane, banking skill fixtures
 
 **Wave 6**
 
-- [ ] 05-06-PLAN.md — Skilling governance + dispatch: two-tier grants + ApprovalSink (D-09), grant-set hash (D-07), dispatch + NotYetBound (D-08), replay capture + CINV-04 activation (D-10)
+- [x] 05-06-PLAN.md — Skilling governance + dispatch: two-tier grants + ApprovalSink (D-09), grant-set hash (D-07), dispatch + NotYetBound (D-08), replay capture + CINV-04 activation (D-10)
 
 **Wave 7**
 
-- [ ] 05-07-PLAN.md — Gate wave: full verification sweep, per-invariant gate checklist, success-criteria evidence map, I.3 handoff notes
+- [x] 05-07-PLAN.md — Gate wave: full verification sweep, per-invariant gate checklist, success-criteria evidence map, I.3 handoff notes
 
 **Process notes**: Model mandate — Opus 5 (fallback Opus 4.8), "high" effort. Branch: `phase-i2`. Ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.2` before Phase 6 begins.
 
@@ -282,7 +282,7 @@ Plans:
 | 2. Phase D — Design | 11/11 | Complete   | 2026-07-25 |
 | 3. Phase F — Feasibility & Scoping | 4/4 | Complete   | 2026-07-25 |
 | 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
-| 5. Phase I.2 — Agent Specialization Framework | 0/? | Not started | - |
+| 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 0/? | Not started | - |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 0/? | Not started | - |
 | 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |

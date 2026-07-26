@@ -39,8 +39,22 @@ __all__ = ["AuditAction", "AuditEvent", "AuditLog"]
 #: The Control Plane interactions worth a record. Registration and resolution
 #: are both here because the audit plane's obligation is to reconstruct *what
 #: configuration a decision ran under*, which needs the reads as much as the
-#: writes.
-AuditAction = Literal["register", "register_typed", "resolve", "resolve_latest"]
+#: writes. The ``grant_*`` members are the skill-grant state transitions
+#: (D-IMPL-29; D-09): a grant is a Control Plane action like any other, and
+#: every transition — refusals included — is a record (CLAUDE.md §6.2:
+#: "a skill grant or revocation is itself an audited Control Plane action").
+AuditAction = Literal[
+    "register",
+    "register_typed",
+    "register_versioned",
+    "resolve",
+    "resolve_latest",
+    "grant_requested",
+    "grant_pending_approval",
+    "grant_effective",
+    "grant_refused",
+    "grant_revoked",
+]
 
 
 class AuditEvent(CCFContract):

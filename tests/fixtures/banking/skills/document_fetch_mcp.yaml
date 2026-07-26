@@ -1,0 +1,21 @@
+# Banking fixture skill catalog entry — mcp type (CLAUDE.md §6.2 channel 2;
+# D-IMPL-12; AGNT-03; D-08 — mcp entries register in 05-05, dispatch is 05-06).
+#
+# All values live here, none in `/src` or test code (No-Hardcoding Rule §6.4).
+# Requirement identifiers are opaque to the SDK (05-RESEARCH.md Pitfall 4);
+# `required_context_products` is deliberately empty — an explicit statement
+# that this skill reads no Context Product, not a defaulted omission
+# (D-IMPL-38 discipline: the author declares, the SDK never assumes).
+
+entry:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: document-fetch
+  tenant: acme-bank
+  skill_type: mcp
+  binding:
+    server: acme-bank-documents
+    resource: loan-agreements
+  requirements:
+    required_scopes: [document-read]
+    required_context_products: []

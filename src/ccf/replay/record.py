@@ -34,6 +34,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from pydantic import field_validator
+
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.products.contract import AssemblyMode, ContextProductContract
@@ -44,6 +46,8 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "MODE_1_MODEL_VERSION",
+    "NO_AGENT_DEFINITION",
+    "NO_GRANTS_SET_HASH",
     "ContentGenerationPath",
     "ContextFabricSnapshot",
     "DecisionReplayRecord",
@@ -58,6 +62,18 @@ __all__ = [
 #: whitepaper's own wording; recorded rather than omitted so that "no model
 #: participated" is something the record asserts.
 MODE_1_MODEL_VERSION = "none"
+
+#: Dimension 4's grant-set value when no skill grant is in force (D-06/D-07).
+#: A positive claim mirroring :data:`MODE_1_MODEL_VERSION`: "this decision ran
+#: under zero grants" is asserted, never left as an absence a reader must
+#: interpret. The skilling wave replaces it with the grant-set content hash.
+NO_GRANTS_SET_HASH = "no-grants"
+
+#: Dimension 4's agent-identity value when no agent participated (D-06).
+#: Pre-agent records — the whole of I.1, and any fabric-direct decision — carry
+#: this in the definition-hash and definition-URI fields, and as the single
+#: element of a delegation chain that has no delegating agent.
+NO_AGENT_DEFINITION = "no-agent"
 
 
 class ContextFabricSnapshot(CCFContract):
@@ -150,16 +166,51 @@ class ModelVersionRecord(CCFContract):
 class PerspectiveConditioning(CCFContract):
     """Dimension 4 — whose viewpoint conditioned the decision (INV-CH7-84).
 
-    Agent identity, agent version, and the skill-set in force extend this in
-    I.2 (CLAUDE.md §6.2). ``delegation_chain`` is present now because a
-    perspective inherited through a handoff is a different perspective from one
-    held directly, and retrofitting that distinction onto historical records is
-    impossible.
+    Extended once, in I.2, with the complete D-06 field set (CLAUDE.md §6.2;
+    D-07 stability rule): which agent, which version, which composition, which
+    grants — answerable from the record alone. Every value here is serialized
+    from artifact-resolved state captured at construction/grant time, never
+    re-derived from live objects: a record that re-observed anything would
+    describe the state at recording time, not at decision time.
+
+    Attributes:
+        principal_id: The originating principal.
+        role: The Π role conditioning the view.
+        agent_definition_hash: Content hash of the agent definition in force —
+            canonical identity (D-IMPL-26). :data:`NO_AGENT_DEFINITION` when no
+            agent participated: a positive claim, not an omission.
+        agent_definition_uri: The definition's versioned URI, carried as
+            annotation per the D-IMPL-26 replay rule (the hash is the
+            identity; the URI is for humans and stores).
+        archetype_composition: The composed archetype list, in D-IMPL-19
+            declaration order. Empty exactly when no agent participated.
+        grant_set_hash: Content hash of the in-force skill grant set (D-07).
+            Defaults to :data:`NO_GRANTS_SET_HASH` until skilling lands.
+        delegation_chain: From originating principal to acting agent identity
+            (DESIGN.md §3.6, INV-CH7-84). Never empty: pre-agent records carry
+            the single-element :data:`NO_AGENT_DEFINITION` sentinel; I.2
+            records carry a single element; I.4 workflow chains extend the
+            same field with no further contract change.
     """
 
     principal_id: str
     role: str
-    delegation_chain: tuple[str, ...] = ()
+    agent_definition_hash: str = NO_AGENT_DEFINITION
+    agent_definition_uri: str = NO_AGENT_DEFINITION
+    archetype_composition: tuple[str, ...] = ()
+    grant_set_hash: str = NO_GRANTS_SET_HASH
+    delegation_chain: tuple[str, ...] = (NO_AGENT_DEFINITION,)
+
+    @field_validator("delegation_chain")
+    @classmethod
+    def _chain_is_never_empty(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if not value:
+            raise ValueError(
+                "delegation_chain must not be empty: a decision with no"
+                " delegating agent carries the single-element no-agent"
+                " sentinel, never silence (D-06; INV-CH7-84)"
+            )
+        return value
 
 
 class ContentGenerationPath(CCFContract):
@@ -201,6 +252,7 @@ def build_replay_record(
     policy_bindings: tuple[PolicyBinding, ...],
     assembly_mode: AssemblyMode,
     recorded_at: datetime,
+    agent_conditioning: PerspectiveConditioning | None = None,
 ) -> DecisionReplayRecord:
     """Assemble the record from what the execution and the product already know.
 
@@ -210,6 +262,15 @@ def build_replay_record(
     Nothing is re-observed at record time, because a record that measured
     anything itself would be recording the state at *recording* time rather
     than at decision time.
+
+    ``agent_conditioning`` is the I.2 agent seam (D-06): when an agent made
+    the decision, the caller passes the conditioning the agent serialized
+    from its construction-time identity
+    (:meth:`ccf.agents.agent.Agent.perspective_conditioning`) and it is
+    recorded verbatim — derived, never reconstructed here. When ``None``
+    (every fabric-direct decision, and the whole of I.1), dimension 4 carries
+    the positive no-agent/no-grants claims and the single-element
+    originating-principal delegation chain, exactly as before.
     """
     return DecisionReplayRecord(
         tenant_id=product.tenant_id,
@@ -223,8 +284,11 @@ def build_replay_record(
         ),
         policy_bindings=PolicyBindingsSnapshot(bindings=policy_bindings),
         model_version=ModelVersionRecord(assembly_mode=assembly_mode),
-        perspective_conditioning=PerspectiveConditioning(
-            principal_id=perspective.principal_id, role=perspective.role
+        perspective_conditioning=agent_conditioning
+        or PerspectiveConditioning(
+            principal_id=perspective.principal_id,
+            role=perspective.role,
+            delegation_chain=(perspective.principal_id,),
         ),
         content_generation_path=ContentGenerationPath(
             plan_id=execution.plan_id,

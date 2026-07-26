@@ -45,23 +45,74 @@ defaults (CLAUDE.md §11, CINV-01). Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from typing import Protocol, runtime_checkable
 
+from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import ArtifactClass
 from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
+from ccf.controlplane.state import ControlPlaneStateStore, InMemoryStateStore
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "AmbiguousPinnedVersionError",
     "AuditEvent",
     "ControlPlaneMissing",
     "ControlPlaneProtocol",
     "ControlPlaneRegistry",
+    "RefuseEmptyBump",
+    "RefuseUnbumpedChange",
+    "RegistrationRefusal",
     "ReplayResolver",
 ]
+
+
+class RegistrationRefusal(CCFContract):
+    """Base of the D-05 registration refusals — values, never exceptions.
+
+    The gate discipline (``GateRefusal``): a refused registration is a normal,
+    expected outcome the caller inspects, not a control-flow event. Both
+    refusals are audited with ``resolved=False`` (T-05-04), because a version
+    history is only trustworthy if the attempts it turned away are on record.
+
+    Attributes:
+        key: The Control Plane key involved.
+        artifact_version: The author-declared ``artifact_version`` on the
+            refused registration.
+        detail: Human-readable statement for the operator reading a log; the
+            typed fields carry the machine-readable version.
+    """
+
+    key: str
+    artifact_version: str
+    detail: str
+
+
+class RefuseUnbumpedChange(RegistrationRefusal):
+    """D-05: content changed but ``artifact_version`` did not.
+
+    The author is claiming an old version for new bytes — the tampering shape
+    T-05-01 exists to catch. Both hashes are carried so the caller can see the
+    drift without re-deriving either.
+    """
+
+    existing_hash: str
+    incoming_hash: str
+
+
+class RefuseEmptyBump(RegistrationRefusal):
+    """D-05: ``artifact_version`` bumped but the content is byte-identical.
+
+    A version that names no change makes every later "what changed in 1.1.0?"
+    question unanswerable; the bump is refused rather than recorded as history
+    that never happened.
+    """
+
+    existing_version: str
+    content_hash: str
 
 
 class ControlPlaneMissing(LookupError):
@@ -70,6 +121,33 @@ class ControlPlaneMissing(LookupError):
     Raised instead of returning a default. See the module docstring
     (D-IMPL-38, no-silent-default).
     """
+
+
+class AmbiguousPinnedVersionError(RuntimeError):
+    """One declared semver names two different contents under one key (WR-08).
+
+    The ``register_typed`` path carries no D-05 bump check, so two different
+    contents can both declare ``semver: "1.1.0"`` under the same key. A
+    "pinned" resolution against that declared version would be a moving
+    target — exactly the shape D-IMPL-26 forbids — so resolution refuses
+    with this typed error instead of silently returning the oldest match.
+    Carries the key, the declared version, and every matching content hash.
+    """
+
+    def __init__(
+        self, key: str, declared_version: str, content_hashes: Sequence[str]
+    ) -> None:
+        self.key = key
+        self.declared_version = declared_version
+        self.content_hashes = tuple(content_hashes)
+        super().__init__(
+            f"declared version {declared_version!r} under key {key!r} matches"
+            f" {len(self.content_hashes)} different contents"
+            f" ({', '.join(repr(h) for h in self.content_hashes)}); a pinned"
+            " resolution must name exactly one content — re-register with a"
+            " bumped declared version or pin by content hash"
+            " (D-IMPL-26; WR-08)"
+        )
 
 
 @runtime_checkable
@@ -123,14 +201,63 @@ class ControlPlaneRegistry:
             harnesses control it; the default reads the wall clock in UTC.
             (A clock is mechanism, not a domain value — but a *hidden* clock
             would make the audit log untestable, so it is a seam.)
+        audit_log: The append-only log this registry records into. Injected
+            so composition sites can share ONE log — one sequence, one clock
+            — between the registry and every other Control Plane service
+            that audits (the grant ledger foremost): the Control Plane is
+            the audit plane, singular (whitepaper §7.8.2; WR-07). The
+            default constructs a fresh log, preserving existing behavior
+            for callers that do not inject.
+        state_store: Where mutable-until-terminal state records live
+            (D-IMPL-27's mutability split; D-IMPL-18's "Control Plane's
+            storage seam"). Injected so a deployment can make that state
+            durable without any consumer knowing. The default constructs an
+            :class:`~ccf.controlplane.state.InMemoryStateStore`, matching the
+            in-process posture of the registry itself (CLAUDE.md §13).
+            Registered *artifacts* never route here — they are immutable and
+            versioned, and stay on the append-only path above.
     """
 
-    def __init__(self, *, clock: Callable[[], datetime] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        clock: Callable[[], datetime] | None = None,
+        audit_log: AuditLog | None = None,
+        state_store: ControlPlaneStateStore | None = None,
+    ) -> None:
         self._clock: Callable[[], datetime] = clock or _utc_now
         self._versions: dict[str, list[str]] = {}
         self._artifacts: dict[tuple[str, str], object] = {}
         self._classes: dict[str, str] = {}
-        self._audit = AuditLog()
+        self._bumps: dict[str, dict[str, tuple[str, str]]] = {}
+        self._audit = audit_log if audit_log is not None else AuditLog()
+        self._state_store: ControlPlaneStateStore = (
+            state_store if state_store is not None else InMemoryStateStore()
+        )
+
+    @property
+    def state_store(self) -> ControlPlaneStateStore:
+        """The mutable-state seam this Control Plane offers (D-IMPL-18/27).
+
+        Exposed for the same reason as :attr:`audit_log`: state that belongs
+        to the Control Plane must be reachable from the Control Plane, so
+        every service over one registry reads one state, rather than each
+        caching its own and disagreeing (WR-05). Holding the reference
+        confers no capability the Protocol does not.
+        """
+        return self._state_store
+
+    @property
+    def audit_log(self) -> AuditLog:
+        """The append-only log this registry records into (§7.8.2; WR-07).
+
+        Exposed so composition sites can hand the SAME instance to other
+        auditing Control Plane services (e.g.
+        :class:`~ccf.skills.grants.GrantLedger`), keeping registration and
+        grant-lifecycle events in one monotonic sequence. The log itself is
+        append-only; holding the reference confers no rewrite capability.
+        """
+        return self._audit
 
     def _record(
         self,
@@ -226,12 +353,183 @@ class ControlPlaneRegistry:
         )
         return version
 
+    def register_versioned(
+        self,
+        key: str,
+        artifact: object,
+        artifact_class: ArtifactClass,
+        *,
+        actor: str | None = None,
+        reissuable: bool = False,
+    ) -> str | RegistrationRefusal:
+        """Register an author-versioned artifact under the D-05 bump check.
+
+        The path for artifacts carrying D-IMPL-28 two-field versioning (agent
+        definitions, prompt artifacts, …). On top of :meth:`register_typed`'s
+        validation and class binding, the author's ``artifact_version`` claim
+        is held against content identity — the four-outcome table:
+
+        * same content, same ``artifact_version`` — idempotent no-op; the
+          existing content version is returned.
+        * changed content, same ``artifact_version`` — returns
+          :class:`RefuseUnbumpedChange`; nothing is stored.
+        * same content, bumped ``artifact_version`` — returns
+          :class:`RefuseEmptyBump`; nothing is stored.
+        * changed content, bumped ``artifact_version`` — appended; the new
+          content version is returned.
+
+        Refusals are returned values, not exceptions, and every outcome —
+        refusals included — is audited (``resolved=False`` on refusal).
+        :meth:`register_typed` itself is untouched: artifact classes without
+        author versioning keep their existing behavior byte for byte.
+
+        The empty-bump outcome reads a re-registration as a *revision* of an
+        evolving document, which is the wrong reading for a single-use
+        *request* artifact — one whose whole purpose is to be submitted,
+        decided, and (if declined) submitted again unchanged. ``reissuable``
+        is how a caller declares that reading at the call site: with it set,
+        a version bump over byte-identical content is admitted as a new
+        request rather than refused. The unbumped-change refusal is
+        unaffected either way — content still never changes under a version
+        already claimed. The flag is a call-site statement, deliberately, so
+        the registry holds no list of which artifact classes behave which
+        way (CLAUDE.md §11: mechanism, not values).
+
+        Args:
+            key: The Control Plane key to append under.
+            artifact: The artifact to validate and register.
+            artifact_class: The class the artifact must satisfy.
+            actor: Who is registering, for the audit record.
+            reissuable: Admit a bump over byte-identical content as a new
+                request instead of refusing it as an empty bump.
+
+        Raises:
+            TypeError: the artifact fails the class contract, the key is bound
+                to a different class, or the artifact declares no string
+                ``artifact_version``.
+            ccf.contracts.canonical.CanonicalizationError: the artifact has no
+                canonical form.
+        """
+        bound_class = self._classes.get(key)
+        if bound_class is not None and bound_class != artifact_class.class_id:
+            raise TypeError(
+                f"key {key!r} is already bound to artifact class {bound_class!r};"
+                f" refusing to rebind it to {artifact_class.class_id!r}"
+            )
+        validated = artifact_class.validate(artifact)
+        declared = getattr(validated, "artifact_version", None)
+        if not isinstance(declared, str):
+            raise TypeError(
+                f"artifact for class {artifact_class.class_id!r} declares no"
+                " string artifact_version; the hash-verified bump check (D-05)"
+                " has nothing to verify"
+            )
+        incoming = content_hash(validated)
+        # The D-05 comparison asks whether the artifact's *content* changed,
+        # and the content of an author-versioned artifact is everything except
+        # the version claim itself — a bump alone must not read as a content
+        # change, or the empty-bump outcome could never fire. The fingerprint
+        # normalizes artifact_version before hashing; the stored registry
+        # version stays the full content hash (D-IMPL-26 identity).
+        fingerprint = content_hash(
+            validated.model_copy(update={"artifact_version": ""})
+        )
+        bumps = self._bumps.setdefault(key, {})
+
+        def _refused(refusal: RegistrationRefusal) -> RegistrationRefusal:
+            self._record(
+                action="register_versioned",
+                key=key,
+                version=incoming,
+                resolved=False,
+                actor=actor,
+                artifact_class=artifact_class.class_id,
+            )
+            return refusal
+
+        existing = bumps.get(declared)
+        if existing is not None and existing[0] != incoming:
+            return _refused(
+                RefuseUnbumpedChange(
+                    key=key,
+                    artifact_version=declared,
+                    existing_hash=existing[0],
+                    incoming_hash=incoming,
+                    detail=(
+                        f"content under ({key!r}, artifact_version {declared!r})"
+                        " changed without a version bump (D-05)"
+                    ),
+                )
+            )
+        if existing is None and not reissuable:
+            for prior_version, (_prior_hash, prior_print) in bumps.items():
+                if prior_print == fingerprint:
+                    return _refused(
+                        RefuseEmptyBump(
+                            key=key,
+                            artifact_version=declared,
+                            existing_version=prior_version,
+                            content_hash=fingerprint,
+                            detail=(
+                                f"artifact_version bumped to {declared!r} under"
+                                f" {key!r} but the content is byte-identical to"
+                                f" version {prior_version!r} (D-05)"
+                            ),
+                        )
+                    )
+        versions = self._versions.setdefault(key, [])
+        if incoming not in versions:
+            versions.append(incoming)
+            self._artifacts[(key, incoming)] = validated
+        self._classes[key] = artifact_class.class_id
+        bumps[declared] = (incoming, fingerprint)
+        self._record(
+            action="register_versioned",
+            key=key,
+            version=incoming,
+            resolved=True,
+            actor=actor,
+            artifact_class=artifact_class.class_id,
+        )
+        return incoming
+
     def artifact_class_of(self, key: str) -> str | None:
         """Return the artifact class bound to ``key``, if it was typed.
 
         Introspection only — not audited, because it resolves nothing.
         """
         return self._classes.get(key)
+
+    def keys_of_class(self, class_id: str) -> tuple[str, ...]:
+        """Every key bound to ``class_id``, in first-registration order.
+
+        Introspection only — not audited, because it resolves nothing. The
+        surface catalog discovery derives membership from (IN-03): registry
+        state is the single store; no consumer keeps a volatile second index.
+        """
+        return tuple(
+            key for key, bound in self._classes.items() if bound == class_id
+        )
+
+    def peek(self, key: str, version: str) -> object:
+        """Return the artifact at ``(key, version)`` without auditing.
+
+        Introspection only — deliberately unaudited, unlike :meth:`resolve`:
+        declared-version matching has to *examine* every registered content
+        under a key to find the one whose declared semver matches, and
+        auditing those probes as resolutions would record reads that never
+        happened (WR-08 side effect). Callers audit the resolution they
+        actually return by calling :meth:`resolve` on the match.
+
+        Raises:
+            ControlPlaneMissing: no such key, or no such version under it.
+        """
+        try:
+            return self._artifacts[(key, version)]
+        except KeyError:
+            raise ControlPlaneMissing(
+                f"no Control Plane artifact registered as ({key!r}, {version!r})"
+            ) from None
 
     def resolve(self, key: str, version: str) -> object:
         """Return the exact artifact registered as ``(key, version)``.
