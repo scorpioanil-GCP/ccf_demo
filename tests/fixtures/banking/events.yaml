@@ -1,0 +1,105 @@
+# Banking fixture event stream — L1 signal envelopes for the proto-quickstart.
+#
+# Deliberately not a happy path. The stream is constructed so that a broken
+# invariant shows up as a failing assertion (D-02, "would this slice catch a
+# broken invariant?"):
+#
+#   * env-002 asserts the SAME counterparty as env-001 from a DIFFERENT source,
+#     with identical attributes and the same observed time -> ONE claim whose
+#     lineage accumulates by set-union (INV-CH7-17). An implementation that
+#     overwrote lineage would still look idempotent and would fail here.
+#   * env-002-redelivery is env-002 verbatim, re-delivered -> nothing
+#     accumulates. An implementation that appended lineage unconditionally
+#     would pass the previous case and fail this one.
+#   * env-004 re-asserts the counterparty at a LATER observed time -> a new
+#     claim that supersedes, with the prior claim and its two-source lineage
+#     still readable. Corroboration and supersession are different events and
+#     the stream contains both.
+#   * env-006 carries a RESTRICTED covenant, which the policy operator must
+#     substitute out along with the edge that would otherwise leak its
+#     existence by absence.
+#   * FAC-200 is a real, permitted facility that the similarity operator must
+#     rank out — so "similarity did something" is distinguishable from
+#     "similarity was an identity function".
+#
+# Payload keys are the *source systems'* vocabulary, never the fabric's.
+
+envelopes:
+  - envelope_id: env-001
+    source_system_id: core-banking
+    ingestion_timestamp: 2026-03-01T09:00:00Z
+    observed_time: 2026-03-01T08:55:00Z
+    payload:
+      counterparty_lei: "5493001KJTIIGC8Y1R12"
+      counterparty_name: "Northwind Trading BV"
+      jurisdiction: "NL"
+      counterparty_classification: "internal"
+      facility_id: "FAC-100"
+      facility_type: "revolving_credit"
+      currency: "USD"
+      facility_description: "revolving credit facility usd senior secured"
+      facility_classification: "internal"
+
+  - envelope_id: env-002
+    source_system_id: kyc-registry
+    ingestion_timestamp: 2026-03-01T09:05:00Z
+    observed_time: 2026-03-01T08:55:00Z
+    payload:
+      counterparty_lei: "5493001KJTIIGC8Y1R12"
+      counterparty_name: "Northwind Trading BV"
+      jurisdiction: "NL"
+      counterparty_classification: "internal"
+
+  - envelope_id: env-002
+    source_system_id: kyc-registry
+    ingestion_timestamp: 2026-03-01T09:05:00Z
+    observed_time: 2026-03-01T08:55:00Z
+    payload:
+      counterparty_lei: "5493001KJTIIGC8Y1R12"
+      counterparty_name: "Northwind Trading BV"
+      jurisdiction: "NL"
+      counterparty_classification: "internal"
+
+  - envelope_id: env-004
+    source_system_id: core-banking
+    ingestion_timestamp: 2026-03-01T09:10:00Z
+    observed_time: 2026-03-01T09:08:00Z
+    payload:
+      counterparty_lei: "5493001KJTIIGC8Y1R12"
+      counterparty_name: "Northwind Trading BV"
+      jurisdiction: "NL"
+      counterparty_classification: "internal"
+      facility_id: "FAC-200"
+      facility_type: "equipment_lease"
+      currency: "EUR"
+      facility_description: "equipment lease schedule eur amortising"
+      facility_classification: "internal"
+
+  - envelope_id: env-005
+    source_system_id: collateral-system
+    ingestion_timestamp: 2026-03-01T09:15:00Z
+    observed_time: 2026-03-01T09:12:00Z
+    payload:
+      guarantee_id: "GTE-77"
+      guarantee_type: "parent_guarantee"
+      guarantee_description: "unconditional parent guarantee usd"
+      guarantee_classification: "internal"
+      facility_id: "FAC-100"
+      facility_type: "revolving_credit"
+      currency: "USD"
+      facility_description: "revolving credit facility usd senior secured"
+      facility_classification: "internal"
+
+  - envelope_id: env-006
+    source_system_id: covenant-monitor
+    ingestion_timestamp: 2026-03-01T09:20:00Z
+    observed_time: 2026-03-01T09:18:00Z
+    payload:
+      covenant_id: "COV-12"
+      covenant_test: "net_leverage_ratio"
+      covenant_classification: "restricted"
+      facility_id: "FAC-100"
+      facility_type: "revolving_credit"
+      currency: "USD"
+      facility_description: "revolving credit facility usd senior secured"
+      facility_classification: "internal"

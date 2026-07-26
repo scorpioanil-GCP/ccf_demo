@@ -1,0 +1,35 @@
+# CINV-01 (No-Hardcoding Rule) allowlist — D-08.
+#
+# The ONLY sanctioned way to exempt a CINV-01 finding. There is no in-code
+# escape hatch: no `# noqa`-style comment, no per-directory opt-out, no
+# report-only mode (D-07). CINV-02 (harness imports) and CINV-03 (algorithmic
+# alternation) take no allowlist at all — an import restriction with exceptions
+# is not an invariant.
+#
+# Entry schema — every field is required, and a missing one is a load error:
+#
+#   file:         repo-relative path exactly as the lint reports it
+#                 (e.g. src/ccf/graph/backends/sqlite.py)
+#   rule:         cinv01a-prompt-shape | cinv01b-numeric-table
+#                 | cinv01c-factory-bypass
+#   fingerprint:  sha256 hex of the exact offending literal. Compute with
+#                 `python -c "import hashlib,sys;print(hashlib.sha256(
+#                 sys.stdin.read().encode()).hexdigest())"`, or call
+#                 tools.lints.no_hardcoding.fingerprint(). Matching is exact on
+#                 all three of file+rule+fingerprint, so an exception stops
+#                 applying the moment the literal drifts — review covers *that
+#                 text*, not that line.
+#   reason:       why this literal is mechanism rather than a domain value
+#   reviewer:     the human who approved it (threat T-04-03: no anonymous
+#                 exceptions; this file is git-versioned and reviewed)
+#
+# Example (illustrative — not active):
+#
+#   entries:
+#     - file: src/ccf/graph/backends/sqlite.py
+#       rule: cinv01a-prompt-shape
+#       fingerprint: 0000000000000000000000000000000000000000000000000000000000000000
+#       reason: multi-clause SQL DDL misread as prose by the sentence heuristic
+#       reviewer: dave
+
+entries: []

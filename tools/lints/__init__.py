@@ -1,0 +1,60 @@
+"""CCF invariant lints — CINV-01/02/03 (SDK-defined; CLAUDE.md §6.4, §7.3, §11).
+
+Three stdlib-`ast` checkers, hand-rolled per D-06 (no plugin framework), run as
+one blocking CI gate per D-07 (`python -m tools.lints --all`):
+
+* ``no_hardcoding``    — CINV-01, the No-Hardcoding Rule (CLAUDE.md §6.4)
+* ``harness_imports``  — CINV-02, zero harness imports in core (CLAUDE.md §7.3)
+* ``algorithmic``      — CINV-03, Algorithmic - Semantic Alternation (§11)
+
+Every checker exposes the same pair of entrypoints and the same finding format,
+so the runner can treat them uniformly::
+
+    check_source(source: str, path: Path, module_name: str) -> list[str]
+    check(path: Path, module_name: str) -> list[str]
+
+A finding is the string ``"{path}:{lineno} {rule} {message}"``. The rule token
+is always the second whitespace-separated field; the runner and the allowlist
+both key off it.
+"""
+
+from __future__ import annotations
+
+import ast
+import pathlib
+from typing import Iterable
+
+__all__ = ["format_finding", "imported_module_names", "matches_module", "read_tree"]
+
+
+def format_finding(path: pathlib.Path, lineno: int, rule: str, message: str) -> str:
+    """Render one finding in the shared ``path:line rule message`` format."""
+    return f"{path}:{lineno} {rule} {message}"
+
+
+def read_tree(source: str, path: pathlib.Path) -> ast.Module:
+    """Parse `source`, attributing syntax errors to `path`."""
+    return ast.parse(source, filename=str(path))
+
+
+def imported_module_names(node: ast.AST) -> list[str]:
+    """Dotted module names an Import/ImportFrom node brings into scope.
+
+    Relative imports (``from . import x``) carry no absolute module name and are
+    reported as an empty list — the checkers only reason about absolute names.
+    """
+    if isinstance(node, ast.Import):
+        return [alias.name for alias in node.names]
+    if isinstance(node, ast.ImportFrom):
+        if node.level or not node.module:
+            return []
+        return [node.module]
+    return []
+
+
+def matches_module(name: str, prefixes: Iterable[str]) -> bool:
+    """True when `name` equals or is a dotted descendant of any prefix.
+
+    Dot-bounded so ``langgraphql`` never matches the ``langgraph`` deny entry.
+    """
+    return any(name == p or name.startswith(p + ".") for p in prefixes)

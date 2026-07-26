@@ -1,0 +1,158 @@
+# Inputs for the D-14 property harness: what to generate, and what to curate.
+#
+# D-14 requires two classes of input for the composition-preservation property.
+# Both are values, so both live here rather than in the harness code:
+#
+#   `generation` — the vocabulary Hypothesis draws from. The *shapes* are the
+#   ontology's (tests/fixtures/banking/ontology.yaml); this block supplies the
+#   values those shapes are filled with.
+#
+#   `graphs` — curated graph states holding the edge cases generation is
+#   unlikely to produce reliably: a state every operator empties, a state the
+#   Policy operator removes entirely, and claims sitting exactly on the
+#   temporal boundary in every configuration that matters.
+#
+# The decision boundary these are written against is
+# controlplane.yaml `decision.temporal_boundary` (2026-03-01T10:00:00Z).
+
+generation:
+  # Entities per class in the drawable pool. Small on purpose: the property is
+  # about operator algebra, and a 200-node graph does not exercise a code path
+  # a 3-node graph misses — it only makes shrinking slower.
+  pool_size_per_class: 3
+
+  # The policy-bundle version the harness's principal is admitted to. Generated
+  # claims may carry any version in `policy_bundle_versions`, so the Policy
+  # operator has something to actually exclude.
+  permitted_policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+  policy_bundle_versions:
+    - "acme-bank/policy-bundle@2026-03-01"
+    - "acme-bank/policy-bundle@2025-09-15"
+
+  # Classification values. `internal` is the permitted one (matching
+  # controlplane.yaml); the others exist so exclusion is reachable, and the
+  # empty string stands for "carries no usable classification", which the
+  # fail-closed rule must also exclude.
+  classifications:
+    - internal
+    - restricted
+    - ""
+
+  source_systems:
+    - core-banking
+    - kyc-registry
+
+  # Instants straddling the boundary on both bitemporal axes: two hours before,
+  # exactly on it, and two hours after.
+  instants:
+    - 2026-03-01T08:00:00Z
+    - 2026-03-01T10:00:00Z
+    - 2026-03-01T12:00:00Z
+
+  # The similarity corpus, assigned to pool URIs by position. One text overlaps
+  # the controlplane query heavily, one partially, one not at all — so the
+  # ranking threshold is a real cut rather than a formality.
+  corpus_texts:
+    - "revolving credit facility usd senior secured"
+    - "revolving equipment lease facility eur"
+    - "custody mandate for pension client"
+
+graphs:
+  # 1. Every operator empties this one, and an empty view must compose exactly
+  #    like a populated one. The empty case is where an operator that special-
+  #    cases "nothing to do" and skips its own provenance would be caught.
+  - name: empty-result
+    entities: []
+    relationships: []
+
+  # 2. Nothing here survives Policy: one claim is stamped under an unadmitted
+  #    bundle version, one carries a classification the principal may not see,
+  #    and one carries no classification at all. The edge between them must go
+  #    with them (INV-CH7-40) — an edge that outlived both endpoints would leak
+  #    their existence by absence, and would do it differently depending on
+  #    composition order, which is exactly what this case is here to detect.
+  - name: policy-filtered
+    entities:
+      - entity_uri: "acme-bank:counterparty:restricted-1"
+        entity_class: counterparty
+        classification: restricted
+        policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+        observed_at: 2026-03-01T08:00:00Z
+        valid_from: 2026-03-01T08:00:00Z
+      - entity_uri: "acme-bank:facility:stale-bundle-1"
+        entity_class: facility
+        classification: internal
+        corpus_text: "revolving credit facility usd senior secured"
+        policy_bundle_version: "acme-bank/policy-bundle@2025-09-15"
+        observed_at: 2026-03-01T08:00:00Z
+        valid_from: 2026-03-01T08:00:00Z
+      - entity_uri: "acme-bank:covenant:unclassified-1"
+        entity_class: covenant
+        classification: ""
+        policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+        observed_at: 2026-03-01T08:00:00Z
+        valid_from: 2026-03-01T08:00:00Z
+    relationships:
+      - relationship_type: obligor_of
+        subject_uri: "acme-bank:counterparty:restricted-1"
+        object_uri: "acme-bank:facility:stale-bundle-1"
+        policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+        observed_at: 2026-03-01T08:00:00Z
+        valid_from: 2026-03-01T08:00:00Z
+
+  # 3. Claims sitting on the boundary in every configuration the bitemporal cut
+  #    distinguishes: observed exactly at it, observed after it, valid-to
+  #    exactly at it (closed, so excluded), superseded exactly at it (excluded)
+  #    and superseded after it (still current — the case a naive "is superseded"
+  #    check gets wrong).
+  - name: temporal-boundary
+    entities:
+      - entity_uri: "acme-bank:counterparty:on-boundary-1"
+        entity_class: counterparty
+        classification: internal
+        policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+        observed_at: 2026-03-01T10:00:00Z
+        valid_from: 2026-03-01T10:00:00Z
+      - entity_uri: "acme-bank:counterparty:observed-later-1"
+        entity_class: counterparty
+        classification: internal
+        policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+        observed_at: 2026-03-01T12:00:00Z
+        valid_from: 2026-03-01T08:00:00Z
+      - entity_uri: "acme-bank:facility:valid-to-boundary-1"
+        entity_class: facility
+        classification: internal
+        corpus_text: "revolving credit facility usd senior secured"
+        policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+        observed_at: 2026-03-01T08:00:00Z
+        valid_from: 2026-03-01T08:00:00Z
+        valid_to: 2026-03-01T10:00:00Z
+      - entity_uri: "acme-bank:facility:superseded-at-boundary-1"
+        entity_class: facility
+        classification: internal
+        corpus_text: "revolving credit facility usd senior secured"
+        policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+        observed_at: 2026-03-01T08:00:00Z
+        valid_from: 2026-03-01T08:00:00Z
+        superseded_at: 2026-03-01T10:00:00Z
+      - entity_uri: "acme-bank:guarantee:superseded-later-1"
+        entity_class: guarantee
+        classification: internal
+        corpus_text: "parent guarantee supporting the revolving facility"
+        policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+        observed_at: 2026-03-01T08:00:00Z
+        valid_from: 2026-03-01T08:00:00Z
+        superseded_at: 2026-03-01T12:00:00Z
+    relationships:
+      - relationship_type: obligor_of
+        subject_uri: "acme-bank:counterparty:on-boundary-1"
+        object_uri: "acme-bank:facility:valid-to-boundary-1"
+        policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+        observed_at: 2026-03-01T08:00:00Z
+        valid_from: 2026-03-01T08:00:00Z
+      - relationship_type: guarantees
+        subject_uri: "acme-bank:guarantee:superseded-later-1"
+        object_uri: "acme-bank:facility:superseded-at-boundary-1"
+        policy_bundle_version: "acme-bank/policy-bundle@2026-03-01"
+        observed_at: 2026-03-01T10:00:00Z
+        valid_from: 2026-03-01T10:00:00Z

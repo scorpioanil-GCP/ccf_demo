@@ -1,0 +1,49 @@
+# Banking fixture λ_c table and D_c debt profile (whitepaper §7.7).
+#
+# Every half-life, every risk-sensitivity multiplier and every debt threshold
+# the halflife suite exercises is here. `/src` holds none of them: the SDK ships
+# the decay formula and the routing predicate, never a calibration
+# (CLAUDE.md §11; whitepaper §7.7 "these values are illustrative, not
+# empirical"; INV-CH7-58/59).
+#
+# Decimal-valued entries are QUOTED. The canonical serializer refuses floats
+# outright (they are not bit-stable across platforms), and the artifact loader
+# refuses a YAML float rather than silently converting one — a threshold that
+# round-trips differently on two machines is a replay defect.
+
+keys:
+  half_life_table: acme-bank/half-life/wholesale-observation-types
+  debt_profile: acme-bank/debt-profile/annual-credit-review
+
+# The (type, band, dominant decay driver, supersession event) row shape is the
+# whitepaper's commitment (INV-CH7-59); the numbers below are this fixture's
+# choice. Bands are taken from the §7.7 illustrative table.
+half_life_table:
+  semver: "1.0.0"
+  entries:
+    kyc-sanctions-match:
+      half_life_seconds: 3600
+      decay_driver: real-time sanctions feed
+      supersession_event: new match or clearance
+    kyc-address:
+      half_life_seconds: 63072000
+      decay_driver: address change
+      supersession_event: updated verification
+    quarterly-report:
+      half_life_seconds: 7776000
+      decay_driver: intraperiod supersession
+      supersession_event: new 10-Q filing
+    loan-covenant-certificate:
+      half_life_seconds: 15552000
+      decay_driver: compliance cycle
+      supersession_event: measurement certificate
+
+# Decision-class debt profile. `risk_sensitivity` scales the half-life into the
+# class's Freshness Budget (λ_c × Risk Sensitivity): below 1 means this class
+# burns its budget faster than the raw half-life suggests. The two thresholds
+# are the class-specific D_c bands the CAR predicate reads (§7.7 CAR).
+debt_profile:
+  semver: "1.0.0"
+  risk_sensitivity: "0.5"
+  forced_llm_threshold: "0.40"
+  fail_closed_threshold: "0.90"

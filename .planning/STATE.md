@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: executing
-last_updated: "2026-07-25T21:46:01.537Z"
+status: phase-complete
+last_updated: "2026-07-25T22:48:47.020Z"
 progress:
   total_phases: 8
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 39
-  completed_plans: 27
-  percent: 38
+  completed_plans: 39
+  percent: 50
 ---
 
 # STATE — CCF SDK
@@ -26,19 +26,27 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 03 (phase-f-feasibility-scoping) — EXECUTING
-Plan: 1 of 4
+Phase: 04 (phase-i-1-fabric-core) — COMPLETE (D-GATE-I.1, 2026-07-25)
+Plan: 12 of 12
 
-- **Phase:** 4 of 8 (phase i.1 — fabric core)
-- **Plan:** Not started
-- **Status:** Ready to execute
+- **Phase:** 4 of 8 complete; next is Phase 5 (Phase I.2)
+- **Plan:** all 12 complete
+- **Status:** Merged to `main` at D-GATE-I.1
 - **Progress:** [██████████] 100%
 
 ## Performance Metrics
 
-- Phases complete: 2/8
+- Phases complete: 4/8
 - Requirements delivered: 3/46
-- D-GATE entries logged: 2 (D-GATE-R, D-GATE-D)
+- D-GATE entries logged: 4 (D-GATE-R, D-GATE-D, D-GATE-F, D-GATE-I.1)
+
+| Phase-Plan | Duration | Tasks | Files |
+| ---------- | -------- | ----- | ----- |
+| 04-01      | ~12 min  | 3     | 10    |
+| 04-02      | ~20 min  | 3     | 14    |
+| 04-03      | ~25 min  | 3     | 13    |
+| 04-04      | ~35 min  | 3     | 16    |
+| 04-05      | ~50 min  | 3     | 24    |
 
 ## Accumulated Context
 
@@ -56,6 +64,21 @@ Plan: 1 of 4
 
 - [Phase 02]: DESIGN.md Appendix A granularity: subsection-level for §2A/§2B/§3/§6, chapter-level for §4/§5/§7; Appendix C (D-IMPL ruling index, 50 rulings) added so decision-log linkage is mechanically checkable
 - [Phase 02]: D-GATE-D logged 2026-07-25 (approver Dave, zero provisionals; 5 blocking findings fixed in-phase, 7 advisory carried to Phase F); phase-d merged to main --no-ff — Phase F unblocked
+- [Phase 04]: D-IMPL-52 logged (Dave, 2026-07-25): v0 examples suite is a horizontal mix of domains; example 00 + the I.1 slice fixtures are banking — replaces CLAUDE.md §9's single-neutral-domain rule (§9 amended in 04-01)
+- [Phase 04]: D-12 scope amendment recorded on ROADMAP Phase 4 criterion 4 — I.1 ships ArtifactStore Protocol + file-backed dev impl only; the MCP-backed reference impl was added to Phase 6 success criteria so the deferral has a receiving deliverable
+- [Phase 04]: Packaging shape — one v0 distribution ships both `ccf` (src layout) and `ccf_runtime` via `packages.find where = ["src","runtime"]`; chromadb confined to the `chroma` extra, never a core dep
+- [Phase 04]: CI lint job is intentionally red on `phase-i1` until plan 04-02 lands `tools/lints` — D-07 forbids making the step non-blocking to hide the gap
+- [Phase 04]: Assumption A1 resolved empirically — mypy 2.3.0 `--strict` flag surface is unchanged from the 1.x expectation
+- [Phase 04]: Single-writer keyed on graph identity (database path), not one-boot-per-process — the invariant is one writer per graph; a process singleton would forbid multi-fabric hosting
+- [Phase 04]: Operators are pure GraphView -> GraphView functions; the engine performs the single as-of read, so no state exists underneath an operator that could diverge between two composition orderings
+- [Phase 04]: The engine records operators_invoked from execution, never from the plan's declaration — the L6 lineage strict-equality gate compares two independently produced sets or it compares nothing
+- [Phase 04]: MAX_TTL is resolved from the Control Plane twice (product-class registration and gate time); no TTL number exists in /src (D-IMPL-39)
+- [Phase 04]: Gate refusals are returned values; exceptions are reserved for broken deployments, so a bad product and a broken fabric are never reported the same way
+- [Phase 04]: serve() is one expression because the replay append returns the delivery capability — there is no branch that reaches delivery without a recorded decision
+- [Phase 04]: Similarity scores are integer percent; the canonical serializer refuses floats, so a float score could never enter a provenance chain replay compares byte for byte
+- [Phase 04]: canonical.py normalizes models field-by-field rather than via model_dump() — dumping rebuilds set-valued fields as sets of dicts, making every claim in the fabric unhashable
+- [Phase 04]: Every backend's GraphWriter class lives in ccf.graph._writer, never beside its reader — otherwise the CINV-02 lint guards a module while the real write path lives unguarded
+- [Phase 04]: claim_id excludes lineage and observed_at — corroboration accumulates instead of manufacturing supersessions, and a claim stays addressable while its evidence grows
 
 ### Todos
 
@@ -69,5 +92,5 @@ Plan: 1 of 4
 
 ## Session Continuity
 
-Last action: Completed 02-11-PLAN.md (2026-07-25) — Phase D gate closed: Dave approved, D-GATE-D logged in docs/DECISIONS.md, phase-d merged to main (--no-ff, 4873f40), main + phase-d pushed to origin.
-Next action: Plan and execute Phase 3 (Phase F — Feasibility & Scoping) on branch phase-f.
+Last action: Phase I.1 gate closed (2026-07-25) — Dave approved docs/PHASE_I1_GATE.md; D-GATE-I.1 logged in docs/DECISIONS.md; phase-i1 merged to main --no-ff; ROADMAP Phase 4 marked 12/12 complete; verification re-run green (383 passed / 3 deferral skips, lints exit 0).
+Next action: Plan Phase 5 (Phase I.2 — Agent Specialization Framework: factory, archetypes, skilling) via /gsd-plan-phase 5.

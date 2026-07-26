@@ -50,7 +50,7 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
       composition-preservation tests for every shipped operator pair
 - [ ] **FABR-03**: Projection engine (Π) with structural typing
       (`required_operators()` + `invoke()`, two-stage execution)
-- [ ] **FABR-04**: Context Product Contract base (`extra=forbid`) + three
+- [x] **FABR-04**: Context Product Contract base (`extra=forbid`) + three
       validation gates (empty-operator guard, lineage strict equality, TTL)
 - [ ] **FABR-05**: Half-life (`λ_c`) and Context Debt (`D_c`) computation, all
       values from Control Plane config
@@ -171,7 +171,7 @@ All 46 v1 requirements mapped (46/46).
 | FABR-01 | Phase 4 | Pending |
 | FABR-02 | Phase 4 | Pending |
 | FABR-03 | Phase 4 | Pending |
-| FABR-04 | Phase 4 | Pending |
+| FABR-04 | Phase 4 | Complete |
 | FABR-05 | Phase 4 | Pending |
 | FABR-06 | Phase 4 | Pending |
 | FABR-07 | Phase 4 | Pending |

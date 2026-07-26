@@ -13,7 +13,7 @@ exists.
 - [x] **Phase 1: Phase R — Research** - Extract every whitepaper commitment into `docs/SPEC_INVENTORY.md` with homecams-patterns appendix (completed 2026-07-25)
 - [x] **Phase 2: Phase D — Design** - SDK architectural shape: `docs/DESIGN.md`, `docs/DECISIONS.md`, full diagram set (completed 2026-07-25)
 - [x] **Phase 3: Phase F — Feasibility & Scoping** - Per-component verdicts, v0.1 surface, test strategy; verify Phase I gate list (completed 2026-07-25)
-- [ ] **Phase 4: Phase I.1 — Fabric Core** - L1–L6 Data and Context Layer plus CI invariant scaffolding
+- [x] **Phase 4: Phase I.1 — Fabric Core** - L1–L6 Data and Context Layer plus CI invariant scaffolding
 - [ ] **Phase 5: Phase I.2 — Agent Specialization Framework** - Agent base, six archetypes, Agent & Task Factory, skilling
 - [ ] **Phase 6: Phase I.3 — Cross-Process & Harness Adapters** - Bidirectional MCP, A2A federation, HarnessAdapterProtocol + reference adapters
 - [ ] **Phase 7: Phase I.4 — Orchestration, HITL, Experience** - Workflow primitive, HITL primitives, MCP egress / CLI / HTTP front doors
@@ -158,7 +158,9 @@ Plans:
   1. Context Graph primitive persists to both reference backends (Postgres + SQLite per D-IMPL-02) with idempotent upsert, multi-source lineage accumulation, and single-writer enforcement at boot; only L2 holds a write handle to L3
   2. All four operator categories ship with composition-preservation tests passing for every shipped operator pair `(A∘B)(G) = A(B(G))`; projection engine executes the two-stage plan via structural typing
   3. Context Product Contract enforces `extra=forbid` and all three validation gates (empty-operator guard, lineage strict equality, TTL bounds); `λ_c`/`D_c` computation draws every value from Control Plane config with zero hard-coded tables in `/src`
-  4. Five-dimension Decision Replay record is written at product-serve time by construction; ArtifactStore Protocol works against both the file-backed dev impl and the MCP-backed reference impl; CDC→G ingress reference ingests to L1
+  4. Five-dimension Decision Replay record is written at product-serve time by construction; ArtifactStore Protocol works against the file-backed dev impl; CDC→G ingress reference ingests to L1
+
+     > **⚠ SCOPE AMENDMENT (04-CONTEXT.md D-12, Dave, 2026-07-25).** This criterion previously required the ArtifactStore Protocol to work against "both the file-backed dev impl **and the MCP-backed reference impl**." Phase 4 (I.1) scope is now **Protocol + file-backed dev impl only**; the MCP-backed reference implementation is **deferred to Phase 6 (I.3)**, where it lands with the rest of the MCP machinery. Gate review for Phase 4 verifies the amended criterion above, not the original. Phase 6 inherits the MCP-backed impl as an explicit deliverable, and criterion 3 of Phase 8 (example 07's file-backed → MCP-backed swap) depends on it.
   5. CI invariant scaffolding runs green on the fabric: No-Hardcoding lint, zero-harness-imports lint, `@algorithmic` lint, replay-by-construction and single-writer boot checks (CINV-01..04)
 
 **Plans**: 12 plans
@@ -166,18 +168,18 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Scaffold: phase-i1 branch, packaging, CI workflow, D-03/D-12 doc amendments
-- [ ] 04-02-PLAN.md — CINV-01..03 AST lint checkers + allowlist, blocking in CI (D-06..D-08) *(wave 2)*
-- [ ] 04-03-PLAN.md — Slice contracts, canonical serializer, minimal Control Plane registry *(wave 2)*
-- [ ] 04-04-PLAN.md — Graph Protocols, SQLite backend, six-semantics conformance, assembly + single-writer boot *(wave 3)*
-- [ ] 04-05-PLAN.md — Vertical slice serve path: operators/projection/gates/replay/ArtifactStore + banking proto-quickstart *(wave 4)*
-- [ ] 04-06-PLAN.md — Operator registry/planner + composition-preservation property harness (D-14) *(wave 5)*
-- [ ] 04-07-PLAN.md — λ_c/D_c mechanism + full Control Plane subsystem *(wave 5)*
-- [ ] 04-08-PLAN.md — Replay engine + ArtifactStore conformance + CINV-04 harness *(wave 5)*
-- [ ] 04-09-PLAN.md — CDC→G ingress reference in ccf-runtime *(wave 5)*
-- [ ] 04-10-PLAN.md — Postgres GraphStore against the conformance suite + CI leg (D-11) *(wave 6)*
-- [ ] 04-11-PLAN.md — SimilarityIndex: sqlite-vec + Chroma optional extra (D-13) *(wave 6)*
-- [ ] 04-12-PLAN.md — Gate: per-invariant checklist, /gsd-review, Dave approval, D-GATE-I.1, merge *(wave 7)*
+- [x] 04-01-PLAN.md — Scaffold: phase-i1 branch, packaging, CI workflow, D-03/D-12 doc amendments
+- [x] 04-02-PLAN.md — CINV-01..03 AST lint checkers + allowlist, blocking in CI (D-06..D-08) *(wave 2)*
+- [x] 04-03-PLAN.md — Slice contracts, canonical serializer, minimal Control Plane registry *(wave 2)*
+- [x] 04-04-PLAN.md — Graph Protocols, SQLite backend, six-semantics conformance, assembly + single-writer boot *(wave 3)*
+- [x] 04-05-PLAN.md — Vertical slice serve path: operators/projection/gates/replay/ArtifactStore + banking proto-quickstart *(wave 4)*
+- [x] 04-06-PLAN.md — Operator registry/planner + composition-preservation property harness (D-14) *(wave 5)*
+- [x] 04-07-PLAN.md — λ_c/D_c mechanism + full Control Plane subsystem *(wave 5)*
+- [x] 04-08-PLAN.md — Replay engine + ArtifactStore conformance + CINV-04 harness *(wave 5)*
+- [x] 04-09-PLAN.md — CDC→G ingress reference in ccf-runtime *(wave 5)*
+- [x] 04-10-PLAN.md — Postgres GraphStore against the conformance suite + CI leg (D-11) *(wave 6)*
+- [x] 04-11-PLAN.md — SimilarityIndex: sqlite-vec + Chroma optional extra (D-13) *(wave 6)*
+- [x] 04-12-PLAN.md — Gate: per-invariant checklist, /gsd-review, Dave approval, D-GATE-I.1, merge *(wave 7)*
 **Process notes**: Model mandate — Opus 5 if available, else Opus 4.8, "high" effort. Branch: `phase-i1` (Phase I work). Redesign needs a Phase D mini-cycle, never in-line. Sub-phase ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.1` before Phase 5 begins.
 
 ### Phase 5: Phase I.2 — Agent Specialization Framework
@@ -206,6 +208,7 @@ Plans:
   2. A2A federation exchanges typed Context Products across processes behind the WireProtocol abstraction (D-IMPL-14 default), with identity/signing (D-IMPL-15) and inbound products admitted to L3 only through L2 after Control Plane policy-binding verification, lineage extended by set-union
   3. `HarnessAdapterProtocol` + reference adapters for the D-IMPL-24 harnesses bind all four seams (context injection, skill exposure of exactly the currently-bound skill-set, effect capture with no harness write handle, replay hooks); the zero-harness-imports-in-`/src` lint stays green
   4. Single-writer invariant demonstrably holds across the A2A boundary, the adapter boundary, and the ArtifactStore
+  5. **MCP-backed ArtifactStore reference implementation ships** and passes the same shared ArtifactStore Protocol conformance suite as the file-backed dev impl, with no other deployment change required to swap between them *(inherited from Phase 4 per the D-12 scope amendment recorded on Phase 4 criterion 4)*
 
 **Plans**: TBD
 **Process notes**: Model mandate — Opus 5 (fallback Opus 4.8), "high" effort. Branch: `phase-i3`. Ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.3` before Phase 7 begins.
@@ -248,7 +251,7 @@ Plans:
 | 1. Phase R — Research | 12/12 | Complete   | 2026-07-25 |
 | 2. Phase D — Design | 11/11 | Complete   | 2026-07-25 |
 | 3. Phase F — Feasibility & Scoping | 4/4 | Complete   | 2026-07-25 |
-| 4. Phase I.1 — Fabric Core | 0/? | Not started | - |
+| 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
 | 5. Phase I.2 — Agent Specialization Framework | 0/? | Not started | - |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 0/? | Not started | - |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 0/? | Not started | - |
