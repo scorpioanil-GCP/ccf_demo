@@ -209,15 +209,22 @@ choices are recorded here for the reviewer.
   factory-parametrized conformance suite (`tests/conformance/test_approval_sink.py`)
   **with no test-body change** — that is the designed seam. Approver identity is an id
   string only; identity binding is D-IMPL-21 (T-05-19 accepted).
-- **`GrantLedger` state is in-process and single-instance (WR-05).** Grant *artifacts* are
-  durable (append-only in the Control Plane, every transition audited); grant *state* is
-  not — a second ledger over the same registry, or the same deployment after a restart,
-  sees zero effective grants. Documented on the class and pinned by
-  `test_ledger_state_is_in_process_and_does_not_rehydrate` so the boundary cannot move
-  by accident. I.4 must resolve where durable grant state lives — the same question
-  D-IMPL-18 asks of suspended workflow state and D-IMPL-27 of the artifact/native-storage
-  split — because a *suspending* `ApprovalGate` makes a `pending-approval` grant that must
-  survive a restart, which I.2's synchronous sink never produces.
+- **Grant state is on the Control Plane's mutable-state seam (WR-05 — closed in I.2, not
+  deferred).** Grant *artifacts* are immutable and register append-only; grant *state* is
+  mutable until terminal and lives on `ControlPlaneStateStore`
+  (`src/ccf/controlplane/state.py`), per D-IMPL-27's mutability split and D-IMPL-18's
+  ruling that such state sits on "the Control Plane's storage seam — pluggable there, no
+  separate workflow-store Protocol." Both were resolved 2026-07-25; an earlier revision of
+  this document and of the `GrantLedger` docstring described them as open and deferred the
+  fix on that basis — that was wrong, and the deferral was withdrawn rather than inherited.
+  Every ledger over one Control Plane now agrees on the effective set, the per-agent
+  `grant_set_hash`, and the bound view, pinned by `TestGovernanceSeams` in
+  `tests/skills/test_grants.py` (each verified to fail with the seam reverted).
+  **I.4 inherits the seam, not the question:** the suspending `ApprovalGate` produces a
+  `pending-approval` grant that must survive a restart, and it does so by the deployment
+  supplying a durable `ControlPlaneStateStore` — the same store suspended workflow
+  execution state uses — with no consumer change. The v0 default is in-process, matching
+  the Control Plane it sits in (CLAUDE.md §13).
 - **Task execution.** D-11 shipped `TaskDefinition` + `TaskFactory` as schema and
   construction only — no execution surface and no invented replay capture (verified §1).
   Workflow execution, its replay trace (`workflow-trace-capture`), and HITL capture

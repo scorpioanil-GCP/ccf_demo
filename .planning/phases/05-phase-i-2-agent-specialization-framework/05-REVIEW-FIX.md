@@ -112,8 +112,28 @@ widened pass did not over-fire.
 ### WR-05: `GrantLedger` state volatile while grant artifacts are durable
 
 **Files modified:** `src/ccf/skills/grants.py`, `tests/skills/test_grants.py`, `docs/PHASE_I2_GATE.md`
-**Commit:** `8d38e6a`
-**Status:** fixed at the reviewer's stated minimum, deliberately — see below.
+**Commit:** `8d38e6a`, superseded by `fba5b2a`
+**Status:** SUPERSEDED — fully closed in `fba5b2a`. The minimum below was taken
+on a false premise and the deferral has been withdrawn.
+
+> **Correction (2026-07-26).** The rationale recorded below asserts that
+> D-IMPL-18 and D-IMPL-27 were open and that closing WR-05 would preempt
+> Dave's rulings. Both were **RESOLVED on 2026-07-25** (`docs/DECISIONS.md`).
+> Nothing was blocked. Worse, D-IMPL-27's mutability split and D-IMPL-18's
+> "the Control Plane's storage seam" together *dictate* where grant state
+> belongs, so the answer existed before the ledger was written.
+>
+> `fba5b2a` implements it: grant state moved onto a
+> `ControlPlaneStateStore` seam with an in-memory reference impl, closing
+> both the in-process divergence (two ledgers over one plane now agree, so
+> `grant_set_hash` is reproducible on a fresh ledger per CLAUDE.md §6.2) and
+> the durability question (a deployment supplies a durable store; no
+> consumer changes). I.4 inherits the seam rather than the question.
+>
+> Lesson worth keeping: a deferral is a claim about the decision log, and
+> claims about the decision log must be checked against it. Citing a
+> *resolved* decision as an open blocker is the same error as guessing at an
+> open one — it just looks like diligence.
 
 Took "Minimum: document the volatility explicitly and pin the intended
 semantics with a test," not "Better: derive state from the audit journal."
