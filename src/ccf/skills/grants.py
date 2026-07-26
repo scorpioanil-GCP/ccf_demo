@@ -372,6 +372,34 @@ class GrantLedger:
     the constructor-injection discipline of every Control Plane service:
     the ledger holds no keys, no vocabulary, and no wall clock of its own.
 
+    **Scope: in-process and single-instance (I.2), stated deliberately.**
+    Grant *artifacts* are durable — they register append-only into the
+    Control Plane, and every transition lands in the audit log. Grant
+    *state* is not: ``_states`` and ``_grants`` live in this instance for
+    this process. Two consequences a deployment must plan around, neither of
+    them accidental:
+
+    * A second ledger over the same registry does not see the first
+      ledger's effective grants. It reports an empty
+      :meth:`effective_hashes` and the positive
+      :data:`~ccf.replay.record.NO_GRANTS_SET_HASH` claim, while the
+      registry holds the registered grants and the log holds their
+      ``grant_effective`` events.
+    * The same holds across a process restart: nothing rehydrates state
+      from the registry or the audit journal at construction.
+
+    This is narrower than the catalog, whose membership derives from
+    registry state so that any catalog over one registry agrees with every
+    other (IN-03). The asymmetry is a scope boundary, not an oversight: a
+    ledger that rehydrated would have to decide *where* durable grant state
+    lives and how a suspended (``pending-approval``) grant survives a
+    restart — which is the same question D-IMPL-18 asks of suspended
+    workflow state and D-IMPL-27 asks of the artifact/native-storage split,
+    both open and both Dave's to rule. Committing an answer here would
+    preempt them. I.2 therefore ships one ledger per process, holds itself
+    to that in tests, and carries durable state forward to I.4 alongside the
+    suspending ApprovalGate that makes it necessary.
+
     Args:
         control_plane: The registry grants register into and policy regimes
             resolve from (D-05 versioned path; pinned resolution only).

@@ -678,6 +678,56 @@ class TestGovernanceSeams:
         assert isinstance(refusal, RefuseUnbumpedChange)
 
 
+    def test_ledger_state_is_in_process_and_does_not_rehydrate(
+        self, fixture: dict[str, Any], instant: datetime
+    ) -> None:
+        """WR-05: the I.2 scope boundary, pinned rather than left implicit.
+
+        Grant artifacts are durable — registered append-only, every
+        transition audited. Grant *state* is per-ledger and per-process: a
+        second ledger over the same registry sees no effective grants. That
+        is narrower than the catalog, whose membership derives from registry
+        state (IN-03), and the asymmetry is deliberate — rehydrating would
+        require ruling where durable grant state lives and how a suspended
+        grant survives a restart (D-IMPL-18 / D-IMPL-27, both open).
+
+        This test exists so the boundary cannot move by accident: if a
+        future ledger *does* rehydrate, this test fails and the change is
+        made on purpose, with the decision recorded.
+        """
+        world = _World(fixture, instant)
+        definition = world.definition("auto")
+        grant = world.grant("metrics_tool", definition)
+        assert isinstance(
+            world.ledger.request(grant, definition=definition, actor=world.actor),
+            str,
+        )
+        definition_hash = content_hash(definition)
+        assert world.ledger.effective_hashes(definition_hash) == frozenset(
+            {content_hash(grant)}
+        )
+
+        # The durable half: the artifact is in the registry, the transition
+        # is in the log. A second ledger can see both.
+        key = skill_grant_key(grant)
+        assert world.registry.resolve(key, content_hash(grant)) == grant
+        assert "grant_effective" in [e.action for e in world.audit.events()]
+
+        # The volatile half: state does not travel with them.
+        successor = GrantLedger(
+            control_plane=world.registry,
+            catalog=world.catalog,
+            audit=world.audit,
+            sink=world.sink,
+            clock=lambda: instant,
+        )
+        assert successor.effective_hashes(definition_hash) == frozenset()
+        assert successor.grant_set_hash(definition_hash) == NO_GRANTS_SET_HASH
+        assert dict(successor.bound_view(definition_hash)) == {}
+        with pytest.raises(KeyError):
+            successor.state(content_hash(grant))
+
+
 # --- WR-01: no path leaves a grant wedged -------------------------------------
 
 

@@ -194,6 +194,15 @@ choices are recorded here for the reviewer.
   factory-parametrized conformance suite (`tests/conformance/test_approval_sink.py`)
   **with no test-body change** — that is the designed seam. Approver identity is an id
   string only; identity binding is D-IMPL-21 (T-05-19 accepted).
+- **`GrantLedger` state is in-process and single-instance (WR-05).** Grant *artifacts* are
+  durable (append-only in the Control Plane, every transition audited); grant *state* is
+  not — a second ledger over the same registry, or the same deployment after a restart,
+  sees zero effective grants. Documented on the class and pinned by
+  `test_ledger_state_is_in_process_and_does_not_rehydrate` so the boundary cannot move
+  by accident. I.4 must resolve where durable grant state lives — the same question
+  D-IMPL-18 asks of suspended workflow state and D-IMPL-27 of the artifact/native-storage
+  split — because a *suspending* `ApprovalGate` makes a `pending-approval` grant that must
+  survive a restart, which I.2's synchronous sink never produces.
 - **Task execution.** D-11 shipped `TaskDefinition` + `TaskFactory` as schema and
   construction only — no execution surface and no invented replay capture (verified §1).
   Workflow execution, its replay trace (`workflow-trace-capture`), and HITL capture
