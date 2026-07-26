@@ -14,6 +14,30 @@
 keys:
   agent_definition: acme-bank/agents/covenant-analytics
 
+# The referenced Control Plane artifacts the suite registers so the factory
+# can resolve the definition's axis-4/axis-5 refs through Control Plane
+# resolution (DESIGN.md §3.5 — never raw storage). Keys mirror the versioned
+# URIs below: {tenant}/{artifact_class}/{name}. All values live here, none in
+# test code (No-Hardcoding Rule §6.4 applies to fixtures' code too). Decimals
+# are quoted so they parse as text, never as floats (D-IMPL-26).
+referenced_artifacts:
+  policy_regime:
+    key: acme-bank/policy-bundle/wholesale-credit
+    class_id: policy-bundle
+    semver: "1.0.0"
+    declaration:
+      regime: wholesale-credit
+      permitted_classifications: [internal, public]
+  halflife_debt_profile:
+    key: acme-bank/debt-profile/annual-credit-review
+    class_id: debt-profile
+    semver: "1.0.0"
+    declaration:
+      review_cycle: annual
+      risk_sensitivity: "1.5"
+      forced_llm_threshold: "0.35"
+      fail_closed_threshold: "0.70"
+
 agent_definition:
   schema_version: "1.0.0"
   artifact_version: "1.0.0"

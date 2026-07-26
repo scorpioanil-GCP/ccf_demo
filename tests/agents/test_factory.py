@@ -1,0 +1,220 @@
+"""``AgentFactory.construct`` — the only Agent construction path (CLAUDE.md §6.4).
+
+Written before the implementation per the TDD discipline (D-IMPL-28, D-12;
+DESIGN.md §3.5). The claims pinned here:
+
+* The factory resolves the definition and every referenced artifact through
+  Control Plane resolution at pinned versions — never raw storage, never a
+  moving target (an ``@latest`` instruction ref fails construction at the
+  schema front door).
+* All six axes validate; archetype bundles compose in declaration order; a
+  declared archetype no shipped bundle realizes is a typed construction error.
+* A prompt-parameter mismatch in an instruction binding fails construction
+  with ``PromptValidationError`` (D-13).
+* The constructed identity block is derived at construction time:
+  ``content_hash(definition)``, the definition's versioned URI, the declared
+  archetype tuple (D-06 — derived, never reconstructed).
+
+Every agent in this module is constructed **via the factory from the banking
+fixture artifacts** (CLAUDE.md §6.4); mutant definitions are fixture
+mutations registered under their own keys, never inline documents.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import pytest
+import yaml
+
+from ccf.agents.agent import Agent
+from ccf.agents.definitions import (
+    AGENT_DEFINITION,
+    PROMPT_ARTIFACT,
+    AgentDefinition,
+    InstructionBinding,
+    PromptArtifact,
+)
+from ccf.agents.errors import AgentDefinitionError, PromptValidationError
+from ccf.agents.factory import AgentFactory, ControlPlaneResolution
+from ccf.contracts.canonical import content_hash
+from ccf.controlplane.artifacts import (
+    ArtifactLoadError,
+    declared_artifact_class,
+    load_artifact,
+    parse_artifact,
+)
+from ccf.controlplane.registry import ControlPlaneRegistry
+
+FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
+
+
+def _agent_fixture() -> dict[str, Any]:
+    loaded: dict[str, Any] = yaml.safe_load(
+        (FIXTURES / "agents" / "covenant_analytics.yaml").read_text()
+    )
+    return loaded
+
+
+def _prompt_fixture() -> dict[str, Any]:
+    loaded: dict[str, Any] = yaml.safe_load(
+        (FIXTURES / "prompts" / "covenant_summary.yaml").read_text()
+    )
+    return loaded
+
+
+def _definition() -> AgentDefinition:
+    definition = parse_artifact(
+        _agent_fixture()["agent_definition"], AGENT_DEFINITION
+    )
+    assert isinstance(definition, AgentDefinition)
+    return definition
+
+
+@pytest.fixture
+def registry() -> ControlPlaneRegistry:
+    """A Control Plane holding every artifact the fixture definition references."""
+    plane = ControlPlaneRegistry()
+    prompt_fixture = _prompt_fixture()
+    prompt = parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT)
+    plane.register_typed(
+        prompt_fixture["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
+    )
+    for reference in _agent_fixture()["referenced_artifacts"].values():
+        artifact_class = declared_artifact_class(reference["class_id"])
+        declared = parse_artifact(
+            {
+                "class_id": reference["class_id"],
+                "semver": reference["semver"],
+                "declaration": reference["declaration"],
+            },
+            artifact_class,
+        )
+        plane.register_typed(reference["key"], declared, artifact_class)
+    return plane
+
+
+def _registered_definition(
+    registry: ControlPlaneRegistry, definition: AgentDefinition, key: str
+) -> str:
+    version = registry.register_versioned(key, definition, AGENT_DEFINITION)
+    assert isinstance(version, str)
+    return version
+
+
+def _construct(
+    registry: ControlPlaneRegistry, definition: AgentDefinition, key: str
+) -> Agent:
+    version = _registered_definition(registry, definition, key)
+    return AgentFactory(control_plane=registry).construct(
+        definition_key=key, definition_version=version
+    )
+
+
+# --- the supported path -------------------------------------------------------
+
+
+def test_the_factory_constructs_the_fixture_agent(
+    registry: ControlPlaneRegistry,
+) -> None:
+    definition = _definition()
+    key = _agent_fixture()["keys"]["agent_definition"]
+    agent = _construct(registry, definition, key)
+    assert isinstance(agent, Agent)
+    assert agent.definition == definition
+    assert tuple(c.archetype_id for c in agent.components) == definition.archetypes
+    assert agent.bound_skill_names == ()  # skilling is a later wave
+
+
+def test_the_identity_block_is_derived_at_construction_time(
+    registry: ControlPlaneRegistry,
+) -> None:
+    definition = _definition()
+    key = _agent_fixture()["keys"]["agent_definition"]
+    agent = _construct(registry, definition, key)
+    assert agent.identity.definition_hash == content_hash(definition)
+    assert agent.identity.definition_uri == (
+        f"ccf-artifact://{definition.tenant}/{AGENT_DEFINITION.class_id}/"
+        f"{definition.name}@{definition.artifact_version}"
+    )
+    assert agent.identity.archetype_composition == definition.archetypes
+
+
+def test_the_registry_satisfies_the_factory_resolution_protocol() -> None:
+    assert isinstance(ControlPlaneRegistry(), ControlPlaneResolution)
+
+
+# --- pinned versions only (D-IMPL-26) -------------------------------------------
+
+
+def test_a_latest_instruction_ref_fails_at_the_construction_front_door() -> None:
+    """@latest is refused before a definition can even be registered."""
+    document = _agent_fixture()["agent_definition"]
+    document["instruction_bindings"][0]["prompt"] = (
+        "ccf-artifact://acme-bank/prompt/covenant-summary@latest"
+    )
+    with pytest.raises(ArtifactLoadError):
+        load_artifact(yaml.safe_dump(document), AGENT_DEFINITION)
+
+
+def test_an_unresolvable_reference_fails_construction() -> None:
+    """Nothing registered — the factory refuses rather than inventing state."""
+    definition = _definition()
+    key = _agent_fixture()["keys"]["agent_definition"]
+    empty = ControlPlaneRegistry()
+    with pytest.raises(AgentDefinitionError):
+        _construct(empty, definition, key)
+
+
+# --- six-axis validation and composition ----------------------------------------
+
+
+def test_a_declared_archetype_without_a_shipped_bundle_is_refused(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Valid schema identifier, no bundle yet — typed construction error."""
+    definition = _definition().model_copy(update={"archetypes": ("workflow",)})
+    with pytest.raises(AgentDefinitionError):
+        _construct(registry, definition, "acme-bank/agents/workflow-mutant")
+
+
+def test_a_prompt_parameter_mismatch_fails_construction(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """D-13: a bad instruction binding fails factory construction."""
+    original = _definition()
+    binding = original.instruction_bindings[0]
+    narrowed = InstructionBinding(
+        prompt=binding.prompt, parameters=binding.parameters[:1]
+    )
+    definition = original.model_copy(
+        update={"instruction_bindings": (narrowed,)}
+    )
+    with pytest.raises(PromptValidationError):
+        _construct(registry, definition, "acme-bank/agents/mismatch-mutant")
+
+
+def test_the_resolved_prompt_artifacts_travel_with_the_agent(
+    registry: ControlPlaneRegistry,
+) -> None:
+    definition = _definition()
+    key = _agent_fixture()["keys"]["agent_definition"]
+    agent = _construct(registry, definition, key)
+    binding = definition.instruction_bindings[0]
+    resolved = agent.instruction_artifact(binding.prompt)
+    assert isinstance(resolved, PromptArtifact)
+    assert frozenset(resolved.declared_parameters) == frozenset(binding.parameters)
+
+
+def test_construction_is_deterministic_for_the_same_pinned_versions(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """DESIGN.md §3.5: identical versions produce identical configuration."""
+    definition = _definition()
+    key = _agent_fixture()["keys"]["agent_definition"]
+    version = _registered_definition(registry, definition, key)
+    factory = AgentFactory(control_plane=registry)
+    first = factory.construct(definition_key=key, definition_version=version)
+    second = factory.construct(definition_key=key, definition_version=version)
+    assert content_hash(first.identity) == content_hash(second.identity)
