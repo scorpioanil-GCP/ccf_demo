@@ -49,6 +49,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Protocol, runtime_checkable
 
+from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import ArtifactClass
 from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
@@ -60,8 +61,56 @@ __all__ = [
     "ControlPlaneMissing",
     "ControlPlaneProtocol",
     "ControlPlaneRegistry",
+    "RefuseEmptyBump",
+    "RefuseUnbumpedChange",
+    "RegistrationRefusal",
     "ReplayResolver",
 ]
+
+
+class RegistrationRefusal(CCFContract):
+    """Base of the D-05 registration refusals — values, never exceptions.
+
+    The gate discipline (``GateRefusal``): a refused registration is a normal,
+    expected outcome the caller inspects, not a control-flow event. Both
+    refusals are audited with ``resolved=False`` (T-05-04), because a version
+    history is only trustworthy if the attempts it turned away are on record.
+
+    Attributes:
+        key: The Control Plane key involved.
+        artifact_version: The author-declared ``artifact_version`` on the
+            refused registration.
+        detail: Human-readable statement for the operator reading a log; the
+            typed fields carry the machine-readable version.
+    """
+
+    key: str
+    artifact_version: str
+    detail: str
+
+
+class RefuseUnbumpedChange(RegistrationRefusal):
+    """D-05: content changed but ``artifact_version`` did not.
+
+    The author is claiming an old version for new bytes — the tampering shape
+    T-05-01 exists to catch. Both hashes are carried so the caller can see the
+    drift without re-deriving either.
+    """
+
+    existing_hash: str
+    incoming_hash: str
+
+
+class RefuseEmptyBump(RegistrationRefusal):
+    """D-05: ``artifact_version`` bumped but the content is byte-identical.
+
+    A version that names no change makes every later "what changed in 1.1.0?"
+    question unanswerable; the bump is refused rather than recorded as history
+    that never happened.
+    """
+
+    existing_version: str
+    content_hash: str
 
 
 class ControlPlaneMissing(LookupError):
@@ -130,6 +179,7 @@ class ControlPlaneRegistry:
         self._versions: dict[str, list[str]] = {}
         self._artifacts: dict[tuple[str, str], object] = {}
         self._classes: dict[str, str] = {}
+        self._bumps: dict[str, dict[str, tuple[str, str]]] = {}
         self._audit = AuditLog()
 
     def _record(
@@ -225,6 +275,125 @@ class ControlPlaneRegistry:
             artifact_class=artifact_class.class_id,
         )
         return version
+
+    def register_versioned(
+        self,
+        key: str,
+        artifact: object,
+        artifact_class: ArtifactClass,
+        *,
+        actor: str | None = None,
+    ) -> str | RegistrationRefusal:
+        """Register an author-versioned artifact under the D-05 bump check.
+
+        The path for artifacts carrying D-IMPL-28 two-field versioning (agent
+        definitions, prompt artifacts, …). On top of :meth:`register_typed`'s
+        validation and class binding, the author's ``artifact_version`` claim
+        is held against content identity — the four-outcome table:
+
+        * same content, same ``artifact_version`` — idempotent no-op; the
+          existing content version is returned.
+        * changed content, same ``artifact_version`` — returns
+          :class:`RefuseUnbumpedChange`; nothing is stored.
+        * same content, bumped ``artifact_version`` — returns
+          :class:`RefuseEmptyBump`; nothing is stored.
+        * changed content, bumped ``artifact_version`` — appended; the new
+          content version is returned.
+
+        Refusals are returned values, not exceptions, and every outcome —
+        refusals included — is audited (``resolved=False`` on refusal).
+        :meth:`register_typed` itself is untouched: artifact classes without
+        author versioning keep their existing behavior byte for byte.
+
+        Raises:
+            TypeError: the artifact fails the class contract, the key is bound
+                to a different class, or the artifact declares no string
+                ``artifact_version``.
+            ccf.contracts.canonical.CanonicalizationError: the artifact has no
+                canonical form.
+        """
+        bound_class = self._classes.get(key)
+        if bound_class is not None and bound_class != artifact_class.class_id:
+            raise TypeError(
+                f"key {key!r} is already bound to artifact class {bound_class!r};"
+                f" refusing to rebind it to {artifact_class.class_id!r}"
+            )
+        validated = artifact_class.validate(artifact)
+        declared = getattr(validated, "artifact_version", None)
+        if not isinstance(declared, str):
+            raise TypeError(
+                f"artifact for class {artifact_class.class_id!r} declares no"
+                " string artifact_version; the hash-verified bump check (D-05)"
+                " has nothing to verify"
+            )
+        incoming = content_hash(validated)
+        # The D-05 comparison asks whether the artifact's *content* changed,
+        # and the content of an author-versioned artifact is everything except
+        # the version claim itself — a bump alone must not read as a content
+        # change, or the empty-bump outcome could never fire. The fingerprint
+        # normalizes artifact_version before hashing; the stored registry
+        # version stays the full content hash (D-IMPL-26 identity).
+        fingerprint = content_hash(
+            validated.model_copy(update={"artifact_version": ""})
+        )
+        bumps = self._bumps.setdefault(key, {})
+
+        def _refused(refusal: RegistrationRefusal) -> RegistrationRefusal:
+            self._record(
+                action="register_versioned",
+                key=key,
+                version=incoming,
+                resolved=False,
+                actor=actor,
+                artifact_class=artifact_class.class_id,
+            )
+            return refusal
+
+        existing = bumps.get(declared)
+        if existing is not None and existing[0] != incoming:
+            return _refused(
+                RefuseUnbumpedChange(
+                    key=key,
+                    artifact_version=declared,
+                    existing_hash=existing[0],
+                    incoming_hash=incoming,
+                    detail=(
+                        f"content under ({key!r}, artifact_version {declared!r})"
+                        " changed without a version bump (D-05)"
+                    ),
+                )
+            )
+        if existing is None:
+            for prior_version, (_prior_hash, prior_print) in bumps.items():
+                if prior_print == fingerprint:
+                    return _refused(
+                        RefuseEmptyBump(
+                            key=key,
+                            artifact_version=declared,
+                            existing_version=prior_version,
+                            content_hash=fingerprint,
+                            detail=(
+                                f"artifact_version bumped to {declared!r} under"
+                                f" {key!r} but the content is byte-identical to"
+                                f" version {prior_version!r} (D-05)"
+                            ),
+                        )
+                    )
+        versions = self._versions.setdefault(key, [])
+        if incoming not in versions:
+            versions.append(incoming)
+            self._artifacts[(key, incoming)] = validated
+        self._classes[key] = artifact_class.class_id
+        bumps[declared] = (incoming, fingerprint)
+        self._record(
+            action="register_versioned",
+            key=key,
+            version=incoming,
+            resolved=True,
+            actor=actor,
+            artifact_class=artifact_class.class_id,
+        )
+        return incoming
 
     def artifact_class_of(self, key: str) -> str | None:
         """Return the artifact class bound to ``key``, if it was typed.

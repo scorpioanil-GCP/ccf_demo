@@ -40,7 +40,9 @@ __all__ = ["AuditAction", "AuditEvent", "AuditLog"]
 #: are both here because the audit plane's obligation is to reconstruct *what
 #: configuration a decision ran under*, which needs the reads as much as the
 #: writes.
-AuditAction = Literal["register", "register_typed", "resolve", "resolve_latest"]
+AuditAction = Literal[
+    "register", "register_typed", "register_versioned", "resolve", "resolve_latest"
+]
 
 
 class AuditEvent(CCFContract):
