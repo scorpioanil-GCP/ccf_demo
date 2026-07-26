@@ -6,9 +6,6 @@ risk if softened. A definition that almost satisfies its schema, or a prompt
 whose parameters almost match its template, is exactly the artifact that
 produces an unreplayable decision later.
 
-``NotYetBound`` (a skill referenced before any grant bound it) lands with the
-skilling plan; it is deliberately absent here rather than stubbed.
-
 Algorithmic module (CINV-03).
 """
 
@@ -20,6 +17,7 @@ __all__ = [
     "AgentConstructionError",
     "AgentDefinitionError",
     "ConsumptionRefused",
+    "NotYetBound",
     "PromptValidationError",
     "SkillNotBound",
 ]
@@ -65,6 +63,20 @@ class SkillNotBound(KeyError):
     capability is an absent key — but typed, because "this agent does not
     currently have that capability" is a governance fact (CLAUDE.md §6.2
     channel 2), not a lookup accident. Grants land with the skilling wave.
+    """
+
+
+class NotYetBound(RuntimeError):
+    """A granted ``mcp`` or ``a2a`` skill was dispatched in a build that
+    lacks its transport.
+
+    An **exception, not a returned refusal**, and the line is deliberate
+    (PATTERNS "Refusal vs exception line"; 05-RESEARCH.md Open Question 2 —
+    RESOLVED as typed exception): nothing about the artifact is bad — the
+    entry validated, registered, and passed both governance tiers — but this
+    *build* ships no MCP/A2A dispatch transport (D-08; I.3 binds them).
+    A missing transport is a deployment-shape fact, like a missing Control
+    Plane key, not an expected governance outcome a caller inspects.
     """
 
 

@@ -58,6 +58,11 @@ ALLOWED_CCF_PREFIXES = (
     "ccf.controlplane.registry",
     "ccf.products.contract",
     "ccf.replay.record",
+    # Channel 2 (05-06): the skill catalog/dispatch surface is Control Plane
+    # mechanism above L6, not a fabric layer — binding it opens no path from
+    # Agent to L1–L5 (CLAUDE.md §6.2; D-08).
+    "ccf.skills.catalog",
+    "ccf.skills.dispatch",
 )
 
 #: I.1 write-surface / fabric-internal type names that must be unreachable

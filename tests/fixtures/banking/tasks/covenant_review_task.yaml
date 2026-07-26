@@ -28,7 +28,9 @@ referenced_artifacts:
 
 task_definition:
   schema_version: "1.0.0"
-  artifact_version: "1.0.0"
+  # 1.1.0: agent step re-pinned to the 1.3.0 covenant-analytics definition
+  # (a step-ref change is a content change — D-05).
+  artifact_version: "1.1.0"
   name: covenant-review
   tenant: acme-bank
 
@@ -40,7 +42,7 @@ task_definition:
       ref: "ccf-artifact://acme-bank/skill/fetch-covenant-certificates@1.0.0"
     - kind: agent
       name: analyze-covenants
-      ref: "ccf-artifact://acme-bank/ccf.agent-definition/covenant-analytics@1.2.0"
+      ref: "ccf-artifact://acme-bank/ccf.agent-definition/covenant-analytics@1.3.0"
     - kind: hitl-gate
       name: credit-officer-approval
 

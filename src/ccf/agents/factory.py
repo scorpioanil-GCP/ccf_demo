@@ -209,8 +209,22 @@ class AgentFactory:
         """Resolve one pinned reference via :func:`_resolve_pinned`."""
         return _resolve_pinned(self._control_plane, uri)
 
-    def construct(self, *, definition_key: str, definition_version: str) -> Agent:
+    def construct(
+        self,
+        *,
+        definition_key: str,
+        definition_version: str,
+        bound_skills: Mapping[str, object] | None = None,
+    ) -> Agent:
         """Resolve, validate, compose, and instantiate one agent.
+
+        ``bound_skills`` is the channel-2 seam (CLAUDE.md §6.2): pass the
+        grant ledger's live view
+        (:meth:`ccf.skills.grants.GrantLedger.bound_view`) and the agent
+        resolves its currently-bound skill-set from ledger state at invoke
+        time — grants and revocations never re-construct the agent or touch
+        its identity (D-07). ``None`` binds the empty mapping: an agent
+        granted nothing has no skills, positively.
 
         The four steps in order: (1) resolve the definition and every
         referenced artifact at pinned versions; (2) hold the resolved
@@ -262,7 +276,7 @@ class AgentFactory:
             identity=identity,
             components=components,
             instruction_artifacts=instruction_artifacts,
-            bound_skills={},
+            bound_skills=bound_skills if bound_skills is not None else {},
         )
 
 

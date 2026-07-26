@@ -54,6 +54,8 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.products.contract import ContextProductContract
 from ccf.replay.record import NO_GRANTS_SET_HASH, PerspectiveConditioning
+from ccf.skills.catalog import SkillCatalogEntry
+from ccf.skills.dispatch import dispatch_skill
 
 __ccf_mode__ = "algorithmic"
 
@@ -120,8 +122,11 @@ class Agent:
             one per declared archetype identifier.
         instruction_artifacts: Resolved prompt artifacts keyed by the
             binding's versioned URI (validated by the factory per D-13).
-        bound_skills: The currently-bound skill mapping (channel 2). Empty
-            until the skilling wave binds grants through the Control Plane.
+        bound_skills: The currently-bound skill mapping (channel 2). Held by
+            reference, deliberately: the factory passes the grant ledger's
+            live view, so grants and revocations take effect at invoke time
+            without the agent's identity ever changing (CLAUDE.md §6.2;
+            D-07 — skill-set changes never touch agent identity).
 
     Raises:
         AgentConstructionError: the inputs do not describe one coherent agent.
@@ -162,7 +167,7 @@ class Agent:
         self._identity = identity
         self._components = components
         self._instruction_artifacts = dict(instruction_artifacts)
-        self._bound_skills = dict(bound_skills)
+        self._bound_skills = bound_skills
 
     @property
     def identity(self) -> AgentIdentity:
@@ -232,25 +237,43 @@ class Agent:
             )
         return product
 
-    def invoke_skill(self, name: str) -> object:
-        """Return the currently-bound skill registered under ``name``.
+    def invoke_skill(
+        self, name: str, *, arguments: Mapping[str, str] | None = None
+    ) -> object:
+        """Invoke (or introspect) the currently-bound skill under ``name``.
 
-        Dispatch semantics land with the skilling wave; the seam exists now so
-        the harness adapter surface is stable (CLAUDE.md §7.3 seam 2: skills
-        the agent has not been granted do not exist from the harness's point
-        of view).
+        The channel-2 seam (CLAUDE.md §7.3 seam 2): skills the agent has not
+        been granted do not exist from this surface. With ``arguments``, the
+        bound catalog entry dispatches through
+        :func:`ccf.skills.dispatch.dispatch_skill`; without, the bound entry
+        is returned for introspection. Binding is resolved at invoke time
+        from the ledger-backed view the factory injected, so grant and
+        revocation take effect without touching agent identity (D-07).
 
         Raises:
             SkillNotBound: no grant currently binds ``name`` to this agent.
+            ccf.agents.errors.NotYetBound: the bound entry is ``mcp`` or
+                ``a2a`` and this build lacks the transport (D-08).
+            TypeError: dispatch was requested but the bound object is not a
+                catalog entry — broken wiring, not a governance outcome.
         """
         try:
-            return self._bound_skills[name]
+            bound = self._bound_skills[name]
         except KeyError:
             raise SkillNotBound(
                 f"no skill named {name!r} is currently bound to agent"
                 f" {self._definition.name!r}; capabilities arrive only through"
                 " governed grants (CLAUDE.md §6.2 channel 2)"
             ) from None
+        if arguments is None:
+            return bound
+        if not isinstance(bound, SkillCatalogEntry):
+            raise TypeError(
+                f"skill {name!r} is bound to {type(bound).__name__}, which is"
+                " not a catalog entry and cannot dispatch; bound skills come"
+                " from the grant ledger's catalog-resolved view (D-08)"
+            )
+        return dispatch_skill(bound, arguments=arguments)
 
     def emit_effect(self, payload: Mapping[str, Any]) -> EmittedEffect:
         """Emit ``payload`` as a returned typed value (no write handle).
@@ -265,16 +288,17 @@ class Agent:
         )
 
     def perspective_conditioning(
-        self, *, principal_id: str
+        self, *, principal_id: str, grant_set_hash: str = NO_GRANTS_SET_HASH
     ) -> PerspectiveConditioning:
         """Serialize this agent's dimension-4 conditioning (D-06).
 
         A mechanical serialization of construction-time state — hash, URI
         annotation, composition — plus the in-force grant-set identity.
-        With no grants bound, the grant-set value is the positive
-        :data:`~ccf.replay.record.NO_GRANTS_SET_HASH` claim; the skilling
-        wave replaces it with the D-07 grant-set content hash, with no
-        contract change. The delegation chain is the single-element
+        ``grant_set_hash`` is the D-07 value the caller *captured* from the
+        grant ledger at decision time (a serialized value, never re-derived
+        here from live objects — DESIGN.md §3.6); the default is the positive
+        :data:`~ccf.replay.record.NO_GRANTS_SET_HASH` claim for decisions
+        made under zero grants. The delegation chain is the single-element
         originating-principal chain in I.2 (extended, not re-shaped, by I.4).
         """
         return PerspectiveConditioning(
@@ -283,6 +307,6 @@ class Agent:
             agent_definition_hash=self._identity.definition_hash,
             agent_definition_uri=self._identity.definition_uri,
             archetype_composition=self._identity.archetype_composition,
-            grant_set_hash=NO_GRANTS_SET_HASH,
+            grant_set_hash=grant_set_hash,
             delegation_chain=(principal_id,),
         )

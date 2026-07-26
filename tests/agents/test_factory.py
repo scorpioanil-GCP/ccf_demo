@@ -506,7 +506,7 @@ def test_a_bumped_axis_change_lands_in_dimension_four(
     # The axis-6 mutant (reordered binding parameters) still constructs:
     # membership matches the prompt artifact's declaration (D-13).
     mutant = _axis_mutants(original)["instruction_bindings"].model_copy(
-        update={"artifact_version": "1.3.0"}
+        update={"artifact_version": "1.4.0"}
     )
     bumped_version = registry.register_versioned(key, mutant, AGENT_DEFINITION)
     assert isinstance(bumped_version, str)
@@ -516,4 +516,4 @@ def test_a_bumped_axis_change_lands_in_dimension_four(
     conditioning = agent.perspective_conditioning(principal_id="analyst-1")
     assert conditioning.agent_definition_hash == content_hash(mutant)
     assert conditioning.agent_definition_hash != content_hash(original)
-    assert conditioning.agent_definition_uri.endswith("@1.3.0")
+    assert conditioning.agent_definition_uri.endswith("@1.4.0")
