@@ -31,6 +31,8 @@ from ccf.products.gates import ServableProduct
 from ccf.projection.engine import ExecutionStep
 from ccf.replay.record import (
     MODE_1_MODEL_VERSION,
+    NO_AGENT_DEFINITION,
+    NO_GRANTS_SET_HASH,
     ContentGenerationPath,
     ContextFabricSnapshot,
     DecisionReplayRecord,
@@ -163,6 +165,42 @@ def test_the_record_carries_all_five_dimensions() -> None:
     assert record.model_version.model_version == MODE_1_MODEL_VERSION  # 3
     assert record.perspective_conditioning.role  # 4
     assert record.content_generation_path.steps  # 5
+
+
+def test_dimension_4_defaults_are_positive_claims_not_omissions() -> None:
+    """D-06/D-07: pre-agent records assert "no agent", never stay silent.
+
+    The grant-set field defaults to the named ``NO_GRANTS_SET_HASH`` sentinel
+    and the agent-identity fields to ``NO_AGENT_DEFINITION`` — mirroring the
+    ``MODE_1_MODEL_VERSION`` precedent. ``None`` or omission would make "no
+    agent participated" indistinguishable from "the record forgot to look".
+    """
+    conditioning = _record().perspective_conditioning
+    assert conditioning.grant_set_hash == NO_GRANTS_SET_HASH
+    assert conditioning.agent_definition_hash == NO_AGENT_DEFINITION
+    assert conditioning.agent_definition_uri == NO_AGENT_DEFINITION
+    assert conditioning.archetype_composition == ()
+
+
+def test_the_delegation_chain_is_never_empty() -> None:
+    """DESIGN.md §3.6 INV-CH7-84: dimension 4 includes the delegation chain.
+
+    Pre-agent records carry the single-element no-agent sentinel chain; a
+    slice-style record carries the single-element originating-principal chain
+    (I.2). I.4 extends the same field — no second contract change.
+    """
+    pre_agent = PerspectiveConditioning(principal_id="analyst-1", role="credit-analyst")
+    assert pre_agent.delegation_chain == (NO_AGENT_DEFINITION,)
+    slice_style = PerspectiveConditioning(
+        principal_id="analyst-1",
+        role="credit-analyst",
+        delegation_chain=("analyst-1",),
+    )
+    assert slice_style.delegation_chain == ("analyst-1",)
+    with pytest.raises(ValueError):
+        PerspectiveConditioning(
+            principal_id="analyst-1", role="credit-analyst", delegation_chain=()
+        )
 
 
 def test_mode_1_records_no_model() -> None:

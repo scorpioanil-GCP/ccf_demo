@@ -86,7 +86,13 @@ from ccf.products.gates import (
 )
 from ccf.projection.engine import ExecutionResult, OperatorRegistry, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput
-from ccf.replay.record import DecisionReplayRecord, PolicyBinding, build_replay_record
+from ccf.replay.record import (
+    NO_AGENT_DEFINITION,
+    NO_GRANTS_SET_HASH,
+    DecisionReplayRecord,
+    PolicyBinding,
+    build_replay_record,
+)
 from ccf.replay.serve import ReplayWriter, ServedProduct, serve
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from ccf.similarity.protocol import TokenOverlapIndex
@@ -714,9 +720,13 @@ def test_the_record_carries_the_five_dimensions_of_this_decision(
 
     assert record.model_version.model_version == "none"  # 3 — Mode 1
 
-    assert (
-        record.perspective_conditioning.role == fabric.control["perspective"]["role"]
-    )  # 4
+    conditioning = record.perspective_conditioning  # 4
+    assert conditioning.role == fabric.control["perspective"]["role"]
+    # D-06 extension, pre-agent decision: positive no-agent/no-grants claims
+    # and the single-element originating-principal delegation chain (I.2).
+    assert conditioning.grant_set_hash == NO_GRANTS_SET_HASH
+    assert conditioning.agent_definition_hash == NO_AGENT_DEFINITION
+    assert conditioning.delegation_chain == (conditioning.principal_id,)
 
     path = record.content_generation_path  # 5
     assert path.plan_id == fabric.control["product_class"]["plan_id"]
