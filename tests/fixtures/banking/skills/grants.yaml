@@ -150,6 +150,49 @@ skills:
     requirements:
       required_scopes: [portfolio-read]
       required_context_products: [acme-bank.liquidity-summary]
+  # Another tenant's entry — tenant-coherence refusal material (WR-02): a
+  # grant naming it can never bind to an acme-bank agent.
+  crosstenant:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: covenant-metrics-foreign
+    tenant: other-bank
+    skill_type: tool
+    binding:
+      command: covenant-metrics-foreign-cli
+    requirements:
+      required_scopes: [portfolio-read]
+      required_context_products: [acme-bank.credit-exposure-summary]
+  # A second version of covenant-metrics for the same-name collision case
+  # (WR-05): two effective grants binding one skill_name is a governance
+  # defect the ledger must raise on, never a hash-lottery.
+  metrics_upgrade:
+    schema_version: "1.0.0"
+    artifact_version: "1.1.0"
+    name: covenant-metrics
+    tenant: acme-bank
+    skill_type: tool
+    binding:
+      command: covenant-metrics-cli-v2
+    requirements:
+      required_scopes: [portfolio-read]
+      required_context_products: [acme-bank.credit-exposure-summary]
+
+# Entries deliberately NOT registered at world construction: the wedged-state
+# regression (WR-04) requests against a missing entry first, registers the
+# entry, then proves the same grant content hash is re-requestable.
+late_skills:
+  latecomer:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: covenant-latecomer
+    tenant: acme-bank
+    skill_type: tool
+    binding:
+      command: covenant-latecomer-cli
+    requirements:
+      required_scopes: [portfolio-read]
+      required_context_products: [acme-bank.credit-exposure-summary]
 
 # Grant documents. The agent_definition_hash is derived identity (content
 # hash of the parsed definition), computed by mechanism at request time —
@@ -182,6 +225,27 @@ grants:
     name: treasury-covenant-offcontract
     tenant: acme-bank
     skill_name: covenant-offcontract
+    skill_version: "1.0.0"
+  crosstenant:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: treasury-covenant-foreign
+    tenant: other-bank
+    skill_name: covenant-metrics-foreign
+    skill_version: "1.0.0"
+  metrics_upgrade:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: treasury-covenant-metrics-upgrade
+    tenant: acme-bank
+    skill_name: covenant-metrics
+    skill_version: "1.1.0"
+  latecomer:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: treasury-covenant-latecomer
+    tenant: acme-bank
+    skill_name: covenant-latecomer
     skill_version: "1.0.0"
 
 # The tier-1 excess identifiers the refusal must name — fixture statements of

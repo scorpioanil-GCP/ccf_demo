@@ -71,6 +71,7 @@ __all__ = [
     "ApprovalRejected",
     "ApprovalSink",
     "GovernanceUndeclared",
+    "GrantCollisionError",
     "GrantLedger",
     "GrantRefusal",
     "GrantState",
@@ -79,6 +80,7 @@ __all__ = [
     "PolicyRegimeUnresolvable",
     "RequirementsExceedRegime",
     "SkillGrant",
+    "TenantMismatch",
     "grant_set_hash",
     "skill_grant_key",
 ]
@@ -110,6 +112,31 @@ class GrantTransitionError(RuntimeError):
     caller, not an expected governance outcome (I.1 refusal-vs-exception
     line: refusals are values; a misused state machine is an exception).
     """
+
+
+class GrantCollisionError(RuntimeError):
+    """Two effective grants bind the same skill name for one agent (WR-05).
+
+    Raised — never resolved by hash order — because a same-name
+    double-effective state is a governance-state defect the operator must
+    repair (revoke one grant), not an ordering choice the SDK may silently
+    make: during an upgrade window the bound version would otherwise be a
+    hash-lottery while the dimension-4 grant-set hash included both.
+    Carries the skill name and both grant hashes.
+    """
+
+    def __init__(
+        self, skill_name: str, first_hash: str, second_hash: str
+    ) -> None:
+        self.skill_name = skill_name
+        self.first_hash = first_hash
+        self.second_hash = second_hash
+        super().__init__(
+            f"two effective grants bind skill {skill_name!r} for one agent"
+            f" ({first_hash!r} and {second_hash!r}); a same-name"
+            " double-effective state is a governance-state defect — revoke"
+            " one grant (D-09; WR-05)"
+        )
 
 
 class SkillGrant(CCFContract):
@@ -222,6 +249,23 @@ class RequirementsExceedRegime(GrantRefusal):
 
     excess_scopes: frozenset[str]
     excess_context_products: frozenset[str]
+
+
+class TenantMismatch(GrantRefusal):
+    """Tier 1: the grant path crosses a tenant boundary (WR-02).
+
+    A grant whose own tenant, or whose resolved catalog entry's tenant,
+    differs from the agent definition's tenant is inadmissible: the skilling
+    channel confers capabilities, and tenant isolation there is mechanism,
+    not a deployment value. Modeled as a returned tier-1 governance refusal
+    (not a transition error) because the artifact is well-formed and the
+    caller may be handling third-party grant documents — the refusal is
+    audited like every other tier-1 refusal (T-05-16).
+    """
+
+    grant_tenant: str
+    entry_tenant: str
+    definition_tenant: str
 
 
 class ApprovalRejected(GrantRefusal):
@@ -474,26 +518,36 @@ class GrantLedger:
     ) -> str | GrantRefusal | RegistrationRefusal:
         """Run one grant through both tiers; return its hash or a refusal.
 
-        The sequence is fixed: register the grant artifact (D-05 versioned
-        path), audit ``grant_requested``, run tier 1, then — only if the
-        regime requires it — suspend on the sink. Tier 1 always runs before
-        tier 2; a sink never sees a grant tier 1 refused.
+        The sequence is fixed: resolve the referenced catalog entry (so a
+        missing entry leaves the ledger untouched and the same grant content
+        hash re-requestable once the entry exists — WR-04), register the
+        grant artifact (D-05 versioned path), audit ``grant_requested``,
+        verify tenant coherence (a returned :class:`TenantMismatch` refusal —
+        WR-02), run tier 1, then — only if the regime requires it — suspend
+        on the sink. Tier 1 always runs before tier 2; a sink never sees a
+        grant tier 1 refused.
 
         Raises:
-            GrantTransitionError: this grant was already decided — a decided
-                grant is immutable history; issue a new grant artifact.
+            GrantTransitionError: this ledger has already seen this grant —
+                a grant artifact is single-use; issue a new grant artifact.
             GrantTransitionError: ``grant.agent_definition_hash`` is not the
                 content hash of ``definition`` — broken wiring, not a
                 governance outcome.
             ccf.skills.catalog.SkillNotInCatalog: the referenced entry is not
-                registered at the pinned version (a deployment error).
+                registered at the pinned version (a deployment error). Raised
+                before any state mutation, after a ``grant_refused``
+                (``resolved=False``) audit record — the audit plane records
+                what it turned away without wedging a phantom request.
         """
         grant_hash = content_hash(grant)
         if grant_hash in self._states:
+            state = self._states[grant_hash]
+            decided = state not in ("requested", "pending-approval")
             raise GrantTransitionError(
-                f"grant {grant.name!r} ({grant_hash!r}) was already decided"
-                f" ({self._states[grant_hash]!r}); a decided grant is"
-                " immutable history — issue a new grant artifact (D-09)"
+                f"grant {grant.name!r} ({grant_hash!r}) was already"
+                f" {'decided' if decided else 'seen'} (state {state!r}); a"
+                " grant artifact is single-use — issue a new grant artifact"
+                " (D-09)"
             )
         if grant.agent_definition_hash != content_hash(definition):
             raise GrantTransitionError(
@@ -502,6 +556,13 @@ class GrantLedger:
                 f" != {content_hash(definition)!r}); a grant references its"
                 " agent by canonical identity (D-IMPL-26)"
             )
+        try:
+            entry = self._catalog.resolve(
+                grant.tenant, grant.skill_name, grant.skill_version
+            )
+        except LookupError:
+            self._record(grant, "grant_refused", resolved=False, actor=actor)
+            raise
         registered = self._control_plane.register_versioned(
             skill_grant_key(grant), grant, SKILL_GRANT, actor=actor
         )
@@ -512,9 +573,26 @@ class GrantLedger:
         self._grants[grant_hash] = grant
         self._record(grant, "grant_requested", resolved=True, actor=actor)
 
-        entry = self._catalog.resolve(
-            grant.tenant, grant.skill_name, grant.skill_version
-        )
+        if (
+            grant.tenant != definition.tenant
+            or entry.tenant != definition.tenant
+        ):
+            self._states[grant_hash] = "refused"
+            self._record(grant, "grant_refused", resolved=False, actor=actor)
+            return TenantMismatch(
+                check=CHECK_TIER_1,
+                grant_tenant=grant.tenant,
+                entry_tenant=entry.tenant,
+                definition_tenant=definition.tenant,
+                detail=(
+                    f"grant tenant {grant.tenant!r} / entry tenant"
+                    f" {entry.tenant!r} do not both equal the agent"
+                    f" definition's tenant {definition.tenant!r}; the"
+                    " skilling channel never crosses a tenant boundary"
+                    " (WR-02; CLAUDE.md §6.2)"
+                ),
+            )
+
         verdict = self._tier_1(grant, definition, entry)
         if isinstance(verdict, GrantRefusal):
             self._states[grant_hash] = "refused"
@@ -582,22 +660,41 @@ class GrantLedger:
         """
         return self._states[grant_hash]
 
-    def effective_hashes(self) -> frozenset[str]:
-        """The content hashes of every currently-effective grant."""
+    def effective_hashes(self, agent_definition_hash: str | None = None) -> frozenset[str]:
+        """The content hashes of currently-effective grants.
+
+        With ``agent_definition_hash`` supplied, only that agent's effective
+        grants are returned — the per-agent view every replay-facing caller
+        must use (CLAUDE.md §6.2: a decision replays against the skills *the
+        agent* actually had). With ``None``, the ledger-wide view across all
+        agents is returned — an operator-inspection convenience only, never
+        an identity input for any one agent's replay record.
+        """
         return frozenset(
             grant_hash
             for grant_hash, state in self._states.items()
             if state == "effective"
+            and (
+                agent_definition_hash is None
+                or self._grants[grant_hash].agent_definition_hash
+                == agent_definition_hash
+            )
         )
 
-    def grant_set_hash(self) -> str:
-        """The D-07 identity of the in-force skill-set, at this instant.
+    def grant_set_hash(self, agent_definition_hash: str) -> str:
+        """The D-07 identity of one agent's in-force skill-set, at this instant.
+
+        Per-agent, deliberately required: the value lands in replay
+        dimension 4 as *this agent's* skill-set in force, so it is computed
+        over exactly the grants referencing ``agent_definition_hash`` — a
+        grant to another agent sharing this ledger never moves it
+        (CLAUDE.md §6.2; CR-01).
 
         The positive :data:`~ccf.replay.record.NO_GRANTS_SET_HASH` claim when
-        nothing is in force — "this ledger holds zero effective grants" is
-        asserted, never left as an absence a reader must interpret.
+        nothing is in force for this agent — "this agent holds zero effective
+        grants" is asserted, never left as an absence a reader must interpret.
         """
-        active = self.effective_hashes()
+        active = self.effective_hashes(agent_definition_hash)
         if not active:
             return NO_GRANTS_SET_HASH
         return grant_set_hash(active)
@@ -606,10 +703,16 @@ class GrantLedger:
         self, agent_definition_hash: str
     ) -> dict[str, SkillCatalogEntry]:
         entries: dict[str, SkillCatalogEntry] = {}
+        holders: dict[str, str] = {}
         for grant_hash in sorted(self.effective_hashes()):
             grant = self._grants[grant_hash]
             if grant.agent_definition_hash != agent_definition_hash:
                 continue
+            if grant.skill_name in holders:
+                raise GrantCollisionError(
+                    grant.skill_name, holders[grant.skill_name], grant_hash
+                )
+            holders[grant.skill_name] = grant_hash
             entries[grant.skill_name] = self._catalog.resolve(
                 grant.tenant, grant.skill_name, grant.skill_version
             )

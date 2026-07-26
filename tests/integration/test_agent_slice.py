@@ -366,12 +366,12 @@ def test_a_granted_decision_captures_the_grant_set_hash_in_dimension_4(
             recorded_at=fabric.now,
             agent_conditioning=agent.perspective_conditioning(
                 principal_id=principal_id,
-                grant_set_hash=ledger.grant_set_hash(),
+                grant_set_hash=ledger.grant_set_hash(content_hash(definition)),
             ),
         )
 
     granted_record = _record()
-    in_force = ledger.grant_set_hash()
+    in_force = ledger.grant_set_hash(content_hash(definition))
     assert in_force != NO_GRANTS_SET_HASH
     assert granted_record.perspective_conditioning.grant_set_hash == in_force
     assert granted_record.perspective_conditioning.agent_definition_hash == (

@@ -39,17 +39,20 @@ from ccf.controlplane.audit import AuditLog
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.replay.record import NO_GRANTS_SET_HASH
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog, SkillCatalogEntry
+from ccf.skills.catalog import SkillNotInCatalog
 from ccf.skills.grants import (
     SKILL_GRANT,
     ApprovalRejected,
     ApprovalSink,
     GovernanceUndeclared,
+    GrantCollisionError,
     GrantLedger,
     GrantRefusal,
     GrantTransitionError,
     PolicyRegimeUnresolvable,
     RequirementsExceedRegime,
     SkillGrant,
+    TenantMismatch,
     grant_set_hash,
     skill_grant_key,
 )
@@ -397,23 +400,66 @@ class TestGrantSetHash:
                     ),
                     str,
                 )
-        assert one.ledger.grant_set_hash() == two.ledger.grant_set_hash()
+        assert one.ledger.grant_set_hash(
+            content_hash(definition)
+        ) == two.ledger.grant_set_hash(content_hash(definition))
 
     def test_revocation_restores_the_prior_hash(self, world: _World) -> None:
         definition = world.definition("auto")
+        agent_hash = content_hash(definition)
         first = world.grant("metrics_tool", definition)
         world.ledger.request(first, definition=definition, actor=world.actor)
-        before = world.ledger.grant_set_hash()
+        before = world.ledger.grant_set_hash(agent_hash)
         second = world.grant("metrics_local", definition)
         world.ledger.request(second, definition=definition, actor=world.actor)
-        assert world.ledger.grant_set_hash() != before
+        assert world.ledger.grant_set_hash(agent_hash) != before
         world.ledger.revoke(content_hash(second), actor=world.actor)
-        assert world.ledger.grant_set_hash() == before
+        assert world.ledger.grant_set_hash(agent_hash) == before
 
     def test_no_grants_in_force_is_the_positive_sentinel(
         self, world: _World
     ) -> None:
-        assert world.ledger.grant_set_hash() == NO_GRANTS_SET_HASH
+        definition = world.definition("auto")
+        assert (
+            world.ledger.grant_set_hash(content_hash(definition))
+            == NO_GRANTS_SET_HASH
+        )
+
+    def test_grant_set_hash_is_per_agent_across_two_agents(
+        self, world: _World
+    ) -> None:
+        """CR-01 regression: two agents share one ledger; a grant to agent B
+        never moves agent A's D-07 grant-set hash — dimension 4 records the
+        skills *this* agent actually had (CLAUDE.md §6.2)."""
+        agent_a = world.definition("auto")
+        agent_b = world.definition("gated")
+        hash_a = content_hash(agent_a)
+        hash_b = content_hash(agent_b)
+
+        grant_b = world.grant("metrics_tool", agent_b)
+        outcome = world.ledger.request(
+            grant_b, definition=agent_b, actor=world.actor
+        )
+        assert isinstance(outcome, str)
+        assert world.ledger.grant_set_hash(hash_a) == NO_GRANTS_SET_HASH
+        b_after_own_grant = world.ledger.grant_set_hash(hash_b)
+        assert b_after_own_grant != NO_GRANTS_SET_HASH
+
+        grant_a = world.grant("metrics_local", agent_a)
+        outcome = world.ledger.request(
+            grant_a, definition=agent_a, actor=world.actor
+        )
+        assert isinstance(outcome, str)
+        assert world.ledger.grant_set_hash(hash_b) == b_after_own_grant
+        assert world.ledger.grant_set_hash(hash_a) == grant_set_hash(
+            frozenset({content_hash(grant_a)})
+        )
+        assert world.ledger.effective_hashes(hash_a) == frozenset(
+            {content_hash(grant_a)}
+        )
+        assert world.ledger.effective_hashes() == frozenset(
+            {content_hash(grant_a), content_hash(grant_b)}
+        )
 
     def test_the_agent_definition_hash_is_unchanged_across_grants(
         self, world: _World
@@ -429,6 +475,82 @@ class TestGrantSetHash:
             content_hash(world.grant("metrics_local", definition)), actor=world.actor
         )
         assert content_hash(definition) == before
+
+
+# --- governance seams: WR-02 / WR-04 / WR-05 ----------------------------------
+
+
+class TestGovernanceSeams:
+    def test_a_missing_catalog_entry_leaves_no_wedged_state(
+        self, world: _World
+    ) -> None:
+        """WR-04: resolve-before-mutate — a SkillNotInCatalog failure leaves
+        the ledger untouched, is audited, and the same grant content hash
+        succeeds once the entry exists."""
+        definition = world.definition("auto")
+        grant = world.grant("latecomer", definition)
+        with pytest.raises(SkillNotInCatalog):
+            world.ledger.request(grant, definition=definition, actor=world.actor)
+        with pytest.raises(KeyError):
+            world.ledger.state(content_hash(grant))
+        failed = world.audit.events()[-1]
+        assert failed.action == "grant_refused"
+        assert failed.resolved is False
+        assert failed.key == skill_grant_key(grant)
+
+        entry = parse_artifact(
+            world.fixture["late_skills"]["latecomer"], SKILL_CATALOG_ENTRY
+        )
+        assert isinstance(entry, SkillCatalogEntry)
+        registered = world.catalog.register(entry)
+        assert isinstance(registered, str)
+        outcome = world.ledger.request(
+            grant, definition=definition, actor=world.actor
+        )
+        assert outcome == content_hash(grant)
+        assert world.ledger.state(content_hash(grant)) == "effective"
+
+    def test_a_cross_tenant_grant_is_refused(self, world: _World) -> None:
+        """WR-02: a grant whose tenant differs from the agent definition's
+        tenant is inadmissible — a typed, audited tier-1-style refusal."""
+        definition = world.definition("auto")
+        grant = world.grant("crosstenant", definition)
+        refusal = world.ledger.request(
+            grant, definition=definition, actor=world.actor
+        )
+        assert isinstance(refusal, TenantMismatch)
+        assert refusal.grant_tenant == grant.tenant
+        assert refusal.definition_tenant == definition.tenant
+        assert refusal.grant_tenant != refusal.definition_tenant
+        assert world.ledger.state(content_hash(grant)) == "refused"
+        refused = world.audit.events()[-1]
+        assert refused.action == "grant_refused"
+        assert refused.resolved is False
+
+    def test_two_effective_same_skill_name_grants_raise_the_typed_error(
+        self, world: _World
+    ) -> None:
+        """WR-05: a same-name double-effective state is a governance-state
+        defect — GrantCollisionError naming the skill and both hashes,
+        never a silent hash-lottery."""
+        definition = world.definition("auto")
+        first = world.grant("metrics_tool", definition)
+        second = world.grant("metrics_upgrade", definition)
+        for grant in (first, second):
+            outcome = world.ledger.request(
+                grant, definition=definition, actor=world.actor
+            )
+            assert isinstance(outcome, str)
+        view = world.ledger.bound_view(content_hash(definition))
+        with pytest.raises(GrantCollisionError) as excinfo:
+            len(view)
+        assert excinfo.value.skill_name == first.skill_name
+        assert {excinfo.value.first_hash, excinfo.value.second_hash} == {
+            content_hash(first),
+            content_hash(second),
+        }
+        world.ledger.revoke(content_hash(first), actor=world.actor)
+        assert set(view) == {second.skill_name}
 
 
 # --- the Protocol is runtime-checkable ----------------------------------------
