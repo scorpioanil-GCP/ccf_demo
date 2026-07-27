@@ -6,11 +6,11 @@ invariant). SDK-defined enforcement mechanism, not whitepaper-derived.
 Two rules, one AST walk:
 
 ``cinv02-harness``
-    No module under the linted tree may import a harness package. A harness
-    import in ``/src`` is a defect of the same class as an LLM client in an
-    algorithmic module. The vendor LLM SDK (``anthropic``) is on the deny list
-    everywhere *except* the LLM adapter path, where it is the adapter's whole
-    purpose (D-IMPL-09).
+    Lint-enforced: no module outside ``ccf_runtime.adapters.*`` may import a
+    harness package. A harness import in ``/src`` is a defect of the same class
+    as an LLM client in an algorithmic module. The vendor LLM SDK
+    (``anthropic``) is on the deny list everywhere *except* the LLM adapter
+    path, where it is the adapter's whole purpose (D-IMPL-09).
 
 ``cinv02-graph-writer``
     The concrete writer module ``ccf.graph._writer`` is importable only from L2
@@ -18,8 +18,17 @@ Two rules, one AST walk:
     of the single-writer defence: even with a writer implementation on disk, no
     other module can name it.
 
-Neither rule takes an allowlist. Import restrictions have no legitimate
-exceptions — an exception here would void the invariant it exists to enforce.
+Scope, stated precisely (D-21 — claims are scoped to their enforcement).
+``cinv02-harness`` is lint-enforced as: *no module outside
+``ccf_runtime.adapters.*`` may import a harness package*. That narrows the
+rule's scope to match CLAUDE.md §7.3's own word — "zero harness imports in
+**core**" — rather than granting an exception to it; the adapter path is where
+§7.3 places harness bindings, so a harness import there is the module's whole
+purpose (D-IMPL-53, D-24).
+
+Neither rule takes an allowlist. Carve-outs are module-path constants in this
+file, reviewed with the code, never a data file or per-module opt-out — a
+data allowlist would void the invariant it exists to enforce.
 """
 
 from __future__ import annotations
@@ -49,6 +58,12 @@ VENDOR_LLM_DENY: frozenset[str] = frozenset({"anthropic"})
 #: Modules allowed to import a vendor LLM SDK (the LLMClientProtocol adapters).
 LLM_ADAPTER_MODULES: frozenset[str] = frozenset({"ccf.llm", "ccf_runtime.llm"})
 
+#: The only module path where a harness import is the module's whole purpose:
+#: the HarnessAdapterProtocol reference adapters, which CLAUDE.md §7.3 places in
+#: ``runtime/adapters/<harness>/``. Match is dot-bounded, so ``adapters_evil``
+#: and every other sibling remain denied.
+HARNESS_ADAPTER_MODULES: frozenset[str] = frozenset({"ccf_runtime.adapters"})
+
 #: The concrete GraphWriter module and its permitted importers.
 WRITER_MODULE = "ccf.graph._writer"
 WRITER_OK_MODULES: frozenset[str] = frozenset({"ccf.assembly", "ccf.boot"})
@@ -59,11 +74,12 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
     tree = read_tree(source, path)
     findings: list[str] = []
     in_llm_adapter = matches_module(module_name, LLM_ADAPTER_MODULES)
+    in_harness_adapter = matches_module(module_name, HARNESS_ADAPTER_MODULES)
 
     for node in ast.walk(tree):
         for name in imported_module_names(node):
             lineno = getattr(node, "lineno", 0)
-            if matches_module(name, HARNESS_DENY):
+            if matches_module(name, HARNESS_DENY) and not in_harness_adapter:
                 findings.append(
                     format_finding(
                         path,
