@@ -67,3 +67,55 @@ main-file-plus-WAL digest 06-09 uses.
 > A byte-identical assertion that cannot observe an un-checkpointed WAL write is
 > a false-green of the same family as the `mypy --strict src` CI override (06-02)
 > and the absent-harness environmental premise above.
+
+---
+
+## Escalated to Dave at the wave-5 close (orchestrator)
+
+**3. `AdmittedProduct` is not bound on L2's entry point — deferred by three
+plans across three waves, each with a stated reason.**
+
+Status: the invariant HOLDS but is not ENFORCED. CLAUDE.md §7.2 commits that an
+inbound A2A Context Product "is not admissible to L3 until the consuming Control
+Plane validates its Policy bindings", and §10 calls single-writer
+"architectural, not advisory".
+
+- 06-08 built the gate; left the binding, flagged it.
+- 06-09 declined (`worker.py` outside `files_modified`) and stated its own
+  evidence as deliberately weaker than a type guarantee: the consumer path is
+  *observed* to run gate → `AdmittedProduct` → `worker.ingest`, AST-asserted as
+  the only ingest call site, and a bypass makes the tamper test fail.
+- 06-10 declined with a substantive reason, not scope avoidance:
+  `AssemblyWorker.ingest` takes a `SignalEnvelope` and serves **every** L1
+  source, so binding `AdmittedProduct` onto it would break CDC and MCP ingress.
+
+Closing it properly requires a **second federated entry point** — a change to
+L2's declared surface, which is a design decision rather than an executor
+auto-fix. 06-10's concrete proposal: add
+`AssemblyWorker.ingest_admitted(admitted: AdmittedProduct)` deriving envelopes
+internally. Everything needed exists; only the ruling does not.
+
+**4. `McpSkillRegistry` is not threaded from `AgentFactory` to `Agent`.**
+
+Verified open at the wave-5 close: `Agent.invoke_skill(self, name, *, arguments)`
+takes no registry, so an `mcp` skill invoked *through an Agent* refuses with
+`McpSkillUnregistered`. `dispatch_skill` binds the transport correctly; the
+wiring stops at `agent.py` / `factory.py`. Raised by 06-06, which noted it
+"must close before harness skill exposure can surface an `mcp` skill as a
+working tool" — i.e. before 06-15's neutrality proof, if that proof exercises an
+`mcp`-transport skill.
+
+## Resolved at the wave-5 close (orchestrator)
+
+**`pip check` breakage was venv drift, not a pinning defect — NO ACTION NEEDED.**
+06-14 correctly reported `pip check` broken after its `google-adk` install
+(`opentelemetry-exporter-otlp-proto-grpc 1.44.0` vs `opentelemetry-sdk 1.42.1`)
+and inferred "a CI image build would surface it". The inference was backwards.
+Dry-run resolves of both documented commands are internally consistent:
+`.[dev]` → otel 1.42.1 with no exporter at all; `.[dev,chroma]` → otel 1.42.1
+**and** exporter 1.42.1. Only a long-lived incrementally-mutated venv reaches the
+broken state: `chromadb` was installed in an earlier phase when otel was 1.44.0
+(pulling exporter 1.44.0), and `google-adk` later downgraded the *sdk* without
+downgrading the already-installed *exporter*. CI resolves from scratch and never
+sees it. Local venv repaired by pinning the exporter to 1.42.1; `pip check`
+clean, 926 passed / 2 skipped. D-08's one-command requirement is intact.
