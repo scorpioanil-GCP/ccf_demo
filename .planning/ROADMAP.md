@@ -240,7 +240,7 @@ Plans:
   4. Single-writer invariant demonstrably holds across the A2A boundary, the adapter boundary, and the ArtifactStore
   5. **MCP-backed ArtifactStore reference implementation ships** and passes the same shared ArtifactStore Protocol conformance suite as the file-backed dev impl, with no other deployment change required to swap between them *(inherited from Phase 4 per the D-12 scope amendment recorded on Phase 4 criterion 4)*
 
-**Plans:** 17/17 plans executed
+**Plans:** 17/17 executed + 6 gap-closure plans (06-18..06-23) from the §3.1 gate review
 
 **Criterion evidence** (all in `docs/PHASE_I3_GATE.md`, which carries a 20-row
 checklist naming, per row, its test *and* what would fail under breakage):
@@ -295,6 +295,27 @@ Plans:
 **Wave 7** *(gate)*
 
 - [x] 06-16-PLAN.md — Full sweep, CI harness leg, PHASE_I3_GATE.md, present to Dave
+
+**Gap closure** *(from the 2026-07-27 cross-AI gate review — `06-REVIEWS.md` B1/B2/B3
+blocking, A1-A7 advisory. Waves continue the phase's `max(depends_on) + 1` numbering.)*
+
+**Wave 8**
+
+- [ ] 06-18-PLAN.md — B1: federated attributability gate replaces the vacuous strict-equality invocation (D-IMPL-57 reading (a))
+- [ ] 06-20-PLAN.md — B3: adversarial legs give the seam-3/seam-4 portability equalities observed failure modes
+- [ ] 06-21-PLAN.md — A1 + A2: LF A2A instance scan; `AdmittedProduct` unforgeability claim scoped by test
+
+**Wave 9** *(blocked on 06-18)*
+
+- [ ] 06-19-PLAN.md — B2: `D-IMPL-58` surfaced, Dave rules, merged lineage reaches fabric state (or the claim is narrowed)
+
+**Wave 10** *(blocked on the closure work stating what is true)*
+
+- [ ] 06-22-PLAN.md — Claim narrowing, traceable per finding: B1/B3 criteria, A2/A4/A5 doc defects, disposition for A3/A6/A7
+
+**Wave 11** *(gate re-presentation)*
+
+- [ ] 06-23-PLAN.md — Post-closure sweep, row-by-row gate re-verification, re-present to Dave. **Does not log `D-GATE-I.3`**
 
 **Wave ordering note**: waves are `max(depends_on) + 1`. D-02's transport → trust →
 harness widening is a *risk ordering* — it governs where the phase's unknowns land, not
