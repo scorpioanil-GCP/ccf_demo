@@ -56,6 +56,7 @@ from ccf.artifacts.protocol import artifact_uri, parse_artifact_uri
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.resolution import ControlPlaneResolution, resolve_pinned
+from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY
 from ccf.skills.grants import BoundSkillView
 
@@ -183,10 +184,23 @@ class AgentFactory:
         control_plane: The injected resolution surface. Constructor injection,
             never ambient lookup — the factory holds no keys, no versions,
             and no storage handles of its own.
+        callable_registry: The deployment's boot-time
+            :class:`~ccf.skills.callables.CallableRegistry`, carried onto
+            every constructed agent so ``local_callable`` dispatch resolves
+            against what this composition root registered (D-19). ``None``
+            registers nothing, which is a positive statement: every
+            ``local_callable`` entry then resolves to nothing, without an
+            import.
     """
 
-    def __init__(self, *, control_plane: ControlPlaneResolution) -> None:
+    def __init__(
+        self,
+        *,
+        control_plane: ControlPlaneResolution,
+        callable_registry: CallableRegistry | None = None,
+    ) -> None:
         self._control_plane = control_plane
+        self._callable_registry = callable_registry
 
     def _resolve_reference(self, uri: str) -> object:
         """Resolve one pinned reference via :func:`_resolve_pinned`."""
@@ -263,6 +277,7 @@ class AgentFactory:
             components=components,
             instruction_artifacts=instruction_artifacts,
             bound_skills=bound_skills,
+            callable_registry=self._callable_registry,
         )
 
 
