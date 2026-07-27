@@ -240,7 +240,22 @@ Plans:
   4. Single-writer invariant demonstrably holds across the A2A boundary, the adapter boundary, and the ArtifactStore
   5. **MCP-backed ArtifactStore reference implementation ships** and passes the same shared ArtifactStore Protocol conformance suite as the file-backed dev impl, with no other deployment change required to swap between them *(inherited from Phase 4 per the D-12 scope amendment recorded on Phase 4 criterion 4)*
 
-**Plans:** 16/17 plans executed
+**Plans:** 17/17 plans executed
+
+**Criterion evidence** (all in `docs/PHASE_I3_GATE.md`, which carries a 20-row
+checklist naming, per row, its test *and* what would fail under breakage):
+
+  1. → §3.1 / §3.4 — bidirectional MCP. **The Experience-surface edge is a named
+     Phase 7 deferral**, not a claim of coverage: L1 ingress, L4/L5 decision-time
+     acquisition, L6 egress and the distinct ArtifactStore MCP role all ship here.
+  2. → §3.2 — A2A over two interchangeable `WireProtocol` implementations
+     (typed-HTTP and the D-IMPL-14 default LF A2A), detached-JWS identity,
+     Control Plane admission ahead of L2, lineage set-union property.
+  3. → §3.3 — `HarnessAdapterProtocol` + all three D-IMPL-24 adapters, four seams,
+     CINV-02 green and re-verified by relocation, never widened.
+  4. → §3.4 — three *separate* boundary observables (A2A, adapter, ArtifactStore),
+     not one generalized claim.
+  5. → §3.4 — factory-parametrized `file`/`mcp` ArtifactStore conformance suite.
 
 Plans:
 **Wave 1** *(blockers — D-24 lint carve-out, packaging, D-19 gate)*
@@ -279,7 +294,7 @@ Plans:
 
 **Wave 7** *(gate)*
 
-- [ ] 06-16-PLAN.md — Full sweep, CI harness leg, PHASE_I3_GATE.md, present to Dave
+- [x] 06-16-PLAN.md — Full sweep, CI harness leg, PHASE_I3_GATE.md, present to Dave
 
 **Wave ordering note**: waves are `max(depends_on) + 1`. D-02's transport → trust →
 harness widening is a *risk ordering* — it governs where the phase's unknowns land, not
