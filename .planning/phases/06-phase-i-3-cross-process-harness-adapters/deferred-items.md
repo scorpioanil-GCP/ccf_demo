@@ -119,3 +119,23 @@ broken state: `chromadb` was installed in an earlier phase when otel was 1.44.0
 downgrading the already-installed *exporter*. CI resolves from scratch and never
 sees it. Local venv repaired by pinning the exporter to 1.42.1; `pip check`
 clean, 926 passed / 2 skipped. D-08's one-command requirement is intact.
+
+---
+
+## Dave's rulings (2026-07-27, wave-5 close) — both items land in 06-16
+
+**Item 3 — `AdmittedProduct` on L2: RULED. Adopt 06-10's proposal, in plan 06-16.**
+Add `AssemblyWorker.ingest_admitted(admitted: AdmittedProduct)` alongside the
+existing envelope-based `ingest`, deriving envelopes internally. The existing
+`ingest(SignalEnvelope)` keeps serving CDC and MCP ingress unchanged; the
+federated path gets its own typed entry point, so an unadmitted federated
+product becomes a **type error** rather than a discipline violation. This is a
+deliberate change to L2's declared surface, ruled by Dave rather than taken by an
+executor. Closes the §7.2 admission commitment structurally and satisfies §10's
+"architectural, not advisory".
+
+**Item 4 — `McpSkillRegistry` threading: RULED. Close in 06-16, before the gate.**
+Thread `McpSkillRegistry` from `AgentFactory` through `Agent.invoke_skill` so an
+`mcp`-transport skill works end to end. Rationale: 06-15's neutrality proof must
+not be written *around* a gap this phase itself opened, and harness skill
+exposure (seam 2) is only meaningful if an exposed skill is actually invocable.
