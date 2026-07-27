@@ -211,7 +211,10 @@ grants:
     name: treasury-covenant-metrics-local
     tenant: acme-bank
     skill_name: covenant-metrics-local
-    skill_version: "1.1.0"
+    # Re-pinned to 1.2.0 with the D-19 callable_ref key migration: a grant
+    # names an exact entry version, so a content bump upstream is a re-pin
+    # here, never a silent follow.
+    skill_version: "1.2.0"
   writeback:
     schema_version: "1.0.0"
     artifact_version: "1.0.0"

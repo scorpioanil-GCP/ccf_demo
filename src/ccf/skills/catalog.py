@@ -76,13 +76,19 @@ class SkillNotInCatalog(LookupError):
 
 
 class LocalCallableBinding(CCFContract):
-    """A ``local_callable`` skill's descriptor: a dotted callable reference.
+    """A ``local_callable`` skill's descriptor: a registry key.
 
-    A *reference*, never an import: nothing resolves ``callable_ref`` in this
-    wave, and when dispatch lands (05-06) callables resolve only from entries
-    already registered as Control Plane artifacts under the tenant trust
-    boundary — the ref value lives in fixtures/user artifacts and is never
-    accepted from decision-time input (T-05-18).
+    A *reference*, never an import. ``callable_ref`` names a key in the
+    deployment's :class:`~ccf.skills.callables.CallableRegistry`, populated by
+    explicit registration at the composition root; dispatch resolves it there
+    and imports nothing, so an entry can only name a callable this deployment
+    already chose to offer, whatever artifact source the entry arrived from
+    (D-19; IN-06 — this replaces the I.2 T-05-18 precondition, which MCP and
+    A2A artifact sources invalidate).
+
+    The field's name and ``str`` type are unchanged by that ruling — only the
+    meaning of the string changed, from a dotted module path to a key — so no
+    artifact schema version breaks.
     """
 
     callable_ref: str

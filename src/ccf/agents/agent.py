@@ -41,7 +41,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ccf.agents.archetypes import ArchetypeComponent
 from ccf.agents.definitions import (
@@ -60,9 +60,12 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.products.contract import ContextProductContract
 from ccf.replay.record import NO_GRANTS_SET_HASH, PerspectiveConditioning
+from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import SkillCatalogEntry
-from ccf.skills.dispatch import SkillInvocation, ToolInvocation, dispatch_skill
 from ccf.skills.grants import BoundSkillView
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from ccf.skills.dispatch import SkillInvocation, ToolInvocation
 
 __ccf_mode__ = "algorithmic"
 
@@ -160,6 +163,13 @@ class Agent:
             view, so grants and revocations take effect at invoke time
             without the agent's identity ever changing (CLAUDE.md §6.2;
             D-07 — skill-set changes never touch agent identity).
+        callable_registry: The deployment's boot-time
+            :class:`~ccf.skills.callables.CallableRegistry`, which
+            ``local_callable`` dispatch resolves against (D-19). ``None``
+            means this deployment registered no callables, so every
+            ``local_callable`` entry resolves to nothing — positively, and
+            without importing anything. Held by reference, injected from the
+            composition root, never an ambient lookup (D-23).
 
     Raises:
         AgentConstructionError: the inputs do not describe one coherent agent,
@@ -174,6 +184,7 @@ class Agent:
         components: tuple[ArchetypeComponent, ...],
         instruction_artifacts: Mapping[str, PromptArtifact],
         bound_skills: BoundSkillView | None,
+        callable_registry: CallableRegistry | None = None,
     ) -> None:
         expected_hash = content_hash(definition)
         if identity.definition_hash != expected_hash:
@@ -218,6 +229,9 @@ class Agent:
         self._components = components
         self._instruction_artifacts = dict(instruction_artifacts)
         self._bound_skills = _validated_bound_skills(bound_skills)
+        self._callable_registry = (
+            callable_registry if callable_registry is not None else CallableRegistry()
+        )
 
     @property
     def identity(self) -> AgentIdentity:
@@ -310,6 +324,9 @@ class Agent:
             SkillNotBound: no grant currently binds ``name`` to this agent.
             ccf.agents.errors.NotYetBound: the bound entry is ``mcp`` or
                 ``a2a`` and this build lacks the transport (D-08).
+            ccf.skills.callables.CallableNotRegistered: the bound entry is a
+                ``local_callable`` whose ``callable_ref`` names no key this
+                deployment's composition root registered (D-19).
         """
         try:
             bound = self._skills()[name]
@@ -321,7 +338,17 @@ class Agent:
             ) from None
         if arguments is None:
             return bound
-        return dispatch_skill(bound, arguments=arguments)
+        # Imported at call time, not at module import: ``ccf.skills.dispatch``
+        # raises ``ccf.agents.errors.NotYetBound``, so a module-level import
+        # here would make ``ccf.skills`` and ``ccf.agents`` mutually
+        # import-ordered — and an import graph whose success depends on which
+        # module a caller reached first is exactly the non-determinism
+        # D-IMPL-37 rejects for registries.
+        from ccf.skills.dispatch import dispatch_skill
+
+        return dispatch_skill(
+            bound, arguments=arguments, callable_registry=self._callable_registry
+        )
 
     def emit_effect(self, payload: Mapping[str, Any]) -> EmittedEffect:
         """Emit ``payload`` as a returned typed value (no write handle).

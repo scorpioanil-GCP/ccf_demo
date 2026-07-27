@@ -1,10 +1,12 @@
 """The fixture local-callable the dispatch suite resolves — /tests only.
 
-The target of the ``covenant-metrics-local`` catalog entry's ``callable_ref``
-(``fixtures.banking.skills.callables.covenant_metrics``). A fixture value in
-module form: dispatch resolves callables only from entries registered as
-Control Plane artifacts under the tenant trust boundary (T-05-18), and this
-module is that registered ref's destination for the banking fixtures.
+What ``tests/conftest.py`` registers into the deployment's
+:class:`~ccf.skills.callables.CallableRegistry` under the key the
+``covenant-metrics-local`` catalog entry declares as its ``callable_ref``
+(D-19 / D-IMPL-54). Nothing imports this module by way of that ref — the key
+and the function are bound by an explicit registration call at the test
+suite's composition root, which is the whole point of the control: a catalog
+entry names a key, and only what a composition root registered is reachable.
 
 Deterministic and side-effect free, like every fixture the suite drives.
 """
