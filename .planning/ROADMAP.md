@@ -240,7 +240,43 @@ Plans:
   4. Single-writer invariant demonstrably holds across the A2A boundary, the adapter boundary, and the ArtifactStore
   5. **MCP-backed ArtifactStore reference implementation ships** and passes the same shared ArtifactStore Protocol conformance suite as the file-backed dev impl, with no other deployment change required to swap between them *(inherited from Phase 4 per the D-12 scope amendment recorded on Phase 4 criterion 4)*
 
-**Plans**: TBD
+**Plans:** 16 plans
+
+Plans:
+**Wave 1** *(blockers — D-24 lint carve-out, packaging, D-19 gate)*
+
+- [ ] 06-01-PLAN.md — CINV-02 harness-adapter carve-out + negative boundary tests + DESIGN.md B4 (D-24)
+- [ ] 06-02-PLAN.md — Harness extras, mypy over /runtime, crossproc+harness markers (D-08, B2)
+- [ ] 06-03-PLAN.md — Registered-callable table replacing importlib dispatch (D-19, blocking)
+
+**Wave 2** *(the D-01 vertical slice)*
+
+- [ ] 06-04-PLAN.md — Shared MCP client + sync facade, L6 egress server, THE crossproc fixture (D-01, D-15/16/17)
+
+**Wave 3** *(transport wave a)*
+
+- [ ] 06-05-PLAN.md — MCP-backed ArtifactStore + separate artifact server w/ TokenVerifier (criterion 5, D-26)
+- [ ] 06-06-PLAN.md — MCP client ingress at L1 + mcp skill dispatch (D-05)
+
+**Waves 4-7** *(trust wave b)*
+
+- [ ] 06-07-PLAN.md — IdentityProvider + detached-JWS ES256 + trust-policy artifact (D-13, D-IMPL-16)
+- [ ] 06-08-PLAN.md — WireProtocol + admission gate ahead of L2 + lineage set-union property (D-12, D-14)
+- [ ] 06-09-PLAN.md — Typed-HTTP transport + real two-process exchange + A2A single-writer leg (D-11)
+- [ ] 06-10-PLAN.md — LF A2A transport (D-IMPL-14 default) + a2a skill dispatch (D-05)
+
+**Waves 8-12** *(harness wave c)*
+
+- [ ] 06-11-PLAN.md — HarnessAdapterProtocol + D-25 harness_trace + sandboxed prompt render
+- [ ] 06-12-PLAN.md — Claude Agent SDK adapter deep + conformance suite + skip mechanism (D-07, D-09)
+- [ ] 06-13-PLAN.md — LangGraph adapter + Protocol hardening for topology ownership
+- [ ] 06-14-PLAN.md — Google ADK adapter + D-10 effects-inert proof + adapter single-writer leg
+- [ ] 06-15-PLAN.md — Harness portability: one definition, three harnesses, D-18 equivalence
+
+**Wave 13** *(gate)*
+
+- [ ] 06-16-PLAN.md — Full sweep, CI harness leg, PHASE_I3_GATE.md, present to Dave
+
 **Process notes**: Model mandate — Opus 5 (fallback Opus 4.8), "high" effort. Branch: `phase-i3`. Ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.3` before Phase 7 begins.
 
 ### Phase 7: Phase I.4 — Orchestration, HITL, Experience
