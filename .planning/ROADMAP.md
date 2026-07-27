@@ -308,6 +308,7 @@ blocking, A1-A7 advisory. Waves continue the phase's `max(depends_on) + 1` numbe
 **Wave 9** *(blocked on 06-18)*
 
 - [ ] 06-19-PLAN.md — B2: `D-IMPL-58` surfaced, Dave rules, merged lineage reaches fabric state (or the claim is narrowed)
+  - *Escalation*: if Dave rules reading (a) or (b), the L-axis contract change is re-planned as `06-24-PLAN.md` at wave 10 and 06-22/06-23 move to waves 11/12. Only reading (c) executes inside 06-19.
 
 **Wave 10** *(blocked on the closure work stating what is true)*
 
