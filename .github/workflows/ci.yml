@@ -37,8 +37,12 @@ jobs:
       - name: CCF invariant lints (No-Hardcoding, harness imports, @algorithmic)
         run: python -m tools.lints --all
 
-      - name: mypy --strict
-        run: mypy --strict src
+      # No explicit paths: `[tool.mypy] files` is the single source of truth for what
+      # is type-checked, and it now covers `src` *and* `runtime` (06-RESEARCH.md B2).
+      # Passing `src` here would have quietly excluded every harness adapter, transport,
+      # and MCP server this phase adds.
+      - name: mypy --strict (src + runtime)
+        run: mypy
 
   test:
     name: tests (python ${{ matrix.python-version }})

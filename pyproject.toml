@@ -76,10 +76,16 @@ markers = [
   "postgres: requires a Postgres backend (service container in CI, testcontainers locally) — D-10",
   "chroma: requires the optional `chroma` extra — D-13",
   "conformance: shared parametrized Protocol conformance suite — D-16",
+  "crossproc: spawns real subprocesses over loopback — D-15/D-16",
+  "harness: requires a harness extra (adk | claude-agent | langgraph) — D-08/D-09",
 ]
 
+# `runtime` joins `src` here per 06-RESEARCH.md finding B2: the majority of Phase I.3's
+# new code (harness adapters, A2A transports, both MCP servers) lands in `/runtime`,
+# which was previously type-checked by nothing while the I.1 and I.2 gate evidence both
+# cite "mypy --strict clean".
 [tool.mypy]
-files = ["src"]
+files = ["src", "runtime"]
 python_version = "3.12"
 strict = true
 warn_unreachable = true
@@ -90,4 +96,65 @@ warn_unreachable = true
 # the untyped boundary is one call deep and closed by validation, not by trust.
 [[tool.mypy.overrides]]
 module = ["yaml"]
+ignore_missing_imports = true
+
+# chromadb is an optional extra and is deliberately absent from `dev` (04-RESEARCH.md:
+# "NEVER a core dependency"), so a `dev`-only environment — which is exactly what CI
+# installs — cannot resolve it and `mypy` fails on the one guarded import in
+# `ccf.similarity.chroma_index`. Without this override the type-check result depends on
+# whether an optional extra happens to be installed, which makes "mypy --strict clean"
+# an environment-dependent claim. The boundary is closed by the SimilarityIndex Protocol:
+# the adapter's public surface is fully typed and every value returned by chromadb is
+# converted into a CCF-owned type before it leaves the module.
+[[tool.mypy.overrides]]
+module = ["chromadb", "chromadb.*"]
+ignore_missing_imports = true
+
+# The five overrides below are deliberately written one block per module rather than as a
+# single blanket block. A blanket block is an untracked widening: it would silently absorb
+# any future untyped import, and the honest claim (D-21) has to name exactly which
+# boundaries are untyped. Each is justified on its own terms below.
+
+# google-adk 2.5.0 ships no py.typed marker. It is imported only inside
+# `ccf_runtime.adapters.adk` — the CINV-02 carve-out module — where every value crossing
+# the seam is either constructed from, or validated into, a CCF-owned typed contract
+# (ContextProduct, the grant set, the replay record). The untyped boundary is closed by
+# CCF's own validation at the seam, not by trusting the vendor's shapes.
+[[tool.mypy.overrides]]
+module = ["google.adk.*"]
+ignore_missing_imports = true
+
+# langgraph 1.2.9 ships no usable inline types for the surfaces the adapter binds
+# (StateGraph node registration, compiled-graph invocation). Confined to
+# `ccf_runtime.adapters.langgraph`; the adapter's own public signatures are fully typed
+# and its state payloads are CCF contracts, so the untyped region does not escape the
+# module. Note D-IMPL-17: this is the *harness* seam only, never the orchestrator seam.
+[[tool.mypy.overrides]]
+module = ["langgraph.*"]
+ignore_missing_imports = true
+
+# langchain-core arrives transitively under langgraph and appears in the same adapter's
+# type positions (message and tool shapes). Listed separately from `langgraph.*` because
+# it is a different distribution with a different release cadence — collapsing them would
+# hide the day one of them starts shipping types.
+[[tool.mypy.overrides]]
+module = ["langchain_core.*"]
+ignore_missing_imports = true
+
+# claude-agent-sdk 0.2.128 ships no py.typed marker. Imported only inside
+# `ccf_runtime.adapters.claude_agent`. The seam CCF actually governs — the exposed
+# skill-set and the captured effects — is typed on the CCF side of every call, so an
+# unannotated vendor signature cannot widen a CCF contract.
+[[tool.mypy.overrides]]
+module = ["claude_agent_sdk.*"]
+ignore_missing_imports = true
+
+# a2a-sdk 1.1.2 is protobuf-generated (`a2a_pb2`), so its runtime types are not the
+# typed boundary and must never be treated as one (06-RESEARCH.md Pitfall 5): CCF's own
+# ContextProduct contract is the boundary at the A2A seam, and every inbound product is
+# re-validated into it before the Control Plane admission gate (D-12). Scoped to the
+# generated/vendor surface rather than adding `types-protobuf`, which would type the
+# wire shapes CCF deliberately declines to trust.
+[[tool.mypy.overrides]]
+module = ["a2a.*"]
 ignore_missing_imports = true
