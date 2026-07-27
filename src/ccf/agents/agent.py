@@ -66,6 +66,7 @@ from ccf.skills.grants import BoundSkillView
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from ccf.skills.dispatch import (
+        A2AInvocation,
         McpInvocation,
         SkillInvocation,
         ToolInvocation,
@@ -311,7 +312,13 @@ class Agent:
 
     def invoke_skill(
         self, name: str, *, arguments: Mapping[str, str] | None = None
-    ) -> SkillCatalogEntry | SkillInvocation | ToolInvocation | McpInvocation:
+    ) -> (
+        SkillCatalogEntry
+        | SkillInvocation
+        | ToolInvocation
+        | McpInvocation
+        | A2AInvocation
+    ):
         """Invoke (or introspect) the currently-bound skill under ``name``.
 
         The channel-2 seam (CLAUDE.md §7.3 seam 2): skills the agent has not
@@ -326,17 +333,21 @@ class Agent:
 
         Raises:
             SkillNotBound: no grant currently binds ``name`` to this agent.
-            ccf.agents.errors.NotYetBound: the bound entry is ``a2a`` and
-                this build lacks the transport (D-08).
+            ccf.agents.errors.NotYetBound: the bound entry's binding is none
+                of the four this build dispatches — reachable only from a
+                skill type a later artifact schema introduces (D-08).
             ccf.skills.dispatch.McpSkillUnregistered: the bound entry is
                 ``mcp`` and no ``McpSkillRegistry`` reaches this dispatch.
-                The ``mcp`` transport is bound at
-                :func:`ccf.skills.dispatch.dispatch_skill`; threading a
-                registry from the factory through this method is a later
-                plan's scope, so an ``mcp`` skill invoked *via an agent*
-                still refuses today — with a wiring error naming the missing
-                registry, rather than the old "no transport exists" claim,
-                which is no longer true.
+            ccf.skills.dispatch.A2ASkillUnregistered: the bound entry is
+                ``a2a`` and no ``A2ASkillRegistry`` reaches this dispatch.
+
+                Both transports are bound at
+                :func:`ccf.skills.dispatch.dispatch_skill`; threading their
+                registries from the factory through this method is a later
+                plan's scope, so an ``mcp`` or ``a2a`` skill invoked *via an
+                agent* still refuses today — with a wiring error naming the
+                missing registry, rather than a "no transport exists" claim,
+                which is no longer true of either.
             ccf.skills.callables.CallableNotRegistered: the bound entry is a
                 ``local_callable`` whose ``callable_ref`` names no key this
                 deployment's composition root registered (D-19).

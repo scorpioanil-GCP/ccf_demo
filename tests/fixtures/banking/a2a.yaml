@@ -25,6 +25,23 @@ consumer:
   # URL space is the deployment's; the SDK holds no default.
   receive_path: /ccf/a2a/inbound
 
+# The LF A2A leg's own deployment values (D-IMPL-14's default wire). Separate
+# from `consumer` above because they describe the *transport*, not the peer: the
+# peer identity, its entitlements and its ceilings are identical whichever wire
+# carries the product, which is the substitution claim this file's two legs
+# exist to make checkable.
+#
+# The Agent Card fields are this deployment's statement about itself. They are
+# discovery values, never trust values — what binds a product to a principal is
+# the detached-JWS `kid` against the `peers` entries above, and no field here
+# contributes to that.
+lf_a2a:
+  rpc_path: /ccf/a2a/jsonrpc
+  card:
+    name: acme-bank-federation-peer
+    version: "1.0.0"
+    description: Acme Bank's CCF federation endpoint
+
 # Two peers, with different keys and different entitlements (D-23). Two, and
 # not one, because a single-principal proof passes against a gate that checks
 # signatures over every key it holds — which is exactly the defect the two-peer

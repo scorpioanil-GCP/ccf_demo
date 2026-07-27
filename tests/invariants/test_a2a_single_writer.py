@@ -70,6 +70,7 @@ from crossproc.test_a2a_exchange import (  # noqa: F401 — re-registered fixtur
     _ingest_admitted,
     _tampered,
     consumer,
+    transport,
 )
 
 pytestmark = pytest.mark.crossproc
