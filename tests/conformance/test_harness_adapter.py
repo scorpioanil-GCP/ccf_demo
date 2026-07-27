@@ -85,6 +85,12 @@ pytestmark = [pytest.mark.conformance, pytest.mark.harness]
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
+#: A harness module name no extra installs, used to drive the skip mechanism's
+#: real code path (T-06-71). Deliberately not one of the three real harnesses:
+#: those get installed as their legs land, and a probe that stops probing the
+#: moment a leg arrives is the silently-green failure this guards against.
+ABSENT_HARNESS = "ccf_no_such_harness_sdk"
+
 
 # --- fixture material ---------------------------------------------------------
 
@@ -364,9 +370,9 @@ class HarnessLeg(NamedTuple):
     trace_id: str
 
 
-@pytest.fixture(params=["claude-agent"])
+@pytest.fixture(params=["claude-agent", "langgraph"])
 def harness_leg(request: pytest.FixtureRequest) -> Iterator[HarnessLeg]:
-    """One leg per harness. 06-13 and 06-14 add their params here."""
+    """One leg per harness. 06-14 adds its param here."""
     if request.param == "claude-agent":
         harness_unavailable("claude_agent_sdk", request.param)
         from claude_agent_sdk import ModelUsage, ResultMessage
@@ -416,6 +422,65 @@ def harness_leg(request: pytest.FixtureRequest) -> Iterator[HarnessLeg]:
             trace_id=values["session_id"],
         )
         return
+    if request.param == "langgraph":
+        harness_unavailable("langgraph", request.param)
+
+        from ccf_runtime.adapters.langgraph import (
+            HARNESS_ID,
+            MODEL_METADATA_KEY,
+            USAGE_METADATA_KEY,
+            LangGraphAdapter,
+        )
+
+        values = _harness_fixture()[request.param]
+
+        def lg_adapter(effects: EffectCapability) -> HarnessAdapterProtocol:
+            return LangGraphAdapter(
+                model=values["model"],
+                thread_id=values["thread_id"],
+                run_tags=tuple(values["run_tags"]),
+                effects=effects,
+            )
+
+        def lg_execution() -> object:
+            """A **real** run of the adapter's own compiled graph, no model.
+
+            The one seam a bare adapter factory cannot drive, and for a
+            topology-owning harness the topology under test is the adapter's,
+            so this drives that — plain-function nodes, ``.invoke()``, no
+            network. The reported model and token counts are merged into the
+            run configuration's metadata under LangChain's own tracing keys,
+            which is where a chat model would have written them; the adapter
+            never writes them and reads them only back out of the run's final
+            state.
+            """
+            carrier = lg_adapter("governed").inject_context(
+                agent=World().agent_a, products=(), instructions=()
+            )
+            graph = carrier.graph  # type: ignore[attr-defined]
+            config = dict(carrier.config)  # type: ignore[attr-defined]
+            config["metadata"] = {
+                **config["metadata"],
+                MODEL_METADATA_KEY: values["reported_model"],
+                USAGE_METADATA_KEY: {
+                    "input_tokens": values["input_tokens"],
+                    "output_tokens": values["output_tokens"],
+                },
+            }
+            result: object = graph.invoke(
+                carrier.state,  # type: ignore[attr-defined]
+                config,
+            )
+            return result
+
+        yield HarnessLeg(
+            harness_id=HARNESS_ID,
+            adapter=lg_adapter,
+            execution=lg_execution,
+            reported_model=values["reported_model"],
+            trace_id=values["thread_id"],
+        )
+        return
     raise NotImplementedError(request.param)
 
 
@@ -463,12 +528,19 @@ def test_the_no_model_guard_is_actually_installed() -> None:
 def test_an_absent_harness_skips_with_an_instruction_not_a_mystery(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The skip message names the harness and the extra that enables it."""
+    """The skip message names the harness and the extra that enables it.
+
+    Driven against a module that is genuinely absent rather than a mock, so
+    this exercises the real code path. It was ``langgraph`` until 06-13
+    installed it — a leg's own arrival must not be able to hollow out the
+    mechanism that proves the other legs did not silently skip, so the probe
+    is a name no extra will ever install.
+    """
     monkeypatch.delenv(HARNESS_REQUIRED_ENV, raising=False)
     with pytest.raises(Skipped) as skipped:
-        harness_unavailable("langgraph", "langgraph")
+        harness_unavailable(ABSENT_HARNESS, ABSENT_HARNESS)
     message = str(skipped.value)
-    assert "langgraph" in message
+    assert ABSENT_HARNESS in message
     assert "pip install -e" in message
     assert "harnesses" in message
 
@@ -484,7 +556,7 @@ def test_an_absent_harness_fails_when_the_environment_requires_it(
     """
     monkeypatch.setenv(HARNESS_REQUIRED_ENV, "1")
     with pytest.raises(Failed) as failed:
-        harness_unavailable("langgraph", "langgraph")
+        harness_unavailable(ABSENT_HARNESS, ABSENT_HARNESS)
     assert HARNESS_REQUIRED_ENV in str(failed.value)
     assert not isinstance(failed.value, Skipped)
 
@@ -587,7 +659,7 @@ def test_seam_2_follows_a_revocation_without_re_declaring_the_agent(
     assert world.agent_a.identity == identity_before
 
 
-def test_seam_2_is_per_agent_not_per_catalog(
+def test_seam_2_is_per_agent_not_per_catalog_the_two_agent_case(
     harness_leg: HarnessLeg, world: World
 ) -> None:
     """D-23: two agents, one adapter, two different tool sets.
@@ -676,6 +748,34 @@ def test_seam_4_records_what_the_harness_reported(
     assert trace.input_tokens > 0
     assert trace.output_tokens > 0
     assert trace.trace_provider != NO_HARNESS
+
+
+def test_seam_4_reads_what_the_harness_carried_not_what_the_adapter_held(
+    harness_leg: HarnessLeg,
+) -> None:
+    """The correlation values must be *in* the execution result, not beside it.
+
+    An adapter that filled ``harness_trace`` from its own configuration would
+    pass every assertion above while recording a claim no run ever made. So
+    the same generic carrier walk the seam-1 assertions use is pointed at the
+    execution result: the trace reference and the reported model have to be
+    findable inside the thing the harness produced, and the trace the adapter
+    derives from it has to agree with them.
+
+    For a callback-shaped harness this is a vendor result object; for a
+    topology-owning one it is the final state of a real run, and the values
+    got there by travelling through that harness's own run-configuration
+    machinery. Both are the same claim, which is why this assertion names
+    neither.
+    """
+    execution = harness_leg.execution()
+    carried = _carrier_strings(execution)
+    assert any(harness_leg.trace_id in text for text in carried)
+    assert any(harness_leg.reported_model in text for text in carried)
+
+    trace = harness_leg.adapter("governed").replay_trace(execution=execution)
+    assert trace.trace_id == harness_leg.trace_id
+    assert harness_leg.reported_model in trace.model_version
 
 
 def test_seam_4_cannot_touch_a_governed_replay_dimension(

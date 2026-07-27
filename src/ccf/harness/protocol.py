@@ -46,6 +46,19 @@ no loop to hook — the adapter builds the graph. So the seams are shaped as
 registrations, because a callback-shaped Protocol would fit two of the three and
 force the LangGraph adapter to fake a loop it does not have.
 
+That shaping is now tested against both shapes and **forced no change to this
+surface** (06-12 Claude Agent SDK, 06-13 LangGraph). The mechanism, stated so a
+later edit does not undo it by accident: because every seam is a *plain
+translation the adapter itself calls*, a topology-owning adapter can call it
+from inside a node it built — LangGraph's effect node is literally a call to
+:meth:`HarnessAdapterProtocol.capture_effect` — while a callback-shaped seam
+would have required the harness to call CCF, which is the thing LangGraph has
+no loop to do. **No method or field here names a harness, and no implementation
+in ``/src`` branches on harness identity**; the two shapes are accommodated by
+the seams being translations, not by a conditional. Google ADK (06-14) is the
+third data point and is callback-shaped like Claude, so the interesting case is
+already covered.
+
 Seam status is D-IMPL-25, not this module's to reinterpret: context injection,
 effect capture, and replay hooks are mandatory for every conforming adapter;
 skill exposure is mandatory exactly when the bound agent's skill-set is
@@ -193,9 +206,12 @@ class HarnessAdapterProtocol(Protocol):
         Mandatory (D-IMPL-25). Returns the harness-native carrier the harness
         will actually consume: ``ClaudeAgentOptions`` under the Claude Agent
         SDK, an ``LlmAgent`` instruction (string or ``ReadonlyContext`` closure)
-        under Google ADK, a state-channel value on a compiled ``StateGraph``
-        under LangGraph. Typed :class:`object` deliberately — see the module
-        docstring.
+        under Google ADK, and — because a topology-owning adapter has no loop
+        to hand options to — the compiled ``StateGraph`` together with the
+        initial state and run configuration under LangGraph. Typed
+        :class:`object` deliberately — see the module docstring. Note how far
+        apart those three carriers are: that distance is the reason this return
+        type is not narrowed.
 
         ``products`` are already-gated Context Products the agent has already
         admitted through :meth:`~ccf.agents.agent.Agent.consume`; the harness
@@ -258,8 +274,8 @@ class HarnessAdapterProtocol(Protocol):
         """Seam 4 — the harness's execution into replay dimension 3.
 
         Mandatory (D-IMPL-25). Translates the harness-native execution result —
-        Claude's ``ResultMessage``, ADK's ``Event`` stream, LangGraph's
-        ``RunnableConfig`` plus final state — into the
+        Claude's ``ResultMessage``, ADK's ``Event`` stream, the final state a
+        LangGraph run produced — into the
         :class:`~ccf.replay.record.HarnessTrace` block that
         :func:`~ccf.replay.record.build_replay_record` records **verbatim**
         under ``model_version.harness_trace`` (D-25, D-IMPL-55).
@@ -272,6 +288,14 @@ class HarnessAdapterProtocol(Protocol):
         governs and differ only here. Writing a governed field from this seam is
         not possible: the block is a leaf, and dimension 3's ``assembly_mode``
         and ``model_version`` are the fabric's own claims (T-06-62).
+
+        ``execution`` is whatever the harness hands back, and 06-13 found the
+        one asymmetry worth naming: a topology-owning harness exposes its run
+        configuration only *inside* the topology, so the adapter captures it in
+        a node it owns and the execution result carrying it is a plain final
+        state. That is an adapter concern, not a Protocol one — the seam takes
+        :class:`object` and the adapter narrows it — but an adapter author who
+        expects a rich vendor result object here will not find one.
 
         An adapter that cannot determine a field leaves it at its positive
         :data:`~ccf.replay.record.NO_HARNESS` sentinel rather than guessing —

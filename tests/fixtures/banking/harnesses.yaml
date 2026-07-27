@@ -29,3 +29,23 @@ claude-agent:
   result_subtype: success
   input_tokens: 1234
   output_tokens: 567
+
+langgraph:
+  # Bound onto the run configuration this deployment invokes its graph with.
+  # Never invoked: the adapter's topology is plain-function nodes end to end,
+  # so the graph runs with no model and no network (D-09).
+  model: gpt-4.1-mini
+  # LangGraph's own run-correlation identifier, resolved under the run
+  # configuration's `configurable` mapping. A deployment value: which unit of
+  # work a run belongs to is the deployment's statement, not the SDK's.
+  thread_id: 8c1d05a7-3e42-4b19-9f6a-71c2d8e0b334
+  run_tags:
+    - ccf-conformance
+  # What the *harness* reports back during a run, propagated through the run
+  # configuration's metadata under LangChain's own tracing keys. Deliberately
+  # not the configured `model` above, for the same reason as the Claude block:
+  # a suite that used one value for both could not tell a governed claim from
+  # a harness-reported one (T-06-62).
+  reported_model: gpt-4.1-mini-2025-04-14
+  input_tokens: 4321
+  output_tokens: 765
