@@ -186,8 +186,14 @@ class AgentFactory:
     """Constructs agents from definition artifacts — the only supported path.
 
     CLAUDE.md §6.4; D-IMPL-28. Tests construct agents the same way, from
-    fixture artifacts; there is no path to an ``Agent`` that bypasses this
-    class, and the CINV-01c lint holds the codebase to it (D-12).
+    fixture artifacts. **Lint-enforced, not unrepresentable** (D-21): D-12
+    withdrew ``Agent``'s construction token in favour of the CINV-01c
+    factory-bypass rule, so what holds is "no module in the linted trees
+    constructs an ``Agent`` outside a factory path", enforced over the code
+    the SDK ships. It is not a statement about code the SDK does not lint —
+    contrast :class:`~ccf.a2a.admission.AdmittedProduct`, whose token is
+    justified precisely because its claim has to survive a transport a
+    deployment wrote itself.
 
     Args:
         control_plane: The injected resolution surface. Constructor injection,
