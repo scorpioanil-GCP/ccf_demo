@@ -1,0 +1,35 @@
+# Banking fixture material for the L1 MCP client ingress (CLAUDE.md §7.1;
+# whitepaper §8.3 Pattern 3, ingress direction; XPRC-01).
+#
+# Everything the MCP ingress suite is domain-specific about lives here: the
+# logical identity of the source system, the URI scheme and resource naming
+# the fixture MCP server publishes under, and the two tenants the D-23
+# multi-principal case drains. `/src` holds none of it (No-Hardcoding §6.4,
+# CINV-01) — and in particular holds no host and no port, which the fixture
+# does not spell either: the cross-process child binds an ephemeral loopback
+# port and the parent assembles the address, per `tests/crossproc/conftest.py`.
+
+# The logical identity recorded on every envelope this source produces.
+# Identity, never location (INV-CH8-01): a hostname here would bind the
+# fabric's lineage to a topology that changes on the next deployment.
+system_id: acme-bank-document-mcp
+
+# The URI scheme and authority the fixture server publishes its resources
+# under. An MCP resource URI is an address *within* the server, not a network
+# address — the network address is the client's, from Control Plane config.
+resource_uri_scheme: documents
+resource_uri_authority: acme-bank
+
+# The deployment's own name for each resource, and the tenant each drain is
+# scoped to. Both tenants read the SAME adapter over the SAME source: that is
+# the D-23 multi-principal case, and it holds only because tenancy is a
+# per-call argument of `envelopes()` rather than a constructor field.
+tenants:
+  primary: acme-bank
+  secondary: acme-bank-eu
+
+# A resource the server does not publish, for the unreachable-read case.
+absent_resource: shredded-agreements
+
+# Media type the fixture server declares for its JSON resources.
+mime_type: application/json
