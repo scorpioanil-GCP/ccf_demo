@@ -36,6 +36,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 
 from ccf.contracts.base import CCFContract
@@ -48,16 +49,27 @@ from ccf.operators.registry import (
     OperatorRegistry,
     UnregisteredOperator,
 )
+from ccf.projection.acquisition import (
+    AcquiredContent,
+    AcquirerNotConfigured,
+    ContentAcquirer,
+    ContentAcquiringPlan,
+    ContentUnsatisfied,
+    UndeclaredAcquisition,
+)
 from ccf.projection.plan import Perspective, ProjectionOutput, ProjectionPlan
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "AcquirerNotConfigured",
+    "ContentUnsatisfied",
     "DuplicateOperatorKey",
     "ExecutionResult",
     "ExecutionStep",
     "OperatorRegistry",
     "ProjectionEngine",
+    "UndeclaredAcquisition",
     "UnregisteredOperator",
 ]
 
@@ -92,6 +104,13 @@ class ExecutionResult(CCFContract):
         view: The final composed view. Retained because the snapshot watermark
             and touched-substate manifest of replay dimension 1 are computed
             from it (D-IMPL-06 — a logical snapshot, never a physical copy).
+        acquisitions: Content acquired at decision time, in resolution order,
+            each with its content address. Empty for a plan that declared none.
+            This is replay dimension 5's record of what the interpretation read
+            from outside the graph: **a replay re-feeds these recorded items
+            rather than re-acquiring** (INV-CH7-31), because a remote resource
+            that moved between the decision and the replay would otherwise make
+            the replay a new decision wearing the old one's identifier.
     """
 
     plan_id: str
@@ -100,6 +119,7 @@ class ExecutionResult(CCFContract):
     provenance: OperatorProvenance | None
     projection: ProjectionOutput
     view: GraphView
+    acquisitions: tuple[AcquiredContent, ...] = ()
 
     def touched_entities(self) -> tuple[str, ...]:
         """Entity URIs the execution actually touched, sorted."""
@@ -120,26 +140,95 @@ class ExecutionResult(CCFContract):
 
 
 class ProjectionEngine:
-    """Runs the operator plan and then Π, in that order, once.
+    """Runs the operator plan, then decision-time acquisition, then Π.
 
     Args:
         reader: Read-only graph access. There is no writer parameter on this
             constructor, and that absence is the point — L4/L5 are structurally
             incapable of writing (INV-CH7-11, single-writer per CLAUDE.md §10).
+            Adding an acquirer does not change this: an acquirer holds no graph
+            handle either, and what it fetches terminates in the projection
+            payload rather than entering L3.
         registry: The boot-populated operator registry.
+        acquirer: Resolves the content a :class:`ContentAcquiringPlan` declares
+            (CLAUDE.md §7.1, whitepaper §6.6). Optional, and its optionality is
+            structural rather than convenient: **a replay constructs the engine
+            without one** and re-feeds the recorded acquisitions, so an engine
+            that could always reach the network would make replay a live call.
     """
 
-    def __init__(self, *, reader: GraphReader, registry: OperatorRegistry) -> None:
+    def __init__(
+        self,
+        *,
+        reader: GraphReader,
+        registry: OperatorRegistry,
+        acquirer: ContentAcquirer | None = None,
+    ) -> None:
         self._reader = reader
         self._registry = registry
+        self._acquirer = acquirer
+
+    def _resolve_content(
+        self,
+        *,
+        plan: ContentAcquiringPlan,
+        tenant_id: str,
+        recorded_acquisitions: tuple[AcquiredContent, ...] | None,
+    ) -> tuple[AcquiredContent, ...]:
+        """Resolve the plan's declared content, or refuse.
+
+        Three refusals, no fallback. "Proceed without the content" is never one
+        of the outcomes: a projection silently interpreting absent content it
+        declared it needed is the debt-blind decision the fabric exists to
+        prevent (whitepaper §7.7).
+        """
+        requests = plan.required_content()
+        if recorded_acquisitions is not None:
+            resolved: Mapping[str, AcquiredContent] = {
+                acquired.request.request_key: acquired
+                for acquired in recorded_acquisitions
+            }
+        elif self._acquirer is None:
+            raise AcquirerNotConfigured(
+                f"plan {plan.plan_id!r} declares "
+                f"{len(requests)} content request(s) and this engine was "
+                "constructed without an acquirer"
+            )
+        else:
+            resolved = self._acquirer.acquire(
+                requests=requests, tenant_id=tenant_id
+            )
+
+        declared = {request.request_key for request in requests}
+        undeclared = sorted(set(resolved) - declared)
+        if undeclared:
+            raise UndeclaredAcquisition(
+                f"plan {plan.plan_id!r} did not declare {undeclared}; the "
+                "declared set and the resolved set are compared, never merged"
+            )
+        missing = sorted(declared - set(resolved))
+        if missing:
+            raise ContentUnsatisfied(
+                f"plan {plan.plan_id!r} declared {missing}, which came back "
+                "unsatisfied"
+            )
+        acquisitions = tuple(resolved[request.request_key] for request in requests)
+        for acquired in acquisitions:
+            if acquired.content_hash != acquired.rehash():
+                raise ContentUnsatisfied(
+                    f"content for {acquired.request.request_key!r} does not "
+                    "match its recorded content address"
+                )
+        return acquisitions
 
     def execute(
         self,
         *,
-        plan: ProjectionPlan,
+        plan: ProjectionPlan | ContentAcquiringPlan,
         perspective: Perspective,
         tenant_id: str,
         temporal_boundary: datetime,
+        recorded_acquisitions: tuple[AcquiredContent, ...] | None = None,
     ) -> ExecutionResult:
         """Execute ``plan`` for ``perspective`` as of ``temporal_boundary``.
 
@@ -148,9 +237,27 @@ class ProjectionEngine:
         anti-patterns): a replay feeds the boundary the original decision used
         and gets the original answer.
 
+        **Stage order is load-bearing.** Acquisition runs *after* the operator
+        plan and *before* Π. Policy is an operator, so by the time anything is
+        fetched the view has already been constrained for this principal, and
+        nothing is acquired on behalf of a principal Policy excluded — the
+        INV-CH7-26 ordering argument applied to acquisition. Running the fetch
+        first would be cheaper and would be exactly wrong.
+
+        Args:
+            recorded_acquisitions: Content a prior execution recorded. Supplied
+                by a replay, which re-feeds rather than re-acquires
+                (INV-CH7-31); when present the acquirer is not called at all.
+
         Raises:
             UnregisteredOperator: the plan declared a key the registry does not
                 hold.
+            AcquirerNotConfigured: the plan declares content and neither an
+                acquirer nor recorded acquisitions were supplied.
+            UndeclaredAcquisition: content came back that the plan never
+                declared.
+            ContentUnsatisfied: a declared request came back unsatisfied, or a
+                re-fed item does not match its recorded content address.
         """
         view = self._reader.as_of(tenant_id=tenant_id, at=temporal_boundary)
         operator_plan = build_operator_plan(
@@ -180,12 +287,30 @@ class ProjectionEngine:
                 )
             )
 
-        projection = plan.invoke(
-            view=view,
-            operator_outputs=outputs,
-            perspective=perspective,
-            temporal_boundary=temporal_boundary,
-        )
+        acquisitions: tuple[AcquiredContent, ...] = ()
+        if isinstance(plan, ContentAcquiringPlan):
+            acquisitions = self._resolve_content(
+                plan=plan,
+                tenant_id=tenant_id,
+                recorded_acquisitions=recorded_acquisitions,
+            )
+            projection = plan.invoke(
+                view=view,
+                operator_outputs=outputs,
+                perspective=perspective,
+                temporal_boundary=temporal_boundary,
+                acquired_content={
+                    acquired.request.request_key: acquired
+                    for acquired in acquisitions
+                },
+            )
+        else:
+            projection = plan.invoke(
+                view=view,
+                operator_outputs=outputs,
+                perspective=perspective,
+                temporal_boundary=temporal_boundary,
+            )
         return ExecutionResult(
             plan_id=plan.plan_id,
             operators_invoked=frozenset(outputs),
@@ -193,4 +318,5 @@ class ProjectionEngine:
             provenance=chain[0] if chain else None,
             projection=projection,
             view=view,
+            acquisitions=acquisitions,
         )
