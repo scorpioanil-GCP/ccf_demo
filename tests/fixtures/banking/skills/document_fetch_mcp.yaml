@@ -54,3 +54,38 @@ grant:
   skill_name: document-fetch
   skill_version: "1.0.0"
 expected_excess_scopes: [document-read]
+
+# A SECOND mcp entry, scoped inside what the `wholesale-credit` regime permits,
+# so it can actually be granted to the fixture agent and invoked *through* it
+# (Dave's 2026-07-27 ruling threading McpSkillRegistry from the factory into
+# `Agent.invoke_skill`). The entry above cannot serve that case: it is
+# deliberately over-scoped so tier 1 refuses it, which is what makes the
+# governance-ahead-of-the-network assertion material. Two entries, because one
+# fixture cannot be both the refused case and the admitted one.
+#
+# Same logical server and resource as above — the deployment block above is
+# what registers the address, and this entry names no address either.
+agent_invocable:
+  entry:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: portfolio-document-fetch
+    tenant: acme-bank
+    skill_type: mcp
+    binding:
+      server: acme-bank-documents
+      resource: loan-agreements
+    requirements:
+      required_scopes: [portfolio-read]
+      required_context_products: []
+  grant:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: covenant-analytics-portfolio-document-fetch
+    tenant: acme-bank
+    skill_name: portfolio-document-fetch
+    skill_version: "1.0.0"
+  arguments:
+    requested_by: covenant-analyst
+  requesting_actor: platform-operator
+  approver_id: risk-officer-7

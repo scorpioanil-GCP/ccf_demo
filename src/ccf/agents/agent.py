@@ -67,7 +67,9 @@ from ccf.skills.grants import BoundSkillView
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from ccf.skills.dispatch import (
         A2AInvocation,
+        A2ASkillRegistry,
         McpInvocation,
+        McpSkillRegistry,
         SkillInvocation,
         ToolInvocation,
     )
@@ -175,6 +177,17 @@ class Agent:
             ``local_callable`` entry resolves to nothing — positively, and
             without importing anything. Held by reference, injected from the
             composition root, never an ambient lookup (D-23).
+        mcp_skills: The deployment's
+            :class:`~ccf.skills.dispatch.McpSkillRegistry`, which ``mcp``
+            dispatch resolves against. ``None`` means this deployment wired no
+            MCP servers, so an ``mcp`` skill invoked here raises
+            :class:`~ccf.skills.dispatch.McpSkillUnregistered` — the same
+            fail-closed default ``callable_registry`` takes, and for the same
+            reason: manufacturing a client here would be the SDK choosing an
+            endpoint (CINV-01, T-06-24).
+        a2a_skills: The deployment's
+            :class:`~ccf.skills.dispatch.A2ASkillRegistry`, on exactly the same
+            terms.
 
     Raises:
         AgentConstructionError: the inputs do not describe one coherent agent,
@@ -190,6 +203,8 @@ class Agent:
         instruction_artifacts: Mapping[str, PromptArtifact],
         bound_skills: BoundSkillView | None,
         callable_registry: CallableRegistry | None = None,
+        mcp_skills: McpSkillRegistry | None = None,
+        a2a_skills: A2ASkillRegistry | None = None,
     ) -> None:
         expected_hash = content_hash(definition)
         if identity.definition_hash != expected_hash:
@@ -237,6 +252,12 @@ class Agent:
         self._callable_registry = (
             callable_registry if callable_registry is not None else CallableRegistry()
         )
+        # Held by reference, never constructed here: a registry the agent made
+        # for itself would be the SDK choosing servers and peers. ``None`` is a
+        # positive statement that this deployment wired none, and dispatch
+        # turns it into a named wiring error rather than a silent no-op.
+        self._mcp_skills = mcp_skills
+        self._a2a_skills = a2a_skills
 
     @property
     def identity(self) -> AgentIdentity:
@@ -337,17 +358,20 @@ class Agent:
                 of the four this build dispatches — reachable only from a
                 skill type a later artifact schema introduces (D-08).
             ccf.skills.dispatch.McpSkillUnregistered: the bound entry is
-                ``mcp`` and no ``McpSkillRegistry`` reaches this dispatch.
+                ``mcp`` and this deployment registered no such server — or
+                wired no :class:`~ccf.skills.dispatch.McpSkillRegistry` at all.
             ccf.skills.dispatch.A2ASkillUnregistered: the bound entry is
-                ``a2a`` and no ``A2ASkillRegistry`` reaches this dispatch.
+                ``a2a``, on exactly the same terms.
 
-                Both transports are bound at
-                :func:`ccf.skills.dispatch.dispatch_skill`; threading their
-                registries from the factory through this method is a later
-                plan's scope, so an ``mcp`` or ``a2a`` skill invoked *via an
-                agent* still refuses today — with a wiring error naming the
-                missing registry, rather than a "no transport exists" claim,
-                which is no longer true of either.
+                Both registries are now threaded from
+                :class:`~ccf.agents.factory.AgentFactory` through this method
+                (Dave, 2026-07-27), so an ``mcp`` or ``a2a`` skill invoked
+                *through an agent* reaches its transport. Harness skill
+                exposure (CLAUDE.md §7.3 seam 2) is only meaningful if an
+                exposed skill is actually invocable, which is why this closed
+                before the I.3 gate rather than after it. What remains
+                fail-closed is the unwired case: a refusal naming the missing
+                registry, never a fabricated endpoint.
             ccf.skills.callables.CallableNotRegistered: the bound entry is a
                 ``local_callable`` whose ``callable_ref`` names no key this
                 deployment's composition root registered (D-19).
@@ -371,7 +395,11 @@ class Agent:
         from ccf.skills.dispatch import dispatch_skill
 
         return dispatch_skill(
-            bound, arguments=arguments, callable_registry=self._callable_registry
+            bound,
+            arguments=arguments,
+            callable_registry=self._callable_registry,
+            mcp_skills=self._mcp_skills,
+            a2a_skills=self._a2a_skills,
         )
 
     def emit_effect(self, payload: Mapping[str, Any]) -> EmittedEffect:

@@ -65,9 +65,15 @@ from ccf.replay.record import (
     build_replay_record,
 )
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog, SkillCatalogEntry
-from ccf.skills.dispatch import ToolInvocation
+from ccf.skills.dispatch import (
+    McpInvocation,
+    McpSkillRegistry,
+    McpSkillUnregistered,
+    ToolInvocation,
+)
 from ccf.skills.grants import GrantLedger, SkillGrant
 from skills.sinks import ScriptedApprovalSink
+from skills.test_dispatch import _RecordingClient
 from integration.test_proto_quickstart import (
     _Fabric,
     _candidate,
@@ -319,6 +325,128 @@ def _granted_agent(
         bound_skills=ledger.bound_view(content_hash(definition)),
     )
     return agent, definition, ledger, granted_values
+
+
+def _mcp_fixture() -> dict[str, Any]:
+    loaded: dict[str, Any] = yaml.safe_load(
+        (FIXTURES / "skills" / "document_fetch_mcp.yaml").read_text()
+    )
+    return loaded
+
+
+def _mcp_granted_agent(
+    fabric: _Fabric, *, wire_registry: bool
+) -> tuple[Agent, _RecordingClient, dict[str, Any]]:
+    """Grant the in-scope ``mcp`` fixture entry and construct through the factory.
+
+    ``wire_registry`` is the whole experiment: the *same* grant, the same
+    catalog entry and the same agent definition, with the registry threaded or
+    not. Everything else being equal is what makes the pair an inversion rather
+    than two unrelated observations.
+
+    The client is a double rather than a live server because what is under test
+    is the *wiring* — that the registry the composition root gave the factory
+    reaches dispatch. The live MCP read is proved in
+    ``tests/crossproc/test_mcp_ingress.py``.
+    """
+    key, version, definition = _register_agent_artifacts(fabric)
+    mcp = _mcp_fixture()
+    declared: dict[str, Any] = mcp["agent_invocable"]
+    client = _RecordingClient(contents=mcp["dispatch"]["contents"])
+    registry = McpSkillRegistry(
+        audit_log=fabric.registry.audit_log, clock=lambda: fabric.now
+    )
+    registry.register(
+        server=mcp["deployment"]["server"],
+        client=client,
+        resources=mcp["deployment"]["resources"],
+    )
+
+    catalog = SkillCatalog(fabric.registry)
+    entry = parse_artifact(declared["entry"], SKILL_CATALOG_ENTRY)
+    assert isinstance(entry, SkillCatalogEntry)
+    assert isinstance(catalog.register(entry), str)
+    ledger = GrantLedger(
+        control_plane=fabric.registry,
+        catalog=catalog,
+        audit=fabric.registry.audit_log,
+        sink=ScriptedApprovalSink(
+            approve=True, approver_id=declared["approver_id"]
+        ),
+        clock=lambda: fabric.now,
+    )
+    grant = SkillGrant(
+        agent_definition_hash=content_hash(definition), **declared["grant"]
+    )
+    outcome = ledger.request(
+        grant, definition=definition, actor=declared["requesting_actor"]
+    )
+    assert isinstance(outcome, str), outcome
+
+    factory = AgentFactory(
+        control_plane=fabric.registry,
+        mcp_skills=registry if wire_registry else None,
+    )
+    agent = factory.construct(
+        definition_key=key,
+        definition_version=version,
+        bound_skills=ledger.bound_view(content_hash(definition)),
+    )
+    return agent, client, declared
+
+
+def test_a_granted_mcp_skill_is_invocable_through_the_agent_seam(
+    fabric: _Fabric,
+) -> None:
+    """Dave, 2026-07-27: the registry reaches dispatch from the factory.
+
+    Harness skill exposure (CLAUDE.md §7.3 seam 2) surfaces the agent's
+    currently-bound skill-set as the harness's tools, which is only meaningful
+    if an exposed skill is actually invocable. Before the threading, an ``mcp``
+    skill invoked through an ``Agent`` refused with ``McpSkillUnregistered``
+    however the deployment was wired.
+
+    What would fail here: dropping ``mcp_skills`` anywhere along
+    ``AgentFactory`` → ``Agent`` → ``dispatch_skill``. The read landing on the
+    URI the *deployment* registered — never anything spelled in the artifact —
+    is also asserted, so a threading that arrived by fabricating an endpoint
+    would fail here too (T-06-24).
+    """
+    agent, client, declared = _mcp_granted_agent(fabric, wire_registry=True)
+    mcp = _mcp_fixture()
+
+    invocation = agent.invoke_skill(
+        declared["grant"]["skill_name"], arguments=declared["arguments"]
+    )
+
+    assert isinstance(invocation, McpInvocation)
+    assert invocation.skill_name == declared["entry"]["name"]
+    assert invocation.server == declared["entry"]["binding"]["server"]
+    assert invocation.contents == mcp["dispatch"]["contents"]
+    assert dict(invocation.arguments) == declared["arguments"]
+    assert client.reads == [
+        mcp["deployment"]["resources"][declared["entry"]["binding"]["resource"]]
+    ]
+
+
+def test_an_unwired_deployment_still_refuses_an_mcp_skill_by_name(
+    fabric: _Fabric,
+) -> None:
+    """The inversion, and the fail-closed half of the same ruling.
+
+    Same grant, same entry, same agent — only the registry withheld. What would
+    fail here: an ``Agent`` that manufactured a client of its own when the
+    deployment wired none, which would be the SDK choosing an endpoint
+    (CINV-01). Without this case the test above would pass equally well against
+    an implementation that had stopped fail-closing.
+    """
+    agent, client, declared = _mcp_granted_agent(fabric, wire_registry=False)
+
+    with pytest.raises(McpSkillUnregistered):
+        agent.invoke_skill(
+            declared["grant"]["skill_name"], arguments=declared["arguments"]
+        )
+    assert client.reads == []
 
 
 def test_a_granted_skill_dispatches_through_the_agent_seam(
