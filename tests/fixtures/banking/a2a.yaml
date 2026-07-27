@@ -65,6 +65,15 @@ peers:
 # assert that the consumer had independently observed what a peer told it.
 federation:
   system_id: acme-bank-a2a-federation
+  # How this deployment reads an admitted product into L1 envelopes, for
+  # `AssemblyWorker.ingest_admitted` (Dave, 2026-07-27). Which payload member
+  # carries the peer's records, and how the peer's key names map onto this
+  # consumer's own vocabulary, are this deployment's statements — the SDK ships
+  # neither a default key name nor a default correspondence.
+  payload_records_key: entities
+  record_key_aliases:
+    entity_uri: federated_entity_uri
+    entity_class: federated_entity_class
   entity_rule:
     match_key: federated_entity_uri
     entity_class: federated_entity

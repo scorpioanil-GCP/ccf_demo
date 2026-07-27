@@ -344,10 +344,17 @@ class AdmittedProduct:
     ``InboundProduct`` is not what L2 accepts.
 
     Admission is not a write. What this value confers is the right to be
-    *offered* to L2 — :meth:`ccf.assembly.worker.AssemblyWorker.
-    admit_entity_claim` remains the only route into L3, and L2 remains the only
-    holder of a graph write handle (CLAUDE.md §10). The gate does not shorten
-    that path; it guards its entrance.
+    *offered* to L2 — L2 remains the only holder of a graph write handle
+    (CLAUDE.md §10), and the gate does not shorten the path through it; it
+    guards its entrance.
+
+    Since Dave's 2026-07-27 ruling, the offer has a typed door:
+    :meth:`ccf.assembly.worker.AssemblyWorker.ingest_admitted` takes *this*
+    type, so a federated product that never passed the gate cannot be offered
+    to L2 at all. The envelope-based :meth:`~ccf.assembly.worker.AssemblyWorker.
+    ingest` is unchanged and continues to serve CDC and MCP ingress, which is
+    why the federated path needed its own entry point rather than a constraint
+    on the shared one.
     """
 
     def __init__(
