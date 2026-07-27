@@ -35,6 +35,7 @@ import ast
 import inspect
 import types
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
@@ -47,13 +48,30 @@ import ccf.artifacts.protocol
 import ccf_runtime.mcp.artifact_server as artifact_server
 import ccf_runtime.mcp.egress as egress
 from ccf.artifacts.mcp_store import McpArtifactStore
+from ccf.contracts.claims import EntityClaim, LineageEntry
 from ccf.mcp.client import SyncMcpBridge
+from ccf.signal.envelope import SourceIdentity
 
 from crossproc.conftest import spawn_child_server
 from crossproc.servers.mcp_artifact_child import authorized_http_client
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
+
+#: The probe values the WAL-sensitivity test writes. Test-local drive values
+#: for an instrument check — they describe nothing about any deployment and
+#: name no ontology; the claim they produce is discarded with the temp file.
+WAL_PROBE = {
+    "tenant_id": "tenant-wal-probe",
+    "entity_uri": "wal-probe://one",
+    "entity_class": "wal-probe",
+    "system_id": "wal-probe",
+    "envelope_id": "wal-probe-envelope",
+}
+
+#: The fixed instant that write carries. Injected, like every instant in the
+#: fabric: nothing here reads a wall clock.
+WAL_PROBE_INSTANT = datetime(2026, 1, 1, tzinfo=UTC)
 
 #: The graph package no artifact-side module may reach. Dotted-prefix matched,
 #: the way ``tools.lints.matches_module`` does it, so ``ccf.graphql`` could
@@ -205,11 +223,23 @@ def test_a_full_store_cycle_leaves_the_fabric_byte_identical(
 ) -> None:
     """Criterion 4, T-06-19: nothing enters L3 because an artifact moved.
 
-    The observable is the graph file's own bytes, hashed before and after a
-    put/exists/resolve_uri/get cycle against a live MCP store. Hashing the file
-    rather than querying the graph is deliberate: a query would only see the
-    rows a reader thought to ask about, while the digest covers every byte the
-    substrate holds, including any a second writer would have added.
+    The observable is the graph substrate's own bytes, hashed before and after
+    a put/exists/resolve_uri/get cycle against a live MCP store. Hashing the
+    files rather than querying the graph is deliberate: a query would only see
+    the rows a reader thought to ask about, while the digest covers every byte
+    the substrate holds, including any a second writer would have added.
+
+    **The digest covers the write-ahead log, not just the main file** (06-16,
+    closing the item 06-09 deferred). The SQLite backend runs
+    ``journal_mode = WAL`` (``src/ccf/graph/backends/sqlite.py``), so a
+    committed write lands in ``<db>-wal`` and can leave the main file
+    byte-identical until a checkpoint. A main-file-only digest would therefore
+    have reported "byte-identical" over exactly the un-checkpointed write this
+    test exists to catch — an assertion weaker than its own docstring, which is
+    the same false-green family as a CI job checking a narrower path than it
+    claims. The ``-shm`` index is excluded: it is process coordination state,
+    not durable content, and it churns on reads. This is the digest
+    ``tests/crossproc/test_a2a_exchange.py`` already uses; the two now agree.
 
     What would fail here: an artifact server or store that wrote through to the
     graph. The digest changes and the last assertion fires — which is the only
@@ -218,8 +248,17 @@ def test_a_full_store_cycle_leaves_the_fabric_byte_identical(
     """
     database_path = tmp_path / "untouched-fabric.sqlite3"
     handle = fabric_boot(database_path=database_path)
+
+    def _digest() -> str:
+        """Hash the main database file and its write-ahead log together."""
+        running = sha256()
+        for suffix in ("", "-wal"):
+            path = database_path.with_name(database_path.name + suffix)
+            running.update(path.read_bytes() if path.exists() else b"")
+        return running.hexdigest()
+
     try:
-        before = sha256(database_path.read_bytes()).hexdigest()
+        before = _digest()
 
         with _mcp_store() as store:
             ref = store.put(
@@ -232,11 +271,76 @@ def test_a_full_store_cycle_leaves_the_fabric_byte_identical(
             assert store.resolve_uri(uri=ref.uri) == ref.content_address
             assert store.get(content_address=ref.content_address)
 
-        after = sha256(database_path.read_bytes()).hexdigest()
+        after = _digest()
     finally:
         handle.close()
 
     assert after == before
+
+
+def test_the_byte_identical_digest_can_actually_see_a_committed_write(
+    fabric_boot: Callable[..., "FabricHandle"], tmp_path: Path
+) -> None:
+    """The guard on the guard: prove the digest above is not blind.
+
+    A byte-identical assertion is only evidence if the digest would move when
+    the substrate does. The SQLite backend runs in WAL mode, and this test
+    measures the consequence directly rather than reasoning about it: one
+    legitimate L2 write leaves the **main file byte-identical** and changes only
+    the write-ahead log. The main-file-only digest 06-09 flagged therefore could
+    not have observed the very write
+    ``test_a_full_store_cycle_leaves_the_fabric_byte_identical`` exists to rule
+    out — it would have reported a clean fabric over a dirty one.
+
+    What would fail here: narrowing the digest back to the main file, at which
+    point ``digest_of_the_main_file_alone`` and the widened digest would agree
+    and the second assertion fires. The write goes through ``AssemblyWorker``,
+    the only writer, so this test asserts nothing about who may write — only
+    about what the instrument can see.
+    """
+    database_path = tmp_path / "wal-sensitivity.sqlite3"
+    handle = fabric_boot(database_path=database_path)
+
+    def _digest(suffixes: tuple[str, ...]) -> str:
+        running = sha256()
+        for suffix in suffixes:
+            path = database_path.with_name(database_path.name + suffix)
+            running.update(path.read_bytes() if path.exists() else b"")
+        return running.hexdigest()
+
+    try:
+        main_before = _digest(("",))
+        both_before = _digest(("", "-wal"))
+        handle.worker.admit_entity_claim(
+            tenant_id=WAL_PROBE["tenant_id"],
+            claim=EntityClaim(
+                tenant_id=WAL_PROBE["tenant_id"],
+                entity_uri=WAL_PROBE["entity_uri"],
+                entity_class=WAL_PROBE["entity_class"],
+                attributes={},
+                observed_at=WAL_PROBE_INSTANT,
+                valid_from=WAL_PROBE_INSTANT,
+                lineage=frozenset(
+                    {
+                        LineageEntry(
+                            source=SourceIdentity(
+                                system_id=WAL_PROBE["system_id"]
+                            ),
+                            envelope_id=WAL_PROBE["envelope_id"],
+                            observed_at=WAL_PROBE_INSTANT,
+                        )
+                    }
+                ),
+            ),
+        )
+        assert _digest(("",)) == main_before, (
+            "the main file moved, so this test no longer demonstrates the"
+            " blindness it exists to demonstrate — re-derive the observable"
+            " before trusting the digest above"
+        )
+        assert _digest(("", "-wal")) != both_before
+    finally:
+        handle.close()
 
 
 def _mcp_store() -> Any:

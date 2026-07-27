@@ -110,44 +110,24 @@ ignore_missing_imports = true
 module = ["chromadb", "chromadb.*"]
 ignore_missing_imports = true
 
-# The five overrides below are deliberately written one block per module rather than as a
+# The two overrides above are deliberately written one block per module rather than as a
 # single blanket block. A blanket block is an untracked widening: it would silently absorb
 # any future untyped import, and the honest claim (D-21) has to name exactly which
-# boundaries are untyped. Each is justified on its own terms below.
-
-# google-adk 2.5.0 ships no py.typed marker. It is imported only inside
-# `ccf_runtime.adapters.adk` — the CINV-02 carve-out module — where every value crossing
-# the seam is either constructed from, or validated into, a CCF-owned typed contract
-# (ContextProduct, the grant set, the replay record). The untyped boundary is closed by
-# CCF's own validation at the seam, not by trusting the vendor's shapes.
-[[tool.mypy.overrides]]
-module = ["google.adk.*"]
-ignore_missing_imports = true
-
-# langgraph 1.2.9 ships no usable inline types for the surfaces the adapter binds
-# (StateGraph node registration, compiled-graph invocation). Confined to
-# `ccf_runtime.adapters.langgraph`; the adapter's own public signatures are fully typed
-# and its state payloads are CCF contracts, so the untyped region does not escape the
-# module. Note D-IMPL-17: this is the *harness* seam only, never the orchestrator seam.
-[[tool.mypy.overrides]]
-module = ["langgraph.*"]
-ignore_missing_imports = true
-
-# langchain-core arrives transitively under langgraph and appears in the same adapter's
-# type positions (message and tool shapes). Listed separately from `langgraph.*` because
-# it is a different distribution with a different release cadence — collapsing them would
-# hide the day one of them starts shipping types.
-[[tool.mypy.overrides]]
-module = ["langchain_core.*"]
-ignore_missing_imports = true
-
-# claude-agent-sdk 0.2.128 ships no py.typed marker. Imported only inside
-# `ccf_runtime.adapters.claude_agent`. The seam CCF actually governs — the exposed
-# skill-set and the captured effects — is typed on the CCF side of every call, so an
-# unannotated vendor signature cannot widen a CCF contract.
-[[tool.mypy.overrides]]
-module = ["claude_agent_sdk.*"]
-ignore_missing_imports = true
+# boundaries are untyped.
+#
+# **Four harness/transport overrides were REMOVED in 06-16, having been measured inert.**
+# `google-adk` 2.5.0, `langgraph` 1.2.9, `langchain-core`, and `claude-agent-sdk` 0.2.128
+# all ship a `py.typed` marker, and `mypy` passes over `src` + `runtime` with none of the
+# four blocks present — verified by deleting them and re-running. `mcp` and `a2a-sdk` ship
+# `py.typed` too and never had a block. The removed comments asserted the opposite
+# ("ships no py.typed marker"), which was factually wrong for every one of them.
+#
+# This is recorded rather than quietly deleted because it is the mirror image of the
+# defect D-21 exists to prevent: a claim of *looseness* that does not hold understates the
+# enforcement in force, and a gate citing "these vendor boundaries are not strict-checked"
+# would have been describing a config, not the build. Those seams are genuinely
+# strict-checked. If a future vendor release drops its marker, `mypy` fails and the block
+# comes back with a comment that is true when written.
 
 # a2a-sdk 1.1.2 is protobuf-generated (`a2a_pb2`), so its runtime types are not the
 # typed boundary and must never be treated as one (06-RESEARCH.md Pitfall 5): CCF's own

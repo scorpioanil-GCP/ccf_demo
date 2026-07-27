@@ -75,6 +75,13 @@ jobs:
       # skipping every one of them (D-10 requires the same suite on the real
       # substrate, not the option of it).
       CCF_REQUIRE_POSTGRES: "1"
+      # Same rule, applied to the three harness adapters (06-16). `[dev]`
+      # composes `[harnesses]`, so all three SDKs are installed in CI and a
+      # skipped harness leg means the extra broke, not that the environment is
+      # minimal. Without this the conformance suite would collect all three
+      # legs, skip every one, and report green over the *only* evidence there
+      # is for the CLAUDE.md §7.3 portability claim.
+      CCF_REQUIRE_HARNESSES: "1"
 
     steps:
       - uses: actions/checkout@v4
@@ -88,7 +95,15 @@ jobs:
         run: python -m pip install -e ".[dev]"
 
       - name: Quick suite (no external substrates)
-        run: pytest tests -q -m "not postgres and not chroma"
+        run: pytest tests -q -m "not postgres and not chroma" -rs
+
+      # The harness legs, asserted rather than assumed. `-rs` prints any skip;
+      # `CCF_REQUIRE_HARNESSES` above turns one into a failure, so this step
+      # cannot go green over a harness that did not run. Deliberately NOT
+      # `continue-on-error`: per the I.1 D-07 precedent, a step made
+      # non-blocking to hide a gap is worse than the gap.
+      - name: Harness adapter conformance (all three legs must run)
+        run: pytest tests/conformance -q -rs
 
       # The same twelve GraphStore conformance semantics the quick suite runs
       # on SQLite, run again on the service container through the `postgres`

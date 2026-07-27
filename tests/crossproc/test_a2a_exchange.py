@@ -79,7 +79,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, get_type_hints
 
 import httpx
 import pytest
@@ -105,7 +105,13 @@ from ccf.a2a.trust_policy import (
     trust_policy_key,
 )
 from ccf.a2a.wire import InboundProduct, PeerRef, WireProtocol
-from ccf.assembly.worker import EntityResolutionRule, EntityResolutionSpec
+from ccf.assembly.worker import (
+    AssemblyWorker,
+    EntityResolutionRule,
+    EntityResolutionSpec,
+    FederatedIngestSpec,
+    IngestResult,
+)
 from ccf.boot import FabricHandle, boot
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -116,7 +122,6 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.gates import GateRefusal
-from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
 from ccf_runtime.a2a.lf_a2a import LfA2AWire, build_agent_card
 from ccf_runtime.a2a.typed_http import TypedHttpWire
@@ -571,35 +576,31 @@ def _verifier(key_dir: Path) -> Any:
 # --- the one route into L3 --------------------------------------------------
 
 
+def _federated_ingest_spec() -> FederatedIngestSpec:
+    """This deployment's federation-ingest vocabulary, from the fixture."""
+    declared = FEDERATION["federation"]
+    return FederatedIngestSpec(
+        source_system_id=declared["system_id"],
+        payload_records_key=declared["payload_records_key"],
+        record_key_aliases=dict(declared["record_key_aliases"]),
+    )
+
+
 def _ingest_admitted(
     consumer: Consumer, admitted: AdmittedProduct
-) -> tuple[SignalEnvelope, ...]:
-    """Drive an admitted product into L3 — through L2, the only route.
+) -> tuple[IngestResult, ...]:
+    """Drive an admitted product into L3 — through L2's federated door.
 
-    Deliberately the same shape as ``test_cdc_slice.py``'s ``_ingest_feed``:
-    envelopes are built, then handed one by one to ``worker.ingest``. There is
-    nothing else here, because there is nothing else available — the gate
-    yielded a value, not a handle.
+    Since Dave's 2026-07-27 ruling this test builds no envelopes of its own.
+    ``AssemblyWorker.ingest_admitted`` takes the ``AdmittedProduct`` itself and
+    derives the envelopes from the deployment's declared spec, so the admission
+    commitment (CLAUDE.md §7.2) is carried by the parameter's type rather than
+    by this helper's discipline: an ``InboundProduct`` is not a value this call
+    accepts.
     """
-    declared = FEDERATION["federation"]
-    address = content_hash(admitted.product)
-    envelopes = tuple(
-        SignalEnvelope(
-            tenant_id=admitted.product.tenant_id,
-            envelope_id=f"{address}/{index}",
-            source=SourceIdentity(system_id=declared["system_id"]),
-            ingestion_timestamp=consumer.now,
-            observed_time=admitted.product.temporal_boundary,
-            raw_payload={
-                "federated_entity_uri": entity["entity_uri"],
-                "federated_entity_class": entity["entity_class"],
-            },
-        )
-        for index, entity in enumerate(admitted.product.payload["entities"])
+    return consumer.handle.worker.ingest_admitted(
+        admitted, spec=_federated_ingest_spec(), ingested_at=consumer.now
     )
-    for envelope in envelopes:
-        consumer.handle.worker.ingest(envelope)
-    return envelopes
 
 
 def _first(consumer: Consumer, name: str) -> InboundProduct:
@@ -685,14 +686,42 @@ def test_an_admitted_product_reaches_l3_only_through_the_assembly_worker(
         for claim in federated
     )
 
-    assert _ingest_call_sites() == {"_ingest_admitted"}
+    assert _call_sites("ingest") == set()
+    assert _call_sites("ingest_admitted") == {"_ingest_admitted"}
 
 
-def _ingest_call_sites() -> set[str]:
-    """Every function in this module that calls ``.ingest(...)``.
+def test_the_federated_door_does_not_accept_an_unadmitted_product() -> None:
+    """Dave, 2026-07-27: the admission commitment is a type, not a discipline.
+
+    The observable is the *declared parameter type* of L2's federated entry
+    point, not a call this module makes. Two halves, and both are needed:
+    ``ingest_admitted`` is annotated ``AdmittedProduct``, and an
+    ``AdmittedProduct`` is not constructible outside the gate — so the only
+    values that satisfy the annotation are ones the gate produced.
+
+    What would fail here: re-widening ``ingest_admitted`` to take an
+    ``InboundProduct``, a payload, or ``object``; or dropping the construction
+    token that makes the type unforgeable, at which point the annotation would
+    still read correctly and mean nothing. The second half is asserted rather
+    than assumed for exactly that reason.
+    """
+    from ccf.a2a.admission import AdmissionBypassError  # noqa: PLC0415
+    from ccf.a2a.wire import InboundProduct as _Inbound  # noqa: PLC0415, F401
+
+    hints = get_type_hints(AssemblyWorker.ingest_admitted)
+    assert hints["admitted"] is AdmittedProduct
+
+    with pytest.raises(AdmissionBypassError):
+        AdmittedProduct(None, None, None, object())  # type: ignore[arg-type]
+
+
+def _call_sites(method: str) -> set[str]:
+    """Every function in this module that calls ``.<method>(...)``.
 
     An AST scan rather than a text grep: a grep cannot tell a call from a
     docstring that mentions one, and this claim is precisely about call sites.
+    Attribute equality, not prefix matching, so ``ingest`` does not match
+    ``ingest_admitted``.
     """
     tree = ast.parse(inspect.getsource(_module()))
     sites: set[str] = set()
@@ -703,7 +732,7 @@ def _ingest_call_sites() -> set[str]:
             if (
                 isinstance(inner, ast.Call)
                 and isinstance(inner.func, ast.Attribute)
-                and inner.func.attr == "ingest"
+                and inner.func.attr == method
             ):
                 sites.add(node.name)
     return sites
