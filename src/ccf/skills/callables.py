@@ -12,8 +12,9 @@ if the registry it resolves against is.
 
 **A ``callable_ref`` is a key here, never a module path.** Dispatch resolves
 the reference against what this deployment's composition root registered, and
-this module contains no ``importlib`` and no dotted-path resolution: a
-free-form module path is not a value this surface can express. That is the
+neither this module nor dispatch imports anything to answer, and neither
+resolves a dotted path: a free-form module path is not a value this surface
+can express — there is nothing here that could act on one. That is the
 D-19 control — it makes the I.2 accepted risk (IN-06; ``docs/PHASE_I2_GATE.md``
 §5) unrepresentable rather than merely refused, which matters because I.3 lets
 catalog entries arrive over MCP artifact stores and A2A federation

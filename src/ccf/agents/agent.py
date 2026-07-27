@@ -41,7 +41,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ccf.agents.archetypes import ArchetypeComponent
 from ccf.agents.definitions import (
@@ -60,10 +60,12 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.products.contract import ContextProductContract
 from ccf.replay.record import NO_GRANTS_SET_HASH, PerspectiveConditioning
-from ccf.skills.catalog import SkillCatalogEntry
 from ccf.skills.callables import CallableRegistry
-from ccf.skills.dispatch import SkillInvocation, ToolInvocation, dispatch_skill
+from ccf.skills.catalog import SkillCatalogEntry
 from ccf.skills.grants import BoundSkillView
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from ccf.skills.dispatch import SkillInvocation, ToolInvocation
 
 __ccf_mode__ = "algorithmic"
 
@@ -336,6 +338,14 @@ class Agent:
             ) from None
         if arguments is None:
             return bound
+        # Imported at call time, not at module import: ``ccf.skills.dispatch``
+        # raises ``ccf.agents.errors.NotYetBound``, so a module-level import
+        # here would make ``ccf.skills`` and ``ccf.agents`` mutually
+        # import-ordered — and an import graph whose success depends on which
+        # module a caller reached first is exactly the non-determinism
+        # D-IMPL-37 rejects for registries.
+        from ccf.skills.dispatch import dispatch_skill
+
         return dispatch_skill(
             bound, arguments=arguments, callable_registry=self._callable_registry
         )

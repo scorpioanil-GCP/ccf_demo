@@ -31,6 +31,7 @@ import pytest
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
+    from ccf.skills.callables import CallableRegistry
 
 # Control Plane keys used by the test fabric. They live here, in test code,
 # rather than in `/src`: key names are deployment vocabulary, and the SDK
@@ -211,3 +212,43 @@ def fabric_boot(
 def fabric(fabric_boot: Callable[..., "FabricHandle"]) -> "FabricHandle":
     """A single booted fabric — the common case."""
     return fabric_boot()
+
+
+@pytest.fixture
+def callable_registry() -> "CallableRegistry":
+    """The test deployment's composition root for local callables (D-19).
+
+    One explicit ``register(key, fn)`` call, exactly as a real deployment's
+    composition root would make it: no decorator, no entry point, no import
+    side effect. The key is a fixture *value* (it lives in the skills YAML
+    beside the catalog entry that declares it as ``callable_ref``); the
+    function is a fixture callable. This module supplies neither — it only
+    performs the binding, which is the mechanism under test.
+
+    A registry constructed per test, never module-level: two tests, like two
+    deployments, must not be able to see each other's registrations.
+    """
+    from ccf.skills.callables import CallableRegistry
+
+    from fixtures.banking.skills.callables import covenant_metrics
+
+    registry = CallableRegistry()
+    registry.register(_skills_callable_values()["registered_key"], covenant_metrics)
+    return registry
+
+
+def _skills_callable_values() -> dict[str, Any]:
+    """The D-19 drive values, read from the skills fixture that owns them."""
+    import yaml
+
+    document: dict[str, Any] = yaml.safe_load(
+        (
+            Path(__file__).resolve().parent
+            / "fixtures"
+            / "banking"
+            / "skills"
+            / "covenant_metrics_tool.yaml"
+        ).read_text()
+    )
+    values: dict[str, Any] = document["callables"]
+    return values
