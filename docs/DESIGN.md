@@ -740,7 +740,7 @@ Three boundaries between the seams themselves are worth stating so Phase I does 
 ### 8.9 Phase I hand-off
 
 
-Phase I.3 (cross-process) implements against §8.1–§8.2 and §8.4: the MCP client library and both server contracts, the WireProtocol default + fallback transports, the IdentityProvider reference implementations, and the ArtifactStoreProtocol with both reference stores. Phase I.4 (harness + experience) implements against §6 and §8.3: the three reference adapters and their conformance suite (including the `effects: unsupported` declared-capability check), the CLI, and the HTTP skeleton with generated OpenAPI. Every implementation module cites the D-IMPL ruling and the whitepaper or CLAUDE.md section it realizes, per CLAUDE.md §11 docstring discipline.
+Phase I.3 (cross-process) implements against §8.1–§8.2 and §8.4: the MCP client library and both server contracts, the WireProtocol default + fallback transports, the IdentityProvider reference implementations, and the ArtifactStoreProtocol with both reference stores. Phase I.3 also implements against §6 the three reference harness adapters and their conformance suite, including the `effects: unsupported` declared-capability check (corrected 2026-07-26: this sentence previously assigned the adapters to Phase I.4; the authoritative allocation is `.planning/ROADMAP.md` Phase 6 criterion 3 and `.planning/REQUIREMENTS.md` XPRC-03, both of which place them in I.3). Phase I.4 (experience) implements against §8.3: the CLI, and the HTTP skeleton with generated OpenAPI. Every implementation module cites the D-IMPL ruling and the whitepaper or CLAUDE.md section it realizes, per CLAUDE.md §11 docstring discipline.
 
 ---
 
