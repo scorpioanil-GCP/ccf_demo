@@ -12,7 +12,11 @@ DESIGN.md §2B.5. The dimensions, and what each holds in I.1:
 2. **Policy Bindings Snapshot** — version identifiers of every Control Plane
    binding in force (INV-CH7-82).
 3. **Model Version Record** — every invoked model; literally ``"none"`` in
-   Mode 1 (INV-CH7-83). A positive claim, not an omission.
+   Mode 1 (INV-CH7-83). A positive claim, not an omission. Harness-attributable
+   values — which harness ran the loop, the model version *it* reported, its
+   execution-trace reference, its token counts — extend this dimension in I.3
+   as the named :class:`HarnessTrace` sub-structure, per CLAUDE.md §7.3 seam 4
+   and D-25.
 4. **Perspective Conditioning** — principal and role in I.1 (INV-CH7-84);
    agent identity, version, and skill-set in force extend this dimension in
    I.2 per CLAUDE.md §6.2.
@@ -48,9 +52,12 @@ __all__ = [
     "MODE_1_MODEL_VERSION",
     "NO_AGENT_DEFINITION",
     "NO_GRANTS_SET_HASH",
+    "NO_HARNESS",
+    "NO_HARNESS_TRACE",
     "ContentGenerationPath",
     "ContextFabricSnapshot",
     "DecisionReplayRecord",
+    "HarnessTrace",
     "ModelVersionRecord",
     "PerspectiveConditioning",
     "PolicyBinding",
@@ -68,6 +75,13 @@ MODE_1_MODEL_VERSION = "none"
 #: under zero grants" is asserted, never left as an absence a reader must
 #: interpret. The skilling wave replaces it with the grant-set content hash.
 NO_GRANTS_SET_HASH = "no-grants"
+
+#: Dimension 3's harness-attributable value when no harness participated (D-25).
+#: A positive claim in the :data:`MODE_1_MODEL_VERSION` voice: every fabric-direct
+#: decision, and every decision an adapter did not mediate, *asserts* that no
+#: harness ran rather than leaving a field absent for a reader to interpret. An
+#: absent trace and a dropped trace would otherwise be the same artifact.
+NO_HARNESS = "no-harness"
 
 #: Dimension 4's agent-identity value when no agent participated (D-06).
 #: Pre-agent records — the whole of I.1, and any fabric-direct decision — carry
@@ -149,6 +163,57 @@ class PolicyBindingsSnapshot(CCFContract):
     bindings: tuple[PolicyBinding, ...]
 
 
+class HarnessTrace(CCFContract):
+    """Dimension 3's harness-attributable sub-structure (D-25; CLAUDE.md §7.3).
+
+    SDK-defined, and an **extension** of dimension 3 — never a sixth dimension.
+    INV-CH7-80 makes the five dimensions inviolate, and the harness-attributable
+    values are model-attributable values, so :class:`ModelVersionRecord` is where
+    they belong.
+
+    The values here are what the harness adapter *reported* at its replay-hooks
+    seam (CLAUDE.md §7.3 seam 4). They are recorded verbatim and are the fields
+    D-18 excludes from the portability comparison: one agent definition run under
+    three adapters agrees exactly on everything CCF governs — the consumed
+    product, the grant-set hash, the agent definition hash, the policy bundle
+    versions, lineage — and differs here, which is the whole point of confining
+    them to a named block. A comparison that included them would fail always;
+    a record that omitted them would lose the attribution.
+
+    The trace-reference fields are shaped for D-IMPL-45's ``TraceCorrelationHook``,
+    which attaches at this same seam in I.4: CCF stores a correlation to an
+    external model-trace provider, never an ingestion of the trace itself.
+
+    Every field defaults to a positive sentinel, so a partially-reported trace
+    still asserts what it does not know instead of going quiet.
+
+    Attributes:
+        harness_id: Which harness ran the loop. :data:`NO_HARNESS` when none did.
+        model_version: The model version the *harness* reported, which is not
+            necessarily the fabric's own dimension-3 ``model_version``: the
+            fabric records what it invoked, the harness records what it invoked,
+            and conflating the two would let a harness overwrite a governed field.
+        trace_provider: The external trace provider the harness correlated to
+            (D-IMPL-45), or :data:`NO_HARNESS`.
+        trace_id: The provider-scoped trace identifier, or :data:`NO_HARNESS`.
+        input_tokens: Tokens the harness reported consuming; ``0`` when unreported.
+        output_tokens: Tokens the harness reported producing; ``0`` when unreported.
+    """
+
+    harness_id: str = NO_HARNESS
+    model_version: str = NO_HARNESS
+    trace_provider: str = NO_HARNESS
+    trace_id: str = NO_HARNESS
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
+#: Dimension 3's harness block when no harness participated (D-25). The whole
+#: sub-structure in its positive no-harness form, so the default is one named
+#: value rather than six field defaults a reader must reassemble.
+NO_HARNESS_TRACE = HarnessTrace()
+
+
 class ModelVersionRecord(CCFContract):
     """Dimension 3 — the models invoked (INV-CH7-83).
 
@@ -157,10 +222,15 @@ class ModelVersionRecord(CCFContract):
     so rather than staying silent. Mode 2 supplies the real version alongside
     the other three pinned rendering primitives when the LLM packaging stage
     lands.
+
+    Extended once, in I.3, with ``harness_trace`` (D-25): the harness-attributable
+    values live in their own named block and never touch ``assembly_mode`` or
+    ``model_version``, which stay governed fields the fabric alone writes.
     """
 
     assembly_mode: AssemblyMode
     model_version: str = MODE_1_MODEL_VERSION
+    harness_trace: HarnessTrace = NO_HARNESS_TRACE
 
 
 class PerspectiveConditioning(CCFContract):
@@ -253,6 +323,7 @@ def build_replay_record(
     assembly_mode: AssemblyMode,
     recorded_at: datetime,
     agent_conditioning: PerspectiveConditioning | None = None,
+    harness_trace: HarnessTrace | None = None,
 ) -> DecisionReplayRecord:
     """Assemble the record from what the execution and the product already know.
 
@@ -271,6 +342,16 @@ def build_replay_record(
     (every fabric-direct decision, and the whole of I.1), dimension 4 carries
     the positive no-agent/no-grants claims and the single-element
     originating-principal delegation chain, exactly as before.
+
+    ``harness_trace`` is the I.3 adapter seam (D-25), threaded into dimension 3
+    exactly as ``agent_conditioning`` is threaded into dimension 4: when a
+    harness adapter mediated the decision, the caller passes the block the
+    adapter reported at its replay-hooks seam (CLAUDE.md §7.3 seam 4) and it is
+    recorded verbatim — derived from what the adapter reported, never
+    reconstructed here. When ``None`` (every fabric-direct decision, and the
+    whole of I.1 and I.2), dimension 3 carries the positive
+    :data:`NO_HARNESS_TRACE` claim and every field the builder wrote before this
+    extension is byte-for-byte what it was.
     """
     return DecisionReplayRecord(
         tenant_id=product.tenant_id,
@@ -283,7 +364,12 @@ def build_replay_record(
             touched_relationships=execution.touched_relationships(),
         ),
         policy_bindings=PolicyBindingsSnapshot(bindings=policy_bindings),
-        model_version=ModelVersionRecord(assembly_mode=assembly_mode),
+        model_version=ModelVersionRecord(
+            assembly_mode=assembly_mode,
+            harness_trace=harness_trace
+            if harness_trace is not None
+            else NO_HARNESS_TRACE,
+        ),
         perspective_conditioning=agent_conditioning
         or PerspectiveConditioning(
             principal_id=perspective.principal_id,

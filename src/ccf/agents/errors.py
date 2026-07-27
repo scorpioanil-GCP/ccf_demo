@@ -19,6 +19,7 @@ __all__ = [
     "ConsumptionRefused",
     "FalseGrantClaimError",
     "NotYetBound",
+    "PromptRenderRefused",
     "PromptValidationError",
     "SkillNotBound",
 ]
@@ -41,6 +42,27 @@ class PromptValidationError(ValueError):
     declared parameters differ in either direction, when a binding's declared
     parameters mismatch the artifact's, or when the template itself does not
     parse (D-13; CLAUDE.md §6.2 axis 6).
+    """
+
+
+class PromptRenderRefused(ValueError):
+    """A prompt render was refused rather than performed (T-06-60).
+
+    Raised — never degraded around, never rendered partially — for the two
+    conditions :func:`ccf.agents.prompts.render_instruction` refuses:
+
+    * the template attempted something the Jinja2 sandbox forbids (attribute
+      traversal toward ``__class__``/``__globals__``/``__subclasses__`` and the
+      rest of the escape vocabulary), chained from the underlying
+      ``jinja2.exceptions.SecurityError``;
+    * the supplied parameter values do not exactly match the binding's pinned
+      parameters, in either direction.
+
+    Distinct from :class:`PromptValidationError`, which is about an artifact
+    being *admissible*; this is about a render being *performed*. Keeping them
+    apart matters because I.3 makes artifact sources remote-influenced, and a
+    refusal at render time is a security event a caller may want to audit
+    differently from a malformed artifact at load time.
     """
 
 
