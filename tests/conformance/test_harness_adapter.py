@@ -415,16 +415,29 @@ def substrate_digest(database_path: Path) -> str:
     return digest.hexdigest()
 
 
-@pytest.fixture(params=["claude-agent", "adk", "langgraph"])
-def harness_leg(request: pytest.FixtureRequest) -> Iterator[HarnessLeg]:
-    """One leg per harness — all three of D-IMPL-24's, as of 06-14."""
-    if request.param == "claude-agent":
-        harness_unavailable("claude_agent_sdk", request.param)
+#: Every harness leg the suite drives, in D-IMPL-24 order. Named once here so
+#: that the portability proof (``test_harness_portability.py``) drives *the
+#: same* set rather than its own copy: a leg added to one and not the other
+#: would leave the portability claim quietly narrower than the conformance bar.
+HARNESS_PARAMS = ("claude-agent", "adk", "langgraph")
+
+
+def build_harness_leg(param: str) -> HarnessLeg:
+    """Build one harness's leg by name, outside any fixture.
+
+    Extracted from the ``harness_leg`` fixture by 06-15 with no change to a
+    single leg's body. The portability proof has to hold *all three* legs at
+    once — that is what it proves — and a parametrized fixture hands out one at
+    a time by construction. Skips and required-harness failures still come from
+    :func:`harness_unavailable`, so the skip mechanism is shared too.
+    """
+    if param == "claude-agent":
+        harness_unavailable("claude_agent_sdk", param)
         from claude_agent_sdk import ModelUsage, PermissionResultDeny, ResultMessage
 
         from ccf_runtime.adapters.claude_agent import HARNESS_ID, ClaudeAgentAdapter
 
-        values = _harness_fixture()[request.param]
+        values = _harness_fixture()[param]
 
         def adapter(effects: EffectCapability) -> HarnessAdapterProtocol:
             return ClaudeAgentAdapter(
@@ -476,7 +489,7 @@ def harness_leg(request: pytest.FixtureRequest) -> Iterator[HarnessLeg]:
             decision = asyncio.run(gate(qualified, {}, None))
             return decision if isinstance(decision, PermissionResultDeny) else None
 
-        yield HarnessLeg(
+        return HarnessLeg(
             harness_id=HARNESS_ID,
             adapter=adapter,
             execution=execution,
@@ -484,9 +497,8 @@ def harness_leg(request: pytest.FixtureRequest) -> Iterator[HarnessLeg]:
             trace_id=values["session_id"],
             refusal=refusal,
         )
-        return
-    if request.param == "adk":
-        harness_unavailable("google.adk", request.param)
+    if param == "adk":
+        harness_unavailable("google.adk", param)
 
         from google.genai import types as adk_types
 
@@ -497,7 +509,7 @@ def harness_leg(request: pytest.FixtureRequest) -> Iterator[HarnessLeg]:
             AdkAdapter,
         )
 
-        values = _harness_fixture()[request.param]
+        values = _harness_fixture()[param]
 
         def adk_adapter(effects: EffectCapability) -> HarnessAdapterProtocol:
             return AdkAdapter(
@@ -580,7 +592,7 @@ def harness_leg(request: pytest.FixtureRequest) -> Iterator[HarnessLeg]:
             )
             return response or None
 
-        yield HarnessLeg(
+        return HarnessLeg(
             harness_id=HARNESS_ID,
             adapter=adk_adapter,
             execution=adk_execution,
@@ -588,9 +600,8 @@ def harness_leg(request: pytest.FixtureRequest) -> Iterator[HarnessLeg]:
             trace_id=values["session_id"],
             refusal=adk_refusal,
         )
-        return
-    if request.param == "langgraph":
-        harness_unavailable("langgraph", request.param)
+    if param == "langgraph":
+        harness_unavailable("langgraph", param)
 
         from ccf_runtime.adapters.langgraph import (
             HARNESS_ID,
@@ -599,7 +610,7 @@ def harness_leg(request: pytest.FixtureRequest) -> Iterator[HarnessLeg]:
             LangGraphAdapter,
         )
 
-        values = _harness_fixture()[request.param]
+        values = _harness_fixture()[param]
 
         def lg_adapter(effects: EffectCapability) -> HarnessAdapterProtocol:
             return LangGraphAdapter(
@@ -663,7 +674,7 @@ def harness_leg(request: pytest.FixtureRequest) -> Iterator[HarnessLeg]:
             outcome = final.get("effect")
             return outcome if isinstance(outcome, EffectRefusal) else None
 
-        yield HarnessLeg(
+        return HarnessLeg(
             harness_id=HARNESS_ID,
             adapter=lg_adapter,
             execution=lg_execution,
@@ -671,8 +682,13 @@ def harness_leg(request: pytest.FixtureRequest) -> Iterator[HarnessLeg]:
             trace_id=values["thread_id"],
             refusal=lg_refusal,
         )
-        return
-    raise NotImplementedError(request.param)
+    raise NotImplementedError(param)
+
+
+@pytest.fixture(params=HARNESS_PARAMS)
+def harness_leg(request: pytest.FixtureRequest) -> HarnessLeg:
+    """One leg per harness — all three of D-IMPL-24's, as of 06-14."""
+    return build_harness_leg(request.param)
 
 
 @pytest.fixture
