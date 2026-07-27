@@ -227,6 +227,74 @@ single process.
   the broken implementation*, not from plan intent. I.2's initial gate prose
   overclaimed and had to be rewritten in 05-10.
 
+### Rulings made after research (Dave, 2026-07-26)
+
+Research (`06-RESEARCH.md`) surfaced four blocking findings and four open
+questions rather than resolving them silently (CLAUDE.md §15). Three needed
+Dave's ruling; the rest are planner-level with the researcher's recommendations
+standing. The three rulings:
+
+- **D-24 (resolves research finding B1 — hard blocker for the harness wave):**
+  the CINV-02 harness-import lint currently denies harness imports across all of
+  `LINTED_TREES = ("src", "runtime", "examples")`, which forbids them in the exact
+  directory D-04 and CLAUDE.md §7.3 place the adapters — demonstrated empirically
+  with a probe module. Fix is a **structural module-path carve-out**, mirroring the
+  `LLM_ADAPTER_MODULES` branch already in `tools/lints/harness_imports.py`:
+  `HARNESS_ADAPTER_MODULES: frozenset[str] = frozenset({"ccf_runtime.adapters"})`,
+  with the deny check reading
+  `... and not matches_module(module_name, HARNESS_ADAPTER_MODULES)`.
+  **Never an allowlist** — an allowlist would void the invariant, and D-21 forbids
+  weakening an enforcement while keeping the claim. This is a *narrowing of the
+  lint's scope to match CLAUDE.md's actual wording* ("zero harness imports in
+  **core**"), not an exception to the rule. **A negative test must pin the
+  carve-out's boundary**: a harness import in `ccf_runtime.a2a` or
+  `ccf_runtime.cdc` must still fail, or the carve-out is an unguarded prefix
+  match. The D-21-compliant claim becomes: *"lint-enforced: no module outside
+  `ccf_runtime.adapters.*` may import a harness package."*
+- **D-25 (resolves research open question 1):** the replay record **gains a named
+  `harness_trace` sub-structure under dimension 3** (`ModelVersionRecord`) this
+  phase, holding the harness-attributable fields D-18 excludes from portability
+  comparison (model version, trace shape, token counts). It **extends** the
+  five-dimension baseline and never modifies it — INV-CH7-80 makes the five
+  dimensions inviolate, so a sixth block is a fidelity defect, not an option. This
+  is the third use of the established extension pattern (dimension 4 extended in
+  I.2 with agent identity/version/skill-set; dimension 5 extended in I.4 with
+  workflow step sequences), documented as doctrine at `src/ccf/replay/__init__.py:12`.
+  It lands in I.3 rather than I.4 because ROADMAP criterion 3 places the
+  replay-hook seam here — deferring would build the seam with nowhere to write and
+  leave D-18's equivalence assertion (example 03's proof) unwritable. Being a
+  `/src` contract change, it **carries its own `D-IMPL-NN` entry in
+  `docs/DECISIONS.md`** rather than arriving incidentally. `TraceCorrelationHook`
+  (D-IMPL-45) still attaches at this seam in I.4; I.3 delivers the slot and the
+  adapters writing into it.
+- **D-26 (resolves research open question 2):** the MCP artifact server **ships a
+  real token verifier in v0**, implemented against `FastMCP`'s
+  `TokenVerifier` with a dev token source behind a Protocol, so §7.4's
+  "authenticated" is backed by mechanism rather than standing as an unbacked
+  claim. Real custody backends (PKI/HSM) remain out per §13, exactly as D-13
+  scopes key custody for A2A.
+
+Planner-level, taken as recommended and **not** requiring further ruling:
+research findings **B2** (extend `[tool.mypy] files` to `["src", "runtime"]` with
+per-module `ignore_missing_imports` overrides for the three harnesses and `a2a`,
+in the shape of the existing justified `yaml` override), **B3** (the sync/async
+ArtifactStore bridge is a dedicated background event-loop thread plus
+**one session per call** against a `stateless_http=True` server — the intuitive
+held-session `start_blocking_portal()` bridge **deadlocks**, verified at a 120 s
+timeout), **B4** (`docs/DESIGN.md:745` stale-assigns the adapters to I.4; correct
+in-phase with a one-line amendment), and research open questions 3 (factor the
+sync facade into `ccf.mcp.client` during the slice so skill dispatch and the
+ArtifactStore share it) and 4 (two schemes — `ccf-product://` for live egress,
+`ccf-artifact://` for products at rest; conflating them would put a live-assembly
+URI into a replay record).
+
+Two CONTEXT.md premises shifted under verification and the planner should size
+accordingly: **LF A2A is at 1.0** under the Linux Foundation with 150+
+organizations and five language SDKs, so the D-11 LF A2A leg is **not**
+speculative and should not be sized as such (D-11's build *order* stands); and
+**`a2a-sdk` 1.x is protobuf-based, not Pydantic**, so CCF's own contracts are the
+typed boundary at the A2A seam — never A2A's generated types.
+
 ### Claude's Discretion
 
 - **Harness skip mechanism** (D-09 corollary): how a conformance leg behaves
