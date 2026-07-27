@@ -48,7 +48,7 @@ from types import TracebackType
 from typing import Any, TypeVar
 
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 from mcp.types import TextResourceContents
 from pydantic import AnyUrl
 
@@ -90,7 +90,7 @@ async def run_with_session(
             see :mod:`ccf.mcp.errors`.
     """
     try:
-        async with streamablehttp_client(url) as (read, write, _get_session_id):
+        async with streamable_http_client(url) as (read, write, _get_session_id):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 return await operation(session)
@@ -244,6 +244,27 @@ class McpResourceClient:
 
         return await run_with_session(url=self._url, operation=operation)
 
+    async def resource_templates_async(self) -> tuple[str, ...]:
+        """Return the URI *templates* the server advertises, in server order.
+
+        A separate call from :meth:`resource_uris_async` because MCP keeps them
+        separate, and the distinction is real: a concrete resource is one thing
+        the server holds, while a template is a shape it will resolve. The L6
+        egress surface is templated — the fabric does not enumerate every
+        product it could assemble — so a consumer discovering it looks here.
+
+        Raises:
+            McpServerUnreachable: the call did not complete.
+        """
+
+        async def operation(session: ClientSession) -> tuple[str, ...]:
+            listing = await session.list_resource_templates()
+            return tuple(
+                template.uriTemplate for template in listing.resourceTemplates
+            )
+
+        return await run_with_session(url=self._url, operation=operation)
+
     def read_text(self, uri: str) -> str:
         """Synchronous :meth:`read_text_async`, bounded by the bridge deadline.
 
@@ -256,3 +277,7 @@ class McpResourceClient:
     def resource_uris(self) -> tuple[str, ...]:
         """Synchronous :meth:`resource_uris_async`, bounded the same way."""
         return self._require_bridge().run(self.resource_uris_async())
+
+    def resource_templates(self) -> tuple[str, ...]:
+        """Synchronous :meth:`resource_templates_async`, bounded the same way."""
+        return self._require_bridge().run(self.resource_templates_async())
