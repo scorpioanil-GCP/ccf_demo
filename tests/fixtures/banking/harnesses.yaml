@@ -1,0 +1,31 @@
+# Per-harness drive values for the HarnessAdapterProtocol conformance suite
+# (CLAUDE.md §7.3; D-IMPL-24; D-09).
+#
+# Every value here is a *deployment* value, which is why none of it lives in
+# test code or in `/src`: a model identifier, an MCP server name, and the
+# fields a harness reports back are the deployment's and the vendor's, never
+# the SDK's (No-Hardcoding Rule §6.4). The suite asserts against these rather
+# than against literals it authored itself — a test comparing a literal to the
+# same literal proves only that the file was read.
+#
+# 06-13 (LangGraph) and 06-14 (Google ADK) add a block each, keyed by the same
+# param name they add to the `harness_leg` fixture.
+
+claude-agent:
+  # Bound onto ClaudeAgentOptions.model. Never invoked: the suite drives SDK
+  # objects in-process with no model and no `claude` CLI (D-09), and an
+  # autouse fixture fails the run if anything opens a socket.
+  model: claude-sonnet-4-5
+  # Determines the mcp__{server}__{tool} namespace the harness sees, so it is
+  # part of this deployment's tool vocabulary.
+  mcp_server_name: ccf-skills
+  mcp_server_version: "1.0.0"
+  # What the harness reports back at the replay-hooks seam. The reported model
+  # is deliberately *not* the configured `model` above: the fabric records what
+  # it invoked and the harness records what it invoked, and a suite that used
+  # one value for both could not tell the two apart (T-06-62).
+  reported_model: claude-sonnet-4-5-20250929
+  session_id: 5f6e1b2c-7a41-4f6d-9c33-2b0d4a8e11f7
+  result_subtype: success
+  input_tokens: 1234
+  output_tokens: 567
