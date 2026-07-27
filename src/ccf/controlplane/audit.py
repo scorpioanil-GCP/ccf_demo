@@ -43,6 +43,10 @@ __all__ = ["AuditAction", "AuditEvent", "AuditLog"]
 #: (D-IMPL-29; D-09): a grant is a Control Plane action like any other, and
 #: every transition — refusals included — is a record (CLAUDE.md §6.2:
 #: "a skill grant or revocation is itself an audited Control Plane action").
+#: The ``a2a_*`` members are the federation admission verdicts (D-IMPL-16;
+#: :mod:`ccf.a2a.admission`): admitting a peer's Context Product is a Control
+#: Plane decision like any other, and a refusal that left no record would let
+#: a rejected federation attempt be denied afterwards (T-06-43).
 AuditAction = Literal[
     "register",
     "register_typed",
@@ -54,6 +58,8 @@ AuditAction = Literal[
     "grant_effective",
     "grant_refused",
     "grant_revoked",
+    "a2a_admitted",
+    "a2a_admission_refused",
 ]
 
 
