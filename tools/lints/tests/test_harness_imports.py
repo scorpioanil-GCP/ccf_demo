@@ -77,3 +77,37 @@ def test_anthropic_import_inside_the_llm_adapter_path_is_allowed() -> None:
 def test_module_named_like_a_harness_prefix_is_not_flagged() -> None:
     # `langgraphql` is not `langgraph`; prefix matching must respect dot bounds.
     assert check_source("import langgraphql\n", SRC, "ccf.operators.traversal") == []
+
+
+# --- the HARNESS_ADAPTER_MODULES carve-out and its boundary (D-24, D-IMPL-53) -
+
+ADAPTER = pathlib.Path("runtime/ccf_runtime/adapters/langgraph/adapter.py")
+A2A = pathlib.Path("runtime/ccf_runtime/a2a/lf_a2a.py")
+CDC = pathlib.Path("runtime/ccf_runtime/cdc/adapter.py")
+EVIL = pathlib.Path("runtime/ccf_runtime/adapters_evil.py")
+
+
+def test_a_harness_import_inside_the_adapter_path_is_permitted() -> None:
+    findings = check_source(
+        "import langgraph\n", ADAPTER, "ccf_runtime.adapters.langgraph.adapter"
+    )
+    assert _rules(findings) == []
+
+
+def test_a_harness_import_in_the_a2a_module_is_still_flagged() -> None:
+    findings = check_source("import claude_agent_sdk\n", A2A, "ccf_runtime.a2a.lf_a2a")
+    assert _rules(findings) == [RULE_HARNESS]
+
+
+def test_a_harness_import_in_the_cdc_module_is_still_flagged() -> None:
+    findings = check_source(
+        "from google.adk import agents\n", CDC, "ccf_runtime.cdc.adapter"
+    )
+    assert _rules(findings) == [RULE_HARNESS]
+
+
+def test_a_harness_import_in_a_lookalike_sibling_module_is_still_flagged() -> None:
+    # `ccf_runtime.adapters_evil` shares a string prefix with the carve-out but
+    # is not a dotted descendant of it; the boundary must hold.
+    findings = check_source("import langgraph\n", EVIL, "ccf_runtime.adapters_evil")
+    assert _rules(findings) == [RULE_HARNESS]
