@@ -52,13 +52,14 @@ import base64
 import hashlib
 import json
 import pathlib
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any, Protocol, runtime_checkable
 
 from joserfc import jws
 from joserfc.errors import JoseError
 from joserfc.jwk import ECKey
-from joserfc.jws import FlattenedJSONSerialization
+from joserfc.jws import JWSRegistry, FlattenedJSONSerialization
+from joserfc.registry import JWS_HEADER_REGISTRY, HeaderParameter
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
@@ -174,6 +175,27 @@ def _b64url_decode(text: str) -> bytes:
         raise SignatureMalformed(
             "envelope member is not valid base64url"
         ) from error
+
+
+def _registry_declaring(names: Iterable[str], *, algorithm: str) -> JWSRegistry:
+    """Return a JWS registry that *declares* ``names`` as string headers.
+
+    ``joserfc`` refuses an unregistered protected-header member outright, which
+    is the correct default — an unknown header is usually a mistake or an
+    injection. CCF's assertion members are therefore declared rather than
+    smuggled past the check: the registry is built from exactly the members
+    present, each typed as a string, and ``strict_check_header`` stays on. The
+    alternative — disabling the check — would also admit whatever *else* an
+    envelope happened to carry, which is the shape this parameter exists to
+    prevent.
+    """
+    declared = dict(JWS_HEADER_REGISTRY)
+    for name in names:
+        if name not in declared:
+            declared[name] = HeaderParameter(
+                "CCF emitter assertion, covered by the signature", "str"
+            )
+    return JWSRegistry(header_registry=declared, algorithms=[algorithm])
 
 
 class SignedContextProduct(CCFContract):
@@ -480,7 +502,7 @@ class DetachedJwsIdentityProvider:
             {"protected": header},
             payload,
             private,
-            algorithms=[self._algorithm],
+            registry=_registry_declaring(header, algorithm=self._algorithm),
         )
         # `jws.detach_content` is the library's exported entry point; for a
         # JSON serialization it dispatches straight to `detach_json_content`
@@ -537,7 +559,11 @@ class DetachedJwsIdentityProvider:
         }
         try:
             verified = jws.deserialize_json(
-                reattached, public, algorithms=[self._algorithm]
+                reattached,
+                public,
+                registry=_registry_declaring(
+                    header, algorithm=self._algorithm
+                ),
             )
         except JoseError as error:
             raise SignatureInvalid(
