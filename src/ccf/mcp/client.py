@@ -42,11 +42,13 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import contextlib
 import threading
 from collections.abc import Awaitable, Callable, Coroutine
 from types import TracebackType
 from typing import Any, TypeVar
 
+import httpx
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import TextResourceContents
@@ -57,6 +59,7 @@ from ccf.mcp.errors import McpServerUnreachable, McpTimeout
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "HttpClientFactory",
     "McpResourceClient",
     "SyncMcpBridge",
     "run_with_session",
@@ -67,9 +70,26 @@ T = TypeVar("T")
 #: One caller-supplied unit of work against an initialized session.
 SessionOperation = Callable[[ClientSession], Awaitable[T]]
 
+#: How a caller supplies transport credentials and HTTP settings.
+#:
+#: A *factory* rather than a client instance because an ``httpx.AsyncClient``
+#: binds to the event loop it is used on, and this module's whole point is that
+#: the loop is the bridge's background one — handing in a client built on the
+#: caller's loop is the same class of cross-loop bug the session-per-call rule
+#: exists to avoid. The factory runs inside the call, on the right loop.
+#:
+#: This is also where authentication enters: ``streamable_http_client`` takes
+#: no headers of its own, so a bearer token for the artifact server (D-26) is
+#: an ``Authorization`` default header on the client the deployment builds
+#: here. No token, header, or credential is held in this module (CINV-01).
+HttpClientFactory = Callable[[], httpx.AsyncClient]
+
 
 async def run_with_session(
-    *, url: str, operation: SessionOperation[T]
+    *,
+    url: str,
+    operation: SessionOperation[T],
+    http_client_factory: HttpClientFactory | None = None,
 ) -> T:
     """Open a session against ``url``, run ``operation``, close everything.
 
@@ -80,20 +100,36 @@ async def run_with_session(
     Args:
         url: The MCP server's streamable-HTTP endpoint. A deployment value.
         operation: Receives an initialized session and returns its result.
+        http_client_factory: Builds the HTTP client the transport uses — the
+            seam for credentials, proxies, and timeouts. Optional, because an
+            unauthenticated endpoint needs none. When supplied, the client is
+            built *and closed* inside this call: ``streamable_http_client``
+            does not manage the lifecycle of a client it did not create, so
+            closing it is this function's job or nobody's.
 
     Returns:
         Whatever ``operation`` returned.
 
     Raises:
         McpServerUnreachable: the transport, handshake, or protocol exchange
-            failed. Deliberately not narrowed by inspecting the message text —
-            see :mod:`ccf.mcp.errors`.
+            failed — including an authentication refusal, which is a fact about
+            reaching the server and never a fact about what it holds.
+            Deliberately not narrowed by inspecting the message text — see
+            :mod:`ccf.mcp.errors`.
     """
     try:
-        async with streamable_http_client(url) as (read, write, _get_session_id):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                return await operation(session)
+        async with contextlib.AsyncExitStack() as stack:
+            http_client: httpx.AsyncClient | None = None
+            if http_client_factory is not None:
+                http_client = await stack.enter_async_context(
+                    http_client_factory()
+                )
+            read, write, _get_session_id = await stack.enter_async_context(
+                streamable_http_client(url, http_client=http_client)
+            )
+            session = await stack.enter_async_context(ClientSession(read, write))
+            await session.initialize()
+            return await operation(session)
     except asyncio.CancelledError:
         raise
     except Exception as error:
@@ -101,6 +137,7 @@ async def run_with_session(
             f"MCP call against {url!r} did not complete: "
             f"{type(error).__name__}: {error}"
         ) from error
+    raise AssertionError("unreachable")  # pragma: no cover
 
 
 class SyncMcpBridge:
