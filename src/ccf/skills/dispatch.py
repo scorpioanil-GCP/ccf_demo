@@ -1,4 +1,4 @@
-"""Skill dispatch for the local_callable, tool and mcp types (D-08; §6.2).
+"""Skill dispatch for all four skill types (D-08; CLAUDE.md §6.2).
 
 SDK-defined extension (CLAUDE.md §6, not whitepaper-derived). Dispatch maps
 one catalog entry plus typed arguments onto an invocation, per binding type:
@@ -23,34 +23,54 @@ one catalog entry plus typed arguments onto an invocation, per binding type:
   constructs no session, no event loop, and no bridge of its own: a second
   MCP client inside the SDK would be a second place for the session-lifetime
   deadlock that module records to come back.
-* **a2a** — the entry is valid and may be granted, but this build ships no
-  A2A dispatch transport: dispatching one raises the typed
-  :class:`~ccf.agents.errors.NotYetBound` exception until the A2A transport
-  lands (D-08; RESEARCH Open Question 2 — resolved as exception, since a
-  missing transport is a deployment-shape fact, not a bad artifact). The
-  branch stays after ``mcp`` is bound, because a skill type arriving later
-  must hit a typed refusal rather than falling through this function.
+* **a2a** — the binding's ``endpoint`` resolves through the injected
+  :class:`A2ASkillRegistry` to a :class:`~ccf.a2a.wire.WireProtocol`, and the
+  dispatch reads the Context Products that transport has received from its
+  federation peers (CLAUDE.md §6.2 — "A2A endpoints exposing remote Context
+  Products"). Dispatch types against the *Protocol*, never against a concrete
+  transport, so ``/src`` acquires no transport, HTTP, or protobuf dependency
+  and either shipped wire — typed HTTP or LF A2A — or a third that has not been
+  written yet, is bound at the composition root without this module changing.
+
+  **What comes back is inert, and that is the point (D-12).** The values are
+  :class:`~ccf.a2a.wire.InboundProduct`\\ s — *unadmitted*. L2 does not accept
+  one, and this module cannot construct the
+  :class:`~ccf.a2a.admission.AdmittedProduct` that L2 would accept. A skill
+  invocation therefore cannot become an admission, however the calling agent
+  behaves: the Control Plane gate stays above every transport rather than
+  being something a dispatch path could skip.
+
+**The ``NotYetBound`` tail survives all four types.** With ``local_callable``,
+``tool``, ``mcp`` and ``a2a`` all bound, the tail no longer names an
+outstanding transport — but it stays, because a *fifth* skill type arriving in
+a later artifact schema must hit a typed refusal rather than falling out of
+this function with whatever the last branch happened to leave behind.
 
 **Governance runs ahead of the network.** Nothing in this module reaches a
-remote server before the caller has established that the skill is bound: the
-entry a caller passes here is one a grant already made effective (resolved
-from :class:`~ccf.skills.grants.BoundSkillView`), and an unbound or revoked
-name never produces an entry to dispatch in the first place. The ordering is
-therefore structural rather than a check this function performs — an ungranted
-``mcp`` skill causes zero network calls because there is no code path from a
-missing grant into :func:`dispatch_skill` (T-06-28).
+remote server or a peer before the caller has established that the skill is
+bound: the entry a caller passes here is one a grant already made effective
+(resolved from :class:`~ccf.skills.grants.BoundSkillView`), and an unbound or
+revoked name never produces an entry to dispatch in the first place. The
+ordering is therefore structural rather than a check this function performs —
+an ungranted ``mcp`` or ``a2a`` skill causes zero network calls because there
+is no code path from a missing grant into :func:`dispatch_skill` (T-06-28,
+T-06-58).
 
-**The SSRF posture (T-06-24).** ``McpBinding.server`` is a *logical server
-name*, never a URL, and ``McpBinding.resource`` is a logical resource name,
-never a URI. Both are resolved through :class:`McpSkillRegistry`, whose
-entries the deployment registered at boot from Control Plane configuration.
-No address is ever taken from a skill artifact, from a dispatch argument, or
-from a payload a previous read returned; ``arguments`` in particular are
-carried into the returned typed value for provenance and are never appended
-to, or interpolated into, an address.
+**The SSRF posture (T-06-24, T-06-57).** ``McpBinding.server`` is a *logical
+server name*, never a URL; ``McpBinding.resource`` is a logical resource name,
+never a URI; and ``A2ABinding.endpoint`` is a *logical peer-endpoint name*,
+never an address to dial. All three are resolved through the registries the
+deployment populated at boot from Control Plane configuration, and the A2A one
+resolves to a transport the deployment already wired against its own
+trust-policy artifact. No address is ever taken from a skill artifact, from a
+dispatch argument, or from a payload a previous read returned; ``arguments`` in
+particular are carried into the returned typed value for provenance and are
+never appended to, or interpolated into, an address. A hostile artifact naming
+``https://attacker.example/`` resolves to no registration and is refused
+without a socket being opened.
 
-This module holds no skill, no command, no callable, and no server address of
-its own (CLAUDE.md §11, CINV-01). Algorithmic module (CINV-03).
+This module holds no skill, no command, no callable, no peer, and no server
+address of its own (CLAUDE.md §11, CINV-01). Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
@@ -58,6 +78,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from datetime import datetime
 
+from ccf.a2a.wire import InboundProduct, WireProtocol
 from ccf.agents.errors import NotYetBound
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.audit import AuditLog
@@ -65,6 +86,7 @@ from ccf.mcp.client import McpResourceClient
 from ccf.mcp.errors import McpClientError
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import (
+    A2ABinding,
     LocalCallableBinding,
     McpBinding,
     SkillCatalogEntry,
@@ -75,6 +97,9 @@ from ccf.skills.catalog import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "A2AInvocation",
+    "A2ASkillRegistry",
+    "A2ASkillUnregistered",
     "McpInvocation",
     "McpSkillRegistry",
     "McpSkillUnregistered",
@@ -142,6 +167,154 @@ class McpInvocation(CCFContract):
     resource: str
     contents: str
     arguments: Mapping[str, str]
+
+
+class A2AInvocation(CCFContract):
+    """The typed result of one executed ``a2a`` dispatch.
+
+    Attributes:
+        skill_name: The catalog entry invoked.
+        skill_type: The entry's binding type.
+        endpoint: The *logical* endpoint name from the binding. Deliberately the
+            name and not a resolved address: a result value that carried a URL
+            would put deployment topology into anything that recorded it
+            (INV-CH8-01), and the address is not what identifies the peer.
+        products: What the bound transport had received, **unadmitted**. Each
+            :class:`~ccf.a2a.wire.InboundProduct` carries the peer the transport
+            *observed* it from, which is a channel-level claim and proves
+            nothing; what binds a product to a principal is its signature,
+            checked by the Control Plane gate (:mod:`ccf.a2a.admission`), which
+            this dispatch neither calls nor can call. Handing back an inert
+            value is what keeps the gate above every transport (D-12).
+        arguments: The typed arguments the invocation carried. Recorded, never
+            transmitted: reading what a peer has already sent takes no
+            parameters, and interpolating an argument into an address is exactly
+            the injection surface T-06-57 forbids.
+    """
+
+    skill_name: str
+    skill_type: str
+    endpoint: str
+    products: tuple[InboundProduct, ...]
+    arguments: Mapping[str, str]
+
+
+class A2ASkillUnregistered(LookupError):
+    """A bound ``a2a`` entry names an endpoint this deployment lacks.
+
+    An exception, not a returned governance refusal — the same line
+    :class:`McpSkillUnregistered` and
+    :class:`~ccf.skills.callables.CallableNotRegistered` draw. A grant that made
+    the entry effective says governance is satisfied; a binding that resolves to
+    nothing says the composition root and the catalog disagree, which means the
+    deployment is wrong.
+    """
+
+
+class A2ASkillRegistry:
+    """Logical endpoint names → the transport a deployment reaches them on.
+
+    The A2A analogue of :class:`McpSkillRegistry`, and the reason a skill
+    artifact can never name a peer address: the deployment's composition root
+    registers each endpoint it is willing to read from, against a transport it
+    already wired to its own trust-policy artifact, and a binding can only select
+    among those. An entry naming ``https://attacker.example/`` resolves to no
+    registration and is refused *without a socket being opened* (T-06-57).
+
+    **A transport, not an address.** What is registered is a
+    :class:`~ccf.a2a.wire.WireProtocol` — the abstraction, never a concrete
+    transport type — so the same catalog entry dispatches over typed HTTP or over
+    LF A2A according to what the composition root bound, and ``/src`` never
+    acquires a transport dependency (CLAUDE.md §7.2: the Contract is the stable
+    layer, the wire is replaceable).
+
+    **Audit is structural here, not optional.** The log and the clock are
+    required constructor arguments, so there is no way to wire ``a2a`` dispatch
+    at all without supplying the surface every invocation is recorded on
+    (CLAUDE.md §11, audit-by-construction; T-06-59). Both are injected — the log
+    so that this registry and the Control Plane share one audit plane rather than
+    two, and the clock because no module in the fabric reads a wall clock.
+
+    Args:
+        audit_log: The deployment's one :class:`~ccf.controlplane.audit.AuditLog`.
+        clock: Supplies each record's timestamp.
+
+    Note:
+        Injected, never a module global: two deployments in one process resolve
+        against their own registries (D-23).
+    """
+
+    def __init__(
+        self, *, audit_log: AuditLog, clock: Callable[[], datetime]
+    ) -> None:
+        self._audit_log = audit_log
+        self._clock = clock
+        self._transports: dict[str, WireProtocol] = {}
+
+    @property
+    def audit_log(self) -> AuditLog:
+        """The audit plane every invocation through this registry lands on."""
+        return self._audit_log
+
+    def record_invocation(
+        self, entry: SkillCatalogEntry, *, resolved: bool
+    ) -> None:
+        """Append one ``skill_invoked`` record for ``entry``.
+
+        Identical in shape to :meth:`McpSkillRegistry.record_invocation`, and
+        deliberately on the *same* action and the same log rather than a parallel
+        one: "which skills did this agent invoke" must be answerable from one
+        query, and a per-transport log would make the skill-set in force at
+        decision time reconstructible only by whoever knew every log existed
+        (CLAUDE.md §6.2).
+        """
+        self._audit_log.append(
+            action="skill_invoked",
+            key=skill_catalog_key(entry),
+            version=entry.artifact_version,
+            resolved=resolved,
+            occurred_at=self._clock(),
+            artifact_class=entry.skill_type,
+        )
+
+    def register(self, *, endpoint: str, transport: WireProtocol) -> None:
+        """Make one logical endpoint dispatchable over ``transport``.
+
+        Args:
+            endpoint: The logical name skill bindings select this endpoint by.
+            transport: The :class:`~ccf.a2a.wire.WireProtocol` the composition
+                root built for it, against a Control Plane peer configuration.
+
+        Raises:
+            ValueError: ``endpoint`` is already registered. Silently replacing a
+                registration would let a later, less-trusted one redirect an
+                already-granted skill.
+        """
+        if endpoint in self._transports:
+            raise ValueError(
+                f"A2A endpoint {endpoint!r} is already registered; replacing a "
+                "registration would silently redirect skills already granted "
+                "against it"
+            )
+        self._transports[endpoint] = transport
+
+    def resolve(self, binding: A2ABinding) -> WireProtocol:
+        """Return the transport a binding selects.
+
+        Raises:
+            A2ASkillUnregistered: the endpoint was never registered. Raised
+                before any transport method is called, so an unresolvable
+                binding costs no network traffic.
+        """
+        transport = self._transports.get(binding.endpoint)
+        if transport is None:
+            raise A2ASkillUnregistered(
+                f"no A2A transport is registered for endpoint "
+                f"{binding.endpoint!r}; a skill binding selects among the "
+                "endpoints this deployment's composition root chose to offer, "
+                "and names no address of its own"
+            )
+        return transport
 
 
 class McpSkillUnregistered(LookupError):
@@ -305,6 +478,48 @@ def _invoke_mcp(
     )
 
 
+def _invoke_a2a(
+    entry: SkillCatalogEntry,
+    binding: A2ABinding,
+    arguments: Mapping[str, str],
+    *,
+    a2a_skills: A2ASkillRegistry,
+) -> A2AInvocation:
+    """Resolve the binding to a transport and read what it received, audited.
+
+    The read goes through :meth:`ccf.a2a.wire.WireProtocol.receive` and nothing
+    else. Dispatch constructs no client, opens no connection and resolves no
+    address: the transport the composition root registered already knows where
+    its peers are, which is what makes ``A2ABinding.endpoint`` a name rather
+    than an address (T-06-57).
+
+    Both outcomes are recorded. A failure record is not a nicety: a log of
+    successes cannot answer "what did this agent try to reach and not get?",
+    which is the question a fail-closed posture makes material
+    (:mod:`ccf.controlplane.audit`).
+
+    Draining is the transport's own semantics, and it is deliberate that this
+    function does not filter what it drained by peer: a filter would silently
+    discard another peer's product on its way past, and each
+    :class:`~ccf.a2a.wire.InboundProduct` already carries the peer the transport
+    observed it from.
+    """
+    transport = a2a_skills.resolve(binding)
+    try:
+        products = tuple(transport.receive())
+    except Exception:
+        a2a_skills.record_invocation(entry, resolved=False)
+        raise
+    a2a_skills.record_invocation(entry, resolved=True)
+    return A2AInvocation(
+        skill_name=entry.name,
+        skill_type=entry.skill_type,
+        endpoint=binding.endpoint,
+        products=products,
+        arguments=dict(arguments),
+    )
+
+
 def _invoke_local_callable(
     entry: SkillCatalogEntry,
     binding: LocalCallableBinding,
@@ -352,7 +567,8 @@ def dispatch_skill(
     arguments: Mapping[str, str],
     callable_registry: CallableRegistry,
     mcp_skills: McpSkillRegistry | None = None,
-) -> SkillInvocation | ToolInvocation | McpInvocation:
+    a2a_skills: A2ASkillRegistry | None = None,
+) -> SkillInvocation | ToolInvocation | McpInvocation | A2AInvocation:
     """Dispatch one catalog entry with typed arguments (D-08).
 
     Args:
@@ -368,19 +584,29 @@ def dispatch_skill(
             composition root. An ``mcp`` entry resolves here or not at all —
             and its absence is a wiring fact, so it raises rather than
             returning a refusal.
+        a2a_skills: The deployment's A2A skill registry, injected from the
+            composition root. An ``a2a`` entry resolves here or not at all, on
+            exactly the same terms.
 
     Returns:
         A :class:`SkillInvocation` for an executed ``local_callable``, a
-        :class:`ToolInvocation` value for a ``tool``, or an
-        :class:`McpInvocation` for an executed ``mcp`` read.
+        :class:`ToolInvocation` value for a ``tool``, an :class:`McpInvocation`
+        for an executed ``mcp`` read, or an :class:`A2AInvocation` carrying the
+        **unadmitted** products an ``a2a`` endpoint's transport had received.
 
     Raises:
-        NotYetBound: the entry is ``a2a`` — this build ships no A2A dispatch
-            transport; nothing about the artifact is bad.
+        NotYetBound: the entry's binding is none of the four this build
+            dispatches. Reachable only from a skill type a later artifact
+            schema introduces; nothing about such an artifact is bad, which is
+            why this is an exception (deployment shape) and not a returned
+            governance refusal.
         TypeError: a local callable's result is not a string mapping.
         McpSkillUnregistered: an ``mcp`` entry's binding names a server or
             resource this deployment did not register, or no ``mcp_skills``
             registry was supplied at all.
+        A2ASkillUnregistered: an ``a2a`` entry's binding names an endpoint this
+            deployment did not register, or no ``a2a_skills`` registry was
+            supplied at all.
         ccf.mcp.errors.McpClientError: an ``mcp`` read did not complete. The
             attempt is recorded with ``resolved=False`` before it propagates.
         ccf.skills.callables.CallableNotRegistered: a local callable's
@@ -409,9 +635,17 @@ def dispatch_skill(
                 "the SDK choosing an endpoint (CINV-01, T-06-24)"
             )
         return _invoke_mcp(entry, binding, arguments, mcp_skills=mcp_skills)
+    if isinstance(binding, A2ABinding):
+        if a2a_skills is None:
+            raise A2ASkillUnregistered(
+                f"skill {entry.name!r} is an 'a2a' entry but this deployment "
+                "supplied no A2ASkillRegistry; the transport exists, the "
+                "wiring does not, and manufacturing one here would mean the "
+                "SDK choosing a peer (CINV-01, T-06-57)"
+            )
+        return _invoke_a2a(entry, binding, arguments, a2a_skills=a2a_skills)
     raise NotYetBound(
         f"skill {entry.name!r} is a {entry.skill_type!r} entry, and this"
-        " build ships no dispatch transport for that type — the A2A"
-        " transport is the one still outstanding (D-08); the entry itself is"
-        " valid and remains granted"
+        " build ships no dispatch path for that binding type; the entry"
+        " itself is valid and remains granted"
     )

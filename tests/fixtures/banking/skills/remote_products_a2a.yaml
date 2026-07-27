@@ -1,0 +1,86 @@
+# Banking fixture skill catalog entry — a2a type (CLAUDE.md §6.2 channel 2;
+# D-IMPL-12; D-08 — the last transport bound, in 06-10).
+#
+# All values live here, none in `/src` or test code (No-Hardcoding Rule §6.4).
+#
+# The point this fixture exists to make: `binding.endpoint` is a **logical
+# endpoint name**, not an address. Dispatch resolves it through the deployment
+# block below to a transport the composition root already wired against its own
+# trust-policy artifact. A hostile artifact naming `https://attacker.example/`
+# resolves to no registration and is refused without a socket being opened
+# (T-06-57).
+
+entry:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: remote-exposure-products
+  tenant: acme-bank
+  skill_type: a2a
+  binding:
+    endpoint: zenith-federation
+  requirements:
+    required_scopes: [portfolio-read]
+    required_context_products: []
+
+# What this deployment's composition root registers for the logical endpoint
+# the binding above selects. Swapping this block redirects the skill; editing
+# the artifact cannot.
+deployment:
+  endpoint: zenith-federation
+  # An endpoint the deployment did NOT register, for the unresolvable case —
+  # written as a URL on purpose, to show that a URL-shaped artifact value buys
+  # an attacker nothing, because it is matched as a name and never dialled.
+  unregistered_endpoint: https://attacker.example/covenant-metrics
+
+# The typed arguments a caller carries alongside. Recorded in the invocation and
+# never transmitted: reading what a peer has already sent takes no parameters.
+dispatch:
+  arguments:
+    requested_by: treasury-analyst
+
+# What the bound transport has already received, as the dispatch suite's double
+# will yield it. The three envelope members are opaque placeholders on purpose:
+# dispatch never decodes, verifies, or admits them, and a suite that had to
+# supply a *valid* signature here would be asserting that it did. The genuine
+# signed exchange is proven end to end in
+# `tests/crossproc/test_a2a_exchange.py`, against both wires.
+inbound:
+  peer_id: zenith-bank
+  tenant_id: acme-bank
+  payload: cGxhY2Vob2xkZXItcGF5bG9hZA
+  protected: cGxhY2Vob2xkZXItaGVhZGVy
+  signature: cGxhY2Vob2xkZXItc2lnbmF0dXJl
+
+# A grant naming this entry. Requested against the `auto` policy regime in
+# grants.yaml — which permits `portfolio-read` — so it is granted and the skill
+# becomes dispatchable. Its `denied` twin below asks for a scope that regime
+# does not permit, which is the governance-ahead-of-the-network material: the
+# refused skill never reaches dispatch, so the transport is never touched.
+grant:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: treasury-remote-products
+  tenant: acme-bank
+  skill_name: remote-exposure-products
+  skill_version: "1.0.0"
+
+denied:
+  entry:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: remote-privileged-products
+    tenant: acme-bank
+    skill_type: a2a
+    binding:
+      endpoint: zenith-federation
+    requirements:
+      required_scopes: [counterparty-write]
+      required_context_products: []
+  grant:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: treasury-remote-privileged
+    tenant: acme-bank
+    skill_name: remote-privileged-products
+    skill_version: "1.0.0"
+  expected_excess_scopes: [counterparty-write]
