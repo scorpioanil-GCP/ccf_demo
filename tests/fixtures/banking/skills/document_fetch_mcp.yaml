@@ -19,3 +19,38 @@ entry:
   requirements:
     required_scopes: [document-read]
     required_context_products: []
+
+# What this deployment's composition root registers for the logical server the
+# binding above selects. The URI lives HERE, not in the entry: a skill
+# artifact names a server and a resource, never an address, so a hostile or
+# mistaken artifact has no way to steer the fabric at a host of its choosing
+# (T-06-24). Swapping this deployment block redirects the skill; editing the
+# artifact cannot.
+deployment:
+  server: acme-bank-documents
+  resources:
+    loan-agreements: "documents://acme-bank/loan-agreements"
+  # A resource the deployment did NOT register, for the unresolvable case.
+  unregistered_resource: covenant-schedules
+
+# The text the fixture server returns for that resource, and the arguments a
+# caller carries alongside. The arguments are recorded in the invocation and
+# never transmitted — an MCP resource read is addressed by its binding.
+dispatch:
+  contents: '{"agreement_id": "LN-4471", "pages": 38}'
+  arguments:
+    requested_by: treasury-analyst
+
+# A grant naming this entry. Requested against the `auto` policy regime in
+# grants.yaml — which permits `portfolio-read` and nothing else — so tier 1
+# refuses it, naming `document-read` as the excess. That refusal is the
+# governance-ahead-of-the-network material: an ungranted mcp skill never
+# reaches dispatch, so no socket opens.
+grant:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: treasury-document-fetch
+  tenant: acme-bank
+  skill_name: document-fetch
+  skill_version: "1.0.0"
+expected_excess_scopes: [document-read]

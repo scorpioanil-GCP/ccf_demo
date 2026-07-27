@@ -43,6 +43,12 @@ __all__ = ["AuditAction", "AuditEvent", "AuditLog"]
 #: (D-IMPL-29; D-09): a grant is a Control Plane action like any other, and
 #: every transition — refusals included — is a record (CLAUDE.md §6.2:
 #: "a skill grant or revocation is itself an audited Control Plane action").
+#: ``skill_invoked`` is the one member added for I.3: an ``mcp`` dispatch
+#: leaves this process and contacts a remote server, and none of the existing
+#: members can express that — ``resolve`` is a Control Plane read and the
+#: ``grant_*`` family are grant-state transitions, so recording an invocation
+#: as either would make the log say something untrue. It goes through this one
+#: log, on the one existing ``append``; there is no parallel audit surface.
 AuditAction = Literal[
     "register",
     "register_typed",
@@ -54,6 +60,7 @@ AuditAction = Literal[
     "grant_effective",
     "grant_refused",
     "grant_revoked",
+    "skill_invoked",
 ]
 
 
