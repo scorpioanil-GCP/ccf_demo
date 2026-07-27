@@ -11,23 +11,58 @@ license = "LicenseRef-Proprietary"
 authors = [{ name = "drcastillo" }]
 
 # Pins per 04-RESEARCH.md Standard Stack (all slopcheck-audited 2026-07-25).
+# Pins per 06-RESEARCH.md Standard Stack (slopcheck-audited 2026-07-26) — the four
+# cross-process dependencies below (`mcp`, `joserfc`, `a2a-sdk`, `uvicorn`).
 dependencies = [
   "jinja2==3.1.6",
   "pydantic==2.13.4",
   "pyyaml==6.0.3",
   "sqlite-vec==0.1.9",
   "psycopg[binary]==3.3.4",
+  # 06-RESEARCH.md Standard Stack — MCP client + server, all five CLAUDE.md §7.1 edges.
+  "mcp==1.28.1",
+  # 06-RESEARCH.md Standard Stack — detached-JWS sign/verify for the IdentityProvider
+  # reference impl (D-13); RFC 7797 unencoded/detached payload support.
+  "joserfc==1.7.4",
+  # 06-RESEARCH.md Standard Stack — LF A2A WireProtocol implementation (D-IMPL-14 default).
+  "a2a-sdk==1.1.2",
+  # 06-RESEARCH.md Standard Stack — ASGI host for MCP egress, the MCP ArtifactStore server,
+  # and the typed-HTTP A2A server; named explicitly for the `sockets=[...]` ephemeral-port
+  # pattern (D-16). `httpx` and `starlette` arrive transitively and are not pinned directly.
+  "uvicorn==0.51.0",
 ]
 
+# ---------------------------------------------------------------------------
+# The one documented command that installs and enables all three harness legs
+# plus MCP, A2A, and JOSE (06-CONTEXT.md D-08):
+#
+#     pip install -e ".[dev]"
+#
+# `dev` includes `harnesses`, which composes the three per-harness extras.
+# To install a single harness leg only:  pip install -e ".[langgraph]"
+# ---------------------------------------------------------------------------
 [project.optional-dependencies]
 # chromadb is NEVER a core dependency (heavy transitive tree) — 04-RESEARCH.md Standard Stack.
 chroma = ["chromadb==1.5.9"]
+# Harness SDKs are NEVER core dependencies — 06-CONTEXT.md D-08. The reason is stronger
+# than the `chroma` weight argument: harness neutrality is an install-time property as
+# well as an import-time one (CLAUDE.md §7.3). A LangGraph deployment must not be made to
+# install Google's SDK. Pins per 06-RESEARCH.md Standard Stack.
+adk = ["google-adk==2.5.0"]
+claude-agent = ["claude-agent-sdk==0.2.128"]
+langgraph = ["langgraph==1.2.9"]
+# Aggregate extra satisfying D-08's one-command requirement. Self-referential extras are
+# resolved by the pinned setuptools>=77 / pip in use (research assumption A1, verified
+# empirically at plan 06-02 execution).
+harnesses = ["ccf[adk,claude-agent,langgraph]"]
 dev = [
   "pytest==9.1.1",
   "hypothesis==6.161.5",
   "testcontainers==4.15.0",
   "mypy==2.3.0",
   "pytest-cov==7.1.0",
+  # D-08: CI and contributors get all three harness legs from `pip install -e ".[dev]"`.
+  "ccf[harnesses]",
 ]
 
 # Single distribution for v0 shipping two packages: the `ccf` library (src layout,
