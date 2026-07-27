@@ -52,13 +52,14 @@ import base64
 import hashlib
 import json
 import pathlib
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any, Protocol, runtime_checkable
 
 from joserfc import jws
 from joserfc.errors import JoseError
 from joserfc.jwk import ECKey
-from joserfc.jws import FlattenedJSONSerialization
+from joserfc.jws import JWSRegistry, FlattenedJSONSerialization
+from joserfc.registry import JWS_HEADER_REGISTRY, HeaderParameter
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
@@ -174,6 +175,27 @@ def _b64url_decode(text: str) -> bytes:
         raise SignatureMalformed(
             "envelope member is not valid base64url"
         ) from error
+
+
+def _registry_declaring(names: Iterable[str], *, algorithm: str) -> JWSRegistry:
+    """Return a JWS registry that *declares* ``names`` as string headers.
+
+    ``joserfc`` refuses an unregistered protected-header member outright, which
+    is the correct default — an unknown header is usually a mistake or an
+    injection. CCF's assertion members are therefore declared rather than
+    smuggled past the check: the registry is built from exactly the members
+    present, each typed as a string, and ``strict_check_header`` stays on. The
+    alternative — disabling the check — would also admit whatever *else* an
+    envelope happened to carry, which is the shape this parameter exists to
+    prevent.
+    """
+    declared = dict(JWS_HEADER_REGISTRY)
+    for name in names:
+        if name not in declared:
+            declared[name] = HeaderParameter(
+                "CCF emitter assertion, covered by the signature", "str"
+            )
+    return JWSRegistry(header_registry=declared, algorithms=[algorithm])
 
 
 class SignedContextProduct(CCFContract):
@@ -303,11 +325,30 @@ class IdentityProvider(Protocol):
     method presence only, so static conformance still rests on mypy.
     """
 
-    def sign(self, *, product: object, key_id: str) -> SignedContextProduct:
+    def sign(
+        self,
+        *,
+        product: object,
+        key_id: str,
+        assertions: Mapping[str, str] | None = None,
+    ) -> SignedContextProduct:
         """Sign ``product``'s canonical bytes with the key under ``key_id``.
+
+        ``assertions`` are additional protected-header members the emitter
+        claims alongside the product — the producer identity foremost. They go
+        in the *protected* header, which is part of the JWS signing input, so
+        an assertion is covered by the signature exactly as the payload is.
+        That placement is what lets the admission gate hold a peer to what it
+        asserted: an assertion carried outside the signature could be rewritten
+        in flight by anyone, and a governance check against a rewritable claim
+        checks nothing (:mod:`ccf.a2a.admission`).
 
         Raises:
             KeyUnavailable: the key source holds no such key.
+            ValueError: an assertion would overwrite ``alg``, ``kid``, or
+                ``typ`` — the members that establish *how* and *by whom* the
+                envelope was signed are the provider's to state, never the
+                caller's.
             ccf.contracts.canonical.CanonicalizationError: the product has no
                 canonical form, and therefore nothing stable to sign.
         """
@@ -424,31 +465,44 @@ class DetachedJwsIdentityProvider:
         """The algorithm this provider signs with and accepts."""
         return self._algorithm
 
-    def sign(self, *, product: object, key_id: str) -> SignedContextProduct:
+    def sign(
+        self,
+        *,
+        product: object,
+        key_id: str,
+        assertions: Mapping[str, str] | None = None,
+    ) -> SignedContextProduct:
         """Sign ``product``'s canonical bytes; see :meth:`IdentityProvider.sign`.
 
         Raises:
             KeyUnavailable: the key source holds no such key, or holds one that
                 is not a usable EC key.
+            ValueError: an assertion collides with a reserved header member.
             ccf.contracts.canonical.CanonicalizationError: the product has no
                 canonical form.
         """
         payload = canonical_bytes(product)
         private = self._import_key(self._key_source.signing_key(key_id=key_id))
+        header: dict[str, str] = {
+            "alg": self._algorithm,
+            "kid": key_id,
+            "typ": PRODUCT_SIGNATURE_TYPE,
+        }
+        for name, claim in (assertions or {}).items():
+            if name in header:
+                raise ValueError(
+                    f"assertion {name!r} would overwrite the reserved protected"
+                    " header member of the same name"
+                )
+            header[name] = claim
         # One header member, so joserfc's overloads resolve this to the RFC 7515
         # *flattened* JSON serialization — which is what makes the detachment
         # call below typed rather than a cast.
         envelope = jws.serialize_json(
-            {
-                "protected": {
-                    "alg": self._algorithm,
-                    "kid": key_id,
-                    "typ": PRODUCT_SIGNATURE_TYPE,
-                }
-            },
+            {"protected": header},
             payload,
             private,
-            algorithms=[self._algorithm],
+            registry=_registry_declaring(header, algorithm=self._algorithm),
         )
         # `jws.detach_content` is the library's exported entry point; for a
         # JSON serialization it dispatches straight to `detach_json_content`
@@ -505,7 +559,11 @@ class DetachedJwsIdentityProvider:
         }
         try:
             verified = jws.deserialize_json(
-                reattached, public, algorithms=[self._algorithm]
+                reattached,
+                public,
+                registry=_registry_declaring(
+                    header, algorithm=self._algorithm
+                ),
             )
         except JoseError as error:
             raise SignatureInvalid(
