@@ -240,7 +240,7 @@ Plans:
   4. Single-writer invariant demonstrably holds across the A2A boundary, the adapter boundary, and the ArtifactStore
   5. **MCP-backed ArtifactStore reference implementation ships** and passes the same shared ArtifactStore Protocol conformance suite as the file-backed dev impl, with no other deployment change required to swap between them *(inherited from Phase 4 per the D-12 scope amendment recorded on Phase 4 criterion 4)*
 
-**Plans:** 11/17 plans executed
+**Plans:** 13/17 plans executed
 
 Plans:
 **Wave 1** *(blockers — D-24 lint carve-out, packaging, D-19 gate)*
@@ -265,8 +265,8 @@ Plans:
 
 **Wave 4**
 
-- [ ] 06-09-PLAN.md — Typed-HTTP transport + real two-process exchange + A2A single-writer leg (D-11)
-- [ ] 06-13-PLAN.md — LangGraph adapter + Protocol hardening for topology ownership
+- [x] 06-09-PLAN.md — Typed-HTTP transport + real two-process exchange + A2A single-writer leg (D-11)
+- [x] 06-13-PLAN.md — LangGraph adapter + Protocol hardening for topology ownership
 
 **Wave 5**
 
@@ -336,7 +336,7 @@ this needs serializing at merge; it is recorded here rather than claimed away.
 | 3. Phase F — Feasibility & Scoping | 4/4 | Complete   | 2026-07-25 |
 | 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
-| 6. Phase I.3 — Cross-Process & Harness Adapters | 11/17 | In Progress|  |
+| 6. Phase I.3 — Cross-Process & Harness Adapters | 13/17 | In Progress|  |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 0/? | Not started | - |
 | 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |
 
