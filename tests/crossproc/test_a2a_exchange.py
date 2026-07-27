@@ -35,7 +35,26 @@ canonical bytes survive the wire           any re-serialization en route would
                                            made over, and the genuine product
                                            would refuse alongside the tampered
                                            one
+wire replaceability (CLAUDE.md §7.2,       an assertion that had to *differ* per
+D-IMPL-14, D-11)                           transport. Every case below runs
+                                           unchanged over both the typed-HTTP
+                                           leg and the LF A2A leg; one that
+                                           needed relaxing for either would mean
+                                           the Context Product Contract was not
+                                           actually the stable layer and the
+                                           wire not actually replaceable
+A2A serialization preserves the payload    a future ``a2a-sdk`` routing the
+(T-06-54, research assumption A2)          payload through a protobuf ``Struct``
+                                           rather than a ``bytes`` field. The
+                                           signature would stop verifying over
+                                           the carried bytes, which is asserted
+                                           directly rather than inferred
 =========================================  ===================================
+
+**Every case runs twice, once per transport.** ``typed-http`` is 06-09's
+standard-free leg; ``lf-a2a`` is the D-IMPL-14 default on ``a2a-sdk``. Only the
+``transport`` fixture below knows which is in force — no assertion in this
+module names a transport, and none was edited to accommodate the second one.
 
 Every domain value — the tenant, the product class, the peer identifiers, the
 producer hashes, the ceilings, the endpoint path, the federation entity class —
@@ -54,7 +73,7 @@ import json
 import os
 import socket
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -66,6 +85,7 @@ import httpx
 import pytest
 import uvicorn
 import yaml
+from fastapi import FastAPI
 from joserfc.jwk import ECKey
 
 from ccf.a2a.admission import (
@@ -77,6 +97,7 @@ from ccf.a2a.admission import (
     SignatureRefusal,
     payload_ceiling_key,
 )
+from ccf.a2a.identity import FileBackedKeySource
 from ccf.a2a.trust_policy import (
     A2A_TRUST_POLICY,
     A2ATrustPolicy,
@@ -86,7 +107,7 @@ from ccf.a2a.trust_policy import (
 from ccf.a2a.wire import InboundProduct, PeerRef, WireProtocol
 from ccf.assembly.worker import EntityResolutionRule, EntityResolutionSpec
 from ccf.boot import FabricHandle, boot
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.contract import (
     MaxTTL,
@@ -97,6 +118,7 @@ from ccf.products.contract import (
 from ccf.products.gates import GateRefusal
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
+from ccf_runtime.a2a.lf_a2a import LfA2AWire, build_agent_card
 from ccf_runtime.a2a.typed_http import TypedHttpWire
 
 from crossproc.conftest import spawn_child_server
@@ -107,9 +129,7 @@ pytestmark = pytest.mark.crossproc
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
-PRODUCER_CHILD = (
-    Path(__file__).resolve().parent / "servers" / "a2a_producer_child.py"
-)
+SERVERS = Path(__file__).resolve().parent / "servers"
 
 
 def _fixture(name: str) -> Any:
@@ -131,6 +151,122 @@ PEERS = FEDERATION["peers"]
 #: to claim without the two fixtures having to agree on a literal.
 PRODUCER_POLICY_VERSION = content_hash(CONTROL["policy_bundle"])
 
+LF_A2A = FEDERATION["lf_a2a"]
+
+
+# --- the two transports ------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class TransportLeg:
+    """One wire under test: how to build it, host it, and address it.
+
+    The whole of this module's transport knowledge lives in this type and the
+    two factories below. Everything past the ``consumer`` fixture sees a
+    :class:`~ccf.a2a.wire.WireProtocol` and a URL, which is the point being
+    demonstrated: if a leg needed a hook anywhere further down, the abstraction
+    would not be carrying the exchange.
+
+    Attributes:
+        name: The transport's identifier, for failure messages only.
+        child: The producer child that speaks this wire.
+        build: Builds ``(wire, asgi_app)`` for the consuming side, given the
+            consumer's clock, an HTTP client it may use, and the base URL it is
+            about to be hosted at. The base URL is an argument because LF A2A
+            publishes an Agent Card stating where this peer answers, and a card
+            carrying a relative path is one no peer can dial — the port must
+            therefore be bound before the transport exists.
+        child_url: Turns the hosted base URL into the value the child is handed
+            — a full endpoint URL for typed HTTP, a base URL for LF A2A, which
+            discovers the endpoint from the Agent Card at the well-known path.
+    """
+
+    name: str
+    child: Path
+    build: Callable[[datetime, httpx.Client, str], tuple[WireProtocol, Any]]
+    child_url: Callable[[str], str]
+
+
+def _typed_http_leg() -> TransportLeg:
+    """06-09's leg: plain typed HTTP, bound to no wire standard."""
+
+    def build(
+        now: datetime, http_client: httpx.Client, base_url: str
+    ) -> tuple[WireProtocol, Any]:
+        wire = TypedHttpWire(
+            local_peer_id=CONSUMER["peer_id"],
+            endpoints=lambda *, peer: "",
+            http_client=http_client,
+            clock=lambda: now,
+            receive_path=CONSUMER["receive_path"],
+            max_request_bytes=CONSUMER["max_request_bytes"],
+        )
+        return wire, wire.asgi_app()
+
+    return TransportLeg(
+        name="typed-http",
+        child=SERVERS / "a2a_producer_child.py",
+        build=build,
+        child_url=lambda base: base + CONSUMER["receive_path"],
+    )
+
+
+def _lf_a2a_leg() -> TransportLeg:
+    """The D-IMPL-14 default: Linux Foundation A2A on ``a2a-sdk``.
+
+    The consuming side never emits here, so its card's ``rpc_url`` is only ever
+    read back by peers resolving it — which is why the base URL is not known at
+    construction time and the card is built against the mounted path. That is a
+    deployment detail of hosting, not of the exchange.
+    """
+
+    def build(
+        now: datetime, http_client: httpx.Client, base_url: str
+    ) -> tuple[WireProtocol, Any]:
+        wire = LfA2AWire(
+            local_peer_id=CONSUMER["peer_id"],
+            agent_card=build_agent_card(
+                name=LF_A2A["card"]["name"],
+                version=LF_A2A["card"]["version"],
+                description=LF_A2A["card"]["description"],
+                rpc_url=base_url + LF_A2A["rpc_path"],
+            ),
+            cards=lambda *, peer: "",
+            http_client_factory=lambda: httpx.AsyncClient(timeout=30.0),
+            clock=lambda: now,
+            rpc_path=LF_A2A["rpc_path"],
+            max_message_bytes=CONSUMER["max_request_bytes"],
+        )
+        app = FastAPI()
+        for route in wire.routes():
+            app.router.routes.append(route)
+        return wire, app
+
+    return TransportLeg(
+        name="lf-a2a",
+        child=SERVERS / "lf_a2a_producer_child.py",
+        build=build,
+        child_url=lambda base: base,
+    )
+
+
+@pytest.fixture(params=["typed-http", "lf-a2a"])
+def transport(request: pytest.FixtureRequest) -> Iterator[TransportLeg]:
+    """The wire under test, one param per implementation (D-11).
+
+    Two params rather than two modules: a second copy of these assertions could
+    drift from the first, and then "the same assertions pass over both wires"
+    would be a claim about two files that happened to look alike rather than a
+    property of one.
+    """
+    if request.param == "typed-http":
+        yield _typed_http_leg()
+        return
+    if request.param == "lf-a2a":
+        yield _lf_a2a_leg()
+        return
+    raise NotImplementedError(request.param)
+
 
 # --- the consumer deployment -----------------------------------------------
 
@@ -142,7 +278,8 @@ class Consumer:
     handle: FabricHandle
     database_path: Path
     gate: A2AAdmissionGate
-    wire: TypedHttpWire
+    wire: WireProtocol
+    key_dir: Path
     now: datetime
     lineage: ProductLineage
     inbound: dict[str, tuple[InboundProduct, ...]]
@@ -229,8 +366,26 @@ def _product_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
 
 
 @contextmanager
-def _hosted(wire: TypedHttpWire) -> Iterator[str]:
-    """Host ``wire``'s endpoint on an ephemeral loopback port; yield its URL.
+def _hosted(
+    build_app: Callable[[str], tuple[Any, WireProtocol]],
+) -> Iterator[tuple[str, WireProtocol]]:
+    """Host what ``build_app`` builds on an ephemeral loopback port.
+
+    ``build_app`` is handed the base URL and returns ``(asgi_app, wire)``;
+    this yields ``(base_url, wire)``.
+
+    Takes a *builder* rather than an application because the port must be bound
+    before the transport exists: LF A2A publishes an Agent Card stating where
+    this peer answers, and a card carrying a relative path is one no peer can
+    dial. Binding first — which this already did, so the port would be known
+    before the server started — is therefore also what makes the card
+    constructible. The typed-HTTP leg does not care, and does not have to.
+
+    Which routes a wire mounts, and how many, stays the transport's business:
+    the typed-HTTP leg mounts one, and the LF A2A leg mounts the JSON-RPC route
+    plus the Agent Card routes ``a2a-sdk`` builds. Yielding the *base* URL keeps
+    that difference where it belongs — each leg's ``child_url`` turns it into
+    what its own child needs.
 
     The consumer is the parent here, so the 06-04 fixture's roles are inverted:
     the parent listens and the children connect. The mechanics are the same
@@ -247,7 +402,9 @@ def _hosted(wire: TypedHttpWire) -> Iterator[str]:
     bound.bind(("127.0.0.1", 0))
     bound.listen(64)
     port = bound.getsockname()[1]
-    server = uvicorn.Server(uvicorn.Config(wire.asgi_app(), log_level="error"))
+    base_url = f"http://127.0.0.1:{port}"
+    app, extra = build_app(base_url)
+    server = uvicorn.Server(uvicorn.Config(app, log_level="error"))
     thread = threading.Thread(
         target=server.run, kwargs={"sockets": [bound]}, daemon=True
     )
@@ -259,7 +416,7 @@ def _hosted(wire: TypedHttpWire) -> Iterator[str]:
         while not server.started:
             if not thread.is_alive():
                 raise AssertionError("the consumer endpoint failed to start")
-        yield f"http://127.0.0.1:{port}{wire.receive_path}"
+        yield base_url, extra
     finally:
         server.should_exit = True
         thread.join(timeout=10)
@@ -267,7 +424,12 @@ def _hosted(wire: TypedHttpWire) -> Iterator[str]:
 
 
 def _spawn_producer(
-    stack: ExitStack, *, declared: Any, key_dir: Path, url: str
+    stack: ExitStack,
+    *,
+    leg: TransportLeg,
+    declared: Any,
+    key_dir: Path,
+    url: str,
 ) -> None:
     """Run one producer child to completion of its two emissions.
 
@@ -282,12 +444,17 @@ def _spawn_producer(
     os.environ[child.PRODUCER_HASH_VAR] = declared["producer_hash"]
     os.environ[child.TENANT_VAR] = TENANT
     os.environ[child.KEY_DIR_VAR] = str(key_dir)
-    stack.enter_context(spawn_child_server(PRODUCER_CHILD))
+    stack.enter_context(spawn_child_server(leg.child))
 
 
 @pytest.fixture
-def consumer(tmp_path: Path) -> Iterator[Consumer]:
-    """Boot a consuming fabric, host its endpoint, and run both producers."""
+def consumer(tmp_path: Path, transport: TransportLeg) -> Iterator[Consumer]:
+    """Boot a consuming fabric, host its endpoint, and run both producers.
+
+    Everything below the transport line is identical per leg — one Control
+    Plane, one trust policy, one gate, two producers — which is why the
+    parametrization stops here.
+    """
     key_dir = tmp_path / "keys"
     key_dir.mkdir()
     keys = {
@@ -347,18 +514,18 @@ def consumer(tmp_path: Path) -> Iterator[Consumer]:
     now = _instant(CONTROL["decision"]["now"])
     try:
         with httpx.Client(timeout=30.0) as client, ExitStack() as stack:
-            wire = TypedHttpWire(
-                local_peer_id=CONSUMER["peer_id"],
-                endpoints=lambda *, peer: "",
-                http_client=client,
-                clock=lambda: now,
-                receive_path=CONSUMER["receive_path"],
-                max_request_bytes=CONSUMER["max_request_bytes"],
-            )
-            with _hosted(wire) as url:
+            def build_app(base_url: str) -> tuple[Any, WireProtocol]:
+                built, app = transport.build(now, client, base_url)
+                return app, built
+
+            with _hosted(build_app) as (base_url, wire):
                 for declared in PEERS.values():
                     _spawn_producer(
-                        stack, declared=declared, key_dir=key_dir, url=url
+                        stack,
+                        leg=transport,
+                        declared=declared,
+                        key_dir=key_dir,
+                        url=transport.child_url(base_url),
                     )
                 received = tuple(wire.receive())
 
@@ -372,6 +539,7 @@ def consumer(tmp_path: Path) -> Iterator[Consumer]:
             database_path=database_path,
             gate=gate,
             wire=wire,
+            key_dir=key_dir,
             now=now,
             lineage=ProductLineage(
                 operators_invoked=frozenset({"temporal.as-of"}),
@@ -393,10 +561,7 @@ def _verifier(key_dir: Path) -> Any:
     ``verify`` and which is the only key material the verification path
     consults.
     """
-    from ccf.a2a.identity import (  # noqa: PLC0415
-        DetachedJwsIdentityProvider,
-        FileBackedKeySource,
-    )
+    from ccf.a2a.identity import DetachedJwsIdentityProvider  # noqa: PLC0415
 
     return DetachedJwsIdentityProvider(
         key_source=FileBackedKeySource(directory=key_dir)
@@ -650,3 +815,56 @@ def test_peer_a_admits_nothing_of_peer_b(consumer: Consumer) -> None:
     assert refusal.permitted_key_ids == frozenset(
         {PEERS["first"]["key_id"]}
     )
+
+
+# --- the serialization guard ------------------------------------------------
+
+
+def test_the_carried_payload_is_byte_equal_and_still_verifies(
+    consumer: Consumer,
+) -> None:
+    """T-06-54, research assumption A2: the wire did not touch the bytes.
+
+    The standing regression guard for how the LF A2A leg carries its payload. It
+    rides in a protobuf ``bytes`` field (``Part.raw``); a future ``a2a-sdk`` — or
+    a future contributor — routing it through ``Part.data`` instead would put it
+    through ``google.protobuf.Struct``'s JSON value model, where integers become
+    doubles and key order is not preserved. This case is what fails then, rather
+    than signatures silently breaking in production.
+
+    Three observations, because the first two alone are each satisfiable by a
+    broken transport:
+
+    1. **The signature verifies over the bytes as carried.** This is the
+       strongest available statement of byte-identity with what the producer
+       emitted: verification succeeds only over exactly the bytes that were
+       signed, and the producer signed the bytes it emitted. A transport that
+       normalized so much as a space would fail here.
+    2. **The verified payload *is* the carried payload**, rather than some
+       reconstruction of it — so the assertion is about what the consumer
+       actually holds, not about what a verifier happened to rebuild.
+    3. **Re-serializing the parsed product reproduces the carried bytes
+       exactly**, which pins the round trip end to end: bytes → contract →
+       bytes, with no field lost, added, or reordered.
+
+    It runs over both transports. It could not be expressed in the shared body
+    above — it needs the peer's public key and the raw envelope, neither of which
+    the admission assertions touch — but there is no reason to withhold it from
+    the typed-HTTP leg, and running it on both is what makes a *difference*
+    between the legs visible if one ever appears.
+    """
+    inbound = _first(consumer, "first")
+    source = FileBackedKeySource(directory=consumer.key_dir)
+    public_key = source.signing_key(key_id=PEERS["first"]["key_id"])
+
+    carried = inbound.signed.canonical_payload()
+    verified = _verifier(consumer.key_dir).verify(
+        signed=inbound.signed,
+        public_keys={PEERS["first"]["key_id"]: public_key},
+    )
+    assert verified == carried
+    assert sha256(carried).hexdigest() == inbound.signed.content_address()
+
+    admitted = _admit(consumer, inbound)
+    assert isinstance(admitted, AdmittedProduct), admitted
+    assert canonical_bytes(admitted.product) == carried
