@@ -47,6 +47,13 @@ __all__ = ["AuditAction", "AuditEvent", "AuditLog"]
 #: :mod:`ccf.a2a.admission`): admitting a peer's Context Product is a Control
 #: Plane decision like any other, and a refusal that left no record would let
 #: a rejected federation attempt be denied afterwards (T-06-43).
+#:
+#: ``skill_invoked`` is the remaining member added for I.3: an ``mcp`` dispatch
+#: leaves this process and contacts a remote server, and none of the existing
+#: members can express that — ``resolve`` is a Control Plane read and the
+#: ``grant_*`` family are grant-state transitions, so recording an invocation
+#: as either would make the log say something untrue. It goes through this one
+#: log, on the one existing ``append``; there is no parallel audit surface.
 AuditAction = Literal[
     "register",
     "register_typed",
@@ -60,6 +67,7 @@ AuditAction = Literal[
     "grant_revoked",
     "a2a_admitted",
     "a2a_admission_refused",
+    "skill_invoked",
 ]
 
 
