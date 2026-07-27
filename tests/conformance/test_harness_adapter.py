@@ -7,9 +7,10 @@ portability is demonstrated, not asserted). So every leg below drives **real
 harness SDK objects along real SDK code paths**, with no model and no network
 (``no_model_reachable`` below fails the run if either is attempted).
 
-06-13 (LangGraph) and 06-14 (Google ADK) join by adding a param to
-:func:`harness_leg`. **The test bodies must not change when they do**, which is
-the constraint every assertion here was written under:
+All three D-IMPL-24 harnesses are now params of :func:`harness_leg` — Claude
+Agent SDK (06-12), LangGraph (06-13), Google ADK (06-14). **The test bodies did
+not change as they joined**, which is the constraint every assertion here was
+written under:
 
 * Nothing below names a harness SDK type, imports one, or asserts on the
   concrete class of a carrier. The carriers three seams return are typed
@@ -24,6 +25,14 @@ the constraint every assertion here was written under:
 * The effect capability is a factory *argument*, because a suite that could
   only observe ``governed`` adapters would never assert the D-10 inert path,
   and D-10 makes declaring ``unsupported`` only half the requirement.
+* D-10's "the refusal actually fired" is a claim about each harness's **own**
+  refusal hook, which no shared assertion could reach generically. So each leg
+  supplies a :attr:`HarnessLeg.refusal` driver that pokes that hook and returns
+  the harness-native refusal artifact, or ``None`` when the harness permitted.
+  The harness-specific code stays in the leg; the assertion stays shared, and
+  it is an inversion — an adapter whose declared ``unsupported`` did not
+  actually stop anything fails on the refusal side, and one that refuses
+  unconditionally fails on the permitted side.
 
 Everything domain-specific — agent definitions, policy regimes, skill catalog
 entries, grants, product classes, model identifiers — comes from
@@ -32,6 +41,8 @@ entries, grants, product classes, model identifiers — comes from
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import inspect
 import socket
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -352,6 +363,15 @@ def _execution(definition: AgentDefinition) -> ExecutionResult:
 AdapterFactory = Callable[[EffectCapability], HarnessAdapterProtocol]
 
 
+#: Drives a harness's **own** refusal hook for one bound skill and returns the
+#: harness-native refusal artifact, or ``None`` when the harness permitted the
+#: call. The only way D-10's "the refusal fired" can be asserted without a test
+#: body naming ``PermissionResultDeny``, a short-circuit response dict, or a
+#: graph state channel — the harness-specific poke lives in the leg, the
+#: assertion stays shared.
+RefusalDriver = Callable[[HarnessAdapterProtocol, Agent, str], object | None]
+
+
 class HarnessLeg(NamedTuple):
     """One harness's entry into the suite.
 
@@ -360,7 +380,8 @@ class HarnessLeg(NamedTuple):
     bare adapter factory cannot drive, because its input is harness-native by
     definition. ``reported_model`` and ``trace_id`` are what that execution
     reports, so the seam-4 assertion compares against the harness's own values
-    rather than against anything CCF configured.
+    rather than against anything CCF configured. ``refusal`` is the
+    :data:`RefusalDriver` D-10 needs.
     """
 
     harness_id: str
@@ -368,14 +389,38 @@ class HarnessLeg(NamedTuple):
     execution: Callable[[], object]
     reported_model: str
     trace_id: str
+    refusal: RefusalDriver
 
 
-@pytest.fixture(params=["claude-agent", "langgraph"])
+def substrate_digest(database_path: Path) -> str:
+    """The L3 substrate under ``database_path``, byte for byte.
+
+    Hashing the substrate rather than querying the graph is deliberate: a query
+    only sees the rows a reader thought to ask about, while the digest covers
+    every byte the substrate holds — including any a second writer would have
+    added. **The write-ahead log is part of the substrate**: the SQLite backend
+    runs in WAL mode, so a committed write lands in ``<db>-wal`` while the main
+    file can stay byte-identical for a long time, and a digest over the main
+    file alone would report "unchanged" after a real write. The shared-memory
+    index is excluded — it is process coordination state, not durable content.
+
+    The same reasoning, and the same exclusions, as the A2A leg's own digest
+    (``tests/crossproc/test_a2a_exchange.py``). ``tests/invariants`` imports
+    this one rather than writing a third.
+    """
+    digest = hashlib.sha256()
+    for suffix in ("", "-wal"):
+        candidate = database_path.with_name(database_path.name + suffix)
+        digest.update(candidate.read_bytes() if candidate.exists() else b"")
+    return digest.hexdigest()
+
+
+@pytest.fixture(params=["claude-agent", "adk", "langgraph"])
 def harness_leg(request: pytest.FixtureRequest) -> Iterator[HarnessLeg]:
-    """One leg per harness. 06-14 adds its param here."""
+    """One leg per harness — all three of D-IMPL-24's, as of 06-14."""
     if request.param == "claude-agent":
         harness_unavailable("claude_agent_sdk", request.param)
-        from claude_agent_sdk import ModelUsage, ResultMessage
+        from claude_agent_sdk import ModelUsage, PermissionResultDeny, ResultMessage
 
         from ccf_runtime.adapters.claude_agent import HARNESS_ID, ClaudeAgentAdapter
 
@@ -414,12 +459,134 @@ def harness_leg(request: pytest.FixtureRequest) -> Iterator[HarnessLeg]:
                 },
             )
 
+        def refusal(
+            under_test: HarnessAdapterProtocol, agent: Agent, skill_name: str
+        ) -> object | None:
+            """Poke the Claude Agent SDK's own permission hook (D-10 (b)).
+
+            ``can_use_tool`` is the hook the harness consults before running a
+            tool and the one it honours ``PermissionResultDeny`` from, so this
+            is the harness refusing rather than CCF declining.
+            """
+            carrier = under_test.inject_context(
+                agent=agent, products=(), instructions=()
+            )
+            gate = carrier.can_use_tool  # type: ignore[attr-defined]
+            qualified = f"mcp__{values['mcp_server_name']}__{skill_name}"
+            decision = asyncio.run(gate(qualified, {}, None))
+            return decision if isinstance(decision, PermissionResultDeny) else None
+
         yield HarnessLeg(
             harness_id=HARNESS_ID,
             adapter=adapter,
             execution=execution,
             reported_model=values["reported_model"],
             trace_id=values["session_id"],
+            refusal=refusal,
+        )
+        return
+    if request.param == "adk":
+        harness_unavailable("google.adk", request.param)
+
+        from google.genai import types as adk_types
+
+        from ccf_runtime.adapters.adk import (
+            HARNESS_ID,
+            MODEL_STATE_KEY,
+            USAGE_STATE_KEY,
+            AdkAdapter,
+        )
+
+        values = _harness_fixture()[request.param]
+
+        def adk_adapter(effects: EffectCapability) -> HarnessAdapterProtocol:
+            return AdkAdapter(
+                model=values["model"],
+                agent_name=values["agent_name"],
+                session_id=values["session_id"],
+                effects=effects,
+            )
+
+        def adk_execution() -> object:
+            """A **real** ADK ``Runner`` run of the adapter's own vehicle.
+
+            No model is configured anywhere: the adapter ships a ``BaseAgent``
+            subclass whose ``_run_async_impl`` yields events, which is ADK's own
+            sanctioned way to run something that is not a model call. The
+            reported model and token counts are seeded onto ADK's session
+            state, which is where the harness's own session machinery carries
+            them into the run; the adapter never writes them and reads them
+            only back off the event stream a run produced.
+            """
+            from google.adk.runners import Runner
+            from google.adk.sessions import InMemorySessionService
+
+            carrier = adk_adapter("governed").inject_context(
+                agent=World().agent_a, products=(), instructions=()
+            )
+            state = {
+                **carrier.session_state,  # type: ignore[attr-defined]
+                MODEL_STATE_KEY: values["reported_model"],
+                USAGE_STATE_KEY: {
+                    "input_tokens": values["input_tokens"],
+                    "output_tokens": values["output_tokens"],
+                },
+            }
+
+            async def run() -> tuple[object, ...]:
+                sessions = InMemorySessionService()
+                await sessions.create_session(
+                    app_name=values["app_name"],
+                    user_id=values["user_id"],
+                    session_id=values["session_id"],
+                    state=state,
+                )
+                runner = Runner(
+                    agent=carrier.runnable,  # type: ignore[attr-defined]
+                    app_name=values["app_name"],
+                    session_service=sessions,
+                )
+                return tuple(
+                    [
+                        event
+                        async for event in runner.run_async(
+                            user_id=values["user_id"],
+                            session_id=values["session_id"],
+                            new_message=adk_types.Content(
+                                role="user", parts=[adk_types.Part(text="")]
+                            ),
+                        )
+                    ]
+                )
+
+            return asyncio.run(run())
+
+        def adk_refusal(
+            under_test: HarnessAdapterProtocol, agent: Agent, skill_name: str
+        ) -> object | None:
+            """Poke ADK's own before-tool hook (D-10 (b)).
+
+            ADK treats any truthy mapping returned from ``before_tool_callback``
+            as the tool's response and **does not call the tool**, so a returned
+            mapping is the harness short-circuiting rather than CCF declining.
+            """
+            carrier = under_test.inject_context(
+                agent=agent, products=(), instructions=()
+            )
+            harness_agent = carrier.llm_agent  # type: ignore[attr-defined]
+            bound = {tool.name: tool for tool in harness_agent.tools}
+            response = harness_agent.before_tool_callback(
+                tool=bound[skill_name], args={}, tool_context=None
+            )
+            return response or None
+
+        yield HarnessLeg(
+            harness_id=HARNESS_ID,
+            adapter=adk_adapter,
+            execution=adk_execution,
+            reported_model=values["reported_model"],
+            trace_id=values["session_id"],
+            refusal=adk_refusal,
         )
         return
     if request.param == "langgraph":
@@ -473,12 +640,36 @@ def harness_leg(request: pytest.FixtureRequest) -> Iterator[HarnessLeg]:
             )
             return result
 
+        def lg_refusal(
+            under_test: HarnessAdapterProtocol, agent: Agent, skill_name: str
+        ) -> object | None:
+            """Run the adapter-owned effect node (D-10 (b)).
+
+            LangGraph has no loop to hook, so the refusal surface is the node
+            the adapter built — and running the real compiled graph is what
+            makes "the refusal fired" an observation of an execution rather
+            than of a method call.
+            """
+            carrier = under_test.inject_context(
+                agent=agent, products=(), instructions=()
+            )
+            final = carrier.graph.invoke(  # type: ignore[attr-defined]
+                {
+                    **carrier.state,  # type: ignore[attr-defined]
+                    "output": dict(_agent_fixture()["slice"]["effect_payload"]),
+                },
+                carrier.config,  # type: ignore[attr-defined]
+            )
+            outcome = final.get("effect")
+            return outcome if isinstance(outcome, EffectRefusal) else None
+
         yield HarnessLeg(
             harness_id=HARNESS_ID,
             adapter=lg_adapter,
             execution=lg_execution,
             reported_model=values["reported_model"],
             trace_id=values["thread_id"],
+            refusal=lg_refusal,
         )
         return
     raise NotImplementedError(request.param)
@@ -730,6 +921,77 @@ def test_seam_3_refuses_when_the_adapter_declared_effects_unsupported(
     assert refusal.agent_definition_hash == world.agent_a.identity.definition_hash
     assert refusal.reason
     assert content_hash(refusal)
+
+
+def test_effects_unsupported_is_inert_not_merely_declared(
+    harness_leg: HarnessLeg,
+    world: World,
+    fabric_boot: Callable[..., Any],
+    tmp_path: Path,
+) -> None:
+    """D-10, in four parts, run for every harness.
+
+    This is what makes ``effects: unsupported`` a *conformance-verified
+    absence* rather than an opt-out with better branding. An adapter that
+    declared ``unsupported`` while quietly permitting the effect passes none of
+    (b); one that reached the graph anyway fails (c); one that could hand a
+    write handle over fails (d). Removing any one part makes the test
+    meaningfully weaker, so all four are here rather than spread across tests
+    that could be deselected independently:
+
+    (a) the capability is a **declared value on a required field**, not a
+        missing field that defaulted into a claim;
+    (b) the **harness's own** refusal hook fired — and, in inversion, did not
+        fire for the same adapter declared ``governed``;
+    (c) a real fabric's L3 substrate is byte-identical across the whole drive;
+    (d) nothing on the adapter's public surface is or names a write surface.
+    """
+    database_path = tmp_path / "effects-unsupported.sqlite3"
+    fabric_boot(database_path=database_path)
+    before = substrate_digest(database_path)
+
+    # (a) declared, and declarable only because the field is required.
+    assert HarnessCapabilities.model_fields["effects"].is_required()
+    adapter = harness_leg.adapter("unsupported")
+    declared = adapter.capabilities()
+    assert declared.effects == "unsupported"
+    assert declared.effects in EFFECT_CAPABILITIES
+
+    world.bind(world.grant_a, world.definition_a)
+    skill_name = world.grant_a.skill_name
+
+    # (b) the harness refused, and would not have refused under `governed`.
+    refused = harness_leg.refusal(adapter, world.agent_a, skill_name)
+    assert refused is not None, (
+        "the harness's own refusal hook did not fire for an adapter declaring"
+        " effects: unsupported — a declaration nothing enforces (D-10)"
+    )
+    permitted = harness_leg.refusal(
+        harness_leg.adapter("governed"), world.agent_a, skill_name
+    )
+    assert permitted is None, (
+        "the same hook refused under effects: governed too, so the refusal"
+        " above is not evidence the declaration did anything"
+    )
+
+    # The Protocol seam agrees with the hook, rather than describing it.
+    outcome = adapter.capture_effect(
+        agent=world.agent_a, output=dict(_agent_fixture()["slice"]["effect_payload"])
+    )
+    assert isinstance(outcome, EffectRefusal)
+    assert not isinstance(outcome, EmittedEffect)
+
+    # (c) nothing reached L3, write-ahead log included.
+    assert substrate_digest(database_path) == before, (
+        "driving the effect path against a read-only binding changed the L3"
+        " substrate (CLAUDE.md §10)"
+    )
+
+    # (d) no write handle was obtainable from the public surface.
+    for name, member in inspect.getmembers(adapter):
+        if name.startswith("__"):
+            continue
+        assert type(member).__name__ not in WRITE_SURFACE_NAMES, name
 
 
 # --- seam 4: replay hooks -----------------------------------------------------

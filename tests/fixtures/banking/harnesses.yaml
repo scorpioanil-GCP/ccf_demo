@@ -9,7 +9,8 @@
 # same literal proves only that the file was read.
 #
 # 06-13 (LangGraph) and 06-14 (Google ADK) add a block each, keyed by the same
-# param name they add to the `harness_leg` fixture.
+# param name they add to the `harness_leg` fixture. All three are now present,
+# which completes D-IMPL-24's harness set.
 
 claude-agent:
   # Bound onto ClaudeAgentOptions.model. Never invoked: the suite drives SDK
@@ -49,3 +50,27 @@ langgraph:
   reported_model: gpt-4.1-mini-2025-04-14
   input_tokens: 4321
   output_tokens: 765
+
+adk:
+  # Bound onto the LlmAgent this deployment configures. Never invoked: the
+  # adapter's execution vehicle is a BaseAgent subclass yielding events, so a
+  # real Runner drives it with no model and no network (D-09).
+  model: gemini-2.5-flash
+  # What ADK calls this deployment's agent. ADK requires an identifier, which
+  # a CCF agent key is not obliged to be, so it is the deployment's own name
+  # for the agent rather than anything derived from the definition.
+  agent_name: ccf_covenant_analytics
+  # ADK's own run-correlation identifier — the session a run belongs to.
+  # Resolved by ADK's session service and read back at the replay-hooks seam
+  # only because the harness carried it there.
+  session_id: 2f7b6c40-91ad-4d5e-a0e7-6c3f8b1d2e59
+  app_name: ccf-conformance
+  user_id: platform-operator
+  # What the *harness* reports back during a run, carried into the run on
+  # ADK's own session state. Deliberately not the configured `model` above,
+  # for the same reason as the other two blocks: a suite that used one value
+  # for both could not tell a governed claim from a harness-reported one
+  # (T-06-62).
+  reported_model: gemini-2.5-flash-002
+  input_tokens: 2468
+  output_tokens: 135
