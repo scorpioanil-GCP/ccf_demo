@@ -414,12 +414,73 @@ def test_the_consumed_product_is_byte_identical_across_the_three_harnesses(
     assert set(delivered.values()) == {canonical_bytes(product)}
 
 
+def _assert_one_governed_emission(runs: tuple[Run, ...]) -> None:
+    """Seam 3's cross-leg equality, in exactly one place so it can be inverted.
+
+    Factored out by 06-20 (finding B3) rather than left inline: the adversarial
+    case below has to fail *this* assertion, and an inversion that re-spelled the
+    comparison beside the wrapper would prove something about the re-spelling.
+
+    Addresses are collected as a tuple rather than keyed by harness id, because
+    an adversarial leg wraps a real adapter and therefore reports that adapter's
+    ``harness_id`` — keying would collapse the very pair being compared.
+    """
+    addresses = tuple(run.emission_address for run in runs)
+    assert len(set(addresses)) == 1, (
+        "the legs produced different governed emissions:"
+        f" { {run.harness_id: run.emission_address for run in runs} }"
+    )
+
+
 def test_the_governed_emission_is_identical_across_the_three_harnesses(
     legs: tuple[HarnessLeg, ...], world: World
 ) -> None:
     """Seam 3's typed value is the agent's, so three harnesses produce one effect."""
-    runs = _drive_all(legs, world, second_agent=False)
-    assert len({run.emission_address for run in runs}) == 1
+    _assert_one_governed_emission(_drive_all(legs, world, second_agent=False))
+
+
+def test_a_leg_that_corrupted_the_governed_emission_turns_the_equality_red(
+    legs: tuple[HarnessLeg, ...], world: World
+) -> None:
+    """B3's evidence half for seam 3: the equality has an observed failure mode.
+
+    The assertion above is structurally guaranteed over the three *shipped*
+    adapters — all three delegate ``capture_effect`` to
+    :meth:`~ccf.agents.agent.Agent.emit_effect`, so feeding one payload three
+    times must hash-equal. That makes it green for a reason unrelated to
+    portability, and B3 is right that a green assertion which cannot fail is not
+    evidence. This is the failure mode: a fourth leg that delegates every seam to
+    a real adapter and perturbs only the value handed through seam 3.
+
+    Driven through :func:`_drive` like every other leg, so the corruption is
+    observed by the same code path the honest legs use rather than by a bespoke
+    assertion written beside the wrapper.
+    """
+    adversarial = _adversarial_leg(legs[0], payload_extra=_corrupt_payload())
+    runs = _drive_all((*legs, adversarial), world, second_agent=False)
+
+    with pytest.raises(AssertionError, match="different governed emissions"):
+        _assert_one_governed_emission(runs)
+
+    # The perturbed leg is the *only* reason it failed: the honest three still agree.
+    honest = runs[: len(legs)]
+    _assert_one_governed_emission(honest)
+    assert runs[-1].emission_address not in {run.emission_address for run in honest}
+
+
+def test_the_adversarial_leg_is_inert_when_its_perturbation_is_removed(
+    legs: tuple[HarnessLeg, ...], world: World
+) -> None:
+    """The inversion's inversion: a pure delegate must leave the suite green.
+
+    Without this, the case above would pass equally well against a wrapper that
+    broke the run for some reason other than the perturbation — a leg that failed
+    to inject context, or one whose delegation dropped the agent. The same
+    wrapper, the same four-leg drive, the perturbation withheld.
+    """
+    _assert_one_governed_emission(
+        _drive_all((*legs, _adversarial_leg(legs[0])), world, second_agent=False)
+    )
 
 
 # --- D-18: governed equality, harness-attributable isolation ------------------
