@@ -37,10 +37,13 @@ The six checks, **in this order, and the order is load-bearing**:
    :data:`PRODUCER_ASSERTION_HEADER`), the product's ``schema_name``, and its
    ``policy_bundle_versions`` must all lie inside what *this* peer, for *this*
    tenant, is permitted to assert (T-06-39).
-5. **TTL.** :func:`ccf.products.gates.run_gates` is wired in rather than
+5. **The federated contract gates.**
+   :func:`ccf.products.gates.run_federated_gates` is wired in rather than
    reimplemented, so a validly signed but stale product is refused by the same
-   INV-CH7-48 mechanism a locally assembled one is (T-06-40). See
-   :meth:`A2AAdmissionGate._run_contract_gates` for what that call does and
+   INV-CH7-48 mechanism a locally assembled one is (T-06-40), and the declared
+   operator plan is checked for *attributability* against the bytes whose
+   signature verified. See
+   :meth:`A2AAdmissionGate._run_federated_gates` for what that call does and
    does not establish across a trust boundary.
 6. **Lineage integrity.** The inbound lineage *extends* the consumer's by
    set-union: producer entries survive, consumer entries survive, and the
@@ -113,7 +116,7 @@ from ccf.products.contract import (
     ProductLineage,
     RegisteredProductClass,
 )
-from ccf.products.gates import GateRefusal, run_gates
+from ccf.products.gates import GateRefusal, run_federated_gates
 
 __ccf_mode__ = "algorithmic"
 
@@ -558,8 +561,8 @@ class A2AAdmissionGate:
             An :class:`AdmittedProduct` when every check passes, otherwise the
             refusal of the *first* check that did not. Refusals from checks
             1–4 and 6 are :class:`AdmissionRefusal` subclasses; check 5 returns
-            the contract gates' own refusal types unchanged, because it *is*
-            the contract gates.
+            the federated contract gates' own refusal types unchanged, because
+            it *is* the federated contract gates.
 
         Raises:
             ccf.controlplane.registry.ControlPlaneMissing: a pinned Control
@@ -676,7 +679,7 @@ class A2AAdmissionGate:
                 binding, content_address=content_address, occurred_at=now
             )
 
-        # --- 5. TTL, via the existing contract gates ---------------------
+        # --- 5. the federated contract gates -----------------------------
         product_class = self._product_classes.get(product.schema_name)
         if product_class is None:
             return self._refuse(
@@ -695,8 +698,11 @@ class A2AAdmissionGate:
                 content_address=content_address,
                 occurred_at=now,
             )
-        gate_refusal = self._run_contract_gates(
-            product=product, product_class=product_class, now=now
+        gate_refusal = self._run_federated_gates(
+            product=product,
+            attested_address=content_address,
+            product_class=product_class,
+            now=now,
         )
         if gate_refusal is not None:
             self._record(
@@ -836,36 +842,36 @@ class A2AAdmissionGate:
             )
         return None
 
-    def _run_contract_gates(
+    def _run_federated_gates(
         self,
         *,
         product: ContextProductContract,
+        attested_address: str,
         product_class: RegisteredProductClass,
         now: datetime,
     ) -> GateRefusal | None:
-        """Run the existing contract gates, and be explicit about what they show.
+        """Run the federated contract gates, and be explicit about what they show.
 
-        :func:`~ccf.products.gates.run_gates` is called rather than
+        :func:`~ccf.products.gates.run_federated_gates` is called rather than
         reimplemented, so a stale inbound product is refused by the *same*
         INV-CH7-48 mechanism a locally assembled one is, against the same
-        pinned MAX_TTL. What the three gates establish across a trust boundary
+        pinned MAX_TTL. What each gate establishes across a trust boundary
         differs per gate, and pretending otherwise would be the more dangerous
         error:
 
         * **Empty-operator guard (INV-CH7-46) — fully meaningful.** A product
           declaring no operators was computed by nothing, whoever produced it.
-        * **Lineage strict equality (INV-CH7-47) — structurally vacuous here,
-          and deliberately so.** That gate compares a producer's declaration
-          against the *engine's independent record* of what ran. The consumer
-          ran no engine: the operators executed in another fabric, in another
-          process, and no independent record of them exists on this side. The
-          declared set is therefore passed as its own witness, which makes the
-          comparison trivially true — stated here rather than hidden, because
-          a reader must not mistake a passing gate for a verified claim. What
-          substitutes across the boundary is check 2: the declaration is
-          covered by a signature from a key the peer was entitled to use, so
-          the producer is *accountable* for it even though the consumer cannot
-          recompute it.
+        * **Lineage attributability — what INV-CH7-47 becomes here, per Dave's
+          ``D-IMPL-57`` ruling of 2026-07-27 (reading (a)).** The declared
+          operator plan must be covered by the bytes whose signature verified:
+          the address check 2 established is passed in as ``attested_address``,
+          and a candidate hashing to anything else is refused. The consumer ran
+          no engine, so no independent record of the producer's plan exists on
+          this side; what holds is that the peer *signed* the plan it asserted
+          and cannot later deny it. Accepted consequence, stated rather than
+          softened: **a compromised or buggy peer can assert an operator plan it
+          did not run, and the consuming fabric will admit the product.** What
+          is guaranteed is attribution and non-repudiation, never truth.
         * **TTL bounds (INV-CH7-48) — fully meaningful.** Expiry is a property
           of the product and the consumer's clock, and needs nothing the
           consumer lacks (T-06-40).
@@ -873,9 +879,9 @@ class A2AAdmissionGate:
         Returns:
             The gates' refusal, or ``None`` when all three pass.
         """
-        outcome = run_gates(
+        outcome = run_federated_gates(
             product,
-            engine_resolved=product.lineage.operators_invoked,
+            attested_address=attested_address,
             now=now,
             registry=self._control_plane,
             product_class=product_class,
