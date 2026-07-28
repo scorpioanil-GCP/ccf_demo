@@ -240,3 +240,72 @@ their reasons stated above. Re-confirmed at sign-off:
       delivered set, not because it was left alone.
 
 **Phase approval is Dave's alone (CLAUDE.md §3.1). `D-GATE-I.3` is deliberately unwritten.**
+
+---
+
+## Gap-Closure Wave — Per-Plan Verification Map (06-18 … 06-23)
+
+The 2026-07-27 cross-AI gate review returned three blocking findings and seven advisories, and
+two decisions (`D-IMPL-58`, `D-IMPL-59`) were ruled by Dave mid-wave. This section is the
+per-plan verification map for the resulting six plans plus the re-presentation, in the format
+the table above uses. Full finding dispositions are in `06-REVIEWS.md`; the commit-level record
+is `docs/PHASE_I3_GATE.md` §1.6.
+
+> **Path-vocabulary note (read before following any path in the table above).** `D-IMPL-59`
+> (Dave, 2026-07-27) renamed the federation seam. Rows `06-07-*` through `06-10-*` and note
+> **(c)** name **pre-rename** paths, which were accurate when those rows were executed and are
+> left as the historical record rather than rewritten. The mapping, applied once here so a
+> reader is not left following a dead link — the A4 defect class:
+>
+> | Pre-rename (rows above) | Current |
+> |---|---|
+> | `src/ccf/a2a/` | `src/ccf/peering/` |
+> | `src/ccf/a2a/wire.py` (`WireProtocol`) | `src/ccf/peering/protocol.py` (`PeeringProtocol`) |
+> | `runtime/ccf_runtime/a2a/` | `runtime/ccf_runtime/peering/` |
+> | `tests/a2a/` | `tests/peering/` |
+> | `tests/crossproc/test_a2a_exchange.py` | `tests/crossproc/test_peering_exchange.py` |
+>
+> Verified: `grep -rl "ccf\.a2a\|ccf_runtime\.a2a" src runtime tests tools` → **0 files**. The
+> transports keep their wire names (`lf_a2a.py`, `LfA2AWire`) by design — `D-IMPL-59` part 2.
+
+| Plan | Closes | Property verified | Kind | Command (all under `PYTHONPATH=src:runtime`) | Named test / artifact | Status |
+|------|--------|-------------------|------|---------------------------------------------|------------------------|--------|
+| **06-18** | B1 | The federated gate sequence checks **attribution**, and takes no `engine_resolved` witness from the producer | unit + end-to-end | `pytest tests/gates/test_federated_gates.py tests/peering/test_admission_attributability.py -q` | `test_federated_gates.py::test_the_federated_sequence_takes_no_engine_resolved_witness`; `test_admission_attributability.py::test_a_signed_but_non_canonical_payload_is_refused_as_unattributable` (driven through `admit`) | ✅ green |
+| **06-18** | B1 | The retired vacuous wiring is gone from the code, not just from the prose | grep | `grep -c engine_resolved src/ccf/peering/admission.py`; `grep -rl "structurally vacuous" src/` | — | ✅ **0 / 0** |
+| **06-19** | B2 / D-IMPL-58 (d) | The merged lineage persists as an immutable `AdmissionRecord` and is resolvable by replay at an exact version — **not** off the transient wrapper | unit + persisted-state | `pytest tests/peering/test_admission_record.py -q` | `::test_the_union_is_observed_in_persisted_state_through_the_replay_path`, `::test_an_admission_persists_an_admission_record`, `::test_a_store_outage_is_not_reported_as_an_admission` | ✅ green |
+| **06-19** | D-IMPL-58 amendment | Class id is `ccf.admission-record`, declared exactly once; the pre-amendment token is gone | grep | `grep -rn 'class_id="ccf.admission-record"' src runtime tests`; `grep -rl '"admission_record"' src runtime tests` | `src/ccf/peering/admission.py:471` | ✅ **1 / 0** |
+| **06-19** | B2 | `LineageEntry` untouched — asserted, not assumed | unit | `pytest tests/peering/test_admission_record.py -q` | the `claims.py`-unchanged assertion | ✅ green |
+| **06-20** | B3 | The seam-3 emission and seam-4 trace equalities each have an **observed** failure mode | conformance (adversarial) | `CCF_REQUIRE_HARNESSES=1 pytest tests/conformance -q` | `test_harness_portability.py::test_a_leg_that_corrupted_the_governed_emission_turns_the_equality_red`, `::test_a_leg_that_corrupted_its_reported_trace_is_detected`, `::test_a_dropped_harness_trace_is_caught_by_liveness_not_by_absence` | ✅ green (193) |
+| **06-20** | B3 (limit) | What the suite drives and does **not** drive is stated in its own docstring; `capture_effect` remains a delegation on all three adapters | doc + read | recorded verbatim in gate §3.3.1 | — | ⚠️ **scope stated, A3 OPEN** |
+| **06-21** | A1 | **Every** structurally discovered transport is constructed and attribute-scanned, `LfA2AWire` included, with a live count guard | invariant scan | `pytest tests/invariants/test_peering_single_writer.py -q` | `::test_every_discovered_transport_is_actually_constructed`, `::test_transport_modules_were_actually_discovered` | ✅ green |
+| **06-21** | A2 | The `AdmittedProduct` claim is scoped to the unforced path; both edges asserted | unit (inversion pair) | `pytest tests/crossproc/test_peering_exchange.py -q` | `::test_the_federated_door_does_not_accept_an_unadmitted_product`, `::test_the_unforgeability_claim_is_scoped_to_the_unforced_path` | ✅ green |
+| **06-24** | D-IMPL-59 parts 1–3 | Seam relocated to `ccf.peering`; Protocol is `PeeringProtocol`; nothing deleted | import + grep + git | `python -c "from ccf.peering.protocol import PeeringProtocol"`; `git diff --diff-filter=D --name-only pre-peering -- src/ runtime/ tests/ tools/` | `src/ccf/peering/protocol.py` | ✅ green, **no deletions, 16 renames** |
+| **06-24** | D-IMPL-59 part 4 | A Peering declares trust **inputs**, never the verdict | property | `pytest tests/peering/test_peering_verdict.py -q` (6 cases) | `::test_the_gate_offers_exactly_one_admission_entry_point`, `::test_no_discovered_transport_names_the_verdict` + its count guard | ✅ green |
+| **06-24** | naming ruling | No unsuffixed seam Protocol | grep | `grep -rlE "^class Peering\(\|^class Peering:" src/` | — | ✅ **0** |
+| **06-25** | D-IMPL-59 skill surface | Catalog and dispatcher speak `peering`; the `a2a` skill_type token is retired | unit | `pytest tests/skills -q` | `_BINDING_CONTRACTS`; the refused-by-name case, whose fixture **intentionally retains** an `a2a` token so the test has a value to reject | ✅ green |
+| **06-22** | B1–B3 prose, A1/A2/A4/A5 | Gate rows and criterion prose match the code; every narrowing carries its finding id | doc sweep | §4.13 citation sweep; `pytest tools/lints/tests -q` (A4's corrected path, **run** not assumed) | gate §3.2.1, §3.3.1, §4.13; `06-REVIEWS.md` 10-row disposition table | ✅ green (49) |
+| **06-23** | re-presentation | The whole sweep re-run **after** the wave; every checklist row's module executed; every citation resolves | full sweep | `CCF_REQUIRE_HARNESSES=1 pytest -q -rs`; `tools.lints --all`; `mypy`; the two row batches in gate §2.1 | gate §1, §1.2, §1.6, §2.1, §4.13 | ✅ **987 pass / 2 skip; lints 0; mypy 99** |
+| **06-23** | approval boundary | `D-GATE-I.3` is **not** logged; `STATE.md` untouched | grep + git | `grep -cE "^\*?\*?D-GATE-I\.3 —\|^#+ .*D-GATE-I\.3" docs/DECISIONS.md`; `git diff --name-only .planning/STATE.md` | Gate Log ends at `D-GATE-I.2` | ✅ **0 / empty** |
+
+### What the two remaining skips are
+
+`hitl-action-capture` and `workflow-trace-capture` (`tests/invariants/test_replay_by_construction.py:188`)
+are the **tracked CINV-04 Phase I.4 deferrals**, unchanged across the wave. Each names its
+unblocking phase and the CLAUDE.md commitment it will enforce in its own `-rs` skip reason, so
+`pytest -rs` prints the deferral rather than hiding it. **They are tracked deferrals, not
+missing coverage**, and activating them is what takes the suite's skip count to zero in I.4.
+
+### Advisories still open at re-presentation
+
+| Advisory | Status | Consequence if left |
+|---|---|---|
+| **A3** — the Claude leg's seam-4 `execution()` is a hand-built `ResultMessage` | **OPEN**, carried to Phase 8 `examples/03-harness-portability` | trace-equivalence evidence is **two-legged in substance**, not three |
+| **A6** — `SkillCatalogEntry` declares no tool description or argument schema | **OPEN**, target `D-IMPL-56` | every future adapter re-derives both; the first to derive them differently **silently breaks D-18 harness equivalence** |
+| **A7** — the LangGraph adapter's `_build_graph` topology | **OPEN**, carried to Phase 7 against `D-IMPL-17` | the one place the SDK authors execution shape; I.4 must not inherit it as a workflow engine |
+
+**Gap-closure execution sign-off:** 2026-07-27 (06-23). Every row above was executed in plan
+06-23 or in the plan that owns it, under `PYTHONPATH=src:runtime` against the worktree tree
+(both `ccf.__file__` and `ccf_runtime.__file__` confirmed inside the worktree before any leg
+ran). **The gate package is READY for Dave's review. It is not approved — approval authority is
+Dave's alone (CLAUDE.md §3.1 step 3), and `/gsd-review` passing is necessary but never
+sufficient. `D-GATE-I.3` remains deliberately unwritten.**
