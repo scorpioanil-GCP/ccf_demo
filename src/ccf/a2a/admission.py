@@ -121,6 +121,7 @@ from ccf.products.gates import GateRefusal, run_federated_gates
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "ADMISSION_RECORD",
     "GATE_CONTRACT",
     "GATE_LINEAGE_CONTINUITY",
     "GATE_PAYLOAD_CEILING",
@@ -130,6 +131,7 @@ __all__ = [
     "PRODUCER_ASSERTION_HEADER",
     "A2AAdmissionGate",
     "AdmissionBypassError",
+    "AdmissionRecord",
     "AdmissionRefusal",
     "AdmittedProduct",
     "ContractRefusal",
@@ -327,6 +329,86 @@ def union_lineage(
         ),
         graph_snapshot_at=producer.graph_snapshot_at,
     )
+
+
+class AdmissionRecord(CCFContract):
+    """What crossed a Peering, persisted at the boundary (D-IMPL-58 reading (d)).
+
+    SDK-defined extension (CLAUDE.md §7.2, §7.4). Dave's ruling of 2026-07-27
+    resolves D-IMPL-58 as **reading (d)**: the merged :class:`
+    ~ccf.products.contract.ProductLineage` is persisted *at the admission
+    boundary* rather than in graph state, and
+    ``ccf.contracts.claims.LineageEntry`` is not extended. The defect being
+    closed is that :meth:`A2AAdmissionGate.admit` computed the union into
+    :attr:`AdmittedProduct.lineage` and nothing read it — ``ingest_admitted``
+    reads ``admitted.product`` and never ``admitted.lineage`` — so lineage
+    continuity was a property of a wrapper L2 discards. Under (d) the property
+    becomes true *and* correctly located: continuity is a property of the
+    federation boundary, which is what CLAUDE.md §7.2 actually describes.
+
+    **Why this is an ArtifactStore artifact and not Control Plane state
+    (D-IMPL-27).** D-IMPL-27 splits substrates by mutability, and this record is
+    immutable, versioned and replay-relevant: it describes one crossing that
+    already happened, so there is nothing about it to update. Content addressing
+    (D-IMPL-26) then makes immutability structural rather than procedural — the
+    same bytes yield the same address, so no overwrite path is needed or
+    offered, and replay resolves an exact version rather than "latest".
+
+    **What the audit log does and does not carry — stated here so the next
+    reader does not repeat the false premise D-IMPL-58's correction paragraph
+    records.** :meth:`~ccf.controlplane.audit.AuditLog.append` carries *scalars
+    only* (``action, key, version, resolved, occurred_at, actor,
+    artifact_class``); there is no payload field, and an
+    :class:`~ccf.controlplane.audit.AuditEvent` cannot hold a ``ProductLineage``.
+    So the audit plane answers *was this admitted, by whom, when* — a verdict —
+    and this artifact answers *what was admitted*. The verdict points at the
+    record through the reference triple, and neither structure pretends to be
+    the other.
+
+    **Producer and consumer are carried alongside the merge, not only the
+    merge.** A union that cannot be decomposed cannot be audited: an examiner
+    handed only ``merged_lineage`` cannot say which side contributed which
+    operator, and reconstructing it from the peer's product later depends on
+    that product still being available. All three are recorded so the crossing
+    is legible from this artifact alone.
+
+    Attributes:
+        tenant_id: The consuming tenant whose Control Plane admitted (D-IMPL-05).
+        peer_id: The peer whose signature and entitlements were verified.
+        product_content_address: Address of the admitted product — the bytes
+            whose signature verified, which is the same witness the
+            attributability gate used. This is what ties the record to a
+            specific crossing rather than to a schema.
+        producer_lineage: The inbound product's declared lineage.
+        consumer_lineage: The consuming fabric's own lineage at admission.
+        merged_lineage: The union :func:`union_lineage` computed — what
+            CLAUDE.md §7.2's "extends, not replaces" commitment produced.
+        admitted_at: The evaluation instant the gate was given. Supplied, never
+            read from a clock, so the record is as deterministic as the verdict.
+
+    No value here is a deployment's: no peer id, no schema, no regime is
+    authored in this module (CINV-01).
+    """
+
+    tenant_id: str
+    peer_id: str
+    product_content_address: str
+    producer_lineage: ProductLineage
+    consumer_lineage: ProductLineage
+    merged_lineage: ProductLineage
+    admitted_at: datetime
+
+
+#: The artifact class an admission record is filed under. Dot-namespaced and
+#: kebab-cased, matching the established family exactly (``ccf.half-life-table``,
+#: ``ccf.debt-profile``, ``src/ccf/controlplane/artifacts.py:268,270``).
+#: D-IMPL-58's amendment of 2026-07-27 records why this is asserted in a test
+#: rather than left to review: the entry originally carried the non-conforming
+#: literal ``admission_record``, and an error in the decision log propagates with
+#: that log's authority behind it.
+ADMISSION_RECORD = ArtifactClass(
+    class_id="ccf.admission-record", contract=AdmissionRecord
+)
 
 
 class AdmissionBypassError(TypeError):
