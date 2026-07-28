@@ -240,7 +240,7 @@ Plans:
   4. Single-writer invariant demonstrably holds across the A2A boundary, the adapter boundary, and the ArtifactStore
   5. **MCP-backed ArtifactStore reference implementation ships** and passes the same shared ArtifactStore Protocol conformance suite as the file-backed dev impl, with no other deployment change required to swap between them *(inherited from Phase 4 per the D-12 scope amendment recorded on Phase 4 criterion 4)*
 
-**Plans:** 21/25 plans executed
+**Plans:** 22/25 plans executed
 
 **Criterion evidence** (all in `docs/PHASE_I3_GATE.md`, which carries a 20-row
 checklist naming, per row, its test *and* what would fail under breakage):
@@ -313,7 +313,7 @@ blocking, A1-A7 advisory — replanned under `D-IMPL-58` (AdmissionRecord) and `
 
 **Wave 10** *(the Peering re-description — after the substantive fixes, so it sweeps them too)*
 
-- [ ] 06-24-PLAN.md — D-IMPL-59 core seam: `src/ccf/peering/`, `Peering` Protocol, `PeeringAdmissionGate`, `peering_*` audit verdicts, transports reseated keeping `lf_a2a`/`typed_http`. No deletions
+- [x] 06-24-PLAN.md — D-IMPL-59 core seam: `src/ccf/peering/`, `Peering` Protocol, `PeeringAdmissionGate`, `peering_*` audit verdicts, transports reseated keeping `lf_a2a`/`typed_http`. No deletions
 
 **Wave 11** *(blocked on 06-24)*
 
@@ -382,7 +382,7 @@ this needs serializing at merge; it is recorded here rather than claimed away.
 | 3. Phase F — Feasibility & Scoping | 4/4 | Complete   | 2026-07-25 |
 | 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
-| 6. Phase I.3 — Cross-Process & Harness Adapters | 21/25 | In Progress|  |
+| 6. Phase I.3 — Cross-Process & Harness Adapters | 22/25 | In Progress|  |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 0/? | Not started | - |
 | 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |
 
