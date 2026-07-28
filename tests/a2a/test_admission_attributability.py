@@ -61,6 +61,7 @@ from ccf.a2a.trust_policy import (
     trust_policy_key,
 )
 from ccf.a2a.wire import InboundProduct, PeerRef
+from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.operators.categories import (
@@ -192,11 +193,23 @@ def product_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
 
 
 @pytest.fixture
+def artifact_store(tmp_path: Path) -> FileArtifactStore:
+    """Where an admitted crossing's ``AdmissionRecord`` lands (D-IMPL-58).
+
+    Present because admission now persists a record before reporting success;
+    the sensitivity guard in this file would otherwise fail for a reason that has
+    nothing to do with attributability.
+    """
+    return FileArtifactStore(root=tmp_path / "admission-records")
+
+
+@pytest.fixture
 def gate(
     provider: DetachedJwsIdentityProvider,
     public_key: JsonWebKey,
     registry: ControlPlaneRegistry,
     product_class: RegisteredProductClass,
+    artifact_store: FileArtifactStore,
 ) -> A2AAdmissionGate:
     policy_version = registry.register_typed(
         trust_policy_key(tenant_id=TENANT),
@@ -227,6 +240,7 @@ def gate(
         identity=provider,
         control_plane=registry,
         audit_log=registry.audit_log,
+        artifact_store=artifact_store,
         tenant_id=TENANT,
         trust_policy_version=policy_version,
         payload_ceiling_version=ceiling_version,

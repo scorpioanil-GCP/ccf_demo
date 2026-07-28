@@ -105,6 +105,7 @@ from ccf.a2a.trust_policy import (
     trust_policy_key,
 )
 from ccf.a2a.wire import InboundProduct, PeerRef, WireProtocol
+from ccf.artifacts.file_store import FileArtifactStore
 from ccf.assembly.worker import (
     AssemblyWorker,
     EntityResolutionRule,
@@ -510,6 +511,10 @@ def consumer(tmp_path: Path, transport: TransportLeg) -> Iterator[Consumer]:
         identity=_verifier(key_dir),
         control_plane=registry,
         audit_log=registry.audit_log,
+        # Where each admitted crossing's ``AdmissionRecord`` lands (D-IMPL-58
+        # reading (d)). A real reference store, so this end-to-end exchange
+        # exercises the same persistence path a deployment would.
+        artifact_store=FileArtifactStore(root=tmp_path / "admission-records"),
         tenant_id=TENANT,
         trust_policy_version=trust_version,
         payload_ceiling_version=ceiling_version,
