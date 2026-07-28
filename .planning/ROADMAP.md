@@ -15,7 +15,7 @@ exists.
 - [x] **Phase 3: Phase F — Feasibility & Scoping** - Per-component verdicts, v0.1 surface, test strategy; verify Phase I gate list (completed 2026-07-25)
 - [x] **Phase 4: Phase I.1 — Fabric Core** - L1–L6 Data and Context Layer plus CI invariant scaffolding
 - [x] **Phase 5: Phase I.2 — Agent Specialization Framework** - Agent base, six archetypes, Agent & Task Factory, skilling (completed 2026-07-26)
-- [ ] **Phase 6: Phase I.3 — Cross-Process & Harness Adapters** - Bidirectional MCP, A2A federation, HarnessAdapterProtocol + reference adapters
+- [x] **Phase 6: Phase I.3 — Cross-Process & Harness Adapters** - Bidirectional MCP, A2A federation, HarnessAdapterProtocol + reference adapters (completed 2026-07-28)
 - [ ] **Phase 7: Phase I.4 — Orchestration, HITL, Experience** - Workflow primitive, HITL primitives, MCP egress / CLI / HTTP front doors
 - [ ] **Phase 8: Phase I.5 — Examples Suite & Full CI Verification** - Eight-example v0 suite in CI, all invariant lints green, Phase I gate
 
@@ -240,7 +240,7 @@ Plans:
   4. Single-writer invariant demonstrably holds across the **Peering** boundary, the adapter boundary, and the ArtifactStore *(vocabulary corrected to D-IMPL-59 — the seam is a Peering; A2A is its reference transport. The Peering leg is now carried by the type system as well as by observation: the federated route into L2 is a typed door, at the scope gate row 6 states)*
   5. **MCP-backed ArtifactStore reference implementation ships** and passes the same shared ArtifactStore Protocol conformance suite as the file-backed dev impl, with no other deployment change required to swap between them *(inherited from Phase 4 per the D-12 scope amendment recorded on Phase 4 criterion 4)*
 
-**Plans:** 24/25 plans executed
+**Plans:** 25/25 plans complete
 
 **Criterion evidence** (all in `docs/PHASE_I3_GATE.md`, which carries a **21-row**
 checklist naming, per row, its test *and* what would fail under breakage — row 21
@@ -340,7 +340,7 @@ blocking, A1-A7 advisory — replanned under `D-IMPL-58` (AdmissionRecord) and `
 
 **Wave 13** *(gate re-presentation)*
 
-- [ ] 06-23-PLAN.md — Post-closure sweep, row-by-row gate re-verification, no-deletion check, re-present to Dave. **Does not log `D-GATE-I.3`**
+- [x] 06-23-PLAN.md — Post-closure sweep, row-by-row gate re-verification, no-deletion check, re-present to Dave. **Does not log `D-GATE-I.3`**
 
 **Wave ordering note**: waves are `max(depends_on) + 1`. D-02's transport → trust →
 harness widening is a *risk ordering* — it governs where the phase's unknowns land, not
@@ -397,7 +397,7 @@ this needs serializing at merge; it is recorded here rather than claimed away.
 | 3. Phase F — Feasibility & Scoping | 4/4 | Complete   | 2026-07-25 |
 | 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
-| 6. Phase I.3 — Cross-Process & Harness Adapters | 24/25 | In Progress|  |
+| 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 0/? | Not started | - |
 | 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |
 
