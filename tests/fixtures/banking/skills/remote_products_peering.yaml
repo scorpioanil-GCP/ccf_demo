@@ -11,14 +11,10 @@
 # (T-06-57).
 #
 # Versioning (D-IMPL-59 part 1; D-IMPL-28's independent lanes). The skill type
-# token moved from `a2a` to `peering`, which is a **schema** change and not
-# merely a content one: the retired member is refused by name rather than
-# migrated, so an artifact valid under the old schema is invalid under the new
-# one. Both lanes therefore take a *major* bump — `schema_version` because the
-# member was removed from `SkillType`, `artifact_version` because an entry
-# under the new token is not interchangeable with its predecessor. This is
-# strictly larger than the D-IMPL-54 / D-05 precedent, where a binding *value*
-# change was a content change only and moved `artifact_version` a minor step.
+# token moved `a2a` -> `peering`: a *schema* change, and a breaking one, since
+# the retired member is refused rather than migrated. Both lanes take a major
+# bump — strictly larger than the D-IMPL-54 / D-05 precedent, where a binding
+# *value* change moved `artifact_version` a minor step only.
 
 entry:
   schema_version: "2.0.0"
@@ -67,11 +63,8 @@ inbound:
 # does not permit, which is the governance-ahead-of-the-network material: the
 # refused skill never reaches dispatch, so the transport is never touched.
 #
-# Re-pinned to the entry's new `artifact_version`, as D-IMPL-54 did: a grant
-# references an entry by version and never copies it, so a bumped entry means a
-# re-pinned grant. The grant's own `schema_version` does not move — the
-# skill-grant artifact class's shape is untouched by the skill-type rename —
-# while its `artifact_version` takes a minor bump for the content change.
+# Re-pinned to the entry's new version, as D-IMPL-54 did. The grant's own
+# `schema_version` does not move — the grant class's shape is untouched.
 grant:
   schema_version: "1.0.0"
   artifact_version: "1.1.0"
@@ -101,12 +94,40 @@ denied:
     skill_version: "2.0.0"
   expected_excess_scopes: [counterparty-write]
 
-# The retired token, as a value rather than a test literal (§6.4). A catalog
-# artifact still declaring `skill_type: a2a` must be refused *by name* — the
-# same closed-world refusal an entirely unknown type takes — never silently
-# reinterpreted as `peering`. A grant recorded under the old token and quietly
-# honoured under the new one would be a governance failure, not a migration
-# convenience (T-06-106).
+# A SECOND peering entry, scoped inside what the fixture agent's regime permits,
+# so it can be granted and invoked *through an agent* — the same shape
+# `document_fetch_mcp.yaml`'s `agent_invocable` block takes, matching its MCP
+# sibling rather than diverging from it. The `denied` entry above cannot serve
+# this case: it is over-scoped on purpose. Same logical endpoint; the deployment
+# block registers the transport and this entry names no address either.
+agent_invocable:
+  entry:
+    schema_version: "2.0.0"
+    artifact_version: "2.0.0"
+    name: portfolio-remote-products
+    tenant: acme-bank
+    skill_type: peering
+    binding:
+      endpoint: zenith-federation
+    requirements:
+      required_scopes: [portfolio-read]
+      required_context_products: []
+  grant:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: covenant-analytics-portfolio-remote-products
+    tenant: acme-bank
+    skill_name: portfolio-remote-products
+    skill_version: "2.0.0"
+  arguments:
+    requested_by: covenant-analyst
+  requesting_actor: platform-operator
+  approver_id: risk-officer-7
+
+# The retired token, as a value rather than a test literal (§6.4). An artifact
+# still declaring `skill_type: a2a` is refused *by name* — the same closed-world
+# refusal an unknown type takes — never reinterpreted as `peering`. A grant
+# quietly honoured under the new token would be a governance failure (T-06-106).
 retired_token:
   token: a2a
   entry:

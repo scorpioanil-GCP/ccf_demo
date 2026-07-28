@@ -58,6 +58,7 @@ from ccf.boot import boot
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.peering.admission import ADMISSION_RECORD, AdmittedProduct
 from ccf.products.gates import ServableProduct, run_gates
 from ccf.replay.record import (
     NO_GRANTS_SET_HASH,
@@ -69,11 +70,14 @@ from ccf.skills.dispatch import (
     McpInvocation,
     McpSkillRegistry,
     McpSkillUnregistered,
+    PeeringInvocation,
+    PeeringSkillRegistry,
+    PeeringSkillUnregistered,
     ToolInvocation,
 )
 from ccf.skills.grants import GrantLedger, SkillGrant
 from skills.sinks import ScriptedApprovalSink
-from skills.test_dispatch import _RecordingClient
+from skills.test_dispatch import _RecordingClient, _RecordingWire, _inbound
 from integration.test_proto_quickstart import (
     _Fabric,
     _candidate,
@@ -447,6 +451,169 @@ def test_an_unwired_deployment_still_refuses_an_mcp_skill_by_name(
             declared["grant"]["skill_name"], arguments=declared["arguments"]
         )
     assert client.reads == []
+
+
+def _peering_fixture() -> dict[str, Any]:
+    loaded: dict[str, Any] = yaml.safe_load(
+        (FIXTURES / "skills" / "remote_products_peering.yaml").read_text()
+    )
+    return loaded
+
+
+def _peering_granted_agent(
+    fabric: _Fabric, *, wire_registry: bool
+) -> tuple[Agent, _RecordingWire, dict[str, Any]]:
+    """Grant the in-scope ``peering`` entry and construct through the factory.
+
+    Deliberately the same shape as :func:`_mcp_granted_agent`: ``wire_registry``
+    is the whole experiment, and everything else being equal is what makes the
+    pair an inversion rather than two unrelated observations. Matching its MCP
+    counterpart rather than diverging from it is the point — the two skill types
+    are siblings (D-IMPL-59 part 3), so the wiring story should read the same
+    for both, and a divergence here would suggest one of them is special.
+
+    The transport is a double rather than a live peer because what is under test
+    is the *wiring* — that the registry the composition root gave the factory
+    reaches dispatch. The live signed exchange is proved over both wires in
+    ``tests/crossproc/test_peering_exchange.py``.
+    """
+    key, version, definition = _register_agent_artifacts(fabric)
+    peering = _peering_fixture()
+    declared: dict[str, Any] = peering["agent_invocable"]
+    wire = _RecordingWire(products=(_inbound(peering["inbound"]),))
+    registry = PeeringSkillRegistry(
+        audit_log=fabric.registry.audit_log, clock=lambda: fabric.now
+    )
+    registry.register(
+        endpoint=peering["deployment"]["endpoint"], transport=wire
+    )
+
+    catalog = SkillCatalog(fabric.registry)
+    entry = parse_artifact(declared["entry"], SKILL_CATALOG_ENTRY)
+    assert isinstance(entry, SkillCatalogEntry)
+    assert isinstance(catalog.register(entry), str)
+    ledger = GrantLedger(
+        control_plane=fabric.registry,
+        catalog=catalog,
+        audit=fabric.registry.audit_log,
+        sink=ScriptedApprovalSink(
+            approve=True, approver_id=declared["approver_id"]
+        ),
+        clock=lambda: fabric.now,
+    )
+    grant = SkillGrant(
+        agent_definition_hash=content_hash(definition), **declared["grant"]
+    )
+    outcome = ledger.request(
+        grant, definition=definition, actor=declared["requesting_actor"]
+    )
+    assert isinstance(outcome, str), outcome
+
+    factory = AgentFactory(
+        control_plane=fabric.registry,
+        peering_skills=registry if wire_registry else None,
+    )
+    agent = factory.construct(
+        definition_key=key,
+        definition_version=version,
+        bound_skills=ledger.bound_view(content_hash(definition)),
+    )
+    return agent, wire, declared
+
+
+def test_a_granted_peering_skill_is_invocable_through_the_agent_seam(
+    fabric: _Fabric,
+) -> None:
+    """``peering_skills`` threads factory → agent → dispatch (D-IMPL-59 part 1).
+
+    The MCP counterpart's assertion, for the sibling type. What would fail
+    here: dropping ``peering_skills`` anywhere along ``AgentFactory`` →
+    ``Agent`` → ``dispatch_skill``, which is exactly what a rename that
+    updated declarations but not the threading would produce — and a rename is
+    what this plan is.
+    """
+    agent, wire, declared = _peering_granted_agent(fabric, wire_registry=True)
+    peering = _peering_fixture()
+
+    invocation = agent.invoke_skill(
+        declared["grant"]["skill_name"], arguments=declared["arguments"]
+    )
+
+    assert isinstance(invocation, PeeringInvocation)
+    assert invocation.skill_name == declared["entry"]["name"]
+    assert invocation.skill_type == "peering"
+    assert invocation.endpoint == declared["entry"]["binding"]["endpoint"]
+    assert dict(invocation.arguments) == declared["arguments"]
+    assert wire.receives == 1
+    assert wire.emits == []
+    (product,) = invocation.products
+    assert product.observed_peer.peer_id == peering["inbound"]["peer_id"]
+
+
+def test_an_unwired_deployment_still_refuses_a_peering_skill_by_name(
+    fabric: _Fabric,
+) -> None:
+    """The fail-closed inversion, preserved through the rename.
+
+    Same grant, same entry, same agent — only the registry withheld. What would
+    fail here: an ``Agent`` that fabricated a transport of its own when the
+    deployment wired none, which would be the SDK choosing a peer (CINV-01,
+    T-06-57). Without this case the test above would pass equally well against
+    an implementation that had stopped fail-closing.
+    """
+    agent, wire, declared = _peering_granted_agent(fabric, wire_registry=False)
+
+    with pytest.raises(PeeringSkillUnregistered):
+        agent.invoke_skill(
+            declared["grant"]["skill_name"], arguments=declared["arguments"]
+        )
+    assert wire.calls == 0
+
+
+def test_a_peering_skill_invocation_writes_no_admission_record(
+    fabric: _Fabric,
+) -> None:
+    """A read across the seam is not an admission (D-IMPL-59 part 4; T-06-107).
+
+    The Peering skill path and the Peering admission path now share a seam and a
+    vocabulary. The one thing that must stay distinct is which of them can put
+    something into the fabric: a Peering declares trust *inputs*, and only the
+    Control Plane gate declares the verdict.
+
+    Three assertions, because the vocabulary merge makes conflation cheap:
+
+    1. no ``ccf.admission-record`` artifact exists in the Control Plane after a
+       successful invocation — the gate's persistence side-effect (06-19) did
+       not fire;
+    2. what comes back is an ``InboundProduct`` and *not* an
+       ``AdmittedProduct`` — dispatch cannot construct the type L2 accepts;
+    3. the audit plane recorded a ``skill_invoked`` action and no admission
+       verdict, so the two paths remain distinguishable in replay.
+
+    What would fail here: wiring ``dispatch_skill`` to the admission gate so a
+    skill read auto-admitted what it drained. That is an elevation of privilege
+    from read to fabric write, and after the rename it is the kind of mistake a
+    reader could make believing the two Peering paths are one thing.
+    """
+    agent, _wire, declared = _peering_granted_agent(fabric, wire_registry=True)
+
+    invocation = agent.invoke_skill(
+        declared["grant"]["skill_name"], arguments=declared["arguments"]
+    )
+    assert isinstance(invocation, PeeringInvocation)
+
+    # (1) The gate never ran, so it persisted nothing.
+    assert fabric.registry.keys_of_class(ADMISSION_RECORD.class_id) == ()
+
+    # (2) Inert by type, not by convention.
+    for product in invocation.products:
+        assert not isinstance(product, AdmittedProduct)
+
+    # (3) The read is audited as a read.
+    actions = {event.action for event in fabric.registry.audit_log.events()}
+    assert "skill_invoked" in actions
+    assert "peering_admitted" not in actions
+    assert "peering_admission_refused" not in actions
 
 
 def test_a_granted_skill_dispatches_through_the_agent_seam(

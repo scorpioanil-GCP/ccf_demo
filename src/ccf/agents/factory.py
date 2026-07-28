@@ -67,7 +67,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     # mutually import-ordered, and an import graph whose success depends on
     # which module a caller reached first is the non-determinism D-IMPL-37
     # rejects. The factory only ever holds these registries and passes them on.
-    from ccf.skills.dispatch import A2ASkillRegistry, McpSkillRegistry
+    from ccf.skills.dispatch import McpSkillRegistry, PeeringSkillRegistry
 
 #: The namespace prefix every artifact class the SDK itself owns carries.
 #: Mechanism, not a value: it is how a deployment-declared class is told
@@ -213,8 +213,8 @@ class AgentFactory:
             2026-07-27). Optional and fail-closed on the ``callable_registry``
             precedent: ``None`` wires no MCP server, and an ``mcp`` skill then
             refuses by name rather than reaching a fabricated endpoint.
-        a2a_skills: The deployment's
-            :class:`~ccf.skills.dispatch.A2ASkillRegistry`, on the same terms.
+        peering_skills: The deployment's
+            :class:`~ccf.skills.dispatch.PeeringSkillRegistry`, on the same terms.
             Threaded alongside its MCP counterpart because the two share one
             wiring gap and one shape; closing one and leaving the other would
             re-open the same deferred item under a different name.
@@ -226,12 +226,12 @@ class AgentFactory:
         control_plane: ControlPlaneResolution,
         callable_registry: CallableRegistry | None = None,
         mcp_skills: McpSkillRegistry | None = None,
-        a2a_skills: A2ASkillRegistry | None = None,
+        peering_skills: PeeringSkillRegistry | None = None,
     ) -> None:
         self._control_plane = control_plane
         self._callable_registry = callable_registry
         self._mcp_skills = mcp_skills
-        self._a2a_skills = a2a_skills
+        self._peering_skills = peering_skills
 
     def _resolve_reference(self, uri: str) -> object:
         """Resolve one pinned reference via :func:`_resolve_pinned`."""
@@ -310,7 +310,7 @@ class AgentFactory:
             bound_skills=bound_skills,
             callable_registry=self._callable_registry,
             mcp_skills=self._mcp_skills,
-            a2a_skills=self._a2a_skills,
+            peering_skills=self._peering_skills,
         )
 
 

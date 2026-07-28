@@ -13,16 +13,16 @@ What this suite holds ``src/ccf/skills/dispatch.py`` to:
   ``ccf.mcp.client`` — dispatch opens no session and owns no loop of its own
   (D-03, D-IMPL-13) — and every attempt, success or failure, lands on the one
   existing ``AuditLog``;
-* an ``a2a`` entry resolves its logical ``endpoint`` through the injected
-  ``A2ASkillRegistry`` to a **``PeeringProtocol``** — the abstraction, never a
+* a ``peering`` entry resolves its logical ``endpoint`` through the injected
+  ``PeeringSkillRegistry`` to a **``PeeringProtocol``** — the abstraction, never a
   concrete transport — reads what that transport received, lands on the same
   one ``AuditLog``, and returns values that are *unadmitted* and unadmittable
   from there (D-12: the Control Plane gate stays above every transport);
 * the ``NotYetBound`` tail survives all four being bound, for a fifth skill
   type a later artifact schema introduces — and its message no longer names
-  MCP or A2A as outstanding, which is asserted rather than reviewed.
+  MCP or Peering as outstanding, which is asserted rather than reviewed.
 
-The ``mcp`` and ``a2a`` cases here use recording doubles rather than a live
+The ``mcp`` and ``peering`` cases here use recording doubles rather than a live
 server or peer. That is deliberate and it is what makes the *zero network
 calls* assertions falsifiable — a real server cannot testify that it was never
 contacted. The live proofs are ``tests/crossproc/test_mcp_ingress.py`` and
@@ -66,9 +66,9 @@ from ccf.skills.catalog import (
 )
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.dispatch import (
-    A2AInvocation,
-    A2ASkillRegistry,
-    A2ASkillUnregistered,
+    PeeringInvocation,
+    PeeringSkillRegistry,
+    PeeringSkillUnregistered,
     McpInvocation,
     McpSkillRegistry,
     McpSkillUnregistered,
@@ -110,9 +110,9 @@ def _mcp_fixture() -> dict[str, Any]:
     return loaded
 
 
-def _a2a_fixture() -> dict[str, Any]:
+def _peering_fixture() -> dict[str, Any]:
     loaded: dict[str, Any] = yaml.safe_load(
-        (FIXTURES / "remote_products_a2a.yaml").read_text()
+        (FIXTURES / "remote_products_peering.yaml").read_text()
     )
     return loaded
 
@@ -364,7 +364,7 @@ def test_no_public_dispatch_entry_point_accepts_a_server_address() -> None:
     surfaces: list[Any] = [
         dispatch_skill,
         McpSkillRegistry.resolve,
-        A2ASkillRegistry.resolve,
+        PeeringSkillRegistry.resolve,
     ]
     for surface in surfaces:
         taken = set(inspect.signature(surface).parameters) & forbidden
@@ -376,12 +376,14 @@ def test_no_public_dispatch_entry_point_accepts_a_server_address() -> None:
     # Registration is where an address legitimately arrives — and it takes a
     # *client*, so even there the endpoint is one the composition root built.
     assert "url" not in inspect.signature(McpSkillRegistry.register).parameters
-    # The A2A registry goes one better: it takes no address at registration
+    # The peering registry goes one better: it takes no address at registration
     # either, only a name and an already-wired transport, so the address lives
     # one level further from the artifact than MCP's does (T-06-57).
-    a2a_register = set(inspect.signature(A2ASkillRegistry.register).parameters)
-    assert a2a_register & forbidden == {"endpoint"}
-    assert "transport" in a2a_register
+    peering_register = set(
+        inspect.signature(PeeringSkillRegistry.register).parameters
+    )
+    assert peering_register & forbidden == {"endpoint"}
+    assert "transport" in peering_register
 
 
 def test_an_ungranted_mcp_skill_is_refused_with_zero_network_calls() -> None:
@@ -453,7 +455,7 @@ def test_an_ungranted_mcp_skill_is_refused_with_zero_network_calls() -> None:
     assert client.reads == []
 
 
-# --- a2a (D-08, the fourth and last transport) -------------------------------
+# --- peering (D-08, the fourth and last transport) ---------------------------
 
 
 class _RecordingWire:
@@ -515,21 +517,21 @@ def _inbound(declared: dict[str, Any]) -> InboundProduct:
 
 
 @pytest.fixture
-def a2a_world() -> tuple[A2ASkillRegistry, _RecordingWire, AuditLog]:
+def peering_world() -> tuple[PeeringSkillRegistry, _RecordingWire, AuditLog]:
     """A registry wired from the fixture's ``deployment`` block, plus its log."""
-    fixture = _a2a_fixture()
+    fixture = _peering_fixture()
     wire = _RecordingWire(products=(_inbound(fixture["inbound"]),))
     audit = AuditLog()
-    registry = A2ASkillRegistry(audit_log=audit, clock=lambda: _INSTANT)
+    registry = PeeringSkillRegistry(audit_log=audit, clock=lambda: _INSTANT)
     registry.register(
         endpoint=fixture["deployment"]["endpoint"], transport=wire
     )
     return registry, wire, audit
 
 
-def test_an_a2a_entry_dispatches_through_the_wire_protocol(
+def test_a_peering_entry_dispatches_through_the_peering_protocol(
     callable_registry: CallableRegistry,
-    a2a_world: tuple[A2ASkillRegistry, _RecordingWire, AuditLog],
+    peering_world: tuple[PeeringSkillRegistry, _RecordingWire, AuditLog],
 ) -> None:
     """The binding's logical endpoint name resolves to a registered transport.
 
@@ -538,20 +540,20 @@ def test_an_a2a_entry_dispatches_through_the_wire_protocol(
     string precisely so that a *different* string — the fixture's
     ``unregistered_endpoint``, written as a URL — has nowhere to go (T-06-57).
     """
-    fixture = _a2a_fixture()
-    registry, wire, _audit = a2a_world
+    fixture = _peering_fixture()
+    registry, wire, _audit = peering_world
     entry = _entry(fixture["entry"])
 
     result = dispatch_skill(
         entry,
         arguments=fixture["dispatch"]["arguments"],
         callable_registry=callable_registry,
-        a2a_skills=registry,
+        peering_skills=registry,
     )
 
-    assert isinstance(result, A2AInvocation)
+    assert isinstance(result, PeeringInvocation)
     assert result.skill_name == entry.name
-    assert result.skill_type == "a2a"
+    assert result.skill_type == "peering"
     assert result.endpoint == fixture["entry"]["binding"]["endpoint"]
     assert dict(result.arguments) == fixture["dispatch"]["arguments"]
     assert wire.receives == 1
@@ -602,7 +604,7 @@ def test_dispatch_imports_no_transport_no_runtime_and_no_protobuf() -> None:
 
 
 def test_dispatch_types_against_the_protocol_not_a_concrete_transport(
-    a2a_world: tuple[A2ASkillRegistry, _RecordingWire, AuditLog],
+    peering_world: tuple[PeeringSkillRegistry, _RecordingWire, AuditLog],
 ) -> None:
     """CLAUDE.md §7.2: the Contract is the stable layer, the wire replaceable.
 
@@ -611,13 +613,13 @@ def test_dispatch_types_against_the_protocol_not_a_concrete_transport(
     *is* the statement that either wire — or a third — binds at the composition
     root without ``/src`` changing.
     """
-    _registry, wire, _audit = a2a_world
+    _registry, wire, _audit = peering_world
     assert isinstance(wire, PeeringProtocol)
 
 
-def test_an_a2a_invocation_lands_in_the_audit_log(
+def test_a_peering_invocation_lands_in_the_audit_log(
     callable_registry: CallableRegistry,
-    a2a_world: tuple[A2ASkillRegistry, _RecordingWire, AuditLog],
+    peering_world: tuple[PeeringSkillRegistry, _RecordingWire, AuditLog],
 ) -> None:
     """Audit-by-construction on the *one* existing log, not a parallel one.
 
@@ -625,15 +627,15 @@ def test_an_a2a_invocation_lands_in_the_audit_log(
     (T-06-59): "which skills did this agent invoke, at which artifact version"
     must be answerable from one query.
     """
-    fixture = _a2a_fixture()
-    registry, _wire, audit = a2a_world
+    fixture = _peering_fixture()
+    registry, _wire, audit = peering_world
     entry = _entry(fixture["entry"])
 
     dispatch_skill(
         entry,
         arguments=fixture["dispatch"]["arguments"],
         callable_registry=callable_registry,
-        a2a_skills=registry,
+        peering_skills=registry,
     )
 
     (event,) = audit.events()
@@ -645,13 +647,13 @@ def test_an_a2a_invocation_lands_in_the_audit_log(
     assert event.actor is None
 
 
-def test_a_failed_a2a_invocation_is_audited_as_unresolved(
+def test_a_failed_peering_invocation_is_audited_as_unresolved(
     callable_registry: CallableRegistry,
 ) -> None:
     """An unreachable peer is visible to the audit plane, not just to a caller."""
-    fixture = _a2a_fixture()
+    fixture = _peering_fixture()
     audit = AuditLog()
-    registry = A2ASkillRegistry(audit_log=audit, clock=lambda: _INSTANT)
+    registry = PeeringSkillRegistry(audit_log=audit, clock=lambda: _INSTANT)
     registry.register(
         endpoint=fixture["deployment"]["endpoint"], transport=_FailingWire()
     )
@@ -662,7 +664,7 @@ def test_a_failed_a2a_invocation_is_audited_as_unresolved(
             entry,
             arguments={},
             callable_registry=callable_registry,
-            a2a_skills=registry,
+            peering_skills=registry,
         )
 
     (event,) = audit.events()
@@ -670,9 +672,9 @@ def test_a_failed_a2a_invocation_is_audited_as_unresolved(
     assert event.resolved is False
 
 
-def test_an_unregistered_a2a_endpoint_is_refused_before_any_call(
+def test_an_unregistered_peering_endpoint_is_refused_before_any_call(
     callable_registry: CallableRegistry,
-    a2a_world: tuple[A2ASkillRegistry, _RecordingWire, AuditLog],
+    peering_world: tuple[PeeringSkillRegistry, _RecordingWire, AuditLog],
 ) -> None:
     """A URL-shaped artifact value buys an attacker nothing (T-06-57).
 
@@ -680,34 +682,34 @@ def test_an_unregistered_a2a_endpoint_is_refused_before_any_call(
     purpose. It is matched as a *name*, resolves to no registration, and the
     call count proves nothing was dialled on the way to finding that out.
     """
-    fixture = _a2a_fixture()
-    registry, wire, _audit = a2a_world
+    fixture = _peering_fixture()
+    registry, wire, _audit = peering_world
     document = dict(fixture["entry"])
     document["binding"] = {
         "endpoint": fixture["deployment"]["unregistered_endpoint"]
     }
 
-    with pytest.raises(A2ASkillUnregistered):
+    with pytest.raises(PeeringSkillUnregistered):
         dispatch_skill(
             _entry(document),
             arguments={},
             callable_registry=callable_registry,
-            a2a_skills=registry,
+            peering_skills=registry,
         )
 
     assert wire.calls == 0
 
 
-def test_a2a_dispatch_without_a_registry_refuses_rather_than_improvising(
+def test_peering_dispatch_without_a_registry_refuses_rather_than_improvising(
     callable_registry: CallableRegistry,
 ) -> None:
     """No transport is manufactured behind the deployment's back (CINV-01)."""
-    entry = _entry(_a2a_fixture()["entry"])
-    with pytest.raises(A2ASkillUnregistered):
+    entry = _entry(_peering_fixture()["entry"])
+    with pytest.raises(PeeringSkillUnregistered):
         dispatch_skill(entry, arguments={}, callable_registry=callable_registry)
 
 
-def test_an_ungranted_a2a_skill_is_refused_with_zero_network_calls() -> None:
+def test_an_ungranted_peering_skill_is_refused_with_zero_network_calls() -> None:
     """Governance runs ahead of the network, through the real grant machinery.
 
     T-06-58. The entry requires a scope the ``auto`` regime does not permit, so
@@ -715,7 +717,7 @@ def test_an_ungranted_a2a_skill_is_refused_with_zero_network_calls() -> None:
     reached. The recording transport proves the last part: had the order been
     the other way round, ``receive`` would already have run.
     """
-    fixture = _a2a_fixture()
+    fixture = _peering_fixture()
     denied = fixture["denied"]
     grants = _grants_fixture()
     instant = datetime.fromisoformat(grants["clock"]["start"])
@@ -753,7 +755,7 @@ def test_an_ungranted_a2a_skill_is_refused_with_zero_network_calls() -> None:
     )
 
     wire = _RecordingWire()
-    registry = A2ASkillRegistry(audit_log=audit, clock=lambda: instant)
+    registry = PeeringSkillRegistry(audit_log=audit, clock=lambda: instant)
     registry.register(
         endpoint=fixture["deployment"]["endpoint"], transport=wire
     )
@@ -812,12 +814,14 @@ def test_an_unrecognized_skill_type_still_raises_not_yet_bound(
 def test_the_not_yet_bound_message_names_no_outstanding_transport() -> None:
     """All four types dispatch, so the tail must not still claim otherwise.
 
-    A message naming MCP or A2A as outstanding would be false, and a false
+    A message naming MCP or Peering as outstanding would be false, and a false
     error message is how a reader concludes a working path is unimplemented.
     """
     source = inspect.getsource(dispatch_skill)
     tail = source[source.index("raise NotYetBound") :]
     assert "A2A" not in tail
+    assert "Peering" not in tail
+    assert "peering" not in tail
     assert "MCP" not in tail
     assert "mcp" not in tail
 

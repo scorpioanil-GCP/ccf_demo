@@ -66,10 +66,10 @@ from ccf.skills.grants import BoundSkillView
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from ccf.skills.dispatch import (
-        A2AInvocation,
-        A2ASkillRegistry,
         McpInvocation,
         McpSkillRegistry,
+        PeeringInvocation,
+        PeeringSkillRegistry,
         SkillInvocation,
         ToolInvocation,
     )
@@ -185,8 +185,8 @@ class Agent:
             fail-closed default ``callable_registry`` takes, and for the same
             reason: manufacturing a client here would be the SDK choosing an
             endpoint (CINV-01, T-06-24).
-        a2a_skills: The deployment's
-            :class:`~ccf.skills.dispatch.A2ASkillRegistry`, on exactly the same
+        peering_skills: The deployment's
+            :class:`~ccf.skills.dispatch.PeeringSkillRegistry`, on exactly the same
             terms.
 
     Raises:
@@ -204,7 +204,7 @@ class Agent:
         bound_skills: BoundSkillView | None,
         callable_registry: CallableRegistry | None = None,
         mcp_skills: McpSkillRegistry | None = None,
-        a2a_skills: A2ASkillRegistry | None = None,
+        peering_skills: PeeringSkillRegistry | None = None,
     ) -> None:
         expected_hash = content_hash(definition)
         if identity.definition_hash != expected_hash:
@@ -257,7 +257,7 @@ class Agent:
         # positive statement that this deployment wired none, and dispatch
         # turns it into a named wiring error rather than a silent no-op.
         self._mcp_skills = mcp_skills
-        self._a2a_skills = a2a_skills
+        self._peering_skills = peering_skills
 
     @property
     def identity(self) -> AgentIdentity:
@@ -338,7 +338,7 @@ class Agent:
         | SkillInvocation
         | ToolInvocation
         | McpInvocation
-        | A2AInvocation
+        | PeeringInvocation
     ):
         """Invoke (or introspect) the currently-bound skill under ``name``.
 
@@ -360,12 +360,15 @@ class Agent:
             ccf.skills.dispatch.McpSkillUnregistered: the bound entry is
                 ``mcp`` and this deployment registered no such server — or
                 wired no :class:`~ccf.skills.dispatch.McpSkillRegistry` at all.
-            ccf.skills.dispatch.A2ASkillUnregistered: the bound entry is
-                ``a2a``, on exactly the same terms.
+            ccf.skills.dispatch.PeeringSkillUnregistered: the bound entry is
+                ``peering``, on exactly the same terms. A peering skill is a
+                **read** across the federation seam and never an admission: it
+                writes no ``ccf.admission-record`` and constructs no
+                ``AdmittedProduct`` (D-IMPL-59 part 4).
 
                 Both registries are now threaded from
                 :class:`~ccf.agents.factory.AgentFactory` through this method
-                (Dave, 2026-07-27), so an ``mcp`` or ``a2a`` skill invoked
+                (Dave, 2026-07-27), so an ``mcp`` or ``peering`` skill invoked
                 *through an agent* reaches its transport. Harness skill
                 exposure (CLAUDE.md §7.3 seam 2) is only meaningful if an
                 exposed skill is actually invocable, which is why this closed
@@ -399,7 +402,7 @@ class Agent:
             arguments=arguments,
             callable_registry=self._callable_registry,
             mcp_skills=self._mcp_skills,
-            a2a_skills=self._a2a_skills,
+            peering_skills=self._peering_skills,
         )
 
     def emit_effect(self, payload: Mapping[str, Any]) -> EmittedEffect:

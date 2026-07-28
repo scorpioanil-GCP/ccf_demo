@@ -23,14 +23,18 @@ one catalog entry plus typed arguments onto an invocation, per binding type:
   constructs no session, no event loop, and no bridge of its own: a second
   MCP client inside the SDK would be a second place for the session-lifetime
   deadlock that module records to come back.
-* **a2a** — the binding's ``endpoint`` resolves through the injected
-  :class:`A2ASkillRegistry` to a :class:`~ccf.peering.protocol.PeeringProtocol`, and the
+* **peering** — the binding's ``endpoint`` resolves through the injected
+  :class:`PeeringSkillRegistry` to a
+  :class:`~ccf.peering.protocol.PeeringProtocol`, and the
   dispatch reads the Context Products that transport has received from its
-  federation peers (CLAUDE.md §6.2 — "A2A endpoints exposing remote Context
-  Products"). Dispatch types against the *Protocol*, never against a concrete
-  transport, so ``/src`` acquires no transport, HTTP, or protobuf dependency
-  and either shipped wire — typed HTTP or LF A2A — or a third that has not been
-  written yet, is bound at the composition root without this module changing.
+  federation peers (CLAUDE.md §6.2 — "peer endpoints exposing remote Context
+  Products"). The type names the *category* of counterparty — a peer fabric
+  holding its own Control Plane — never the transport that carries it
+  (D-IMPL-59 part 1). Dispatch types against the *Protocol*, never against a
+  concrete transport, so ``/src`` acquires no transport, HTTP, or protobuf
+  dependency and either shipped wire — typed HTTP or LF A2A — or a third that
+  has not been written yet, is bound at the composition root without this
+  module changing.
 
   **What comes back is inert, and that is the point (D-12).** The values are
   :class:`~ccf.peering.protocol.InboundProduct`\\ s — *unadmitted*. L2 does not accept
@@ -40,8 +44,16 @@ one catalog entry plus typed arguments onto an invocation, per binding type:
   behaves: the Control Plane gate stays above every transport rather than
   being something a dispatch path could skip.
 
+  **A read across the seam, never an admission (D-IMPL-59 part 4).** A Peering
+  declares trust *inputs* and never the verdict; the verdict is the Control
+  Plane gate's alone. Invoking a peering skill is therefore a **read**: it
+  writes no ``ccf.admission-record`` artifact and constructs no
+  :class:`~ccf.peering.admission.AdmittedProduct`. The two paths share a seam
+  and now a vocabulary, and the one thing that must stay distinct between them
+  is which can put something into the fabric.
+
 **The ``NotYetBound`` tail survives all four types.** With ``local_callable``,
-``tool``, ``mcp`` and ``a2a`` all bound, the tail no longer names an
+``tool``, ``mcp`` and ``peering`` all bound, the tail no longer names an
 outstanding transport — but it stays, because a *fifth* skill type arriving in
 a later artifact schema must hit a typed refusal rather than falling out of
 this function with whatever the last branch happened to leave behind.
@@ -52,16 +64,16 @@ bound: the entry a caller passes here is one a grant already made effective
 (resolved from :class:`~ccf.skills.grants.BoundSkillView`), and an unbound or
 revoked name never produces an entry to dispatch in the first place. The
 ordering is therefore structural rather than a check this function performs —
-an ungranted ``mcp`` or ``a2a`` skill causes zero network calls because there
-is no code path from a missing grant into :func:`dispatch_skill` (T-06-28,
-T-06-58).
+an ungranted ``mcp`` or ``peering`` skill causes zero network calls because
+there is no code path from a missing grant into :func:`dispatch_skill`
+(T-06-28, T-06-58).
 
 **The SSRF posture (T-06-24, T-06-57).** ``McpBinding.server`` is a *logical
 server name*, never a URL; ``McpBinding.resource`` is a logical resource name,
 never a URI; and ``PeeringBinding.endpoint`` is a *logical peer-endpoint name*,
 never an address to dial. All three are resolved through the registries the
-deployment populated at boot from Control Plane configuration, and the A2A one
-resolves to a transport the deployment already wired against its own
+deployment populated at boot from Control Plane configuration, and the peering
+one resolves to a transport the deployment already wired against its own
 trust-policy artifact. No address is ever taken from a skill artifact, from a
 dispatch argument, or from a payload a previous read returned; ``arguments`` in
 particular are carried into the returned typed value for provenance and are
@@ -97,12 +109,12 @@ from ccf.skills.catalog import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
-    "A2AInvocation",
-    "A2ASkillRegistry",
-    "A2ASkillUnregistered",
     "McpInvocation",
     "McpSkillRegistry",
     "McpSkillUnregistered",
+    "PeeringInvocation",
+    "PeeringSkillRegistry",
+    "PeeringSkillUnregistered",
     "SkillInvocation",
     "ToolInvocation",
     "dispatch_skill",
@@ -169,8 +181,8 @@ class McpInvocation(CCFContract):
     arguments: Mapping[str, str]
 
 
-class A2AInvocation(CCFContract):
-    """The typed result of one executed ``a2a`` dispatch.
+class PeeringInvocation(CCFContract):
+    """The typed result of one executed ``peering`` dispatch.
 
     Attributes:
         skill_name: The catalog entry invoked.
@@ -199,8 +211,8 @@ class A2AInvocation(CCFContract):
     arguments: Mapping[str, str]
 
 
-class A2ASkillUnregistered(LookupError):
-    """A bound ``a2a`` entry names an endpoint this deployment lacks.
+class PeeringSkillUnregistered(LookupError):
+    """A bound ``peering`` entry names an endpoint this deployment lacks.
 
     An exception, not a returned governance refusal — the same line
     :class:`McpSkillUnregistered` and
@@ -211,10 +223,10 @@ class A2ASkillUnregistered(LookupError):
     """
 
 
-class A2ASkillRegistry:
+class PeeringSkillRegistry:
     """Logical endpoint names → the transport a deployment reaches them on.
 
-    The A2A analogue of :class:`McpSkillRegistry`, and the reason a skill
+    The Peering analogue of :class:`McpSkillRegistry`, and the reason a skill
     artifact can never name a peer address: the deployment's composition root
     registers each endpoint it is willing to read from, against a transport it
     already wired to its own trust-policy artifact, and a binding can only select
@@ -229,7 +241,8 @@ class A2ASkillRegistry:
     layer, the wire is replaceable).
 
     **Audit is structural here, not optional.** The log and the clock are
-    required constructor arguments, so there is no way to wire ``a2a`` dispatch
+    required constructor arguments, so there is no way to wire ``peering``
+    dispatch
     at all without supplying the surface every invocation is recorded on
     (CLAUDE.md §11, audit-by-construction; T-06-59). Both are injected — the log
     so that this registry and the Control Plane share one audit plane rather than
@@ -293,7 +306,7 @@ class A2ASkillRegistry:
         """
         if endpoint in self._transports:
             raise ValueError(
-                f"A2A endpoint {endpoint!r} is already registered; replacing a "
+                f"peering endpoint {endpoint!r} is already registered; replacing a "
                 "registration would silently redirect skills already granted "
                 "against it"
             )
@@ -303,14 +316,14 @@ class A2ASkillRegistry:
         """Return the transport a binding selects.
 
         Raises:
-            A2ASkillUnregistered: the endpoint was never registered. Raised
+            PeeringSkillUnregistered: the endpoint was never registered. Raised
                 before any transport method is called, so an unresolvable
                 binding costs no network traffic.
         """
         transport = self._transports.get(binding.endpoint)
         if transport is None:
-            raise A2ASkillUnregistered(
-                f"no A2A transport is registered for endpoint "
+            raise PeeringSkillUnregistered(
+                f"no peering transport is registered for endpoint "
                 f"{binding.endpoint!r}; a skill binding selects among the "
                 "endpoints this deployment's composition root chose to offer, "
                 "and names no address of its own"
@@ -479,13 +492,13 @@ def _invoke_mcp(
     )
 
 
-def _invoke_a2a(
+def _invoke_peering(
     entry: SkillCatalogEntry,
     binding: PeeringBinding,
     arguments: Mapping[str, str],
     *,
-    a2a_skills: A2ASkillRegistry,
-) -> A2AInvocation:
+    peering_skills: PeeringSkillRegistry,
+) -> PeeringInvocation:
     """Resolve the binding to a transport and read what it received, audited.
 
     The read goes through
@@ -506,14 +519,14 @@ def _invoke_a2a(
     :class:`~ccf.peering.protocol.InboundProduct` already carries the peer the transport
     observed it from.
     """
-    transport = a2a_skills.resolve(binding)
+    transport = peering_skills.resolve(binding)
     try:
         products = tuple(transport.receive())
     except Exception:
-        a2a_skills.record_invocation(entry, resolved=False)
+        peering_skills.record_invocation(entry, resolved=False)
         raise
-    a2a_skills.record_invocation(entry, resolved=True)
-    return A2AInvocation(
+    peering_skills.record_invocation(entry, resolved=True)
+    return PeeringInvocation(
         skill_name=entry.name,
         skill_type=entry.skill_type,
         endpoint=binding.endpoint,
@@ -539,7 +552,7 @@ def _invoke_local_callable(
     :class:`~ccf.skills.callables.CallableNotRegistered` — without anything
     being imported. I.2 stated a precondition on where the ref came from;
     this function states a property of how it is resolved, which is what the
-    MCP and A2A artifact sources of I.3 require (CLAUDE.md §7.2/§7.4).
+    MCP and Peering artifact sources of I.3 require (CLAUDE.md §7.2/§7.4).
 
     The registry is injected, never a module global: two deployments in one
     process resolve against their own registries (D-23).
@@ -569,8 +582,8 @@ def dispatch_skill(
     arguments: Mapping[str, str],
     callable_registry: CallableRegistry,
     mcp_skills: McpSkillRegistry | None = None,
-    a2a_skills: A2ASkillRegistry | None = None,
-) -> SkillInvocation | ToolInvocation | McpInvocation | A2AInvocation:
+    peering_skills: PeeringSkillRegistry | None = None,
+) -> SkillInvocation | ToolInvocation | McpInvocation | PeeringInvocation:
     """Dispatch one catalog entry with typed arguments (D-08).
 
     Args:
@@ -586,15 +599,16 @@ def dispatch_skill(
             composition root. An ``mcp`` entry resolves here or not at all —
             and its absence is a wiring fact, so it raises rather than
             returning a refusal.
-        a2a_skills: The deployment's A2A skill registry, injected from the
-            composition root. An ``a2a`` entry resolves here or not at all, on
+        peering_skills: The deployment's Peering skill registry, injected from
+            the composition root. A ``peering`` entry resolves here or not at
+            all, on
             exactly the same terms.
 
     Returns:
         A :class:`SkillInvocation` for an executed ``local_callable``, a
         :class:`ToolInvocation` value for a ``tool``, an :class:`McpInvocation`
-        for an executed ``mcp`` read, or an :class:`A2AInvocation` carrying the
-        **unadmitted** products an ``a2a`` endpoint's transport had received.
+        for an executed ``mcp`` read, or an :class:`PeeringInvocation` carrying the
+        **unadmitted** products a ``peering`` endpoint's transport had received.
 
     Raises:
         NotYetBound: the entry's binding is none of the four this build
@@ -606,8 +620,9 @@ def dispatch_skill(
         McpSkillUnregistered: an ``mcp`` entry's binding names a server or
             resource this deployment did not register, or no ``mcp_skills``
             registry was supplied at all.
-        A2ASkillUnregistered: an ``a2a`` entry's binding names an endpoint this
-            deployment did not register, or no ``a2a_skills`` registry was
+        PeeringSkillUnregistered: a ``peering`` entry's binding names an endpoint
+            this
+            deployment did not register, or no ``peering_skills`` registry was
             supplied at all.
         ccf.mcp.errors.McpClientError: an ``mcp`` read did not complete. The
             attempt is recorded with ``resolved=False`` before it propagates.
@@ -638,14 +653,14 @@ def dispatch_skill(
             )
         return _invoke_mcp(entry, binding, arguments, mcp_skills=mcp_skills)
     if isinstance(binding, PeeringBinding):
-        if a2a_skills is None:
-            raise A2ASkillUnregistered(
-                f"skill {entry.name!r} is an 'a2a' entry but this deployment "
-                "supplied no A2ASkillRegistry; the transport exists, the "
+        if peering_skills is None:
+            raise PeeringSkillUnregistered(
+                f"skill {entry.name!r} is a 'peering' entry but this deployment "
+                "supplied no PeeringSkillRegistry; the transport exists, the "
                 "wiring does not, and manufacturing one here would mean the "
                 "SDK choosing a peer (CINV-01, T-06-57)"
             )
-        return _invoke_a2a(entry, binding, arguments, a2a_skills=a2a_skills)
+        return _invoke_peering(entry, binding, arguments, peering_skills=peering_skills)
     raise NotYetBound(
         f"skill {entry.name!r} is a {entry.skill_type!r} entry, and this"
         " build ships no dispatch path for that binding type; the entry"
