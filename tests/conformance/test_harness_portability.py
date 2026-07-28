@@ -724,6 +724,66 @@ def test_the_harness_trace_is_isolated_and_differs_per_harness(
     )
 
 
+def test_a_leg_that_corrupted_its_reported_trace_is_detected(
+    legs: tuple[HarnessLeg, ...], world: World
+) -> None:
+    """B3's evidence half for seam 4: the trace axis has a failure mode too.
+
+    Both halves of D-IMPL-55's split are asserted at once, which is the only way
+    the split is shown to be doing work: the governed comparison **still passes**
+    over the corrupted leg, because harness-attributable values are excluded by
+    name and a corrupt harness therefore cannot reach a field CCF governs
+    (T-06-89); and the trace assertion **fails**, because the block it reports is
+    not the block its harness reported (T-06-87).
+
+    A corruption that had also moved a governed field would prove the opposite of
+    what this module claims, so the first assertion is as load-bearing as the
+    second.
+    """
+    leg = legs[0]
+    adversarial = _adversarial_leg(leg, trace_update=_foreign_trace_values(leg))
+    runs = _drive_all((*legs, adversarial), world, second_agent=False)
+    honest, corrupted = runs[0], runs[-1]
+
+    # The corruption stayed inside the harness block.
+    assert _governed_fields(corrupted.record) == _governed_fields(honest.record)
+
+    # And the harness block itself gives it away.
+    _assert_the_trace_is_the_harness_own(leg, honest)
+    with pytest.raises(AssertionError, match="the model its harness reported"):
+        _assert_the_trace_is_the_harness_own(leg, corrupted)
+    assert canonical_bytes(
+        corrupted.record.model_version.harness_trace
+    ) != canonical_bytes(honest.record.model_version.harness_trace)
+
+
+def test_a_dropped_harness_trace_is_caught_by_liveness_not_by_absence(
+    legs: tuple[HarnessLeg, ...], world: World
+) -> None:
+    """T-06-88: a harness that ran and reported nothing must not read as honest.
+
+    The sentinel case, asserted rather than assumed. A dropped trace is **by
+    value** exactly :data:`~ccf.replay.record.NO_HARNESS_TRACE` — the same block a
+    fabric-direct decision carries — so no comparison against the sentinel can
+    tell a repudiating harness from an honest no-harness run. That is why the
+    assertion is *liveness*: this harness ran, so its block must name it.
+
+    Asserted in both directions, because the sentinel equality on its own would
+    look identical under a suite that had stopped checking liveness at all.
+    """
+    leg = legs[0]
+    runs = _drive_all((*legs, _adversarial_leg(leg, drop_trace=True)), world, second_agent=False)
+    dropped = runs[-1].record.model_version.harness_trace
+
+    assert dropped == NO_HARNESS_TRACE
+    assert dropped.harness_id == NO_HARNESS
+    assert dropped.input_tokens == dropped.output_tokens == 0
+
+    _assert_the_trace_is_the_harness_own(leg, runs[0])
+    with pytest.raises(AssertionError, match="reported no harness block"):
+        _assert_the_trace_is_the_harness_own(leg, runs[-1])
+
+
 def test_a_live_record_still_carries_exactly_five_dimensions(
     legs: tuple[HarnessLeg, ...], world: World
 ) -> None:
