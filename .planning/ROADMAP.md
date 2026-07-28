@@ -234,9 +234,9 @@ Plans:
 **Requirements**: XPRC-01, XPRC-02, XPRC-03
 **Success Criteria** (what must be TRUE):
 
-  1. Bidirectional MCP works: client ingress at L1/L4/L5/Experience normalizing to the L1 envelope, server egress at L6 exposing Context Products as MCP Resources, and the ArtifactStore MCP role kept in a distinct module from egress
-  2. A2A federation exchanges typed Context Products across processes behind the WireProtocol abstraction (D-IMPL-14 default), with identity/signing (D-IMPL-15) and inbound products admitted to L3 only through L2 after Control Plane policy-binding verification, lineage extended by set-union
-  3. `HarnessAdapterProtocol` + reference adapters for the D-IMPL-24 harnesses bind all four seams (context injection, skill exposure of exactly the currently-bound skill-set, effect capture with no harness write handle, replay hooks); the zero-harness-imports-in-`/src` lint stays green
+  1. Bidirectional MCP works over **the edges I.3 delivers**: client ingress at L1 normalizing to the L1 envelope, decision-time content acquisition at L4/L5, server egress at L6 exposing Context Products as MCP Resources, and the ArtifactStore MCP role kept in a distinct module from egress. **The Experience-surface MCP edge is Phase 7 (I.4) scope, not I.3's** *(amended, closes A5 — the gate document deferred this edge honestly in §3.1 from the start; the criterion text was written broader than its own evidence and is now matched to it. EXPR-01/02/03 sit in Phase 7 alongside the CLI and HTTP front doors)*
+  2. Peering federation exchanges typed Context Products across processes behind the `PeeringProtocol` abstraction (D-IMPL-59; A2A is the reference transport and the D-IMPL-14 default wire), with identity/signing (D-IMPL-15) and inbound products admitted to L3 only through L2 after Control Plane policy-binding verification. Lineage is extended by set-union at admission, and — stated at the strength that holds — **lineage is attributable across the Peering boundary and verifiable within a fabric** *(narrowed, closes B1; D-IMPL-57 reading (a) — strict-equality verification does not travel: the consumer holds the producer to what it signed, and a compromised or buggy peer can assert a plan it did not run)*. **Lineage continuity is a property of the Peering admission boundary, persisted as an immutable `AdmissionRecord` and resolvable at an exact version** *(narrowed, closes B2; D-IMPL-58 reading (d), closure item 6 — not a property of graph state; `LineageEntry` is untouched)*
+  3. `HarnessAdapterProtocol` + reference adapters for the D-IMPL-24 harnesses bind all four seams (context injection, skill exposure of exactly the currently-bound skill-set, effect capture with no harness write handle, replay hooks); the zero-harness-imports-in-`/src` lint stays green. **Seam-level equivalence across three harnesses is demonstrated with a failure mode on every compared axis; execution under a harness reasoning loop is *not* claimed here** *(narrowed, closes B3 — the shipped adapters' `capture_effect` are delegations to `Agent.emit_effect`, so the honest emission equality is structurally guaranteed rather than three implementations agreeing. Loop-level portability is `examples/03-harness-portability`'s obligation in Phase 8, per CLAUDE.md §9)*
   4. Single-writer invariant demonstrably holds across the A2A boundary, the adapter boundary, and the ArtifactStore
   5. **MCP-backed ArtifactStore reference implementation ships** and passes the same shared ArtifactStore Protocol conformance suite as the file-backed dev impl, with no other deployment change required to swap between them *(inherited from Phase 4 per the D-12 scope amendment recorded on Phase 4 criterion 4)*
 
@@ -248,11 +248,21 @@ checklist naming, per row, its test *and* what would fail under breakage):
   1. → §3.1 / §3.4 — bidirectional MCP. **The Experience-surface edge is a named
      Phase 7 deferral**, not a claim of coverage: L1 ingress, L4/L5 decision-time
      acquisition, L6 egress and the distinct ArtifactStore MCP role all ship here.
-  2. → §3.2 — A2A over two interchangeable `WireProtocol` implementations
-     (typed-HTTP and the D-IMPL-14 default LF A2A), detached-JWS identity,
-     Control Plane admission ahead of L2, lineage set-union property.
-  3. → §3.3 — `HarnessAdapterProtocol` + all three D-IMPL-24 adapters, four seams,
-     CINV-02 green and re-verified by relocation, never widened.
+  2. → §3.2 / §3.2.1 — Peering over two interchangeable `PeeringProtocol`
+     implementations (typed-HTTP and the D-IMPL-14 default LF A2A), detached-JWS
+     identity, Control Plane admission ahead of L2, lineage set-union property.
+     Row 21 carries the D-IMPL-57 attributability narrowing **with its accepted
+     consequence**; row 14 carries the D-IMPL-58 `AdmissionRecord`, observed in
+     persisted state through the replay path rather than on the transient wrapper.
+     A Peering declaring trust inputs and never the verdict is a verified property
+     (D-IMPL-59 part 4).
+  3. → §3.3 / §3.3.1 — `HarnessAdapterProtocol` + all three D-IMPL-24 adapters,
+     four seams, CINV-02 green and re-verified by relocation, never widened.
+     §3.3.1 states what the portability evidence proves (seam-level equivalence,
+     every compared axis falsifiable) and what it does not (no harness loop runs;
+     the emission equality is structurally guaranteed), and names loop-level
+     execution as example 03's Phase 8 obligation rather than dropping it.
+     **Advisory A3 remains open** — one of three seam-4 legs is a fixture echo.
   4. → §3.4 — three *separate* boundary observables (A2A, adapter, ArtifactStore),
      not one generalized claim.
   5. → §3.4 — factory-parametrized `file`/`mcp` ArtifactStore conformance suite.
