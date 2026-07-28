@@ -361,7 +361,7 @@ def test_an_admission_is_audited_as_resolved(
         now=_now(),
     )
     admitted = [
-        event for event in registry.audit_events() if event.action == "a2a_admitted"
+        event for event in registry.audit_events() if event.action == "peering_admitted"
     ]
     assert len(admitted) == 1
     assert admitted[0].resolved is True
@@ -801,7 +801,7 @@ def test_every_refusal_lands_in_the_audit_journal_as_unresolved(
     recorded = [
         event
         for event in registry.audit_events()
-        if event.action == "a2a_admission_refused"
+        if event.action == "peering_admission_refused"
     ]
     assert len(recorded) == len(refusals)
     assert all(event.resolved is False for event in recorded)

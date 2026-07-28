@@ -82,7 +82,7 @@ from ccf.skills.grants import (
     SkillGrant,
 )
 
-from ccf_runtime.a2a.typed_http import PeerUnreachable
+from ccf_runtime.peering.typed_http import PeerUnreachable
 
 from skills.sinks import ScriptedApprovalSink
 

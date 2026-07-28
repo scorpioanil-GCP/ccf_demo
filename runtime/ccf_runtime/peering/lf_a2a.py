@@ -1,9 +1,25 @@
-"""``LfA2AWire`` — the D-IMPL-14 default :class:`~ccf.peering.protocol.PeeringProtocol`.
+"""``LfA2AWire`` — a **Peering transport** speaking Linux Foundation A2A.
+
+The D-IMPL-14 **v0 default** implementation of
+:class:`~ccf.peering.protocol.PeeringProtocol`. *Peering* is the category — a
+governed, peer-symmetric context exchange between two fabrics that each have a
+Control Plane of their own — and A2A is its reference transport rather than its
+name (``D-IMPL-59`` parts 1 and 2, Dave, 2026-07-27). This module keeps the
+protocol's own name for exactly that reason: renaming it "peering" would erase
+the distinction the ruling exists to draw.
+
+**This transport declares trust inputs and cannot manufacture admission**
+(``D-IMPL-59`` part 4). It yields
+:class:`~ccf.peering.protocol.InboundProduct` values — the peer the channel
+observed and the signed bytes it carried, both *inputs* to a decision made
+elsewhere — while :class:`~ccf.peering.admission.PeeringAdmissionGate` reaches
+the verdict and constructs the value L2 accepts. Nothing in this module can
+construct it, so this transport cannot conclude in its own favour.
 
 SDK-defined extension (CLAUDE.md §7.2 — "A2A federation is first-class in v0"),
 attaching to whitepaper §8.3 Pattern 4. D-IMPL-14 rules **Linux Foundation A2A**
 as the v0 default wire; D-11 sequences it *second*, after
-:mod:`ccf_runtime.a2a.typed_http`, precisely so the abstraction, the Control
+:mod:`ccf_runtime.peering.typed_http`, precisely so the abstraction, the Control
 Plane admission gate, the identity primitives and the cross-process fixture were
 all proven against a transport bound to no standard first. What lands here is
 therefore a **substitution, not a redesign**: the same
@@ -97,7 +113,7 @@ size ceiling are all supplied by the caller. This module holds no address, no
 port, no scheme literal, no card identity and no default ceiling (CINV-01,
 D-IMPL-38). Tenancy is a per-call argument carried on
 :class:`~ccf.peering.protocol.PeerRef`, never a constructor field, on the
-:class:`~ccf_runtime.a2a.typed_http.TypedHttpWire` precedent.
+:class:`~ccf_runtime.peering.typed_http.TypedHttpWire` precedent.
 
 **Both halves of the sync↔async seam are offered**, on the
 :class:`~ccf.mcp.client.McpResourceClient` precedent: ``a2a-sdk``'s client is
@@ -140,7 +156,7 @@ from ccf.peering.identity import SignatureMalformed, SignedContextProduct
 from ccf.peering.protocol import EmitReceipt, InboundProduct, PeerRef
 from ccf.contracts.canonical import canonical_bytes
 
-from ccf_runtime.a2a.typed_http import (
+from ccf_runtime.peering.typed_http import (
     MalformedWireMessage,
     PeerUnreachable,
     WireTransportError,
@@ -162,7 +178,7 @@ __all__ = [
 #: Media type stated on the carried :class:`a2a.types.Part`. Names *what was
 #: sent* — a signed canonical Context Product — so a peer that was handed some
 #: other CCF artifact refuses it at the frame rather than at the contract.
-#: Deliberately the same string :mod:`ccf_runtime.a2a.typed_http` uses: the
+#: Deliberately the same string :mod:`ccf_runtime.peering.typed_http` uses: the
 #: document is identical whichever wire carried it, which is the substitution
 #: claim made concrete.
 SIGNED_PRODUCT_MEDIA_TYPE = "application/ccf-signed-product+json"
@@ -199,7 +215,7 @@ class PeerCardResolver(Protocol):
     """Where a peer's Agent Card is served, as far as *this* deployment knows.
 
     A seam rather than a field on :class:`~ccf.peering.protocol.PeerRef`, for the reason
-    :class:`~ccf_runtime.a2a.typed_http.PeerEndpointResolver` records: a
+    :class:`~ccf_runtime.peering.typed_http.PeerEndpointResolver` records: a
     ``PeerRef`` deliberately is not an address, because trust that keyed on where
     a message arrived from would key on the property an attacker most easily
     controls. Base URLs are deployment topology and change without the
@@ -268,7 +284,7 @@ class UnsupportedCarriageOperation(WireTransportError):
     """A task-lifecycle operation this transport does not offer was requested.
 
     Typed into the transport hierarchy rather than raised bare, so a caller
-    handling :class:`~ccf_runtime.a2a.typed_http.WireTransportError` handles this
+    handling :class:`~ccf_runtime.peering.typed_http.WireTransportError` handles this
     too. Like every member of that hierarchy it is *not* a governance verdict: a
     governance verdict is a value the Control Plane returns.
     """
@@ -334,7 +350,7 @@ class LfA2AWire:
     A2A (D-IMPL-14).
 
     Symmetric by construction, on the
-    :class:`~ccf_runtime.a2a.typed_http.TypedHttpWire` precedent: one instance is
+    :class:`~ccf_runtime.peering.typed_http.TypedHttpWire` precedent: one instance is
     both the client leg that emits and the owner of the JSON-RPC routes that
     queue what arrives. A deployment that only sends never mounts :meth:`routes`,
     and one that only receives never calls :meth:`emit`; neither case needs a

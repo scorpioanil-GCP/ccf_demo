@@ -67,7 +67,7 @@ from ccf.peering.identity import (  # noqa: E402
 )
 from ccf.peering.protocol import PeerRef  # noqa: E402
 
-from ccf_runtime.a2a.typed_http import TypedHttpWire  # noqa: E402
+from ccf_runtime.peering.typed_http import TypedHttpWire  # noqa: E402
 
 #: Environment variables the parent sets. Test-side protocol vocabulary, shared
 #: by this module and ``test_a2a_exchange.py`` so the two cannot disagree about

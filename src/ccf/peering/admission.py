@@ -455,7 +455,12 @@ class AdmissionRecord(CCFContract):
     admitted_at: datetime
 
 
-#: The artifact class an admission record is filed under. Dot-namespaced and
+#: The artifact class an admission record is filed under. Named for the **seam**
+#: it records rather than for the transport that carried the bytes: one gate runs
+#: uniformly over every Peering (``D-IMPL-59`` part 4), so one record class serves
+#: every Peering and a second transport files nothing new. The ``class_id`` value
+#: itself is exactly what D-IMPL-58's amendment ruled and is unchanged here.
+#: Dot-namespaced and
 #: kebab-cased, matching the established family exactly (``ccf.half-life-table``,
 #: ``ccf.debt-profile``, ``src/ccf/controlplane/artifacts.py:268,270``).
 #: D-IMPL-58's amendment of 2026-07-27 records why this is asserted in a test
@@ -730,7 +735,7 @@ class PeeringAdmissionGate:
         occurred_at: datetime,
     ) -> AdmissionRefusal:
         self._record(
-            action="a2a_admission_refused",
+            action="peering_admission_refused",
             resolved=False,
             peer_id=refusal.peer_id,
             content_address=content_address,
@@ -951,7 +956,7 @@ class PeeringAdmissionGate:
         )
         if gate_refusal is not None:
             self._record(
-                action="a2a_admission_refused",
+                action="peering_admission_refused",
                 resolved=False,
                 peer_id=peer.peer_id,
                 content_address=content_address,
@@ -1001,7 +1006,7 @@ class PeeringAdmissionGate:
             occurred_at=now,
         )
         self._record(
-            action="a2a_admitted",
+            action="peering_admitted",
             resolved=True,
             peer_id=peer.peer_id,
             content_address=content_address,

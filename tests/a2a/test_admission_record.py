@@ -397,7 +397,7 @@ def test_an_admission_persists_an_admission_record(
     admitted = [
         event
         for event in registry.audit_events()
-        if event.action == "a2a_admitted"
+        if event.action == "peering_admitted"
     ]
     assert len(admitted) == 1
     assert store.exists(content_address=admitted[0].version)
@@ -419,7 +419,7 @@ def test_the_audit_append_carries_the_reference_triple(
     event = next(
         event
         for event in registry.audit_events()
-        if event.action == "a2a_admitted"
+        if event.action == "peering_admitted"
     )
     assert event.artifact_class == ADMISSION_RECORD.class_id
     assert event.artifact_class == "ccf.admission-record"
@@ -470,7 +470,7 @@ def test_a_refusal_persists_no_admission_record(
     refused = [
         event
         for event in registry.audit_events()
-        if event.action == "a2a_admission_refused"
+        if event.action == "peering_admission_refused"
     ]
     assert len(refused) == 1
     assert refused[0].resolved is False
@@ -538,7 +538,7 @@ def _admitted_record_address(registry: ControlPlaneRegistry) -> str:
     event = next(
         event
         for event in registry.audit_events()
-        if event.action == "a2a_admitted"
+        if event.action == "peering_admitted"
     )
     assert event.artifact_class == ADMISSION_RECORD.class_id
     return event.version

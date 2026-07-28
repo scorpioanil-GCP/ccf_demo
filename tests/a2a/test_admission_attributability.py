@@ -417,7 +417,7 @@ def test_an_attributability_refusal_is_audited_as_unresolved(
     recorded = [
         event
         for event in registry.audit_events()
-        if event.action == "a2a_admission_refused"
+        if event.action == "peering_admission_refused"
     ]
     assert len(recorded) == 1
     assert recorded[0].resolved is False

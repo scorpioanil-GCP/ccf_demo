@@ -1,4 +1,18 @@
-"""``TypedHttpWire`` — the first :class:`~ccf.peering.protocol.PeeringProtocol` (D-11).
+"""``TypedHttpWire`` — a **Peering transport** speaking typed HTTP (D-11).
+
+The first implementation of :class:`~ccf.peering.protocol.PeeringProtocol`, and
+the second reference impl alongside the D-IMPL-14 v0 default,
+:mod:`ccf_runtime.peering.lf_a2a`. *Peering* is the category — a governed,
+peer-symmetric context exchange between two fabrics that each have their own
+Control Plane — and each transport here is named for the protocol it speaks
+rather than for the seam (``D-IMPL-59`` parts 1 and 2, Dave, 2026-07-27).
+
+**This transport declares trust inputs and cannot manufacture admission**
+(``D-IMPL-59`` part 4). It yields
+:class:`~ccf.peering.protocol.InboundProduct` values — inputs to a decision made
+above every transport — while
+:class:`~ccf.peering.admission.PeeringAdmissionGate` reaches the verdict and
+constructs the value L2 accepts. Nothing here can construct it.
 
 SDK-defined extension (CLAUDE.md §7.2 — "A2A federation is first-class in v0"),
 attaching to whitepaper §8.3 Pattern 4. D-IMPL-14 rules the v0 *default* wire

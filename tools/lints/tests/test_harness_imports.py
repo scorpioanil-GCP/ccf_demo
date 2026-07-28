@@ -82,7 +82,7 @@ def test_module_named_like_a_harness_prefix_is_not_flagged() -> None:
 # --- the HARNESS_ADAPTER_MODULES carve-out and its boundary (D-24, D-IMPL-53) -
 
 ADAPTER = pathlib.Path("runtime/ccf_runtime/adapters/langgraph/adapter.py")
-A2A = pathlib.Path("runtime/ccf_runtime/a2a/lf_a2a.py")
+A2A = pathlib.Path("runtime/ccf_runtime/peering/lf_a2a.py")
 CDC = pathlib.Path("runtime/ccf_runtime/cdc/adapter.py")
 EVIL = pathlib.Path("runtime/ccf_runtime/adapters_evil.py")
 
@@ -95,7 +95,7 @@ def test_a_harness_import_inside_the_adapter_path_is_permitted() -> None:
 
 
 def test_a_harness_import_in_the_a2a_module_is_still_flagged() -> None:
-    findings = check_source("import claude_agent_sdk\n", A2A, "ccf_runtime.a2a.lf_a2a")
+    findings = check_source("import claude_agent_sdk\n", A2A, "ccf_runtime.peering.lf_a2a")
     assert _rules(findings) == [RULE_HARNESS]
 
 

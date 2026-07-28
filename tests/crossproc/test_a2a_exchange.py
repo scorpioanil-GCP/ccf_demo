@@ -124,8 +124,8 @@ from ccf.products.contract import (
 )
 from ccf.products.gates import GateRefusal
 
-from ccf_runtime.a2a.lf_a2a import LfA2AWire, build_agent_card
-from ccf_runtime.a2a.typed_http import TypedHttpWire
+from ccf_runtime.peering.lf_a2a import LfA2AWire, build_agent_card
+from ccf_runtime.peering.typed_http import TypedHttpWire
 
 from crossproc.conftest import spawn_child_server
 from crossproc.servers import a2a_producer_child as child
@@ -843,7 +843,7 @@ def test_a_tampered_product_is_refused_and_leaves_l3_byte_identical(
     refused = [
         event
         for event in consumer.handle.registry.audit_events()
-        if event.action == "a2a_admission_refused"
+        if event.action == "peering_admission_refused"
     ]
     assert refused
     assert all(event.resolved is False for event in refused)

@@ -9,14 +9,14 @@ and the parent needs one code path to configure either leg.
 **This module is deliberately thin, and that is the finding.** The assembly, the
 signing, the tamper construction and the emit-then-announce ordering are all
 reused from the typed-HTTP child unchanged; what differs is the four lines that
-build a :class:`~ccf_runtime.a2a.lf_a2a.LfA2AWire` instead of a
-:class:`~ccf_runtime.a2a.typed_http.TypedHttpWire`, and the ASGI app that mounts
+build a :class:`~ccf_runtime.peering.lf_a2a.LfA2AWire` instead of a
+:class:`~ccf_runtime.peering.typed_http.TypedHttpWire`, and the ASGI app that mounts
 its routes. If this file had had to do more than that, the ``PeeringProtocol``
 boundary would not have been the stable layer CLAUDE.md §7.2 claims it is.
 
 **The parent's URL is a base URL here, not an endpoint.** LF A2A discovers a
 peer through its Agent Card at the well-known path, so the child hands the base
-URL to :class:`~ccf_runtime.a2a.lf_a2a.PeerCardResolver` and
+URL to :class:`~ccf_runtime.peering.lf_a2a.PeerCardResolver` and
 :class:`a2a.client.A2ACardResolver` fetches the consumer's real card from it.
 The typed-HTTP child is handed a full receive URL instead. That difference is
 the transport's, and it stops at the transport: the two products, the two
@@ -56,7 +56,7 @@ from ccf.peering.identity import (  # noqa: E402
 )
 from ccf.peering.protocol import PeerRef  # noqa: E402
 
-from ccf_runtime.a2a.lf_a2a import LfA2AWire, build_agent_card  # noqa: E402
+from ccf_runtime.peering.lf_a2a import LfA2AWire, build_agent_card  # noqa: E402
 
 from crossproc.servers.a2a_producer_child import (  # noqa: E402
     CONSUMER_URL_VAR,
