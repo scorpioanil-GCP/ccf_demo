@@ -49,7 +49,7 @@ Both name their activating phase in the skip reason, printed by `-rs`:
 Both reason strings are quotations of CLAUDE.md §8.1/§8.2 commitments, marked as such under
 the D-21 sweep in §4.9.
 
-### 1.1 Two gate-evidence integrity findings this phase produced
+### 1.1 Three gate-evidence integrity findings this phase produced
 
 Recorded first because both are cases of **a check reporting on something other than what it
 claimed**, which is the failure mode a gate document exists to prevent.
@@ -68,9 +68,21 @@ claimed**, which is the failure mode a gate document exists to prevent.
    result that depends on which optional extra happens to be installed is not a property of
    the code.
 
-Neither was a code defect. Both were *evidence* defects, and both are the reason the table
-above states the interpreter, the working tree, and the `PYTHONPATH` rather than a bare
-command name.
+3. **This document's own row 1 cited the wrong test directory** *(**closes A4**, found by the
+   2026-07-27 cross-AI gate review)*. Row 1 pointed at `tests/lints/` for the four CINV-02
+   carve-out boundary tests. That directory **exists** but holds unrelated tests
+   (`test_cinv01c_behavioral.py`, `test_extra_isolation.py`); the boundary tests are in
+   `tools/lints/tests/test_harness_imports.py`. So the citation was wrong in *exactly* the
+   same class as findings 1 and 2 — a reader following it would have found a real directory
+   with real passing tests and concluded the claim was evidenced. Corrected in row 1, with the
+   corrected path verified by running it rather than by inspection. **The count in this
+   heading was two and is now three, deliberately:** a gate document that quietly absorbs a
+   third instance of its own named defect class is committing that defect a fourth time.
+
+None of the three was a code defect. All three were *evidence* defects, and they are the
+reason the table above states the interpreter, the working tree, and the `PYTHONPATH` rather
+than a bare command name — and the reason every path this document cites is now checked to
+resolve (§4.13).
 
 ### 1.2 Cross-cutting greps the checklist cites (all empty)
 
@@ -122,12 +134,12 @@ and what would fail under a broken implementation.
 
 | # | Claim, at the strength it is enforced | Named mechanism | What would fail if broken |
 |---|----------------------------------------|-----------------|---------------------------|
-| 1 | **Harness neutrality — lint-enforced: no module outside `ccf_runtime.adapters.*` may import a harness package.** A structural module-path carve-out (D-24), never an allowlist | Lint rule `cinv02-harness` (`tools/lints/harness_imports.py`) via `python -m tools.lints --all`; four negative boundary tests in `tests/lints/` pinning the carve-out's edge | A harness import in `ccf.*`, `ccf_runtime.a2a`, `ccf_runtime.cdc`, or `ccf_runtime.mcp` fires the lint. The negative tests are what stop the carve-out degrading into an unguarded prefix match — without them, a rename into `ccf_runtime.adapters_helper` would pass |
+| 1 | **Harness neutrality — lint-enforced: no module outside `ccf_runtime.adapters.*` may import a harness package.** A structural module-path carve-out (D-24), never an allowlist | Lint rule `cinv02-harness` (`tools/lints/harness_imports.py`) via `python -m tools.lints --all`; the four negative boundary tests pinning the carve-out's edge are in **`tools/lints/tests/test_harness_imports.py`** — `::test_a_harness_import_inside_the_adapter_path_is_permitted`, `::test_a_harness_import_in_the_a2a_module_is_still_flagged` (which feeds `ccf_runtime.peering.lf_a2a`; only the test's *name* still says a2a), `::test_a_harness_import_in_the_cdc_module_is_still_flagged`, `::test_a_harness_import_in_a_lookalike_sibling_module_is_still_flagged`. *(Corrected citation — **closes A4**: this row previously cited `tests/lints/`, which exists but holds unrelated tests, `test_cinv01c_behavioral.py` and `test_extra_isolation.py`.)* Verified by running them: `pytest tools/lints/tests -q` → 49 passed | A harness import in `ccf.*`, `ccf_runtime.peering`, `ccf_runtime.cdc`, or `ccf_runtime.mcp` fires the lint. The negative tests are what stop the carve-out degrading into an unguarded prefix match — without them, a rename into `ccf_runtime.adapters_helper` would pass |
 | 2 | **Zero harness imports in `/src`** — the same rule at its narrowest, corroborated textually | `cinv02-harness` over `/src`; §1.2 grep | As row 1. The grep alone would be satisfied by a docstring and is cited as corroboration only |
-| 3 | **Single-writer across the A2A boundary — asserted by AST and attribute scans over the shipped modules, plus live state comparison.** Not "no path" | `tests/invariants/test_a2a_single_writer.py` — import scan, identifier scan, constructed-instance attribute scan over every discovered `ccf_runtime.a2a` module; plus the live two-process case and the refused-product digest | A transport importing `ccf.graph`/`ccf.assembly`, naming a write-surface type, or holding one under a private attribute. `test_transport_modules_were_actually_discovered` fails first if the discovery helper silently returns nothing — the quietest way an invariant test stops being one |
+| 3 | **Single-writer across the Peering boundary — asserted by AST and attribute scans over the shipped modules, plus live state comparison.** Not "no path". **Every transport `ccf_runtime.peering` ships is constructed and attribute-scanned, the D-IMPL-14 default `LfA2AWire` included** *(claim **strengthened** by new coverage — **closes A1**; the scan previously constructed `TypedHttpWire` only, so the default transport carried the source-scan half alone)* | `tests/invariants/test_peering_single_writer.py` — import scan, identifier scan, and constructed-instance attribute scan over every discovered `ccf_runtime.peering` module. The transport *class* set is discovered **structurally** (`PeeringProtocol`-shaped: defined in a discovered module, offering both `emit` and `receive`) and `TRANSPORT_BUILDERS` is keyed by class rather than by name, so a third transport joins by being discovered and a rename cannot silently drop a leg. Legs observed: `[TypedHttpWire]`, `[LfA2AWire]`. Plus the live two-process case and the refused-product digest | A transport importing `ccf.graph`/`ccf.assembly`, naming a write-surface type, or holding one under a private attribute. Two count guards fail first: `test_transport_modules_were_actually_discovered` if the discovery helper silently returns nothing — the quietest way an invariant test stops being one — and **`test_every_discovered_transport_is_actually_constructed`** if construction coverage falls behind discovery, which is precisely how A1 happened. 06-21 measured the second guard's failure: `2 transport(s) are constructed but 1 were discovered`, naming both counts and both name-lists |
 | 4 | **Single-writer across the adapter boundary** — same three-way scan, same scope statement | `tests/invariants/test_adapter_single_writer.py::test_no_adapter_module_names_a_fabric_write_surface`, `::test_no_constructed_adapter_holds_a_fabric_write_surface`, `::test_no_adapter_constructor_accepts_a_fabric_object`, `::test_no_adapter_instance_exposes_a_fabric_object`, `::test_an_effect_reaches_l3_only_through_emit_effect_into_l2` | An adapter accepting or exposing a fabric object, or an effect reaching L3 by any route other than `emit_effect` → L2 |
 | 5 | **Single-writer across the ArtifactStore** — a full store cycle leaves the graph substrate byte-identical, **write-ahead log included** | `tests/invariants/test_mcp_role_separation.py::test_a_full_store_cycle_leaves_the_fabric_byte_identical`, guarded by `::test_the_byte_identical_digest_can_actually_see_a_committed_write` | An artifact server or store writing through to the graph. **The guard is load-bearing and new in 06-16**: the SQLite backend runs `journal_mode = WAL`, and it is *measured* that a committed L2 write leaves the main file byte-identical and changes only `<db>-wal`. The former main-file-only digest could not have observed the write it existed to rule out |
-| 6 | **An inbound A2A product is not offerable to L2 unless the Control Plane admitted it — a type error, not a discipline** | `AssemblyWorker.ingest_admitted(admitted: AdmittedProduct, ...)`; `tests/crossproc/test_a2a_exchange.py::test_the_federated_door_does_not_accept_an_unadmitted_product` asserts both the declared annotation and that `AdmittedProduct` is unforgeable | Re-widening `ingest_admitted` to take an `InboundProduct`/`object`, **or** dropping the construction token — at which point the annotation would still read correctly and mean nothing. Both halves are asserted because either alone is cosmetic. `ingest(SignalEnvelope)` is deliberately unchanged: it serves CDC and MCP ingress, and binding the type onto it would have broken two paths to constrain a third |
+| 6 | **An inbound Peering product is not offerable to L2 unless the Control Plane admitted it — a type error on every unforced path** *(narrowed to Python's import model — **closes A2**, D-21. The row previously contrasted a type error against a mere discipline with no scope qualifier at all; the retired phrasing is deliberately not reproduced here, so the stronger claim cannot be recovered from this document by copy-paste — 06-21's precedent, which removed the adjective `unforgeable` rather than quoting it)* | `AssemblyWorker.ingest_admitted(admitted: AdmittedProduct, ...)`; `tests/crossproc/test_peering_exchange.py::test_the_federated_door_does_not_accept_an_unadmitted_product` asserts both the declared annotation and that every construction not carrying the gate's token fails at construction; `::test_the_unforgeability_claim_is_scoped_to_the_unforced_path` pins the boundary of that claim — `_ADMISSION_TOKEN` is importable, so forging requires naming a private member of `ccf.peering.admission`, which Python permits and no runtime check can prevent (advisory A2, D-21). Both edges are asserted: token withheld → `AdmissionBypassError`; private token imported and passed → construction succeeds, so the wording cannot be re-strengthened without a red suite | Re-widening `ingest_admitted` to take an `InboundProduct`/`object`, **or** dropping the construction token — at which point the annotation would still read correctly and mean nothing. Both halves are asserted because either alone is cosmetic. `ingest(SignalEnvelope)` is deliberately unchanged: it serves CDC and MCP ingress, and binding the type onto it would have broken two paths to constrain a third |
 | 7 | **The Peering trust policy has no field that could express a verification skip.** This one earns strong wording: the state is genuinely unrepresentable in the contract | `src/ccf/peering/trust_policy.py` (`PeeringTrustPolicy`, `extra=forbid`, no skip/bypass/fast-path member); `tests/peering/test_admission.py` — every inbound product runs all six checks in order, D-IMPL-16 with no high-trust fast path; `tests/peering/test_peering_verdict.py::test_the_gate_offers_exactly_one_admission_entry_point` pins the absence of an `admit_fast` / `admit_trusted` surface | Adding a bypass field would have to change the contract, which `extra=forbid` makes a visible schema change rather than a runtime option. A tier narrows or widens *what* a peer may assert, never *whether* it is checked |
 | 8 | **`local_callable` dispatch imports nothing; a dotted module path is not a value the resolution surface can express.** Also earns strong wording (D-IMPL-54 closing IN-06/D-19) | `src/ccf/skills/callables.py` + `src/ccf/skills/dispatch.py`; `tests/skills/test_callables.py`; §1.2 grep showing `importlib` gone from `src/ccf/skills/` | An entry naming `os.system` resolves to no registered key and is refused **without anything being imported**. The I.2 posture was a precondition on where the ref came from; this is a property of how it is resolved — required, because I.3 made artifacts remotely sourceable |
 | 9 | **`effects: unsupported` is a conformance-verified absence: declared, refusal observed firing, L3 unchanged, no write handle obtainable** — four parts, not one declaration | `tests/conformance/test_harness_adapter.py::test_seam_3_refuses_when_the_adapter_declared_effects_unsupported` and `::test_effects_unsupported_is_inert_not_merely_declared` | An adapter that declared `unsupported` and still emitted. The second test is the one that matters: a declaration alone is a convention, and D-21 names exactly this as the claim class that degrades |
@@ -169,9 +181,16 @@ binding breaks a test.
 > edge among the MCP client's consumers. `06-CONTEXT.md` defers the Experience Layer front
 > doors (CLI, HTTP API) out of I.3, and the ROADMAP places EXPR-01/02/03 in **Phase 7**. So
 > criterion 1's Experience edge has **no I.3 evidence and is not asserted to have any**. A
-> reviewer reading criterion 1 is reading a *named scope boundary*, not a missing leg. The
-> ROADMAP criterion text stands as written and is not amended — only its evidence section
-> records the boundary. Where it lands: Phase 7, alongside the CLI and HTTP front doors.
+> reviewer reading criterion 1 is reading a *named scope boundary*, not a missing leg. Where
+> it lands: Phase 7, alongside the CLI and HTTP front doors.
+>
+> **Amended by 06-22 *(closes A5)*.** This note previously ended: "The ROADMAP criterion text
+> stands as written and is not amended — only its evidence section records the boundary."
+> That was precisely the gap the review found. The gate deferred the edge honestly while the
+> criterion kept naming it, and a criterion that reads broader than its own evidence is an
+> over-claim wherever the honest sentence happens to live. ROADMAP criterion 1 now names the
+> edges I.3 delivers and records the Experience edge as Phase 7 scope, so the two documents
+> agree rather than one compensating for the other.
 
 ### 3.2 XPRC-02 — Peering federation (A2A is the reference transport, not the concept)
 
@@ -437,6 +456,23 @@ Logged in `docs/DECISIONS.md` as **D-IMPL-56, awaiting Dave**.
 
 See also §4 item 5 and §4.9 — the other two places this phase corrected a claim about its
 own enforcement rather than about its code.
+
+### 4.13 Citation-resolution sweep (added 06-22, prompted by A4)
+
+Advisory A4 was a citation pointing at a directory that existed and held *different* tests —
+the failure mode a reader cannot detect by following the link, because following it succeeds.
+So the correction is not just row 1's path; it is a mechanical check that every path and every
+`file::function` this document names resolves. Run over the whole document after the 06-22
+edits:
+
+| Sweep | Result |
+|-------|--------|
+| Backticked `tests/`, `tools/`, `src/`, `runtime/` paths extracted and `test -e`d | **47 checked, 0 genuinely missing.** Four were flagged and all four adjudicated: three (`runtime/adapters/`, `runtime/mcp/`, `runtime/peering/`) are extraction artifacts of `ccf_runtime/adapters/`, `ccf_runtime/mcp/`, `ccf_runtime/peering/`, all of which exist; one — `examples/03-harness-portability` — **deliberately does not exist**, being the Phase 8 forward reference §3.3.1 hands the loop-level portability obligation to |
+| Every cited `file::function` resolved to a `def` in the named module | **63 checked, 0 missing** |
+
+A row citing a name that does not exist is the same defect class as a row claiming a property
+that does not hold, and this phase has now recorded three instances of it (§1.1). The sweep is
+cheap and is the reason a fourth is not sitting in this document unnoticed.
 
 ---
 
