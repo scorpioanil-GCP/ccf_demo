@@ -128,20 +128,21 @@ and what would fail under a broken implementation.
 | 4 | **Single-writer across the adapter boundary** — same three-way scan, same scope statement | `tests/invariants/test_adapter_single_writer.py::test_no_adapter_module_names_a_fabric_write_surface`, `::test_no_constructed_adapter_holds_a_fabric_write_surface`, `::test_no_adapter_constructor_accepts_a_fabric_object`, `::test_no_adapter_instance_exposes_a_fabric_object`, `::test_an_effect_reaches_l3_only_through_emit_effect_into_l2` | An adapter accepting or exposing a fabric object, or an effect reaching L3 by any route other than `emit_effect` → L2 |
 | 5 | **Single-writer across the ArtifactStore** — a full store cycle leaves the graph substrate byte-identical, **write-ahead log included** | `tests/invariants/test_mcp_role_separation.py::test_a_full_store_cycle_leaves_the_fabric_byte_identical`, guarded by `::test_the_byte_identical_digest_can_actually_see_a_committed_write` | An artifact server or store writing through to the graph. **The guard is load-bearing and new in 06-16**: the SQLite backend runs `journal_mode = WAL`, and it is *measured* that a committed L2 write leaves the main file byte-identical and changes only `<db>-wal`. The former main-file-only digest could not have observed the write it existed to rule out |
 | 6 | **An inbound A2A product is not offerable to L2 unless the Control Plane admitted it — a type error, not a discipline** | `AssemblyWorker.ingest_admitted(admitted: AdmittedProduct, ...)`; `tests/crossproc/test_a2a_exchange.py::test_the_federated_door_does_not_accept_an_unadmitted_product` asserts both the declared annotation and that `AdmittedProduct` is unforgeable | Re-widening `ingest_admitted` to take an `InboundProduct`/`object`, **or** dropping the construction token — at which point the annotation would still read correctly and mean nothing. Both halves are asserted because either alone is cosmetic. `ingest(SignalEnvelope)` is deliberately unchanged: it serves CDC and MCP ingress, and binding the type onto it would have broken two paths to constrain a third |
-| 7 | **The A2A trust policy has no field that could express a verification skip.** This one earns strong wording: the state is genuinely unrepresentable in the contract | `src/ccf/a2a/trust_policy.py` (`extra=forbid`, no skip/bypass/fast-path member); `tests/a2a/test_admission.py` — every inbound product runs all six checks in order, D-IMPL-16 with no high-trust fast path | Adding a bypass field would have to change the contract, which `extra=forbid` makes a visible schema change rather than a runtime option. A tier narrows or widens *what* a peer may assert, never *whether* it is checked |
+| 7 | **The Peering trust policy has no field that could express a verification skip.** This one earns strong wording: the state is genuinely unrepresentable in the contract | `src/ccf/peering/trust_policy.py` (`PeeringTrustPolicy`, `extra=forbid`, no skip/bypass/fast-path member); `tests/peering/test_admission.py` — every inbound product runs all six checks in order, D-IMPL-16 with no high-trust fast path; `tests/peering/test_peering_verdict.py::test_the_gate_offers_exactly_one_admission_entry_point` pins the absence of an `admit_fast` / `admit_trusted` surface | Adding a bypass field would have to change the contract, which `extra=forbid` makes a visible schema change rather than a runtime option. A tier narrows or widens *what* a peer may assert, never *whether* it is checked |
 | 8 | **`local_callable` dispatch imports nothing; a dotted module path is not a value the resolution surface can express.** Also earns strong wording (D-IMPL-54 closing IN-06/D-19) | `src/ccf/skills/callables.py` + `src/ccf/skills/dispatch.py`; `tests/skills/test_callables.py`; §1.2 grep showing `importlib` gone from `src/ccf/skills/` | An entry naming `os.system` resolves to no registered key and is refused **without anything being imported**. The I.2 posture was a precondition on where the ref came from; this is a property of how it is resolved — required, because I.3 made artifacts remotely sourceable |
 | 9 | **`effects: unsupported` is a conformance-verified absence: declared, refusal observed firing, L3 unchanged, no write handle obtainable** — four parts, not one declaration | `tests/conformance/test_harness_adapter.py::test_seam_3_refuses_when_the_adapter_declared_effects_unsupported` and `::test_effects_unsupported_is_inert_not_merely_declared` | An adapter that declared `unsupported` and still emitted. The second test is the one that matters: a declaration alone is a convention, and D-21 names exactly this as the claim class that degrades |
 | 10 | **All four harness seams bind, per adapter, across three harnesses** | `tests/conformance/test_harness_adapter.py` — seam 1 `::test_seam_1_carries_the_pinned_instructions_and_the_typed_product`, `::test_seam_1_hands_the_harness_no_fabric_write_surface`; seam 2 `::test_seam_2_exposes_exactly_the_bound_skill_set`, `::test_seam_2_follows_a_revocation_without_re_declaring_the_agent`, `::test_seam_2_is_per_agent_not_per_catalog_the_two_agent_case`, `::test_seam_2_does_not_leak_an_ungranted_catalog_entry_into_the_carrier`; seam 3 `::test_seam_3_returns_a_governed_emission_as_a_typed_value`; seam 4 `::test_seam_4_records_what_the_harness_reported`, `::test_seam_4_reads_what_the_harness_carried_not_what_the_adapter_held`, `::test_seam_4_cannot_touch_a_governed_replay_dimension` | An adapter exposing an ungranted catalog entry, re-reading its own held state instead of the harness's trace, or writing into a governed replay dimension. The two-agent case (D-23) is what stops a per-catalog implementation passing a per-agent claim |
 | 11 | **The absent-harness path is exercised against a name that can never be installed** | `tests/conformance/test_harness_adapter.py::test_an_absent_harness_skips_with_an_instruction_not_a_mystery`, `::test_an_absent_harness_fails_when_the_environment_requires_it`, both against the `ABSENT_HARNESS` sentinel | Re-pointing either at a real harness. They previously named `langgraph`, and went green only in an environment lacking the extra — so **installing langgraph retroactively falsified them**. An environment-dependent test decays into vacuity exactly when the project succeeds |
 | 12 | **A skipped harness leg fails the build rather than passing it** | `CCF_REQUIRE_HARNESSES` in `tests/conftest.py::harness_unavailable`; the CI `test` job exports it and runs `pytest tests/conformance -q -rs`, not `continue-on-error` | Removing the env var: the conformance suite would collect all three legs, skip every one, and report green over the only evidence the §7.3 portability claim has. Mirrors the `CCF_REQUIRE_POSTGRES` leg rather than inventing a second pattern |
 | 13 | **The two MCP server roles are separate modules, and neither reaches L3** | `tests/invariants/test_mcp_role_separation.py` — import/source scans over `ccf_runtime.mcp.egress` and `ccf_runtime.mcp.artifact_server`, plus URI-scheme disjointness | Merging the roles, or one importing the other and inheriting its trust posture; or either minting the other's URI scheme, after which a replay record could not tell which kind of address it held |
-| 14 | **Lineage extends by set-union across the A2A boundary; the producer's operator plan, policy versions and graph anchor all survive** | `src/ccf/a2a/admission.py::union_lineage`; `tests/properties/test_lineage_union.py`; `tests/crossproc/test_a2a_exchange.py::test_admitted_lineage_is_the_union_of_producer_and_consumer` | Replacement in either direction. The two operator sets are disjoint in the fixture by deliberate choice, so taking the producer's wholesale loses `temporal.as-of` and ignoring it loses what actually produced the product |
-| 15 | **Canonical bytes survive both wires unchanged** | `tests/crossproc/test_a2a_exchange.py`, every case parametrized over the typed-HTTP and LF A2A legs | Any re-serialization en route: the signature is over the producer's canonical bytes, so a normalizing transport refuses the *genuine* product, not only the tampered one. An assertion that had to differ per transport would mean the Contract was not the stable layer |
-| 16 | **No-Hardcoding across the phase's new surfaces** | Lint rules `cinv01a-prompt-shape`, `cinv01b-numeric-table`, `cinv01c-factory-bypass` via `tools.lints --all` | A peer id, ceiling, endpoint path, producer hash, server address, or federation entity class appearing in `/src` or `/runtime`. Every one lives in `tests/fixtures/banking/*.yaml`; the a2a fixture's own header states that deleting it leaves the test module with nothing to run |
+| 14 | **Lineage continuity is a property of the Peering admission boundary, persisted as an immutable `AdmissionRecord` and resolvable at an exact version** — *not* a property of graph state. The producer's operator plan, policy versions and graph anchor all survive the set-union, in the persisted record. `LineageEntry` is untouched, asserted rather than assumed *(narrowed — **closes B2**; D-IMPL-58 reading (d), closure item 6)* | `src/ccf/peering/admission.py::union_lineage` plus `AdmissionRecord` / `ADMISSION_RECORD` (`class_id` `ccf.admission-record`); `tests/properties/test_lineage_union.py` for the set-union law itself; **`tests/peering/test_admission_record.py::test_the_union_is_observed_in_persisted_state_through_the_replay_path`** — the union read back out of the ArtifactStore through `ccf.replay.engine.resolve_artifact`, deliberately **not** off the transient `AdmittedProduct` wrapper | Replacement in either direction. The two operator sets are disjoint in the fixture by deliberate choice, so taking the producer's wholesale loses `temporal.as-of` and ignoring it loses what actually produced the product. **And — this is what B2 found — a claim resting on the wrapper:** `AssemblyWorker.ingest_admitted` never reads `admitted.lineage`, so before 06-19 the union was a property of an object L2 discards. `::test_an_admission_persists_an_admission_record` and `::test_a_store_outage_is_not_reported_as_an_admission` fail if a crossing is reported admitted with no record behind it |
+| 15 | **Canonical bytes survive both wires unchanged** | `tests/crossproc/test_peering_exchange.py`, every case parametrized over the typed-HTTP and LF A2A legs | Any re-serialization en route: the signature is over the producer's canonical bytes, so a normalizing transport refuses the *genuine* product, not only the tampered one. An assertion that had to differ per transport would mean the Contract was not the stable layer |
+| 16 | **No-Hardcoding across the phase's new surfaces** | Lint rules `cinv01a-prompt-shape`, `cinv01b-numeric-table`, `cinv01c-factory-bypass` via `tools.lints --all` | A peer id, ceiling, endpoint path, producer hash, server address, or federation entity class appearing in `/src` or `/runtime`. Every one lives in `tests/fixtures/banking/*.yaml`; the Peering transport fixture's own header (`a2a.yaml` — named for the wire it configures, per D-IMPL-59 part 2) states that deleting it leaves the test module with nothing to run |
 | 17 | **Algorithmic ⇄ Semantic Alternation over the new modules** | Lint rule `cinv03-algorithmic`; `tests/crossproc/test_mcp_acquisition.py::test_no_llm_client_is_reachable_from_the_acquisition_path` | An LLM client reachable from the decision-time acquisition path — the module most likely to acquire one, since it is where content arrives |
 | 18 | **Replay-by-construction: dimension 3 gains `harness_trace` and the record still carries exactly five dimensions** (D-25, D-IMPL-55) | `tests/conformance/test_harness_portability.py::test_a_live_record_still_carries_exactly_five_dimensions`, `::test_the_harness_trace_is_isolated_and_differs_per_harness`, `::test_the_governed_field_set_is_exhaustive_over_the_record` | A sixth dimension block — an INV-CH7-80 fidelity defect, not an option — or harness-attributable fields leaking into the governed comparison, which would make the portability equivalence trivially true |
 | 19 | **An `mcp`-transport skill invoked through an `Agent` reaches its transport; an unwired deployment refuses by name rather than fabricating an endpoint** | `tests/integration/test_agent_slice.py::test_a_granted_mcp_skill_is_invocable_through_the_agent_seam` and `::test_an_unwired_deployment_still_refuses_an_mcp_skill_by_name` — an inversion pair over the same grant, entry and agent with only the registry withheld | Dropping `mcp_skills` anywhere along `AgentFactory` → `Agent` → `dispatch_skill`. The inversion is what stops the positive case passing against an implementation that had quietly stopped fail-closing; the read also asserts the URI the *deployment* registered, so a threading that arrived by fabricating an endpoint fails too (T-06-24) |
 | 20 | **The MCP artifact server authenticates, backed by mechanism rather than by an unbacked claim** (D-26) | `SourceBackedTokenVerifier` against `FastMCP`'s `TokenVerifier`, with the dev token source behind a Protocol (`tests/crossproc/servers/mcp_artifact_child.py`); `tests/conformance/test_artifactstore.py::test_a_store_presenting_a_rejected_token_is_refused_as_an_outage` | A server that accepted any token, or a store whose rejected token surfaced as something other than an outage. §7.4's "authenticated" would otherwise be a word in a docstring. Real custody backends (PKI/HSM) remain out of v0 per §13, exactly as D-13 scopes A2A key custody |
+| 21 | **What the federated gate sequence checks is attribution, not verification: INV-CH7-47 is verifiable *within* a fabric and attributable *across* one** *(narrowed — **closes B1**; D-IMPL-57 reading (a), closure item 2)*. What admission establishes is that the declared operator plan is covered by a signature from a key the peer was entitled to use, and is therefore **non-repudiable** — not that the plan was run. **Accepted consequence, carried across from Dave's ruling in its own words rather than softened: *a compromised or buggy peer can assert an operator plan it did not run, and the consuming fabric will admit the product.*** A narrowing that omits the cost is not a narrowing | `ccf.products.gates.run_federated_gates` (`GATE_LINEAGE_ATTRIBUTABILITY`, `LineageAttributionRefusal`) — the federated sequence is empty-operator guard → **attributability** → TTL bounds, sharing gates 1 and 3 with the local sequence rather than duplicating them; `src/ccf/peering/admission.py::_run_federated_gates` passes check 2's verified content address as an **independent** witness; `tests/gates/test_federated_gates.py` (10 cases, incl. `::test_the_federated_sequence_takes_no_engine_resolved_witness`); `tests/peering/test_admission_attributability.py::test_a_signed_but_non_canonical_payload_is_refused_as_unattributable` drives the case end-to-end **through `admit`**, asserting that signature verification *succeeded* first | Restoring the vacuous invocation. Before 06-18 the sequence was handed `engine_resolved=product.lineage.operators_invoked` — the producer's *own* claim as its own witness — and the module docstring said so ("structurally vacuous here"). 06-18 measured the counterfactual: with the old wiring restored, 3 of the 6 attributability tests fail and the unattributable product is admitted. Also fails: a product whose bytes differ from the bytes whose signature verified, and a lineage tampered under the original signature (which refuses at the *signature* check — the property reading (a) stands or falls on) |
 
 **Every row names an existing, passing `file::function` or lint rule id, and every row states
 its failure mode.** The D-17 bar is met.
@@ -172,14 +173,53 @@ binding breaks a test.
 > ROADMAP criterion text stands as written and is not amended — only its evidence section
 > records the boundary. Where it lands: Phase 7, alongside the CLI and HTTP front doors.
 
-### 3.2 XPRC-02 — A2A federation
+### 3.2 XPRC-02 — Peering federation (A2A is the reference transport, not the concept)
+
+**Vocabulary, per `D-IMPL-59` (Dave, 2026-07-27).** The federation seam is a **Peering**: a
+governed exchange between two peer fabrics, each holding its own Control Plane. Its Protocol
+is `PeeringProtocol` (`src/ccf/peering/protocol.py`), and **A2A is its reference transport**,
+alongside the standard-free typed-HTTP leg. MCP is explicitly *outside* the Peering seam
+(part 3): MCP ingress is asymmetric — there is no counterparty Control Plane to verify
+against, and it **originates** lineage rather than merging it — so it remains its own surface
+per CLAUDE.md §7.1. Where this document previously said "A2A" for the *category*, it now says
+Peering; where it says A2A, it means the wire.
 
 | Element | Evidence | What would fail |
 |---------|----------|-----------------|
-| Typed products across real processes, behind `WireProtocol` | `tests/crossproc/test_a2a_exchange.py::test_a_signed_product_crosses_two_processes_and_is_admitted`, `::test_the_transport_satisfies_the_wire_protocol`; every case parametrized over both wires (row 15) | An in-process double: the producer is a separate OS process with its own graph file and heap, which is what makes "the consumer holds no write handle to the producer's graph" literally true rather than argued (D-15) |
-| Identity and signing (D-IMPL-15) | `src/ccf/a2a/identity.py` (detached JWS, ES256); `tests/a2a/test_admission.py` signature cases; two peers with different keys and entitlements (D-23) | A single-principal proof passes against a gate that checks signatures over every key it holds — which is exactly the defect the two-peer case catches |
-| Admission before L2 (D-IMPL-16) | `src/ccf/a2a/admission.py` six ordered checks; rows 6, 7; `tests/invariants/test_a2a_single_writer.py::test_a_refused_product_leaves_l3_byte_identical` | A consumer that ingested first and checked after. The refused message's entities would appear in the graph and the digest would move |
-| Lineage set-union (D-14) | Row 14 | As row 14 |
+| Typed products across real processes, behind `PeeringProtocol` | `tests/crossproc/test_peering_exchange.py::test_a_signed_product_crosses_two_processes_and_is_admitted`, `::test_the_transport_satisfies_the_wire_protocol`; every case parametrized over both wires (row 15) | An in-process double: the producer is a separate OS process with its own graph file and heap, which is what makes "the consumer holds no write handle to the producer's graph" literally true rather than argued (D-15) |
+| Identity and signing (D-IMPL-15) | `src/ccf/peering/identity.py` (detached JWS, ES256); `tests/peering/test_admission.py` signature cases; two peers with different keys and entitlements (D-23) | A single-principal proof passes against a gate that checks signatures over every key it holds — which is exactly the defect the two-peer case catches |
+| Admission before L2 (D-IMPL-16) | `src/ccf/peering/admission.py` — `PeeringAdmissionGate`, six ordered checks; rows 6, 7, 21; `tests/invariants/test_peering_single_writer.py::test_a_refused_product_leaves_l3_byte_identical` | A consumer that ingested first and checked after. The refused message's entities would appear in the graph and the digest would move |
+| Lineage set-union (D-14), and where its continuity lives (D-IMPL-58) | Row 14 | As row 14 |
+| What the lineage gate checks at the boundary (D-IMPL-57) | Row 21 | As row 21 |
+| A Peering declares trust *inputs*, never the verdict (D-IMPL-59 part 4) | `tests/peering/test_peering_verdict.py` (6 cases): a purpose-built `_ForgingPeering` that satisfies `isinstance(..., PeeringProtocol)` and attempts to construct an `AdmittedProduct` outside the gate raises `AdmissionBypassError`; `::test_no_discovered_transport_names_the_verdict` is parametrized over the *discovered* transport set, with `::test_transport_modules_were_actually_discovered` as its count guard | A transport arriving with its own private check. 06-24 measured the counterfactual: with the token comparison neutered to `if False:`, the forging case fails with `DID NOT RAISE`. **This is a verified property, not a design intention** — the same structural device as the harness adapter's inability to acquire a write handle, applied at a second boundary |
+
+#### 3.2.1 What the Peering re-description changed, and what it deliberately did not
+
+Recorded because a rename that is not scoped reads as a rebuild, and because the vocabulary a
+reviewer reads should be the vocabulary the code uses.
+
+- **Changed:** the seam's package (`ccf.peering`, `ccf_runtime.peering`), its Protocol
+  (`WireProtocol` → `PeeringProtocol`, suffixed per the naming ruling recorded alongside
+  D-IMPL-59), the gate (`PeeringAdmissionGate`), the trust-policy artifact
+  (`PeeringTrustPolicy` / `PEERING_TRUST_POLICY`), the audit verdict members
+  (`peering_admitted`, `peering_admission_refused`), the gate id *values* (`a2a-*` →
+  `peering-*`), the skill surface (`peering` skill type,
+  `Peering{Binding,Invocation,SkillRegistry,SkillUnregistered}`, `peering_skills=`), and the
+  test tree (`tests/peering/`).
+- **Deliberately not changed. No code was deleted** — the constraint was checked as
+  `git diff --diff-filter=D --name-only pre-peering -- src/ runtime/ tests/ tools/` producing
+  no output, against the pinned tag `pre-peering`
+  (`f45a23d639816ef40f3b169194628f4669012c9b`), and every move is a `git mv` recorded as a
+  rename. **A2A is not withdrawn** (part 2): it remains a v0 commitment and the reference
+  transport. Transports keep their protocol names (`lf_a2a.py`, `typed_http.py`, `LfA2AWire`)
+  — a transport is correctly named for the wire it speaks. `AdmittedProduct`,
+  `ingest_admitted`, `union_lineage`, `InboundProduct` and `PeerRef` were **already
+  transport-neutral**; only their docstrings said A2A. Nothing under `src/ccf/mcp*` or
+  `ccf_runtime/mcp/` was touched, which is part 3 stated as a diff check.
+- **One residual, named rather than left to be discovered:** the CINV-02 boundary test
+  `tools/lints/tests/test_harness_imports.py::test_a_harness_import_in_the_a2a_module_is_still_flagged`
+  still carries `a2a` in its *function name* while the module it feeds is
+  `ccf_runtime.peering.lf_a2a`. The assertion is correct; only the label lags.
 
 ### 3.3 XPRC-03 — harness adapters
 
@@ -188,7 +228,47 @@ binding breaks a test.
 | `HarnessAdapterProtocol` + three reference adapters (D-IMPL-24) | `src/ccf/harness/protocol.py`; `runtime/ccf_runtime/adapters/{claude_agent,langgraph,adk}/`; `tests/conformance/test_harness_adapter.py` parametrized over all three (188 passing) | Rows 9–12 |
 | All four seams bound | Row 10 | Row 10 |
 | Zero harness imports in core | Rows 1–2 | Rows 1–2 |
-| Portability demonstrated, not asserted | `tests/conformance/test_harness_portability.py::test_the_consumed_product_is_byte_identical_across_the_three_harnesses`, `::test_the_governed_replay_fields_are_exactly_equal_across_harnesses`, `::test_the_agent_definition_names_no_harness`, `::test_two_agents_each_equal_across_harnesses_and_distinct_from_each_other` | An agent definition naming a harness; or a "portability" proof that compared nothing, which the exhaustiveness and two-agent tests are there to prevent |
+| **Seam-level portability demonstrated at four seams; loop-level portability outstanding** *(narrowed — **closes B3**; see §3.3.1)* | `tests/conformance/test_harness_portability.py::test_the_consumed_product_is_byte_identical_across_the_three_harnesses`, `::test_the_governed_replay_fields_are_exactly_equal_across_harnesses`, `::test_the_agent_definition_names_no_harness`, `::test_two_agents_each_equal_across_harnesses_and_distinct_from_each_other`, plus the four adversarial cases 06-20 added (`::test_a_leg_that_corrupted_the_governed_emission_turns_the_equality_red`, `::test_a_leg_that_corrupted_its_reported_trace_is_detected`, `::test_a_dropped_harness_trace_is_caught_by_liveness_not_by_absence`, and the conforming-adapter pin) | An agent definition naming a harness; or a "portability" proof that compared nothing, which the exhaustiveness and two-agent tests are there to prevent. **The "compared nothing" hazard is now fully closed on all three compared axes, not on the consumption axis alone:** every equality the module asserts has a demonstrated failure mode, driven through the same `_drive` the honest legs use. 06-20 measured the counterfactual — reducing the adversarial wrapper to a pure delegate produces `DID NOT RAISE AssertionError` |
+
+#### 3.3.1 What the portability evidence proves, and what it does not (closes B3)
+
+The row label above previously read **"Portability demonstrated, not asserted"**. That label
+is supported in its *seam-translation* reading and unsupported in its *loop-execution*
+reading, and the distinction is now written into the row rather than left to a reader's
+charity. Blocking finding B3 was scope, not fraud.
+
+**What the evidence proves.** Three adapters translate **one** agent definition into their own
+harness-native carriers equivalently; recover the typed Context Product back out of those
+carriers byte-identically; expose exactly the currently-bound skill-set; produce governed
+emissions that a corrupted leg would break; and report **distinguishable**, per-harness
+replay traces checked against each leg's own declared `reported_model` and `trace_id`. The
+agent definition names no harness. Two distinct agents each stay equal across harnesses and
+distinct from each other, so a per-catalog implementation cannot pass a per-agent claim.
+
+**What it does not prove.** No harness reasoning loop is executed. `_drive` calls the four
+seams directly — `inject_context` → `expose_skills` → `capture_effect` → `replay_trace` —
+which is the whole of what runs. And the limit 06-20 was required to record verbatim:
+
+> **All three shipped adapters' `capture_effect` remain delegations to `Agent.emit_effect`, so
+> the honest three-leg emission equality still cannot fail. The adversarial leg proves the
+> assertion is sensitive to perturbation, not that the three adapters are independent
+> implementations.**
+
+Any document reading the emission axis as three independent implementations *agreeing* is
+over-claiming. The defensible reading — and the one the suite's own module docstring states —
+is **"the fabric, not the harness, decides what an effect is."**
+
+**Where the unproven half lands, handed forward rather than deleted.** Loop-level execution of
+one agent definition under two real harness loops is **`examples/03-harness-portability`'s
+obligation in Phase 8 (I.5)**, per CLAUDE.md §9 example 03, which §7.3 assigns to the examples
+suite. So §7.3's "one agent definition **running unmodified** under at least two harnesses" is
+**outstanding**, not discharged here — I.3 delivers the mechanism that obligation is built on.
+`CLAUDE.md` is Dave's document and is deliberately **not edited** by this phase; if the phase
+believed §7.3 needed amendment, that would be a request in §6, and none is made.
+
+**Also outstanding on this axis: advisory A3** — the Claude leg's seam-4 `execution()` is a
+hand-built `ResultMessage` seeded from fixtures, while ADK and LangGraph push values through
+real harness machinery. **A3 is not closed.** See §5.
 
 ### 3.4 The five ROADMAP Phase 6 success criteria
 
@@ -196,26 +276,38 @@ binding breaks a test.
 §3.1 above, edge by edge, with the Experience edge recorded as a Phase 7 deferral. Role
 separation: rows 5 and 13.
 
-**Criterion 2 — A2A behind `WireProtocol` with identity, admission and lineage union.**
+**Criterion 2 — Peering behind `PeeringProtocol` with identity, admission and lineage union.**
 §3.2 above. The D-IMPL-14 default wire (LF A2A) and the standard-free typed-HTTP leg both
 ship, and every assertion runs unchanged over both — the substitution claim, checked rather
-than stated.
+than stated. **Two narrowings on this criterion, both traceable:**
+
+- *(closes B1, D-IMPL-57 closure item 2)* **Lineage is attributable across the Peering
+  boundary and verifiable within a fabric.** Strict-equality verification does **not** travel:
+  the consumer never re-resolves the producer's operator plan, it holds the producer to what
+  it signed. Row 21 states the accepted consequence in Dave's own words.
+- *(closes B2, D-IMPL-58 closure item 6)* **Lineage continuity is a property of the Peering
+  admission boundary, persisted as an immutable `AdmissionRecord` and resolvable at an exact
+  version** — not a property of graph state. Row 14. `LineageEntry` is untouched.
 
 **Criterion 3 — `HarnessAdapterProtocol` + reference adapters bind all four seams; the
-zero-harness-imports lint stays green.** §3.3 above; rows 1, 2, 9, 10.
+zero-harness-imports lint stays green.** §3.3 above; rows 1, 2, 9, 10. **Narrowed** *(closes
+B3)*: what is demonstrated is seam-level equivalence across three harnesses with a
+demonstrated failure mode on every compared axis — **not** execution under a harness reasoning
+loop, which is example 03's Phase 8 obligation. §3.3.1 states both halves, including the
+`capture_effect`-delegation limit verbatim.
 
 **Criterion 4 — single-writer demonstrably holds across three boundaries.** Three separate
 observables, deliberately not one:
 
 | Boundary | Observable | Row |
 |----------|------------|-----|
-| A2A | `tests/invariants/test_a2a_single_writer.py` — scans, live exchange, refused-product digest | 3 |
+| Peering | `tests/invariants/test_peering_single_writer.py` — scans, live exchange, refused-product digest | 3 |
 | Adapter | `tests/invariants/test_adapter_single_writer.py` — scans plus the `emit_effect` → L2 path | 4 |
 | ArtifactStore | `tests/invariants/test_mcp_role_separation.py` — byte-identical cycle, WAL-inclusive, with its sensitivity guard | 5 |
 
 Strengthened this plan by Dave's ruling: the federated route into L2 is now a **typed door**
-(row 6), so the A2A leg of this criterion is carried by the type system and not only by
-observation.
+(row 6), so the Peering leg of this criterion is carried by the type system and not only by
+observation — at the scope row 6 now states (advisory A2).
 
 **Criterion 5 — MCP-backed ArtifactStore passes the *same* conformance suite as the
 file-backed impl, with no other deployment change to swap.** `tests/conformance/test_artifactstore.py`
@@ -237,7 +329,7 @@ surface and is logged as a decision — see §4.12.
    learn both. The skip message is an instruction (which extra installs what), not a mystery.
 2. **The module tree below the D-03/D-04 boundaries.** D-03 and D-04 fix where the MCP roles
    and the adapters live; the arrangement *inside* those boundaries
-   (`ccf_runtime/adapters/<harness>/`, `ccf_runtime/a2a/<wire>.py`,
+   (`ccf_runtime/adapters/<harness>/`, `ccf_runtime/peering/<wire>.py`,
    `ccf_runtime/mcp/{egress,artifact_server}.py`) was chosen in-phase to keep each adapter
    and each wire independently deletable.
 3. **Extras composition.** `dev` composes `harnesses`, which composes the three per-harness
@@ -248,7 +340,7 @@ surface and is logged as a decision — see §4.12.
    bytes travel in a `bytes`-carrying part rather than through a protobuf `Struct`. A
    `Struct` would re-serialize, and the signature is over the producer's canonical bytes, so
    the genuine product would stop verifying. Asserted directly in
-   `tests/crossproc/test_a2a_exchange.py` rather than inferred.
+   `tests/crossproc/test_peering_exchange.py` rather than inferred.
 5. **The mypy override scope** (research assumption A3) — **corrected, and the correction
    matters.** Four vendor overrides (`google.adk.*`, `langgraph.*`, `langchain_core.*`,
    `claude_agent_sdk.*`) were **measured inert and removed in 06-16**: all four packages ship
@@ -271,8 +363,8 @@ surface and is logged as a decision — see §4.12.
    So the token stays and the claim stays strong (row 7's class). The corresponding
    `AgentFactory` docstring, which still led with "no path", was rewritten in 06-16 to its
    actual enforcement.
-7. **Threading the A2A skill registry alongside the MCP one.** Dave's ruling named
-   `McpSkillRegistry`; `A2ASkillRegistry` had the identical gap and the identical shape, and
+7. **Threading the Peering skill registry alongside the MCP one.** Dave's ruling named
+   `McpSkillRegistry`; `PeeringSkillRegistry` (then `A2ASkillRegistry`) had the identical gap and the identical shape, and
    closing one alone would have re-opened the same deferred item under a different name. Both
    are optional and fail-closed, on the established `callable_registry` precedent.
 8. **`FederatedIngestSpec` carries the federation vocabulary.** `ingest_admitted` needs to
@@ -354,8 +446,11 @@ own enforcement rather than about its code.
 
 - **D-20 — `ControlPlaneStateStore.put` still neither audits nor requires a token.** The
   audit pairing in `grants.py` is paired-call *convention*. I.3 deliberately added no second
-  consumer of that seam (the A2A admission gate resolves everything by pinned `(key,
-  version)` and incurs no mutable state — stated explicitly in `src/ccf/a2a/admission.py`).
+  consumer of that seam (the Peering admission gate resolves everything by pinned `(key,
+  version)` and incurs no mutable state — stated explicitly in
+  `src/ccf/peering/admission.py`). Note that 06-19 added an **ArtifactStore** write at
+  admission (row 14); that is the artifact substrate per D-IMPL-27, not the
+  `ControlPlaneStateStore` seam this item is about.
   **I.4 cannot inherit the convention**: workflow suspend/resume multiplies the call sites,
   and one missed pair is silent Control Plane state with no audit record (INV-CH7-71).
   Closing this — an audit-bearing write path, or a token the store requires — is a
