@@ -47,12 +47,15 @@ variants:
     requirements:
       required_scopes: [portfolio-read]
       required_context_products: [acme-bank.credit-exposure-summary]
-  a2a:
-    schema_version: "1.0.0"
-    artifact_version: "1.0.0"
+  # 2.0.0 on both lanes: the skill type token moved from `a2a` to `peering`
+  # (D-IMPL-59 part 1), which retires a `SkillType` member rather than adding
+  # one — a schema change, and a breaking one, so both lanes take a major bump.
+  peering:
+    schema_version: "2.0.0"
+    artifact_version: "2.0.0"
     name: covenant-metrics-remote
     tenant: acme-bank
-    skill_type: a2a
+    skill_type: peering
     binding:
       endpoint: https://skills.acme-bank.example/covenant-metrics
     requirements:

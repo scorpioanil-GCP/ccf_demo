@@ -58,7 +58,7 @@ T-06-58).
 
 **The SSRF posture (T-06-24, T-06-57).** ``McpBinding.server`` is a *logical
 server name*, never a URL; ``McpBinding.resource`` is a logical resource name,
-never a URI; and ``A2ABinding.endpoint`` is a *logical peer-endpoint name*,
+never a URI; and ``PeeringBinding.endpoint`` is a *logical peer-endpoint name*,
 never an address to dial. All three are resolved through the registries the
 deployment populated at boot from Control Plane configuration, and the A2A one
 resolves to a transport the deployment already wired against its own
@@ -86,9 +86,9 @@ from ccf.mcp.errors import McpClientError
 from ccf.peering.protocol import InboundProduct, PeeringProtocol
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import (
-    A2ABinding,
     LocalCallableBinding,
     McpBinding,
+    PeeringBinding,
     SkillCatalogEntry,
     ToolBinding,
     skill_catalog_key,
@@ -299,7 +299,7 @@ class A2ASkillRegistry:
             )
         self._transports[endpoint] = transport
 
-    def resolve(self, binding: A2ABinding) -> PeeringProtocol:
+    def resolve(self, binding: PeeringBinding) -> PeeringProtocol:
         """Return the transport a binding selects.
 
         Raises:
@@ -481,7 +481,7 @@ def _invoke_mcp(
 
 def _invoke_a2a(
     entry: SkillCatalogEntry,
-    binding: A2ABinding,
+    binding: PeeringBinding,
     arguments: Mapping[str, str],
     *,
     a2a_skills: A2ASkillRegistry,
@@ -492,7 +492,7 @@ def _invoke_a2a(
     :meth:`ccf.peering.protocol.PeeringProtocol.receive` and nothing
     else. Dispatch constructs no client, opens no connection and resolves no
     address: the transport the composition root registered already knows where
-    its peers are, which is what makes ``A2ABinding.endpoint`` a name rather
+    its peers are, which is what makes ``PeeringBinding.endpoint`` a name rather
     than an address (T-06-57).
 
     Both outcomes are recorded. A failure record is not a nicety: a log of
@@ -637,7 +637,7 @@ def dispatch_skill(
                 "the SDK choosing an endpoint (CINV-01, T-06-24)"
             )
         return _invoke_mcp(entry, binding, arguments, mcp_skills=mcp_skills)
-    if isinstance(binding, A2ABinding):
+    if isinstance(binding, PeeringBinding):
         if a2a_skills is None:
             raise A2ASkillUnregistered(
                 f"skill {entry.name!r} is an 'a2a' entry but this deployment "

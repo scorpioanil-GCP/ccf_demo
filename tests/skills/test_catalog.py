@@ -4,7 +4,7 @@ Written before the implementation per the TDD discipline (D-IMPL-12,
 D-IMPL-29, D-05, D-08). The claims pinned here:
 
 * ``SkillCatalogEntry`` validates for each of the four D-IMPL-12 skill types
-  — ``local_callable``, ``tool``, ``mcp``, ``a2a`` — with two-field
+  — ``local_callable``, ``tool``, ``mcp``, ``peering`` — with two-field
   D-IMPL-28 versioning, a per-type typed binding block, and a typed
   requirements declaration whose members are frozensets of opaque
   identifiers. A fifth type is refused; a binding that disagrees with the
@@ -56,6 +56,10 @@ def _mcp_fixture() -> dict[str, Any]:
     return _fixture("document_fetch_mcp.yaml")
 
 
+def _peering_fixture() -> dict[str, Any]:
+    return _fixture("remote_products_peering.yaml")
+
+
 def _all_entry_documents() -> list[dict[str, Any]]:
     tool = _tool_fixture()
     return [
@@ -77,6 +81,32 @@ class TestEntrySchema:
         document["skill_type"] = document["name"]  # any non-member value
         with pytest.raises(ValueError):
             SkillCatalogEntry.model_validate(document)
+
+    def test_the_retired_a2a_token_is_refused_by_name(self) -> None:
+        """A grant under the old token is not silently reinterpreted (T-06-106).
+
+        D-IMPL-59 part 1 renamed the skill type token ``a2a`` to ``peering``.
+        The retired member is *removed*, so an artifact still declaring it hits
+        the same closed-world refusal an entirely unknown type hits — it is not
+        aliased, defaulted, or migrated. Reinterpreting such an entry as
+        ``peering`` would mean honouring a capability grant whose recorded token
+        no longer exists, which is a governance failure rather than a migration
+        convenience.
+
+        What would fail here: adding ``a2a`` back as an alias of ``peering``, or
+        widening ``SkillType`` to tolerate it for backwards compatibility. The
+        message check is what distinguishes refused-by-name from refused-by-
+        accident: the error must enumerate the members that *do* exist.
+        """
+        retired = _peering_fixture()["retired_token"]
+        assert retired["token"] not in SKILL_TYPES
+        with pytest.raises(ValueError) as excinfo:
+            SkillCatalogEntry.model_validate(retired["entry"])
+        message = str(excinfo.value)
+        assert retired["token"] in message
+        # Refused against the enumerated closed world, naming the surviving
+        # member the deployment should have re-declared under.
+        assert "peering" in message
 
     def test_a_binding_disagreeing_with_the_type_is_refused(self) -> None:
         tool = _tool_fixture()["entry"]
@@ -154,11 +184,11 @@ class TestRegistration:
             entry = SkillCatalogEntry.model_validate(document)
             assert isinstance(catalog.register(entry), str)
 
-    def test_mcp_and_a2a_entries_register_without_dispatch(self) -> None:
+    def test_mcp_and_peering_entries_register_without_dispatch(self) -> None:
         # D-08: the schema covers all four types now; no transport exists yet.
         catalog = SkillCatalog(ControlPlaneRegistry())
         tool = _tool_fixture()
-        for document in (_mcp_fixture()["entry"], tool["variants"]["a2a"]):
+        for document in (_mcp_fixture()["entry"], tool["variants"]["peering"]):
             entry = SkillCatalogEntry.model_validate(document)
             assert isinstance(catalog.register(entry), str)
 
