@@ -5,7 +5,7 @@
 # hash, ceiling, endpoint path or federation entity class anywhere in `/src` or
 # `/runtime` (CLAUDE.md §6.4 No-Hardcoding Rule, §11; CINV-01). The test code
 # that loads this file is thin: it maps these declarations onto SDK mechanism
-# and asserts. Delete this file and `tests/crossproc/test_a2a_exchange.py` has
+# and asserts. Delete this file and `tests/crossproc/test_peering_exchange.py` has
 # nothing to run.
 #
 # No key *material* is here: keys are generated per test into a temp directory

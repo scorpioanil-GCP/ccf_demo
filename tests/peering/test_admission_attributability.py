@@ -11,7 +11,7 @@ pinned here, and each assertion is drafted from what a *broken* gate would do:
 * a gate that compared the declared operator set against itself would pass every
   case in this file while checking nothing — the precise defect blocking finding
   B1 named — so the load-bearing case drives a **real mismatch through**
-  :meth:`~ccf.a2a.admission.A2AAdmissionGate.admit`, never through
+  :meth:`~ccf.peering.admission.PeeringAdmissionGate.admit`, never through
   ``run_federated_gates`` with a hand-supplied address;
 * a gate whose only reachable mismatch required calling it directly would be the
   original defect wearing a new label, so the mismatch here is produced the way
@@ -39,28 +39,28 @@ import pytest
 import yaml
 from joserfc.jwk import ECKey
 
-from ccf.a2a.admission import (
+from ccf.peering.admission import (
     INBOUND_PAYLOAD_CEILING,
     PRODUCER_ASSERTION_HEADER,
-    A2AAdmissionGate,
+    PeeringAdmissionGate,
     AdmittedProduct,
     InboundPayloadCeiling,
     SignatureRefusal,
     payload_ceiling_key,
 )
-from ccf.a2a.identity import (
+from ccf.peering.identity import (
     DetachedJwsIdentityProvider,
     FileBackedKeySource,
     JsonWebKey,
     SignedContextProduct,
 )
-from ccf.a2a.trust_policy import (
-    A2A_TRUST_POLICY,
-    A2ATrustPolicy,
+from ccf.peering.trust_policy import (
+    PEERING_TRUST_POLICY,
+    PeeringTrustPolicy,
     PeerTrustGrant,
     trust_policy_key,
 )
-from ccf.a2a.wire import InboundProduct, PeerRef
+from ccf.peering.protocol import InboundProduct, PeerRef
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -210,10 +210,10 @@ def gate(
     registry: ControlPlaneRegistry,
     product_class: RegisteredProductClass,
     artifact_store: FileArtifactStore,
-) -> A2AAdmissionGate:
+) -> PeeringAdmissionGate:
     policy_version = registry.register_typed(
         trust_policy_key(tenant_id=TENANT),
-        A2ATrustPolicy(
+        PeeringTrustPolicy(
             semver=POLICY_SEMVER,
             tenant_id=TENANT,
             peers={
@@ -227,7 +227,7 @@ def gate(
                 )
             },
         ),
-        A2A_TRUST_POLICY,
+        PEERING_TRUST_POLICY,
     )
     ceiling_version = registry.register_typed(
         payload_ceiling_key(tenant_id=TENANT),
@@ -236,7 +236,7 @@ def gate(
         ),
         INBOUND_PAYLOAD_CEILING,
     )
-    return A2AAdmissionGate(
+    return PeeringAdmissionGate(
         identity=provider,
         control_plane=registry,
         audit_log=registry.audit_log,
@@ -286,7 +286,7 @@ def _non_canonical_but_valid(product: ContextProductContract) -> dict[str, Any]:
 
 
 def test_the_untampered_fixture_product_is_admitted(
-    provider: DetachedJwsIdentityProvider, gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, gate: PeeringAdmissionGate
 ) -> None:
     """Without this, every refusal below could be passing for another reason."""
     outcome = gate.admit(
@@ -302,7 +302,7 @@ def test_the_untampered_fixture_product_is_admitted(
 
 
 def test_mutating_a_signed_products_declared_lineage_breaks_verification(
-    provider: DetachedJwsIdentityProvider, gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, gate: PeeringAdmissionGate
 ) -> None:
     """Attributability is sound only because ``lineage`` is inside the signature.
 
@@ -336,7 +336,7 @@ def test_mutating_a_signed_products_declared_lineage_breaks_verification(
 
 def test_a_signed_but_non_canonical_payload_is_refused_as_unattributable(
     provider: DetachedJwsIdentityProvider,
-    gate: A2AAdmissionGate,
+    gate: PeeringAdmissionGate,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Signature verification succeeds; attributability still refuses.
@@ -349,7 +349,7 @@ def test_a_signed_but_non_canonical_payload_is_refused_as_unattributable(
     and the product is refused as unattributable rather than admitted on a claim
     nothing anchors.
 
-    Driven through :meth:`~ccf.a2a.admission.A2AAdmissionGate.admit` rather than
+    Driven through :meth:`~ccf.peering.admission.PeeringAdmissionGate.admit` rather than
     through ``run_federated_gates``: a gate that can only fail when called
     directly with a hand-supplied mismatched address is the original defect
     wearing a new label.
@@ -402,7 +402,7 @@ def test_the_refused_payload_parses_to_an_equal_product(
 
 def test_an_attributability_refusal_is_audited_as_unresolved(
     provider: DetachedJwsIdentityProvider,
-    gate: A2AAdmissionGate,
+    gate: PeeringAdmissionGate,
     registry: ControlPlaneRegistry,
 ) -> None:
     """Every refusal on the federated path is audited, as the other five are."""
@@ -417,7 +417,7 @@ def test_an_attributability_refusal_is_audited_as_unresolved(
     recorded = [
         event
         for event in registry.audit_events()
-        if event.action == "a2a_admission_refused"
+        if event.action == "peering_admission_refused"
     ]
     assert len(recorded) == 1
     assert recorded[0].resolved is False
@@ -425,7 +425,7 @@ def test_an_attributability_refusal_is_audited_as_unresolved(
 
 
 def test_the_refusal_is_a_returned_value_never_an_exception(
-    provider: DetachedJwsIdentityProvider, gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, gate: PeeringAdmissionGate
 ) -> None:
     """A governance verdict a bare ``except`` could swallow is not a verdict."""
     outcome = gate.admit(

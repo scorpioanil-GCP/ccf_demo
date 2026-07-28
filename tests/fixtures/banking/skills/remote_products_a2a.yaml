@@ -43,7 +43,7 @@ dispatch:
 # dispatch never decodes, verifies, or admits them, and a suite that had to
 # supply a *valid* signature here would be asserting that it did. The genuine
 # signed exchange is proven end to end in
-# `tests/crossproc/test_a2a_exchange.py`, against both wires.
+# `tests/crossproc/test_peering_exchange.py`, against both wires.
 inbound:
   peer_id: zenith-bank
   tenant_id: acme-bank

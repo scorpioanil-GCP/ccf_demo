@@ -26,12 +26,12 @@ reassuring.
 order-independence law.** It cannot be unioned, and what must be preserved is
 the producer's anchor — the instant the product was actually assembled against.
 The suite states that as its own law rather than pretending an instant
-commutes; see :func:`ccf.a2a.admission.union_lineage`.
+commutes; see :func:`ccf.peering.admission.union_lineage`.
 
 Strategies are generated here rather than drawn from the banking fixtures: the
 law is about set algebra over lineage, and fixture values would only narrow the
 space it is checked over. Concrete banking-shaped cases live in
-``tests/a2a/test_admission.py``.
+``tests/peering/test_admission.py``.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ from datetime import UTC, datetime
 from hypothesis import given
 from hypothesis import strategies as st
 
-from ccf.a2a.admission import union_lineage
+from ccf.peering.admission import union_lineage
 from ccf.products.contract import ProductLineage
 
 # Importing the shared strategies module registers the ``ci`` / ``nightly``

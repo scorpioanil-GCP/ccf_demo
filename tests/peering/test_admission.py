@@ -1,4 +1,9 @@
-"""The A2A admission gate: six checks, two peers, two tenants.
+"""The Peering admission gate: six checks, two peers, two tenants.
+
+One gate, run uniformly over every Peering (``D-IMPL-59`` part 4, Dave,
+2026-07-27) — A2A is one transport of the seam rather than its name, and the
+property that no Peering can reach the verdict itself is pinned separately in
+``tests/peering/test_peering_verdict.py``.
 
 Every test is named for the property it defends, and each assertion is drafted
 from what a *broken* gate would do rather than from what the module intends:
@@ -30,7 +35,7 @@ import pytest
 import yaml
 from joserfc.jwk import ECKey
 
-from ccf.a2a.admission import (
+from ccf.peering.admission import (
     GATE_CONTRACT,
     GATE_LINEAGE_CONTINUITY,
     GATE_PAYLOAD_CEILING,
@@ -38,7 +43,7 @@ from ccf.a2a.admission import (
     GATE_SIGNATURE,
     INBOUND_PAYLOAD_CEILING,
     PRODUCER_ASSERTION_HEADER,
-    A2AAdmissionGate,
+    PeeringAdmissionGate,
     AdmissionBypassError,
     AdmissionRefusal,
     AdmittedProduct,
@@ -50,19 +55,19 @@ from ccf.a2a.admission import (
     payload_ceiling_key,
     union_lineage,
 )
-from ccf.a2a.identity import (
+from ccf.peering.identity import (
     DetachedJwsIdentityProvider,
     FileBackedKeySource,
     JsonWebKey,
     SignedContextProduct,
 )
-from ccf.a2a.trust_policy import (
-    A2A_TRUST_POLICY,
-    A2ATrustPolicy,
+from ccf.peering.trust_policy import (
+    PEERING_TRUST_POLICY,
+    PeeringTrustPolicy,
     PeerTrustGrant,
     trust_policy_key,
 )
-from ccf.a2a.wire import InboundProduct, PeerRef, WireProtocol
+from ccf.peering.protocol import InboundProduct, PeerRef, PeeringProtocol
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -234,8 +239,8 @@ def _register_policy(
 ) -> str:
     return registry.register_typed(
         trust_policy_key(tenant_id=tenant_id),
-        A2ATrustPolicy(semver=POLICY_SEMVER, tenant_id=tenant_id, peers=dict(peers)),
-        A2A_TRUST_POLICY,
+        PeeringTrustPolicy(semver=POLICY_SEMVER, tenant_id=tenant_id, peers=dict(peers)),
+        PEERING_TRUST_POLICY,
     )
 
 
@@ -259,8 +264,8 @@ def _gate(
     policy_version: str,
     ceiling_version: str,
     artifact_store: ArtifactStoreProtocol,
-) -> A2AAdmissionGate:
-    return A2AAdmissionGate(
+) -> PeeringAdmissionGate:
+    return PeeringAdmissionGate(
         identity=provider,
         control_plane=registry,
         audit_log=registry.audit_log,
@@ -279,7 +284,7 @@ def two_peer_gate(
     registry: ControlPlaneRegistry,
     product_class: RegisteredProductClass,
     artifact_store: FileArtifactStore,
-) -> A2AAdmissionGate:
+) -> PeeringAdmissionGate:
     """The default fixture: two peers, distinct keys, distinct entitlements."""
     policy_version = _register_policy(
         registry,
@@ -332,7 +337,7 @@ def _now() -> datetime:
 
 
 def test_a_correctly_signed_and_entitled_product_is_admitted(
-    provider: DetachedJwsIdentityProvider, two_peer_gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, two_peer_gate: PeeringAdmissionGate
 ) -> None:
     """All six checks pass and the gate yields an AdmittedProduct."""
     outcome = two_peer_gate.admit(
@@ -349,7 +354,7 @@ def test_a_correctly_signed_and_entitled_product_is_admitted(
 
 def test_an_admission_is_audited_as_resolved(
     provider: DetachedJwsIdentityProvider,
-    two_peer_gate: A2AAdmissionGate,
+    two_peer_gate: PeeringAdmissionGate,
     registry: ControlPlaneRegistry,
 ) -> None:
     """The audit plane records what was let in, not only what was turned away."""
@@ -361,7 +366,7 @@ def test_an_admission_is_audited_as_resolved(
         now=_now(),
     )
     admitted = [
-        event for event in registry.audit_events() if event.action == "a2a_admitted"
+        event for event in registry.audit_events() if event.action == "peering_admitted"
     ]
     assert len(admitted) == 1
     assert admitted[0].resolved is True
@@ -429,7 +434,7 @@ def test_an_oversized_payload_is_refused_before_canonicalization(
 
 
 def test_peer_bs_product_signed_with_peer_bs_key_is_refused_as_peer_a(
-    provider: DetachedJwsIdentityProvider, two_peer_gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, two_peer_gate: PeeringAdmissionGate
 ) -> None:
     """A key belonging to another peer does not admit a product as this peer."""
     inbound = _inbound(
@@ -445,7 +450,7 @@ def test_peer_bs_product_signed_with_peer_bs_key_is_refused_as_peer_a(
 
 
 def test_a_product_from_an_unconfigured_peer_is_refused(
-    provider: DetachedJwsIdentityProvider, two_peer_gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, two_peer_gate: PeeringAdmissionGate
 ) -> None:
     """An unknown peer is refused, never treated as unconstrained."""
     outcome = two_peer_gate.admit(
@@ -463,7 +468,7 @@ def test_a_product_from_an_unconfigured_peer_is_refused(
 
 
 def test_a_tampered_payload_is_refused_by_the_signature_check(
-    provider: DetachedJwsIdentityProvider, two_peer_gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, two_peer_gate: PeeringAdmissionGate
 ) -> None:
     """Bytes and claim disagreeing is a signature failure, not a contract one."""
     inbound = _inbound(
@@ -495,7 +500,7 @@ def test_a_tampered_payload_is_refused_by_the_signature_check(
 
 
 def test_a_payload_that_is_not_a_context_product_is_refused(
-    provider: DetachedJwsIdentityProvider, two_peer_gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, two_peer_gate: PeeringAdmissionGate
 ) -> None:
     """CCF's own extra=forbid validation is the typed boundary, not the wire's."""
     outcome = two_peer_gate.admit(
@@ -564,7 +569,7 @@ def test_a_product_class_this_consumer_does_not_serve_is_refused(
 
 
 def test_peer_a_may_not_assert_a_producer_only_peer_b_is_permitted(
-    provider: DetachedJwsIdentityProvider, two_peer_gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, two_peer_gate: PeeringAdmissionGate
 ) -> None:
     """Peer A's correctly signed product asserting peer B's producer is refused."""
     outcome = two_peer_gate.admit(
@@ -582,7 +587,7 @@ def test_peer_a_may_not_assert_a_producer_only_peer_b_is_permitted(
 
 
 def test_the_same_product_is_admitted_for_peer_a_and_refused_for_peer_b(
-    provider: DetachedJwsIdentityProvider, two_peer_gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, two_peer_gate: PeeringAdmissionGate
 ) -> None:
     """A gate correct for one peer and wrong for two is the CR-01 defect."""
     for_a = two_peer_gate.admit(
@@ -604,7 +609,7 @@ def test_the_same_product_is_admitted_for_peer_a_and_refused_for_peer_b(
 
 
 def test_a_policy_regime_outside_the_peers_grant_is_refused(
-    provider: DetachedJwsIdentityProvider, two_peer_gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, two_peer_gate: PeeringAdmissionGate
 ) -> None:
     """Both sides of the regime mismatch are on the refusal."""
     outcome = two_peer_gate.admit(
@@ -627,7 +632,7 @@ def test_a_policy_regime_outside_the_peers_grant_is_refused(
 
 
 def test_a_product_claiming_another_tenant_is_refused(
-    provider: DetachedJwsIdentityProvider, two_peer_gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, two_peer_gate: PeeringAdmissionGate
 ) -> None:
     """Trust is per tenant; a cross-tenant claim does not ride in on a signature."""
     outcome = two_peer_gate.admit(
@@ -710,7 +715,7 @@ def test_one_tenants_grant_does_not_admit_the_same_peer_for_another_tenant(
 
 
 def test_a_product_whose_signed_header_asserts_no_producer_is_refused(
-    provider: DetachedJwsIdentityProvider, two_peer_gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, two_peer_gate: PeeringAdmissionGate
 ) -> None:
     """A peer that will not say what produced a product cannot be held to it."""
     outcome = two_peer_gate.admit(
@@ -729,7 +734,7 @@ def test_a_product_whose_signed_header_asserts_no_producer_is_refused(
 
 
 def test_a_validly_signed_but_expired_product_is_refused_by_the_ttl_gate(
-    provider: DetachedJwsIdentityProvider, two_peer_gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, two_peer_gate: PeeringAdmissionGate
 ) -> None:
     """Stale replay is refused by INV-CH7-48, wired in rather than reimplemented."""
     stale = banking_product(expires_at=BOUNDARY - timedelta(seconds=1))
@@ -757,7 +762,7 @@ def test_a_validly_signed_but_expired_product_is_refused_by_the_ttl_gate(
 )
 def test_a_refusal_is_a_returned_typed_value_never_an_exception(
     provider: DetachedJwsIdentityProvider,
-    two_peer_gate: A2AAdmissionGate,
+    two_peer_gate: PeeringAdmissionGate,
     kid: str,
     producer: str,
 ) -> None:
@@ -776,7 +781,7 @@ def test_a_refusal_is_a_returned_typed_value_never_an_exception(
 
 def test_every_refusal_lands_in_the_audit_journal_as_unresolved(
     provider: DetachedJwsIdentityProvider,
-    two_peer_gate: A2AAdmissionGate,
+    two_peer_gate: PeeringAdmissionGate,
     registry: ControlPlaneRegistry,
 ) -> None:
     """The audit plane records what it turned away (T-05-16, T-06-43)."""
@@ -801,7 +806,7 @@ def test_every_refusal_lands_in_the_audit_journal_as_unresolved(
     recorded = [
         event
         for event in registry.audit_events()
-        if event.action == "a2a_admission_refused"
+        if event.action == "peering_admission_refused"
     ]
     assert len(recorded) == len(refusals)
     assert all(event.resolved is False for event in recorded)
@@ -812,7 +817,7 @@ def test_every_refusal_lands_in_the_audit_journal_as_unresolved(
 
 
 def test_admission_extends_the_consumers_lineage_rather_than_replacing_it(
-    provider: DetachedJwsIdentityProvider, two_peer_gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, two_peer_gate: PeeringAdmissionGate
 ) -> None:
     """Producer and consumer entries both survive, and the producer's anchor is kept."""
     consumer = consumer_lineage()
@@ -834,7 +839,7 @@ def test_admission_extends_the_consumers_lineage_rather_than_replacing_it(
 
 
 def test_union_lineage_is_what_the_gate_uses(
-    provider: DetachedJwsIdentityProvider, two_peer_gate: A2AAdmissionGate
+    provider: DetachedJwsIdentityProvider, two_peer_gate: PeeringAdmissionGate
 ) -> None:
     """The gate's merge is the same function the property suite pins."""
     consumer = consumer_lineage()
@@ -886,7 +891,7 @@ def test_a_wire_protocol_implementation_can_name_no_write_surface() -> None:
     import inspect
 
     for name, member in inspect.getmembers(
-        WireProtocol, predicate=inspect.isfunction
+        PeeringProtocol, predicate=inspect.isfunction
     ):
         if name.startswith("_"):
             continue
@@ -898,6 +903,6 @@ def test_a_wire_protocol_implementation_can_name_no_write_surface() -> None:
         for annotation in annotations:
             assert not any(
                 surface in annotation for surface in WRITE_SURFACE_NAMES
-            ), f"WireProtocol.{name} names a fabric write surface: {annotation}"
+            ), f"PeeringProtocol.{name} names a fabric write surface: {annotation}"
         for forbidden in ("L2", "assembly", "graph", "Graph"):
             assert forbidden not in str(signature.return_annotation)

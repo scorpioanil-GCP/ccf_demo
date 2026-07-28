@@ -1,4 +1,18 @@
-"""``TypedHttpWire`` — the first :class:`~ccf.a2a.wire.WireProtocol` (D-11).
+"""``TypedHttpWire`` — a **Peering transport** speaking typed HTTP (D-11).
+
+The first implementation of :class:`~ccf.peering.protocol.PeeringProtocol`, and
+the second reference impl alongside the D-IMPL-14 v0 default,
+:mod:`ccf_runtime.peering.lf_a2a`. *Peering* is the category — a governed,
+peer-symmetric context exchange between two fabrics that each have their own
+Control Plane — and each transport here is named for the protocol it speaks
+rather than for the seam (``D-IMPL-59`` parts 1 and 2, Dave, 2026-07-27).
+
+**This transport declares trust inputs and cannot manufacture admission**
+(``D-IMPL-59`` part 4). It yields
+:class:`~ccf.peering.protocol.InboundProduct` values — inputs to a decision made
+above every transport — while
+:class:`~ccf.peering.admission.PeeringAdmissionGate` reaches the verdict and
+constructs the value L2 accepts. Nothing here can construct it.
 
 SDK-defined extension (CLAUDE.md §7.2 — "A2A federation is first-class in v0"),
 attaching to whitepaper §8.3 Pattern 4. D-IMPL-14 rules the v0 *default* wire
@@ -11,7 +25,7 @@ Contract is the stable layer; the wire is replaceable.**
 
 **What this transport is not.** It is not the fabric, and it is not a protocol
 specification. It is an HTTP client leg and an ASGI receive endpoint over the
-CCF types :mod:`ccf.a2a.wire` declares. Nothing about the shape below is
+CCF types :mod:`ccf.peering.protocol` declares. Nothing about the shape below is
 normative for federation between organisations; what is normative is the
 signed, canonical Context Product it carries, which is identical whichever
 transport carries it.
@@ -20,7 +34,7 @@ transport carries it.
 kind. It does not verify a signature, does not read a trust policy, and does
 not decide whether a peer may send what it sent. It hands what it received to
 its caller, and the caller hands that to the Control Plane gate
-(:mod:`ccf.a2a.admission`). Putting the check inside a ``WireProtocol``
+(:mod:`ccf.peering.admission`). Putting the check inside a ``PeeringProtocol``
 implementation was explicitly rejected by D-12: two transports ship this phase
 and more may follow, and a per-transport check states the rule once per wire —
 which lets a later wire state it differently, or omit it. The rule therefore
@@ -34,13 +48,13 @@ method parameter, or return type here that is or names one, and this module
 imports nothing from the L3 graph package or from L2. The honest claim (D-21)
 is the structural one rather than an absolute one: what this module's declared
 surface offers is an outbound POST and an inbound queue of
-:class:`~ccf.a2a.wire.InboundProduct` values, and an ``InboundProduct`` is not
-what L2 accepts. ``tests/invariants/test_a2a_single_writer.py`` is what holds
+:class:`~ccf.peering.protocol.InboundProduct` values, and an ``InboundProduct`` is not
+what L2 accepts. ``tests/invariants/test_peering_single_writer.py`` is what holds
 that — by import scan, by identifier scan, and by attribute inspection of a
 constructed instance — rather than this paragraph.
 
 **Canonical bytes travel verbatim.** The body is the canonical serialization of
-the :class:`~ccf.a2a.identity.SignedContextProduct` itself, whose ``payload``
+the :class:`~ccf.peering.identity.SignedContextProduct` itself, whose ``payload``
 member is already base64url text. The product's own canonical bytes are
 therefore never decoded, re-encoded, re-serialized, or round-tripped through an
 intermediate model anywhere in this module — they cross as the same characters
@@ -53,7 +67,7 @@ exactly those bytes.
 the port, the route path, the HTTP client and its timeouts, and the request-body
 ceiling are all supplied by the caller. This module holds no address, no port,
 no scheme literal and no default ceiling (CINV-01, D-IMPL-38). Tenancy is a
-per-call argument carried on :class:`~ccf.a2a.wire.PeerRef`, never a
+per-call argument carried on :class:`~ccf.peering.protocol.PeerRef`, never a
 constructor field, on the :class:`~ccf_runtime.cdc.adapter.CDCSourceAdapter`
 precedent: one transport serving a shared fabric must not be able to emit into
 the wrong tenant by positional accident.
@@ -82,8 +96,8 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.routing import Route
 
-from ccf.a2a.identity import SignatureMalformed, SignedContextProduct
-from ccf.a2a.wire import EmitReceipt, InboundProduct, PeerRef
+from ccf.peering.identity import SignatureMalformed, SignedContextProduct
+from ccf.peering.protocol import EmitReceipt, InboundProduct, PeerRef
 from ccf.contracts.canonical import canonical_bytes
 
 __ccf_mode__ = "algorithmic"
@@ -157,7 +171,7 @@ class MalformedWireMessage(WireTransportError):
     """A message did not frame as a carried signed product.
 
     Raised on the receiving side for a body that is not a valid
-    :class:`~ccf.a2a.identity.SignedContextProduct`, and on the sending side for
+    :class:`~ccf.peering.identity.SignedContextProduct`, and on the sending side for
     a response that carried no identifier. Framing only — the signature over
     the payload is somebody else's question.
     """
@@ -167,7 +181,7 @@ class MalformedWireMessage(WireTransportError):
 class PeerEndpointResolver(Protocol):
     """Where a peer is reachable, as far as *this* deployment is concerned.
 
-    A seam rather than a field on :class:`~ccf.a2a.wire.PeerRef`, because a
+    A seam rather than a field on :class:`~ccf.peering.protocol.PeerRef`, because a
     ``PeerRef`` deliberately is not an address: trust keys on identity, and an
     identity that embedded an endpoint would make trust a property of where a
     message arrived from. Endpoints are deployment topology and change without
@@ -188,7 +202,7 @@ class PeerEndpointResolver(Protocol):
 
 
 class TypedHttpWire:
-    """A :class:`~ccf.a2a.wire.WireProtocol` over plain typed HTTP (D-11).
+    """A :class:`~ccf.peering.protocol.PeeringProtocol` over plain typed HTTP (D-11).
 
     Symmetric by construction: one instance is both the client leg that emits
     and the owner of the receive endpoint that queues what arrives. A
@@ -262,7 +276,9 @@ class TypedHttpWire:
     def emit(
         self, *, peer: PeerRef, signed: SignedContextProduct
     ) -> EmitReceipt:
-        """Carry ``signed`` to ``peer``; see :meth:`ccf.a2a.wire.WireProtocol.emit`.
+        """Carry ``signed`` to ``peer``.
+
+        See :meth:`ccf.peering.protocol.PeeringProtocol.emit`.
 
         The envelope is serialized canonically and sent as one document, so its
         ``payload`` member — which is the base64url of the bytes the producer

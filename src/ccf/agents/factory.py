@@ -191,7 +191,7 @@ class AgentFactory:
     factory-bypass rule, so what holds is "no module in the linted trees
     constructs an ``Agent`` outside a factory path", enforced over the code
     the SDK ships. It is not a statement about code the SDK does not lint —
-    contrast :class:`~ccf.a2a.admission.AdmittedProduct`, whose token is
+    contrast :class:`~ccf.peering.admission.AdmittedProduct`, whose token is
     justified precisely because its claim has to survive a transport a
     deployment wrote itself.
 
