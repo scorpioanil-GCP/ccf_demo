@@ -31,6 +31,7 @@ is *mechanism* declared in ``/src``, not a deployment value.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
@@ -65,8 +66,15 @@ from ccf.a2a.trust_policy import (
     trust_policy_key,
 )
 from ccf.a2a.wire import InboundProduct, PeerRef
+import ccf.contracts.claims as claims_module
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreError
+from ccf.artifacts.protocol import (
+    LATEST_VERSION_TOKEN,
+    ArtifactRef,
+    ArtifactStoreError,
+    MovingTargetRefused,
+    artifact_uri,
+)
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -77,6 +85,12 @@ from ccf.products.contract import (
     ProductLineage,
     RegisteredProductClass,
     register_product_class,
+)
+from ccf.replay.engine import (
+    ReplayDivergence,
+    ReplayUnresolvable,
+    resolve_artifact,
+    resolve_artifact_at_uri,
 )
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
@@ -514,3 +528,160 @@ def test_the_gate_holds_no_graph_write_handle(
     """
     held = [type(value).__module__ for value in vars(gate).values()]
     assert not [module for module in held if module.startswith("ccf.graph")]
+
+
+# --- Task 3: the replay resolution path ------------------------------------
+
+
+def _admitted_record_address(registry: ControlPlaneRegistry) -> str:
+    """The exact version the audit triple names — never "the latest record"."""
+    event = next(
+        event
+        for event in registry.audit_events()
+        if event.action == "a2a_admitted"
+    )
+    assert event.artifact_class == ADMISSION_RECORD.class_id
+    return event.version
+
+
+def test_the_union_is_observed_in_persisted_state_through_the_replay_path(
+    gate: A2AAdmissionGate,
+    provider: DetachedJwsIdentityProvider,
+    registry: ControlPlaneRegistry,
+    store: FileArtifactStore,
+) -> None:
+    """The closure item, asserted per axis against retrieved artifact bytes.
+
+    Two disciplines are load-bearing and both are drafted from the defect:
+
+    * the record is resolved **through** :func:`ccf.replay.engine.resolve_artifact`
+      — the entry point a replaying caller uses — because a closure item verified
+      only by a test-local ``store.get`` is not verified;
+    * every axis is asserted separately, so dropping any one of
+      ``operators_invoked``, ``policy_bundle_versions`` or ``graph_snapshot_at``
+      turns this red instead of passing on the two that remain.
+
+    Nothing here reads ``AdmittedProduct.lineage``: the wrapper is what made the
+    property vacuous in the first place.
+    """
+    outcome = _admit(gate, provider)
+    assert isinstance(outcome, AdmittedProduct)
+
+    record = resolve_artifact(
+        store=store,
+        content_address=_admitted_record_address(registry),
+        contract=AdmissionRecord,
+    )
+    producer, consumer = _producer_lineage(), _consumer_lineage()
+
+    # axis 1 — the producer's operator plan and the consumer's both survive
+    assert record.merged_lineage.operators_invoked == (
+        producer.operators_invoked | consumer.operators_invoked
+    )
+    assert producer.operators_invoked <= record.merged_lineage.operators_invoked
+    assert consumer.operators_invoked <= record.merged_lineage.operators_invoked
+
+    # axis 2 — so do both sides' policy bundle versions
+    assert record.merged_lineage.policy_bundle_versions == (
+        producer.policy_bundle_versions | consumer.policy_bundle_versions
+    )
+
+    # axis 3 — the anchor is the producer's, per union_lineage's stated law:
+    # it is not a set, and the value that must survive is the anchor the product
+    # was actually assembled against.
+    assert record.merged_lineage.graph_snapshot_at == producer.graph_snapshot_at
+
+    # and the merge remains decomposable, which is what makes it auditable
+    assert record.producer_lineage == producer
+    assert record.consumer_lineage == consumer
+    assert record.peer_id == PEER
+    assert record.tenant_id == TENANT
+
+
+def test_resolution_at_latest_is_refused_through_the_replay_path(
+    gate: A2AAdmissionGate,
+    provider: DetachedJwsIdentityProvider,
+    store: FileArtifactStore,
+) -> None:
+    """D-IMPL-26: a replay resolves an exact version, never a moving target.
+
+    Asserted through the same replay entry point rather than against
+    ``parse_artifact_uri`` directly: the rule only holds if it survives the path
+    a hurried caller actually takes.
+    """
+    assert isinstance(_admit(gate, provider), AdmittedProduct)
+    with pytest.raises(MovingTargetRefused):
+        resolve_artifact_at_uri(
+            store=store,
+            uri=artifact_uri(
+                tenant_id=TENANT,
+                artifact_class=ADMISSION_RECORD.class_id,
+                name=content_hash(banking_product()),
+                artifact_version=LATEST_VERSION_TOKEN,
+            ),
+            contract=AdmissionRecord,
+        )
+
+
+def test_a_missing_admission_record_is_unresolvable_with_no_fallback(
+    store: FileArtifactStore,
+) -> None:
+    """The existing ``_resolve_record`` contract, not a second failure mode.
+
+    A replay that substituted a *different* record would produce a confident
+    answer about a crossing that never happened.
+    """
+    with pytest.raises(ReplayUnresolvable):
+        resolve_artifact(
+            store=store, content_address="0" * 64, contract=AdmissionRecord
+        )
+
+
+def test_a_store_returning_other_bytes_is_caught_not_believed(
+    gate: A2AAdmissionGate,
+    provider: DetachedJwsIdentityProvider,
+    registry: ControlPlaneRegistry,
+    store: FileArtifactStore,
+) -> None:
+    """The resolved bytes are re-hashed, so a wrong artifact is a divergence.
+
+    Without this the "exact version" guarantee would rest on the substrate's
+    good behaviour rather than on arithmetic (T-06-102).
+    """
+    assert isinstance(_admit(gate, provider), AdmittedProduct)
+    address = _admitted_record_address(registry)
+
+    class _LyingStore:
+        def get(self, *, content_address: str) -> bytes:
+            return store.get(content_address=address)
+
+    with pytest.raises(ReplayDivergence):
+        resolve_artifact(
+            store=_LyingStore(),  # type: ignore[arg-type]
+            content_address="1" * 64,
+            contract=AdmissionRecord,
+        )
+
+
+def test_claims_py_is_unchanged_so_reading_a_cannot_creep_back_in() -> None:
+    """Reading (d) over reading (a) is the whole point — asserted, not assumed.
+
+    D-IMPL-58's ruling is that ``LineageEntry`` is *not* extended to carry the
+    federated axes. That is a claim about a file, so it is checked as one. If
+    this hash changes, ``claims.py`` moved: either the change is unrelated and
+    the constant is updated in the same commit that justifies it, or reading (a)
+    is creeping in and the ruling has to be revisited under a new ``D-IMPL``
+    entry rather than under this test.
+    """
+    source = Path(claims_module.__file__ or "").read_bytes()
+    assert (
+        hashlib.sha256(source).hexdigest()
+        == "70a3e8a2e4d1157c2f4d2c87f40073f15c8b6a72f62138205e039378adeabcdc"
+    )
+    assert not hasattr(claims_module.LineageEntry, "operators_invoked")
+    assert set(claims_module.LineageEntry.model_fields) == {
+        "source",
+        "envelope_id",
+        "observed_at",
+        "passage_anchor",
+    }
