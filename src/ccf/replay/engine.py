@@ -11,6 +11,16 @@ The pipeline, in order, with each step's failure mode named:
    :class:`ReplayUnresolvable` — never the nearest one, never the newest under
    the name. The bytes are re-hashed on arrival, so a substrate that returned
    the wrong artifact is caught here rather than believed (T-04-17).
+
+   That read path is :func:`resolve_artifact`, which is **parametrized by
+   contract rather than fixed to the decision record**, plus
+   :func:`resolve_artifact_at_uri` for the named form. A replay resolves
+   whatever a record names, and the discipline — exact version, no fallback,
+   re-hash on arrival, ``@latest`` refused — is identical for every class, so it
+   is stated once. ``ccf.admission-record`` (D-IMPL-58 reading (d)) resolves
+   through it as any other class does; no federation-shaped special case exists
+   inside this engine, which is what keeps the seam described in one place
+   rather than two.
 2. **Resolve every Control Plane binding at its exact recorded version.** A
    control plane that has lost the version a decision was made under cannot say
    what that decision saw; that is :class:`ReplayUnresolvable`, not a fallback.
@@ -43,9 +53,13 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Protocol, TypeVar, runtime_checkable
 
-from ccf.artifacts.protocol import ArtifactStoreError, ArtifactStoreProtocol
+from ccf.artifacts.protocol import (
+    ArtifactStoreError,
+    ArtifactStoreProtocol,
+    MovingTargetRefused,
+)
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
@@ -65,7 +79,15 @@ __all__ = [
     "ReplayOutcome",
     "ReplayUnresolvable",
     "replay",
+    "resolve_artifact",
+    "resolve_artifact_at_uri",
 ]
+
+#: Any contract a record can name. Bound to :class:`CCFContract` because the
+#: resolution discipline needs exactly two things from an artifact — that it
+#: parses closed-world, and that it has a canonical form to re-hash — and both
+#: are properties of that base rather than of any particular class.
+_ArtifactT = TypeVar("_ArtifactT", bound=CCFContract)
 
 
 class ReplayError(Exception):
@@ -161,25 +183,119 @@ class ReplayOutcome(CCFContract):
     graph_snapshot_id: str
 
 
-def _resolve_record(
-    *, store: ArtifactStoreProtocol, record_address: str
-) -> DecisionReplayRecord:
+def resolve_artifact(
+    *,
+    store: ArtifactStoreProtocol,
+    content_address: str,
+    contract: type[_ArtifactT],
+) -> _ArtifactT:
+    """Resolve one recorded artifact at its **exact** content address.
+
+    The replay plane's single read path, stated once and parametrized by
+    contract rather than duplicated per artifact class. Generality is the point:
+    a replay resolves whatever a record names — a
+    :class:`~ccf.replay.record.DecisionReplayRecord`, a
+    ``ccf.admission-record`` (D-IMPL-58 reading (d)), a future class — and the
+    resolution *discipline* is identical in every case, so a per-class resolver
+    would be the same rule written down N times and a place for the (N+1)th to
+    differ. Nothing about federation is special-cased inside the replay engine;
+    an admission record resolves by class exactly as any other artifact does.
+
+    Two guarantees, both structural rather than procedural:
+
+    * **Exact version, never a fallback.** A miss is
+      :class:`ReplayUnresolvable`. Substituting a nearby or newer artifact would
+      produce a confident answer about a decision that never happened, which is
+      worse than no answer (CLAUDE.md §7.4, D-IMPL-26).
+    * **The bytes are re-hashed on arrival.** So a substrate that returned the
+      wrong artifact is *caught* rather than believed (T-04-17, T-06-102), and
+      the "exact version" claim rests on arithmetic rather than on the store's
+      good behaviour.
+
+    Args:
+        store: Where the artifact lives (CLAUDE.md §7.4).
+        content_address: The address to resolve. An address, not a name: names
+            move, addresses do not.
+        contract: The contract the bytes must satisfy. Supplied by the caller
+            because deciding *which* contract a set of bytes is remains the
+            caller's business — the store's contract is byte fidelity.
+
+    Raises:
+        ReplayUnresolvable: nothing is stored at that address.
+        ReplayDivergence: the stored bytes do not hash to the address asked for.
+    """
     try:
-        payload = store.get(content_address=record_address)
+        payload = store.get(content_address=content_address)
     except (ArtifactStoreError, KeyError) as missing:
         raise ReplayUnresolvable(
-            f"no decision replay record is stored at {record_address!r}; "
+            f"no {contract.__name__} is stored at {content_address!r}; "
             "replay resolves the exact recorded artifact and has no fallback "
             "(CLAUDE.md §7.4, D-IMPL-26)"
         ) from missing
-    record = DecisionReplayRecord.model_validate_json(payload)
-    reproduced = content_hash(record)
-    if reproduced != record_address:
+    artifact = contract.model_validate_json(payload)
+    reproduced = content_hash(artifact)
+    if reproduced != content_address:
         raise ReplayDivergence(
-            f"the artifact at {record_address!r} hashes to {reproduced!r}; the "
-            "store returned bytes that are not the record that was asked for"
+            f"the artifact at {content_address!r} hashes to {reproduced!r}; the "
+            f"store returned bytes that are not the {contract.__name__} that "
+            "was asked for"
         )
-    return record
+    return artifact
+
+
+def resolve_artifact_at_uri(
+    *,
+    store: ArtifactStoreProtocol,
+    uri: str,
+    contract: type[_ArtifactT],
+) -> _ArtifactT:
+    """Resolve a recorded artifact named by a D-IMPL-26 versioned URI.
+
+    Naming resolution first, then :func:`resolve_artifact`. The two steps stay
+    two calls for the reason :meth:`~ccf.artifacts.protocol.
+    ArtifactStoreProtocol.resolve_uri` gives: identity is the content address
+    and everything else is naming, and a combined call tempts an implementation
+    to answer the naming question approximately.
+
+    This is where ``@latest`` dies on the replay path. A URI is a string, and a
+    string is where a moving target sneaks back in, so the refusal has to happen
+    on the path a caller actually takes rather than only in a parser nobody is
+    obliged to reach.
+
+    Raises:
+        ccf.artifacts.protocol.MovingTargetRefused: the URI asks for
+            ``@latest``. Propagated unchanged, not translated: the caller did
+            not fail to find something, the caller asked a question replay must
+            never answer.
+        ReplayUnresolvable: the URI is malformed, names no stored version, or
+            names a version whose bytes are absent.
+        ReplayDivergence: the resolved bytes do not hash to the address the name
+            pointed at.
+    """
+    try:
+        content_address = store.resolve_uri(uri=uri)
+    except MovingTargetRefused:
+        raise
+    except (ArtifactStoreError, LookupError) as unresolvable:
+        raise ReplayUnresolvable(
+            f"{uri!r} names no stored {contract.__name__} version; replay "
+            "resolves an exact version and has no fallback "
+            "(CLAUDE.md §7.4, D-IMPL-26)"
+        ) from unresolvable
+    return resolve_artifact(
+        store=store, content_address=content_address, contract=contract
+    )
+
+
+def _resolve_record(
+    *, store: ArtifactStoreProtocol, record_address: str
+) -> DecisionReplayRecord:
+    """Resolve the decision record — the generic path, at a fixed contract."""
+    return resolve_artifact(
+        store=store,
+        content_address=record_address,
+        contract=DecisionReplayRecord,
+    )
 
 
 def _resolve_bindings(

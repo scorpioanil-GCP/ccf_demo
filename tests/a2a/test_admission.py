@@ -63,6 +63,8 @@ from ccf.a2a.trust_policy import (
     trust_policy_key,
 )
 from ccf.a2a.wire import InboundProduct, PeerRef, WireProtocol
+from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.protocol import ArtifactStoreProtocol
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.contract import (
     ContextProductContract,
@@ -237,6 +239,17 @@ def _register_policy(
     )
 
 
+@pytest.fixture
+def artifact_store(tmp_path: Path) -> FileArtifactStore:
+    """Where each admitted crossing's ``AdmissionRecord`` lands (D-IMPL-58).
+
+    A real reference store rather than a double: the gate's admission path now
+    depends on a successful ``put``, and a double that silently accepted anything
+    would make every admission in this file pass for the wrong reason.
+    """
+    return FileArtifactStore(root=tmp_path / "admission-records")
+
+
 def _gate(
     *,
     provider: DetachedJwsIdentityProvider,
@@ -245,11 +258,13 @@ def _gate(
     tenant_id: str,
     policy_version: str,
     ceiling_version: str,
+    artifact_store: ArtifactStoreProtocol,
 ) -> A2AAdmissionGate:
     return A2AAdmissionGate(
         identity=provider,
         control_plane=registry,
         audit_log=registry.audit_log,
+        artifact_store=artifact_store,
         tenant_id=tenant_id,
         trust_policy_version=policy_version,
         payload_ceiling_version=ceiling_version,
@@ -263,6 +278,7 @@ def two_peer_gate(
     keys: dict[str, ECKey],
     registry: ControlPlaneRegistry,
     product_class: RegisteredProductClass,
+    artifact_store: FileArtifactStore,
 ) -> A2AAdmissionGate:
     """The default fixture: two peers, distinct keys, distinct entitlements."""
     policy_version = _register_policy(
@@ -285,6 +301,7 @@ def two_peer_gate(
         tenant_id=TENANT,
         policy_version=policy_version,
         ceiling_version=ceiling_version,
+        artifact_store=artifact_store,
     )
 
 
@@ -383,6 +400,7 @@ def test_an_oversized_payload_is_refused_before_canonicalization(
         tenant_id=TENANT,
         policy_version=policy_version,
         ceiling_version=ceiling_version,
+        artifact_store=artifact_store,
     )
     inbound = _inbound(
         provider, peer_id=PEER_A, kid=PEER_A_KID, producer=PEER_A_PRODUCER
@@ -525,6 +543,7 @@ def test_a_product_class_this_consumer_does_not_serve_is_refused(
         tenant_id=TENANT,
         policy_version=policy_version,
         ceiling_version=ceiling_version,
+        artifact_store=artifact_store,
     )
     outcome = gate.admit(
         inbound=_inbound(
@@ -631,6 +650,7 @@ def test_one_tenants_grant_does_not_admit_the_same_peer_for_another_tenant(
     keys: dict[str, ECKey],
     registry: ControlPlaneRegistry,
     product_class: RegisteredProductClass,
+    artifact_store: FileArtifactStore,
 ) -> None:
     """The two-tenant obligation (D-23): same peer, two policies, two verdicts."""
     permitted_version = _register_policy(
@@ -661,6 +681,7 @@ def test_one_tenants_grant_does_not_admit_the_same_peer_for_another_tenant(
         tenant_id=TENANT,
         policy_version=permitted_version,
         ceiling_version=_register_ceiling(registry, tenant_id=TENANT),
+        artifact_store=artifact_store,
     )
     denying = _gate(
         provider=provider,
@@ -669,6 +690,7 @@ def test_one_tenants_grant_does_not_admit_the_same_peer_for_another_tenant(
         tenant_id=OTHER_TENANT,
         policy_version=denied_version,
         ceiling_version=_register_ceiling(registry, tenant_id=OTHER_TENANT),
+        artifact_store=artifact_store,
     )
     signed_for_tenant_one = _inbound(
         provider, peer_id=PEER_A, kid=PEER_A_KID, producer=PEER_A_PRODUCER

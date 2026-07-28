@@ -45,11 +45,46 @@ The six checks, **in this order, and the order is load-bearing**:
    signature verified. See
    :meth:`A2AAdmissionGate._run_federated_gates` for what that call does and
    does not establish across a trust boundary.
-6. **Lineage integrity.** The inbound lineage *extends* the consumer's by
-   set-union: producer entries survive, consumer entries survive, and the
-   producer's operator plan, graph snapshot and policy version are preserved
-   (CLAUDE.md §7.2; D-14). :func:`union_lineage` is the law, and
-   ``tests/properties/test_lineage_union.py`` is what pins it (T-06-44).
+6. **Lineage integrity, and where the union actually lives.** The inbound
+   lineage *extends* the consumer's by set-union: producer entries survive,
+   consumer entries survive, and the producer's operator plan, graph snapshot
+   and policy version are preserved (CLAUDE.md §7.2; D-14).
+   :func:`union_lineage` is the law, and ``tests/properties/test_lineage_union.py``
+   is what pins the computation (T-06-44).
+
+   Until Dave's ``D-IMPL-58`` ruling of 2026-07-27 that was *all* that held, and
+   it was not enough: the union was computed into :attr:`AdmittedProduct.lineage`
+   and **nothing read it** — :meth:`~ccf.assembly.worker.AssemblyWorker.
+   ingest_admitted` reads ``admitted.product`` and never ``admitted.lineage``,
+   and stamps the *consumer's* policy bundle version — so a "lineage continuity"
+   claim was a property of a wrapper L2 discards. That was blocking finding B2.
+   Under the ruling's **reading (d)** the union is persisted at the crossing as
+   an immutable :class:`AdmissionRecord` (:func:`A2AAdmissionGate.
+   _persist_admission_record`), and ``ccf.contracts.claims.LineageEntry`` is
+   untouched. Lineage continuity is thereby located where CLAUDE.md §7.2
+   actually describes it — as a property of the **Peering** admission boundary
+   (``D-IMPL-59``) — rather than forced into an L-axis structure never shaped to
+   hold it.
+
+   **What the audit log does and does not carry.** ``AuditLog.append`` takes
+   scalars only; there is no payload field and an ``AuditEvent`` cannot hold a
+   ``ProductLineage``. So the audit plane answers *was this admitted, by whom,
+   when* — a verdict — and the ``AdmissionRecord`` answers *what was admitted*.
+   The verdict carries the ``artifact_class`` / ``key`` / ``version`` triple
+   naming the record; neither structure pretends to be the other. ``D-IMPL-58``'s
+   correction paragraph records that reading (d) was first ruled on the false
+   premise that admission "already reaches replay" through the audit log, which
+   it never did.
+
+**Single-writer survives this, and the survival is structural.** The gate now
+writes, but not to the graph: the ArtifactStore is a persistence substrate
+reached through mechanism (CLAUDE.md §7.4), never a second writer to L3
+(T-06-101). The gate is handed an :class:`~ccf.artifacts.protocol.
+ArtifactStoreProtocol` and nothing that can reach L3 — this module imports
+nothing from :mod:`ccf.graph` — and an admitted product still enters the graph
+only via :meth:`~ccf.assembly.worker.AssemblyWorker.ingest_admitted`, through
+L2, exactly as before. Admission is still not a write to the graph; what it
+writes is the record of its own verdict's subject.
 
 **Refusals are returned values, and every one is audited.** The base is
 :class:`~ccf.products.gates.GateRefusal` itself — the same discipline, not a
@@ -107,6 +142,11 @@ from ccf.a2a.trust_policy import (
     trust_policy_key,
 )
 from ccf.a2a.wire import InboundProduct, PeerRef
+from ccf.artifacts.protocol import (
+    ArtifactRef,
+    ArtifactStoreError,
+    ArtifactStoreProtocol,
+)
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import ArtifactClass, validate_semver
 from ccf.controlplane.audit import AuditAction, AuditLog
@@ -121,6 +161,7 @@ from ccf.products.gates import GateRefusal, run_federated_gates
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "ADMISSION_RECORD",
     "GATE_CONTRACT",
     "GATE_LINEAGE_CONTINUITY",
     "GATE_PAYLOAD_CEILING",
@@ -130,6 +171,8 @@ __all__ = [
     "PRODUCER_ASSERTION_HEADER",
     "A2AAdmissionGate",
     "AdmissionBypassError",
+    "AdmissionNotRecorded",
+    "AdmissionRecord",
     "AdmissionRefusal",
     "AdmittedProduct",
     "ContractRefusal",
@@ -329,6 +372,100 @@ def union_lineage(
     )
 
 
+class AdmissionRecord(CCFContract):
+    """What crossed a Peering, persisted at the boundary (D-IMPL-58 reading (d)).
+
+    SDK-defined extension (CLAUDE.md §7.2, §7.4). Dave's ruling of 2026-07-27
+    resolves D-IMPL-58 as **reading (d)**: the merged :class:`
+    ~ccf.products.contract.ProductLineage` is persisted *at the admission
+    boundary* rather than in graph state, and
+    ``ccf.contracts.claims.LineageEntry`` is not extended. The defect being
+    closed is that :meth:`A2AAdmissionGate.admit` computed the union into
+    :attr:`AdmittedProduct.lineage` and nothing read it — ``ingest_admitted``
+    reads ``admitted.product`` and never ``admitted.lineage`` — so lineage
+    continuity was a property of a wrapper L2 discards. Under (d) the property
+    becomes true *and* correctly located: continuity is a property of the
+    federation boundary, which is what CLAUDE.md §7.2 actually describes.
+
+    **Why this is an ArtifactStore artifact and not Control Plane state
+    (D-IMPL-27).** D-IMPL-27 splits substrates by mutability, and this record is
+    immutable, versioned and replay-relevant: it describes one crossing that
+    already happened, so there is nothing about it to update. Content addressing
+    (D-IMPL-26) then makes immutability structural rather than procedural — the
+    same bytes yield the same address, so no overwrite path is needed or
+    offered, and replay resolves an exact version rather than "latest".
+
+    **What the audit log does and does not carry — stated here so the next
+    reader does not repeat the false premise D-IMPL-58's correction paragraph
+    records.** :meth:`~ccf.controlplane.audit.AuditLog.append` carries *scalars
+    only* (``action, key, version, resolved, occurred_at, actor,
+    artifact_class``); there is no payload field, and an
+    :class:`~ccf.controlplane.audit.AuditEvent` cannot hold a ``ProductLineage``.
+    So the audit plane answers *was this admitted, by whom, when* — a verdict —
+    and this artifact answers *what was admitted*. The verdict points at the
+    record through the reference triple, and neither structure pretends to be
+    the other.
+
+    **Producer and consumer are carried alongside the merge, not only the
+    merge.** A union that cannot be decomposed cannot be audited: an examiner
+    handed only ``merged_lineage`` cannot say which side contributed which
+    operator, and reconstructing it from the peer's product later depends on
+    that product still being available. All three are recorded so the crossing
+    is legible from this artifact alone.
+
+    Attributes:
+        tenant_id: The consuming tenant whose Control Plane admitted (D-IMPL-05).
+        peer_id: The peer whose signature and entitlements were verified.
+        product_content_address: Address of the admitted product — the bytes
+            whose signature verified, which is the same witness the
+            attributability gate used. This is what ties the record to a
+            specific crossing rather than to a schema.
+        producer_lineage: The inbound product's declared lineage.
+        consumer_lineage: The consuming fabric's own lineage at admission.
+        merged_lineage: The union :func:`union_lineage` computed — what
+            CLAUDE.md §7.2's "extends, not replaces" commitment produced.
+        admitted_at: The evaluation instant the gate was given. Supplied, never
+            read from a clock, so the record is as deterministic as the verdict.
+
+    No value here is a deployment's: no peer id, no schema, no regime is
+    authored in this module (CINV-01).
+    """
+
+    tenant_id: str
+    peer_id: str
+    product_content_address: str
+    producer_lineage: ProductLineage
+    consumer_lineage: ProductLineage
+    merged_lineage: ProductLineage
+    admitted_at: datetime
+
+
+#: The artifact class an admission record is filed under. Dot-namespaced and
+#: kebab-cased, matching the established family exactly (``ccf.half-life-table``,
+#: ``ccf.debt-profile``, ``src/ccf/controlplane/artifacts.py:268,270``).
+#: D-IMPL-58's amendment of 2026-07-27 records why this is asserted in a test
+#: rather than left to review: the entry originally carried the non-conforming
+#: literal ``admission_record``, and an error in the decision log propagates with
+#: that log's authority behind it.
+ADMISSION_RECORD = ArtifactClass(
+    class_id="ccf.admission-record", contract=AdmissionRecord
+)
+
+
+class AdmissionNotRecorded(RuntimeError):
+    """The admission record could not be persisted, so nothing was admitted.
+
+    Raised rather than returned as a refusal, on this module's own established
+    discipline (see :meth:`A2AAdmissionGate._ceiling`): a fabric that cannot
+    reach its own substrate is a **broken deployment**, not a badly behaved
+    peer, and reporting the two the same way would let an outage read as a
+    federation dispute. It is the same reasoning
+    :class:`~ccf.replay.serve.ReplayWriter` applies to serving — a failure to
+    record is a failure to serve — applied one boundary earlier: a crossing
+    whose record was not persisted is not reported as admitted (T-06-100).
+    """
+
+
 class AdmissionBypassError(TypeError):
     """An admitted product was constructed outside the admission gate."""
 
@@ -415,6 +552,15 @@ class A2AAdmissionGate:
             constructed so admissions land in the *same* monotonic sequence as
             registrations and grants (WR-07): the Control Plane is the audit
             plane, singular.
+        artifact_store: Where each admitted crossing's :class:`AdmissionRecord`
+            is persisted (D-IMPL-58 reading (d), CLAUDE.md §7.4). **Injected, and
+            never constructed here** — a gate that built its own store would fix
+            the substrate the SDK has spent a Protocol avoiding fixing, and would
+            put a file path in a module that holds no deployment values. Note
+            what this parameter is *not*: it is not a write handle to the graph.
+            Single-writer is preserved because the store is a persistence
+            substrate reached through mechanism, never a second writer to L3
+            (T-06-101).
         tenant_id: The tenant this gate admits for.
         trust_policy_version: Pinned version of that tenant's policy.
         payload_ceiling_version: Pinned version of that tenant's ceiling.
@@ -429,6 +575,7 @@ class A2AAdmissionGate:
         identity: IdentityProvider,
         control_plane: ControlPlaneProtocol,
         audit_log: AuditLog,
+        artifact_store: ArtifactStoreProtocol,
         tenant_id: str,
         trust_policy_version: str,
         payload_ceiling_version: str,
@@ -437,6 +584,7 @@ class A2AAdmissionGate:
         self._identity = identity
         self._control_plane = control_plane
         self._audit = audit_log
+        self._artifact_store = artifact_store
         self._tenant_id = tenant_id
         self._trust_policy_key = trust_policy_key(tenant_id=tenant_id)
         self._trust_policy_version = trust_policy_version
@@ -459,6 +607,7 @@ class A2AAdmissionGate:
         peer_id: str,
         content_address: str,
         occurred_at: datetime,
+        admission_ref: ArtifactRef | None = None,
     ) -> None:
         """Append one admission verdict to the Control Plane audit log.
 
@@ -466,16 +615,91 @@ class A2AAdmissionGate:
         payload could be decoded — the size ceiling is the one check that runs
         that early, and computing an address to log it would be exactly the
         work the ceiling exists to avoid.
+
+        ``admission_ref``, when present, is the reference to the crossing's
+        :class:`AdmissionRecord`, and its ``(artifact_class, name,
+        content_address)`` becomes the append's ``artifact_class`` / ``key`` /
+        ``version`` triple. **That triple is the only new thing crossing into
+        the audit plane** (D-IMPL-58): no ``AuditAction`` member is added and
+        ``AuditEvent`` gains no field, because the plane's job is unchanged. It
+        keeps answering the verdict question — *was this admitted, by whom,
+        when* — and now points at the artifact answering *what was admitted*,
+        which it was never shaped to carry itself.
         """
         self._audit.append(
             action=action,
-            key=self._trust_policy_key,
-            version=content_address,
+            key=(
+                admission_ref.name
+                if admission_ref is not None
+                else self._trust_policy_key
+            ),
+            version=(
+                admission_ref.content_address
+                if admission_ref is not None
+                else content_address
+            ),
             resolved=resolved,
             occurred_at=occurred_at,
             actor=peer_id,
-            artifact_class=A2A_TRUST_POLICY.class_id,
+            artifact_class=(
+                ADMISSION_RECORD.class_id
+                if admission_ref is not None
+                else A2A_TRUST_POLICY.class_id
+            ),
         )
+
+    # -- the record of what crossed -----------------------------------------
+
+    def _persist_admission_record(
+        self,
+        *,
+        peer: PeerRef,
+        content_address: str,
+        producer: ProductLineage,
+        consumer: ProductLineage,
+        merged: ProductLineage,
+        occurred_at: datetime,
+    ) -> ArtifactRef:
+        """Persist what crossed, before anything can be reported as admitted.
+
+        Called at the point the union exists and *before* an
+        :class:`AdmittedProduct` is constructed, which is the ordering the
+        repudiation threat turns on (T-06-100): a record written afterwards could
+        be skipped by any path that returned early, and a crossing nobody can
+        describe is a crossing the fabric cannot be held to.
+
+        The record is named by the admitted product's content address and
+        addressed by its own, so two deliveries of the same crossing converge on
+        one artifact rather than accumulating near-duplicates — the store's
+        idempotence doing the work rather than a de-duplication rule here.
+
+        Raises:
+            AdmissionNotRecorded: the store could not persist the record. Not
+                swallowed and not softened into a refusal — see that class.
+        """
+        record = AdmissionRecord(
+            tenant_id=self._tenant_id,
+            peer_id=peer.peer_id,
+            product_content_address=content_address,
+            producer_lineage=producer,
+            consumer_lineage=consumer,
+            merged_lineage=merged,
+            admitted_at=occurred_at,
+        )
+        try:
+            return self._artifact_store.put(
+                tenant_id=self._tenant_id,
+                artifact_class=ADMISSION_RECORD.class_id,
+                name=content_address,
+                artifact=record,
+            )
+        except ArtifactStoreError as unreachable:
+            raise AdmissionNotRecorded(
+                f"the admission record for peer {peer.peer_id!r}'s product"
+                f" {content_address!r} could not be persisted, so the crossing"
+                " is not reported as admitted; a record of what crossed is a"
+                " precondition of admitting it (D-IMPL-58, T-06-100)"
+            ) from unreachable
 
     def _refuse(
         self,
@@ -745,12 +969,23 @@ class A2AAdmissionGate:
                     occurred_at=now,
                 )
 
+        # The crossing is recorded before it is reported. Nothing between this
+        # call and the return can produce an admitted product without a record.
+        admission_ref = self._persist_admission_record(
+            peer=peer,
+            content_address=content_address,
+            producer=product.lineage,
+            consumer=consumer_lineage,
+            merged=merged,
+            occurred_at=now,
+        )
         self._record(
             action="a2a_admitted",
             resolved=True,
             peer_id=peer.peer_id,
             content_address=content_address,
             occurred_at=now,
+            admission_ref=admission_ref,
         )
         return AdmittedProduct(product, merged, peer, _ADMISSION_TOKEN)
 
