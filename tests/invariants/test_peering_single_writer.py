@@ -1,10 +1,18 @@
-"""The A2A leg of ROADMAP criterion 4: L2 remains the only writer to L3.
+"""The Peering leg of ROADMAP criterion 4: L2 remains the only writer to L3.
 
 CLAUDE.md §10 ("the single-writer invariant is architectural, not advisory …
-this holds for A2A admissions") and §7.2 (an inbound A2A Context Product is not
+this holds for A2A admissions") and §7.2 (an inbound Context Product is not
 admissible to L3 until the consuming Control Plane validates its Policy
 bindings). Research's criterion-4 table names three observables for this
 boundary, and this module is those three.
+
+**Scoped over the seam, not over one protocol.** ``D-IMPL-59`` names the seam
+**Peering** and makes A2A one of its transports, so the claims below are stated
+over the federation boundary. CLAUDE.md's own wording still says "A2A
+admissions" and is quoted above verbatim; the widening is this module's, and it
+is what lets a second Peering transport inherit these scans by being discovered
+rather than by earning a test of its own. 06-21 (wave 8) wrote that widening
+into (b) deliberately, ahead of this rename; it is carried across intact.
 
 **What these tests enforce, exactly (D-21).** Three things, each narrow:
 
@@ -68,7 +76,7 @@ from ccf_runtime.peering.lf_a2a import LfA2AWire, build_agent_card
 from ccf_runtime.peering.typed_http import TypedHttpWire
 
 from agents.test_consumption_discipline import WRITE_SURFACE_NAMES
-from crossproc.test_a2a_exchange import (  # noqa: F401 — re-registered fixture
+from crossproc.test_peering_exchange import (  # noqa: F401 — re-registered fixture
     FEDERATION,
     PEERS,
     TENANT,
@@ -342,7 +350,7 @@ def test_a_constructed_transport_holds_no_fabric_write_surface(
 def test_an_admitted_product_changes_l3_only_through_assembly(
     consumer: Consumer,  # noqa: F811 — the re-registered fixture
 ) -> None:
-    """Criterion 4, the A2A row: two heaps, one writer.
+    """Criterion 4, the Peering row: two heaps, one writer.
 
     The producer is a separate OS process with its own graph file and its own
     heap, which is what makes "the consumer holds no write handle to the
@@ -402,8 +410,9 @@ def test_a_refused_product_leaves_l3_byte_identical(
 def test_the_consumption_discipline_allowlist_is_untouched() -> None:
     """D-22: the allowlist is not widened, and this states why it need not be.
 
-    ``test_consumption_discipline.py`` scans ``src/ccf/agents`` only. The A2A
-    transport lives in ``ccf_runtime.peering``, which that module never reads, so
+    ``test_consumption_discipline.py`` scans ``src/ccf/agents`` only. Every
+    Peering transport lives in ``ccf_runtime.peering``, which that module never
+    reads, so
     nothing this plan added could have required an entry. What would fail here:
     someone placing transport code inside the agents package and widening the
     allowlist to make it pass — research Pitfall 7's exact scenario.

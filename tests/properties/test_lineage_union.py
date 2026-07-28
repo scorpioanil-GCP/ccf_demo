@@ -31,7 +31,7 @@ commutes; see :func:`ccf.peering.admission.union_lineage`.
 Strategies are generated here rather than drawn from the banking fixtures: the
 law is about set algebra over lineage, and fixture values would only narrow the
 space it is checked over. Concrete banking-shaped cases live in
-``tests/a2a/test_admission.py``.
+``tests/peering/test_admission.py``.
 """
 
 from __future__ import annotations

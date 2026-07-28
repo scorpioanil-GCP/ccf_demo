@@ -1,15 +1,18 @@
-"""A2A end to end: two producer processes, one consumer, one Control Plane gate.
+"""Peering end to end: two producer processes, one consumer, one gate.
 
-XPRC-02; CLAUDE.md §7.2; whitepaper §8.3 Pattern 4. The question this file
-answers per assertion is the D-02 one — *would this catch the invariant being
+XPRC-02; CLAUDE.md §7.2; whitepaper §8.3 Pattern 4. The seam is a **Peering**
+(``D-IMPL-59``, Dave, 2026-07-27) and A2A is one of its transports, which is why
+both legs below run the *same* Control Plane gate rather than one each.
+
+The question this file answers per assertion is the D-02 one — *would this catch the invariant being
 broken?* — so every row below is drafted from what a broken consumer would do
 rather than from what the plan intends.
 
 =========================================  ===================================
 Invariant / requirement                    What would fail here
 =========================================  ===================================
-single-writer across A2A (CLAUDE.md §10,   the transport has no writer to hand
-criterion 4)                               out; every admitted claim below
+single-writer across a Peering             the transport has no writer to hand
+(CLAUDE.md §10, criterion 4)               out; every admitted claim below
                                            reaches L3 through ``worker.ingest``
                                            and this module asserts there is no
                                            other call site in the consumer
@@ -655,7 +658,7 @@ def test_a_signed_product_crosses_two_processes_and_is_admitted(
 def test_an_admitted_product_reaches_l3_only_through_the_assembly_worker(
     consumer: Consumer,
 ) -> None:
-    """Criterion 4, the A2A leg: L2 is the only mutation path.
+    """Criterion 4, the Peering legs: L2 is the only mutation path.
 
     What would fail here: a consumer that reached L3 by any other route. Two
     observations, because either alone is weak — the graph must actually change

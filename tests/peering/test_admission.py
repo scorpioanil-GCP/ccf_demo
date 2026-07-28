@@ -1,4 +1,9 @@
-"""The A2A admission gate: six checks, two peers, two tenants.
+"""The Peering admission gate: six checks, two peers, two tenants.
+
+One gate, run uniformly over every Peering (``D-IMPL-59`` part 4, Dave,
+2026-07-27) — A2A is one transport of the seam rather than its name, and the
+property that no Peering can reach the verdict itself is pinned separately in
+``tests/peering/test_peering_verdict.py``.
 
 Every test is named for the property it defends, and each assertion is drafted
 from what a *broken* gate would do rather than from what the module intends:

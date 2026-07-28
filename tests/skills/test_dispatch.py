@@ -26,7 +26,7 @@ The ``mcp`` and ``a2a`` cases here use recording doubles rather than a live
 server or peer. That is deliberate and it is what makes the *zero network
 calls* assertions falsifiable — a real server cannot testify that it was never
 contacted. The live proofs are ``tests/crossproc/test_mcp_ingress.py`` and
-``tests/crossproc/test_a2a_exchange.py``, the latter over both wires.
+``tests/crossproc/test_peering_exchange.py``, the latter over both wires.
 
 All binding values, arguments, and expected outputs live in the skills
 fixtures (§6.4); the fixture callable is bound to the entry's declared key by
@@ -463,7 +463,7 @@ class _RecordingWire:
     are about calls that must *not* happen, and a real transport cannot testify
     to its own silence. The live proof — a genuinely signed product crossing a
     real process boundary over both wires — is
-    ``tests/crossproc/test_a2a_exchange.py``.
+    ``tests/crossproc/test_peering_exchange.py``.
 
     It implements the abstraction, not either shipped transport. That is the
     assertion by construction: if ``dispatch_skill`` had typed against

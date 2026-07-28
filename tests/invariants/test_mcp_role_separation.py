@@ -239,7 +239,7 @@ def test_a_full_store_cycle_leaves_the_fabric_byte_identical(
     the same false-green family as a CI job checking a narrower path than it
     claims. The ``-shm`` index is excluded: it is process coordination state,
     not durable content, and it churns on reads. This is the digest
-    ``tests/crossproc/test_a2a_exchange.py`` already uses; the two now agree.
+    ``tests/crossproc/test_peering_exchange.py`` already uses; the two now agree.
 
     What would fail here: an artifact server or store that wrote through to the
     graph. The digest changes and the last assertion fires — which is the only

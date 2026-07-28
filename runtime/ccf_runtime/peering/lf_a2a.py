@@ -102,7 +102,7 @@ imports nothing from the L3 graph package or from L2. The honest claim (D-21) is
 structural rather than absolute: what this module's declared surface offers is
 an outbound message send and an inbound queue of
 :class:`~ccf.peering.protocol.InboundProduct` values, and an ``InboundProduct`` is not
-what L2 accepts. ``tests/invariants/test_a2a_single_writer.py`` is what holds
+what L2 accepts. ``tests/invariants/test_peering_single_writer.py`` is what holds
 that — by import scan, by identifier scan, and by attribute inspection of a
 constructed instance, across every module this package discovers — rather than
 this paragraph.

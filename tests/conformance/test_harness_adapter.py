@@ -405,7 +405,7 @@ def substrate_digest(database_path: Path) -> str:
     index is excluded — it is process coordination state, not durable content.
 
     The same reasoning, and the same exclusions, as the A2A leg's own digest
-    (``tests/crossproc/test_a2a_exchange.py``). ``tests/invariants`` imports
+    (``tests/crossproc/test_peering_exchange.py``). ``tests/invariants`` imports
     this one rather than writing a third.
     """
     digest = hashlib.sha256()

@@ -70,7 +70,7 @@ from ccf.peering.protocol import PeerRef  # noqa: E402
 from ccf_runtime.peering.typed_http import TypedHttpWire  # noqa: E402
 
 #: Environment variables the parent sets. Test-side protocol vocabulary, shared
-#: by this module and ``test_a2a_exchange.py`` so the two cannot disagree about
+#: by this module and ``test_peering_exchange.py`` so the two cannot disagree about
 #: a name.
 CONSUMER_URL_VAR = "CCF_A2A_CONSUMER_URL"
 PEER_ID_VAR = "CCF_A2A_PEER_ID"
