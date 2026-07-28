@@ -695,15 +695,25 @@ def test_the_federated_door_does_not_accept_an_unadmitted_product() -> None:
 
     The observable is the *declared parameter type* of L2's federated entry
     point, not a call this module makes. Two halves, and both are needed:
-    ``ingest_admitted`` is annotated ``AdmittedProduct``, and an
-    ``AdmittedProduct`` is not constructible outside the gate — so the only
-    values that satisfy the annotation are ones the gate produced.
+    ``ingest_admitted`` is annotated ``AdmittedProduct``, and no *unforced* path
+    constructs an ``AdmittedProduct`` outside the gate — every construction that
+    does not carry the gate's token fails at construction — so the only values
+    that satisfy the annotation are ones the gate produced or ones a caller went
+    out of its way to forge.
+
+    The stronger adjective is deliberately absent (advisory A2, D-21). Python's
+    import model does not support it: ``_ADMISSION_TOKEN`` is importable, and
+    :func:`test_the_unforgeability_claim_is_scoped_to_the_unforced_path` pins
+    that boundary so the claim cannot be quietly upgraded again. The token still
+    earns its place — see ``ccf.a2a.admission``'s module docstring on why a lint
+    cannot make this statement about transports the SDK does not ship — it is
+    the *strength* of the claim that is re-scoped, not the mechanism.
 
     What would fail here: re-widening ``ingest_admitted`` to take an
     ``InboundProduct``, a payload, or ``object``; or dropping the construction
-    token that makes the type unforgeable, at which point the annotation would
-    still read correctly and mean nothing. The second half is asserted rather
-    than assumed for exactly that reason.
+    token, at which point the annotation would still read correctly and mean
+    nothing. The second half is asserted rather than assumed for exactly that
+    reason.
     """
     from ccf.a2a.admission import AdmissionBypassError  # noqa: PLC0415
     from ccf.a2a.wire import InboundProduct as _Inbound  # noqa: PLC0415, F401
@@ -713,6 +723,36 @@ def test_the_federated_door_does_not_accept_an_unadmitted_product() -> None:
 
     with pytest.raises(AdmissionBypassError):
         AdmittedProduct(None, None, None, object())  # type: ignore[arg-type]
+
+
+def test_the_unforgeability_claim_is_scoped_to_the_unforced_path() -> None:
+    """The boundary of the claim above, asserted rather than hoped (finding A2).
+
+    Both branches, because the claim is a *scope* and a scope needs its two
+    edges: with the token withheld, construction raises; with the private token
+    named and passed, construction succeeds. The honest statement is therefore
+    "no unforced path exists, and every forced path fails at construction" —
+    forging requires a module willing to name a private member of
+    ``ccf.a2a.admission``, which Python permits and no runtime check can
+    prevent.
+
+    What would fail here: someone closing the forced path so that no
+    construction outside the gate succeeds at all (this test would go red, and
+    *should* — the wording would then be free to strengthen, deliberately and
+    with evidence), or someone upgrading the wording without changing the
+    mechanism, which is what A2 caught the first time. A claim whose limit is untested is a claim that
+    drifts.
+    """
+    from ccf.a2a.admission import (  # noqa: PLC0415
+        _ADMISSION_TOKEN,
+        AdmissionBypassError,
+    )
+
+    with pytest.raises(AdmissionBypassError):
+        AdmittedProduct(None, None, None, object())  # type: ignore[arg-type]
+
+    forced = AdmittedProduct(None, None, None, _ADMISSION_TOKEN)  # type: ignore[arg-type]
+    assert isinstance(forced, AdmittedProduct)
 
 
 def _call_sites(method: str) -> set[str]:
