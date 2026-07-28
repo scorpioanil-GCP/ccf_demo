@@ -40,6 +40,39 @@ agent definition with a different grant set, and its governed field set is
 asserted **distinct** from the first agent's. Without it, a comparison that
 collapsed every record to a constant would pass the whole module.
 
+**What this module drives, and what it does not (finding B3).** Stated here
+because the wording above claimed more than the evidence carried, and 06-20
+raises the evidence where it can be raised rather than leaving the reader to
+work out the gap:
+
+* :func:`_drive` **calls the four seams directly** — ``inject_context``, then
+  ``capture_effect``, then ``replay_trace``. There is
+  **no harness reasoning loop** executed here, no tool-calling loop, and no
+  model reached (an autouse guard fails the run if a socket opens). What is
+  proven is that three adapters
+  translate *one* agent definition into their own harness-native carriers
+  equivalently, and report their own execution traces distinguishably. That is
+  the seam claim, and it is real.
+* Loop-level execution — one agent definition genuinely *running* under two
+  harnesses' own loops — is **example 03's obligation in Phase 8**
+  (``examples/03-harness-portability``, D-06). The stronger claim is handed on
+  rather than dropped.
+* Every equality this module asserts has an *observed* failure mode, added by
+  06-20 so that no assertion here is green for a reason unrelated to
+  portability. Seam 1's has teeth on its own: the product is recovered out of
+  each harness-native carrier, and an adapter that rewrote its delivered bytes
+  turns the comparison red. Seam 3's and seam 4's are supplied by
+  :class:`AdversarialAdapter`, a conforming wrapper that delegates every seam to
+  a real adapter and perturbs exactly one value crossing it.
+* **The limit of what that adversarial leg buys, plainly:** all three shipped
+  adapters' ``capture_effect`` remain delegations to
+  :meth:`~ccf.agents.agent.Agent.emit_effect`, so the honest three-leg emission
+  equality still cannot fail. The adversarial leg proves the assertion is
+  sensitive to perturbation, not that the three adapters are independent
+  implementations. Read the honest emission equality as "the fabric, not the
+  harness, decides what an effect is" — which is the governed-emission claim CCF
+  actually wants — and not as three independent implementations agreeing.
+
 The polished ``examples/03-harness-portability`` directory with its README is
 Phase 8 scope (D-06). This is the I.3 precursor, and it ships as conformance
 rather than as an example so the claim is in CI from the wave it was made.
@@ -696,6 +729,72 @@ def test_the_governed_field_set_is_exhaustive_over_the_record(
     }
 
 
+def _assert_the_trace_is_the_harness_own(leg: HarnessLeg, run: Run) -> None:
+    """The recorded harness block is the one *this* harness reported.
+
+    Factored out and strengthened by 06-20 (finding B3). The pre-existing
+    assertion checked that the block was non-sentinel and per-harness distinct,
+    which a harness reporting a plausible block belonging to some other
+    deployment would satisfy. So the values are compared against the leg's **own**
+    declared ``reported_model`` and ``trace_id`` — the fixtures' statement of what
+    that harness reports, which is what
+    ``test_harness_adapter.py::test_seam_4_records_what_the_harness_reported``
+    already compares at the single-leg bar. Sharing that bar here is what gives
+    the axis a failure mode a wrapper can trip.
+
+    Liveness rather than absence-reading is deliberate (T-06-88): a dropped block
+    equals :data:`~ccf.replay.record.NO_HARNESS_TRACE`, which is also what an
+    honest no-harness decision carries, so the sentinel can never distinguish the
+    two. Only "this harness ran, so it must name itself" can.
+    """
+    trace = run.record.model_version.harness_trace
+    assert trace != NO_HARNESS_TRACE, (
+        f"{leg.harness_id} reported no harness block at all, which is byte-identical"
+        " to an honest fabric-direct decision — a dropped trace and an absent one"
+        " must not be the same artifact (T-06-88, T-06-63)"
+    )
+    assert trace.harness_id == leg.harness_id != NO_HARNESS
+    assert leg.reported_model in trace.model_version, (
+        f"{leg.harness_id}'s recorded harness block does not carry the model its"
+        f" harness reported ({leg.reported_model!r} not in"
+        f" {trace.model_version!r}) — dimension 3's harness half is then a claim"
+        " no run made (T-06-87)"
+    )
+    assert trace.trace_id == leg.trace_id != NO_HARNESS
+    assert trace.input_tokens > 0 and trace.output_tokens > 0
+
+
+def _foreign_trace_values(leg: HarnessLeg) -> Mapping[str, Any]:
+    """The seam-4 perturbation: another deployment's reported values (CINV-01).
+
+    Drawn from the same ``harnesses.yaml`` block set the honest legs read, but
+    from a *different* harness's block — the most realistic corruption available,
+    because every value is one some harness genuinely does report, so the block
+    stays structurally plausible and only its attribution is wrong. A literal
+    authored here would be a deployment value in test code (§6.4) and, worse, an
+    obviously-invalid one that a weaker assertion could reject for the wrong
+    reason.
+
+    Asserted to actually differ from the leg's own reported model, so the
+    perturbation cannot be an identity.
+    """
+    for param in HARNESS_PARAMS:
+        values = _harness_fixture()[param]
+        if values["reported_model"] != leg.reported_model:
+            foreign = {
+                "model_version": values["reported_model"],
+                "input_tokens": values["input_tokens"],
+                "output_tokens": values["output_tokens"],
+            }
+            assert foreign["model_version"] != leg.reported_model
+            return foreign
+    raise AssertionError(
+        "every harness fixture block reports the same model, so no foreign trace"
+        " value exists to perturb with — the fixtures deliberately differ per"
+        " harness and this suite depends on it"
+    )
+
+
 def test_the_harness_trace_is_isolated_and_differs_per_harness(
     legs: tuple[HarnessLeg, ...], world: World
 ) -> None:
@@ -709,12 +808,9 @@ def test_the_harness_trace_is_isolated_and_differs_per_harness(
     traces = {run.harness_id: run.record.model_version.harness_trace for run in runs}
     assert len(traces) == 3
 
-    for harness_id, trace in traces.items():
-        assert trace.harness_id == harness_id
-        assert trace.harness_id != NO_HARNESS
-        assert trace.model_version != NO_HARNESS
-        assert trace.trace_id != NO_HARNESS
-        assert trace.input_tokens > 0 and trace.output_tokens > 0
+    for leg, run in zip(legs, runs, strict=True):
+        assert run.harness_id == leg.harness_id
+        _assert_the_trace_is_the_harness_own(leg, run)
 
     assert len({canonical_bytes(trace) for trace in traces.values()}) == 3
     assert HARNESS_ATTRIBUTABLE not in _governed_fields(runs[0].record)
