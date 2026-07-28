@@ -20,6 +20,15 @@ The sequence is fixed and it is an order, not a set:
    is strict: a product expiring exactly now is expired. The upper bound is
    inclusive: a product at the ceiling is at the ceiling.
 
+**The federated form of the sequence.** :func:`run_federated_gates` is the
+same sequence for a product that arrived through a Peering (``D-IMPL-59``),
+with gate 2 replaced: *products admitted through a Peering are attributable;
+locally assembled products are verifiable* (``D-IMPL-57``, Dave's ruling of
+2026-07-27, reading (a)). Gates 1 and 3 are shared outright — one reading of
+INV-CH7-46 and one pinned MAX_TTL, not two — and the local sequence above is
+unchanged in behaviour, order and refusal types. See that function for what
+attributability does and does not establish.
+
 **Refusal is a value, not an exception.** ``run_gates`` returns either a
 :class:`ServableProduct` or a :class:`GateRefusal` subclass carrying the
 failing detail. A refusal returned as data cannot be swallowed by a bare
@@ -44,6 +53,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.products.contract import (
     ContextProductContract,
@@ -54,17 +64,24 @@ from ccf.products.contract import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "GATE_EMPTY_OPERATOR",
+    "GATE_LINEAGE_ATTRIBUTABILITY",
+    "GATE_LINEAGE_EQUALITY",
+    "GATE_TTL_BOUNDS",
     "EmptyOperatorRefusal",
     "GateBypassError",
     "GateRefusal",
+    "LineageAttributionRefusal",
     "LineageMismatchRefusal",
     "ServableProduct",
     "TTLRefusal",
+    "run_federated_gates",
     "run_gates",
 ]
 
 GATE_EMPTY_OPERATOR = "empty-operator-guard"
 GATE_LINEAGE_EQUALITY = "lineage-strict-equality"
+GATE_LINEAGE_ATTRIBUTABILITY = "lineage-attributability"
 GATE_TTL_BOUNDS = "ttl-bounds"
 
 
@@ -99,6 +116,21 @@ class LineageMismatchRefusal(GateRefusal):
 
     declared: frozenset[str]
     resolved: frozenset[str]
+
+
+class LineageAttributionRefusal(GateRefusal):
+    """Federated gate 2: the gated bytes are not the bytes that were signed.
+
+    Both sides of the mismatch are carried, per this module's refusal
+    discipline: the declared operator plan, the content address the peer's
+    signature covered, and the content address of the candidate as gated. A
+    caller reading this refusal never re-hashes anything to learn what the gap
+    was (D-IMPL-57).
+    """
+
+    declared: frozenset[str]
+    attested_address: str
+    candidate_address: str
 
 
 class TTLRefusal(GateRefusal):
@@ -170,14 +202,9 @@ def run_gates(
     """
     declared = candidate.lineage.operators_invoked
 
-    if not declared:
-        return EmptyOperatorRefusal(
-            gate=GATE_EMPTY_OPERATOR,
-            detail=(
-                f"product {candidate.schema_name!r} declares no operators; a "
-                "product computed by nothing is not servable (INV-CH7-46)"
-            ),
-        )
+    empty = _refuse_empty_operators(candidate)
+    if empty is not None:
+        return empty
 
     if declared != engine_resolved:
         return LineageMismatchRefusal(
@@ -192,6 +219,146 @@ def run_gates(
             resolved=engine_resolved,
         )
 
+    ttl = _refuse_ttl(
+        candidate, now=now, registry=registry, product_class=product_class
+    )
+    if ttl is not None:
+        return ttl
+
+    return ServableProduct(candidate, _GATE_TOKEN)
+
+
+def run_federated_gates(
+    candidate: ContextProductContract,
+    *,
+    attested_address: str,
+    now: datetime,
+    registry: ControlPlaneProtocol,
+    product_class: RegisteredProductClass,
+) -> ServableProduct | GateRefusal:
+    """Run the federated form of the gate sequence over ``candidate``.
+
+    **Products admitted through a Peering are attributable; locally assembled
+    products are verifiable.** That is Dave's ``D-IMPL-57`` ruling of
+    2026-07-27 (reading (a)) stated as a pairing: INV-CH7-47 is *verifiable
+    within a fabric, attributable across one*. Inside one fabric the projection
+    engine's own record of what ran is an independent witness, so
+    :func:`run_gates` can compare a declaration against it. Across a Peering
+    the consumer ran no engine — the operators executed in another fabric, in
+    another process — and no independent witness exists on this side. Passing
+    the declaration in as its own witness would make the comparison trivially
+    true, which is why this sequence does not run that gate at all.
+
+    The contract is stated at **Peering level rather than A2A level**:
+    ``D-IMPL-59`` makes A2A one Peering transport rather than the concept, so
+    the guarantee belongs to the seam and a second transport inherits it rather
+    than restating it.
+
+    What the attributability gate establishes is that the operator plan the
+    product declares is covered by a signature from a key the peer was entitled
+    to use, and is therefore **attributable and non-repudiable** — *not* that
+    the plan was actually run. The accepted consequence, in the ruling's own
+    words: *a compromised or buggy peer can assert an operator plan it did not
+    run, and the consuming fabric will admit the product.* What the gate refuses
+    is the case where the bytes in hand are not the bytes whose signature
+    verified — something reshaped or re-serialized the product between
+    verification and gating, at which point the declared lineage is no longer
+    covered by anything the peer signed, and attribution is nil.
+
+    The sequence, and it is an order:
+
+    1. **empty-operator guard** — unchanged from the local path, and fully
+       meaningful across a boundary: a product declaring no operators was
+       computed by nothing, whoever signed it (INV-CH7-46).
+    2. **attributability** — ``content_hash(candidate) == attested_address``.
+    3. **TTL bounds** — the same INV-CH7-48 bound against the same pinned
+       MAX_TTL a locally assembled product is held to. Expiry is a property of
+       the product and the consumer's clock and needs nothing the consumer
+       lacks.
+
+    Args:
+        candidate: The product as the peer declares it, parsed from the bytes
+            whose signature verified.
+        attested_address: The content address of those bytes — the witness the
+            signature check established. Never derived from ``candidate``:
+            deriving it here would reintroduce exactly the self-witnessing this
+            function exists to remove.
+        now: The evaluation instant, supplied by the caller.
+        registry: Control Plane the MAX_TTL is resolved from.
+        product_class: The registered class carrying the pinned MAX_TTL.
+
+    Returns:
+        A :class:`ServableProduct` when every gate passes, otherwise the
+        refusal of the *first* gate that did not.
+
+    Raises:
+        ccf.controlplane.registry.ControlPlaneMissing: the pinned MAX_TTL has
+            disappeared from the Control Plane since registration — a broken
+            deployment, not a bad product.
+        TypeError: the pinned MAX_TTL artifact is not a
+            :class:`~ccf.products.contract.MaxTTL`.
+    """
+    empty = _refuse_empty_operators(candidate)
+    if empty is not None:
+        return empty
+
+    candidate_address = content_hash(candidate)
+    if candidate_address != attested_address:
+        return LineageAttributionRefusal(
+            gate=GATE_LINEAGE_ATTRIBUTABILITY,
+            detail=(
+                f"product {candidate.schema_name!r} as gated hashes to "
+                f"{candidate_address} but the verified signature covered "
+                f"{attested_address}; the declared operator plan "
+                f"{sorted(candidate.lineage.operators_invoked)} is therefore "
+                "not attributable to the peer (D-IMPL-57)"
+            ),
+            declared=candidate.lineage.operators_invoked,
+            attested_address=attested_address,
+            candidate_address=candidate_address,
+        )
+
+    ttl = _refuse_ttl(
+        candidate, now=now, registry=registry, product_class=product_class
+    )
+    if ttl is not None:
+        return ttl
+
+    return ServableProduct(candidate, _GATE_TOKEN)
+
+
+def _refuse_empty_operators(
+    candidate: ContextProductContract,
+) -> EmptyOperatorRefusal | None:
+    """Gate 1, shared by both sequences: a product computed by nothing.
+
+    Factored rather than duplicated so the two sequences cannot drift into two
+    readings of INV-CH7-46.
+    """
+    if candidate.lineage.operators_invoked:
+        return None
+    return EmptyOperatorRefusal(
+        gate=GATE_EMPTY_OPERATOR,
+        detail=(
+            f"product {candidate.schema_name!r} declares no operators; a "
+            "product computed by nothing is not servable (INV-CH7-46)"
+        ),
+    )
+
+
+def _refuse_ttl(
+    candidate: ContextProductContract,
+    *,
+    now: datetime,
+    registry: ControlPlaneProtocol,
+    product_class: RegisteredProductClass,
+) -> TTLRefusal | None:
+    """Gate 3, shared by both sequences, including its MAX_TTL resolution.
+
+    Shared for the reason the A2A admission gate calls into this module at all:
+    a federated product must age under the *same* pinned ceiling a local one
+    does, and a second copy of this bound is a second place for it to differ.
+    """
     artifact = registry.resolve(
         product_class.max_ttl_key, product_class.max_ttl_version
     )
@@ -202,17 +369,16 @@ def run_gates(
             f"{type(artifact).__name__}, not MaxTTL"
         )
     ceiling = now + timedelta(seconds=artifact.seconds)
-    if not (now < candidate.expires_at <= ceiling):
-        return TTLRefusal(
-            gate=GATE_TTL_BOUNDS,
-            detail=(
-                f"expires_at {candidate.expires_at.isoformat()} is outside "
-                f"(now, now + MAX_TTL] = ({now.isoformat()}, "
-                f"{ceiling.isoformat()}] (INV-CH7-48)"
-            ),
-            expires_at=candidate.expires_at,
-            now=now,
-            max_ttl_seconds=artifact.seconds,
-        )
-
-    return ServableProduct(candidate, _GATE_TOKEN)
+    if now < candidate.expires_at <= ceiling:
+        return None
+    return TTLRefusal(
+        gate=GATE_TTL_BOUNDS,
+        detail=(
+            f"expires_at {candidate.expires_at.isoformat()} is outside "
+            f"(now, now + MAX_TTL] = ({now.isoformat()}, "
+            f"{ceiling.isoformat()}] (INV-CH7-48)"
+        ),
+        expires_at=candidate.expires_at,
+        now=now,
+        max_ttl_seconds=artifact.seconds,
+    )
