@@ -1,0 +1,49 @@
+# Banking fixture: the decision-time content the exposure-summary Π acquires.
+#
+# CLAUDE.md §7.1 bullet 2 / whitepaper §6.6 — the interpretation needs a
+# document the graph does not hold (a counterparty's filed covenant note), and
+# goes and gets it at decision time through the fabric's one MCP client.
+#
+# Every value here is the deployment's, not the SDK's: the Control Plane source
+# key, the resource scheme and selector vocabulary, the tenants, and the note
+# text the child process serves. `/src` holds none of them — it holds a
+# `ContentRequest` with a source key and a selector, and no address at all.
+
+# Control Plane source keys. The acquirer is constructed with one addressed
+# client per key; a plan naming a key outside this set is refused.
+sources:
+  covenant_notes: acme-bank/content-source/covenant-notes
+  unconfigured: acme-bank/content-source/never-registered
+
+# The request the projection declares. `{tenant}` is substituted by the
+# acquirer from the per-call tenant, which is what keeps two principals over
+# one acquirer apart (D-23).
+request:
+  request_key: covenant_note
+  selector: "acme-content://{tenant}/covenant-note"
+
+# The URI template the child MCP server registers for the resource above.
+resource_uri_template: "acme-content://{tenant}/covenant-note"
+
+# The notes the child process holds, per tenant. These strings exist ONLY in
+# the child process: nothing in the parent's graph, envelopes, or ontology
+# carries them, which is what makes "the served payload contains this" a proof
+# that the acquisition edge is bound rather than an assertion that it exists.
+notes:
+  acme-bank: "Covenant note 8841-A: DSCR tested quarterly; headroom 0.42x."
+  zenith-bank: "Covenant note 5527-B: leverage capped at 3.5x; cured 2026-02."
+
+# The second tenant, used by the two-principal isolation case.
+tenants:
+  primary: acme-bank
+  secondary: zenith-bank
+
+# The key the projection payload publishes the acquired note under.
+payload_key: covenant_note_text
+
+# A selector naming a resource the child does not serve, for the
+# unsatisfiable-request case.
+absent_selector: "acme-content://{tenant}/no-such-note"
+
+# The child MCP server's deployment identity.
+server_name: acme-bank.covenant-notes

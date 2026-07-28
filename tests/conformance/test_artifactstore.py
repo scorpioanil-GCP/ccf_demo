@@ -23,17 +23,24 @@ Two disciplines are load-bearing here:
 
 Written before the hardening it demands (D-15): the I.1 file store shipped in
 04-05 with content addressing and write-once, and nothing else on this list.
+
+I.3 (06-05) added the ``mcp`` param, and **no test body below the fixtures
+changed** — which is the property ROADMAP criterion 5 actually asserts. The
+only edits inside the file were the second factory branch, a non-ASCII field on
+the artifact fixture, and the four MCP-specific tests appended at the end.
 """
 
 from __future__ import annotations
 
 import inspect
+import socket
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.artifacts.mcp_store import McpArtifactStore
 from ccf.artifacts.protocol import (
     ArtifactNotFound,
     ArtifactStoreProtocol,
@@ -43,12 +50,34 @@ from ccf.artifacts.protocol import (
 )
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
+from ccf.mcp.client import SyncMcpBridge
+from ccf.mcp.errors import McpServerUnreachable
+
+from crossproc.conftest import spawn_child_server
+from crossproc.servers.mcp_artifact_child import (
+    authorized_http_client,
+    rejected_http_client,
+)
 
 pytestmark = pytest.mark.conformance
 
 TENANT = "tenant-conformance"
 ARTIFACT_CLASS = "conformance-artifact"
 NAME = "the-artifact"
+
+#: The artifact server child this suite runs its ``mcp`` param against.
+ARTIFACT_CHILD = (
+    Path(__file__).resolve().parents[1]
+    / "crossproc"
+    / "servers"
+    / "mcp_artifact_child.py"
+)
+
+#: Deadline every bridged call is bounded by. A test value; the SDK chooses no
+#: deadline (D-IMPL-38). Generous enough that a slow CI box is not a flake and
+#: short enough that a regression to the held-session bridge fails rather than
+#: hangs (06-RESEARCH.md B3).
+CALL_TIMEOUT_SECONDS = 30.0
 
 
 class _Artifact(CCFContract):
@@ -57,16 +86,25 @@ class _Artifact(CCFContract):
     Deliberately not one of the SDK's own contract types: the store's contract
     is byte fidelity over *any* canonical artifact, and a suite that stored
     only replay records would be testing the record.
+
+    ``glyph`` carries non-ASCII text on **every** artifact this suite stores,
+    defaulted so no test body had to change to get it. An ASCII-only fixture
+    would pass against a store whose transport round-trips its payload through
+    a text resource, and a store that passed on ASCII and mangled real content
+    is the failure mode 06-RESEARCH.md Pitfall 4 names. With this field, that
+    regression fails at the first assertion in the suite rather than in
+    production.
     """
 
     label: str
     ordinal: int
+    glyph: str = "π ≠ 3 — ünïcode ✓ 東京"
 
 
 StoreFactory = Callable[[], ArtifactStoreProtocol]
 
 
-@pytest.fixture(params=["file"])
+@pytest.fixture(params=["file", "mcp"])
 def store_factory(
     request: pytest.FixtureRequest, tmp_path: Path
 ) -> Iterator[StoreFactory]:
@@ -74,10 +112,10 @@ def store_factory(
 
     A factory rather than an instance so a test can construct two stores over
     the same substrate — which is how durability of the naming index is
-    asserted without knowing what the substrate is.
-
-    The MCP-backed store adds its own param here in I.3; the test bodies below
-    do not change.
+    asserted without knowing what the substrate is. The ``mcp`` branch returns
+    a **new client against the same running server** each call, which is what
+    makes that assertion prove the *server* owns the index rather than proving
+    a client cached it.
     """
     if request.param == "file":
         root = tmp_path / "artifacts"
@@ -87,7 +125,52 @@ def store_factory(
 
         yield factory
         return
+    if request.param == "mcp":
+        with spawn_child_server(ARTIFACT_CHILD) as port:
+            with SyncMcpBridge(call_timeout_seconds=CALL_TIMEOUT_SECONDS) as bridge:
+                url = f"http://127.0.0.1:{port}/mcp"
+
+                def mcp_factory() -> ArtifactStoreProtocol:
+                    return McpArtifactStore(
+                        url=url,
+                        bridge=bridge,
+                        http_client_factory=authorized_http_client,
+                    )
+
+                yield mcp_factory
+        return
     raise NotImplementedError(request.param)
+
+
+# --- fixtures for the MCP-only properties ----------------------------------
+
+
+@pytest.fixture
+def artifact_server_url() -> Iterator[str]:
+    """A running artifact server's endpoint."""
+    with spawn_child_server(ARTIFACT_CHILD) as port:
+        yield f"http://127.0.0.1:{port}/mcp"
+
+
+@pytest.fixture
+def bridge() -> Iterator[SyncMcpBridge]:
+    with SyncMcpBridge(call_timeout_seconds=CALL_TIMEOUT_SECONDS) as running:
+        yield running
+
+
+@pytest.fixture
+def closed_url() -> str:
+    """An endpoint nothing is listening on.
+
+    A port bound and released, rather than a number picked out of the air: the
+    OS will not hand the same one out again while this test runs, so "nothing
+    answers here" is a fact rather than a hope.
+    """
+    probe = socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    port = probe.getsockname()[1]
+    probe.close()
+    return f"http://127.0.0.1:{port}/mcp"
 
 
 @pytest.fixture
@@ -337,3 +420,108 @@ def test_the_store_conforms_to_the_protocol_structurally(
     store: ArtifactStoreProtocol,
 ) -> None:
     assert isinstance(store, ArtifactStoreProtocol)
+
+
+# --- properties only a remote substrate can fail (I.3, 06-05) --------------
+#
+# Appended rather than folded into the parametrized suite above: a file store
+# has no outage state and no credential, so asserting these against it would
+# mean writing tests that pass vacuously for one param.
+
+
+def test_a_missing_artifact_and_an_unreachable_server_are_distinct_types(
+    artifact_server_url: str, closed_url: str, bridge: SyncMcpBridge
+) -> None:
+    """06-RESEARCH.md Pitfall 2, T-06-21: the two must never be one error.
+
+    ``ArtifactStoreProtocol``'s own docstring is the reason — the two "demand
+    opposite responses, and a replay that conflated them would report a missing
+    record as an outage". An outage invites a retry; an absence gets written
+    down as a fact about the past.
+
+    What would fail here: a store that inferred absence from a failed read.
+    That store answers ``ArtifactNotFound`` for the dead server too, both
+    assertions on the last two lines collapse, and a network partition starts
+    silently rewriting replay history.
+    """
+    missing = content_hash(_Artifact(label="never-stored", ordinal=99))
+
+    live = McpArtifactStore(
+        url=artifact_server_url,
+        bridge=bridge,
+        http_client_factory=authorized_http_client,
+    )
+    with pytest.raises(ArtifactNotFound) as absence:
+        live.get(content_address=missing)
+
+    dead = McpArtifactStore(
+        url=closed_url,
+        bridge=bridge,
+        http_client_factory=authorized_http_client,
+    )
+    with pytest.raises(McpServerUnreachable) as outage:
+        dead.get(content_address=missing)
+
+    assert not isinstance(outage.value, ArtifactNotFound)
+    assert not isinstance(absence.value, McpServerUnreachable)
+
+
+def test_a_store_presenting_no_credential_is_refused(
+    artifact_server_url: str, bridge: SyncMcpBridge
+) -> None:
+    """D-26, T-06-18: §7.4's "authenticated" is backed by mechanism.
+
+    What would fail here: a server built without the verifier, or with a
+    verifier its settings never install as middleware. Then the anonymous
+    store reads and writes freely and this call returns instead of raising.
+    """
+    anonymous = McpArtifactStore(url=artifact_server_url, bridge=bridge)
+    with pytest.raises(McpServerUnreachable):
+        anonymous.exists(content_address=content_hash(_Artifact(label="x", ordinal=1)))
+
+
+def test_a_store_presenting_a_rejected_token_is_refused_as_an_outage(
+    artifact_server_url: str, bridge: SyncMcpBridge
+) -> None:
+    """A refusal is a fact about reaching the server, never about its contents.
+
+    The second assertion is the load-bearing one: were a 401 to surface as
+    ``ArtifactNotFound``, an expired credential would make every artifact in
+    the store look deleted, and a replay would record that as history.
+    """
+    impostor = McpArtifactStore(
+        url=artifact_server_url,
+        bridge=bridge,
+        http_client_factory=rejected_http_client,
+    )
+    with pytest.raises(McpServerUnreachable) as refusal:
+        impostor.put(
+            tenant_id=TENANT,
+            artifact_class=ARTIFACT_CLASS,
+            name=NAME,
+            artifact=_Artifact(label="alpha", ordinal=1),
+        )
+    assert not isinstance(refusal.value, ArtifactNotFound)
+
+
+def test_non_ascii_canonical_bytes_survive_the_wire_exactly(
+    artifact_server_url: str, bridge: SyncMcpBridge
+) -> None:
+    """Pitfall 4, T-06-20: byte fidelity, asserted on bytes and on the address.
+
+    Two assertions rather than one. Byte equality catches a transport that
+    re-encoded the payload; address equality catches the subtler failure where
+    the server files the artifact under an address computed from something
+    other than what it stored, so a later reader hashing the bytes it got back
+    computes a different one.
+    """
+    artifact = _Artifact(label="ünïcode ✓ 東京 — π", ordinal=7)
+    store = McpArtifactStore(
+        url=artifact_server_url,
+        bridge=bridge,
+        http_client_factory=authorized_http_client,
+    )
+    ref = _put(store, artifact)
+    retrieved = store.get(content_address=ref.content_address)
+    assert retrieved == canonical_bytes(artifact)
+    assert ref.content_address == content_hash(artifact)

@@ -77,13 +77,17 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
 
 ### Phase I — Cross-Process and Harness
 
-- [ ] **XPRC-01**: Bidirectional MCP — client at L1/L4/L5/Experience, server
-      at L6 and ArtifactStore (§7.1)
-- [ ] **XPRC-02**: A2A federation — WireProtocol abstraction, identity/signing
-      primitives, Control Plane admission verification (§7.2)
-- [ ] **XPRC-03**: `HarnessAdapterProtocol` + reference adapters per D-IMPL-24,
+- [x] **XPRC-01**: Bidirectional MCP — client at L1/L4/L5/Experience, server
+      at L6 and ArtifactStore (§7.1). Evidence: `docs/PHASE_I3_GATE.md` §3.1,
+      one row per *consumer* of the client. The Experience-layer consumer is
+      **Phase 7 scope** per `06-CONTEXT.md` and is recorded there as a named
+      deferral, not claimed as delivered.
+- [x] **XPRC-02**: A2A federation — WireProtocol abstraction, identity/signing
+      primitives, Control Plane admission verification (§7.2). Evidence:
+      `docs/PHASE_I3_GATE.md` §3.2.
+- [x] **XPRC-03**: `HarnessAdapterProtocol` + reference adapters per D-IMPL-24,
       binding all four seams (context injection, skill exposure, effect
-      capture, replay hooks) (§7.3)
+      capture, replay hooks) (§7.3). Evidence: `docs/PHASE_I3_GATE.md` §3.3.
 
 ### Phase I — Orchestration and HITL
 
@@ -184,9 +188,9 @@ All 46 v1 requirements mapped (46/46).
 | AGNT-01 | Phase 5 | Complete |
 | AGNT-02 | Phase 5 | Complete |
 | AGNT-03 | Phase 5 | Complete |
-| XPRC-01 | Phase 6 | Pending |
-| XPRC-02 | Phase 6 | Pending |
-| XPRC-03 | Phase 6 | Pending |
+| XPRC-01 | Phase 6 | Delivered |
+| XPRC-02 | Phase 6 | Delivered |
+| XPRC-03 | Phase 6 | Delivered |
 | ORCH-01 | Phase 7 | Pending |
 | ORCH-02 | Phase 7 | Pending |
 | HITL-01 | Phase 7 | Pending |

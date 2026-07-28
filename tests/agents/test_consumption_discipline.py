@@ -65,6 +65,13 @@ ALLOWED_CCF_PREFIXES = (
     "ccf.controlplane.resolution",
     "ccf.products.contract",
     "ccf.replay.record",
+    # D-19 (06-03): the callable registry the factory injects and the agent
+    # carries. Same tier as catalog/dispatch below — a boot-time key->callable
+    # table with no fabric import of its own (its entire `ccf` import surface
+    # is empty), so binding it opens no path from Agent to L1–L5. It is on
+    # this list precisely *because* dispatch no longer resolves callables by
+    # importing whatever a ref names.
+    "ccf.skills.callables",
     # Channel 2 (05-06): the skill catalog/dispatch surface is Control Plane
     # mechanism above L6, not a fabric layer — binding it opens no path from
     # Agent to L1–L5 (CLAUDE.md §6.2; D-08).

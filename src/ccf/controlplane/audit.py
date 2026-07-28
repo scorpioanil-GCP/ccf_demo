@@ -43,6 +43,22 @@ __all__ = ["AuditAction", "AuditEvent", "AuditLog"]
 #: (D-IMPL-29; D-09): a grant is a Control Plane action like any other, and
 #: every transition — refusals included — is a record (CLAUDE.md §6.2:
 #: "a skill grant or revocation is itself an audited Control Plane action").
+#: The ``peering_*`` members are the **Peering** admission verdicts (D-IMPL-16;
+#: :mod:`ccf.peering.admission`): admitting a peer's Context Product is a Control
+#: Plane decision like any other, and a refusal that left no record would let
+#: a rejected federation attempt be denied afterwards (T-06-43). They name the
+#: *seam*, not one of its transports (``D-IMPL-59``, Dave, 2026-07-27): one gate
+#: runs uniformly over every Peering, so the verdict is a Peering verdict
+#: whichever transport carried the bytes — A2A being the reference transport
+#: rather than the category. Renaming the members is a rename of enum literals
+#: only; ``AuditEvent``'s own fields are untouched.
+#:
+#: ``skill_invoked`` is the remaining member added for I.3: an ``mcp`` dispatch
+#: leaves this process and contacts a remote server, and none of the existing
+#: members can express that — ``resolve`` is a Control Plane read and the
+#: ``grant_*`` family are grant-state transitions, so recording an invocation
+#: as either would make the log say something untrue. It goes through this one
+#: log, on the one existing ``append``; there is no parallel audit surface.
 AuditAction = Literal[
     "register",
     "register_typed",
@@ -54,6 +70,9 @@ AuditAction = Literal[
     "grant_effective",
     "grant_refused",
     "grant_revoked",
+    "peering_admitted",
+    "peering_admission_refused",
+    "skill_invoked",
 ]
 
 

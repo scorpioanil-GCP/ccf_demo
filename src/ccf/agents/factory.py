@@ -36,6 +36,7 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import warnings
+from typing import TYPE_CHECKING
 from collections.abc import Mapping
 
 from ccf.agents.agent import Agent, AgentIdentity
@@ -56,8 +57,17 @@ from ccf.artifacts.protocol import artifact_uri, parse_artifact_uri
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.resolution import ControlPlaneResolution, resolve_pinned
+from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY
 from ccf.skills.grants import BoundSkillView
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    # Deferred for the same reason :mod:`ccf.agents.agent` defers it: a
+    # module-level import would make ``ccf.skills`` and ``ccf.agents``
+    # mutually import-ordered, and an import graph whose success depends on
+    # which module a caller reached first is the non-determinism D-IMPL-37
+    # rejects. The factory only ever holds these registries and passes them on.
+    from ccf.skills.dispatch import McpSkillRegistry, PeeringSkillRegistry
 
 #: The namespace prefix every artifact class the SDK itself owns carries.
 #: Mechanism, not a value: it is how a deployment-declared class is told
@@ -176,17 +186,52 @@ class AgentFactory:
     """Constructs agents from definition artifacts — the only supported path.
 
     CLAUDE.md §6.4; D-IMPL-28. Tests construct agents the same way, from
-    fixture artifacts; there is no path to an ``Agent`` that bypasses this
-    class, and the CINV-01c lint holds the codebase to it (D-12).
+    fixture artifacts. **Lint-enforced, not unrepresentable** (D-21): D-12
+    withdrew ``Agent``'s construction token in favour of the CINV-01c
+    factory-bypass rule, so what holds is "no module in the linted trees
+    constructs an ``Agent`` outside a factory path", enforced over the code
+    the SDK ships. It is not a statement about code the SDK does not lint —
+    contrast :class:`~ccf.peering.admission.AdmittedProduct`, whose token is
+    justified precisely because its claim has to survive a transport a
+    deployment wrote itself.
 
     Args:
         control_plane: The injected resolution surface. Constructor injection,
             never ambient lookup — the factory holds no keys, no versions,
             and no storage handles of its own.
+        callable_registry: The deployment's boot-time
+            :class:`~ccf.skills.callables.CallableRegistry`, carried onto
+            every constructed agent so ``local_callable`` dispatch resolves
+            against what this composition root registered (D-19). ``None``
+            registers nothing, which is a positive statement: every
+            ``local_callable`` entry then resolves to nothing, without an
+            import.
+        mcp_skills: The deployment's
+            :class:`~ccf.skills.dispatch.McpSkillRegistry`, carried onto every
+            constructed agent so an ``mcp`` skill invoked *through an agent*
+            reaches the transport ``dispatch_skill`` already bound (Dave,
+            2026-07-27). Optional and fail-closed on the ``callable_registry``
+            precedent: ``None`` wires no MCP server, and an ``mcp`` skill then
+            refuses by name rather than reaching a fabricated endpoint.
+        peering_skills: The deployment's
+            :class:`~ccf.skills.dispatch.PeeringSkillRegistry`, on the same terms.
+            Threaded alongside its MCP counterpart because the two share one
+            wiring gap and one shape; closing one and leaving the other would
+            re-open the same deferred item under a different name.
     """
 
-    def __init__(self, *, control_plane: ControlPlaneResolution) -> None:
+    def __init__(
+        self,
+        *,
+        control_plane: ControlPlaneResolution,
+        callable_registry: CallableRegistry | None = None,
+        mcp_skills: McpSkillRegistry | None = None,
+        peering_skills: PeeringSkillRegistry | None = None,
+    ) -> None:
         self._control_plane = control_plane
+        self._callable_registry = callable_registry
+        self._mcp_skills = mcp_skills
+        self._peering_skills = peering_skills
 
     def _resolve_reference(self, uri: str) -> object:
         """Resolve one pinned reference via :func:`_resolve_pinned`."""
@@ -263,6 +308,9 @@ class AgentFactory:
             components=components,
             instruction_artifacts=instruction_artifacts,
             bound_skills=bound_skills,
+            callable_registry=self._callable_registry,
+            mcp_skills=self._mcp_skills,
+            peering_skills=self._peering_skills,
         )
 
 

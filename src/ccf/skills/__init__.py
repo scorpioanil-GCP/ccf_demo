@@ -14,16 +14,16 @@ catalog live in :mod:`ccf.skills.catalog`, with registration flowing through
 the existing :class:`~ccf.controlplane.registry.ControlPlaneRegistry` via its
 D-05 versioned path; the two-tier grant machinery (D-IMPL-29) lives in
 :mod:`ccf.skills.grants`; dispatch for the local_callable and tool types
-lives in :mod:`ccf.skills.dispatch` — mcp/a2a dispatch raises the typed
+lives in :mod:`ccf.skills.dispatch` — mcp/peering dispatch raises the typed
 ``NotYetBound`` until I.3 binds the transports (D-08).
 """
 
 from ccf.skills.catalog import (
     SKILL_CATALOG_ENTRY,
     SKILL_TYPES,
-    A2ABinding,
     LocalCallableBinding,
     McpBinding,
+    PeeringBinding,
     SkillCatalog,
     SkillCatalogEntry,
     SkillNotInCatalog,
@@ -55,7 +55,6 @@ __all__ = [
     "SKILL_CATALOG_ENTRY",
     "SKILL_GRANT",
     "SKILL_TYPES",
-    "A2ABinding",
     "ApprovalOutcome",
     "ApprovalRejected",
     "ApprovalSink",
@@ -67,6 +66,7 @@ __all__ = [
     "GrantTransitionError",
     "LocalCallableBinding",
     "McpBinding",
+    "PeeringBinding",
     "PolicyRegimeGovernance",
     "PolicyRegimeUnresolvable",
     "RequirementsExceedRegime",

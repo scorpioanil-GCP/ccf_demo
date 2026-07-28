@@ -15,7 +15,7 @@ exists.
 - [x] **Phase 3: Phase F — Feasibility & Scoping** - Per-component verdicts, v0.1 surface, test strategy; verify Phase I gate list (completed 2026-07-25)
 - [x] **Phase 4: Phase I.1 — Fabric Core** - L1–L6 Data and Context Layer plus CI invariant scaffolding
 - [x] **Phase 5: Phase I.2 — Agent Specialization Framework** - Agent base, six archetypes, Agent & Task Factory, skilling (completed 2026-07-26)
-- [ ] **Phase 6: Phase I.3 — Cross-Process & Harness Adapters** - Bidirectional MCP, A2A federation, HarnessAdapterProtocol + reference adapters
+- [x] **Phase 6: Phase I.3 — Cross-Process & Harness Adapters** - Bidirectional MCP, A2A federation, HarnessAdapterProtocol + reference adapters (completed 2026-07-28)
 - [ ] **Phase 7: Phase I.4 — Orchestration, HITL, Experience** - Workflow primitive, HITL primitives, MCP egress / CLI / HTTP front doors
 - [ ] **Phase 8: Phase I.5 — Examples Suite & Full CI Verification** - Eight-example v0 suite in CI, all invariant lints green, Phase I gate
 
@@ -234,48 +234,126 @@ Plans:
 **Requirements**: XPRC-01, XPRC-02, XPRC-03
 **Success Criteria** (what must be TRUE):
 
-  1. Bidirectional MCP works: client ingress at L1/L4/L5/Experience normalizing to the L1 envelope, server egress at L6 exposing Context Products as MCP Resources, and the ArtifactStore MCP role kept in a distinct module from egress
-  2. A2A federation exchanges typed Context Products across processes behind the WireProtocol abstraction (D-IMPL-14 default), with identity/signing (D-IMPL-15) and inbound products admitted to L3 only through L2 after Control Plane policy-binding verification, lineage extended by set-union
-  3. `HarnessAdapterProtocol` + reference adapters for the D-IMPL-24 harnesses bind all four seams (context injection, skill exposure of exactly the currently-bound skill-set, effect capture with no harness write handle, replay hooks); the zero-harness-imports-in-`/src` lint stays green
-  4. Single-writer invariant demonstrably holds across the A2A boundary, the adapter boundary, and the ArtifactStore
+  1. Bidirectional MCP works over **the edges I.3 delivers**: client ingress at L1 normalizing to the L1 envelope, decision-time content acquisition at L4/L5, server egress at L6 exposing Context Products as MCP Resources, and the ArtifactStore MCP role kept in a distinct module from egress. **The Experience-surface MCP edge is Phase 7 (I.4) scope, not I.3's** *(amended, closes A5 — the gate document deferred this edge honestly in §3.1 from the start; the criterion text was written broader than its own evidence and is now matched to it. EXPR-01/02/03 sit in Phase 7 alongside the CLI and HTTP front doors)*
+  2. Peering federation exchanges typed Context Products across processes behind the `PeeringProtocol` abstraction (D-IMPL-59; A2A is the reference transport and the D-IMPL-14 default wire), with identity/signing (D-IMPL-15) and inbound products admitted to L3 only through L2 after Control Plane policy-binding verification. Lineage is extended by set-union at admission, and — stated at the strength that holds — **lineage is attributable across the Peering boundary and verifiable within a fabric** *(narrowed, closes B1; D-IMPL-57 reading (a) — strict-equality verification does not travel: the consumer holds the producer to what it signed, and a compromised or buggy peer can assert a plan it did not run)*. **Lineage continuity is a property of the Peering admission boundary, persisted as an immutable `AdmissionRecord` and resolvable at an exact version** *(narrowed, closes B2; D-IMPL-58 reading (d), closure item 6 — not a property of graph state; `LineageEntry` is untouched)*
+  3. `HarnessAdapterProtocol` + reference adapters for the D-IMPL-24 harnesses bind all four seams (context injection, skill exposure of exactly the currently-bound skill-set, effect capture with no harness write handle, replay hooks); the zero-harness-imports-in-`/src` lint stays green. **Seam-level equivalence across three harnesses is demonstrated with a failure mode on every compared axis; execution under a harness reasoning loop is *not* claimed here** *(narrowed, closes B3 — the shipped adapters' `capture_effect` are delegations to `Agent.emit_effect`, so the honest emission equality is structurally guaranteed rather than three implementations agreeing. Loop-level portability is `examples/03-harness-portability`'s obligation in Phase 8, per CLAUDE.md §9)*
+  4. Single-writer invariant demonstrably holds across the **Peering** boundary, the adapter boundary, and the ArtifactStore *(vocabulary corrected to D-IMPL-59 — the seam is a Peering; A2A is its reference transport. The Peering leg is now carried by the type system as well as by observation: the federated route into L2 is a typed door, at the scope gate row 6 states)*
   5. **MCP-backed ArtifactStore reference implementation ships** and passes the same shared ArtifactStore Protocol conformance suite as the file-backed dev impl, with no other deployment change required to swap between them *(inherited from Phase 4 per the D-12 scope amendment recorded on Phase 4 criterion 4)*
 
-**Plans:** 16 plans
+**Plans:** 25/25 plans complete
+
+**Criterion evidence** (all in `docs/PHASE_I3_GATE.md`, which carries a **21-row**
+checklist naming, per row, its test *and* what would fail under breakage — row 21
+was added by 06-22 for the B1 attributability closure. Every row's module was
+re-run in 06-23 after the gap-closure wave; the sweep is §1, the row-by-row record
+§2.1):
+
+  1. → §3.1 / §3.4 — bidirectional MCP. **The Experience-surface edge is a named
+     Phase 7 deferral**, not a claim of coverage: L1 ingress, L4/L5 decision-time
+     acquisition, L6 egress and the distinct ArtifactStore MCP role all ship here.
+  2. → §3.2 / §3.2.1 — Peering over two interchangeable `PeeringProtocol`
+     implementations (typed-HTTP and the D-IMPL-14 default LF A2A), detached-JWS
+     identity, Control Plane admission ahead of L2, lineage set-union property.
+     Row 21 carries the D-IMPL-57 attributability narrowing **with its accepted
+     consequence**; row 14 carries the D-IMPL-58 `AdmissionRecord`, observed in
+     persisted state through the replay path rather than on the transient wrapper.
+     A Peering declaring trust inputs and never the verdict is a verified property
+     (D-IMPL-59 part 4).
+  3. → §3.3 / §3.3.1 — `HarnessAdapterProtocol` + all three D-IMPL-24 adapters,
+     four seams, CINV-02 green and re-verified by relocation, never widened.
+     §3.3.1 states what the portability evidence proves (seam-level equivalence,
+     every compared axis falsifiable) and what it does not (no harness loop runs;
+     the emission equality is structurally guaranteed), and names loop-level
+     execution as example 03's Phase 8 obligation rather than dropping it.
+     **Advisory A3 remains open** — one of three seam-4 legs is a fixture echo.
+  4. → §3.4 — three *separate* boundary observables (Peering, adapter,
+     ArtifactStore), not one generalized claim. The ArtifactStore leg's
+     byte-identical digest is WAL-inclusive and carries its own sensitivity guard,
+     without which it could not observe the write it exists to rule out.
+  5. → §3.4 — factory-parametrized `file`/`mcp` ArtifactStore conformance suite.
 
 Plans:
 **Wave 1** *(blockers — D-24 lint carve-out, packaging, D-19 gate)*
 
-- [ ] 06-01-PLAN.md — CINV-02 harness-adapter carve-out + negative boundary tests + DESIGN.md B4 (D-24)
-- [ ] 06-02-PLAN.md — Harness extras, mypy over /runtime, crossproc+harness markers (D-08, B2)
-- [ ] 06-03-PLAN.md — Registered-callable table replacing importlib dispatch (D-19, blocking)
+- [x] 06-01-PLAN.md — CINV-02 harness-adapter carve-out + negative boundary tests + DESIGN.md B4 (D-24)
+- [x] 06-02-PLAN.md — Harness extras, mypy over /runtime, crossproc+harness markers (D-08, B2)
+- [x] 06-03-PLAN.md — Registered-callable table replacing importlib dispatch (D-19, blocking)
 
-**Wave 2** *(the D-01 vertical slice)*
+**Wave 2** *(the D-01 vertical slice, plus the two /src-only plans it does not block)*
 
-- [ ] 06-04-PLAN.md — Shared MCP client + sync facade, L6 egress server, THE crossproc fixture (D-01, D-15/16/17)
+- [x] 06-04-PLAN.md — Shared MCP client + sync facade, L6 egress server, THE crossproc fixture (D-01, D-15/16/17)
+- [x] 06-07-PLAN.md — IdentityProvider + detached-JWS ES256 + trust-policy artifact (D-13, D-IMPL-16)
+- [x] 06-11-PLAN.md — HarnessAdapterProtocol + D-25 harness_trace + sandboxed prompt render
 
-**Wave 3** *(transport wave a)*
+**Wave 3** *(transport wave a + the L4/L5 acquisition leg)*
 
-- [ ] 06-05-PLAN.md — MCP-backed ArtifactStore + separate artifact server w/ TokenVerifier (criterion 5, D-26)
-- [ ] 06-06-PLAN.md — MCP client ingress at L1 + mcp skill dispatch (D-05)
+- [x] 06-05-PLAN.md — MCP-backed ArtifactStore + separate artifact server w/ TokenVerifier (criterion 5, D-26)
+- [x] 06-06-PLAN.md — MCP client ingress at L1 + mcp skill dispatch (D-05)
+- [x] 06-08-PLAN.md — WireProtocol + admission gate ahead of L2 + lineage set-union property (D-12, D-14)
+- [x] 06-12-PLAN.md — Claude Agent SDK adapter deep + conformance suite + skip mechanism (D-07, D-09)
+- [x] 06-17-PLAN.md — L4/L5 decision-time content acquisition over the shared MCP client (XPRC-01)
 
-**Waves 4-7** *(trust wave b)*
+**Wave 4**
 
-- [ ] 06-07-PLAN.md — IdentityProvider + detached-JWS ES256 + trust-policy artifact (D-13, D-IMPL-16)
-- [ ] 06-08-PLAN.md — WireProtocol + admission gate ahead of L2 + lineage set-union property (D-12, D-14)
-- [ ] 06-09-PLAN.md — Typed-HTTP transport + real two-process exchange + A2A single-writer leg (D-11)
-- [ ] 06-10-PLAN.md — LF A2A transport (D-IMPL-14 default) + a2a skill dispatch (D-05)
+- [x] 06-09-PLAN.md — Typed-HTTP transport + real two-process exchange + A2A single-writer leg (D-11)
+- [x] 06-13-PLAN.md — LangGraph adapter + Protocol hardening for topology ownership
 
-**Waves 8-12** *(harness wave c)*
+**Wave 5**
 
-- [ ] 06-11-PLAN.md — HarnessAdapterProtocol + D-25 harness_trace + sandboxed prompt render
-- [ ] 06-12-PLAN.md — Claude Agent SDK adapter deep + conformance suite + skip mechanism (D-07, D-09)
-- [ ] 06-13-PLAN.md — LangGraph adapter + Protocol hardening for topology ownership
-- [ ] 06-14-PLAN.md — Google ADK adapter + D-10 effects-inert proof + adapter single-writer leg
-- [ ] 06-15-PLAN.md — Harness portability: one definition, three harnesses, D-18 equivalence
+- [x] 06-10-PLAN.md — LF A2A transport (D-IMPL-14 default) + a2a skill dispatch (D-05)
+- [x] 06-14-PLAN.md — Google ADK adapter + D-10 effects-inert proof + adapter single-writer leg
 
-**Wave 13** *(gate)*
+**Wave 6**
 
-- [ ] 06-16-PLAN.md — Full sweep, CI harness leg, PHASE_I3_GATE.md, present to Dave
+- [x] 06-15-PLAN.md — Harness portability: one definition, three harnesses, D-18 equivalence
+
+**Wave 7** *(gate)*
+
+- [x] 06-16-PLAN.md — Full sweep, CI harness leg, PHASE_I3_GATE.md, present to Dave
+
+**Gap closure** *(from the 2026-07-27 cross-AI gate review — `06-REVIEWS.md` B1/B2/B3
+blocking, A1-A7 advisory — replanned under `D-IMPL-58` (AdmissionRecord) and `D-IMPL-59`
+(the seam is `Peering`; A2A is one transport). Waves continue the phase's
+`max(depends_on) + 1` numbering.)*
+
+**Wave 8**
+
+- [x] 06-18-PLAN.md — B1: federated attributability gate replaces the vacuous strict-equality invocation; contract stated at Peering level (D-IMPL-57 reading (a), D-IMPL-59)
+- [x] 06-20-PLAN.md — B3: adversarial legs give the seam-3/seam-4 portability equalities observed failure modes *(unaffected by both rulings)*
+- [x] 06-21-PLAN.md — A1 + A2: transport instance scan widened to every discovered transport; `AdmittedProduct` unforgeability claim scoped by test
+
+**Wave 9** *(blocked on 06-18)*
+
+- [x] 06-19-PLAN.md — B2 under D-IMPL-58 reading (d): `AdmissionRecord` artifact class, ArtifactStore write at admission, audit reference triple, replay resolution, union observed in persisted state. `claims.py` unchanged, asserted
+
+**Wave 10** *(the Peering re-description — after the substantive fixes, so it sweeps them too)*
+
+- [x] 06-24-PLAN.md — D-IMPL-59 core seam: `src/ccf/peering/`, `Peering` Protocol, `PeeringAdmissionGate`, `peering_*` audit verdicts, transports reseated keeping `lf_a2a`/`typed_http`. No deletions
+
+**Wave 11** *(blocked on 06-24)*
+
+- [x] 06-25-PLAN.md — D-IMPL-59 skill/agent surface: `peering` skill type, `Peering{Binding,Invocation,SkillRegistry}`, `peering_skills=`, fixture schema+artifact version bumps
+
+**Wave 12** *(claims narrowing, once the code states what is true)*
+
+- [x] 06-22-PLAN.md — Claim narrowing traceable per finding: B1/B2/B3 criteria, A2/A4/A5 doc defects, D-IMPL-58 item 6, the Peering vocabulary, disposition for A3/A6/A7
+
+**Wave 13** *(gate re-presentation)*
+
+- [x] 06-23-PLAN.md — Post-closure sweep, row-by-row gate re-verification, no-deletion check, re-present to Dave. **Does not log `D-GATE-I.3`**
+
+**Wave ordering note**: waves are `max(depends_on) + 1`. D-02's transport → trust →
+harness widening is a *risk ordering* — it governs where the phase's unknowns land, not
+whether independent plans may run concurrently — so the `/src`-only trust and harness
+contract plans (06-07, 06-11) sit at wave 2 rather than being held behind the transport
+work they do not depend on. The blocking orderings still hold absolutely: D-24 (06-01)
+precedes every harness import (first in 06-12, wave 3), D-19 (06-03) precedes every
+transport plan (first in 06-04, wave 2), and D-07's within-harness order is preserved
+(Claude 06-12 → LangGraph 06-13 → ADK 06-14).
+
+**Known same-wave file overlap**: 06-01 and 06-03 both append to `docs/DECISIONS.md`
+(D-IMPL-53 and D-IMPL-54). Both are wave 1. If wave 1 is executed in parallel worktrees
+this needs serializing at merge; it is recorded here rather than claimed away.
 
 **Process notes**: Model mandate — Opus 5 (fallback Opus 4.8), "high" effort. Branch: `phase-i3`. Ends with `/gsd-review` → triage → Dave approval → `D-GATE-I.3` before Phase 7 begins.
 
@@ -319,7 +397,7 @@ Plans:
 | 3. Phase F — Feasibility & Scoping | 4/4 | Complete   | 2026-07-25 |
 | 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
-| 6. Phase I.3 — Cross-Process & Harness Adapters | 0/? | Not started | - |
+| 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 0/? | Not started | - |
 | 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |
 

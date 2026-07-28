@@ -31,6 +31,7 @@ import pytest
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
+    from ccf.skills.callables import CallableRegistry
 
 # Control Plane keys used by the test fabric. They live here, in test code,
 # rather than in `/src`: key names are deployment vocabulary, and the SDK
@@ -109,6 +110,51 @@ def _unavailable(reason: str) -> None:
     """Skip, or fail if this environment declared Postgres mandatory."""
     if os.environ.get(POSTGRES_REQUIRED_ENV):
         pytest.fail(f"{POSTGRES_REQUIRED_ENV} is set but Postgres is unusable: {reason}")
+    pytest.skip(reason)
+
+
+#: Set in CI. Turns "this harness SDK is not installed" from a skip into a
+#: failure, for exactly the reason ``CCF_REQUIRE_POSTGRES`` exists: a harness
+#: leg that quietly skips is a green build that proved nothing, and the harness
+#: legs are the *only* evidence for the CLAUDE.md §7.3 portability claim. CI
+#: installs `[dev]`, which composes `[harnesses]`, so all three legs run there
+#: whether or not anyone remembers to look at `-rs` output.
+HARNESS_REQUIRED_ENV = "CCF_REQUIRE_HARNESSES"
+
+#: Which extra installs which harness SDK. The message a contributor without
+#: the extra reads has to be an instruction, not a mystery, so the skip names
+#: both the missing module and the command that fixes it.
+HARNESS_EXTRAS: dict[str, str] = {
+    "claude_agent_sdk": "claude-agent",
+    "langgraph": "langgraph",
+    "google.adk": "adk",
+}
+
+
+def harness_unavailable(module_name: str, leg: str) -> None:
+    """Skip this harness leg, or fail if the environment declared it mandatory.
+
+    The harness counterpart of :func:`_unavailable`, deliberately the same
+    shape rather than a second skip idiom: two mechanisms for "the environment
+    can require what would otherwise silently skip" would drift, and the
+    reader would have to learn both.
+
+    Args:
+        module_name: The harness SDK's importable top-level module.
+        leg: The conformance param this guards, named in the message so
+            ``pytest -rs`` says which leg did not run.
+    """
+    import importlib.util
+
+    if importlib.util.find_spec(module_name.split(".")[0]) is not None:
+        return
+    extra = HARNESS_EXTRAS.get(module_name, leg)
+    reason = (
+        f"harness leg {leg!r} needs {module_name!r}; install it with"
+        f' `pip install -e ".[{extra}]"` (or `.[harnesses]` for all three)'
+    )
+    if os.environ.get(HARNESS_REQUIRED_ENV):
+        pytest.fail(f"{HARNESS_REQUIRED_ENV} is set but {reason}")
     pytest.skip(reason)
 
 
@@ -211,3 +257,43 @@ def fabric_boot(
 def fabric(fabric_boot: Callable[..., "FabricHandle"]) -> "FabricHandle":
     """A single booted fabric — the common case."""
     return fabric_boot()
+
+
+@pytest.fixture
+def callable_registry() -> "CallableRegistry":
+    """The test deployment's composition root for local callables (D-19).
+
+    One explicit ``register(key, fn)`` call, exactly as a real deployment's
+    composition root would make it: no decorator, no entry point, no import
+    side effect. The key is a fixture *value* (it lives in the skills YAML
+    beside the catalog entry that declares it as ``callable_ref``); the
+    function is a fixture callable. This module supplies neither — it only
+    performs the binding, which is the mechanism under test.
+
+    A registry constructed per test, never module-level: two tests, like two
+    deployments, must not be able to see each other's registrations.
+    """
+    from ccf.skills.callables import CallableRegistry
+
+    from fixtures.banking.skills.callables import covenant_metrics
+
+    registry = CallableRegistry()
+    registry.register(_skills_callable_values()["registered_key"], covenant_metrics)
+    return registry
+
+
+def _skills_callable_values() -> dict[str, Any]:
+    """The D-19 drive values, read from the skills fixture that owns them."""
+    import yaml
+
+    document: dict[str, Any] = yaml.safe_load(
+        (
+            Path(__file__).resolve().parent
+            / "fixtures"
+            / "banking"
+            / "skills"
+            / "covenant_metrics_tool.yaml"
+        ).read_text()
+    )
+    values: dict[str, Any] = document["callables"]
+    return values

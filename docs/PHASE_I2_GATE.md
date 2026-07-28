@@ -202,6 +202,11 @@ choices are recorded here for the reviewer.
   registered-callable indirection that removes free-form module paths, or a Control Plane
   admission check on `callable_ref` provenance. **This is a deliberate deferral, not a
   gap to be closed inside I.2** — no dispatch semantics were changed for it.
+  **RESOLVED in I.3 (2026-07-26) as D-IMPL-54:** candidate (b), the
+  registered-callable indirection. `importlib` is gone from
+  `src/ccf/skills/dispatch.py`; `callable_ref` is a key into a boot-registered
+  `CallableRegistry` (`src/ccf/skills/callables.py`). This paragraph is left
+  standing as the I.2 record of the deferral, not as a live claim.
 - **MCP/A2A skill dispatch is `NotYetBound` by ruling (D-08).** `mcp` and `a2a` catalog
   entries validate, register, and grant today; only dispatch raises the typed exception
   naming the deferral. I.3 binds the transports; the dispatch seam in

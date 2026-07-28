@@ -39,15 +39,19 @@ with the Pattern 5 pipeline and will live in their own, untagged modules.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Protocol, runtime_checkable
+
+from pydantic import Field
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph.protocols import GraphWriter, UpsertResult
-from ccf.signal.envelope import SignalEnvelope
+from ccf.peering.admission import AdmittedProduct
+from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
 __ccf_mode__ = "algorithmic"
 
@@ -56,6 +60,7 @@ __all__ = [
     "EntityResolutionRule",
     "EntityResolutionSpec",
     "EntityResolutionStrategy",
+    "FederatedIngestSpec",
     "IngestResult",
     "RelationshipResolutionRule",
     "ResolvedEntity",
@@ -107,6 +112,39 @@ class EntityResolutionSpec(CCFContract):
 
     entity_rules: tuple[EntityResolutionRule, ...]
     relationship_rules: tuple[RelationshipResolutionRule, ...] = ()
+
+
+class FederatedIngestSpec(CCFContract):
+    """How one deployment reads an admitted federated product into L1 envelopes.
+
+    A user-declared Control Plane artifact, on the
+    :class:`EntityResolutionSpec` precedent and for the same reason: which
+    member of a product's payload carries the records a peer is asserting, and
+    what logical source the federation edge is known by, are the deployment's
+    vocabulary. The SDK ships the derivation mechanism and none of the values
+    (CLAUDE.md §11, CINV-01) — there is no default key name here, because a
+    default would be the SDK guessing at a peer's payload shape.
+
+    Attributes:
+        source_system_id: Logical identity of the federation edge, recorded on
+            every derived envelope's lineage. Identity, never location
+            (INV-CH8-01).
+        payload_records_key: The payload member holding the sequence of records
+            the peer asserts. Each record becomes one envelope's opaque
+            ``raw_payload``, unread by this module — L1's non-interpretation
+            survives the federated route exactly as it does the CDC one.
+        record_key_aliases: Peer record key → this deployment's key, for the
+            keys the deployment chooses to rename. A peer's payload speaks the
+            peer's vocabulary and a consumer's resolution spec speaks the
+            consumer's; where they differ, the consumer says so here rather
+            than the SDK guessing a correspondence. Keys not named are carried
+            through unchanged, and renaming is a relabel only — no value is
+            read.
+    """
+
+    source_system_id: str
+    payload_records_key: str
+    record_key_aliases: Mapping[str, str] = Field(default_factory=dict)
 
 
 class ResolvedEntity(CCFContract):
@@ -247,7 +285,7 @@ class AssemblyWorker:
         """Write an already-resolved entity claim through L2 (the admission path).
 
         DESIGN.md §2A.5.4 step 5: a claim that did not originate in this
-        fabric's own L1 — an A2A admission, a replayed snapshot — still enters
+        fabric's own L1 — a Peering admission, a replayed snapshot — still enters
         L3 *through L2*, never by a direct write. Policy is bound here, on the
         way in, exactly as it is for locally-assembled state.
         """
@@ -349,6 +387,112 @@ class AssemblyWorker:
             entities=entity_results,
             relationships=tuple(relationship_results),
         )
+
+    def ingest_admitted(
+        self,
+        admitted: AdmittedProduct,
+        *,
+        spec: FederatedIngestSpec,
+        ingested_at: datetime,
+    ) -> tuple[IngestResult, ...]:
+        """Run the federated write path for one **admitted** Peering product.
+
+        L2's second declared entry point (Dave, 2026-07-27), added so that the
+        admission commitment of CLAUDE.md §7.2 — *an inbound Context Product
+        is not admissible to L3 until the consuming Control Plane validates its
+        Policy bindings* — is carried by the type system rather than by caller
+        discipline. The parameter's type is
+        :class:`~ccf.peering.admission.AdmittedProduct`, which is constructible
+        only inside
+        :meth:`~ccf.peering.admission.PeeringAdmissionGate.admit`, so offering
+        an unadmitted :class:`~ccf.peering.protocol.InboundProduct` here does
+        not typecheck and does not run. That is what §10's "architectural, not
+        advisory" asks of this boundary.
+
+        L2 reaches the **category** here, not its first instance
+        (``D-IMPL-59``): the import is ``ccf.peering``, so a second Peering
+        transport needs no change to this method, and a Peering that tried to
+        conclude its own admission would have nothing to hand in (part 4).
+
+        :meth:`ingest` is deliberately left alone. It takes a
+        :class:`~ccf.signal.envelope.SignalEnvelope` and serves *every* L1
+        source — CDC capture and MCP ingress included — so binding
+        ``AdmittedProduct`` onto it would have broken two ingress paths to
+        constrain a third. The federated path gets its own door instead.
+
+        Admission is still not a write, and this method does not shorten the
+        path: it derives envelopes from the declared spec and drives them
+        through :meth:`ingest`, so the federated product meets the same entity
+        resolution, temporal stitching and policy binding as locally captured
+        signal. Nothing here reads the records — they are carried onto
+        ``raw_payload`` verbatim.
+
+        Args:
+            admitted: The gate's success value. Holding one is the evidence
+                that all six admission checks ran.
+            spec: The deployment's federation-ingest vocabulary.
+            ingested_at: When this fabric received the product. Supplied by the
+                caller for the same reason the gate takes ``now``: a write path
+                that read a clock would not replay.
+
+        Returns:
+            One :class:`IngestResult` per derived envelope, in payload order.
+
+        Raises:
+            TypeError: the payload member named by
+                ``spec.payload_records_key`` is absent, is not a sequence of
+                records, or holds a non-mapping record. Raised rather than
+                refused: an admitted product whose shape the deployment's own
+                spec cannot read is a misconfiguration on this side of the
+                boundary, not a badly behaved peer, and the two must not be
+                reported the same way.
+        """
+        product = admitted.product
+        records = product.payload.get(spec.payload_records_key)
+        if isinstance(records, (str, bytes)) or not isinstance(
+            records, Sequence
+        ):
+            raise TypeError(
+                f"admitted product {product.schema_name!r} carries no record"
+                f" sequence at payload key {spec.payload_records_key!r}; the"
+                " deployment's FederatedIngestSpec does not describe this"
+                " product's shape"
+            )
+        address = content_hash(product)
+        source = SourceIdentity(system_id=spec.source_system_id)
+        results: list[IngestResult] = []
+        for index, record in enumerate(records):
+            if not isinstance(record, Mapping):
+                raise TypeError(
+                    f"record {index} at payload key"
+                    f" {spec.payload_records_key!r} is"
+                    f" {type(record).__name__}, not a mapping; L1 carries"
+                    " source records opaquely and has nothing else to carry"
+                )
+            relabelled: dict[str, object] = {}
+            for key, value in record.items():
+                local = spec.record_key_aliases.get(key, key)
+                if local in relabelled:
+                    raise TypeError(
+                        f"record {index} maps two keys onto {local!r} under"
+                        " this deployment's record_key_aliases; a relabelling"
+                        " that collides would silently drop one of the peer's"
+                        " assertions"
+                    )
+                relabelled[local] = value
+            results.append(
+                self.ingest(
+                    SignalEnvelope(
+                        tenant_id=product.tenant_id,
+                        envelope_id=f"{address}/{index}",
+                        source=source,
+                        ingestion_timestamp=ingested_at,
+                        observed_time=product.temporal_boundary,
+                        raw_payload=relabelled,
+                    )
+                )
+            )
+        return tuple(results)
 
     def _relationship_rules(self) -> tuple[RelationshipResolutionRule, ...]:
         """Edge rules from the strategy, when it exposes a spec.

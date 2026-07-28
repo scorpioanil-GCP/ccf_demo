@@ -9,10 +9,16 @@ YAML and never here.
 Three disciplines are load-bearing:
 
 **Four types, one schema, from day one (D-IMPL-12; D-08).** An entry is a
-``local_callable``, ``tool``, ``mcp``, or ``a2a`` skill — MCP-resources-as-
+``local_callable``, ``tool``, ``mcp``, or ``peering`` skill — MCP-resources-as-
 skills is one type, not the unified mechanism. All four validate and register
 in this wave; *dispatch* for any of them is the next wave's scope (05-06),
 so every binding block here is a descriptor, never a transport.
+
+``mcp`` is a *sibling* of ``peering``, never a case of it: D-IMPL-59 part 3
+puts MCP outside Peering because an MCP read is asymmetric and originates
+lineage, whereas a Peering exchange is between fabrics that each hold a
+Control Plane and merges lineage across them — which is why the type list is
+four and not three.
 
 **Requirements are opaque identifiers (D-IMPL-29; 05-RESEARCH.md Pitfall 4).**
 The typed requirements declaration is mechanism — frozensets compared
@@ -46,9 +52,9 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "SKILL_CATALOG_ENTRY",
     "SKILL_TYPES",
-    "A2ABinding",
     "LocalCallableBinding",
     "McpBinding",
+    "PeeringBinding",
     "SkillCatalog",
     "SkillCatalogEntry",
     "SkillNotInCatalog",
@@ -60,7 +66,7 @@ __all__ = [
 #: The four D-IMPL-12 skill types. Mechanism identifiers, not domain values:
 #: each names a *kind of binding* the SDK can eventually dispatch, and an
 #: entry declaring anything else is malformed rather than merely unknown.
-SkillType = Literal["local_callable", "tool", "mcp", "a2a"]
+SkillType = Literal["local_callable", "tool", "mcp", "peering"]
 
 SKILL_TYPES: frozenset[str] = frozenset(get_args(SkillType))
 
@@ -76,13 +82,19 @@ class SkillNotInCatalog(LookupError):
 
 
 class LocalCallableBinding(CCFContract):
-    """A ``local_callable`` skill's descriptor: a dotted callable reference.
+    """A ``local_callable`` skill's descriptor: a registry key.
 
-    A *reference*, never an import: nothing resolves ``callable_ref`` in this
-    wave, and when dispatch lands (05-06) callables resolve only from entries
-    already registered as Control Plane artifacts under the tenant trust
-    boundary — the ref value lives in fixtures/user artifacts and is never
-    accepted from decision-time input (T-05-18).
+    A *reference*, never an import. ``callable_ref`` names a key in the
+    deployment's :class:`~ccf.skills.callables.CallableRegistry`, populated by
+    explicit registration at the composition root; dispatch resolves it there
+    and imports nothing, so an entry can only name a callable this deployment
+    already chose to offer, whatever artifact source the entry arrived from
+    (D-19; IN-06 — this replaces the I.2 T-05-18 precondition, which MCP and
+    Peering artifact sources invalidate).
+
+    The field's name and ``str`` type are unchanged by that ruling — only the
+    meaning of the string changed, from a dotted module path to a key — so no
+    artifact schema version breaks.
     """
 
     callable_ref: str
@@ -109,10 +121,15 @@ class McpBinding(CCFContract):
     resource: str
 
 
-class A2ABinding(CCFContract):
-    """An ``a2a`` skill's descriptor: the remote endpoint it names.
+class PeeringBinding(CCFContract):
+    """A ``peering`` skill's descriptor: the remote peer-endpoint it names.
 
-    A descriptor, not a transport: A2A admission verification (CLAUDE.md
+    The token names what class of counterparty the skill reaches — a peer
+    fabric holding its own Control Plane — never the transport that carries
+    it (D-IMPL-59 part 1). ``endpoint`` was always a *logical peer-endpoint
+    name* and never a URI, so the field was about a peer from the start.
+
+    A descriptor, not a transport: Peering admission verification (CLAUDE.md
     §7.2) applies when products actually cross the boundary, which no code
     in this wave does.
     """
@@ -128,7 +145,7 @@ _BINDING_CONTRACTS: dict[str, type[CCFContract]] = {
     "local_callable": LocalCallableBinding,
     "tool": ToolBinding,
     "mcp": McpBinding,
-    "a2a": A2ABinding,
+    "peering": PeeringBinding,
 }
 
 
@@ -170,7 +187,7 @@ class SkillCatalogEntry(CCFContract):
     name: str
     tenant: str
     skill_type: SkillType
-    binding: LocalCallableBinding | ToolBinding | McpBinding | A2ABinding
+    binding: LocalCallableBinding | ToolBinding | McpBinding | PeeringBinding
     requirements: SkillRequirements
 
     @field_validator("schema_version", "artifact_version")
