@@ -240,7 +240,7 @@ Plans:
   4. Single-writer invariant demonstrably holds across the A2A boundary, the adapter boundary, and the ArtifactStore
   5. **MCP-backed ArtifactStore reference implementation ships** and passes the same shared ArtifactStore Protocol conformance suite as the file-backed dev impl, with no other deployment change required to swap between them *(inherited from Phase 4 per the D-12 scope amendment recorded on Phase 4 criterion 4)*
 
-**Plans:** 17/17 executed + 8 gap-closure plans (06-18..06-25) from the §3.1 gate review, replanned under D-IMPL-58 and D-IMPL-59
+**Plans:** 20/25 plans executed
 
 **Criterion evidence** (all in `docs/PHASE_I3_GATE.md`, which carries a 20-row
 checklist naming, per row, its test *and* what would fail under breakage):
@@ -303,9 +303,9 @@ blocking, A1-A7 advisory — replanned under `D-IMPL-58` (AdmissionRecord) and `
 
 **Wave 8**
 
-- [ ] 06-18-PLAN.md — B1: federated attributability gate replaces the vacuous strict-equality invocation; contract stated at Peering level (D-IMPL-57 reading (a), D-IMPL-59)
-- [ ] 06-20-PLAN.md — B3: adversarial legs give the seam-3/seam-4 portability equalities observed failure modes *(unaffected by both rulings)*
-- [ ] 06-21-PLAN.md — A1 + A2: transport instance scan widened to every discovered transport; `AdmittedProduct` unforgeability claim scoped by test
+- [x] 06-18-PLAN.md — B1: federated attributability gate replaces the vacuous strict-equality invocation; contract stated at Peering level (D-IMPL-57 reading (a), D-IMPL-59)
+- [x] 06-20-PLAN.md — B3: adversarial legs give the seam-3/seam-4 portability equalities observed failure modes *(unaffected by both rulings)*
+- [x] 06-21-PLAN.md — A1 + A2: transport instance scan widened to every discovered transport; `AdmittedProduct` unforgeability claim scoped by test
 
 **Wave 9** *(blocked on 06-18)*
 
@@ -382,7 +382,7 @@ this needs serializing at merge; it is recorded here rather than claimed away.
 | 3. Phase F — Feasibility & Scoping | 4/4 | Complete   | 2026-07-25 |
 | 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
-| 6. Phase I.3 — Cross-Process & Harness Adapters | 16/17 | In Progress|  |
+| 6. Phase I.3 — Cross-Process & Harness Adapters | 20/25 | In Progress|  |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 0/? | Not started | - |
 | 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |
 

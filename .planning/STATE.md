@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-27T15:12:15.857Z"
+last_updated: "2026-07-28T00:07:01.727Z"
 progress:
   total_phases: 8
   completed_phases: 5
-  total_plans: 66
-  completed_plans: 49
+  total_plans: 74
+  completed_plans: 66
   percent: 63
 ---
 
@@ -27,7 +27,7 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 06 (phase-i-3-cross-process-harness-adapters) — EXECUTING
-Plan: 1 of 17
+Plan: 1 of 25
 
 - **Phase:** 6 of 8 (phase i.3 — cross process & harness adapters)
 - **Plan:** Not started — `06-CONTEXT.md` written, 18 decisions captured
