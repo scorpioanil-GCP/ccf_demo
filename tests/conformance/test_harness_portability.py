@@ -40,6 +40,39 @@ agent definition with a different grant set, and its governed field set is
 asserted **distinct** from the first agent's. Without it, a comparison that
 collapsed every record to a constant would pass the whole module.
 
+**What this module drives, and what it does not (finding B3).** Stated here
+because the wording above claimed more than the evidence carried, and 06-20
+raises the evidence where it can be raised rather than leaving the reader to
+work out the gap:
+
+* :func:`_drive` **calls the four seams directly** — ``inject_context``, then
+  ``capture_effect``, then ``replay_trace``. There is
+  **no harness reasoning loop** executed here, no tool-calling loop, and no
+  model reached (an autouse guard fails the run if a socket opens). What is
+  proven is that three adapters
+  translate *one* agent definition into their own harness-native carriers
+  equivalently, and report their own execution traces distinguishably. That is
+  the seam claim, and it is real.
+* Loop-level execution — one agent definition genuinely *running* under two
+  harnesses' own loops — is **example 03's obligation in Phase 8**
+  (``examples/03-harness-portability``, D-06). The stronger claim is handed on
+  rather than dropped.
+* Every equality this module asserts has an *observed* failure mode, added by
+  06-20 so that no assertion here is green for a reason unrelated to
+  portability. Seam 1's has teeth on its own: the product is recovered out of
+  each harness-native carrier, and an adapter that rewrote its delivered bytes
+  turns the comparison red. Seam 3's and seam 4's are supplied by
+  :class:`AdversarialAdapter`, a conforming wrapper that delegates every seam to
+  a real adapter and perturbs exactly one value crossing it.
+* **The limit of what that adversarial leg buys, plainly:** all three shipped
+  adapters' ``capture_effect`` remain delegations to
+  :meth:`~ccf.agents.agent.Agent.emit_effect`, so the honest three-leg emission
+  equality still cannot fail. The adversarial leg proves the assertion is
+  sensitive to perturbation, not that the three adapters are independent
+  implementations. Read the honest emission equality as "the fabric, not the
+  harness, decides what an effect is" — which is the governed-emission claim CCF
+  actually wants — and not as three independent implementations agreeing.
+
 The polished ``examples/03-harness-portability`` directory with its README is
 Phase 8 scope (D-06). This is the I.3 precursor, and it ships as conformance
 rather than as an example so the claim is in CI from the wave it was made.
@@ -56,6 +89,7 @@ from __future__ import annotations
 
 import json
 import socket
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -65,11 +99,19 @@ from ccf.agents.agent import Agent, EmittedEffect
 from ccf.agents.definitions import AgentDefinition
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
+from ccf.harness.protocol import (
+    EffectCapability,
+    EffectRefusal,
+    HarnessAdapterProtocol,
+    HarnessCapabilities,
+)
 from ccf.products.contract import ContextProductContract
 from ccf.projection.plan import Perspective
 from ccf.replay.record import (
     NO_HARNESS,
+    NO_HARNESS_TRACE,
     DecisionReplayRecord,
+    HarnessTrace,
     ModelVersionRecord,
     PolicyBinding,
     build_replay_record,
@@ -81,9 +123,11 @@ from conformance.test_harness_adapter import (
     HARNESS_PARAMS,
     HarnessLeg,
     World,
+    _agent_fixture,
     _carrier_strings,
     _execution,
     _grants_fixture,
+    _harness_fixture,
     _product,
     build_harness_leg,
 )
@@ -210,6 +254,166 @@ def _delivered_products(carrier: object) -> tuple[bytes, ...]:
             if isinstance(document, dict) and "schema_name" in document:
                 found.append(text[index:end].encode("utf-8"))
     return tuple(dict.fromkeys(found))
+
+
+# --- the adversarial leg: a failure mode for the axes that had none -----------
+
+
+class AdversarialAdapter:
+    """A conforming adapter that delegates every seam and corrupts exactly one value.
+
+    Added by 06-20 to close finding B3's evidence half. Two of this module's
+    equalities were green for a reason unrelated to portability: seam 3 because
+    all three shipped adapters delegate ``capture_effect`` to
+    :meth:`~ccf.agents.agent.Agent.emit_effect`, and seam 4's per-harness
+    difference because nothing perturbed a reported trace. An assertion that
+    cannot fail is not evidence, so this supplies the failure.
+
+    It is a **wrapper, not a fork**: every seam delegates to a real adapter
+    obtained from a real :class:`HarnessLeg`, and the perturbation is applied to
+    the value crossing the seam. No shipped adapter code is edited, and the
+    corrupted value is observed by the same :func:`_drive` the honest legs go
+    through — which is the point, because a bespoke assertion written beside this
+    class would prove something about the assertion rather than about ``_drive``.
+
+    It satisfies :class:`~ccf.harness.protocol.HarnessAdapterProtocol`
+    structurally rather than shadowing it; the conformance suite's own
+    ``isinstance`` check is asserted below on an instance of this class, so a
+    wrapper that had drifted off the Protocol could not quietly pass as one.
+
+    Exactly one perturbation is applied per instance, by construction of the
+    tests that build it: a wrapper corrupting two seams at once would leave which
+    assertion actually fired ambiguous.
+    """
+
+    def __init__(
+        self,
+        inner: HarnessAdapterProtocol,
+        *,
+        payload_extra: Mapping[str, Any] | None = None,
+        trace_update: Mapping[str, Any] | None = None,
+        drop_trace: bool = False,
+    ) -> None:
+        self._inner = inner
+        self._payload_extra: Mapping[str, Any] = dict(payload_extra or {})
+        self._trace_update: Mapping[str, Any] = dict(trace_update or {})
+        self._drop_trace = drop_trace
+
+    def capabilities(self) -> HarnessCapabilities:
+        """Delegated verbatim — the wrapper impersonates the harness it wraps."""
+        return self._inner.capabilities()
+
+    def inject_context(
+        self,
+        *,
+        agent: Agent,
+        products: tuple[ContextProductContract, ...],
+        instructions: tuple[str, ...],
+    ) -> object:
+        """Seam 1, untouched: the consumption axis already has teeth (B3)."""
+        return self._inner.inject_context(
+            agent=agent, products=products, instructions=instructions
+        )
+
+    def expose_skills(self, *, agent: Agent) -> tuple[str, ...]:
+        return self._inner.expose_skills(agent=agent)
+
+    def capture_effect(
+        self, *, agent: Agent, output: Mapping[str, Any]
+    ) -> EmittedEffect | EffectRefusal:
+        """Seam 3, with the payload perturbed on the way into the real adapter.
+
+        The perturbation is on the *input* to the governed emission rather than
+        on its result, which is what makes this a model of a misbehaving harness
+        binding instead of a tampered record: the real ``emit_effect`` runs, and
+        the effect it produces is honestly derived from the corrupted output.
+        """
+        return self._inner.capture_effect(
+            agent=agent, output={**dict(output), **dict(self._payload_extra)}
+        )
+
+    def replay_trace(self, *, execution: object) -> HarnessTrace:
+        """Seam 4, reporting either a perturbed block or a dropped one.
+
+        ``drop_trace`` returns the :data:`~ccf.replay.record.NO_HARNESS_TRACE`
+        sentinel — a harness that ran and reported nothing, which by value is
+        indistinguishable from an honest no-harness decision. That
+        indistinguishability is the threat (T-06-88), and it is why the trace
+        assertion below asserts liveness rather than reading absence.
+        """
+        trace = self._inner.replay_trace(execution=execution)
+        if self._drop_trace:
+            return NO_HARNESS_TRACE
+        if self._trace_update:
+            return trace.model_copy(update=dict(self._trace_update))
+        return trace
+
+
+def _adversarial_leg(
+    leg: HarnessLeg,
+    *,
+    payload_extra: Mapping[str, Any] | None = None,
+    trace_update: Mapping[str, Any] | None = None,
+    drop_trace: bool = False,
+) -> HarnessLeg:
+    """A real leg with its adapter factory wrapped in :class:`AdversarialAdapter`.
+
+    Everything else on the leg — the execution builder, the reported values, the
+    refusal driver — is the real leg's, so the adversarial run differs from the
+    honest one in the perturbation and nothing else.
+    """
+
+    def adapter(capability: EffectCapability) -> HarnessAdapterProtocol:
+        return AdversarialAdapter(
+            leg.adapter(capability),
+            payload_extra=payload_extra,
+            trace_update=trace_update,
+            drop_trace=drop_trace,
+        )
+
+    return leg._replace(adapter=adapter)
+
+
+def _corrupt_payload() -> Mapping[str, Any]:
+    """The seam-3 perturbation, drawn from the banking fixtures (CINV-01).
+
+    The granted skill's own argument mapping, merged into the emitted payload.
+    A value authored here would be a domain value in test code; this is the
+    fixtures' own vocabulary used somewhere it does not belong, which is exactly
+    the shape of the corruption being modelled.
+
+    Asserted disjoint from the payload's keys, because a "perturbation" that
+    merged a mapping the payload already carried would be an identity and the
+    inversion built on it would pass by accident.
+    """
+    arguments = dict(_agent_fixture()["slice"]["granted_skill"]["arguments"])
+    payload = dict(_agent_fixture()["slice"]["effect_payload"])
+    assert arguments, "the fixture supplies no perturbation material"
+    assert not set(arguments) & set(payload), (
+        "the seam-3 perturbation overlaps the payload it perturbs, so merging it"
+        " may be an identity — the inversion below would then pass vacuously"
+    )
+    return arguments
+
+
+def test_the_adversarial_leg_is_a_conforming_adapter_not_a_double(
+    legs: tuple[HarnessLeg, ...],
+) -> None:
+    """The perturbation is observed through the Protocol, not around it.
+
+    A wrapper that had drifted off :class:`HarnessAdapterProtocol` would still
+    make the inversions below fail — for the wrong reason. This pins that the
+    corrupted value crosses the same declared surface the honest legs cross, and
+    that the wrapper reports the wrapped harness's own declared capabilities
+    rather than a claim of its own.
+    """
+    inner = legs[0].adapter("governed")
+    wrapped = _adversarial_leg(legs[0], payload_extra=_corrupt_payload()).adapter(
+        "governed"
+    )
+    assert isinstance(wrapped, AdversarialAdapter)
+    assert isinstance(wrapped, HarnessAdapterProtocol)
+    assert wrapped.capabilities() == inner.capabilities()
 
 
 @dataclass(frozen=True)
@@ -414,12 +618,73 @@ def test_the_consumed_product_is_byte_identical_across_the_three_harnesses(
     assert set(delivered.values()) == {canonical_bytes(product)}
 
 
+def _assert_one_governed_emission(runs: tuple[Run, ...]) -> None:
+    """Seam 3's cross-leg equality, in exactly one place so it can be inverted.
+
+    Factored out by 06-20 (finding B3) rather than left inline: the adversarial
+    case below has to fail *this* assertion, and an inversion that re-spelled the
+    comparison beside the wrapper would prove something about the re-spelling.
+
+    Addresses are collected as a tuple rather than keyed by harness id, because
+    an adversarial leg wraps a real adapter and therefore reports that adapter's
+    ``harness_id`` — keying would collapse the very pair being compared.
+    """
+    addresses = tuple(run.emission_address for run in runs)
+    assert len(set(addresses)) == 1, (
+        "the legs produced different governed emissions:"
+        f" { {run.harness_id: run.emission_address for run in runs} }"
+    )
+
+
 def test_the_governed_emission_is_identical_across_the_three_harnesses(
     legs: tuple[HarnessLeg, ...], world: World
 ) -> None:
     """Seam 3's typed value is the agent's, so three harnesses produce one effect."""
-    runs = _drive_all(legs, world, second_agent=False)
-    assert len({run.emission_address for run in runs}) == 1
+    _assert_one_governed_emission(_drive_all(legs, world, second_agent=False))
+
+
+def test_a_leg_that_corrupted_the_governed_emission_turns_the_equality_red(
+    legs: tuple[HarnessLeg, ...], world: World
+) -> None:
+    """B3's evidence half for seam 3: the equality has an observed failure mode.
+
+    The assertion above is structurally guaranteed over the three *shipped*
+    adapters — all three delegate ``capture_effect`` to
+    :meth:`~ccf.agents.agent.Agent.emit_effect`, so feeding one payload three
+    times must hash-equal. That makes it green for a reason unrelated to
+    portability, and B3 is right that a green assertion which cannot fail is not
+    evidence. This is the failure mode: a fourth leg that delegates every seam to
+    a real adapter and perturbs only the value handed through seam 3.
+
+    Driven through :func:`_drive` like every other leg, so the corruption is
+    observed by the same code path the honest legs use rather than by a bespoke
+    assertion written beside the wrapper.
+    """
+    adversarial = _adversarial_leg(legs[0], payload_extra=_corrupt_payload())
+    runs = _drive_all((*legs, adversarial), world, second_agent=False)
+
+    with pytest.raises(AssertionError, match="different governed emissions"):
+        _assert_one_governed_emission(runs)
+
+    # The perturbed leg is the *only* reason it failed: the honest three still agree.
+    honest = runs[: len(legs)]
+    _assert_one_governed_emission(honest)
+    assert runs[-1].emission_address not in {run.emission_address for run in honest}
+
+
+def test_the_adversarial_leg_is_inert_when_its_perturbation_is_removed(
+    legs: tuple[HarnessLeg, ...], world: World
+) -> None:
+    """The inversion's inversion: a pure delegate must leave the suite green.
+
+    Without this, the case above would pass equally well against a wrapper that
+    broke the run for some reason other than the perturbation — a leg that failed
+    to inject context, or one whose delegation dropped the agent. The same
+    wrapper, the same four-leg drive, the perturbation withheld.
+    """
+    _assert_one_governed_emission(
+        _drive_all((*legs, _adversarial_leg(legs[0])), world, second_agent=False)
+    )
 
 
 # --- D-18: governed equality, harness-attributable isolation ------------------
@@ -464,6 +729,72 @@ def test_the_governed_field_set_is_exhaustive_over_the_record(
     }
 
 
+def _assert_the_trace_is_the_harness_own(leg: HarnessLeg, run: Run) -> None:
+    """The recorded harness block is the one *this* harness reported.
+
+    Factored out and strengthened by 06-20 (finding B3). The pre-existing
+    assertion checked that the block was non-sentinel and per-harness distinct,
+    which a harness reporting a plausible block belonging to some other
+    deployment would satisfy. So the values are compared against the leg's **own**
+    declared ``reported_model`` and ``trace_id`` — the fixtures' statement of what
+    that harness reports, which is what
+    ``test_harness_adapter.py::test_seam_4_records_what_the_harness_reported``
+    already compares at the single-leg bar. Sharing that bar here is what gives
+    the axis a failure mode a wrapper can trip.
+
+    Liveness rather than absence-reading is deliberate (T-06-88): a dropped block
+    equals :data:`~ccf.replay.record.NO_HARNESS_TRACE`, which is also what an
+    honest no-harness decision carries, so the sentinel can never distinguish the
+    two. Only "this harness ran, so it must name itself" can.
+    """
+    trace = run.record.model_version.harness_trace
+    assert trace != NO_HARNESS_TRACE, (
+        f"{leg.harness_id} reported no harness block at all, which is byte-identical"
+        " to an honest fabric-direct decision — a dropped trace and an absent one"
+        " must not be the same artifact (T-06-88, T-06-63)"
+    )
+    assert trace.harness_id == leg.harness_id != NO_HARNESS
+    assert leg.reported_model in trace.model_version, (
+        f"{leg.harness_id}'s recorded harness block does not carry the model its"
+        f" harness reported ({leg.reported_model!r} not in"
+        f" {trace.model_version!r}) — dimension 3's harness half is then a claim"
+        " no run made (T-06-87)"
+    )
+    assert trace.trace_id == leg.trace_id != NO_HARNESS
+    assert trace.input_tokens > 0 and trace.output_tokens > 0
+
+
+def _foreign_trace_values(leg: HarnessLeg) -> Mapping[str, Any]:
+    """The seam-4 perturbation: another deployment's reported values (CINV-01).
+
+    Drawn from the same ``harnesses.yaml`` block set the honest legs read, but
+    from a *different* harness's block — the most realistic corruption available,
+    because every value is one some harness genuinely does report, so the block
+    stays structurally plausible and only its attribution is wrong. A literal
+    authored here would be a deployment value in test code (§6.4) and, worse, an
+    obviously-invalid one that a weaker assertion could reject for the wrong
+    reason.
+
+    Asserted to actually differ from the leg's own reported model, so the
+    perturbation cannot be an identity.
+    """
+    for param in HARNESS_PARAMS:
+        values = _harness_fixture()[param]
+        if values["reported_model"] != leg.reported_model:
+            foreign = {
+                "model_version": values["reported_model"],
+                "input_tokens": values["input_tokens"],
+                "output_tokens": values["output_tokens"],
+            }
+            assert foreign["model_version"] != leg.reported_model
+            return foreign
+    raise AssertionError(
+        "every harness fixture block reports the same model, so no foreign trace"
+        " value exists to perturb with — the fixtures deliberately differ per"
+        " harness and this suite depends on it"
+    )
+
+
 def test_the_harness_trace_is_isolated_and_differs_per_harness(
     legs: tuple[HarnessLeg, ...], world: World
 ) -> None:
@@ -477,12 +808,9 @@ def test_the_harness_trace_is_isolated_and_differs_per_harness(
     traces = {run.harness_id: run.record.model_version.harness_trace for run in runs}
     assert len(traces) == 3
 
-    for harness_id, trace in traces.items():
-        assert trace.harness_id == harness_id
-        assert trace.harness_id != NO_HARNESS
-        assert trace.model_version != NO_HARNESS
-        assert trace.trace_id != NO_HARNESS
-        assert trace.input_tokens > 0 and trace.output_tokens > 0
+    for leg, run in zip(legs, runs, strict=True):
+        assert run.harness_id == leg.harness_id
+        _assert_the_trace_is_the_harness_own(leg, run)
 
     assert len({canonical_bytes(trace) for trace in traces.values()}) == 3
     assert HARNESS_ATTRIBUTABLE not in _governed_fields(runs[0].record)
@@ -490,6 +818,66 @@ def test_the_harness_trace_is_isolated_and_differs_per_harness(
         f"model_version.{HARNESS_ATTRIBUTABLE}" not in _governed_fields(run.record)
         for run in runs
     )
+
+
+def test_a_leg_that_corrupted_its_reported_trace_is_detected(
+    legs: tuple[HarnessLeg, ...], world: World
+) -> None:
+    """B3's evidence half for seam 4: the trace axis has a failure mode too.
+
+    Both halves of D-IMPL-55's split are asserted at once, which is the only way
+    the split is shown to be doing work: the governed comparison **still passes**
+    over the corrupted leg, because harness-attributable values are excluded by
+    name and a corrupt harness therefore cannot reach a field CCF governs
+    (T-06-89); and the trace assertion **fails**, because the block it reports is
+    not the block its harness reported (T-06-87).
+
+    A corruption that had also moved a governed field would prove the opposite of
+    what this module claims, so the first assertion is as load-bearing as the
+    second.
+    """
+    leg = legs[0]
+    adversarial = _adversarial_leg(leg, trace_update=_foreign_trace_values(leg))
+    runs = _drive_all((*legs, adversarial), world, second_agent=False)
+    honest, corrupted = runs[0], runs[-1]
+
+    # The corruption stayed inside the harness block.
+    assert _governed_fields(corrupted.record) == _governed_fields(honest.record)
+
+    # And the harness block itself gives it away.
+    _assert_the_trace_is_the_harness_own(leg, honest)
+    with pytest.raises(AssertionError, match="the model its harness reported"):
+        _assert_the_trace_is_the_harness_own(leg, corrupted)
+    assert canonical_bytes(
+        corrupted.record.model_version.harness_trace
+    ) != canonical_bytes(honest.record.model_version.harness_trace)
+
+
+def test_a_dropped_harness_trace_is_caught_by_liveness_not_by_absence(
+    legs: tuple[HarnessLeg, ...], world: World
+) -> None:
+    """T-06-88: a harness that ran and reported nothing must not read as honest.
+
+    The sentinel case, asserted rather than assumed. A dropped trace is **by
+    value** exactly :data:`~ccf.replay.record.NO_HARNESS_TRACE` — the same block a
+    fabric-direct decision carries — so no comparison against the sentinel can
+    tell a repudiating harness from an honest no-harness run. That is why the
+    assertion is *liveness*: this harness ran, so its block must name it.
+
+    Asserted in both directions, because the sentinel equality on its own would
+    look identical under a suite that had stopped checking liveness at all.
+    """
+    leg = legs[0]
+    runs = _drive_all((*legs, _adversarial_leg(leg, drop_trace=True)), world, second_agent=False)
+    dropped = runs[-1].record.model_version.harness_trace
+
+    assert dropped == NO_HARNESS_TRACE
+    assert dropped.harness_id == NO_HARNESS
+    assert dropped.input_tokens == dropped.output_tokens == 0
+
+    _assert_the_trace_is_the_harness_own(leg, runs[0])
+    with pytest.raises(AssertionError, match="reported no harness block"):
+        _assert_the_trace_is_the_harness_own(leg, runs[-1])
 
 
 def test_a_live_record_still_carries_exactly_five_dimensions(
