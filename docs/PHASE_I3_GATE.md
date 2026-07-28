@@ -211,7 +211,7 @@ and what would fail under a broken implementation.
 
 | # | Claim, at the strength it is enforced | Named mechanism | What would fail if broken |
 |---|----------------------------------------|-----------------|---------------------------|
-| 1 | **Harness neutrality — lint-enforced: no module outside `ccf_runtime.adapters.*` may import a harness package.** A structural module-path carve-out (D-24), never an allowlist | Lint rule `cinv02-harness` (`tools/lints/harness_imports.py`) via `python -m tools.lints --all`; the four negative boundary tests pinning the carve-out's edge are in **`tools/lints/tests/test_harness_imports.py`** — `::test_a_harness_import_inside_the_adapter_path_is_permitted`, `::test_a_harness_import_in_the_a2a_module_is_still_flagged` (which feeds `ccf_runtime.peering.lf_a2a`; only the test's *name* still says a2a), `::test_a_harness_import_in_the_cdc_module_is_still_flagged`, `::test_a_harness_import_in_a_lookalike_sibling_module_is_still_flagged`. *(Corrected citation — **closes A4**: this row previously cited `tests/lints/`, which exists but holds unrelated tests, `test_cinv01c_behavioral.py` and `test_extra_isolation.py`.)* Verified by running them: `pytest tools/lints/tests -q` → 49 passed | A harness import in `ccf.*`, `ccf_runtime.peering`, `ccf_runtime.cdc`, or `ccf_runtime.mcp` fires the lint. The negative tests are what stop the carve-out degrading into an unguarded prefix match — without them, a rename into `ccf_runtime.adapters_helper` would pass |
+| 1 | **Harness neutrality — lint-enforced: no module outside `ccf_runtime.adapters.*` may import a harness package.** A structural module-path carve-out (D-24), never an allowlist | Lint rule `cinv02-harness` (`tools/lints/harness_imports.py`) via `python -m tools.lints --all`; the four negative boundary tests pinning the carve-out's edge are in **`tools/lints/tests/test_harness_imports.py`** — `::test_a_harness_import_inside_the_adapter_path_is_permitted`, `::test_a_harness_import_in_the_a2a_module_is_still_flagged` (which feeds `ccf_runtime.peering.lf_a2a` — and whose name is **correct**, not a lagging label: see §3.2.1), `::test_a_harness_import_in_the_cdc_module_is_still_flagged`, `::test_a_harness_import_in_a_lookalike_sibling_module_is_still_flagged`. *(Corrected citation — **closes A4**: this row previously cited `tests/lints/`, which exists but holds unrelated tests, `test_cinv01c_behavioral.py` and `test_extra_isolation.py`.)* Verified by running them: `pytest tools/lints/tests -q` → 49 passed | A harness import in `ccf.*`, `ccf_runtime.peering`, `ccf_runtime.cdc`, or `ccf_runtime.mcp` fires the lint. The negative tests are what stop the carve-out degrading into an unguarded prefix match — without them, a rename into `ccf_runtime.adapters_helper` would pass |
 | 2 | **Zero harness imports in `/src`** — the same rule at its narrowest, corroborated textually | `cinv02-harness` over `/src`; §1.2 grep | As row 1. The grep alone would be satisfied by a docstring and is cited as corroboration only |
 | 3 | **Single-writer across the Peering boundary — asserted by AST and attribute scans over the shipped modules, plus live state comparison.** Not "no path". **Every transport `ccf_runtime.peering` ships is constructed and attribute-scanned, the D-IMPL-14 default `LfA2AWire` included** *(claim **strengthened** by new coverage — **closes A1**; the scan previously constructed `TypedHttpWire` only, so the default transport carried the source-scan half alone)* | `tests/invariants/test_peering_single_writer.py` — import scan, identifier scan, and constructed-instance attribute scan over every discovered `ccf_runtime.peering` module. The transport *class* set is discovered **structurally** (`PeeringProtocol`-shaped: defined in a discovered module, offering both `emit` and `receive`) and `TRANSPORT_BUILDERS` is keyed by class rather than by name, so a third transport joins by being discovered and a rename cannot silently drop a leg. Legs observed: `[TypedHttpWire]`, `[LfA2AWire]`. Plus the live two-process case and the refused-product digest | A transport importing `ccf.graph`/`ccf.assembly`, naming a write-surface type, or holding one under a private attribute. Two count guards fail first: `test_transport_modules_were_actually_discovered` if the discovery helper silently returns nothing — the quietest way an invariant test stops being one — and **`test_every_discovered_transport_is_actually_constructed`** if construction coverage falls behind discovery, which is precisely how A1 happened. 06-21 measured the second guard's failure: `2 transport(s) are constructed but 1 were discovered`, naming both counts and both name-lists |
 | 4 | **Single-writer across the adapter boundary** — same three-way scan, same scope statement | `tests/invariants/test_adapter_single_writer.py::test_no_adapter_module_names_a_fabric_write_surface`, `::test_no_constructed_adapter_holds_a_fabric_write_surface`, `::test_no_adapter_constructor_accepts_a_fabric_object`, `::test_no_adapter_instance_exposes_a_fabric_object`, `::test_an_effect_reaches_l3_only_through_emit_effect_into_l2` | An adapter accepting or exposing a fabric object, or an effect reaching L3 by any route other than `emit_effect` → L2 |
@@ -235,6 +235,37 @@ and what would fail under a broken implementation.
 
 **Every row names an existing, passing `file::function` or lint rule id, and every row states
 its failure mode.** The D-17 bar is met.
+
+### 2.1 Row-by-row re-verification, executed in 06-23
+
+The rows above were not re-read — they were **re-run**. Every module any row names was
+executed in this plan, under `PYTHONPATH=src:runtime` with the harness legs mandatory, and
+every citation was resolved mechanically (§4.13). Two batches, both exit 0:
+
+| Batch | Command | Rows covered | Result |
+|-------|---------|--------------|--------|
+| Lints, single-writer, Peering, callables | `CCF_REQUIRE_HARNESSES=1 pytest -q tools/lints/tests tests/invariants/test_peering_single_writer.py tests/invariants/test_adapter_single_writer.py tests/invariants/test_mcp_role_separation.py tests/crossproc/test_peering_exchange.py tests/peering/ tests/skills/test_callables.py` | 1–8, 13–15, and §3.2's verdict row | **202 passed** |
+| Conformance, gates, lineage, cross-process, agent slice, acquisition | `CCF_REQUIRE_HARNESSES=1 pytest -q tests/conformance tests/gates/test_federated_gates.py tests/properties/test_lineage_union.py tests/crossproc tests/integration/test_agent_slice.py tests/projection/test_acquisition.py` | 9–12, 14, 16–21, and all of §3.1/§3.3 | **271 passed** |
+
+Plus the four whole-tree legs in §1 (full suite twice, `tools.lints --all`, `mypy`) and the
+five retired-form greps in §1.2. Rows 2, 8, 16 and 17 are lint- or grep-carried and were
+covered by `tools.lints --all` (exit 0, zero findings) and by the §1.2 re-runs.
+
+**On the "what would fail under breakage" column.** The rows the gap-closure wave touched
+each cite a *measured* counterfactual, not reasoning — 06-18 measured 3 of 6 attributability
+tests failing with the old wiring restored; 06-20 measured `DID NOT RAISE AssertionError` when
+the adversarial wrapper is reduced to a pure delegate; 06-21 measured
+`2 transport(s) are constructed but 1 were discovered` from the second count guard; 06-24
+measured `DID NOT RAISE` with the verdict token comparison neutered to `if False:`. Those four
+measurements are what rows 3, 6, 21 and §3.2's part-4 row rest on. **No row was found whose
+breakage column is reasoning rather than an observed failure**, which is the I.2 process defect
+this section exists to catch a recurrence of.
+
+**No row was added in this plan.** The rows the wave earned were already written by 06-22 —
+row 21 (B1, the attributability gate), row 14 as rewritten (B2, the persisted
+`AdmissionRecord`), row 3 as strengthened (A1, the instance scan and its count guard), row 6 as
+scoped (A2), §3.2's part-4 row (D-IMPL-59), and §3.3's adversarial legs (B3). 06-23's job is to
+establish that they are true of the tree as it now stands, and they are.
 
 ---
 
@@ -312,16 +343,23 @@ reviewer reads should be the vocabulary the code uses.
   `ingest_admitted`, `union_lineage`, `InboundProduct` and `PeerRef` were **already
   transport-neutral**; only their docstrings said A2A. Nothing under `src/ccf/mcp*` or
   `ccf_runtime/mcp/` was touched, which is part 3 stated as a diff check.
-- **One residual, named rather than left to be discovered:** the CINV-02 boundary test
+- **The one item 06-22 carried as a residual is withdrawn — it was not one** *(06-23)*. 06-22
+  flagged the CINV-02 boundary test
   `tools/lints/tests/test_harness_imports.py::test_a_harness_import_in_the_a2a_module_is_still_flagged`
-  still carries `a2a` in its *function name* while the module it feeds is
-  `ccf_runtime.peering.lf_a2a`. The assertion is correct; only the label lags.
+  as a lagging label, on the reading that `a2a` in the function name was left over from the
+  retired `ccf_runtime.a2a` package. Read against the code, it is not: the module the test
+  feeds is `runtime/ccf_runtime/peering/lf_a2a.py`, and **"the a2a module" names `lf_a2a`
+  accurately.** Renaming it to "the peering module" would be a *regression* in precision —
+  there are two transports under `ccf_runtime.peering`, and this test is specifically about the
+  A2A one, which is why a sibling test covers the lookalike case. This is the bullet directly
+  above, applied to a test name: a transport is correctly named for the wire it speaks. **No
+  rename was made, and none is outstanding.**
 
 ### 3.3 XPRC-03 — harness adapters
 
 | Element | Evidence | What would fail |
 |---------|----------|-----------------|
-| `HarnessAdapterProtocol` + three reference adapters (D-IMPL-24) | `src/ccf/harness/protocol.py`; `runtime/ccf_runtime/adapters/{claude_agent,langgraph,adk}/`; `tests/conformance/test_harness_adapter.py` parametrized over all three (188 passing) | Rows 9–12 |
+| `HarnessAdapterProtocol` + three reference adapters (D-IMPL-24) | `src/ccf/harness/protocol.py`; `runtime/ccf_runtime/adapters/{claude_agent,langgraph,adk}/`; `tests/conformance/test_harness_adapter.py` parametrized over all three (**193 passing** in the post-closure sweep, §1; 188 pre-closure) | Rows 9–12 |
 | All four seams bound | Row 10 | Row 10 |
 | Zero harness imports in core | Rows 1–2 | Rows 1–2 |
 | **Seam-level portability demonstrated at four seams; loop-level portability outstanding** *(narrowed — **closes B3**; see §3.3.1)* | `tests/conformance/test_harness_portability.py::test_the_consumed_product_is_byte_identical_across_the_three_harnesses`, `::test_the_governed_replay_fields_are_exactly_equal_across_harnesses`, `::test_the_agent_definition_names_no_harness`, `::test_two_agents_each_equal_across_harnesses_and_distinct_from_each_other`, plus the four adversarial cases 06-20 added (`::test_a_leg_that_corrupted_the_governed_emission_turns_the_equality_red`, `::test_a_leg_that_corrupted_its_reported_trace_is_detected`, `::test_a_dropped_harness_trace_is_caught_by_liveness_not_by_absence`, and the conforming-adapter pin) | An agent definition naming a harness; or a "portability" proof that compared nothing, which the exhaustiveness and two-agent tests are there to prevent. **The "compared nothing" hazard is now fully closed on all three compared axes, not on the consumption axis alone:** every equality the module asserts has a demonstrated failure mode, driven through the same `_drive` the honest legs use. 06-20 measured the counterfactual — reducing the adversarial wrapper to a pure delegate produces `DID NOT RAISE AssertionError` |
@@ -547,6 +585,21 @@ edits:
 | Backticked `tests/`, `tools/`, `src/`, `runtime/` paths extracted and `test -e`d | **47 checked, 0 genuinely missing.** Four were flagged and all four adjudicated: three (`runtime/adapters/`, `runtime/mcp/`, `runtime/peering/`) are extraction artifacts of `ccf_runtime/adapters/`, `ccf_runtime/mcp/`, `ccf_runtime/peering/`, all of which exist; one — `examples/03-harness-portability` — **deliberately does not exist**, being the Phase 8 forward reference §3.3.1 hands the loop-level portability obligation to |
 | Every cited `file::function` resolved to a `def` in the named module | **63 checked, 0 missing** |
 
+**Re-run in 06-23 against the document as it now stands** — the sweep is only worth having if it
+runs after the last edit, not once:
+
+| Sweep | Result |
+|-------|--------|
+| Backticked paths `test -e`d | **56 checked, 0 genuinely missing.** Ten flagged, all ten adjudicated in three classes: **extraction artifacts** (`runtime/adapters/`, `runtime/mcp/`, `runtime/mcp/egress.py`, `runtime/mcp/artifact_server.py`, `runtime/peering/` — every one present under `ccf_runtime/`, verified by `ls`); **globs, not paths** (`src/ccf/mcp*` → `src/ccf/mcp` exists; `tests/fixtures/banking/*.yaml` → 9 files); and one **deliberate forward reference**, `examples/03-harness-portability`, which §3.3.1 hands the loop-level obligation to |
+| Every cited `file::function` resolved to a `def` in the named module | **66 checked, 0 unresolved.** Six flagged and all six were *extractor* faults, not document faults: two (`::function`) are the prose phrase "`file::function`" itself, and four were mis-attributed by the extractor carrying the previous backticked path forward. Resolved by `grep -rn "def <name>"`: `::test_the_federated_sequence_takes_no_engine_resolved_witness` is `tests/gates/test_federated_gates.py:256` and `::test_no_discovered_transport_names_the_verdict` is `tests/peering/test_peering_verdict.py:174` — the modules this document actually names |
+
+> **Why the counts rose over 06-22's 47/63.** Writing the adjudication *re-flags the items it
+> adjudicates*: naming `runtime/mcp/egress.py` in a cell explaining that it is an extraction
+> artifact adds an occurrence for the next sweep to flag. The sweep is therefore reported with
+> its flagged set fully enumerated rather than as a bare count, so a reader can confirm the
+> classes rather than trust the arithmetic. **Zero genuinely unresolved** is the invariant; the
+> totals are not comparable across runs.
+
 A row citing a name that does not exist is the same defect class as a row claiming a property
 that does not hold, and this phase has now recorded three instances of it (§1.1). The sweep is
 cheap and is the reason a fourth is not sitting in this document unnoticed.
@@ -619,16 +672,37 @@ cheap and is the reason a fourth is not sitting in this document unnoticed.
 
 ## 6. What Dave Is Asked To Decide
 
-1. Read §1 (what ran, in what environment, and the two evidence-integrity findings), §2 (the
-   checklist — for any row that reads as a claim rather than as evidence, run the command it
-   names and ask what would fail if the implementation were broken), §3 (requirements and the
-   five criteria, including criterion 1's named Experience-layer deferral), §4 (discretionary
-   calls, the D-21 sweep, and `D-IMPL-56`, §4.12), §5 (the I.4 handoff, D-20 first).
-2. Optionally re-run, **from the repository root with the project interpreter**:
+**This is the second presentation.** The first carried three blocking findings. This one
+carries their closures, both mid-wave rulings implemented, evidence strengthened where it
+could be, claims narrowed where it could not, and a disposition for every advisory.
+
+1. Read `06-REVIEWS.md`'s **10-row disposition table** — one row per finding, three blocking
+   all closed in-phase, seven advisory of which four are closed and **three carried with a
+   named consequence each**.
+2. Read §1 (what ran, in what environment, the **three** evidence-integrity findings, and
+   §1.6's plan-by-plan wave record), §2 (the checklist — for any row that reads as a claim
+   rather than as evidence, run the command it names and ask what would fail if the
+   implementation were broken; §2.1 records that every row's module was re-run in 06-23), §3
+   (requirements and the five criteria, with the B1 and B3 narrowings marked inline at §3.2.1
+   and §3.3.1, and criterion 1's named Experience-layer deferral), §4 (discretionary calls, the
+   D-21 sweep, `D-IMPL-56` at §4.12, and the citation sweep at §4.13), §5 (the I.4 handoff —
+   D-20 first, and **A3 and A7 as prerequisites, not notes**).
+3. Read `docs/DECISIONS.md` § **D-IMPL-57**, § **D-IMPL-58** and § **D-IMPL-59** and confirm
+   the code matches the rulings. The three narrowings those rulings forced are rows 21 and 14
+   and §3.2.1 respectively.
+4. **Note what is *not* claimed.** §7.3's "one agent definition running unmodified under at
+   least two harnesses" is **outstanding** — I.3 demonstrates seam-level portability and hands
+   loop-level execution to `examples/03-harness-portability` in Phase 8 (§3.3.1). **Advisory
+   A3 is open**: one of three seam-4 legs is a fixture echo, so the trace-equivalence evidence
+   is two-legged in substance. The suite's two skips are the tracked Phase I.4 CINV-04
+   deferrals (`hitl-action-capture`, `workflow-trace-capture`), each naming its unblocking
+   phase in its own skip reason — tracked deferrals, not missing coverage.
+5. Optionally re-run, **from the repository root with the project interpreter**:
    `CCF_REQUIRE_HARNESSES=1 .venv/bin/python -m pytest -q -rs && .venv/bin/python -m tools.lints --all && .venv/bin/python -m mypy`
-3. **Rule on `D-IMPL-56`** (§4.12) — it is open and does not block this gate, but it will
+   (expect **987 passed, 2 skipped**, exit 0; lints exit 0; mypy 99 files).
+6. **Rule on `D-IMPL-56`** (§4.12) — it is open and does not block this gate, but it will
    accrue adapter-side derivations until it closes.
-4. **Approve or reject the Phase I.3 gate.**
+7. **Approve or reject the Phase I.3 gate.**
 
 On approval — and only on approval — the `D-GATE-I.3` entry is appended to
 `docs/DECISIONS.md` with the date, and `phase-i3` is merged into `main` with `--no-ff`, the
