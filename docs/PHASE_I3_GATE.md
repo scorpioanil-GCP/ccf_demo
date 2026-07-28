@@ -505,7 +505,31 @@ cheap and is the reason a fourth is not sitting in this document unnoticed.
   CLI.
 - **`D-IMPL-56` (§4.12) is open** and touches the skill-catalog artifact schema. I.4's
   workflow definitions bind skills at agent nodes; a resolution before then avoids a second
-  round of adapter-side derivation.
+  round of adapter-side derivation. **This is advisory A6's carry-forward target.** Consequence
+  if it stays open: every future adapter re-derives tool description and argument schema in
+  `/runtime`, and the first one to derive them differently **silently breaks the D-18 harness
+  equivalence** 06-15 proves. Not a style note — a divergence that no current test would catch,
+  because today all three adapters follow 06-12's precedent.
+- **Advisory A7 — the LangGraph adapter's three-node topology (`_build_graph`) must not be
+  inherited as a workflow engine.** It is documented and necessary: LangGraph is a
+  topology-owning harness, so an adapter that bound its seams without declaring a graph would
+  not bind them at all. But it is **the one place in this SDK that authors execution shape**,
+  and `D-IMPL-17` scopes the in-SDK Workflow primitive to in-fabric coordination with durable
+  orchestration behind `OrchestrationProtocol`. **Prerequisite for I.4's first orchestration
+  plan:** the Workflow primitive is built against D-IMPL-17's boundary, *not* by generalizing
+  `_build_graph` — an adapter's private topology is harness-internal (CLAUDE.md §13) and
+  promoting it would make the SDK ship the loop it commits to never shipping (§7.3).
+- **Advisory A3 — one of three seam-4 legs is a fixture echo, and it is not closed.** The
+  Claude adapter's `execution()` builds a `ResultMessage` by hand from fixture values, while
+  the ADK and LangGraph legs push values through real harness machinery. **Consequence:** the
+  trace-equivalence evidence in §3.3 is **two-legged in substance**, not three. 06-20 reduced
+  the exposure — the corrupted-trace and dropped-trace cases give the axis a failure mode
+  independent of how any one leg's `execution()` is built, and the trace assertion now checks
+  attribution against each leg's own declared `reported_model` and `trace_id` — but replacing
+  the hand-built message with a real SDK-driven execution remains **open**. Carried to
+  **Phase 8, `examples/03-harness-portability`**, where a real Claude Agent SDK execution is
+  available and where §3.3.1's loop-level obligation already lands. Whoever writes that example
+  owns A3; it is not discharged by anything in I.3.
 - **The two remaining CINV-04 deferrals are I.4's** — `hitl-action-capture` and
   `workflow-trace-capture` (§1). Activating them is what takes the suite's skip count to
   zero.
