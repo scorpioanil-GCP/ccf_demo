@@ -1,18 +1,31 @@
-"""The Control Plane admission gate every inbound A2A product passes.
+"""The Control Plane admission gate every inbound Peering product passes.
 
 SDK-defined extension (CLAUDE.md §7.2), attaching to whitepaper §8.3 Pattern 4
 and to the Control Plane of §7.8. CLAUDE.md §7.2 states the commitment this
-module *is*: **an inbound A2A Context Product is not admissible to L3 until the
+module *is*: **an inbound Context Product is not admissible to L3 until the
 consuming Control Plane validates its Policy bindings.** D-IMPL-16 rules that
 this happens for *every* inbound product, with no fast path for a high-trust
 peer — a trust tier narrows or widens what a peer may assert, never whether it
 is checked.
 
-**One gate, above every transport (D-12).** The check does not live inside a
-:class:`~ccf.a2a.wire.WireProtocol` implementation. Two transports ship this
-phase and more may follow; a per-transport check would state the rule once per
-wire and let a later wire state it differently, or not at all. So the rule sits
-above all of them, and a transport is handed no way to reach past it.
+**One gate, uniformly over every Peering (D-12; ``D-IMPL-59`` part 4).** A
+*Peering* is a governed, peer-symmetric context exchange between two fabrics
+that each have a Control Plane of their own, so what crosses must be merged
+under the receiver's policy; A2A is this seam's reference transport (part 2),
+not the category. The check therefore does not live inside a
+:class:`~ccf.peering.protocol.PeeringProtocol` implementation. Two transports
+ship this phase and more may follow; a per-transport check would state the rule
+once per wire and let a later wire state it differently, or not at all. So the
+rule sits above all of them, and a transport is handed no way to reach past it:
+**a Peering declares trust inputs and never the verdict — core runs this gate
+uniformly over every Peering and constructs the admitted value L2 accepts.**
+That is the same structural device as the harness adapter's inability to
+acquire a write handle (CLAUDE.md §7.3), applied at a second boundary, and it is
+why single-writer survives federation.
+
+MCP is deliberately outside this seam (part 3): it is asymmetric and originates
+lineage rather than merging a peer's, and stays its own surface per
+CLAUDE.md §7.1. Nothing in this package imports it.
 
 The six checks, **in this order, and the order is load-bearing**:
 
@@ -43,7 +56,7 @@ The six checks, **in this order, and the order is load-bearing**:
    INV-CH7-48 mechanism a locally assembled one is (T-06-40), and the declared
    operator plan is checked for *attributability* against the bytes whose
    signature verified. See
-   :meth:`A2AAdmissionGate._run_federated_gates` for what that call does and
+   :meth:`PeeringAdmissionGate._run_federated_gates` for what that call does and
    does not establish across a trust boundary.
 6. **Lineage integrity, and where the union actually lives.** The inbound
    lineage *extends* the consumer's by set-union: producer entries survive,
@@ -59,7 +72,7 @@ The six checks, **in this order, and the order is load-bearing**:
    and stamps the *consumer's* policy bundle version — so a "lineage continuity"
    claim was a property of a wrapper L2 discards. That was blocking finding B2.
    Under the ruling's **reading (d)** the union is persisted at the crossing as
-   an immutable :class:`AdmissionRecord` (:func:`A2AAdmissionGate.
+   an immutable :class:`AdmissionRecord` (:func:`PeeringAdmissionGate.
    _persist_admission_record`), and ``ccf.contracts.claims.LineageEntry`` is
    untouched. Lineage continuity is thereby located where CLAUDE.md §7.2
    actually describes it — as a property of the **Peering** admission boundary
@@ -117,7 +130,7 @@ path fails at construction.
 **D-20: this module adds no ``ControlPlaneStateStore`` consumer.** Nothing here
 is mutable-until-terminal Control Plane state. The trust policy and the size
 ceiling are versioned artifacts resolved by pinned ``(key, version)``, keys are
-an :class:`~ccf.a2a.identity.IdentityProvider` concern, and peers are resolved
+an :class:`~ccf.peering.identity.IdentityProvider` concern, and peers are resolved
 per call. Closing the audit-bearing-write-path gap D-20 names is a prerequisite
 this plan deliberately does not incur (T-06-45).
 
@@ -133,15 +146,6 @@ from datetime import datetime
 
 from pydantic import Field, ValidationError, field_validator
 
-from ccf.a2a.identity import IdentityError, IdentityProvider
-from ccf.a2a.trust_policy import (
-    A2A_TRUST_POLICY,
-    A2ATrustPolicy,
-    PeerTrustGrant,
-    TrustPolicyViolation,
-    trust_policy_key,
-)
-from ccf.a2a.wire import InboundProduct, PeerRef
 from ccf.artifacts.protocol import (
     ArtifactRef,
     ArtifactStoreError,
@@ -151,6 +155,15 @@ from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import ArtifactClass, validate_semver
 from ccf.controlplane.audit import AuditAction, AuditLog
 from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.peering.identity import IdentityError, IdentityProvider
+from ccf.peering.protocol import InboundProduct, PeerRef
+from ccf.peering.trust_policy import (
+    PEERING_TRUST_POLICY,
+    PeeringTrustPolicy,
+    PeerTrustGrant,
+    TrustPolicyViolation,
+    trust_policy_key,
+)
 from ccf.products.contract import (
     ContextProductContract,
     ProductLineage,
@@ -169,7 +182,7 @@ __all__ = [
     "GATE_SIGNATURE",
     "INBOUND_PAYLOAD_CEILING",
     "PRODUCER_ASSERTION_HEADER",
-    "A2AAdmissionGate",
+    "PeeringAdmissionGate",
     "AdmissionBypassError",
     "AdmissionNotRecorded",
     "AdmissionRecord",
@@ -187,12 +200,14 @@ __all__ = [
 
 #: Names of the six checks, in execution order. Strings rather than an enum for
 #: the same reason :mod:`ccf.products.gates` uses strings: the value lands in a
-#: refusal an operator reads in a log.
-GATE_PAYLOAD_CEILING = "a2a-payload-ceiling"
-GATE_SIGNATURE = "a2a-signature"
-GATE_CONTRACT = "a2a-contract"
-GATE_POLICY_BINDING = "a2a-policy-binding"
-GATE_LINEAGE_CONTINUITY = "a2a-lineage-continuity"
+#: refusal an operator reads in a log. Named for the *seam* rather than for one
+#: of its transports (``D-IMPL-59`` part 4): one gate runs over every Peering, so
+#: a refusal an operator reads must not suggest a per-protocol check.
+GATE_PAYLOAD_CEILING = "peering-payload-ceiling"
+GATE_SIGNATURE = "peering-signature"
+GATE_CONTRACT = "peering-contract"
+GATE_POLICY_BINDING = "peering-policy-binding"
+GATE_LINEAGE_CONTINUITY = "peering-lineage-continuity"
 
 #: The protected-header member an emitter states its producing agent under.
 #: In the *protected* header, so it is covered by the signature: a producer
@@ -233,7 +248,7 @@ class InboundPayloadCeiling(CCFContract):
 
 #: The artifact class the registry validates inbound ceilings against.
 INBOUND_PAYLOAD_CEILING = ArtifactClass(
-    class_id="ccf.a2a-inbound-payload-ceiling", contract=InboundPayloadCeiling
+    class_id="ccf.peering-inbound-payload-ceiling", contract=InboundPayloadCeiling
 )
 
 
@@ -241,7 +256,7 @@ def payload_ceiling_key(*, tenant_id: str) -> str:
     """Return the Control Plane key one tenant's inbound ceiling registers under.
 
     A derivation rather than a table, on the
-    :func:`~ccf.a2a.trust_policy.trust_policy_key` precedent: the SDK supplies
+    :func:`~ccf.peering.trust_policy.trust_policy_key` precedent: the SDK supplies
     the shape so two components cannot disagree about where the value lives,
     and supplies no tenant, so it holds no deployment's vocabulary (CINV-01).
     """
@@ -254,8 +269,8 @@ class AdmissionRefusal(GateRefusal):
     Deriving from :class:`~ccf.products.gates.GateRefusal` rather than
     paralleling it is deliberate: an inbound product meets the fabric's gate
     discipline, not a second one that happens to look similar. A caller
-    inspecting ``gate`` and ``detail`` reads an A2A refusal exactly as it reads
-    a TTL refusal, and :meth:`A2AAdmissionGate.admit` can return either without
+    inspecting ``gate`` and ``detail`` reads a Peering refusal exactly as it reads
+    a TTL refusal, and :meth:`PeeringAdmissionGate.admit` can return either without
     the caller learning a new shape.
 
     Attributes:
@@ -380,7 +395,7 @@ class AdmissionRecord(CCFContract):
     ~ccf.products.contract.ProductLineage` is persisted *at the admission
     boundary* rather than in graph state, and
     ``ccf.contracts.claims.LineageEntry`` is not extended. The defect being
-    closed is that :meth:`A2AAdmissionGate.admit` computed the union into
+    closed is that :meth:`PeeringAdmissionGate.admit` computed the union into
     :attr:`AdmittedProduct.lineage` and nothing read it — ``ingest_admitted``
     reads ``admitted.product`` and never ``admitted.lineage`` — so lineage
     continuity was a property of a wrapper L2 discards. Under (d) the property
@@ -456,7 +471,7 @@ class AdmissionNotRecorded(RuntimeError):
     """The admission record could not be persisted, so nothing was admitted.
 
     Raised rather than returned as a refusal, on this module's own established
-    discipline (see :meth:`A2AAdmissionGate._ceiling`): a fabric that cannot
+    discipline (see :meth:`PeeringAdmissionGate._ceiling`): a fabric that cannot
     reach its own substrate is a **broken deployment**, not a badly behaved
     peer, and reporting the two the same way would let an outage read as a
     federation dispute. It is the same reasoning
@@ -479,8 +494,9 @@ class AdmittedProduct:
     Not constructible outside this module (see the module docstring for why the
     token is justified here and was withdrawn from ``Agent``). Holding one *is*
     the evidence that all six checks ran, which is why the assembly path takes
-    this type: a :class:`~ccf.a2a.wire.WireProtocol` implementation can produce
-    an :class:`~ccf.a2a.wire.InboundProduct` and nothing more, and an
+    this type: a :class:`~ccf.peering.protocol.PeeringProtocol`
+    implementation can produce
+    an :class:`~ccf.peering.protocol.InboundProduct` and nothing more, and an
     ``InboundProduct`` is not what L2 accepts.
 
     Admission is not a write. What this value confers is the right to be
@@ -507,8 +523,8 @@ class AdmittedProduct:
         if token is not _ADMISSION_TOKEN:
             raise AdmissionBypassError(
                 "AdmittedProduct is constructed only by "
-                "ccf.a2a.admission.A2AAdmissionGate.admit; Control Plane "
-                "admission is the only path by which an inbound A2A Context "
+                "ccf.peering.admission.PeeringAdmissionGate.admit; Control Plane "
+                "admission is the only path by which an inbound Peering Context "
                 "Product becomes offerable to L2 (CLAUDE.md §7.2, D-IMPL-16)"
             )
         self._product = product
@@ -531,8 +547,13 @@ class AdmittedProduct:
         return self._peer
 
 
-class A2AAdmissionGate:
-    """The one gate every inbound A2A product passes before L2 (D-12).
+class PeeringAdmissionGate:
+    """The one gate every inbound Peering product passes before L2 (D-12).
+
+    Run uniformly over every Peering, whichever transport carried the bytes
+    (``D-IMPL-59`` part 4): a Peering declares trust inputs — the observed peer
+    and the signed bytes — and this gate alone reaches the verdict and
+    constructs the :class:`AdmittedProduct` L2 accepts.
 
     Tenant-scoped at construction (D-IMPL-05): a gate answers for one tenant's
     Control Plane, resolving that tenant's trust policy and that tenant's
@@ -644,7 +665,7 @@ class A2AAdmissionGate:
             artifact_class=(
                 ADMISSION_RECORD.class_id
                 if admission_ref is not None
-                else A2A_TRUST_POLICY.class_id
+                else PEERING_TRUST_POLICY.class_id
             ),
         )
 
@@ -742,22 +763,22 @@ class A2AAdmissionGate:
             )
         return artifact
 
-    def _trust_policy(self) -> A2ATrustPolicy:
+    def _trust_policy(self) -> PeeringTrustPolicy:
         """Resolve the tenant's pinned trust policy.
 
         Raises:
             ccf.controlplane.registry.ControlPlaneMissing: not registered.
-            TypeError: something other than an :class:`A2ATrustPolicy` is
+            TypeError: something other than an :class:`PeeringTrustPolicy` is
                 registered there. Broken deployment, as above.
         """
         artifact = self._control_plane.resolve(
             self._trust_policy_key, self._trust_policy_version
         )
-        if not isinstance(artifact, A2ATrustPolicy):
+        if not isinstance(artifact, PeeringTrustPolicy):
             raise TypeError(
-                f"A2A trust policy at ({self._trust_policy_key!r},"
+                f"Peering trust policy at ({self._trust_policy_key!r},"
                 f" {self._trust_policy_version!r}) holds"
-                f" {type(artifact).__name__}, not A2ATrustPolicy"
+                f" {type(artifact).__name__}, not PeeringTrustPolicy"
             )
         return artifact
 

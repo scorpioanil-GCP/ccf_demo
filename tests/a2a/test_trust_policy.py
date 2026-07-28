@@ -25,10 +25,10 @@ import yaml
 from joserfc.jwk import ECKey
 from pydantic import ValidationError
 
-from ccf.a2a.identity import JsonWebKey
-from ccf.a2a.trust_policy import (
-    A2A_TRUST_POLICY,
-    A2ATrustPolicy,
+from ccf.peering.identity import JsonWebKey
+from ccf.peering.trust_policy import (
+    PEERING_TRUST_POLICY,
+    PeeringTrustPolicy,
     PeerNotTrusted,
     PeerTrustGrant,
     TrustPolicyViolation,
@@ -106,8 +106,8 @@ def grant(
     )
 
 
-def policy(*, tenant_id: str = TENANT_ONE, **kwargs: Any) -> A2ATrustPolicy:
-    return A2ATrustPolicy(
+def policy(*, tenant_id: str = TENANT_ONE, **kwargs: Any) -> PeeringTrustPolicy:
+    return PeeringTrustPolicy(
         semver="1.0.0", tenant_id=tenant_id, peers={PEER: grant(**kwargs)}
     )
 
@@ -122,12 +122,12 @@ def registry() -> ControlPlaneRegistry:
 
 def test_a_policy_without_a_semver_lane_cannot_be_constructed() -> None:
     with pytest.raises(ValidationError):
-        A2ATrustPolicy(tenant_id=TENANT_ONE, peers={PEER: grant()})  # type: ignore[call-arg]
+        PeeringTrustPolicy(tenant_id=TENANT_ONE, peers={PEER: grant()})  # type: ignore[call-arg]
 
 
 def test_a_policy_with_a_malformed_semver_lane_is_refused() -> None:
     with pytest.raises(ValidationError):
-        A2ATrustPolicy(
+        PeeringTrustPolicy(
             semver="one", tenant_id=TENANT_ONE, peers={PEER: grant()}
         )
 
@@ -135,7 +135,7 @@ def test_a_policy_with_a_malformed_semver_lane_is_refused() -> None:
 def test_a_policy_naming_no_peers_is_refused() -> None:
     """An empty federation is indistinguishable from an unconfigured one."""
     with pytest.raises(ValidationError):
-        A2ATrustPolicy(semver="1.0.0", tenant_id=TENANT_ONE, peers={})
+        PeeringTrustPolicy(semver="1.0.0", tenant_id=TENANT_ONE, peers={})
 
 
 def test_registering_a_bare_mapping_under_the_class_is_refused(
@@ -145,7 +145,7 @@ def test_registering_a_bare_mapping_under_the_class_is_refused(
     one — the whole argument for a typed artifact class."""
     key = trust_policy_key(tenant_id=TENANT_ONE)
     with pytest.raises(TypeError):
-        registry.register_typed(key, {"peers": {}}, A2A_TRUST_POLICY)
+        registry.register_typed(key, {"peers": {}}, PEERING_TRUST_POLICY)
 
 
 def test_a_failed_trust_policy_resolution_is_audited_as_unresolved(
@@ -160,7 +160,7 @@ def test_a_failed_trust_policy_resolution_is_audited_as_unresolved(
     artifact's, and is logged rather than papered over here.
     """
     key = trust_policy_key(tenant_id=TENANT_ONE)
-    registry.register_typed(key, policy(), A2A_TRUST_POLICY)
+    registry.register_typed(key, policy(), PEERING_TRUST_POLICY)
     with pytest.raises(Exception):
         registry.resolve(key, "no-such-version")
     unresolved = [
@@ -176,7 +176,7 @@ def test_a_registered_policy_resolves_by_pinned_key_and_version(
 ) -> None:
     key = trust_policy_key(tenant_id=TENANT_ONE)
     registered = policy()
-    version = registry.register_typed(key, registered, A2A_TRUST_POLICY)
+    version = registry.register_typed(key, registered, PEERING_TRUST_POLICY)
     assert registry.resolve(key, version) == registered
 
 
@@ -185,7 +185,7 @@ def test_a_registered_policy_resolves_by_pinned_key_and_version(
 
 def test_an_unknown_field_on_a_policy_is_rejected() -> None:
     with pytest.raises(ValidationError):
-        A2ATrustPolicy(
+        PeeringTrustPolicy(
             semver="1.0.0",
             tenant_id=TENANT_ONE,
             peers={PEER: grant()},
@@ -210,7 +210,7 @@ def test_no_field_on_the_contract_could_express_a_verification_skip() -> None:
     Enforced here rather than in a docstring, because a docstring cannot fail
     when a later contributor adds ``trusted_peer_fast_path``.
     """
-    names = set(A2ATrustPolicy.model_fields) | set(PeerTrustGrant.model_fields)
+    names = set(PeeringTrustPolicy.model_fields) | set(PeerTrustGrant.model_fields)
     offending = [
         name
         for name in names
@@ -290,13 +290,13 @@ def test_two_tenant_policies_resolve_independently(
     )
     key_one = trust_policy_key(tenant_id=TENANT_ONE)
     key_two = trust_policy_key(tenant_id=TENANT_TWO)
-    version_one = registry.register_typed(key_one, one, A2A_TRUST_POLICY)
-    version_two = registry.register_typed(key_two, two, A2A_TRUST_POLICY)
+    version_one = registry.register_typed(key_one, one, PEERING_TRUST_POLICY)
+    version_two = registry.register_typed(key_two, two, PEERING_TRUST_POLICY)
 
     assert key_one != key_two
     assert version_one != version_two
     resolved_one = registry.resolve(key_one, version_one)
-    assert isinstance(resolved_one, A2ATrustPolicy)
+    assert isinstance(resolved_one, PeeringTrustPolicy)
     assert resolved_one.tenant_id == TENANT_ONE
     assert resolved_one.grant_for(
         peer_id=PEER

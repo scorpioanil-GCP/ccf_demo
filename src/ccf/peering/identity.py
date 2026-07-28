@@ -38,7 +38,7 @@ Scope of what ships here, stated plainly (D-21):
 What this module does **not** decide is as load-bearing as what it does: it
 holds no notion of which peer is trusted, which schema a peer may send, or
 which key belongs to whom. Verification is handed the candidate public keys by
-its caller; selecting them is :mod:`ccf.a2a.trust_policy`'s job and the
+its caller; selecting them is :mod:`ccf.peering.trust_policy`'s job and the
 admission gate's. A verifier that also resolved trust could admit a validly
 signed product from a peer entitled to send nothing.
 
@@ -341,7 +341,7 @@ class IdentityProvider(Protocol):
         That placement is what lets the admission gate hold a peer to what it
         asserted: an assertion carried outside the signature could be rewritten
         in flight by anyone, and a governance check against a rewritable claim
-        checks nothing (:mod:`ccf.a2a.admission`).
+        checks nothing (:mod:`ccf.peering.admission`).
 
         Raises:
             KeyUnavailable: the key source holds no such key.

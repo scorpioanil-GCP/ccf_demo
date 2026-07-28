@@ -42,30 +42,30 @@ import pytest
 import yaml
 from joserfc.jwk import ECKey
 
-from ccf.a2a.admission import (
+from ccf.peering.admission import (
     ADMISSION_RECORD,
     INBOUND_PAYLOAD_CEILING,
     PRODUCER_ASSERTION_HEADER,
-    A2AAdmissionGate,
+    PeeringAdmissionGate,
     AdmissionNotRecorded,
     AdmissionRecord,
     AdmittedProduct,
     InboundPayloadCeiling,
     payload_ceiling_key,
 )
-from ccf.a2a.identity import (
+from ccf.peering.identity import (
     DetachedJwsIdentityProvider,
     FileBackedKeySource,
     JsonWebKey,
     SignedContextProduct,
 )
-from ccf.a2a.trust_policy import (
-    A2A_TRUST_POLICY,
-    A2ATrustPolicy,
+from ccf.peering.trust_policy import (
+    PEERING_TRUST_POLICY,
+    PeeringTrustPolicy,
     PeerTrustGrant,
     trust_policy_key,
 )
-from ccf.a2a.wire import InboundProduct, PeerRef
+from ccf.peering.protocol import InboundProduct, PeerRef
 import ccf.contracts.claims as claims_module
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import (
@@ -298,10 +298,10 @@ def _build_gate(
     registry: ControlPlaneRegistry,
     product_class: RegisteredProductClass,
     artifact_store: Any,
-) -> A2AAdmissionGate:
+) -> PeeringAdmissionGate:
     policy_version = registry.register_typed(
         trust_policy_key(tenant_id=TENANT),
-        A2ATrustPolicy(
+        PeeringTrustPolicy(
             semver=POLICY_SEMVER,
             tenant_id=TENANT,
             peers={
@@ -315,7 +315,7 @@ def _build_gate(
                 )
             },
         ),
-        A2A_TRUST_POLICY,
+        PEERING_TRUST_POLICY,
     )
     ceiling_version = registry.register_typed(
         payload_ceiling_key(tenant_id=TENANT),
@@ -324,7 +324,7 @@ def _build_gate(
         ),
         INBOUND_PAYLOAD_CEILING,
     )
-    return A2AAdmissionGate(
+    return PeeringAdmissionGate(
         identity=provider,
         control_plane=registry,
         audit_log=registry.audit_log,
@@ -343,7 +343,7 @@ def gate(
     registry: ControlPlaneRegistry,
     product_class: RegisteredProductClass,
     store: FileArtifactStore,
-) -> A2AAdmissionGate:
+) -> PeeringAdmissionGate:
     return _build_gate(
         provider=provider,
         public_key=public_key,
@@ -369,7 +369,7 @@ def _inbound(signed: SignedContextProduct) -> InboundProduct:
     )
 
 
-def _admit(gate: A2AAdmissionGate, provider: DetachedJwsIdentityProvider) -> Any:
+def _admit(gate: PeeringAdmissionGate, provider: DetachedJwsIdentityProvider) -> Any:
     return gate.admit(
         inbound=_inbound(_sign(provider, product=banking_product())),
         consumer_lineage=_consumer_lineage(),
@@ -381,7 +381,7 @@ def _admit(gate: A2AAdmissionGate, provider: DetachedJwsIdentityProvider) -> Any
 
 
 def test_an_admission_persists_an_admission_record(
-    gate: A2AAdmissionGate,
+    gate: PeeringAdmissionGate,
     provider: DetachedJwsIdentityProvider,
     registry: ControlPlaneRegistry,
     store: FileArtifactStore,
@@ -404,7 +404,7 @@ def test_an_admission_persists_an_admission_record(
 
 
 def test_the_audit_append_carries_the_reference_triple(
-    gate: A2AAdmissionGate,
+    gate: PeeringAdmissionGate,
     provider: DetachedJwsIdentityProvider,
     registry: ControlPlaneRegistry,
 ) -> None:
@@ -518,7 +518,7 @@ def test_a_store_outage_is_not_reported_as_an_admission(
 
 
 def test_the_gate_holds_no_graph_write_handle(
-    gate: A2AAdmissionGate,
+    gate: PeeringAdmissionGate,
 ) -> None:
     """Single-writer survives this: the store is a substrate, not a second writer.
 
@@ -545,7 +545,7 @@ def _admitted_record_address(registry: ControlPlaneRegistry) -> str:
 
 
 def test_the_union_is_observed_in_persisted_state_through_the_replay_path(
-    gate: A2AAdmissionGate,
+    gate: PeeringAdmissionGate,
     provider: DetachedJwsIdentityProvider,
     registry: ControlPlaneRegistry,
     store: FileArtifactStore,
@@ -599,7 +599,7 @@ def test_the_union_is_observed_in_persisted_state_through_the_replay_path(
 
 
 def test_resolution_at_latest_is_refused_through_the_replay_path(
-    gate: A2AAdmissionGate,
+    gate: PeeringAdmissionGate,
     provider: DetachedJwsIdentityProvider,
     store: FileArtifactStore,
 ) -> None:
@@ -638,7 +638,7 @@ def test_a_missing_admission_record_is_unresolvable_with_no_fallback(
 
 
 def test_a_store_returning_other_bytes_is_caught_not_believed(
-    gate: A2AAdmissionGate,
+    gate: PeeringAdmissionGate,
     provider: DetachedJwsIdentityProvider,
     registry: ControlPlaneRegistry,
     store: FileArtifactStore,

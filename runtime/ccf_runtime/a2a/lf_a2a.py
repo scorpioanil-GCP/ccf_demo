@@ -1,4 +1,4 @@
-"""``LfA2AWire`` — the D-IMPL-14 default :class:`~ccf.a2a.wire.WireProtocol`.
+"""``LfA2AWire`` — the D-IMPL-14 default :class:`~ccf.peering.protocol.PeeringProtocol`.
 
 SDK-defined extension (CLAUDE.md §7.2 — "A2A federation is first-class in v0"),
 attaching to whitepaper §8.3 Pattern 4. D-IMPL-14 rules **Linux Foundation A2A**
@@ -7,7 +7,7 @@ as the v0 default wire; D-11 sequences it *second*, after
 Plane admission gate, the identity primitives and the cross-process fixture were
 all proven against a transport bound to no standard first. What lands here is
 therefore a **substitution, not a redesign**: the same
-:class:`~ccf.a2a.wire.WireProtocol`, the same unchanged consumer-side
+:class:`~ccf.peering.protocol.PeeringProtocol`, the same unchanged consumer-side
 assertions, a different wire underneath. CLAUDE.md §7.2 states the commitment
 this module exists to demonstrate — *the Context Product Contract is the stable
 layer; the wire is replaceable.*
@@ -30,7 +30,7 @@ absent. Treating such a message as the typed boundary would mean the fabric's
 closed-world contract stopped at the process edge, and that "the product
 validated" could be true of a message that had been quietly extended. So the
 boundary sits above it: every generated type is constructed and consumed inside
-this module, converted to and from the CCF contracts :mod:`ccf.a2a.wire`
+this module, converted to and from the CCF contracts :mod:`ccf.peering.protocol`
 declares, and **nothing in ``/src`` imports ``a2a`` at all**. What the fabric
 trusts is CCF's own validation, run by the admission gate over the raw canonical
 bytes — never a field a protobuf message happened to carry.
@@ -49,7 +49,7 @@ correctness question and not a taste one.
 
 **What travels in ``Part.raw`` is the whole envelope, one canonical document.**
 The bytes are :func:`ccf.contracts.canonical.canonical_bytes` of the
-:class:`~ccf.a2a.identity.SignedContextProduct`, whose ``payload`` member is
+:class:`~ccf.peering.identity.SignedContextProduct`, whose ``payload`` member is
 already base64url text. This is a **deviation from the plan's wording** (raw
 product bytes, with the detached-JWS members carried beside them in
 ``Part.metadata``), taken for the reason 06-09 recorded and 06-07 established:
@@ -66,7 +66,7 @@ carried product still verifies.
 kind. It does not verify a signature, does not read a trust policy, and does not
 decide whether a peer may send what it sent. It hands what it received to its
 caller, and the caller hands that to the Control Plane gate. D-12 rejected
-putting the check inside a ``WireProtocol`` implementation: two transports ship
+putting the check inside a ``PeeringProtocol`` implementation: two transports ship
 this phase and more may follow, and a per-transport check states the rule once
 per wire — which lets a later wire state it differently, or omit it. Every check
 the code below *does* perform is a framing check, named as such. This paragraph
@@ -85,7 +85,7 @@ method parameter, or return type here that is or names one, and this module
 imports nothing from the L3 graph package or from L2. The honest claim (D-21) is
 structural rather than absolute: what this module's declared surface offers is
 an outbound message send and an inbound queue of
-:class:`~ccf.a2a.wire.InboundProduct` values, and an ``InboundProduct`` is not
+:class:`~ccf.peering.protocol.InboundProduct` values, and an ``InboundProduct`` is not
 what L2 accepts. ``tests/invariants/test_a2a_single_writer.py`` is what holds
 that — by import scan, by identifier scan, and by attribute inspection of a
 constructed instance, across every module this package discovers — rather than
@@ -96,7 +96,7 @@ peer base URLs, the HTTP client, the clock, the request deadline and the message
 size ceiling are all supplied by the caller. This module holds no address, no
 port, no scheme literal, no card identity and no default ceiling (CINV-01,
 D-IMPL-38). Tenancy is a per-call argument carried on
-:class:`~ccf.a2a.wire.PeerRef`, never a constructor field, on the
+:class:`~ccf.peering.protocol.PeerRef`, never a constructor field, on the
 :class:`~ccf_runtime.a2a.typed_http.TypedHttpWire` precedent.
 
 **Both halves of the sync↔async seam are offered**, on the
@@ -136,8 +136,8 @@ from a2a.types import (
 from pydantic import ValidationError
 from starlette.routing import BaseRoute
 
-from ccf.a2a.identity import SignatureMalformed, SignedContextProduct
-from ccf.a2a.wire import EmitReceipt, InboundProduct, PeerRef
+from ccf.peering.identity import SignatureMalformed, SignedContextProduct
+from ccf.peering.protocol import EmitReceipt, InboundProduct, PeerRef
 from ccf.contracts.canonical import canonical_bytes
 
 from ccf_runtime.a2a.typed_http import (
@@ -198,7 +198,7 @@ _RAW_ALTERNATIVE = "raw"
 class PeerCardResolver(Protocol):
     """Where a peer's Agent Card is served, as far as *this* deployment knows.
 
-    A seam rather than a field on :class:`~ccf.a2a.wire.PeerRef`, for the reason
+    A seam rather than a field on :class:`~ccf.peering.protocol.PeerRef`, for the reason
     :class:`~ccf_runtime.a2a.typed_http.PeerEndpointResolver` records: a
     ``PeerRef`` deliberately is not an address, because trust that keyed on where
     a message arrived from would key on the property an attacker most easily
@@ -330,7 +330,8 @@ class _InboundExecutor(AgentExecutor):
 
 
 class LfA2AWire:
-    """A :class:`~ccf.a2a.wire.WireProtocol` over Linux Foundation A2A (D-IMPL-14).
+    """A :class:`~ccf.peering.protocol.PeeringProtocol` over Linux Foundation
+    A2A (D-IMPL-14).
 
     Symmetric by construction, on the
     :class:`~ccf_runtime.a2a.typed_http.TypedHttpWire` precedent: one instance is
@@ -418,7 +419,9 @@ class LfA2AWire:
     def emit(
         self, *, peer: PeerRef, signed: SignedContextProduct
     ) -> EmitReceipt:
-        """Carry ``signed`` to ``peer``; see :meth:`ccf.a2a.wire.WireProtocol.emit`.
+        """Carry ``signed`` to ``peer``.
+
+        See :meth:`ccf.peering.protocol.PeeringProtocol.emit`.
 
         The synchronous facade over :meth:`emit_async`, offered because the
         fabric core is synchronous (D-IMPL-04(b)) while ``a2a-sdk``'s client is

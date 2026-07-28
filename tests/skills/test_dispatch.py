@@ -14,7 +14,7 @@ What this suite holds ``src/ccf/skills/dispatch.py`` to:
   (D-03, D-IMPL-13) — and every attempt, success or failure, lands on the one
   existing ``AuditLog``;
 * an ``a2a`` entry resolves its logical ``endpoint`` through the injected
-  ``A2ASkillRegistry`` to a **``WireProtocol``** — the abstraction, never a
+  ``A2ASkillRegistry`` to a **``PeeringProtocol``** — the abstraction, never a
   concrete transport — reads what that transport received, lands on the same
   one ``AuditLog``, and returns values that are *unadmitted* and unadmittable
   from there (D-12: the Control Plane gate stays above every transport);
@@ -46,9 +46,9 @@ from typing import Any
 import pytest
 import yaml
 
-from ccf.a2a.admission import AdmittedProduct
-from ccf.a2a.identity import SignedContextProduct
-from ccf.a2a.wire import EmitReceipt, InboundProduct, PeerRef, WireProtocol
+from ccf.peering.admission import AdmittedProduct
+from ccf.peering.identity import SignedContextProduct
+from ccf.peering.protocol import EmitReceipt, InboundProduct, PeerRef, PeeringProtocol
 from ccf.agents.definitions import AGENT_DEFINITION, AgentDefinition
 from ccf.agents.errors import NotYetBound
 from ccf.contracts.base import CCFContract
@@ -457,7 +457,7 @@ def test_an_ungranted_mcp_skill_is_refused_with_zero_network_calls() -> None:
 
 
 class _RecordingWire:
-    """A ``WireProtocol`` double that answers from the fixture and counts calls.
+    """A ``PeeringProtocol`` double that answers from the fixture and counts calls.
 
     Substituted for a live transport because the load-bearing assertions here
     are about calls that must *not* happen, and a real transport cannot testify
@@ -592,13 +592,13 @@ def test_dispatch_imports_no_transport_no_runtime_and_no_protobuf() -> None:
     offending = sorted(
         name
         for name in imported
-        # `ccf.a2a.wire` is the abstraction and is exactly what this module
+        # `ccf.peering.protocol` is the abstraction and is exactly what this module
         # *should* import; the prefixes below are transports and vendor wire
         # types, which it must not.
         if name.startswith(forbidden) or name in {"a2a", "protobuf"}
     )
     assert not offending, offending
-    assert "ccf.a2a.wire" in imported
+    assert "ccf.peering.protocol" in imported
 
 
 def test_dispatch_types_against_the_protocol_not_a_concrete_transport(
@@ -612,7 +612,7 @@ def test_dispatch_types_against_the_protocol_not_a_concrete_transport(
     root without ``/src`` changing.
     """
     _registry, wire, _audit = a2a_world
-    assert isinstance(wire, WireProtocol)
+    assert isinstance(wire, PeeringProtocol)
 
 
 def test_an_a2a_invocation_lands_in_the_audit_log(

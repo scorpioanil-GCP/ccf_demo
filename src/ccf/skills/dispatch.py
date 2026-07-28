@@ -24,7 +24,7 @@ one catalog entry plus typed arguments onto an invocation, per binding type:
   MCP client inside the SDK would be a second place for the session-lifetime
   deadlock that module records to come back.
 * **a2a** — the binding's ``endpoint`` resolves through the injected
-  :class:`A2ASkillRegistry` to a :class:`~ccf.a2a.wire.WireProtocol`, and the
+  :class:`A2ASkillRegistry` to a :class:`~ccf.peering.protocol.PeeringProtocol`, and the
   dispatch reads the Context Products that transport has received from its
   federation peers (CLAUDE.md §6.2 — "A2A endpoints exposing remote Context
   Products"). Dispatch types against the *Protocol*, never against a concrete
@@ -33,9 +33,9 @@ one catalog entry plus typed arguments onto an invocation, per binding type:
   written yet, is bound at the composition root without this module changing.
 
   **What comes back is inert, and that is the point (D-12).** The values are
-  :class:`~ccf.a2a.wire.InboundProduct`\\ s — *unadmitted*. L2 does not accept
+  :class:`~ccf.peering.protocol.InboundProduct`\\ s — *unadmitted*. L2 does not accept
   one, and this module cannot construct the
-  :class:`~ccf.a2a.admission.AdmittedProduct` that L2 would accept. A skill
+  :class:`~ccf.peering.admission.AdmittedProduct` that L2 would accept. A skill
   invocation therefore cannot become an admission, however the calling agent
   behaves: the Control Plane gate stays above every transport rather than
   being something a dispatch path could skip.
@@ -78,12 +78,12 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from datetime import datetime
 
-from ccf.a2a.wire import InboundProduct, WireProtocol
 from ccf.agents.errors import NotYetBound
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.audit import AuditLog
 from ccf.mcp.client import McpResourceClient
 from ccf.mcp.errors import McpClientError
+from ccf.peering.protocol import InboundProduct, PeeringProtocol
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import (
     A2ABinding,
@@ -180,10 +180,10 @@ class A2AInvocation(CCFContract):
             would put deployment topology into anything that recorded it
             (INV-CH8-01), and the address is not what identifies the peer.
         products: What the bound transport had received, **unadmitted**. Each
-            :class:`~ccf.a2a.wire.InboundProduct` carries the peer the transport
+            :class:`~ccf.peering.protocol.InboundProduct` carries the peer the transport
             *observed* it from, which is a channel-level claim and proves
             nothing; what binds a product to a principal is its signature,
-            checked by the Control Plane gate (:mod:`ccf.a2a.admission`), which
+            checked by the Control Plane gate (:mod:`ccf.peering.admission`), which
             this dispatch neither calls nor can call. Handing back an inert
             value is what keeps the gate above every transport (D-12).
         arguments: The typed arguments the invocation carried. Recorded, never
@@ -222,7 +222,7 @@ class A2ASkillRegistry:
     registration and is refused *without a socket being opened* (T-06-57).
 
     **A transport, not an address.** What is registered is a
-    :class:`~ccf.a2a.wire.WireProtocol` — the abstraction, never a concrete
+    :class:`~ccf.peering.protocol.PeeringProtocol` — the abstraction, never a concrete
     transport type — so the same catalog entry dispatches over typed HTTP or over
     LF A2A according to what the composition root bound, and ``/src`` never
     acquires a transport dependency (CLAUDE.md §7.2: the Contract is the stable
@@ -249,7 +249,7 @@ class A2ASkillRegistry:
     ) -> None:
         self._audit_log = audit_log
         self._clock = clock
-        self._transports: dict[str, WireProtocol] = {}
+        self._transports: dict[str, PeeringProtocol] = {}
 
     @property
     def audit_log(self) -> AuditLog:
@@ -277,12 +277,13 @@ class A2ASkillRegistry:
             artifact_class=entry.skill_type,
         )
 
-    def register(self, *, endpoint: str, transport: WireProtocol) -> None:
+    def register(self, *, endpoint: str, transport: PeeringProtocol) -> None:
         """Make one logical endpoint dispatchable over ``transport``.
 
         Args:
             endpoint: The logical name skill bindings select this endpoint by.
-            transport: The :class:`~ccf.a2a.wire.WireProtocol` the composition
+            transport: The :class:`~ccf.peering.protocol.PeeringProtocol`
+                the composition
                 root built for it, against a Control Plane peer configuration.
 
         Raises:
@@ -298,7 +299,7 @@ class A2ASkillRegistry:
             )
         self._transports[endpoint] = transport
 
-    def resolve(self, binding: A2ABinding) -> WireProtocol:
+    def resolve(self, binding: A2ABinding) -> PeeringProtocol:
         """Return the transport a binding selects.
 
         Raises:
@@ -487,7 +488,8 @@ def _invoke_a2a(
 ) -> A2AInvocation:
     """Resolve the binding to a transport and read what it received, audited.
 
-    The read goes through :meth:`ccf.a2a.wire.WireProtocol.receive` and nothing
+    The read goes through
+    :meth:`ccf.peering.protocol.PeeringProtocol.receive` and nothing
     else. Dispatch constructs no client, opens no connection and resolves no
     address: the transport the composition root registered already knows where
     its peers are, which is what makes ``A2ABinding.endpoint`` a name rather
@@ -501,7 +503,7 @@ def _invoke_a2a(
     Draining is the transport's own semantics, and it is deliberate that this
     function does not filter what it drained by peer: a filter would silently
     discard another peer's product on its way past, and each
-    :class:`~ccf.a2a.wire.InboundProduct` already carries the peer the transport
+    :class:`~ccf.peering.protocol.InboundProduct` already carries the peer the transport
     observed it from.
     """
     transport = a2a_skills.resolve(binding)

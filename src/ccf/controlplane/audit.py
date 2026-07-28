@@ -44,7 +44,7 @@ __all__ = ["AuditAction", "AuditEvent", "AuditLog"]
 #: every transition — refusals included — is a record (CLAUDE.md §6.2:
 #: "a skill grant or revocation is itself an audited Control Plane action").
 #: The ``a2a_*`` members are the federation admission verdicts (D-IMPL-16;
-#: :mod:`ccf.a2a.admission`): admitting a peer's Context Product is a Control
+#: :mod:`ccf.peering.admission`): admitting a peer's Context Product is a Control
 #: Plane decision like any other, and a refusal that left no record would let
 #: a rejected federation attempt be denied afterwards (T-06-43).
 #:

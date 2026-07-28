@@ -88,23 +88,23 @@ import yaml
 from fastapi import FastAPI
 from joserfc.jwk import ECKey
 
-from ccf.a2a.admission import (
+from ccf.peering.admission import (
     INBOUND_PAYLOAD_CEILING,
-    A2AAdmissionGate,
+    PeeringAdmissionGate,
     AdmissionRefusal,
     AdmittedProduct,
     InboundPayloadCeiling,
     SignatureRefusal,
     payload_ceiling_key,
 )
-from ccf.a2a.identity import FileBackedKeySource
-from ccf.a2a.trust_policy import (
-    A2A_TRUST_POLICY,
-    A2ATrustPolicy,
+from ccf.peering.identity import FileBackedKeySource
+from ccf.peering.trust_policy import (
+    PEERING_TRUST_POLICY,
+    PeeringTrustPolicy,
     PeerTrustGrant,
     trust_policy_key,
 )
-from ccf.a2a.wire import InboundProduct, PeerRef, WireProtocol
+from ccf.peering.protocol import InboundProduct, PeerRef, PeeringProtocol
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.assembly.worker import (
     AssemblyWorker,
@@ -169,7 +169,7 @@ class TransportLeg:
 
     The whole of this module's transport knowledge lives in this type and the
     two factories below. Everything past the ``consumer`` fixture sees a
-    :class:`~ccf.a2a.wire.WireProtocol` and a URL, which is the point being
+    :class:`~ccf.peering.protocol.PeeringProtocol` and a URL, which is the point being
     demonstrated: if a leg needed a hook anywhere further down, the abstraction
     would not be carrying the exchange.
 
@@ -189,7 +189,7 @@ class TransportLeg:
 
     name: str
     child: Path
-    build: Callable[[datetime, httpx.Client, str], tuple[WireProtocol, Any]]
+    build: Callable[[datetime, httpx.Client, str], tuple[PeeringProtocol, Any]]
     child_url: Callable[[str], str]
 
 
@@ -198,7 +198,7 @@ def _typed_http_leg() -> TransportLeg:
 
     def build(
         now: datetime, http_client: httpx.Client, base_url: str
-    ) -> tuple[WireProtocol, Any]:
+    ) -> tuple[PeeringProtocol, Any]:
         wire = TypedHttpWire(
             local_peer_id=CONSUMER["peer_id"],
             endpoints=lambda *, peer: "",
@@ -228,7 +228,7 @@ def _lf_a2a_leg() -> TransportLeg:
 
     def build(
         now: datetime, http_client: httpx.Client, base_url: str
-    ) -> tuple[WireProtocol, Any]:
+    ) -> tuple[PeeringProtocol, Any]:
         wire = LfA2AWire(
             local_peer_id=CONSUMER["peer_id"],
             agent_card=build_agent_card(
@@ -283,8 +283,8 @@ class Consumer:
 
     handle: FabricHandle
     database_path: Path
-    gate: A2AAdmissionGate
-    wire: WireProtocol
+    gate: PeeringAdmissionGate
+    wire: PeeringProtocol
     key_dir: Path
     now: datetime
     lineage: ProductLineage
@@ -373,8 +373,8 @@ def _product_class(registry: ControlPlaneRegistry) -> RegisteredProductClass:
 
 @contextmanager
 def _hosted(
-    build_app: Callable[[str], tuple[Any, WireProtocol]],
-) -> Iterator[tuple[str, WireProtocol]]:
+    build_app: Callable[[str], tuple[Any, PeeringProtocol]],
+) -> Iterator[tuple[str, PeeringProtocol]]:
     """Host what ``build_app`` builds on an ephemeral loopback port.
 
     ``build_app`` is handed the base URL and returns ``(asgi_app, wire)``;
@@ -479,7 +479,7 @@ def consumer(tmp_path: Path, transport: TransportLeg) -> Iterator[Consumer]:
 
     trust_version = registry.register_typed(
         trust_policy_key(tenant_id=TENANT),
-        A2ATrustPolicy(
+        PeeringTrustPolicy(
             semver=CONSUMER["semver"],
             tenant_id=TENANT,
             peers={
@@ -487,7 +487,7 @@ def consumer(tmp_path: Path, transport: TransportLeg) -> Iterator[Consumer]:
                 for name, declared in PEERS.items()
             },
         ),
-        A2A_TRUST_POLICY,
+        PEERING_TRUST_POLICY,
     )
     ceiling_version = registry.register_typed(
         payload_ceiling_key(tenant_id=TENANT),
@@ -507,7 +507,7 @@ def consumer(tmp_path: Path, transport: TransportLeg) -> Iterator[Consumer]:
         policy_bundle_key=CONTROL["keys"]["policy_bundle"],
         policy_bundle_version=policy_version,
     )
-    gate = A2AAdmissionGate(
+    gate = PeeringAdmissionGate(
         identity=_verifier(key_dir),
         control_plane=registry,
         audit_log=registry.audit_log,
@@ -524,7 +524,7 @@ def consumer(tmp_path: Path, transport: TransportLeg) -> Iterator[Consumer]:
     now = _instant(CONTROL["decision"]["now"])
     try:
         with httpx.Client(timeout=30.0) as client, ExitStack() as stack:
-            def build_app(base_url: str) -> tuple[Any, WireProtocol]:
+            def build_app(base_url: str) -> tuple[Any, PeeringProtocol]:
                 built, app = transport.build(now, client, base_url)
                 return app, built
 
@@ -571,7 +571,7 @@ def _verifier(key_dir: Path) -> Any:
     ``verify`` and which is the only key material the verification path
     consults.
     """
-    from ccf.a2a.identity import DetachedJwsIdentityProvider  # noqa: PLC0415
+    from ccf.peering.identity import DetachedJwsIdentityProvider  # noqa: PLC0415
 
     return DetachedJwsIdentityProvider(
         key_source=FileBackedKeySource(directory=key_dir)
@@ -626,13 +626,13 @@ def _admit(consumer: Consumer, inbound: InboundProduct) -> Any:
 
 
 def test_the_transport_satisfies_the_wire_protocol(consumer: Consumer) -> None:
-    """D-11: the typed-HTTP leg is a ``WireProtocol``, so LF A2A substitutes.
+    """D-11: the typed-HTTP leg is a ``PeeringProtocol``, so LF A2A substitutes.
 
     What would fail here: a transport that grew a method the abstraction does
     not declare and became the thing callers type against. The next transport
     would then be a redesign rather than a substitution.
     """
-    assert isinstance(consumer.wire, WireProtocol)
+    assert isinstance(consumer.wire, PeeringProtocol)
 
 
 def test_a_signed_product_crosses_two_processes_and_is_admitted(
@@ -710,7 +710,7 @@ def test_the_federated_door_does_not_accept_an_unadmitted_product() -> None:
     import model does not support it: ``_ADMISSION_TOKEN`` is importable, and
     :func:`test_the_unforgeability_claim_is_scoped_to_the_unforced_path` pins
     that boundary so the claim cannot be quietly upgraded again. The token still
-    earns its place — see ``ccf.a2a.admission``'s module docstring on why a lint
+    earns its place — see ``ccf.peering.admission``'s module docstring on why a lint
     cannot make this statement about transports the SDK does not ship — it is
     the *strength* of the claim that is re-scoped, not the mechanism.
 
@@ -720,8 +720,8 @@ def test_the_federated_door_does_not_accept_an_unadmitted_product() -> None:
     nothing. The second half is asserted rather than assumed for exactly that
     reason.
     """
-    from ccf.a2a.admission import AdmissionBypassError  # noqa: PLC0415
-    from ccf.a2a.wire import InboundProduct as _Inbound  # noqa: PLC0415, F401
+    from ccf.peering.admission import AdmissionBypassError  # noqa: PLC0415
+    from ccf.peering.protocol import InboundProduct as _Inbound  # noqa: PLC0415, F401
 
     hints = get_type_hints(AssemblyWorker.ingest_admitted)
     assert hints["admitted"] is AdmittedProduct
@@ -738,7 +738,7 @@ def test_the_unforgeability_claim_is_scoped_to_the_unforced_path() -> None:
     named and passed, construction succeeds. The honest statement is therefore
     "no unforced path exists, and every forced path fails at construction" —
     forging requires a module willing to name a private member of
-    ``ccf.a2a.admission``, which Python permits and no runtime check can
+    ``ccf.peering.admission``, which Python permits and no runtime check can
     prevent.
 
     What would fail here: someone closing the forced path so that no
@@ -748,7 +748,7 @@ def test_the_unforgeability_claim_is_scoped_to_the_unforced_path() -> None:
     mechanism, which is what A2 caught the first time. A claim whose limit is untested is a claim that
     drifts.
     """
-    from ccf.a2a.admission import (  # noqa: PLC0415
+    from ccf.peering.admission import (  # noqa: PLC0415
         _ADMISSION_TOKEN,
         AdmissionBypassError,
     )

@@ -59,13 +59,13 @@ for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime", _TESTS_ROOT):
 import httpx  # noqa: E402
 import yaml  # noqa: E402
 
-from ccf.a2a.admission import PRODUCER_ASSERTION_HEADER  # noqa: E402
-from ccf.a2a.identity import (  # noqa: E402
+from ccf.peering.admission import PRODUCER_ASSERTION_HEADER  # noqa: E402
+from ccf.peering.identity import (  # noqa: E402
     DetachedJwsIdentityProvider,
     FileBackedKeySource,
     SignedContextProduct,
 )
-from ccf.a2a.wire import PeerRef  # noqa: E402
+from ccf.peering.protocol import PeerRef  # noqa: E402
 
 from ccf_runtime.a2a.typed_http import TypedHttpWire  # noqa: E402
 

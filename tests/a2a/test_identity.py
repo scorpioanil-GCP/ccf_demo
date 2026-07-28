@@ -30,7 +30,7 @@ import pytest
 import yaml
 from joserfc.jwk import ECKey
 
-from ccf.a2a.identity import (
+from ccf.peering.identity import (
     PRODUCT_SIGNATURE_TYPE,
     SIGNING_ALGORITHM,
     AlgorithmNotPermitted,

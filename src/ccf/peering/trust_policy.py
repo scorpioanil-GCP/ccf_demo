@@ -1,9 +1,17 @@
-"""The A2A trust-policy Control Plane artifact (D-IMPL-16).
+"""The Peering trust-policy Control Plane artifact (D-IMPL-16).
 
 SDK-defined extension (CLAUDE.md §7.2), attaching to whitepaper §8.3 Pattern 4
 and to the Control Plane of §7.8. This is the configuration the admission gate
 reads to answer one question — *what is this peer entitled to assert?* — and it
 answers no other.
+
+**Trust inputs are declared per Peering; the verdict is not** (``D-IMPL-59``
+part 4). This artifact is keyed on the *peer*, never on the transport that
+carried the peer's bytes, so the same peer is the same peer whichever Peering
+transport reached it — A2A being the reference transport (part 2), not the
+category. What the artifact supplies is an *input* to a decision made above
+every transport by :class:`~ccf.peering.admission.PeeringAdmissionGate`; nothing
+declared here concludes admission.
 
 It is a typed :class:`~ccf.contracts.base.CCFContract`, modeled on
 :class:`~ccf.controlplane.artifacts.HalfLifeTable`: SDK-owned shape,
@@ -26,8 +34,8 @@ regime — every one of those is the deployment's statement about its own
 federation, and one the SDK invented would be one no examiner could trace to a
 decision anyone made (CLAUDE.md §11, CINV-01; D-IMPL-38).
 
-**Verification is not configurable.** D-IMPL-16 rules that every inbound A2A
-Context Product is verified, with no fast path for a high-trust peer. That
+**Verification is not configurable.** D-IMPL-16 rules that every inbound
+Peering Context Product is verified, with no fast path for a high-trust peer. That
 ruling is structural here rather than merely followed: **this contract has no
 field that could turn signature verification off, and none that could route a
 peer around it.** ``extra="forbid"`` closes the other direction — a deployment
@@ -51,15 +59,15 @@ from collections.abc import Mapping
 
 from pydantic import Field, field_validator
 
-from ccf.a2a.identity import JsonWebKey
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import ArtifactClass, validate_semver
+from ccf.peering.identity import JsonWebKey
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
-    "A2A_TRUST_POLICY",
-    "A2ATrustPolicy",
+    "PEERING_TRUST_POLICY",
+    "PeeringTrustPolicy",
     "PeerNotTrusted",
     "PeerTrustGrant",
     "TrustPolicyViolation",
@@ -97,7 +105,7 @@ class PeerTrustGrant(CCFContract):
     Attributes:
         signing_keys: Public JWKs this peer may sign with, keyed by the ``kid``
             its protected header will declare. The admission gate hands this
-            mapping to :meth:`~ccf.a2a.identity.IdentityProvider.verify`, which
+            mapping to :meth:`~ccf.peering.identity.IdentityProvider.verify`, which
             is how a peer's identity is bound to its entitlements: a product
             signed by a key outside this mapping is not this peer's, whatever
             the header claims.
@@ -161,7 +169,7 @@ class PeerTrustGrant(CCFContract):
             )
 
 
-class A2ATrustPolicy(CCFContract):
+class PeeringTrustPolicy(CCFContract):
     """One tenant's federation policy, as a versioned Control Plane artifact.
 
     Tenant-scoped by construction (D-IMPL-05): the tenant is a field on the
@@ -208,8 +216,8 @@ class A2ATrustPolicy(CCFContract):
 
 
 #: The artifact class the registry validates trust policies against.
-A2A_TRUST_POLICY = ArtifactClass(
-    class_id="ccf.a2a-trust-policy", contract=A2ATrustPolicy
+PEERING_TRUST_POLICY = ArtifactClass(
+    class_id="ccf.peering-trust-policy", contract=PeeringTrustPolicy
 )
 
 
@@ -220,4 +228,4 @@ def trust_policy_key(*, tenant_id: str) -> str:
     two components cannot disagree about where a tenant's policy lives, and
     supplies no tenant, so it holds no deployment's vocabulary (CINV-01).
     """
-    return f"{A2A_TRUST_POLICY.class_id}/{tenant_id}"
+    return f"{PEERING_TRUST_POLICY.class_id}/{tenant_id}"

@@ -11,7 +11,7 @@ signing, the tamper construction and the emit-then-announce ordering are all
 reused from the typed-HTTP child unchanged; what differs is the four lines that
 build a :class:`~ccf_runtime.a2a.lf_a2a.LfA2AWire` instead of a
 :class:`~ccf_runtime.a2a.typed_http.TypedHttpWire`, and the ASGI app that mounts
-its routes. If this file had had to do more than that, the ``WireProtocol``
+its routes. If this file had had to do more than that, the ``PeeringProtocol``
 boundary would not have been the stable layer CLAUDE.md §7.2 claims it is.
 
 **The parent's URL is a base URL here, not an endpoint.** LF A2A discovers a
@@ -49,12 +49,12 @@ import httpx  # noqa: E402
 import yaml  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 
-from ccf.a2a.admission import PRODUCER_ASSERTION_HEADER  # noqa: E402
-from ccf.a2a.identity import (  # noqa: E402
+from ccf.peering.admission import PRODUCER_ASSERTION_HEADER  # noqa: E402
+from ccf.peering.identity import (  # noqa: E402
     DetachedJwsIdentityProvider,
     FileBackedKeySource,
 )
-from ccf.a2a.wire import PeerRef  # noqa: E402
+from ccf.peering.protocol import PeerRef  # noqa: E402
 
 from ccf_runtime.a2a.lf_a2a import LfA2AWire, build_agent_card  # noqa: E402
 

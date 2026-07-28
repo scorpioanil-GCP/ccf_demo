@@ -45,12 +45,12 @@ from typing import Protocol, runtime_checkable
 
 from pydantic import Field
 
-from ccf.a2a.admission import AdmittedProduct
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph.protocols import GraphWriter, UpsertResult
+from ccf.peering.admission import AdmittedProduct
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
 __ccf_mode__ = "algorithmic"
@@ -285,7 +285,7 @@ class AssemblyWorker:
         """Write an already-resolved entity claim through L2 (the admission path).
 
         DESIGN.md §2A.5.4 step 5: a claim that did not originate in this
-        fabric's own L1 — an A2A admission, a replayed snapshot — still enters
+        fabric's own L1 — a Peering admission, a replayed snapshot — still enters
         L3 *through L2*, never by a direct write. Policy is bound here, on the
         way in, exactly as it is for locally-assembled state.
         """
@@ -395,18 +395,24 @@ class AssemblyWorker:
         spec: FederatedIngestSpec,
         ingested_at: datetime,
     ) -> tuple[IngestResult, ...]:
-        """Run the federated write path for one **admitted** A2A product.
+        """Run the federated write path for one **admitted** Peering product.
 
         L2's second declared entry point (Dave, 2026-07-27), added so that the
-        admission commitment of CLAUDE.md §7.2 — *an inbound A2A Context Product
+        admission commitment of CLAUDE.md §7.2 — *an inbound Context Product
         is not admissible to L3 until the consuming Control Plane validates its
         Policy bindings* — is carried by the type system rather than by caller
         discipline. The parameter's type is
-        :class:`~ccf.a2a.admission.AdmittedProduct`, which is constructible only
-        inside :meth:`~ccf.a2a.admission.A2AAdmissionGate.admit`, so offering an
-        unadmitted :class:`~ccf.a2a.wire.InboundProduct` here does not typecheck
-        and does not run. That is what §10's "architectural, not advisory" asks
-        of this boundary.
+        :class:`~ccf.peering.admission.AdmittedProduct`, which is constructible
+        only inside
+        :meth:`~ccf.peering.admission.PeeringAdmissionGate.admit`, so offering
+        an unadmitted :class:`~ccf.peering.protocol.InboundProduct` here does
+        not typecheck and does not run. That is what §10's "architectural, not
+        advisory" asks of this boundary.
+
+        L2 reaches the **category** here, not its first instance
+        (``D-IMPL-59``): the import is ``ccf.peering``, so a second Peering
+        transport needs no change to this method, and a Peering that tried to
+        conclude its own admission would have nothing to hand in (part 4).
 
         :meth:`ingest` is deliberately left alone. It takes a
         :class:`~ccf.signal.envelope.SignalEnvelope` and serves *every* L1

@@ -62,7 +62,7 @@ import httpx
 import pytest
 
 import ccf_runtime.a2a
-from ccf.a2a.admission import AdmittedProduct
+from ccf.peering.admission import AdmittedProduct
 from ccf.products.gates import GateRefusal
 from ccf_runtime.a2a.lf_a2a import LfA2AWire, build_agent_card
 from ccf_runtime.a2a.typed_http import TypedHttpWire
@@ -199,7 +199,7 @@ def test_no_transport_module_names_a_fabric_write_surface(
 
 
 def _transport_classes() -> tuple[type, ...]:
-    """Every ``WireProtocol``-shaped class the discovered modules define.
+    """Every ``PeeringProtocol``-shaped class the discovered modules define.
 
     Discovered structurally — a class defined in one of these modules that
     offers both halves of the seam, ``emit`` and ``receive`` — for the same
