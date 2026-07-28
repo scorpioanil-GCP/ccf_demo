@@ -20,23 +20,35 @@ lint **and what would fail if the implementation were broken**. No numeric cover
 
 ## 1. Verification Evidence — Execution Record
 
-**What actually ran, and where.** All legs executed 2026-07-27 on the `06-16` worktree at
-base `7ec1de9` plus this plan's commits, using the project interpreter
-`/home/parkave/ccf_code/.venv/bin/python` (Python 3.12) with
-`PYTHONPATH=<worktree>/src:<worktree>/runtime`. **The `PYTHONPATH` is load-bearing**: run
-from a worktree without it, `pytest` silently imports the *main* checkout and reports on
-code that is not under test. Stating the environment, not just the command, is the direct
-lesson of finding §1.1 below.
+**What actually ran, and where. This is the post-closure sweep, executed 2026-07-27 in plan
+06-23 — after every gap-closure commit listed in §1.6.** The pre-closure numbers 06-16
+recorded (940 passed / 2 skipped, 188 conformance) are **superseded, not averaged**: a gate
+whose evidence predates its own fixes is the failure mode §1.1 exists to prevent, so the
+earlier run is named here only as the baseline the new one is compared against.
+
+Base: `cf8395d` (the tip of gap-closure wave 5) plus this plan's commits, on the `06-23`
+worktree. Interpreter: `/home/parkave/ccf_code/.venv/bin/python` (Python 3.12) with
+`PYTHONPATH=<worktree>/src:<worktree>/runtime`. **The `PYTHONPATH` is load-bearing**: both
+`ccf` and `ccf_runtime` are installed editable against the *main* checkout, so run from a
+worktree without it, `pytest` silently reports on code that is not under test. Asserted
+rather than assumed before any leg ran — `ccf.__file__` and `ccf_runtime.__file__` were both
+printed and both resolve inside the worktree
+(`<worktree>/src/ccf/__init__.py`, `<worktree>/runtime/ccf_runtime/__init__.py`). Stating the
+environment, not just the command, is the direct lesson of finding §1.1 below.
 
 | Leg | Command | Result |
 |-----|---------|--------|
-| Full suite | `python -m pytest -q` | **940 passed, 2 skipped**, exit 0 |
-| Full suite, harnesses mandatory | `CCF_REQUIRE_HARNESSES=1 python -m pytest -q -rs` | **940 passed, 2 skipped**, exit 0 — no harness leg skipped |
-| Harness conformance alone | `CCF_REQUIRE_HARNESSES=1 python -m pytest tests/conformance -q -rs` | **188 passed**, all three harness legs executed |
+| Full suite | `python -m pytest -q -rs` | **987 passed, 2 skipped**, exit 0 |
+| Full suite, harnesses mandatory | `CCF_REQUIRE_HARNESSES=1 python -m pytest -q -rs` | **987 passed, 2 skipped**, exit 0 — no harness leg skipped |
+| Harness conformance alone | `CCF_REQUIRE_HARNESSES=1 python -m pytest tests/conformance -q -rs` | **193 passed**, all three harness legs executed (was 188; 06-20's adversarial legs added five) |
+| CINV-02 carve-out boundary tests (row 1's corrected citation) | `python -m pytest tools/lints/tests -q` | **49 passed** |
 | Invariant lints (CINV-01a/b/c, CINV-02 incl. the D-24 carve-out, CINV-03) | `python -m tools.lints --all` | **exit 0, zero findings** |
 | Strict typing | `python -m mypy` | **Success: no issues found in 99 source files** (`src` **and** `runtime`) |
 | Dependency coherence | `python -m pip check` | **No broken requirements found** |
 | Harness SDKs present | `pip show claude-agent-sdk langgraph google-adk` | `0.2.128` / `1.2.9` / `2.5.0` |
+
+**The pass count rose 940 → 987 and no test was removed** — the deletion constraint is
+checked directly in §1.6 rather than inferred from the count.
 
 **The 2 skips are the same two deliberate deferrals I.2 ended with, and nothing else.**
 Both name their activating phase in the skip reason, printed by `-rs`:
@@ -51,8 +63,10 @@ the D-21 sweep in §4.9.
 
 ### 1.1 Three gate-evidence integrity findings this phase produced
 
-Recorded first because both are cases of **a check reporting on something other than what it
-claimed**, which is the failure mode a gate document exists to prevent.
+Recorded first because all three are cases of **a check reporting on something other than what
+it claimed**, which is the failure mode a gate document exists to prevent. *(The count was
+raised from two to three in 06-22; this sentence still said "both" and is corrected here — the
+same class of residual as the one row 1 names.)*
 
 1. **CI was running `mypy --strict src`, overriding `[tool.mypy] files`.** Extending the
    config to include `runtime` — which 06-02 did, per research B2 — would have had **zero
@@ -92,6 +106,33 @@ resolve (§4.13).
 | No harness import anywhere in core | `grep -rn 'langgraph\|google.adk\|claude_agent_sdk' src/` | **empty** (exit 1) — corroborating CINV-02's zero findings |
 | No dynamic import in skill dispatch (D-19/D-IMPL-54) | `grep -rn 'importlib' src/ccf/skills/` | **empty** (exit 1) |
 
+**Five more the gap-closure wave earned**, re-run in this plan. Each is the retired form of a
+defect the wave closed, so a non-empty result would mean a closure had regressed:
+
+| Spot check | Command | Result |
+|------------|---------|--------|
+| B1's retired witness is gone (06-18) | `grep -c engine_resolved src/ccf/peering/admission.py` | **0** |
+| B1's retired docstring admission is gone (06-18) | `grep -rl "structurally vacuous" src/` | **0 files** |
+| The pre-D-IMPL-59 seam name is fully retired (06-24/06-25) | `grep -rl "ccf\.a2a\|ccf_runtime\.a2a" src runtime tests tools` | **0 files** |
+| The pre-amendment class id is gone (D-IMPL-58, amended 2026-07-27) | `grep -rl '"admission_record"' src runtime tests` | **0 files** |
+| No unsuffixed seam Protocol, against Dave's `PeeringProtocol` ruling | `grep -rlE "^class Peering\(\|^class Peering:" src/` | **0 files** |
+
+And the two positive forms of the same rulings, which a `== 0` check cannot establish:
+
+| Ruling | Command | Result |
+|--------|---------|--------|
+| D-IMPL-58 class id, registered exactly once | `grep -rn 'class_id="ccf.admission-record"' src runtime tests` | **1 hit**, `src/ccf/peering/admission.py:471` |
+| D-IMPL-59 Protocol name | `grep -c "class PeeringProtocol" src/ccf/peering/protocol.py` | **1** |
+
+> **Correction to this plan's own acceptance criteria, recorded rather than worked around.**
+> 06-23's criteria located the `class_id` registration in `src/ccf/controlplane/artifacts.py`.
+> That file exists, but the registration **cannot** live there: `products.contract →
+> controlplane.registry → controlplane.artifacts` is an import cycle, which is why 06-19 placed
+> `ADMISSION_RECORD` beside the contract it declares, in `src/ccf/peering/admission.py`. The
+> criterion's *property* — the class id is `ccf.admission-record` and is declared exactly once —
+> **holds**, and is verified above at the real location. The same mis-citation appeared in
+> 06-19's and 06-24's criteria; it is recorded here so the third instance is not silent.
+
 These greps **corroborate**; they do not carry the claims. A grep cannot distinguish a
 violation from a *mention* of one, which is precisely why the load-bearing versions of all
 three are AST scans and lint rules (rows 1, 4, 8 below). See §4.9.
@@ -124,6 +165,42 @@ mechanism this phase delivered; neither is claimed as delivered here.
   phase branch contains no `.pem`, `.jwk`, `.p12`, or token-shaped file. A2A and MCP key
   material is generated per test into a `tmp_path` and never committed; what the fixtures
   declare is which *identifiers* a peer may sign under, which is policy, not secret.
+
+### 1.6 The gap-closure wave: which findings, which plans, which commits
+
+The 2026-07-27 cross-AI gate review returned **three blocking findings and seven advisories**
+(`06-REVIEWS.md`, which now carries a 10-row disposition table). Two decisions surfaced
+*during* the closure work and were ruled by Dave mid-wave, which grew the wave from four plans
+to six. Every closure is a code or docs change on `phase-i3`; none is a re-presentation of
+existing work as closed.
+
+| Plan | Closes | Substance | Commits |
+|------|--------|-----------|---------|
+| **06-18** | **B1** | The federated gate sequence stops passing the producer's own `operators_invoked` as an `engine_resolved` witness to a gate named strict equality. `GATE_LINEAGE_ATTRIBUTABILITY` / `LineageAttributionRefusal` added; gates 1 and 3 factored into `_refuse_empty_operators` / `_refuse_ttl` and shared with the local sequence. D-IMPL-57 reading (a) | `95d5b7f`, `6855afe`, `3ba090d`, `711b094`, `7c6dc3a` |
+| **06-19** | **B2** | `AdmissionRecord` (class id `ccf.admission-record`) declared, persisted at the crossing, referenced from the audit append, and resolvable by replay at an exact version — `replay/engine.py` generalized to contract-parametrized `resolve_artifact` / `resolve_artifact_at_uri`. `LineageEntry` untouched, asserted. D-IMPL-58 reading (d) | `cb80b33`, `466f309`, `dc71c66`, `77ef83d`, `713efde`, `0bb79d2`, `8b69d56` |
+| **06-20** | **B3** | Adversarial harness legs give the seam-3 emission and seam-4 trace equalities a real failure mode; the suite's own docstring states what it drives and does not drive | `bd34919`, `24dbddb`, `b2cddf1`, `8f6e1b5`, `c1a59ad` |
+| **06-21** | **A1, A2** | The transport instance scan parametrized over structurally discovered transports with a live count guard (`LfA2AWire` included); the `AdmittedProduct` claim scoped to "a type error on every unforced path" | `27e39ca`, `c56209e`, `043f951` |
+| **06-24** | **D-IMPL-59** (parts 1–4) | The federation seam relocated to `ccf.peering`; `WireProtocol` → `PeeringProtocol`; `wire.py` → `protocol.py`; transports under `ccf_runtime.peering`; tests under `tests/peering/`; audit verdict members and gate id values → `peering-*`. Part 4 pinned as a property test | `84dad4c`, `a2cc6f8`, `20c029c`, `96849d8` |
+| **06-25** | **D-IMPL-59** (skill surface) | The catalog and dispatcher speak `peering`; the `a2a` skill_type token retired | `9acf32a`, `0d57313`, `3e82288` |
+| **06-22** | **B1–B3 prose, A1/A2/A4/A5** | Gate rows and criterion prose narrowed to what the suite holds, each narrowing carrying the finding id that forced it; §3.2.1, §3.3.1, §4.13 added; `06-REVIEWS.md` disposition table | `db54701`, `fa3c98a`, `942dc7e`, `d86aa16` |
+| **06-23** *(this plan)* | gate re-presentation | The sweep above, the row-by-row re-verification in §2, and `06-VALIDATION.md`'s wave map | this plan |
+
+**No code was deleted anywhere in the wave.** Checked two ways, both empty:
+`git diff --diff-filter=D --name-only pre-peering -- src/ runtime/ tests/ tools/` (the wave,
+against the pinned `pre-peering` tag) and
+`git diff --diff-filter=D --name-only main...HEAD -- src/ runtime/ tests/` (the whole phase).
+Every relocation is a rename: `git diff -M --name-status pre-peering HEAD` reports **16**
+`R`-status paths across `src/ runtime/ tests/ tools/`.
+
+**Three advisories are carried forward, not closed** — A3, A6, A7, each with a stated
+consequence in §5. **A3 in particular is open**: see §3.3.1 and §5.
+
+**`D-GATE-I.3` is not logged.** The Gate Log in `docs/DECISIONS.md` ends at `D-GATE-I.2`;
+`grep -cE "^\*?\*?D-GATE-I\.3 —|^#+ .*D-GATE-I\.3" docs/DECISIONS.md` → **0**. A literal
+`grep -c "D-GATE-I.3"` returns **1**, and that hit is a *prose mention inside D-IMPL-58's own
+text* ("Phase I.3 cannot be honestly presented for `D-GATE-I.3`") — not an entry. It was
+already present at this plan's base and is deliberately left alone: deleting a sentence from a
+decision-log entry to satisfy a counter would be a worse defect than the counter it satisfies.
 
 ---
 
