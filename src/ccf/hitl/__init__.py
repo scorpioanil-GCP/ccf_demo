@@ -30,6 +30,18 @@ from ccf.hitl.approval_gate import (
     UnboundDecisionError,
     UnknownGateEventError,
 )
+from ccf.hitl.escalation import (
+    ESCALATION_ACTIONS,
+    EscalationActionError,
+    EscalationActionRecord,
+    EscalationHandOff,
+    EscalationRefused,
+    EscalationResolution,
+    EscalationResolutionRefused,
+    ExceptionEscalation,
+    ExplicitEscalation,
+    UnknownEscalationEventError,
+)
 from ccf.hitl.principal import (
     ApproverIdentity,
     AuthenticationContext,
@@ -47,6 +59,7 @@ from ccf.hitl.transport import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "ESCALATION_ACTIONS",
     "GATE_ACTIONS",
     "HITL_ACTIONS",
     "HITL_ACTION_ARTIFACT_CLASS",
@@ -54,6 +67,15 @@ __all__ = [
     "ApprovalGate",
     "ApprovalSinkAdapter",
     "ApproverIdentity",
+    "EscalationActionError",
+    "EscalationActionRecord",
+    "EscalationHandOff",
+    "EscalationRefused",
+    "EscalationResolution",
+    "EscalationResolutionRefused",
+    "ExceptionEscalation",
+    "ExplicitEscalation",
+    "UnknownEscalationEventError",
     "GateActionError",
     "GateResolution",
     "GateResolutionRefused",
