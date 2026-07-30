@@ -62,7 +62,7 @@ def test_the_fixture_workflow_validates() -> None:
 
 def test_the_artifact_class_is_registered_as_ccf_workflow_definition() -> None:
     assert WORKFLOW_DEFINITION.class_id == "ccf.workflow-definition"
-    validated = WORKFLOW_DEFINITION.validate(_document())
+    validated = WORKFLOW_DEFINITION.validate(_definition())
     assert isinstance(validated, WorkflowDefinition)
 
 
@@ -136,8 +136,8 @@ def test_a_node_from_which_no_terminal_is_reachable_is_refused() -> None:
     document["transitions"] = [
         {"source": "fetch-certificates", "target": "analyze-covenants"},
         {"source": "analyze-covenants", "target": "fetch-certificates"},
-        {"source": "credit-officer-approval", "target": "approved"},
     ]
+    document["gate_policies"] = {}
     with pytest.raises(ValidationError, match="terminal"):
         WorkflowDefinition.model_validate(document)
 
