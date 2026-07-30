@@ -8,11 +8,21 @@
 # (D-IMPL-38 discipline: the author declares, the SDK never assumes).
 
 entry:
-  schema_version: "1.0.0"
+  schema_version: "2.0.0"
   artifact_version: "1.0.0"
   name: document-fetch
   tenant: acme-bank
   skill_type: mcp
+  description: >-
+    Fetch executed loan agreement documents from the bank's document
+    repository over its registered MCP server, for treasury review.
+  argument_schema:
+    properties:
+      requested_by:
+        type: string
+        description: >-
+          The role or analyst the document fetch is recorded against.
+    required: [requested_by]
   binding:
     server: acme-bank-documents
     resource: loan-agreements
@@ -67,11 +77,22 @@ expected_excess_scopes: [document-read]
 # what registers the address, and this entry names no address either.
 agent_invocable:
   entry:
-    schema_version: "1.0.0"
+    schema_version: "2.0.0"
     artifact_version: "1.0.0"
     name: portfolio-document-fetch
     tenant: acme-bank
     skill_type: mcp
+    description: >-
+      Fetch executed loan agreement documents from the bank's document
+      repository over its registered MCP server, scoped for portfolio
+      analysts.
+    argument_schema:
+      properties:
+        requested_by:
+          type: string
+          description: >-
+            The role or analyst the document fetch is recorded against.
+      required: [requested_by]
     binding:
       server: acme-bank-documents
       resource: loan-agreements
