@@ -242,11 +242,11 @@ No external-ecosystem drift affects this phase: all SDK pins were audited in Pha
 
 ## Open Questions
 
-1. **Absent per-node exception ref (D-13 residual) — decision-ready, recommend routing to Dave as candidate D-IMPL-61.**
+1. **(ROUTED: blocking `checkpoint:decision` in plan 07-01 Task 2, gating 07-04)** **Absent per-node exception ref (D-13 residual) — decision-ready, recommend routing to Dave as candidate D-IMPL-61.**
    - What we know: §8.1 requires exception paths to be first-class state transitions, not glued-on error handling. D-13 rules per-node refs, artifact-carried.
    - Two defensible readings: **(a) propagate-to-terminal** — a node with no exception ref means an exception transitions the workflow to a defined terminal `failed` state, recorded as an explicit transition in the trace (absence is a defined transition, matching the positive-sentinel doctrine: "no handler" is an asserted claim with defined semantics); **(b) validation error at artifact load** — every node must declare a target, making "unhandled" unrepresentable (matching the required-`description` forcing-function precedent of D-16).
    - Recommendation: reading (a), because (b) forces boilerplate refs onto every node of every simple workflow and quietly makes "let it fail" inexpressible — a policy choice the SDK shouldn't impose — while (a) still satisfies §8.1's first-class requirement (the terminal transition is explicit, audited, and in the trace). But this is artifact-schema semantics on an SDK-defined surface with two defensible readings: per CLAUDE.md §15, record it as a `D-IMPL-NN` with the recommendation and get Dave's ruling **before** the `WorkflowDefinition` schema plan executes. Do not default it.
-2. **Where exactly the engine/contract split falls across `/src` and `/runtime`** (sync-core contracts vs async-first engine, and where the suspended-state record type lives given the `state.py` "next to the machine" doctrine). Planner-level; flag only because the D-14 async ruling and the `state.py` doctrine pull in slightly different directions and the plan should resolve them explicitly, in writing, in the slice plan.
+2. **(RESOLVED in plan 07-06 — split resolved explicitly in the engine module docstring per the Responsibility Map)** **Where exactly the engine/contract split falls across `/src` and `/runtime`** (sync-core contracts vs async-first engine, and where the suspended-state record type lives given the `state.py` "next to the machine" doctrine). Planner-level; flag only because the D-14 async ruling and the `state.py` doctrine pull in slightly different directions and the plan should resolve them explicitly, in writing, in the slice plan.
 
 ## Environment Availability
 
