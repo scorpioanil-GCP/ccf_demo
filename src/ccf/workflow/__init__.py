@@ -22,12 +22,22 @@ from ccf.workflow.definitions import (
     WorkflowDefinition,
     WorkflowTransition,
 )
+from ccf.workflow.factory import (
+    Workflow,
+    WorkflowConstructionError,
+    WorkflowFactory,
+    WorkflowIdentity,
+)
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "WORKFLOW_DEFINITION",
     "WORKFLOW_FAILED_STATE",
+    "Workflow",
+    "WorkflowConstructionError",
     "WorkflowDefinition",
+    "WorkflowFactory",
+    "WorkflowIdentity",
     "WorkflowTransition",
 ]
