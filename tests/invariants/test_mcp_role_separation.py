@@ -239,6 +239,66 @@ def test_the_experience_module_imports_no_graph_package() -> None:
     assert not offending, f"{experience.__name__} imports {offending}"
 
 
+# --- the HITL transport role (D-IMPL-20, 07-09) -----------------------------
+
+
+def test_the_hitl_role_is_its_own_module() -> None:
+    """§7.1, T-07-22: the authority channel is a fourth module, importing none.
+
+    What would fail here: the HITL queues folded into the experience or
+    egress module "since they are all front doors" — at which point the
+    human-authority surface would be one decorator away from an anonymous
+    product read.
+    """
+    import ccf_runtime.mcp.experience as experience
+    import ccf_runtime.mcp.hitl_server as hitl_server
+
+    siblings = (egress, artifact_server, experience)
+    assert all(hitl_server.__name__ != sibling.__name__ for sibling in siblings)
+    assert all(hitl_server.__file__ != sibling.__file__ for sibling in siblings)
+
+    hitl_imports = _imported_names(hitl_server)
+    for sibling in siblings:
+        assert sibling.__name__ not in hitl_imports
+        assert hitl_server.__name__ not in _imported_names(sibling)
+
+
+def test_the_hitl_role_owns_its_scheme_and_names_no_others() -> None:
+    """T-06-16 extended: a HITL queue address is confusable with no sibling's."""
+    import ccf_runtime.mcp.experience as experience
+    import ccf_runtime.mcp.hitl_server as hitl_server
+
+    hitl_source = inspect.getsource(hitl_server)
+
+    assert hitl_server.HITL_QUEUE_URI_TEMPLATE.startswith(
+        hitl_server.HITL_QUEUE_URI_SCHEME + "://"
+    )
+    for foreign_scheme in (
+        egress.PRODUCT_URI_SCHEME,
+        experience.EXPERIENCE_PRODUCT_URI_SCHEME,
+        ccf.artifacts.protocol.ARTIFACT_URI_SCHEME,
+        artifact_server.ARTIFACT_BLOB_URI_SCHEME,
+        artifact_server.ARTIFACT_META_URI_SCHEME,
+    ):
+        assert foreign_scheme + "://" not in hitl_source
+
+    hitl_scheme = hitl_server.HITL_QUEUE_URI_SCHEME + "://"
+    for sibling in (egress, artifact_server, experience):
+        assert hitl_scheme not in inspect.getsource(sibling)
+
+
+def test_the_hitl_module_imports_no_graph_package() -> None:
+    """The authority channel holds no route into L3 (INV-CH7-10)."""
+    import ccf_runtime.mcp.hitl_server as hitl_server
+
+    offending = [
+        name
+        for name in _imported_names(hitl_server)
+        if _reaches(name, GRAPH_PACKAGE)
+    ]
+    assert not offending, f"{hitl_server.__name__} imports {offending}"
+
+
 # --- the ArtifactStore leg of single-writer (ROADMAP criterion 4) ----------
 
 
