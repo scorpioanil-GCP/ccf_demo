@@ -27,8 +27,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-from fastapi.routing import APIRoute
-
 from ccf.contracts.canonical import canonical_bytes, content_hash
 
 from http_api.conftest import Fabric, call
@@ -51,15 +49,23 @@ def _ruled_nouns() -> frozenset[str]:
     return frozenset(re.findall(r"`([a-z]+)`", match.group(1)))
 
 
-def _api_routes(app: Any) -> tuple[APIRoute, ...]:
-    return tuple(r for r in app.routes if isinstance(r, APIRoute))
+def _paths(app: Any) -> dict[str, dict[str, Any]]:
+    """Every mounted path with its methods — the materialized route walk.
+
+    FastAPI 0.140 keeps included routers lazy on ``app.routes``
+    (``_IncludedRouter``), so the honest enumeration of what is mounted is
+    the generated document itself — which is also EXPR-03's own claim:
+    ``app.openapi()`` IS the surface.
+    """
+    paths: dict[str, dict[str, Any]] = app.openapi()["paths"]
+    return paths
 
 
 def _noun_prefixes(app: Any) -> frozenset[str]:
     return frozenset(
-        route.path.split("/")[1]
-        for route in _api_routes(app)
-        if route.path.split("/")[1] != "health"
+        path.split("/")[1]
+        for path in _paths(app)
+        if path.split("/")[1] != "health"
     )
 
 
@@ -74,18 +80,17 @@ def test_mounted_nouns_equal_the_ruling_text(app: Any) -> None:
 
 
 def test_no_ingest_or_write_to_graph_path_exists(app: Any) -> None:
-    """Walking app.routes finds no L1/write door anywhere (T-07-23)."""
-    for route in _api_routes(app):
-        segments = {s for s in route.path.lower().split("/") if s}
-        assert not (segments & FORBIDDEN_PREFIXES), route.path
+    """Walking the mounted paths finds no L1/write door (T-07-23)."""
+    for path in _paths(app):
+        segments = {s for s in path.lower().split("/") if s}
+        assert not (segments & FORBIDDEN_PREFIXES), path
 
 
 def test_the_product_noun_is_read_only(app: Any) -> None:
     """The product surface serves; it never accepts (single-writer)."""
-    for route in _api_routes(app):
-        if route.path.split("/")[1] == "product":
-            assert route.methods is not None
-            assert route.methods <= {"GET", "HEAD"}, route.path
+    for path, operations in _paths(app).items():
+        if path.split("/")[1] == "product":
+            assert set(operations) <= {"get", "head"}, path
 
 
 def test_health_answers(app: Any) -> None:
@@ -350,7 +355,10 @@ def test_hitl_action_submission_travels_the_typed_queue(
         "tenant": "acme-bank",
         "action": "approve",
         "principal": {
-            "approver": {"subject_id": "risk-officer-7"},
+            "approver": {
+                "subject_id": "risk-officer-7",
+                "identity_provider_ref": "idp:acme-sso",
+            },
             "authentication": {
                 "method": "sso",
                 "assurance_level": "aal2",
@@ -373,7 +381,10 @@ def test_hitl_action_with_an_extra_field_is_refused(app: Any) -> None:
         "tenant": "acme-bank",
         "action": "approve",
         "principal": {
-            "approver": {"subject_id": "risk-officer-7"},
+            "approver": {
+                "subject_id": "risk-officer-7",
+                "identity_provider_ref": "idp:acme-sso",
+            },
             "authentication": {
                 "method": "sso",
                 "assurance_level": "aal2",
@@ -400,7 +411,7 @@ def test_replay_decision_returns_the_typed_record(
         params={"content_address": fabric.replay_ref.content_address},
     )
     assert response.status_code == 200
-    assert response.json()["product"]["tenant_id"] == "acme-bank"
+    assert response.json()["tenant_id"] == "acme-bank"
 
 
 def test_replay_resolution_follows_the_versioned_uri(
@@ -410,7 +421,7 @@ def test_replay_resolution_follows_the_versioned_uri(
         app, "GET", "/replay/resolutions", params={"uri": fabric.replay_ref.uri}
     )
     assert response.status_code == 200
-    assert response.json()["product"]["tenant_id"] == "acme-bank"
+    assert response.json()["tenant_id"] == "acme-bank"
 
 
 def test_replay_refuses_a_moving_target(app: Any, fabric: Fabric) -> None:
