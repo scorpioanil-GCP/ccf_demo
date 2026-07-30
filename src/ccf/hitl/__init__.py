@@ -18,6 +18,18 @@ the authority path requires a principal binding by type.
 
 from __future__ import annotations
 
+from ccf.hitl.approval_gate import (
+    GATE_ACTIONS,
+    HITL_ACTION_ARTIFACT_CLASS,
+    ApprovalGate,
+    ApprovalSinkAdapter,
+    GateActionError,
+    GateResolution,
+    GateResolutionRefused,
+    HitlActionRecord,
+    UnboundDecisionError,
+    UnknownGateEventError,
+)
 from ccf.hitl.principal import (
     ApproverIdentity,
     AuthenticationContext,
@@ -35,9 +47,19 @@ from ccf.hitl.transport import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "GATE_ACTIONS",
     "HITL_ACTIONS",
+    "HITL_ACTION_ARTIFACT_CLASS",
     "HITL_EVENT_CLASSES",
+    "ApprovalGate",
+    "ApprovalSinkAdapter",
     "ApproverIdentity",
+    "GateActionError",
+    "GateResolution",
+    "GateResolutionRefused",
+    "HitlActionRecord",
+    "UnboundDecisionError",
+    "UnknownGateEventError",
     "AuthenticationContext",
     "HITLTransportProtocol",
     "HitlActionSubmission",

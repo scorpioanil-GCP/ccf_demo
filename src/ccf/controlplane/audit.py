@@ -85,6 +85,13 @@ __all__ = ["AuditAction", "AuditEvent", "AuditLog"]
 #: Plane state change like any other, and recording it under ``register`` or
 #: ``state_written`` would make the log say something untrue. One log, one
 #: ``append``, no parallel surface.
+#: ``hitl_action`` is the member added for 07-07 (CLAUDE.md §8.2): a human
+#: acting on a HITL gate is a Control Plane interaction like any other, and
+#: none of the existing members can express it — the ``workflow_*`` family
+#: records what the *engine* did, and a human verdict recorded as a workflow
+#: transition would make the log say something untrue. Rejections and TOCTOU
+#: refusals travel in the same member as ``resolved=False``, exactly as
+#: ``workflow_resumed`` carries its refusals.
 AuditAction = Literal[
     "register",
     "register_typed",
@@ -105,6 +112,7 @@ AuditAction = Literal[
     "workflow_resumed",
     "workflow_exception",
     "workflow_completed",
+    "hitl_action",
 ]
 
 
