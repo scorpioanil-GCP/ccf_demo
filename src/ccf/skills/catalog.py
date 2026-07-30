@@ -1,4 +1,4 @@
-"""The four-type skill catalog entry and its Control Plane path (D-IMPL-12).
+"""The five-type skill catalog entry and its Control Plane path (D-IMPL-12).
 
 SDK-defined (CLAUDE.md §6.2 channel 2 — skilling). A skill catalog entry is
 a declared, versioned Control Plane artifact in the exact D-IMPL-28 style of
@@ -6,13 +6,25 @@ a declared, versioned Control Plane artifact in the exact D-IMPL-28 style of
 hash-verified bump check at registration, closed-world validation, values in
 YAML and never here.
 
-Three disciplines are load-bearing:
+Four disciplines are load-bearing:
 
-**Four types, one schema, from day one (D-IMPL-12; D-08).** An entry is a
-``local_callable``, ``tool``, ``mcp``, or ``peering`` skill — MCP-resources-as-
-skills is one type, not the unified mechanism. All four validate and register
-in this wave; *dispatch* for any of them is the next wave's scope (05-06),
-so every binding block here is a descriptor, never a transport.
+**Five types, one schema (D-IMPL-12; D-08; D-IMPL-56).** An entry is a
+``local_callable``, ``tool``, ``mcp``, ``peering``, or ``procedure`` skill —
+MCP-resources-as-skills is one type, not the unified mechanism. All five
+validate and register through the same path; every binding block here is a
+descriptor, never a transport. ``procedure`` (D-IMPL-56, ruled 2026-07-27)
+carries instruction content by *reference* — a pinned
+:class:`~ccf.agents.definitions.InstructionBinding` — consumed on seam 1
+(context injection) only, never surfaced as a seam-2 tool dispatch target.
+
+**The tool surface is declared on the artifact (D-IMPL-56).** Every entry
+carries a required ``description`` and a required typed ``argument_schema``
+— no default and no sentinel (D-16), because what a skill is for is the
+deployment's statement and an adapter inventing it would both breach the
+No-Hardcoding Rule (CLAUDE.md §6.4) and silently break the D-17 harness
+equivalence the moment two adapters invented differently. One shared
+derivation (:mod:`ccf.skills.toolsurface`) renders these declarations into
+every harness's tool surface.
 
 ``mcp`` is a *sibling* of ``peering``, never a case of it: D-IMPL-59 part 3
 puts MCP outside Peering because an MCP read is asymmetric and originates
@@ -38,7 +50,8 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from typing import Literal, get_args
+from collections.abc import Mapping
+from typing import Any, Literal, get_args
 
 from pydantic import field_validator, model_validator
 
@@ -55,6 +68,9 @@ __all__ = [
     "LocalCallableBinding",
     "McpBinding",
     "PeeringBinding",
+    "ProcedureBinding",
+    "SkillArgumentProperty",
+    "SkillArgumentSchema",
     "SkillCatalog",
     "SkillCatalogEntry",
     "SkillNotInCatalog",
@@ -63,12 +79,21 @@ __all__ = [
     "skill_catalog_key",
 ]
 
-#: The four D-IMPL-12 skill types. Mechanism identifiers, not domain values:
-#: each names a *kind of binding* the SDK can eventually dispatch, and an
-#: entry declaring anything else is malformed rather than merely unknown.
-SkillType = Literal["local_callable", "tool", "mcp", "peering"]
+#: The five D-IMPL-12/D-IMPL-56 skill types. Mechanism identifiers, not domain
+#: values: each names a *kind of binding* the SDK can eventually dispatch (or,
+#: for ``procedure``, inject on seam 1), and an entry declaring anything else
+#: is malformed rather than merely unknown.
+SkillType = Literal["local_callable", "tool", "mcp", "peering", "procedure"]
 
 SKILL_TYPES: frozenset[str] = frozenset(get_args(SkillType))
+
+#: The JSON Schema primitive type names an argument property may declare
+#: (D-IMPL-56). A closed enumeration because the rendered surface must be a
+#: valid MCP tool ``inputSchema`` on every harness; nesting beyond one level
+#: is out of v0 scope by ruling.
+JsonSchemaType = Literal[
+    "string", "number", "integer", "boolean", "array", "object"
+]
 
 
 class SkillNotInCatalog(LookupError):
@@ -137,6 +162,22 @@ class PeeringBinding(CCFContract):
     endpoint: str
 
 
+class ProcedureBinding(CCFContract):
+    """A ``procedure`` skill's descriptor: a pinned instruction reference.
+
+    SDK-defined (D-IMPL-56; CLAUDE.md §6.2 channel 2, §7.3 seam 1). The
+    instruction content travels by reference — an
+    :class:`~ccf.agents.definitions.InstructionBinding` naming a versioned
+    prompt artifact — and is consumed on seam 1 (context injection) **only**.
+    A procedure never becomes a seam-2 tool: smuggling instruction text into
+    the tool surface would hand the harness authored prose the Control Plane
+    never versioned (T-07-05), so the binding deliberately has no field that
+    could carry inline text (No-Hardcoding Rule, CLAUDE.md §6.4).
+    """
+
+    instruction: "InstructionBinding"
+
+
 #: Which binding contract each skill type must carry. The agreement check in
 #: :class:`SkillCatalogEntry` reads this mapping; a new type is a new row
 #: here plus a new Literal member — the two cannot drift silently because
@@ -146,7 +187,74 @@ _BINDING_CONTRACTS: dict[str, type[CCFContract]] = {
     "tool": ToolBinding,
     "mcp": McpBinding,
     "peering": PeeringBinding,
+    "procedure": ProcedureBinding,
 }
+
+
+class SkillArgumentProperty(CCFContract):
+    """One argument's typed spec on a catalog entry (D-IMPL-56).
+
+    JSON-Schema-shaped by construction: ``type`` is a closed Literal over the
+    JSON Schema primitive type names, and ``description`` is required with no
+    default — the same D-16 forcing function as the entry description,
+    because a property whose meaning an adapter would have to invent is the
+    same defect one schema level down. Nested property specs beyond one
+    level are out of v0 scope by ruling.
+    """
+
+    type: JsonSchemaType
+    description: str
+
+
+class SkillArgumentSchema(CCFContract):
+    """The typed argument declaration on a catalog entry (D-IMPL-56).
+
+    JSON-Schema-shaped and MCP-``inputSchema``-compatible, pre-specified:
+    ``properties`` maps argument names to typed specs, ``required`` is a
+    subset of the property names, and the rendered surface always pins
+    ``additionalProperties`` to ``false`` — structurally, mirroring this
+    contract's own ``extra=forbid`` closed world. One shared derivation
+    (:mod:`ccf.skills.toolsurface`) renders it into every harness.
+    """
+
+    properties: Mapping[str, SkillArgumentProperty]
+    required: tuple[str, ...]
+
+    @model_validator(mode="after")
+    def _required_names_exist(self) -> "SkillArgumentSchema":
+        missing = [name for name in self.required if name not in self.properties]
+        if missing:
+            raise ValueError(
+                f"required argument names {missing!r} are not declared in"
+                " properties — a requirement over an undeclared argument is a"
+                " schema that cannot be satisfied (D-IMPL-56)"
+            )
+        return self
+
+    def __hash__(self) -> int:
+        # The generated frozen-model hash cannot hash a mapping field; the
+        # schema participates in entry hashing (catalog discovery compares
+        # entries as sets), so hash the same values equality compares.
+        return hash(
+            (type(self), tuple(sorted(self.properties.items())), self.required)
+        )
+
+    def to_input_schema(self) -> dict[str, Any]:
+        """Render as an MCP-tool ``inputSchema``-shaped dict, losslessly.
+
+        Pure and total: every declared value appears, nothing is authored,
+        and ``additionalProperties`` is always emitted ``false`` — the closed
+        world is part of the contract, not a renderer option.
+        """
+        return {
+            "type": "object",
+            "properties": {
+                name: {"type": spec.type, "description": spec.description}
+                for name, spec in self.properties.items()
+            },
+            "required": list(self.required),
+            "additionalProperties": False,
+        }
 
 
 class SkillRequirements(CCFContract):
@@ -180,6 +288,11 @@ class SkillCatalogEntry(CCFContract):
     Two-field versioning per D-IMPL-28: ``schema_version`` is this class's
     lane; ``artifact_version`` is the author's content claim, hash-verified
     at registration (D-05).
+
+    ``description`` and ``argument_schema`` are required with no default and
+    no sentinel (D-IMPL-56; D-16): the tool surface every harness renders is
+    a declared artifact property, produced by the one shared derivation in
+    :mod:`ccf.skills.toolsurface` — never adapter-authored prose.
     """
 
     schema_version: str
@@ -187,7 +300,15 @@ class SkillCatalogEntry(CCFContract):
     name: str
     tenant: str
     skill_type: SkillType
-    binding: LocalCallableBinding | ToolBinding | McpBinding | PeeringBinding
+    description: str
+    argument_schema: SkillArgumentSchema
+    binding: (
+        LocalCallableBinding
+        | ToolBinding
+        | McpBinding
+        | PeeringBinding
+        | ProcedureBinding
+    )
     requirements: SkillRequirements
 
     @field_validator("schema_version", "artifact_version")
@@ -327,3 +448,15 @@ class SkillCatalog:
             " a skill the Control Plane cannot resolve at a pinned version"
             " is a deployment error, not a defaultable condition (D-IMPL-38)"
         )
+
+
+# Imported at the bottom, deliberately (D-IMPL-56). `ccf.agents` imports this
+# module (Agent resolves catalog entries), so a top-of-module import here
+# would make first-import order decide whether the SDK imports at all. By the
+# time this line runs, every name `ccf.agents.agent` needs from this module
+# already exists, so the cycle closes safely in both orders; the deferred
+# annotations above are then resolved explicitly.
+from ccf.agents.definitions import InstructionBinding  # noqa: E402
+
+ProcedureBinding.model_rebuild()
+SkillCatalogEntry.model_rebuild()
