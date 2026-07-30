@@ -410,7 +410,7 @@ Plans:
 
 **Wave 9**
 
-- [ ] 07-13-PLAN.md — ADK + Claude Agent SDK driver legs (D-IMPL-60 complete; A2 escalation rule)
+- [x] 07-13-PLAN.md — ADK + Claude Agent SDK driver legs (D-IMPL-60 complete; A2 escalation rule)
 
 **Wave 10**
 
@@ -443,7 +443,7 @@ Plans:
 | 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
-| 7. Phase I.4 — Orchestration, HITL, Experience | 12/14 | In Progress|  |
+| 7. Phase I.4 — Orchestration, HITL, Experience | 13/14 | In Progress|  |
 | 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |
 
 ## Coverage
