@@ -23,11 +23,25 @@ from ccf.hitl.principal import (
     AuthenticationContext,
     HumanPrincipalBinding,
 )
+from ccf.hitl.transport import (
+    HITL_ACTIONS,
+    HITL_EVENT_CLASSES,
+    HITLTransportProtocol,
+    HitlActionSubmission,
+    InMemoryHitlTransport,
+    PendingHitlEvent,
+)
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "HITL_ACTIONS",
+    "HITL_EVENT_CLASSES",
     "ApproverIdentity",
     "AuthenticationContext",
+    "HITLTransportProtocol",
+    "HitlActionSubmission",
     "HumanPrincipalBinding",
+    "InMemoryHitlTransport",
+    "PendingHitlEvent",
 ]
