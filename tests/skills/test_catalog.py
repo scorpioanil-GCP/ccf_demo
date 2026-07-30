@@ -33,6 +33,9 @@ from ccf.controlplane.registry import ControlPlaneRegistry, RefuseUnbumpedChange
 from ccf.skills.catalog import (
     SKILL_CATALOG_ENTRY,
     SKILL_TYPES,
+    ProcedureBinding,
+    SkillArgumentProperty,
+    SkillArgumentSchema,
     SkillCatalog,
     SkillCatalogEntry,
     SkillNotInCatalog,
@@ -70,11 +73,11 @@ def _all_entry_documents() -> list[dict[str, Any]]:
 
 
 class TestEntrySchema:
-    def test_all_four_skill_types_validate(self) -> None:
+    def test_all_five_skill_types_validate(self) -> None:
         documents = _all_entry_documents()
         entries = [SkillCatalogEntry.model_validate(d) for d in documents]
         assert {e.skill_type for e in entries} == SKILL_TYPES
-        assert len(SKILL_TYPES) == 4
+        assert len(SKILL_TYPES) == 5
 
     def test_a_fifth_skill_type_is_refused(self) -> None:
         document = dict(_tool_fixture()["entry"])
@@ -107,6 +110,89 @@ class TestEntrySchema:
         # Refused against the enumerated closed world, naming the surviving
         # member the deployment should have re-declared under.
         assert "peering" in message
+
+    def test_an_entry_without_a_description_is_refused(self) -> None:
+        """D-IMPL-56 / D-16: `description` is required — no default, no sentinel.
+
+        A skill's description is the deployment's statement of what the skill
+        is for. An entry that omits it is malformed, not merely terse: three
+        adapters independently inventing a description is exactly the
+        divergence D-17 exists to prevent, so the artifact must carry it.
+        """
+        document = dict(_tool_fixture()["entry"])
+        document.pop("description", None)
+        with pytest.raises(ValueError):
+            SkillCatalogEntry.model_validate(document)
+
+    def test_an_entry_without_an_argument_schema_is_refused(self) -> None:
+        """D-IMPL-56: `argument_schema` is required on every entry."""
+        document = dict(_tool_fixture()["entry"])
+        document.pop("argument_schema", None)
+        with pytest.raises(ValueError):
+            SkillCatalogEntry.model_validate(document)
+
+    def test_argument_schema_is_typed_and_closed_world(self) -> None:
+        entry = SkillCatalogEntry.model_validate(_tool_fixture()["entry"])
+        assert isinstance(entry.argument_schema, SkillArgumentSchema)
+        for spec in entry.argument_schema.properties.values():
+            assert isinstance(spec, SkillArgumentProperty)
+        with pytest.raises(ValueError):
+            SkillArgumentSchema.model_validate(
+                {"properties": {}, "required": [], "unexpected": True}
+            )
+
+    def test_a_required_name_absent_from_properties_is_refused(self) -> None:
+        document = dict(_tool_fixture()["entry"])
+        schema = dict(document["argument_schema"])
+        schema["required"] = [*schema.get("required", []), document["name"]]
+        with pytest.raises(ValueError):
+            SkillArgumentSchema.model_validate(schema)
+
+    def test_a_property_without_a_description_is_refused(self) -> None:
+        """Same D-16 forcing function as the entry description."""
+        with pytest.raises(ValueError):
+            SkillArgumentProperty.model_validate({"type": "string"})
+
+    def test_a_property_with_a_non_json_type_is_refused(self) -> None:
+        document = dict(_tool_fixture()["entry"])
+        with pytest.raises(ValueError):
+            SkillArgumentProperty.model_validate(
+                {"type": document["name"], "description": document["name"]}
+            )
+
+    def test_argument_schema_renders_as_an_mcp_input_schema(self) -> None:
+        """Lossless render: type object, properties, required, closed world."""
+        entry = SkillCatalogEntry.model_validate(_tool_fixture()["entry"])
+        rendered = entry.argument_schema.to_input_schema()
+        assert rendered["type"] == "object"
+        assert rendered["additionalProperties"] is False
+        assert set(rendered["properties"]) == set(
+            entry.argument_schema.properties
+        )
+        for name, spec in entry.argument_schema.properties.items():
+            assert rendered["properties"][name] == {
+                "type": spec.type,
+                "description": spec.description,
+            }
+        assert tuple(rendered["required"]) == entry.argument_schema.required
+
+    def test_a_procedure_entry_validates_with_the_procedure_binding(self) -> None:
+        """The fifth skill type (D-IMPL-56): instruction travels on seam 1.
+
+        A `procedure` skill's content is an `InstructionBinding` reference —
+        a pinned prompt-artifact URI, never inline text — consumed on seam 1
+        (context injection) only. A `procedure` entry carrying any other
+        binding block is refused by the same agreement validator every other
+        type answers to (T-07-05).
+        """
+        tool = _tool_fixture()
+        entry = SkillCatalogEntry.model_validate(tool["variants"]["procedure"])
+        assert entry.skill_type == "procedure"
+        assert isinstance(entry.binding, ProcedureBinding)
+        mismatched = dict(tool["variants"]["procedure"])
+        mismatched["binding"] = dict(tool["entry"]["binding"])
+        with pytest.raises(ValueError):
+            SkillCatalogEntry.model_validate(mismatched)
 
     def test_a_binding_disagreeing_with_the_type_is_refused(self) -> None:
         tool = _tool_fixture()["entry"]
