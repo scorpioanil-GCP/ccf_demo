@@ -7,9 +7,11 @@ last_updated: "2026-07-30T03:34:11.525Z"
 progress:
   total_phases: 8
   completed_phases: 6
-  total_plans: 74
-  completed_plans: 74
+  total_plans: 99
+  completed_plans: 99
   percent: 75
+stopped_at: Phase 7 context gathered
+resume_file: .planning/phases/07-phase-i-4-orchestration-hitl-experience/07-CONTEXT.md
 ---
 
 # STATE — CCF SDK
@@ -26,28 +28,37 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 06 (phase-i-3-cross-process-harness-adapters) — EXECUTING
-Plan: 1 of 25
+Phase: 07 (phase-i-4-orchestration-hitl-experience) — CONTEXT GATHERED
+Plan: Not started
 
 - **Phase:** 7 of 8 (phase i.4 — orchestration, hitl, experience)
-- **Plan:** Not started
+- **Plan:** Not started (`07-CONTEXT.md` written and committed 2026-07-29)
 - **Status:** Ready to plan
-  and merged to `main` --no-ff per §2.2.
+- **Branch:** `main` — `phase-i4` not yet created
 
-- **Progress:** [██████████] Phase 5 complete and gated; Phase 6 planning next
+- **Progress:** [████████░░] Phase 6 complete and gated (D-GATE-I.3, 2026-07-27); `phase-i3` merged to `main --no-ff` per §2.2
 
-**Nothing blocks Phase 6 planning on the decision log.** The 12-item Phase I
-gate list is RESOLVED in full (D-GATE-D, 2026-07-25). D-IMPL-24 in particular
-is ruled — Dave's own ruling, differing from the recommendation: **all three**
-harnesses ship v0 reference adapters (Google ADK + Claude Agent SDK +
-LangGraph), which means three adapter legs, three CI legs, and three
-example-03 variants in Phase 6 scope. Both procedural preconditions are met: gate approved, branch merged.
+**Nothing blocks Phase 7 planning on the decision log.** The 12-item Phase I
+gate list is RESOLVED in full (D-GATE-D, 2026-07-25), and D-GATE-I.3 states
+explicitly that nothing on the log blocks I.4 — D-IMPL-56 is RESOLVED with its
+implementation ruled into this phase, and advisories A3/A7 are advisory. One new
+ruling is pending write-up: **D-IMPL-60** (Dave, 2026-07-29) extending
+D-IMPL-17's orchestrator seam to all three v0 SDKs — see `07-CONTEXT.md` D-05..D-07.
+
+**Two inherited prerequisites, not notes** (`docs/PHASE_I3_GATE.md` §5):
+the `ControlPlaneStateStore.put` audit closure precedes any plan touching that
+seam, and the Workflow primitive is built against D-IMPL-17's boundary rather
+than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 
 ## Performance Metrics
 
-- Phases complete and gated: 5/8
-- Requirements delivered: 3/46
-- D-GATE entries logged: 5 (D-GATE-R, D-GATE-D, D-GATE-F, D-GATE-I.1, D-GATE-I.2)
+- Phases complete and gated: 6/8
+- Requirements delivered: 31/46 mapped to gated phases — RSCH-01..04, DSGN-01..04,
+  FEAS-01..04, FABR-01..09, CINV-01..04, AGNT-01..03, XPRC-01..03. **CINV-04 is
+  partial**: two deferral skips (`hitl-action-capture`, `workflow-trace-capture`)
+  remain active and are Phase 7's to flip.
+- D-GATE entries logged: 6 (D-GATE-R, D-GATE-D, D-GATE-F, D-GATE-I.1, D-GATE-I.2, D-GATE-I.3)
+- Test baseline on `main`: 987 passed / 2 skipped, mypy --strict clean (99 files), `tools.lints --all` exit 0
 
 | Phase-Plan | Duration | Tasks | Files |
 | ---------- | -------- | ----- | ----- |
@@ -118,5 +129,15 @@ example-03 variants in Phase 6 scope. Both procedural preconditions are met: gat
 
 ## Session Continuity
 
-Last action: Completed 05-07-PLAN.md (2026-07-26) on branch phase-i2 — gate wave: full verification sweep all green on first run (568 passed / exactly 2 I.4 skips, mypy --strict 63 files, lints exit 0), docs/PHASE_I2_GATE.md assembled (14-row D-17 checklist, AGNT-01/02/03 evidence map, I.3/I.4 handoff incl. Jinja2 SSTI), ROADMAP Phase 5 at 7/7. No D-GATE-I.2 entry written.
-Next action: Run `/gsd-review --phase "Phase I.2" --all`, triage, present to Dave; on approval log D-GATE-I.2 and merge phase-i2 → main (§3.1).
+Last action: `/gsd-discuss-phase 7` (2026-07-29) on `main` — five gray areas discussed
+(OrchestrationProtocol proof, slice + wave order, state-seam audit closure, workflow
+artifact shape, D-IMPL-56 implementation), 26 decisions captured in
+`07-CONTEXT.md`, alternatives preserved in `07-DISCUSSION-LOG.md`, both committed
+(`6caf018`). Dave raised the orchestrator widening unprompted: **all three** v0
+SDKs get real `OrchestrationProtocol` driver integrations, to be written up as
+**D-IMPL-60**.
+
+Next action: `/gsd-plan-phase 7`. Two items to carry in by hand — write the
+D-IMPL-60 entry in `docs/DECISIONS.md` (D-IMPL-24 is the template for enumerating
+consequences), and note that `main` has **172 unpushed commits**; Dave has not
+authorized a push.
