@@ -176,12 +176,21 @@ def test_every_pre_change_field_is_byte_for_byte_unchanged() -> None:
     record = _build(harness_trace=None)
     produced = canonical_bytes(record)
 
-    # The one and only difference from the pre-change bytes is dimension 3's
-    # new key. Removing it reproduces the captured literal exactly.
+    # The only differences from the pre-change bytes are the named extension
+    # keys: dimension 3's harness block (I.3, D-25) and the I.4 sentinel
+    # fields on dimensions 2 and 5 (07-05: hitl_actions,
+    # workflow_step_sequence). Removing exactly those reproduces the captured
+    # literal — "byte-identical except for the sentinel fields".
     assert produced.replace(
         b'"harness_trace":{"harness_id":"no-harness","input_tokens":0,'
         b'"model_version":"no-harness","output_tokens":0,'
         b'"trace_id":"no-harness","trace_provider":"no-harness"},',
+        b"",
+    ).replace(
+        b',"hitl_actions":"no-hitl-actions"',
+        b"",
+    ).replace(
+        b',"workflow_step_sequence":"no-workflow-trace"',
         b"",
     ) == PRE_CHANGE_CANONICAL
 
