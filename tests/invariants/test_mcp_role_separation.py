@@ -178,6 +178,67 @@ def test_each_role_owns_its_uri_schemes_and_names_no_others() -> None:
         assert artifact_scheme not in egress_source
 
 
+# --- the Experience-surface role (EXPR-01, 07-09) ---------------------------
+
+
+def test_the_experience_role_is_its_own_module() -> None:
+    """§7.1, T-07-22: the front door is a third module, importing neither role.
+
+    What would fail here: someone folding the products+agents surface into
+    ``egress.py`` "since they both serve products", or the experience module
+    importing a sibling role and inheriting its trust posture.
+    """
+    import ccf_runtime.mcp.experience as experience
+
+    assert experience.__name__ not in {egress.__name__, artifact_server.__name__}
+    assert experience.__file__ not in {egress.__file__, artifact_server.__file__}
+    assert experience.build_experience_server is not egress.build_egress_server
+
+    imported = _imported_names(experience)
+    assert egress.__name__ not in imported
+    assert artifact_server.__name__ not in imported
+    assert experience.__name__ not in _imported_names(egress)
+    assert experience.__name__ not in _imported_names(artifact_server)
+
+
+def test_the_experience_role_owns_its_scheme_and_names_no_others() -> None:
+    """T-06-16 extended: a front-door address is not an egress or artifact one.
+
+    Same double assertion as the two-role test above: the constants are the
+    behaviour; the source scan catches a scheme reintroduced as a literal.
+    """
+    import ccf_runtime.mcp.experience as experience
+
+    experience_source = inspect.getsource(experience)
+
+    assert experience.EXPERIENCE_PRODUCT_URI_TEMPLATE.startswith(
+        experience.EXPERIENCE_PRODUCT_URI_SCHEME + "://"
+    )
+    for foreign_scheme in (
+        egress.PRODUCT_URI_SCHEME,
+        ccf.artifacts.protocol.ARTIFACT_URI_SCHEME,
+        artifact_server.ARTIFACT_BLOB_URI_SCHEME,
+        artifact_server.ARTIFACT_META_URI_SCHEME,
+    ):
+        assert foreign_scheme + "://" not in experience_source
+
+    experience_scheme = experience.EXPERIENCE_PRODUCT_URI_SCHEME + "://"
+    assert experience_scheme not in inspect.getsource(egress)
+    assert experience_scheme not in inspect.getsource(artifact_server)
+
+
+def test_the_experience_module_imports_no_graph_package() -> None:
+    """The front door holds no route into L3 (INV-CH7-10; T-07-20)."""
+    import ccf_runtime.mcp.experience as experience
+
+    offending = [
+        name
+        for name in _imported_names(experience)
+        if _reaches(name, GRAPH_PACKAGE)
+    ]
+    assert not offending, f"{experience.__name__} imports {offending}"
+
+
 # --- the ArtifactStore leg of single-writer (ROADMAP criterion 4) ----------
 
 
