@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-30T20:36:37.950Z"
+last_updated: "2026-07-30T20:55:38.503Z"
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 88
-  completed_plans: 74
+  completed_plans: 75
   percent: 75
 ---
 
@@ -22,19 +22,19 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 7 — phase i.4 — orchestration, hitl, experience
+**Current focus:** Phase 07 — phase-i-4-orchestration-hitl-experience
 
 ## Current Position
 
-Phase: 07 (phase-i-4-orchestration-hitl-experience) — CONTEXT GATHERED
-Plan: Not started
+Phase: 07 (phase-i-4-orchestration-hitl-experience) — EXECUTING
+Plan: 2 of 14
 
 - **Phase:** 7 of 8 (phase i.4 — orchestration, hitl, experience)
-- **Plan:** Not started (`07-CONTEXT.md` written and committed 2026-07-29)
-- **Status:** Ready to execute
-- **Branch:** `main` — `phase-i4` not yet created
+- **Plan:** 07-01 complete (D-IMPL-60/61 recorded, fastapi/httpx pinned); next wave unblocked
+- **Status:** Executing Phase 07
+- **Branch:** `phase-i4` (created off `main` at 6520b70)
 
-- **Progress:** [████████░░] Phase 6 complete and gated (D-GATE-I.3, 2026-07-27); `phase-i3` merged to `main --no-ff` per §2.2
+- **Progress:** [█████████░] 85%
 
 **Nothing blocks Phase 7 planning on the decision log.** The 12-item Phase I
 gate list is RESOLVED in full (D-GATE-D, 2026-07-25), and D-GATE-I.3 states
@@ -71,6 +71,7 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 | 05-05      | ~6 min   | 1     | 7     |
 | 05-06      | ~12 min  | 2     | 20    |
 | 05-07      | ~8 min   | 2     | 3     |
+| 07-01      | ~15 min  | 3     | 2     |
 
 ## Accumulated Context
 
@@ -115,6 +116,9 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 - [Phase 05]: NotYetBound is a typed RuntimeError for mcp/a2a dispatch (build lacks the transport; artifact is fine) — RESEARCH Open Question 2 resolution; tool dispatch returns a ToolInvocation value, the SDK executes no command (05-06)
 - [Phase 05]: Agent holds bound_skills by reference to the GrantLedger's live view — grants/revocations take effect at invoke time without touching agent identity; ledger.grant_set_hash() returns the NO_GRANTS sentinel when empty, pure fn stays content_hash(frozenset) (D-07, 05-06)
 - [Phase 05]: Gate package (docs/PHASE_I2_GATE.md) follows the I.1 D-17 format; discretionary in-phase choices recorded in the gate doc §4, not as D-IMPL entries; D-GATE-I.2 deliberately NOT logged pending Dave's approval (05-07)
+- [Phase 07]: D-IMPL-60 (Dave, 2026-07-29): all three v0 SDKs get real OrchestrationProtocol drivers under `runtime/ccf_runtime/orchestration/<sdk>/` with bidirectional adapter-import ban; D-IMPL-17 cross-referenced, not edited (07-01)
+- [Phase 07]: D-IMPL-61 (Dave, 2026-07-30): absent per-node exception ref = propagate-to-terminal — a defined, audited transition to a terminal `failed` state recorded in the trace; validation-error reading declined (let-it-fail stays expressible). Gates 07-04's exception-routing validator (07-01)
+- [Phase 07]: fastapi==0.140.0 and httpx==0.28.1 are direct pins with stated reasons; CLI is stdlib argparse (no click/typer); ADK's `fastapi>=0.133` constraint interaction recorded for the gate (07-01)
 
 ### Todos
 
@@ -128,15 +132,12 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 
 ## Session Continuity
 
-Last action: `/gsd-discuss-phase 7` (2026-07-29) on `main` — five gray areas discussed
-(OrchestrationProtocol proof, slice + wave order, state-seam audit closure, workflow
-artifact shape, D-IMPL-56 implementation), 26 decisions captured in
-`07-CONTEXT.md`, alternatives preserved in `07-DISCUSSION-LOG.md`, both committed
-(`6caf018`). Dave raised the orchestrator widening unprompted: **all three** v0
-SDKs get real `OrchestrationProtocol` driver integrations, to be written up as
-**D-IMPL-60**.
+Last action: Completed `07-01-PLAN.md` (2026-07-30) on `phase-i4` — D-IMPL-60
+written up per the D-IMPL-24 template (af2d09d), Dave's D-IMPL-61 ruling
+(option-a, propagate-to-terminal) recorded after the decision checkpoint
+(0d8aee3), fastapi/httpx pinned with stated reasons (c057f92); baseline
+987 passed / 2 skipped before and after.
 
-Next action: `/gsd-plan-phase 7`. Two items to carry in by hand — write the
-D-IMPL-60 entry in `docs/DECISIONS.md` (D-IMPL-24 is the template for enumerating
-consequences), and note that `main` is far ahead of `origin/main` (174 commits as of
-2026-07-29); Dave has not authorized a push.
+Next action: Execute the next Phase 7 wave (07-04 WorkflowDefinition schema is
+now unblocked by D-IMPL-61). Standing note: `main` is far ahead of `origin/main`;
+Dave has not authorized a push.

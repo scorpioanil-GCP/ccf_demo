@@ -374,7 +374,7 @@ this needs serializing at merge; it is recorded here rather than claimed away.
 Plans:
 **Wave 1** *(prerequisites — parallel)*
 
-- [ ] 07-01-PLAN.md — Phase setup: phase-i4 branch, D-IMPL-60 entry, D-IMPL-61 decision checkpoint, fastapi/httpx pins
+- [x] 07-01-PLAN.md — Phase setup: phase-i4 branch, D-IMPL-60 entry, D-IMPL-61 decision checkpoint, fastapi/httpx pins
 - [ ] 07-02-PLAN.md — D-20 state-seam closure: token + audited write, writer retrofit, counterfactual + adversarial proofs (D-08..D-10)
 - [ ] 07-03-PLAN.md — D-IMPL-56: required description + SkillArgumentSchema, procedure type, shared tool-surface derivation, fixture retrofit
 
@@ -443,7 +443,7 @@ Plans:
 | 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
-| 7. Phase I.4 — Orchestration, HITL, Experience | 0/14 | Not started | - |
+| 7. Phase I.4 — Orchestration, HITL, Experience | 1/14 | In Progress|  |
 | 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |
 
 ## Coverage
