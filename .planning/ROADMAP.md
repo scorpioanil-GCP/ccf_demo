@@ -402,7 +402,7 @@ Plans:
 
 **Wave 7**
 
-- [ ] 07-11-PLAN.md — `ccf` CLI: noun-verb dispatcher, --local, zero privileged paths, `ccf skill import` (EXPR-02)
+- [x] 07-11-PLAN.md — `ccf` CLI: noun-verb dispatcher, --local, zero privileged paths, `ccf skill import` (EXPR-02)
 
 **Wave 8**
 
@@ -443,7 +443,7 @@ Plans:
 | 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
-| 7. Phase I.4 — Orchestration, HITL, Experience | 10/14 | In Progress|  |
+| 7. Phase I.4 — Orchestration, HITL, Experience | 11/14 | In Progress|  |
 | 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |
 
 ## Coverage
