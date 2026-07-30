@@ -1,0 +1,33 @@
+# Banking fixture task definition — the D-01 payment-release slice task
+# (CLAUDE.md §6.4/§8.1; D-IMPL-28; SDK-defined).
+#
+# The thinnest gated task a workflow engine can drive: one skill step, then
+# one hitl-gate step. Every step value lives here, never in code
+# (No-Hardcoding Rule §6.4); the skill step references its skill by pinned
+# versioned URI (D-IMPL-26); the hitl-gate step carries no ref by schema —
+# its approval-policy binding lives on the workflow wrapper (D-12).
+
+keys:
+  task_definition: acme-bank/tasks/payment-release
+
+referenced_artifacts:
+  verify_payment_skill:
+    key: acme-bank/skill/verify-payment-instruction
+    class_id: skill
+    semver: "1.0.0"
+    declaration:
+      capability: verify-payment-instruction
+      source: payments-system-of-record
+
+task_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: payment-release
+  tenant: acme-bank
+
+  steps:
+    - kind: skill
+      name: verify-payment
+      ref: "ccf-artifact://acme-bank/skill/verify-payment-instruction@1.0.0"
+    - kind: hitl-gate
+      name: treasury-approval

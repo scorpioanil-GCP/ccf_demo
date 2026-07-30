@@ -1,0 +1,41 @@
+# Banking fixture material for the HITL primitives (CLAUDE.md §8.2;
+# D-IMPL-20/21; SDK-defined).
+#
+# Every approver identity, authentication statement, action instant, and
+# pending-event value the HITL suites exercise is here. `/src` holds none of
+# them: the SDK ships the ApprovalGate mechanism, the transport Protocol, and
+# the principal-binding contract — never an approver, a provider vocabulary,
+# or an assurance level (No-Hardcoding Rule §6.4; mechanism, not values).
+#
+# Two distinct approvers exist deliberately (D-23): two gates resolved by two
+# humans must be distinguishable in replay from the records alone.
+
+approvers:
+  credit_officer:
+    identity:
+      subject_id: credit-officer-11
+      identity_provider_ref: acme-bank/idp/okta
+    authentication:
+      method: oidc
+      assurance_level: aal2
+      session_ref: session-co-11
+    action_time: "2026-07-30T09:15:00+00:00"
+  treasury_officer:
+    identity:
+      subject_id: treasury-officer-42
+      identity_provider_ref: acme-bank/idp/okta
+    authentication:
+      method: oidc
+      assurance_level: aal3
+      session_ref: session-to-42
+    action_time: "2026-07-30T10:45:00+00:00"
+
+# A pending approval-gate event for gate-face tests that do not run a full
+# workflow. The product_content_hash is derived identity, computed by
+# mechanism at enqueue time — a hash is never a fixture value (D-IMPL-26).
+event:
+  event_key: acme-bank/exec-hitl/credit-officer-approval
+  event_class: approval-gate
+  tenant: acme-bank
+  workflow_state_ref: acme-bank/exec-hitl
+  policy_ref: "ccf-artifact://acme-bank/approval-policy/credit-officer@1.0.0"
