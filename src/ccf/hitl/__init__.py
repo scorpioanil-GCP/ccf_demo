@@ -54,6 +54,14 @@ from ccf.hitl.principal import (
     AuthenticationContext,
     HumanPrincipalBinding,
 )
+from ccf.hitl.review_queue import (
+    ReviewActionRecord,
+    ReviewQueue,
+    ReviewQueueItem,
+    ReviewResolution,
+    ReviewResolutionRefused,
+    UnknownReviewEventError,
+)
 from ccf.hitl.transport import (
     HITL_ACTIONS,
     HITL_EVENT_CLASSES,
@@ -88,6 +96,12 @@ __all__ = [
     "OverrideResolution",
     "OverrideResolutionRefused",
     "UnknownOverrideEventError",
+    "ReviewActionRecord",
+    "ReviewQueue",
+    "ReviewQueueItem",
+    "ReviewResolution",
+    "ReviewResolutionRefused",
+    "UnknownReviewEventError",
     "GateActionError",
     "GateResolution",
     "GateResolutionRefused",
