@@ -17,6 +17,7 @@ deliberately out of scope (D-IMPL-21, I.4; T-05-19 accepted).
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,14 @@ from ccf.agents.definitions import AGENT_DEFINITION, AgentDefinition
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import parse_artifact
+from ccf.controlplane.audit import AuditLog
+from ccf.hitl.approval_gate import ApprovalGate, ApprovalSinkAdapter, GateResolution
+from ccf.hitl.principal import (
+    ApproverIdentity,
+    AuthenticationContext,
+    HumanPrincipalBinding,
+)
+from ccf.hitl.transport import InMemoryHitlTransport, PendingHitlEvent
 from ccf.skills.grants import ApprovalOutcome, ApprovalSink, SkillGrant
 from skills.sinks import ScriptedApprovalSink
 
@@ -53,20 +62,71 @@ def _grant() -> SkillGrant:
 SinkFactory = Callable[[bool], ApprovalSink]
 
 
-@pytest.fixture(params=["scripted-double"])
+def _hitl_fixture() -> dict[str, Any]:
+    loaded: dict[str, Any] = yaml.safe_load(
+        (FIXTURES.parent / "hitl.yaml").read_text()
+    )
+    return loaded
+
+
+@pytest.fixture(params=["scripted-double", "approval-gate-adapter"])
 def sink_factory(request: pytest.FixtureRequest) -> Iterator[SinkFactory]:
     """A factory for the sink under test, one param per implementation.
 
     Takes the verdict the produced sink must return, because a conformance
     suite that could only observe approvals would never assert the rejection
-    path. I.4's ApprovalGate adds its own param here; the test bodies below
-    do not change (D-09).
+    path. I.4's ApprovalGate joins here (D-09) via *composition*: the gate
+    owns the async transport/suspend/binding face; the thin
+    :class:`~ccf.hitl.approval_gate.ApprovalSinkAdapter` wraps the
+    already-completed bound decision the gate produced and satisfies the
+    sync grant face — supplied here with a bound in-memory completed
+    decision, so the test bodies below stay byte-unchanged and approver
+    identity binding stays out of suite scope as reserved (D-IMPL-21).
     """
     if request.param == "scripted-double":
         approver_id = _fixture()["approval"]["approver_id"]
 
         def factory(approve: bool) -> ApprovalSink:
             return ScriptedApprovalSink(approve=approve, approver_id=approver_id)
+
+        yield factory
+        return
+    if request.param == "approval-gate-adapter":
+        hitl = _hitl_fixture()
+
+        def factory(approve: bool) -> ApprovalSink:
+            transport = InMemoryHitlTransport()
+            gate = ApprovalGate(
+                transport=transport,
+                audit=AuditLog(),
+                clock=lambda: datetime.fromisoformat(
+                    hitl["approvers"]["credit_officer"]["action_time"]
+                ),
+            )
+            event_document = dict(hitl["event"])
+            event = PendingHitlEvent(
+                **event_document,
+                product_content_hash=content_hash(event_document),
+            )
+            transport.enqueue(event=event)
+            approver = hitl["approvers"]["credit_officer"]
+            resolution = gate.resolve(
+                tenant=event.tenant,
+                event_key=event.event_key,
+                action="approve" if approve else "reject",
+                principal=HumanPrincipalBinding(
+                    approver=ApproverIdentity(**approver["identity"]),
+                    authentication=AuthenticationContext(
+                        **approver["authentication"]
+                    ),
+                    action_time=datetime.fromisoformat(
+                        approver["action_time"]
+                    ),
+                    product_content_hash=event.product_content_hash,
+                ),
+            )
+            assert isinstance(resolution, GateResolution)
+            return ApprovalSinkAdapter(resolution=resolution)
 
         yield factory
         return
