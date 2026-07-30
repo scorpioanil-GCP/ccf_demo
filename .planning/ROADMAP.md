@@ -385,7 +385,7 @@ Plans:
 
 **Wave 3**
 
-- [ ] 07-06-PLAN.md — Async-first Workflow engine: state machine, audited suspend/resume, D-IMPL-18/27 trace persistence, hypothesis.stateful
+- [x] 07-06-PLAN.md — Async-first Workflow engine: state machine, audited suspend/resume, D-IMPL-18/27 trace persistence, hypothesis.stateful
 
 **Wave 4**
 
@@ -443,7 +443,7 @@ Plans:
 | 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
-| 7. Phase I.4 — Orchestration, HITL, Experience | 5/14 | In Progress|  |
+| 7. Phase I.4 — Orchestration, HITL, Experience | 6/14 | In Progress|  |
 | 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |
 
 ## Coverage
