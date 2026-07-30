@@ -1,0 +1,42 @@
+# Banking fixture workflow definition — the D-01 payment-release slice
+# wrapper (CLAUDE.md §8.1; D-IMPL-28; SDK-defined).
+#
+# Wraps the two-step payment-release task at a pinned version and adds ONLY
+# routing: verify-payment flows to the treasury-approval gate, whose human
+# decision routes to the `released` or `rejected` terminal. Every routing
+# value and the gate's approval-policy binding live here, never in code
+# (No-Hardcoding Rule §6.4; CINV-01).
+
+keys:
+  workflow_definition: acme-bank/workflows/payment-release
+  task_definition: acme-bank/ccf.task-definition/payment-release
+
+referenced_artifacts:
+  treasury_officer_policy:
+    key: acme-bank/approval-policy/treasury-officer
+    class_id: approval-policy
+    semver: "1.0.0"
+    declaration:
+      approver_role: treasury-officer
+      quorum: "1"
+
+workflow_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: payment-release-workflow
+  tenant: acme-bank
+
+  task_definition_ref: "ccf-artifact://acme-bank/ccf.task-definition/payment-release@1.0.0"
+
+  start: verify-payment
+  transitions:
+    - source: verify-payment
+      target: treasury-approval
+    - source: treasury-approval
+      target: released
+    - source: treasury-approval
+      target: rejected
+  terminal_states: [released, rejected]
+
+  gate_policies:
+    treasury-approval: "ccf-artifact://acme-bank/approval-policy/treasury-officer@1.0.0"
