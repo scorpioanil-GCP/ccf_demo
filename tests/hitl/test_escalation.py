@@ -1,0 +1,282 @@
+"""``ExceptionEscalation`` — the routing HITL primitive (07-08).
+
+Written before the implementation per the TDD discipline. The claims:
+
+An escalation condition — an explicit agent escalation, or a D_c-shaped
+condition assessed against a Control-Plane :class:`DebtProfile` artifact,
+never a code constant — hands the workflow state to a designated role via
+the typed HITL transport; the escalated event carries what the human needs
+(execution reference, suspended-state ref, trigger); a nominal (OK-signal)
+debt assessment is a typed refusal, audited ``resolved=False``; resolution
+requires a :class:`~ccf.hitl.principal.HumanPrincipalBinding` by type and
+yields the pre-serialized dimension-2 block; a TOCTOU hash mismatch is a
+returned typed refusal that leaves the event pending; resolving an event
+the queue does not hold raises (broken wiring, I.1 line).
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+import pytest
+import yaml
+from pydantic import ValidationError
+
+from ccf.contracts.canonical import canonical_bytes, content_hash
+from ccf.controlplane.artifacts import DEBT_PROFILE, parse_artifact
+from ccf.controlplane.audit import AuditLog
+from ccf.halflife.debt import DebtFactors, DebtSignal, assess_debt
+from ccf.hitl.escalation import (
+    EscalationHandOff,
+    EscalationRefused,
+    EscalationResolution,
+    EscalationResolutionRefused,
+    ExceptionEscalation,
+    ExplicitEscalation,
+    UnknownEscalationEventError,
+)
+from ccf.hitl.principal import (
+    ApproverIdentity,
+    AuthenticationContext,
+    HumanPrincipalBinding,
+)
+from ccf.hitl.transport import HitlActionSubmission, InMemoryHitlTransport
+
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
+
+
+def _hitl() -> dict[str, Any]:
+    loaded: dict[str, Any] = yaml.safe_load(
+        (FIXTURES / "hitl.yaml").read_text()
+    )
+    return loaded
+
+
+def _halflife() -> dict[str, Any]:
+    loaded: dict[str, Any] = yaml.safe_load(
+        (FIXTURES / "halflife.yaml").read_text()
+    )
+    return loaded
+
+
+def _clock() -> Any:
+    state = {"now": datetime(2026, 7, 30, tzinfo=UTC)}
+
+    def clock() -> datetime:
+        state["now"] += timedelta(seconds=1)
+        return state["now"]
+
+    return clock
+
+
+def _principal(
+    fixture: dict[str, Any], *, product_content_hash: str
+) -> HumanPrincipalBinding:
+    approver = fixture["approvers"]["credit_officer"]
+    return HumanPrincipalBinding(
+        approver=ApproverIdentity(**approver["identity"]),
+        authentication=AuthenticationContext(**approver["authentication"]),
+        action_time=datetime.fromisoformat(approver["action_time"]),
+        product_content_hash=product_content_hash,
+    )
+
+
+def _escalation() -> tuple[ExceptionEscalation, InMemoryHitlTransport, AuditLog]:
+    transport = InMemoryHitlTransport()
+    audit = AuditLog()
+    escalation = ExceptionEscalation(
+        transport=transport, audit=audit, clock=_clock()
+    )
+    return escalation, transport, audit
+
+
+def _event_document(fixture: dict[str, Any]) -> dict[str, Any]:
+    return dict(fixture["escalation"]["event"])
+
+
+def _assessment(fixture: dict[str, Any], key: str) -> Any:
+    profile = parse_artifact(_halflife()["debt_profile"], DEBT_PROFILE)
+    factors = DebtFactors(**fixture["escalation"][key])
+    return assess_debt(factors, profile=profile)  # type: ignore[arg-type]
+
+
+def _hand_off(
+    escalation: ExceptionEscalation,
+    fixture: dict[str, Any],
+    trigger: Any,
+) -> EscalationHandOff | EscalationRefused:
+    document = _event_document(fixture)
+    return escalation.escalate(
+        tenant=document["tenant"],
+        event_key=document["event_key"],
+        workflow_state_ref=document["workflow_state_ref"],
+        product_content_hash=content_hash(document),
+        policy_ref=document["policy_ref"],
+        trigger=trigger,
+    )
+
+
+# --- the hand-off face --------------------------------------------------------
+
+
+def test_an_explicit_escalation_hands_the_state_to_the_designated_role() -> None:
+    """An explicit agent escalation surfaces on the typed transport, carrying
+    the workflow-state ref and the pinned routing artifact (CINV-01)."""
+    fixture = _hitl()
+    escalation, transport, audit = _escalation()
+    trigger = ExplicitEscalation(
+        reason=fixture["escalation"]["explicit_reason"]
+    )
+    hand_off = _hand_off(escalation, fixture, trigger)
+    assert isinstance(hand_off, EscalationHandOff)
+    document = _event_document(fixture)
+    (pending,) = transport.pending(tenant=document["tenant"])
+    assert pending.event_class == "exception-escalation"
+    assert pending.event_key == document["event_key"]
+    assert pending.workflow_state_ref == document["workflow_state_ref"]
+    assert pending.policy_ref == document["policy_ref"]
+    assert pending.product_content_hash == content_hash(document)
+    assert hand_off.event == pending
+    assert hand_off.trigger == trigger
+    events = audit.events()
+    assert events[-1].action == "hitl_action" and events[-1].resolved
+
+
+def test_a_breaching_debt_assessment_escalates() -> None:
+    """A D_c condition sourced from the DebtProfile artifact — never a code
+    constant — is an accepted escalation trigger when its signal breaches."""
+    fixture = _hitl()
+    escalation, transport, _ = _escalation()
+    assessment = _assessment(fixture, "breaching_factors")
+    assert assessment.signal is not DebtSignal.OK
+    hand_off = _hand_off(escalation, fixture, assessment)
+    assert isinstance(hand_off, EscalationHandOff)
+    assert hand_off.trigger == assessment
+    assert len(transport.pending(tenant=_event_document(fixture)["tenant"])) == 1
+
+
+def test_a_nominal_debt_assessment_is_a_typed_refusal() -> None:
+    """An OK-signal assessment escalates nothing: typed refusal, audited
+    ``resolved=False``, nothing enqueued."""
+    fixture = _hitl()
+    escalation, transport, audit = _escalation()
+    assessment = _assessment(fixture, "nominal_factors")
+    assert assessment.signal is DebtSignal.OK
+    refused = _hand_off(escalation, fixture, assessment)
+    assert isinstance(refused, EscalationRefused)
+    assert transport.pending(tenant=_event_document(fixture)["tenant"]) == ()
+    events = audit.events()
+    assert events[-1].action == "hitl_action" and not events[-1].resolved
+
+
+# --- the resolution face ------------------------------------------------------
+
+
+def test_a_resolution_without_a_binding_is_unrepresentable() -> None:
+    """The typed transport contract requires the principal by type (D-22
+    type-unrepresentable leg)."""
+    fixture = _hitl()
+    document = _event_document(fixture)
+    with pytest.raises(ValidationError):
+        HitlActionSubmission(  # type: ignore[call-arg]
+            event_key=document["event_key"],
+            tenant=document["tenant"],
+            action="approve",
+        )
+
+
+def test_a_resolution_lands_on_dimension_two() -> None:
+    """An approved resolution consumes the event and yields the
+    pre-serialized dimension-2 block — byte-equal to the canonical record."""
+    fixture = _hitl()
+    escalation, transport, audit = _escalation()
+    trigger = ExplicitEscalation(
+        reason=fixture["escalation"]["explicit_reason"]
+    )
+    hand_off = _hand_off(escalation, fixture, trigger)
+    assert isinstance(hand_off, EscalationHandOff)
+    document = _event_document(fixture)
+    resolution = escalation.resolve(
+        tenant=document["tenant"],
+        event_key=document["event_key"],
+        action="approve",
+        principal=_principal(
+            fixture, product_content_hash=content_hash(document)
+        ),
+    )
+    assert isinstance(resolution, EscalationResolution)
+    assert resolution.record.trigger == trigger
+    assert resolution.hitl_actions_block == canonical_bytes(
+        resolution.record
+    ).decode("utf-8")
+    assert transport.pending(tenant=document["tenant"]) == ()
+    (submission,) = transport.submissions(tenant=document["tenant"])
+    assert submission.action == "approve"
+    events = audit.events()
+    assert events[-1].action == "hitl_action" and events[-1].resolved
+    assert (
+        events[-1].actor
+        == fixture["approvers"]["credit_officer"]["identity"]["subject_id"]
+    )
+
+
+def test_a_declined_resolution_is_audited_resolved_false() -> None:
+    fixture = _hitl()
+    escalation, transport, audit = _escalation()
+    hand_off = _hand_off(
+        escalation,
+        fixture,
+        ExplicitEscalation(reason=fixture["escalation"]["explicit_reason"]),
+    )
+    assert isinstance(hand_off, EscalationHandOff)
+    document = _event_document(fixture)
+    resolution = escalation.resolve(
+        tenant=document["tenant"],
+        event_key=document["event_key"],
+        action="reject",
+        principal=_principal(
+            fixture, product_content_hash=content_hash(document)
+        ),
+    )
+    assert isinstance(resolution, EscalationResolution)
+    assert not resolution.record.accepted
+    events = audit.events()
+    assert events[-1].action == "hitl_action" and not events[-1].resolved
+
+
+def test_a_toctou_mismatch_is_refused_and_the_event_stays_pending() -> None:
+    fixture = _hitl()
+    escalation, transport, _ = _escalation()
+    hand_off = _hand_off(
+        escalation,
+        fixture,
+        ExplicitEscalation(reason=fixture["escalation"]["explicit_reason"]),
+    )
+    assert isinstance(hand_off, EscalationHandOff)
+    document = _event_document(fixture)
+    stale = content_hash({"stale": "state"})
+    refused = escalation.resolve(
+        tenant=document["tenant"],
+        event_key=document["event_key"],
+        action="approve",
+        principal=_principal(fixture, product_content_hash=stale),
+    )
+    assert isinstance(refused, EscalationResolutionRefused)
+    assert len(transport.pending(tenant=document["tenant"])) == 1
+
+
+def test_resolving_an_unknown_event_raises() -> None:
+    fixture = _hitl()
+    escalation, _, _ = _escalation()
+    document = _event_document(fixture)
+    with pytest.raises(UnknownEscalationEventError):
+        escalation.resolve(
+            tenant=document["tenant"],
+            event_key="acme-bank/exec-esc/no-such-event",
+            action="approve",
+            principal=_principal(
+                fixture, product_content_hash=content_hash(document)
+            ),
+        )
