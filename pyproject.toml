@@ -44,6 +44,11 @@ dependencies = [
   "httpx==0.28.1",
 ]
 
+# The `ccf` CLI (EXPR-02; D-IMPL-22) — the third v0 Experience Layer front
+# door, a thin httpx client over the HTTP API with a --local dev mode.
+[project.scripts]
+ccf = "ccf_runtime.cli.main:main"
+
 # ---------------------------------------------------------------------------
 # The one documented command that installs and enables all three harness legs
 # plus MCP, A2A, and JOSE (06-CONTEXT.md D-08):
