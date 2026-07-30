@@ -30,10 +30,37 @@ from ccf.hitl.approval_gate import (
     UnboundDecisionError,
     UnknownGateEventError,
 )
+from ccf.hitl.escalation import (
+    ESCALATION_ACTIONS,
+    EscalationActionError,
+    EscalationActionRecord,
+    EscalationHandOff,
+    EscalationRefused,
+    EscalationResolution,
+    EscalationResolutionRefused,
+    ExceptionEscalation,
+    ExplicitEscalation,
+    UnknownEscalationEventError,
+)
+from ccf.hitl.override import (
+    OverrideActionRecord,
+    OverrideBoundary,
+    OverrideResolution,
+    OverrideResolutionRefused,
+    UnknownOverrideEventError,
+)
 from ccf.hitl.principal import (
     ApproverIdentity,
     AuthenticationContext,
     HumanPrincipalBinding,
+)
+from ccf.hitl.review_queue import (
+    ReviewActionRecord,
+    ReviewQueue,
+    ReviewQueueItem,
+    ReviewResolution,
+    ReviewResolutionRefused,
+    UnknownReviewEventError,
 )
 from ccf.hitl.transport import (
     HITL_ACTIONS,
@@ -47,6 +74,7 @@ from ccf.hitl.transport import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "ESCALATION_ACTIONS",
     "GATE_ACTIONS",
     "HITL_ACTIONS",
     "HITL_ACTION_ARTIFACT_CLASS",
@@ -54,6 +82,26 @@ __all__ = [
     "ApprovalGate",
     "ApprovalSinkAdapter",
     "ApproverIdentity",
+    "EscalationActionError",
+    "EscalationActionRecord",
+    "EscalationHandOff",
+    "EscalationRefused",
+    "EscalationResolution",
+    "EscalationResolutionRefused",
+    "ExceptionEscalation",
+    "ExplicitEscalation",
+    "UnknownEscalationEventError",
+    "OverrideActionRecord",
+    "OverrideBoundary",
+    "OverrideResolution",
+    "OverrideResolutionRefused",
+    "UnknownOverrideEventError",
+    "ReviewActionRecord",
+    "ReviewQueue",
+    "ReviewQueueItem",
+    "ReviewResolution",
+    "ReviewResolutionRefused",
+    "UnknownReviewEventError",
     "GateActionError",
     "GateResolution",
     "GateResolutionRefused",

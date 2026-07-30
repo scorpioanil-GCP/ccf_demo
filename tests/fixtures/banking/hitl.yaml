@@ -39,3 +39,80 @@ event:
   tenant: acme-bank
   workflow_state_ref: acme-bank/exec-hitl
   policy_ref: "ccf-artifact://acme-bank/approval-policy/credit-officer@1.0.0"
+
+# ExceptionEscalation fixture material (07-08). The designated role lives in
+# the routing artifact's declaration (routes_to), never in code; the explicit
+# escalation reason and the debt factors driving the D_c-shaped trigger are
+# fixture values — the SDK ships the routing mechanism and the CAR predicate,
+# never a threshold (thresholds come from the DebtProfile artifact in
+# halflife.yaml).
+escalation:
+  event:
+    event_key: acme-bank/exec-esc/certificate-fetch-escalation
+    event_class: exception-escalation
+    tenant: acme-bank
+    workflow_state_ref: acme-bank/exec-esc
+    policy_ref: "ccf-artifact://acme-bank/exception-handler/certificate-fetch-failed@1.0.0"
+  explicit_reason: "certificate source unreachable after retry; human routing required"
+  # 1 - (0.20 * 0.50 * 1.0) = 0.90: above the fixture profile's Forced-LLM
+  # band (0.40), at (not above) its Fail-Closed band — FORCED_LLM.
+  breaching_factors:
+    freshness: "0.20"
+    completeness: "0.50"
+    semantic_consistency: "1.0"
+  nominal_factors:
+    freshness: "1.0"
+    completeness: "1.0"
+    semantic_consistency: "1.0"
+
+# OverrideBoundary fixture material (07-08). The original agent output and
+# the human substitute are both fixture values of a deployment-shaped
+# determination; the SDK ships the boundary mechanism only.
+override:
+  event:
+    event_key: acme-bank/exec-ovr/limit-determination
+    tenant: acme-bank
+    workflow_state_ref: acme-bank/exec-ovr
+    policy_ref: "ccf-artifact://acme-bank/approval-policy/credit-officer@1.0.0"
+  original:
+    subject_uri: "acme-bank/entity/borrower-201"
+    determination: "credit-limit:2500000"
+  substitute:
+    subject_uri: "acme-bank/entity/borrower-201"
+    determination: "credit-limit:1750000"
+
+# ReviewQueue fixture material (07-08). A ContentGeneration-style output
+# reference plus the passage-level lineage the reviewer must see (whitepaper
+# §7.10.3 — every claim passage-anchored). A second tenant exists for the
+# D-23 isolation claim.
+review:
+  event:
+    event_key: acme-bank/exec-rev/credit-memo-review
+    tenant: acme-bank
+    workflow_state_ref: acme-bank/exec-rev
+    policy_ref: "ccf-artifact://acme-bank/approval-policy/credit-officer@1.0.0"
+  item:
+    output_ref: "ccf-artifact://acme-bank/ccf.context-product/credit-memo@1.0.0"
+    lineage:
+      - source:
+          system_id: edgar
+        envelope_id: env-10q-2026-q2
+        observed_at: "2026-07-15T00:00:00+00:00"
+        passage_anchor:
+          kind: document-page
+          locator: "10-Q/2026-Q2#p14"
+  other_tenant:
+    event:
+      event_key: harbor-credit/exec-rev/portfolio-note-review
+      tenant: harbor-credit
+      workflow_state_ref: harbor-credit/exec-rev
+    item:
+      output_ref: "ccf-artifact://harbor-credit/ccf.context-product/portfolio-note@1.0.0"
+      lineage:
+        - source:
+            system_id: crm
+          envelope_id: env-note-88
+          observed_at: "2026-07-20T00:00:00+00:00"
+          passage_anchor:
+            kind: transcript-turn
+            locator: "call-88#t12"
