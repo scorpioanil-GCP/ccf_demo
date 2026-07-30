@@ -415,10 +415,12 @@ def test_refusal_exits_1_with_the_body_printed(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     document = dict(fabric.grants_fixture["agents"]["auto"])
+    document["perspective"] = dict(document["perspective"])
+    document["perspective"]["selection_params"] = {"changed": "yes"}
     artifact_file = tmp_path / "again.yaml"
     artifact_file.write_text(yaml.safe_dump(document))
-    # the auto agent is already registered at this content — an unbumped
-    # re-registration is the registry's typed refusal (D-05), 409 over HTTP
+    # changed content under an unchanged artifact_version — the registry's
+    # typed unbumped-change refusal (D-05), 409 over HTTP
     code, out, _ = run_cli(
         [
             "agent",
