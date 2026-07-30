@@ -1,0 +1,67 @@
+# Banking fixture workflow definition — the D-11..D-13 covenant-review
+# wrapper (CLAUDE.md §8.1; D-IMPL-28; SDK-defined).
+#
+# A WorkflowDefinition wraps a *pinned* TaskDefinition ref and adds ONLY
+# transitions, terminal conditions, per-node exception refs, and per-gate
+# approval-policy bindings keyed by step name (D-11/D-12/D-13). Every routing
+# value lives here, never in code (No-Hardcoding Rule §6.4). The
+# `analyze-covenants` node carries no exception ref deliberately: per
+# D-IMPL-61 (option-a, propagate-to-terminal) absence is a defined, audited
+# transition to the reserved terminal `failed` state, not a validation error.
+
+keys:
+  workflow_definition: acme-bank/workflows/covenant-review
+  # The wrapped task resolves through Control Plane resolution at the
+  # URI-derived key {tenant}/{artifact_class}/{name} (DESIGN.md §3.5); the
+  # suite registers the covenant_review_task fixture definition there.
+  task_definition: acme-bank/ccf.task-definition/covenant-review
+
+# The artifacts the wrapper's refs must resolve to at factory time,
+# registered as deployment-declared classes so the semantic layer can hold
+# every ref to resolvability (D-13; D-IMPL-26).
+referenced_artifacts:
+  fetch_exception_handler:
+    key: acme-bank/exception-handler/certificate-fetch-failed
+    class_id: exception-handler
+    semver: "1.0.0"
+    declaration:
+      routes_to: document-operations-team
+  credit_officer_policy:
+    key: acme-bank/approval-policy/credit-officer
+    class_id: approval-policy
+    semver: "1.0.0"
+    declaration:
+      approver_role: credit-officer
+      quorum: "1"
+
+workflow_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: covenant-review-workflow
+  tenant: acme-bank
+
+  # The wrapped task, by pinned versioned URI — never inline steps (D-12).
+  task_definition_ref: "ccf-artifact://acme-bank/ccf.task-definition/covenant-review@1.1.0"
+
+  # Explicit state-machine shape over the task's step names (CLAUDE.md §8.1).
+  start: fetch-certificates
+  transitions:
+    - source: fetch-certificates
+      target: analyze-covenants
+    - source: analyze-covenants
+      target: credit-officer-approval
+    - source: credit-officer-approval
+      target: approved
+    - source: credit-officer-approval
+      target: rejected
+  terminal_states: [approved, rejected]
+
+  # Per-node exception refs (D-13). `analyze-covenants` and the gate are
+  # deliberately absent: D-IMPL-61 propagate-to-terminal `failed`.
+  exception_refs:
+    fetch-certificates: "ccf-artifact://acme-bank/exception-handler/certificate-fetch-failed@1.0.0"
+
+  # Per-gate approval-policy bindings keyed by step name (D-12 — never a
+  # step-level ref, so TaskStep._ref_agrees_with_kind stays byte-identical).
+  gate_policies:
+    credit-officer-approval: "ccf-artifact://acme-bank/approval-policy/credit-officer@1.0.0"

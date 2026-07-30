@@ -80,15 +80,22 @@ _SENTENCE_RE = re.compile(r"[.!?](?:\s|$)")
 #: Modules whose declared-parameter fields must carry no numeric default.
 PARAM_SCHEMA_MARKERS: tuple[str, ...] = ("params", "parameters", "thresholds")
 
-#: Construction of these names must go through a factory module.
-FACTORY_ONLY_NAMES: frozenset[str] = frozenset({"Agent", "Task"})
+#: Construction of these names must go through a factory module. ``Workflow``
+#: joined in 07-04: ORCH-01's "via the Task Factory" is literal, extended one
+#: level — the engine accepts only WorkflowFactory-built handles.
+FACTORY_ONLY_NAMES: frozenset[str] = frozenset({"Agent", "Task", "Workflow"})
 
 #: The exact factory modules exempt from CINV-01c — an explicit allowlist,
-#: never a naming convention (WR-06). A module earns exemption by *being* the
-#: Agent & Task Factory, not by putting "factory" somewhere in its path; the
-#: entries are the repo-relative file path and its dotted module form.
+#: never a naming convention (WR-06). A module earns exemption by *being* one
+#: of the shipped factories, not by putting "factory" somewhere in its path;
+#: the entries are the repo-relative file path and its dotted module form.
 FACTORY_MODULE_ALLOWLIST: frozenset[str] = frozenset(
-    {"src/ccf/agents/factory.py", "ccf.agents.factory"}
+    {
+        "src/ccf/agents/factory.py",
+        "ccf.agents.factory",
+        "src/ccf/workflow/factory.py",
+        "ccf.workflow.factory",
+    }
 )
 
 
