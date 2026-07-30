@@ -54,7 +54,17 @@ from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.graph.protocols import GraphView
 from ccf.hitl.transport import InMemoryHitlTransport
+from ccf.products.contract import ContextProductContract, ProductLineage
+from ccf.projection.engine import ExecutionResult, ExecutionStep
+from ccf.projection.plan import Perspective, ProjectionOutput
+from ccf.replay.record import (
+    DecisionReplayRecord,
+    PerspectiveConditioning,
+    PolicyBinding,
+    build_replay_record,
+)
 from ccf.workflow.definitions import (
     WORKFLOW_DEFINITION,
     WORKFLOW_FAILED_STATE,
@@ -184,6 +194,57 @@ def _ticking_clock() -> Any:
         return state["now"]
 
     return clock
+
+
+def _replay_record(
+    *, workflow_step_sequence: str, delegation_chain: tuple[str, ...]
+) -> DecisionReplayRecord:
+    """Build a replay record threading the engine's verbatim blocks through
+    the 07-05 keywords (dim 5) and the dim-4 delegation chain."""
+    boundary = datetime(2026, 2, 1, tzinfo=UTC)
+    execution = ExecutionResult(
+        plan_id="plan-1",
+        operators_invoked=frozenset({"traversal.neighbors"}),
+        steps=(
+            ExecutionStep(
+                operator_key="traversal.neighbors",
+                category="traversal",
+                parameter_hash="ph-1",
+            ),
+        ),
+        provenance=None,
+        projection=ProjectionOutput(plan_id="plan-1", payload={"k": "v"}),
+        view=GraphView(tenant_id="acme-bank", as_of=boundary),
+    )
+    product = ContextProductContract(
+        schema_name="ccf.test-product",
+        schema_version="1.0.0",
+        plan_id="plan-1",
+        tenant_id="acme-bank",
+        temporal_boundary=boundary,
+        expires_at=datetime(2026, 4, 1, tzinfo=UTC),
+        ttl_anchor="from_decision",
+        lineage=ProductLineage(
+            operators_invoked=frozenset({"traversal.neighbors"}),
+            policy_bundle_versions=frozenset({"v1"}),
+            graph_snapshot_at=boundary,
+        ),
+        payload={"k": "v"},
+    )
+    return build_replay_record(
+        execution=execution,
+        product=product,
+        perspective=Perspective(principal_id="principal-1", role="analyst"),
+        policy_bindings=(PolicyBinding(key="policy.bundle", version="v1"),),
+        assembly_mode="algorithmic",
+        recorded_at=datetime(2026, 3, 1, tzinfo=UTC),
+        agent_conditioning=PerspectiveConditioning(
+            principal_id="principal-1",
+            role="analyst",
+            delegation_chain=delegation_chain,
+        ),
+        workflow_step_sequence=workflow_step_sequence,
+    )
 
 
 class _Bindings:
@@ -403,3 +464,146 @@ def test_two_tenants_do_not_collide(
     assert beta_record.tenant == "beta-bank"
     assert len(transport.pending(tenant="acme-bank")) == 1
     assert len(transport.pending(tenant="beta-bank")) == 1
+
+
+# --- milestone 2: resume, trace write-through, replay -------------------------
+
+
+def test_suspend_resume_terminal_round_trip(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    engine, _, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-1", decision="approved")
+    )
+    assert isinstance(outcome, WorkflowCompleted)
+    assert outcome.terminal_state == "approved"
+    key = f"{workflow.definition.tenant}/exec-1"
+    record = registry.state_store.get(WORKFLOW_STATE, key)
+    assert isinstance(record, WorkflowStateRecord)
+    assert record.status == "terminal"
+    resumed_events = [
+        event
+        for event in registry.audit_log.events()
+        if event.action == "workflow_resumed"
+    ]
+    assert len(resumed_events) == 1 and resumed_events[0].resolved
+
+
+def test_the_trace_writes_through_at_suspend_and_at_terminal(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """D-IMPL-18: trace artifacts at both write-through points; D-IMPL-27:
+    the live suspended record stays native, never on the ArtifactStore."""
+    engine, _, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    suspended = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+    store = engine.artifact_store
+    suspend_trace = store.get(
+        content_address=suspended.trace_artifact.content_address
+    )
+    assert suspend_trace  # canonical bytes, present at suspend
+    key = f"{workflow.definition.tenant}/exec-1"
+    record = registry.state_store.get(WORKFLOW_STATE, key)
+    assert isinstance(record, WorkflowStateRecord)
+    # The live record is native state, not an artifact.
+    assert not store.exists(content_address=content_hash(record))
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-1", decision="approved")
+    )
+    assert isinstance(outcome, WorkflowCompleted)
+    terminal_trace = store.get(
+        content_address=outcome.trace_artifact.content_address
+    )
+    assert terminal_trace != suspend_trace  # the trace grew between the two
+
+
+def test_the_step_sequence_and_delegation_chain_land_on_replay(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """Byte-equality: dim 5 records the engine's block verbatim; dim 4's
+    chain extends with the workflow execution id and agent identities."""
+    engine, _, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-1", decision="approved")
+    )
+    assert isinstance(outcome, WorkflowCompleted)
+    key = f"{workflow.definition.tenant}/exec-1"
+    record = registry.state_store.get(WORKFLOW_STATE, key)
+    assert isinstance(record, WorkflowStateRecord)
+    # The block is the canonical serialization of the trace the engine kept
+    # — serialized once by the engine, recorded verbatim (07-05 keywords).
+    assert outcome.step_sequence_block == canonical_bytes(
+        record.trace
+    ).decode("utf-8")
+    assert outcome.delegation_chain[0] == f"workflow:{key}"
+    assert (
+        "ccf-artifact://acme-bank/ccf.agent-definition/covenant-analytics@1.3.0"
+        in outcome.delegation_chain
+    )
+    # Threaded through the 07-05 keywords, the record stores both verbatim:
+    # byte-equality on dimension 5, chain extension on dimension 4.
+    replay = _replay_record(
+        workflow_step_sequence=outcome.step_sequence_block,
+        delegation_chain=outcome.delegation_chain,
+    )
+    assert (
+        replay.content_generation_path.workflow_step_sequence
+        == outcome.step_sequence_block
+    )
+    assert (
+        replay.perspective_conditioning.delegation_chain
+        == outcome.delegation_chain
+    )
+
+
+def test_resuming_an_unknown_execution_is_a_typed_refusal(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    engine, _, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="no-such", decision="approved")
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+    refusals = [
+        event
+        for event in registry.audit_log.events()
+        if event.action == "workflow_resumed" and not event.resolved
+    ]
+    assert len(refusals) == 1
+
+
+def test_resuming_a_terminal_execution_is_a_typed_refusal(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    engine, _, _ = _engine(registry, tmp_path)
+    workflow = _refresh(registry)
+    completed = asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    assert isinstance(completed, WorkflowCompleted)
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-1", decision="refreshed")
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+    assert "terminal" in outcome.reason
+
+
+def test_resuming_with_an_undeclared_decision_is_a_typed_refusal(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """Routing is interpreted from the artifact only (CINV-01): a decision
+    must name a declared transition target from the suspended gate."""
+    engine, _, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    asyncio.run(engine.execute(workflow, execution_id="exec-1"))
+    outcome = asyncio.run(
+        engine.resume(workflow, execution_id="exec-1", decision="escalated")
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+    assert "escalated" in outcome.reason
