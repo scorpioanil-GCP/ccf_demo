@@ -183,6 +183,40 @@ def test_an_alias_inside_the_allowlisted_factory_yields_no_finding(
     assert check(factory, "ccf.agents.factory") == []
 
 
+def test_workflow_construction_outside_a_factory_fires_the_lint(
+    tmp_path: pathlib.Path,
+) -> None:
+    """CINV-01c extends to the workflow surface (07-04; ORCH-01)."""
+    findings = _findings_for(
+        tmp_path, "workflow = Workflow(definition)\n", "sneaky_module.py"
+    )
+    assert _rules(findings) == [RULE_FACTORY_BYPASS]
+    assert "Workflow construction outside a factory" in findings[0]
+
+
+def test_a_workflow_alias_bypass_is_caught(tmp_path: pathlib.Path) -> None:
+    source = "W = Workflow\nworkflow = W(definition)\n"
+    findings = _findings_for(tmp_path, source, "sneaky_module.py")
+    assert _rules(findings) == [RULE_FACTORY_BYPASS]
+
+
+def test_construction_inside_the_workflow_factory_yields_no_finding(
+    tmp_path: pathlib.Path,
+) -> None:
+    factory = tmp_path / "src" / "ccf" / "workflow" / "factory.py"
+    factory.parent.mkdir(parents=True)
+    factory.write_text(
+        "workflow = Workflow(definition)\n", encoding="utf-8"
+    )
+    assert check(factory, "ccf.workflow.factory") == []
+
+
+def test_the_real_workflow_factory_module_remains_exempt() -> None:
+    factory = REPO_ROOT / "src" / "ccf" / "workflow" / "factory.py"
+    findings = check(factory, "ccf.workflow.factory")
+    assert [f for f in findings if RULE_FACTORY_BYPASS in f] == []
+
+
 def test_the_real_factory_module_remains_exempt() -> None:
     """The shipped factory — the single legitimate call site — stays exempt."""
     factory = REPO_ROOT / "src" / "ccf" / "agents" / "factory.py"
