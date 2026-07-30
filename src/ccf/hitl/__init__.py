@@ -42,6 +42,13 @@ from ccf.hitl.escalation import (
     ExplicitEscalation,
     UnknownEscalationEventError,
 )
+from ccf.hitl.override import (
+    OverrideActionRecord,
+    OverrideBoundary,
+    OverrideResolution,
+    OverrideResolutionRefused,
+    UnknownOverrideEventError,
+)
 from ccf.hitl.principal import (
     ApproverIdentity,
     AuthenticationContext,
@@ -76,6 +83,11 @@ __all__ = [
     "ExceptionEscalation",
     "ExplicitEscalation",
     "UnknownEscalationEventError",
+    "OverrideActionRecord",
+    "OverrideBoundary",
+    "OverrideResolution",
+    "OverrideResolutionRefused",
+    "UnknownOverrideEventError",
     "GateActionError",
     "GateResolution",
     "GateResolutionRefused",
