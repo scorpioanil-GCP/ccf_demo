@@ -71,6 +71,20 @@ __all__ = ["AuditAction", "AuditEvent", "AuditLog"]
 #: a ``grant_*`` member would make the log say something untrue — the same
 #: reasoning as ``skill_invoked``, one log, one ``append``, no parallel
 #: surface.
+#: The ``workflow_*`` members are the workflow engine's state-machine
+#: transitions (07-06; CLAUDE.md §8.1; D-IMPL-18): every transition of a
+#: running workflow — nominal (``workflow_transition``), suspension on a
+#: hitl-gate (``workflow_suspended``), resumption (``workflow_resumed``,
+#: which carries refusals as ``resolved=False`` in the same member — a
+#: resume that was asked for and refused is a resume interaction, exactly as
+#: a failed ``resolve`` is a resolve), exception routing (``workflow_
+#: exception``, D-IMPL-61: the propagate-to-terminal transition and the
+#: routed-to-handler transition are both first-class recorded events), and
+#: terminal completion (``workflow_completed``). They exist for the same
+#: reason as the ``grant_*`` family: a workflow transition is a Control
+#: Plane state change like any other, and recording it under ``register`` or
+#: ``state_written`` would make the log say something untrue. One log, one
+#: ``append``, no parallel surface.
 AuditAction = Literal[
     "register",
     "register_typed",
@@ -86,6 +100,11 @@ AuditAction = Literal[
     "peering_admission_refused",
     "skill_invoked",
     "state_written",
+    "workflow_transition",
+    "workflow_suspended",
+    "workflow_resumed",
+    "workflow_exception",
+    "workflow_completed",
 ]
 
 
