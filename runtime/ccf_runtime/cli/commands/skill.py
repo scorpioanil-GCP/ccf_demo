@@ -61,3 +61,7 @@ def register(
     revoke.add_argument("--grant-hash", required=True)
     revoke.add_argument("--actor", required=True)
     revoke.set_defaults(build=_revoke)
+
+    from ccf_runtime.cli.commands import skill_import
+
+    skill_import.register(verbs)

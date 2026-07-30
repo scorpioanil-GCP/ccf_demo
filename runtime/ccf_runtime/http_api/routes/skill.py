@@ -78,6 +78,25 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         return list(deps.skill_catalog.discover())
 
     @router.post(
+        "/catalog",
+        summary="Skill catalog register (D-IMPL-22)",
+    )
+    def register_entry(
+        entry: SkillCatalogEntry,
+    ) -> JSONResponse:
+        outcome = deps.skill_catalog.register(entry)
+        if isinstance(outcome, RegistrationRefusal):
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "kind": "registration-refusal",
+                    "refusal_type": type(outcome).__name__,
+                    "refusal": json.loads(canonical_bytes(outcome)),
+                },
+            )
+        return JSONResponse(content={"name": entry.name, "version": outcome})
+
+    @router.post(
         "/grants",
         response_model=GrantIssued,
         summary="Skill grant (D-IMPL-23)",

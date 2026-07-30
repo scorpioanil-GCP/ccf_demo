@@ -25,12 +25,19 @@ __all__ = ["RequestSpec", "load_document"]
 
 @dataclass(frozen=True)
 class RequestSpec:
-    """One HTTP request a verb translates to — method, path, inputs."""
+    """One HTTP request a verb translates to — method, path, inputs.
+
+    ``tolerate_empty_bump`` marks a registration whose re-run with
+    byte-identical content is by-design idempotent (the importer's
+    unchanged ``references/`` artifacts): a 409 whose typed refusal is
+    ``RefuseEmptyBump`` — and only that refusal — is then not a failure.
+    """
 
     method: str
     path: str
     params: Mapping[str, str] = field(default_factory=dict)
     json: object | None = None
+    tolerate_empty_bump: bool = False
 
 
 def load_document(path: str) -> dict[str, Any]:

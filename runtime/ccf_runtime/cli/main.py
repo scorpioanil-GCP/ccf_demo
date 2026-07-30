@@ -119,6 +119,13 @@ async def _execute(
                 return EXIT_WIRING
             if response.status_code >= 400:
                 sys.stdout.write(response.text + "\n")
+                if spec.tolerate_empty_bump and response.status_code == 409:
+                    try:
+                        refusal_type = response.json().get("refusal_type")
+                    except ValueError:
+                        refusal_type = None
+                    if refusal_type == "RefuseEmptyBump":
+                        continue  # unchanged content re-registered: benign
                 return EXIT_REFUSED
             sys.stdout.write(response.text + "\n")
     return EXIT_OK
