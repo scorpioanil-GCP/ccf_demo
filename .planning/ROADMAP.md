@@ -397,8 +397,8 @@ Plans:
 
 **Wave 6** *(front doors — parallel)*
 
-- [ ] 07-09-PLAN.md — MCP Experience edge (products + agents) + HITL MCP transport + role-separation rows (EXPR-01)
-- [ ] 07-10-PLAN.md — HTTP API skeleton (FastAPI) mirroring the CLI noun set + OpenAPI validity test (EXPR-03)
+- [x] 07-09-PLAN.md — MCP Experience edge (products + agents) + HITL MCP transport + role-separation rows (EXPR-01)
+- [x] 07-10-PLAN.md — HTTP API skeleton (FastAPI) mirroring the CLI noun set + OpenAPI validity test (EXPR-03)
 
 **Wave 7**
 
@@ -443,7 +443,7 @@ Plans:
 | 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
-| 7. Phase I.4 — Orchestration, HITL, Experience | 8/14 | In Progress|  |
+| 7. Phase I.4 — Orchestration, HITL, Experience | 10/14 | In Progress|  |
 | 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |
 
 ## Coverage
