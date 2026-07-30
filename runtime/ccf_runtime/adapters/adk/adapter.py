@@ -91,7 +91,7 @@ replay slot seam 4 writes into).
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator, Mapping
+from collections.abc import AsyncGenerator, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -99,6 +99,7 @@ from google.adk.agents import BaseAgent, LlmAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event
 from google.adk.tools.function_tool import FunctionTool
+from google.genai import types as genai_types
 
 from ccf.agents.agent import Agent, EmittedEffect
 from ccf.contracts.canonical import canonical_bytes
@@ -106,6 +107,7 @@ from ccf.harness.protocol import EffectCapability, EffectRefusal, HarnessCapabil
 from ccf.products.contract import ContextProductContract
 from ccf.replay.record import NO_HARNESS, HarnessTrace
 from ccf.skills.catalog import SkillCatalogEntry
+from ccf.skills.toolsurface import RenderedToolSurface, render_tool_surface
 
 __all__ = [
     "AGENT_HASH_STATE_KEY",
@@ -159,24 +161,58 @@ TRACE_METADATA_KEY = "ccf_trace"
 REFUSAL_RESPONSE_KEY = "ccf_effect_refusal"
 
 
-def _tool_description(entry: SkillCatalogEntry) -> str:
-    """A description composed from the catalog entry's own declared values.
+def _declaration_parameters(surface: RenderedToolSurface) -> genai_types.Schema:
+    """The shared surface's ``inputSchema``, as ADK's declaration schema.
 
-    ADK derives a :class:`~google.adk.tools.FunctionTool`'s description from
-    the bound function's docstring and requires one for the function
-    declaration. :class:`~ccf.skills.catalog.SkillCatalogEntry` declares none,
-    so this composes the skill's versioned identity and binding type from
-    fields the catalog actually carries. It does **not** author prose about
-    what the skill does: prose about a deployment's skill is a deployment's
-    statement, and inventing one here would be the No-Hardcoding Rule firing
-    (CLAUDE.md §6.4).
-
-    This follows the Claude and LangGraph adapters' precedent verbatim rather
-    than settling the gap a third way. That all three adapters must invent the
-    same missing field is the evidence that it belongs on the artifact schema,
-    and the question is a phase-gate decision, not an adapter's to make.
+    A pure translation of :attr:`RenderedToolSurface.input_schema` into the
+    ``google.genai`` ``Schema`` an ADK function declaration carries — nothing
+    is authored here; every type and description is the artifact's own
+    declared value rendered by the one shared derivation (D-IMPL-56, D-17).
     """
-    return f"{entry.name}@{entry.artifact_version} [{entry.skill_type}]"
+    rendered = surface.input_schema
+    json_schema = genai_types.JSONSchema(
+        type=genai_types.JSONSchemaType(rendered["type"]),
+        properties={
+            name: genai_types.JSONSchema(
+                type=genai_types.JSONSchemaType(spec["type"]),
+                description=spec["description"],
+            )
+            for name, spec in rendered["properties"].items()
+        },
+        required=list(rendered["required"]),
+    )
+    return genai_types.Schema.from_json_schema(json_schema=json_schema)
+
+
+class _DeclaredSkillTool(FunctionTool):
+    """A ``FunctionTool`` whose declaration is the shared rendered surface.
+
+    ADK's stock ``FunctionTool`` infers name, description, and parameters
+    from the bound function. Inference would make ADK's tool surface a
+    signature transcription while the other two adapters render the entry's
+    declared ``argument_schema`` — exactly the divergence D-17 forbids — so
+    this subclass overrides the declaration with the one shared derivation's
+    values verbatim (D-IMPL-56). Execution stays ``FunctionTool``'s own.
+    """
+
+    def __init__(
+        self,
+        func: Callable[..., Any],
+        *,
+        name: str,
+        surface: RenderedToolSurface,
+    ) -> None:
+        super().__init__(func=func)
+        self.name = name
+        self.description = surface.description
+        self._ccf_surface = surface
+
+    def _get_declaration(self) -> genai_types.FunctionDeclaration:
+        return genai_types.FunctionDeclaration(
+            name=self.name,
+            description=self.description,
+            parameters=_declaration_parameters(self._ccf_surface),
+        )
 
 
 @dataclass(frozen=True)
@@ -370,17 +406,15 @@ class AdkAdapter:
     def _skill_tool(self, agent: Agent, skill_name: str) -> FunctionTool:
         """One ``FunctionTool`` closing over this agent's skill seam.
 
-        The tool's argument schema is **inferred** by ADK from the bound
-        function's signature, which transcribes the fabric-side signature
-        exactly: :meth:`~ccf.agents.agent.Agent.invoke_skill` types
-        ``arguments`` as ``Mapping[str, str]``. Nothing about the schema is
-        authored here — a catalog entry declares no per-skill argument
-        vocabulary, and an adapter inventing one would be encoding the
-        deployment's values in SDK code (CLAUDE.md §6.4).
-
-        The tool's name and description come from ADK's own introspection of
-        that function, so they are set on it rather than passed: ADK reads
-        ``__name__`` and ``__doc__``.
+        The tool's description and argument schema come from the one shared
+        derivation (:func:`ccf.skills.toolsurface.render_tool_surface`) over
+        the entry's own declared ``description`` and ``argument_schema``
+        (D-IMPL-56) — never adapter-authored and never signature-inferred, so
+        all three reference adapters render the identical surface for the
+        same entry (D-17); :class:`_DeclaredSkillTool` carries it into ADK's
+        declaration. The declared arguments arrive as named keyword arguments
+        and are carried to :meth:`~ccf.agents.agent.Agent.invoke_skill` as
+        its ``Mapping[str, str]``.
 
         Dispatch is the fabric's, every time the harness calls the tool:
         binding is re-resolved from the ledger-backed view at each invocation,
@@ -388,14 +422,18 @@ class AdkAdapter:
         without the agent's identity changing (D-07).
         """
         entry = self._bound_entry(agent, skill_name)
+        surface = render_tool_surface(entry)
 
-        def call(arguments: dict[str, str]) -> str:
-            invocation = agent.invoke_skill(skill_name, arguments=arguments)
+        def call(**arguments: str) -> str:
+            invocation = agent.invoke_skill(
+                skill_name,
+                arguments={key: str(value) for key, value in arguments.items()},
+            )
             return canonical_bytes(invocation).decode("utf-8")
 
         call.__name__ = entry.name
-        call.__doc__ = _tool_description(entry)
-        return FunctionTool(func=call)
+        call.__doc__ = surface.description
+        return _DeclaredSkillTool(call, name=entry.name, surface=surface)
 
     def _tools(self, agent: Agent) -> tuple[FunctionTool, ...]:
         """The harness-native tools for exactly this agent's bound skill-set.

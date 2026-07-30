@@ -15,8 +15,7 @@ from __future__ import annotations
 
 from ccf_runtime.adapters.claude_agent.adapter import (
     HARNESS_ID,
-    SKILL_ARGUMENT_SCHEMA,
     ClaudeAgentAdapter,
 )
 
-__all__ = ["HARNESS_ID", "SKILL_ARGUMENT_SCHEMA", "ClaudeAgentAdapter"]
+__all__ = ["HARNESS_ID", "ClaudeAgentAdapter"]

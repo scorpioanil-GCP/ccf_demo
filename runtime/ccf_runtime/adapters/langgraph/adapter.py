@@ -95,6 +95,7 @@ from ccf.harness.protocol import EffectCapability, EffectRefusal, HarnessCapabil
 from ccf.products.contract import ContextProductContract
 from ccf.replay.record import NO_HARNESS, HarnessTrace
 from ccf.skills.catalog import SkillCatalogEntry
+from ccf.skills.toolsurface import render_tool_surface
 
 __all__ = [
     "AGENT_HASH_METADATA_KEY",
@@ -195,24 +196,6 @@ class LangGraphCarrier:
     tools: ToolNode
 
 
-def _tool_description(entry: SkillCatalogEntry) -> str:
-    """A description composed from the catalog entry's own declared values.
-
-    ``StructuredTool`` requires a description.
-    :class:`~ccf.skills.catalog.SkillCatalogEntry` declares none, so this
-    composes the skill's versioned identity and binding type from fields the
-    catalog actually carries. It does **not** author prose about what the skill
-    does: prose about a deployment's skill is a deployment's statement, and
-    inventing one here would be the No-Hardcoding Rule firing (CLAUDE.md §6.4).
-
-    This follows the Claude adapter's precedent deliberately rather than
-    settling the gap differently — that both adapters must invent the same
-    missing field is the evidence that it belongs on the artifact schema, and
-    the question is a phase-gate decision, not an adapter's to make.
-    """
-    return f"{entry.name}@{entry.artifact_version} [{entry.skill_type}]"
-
-
 class LangGraphAdapter:
     """LangGraph's binding of the four seams (CLAUDE.md §7.3).
 
@@ -289,13 +272,14 @@ class LangGraphAdapter:
     def _skill_tool(self, agent: Agent, skill_name: str) -> StructuredTool:
         """One ``StructuredTool`` closing over this agent's skill seam.
 
-        The tool's argument schema is **inferred** from the closure's
-        annotation, which transcribes the fabric-side signature exactly:
-        :meth:`~ccf.agents.agent.Agent.invoke_skill` types ``arguments`` as
-        ``Mapping[str, str]``. Nothing about the schema is authored here — a
-        catalog entry declares no per-skill argument vocabulary, and an adapter
-        inventing one would be encoding the deployment's values in SDK code
-        (CLAUDE.md §6.4).
+        The tool's description and argument schema come from the one shared
+        derivation (:func:`ccf.skills.toolsurface.render_tool_surface`) over
+        the entry's own declared ``description`` and ``argument_schema``
+        (D-IMPL-56) — never adapter-authored, so all three reference adapters
+        render the identical surface for the same entry (D-17). The declared
+        arguments arrive as named keyword arguments and are carried to
+        :meth:`~ccf.agents.agent.Agent.invoke_skill` as its
+        ``Mapping[str, str]``.
 
         Dispatch is the fabric's, every time the harness calls the tool:
         binding is re-resolved from the ledger-backed view at each invocation,
@@ -303,13 +287,20 @@ class LangGraphAdapter:
         without the agent's identity changing (D-07).
         """
         entry = self._bound_entry(agent, skill_name)
+        surface = render_tool_surface(entry)
 
-        def call(arguments: dict[str, str]) -> str:
-            invocation = agent.invoke_skill(skill_name, arguments=arguments)
+        def call(**arguments: str) -> str:
+            invocation = agent.invoke_skill(
+                skill_name,
+                arguments={key: str(value) for key, value in arguments.items()},
+            )
             return canonical_bytes(invocation).decode("utf-8")
 
         return StructuredTool.from_function(
-            func=call, name=entry.name, description=_tool_description(entry)
+            func=call,
+            name=entry.name,
+            description=surface.description,
+            args_schema=surface.input_schema,
         )
 
     def _tool_node(self, agent: Agent) -> ToolNode:
