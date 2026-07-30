@@ -221,8 +221,8 @@ class OrchestrationLeg(NamedTuple):
     positions: PositionProbe | None
 
 
-#: Every driver leg, reference first. 07-13 appends "adk" and "claude-agent".
-ORCHESTRATION_PARAMS = ("in-sdk", "langgraph")
+#: Every driver leg, reference first. 07-13 appended "adk" and "claude-agent".
+ORCHESTRATION_PARAMS = ("in-sdk", "langgraph", "adk")
 
 
 def build_orchestration_leg(param: str) -> OrchestrationLeg:
@@ -257,6 +257,24 @@ def build_orchestration_leg(param: str) -> OrchestrationLeg:
             leg_id=param,
             driver=lambda engine: LangGraphWorkflowDriver(engine=engine),
             positions=positions,
+        )
+    if param == "adk":
+        harness_unavailable("google.adk", param)
+
+        from ccf_runtime.orchestration.adk.driver import AdkWorkflowDriver
+
+        def adk_positions(
+            driver: OrchestrationProtocol, workflow: Workflow, execution_id: str
+        ) -> tuple[object, ...]:
+            assert isinstance(driver, AdkWorkflowDriver)
+            return driver.persisted_state(
+                workflow=workflow, execution_id=execution_id
+            )
+
+        return OrchestrationLeg(
+            leg_id=param,
+            driver=lambda engine: AdkWorkflowDriver(engine=engine),
+            positions=adk_positions,
         )
     raise NotImplementedError(param)
 
