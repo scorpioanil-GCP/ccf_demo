@@ -139,5 +139,5 @@ SDKs get real `OrchestrationProtocol` driver integrations, to be written up as
 
 Next action: `/gsd-plan-phase 7`. Two items to carry in by hand — write the
 D-IMPL-60 entry in `docs/DECISIONS.md` (D-IMPL-24 is the template for enumerating
-consequences), and note that `main` has **172 unpushed commits**; Dave has not
-authorized a push.
+consequences), and note that `main` is far ahead of `origin/main` (174 commits as of
+2026-07-29); Dave has not authorized a push.
