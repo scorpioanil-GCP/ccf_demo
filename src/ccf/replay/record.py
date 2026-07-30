@@ -10,7 +10,9 @@ DESIGN.md §2B.5. The dimensions, and what each holds in I.1:
    decision is what makes year-scale replay intractable, and the manifest plus
    the append-only graph reconstructs the same state.
 2. **Policy Bindings Snapshot** — version identifiers of every Control Plane
-   binding in force (INV-CH7-82).
+   binding in force (INV-CH7-82). HITL actions extend this dimension as of
+   I.4 (delivered; CLAUDE.md §8.2): the pre-serialized ``hitl_actions`` block
+   the HITL primitives report, recorded verbatim.
 3. **Model Version Record** — every invoked model; literally ``"none"`` in
    Mode 1 (INV-CH7-83). A positive claim, not an omission. Harness-attributable
    values — which harness ran the loop, the model version *it* reported, its
@@ -22,7 +24,9 @@ DESIGN.md §2B.5. The dimensions, and what each holds in I.1:
    I.2 per CLAUDE.md §6.2.
 5. **Content Generation Path** — the operator plan and its executed step
    sequence, plus the content address of the product produced (INV-CH7-85);
-   workflow step sequences extend it in I.4 per CLAUDE.md §8.1.
+   workflow step sequences extend it as of I.4 (delivered; CLAUDE.md §8.1) as
+   the pre-serialized ``workflow_step_sequence`` block the workflow engine
+   reports, recorded verbatim.
 
 The record is a frozen contract, so it is canonically serializable and
 content-addressable: a replay resolves the *exact* record, byte for byte,
@@ -54,6 +58,8 @@ __all__ = [
     "NO_GRANTS_SET_HASH",
     "NO_HARNESS",
     "NO_HARNESS_TRACE",
+    "NO_HITL_ACTIONS",
+    "NO_WORKFLOW_TRACE",
     "ContentGenerationPath",
     "ContextFabricSnapshot",
     "DecisionReplayRecord",
@@ -88,6 +94,20 @@ NO_HARNESS = "no-harness"
 #: this in the definition-hash and definition-URI fields, and as the single
 #: element of a delegation chain that has no delegating agent.
 NO_AGENT_DEFINITION = "no-agent"
+
+#: Dimension 2's HITL-actions value when no human acted on the decision (I.4;
+#: CLAUDE.md §8.2). A positive claim in the :data:`MODE_1_MODEL_VERSION` voice:
+#: every fabric-direct decision, and every decision no HITL gate mediated,
+#: *asserts* that no human action occurred rather than leaving a field absent
+#: for a reader to interpret. An absent action and a dropped action would
+#: otherwise be the same artifact — the audit-by-construction failure mode.
+NO_HITL_ACTIONS = "no-hitl-actions"
+
+#: Dimension 5's workflow value when no workflow orchestrated the decision
+#: (I.4; CLAUDE.md §8.1). A positive claim mirroring :data:`NO_HITL_ACTIONS`:
+#: "this decision was not a workflow step" is asserted, never inferred from
+#: silence.
+NO_WORKFLOW_TRACE = "no-workflow-trace"
 
 
 class ContextFabricSnapshot(CCFContract):
@@ -156,11 +176,16 @@ class PolicyBinding(CCFContract):
 class PolicyBindingsSnapshot(CCFContract):
     """Dimension 2 — every binding in force at decision time (INV-CH7-82).
 
-    HITL actions extend this dimension in I.4 (CLAUDE.md §8.2); the shape is
-    additive by design.
+    HITL actions extend this dimension as of I.4 (delivered; CLAUDE.md §8.2)
+    through ``hitl_actions``: the pre-serialized canonical block the HITL
+    primitives (ApprovalGate, ExceptionEscalation, OverrideBoundary,
+    ReviewQueue) report at build time, recorded verbatim — derived from what
+    the primitive reported, never reconstructed here. Defaults to the positive
+    :data:`NO_HITL_ACTIONS` sentinel so a decision no human touched says so.
     """
 
     bindings: tuple[PolicyBinding, ...]
+    hitl_actions: str = NO_HITL_ACTIONS
 
 
 class HarnessTrace(CCFContract):
@@ -289,12 +314,19 @@ class ContentGenerationPath(CCFContract):
     ``steps`` carries the executed order, not merely the set: a
     Policy-before-Similarity run and its forbidden inverse invoke the same
     operators and are not the same decision.
+
+    Workflow step sequences extend this dimension as of I.4 (delivered;
+    CLAUDE.md §8.1) through ``workflow_step_sequence``: the pre-serialized
+    canonical block the workflow engine reports at build time, recorded
+    verbatim. Defaults to the positive :data:`NO_WORKFLOW_TRACE` sentinel so
+    a fabric-direct decision asserts it was not a workflow step.
     """
 
     plan_id: str
     operator_plan: tuple[str, ...]
     steps: tuple[ExecutionStep, ...]
     product_content_address: str
+    workflow_step_sequence: str = NO_WORKFLOW_TRACE
 
 
 class DecisionReplayRecord(CCFContract):
@@ -324,6 +356,8 @@ def build_replay_record(
     recorded_at: datetime,
     agent_conditioning: PerspectiveConditioning | None = None,
     harness_trace: HarnessTrace | None = None,
+    hitl_actions: str | None = None,
+    workflow_step_sequence: str | None = None,
 ) -> DecisionReplayRecord:
     """Assemble the record from what the execution and the product already know.
 
@@ -352,6 +386,18 @@ def build_replay_record(
     whole of I.1 and I.2), dimension 3 carries the positive
     :data:`NO_HARNESS_TRACE` claim and every field the builder wrote before this
     extension is byte-for-byte what it was.
+
+    ``hitl_actions`` is the I.4 HITL seam (CLAUDE.md §8.2), threaded into
+    dimension 2 exactly as the two seams above are threaded into theirs: when
+    a HITL primitive mediated the decision, the caller passes the block the
+    primitive pre-serialized and it is recorded verbatim — derived from what
+    the caller reported, never reconstructed here. When ``None``, dimension 2
+    carries the positive :data:`NO_HITL_ACTIONS` claim.
+
+    ``workflow_step_sequence`` is the I.4 workflow seam (CLAUDE.md §8.1),
+    threaded into dimension 5 the same way: the workflow engine's
+    pre-serialized step-sequence block, recorded verbatim, defaulting to the
+    positive :data:`NO_WORKFLOW_TRACE` claim.
     """
     return DecisionReplayRecord(
         tenant_id=product.tenant_id,
@@ -363,7 +409,10 @@ def build_replay_record(
             touched_entities=execution.touched_entities(),
             touched_relationships=execution.touched_relationships(),
         ),
-        policy_bindings=PolicyBindingsSnapshot(bindings=policy_bindings),
+        policy_bindings=PolicyBindingsSnapshot(
+            bindings=policy_bindings,
+            hitl_actions=hitl_actions if hitl_actions is not None else NO_HITL_ACTIONS,
+        ),
         model_version=ModelVersionRecord(
             assembly_mode=assembly_mode,
             harness_trace=harness_trace
@@ -381,5 +430,8 @@ def build_replay_record(
             operator_plan=tuple(step.operator_key for step in execution.steps),
             steps=execution.steps,
             product_content_address=content_hash(product),
+            workflow_step_sequence=workflow_step_sequence
+            if workflow_step_sequence is not None
+            else NO_WORKFLOW_TRACE,
         ),
     )
