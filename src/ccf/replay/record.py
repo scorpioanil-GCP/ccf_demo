@@ -206,8 +206,11 @@ class HarnessTrace(CCFContract):
     a record that omitted them would lose the attribution.
 
     The trace-reference fields are shaped for D-IMPL-45's ``TraceCorrelationHook``,
-    which attaches at this same seam in I.4: CCF stores a correlation to an
-    external model-trace provider, never an ingestion of the trace itself.
+    which attaches at this same seam as of I.4 (delivered —
+    :mod:`ccf.replay.correlation`): CCF stores a correlation to an external
+    model-trace provider, never an ingestion of the trace itself. The hook
+    enriches this block *before* it is passed to :func:`build_replay_record`;
+    it mints no new field here.
 
     Every field defaults to a positive sentinel, so a partially-reported trace
     still asserts what it does not know instead of going quiet.
