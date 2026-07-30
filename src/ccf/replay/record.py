@@ -284,8 +284,10 @@ class PerspectiveConditioning(CCFContract):
         delegation_chain: From originating principal to acting agent identity
             (DESIGN.md §3.6, INV-CH7-84). Never empty: pre-agent records carry
             the single-element :data:`NO_AGENT_DEFINITION` sentinel; I.2
-            records carry a single element; I.4 workflow chains extend the
-            same field with no further contract change.
+            records carry a single element; I.4 workflow chains (delivered)
+            extend the same field with no further contract change — a
+            workflow execution id followed by the calling agent identities,
+            in delegation order, exactly as the field always admitted.
     """
 
     principal_id: str
