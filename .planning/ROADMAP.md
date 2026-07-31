@@ -61,7 +61,7 @@ Plans:
 
 **Wave 5**
 
-- [ ] 08-11-PLAN.md — example 03 live legs: Ollama (default) + Anthropic (gated), decision table, structural equivalence
+- [x] 08-11-PLAN.md — example 03 live legs: Ollama (default) + Anthropic (gated), decision table, structural equivalence
 
 **Wave 6**
 
@@ -83,7 +83,7 @@ Plans:
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 20/20 | Complete   | 2026-07-31 |
-| 8. Phase I.5 — Examples Suite & Full CI Verification | 10/13 | In Progress|  |
+| 8. Phase I.5 — Examples Suite & Full CI Verification | 11/13 | In Progress|  |
 
 ## Coverage
 
