@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,7 @@ from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.audit import AuditLog
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.graph.protocols import GraphView
+from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
 from ccf.hitl.transport import InMemoryHitlTransport
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.products.gates import ServableProduct
@@ -156,6 +158,23 @@ class _Bindings:
         self, *, tenant: str, step_name: str, ref: str
     ) -> Mapping[str, str]:
         return {}
+
+
+class _PermissiveDebt:
+    """A non-breaching DebtAssessmentBinding stub (07-17; INV-CH7-68)."""
+
+    async def assess(
+        self, *, tenant: str, step_name: str, ref: str
+    ) -> DebtAssessment:
+        return DebtAssessment(
+            debt=Decimal("0"),
+            signal=DebtSignal.OK,
+            factors=DebtFactors(
+                freshness=Decimal("1"),
+                completeness=Decimal("1"),
+                semantic_consistency=Decimal("1"),
+            ),
+        )
 
 
 def _replay_record() -> DecisionReplayRecord:
@@ -284,6 +303,7 @@ class Fabric:
             skill_binding=_Bindings(),
             agent_binding=_Bindings(),
             clock=self.clock,
+            debt_binding=_PermissiveDebt(),
         )
         self.factory = WorkflowFactory(control_plane=self.registry)
 

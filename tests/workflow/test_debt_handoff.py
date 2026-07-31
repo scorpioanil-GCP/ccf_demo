@@ -111,7 +111,7 @@ def test_an_unbound_engine_refuses_an_agent_node_handoff(
     registry: ControlPlaneRegistry, tmp_path: Path
 ) -> None:
     """No bound debt assessment + an agent node = typed refusal (D-IMPL-65)."""
-    engine, _, bindings = _engine(registry, tmp_path)  # no debt binding
+    engine, _, bindings = _engine(registry, tmp_path, debt=False)
     workflow = _covenant(registry)  # reaches the `analyze-covenants` agent node
     with pytest.raises(UnboundDebtAssessmentError, match="analyze-covenants"):
         asyncio.run(engine.execute(workflow, execution_id="exec-debt-1"))
@@ -127,7 +127,7 @@ def test_a_skill_only_workflow_needs_no_debt_binding(
     registry: ControlPlaneRegistry, tmp_path: Path
 ) -> None:
     """The refusal is per-agent-handoff, not engine-wide (D-IMPL-65)."""
-    engine, _, _ = _engine(registry, tmp_path)  # no debt binding
+    engine, _, _ = _engine(registry, tmp_path, debt=False)
     workflow = _refresh(registry)  # skills only, no agent node
     outcome = asyncio.run(engine.execute(workflow, execution_id="exec-debt-2"))
     assert isinstance(outcome, WorkflowCompleted)
