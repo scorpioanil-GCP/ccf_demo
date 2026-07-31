@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-31T07:41:48.705Z"
+last_updated: "2026-07-31T08:07:53.168Z"
 progress:
   total_phases: 1
   completed_phases: 1
@@ -27,17 +27,20 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 08 (phase-i-5-examples-suite-full-ci-verification) — EXECUTING
-Plan: 9 of 13 complete
+Plan: 10 of 13 complete
 
 - **Phase:** 8 of 8 (phase i.5 — examples suite & full ci verification)
-- **Plan:** 08-08 complete — examples 05-workflow-hitl (EXAM-06) and
-  06-decision-replay (EXAM-07): the D-14 auth-binding obligation
-  discharged in BOTH — example 05 demonstrates the hardened HITL door
-  live (BearerTokenAuth + grant-derived principal + required D-16
-  signed binding, typed refusals, escalation path), example 06 records
-  an auth-bound approval and reproduces the decision byte-equal from
-  the ArtifactStore at exact versions; `make example-05`/`example-06`
-  green, lint + mypy (156 files) clean
+- **Plan:** 08-10 complete — examples/03-harness-portability deterministic
+  base leg (EXAM-04, D-01/D-02): ONE atlas-commerce agent definition
+  executed unmodified under real ClaudeSDKClient-over-custom-Transport,
+  real ADK Runner, and real compiled LangGraph machinery — no network,
+  no keys, socket guard probe-asserted; product bytes and governed replay
+  fields byte-equal across the three legs, traces distinct per harness.
+  Advisory A3 CLOSED: tests/conformance/test_a3_discharge.py drives a
+  genuinely SDK-parsed ResultMessage through the Claude adapter's seam-4
+  isinstance gate (zero adapter change — the advisory was missing
+  evidence, not behavior). `make example-03` green, conformance 224
+  passed under CCF_REQUIRE_HARNESSES=1, lint + mypy (156 files) clean
 
 - **Status:** Executing Phase 08
 
@@ -87,6 +90,7 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 | Phase 08 P03 | ~15 min | 3 tasks | 6 files |
 | Phase 08 P04 | 20min | 2 tasks | 6 files |
 | 08-09      | ~10 min  | 2     | 8     |
+| 08-10      | ~18 min  | 2     | 11    |
 
 ## Accumulated Context
 
@@ -143,6 +147,7 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 - [Phase ?]: 08-03: HitlPolicy artifact (ccf.hitl-policy) with schema-validated signed_binding_required (default false); D-16 refusals typed at the transport and mapped to shared ERROR_SIGNED_BINDING_* constants at both HTTP and MCP doors; R1 closed with was-called assertions
 - [Phase 08]: Example 07 store choice is a config artifact (`store.type`) interpreted by one factory seam; file root and MCP endpoint are env-templated so no path or port is committed; the MCP child interprets the same store_mcp.yaml auth block as the client factory, so credentials cannot drift (08-09)
 - [Phase ?]: ADK migration taken over suppression: google.adk.workflow.Workflow usable at 2.5.0 (BaseAgent is BaseNode); D-08 allowlist carries the harness Workflow name-collision, allowlist path matching Rule-1-fixed (08-04)
+- [Phase 08]: A3 closed with zero adapter change — the discharge test and example 03's Claude leg drive a genuinely SDK-parsed ResultMessage through seam 4; example 03's session runs over the adapter's own seam-1 carrier, and legs/deterministic.py imports all three harness SDKs unconditionally so a missing harness is a failure, not a skip (08-10)
 
 ### Todos
 
@@ -156,18 +161,19 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 
 ## Session Continuity
 
-Last action: 08-08 complete (2026-07-31) on `phase-i5` —
-examples/05-workflow-hitl (EXAM-06, Task 1 ee8b1ec): sterling-mutual
-loan-disbursement workflow approved through
-create_app(auth=BearerTokenAuth(...)) with a grant-derived principal and
-a required D-16 signed binding; typed 401/403 refusals from artifact
-data; dims 2/5 byte-equal; escalation routed to its declared handler.
-examples/06-decision-replay (EXAM-07, Task 2 14ed92e): boreal-grid
-load-shed decision recorded with an auth-bound approval, then reproduced
-byte-equal from the ArtifactStore at exact versions (agent hash, prompt,
-grant-set, signed binding verified from the record alone); moving-target
-ref and version-mutated copy both refused. D-14 discharged in both legs.
-`make example-05`/`example-06` green, lint clean, mypy clean (156 files).
+Last action: 08-10 complete (2026-07-31) on `phase-i5` —
+examples/03-harness-portability deterministic base leg (EXAM-04, Task 1
+3bcba71): one atlas-commerce agent definition unmodified under real
+ClaudeSDKClient/ADK-Runner/LangGraph loop machinery over scripted
+transports; product bytes and 7 governed replay fields byte-equal across
+the three legs, three distinct harness traces, five live dimensions,
+socket guard probe-asserted; `--mode live` exits 2 pending 08-11.
+Advisory A3 CLOSED (Task 2 1036271): tests/conformance/test_a3_discharge.py
+captures a genuinely SDK-parsed ResultMessage from a real session over a
+scripted Transport and drives it through the Claude adapter's seam-4
+isinstance gate — real session values, no sentinels, zero adapter change;
+regression pins the gate. `make example-03` green, conformance 224 passed
+(CCF_REQUIRE_HARNESSES=1), lint clean, mypy clean (156 files).
 
 Next action: continue wave 4/5 examples toward 08-12 CI wiring. Standing note:
 `main` is far ahead of `origin/main`; Dave has not authorized a push.

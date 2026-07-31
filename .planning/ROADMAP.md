@@ -57,7 +57,7 @@ Plans:
 - [x] 08-07-PLAN.md — examples/04-cross-process (property-intelligence, fresh artifacts)
 - [x] 08-08-PLAN.md — examples/05-workflow-hitl (banking, auth-bound) + 06-decision-replay (energy/grid-ops)
 - [x] 08-09-PLAN.md — examples/07-artifact-store-mcp (logistics, store swap)
-- [ ] 08-10-PLAN.md — examples/03-harness-portability deterministic leg (e-commerce) + A3 discharge
+- [x] 08-10-PLAN.md — examples/03-harness-portability deterministic leg (e-commerce) + A3 discharge
 
 **Wave 5**
 
@@ -83,7 +83,7 @@ Plans:
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 20/20 | Complete   | 2026-07-31 |
-| 8. Phase I.5 — Examples Suite & Full CI Verification | 9/13 | In Progress|  |
+| 8. Phase I.5 — Examples Suite & Full CI Verification | 10/13 | In Progress|  |
 
 ## Coverage
 
