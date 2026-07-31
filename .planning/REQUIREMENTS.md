@@ -139,7 +139,7 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
       Context Product from ArtifactStore-resolved versions
 - [ ] **EXAM-08**: `07-artifact-store-mcp` — swap file-backed store for
       MCP-backed store with no other change
-- [ ] **EXAM-09**: All examples runnable end-to-end in CI, code + artifacts
+- [x] **EXAM-09**: All examples runnable end-to-end in CI, code + artifacts
       side by side, README each, one coherent neutral domain
 
 ## v2 (Deferred)
@@ -213,4 +213,4 @@ All 46 v1 requirements mapped (46/46).
 | EXAM-06 | Phase 8 | Pending |
 | EXAM-07 | Phase 8 | Pending |
 | EXAM-08 | Phase 8 | Pending |
-| EXAM-09 | Phase 8 | Pending |
+| EXAM-09 | Phase 8 | Complete |

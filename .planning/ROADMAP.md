@@ -39,7 +39,7 @@ exists.
 Plans:
 **Wave 1**
 
-- [ ] 08-01-PLAN.md — Scaffold: phase-i5 branch, editable-install refresh, Makefile (ci-core/help), lint posture over /examples
+- [x] 08-01-PLAN.md — Scaffold: phase-i5 branch, editable-install refresh, Makefile (ci-core/help), lint posture over /examples
 
 **Wave 2**
 
@@ -83,7 +83,7 @@ Plans:
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 20/20 | Complete   | 2026-07-31 |
-| 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |
+| 8. Phase I.5 — Examples Suite & Full CI Verification | 1/13 | In Progress|  |
 
 ## Coverage
 
