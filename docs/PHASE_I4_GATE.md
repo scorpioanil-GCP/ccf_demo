@@ -1,5 +1,7 @@
 # Phase I.4 — Orchestration, HITL, Experience: Gate Package
 
+STATUS: gated and merged — see §8 post-merge addendum (D-GATE-I.4, 2026-07-30).
+
 **Phase:** 7 (Phase I.4) · **Branch:** `phase-i4` · **Assembled:** 2026-07-30
 **Protocol:** CLAUDE.md §3.1 (self-review → triage → present to Dave → `D-GATE-I.4` → merge)
 **Gate bar:** the D-17 checklist carried from I.1–I.3 — every row names a passing test or lint
@@ -515,3 +517,25 @@ were logged as **D-IMPL-62..65 (OPEN)** and the phase **stopped** at the gate ch
 The full sweep was re-run after both implementations: **1280 passed, 0 skipped**, mypy
 clean (152 files), `tools.lints --all` exit 0. `D-GATE-I.4` remains unwritten until Dave
 approves the gate itself (§6).
+
+---
+
+## 8. Post-merge status addendum (Phase 7.1, D-IMPL-66(e))
+
+**D-GATE-I.4 was approved on 2026-07-30 by Dave** and is logged in
+`docs/DECISIONS.md` under the `D-GATE-I.4` entry. Per CLAUDE.md §2.2/§3.1 step 4,
+`phase-i4` was merged into `main` with `--no-ff`, the merge commit referencing that
+entry: `60f5192 chore: merge phase-i4 to main — Phase I.4 approved (D-GATE-I.4)`.
+
+The load-bearing D-26 post-merge sweep, run on `main` after the merge:
+
+| Leg | Result |
+|-----|--------|
+| `CCF_REQUIRE_HARNESSES=1 python -m pytest -q` | **1280 passed / 0 skipped / 0 failed** |
+| `python -m mypy --strict` | clean over **152 source files** |
+| `python -m tools.lints --all` | exit 0, zero findings |
+
+§7.4's closing sentence ("`D-GATE-I.4` remains unwritten until Dave approves the gate
+itself (§6)") describes the pre-approval state as it stood at the §3.1 checkpoint and is
+**superseded by this addendum**; the historical text of §1–§7 is deliberately unedited —
+this section is append-only.
