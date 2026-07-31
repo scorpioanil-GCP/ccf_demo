@@ -180,9 +180,20 @@ def test_allowlist_entry_with_a_stale_fingerprint_does_not_suppress() -> None:
     assert apply_allowlist(findings, allowlist) == findings
 
 
-def test_shipped_allowlist_parses_and_is_empty() -> None:
+def test_shipped_allowlist_parses_and_entries_are_reviewed() -> None:
+    """The shipped allowlist parses; every entry is complete and CINV-01-scoped.
+
+    Superseded posture (plan 08-04): the list is no longer required to be
+    empty — the ADK ``Workflow`` migration (D-14) carries two reviewed
+    cinv01c entries for ``google.adk.workflow.Workflow``, the harness's own
+    topology object name-colliding with CCF's factory-only ``Workflow``.
+    """
     allowlist = load_allowlist()
-    assert allowlist.entries == []
+    for entry in allowlist.entries:
+        assert entry.rule.startswith("cinv01")
+        assert entry.reviewer
+        assert entry.reason
+        assert len(entry.fingerprint) == 64
 
 
 def test_allowlist_entry_missing_a_reviewer_is_rejected() -> None:

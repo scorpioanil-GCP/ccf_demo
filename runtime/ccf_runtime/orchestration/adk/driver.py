@@ -2,7 +2,8 @@
 
 SDK-defined (CLAUDE.md §8.1; D-IMPL-17/60 — the second of the three driver
 legs). Implements :class:`~ccf.orchestration.protocol.OrchestrationProtocol`
-by authoring an ADK ``SequentialAgent`` composition over the CCF engine's
+by authoring an ADK ``Workflow`` composition (``google.adk.workflow`` — the
+non-deprecated composition surface at ADK 2.5.0) over the CCF engine's
 **public** surface — ``execute`` and ``resume`` on WorkflowFactory-built
 handles — and nothing else. The topology here is this module's own (A7,
 D-19): nothing is read from, shared with, or imported out of the
@@ -21,7 +22,7 @@ CCF-typed is in it (:meth:`AdkWorkflowDriver.persisted_state` is the
 introspection seam it asserts through).
 
 **Suspension surfaces as control returning to CCF between ADK invocations.**
-ADK has no first-class interrupt: a run of the driver's ``SequentialAgent``
+ADK has no first-class interrupt: a run of the driver's ``Workflow``
 carries the drive to the hitl-gate, the gate sub-agent records the parked
 position, the sequence ends, and the driver returns the engine's typed
 suspend handle. A resume is a *second* ADK run over the resume segment, with
@@ -42,11 +43,12 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Awaitable, Callable
 
-from google.adk.agents import BaseAgent, SequentialAgent
+from google.adk.agents import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event, EventActions
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
+from google.adk.workflow import Workflow as AdkWorkflow
 from google.genai import types as genai_types
 
 from ccf.contracts.base import CCFContract
@@ -155,7 +157,7 @@ class AdkWorkflowDriver:
     # -- the topology, authored here against the engine's public surface ------
 
     async def _run(
-        self, workflow: Workflow, execution_id: str, sequence: SequentialAgent
+        self, workflow: Workflow, execution_id: str, sequence: AdkWorkflow
     ) -> CCFContract:
         """One real ``Runner`` run of the driver's own sequence, no model."""
         tenant = workflow.definition.tenant
@@ -167,8 +169,10 @@ class AdkWorkflowDriver:
             await self._sessions.create_session(
                 app_name=_APP_NAME, user_id=tenant, session_id=session_id
             )
+        # ``node=`` is ADK 2.5.0's parameter for BaseNode roots (an ADK
+        # ``Workflow`` is a BaseNode, not a BaseAgent).
         runner = Runner(
-            agent=sequence, app_name=_APP_NAME, session_service=self._sessions
+            node=sequence, app_name=_APP_NAME, session_service=self._sessions
         )
         async for _ in runner.run_async(
             user_id=tenant,
@@ -190,8 +194,8 @@ class AdkWorkflowDriver:
     async def start_execution(
         self, *, workflow: Workflow, execution_id: str
     ) -> CCFContract:
-        """Drive to the gate through a ``SequentialAgent`` composition; if
-        the engine suspends, the gate segment parks the position and control
+        """Drive to the gate through an ADK ``Workflow`` chain; if the
+        engine suspends, the gate segment parks the position and control
         returns to CCF; the engine's own typed outcome comes back verbatim."""
         tenant = workflow.definition.tenant
         key = (tenant, execution_id)
@@ -203,16 +207,23 @@ class AdkWorkflowDriver:
             self._outcomes[key] = outcome
             return outcome
 
-        sequence = SequentialAgent(
+        sequence = AdkWorkflow(
             name="ccf_workflow_drive",
-            sub_agents=[
-                _EngineSegment(
-                    name="drive", advance=advance, execution_id=execution_id
-                ),
-                _GatePark(
-                    name="gate",
-                    is_suspended=lambda: self._suspended(tenant, execution_id),
-                ),
+            edges=[
+                (
+                    "START",
+                    _EngineSegment(
+                        name="drive",
+                        advance=advance,
+                        execution_id=execution_id,
+                    ),
+                    _GatePark(
+                        name="gate",
+                        is_suspended=lambda: self._suspended(
+                            tenant, execution_id
+                        ),
+                    ),
+                )
             ],
         )
         return await self._run(workflow, execution_id, sequence)
@@ -233,16 +244,23 @@ class AdkWorkflowDriver:
             self._outcomes[key] = outcome
             return outcome
 
-        sequence = SequentialAgent(
+        sequence = AdkWorkflow(
             name="ccf_workflow_resume",
-            sub_agents=[
-                _EngineSegment(
-                    name="resume", advance=advance, execution_id=execution_id
-                ),
-                _GatePark(
-                    name="gate",
-                    is_suspended=lambda: self._suspended(tenant, execution_id),
-                ),
+            edges=[
+                (
+                    "START",
+                    _EngineSegment(
+                        name="resume",
+                        advance=advance,
+                        execution_id=execution_id,
+                    ),
+                    _GatePark(
+                        name="gate",
+                        is_suspended=lambda: self._suspended(
+                            tenant, execution_id
+                        ),
+                    ),
+                )
             ],
         )
         return await self._run(workflow, execution_id, sequence)
