@@ -1,0 +1,70 @@
+# Skilling-example Control Plane bundle (clinical-trials-operations domain,
+# D-IMPL-52). Every number, threshold, version identifier and product-class
+# property the example uses is here; `run.py` holds none of them
+# (CLAUDE.md §6.4; D-IMPL-38/39).
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+keys:
+  resolution_spec: helix-trials/entity-resolution-spec
+  policy_bundle: helix-trials/policy-bundle/trial-operations-fabric
+  max_ttl: helix-trials/product/enrollment-summary/max-ttl
+
+# The policy bundle the *fabric* boots under (the agent's axis-4 regime is
+# a separate declared artifact in agent.yaml, carrying the D-IMPL-29
+# skill_governance envelope this example exercises).
+policy_bundle:
+  regime: helix-trial-operations
+  jurisdiction: EU
+  permitted_classifications:
+    - internal
+
+max_ttl_seconds: 1200
+
+# Declared operator parameter sets (D-IMPL-38). Three categories are enough
+# for this fabric: policy substitution over classifications, temporal
+# reconciliation to the boundary, and a one-hop typed traversal from
+# cohorts to their sites.
+operator_parameters:
+  policy:
+    permitted_classifications:
+      - internal
+  temporal:
+    require_valid_at_boundary: true
+  traversal:
+    seed_entity_classes:
+      - enrollment_cohort
+    relationship_types:
+      - enrolls_at
+    depth_limit: 1
+
+# The product class this fabric serves — the SAME class the agent's axis-2
+# context contract declares, and the SAME class the permitted skill's
+# requirements name (skills.yaml), which is what tier 1 checks.
+product_class:
+  schema_name: helix-trials.enrollment-summary
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  plan_id: helix-trials.enrollment-summary.plan
+  product_ttl_seconds: 900
+
+perspective:
+  principal_id: trial-ops-lead-31
+  role: trial-operations-analyst
+
+decision:
+  temporal_boundary: 2026-04-20T09:00:00Z
+  now: 2026-04-20T09:00:02Z
+
+artifacts:
+  replay_record_class: decision-replay-record
+
+expected:
+  entity_classes:
+    - trial_site
+    - enrollment_cohort
+  relationship_types:
+    - enrolls_at
+  entity_count: 2
