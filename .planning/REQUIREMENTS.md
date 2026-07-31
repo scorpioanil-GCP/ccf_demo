@@ -137,7 +137,7 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
       ExceptionEscalation, suspend/resume, replay-recorded human action
 - [ ] **EXAM-07**: `06-decision-replay` — exact reproduction of a prior
       Context Product from ArtifactStore-resolved versions
-- [ ] **EXAM-08**: `07-artifact-store-mcp` — swap file-backed store for
+- [x] **EXAM-08**: `07-artifact-store-mcp` — swap file-backed store for
       MCP-backed store with no other change
 - [x] **EXAM-09**: All examples runnable end-to-end in CI, code + artifacts
       side by side, README each, one coherent neutral domain
@@ -212,5 +212,5 @@ All 46 v1 requirements mapped (46/46).
 | EXAM-05 | Phase 8 | Complete |
 | EXAM-06 | Phase 8 | Pending |
 | EXAM-07 | Phase 8 | Pending |
-| EXAM-08 | Phase 8 | Pending |
+| EXAM-08 | Phase 8 | Complete |
 | EXAM-09 | Phase 8 | Complete |

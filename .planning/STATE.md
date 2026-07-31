@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-31T07:04:11.621Z"
+last_updated: "2026-07-31T07:10:34.257Z"
 progress:
   total_phases: 1
   completed_phases: 1
@@ -27,15 +27,15 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 08 (phase-i-5-examples-suite-full-ci-verification) — EXECUTING
-Plan: 5 of 13 complete
+Plan: 8 of 13 complete
 
 - **Phase:** 8 of 8 (phase i.5 — examples suite & full ci verification)
-- **Plan:** 08-04 complete — ADK driver migrated off deprecated
-  `SequentialAgent` onto `google.adk.workflow.Workflow` at the 2.5.0 pin
-  (conformance 40/40, no suppression needed; harness `Workflow`
-  name-collision carried by two reviewed D-08 allowlist entries),
-  D-IMPL-62 verb status note, `docs/security-notes.md` key-management
-  note; sweep 1337/0/0, mypy 156 files, lints clean
+- **Plan:** 08-09 complete — examples/07-artifact-store-mcp (EXAM-08):
+  one logistics workload run on FileArtifactStore then the authenticated
+  MCP-backed reference store in a subprocess; served product byte-identical,
+  same artifact classes at the same exact versions, store choice entirely
+  in two config artifacts (§7.4 pluggability); `make example-07` green,
+  lint + mypy (156 files) clean
 
 - **Status:** Executing Phase 08
 
@@ -84,6 +84,7 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 | 08-02      | ~12 min  | 2     | 8     |
 | Phase 08 P03 | ~15 min | 3 tasks | 6 files |
 | Phase 08 P04 | 20min | 2 tasks | 6 files |
+| 08-09      | ~10 min  | 2     | 8     |
 
 ## Accumulated Context
 
@@ -138,6 +139,7 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 - [Phase 08]: D-15 executed — `ccf hitl decide` removed tree-wide, `submit` is the one verb; DECISIONS.md entry dated 2026-07-30 (08-02)
 - [Phase 08]: HITL HTTP door fails closed on non-TokenGrant grant objects (403 ERROR_INVALID_GRANT, never caller-principal fallback); refusal bodies carry typed `error_code` constants from `http_api/errors.py`, with `ERROR_SIGNED_BINDING_{REQUIRED,INVALID}` reserved for 08-03 (08-02)
 - [Phase ?]: 08-03: HitlPolicy artifact (ccf.hitl-policy) with schema-validated signed_binding_required (default false); D-16 refusals typed at the transport and mapped to shared ERROR_SIGNED_BINDING_* constants at both HTTP and MCP doors; R1 closed with was-called assertions
+- [Phase 08]: Example 07 store choice is a config artifact (`store.type`) interpreted by one factory seam; file root and MCP endpoint are env-templated so no path or port is committed; the MCP child interprets the same store_mcp.yaml auth block as the client factory, so credentials cannot drift (08-09)
 - [Phase ?]: ADK migration taken over suppression: google.adk.workflow.Workflow usable at 2.5.0 (BaseAgent is BaseNode); D-08 allowlist carries the harness Workflow name-collision, allowlist path matching Rule-1-fixed (08-04)
 
 ### Todos
@@ -152,13 +154,13 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 
 ## Session Continuity
 
-Last action: 08-04 complete (2026-07-31) on `phase-i5` — ADK driver
-migrated to `google.adk.workflow.Workflow` at the 2.5.0 pin (Task 1
-96d355c: BaseAgent segments plug in as BaseNodes, Runner via `node=`,
-two reviewed cinv01c D-08 allowlist entries + Rule-1 fix to allowlist
-path matching), D-IMPL-62 verb status note + `docs/security-notes.md`
-(Task 2 d099904); conformance 40/40, full sweep 1337/0/0, mypy clean
-(156 files), lints clean. EXAM-04 already marked complete.
+Last action: 08-09 complete (2026-07-31) on `phase-i5` —
+examples/07-artifact-store-mcp (EXAM-08): MCP store child + fresh
+nordhaven-logistics artifacts + env-templated store configs (Task 1
+1f92cf9); one-workload swap driver with byte-equality, exact-version
+retrieval from a fresh MCP client, health-check retry loop and
+process-group teardown, plus README (Task 2 723fb9f). `make example-07`
+green, lint clean, mypy clean (156 files).
 
-Next action: execute 08-05 (wave 4 — examples begin). Standing note:
+Next action: continue wave 4/5 examples toward 08-12 CI wiring. Standing note:
 `main` is far ahead of `origin/main`; Dave has not authorized a push.
