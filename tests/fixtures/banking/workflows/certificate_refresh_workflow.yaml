@@ -1,0 +1,31 @@
+# Banking fixture workflow definition — the straight-line certificate-refresh
+# wrapper (CLAUDE.md §8.1; D-IMPL-28; SDK-defined).
+#
+# The engine's simplest case: two skill nodes, one nominal path, one declared
+# terminal, no gate, no exception refs. Both nodes deliberately carry no
+# exception ref: per D-IMPL-61 (option-a, propagate-to-terminal) an exception
+# on either transitions the execution to the reserved terminal `failed` state
+# as a first-class, audited transition.
+
+keys:
+  workflow_definition: acme-bank/workflows/certificate-refresh
+  task_definition: acme-bank/ccf.task-definition/certificate-refresh
+
+workflow_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: certificate-refresh-workflow
+  tenant: acme-bank
+
+  task_definition_ref: "ccf-artifact://acme-bank/ccf.task-definition/certificate-refresh@1.0.0"
+
+  start: fetch-certificates
+  transitions:
+    - source: fetch-certificates
+      target: archive-certificates
+    - source: archive-certificates
+      target: refreshed
+  terminal_states: [refreshed]
+
+  exception_refs: {}
+  gate_policies: {}

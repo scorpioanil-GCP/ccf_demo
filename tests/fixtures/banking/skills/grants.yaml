@@ -129,22 +129,41 @@ agents:
 # covenant_metrics_tool.yaml.
 skills:
   writeback:
-    schema_version: "1.0.0"
+    schema_version: "2.0.0"
     artifact_version: "1.0.0"
     name: covenant-writeback
     tenant: acme-bank
     skill_type: tool
+    description: >-
+      Write covenant assessment outcomes back to the bank's covenant system
+      of record for a named counterparty.
+    argument_schema:
+      properties:
+        entity_name:
+          type: string
+          description: The counterparty entity the writeback applies to.
+      required: [entity_name]
     binding:
       command: covenant-writeback-cli
     requirements:
       required_scopes: [portfolio-read, covenant-write]
       required_context_products: [acme-bank.credit-exposure-summary]
   offcontract:
-    schema_version: "1.0.0"
+    schema_version: "2.0.0"
     artifact_version: "1.0.0"
     name: covenant-offcontract
     tenant: acme-bank
     skill_type: tool
+    description: >-
+      Compute covenant metrics against the bank's liquidity summary — a
+      product outside the fixture agent's context contract, so the grant is
+      refused at tier 1.
+    argument_schema:
+      properties:
+        entity_name:
+          type: string
+          description: The counterparty entity to compute metrics for.
+      required: [entity_name]
     binding:
       command: covenant-offcontract-cli
     requirements:
@@ -153,11 +172,20 @@ skills:
   # Another tenant's entry — tenant-coherence refusal material (WR-02): a
   # grant naming it can never bind to an acme-bank agent.
   crosstenant:
-    schema_version: "1.0.0"
+    schema_version: "2.0.0"
     artifact_version: "1.0.0"
     name: covenant-metrics-foreign
     tenant: other-bank
     skill_type: tool
+    description: >-
+      Compute covenant compliance metrics for a named counterparty — offered
+      by another tenant, so a grant naming it can never bind here (WR-02).
+    argument_schema:
+      properties:
+        entity_name:
+          type: string
+          description: The counterparty entity to compute metrics for.
+      required: [entity_name]
     binding:
       command: covenant-metrics-foreign-cli
     requirements:
@@ -167,11 +195,20 @@ skills:
   # (WR-05): two effective grants binding one skill_name is a governance
   # defect the ledger must raise on, never a hash-lottery.
   metrics_upgrade:
-    schema_version: "1.0.0"
+    schema_version: "2.0.0"
     artifact_version: "1.1.0"
     name: covenant-metrics
     tenant: acme-bank
     skill_type: tool
+    description: >-
+      Compute covenant compliance metrics for a named counterparty — the v2
+      CLI offering of covenant-metrics, for the same-name collision case.
+    argument_schema:
+      properties:
+        entity_name:
+          type: string
+          description: The counterparty entity to compute covenant metrics for.
+      required: [entity_name]
     binding:
       command: covenant-metrics-cli-v2
     requirements:
@@ -183,11 +220,20 @@ skills:
 # entry, then proves the same grant content hash is re-requestable.
 late_skills:
   latecomer:
-    schema_version: "1.0.0"
+    schema_version: "2.0.0"
     artifact_version: "1.0.0"
     name: covenant-latecomer
     tenant: acme-bank
     skill_type: tool
+    description: >-
+      Compute covenant compliance metrics for a named counterparty —
+      registered late, for the wedged-state regression (WR-04).
+    argument_schema:
+      properties:
+        entity_name:
+          type: string
+          description: The counterparty entity to compute covenant metrics for.
+      required: [entity_name]
     binding:
       command: covenant-latecomer-cli
     requirements:

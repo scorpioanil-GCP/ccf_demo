@@ -28,9 +28,26 @@ dependencies = [
   "a2a-sdk==1.1.2",
   # 06-RESEARCH.md Standard Stack — ASGI host for MCP egress, the MCP ArtifactStore server,
   # and the typed-HTTP A2A server; named explicitly for the `sockets=[...]` ephemeral-port
-  # pattern (D-16). `httpx` and `starlette` arrive transitively and are not pinned directly.
+  # pattern (D-16). `starlette` arrives transitively and is not pinned directly;
+  # `httpx` was transitive-via-mcp through Phase I.3 and is now a direct pin (see below).
   "uvicorn==0.51.0",
+  # 07-RESEARCH.md Standard Stack — HTTP API skeleton (D-IMPL-23): OpenAPI is generated
+  # from the existing extra=forbid Pydantic contracts; hand-assembling a spec from
+  # model_json_schema() is a spec-drift hand-roll. All of fastapi's deps (starlette,
+  # pydantic, typing-extensions) are already present. Constraint interaction, recorded
+  # for the gate per review: google-adk already constrains `fastapi>=0.133`, so future
+  # ADK bumps may contend with this exact pin.
+  "fastapi==0.140.0",
+  # 07-RESEARCH.md Standard Stack — promoted from transitive-via-mcp to a direct pin
+  # because first-party CLI code imports it (was previously noted above as arriving
+  # transitively and unpinned).
+  "httpx==0.28.1",
 ]
+
+# The `ccf` CLI (EXPR-02; D-IMPL-22) — the third v0 Experience Layer front
+# door, a thin httpx client over the HTTP API with a --local dev mode.
+[project.scripts]
+ccf = "ccf_runtime.cli.main:main"
 
 # ---------------------------------------------------------------------------
 # The one documented command that installs and enables all three harness legs

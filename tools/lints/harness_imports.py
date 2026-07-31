@@ -64,6 +64,17 @@ LLM_ADAPTER_MODULES: frozenset[str] = frozenset({"ccf.llm", "ccf_runtime.llm"})
 #: and every other sibling remain denied.
 HARNESS_ADAPTER_MODULES: frozenset[str] = frozenset({"ccf_runtime.adapters"})
 
+#: The orchestrator-driver tree's OWN considered carve-out entry (D-IMPL-60
+#: consequence (c)) — a distinct constant, not a widened prefix on the entry
+#: above: each carve-out is reviewed on its own terms, and the D-24/D-IMPL-53
+#: negative tests (a harness import in ``ccf_runtime.peering`` or
+#: ``ccf_runtime.cdc`` still fails) prove the pair is not an unguarded prefix
+#: match. Match is dot-bounded, so ``orchestration_evil`` and every other
+#: sibling remain denied. An orchestrator SDK import is this tree's whole
+#: purpose: each driver drives a CCF workflow through that SDK's own topology
+#: surface (D-IMPL-17's second seam), with the CCF engine authoritative.
+ORCHESTRATION_MODULES: frozenset[str] = frozenset({"ccf_runtime.orchestration"})
+
 #: The concrete GraphWriter module and its permitted importers.
 WRITER_MODULE = "ccf.graph._writer"
 WRITER_OK_MODULES: frozenset[str] = frozenset({"ccf.assembly", "ccf.boot"})
@@ -74,7 +85,9 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
     tree = read_tree(source, path)
     findings: list[str] = []
     in_llm_adapter = matches_module(module_name, LLM_ADAPTER_MODULES)
-    in_harness_adapter = matches_module(module_name, HARNESS_ADAPTER_MODULES)
+    in_harness_adapter = matches_module(
+        module_name, HARNESS_ADAPTER_MODULES
+    ) or matches_module(module_name, ORCHESTRATION_MODULES)
 
     for node in ast.walk(tree):
         for name in imported_module_names(node):

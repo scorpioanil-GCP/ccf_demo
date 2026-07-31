@@ -1,4 +1,4 @@
-"""CINV-04: the replay-by-construction harness, with honest deferrals.
+"""CINV-04: the replay-by-construction harness — fully active as of I.4.
 
 CLAUDE.md §11 ("Decision Replay is enforced at write time, not retrofitted") and
 §3.1 (the Phase I review reads the CI invariants); 04-RESEARCH.md Open Question 3.
@@ -7,22 +7,28 @@ CINV-04 is not one check. It is the claim that *every* path producing a
 decision writes its replay record by construction, and CLAUDE.md names five
 such paths: served Context Products, HITL actions (§8.2), workflow traces
 (§8.1), skill grants and revocations, and the skill-set in force at decision
-time (§6.2). Two of those five paths do not exist yet — the pillars that
-produce them (HITL, workflows) land in I.4; skill-set capture went active
-with the I.2 skilling wave (D-10).
+time (§6.2). Through I.3 the two paths whose pillars had not shipped (HITL,
+workflows) were carried as *emitted deferrals* — pytest skips naming the
+phase that would activate them — so that "CINV-04: green" never read as
+"the invariant holds" while two of its legs were unverifiable.
 
-That leaves a reporting problem, and the way it is usually solved is wrong. A
-suite that asserted only what exists would pass, and "CINV-04: green" would then
-mean "the checks we wrote all pass", which reads identically to "the invariant
-holds". This module refuses that reading: the deferred checks are *emitted*, as
-pytest skips carrying the phase that will activate them. ``pytest -rs`` prints
-them, so the gate review reads a status that distinguishes "verified" from "not
-yet verifiable" without having to know which pillars have shipped.
+As of 07-07 both deferrals are discharged: the D-01 vertical slice
+(``tests/workflow/test_slice.py``) exercises the real ApprovalGate and the
+workflow engine end to end, and the two formerly deferred checks now carry
+owning tests demonstrated to fail under a severed capture (D-25 — the red
+outputs are recorded in the 07-07 SUMMARY). The registry below is the
+machine-readable status. Each entry names the invariant, its state, and the
+test that actually asserts it, because the assertion belongs with the
+subject and duplicating it here would produce two checks that could
+disagree.
 
-The registry below is the machine-readable form of that status. Each entry
-names the invariant, its state, and — for active checks — the test that
-actually asserts it, because the assertion belongs with the subject and
-duplicating it here would produce two checks that could disagree.
+**D-22 scope statement:** these checks guard *capture on exercised paths* —
+each owning test fails when the capture is severed, and each activated
+family carries an adversarial case proving the check guards the path, not
+just the happy case. They are lint/CI-style verification, not a type-level
+proof that no unexercised path could exist; the type-unrepresentable legs
+(e.g. an unbound HITL submission) are documented on the primitives that own
+them.
 """
 
 from __future__ import annotations
@@ -30,7 +36,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 import pytest
 
@@ -41,34 +47,37 @@ if TYPE_CHECKING:
 
 TESTS_ROOT = Path(__file__).resolve().parents[1]
 
-CheckStatus = Literal["active", "not-yet-applicable"]
-
-#: Phrase every deferred skip reason carries. Named so the CI grep and the
-#: reason strings cannot drift apart.
-DEFERRAL_PHRASE = "not-yet-applicable"
-
 
 class Check(NamedTuple):
-    """One CINV-04 check, and where it stands.
+    """One CINV-04 check, and the test that asserts it.
 
     Attributes:
         name: Stable identifier, for the gate checklist.
         invariant: What must hold, in one sentence.
-        status: Whether this check is asserted today.
-        owning_test: ``path::function`` of the test that asserts it, for active
-            checks. ``None`` for deferred ones — there is nothing to point at,
-            and inventing a placeholder test would be the false green again.
-        phase: The milestone that activates a deferred check.
+        owning_test: ``path::function`` of the test that asserts it. Every
+            check is active as of I.4 — the deferral machinery this registry
+            carried through I.3 is discharged, not merely hidden.
     """
 
     name: str
     invariant: str
-    status: CheckStatus
-    owning_test: str | None = None
-    phase: str | None = None
+    owning_test: str
 
 
 #: The CINV-04 status, in full. Read by the D-17 gate checklist.
+#:
+#: D-22 scope marking (Phase I.4 gate review): where an ``invariant``
+#: sentence reads "every ... by construction (CLAUDE.md §n.n)", it is a
+#: **quotation of the cited CLAUDE.md commitment**, not this suite's own
+#: claim at that strength. The strength each check enforces is exactly its
+#: ``owning_test`` (plus the adversarial cases below), each observed red
+#: under a severed capture. For ``hitl-action-capture`` specifically: the
+#: owning test drives the ApprovalGate slice end to end; the other three
+#: primitives are covered compositionally — per-primitive byte-equality of
+#: the produced ``hitl_actions_block`` against the canonical action record
+#: (tests/hitl/) composed with the builder's verbatim-landing guarantee
+#: (tests/replay/test_dimension_extensions.py) — not by a per-primitive
+#: end-to-end replay drive.
 CINV_04_CHECKS: tuple[Check, ...] = (
     Check(
         name="replay-write-precedes-delivery",
@@ -76,7 +85,6 @@ CINV_04_CHECKS: tuple[Check, ...] = (
             "no Context Product reaches a caller without its Decision Replay "
             "record having been appended first"
         ),
-        status="active",
         owning_test=(
             "replay/test_serve_writes_replay.py::"
             "test_a_failing_store_yields_no_delivery"
@@ -88,7 +96,6 @@ CINV_04_CHECKS: tuple[Check, ...] = (
             "exactly one writer per graph, refused at boot rather than "
             "discovered when the second writer writes"
         ),
-        status="active",
         owning_test=(
             "invariants/test_single_writer_boot.py::"
             "test_booting_the_same_graph_twice_raises"
@@ -100,7 +107,6 @@ CINV_04_CHECKS: tuple[Check, ...] = (
             "a recorded decision reproduces its product at the recorded "
             "content address, after the graph has moved on"
         ),
-        status="active",
         owning_test=(
             "replay/test_engine_rehydration.py::"
             "test_the_product_replays_exactly_after_the_graph_has_moved_on"
@@ -112,8 +118,10 @@ CINV_04_CHECKS: tuple[Check, ...] = (
             "every HITL action — approval, escalation, override, review — "
             "lands in replay dimension 2 by construction (CLAUDE.md §8.2)"
         ),
-        status="not-yet-applicable",
-        phase="I.4",
+        owning_test=(
+            "workflow/test_slice.py::"
+            "test_the_human_action_lands_on_dimension_2_verbatim"
+        ),
     ),
     Check(
         name="workflow-trace-capture",
@@ -121,8 +129,10 @@ CINV_04_CHECKS: tuple[Check, ...] = (
             "every workflow execution trace lands in replay dimensions 4 and 5 "
             "by construction (CLAUDE.md §8.1)"
         ),
-        status="not-yet-applicable",
-        phase="I.4",
+        owning_test=(
+            "workflow/test_slice.py::"
+            "test_the_step_sequence_lands_on_dimension_5_verbatim"
+        ),
     ),
     Check(
         name="skill-set-capture",
@@ -131,7 +141,6 @@ CINV_04_CHECKS: tuple[Check, ...] = (
             "decision time, land in replay dimension 4 by construction "
             "(CLAUDE.md §6.2)"
         ),
-        status="active",
         owning_test=(
             "integration/test_agent_slice.py::"
             "test_a_granted_decision_captures_the_grant_set_hash_in_dimension_4"
@@ -139,27 +148,45 @@ CINV_04_CHECKS: tuple[Check, ...] = (
     ),
 )
 
-ACTIVE = tuple(check for check in CINV_04_CHECKS if check.status == "active")
-DEFERRED = tuple(
-    check for check in CINV_04_CHECKS if check.status == "not-yet-applicable"
+#: The adversarial companions of the two I.4-activated families (Cursor
+#: suggestion 6, 07-07): each proves its check guards the *path*, not just
+#: the happy case — an attempted resolution/completion engineered to skip
+#: the replay landing is detectable against the positive sentinel.
+ADVERSARIAL_CASES: tuple[tuple[str, str], ...] = (
+    (
+        "hitl-action-capture",
+        "workflow/test_slice.py::"
+        "test_a_resolution_that_skips_the_dim_2_landing_is_detectable",
+    ),
+    (
+        "workflow-trace-capture",
+        "workflow/test_slice.py::"
+        "test_a_completion_that_skips_the_dim_5_landing_is_detectable",
+    ),
 )
 
 
 # --- the registry itself ---------------------------------------------------
 
 
-def test_every_check_is_either_asserted_somewhere_or_explicitly_deferred() -> None:
-    """No entry may be neither. That third state is where a false green lives."""
+def _test_exists(reference: str) -> bool:
+    module_path, _, function = reference.partition("::")
+    source_path = TESTS_ROOT / module_path
+    if not source_path.is_file():
+        return False
+    source = source_path.read_text(encoding="utf-8")
+    return bool(
+        re.search(rf"^def {re.escape(function)}\(", source, re.MULTILINE)
+    )
+
+
+def test_every_check_names_an_owning_test() -> None:
+    """No entry may be unowned. That state is where a false green lives."""
     for check in CINV_04_CHECKS:
-        if check.status == "active":
-            assert check.owning_test, check.name
-            assert check.phase is None, check.name
-        else:
-            assert check.phase, check.name
-            assert check.owning_test is None, check.name
+        assert check.owning_test, check.name
 
 
-@pytest.mark.parametrize("check", ACTIVE, ids=lambda check: check.name)
+@pytest.mark.parametrize("check", CINV_04_CHECKS, ids=lambda check: check.name)
 def test_an_active_check_points_at_a_test_that_exists(check: Check) -> None:
     """The registry is load-bearing only if its references resolve.
 
@@ -167,28 +194,20 @@ def test_an_active_check_points_at_a_test_that_exists(check: Check) -> None:
     assertions nobody runs — which is exactly the failure mode this module
     exists to prevent, arriving through the back door.
     """
-    assert check.owning_test is not None
-    module_path, _, function = check.owning_test.partition("::")
-    source_path = TESTS_ROOT / module_path
-    assert source_path.is_file(), check.owning_test
-    source = source_path.read_text(encoding="utf-8")
-    assert re.search(rf"^def {re.escape(function)}\(", source, re.MULTILINE), (
-        check.owning_test
-    )
+    assert _test_exists(check.owning_test), check.owning_test
 
 
-@pytest.mark.parametrize("check", DEFERRED, ids=lambda check: check.name)
-def test_a_deferred_check_is_reported_as_a_skip_not_as_a_pass(check: Check) -> None:
-    """Emitted, never silently absent (04-RESEARCH.md Open Question 3).
-
-    ``pytest -rs`` lists these with their reasons, so a reader of the gate
-    checklist sees three named invariants awaiting their pillar rather than a
-    suite that passed and a claim they cannot check.
-    """
-    pytest.skip(
-        f"{check.name}: {DEFERRAL_PHRASE} until Phase {check.phase} — "
-        f"{check.invariant}"
-    )
+@pytest.mark.parametrize(
+    ("family", "reference"),
+    ADVERSARIAL_CASES,
+    ids=[family for family, _ in ADVERSARIAL_CASES],
+)
+def test_each_activated_family_carries_a_resolving_adversarial_case(
+    family: str, reference: str
+) -> None:
+    """The I.4 activations guard the path, not just the happy case."""
+    assert family in {check.name for check in CINV_04_CHECKS}
+    assert _test_exists(reference), reference
 
 
 # --- the active checks, asserted locally where the assertion is cheap ------

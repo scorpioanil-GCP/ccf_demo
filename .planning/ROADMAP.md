@@ -374,43 +374,43 @@ this needs serializing at merge; it is recorded here rather than claimed away.
 Plans:
 **Wave 1** *(prerequisites — parallel)*
 
-- [ ] 07-01-PLAN.md — Phase setup: phase-i4 branch, D-IMPL-60 entry, D-IMPL-61 decision checkpoint, fastapi/httpx pins
-- [ ] 07-02-PLAN.md — D-20 state-seam closure: token + audited write, writer retrofit, counterfactual + adversarial proofs (D-08..D-10)
-- [ ] 07-03-PLAN.md — D-IMPL-56: required description + SkillArgumentSchema, procedure type, shared tool-surface derivation, fixture retrofit
+- [x] 07-01-PLAN.md — Phase setup: phase-i4 branch, D-IMPL-60 entry, D-IMPL-61 decision checkpoint, fastapi/httpx pins
+- [x] 07-02-PLAN.md — D-20 state-seam closure: token + audited write, writer retrofit, counterfactual + adversarial proofs (D-08..D-10)
+- [x] 07-03-PLAN.md — D-IMPL-56: required description + SkillArgumentSchema, procedure type, shared tool-surface derivation, fixture retrofit
 
 **Wave 2** *(contracts — parallel)*
 
-- [ ] 07-04-PLAN.md — WorkflowDefinition wrapper (D-11..D-13/D-IMPL-61) + HumanPrincipalBinding + HITLTransportProtocol
-- [ ] 07-05-PLAN.md — Replay dimension 2/4/5 extensions per the D-IMPL-55 three-edit pattern
+- [x] 07-04-PLAN.md — WorkflowDefinition wrapper (D-11..D-13/D-IMPL-61) + HumanPrincipalBinding + HITLTransportProtocol
+- [x] 07-05-PLAN.md — Replay dimension 2/4/5 extensions per the D-IMPL-55 three-edit pattern
 
 **Wave 3**
 
-- [ ] 07-06-PLAN.md — Async-first Workflow engine: state machine, audited suspend/resume, D-IMPL-18/27 trace persistence, hypothesis.stateful
+- [x] 07-06-PLAN.md — Async-first Workflow engine: state machine, audited suspend/resume, D-IMPL-18/27 trace persistence, hypothesis.stateful
 
 **Wave 4**
 
-- [ ] 07-07-PLAN.md — D-01 vertical slice: real ApprovalGate on the ApprovalSink seam, two-step suspend/resume slice, both CINV-04 flips (0 skips)
+- [x] 07-07-PLAN.md — D-01 vertical slice: real ApprovalGate on the ApprovalSink seam, two-step suspend/resume slice, both CINV-04 flips (0 skips)
 
 **Wave 5**
 
-- [ ] 07-08-PLAN.md — Remaining HITL primitives: ExceptionEscalation, OverrideBoundary, ReviewQueue + workflow exception paths
+- [x] 07-08-PLAN.md — Remaining HITL primitives: ExceptionEscalation, OverrideBoundary, ReviewQueue + workflow exception paths
 
 **Wave 6** *(front doors — parallel)*
 
-- [ ] 07-09-PLAN.md — MCP Experience edge (products + agents) + HITL MCP transport + role-separation rows (EXPR-01)
-- [ ] 07-10-PLAN.md — HTTP API skeleton (FastAPI) mirroring the CLI noun set + OpenAPI validity test (EXPR-03)
+- [x] 07-09-PLAN.md — MCP Experience edge (products + agents) + HITL MCP transport + role-separation rows (EXPR-01)
+- [x] 07-10-PLAN.md — HTTP API skeleton (FastAPI) mirroring the CLI noun set + OpenAPI validity test (EXPR-03)
 
 **Wave 7**
 
-- [ ] 07-11-PLAN.md — `ccf` CLI: noun-verb dispatcher, --local, zero privileged paths, `ccf skill import` (EXPR-02)
+- [x] 07-11-PLAN.md — `ccf` CLI: noun-verb dispatcher, --local, zero privileged paths, `ccf skill import` (EXPR-02)
 
 **Wave 8**
 
-- [ ] 07-12-PLAN.md — OrchestrationProtocol + D-06 module-split lint + conformance suite + LangGraph driver leg
+- [x] 07-12-PLAN.md — OrchestrationProtocol + D-06 module-split lint + conformance suite + LangGraph driver leg
 
 **Wave 9**
 
-- [ ] 07-13-PLAN.md — ADK + Claude Agent SDK driver legs (D-IMPL-60 complete; A2 escalation rule)
+- [x] 07-13-PLAN.md — ADK + Claude Agent SDK driver legs (D-IMPL-60 complete; A2 escalation rule)
 
 **Wave 10**
 
@@ -443,7 +443,7 @@ Plans:
 | 4. Phase I.1 — Fabric Core | 12/12 | Complete | 2026-07-25 |
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
-| 7. Phase I.4 — Orchestration, HITL, Experience | 0/14 | Not started | - |
+| 7. Phase I.4 — Orchestration, HITL, Experience | 13/14 | In Progress|  |
 | 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |
 
 ## Coverage

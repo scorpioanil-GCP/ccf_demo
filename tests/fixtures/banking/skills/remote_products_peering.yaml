@@ -16,12 +16,25 @@
 # bump — strictly larger than the D-IMPL-54 / D-05 precedent, where a binding
 # *value* change moved `artifact_version` a minor step only.
 
+# schema_version 3.0.0 on live entries: the 2.0.0 lane was the a2a->peering
+# token retirement; D-IMPL-56 then added required `description` and
+# `argument_schema` — another breaking schema-lane change.
 entry:
-  schema_version: "2.0.0"
+  schema_version: "3.0.0"
   artifact_version: "2.0.0"
   name: remote-exposure-products
   tenant: acme-bank
   skill_type: peering
+  description: >-
+    Read credit-exposure Context Products the Zenith federation peer fabric
+    has published to this bank, for treasury analysis.
+  argument_schema:
+    properties:
+      requested_by:
+        type: string
+        description: >-
+          The role or analyst the peer read is recorded against.
+    required: [requested_by]
   binding:
     endpoint: zenith-federation
   requirements:
@@ -75,11 +88,22 @@ grant:
 
 denied:
   entry:
-    schema_version: "2.0.0"
+    schema_version: "3.0.0"
     artifact_version: "2.0.0"
     name: remote-privileged-products
     tenant: acme-bank
     skill_type: peering
+    description: >-
+      Read privileged counterparty write-side products from the Zenith
+      federation peer fabric — deliberately over-scoped so the auto regime
+      refuses the grant.
+    argument_schema:
+      properties:
+        requested_by:
+          type: string
+          description: >-
+            The role or analyst the peer read is recorded against.
+      required: [requested_by]
     binding:
       endpoint: zenith-federation
     requirements:
@@ -102,11 +126,21 @@ denied:
 # block registers the transport and this entry names no address either.
 agent_invocable:
   entry:
-    schema_version: "2.0.0"
+    schema_version: "3.0.0"
     artifact_version: "2.0.0"
     name: portfolio-remote-products
     tenant: acme-bank
     skill_type: peering
+    description: >-
+      Read credit-exposure Context Products the Zenith federation peer fabric
+      has published to this bank, scoped for portfolio analysts.
+    argument_schema:
+      properties:
+        requested_by:
+          type: string
+          description: >-
+            The role or analyst the peer read is recorded against.
+      required: [requested_by]
     binding:
       endpoint: zenith-federation
     requirements:
@@ -136,6 +170,16 @@ retired_token:
     name: remote-exposure-products
     tenant: acme-bank
     skill_type: a2a
+    description: >-
+      Read credit-exposure Context Products from the Zenith federation peer —
+      declared under the retired a2a token, so the entry is refused by name.
+    argument_schema:
+      properties:
+        requested_by:
+          type: string
+          description: >-
+            The role or analyst the peer read is recorded against.
+      required: [requested_by]
     binding:
       endpoint: zenith-federation
     requirements:

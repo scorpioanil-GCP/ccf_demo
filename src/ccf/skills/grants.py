@@ -51,7 +51,8 @@ from pydantic import field_validator
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import ArtifactClass, validate_semver
-from ccf.controlplane.audit import AuditAction, AuditLog
+from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
+from ccf.controlplane.state import AuditedStateWriter
 from ccf.controlplane.registry import (
     ControlPlaneRegistry,
     RegistrationRefusal,
@@ -490,6 +491,12 @@ class GrantLedger:
         self._sink = sink
         self._clock = clock
         self._state_store = control_plane.state_store
+        # The 07-02 D-20 closure: state writes travel the audited surface,
+        # which appends the ledger's own domain transition event — one event
+        # per transition, on the one shared log (D-08/D-09; INV-CH7-71).
+        self._writer = AuditedStateWriter(
+            store=control_plane.state_store, audit=audit
+        )
 
     # -- state (on the Control Plane seam, never on this instance) -----------
 
@@ -509,11 +516,37 @@ class GrantLedger:
         return record
 
     def _put_state(
-        self, grant_hash: str, state: GrantState, grant: SkillGrant
+        self,
+        grant_hash: str,
+        state: GrantState,
+        grant: SkillGrant,
+        *,
+        action: AuditAction,
+        resolved: bool,
+        actor: str | None,
     ) -> None:
-        """Write one grant's state through to the Control Plane seam."""
-        self._state_store.put(
-            GRANT_STATE, grant_hash, GrantStateRecord(state=state, grant=grant)
+        """Write one grant's state through the audited write surface (D-09).
+
+        Retrofitted onto :class:`~ccf.controlplane.state.AuditedStateWriter`
+        in 07-02: the ledger's existing domain transition event travels as
+        the write's required event, so the write evidence rides on the
+        ``grant_*`` action itself — one event per transition, never a second
+        generic entry (INV-CH7-71).
+        """
+        self._writer.write(
+            GRANT_STATE,
+            grant_hash,
+            GrantStateRecord(state=state, grant=grant),
+            event=AuditEvent(
+                sequence=0,  # reassigned by the log; sequencing is its own
+                action=action,
+                key=skill_grant_key(grant),
+                version=content_hash(grant),
+                resolved=resolved,
+                occurred_at=self._clock(),
+                actor=actor,
+                artifact_class=SKILL_GRANT.class_id,
+            ),
         )
 
     def _records(self) -> tuple[tuple[str, GrantStateRecord], ...]:
@@ -749,8 +782,14 @@ class GrantLedger:
         # resolvable there. Everything the check needs is already in hand.
         mismatch = self._tenant_mismatch(grant, definition, entry)
         if mismatch is not None:
-            self._put_state(grant_hash, "refused", grant)
-            self._record(grant, "grant_refused", resolved=False, actor=actor)
+            self._put_state(
+                grant_hash,
+                "refused",
+                grant,
+                action="grant_refused",
+                resolved=False,
+                actor=actor,
+            )
             return mismatch
 
         # `reissuable` because a grant is a single-use *request*, not an
@@ -766,8 +805,14 @@ class GrantLedger:
         if isinstance(registered, RegistrationRefusal):
             return registered
 
-        self._put_state(grant_hash, "requested", grant)
-        self._record(grant, "grant_requested", resolved=True, actor=actor)
+        self._put_state(
+            grant_hash,
+            "requested",
+            grant,
+            action="grant_requested",
+            resolved=True,
+            actor=actor,
+        )
 
         # No wedged states, on any path (WR-01). Everything after the first
         # state mutation runs under this guard: an exception raised downstream
@@ -784,8 +829,14 @@ class GrantLedger:
                 grant, grant_hash, definition=definition, entry=entry, actor=actor
             )
         except Exception:
-            self._put_state(grant_hash, "refused", grant)
-            self._record(grant, "grant_refused", resolved=False, actor=actor)
+            self._put_state(
+                grant_hash,
+                "refused",
+                grant,
+                action="grant_refused",
+                resolved=False,
+                actor=actor,
+            )
             raise
 
     def _tenant_mismatch(
@@ -838,21 +889,32 @@ class GrantLedger:
         """
         verdict = self._tier_1(grant, definition, entry)
         if isinstance(verdict, GrantRefusal):
-            self._put_state(grant_hash, "refused", grant)
-            self._record(grant, "grant_refused", resolved=False, actor=actor)
+            self._put_state(
+                grant_hash,
+                "refused",
+                grant,
+                action="grant_refused",
+                resolved=False,
+                actor=actor,
+            )
             return verdict
 
         if verdict.grant_requires_approval:
-            self._put_state(grant_hash, "pending-approval", grant)
-            self._record(
-                grant, "grant_pending_approval", resolved=True, actor=actor
+            self._put_state(
+                grant_hash,
+                "pending-approval",
+                grant,
+                action="grant_pending_approval",
+                resolved=True,
+                actor=actor,
             )
             outcome = self._sink.decide(grant)
             if not outcome.approved:
-                self._put_state(grant_hash, "refused", grant)
-                self._record(
+                self._put_state(
+                    grant_hash,
+                    "refused",
                     grant,
-                    "grant_refused",
+                    action="grant_refused",
                     resolved=False,
                     actor=outcome.approver_id,
                 )
@@ -868,9 +930,13 @@ class GrantLedger:
         else:
             effective_actor = actor
 
-        self._put_state(grant_hash, "effective", grant)
-        self._record(
-            grant, "grant_effective", resolved=True, actor=effective_actor
+        self._put_state(
+            grant_hash,
+            "effective",
+            grant,
+            action="grant_effective",
+            resolved=True,
+            actor=effective_actor,
         )
         return grant_hash
 
@@ -890,8 +956,14 @@ class GrantLedger:
                 f" {state!r}, and revocation is defined from 'effective'"
                 " only (D-09)"
             )
-        self._put_state(grant_hash, "revoked", record.grant)
-        self._record(record.grant, "grant_revoked", resolved=True, actor=actor)
+        self._put_state(
+            grant_hash,
+            "revoked",
+            record.grant,
+            action="grant_revoked",
+            resolved=True,
+            actor=actor,
+        )
 
     # -- introspection and identity --------------------------------------------
 

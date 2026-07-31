@@ -85,8 +85,9 @@ from ccf.harness.protocol import EffectCapability, EffectRefusal, HarnessCapabil
 from ccf.products.contract import ContextProductContract
 from ccf.replay.record import NO_HARNESS, HarnessTrace
 from ccf.skills.catalog import SkillCatalogEntry
+from ccf.skills.toolsurface import render_tool_surface
 
-__all__ = ["HARNESS_ID", "SKILL_ARGUMENT_SCHEMA", "ClaudeAgentAdapter"]
+__all__ = ["HARNESS_ID", "ClaudeAgentAdapter"]
 
 #: This adapter's stable harness identity. Lands verbatim in
 #: :attr:`~ccf.harness.protocol.HarnessCapabilities.harness_id` and in
@@ -96,21 +97,6 @@ __all__ = ["HARNESS_ID", "SKILL_ARGUMENT_SCHEMA", "ClaudeAgentAdapter"]
 #: it is a constant here and every genuinely deployment-owned value
 #: (model, server name, effect capability) is a constructor argument instead.
 HARNESS_ID = "claude-agent-sdk"
-
-#: The JSON Schema the exposed tools declare for their arguments.
-#:
-#: A transcription of the fabric-side signature, not an authored guess:
-#: :meth:`ccf.agents.agent.Agent.invoke_skill` types ``arguments`` as
-#: ``Mapping[str, str]``, so an object of string-valued properties is exactly
-#: what the seam accepts. The same schema is declared for every skill because
-#: :class:`~ccf.skills.catalog.SkillCatalogEntry` carries no per-skill argument
-#: declaration — see :meth:`ClaudeAgentAdapter.expose_skills` for why this
-#: adapter states that gap rather than inventing a schema to paper over it.
-SKILL_ARGUMENT_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "additionalProperties": {"type": "string"},
-}
-
 
 def _qualified_tool_name(server_name: str, skill_name: str) -> str:
     """The name the harness sees for an in-process MCP tool.
@@ -122,20 +108,6 @@ def _qualified_tool_name(server_name: str, skill_name: str) -> str:
     point of seam 2 is that those two agree exactly.
     """
     return f"mcp__{server_name}__{skill_name}"
-
-
-def _tool_description(entry: SkillCatalogEntry) -> str:
-    """A description composed from the catalog entry's own declared values.
-
-    The Claude Agent SDK requires a description per tool.
-    :class:`~ccf.skills.catalog.SkillCatalogEntry` declares none, so this
-    adapter composes the skill's versioned identity and binding type from
-    fields the catalog actually carries. It does **not** author prose about
-    what the skill does: prose about a deployment's skill is a deployment's
-    statement, and inventing one here would be the No-Hardcoding Rule firing
-    (CLAUDE.md §6.4). See this module's plan summary for the surfaced gap.
-    """
-    return f"{entry.name}@{entry.artifact_version} [{entry.skill_type}]"
 
 
 class ClaudeAgentAdapter:
@@ -219,8 +191,9 @@ class ClaudeAgentAdapter:
         the second one without the agent's identity changing (D-07).
         """
         entry = self._bound_entry(agent, skill_name)
+        surface = render_tool_surface(entry)
 
-        @tool(entry.name, _tool_description(entry), SKILL_ARGUMENT_SCHEMA)
+        @tool(entry.name, surface.description, surface.input_schema)
         async def handler(args: Mapping[str, Any]) -> dict[str, Any]:
             invocation = agent.invoke_skill(
                 skill_name, arguments={key: str(value) for key, value in args.items()}
@@ -257,12 +230,12 @@ class ClaudeAgentAdapter:
         MCP server, it is absent from ``allowed_tools``, and the permission
         gate would deny it if the harness named it anyway.
 
-        Every exposed tool declares :data:`SKILL_ARGUMENT_SCHEMA`, because a
-        catalog entry declares no per-skill argument schema. That is a real
-        gap in the artifact schema, stated here rather than closed by an
-        adapter-authored guess — an adapter inventing per-skill argument
-        vocabulary would be encoding the deployment's values in SDK code
-        (CLAUDE.md §6.4, §11).
+        Every exposed tool's description and argument schema come from the
+        one shared derivation
+        (:func:`ccf.skills.toolsurface.render_tool_surface`) over the entry's
+        own declared ``description`` and ``argument_schema`` (D-IMPL-56) —
+        never adapter-authored, so all three reference adapters render the
+        identical surface for the same entry (D-17).
         """
         return tuple(sorted(handler.name for handler in self._tools(agent)))
 

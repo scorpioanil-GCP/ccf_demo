@@ -59,6 +59,39 @@ __all__ = ["AuditAction", "AuditEvent", "AuditLog"]
 #: ``grant_*`` family are grant-state transitions, so recording an invocation
 #: as either would make the log say something untrue. It goes through this one
 #: log, on the one existing ``append``; there is no parallel audit surface.
+#:
+#: ``state_written`` is the member added for the 07-02 D-20 closure: the
+#: audited state-write surface (:class:`~ccf.controlplane.state.
+#: AuditedStateWriter`) takes the caller's *domain* event, so a caller with
+#: domain semantics (a grant transition, a workflow suspension) never uses
+#: this member — its own transition action carries the write evidence, one
+#: event per write (INV-CH7-71). ``state_written`` exists for callers with no
+#: domain semantics of their own: a generic Control Plane state write is a
+#: Control Plane action like any other, and forcing it under ``register`` or
+#: a ``grant_*`` member would make the log say something untrue — the same
+#: reasoning as ``skill_invoked``, one log, one ``append``, no parallel
+#: surface.
+#: The ``workflow_*`` members are the workflow engine's state-machine
+#: transitions (07-06; CLAUDE.md §8.1; D-IMPL-18): every transition of a
+#: running workflow — nominal (``workflow_transition``), suspension on a
+#: hitl-gate (``workflow_suspended``), resumption (``workflow_resumed``,
+#: which carries refusals as ``resolved=False`` in the same member — a
+#: resume that was asked for and refused is a resume interaction, exactly as
+#: a failed ``resolve`` is a resolve), exception routing (``workflow_
+#: exception``, D-IMPL-61: the propagate-to-terminal transition and the
+#: routed-to-handler transition are both first-class recorded events), and
+#: terminal completion (``workflow_completed``). They exist for the same
+#: reason as the ``grant_*`` family: a workflow transition is a Control
+#: Plane state change like any other, and recording it under ``register`` or
+#: ``state_written`` would make the log say something untrue. One log, one
+#: ``append``, no parallel surface.
+#: ``hitl_action`` is the member added for 07-07 (CLAUDE.md §8.2): a human
+#: acting on a HITL gate is a Control Plane interaction like any other, and
+#: none of the existing members can express it — the ``workflow_*`` family
+#: records what the *engine* did, and a human verdict recorded as a workflow
+#: transition would make the log say something untrue. Rejections and TOCTOU
+#: refusals travel in the same member as ``resolved=False``, exactly as
+#: ``workflow_resumed`` carries its refusals.
 AuditAction = Literal[
     "register",
     "register_typed",
@@ -73,6 +106,13 @@ AuditAction = Literal[
     "peering_admitted",
     "peering_admission_refused",
     "skill_invoked",
+    "state_written",
+    "workflow_transition",
+    "workflow_suspended",
+    "workflow_resumed",
+    "workflow_exception",
+    "workflow_completed",
+    "hitl_action",
 ]
 
 

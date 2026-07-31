@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-30T20:36:37.950Z"
+last_updated: "2026-07-30T23:59:00.000Z"
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 88
-  completed_plans: 74
-  percent: 75
+  completed_plans: 88
+  percent: 87
 ---
 
 # STATE — CCF SDK
@@ -22,19 +22,23 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 7 — phase i.4 — orchestration, hitl, experience
+**Current focus:** Phase 07 — phase-i-4-orchestration-hitl-experience
 
 ## Current Position
 
-Phase: 07 (phase-i-4-orchestration-hitl-experience) — CONTEXT GATHERED
-Plan: Not started
+Phase: 07 (phase-i-4-orchestration-hitl-experience) — AWAITING FINAL GATE APPROVAL
+Plan: 14 of 14 (all plans complete)
 
 - **Phase:** 7 of 8 (phase i.4 — orchestration, hitl, experience)
-- **Plan:** Not started (`07-CONTEXT.md` written and committed 2026-07-29)
-- **Status:** Ready to execute
-- **Branch:** `main` — `phase-i4` not yet created
+- **Plan:** 07-14 complete — D-IMPL-62..65 ruled by Dave (2026-07-30); D-IMPL-62
+  hardening (`HitlActionReceipt`) and D-IMPL-64 notify-only webhook transport
+  (`ccf.hitl.webhook`) built TDD; gate document updated; post-ruling sweep
+  1280/0/0, mypy 152 files, lints clean
+- **Status:** STOPPED at the §3.1 final approval checkpoint — Dave approves or
+  rejects `docs/PHASE_I4_GATE.md`. D-GATE-I.4 NOT logged; `phase-i4` NOT merged.
+- **Branch:** `phase-i4` (created off `main` at 6520b70)
 
-- **Progress:** [████████░░] Phase 6 complete and gated (D-GATE-I.3, 2026-07-27); `phase-i3` merged to `main --no-ff` per §2.2
+- **Progress:** [█████████░] 87%
 
 **Nothing blocks Phase 7 planning on the decision log.** The 12-item Phase I
 gate list is RESOLVED in full (D-GATE-D, 2026-07-25), and D-GATE-I.3 states
@@ -71,6 +75,8 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 | 05-05      | ~6 min   | 1     | 7     |
 | 05-06      | ~12 min  | 2     | 20    |
 | 05-07      | ~8 min   | 2     | 3     |
+| 07-01      | ~15 min  | 3     | 2     |
+| 07-14      | 2 sess.  | 3     | 12    |
 
 ## Accumulated Context
 
@@ -115,6 +121,13 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 - [Phase 05]: NotYetBound is a typed RuntimeError for mcp/a2a dispatch (build lacks the transport; artifact is fine) — RESEARCH Open Question 2 resolution; tool dispatch returns a ToolInvocation value, the SDK executes no command (05-06)
 - [Phase 05]: Agent holds bound_skills by reference to the GrantLedger's live view — grants/revocations take effect at invoke time without touching agent identity; ledger.grant_set_hash() returns the NO_GRANTS sentinel when empty, pure fn stays content_hash(frozenset) (D-07, 05-06)
 - [Phase 05]: Gate package (docs/PHASE_I2_GATE.md) follows the I.1 D-17 format; discretionary in-phase choices recorded in the gate doc §4, not as D-IMPL entries; D-GATE-I.2 deliberately NOT logged pending Dave's approval (05-07)
+- [Phase 07]: D-IMPL-60 (Dave, 2026-07-29): all three v0 SDKs get real OrchestrationProtocol drivers under `runtime/ccf_runtime/orchestration/<sdk>/` with bidirectional adapter-import ban; D-IMPL-17 cross-referenced, not edited (07-01)
+- [Phase 07]: D-IMPL-61 (Dave, 2026-07-30): absent per-node exception ref = propagate-to-terminal — a defined, audited transition to a terminal `failed` state recorded in the trace; validation-error reading declined (let-it-fail stays expressible). Gates 07-04's exception-routing validator (07-01)
+- [Phase 07]: D-IMPL-62 (Dave, 2026-07-30): HTTP/CLI HITL action door is submit-only with honest-contract hardening — `HitlActionReceipt` states `submitted` (type-closed) with real queue disposition; MCP in-process resolve-wiring is a ruled asymmetry; auth stays on T-07-24's residual entry (07-14)
+- [Phase 07]: D-IMPL-63 (Dave, 2026-07-30): the two D-IMPL-21 identity-binding reference impls are explicit follow-up-phase scope; caller-supplied principal fields are the recorded v0 posture (07-14)
+- [Phase 07]: D-IMPL-64 (Dave, 2026-07-30): webhook deferral REJECTED — the notify-only webhook HITL transport ships in v0 (`ccf.hitl.webhook`: injected `WebhookDeliveryProtocol`, typed refusals, no authority surface by construction) (07-14)
+- [Phase 07]: D-IMPL-65 (Dave, 2026-07-30): composition-root debt-cascade wiring closes the I.4 gate; NAMED next-phase commitment — the engine will refuse an agent-node handoff with no bound debt assessment (07-14)
+- [Phase 07]: fastapi==0.140.0 and httpx==0.28.1 are direct pins with stated reasons; CLI is stdlib argparse (no click/typer); ADK's `fastapi>=0.133` constraint interaction recorded for the gate (07-01)
 
 ### Todos
 
@@ -128,15 +141,13 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 
 ## Session Continuity
 
-Last action: `/gsd-discuss-phase 7` (2026-07-29) on `main` — five gray areas discussed
-(OrchestrationProtocol proof, slice + wave order, state-seam audit closure, workflow
-artifact shape, D-IMPL-56 implementation), 26 decisions captured in
-`07-CONTEXT.md`, alternatives preserved in `07-DISCUSSION-LOG.md`, both committed
-(`6caf018`). Dave raised the orchestrator widening unprompted: **all three** v0
-SDKs get real `OrchestrationProtocol` driver integrations, to be written up as
-**D-IMPL-60**.
+Last action: 07-14 Tasks 1–2 complete (2026-07-30) on `phase-i4` — gate package
+`docs/PHASE_I4_GATE.md` (131746d: sweep 1268/0/0, 16 D-25 rows, verbatim
+counterfactuals, deviations register, DESIGN/REQUIREMENTS corrections) and the
+§3.1 cross-AI review + triage (386422e: in-phase fixes applied; **four blocking
+findings require rulings — D-IMPL-62..65 logged OPEN**, phase stopped per §3.1).
 
-Next action: `/gsd-plan-phase 7`. Two items to carry in by hand — write the
-D-IMPL-60 entry in `docs/DECISIONS.md` (D-IMPL-24 is the template for enumerating
-consequences), and note that `main` is far ahead of `origin/main` (174 commits as of
-2026-07-29); Dave has not authorized a push.
+Next action: **CHECKPOINT — awaiting Dave** (07-14 Task 3): rule on D-IMPL-62..65,
+then approve/reject the Phase I.4 gate. Only after approval: log D-GATE-I.4 and
+merge `phase-i4` to `main` --no-ff. Standing note: `main` is far ahead of
+`origin/main`; Dave has not authorized a push.

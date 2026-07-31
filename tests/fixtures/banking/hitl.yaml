@@ -1,0 +1,118 @@
+# Banking fixture material for the HITL primitives (CLAUDE.md §8.2;
+# D-IMPL-20/21; SDK-defined).
+#
+# Every approver identity, authentication statement, action instant, and
+# pending-event value the HITL suites exercise is here. `/src` holds none of
+# them: the SDK ships the ApprovalGate mechanism, the transport Protocol, and
+# the principal-binding contract — never an approver, a provider vocabulary,
+# or an assurance level (No-Hardcoding Rule §6.4; mechanism, not values).
+#
+# Two distinct approvers exist deliberately (D-23): two gates resolved by two
+# humans must be distinguishable in replay from the records alone.
+
+approvers:
+  credit_officer:
+    identity:
+      subject_id: credit-officer-11
+      identity_provider_ref: acme-bank/idp/okta
+    authentication:
+      method: oidc
+      assurance_level: aal2
+      session_ref: session-co-11
+    action_time: "2026-07-30T09:15:00+00:00"
+  treasury_officer:
+    identity:
+      subject_id: treasury-officer-42
+      identity_provider_ref: acme-bank/idp/okta
+    authentication:
+      method: oidc
+      assurance_level: aal3
+      session_ref: session-to-42
+    action_time: "2026-07-30T10:45:00+00:00"
+
+# A pending approval-gate event for gate-face tests that do not run a full
+# workflow. The product_content_hash is derived identity, computed by
+# mechanism at enqueue time — a hash is never a fixture value (D-IMPL-26).
+event:
+  event_key: acme-bank/exec-hitl/credit-officer-approval
+  event_class: approval-gate
+  tenant: acme-bank
+  workflow_state_ref: acme-bank/exec-hitl
+  policy_ref: "ccf-artifact://acme-bank/approval-policy/credit-officer@1.0.0"
+
+# ExceptionEscalation fixture material (07-08). The designated role lives in
+# the routing artifact's declaration (routes_to), never in code; the explicit
+# escalation reason and the debt factors driving the D_c-shaped trigger are
+# fixture values — the SDK ships the routing mechanism and the CAR predicate,
+# never a threshold (thresholds come from the DebtProfile artifact in
+# halflife.yaml).
+escalation:
+  event:
+    event_key: acme-bank/exec-esc/certificate-fetch-escalation
+    event_class: exception-escalation
+    tenant: acme-bank
+    workflow_state_ref: acme-bank/exec-esc
+    policy_ref: "ccf-artifact://acme-bank/exception-handler/certificate-fetch-failed@1.0.0"
+  explicit_reason: "certificate source unreachable after retry; human routing required"
+  # 1 - (0.20 * 0.50 * 1.0) = 0.90: above the fixture profile's Forced-LLM
+  # band (0.40), at (not above) its Fail-Closed band — FORCED_LLM.
+  breaching_factors:
+    freshness: "0.20"
+    completeness: "0.50"
+    semantic_consistency: "1.0"
+  nominal_factors:
+    freshness: "1.0"
+    completeness: "1.0"
+    semantic_consistency: "1.0"
+
+# OverrideBoundary fixture material (07-08). The original agent output and
+# the human substitute are both fixture values of a deployment-shaped
+# determination; the SDK ships the boundary mechanism only.
+override:
+  event:
+    event_key: acme-bank/exec-ovr/limit-determination
+    tenant: acme-bank
+    workflow_state_ref: acme-bank/exec-ovr
+    policy_ref: "ccf-artifact://acme-bank/approval-policy/credit-officer@1.0.0"
+  original:
+    subject_uri: "acme-bank/entity/borrower-201"
+    determination: "credit-limit:2500000"
+  substitute:
+    subject_uri: "acme-bank/entity/borrower-201"
+    determination: "credit-limit:1750000"
+
+# ReviewQueue fixture material (07-08). A ContentGeneration-style output
+# reference plus the passage-level lineage the reviewer must see (whitepaper
+# §7.10.3 — every claim passage-anchored). A second tenant exists for the
+# D-23 isolation claim.
+review:
+  event:
+    event_key: acme-bank/exec-rev/credit-memo-review
+    tenant: acme-bank
+    workflow_state_ref: acme-bank/exec-rev
+    policy_ref: "ccf-artifact://acme-bank/approval-policy/credit-officer@1.0.0"
+  item:
+    output_ref: "ccf-artifact://acme-bank/ccf.context-product/credit-memo@1.0.0"
+    lineage:
+      - source:
+          system_id: edgar
+        envelope_id: env-10q-2026-q2
+        observed_at: "2026-07-15T00:00:00+00:00"
+        passage_anchor:
+          kind: document-page
+          locator: "10-Q/2026-Q2#p14"
+  other_tenant:
+    event:
+      event_key: harbor-credit/exec-rev/portfolio-note-review
+      tenant: harbor-credit
+      workflow_state_ref: harbor-credit/exec-rev
+    item:
+      output_ref: "ccf-artifact://harbor-credit/ccf.context-product/portfolio-note@1.0.0"
+      lineage:
+        - source:
+            system_id: crm
+          envelope_id: env-note-88
+          observed_at: "2026-07-20T00:00:00+00:00"
+          passage_anchor:
+            kind: transcript-turn
+            locator: "call-88#t12"

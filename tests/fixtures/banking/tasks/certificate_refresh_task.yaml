@@ -1,0 +1,42 @@
+# Banking fixture task definition — the straight-line certificate-refresh
+# task (CLAUDE.md §6.4/§8.1; D-IMPL-28; SDK-defined).
+#
+# Two skill steps and nothing else: the smallest task a workflow engine can
+# drive to a terminal state without a gate or an agent node. Every step value
+# lives here, never in code (No-Hardcoding Rule §6.4); steps reference their
+# skills by pinned versioned URI (D-IMPL-26).
+
+keys:
+  task_definition: acme-bank/tasks/certificate-refresh
+
+# The skills the steps reference, registered as deployment-declared artifacts
+# so the factory (and the engine's wiring check) can resolve the pinned refs.
+referenced_artifacts:
+  fetch_certificates_skill:
+    key: acme-bank/skill/fetch-covenant-certificates
+    class_id: skill
+    semver: "1.0.0"
+    declaration:
+      capability: fetch-covenant-certificates
+      source: document-repository
+  archive_certificates_skill:
+    key: acme-bank/skill/archive-covenant-certificates
+    class_id: skill
+    semver: "1.0.0"
+    declaration:
+      capability: archive-covenant-certificates
+      source: document-repository
+
+task_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: certificate-refresh
+  tenant: acme-bank
+
+  steps:
+    - kind: skill
+      name: fetch-certificates
+      ref: "ccf-artifact://acme-bank/skill/fetch-covenant-certificates@1.0.0"
+    - kind: skill
+      name: archive-certificates
+      ref: "ccf-artifact://acme-bank/skill/archive-covenant-certificates@1.0.0"

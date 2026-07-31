@@ -91,19 +91,24 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
 
 ### Phase I — Orchestration and HITL
 
-- [ ] **ORCH-01**: Workflow primitive with agent nodes and HITL gates,
-      suspendable on Control Plane state; workflow definitions as artifacts (§8.1)
-- [ ] **ORCH-02**: OrchestrationProtocol for external orchestrator integration
-- [ ] **HITL-01**: ApprovalGate, ExceptionEscalation, OverrideBoundary,
-      ReviewQueue primitives with audit-by-construction replay integration (§8.2)
+- [x] **ORCH-01**: Workflow primitive with agent nodes and HITL gates,
+      suspendable on Control Plane state; workflow definitions as artifacts (§8.1).
+      Evidence: `docs/PHASE_I4_GATE.md` §2 rows 1–6
+- [x] **ORCH-02**: OrchestrationProtocol for external orchestrator integration.
+      Evidence: `docs/PHASE_I4_GATE.md` §2 rows 12–13 (D-IMPL-60 four legs)
+- [x] **HITL-01**: ApprovalGate, ExceptionEscalation, OverrideBoundary,
+      ReviewQueue primitives with audit-by-construction replay integration (§8.2).
+      Evidence: `docs/PHASE_I4_GATE.md` §2 rows 7–10
 
 ### Phase I — Experience Layer
 
-- [ ] **EXPR-01**: MCP server (egress) exposing Context Products and agents
-- [ ] **EXPR-02**: `ccf` CLI — workflow invocation, HITL inspection, replay
+- [x] **EXPR-01**: MCP server (egress) exposing Context Products and agents.
+      Evidence: `docs/PHASE_I4_GATE.md` §2 row 14
+- [x] **EXPR-02**: `ccf` CLI — workflow invocation, HITL inspection, replay
       queries, Control Plane config, agent declaration, skilling, artifact
-      inspection (§8.3)
-- [ ] **EXPR-03**: HTTP API skeleton with OpenAPI spec
+      inspection (§8.3). Evidence: `docs/PHASE_I4_GATE.md` §2 row 16
+- [x] **EXPR-03**: HTTP API skeleton with OpenAPI spec.
+      Evidence: `docs/PHASE_I4_GATE.md` §2 row 15
 
 ### Phase I — CI Invariants
 
@@ -111,8 +116,11 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
 - [ ] **CINV-02**: Zero-harness-imports-in-`/src` lint
 - [ ] **CINV-03**: `@algorithmic` lint (no LLM client imports in algorithmic
       modules)
-- [ ] **CINV-04**: Replay-by-construction checks (HITL, workflow, skill-set
-      capture) and single-writer enforcement at boot
+- [x] **CINV-04**: Replay-by-construction checks (HITL, workflow, skill-set
+      capture) and single-writer enforcement at boot. Completed in Phase 7:
+      both I.3 deferrals (`hitl-action-capture`, `workflow-trace-capture`)
+      flipped active with red-proven owning tests; suite skip count 0.
+      Evidence: `docs/PHASE_I4_GATE.md` §1, rows 5 and 7
 
 ### Phase I — Examples Suite (§9)
 
@@ -184,19 +192,19 @@ All 46 v1 requirements mapped (46/46).
 | CINV-01 | Phase 4 | Pending |
 | CINV-02 | Phase 4 | Pending |
 | CINV-03 | Phase 4 | Pending |
-| CINV-04 | Phase 4 | Pending |
+| CINV-04 | Phase 4 | Complete (deferrals discharged in Phase 7) |
 | AGNT-01 | Phase 5 | Complete |
 | AGNT-02 | Phase 5 | Complete |
 | AGNT-03 | Phase 5 | Complete |
 | XPRC-01 | Phase 6 | Delivered |
 | XPRC-02 | Phase 6 | Delivered |
 | XPRC-03 | Phase 6 | Delivered |
-| ORCH-01 | Phase 7 | Pending |
-| ORCH-02 | Phase 7 | Pending |
-| HITL-01 | Phase 7 | Pending |
-| EXPR-01 | Phase 7 | Pending |
-| EXPR-02 | Phase 7 | Pending |
-| EXPR-03 | Phase 7 | Pending |
+| ORCH-01 | Phase 7 | Complete |
+| ORCH-02 | Phase 7 | Complete |
+| HITL-01 | Phase 7 | Complete |
+| EXPR-01 | Phase 7 | Complete |
+| EXPR-02 | Phase 7 | Complete |
+| EXPR-03 | Phase 7 | Complete |
 | EXAM-01 | Phase 8 | Pending |
 | EXAM-02 | Phase 8 | Pending |
 | EXAM-03 | Phase 8 | Pending |

@@ -23,7 +23,12 @@ import pathlib
 import sys
 from typing import Callable, Iterator, Sequence
 
-from tools.lints import algorithmic, harness_imports, no_hardcoding
+from tools.lints import (
+    algorithmic,
+    harness_imports,
+    no_hardcoding,
+    orchestration_imports,
+)
 
 #: Trees that are linted, and the package root each one contributes.
 #: (directory, strip_prefix) — module names are derived relative to the root
@@ -41,6 +46,7 @@ CHECKERS: dict[str, Checker] = {
     "no-hardcoding": no_hardcoding.check,
     "harness-imports": harness_imports.check,
     "algorithmic": algorithmic.check,
+    "orchestration-imports": orchestration_imports.check,
 }
 
 
@@ -117,6 +123,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="append_const",
         const="algorithmic",
         help="CINV-03 (CLAUDE.md §11)",
+    )
+    parser.add_argument(
+        "--orchestration-imports",
+        dest="selected",
+        action="append_const",
+        const="orchestration-imports",
+        help="D-06 orchestration/adapters split (D-IMPL-60)",
     )
     parser.add_argument(
         "--base",
