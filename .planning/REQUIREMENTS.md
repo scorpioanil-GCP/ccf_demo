@@ -133,9 +133,9 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
       harnesses with equivalence assertion
 - [x] **EXAM-05**: `04-cross-process` — assembler and consumer across
       processes via MCP egress and A2A with admission verification
-- [ ] **EXAM-06**: `05-workflow-hitl` — workflow with ApprovalGate +
+- [x] **EXAM-06**: `05-workflow-hitl` — workflow with ApprovalGate +
       ExceptionEscalation, suspend/resume, replay-recorded human action
-- [ ] **EXAM-07**: `06-decision-replay` — exact reproduction of a prior
+- [x] **EXAM-07**: `06-decision-replay` — exact reproduction of a prior
       Context Product from ArtifactStore-resolved versions
 - [x] **EXAM-08**: `07-artifact-store-mcp` — swap file-backed store for
       MCP-backed store with no other change
@@ -210,7 +210,7 @@ All 46 v1 requirements mapped (46/46).
 | EXAM-03 | Phase 8 | Complete |
 | EXAM-04 | Phase 8 | Complete |
 | EXAM-05 | Phase 8 | Complete |
-| EXAM-06 | Phase 8 | Pending |
-| EXAM-07 | Phase 8 | Pending |
+| EXAM-06 | Phase 8 | Complete |
+| EXAM-07 | Phase 8 | Complete |
 | EXAM-08 | Phase 8 | Complete |
 | EXAM-09 | Phase 8 | Complete |

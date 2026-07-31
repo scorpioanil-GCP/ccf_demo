@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-31T07:10:34.257Z"
+last_updated: "2026-07-31T07:41:48.705Z"
 progress:
   total_phases: 1
   completed_phases: 1
@@ -27,15 +27,17 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 08 (phase-i-5-examples-suite-full-ci-verification) — EXECUTING
-Plan: 8 of 13 complete
+Plan: 9 of 13 complete
 
 - **Phase:** 8 of 8 (phase i.5 — examples suite & full ci verification)
-- **Plan:** 08-09 complete — examples/07-artifact-store-mcp (EXAM-08):
-  one logistics workload run on FileArtifactStore then the authenticated
-  MCP-backed reference store in a subprocess; served product byte-identical,
-  same artifact classes at the same exact versions, store choice entirely
-  in two config artifacts (§7.4 pluggability); `make example-07` green,
-  lint + mypy (156 files) clean
+- **Plan:** 08-08 complete — examples 05-workflow-hitl (EXAM-06) and
+  06-decision-replay (EXAM-07): the D-14 auth-binding obligation
+  discharged in BOTH — example 05 demonstrates the hardened HITL door
+  live (BearerTokenAuth + grant-derived principal + required D-16
+  signed binding, typed refusals, escalation path), example 06 records
+  an auth-bound approval and reproduces the decision byte-equal from
+  the ArtifactStore at exact versions; `make example-05`/`example-06`
+  green, lint + mypy (156 files) clean
 
 - **Status:** Executing Phase 08
 
@@ -154,13 +156,18 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 
 ## Session Continuity
 
-Last action: 08-09 complete (2026-07-31) on `phase-i5` —
-examples/07-artifact-store-mcp (EXAM-08): MCP store child + fresh
-nordhaven-logistics artifacts + env-templated store configs (Task 1
-1f92cf9); one-workload swap driver with byte-equality, exact-version
-retrieval from a fresh MCP client, health-check retry loop and
-process-group teardown, plus README (Task 2 723fb9f). `make example-07`
-green, lint clean, mypy clean (156 files).
+Last action: 08-08 complete (2026-07-31) on `phase-i5` —
+examples/05-workflow-hitl (EXAM-06, Task 1 ee8b1ec): sterling-mutual
+loan-disbursement workflow approved through
+create_app(auth=BearerTokenAuth(...)) with a grant-derived principal and
+a required D-16 signed binding; typed 401/403 refusals from artifact
+data; dims 2/5 byte-equal; escalation routed to its declared handler.
+examples/06-decision-replay (EXAM-07, Task 2 14ed92e): boreal-grid
+load-shed decision recorded with an auth-bound approval, then reproduced
+byte-equal from the ArtifactStore at exact versions (agent hash, prompt,
+grant-set, signed binding verified from the record alone); moving-target
+ref and version-mutated copy both refused. D-14 discharged in both legs.
+`make example-05`/`example-06` green, lint clean, mypy clean (156 files).
 
 Next action: continue wave 4/5 examples toward 08-12 CI wiring. Standing note:
 `main` is far ahead of `origin/main`; Dave has not authorized a push.
