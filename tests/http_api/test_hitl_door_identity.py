@@ -185,3 +185,147 @@ class TestUnboundPostureUnchanged:
         assert response.json()["status"] == "submitted"
         (recorded,) = fabric.hitl.submissions(tenant=tenant)
         assert recorded.principal.approver.subject_id == "anyone-at-all"
+
+
+class TestHardenedPath:
+    """D-IMPL-67 item 3: auth bound => derived principal => replay dim 2."""
+
+    def test_hardened_path_verified_subject_reaches_replay_dim2(
+        self, fabric: Fabric, token_file: Path
+    ) -> None:
+        from datetime import timedelta
+
+        from ccf.contracts.canonical import canonical_bytes
+        from ccf.controlplane.audit import AuditLog
+        from ccf.graph.protocols import GraphView
+        from ccf.hitl.approval_gate import ApprovalGate, GateResolution
+        from ccf.hitl.transport import InMemoryHitlTransport, PendingHitlEvent
+        from ccf.products.contract import (
+            ContextProductContract,
+            ProductLineage,
+        )
+        from ccf.projection.engine import ExecutionResult, ExecutionStep
+        from ccf.projection.plan import Perspective, ProjectionOutput
+        from ccf.replay.record import PolicyBinding, build_replay_record
+        from ccf_runtime.http_api.app import create_app
+        from ccf_runtime.http_api.auth import BearerTokenAuth
+        from ccf_runtime.http_api.dependencies import ApiDependencies
+
+        tenant = f"{_TENANT}-hardened"
+        transport = InMemoryHitlTransport()
+        event = PendingHitlEvent(
+            event_key="hardened-event-1",
+            event_class="approval-gate",
+            tenant=tenant,
+            workflow_state_ref=f"{tenant}/exec-hardened",
+            product_content_hash=_VALID_HASH,
+        )
+        transport.enqueue(event=event)
+
+        deps = ApiDependencies(
+            control_plane=fabric.registry,
+            artifact_store=fabric.store,
+            product_resolver=fabric.product_resolver,
+            workflow_factory=fabric.factory,
+            workflow_engine=fabric.engine,
+            hitl_transport=transport,
+            skill_catalog=fabric.catalog,
+            grant_ledger=fabric.ledger,
+        )
+        app = create_app(
+            deps,
+            auth=BearerTokenAuth(
+                token_source=FileTokenSource(path=token_file)
+            ),
+        )
+
+        # 2. The authenticated POST, subject matching the verified identity.
+        response = call(
+            app,
+            "POST",
+            "/hitl/actions",
+            json={
+                **_submission_body(subject_id=_CLIENT_ID, tenant=tenant),
+                "event_key": event.event_key,
+            },
+            headers={"Authorization": f"Bearer {_TOKEN}"},
+        )
+        assert response.status_code == 200
+
+        # 3. Resolve the gate from the recorded submission.
+        (recorded,) = transport.submissions(tenant=tenant)
+        assert recorded.principal.approver.subject_id == _CLIENT_ID
+
+        def clock() -> datetime:
+            return _AWARE_TIME
+
+        gate = ApprovalGate(transport=transport, audit=AuditLog(), clock=clock)
+        resolution = gate.resolve(
+            tenant=tenant,
+            event_key=event.event_key,
+            action="approve",
+            principal=recorded.principal,
+        )
+
+        # 4. The verified subject lands in the record, the dim-2 block, and
+        # the built replay record's hitl_actions field.
+        assert isinstance(resolution, GateResolution)
+        assert (
+            resolution.record.submission.principal.approver.subject_id
+            == _CLIENT_ID
+        )
+        assert _CLIENT_ID in resolution.hitl_actions_block
+
+        boundary = _AWARE_TIME
+        execution = ExecutionResult(
+            plan_id=event.workflow_state_ref,
+            operators_invoked=frozenset({"traversal.neighbors"}),
+            steps=(
+                ExecutionStep(
+                    operator_key="traversal.neighbors",
+                    category="traversal",
+                    parameter_hash="d" * 64,
+                ),
+            ),
+            provenance=None,
+            projection=ProjectionOutput(
+                plan_id=event.workflow_state_ref,
+                payload={"event_key": event.event_key},
+            ),
+            view=GraphView(tenant_id=tenant, as_of=boundary),
+        )
+        product = ContextProductContract(
+            schema_name="ccf.hitl-decision-context",
+            schema_version="1.0.0",
+            plan_id=event.workflow_state_ref,
+            tenant_id=tenant,
+            temporal_boundary=boundary,
+            expires_at=boundary + timedelta(days=1),
+            ttl_anchor="from_decision",
+            lineage=ProductLineage(
+                operators_invoked=frozenset({"traversal.neighbors"}),
+                policy_bundle_versions=frozenset({"1.0.0"}),
+                graph_snapshot_at=boundary,
+            ),
+            payload={"event_key": event.event_key},
+        )
+        record = build_replay_record(
+            execution=execution,
+            product=product,
+            perspective=Perspective(
+                principal_id=event.workflow_state_ref, role=event.event_class
+            ),
+            policy_bindings=(
+                PolicyBinding(key="policy.bundle", version="1.0.0"),
+            ),
+            assembly_mode="algorithmic",
+            recorded_at=recorded.principal.action_time,
+            hitl_actions=resolution.hitl_actions_block,
+        )
+        assert _CLIENT_ID in record.policy_bindings.hitl_actions
+        # The block travels verbatim onto dimension 2.
+        assert (
+            record.policy_bindings.hitl_actions
+            == resolution.hitl_actions_block
+        )
+        assert _CLIENT_ID in canonical_bytes(record).decode("utf-8")
