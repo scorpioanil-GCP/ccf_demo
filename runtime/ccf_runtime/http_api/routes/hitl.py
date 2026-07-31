@@ -38,10 +38,14 @@ from ccf.hitl.transport import (
     HitlActionReceipt,
     HitlActionSubmission,
     PendingHitlEvent,
+    SignedBindingInvalidRefused,
+    SignedBindingRequiredRefused,
 )
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import (
     ERROR_INVALID_GRANT,
+    ERROR_SIGNED_BINDING_INVALID,
+    ERROR_SIGNED_BINDING_REQUIRED,
     ERROR_SUBJECT_CONFLICT,
     refusal_detail,
 )
@@ -120,7 +124,26 @@ def build_router(deps: ApiDependencies) -> APIRouter:
                 ),
             )
             submission = submission.model_copy(update={"principal": derived})
-        deps.hitl_transport.submit(submission=submission)
+        try:
+            deps.hitl_transport.submit(submission=submission)
+        except SignedBindingRequiredRefused as error:
+            # D-16 door mapping (08-03): the transport's typed refusal
+            # surfaces as the shared error-code constant, never prose-only.
+            raise HTTPException(
+                status_code=403,
+                detail=refusal_detail(
+                    error_code=ERROR_SIGNED_BINDING_REQUIRED,
+                    message=str(error),
+                ),
+            ) from error
+        except SignedBindingInvalidRefused as error:
+            raise HTTPException(
+                status_code=403,
+                detail=refusal_detail(
+                    error_code=ERROR_SIGNED_BINDING_INVALID,
+                    message=str(error),
+                ),
+            ) from error
         pending = deps.hitl_transport.pending(tenant=submission.tenant)
         recorded = deps.hitl_transport.submissions(tenant=submission.tenant)
         return HitlActionReceipt(
