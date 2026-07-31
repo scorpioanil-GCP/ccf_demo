@@ -870,3 +870,168 @@ Gemini/Ollama: CLOSED as scoped. Codex/Cursor: PARTIALLY CLOSED — the mechanis
 
 ### Recommendation (Cursor, seconded by Codex's framing)
 Accept 7.1 as closing D-IMPL-66(a–e) as scoped; record N1/N2 as explicit Phase 8 composition obligations — examples wire `auth=` + `principal_from_token_grant` (and/or require `SignedPrincipalBinding`) at the HITL doors rather than shipping the helpers unused.
+
+---
+
+# Cross-AI Review — Phase 7.2 Door-Wiring Wave (round 3)
+
+reviewed_at: 2026-07-30T19:37:27-07:00
+reviewers: [gemini, codex, cursor, ollama gpt-oss:120b-cloud]
+scope: 07-20 plan + summary + as-built door code, on phase-i4.1 (1315/0/0)
+
+## Gemini Review (7.2)
+
+# Phase 7.2 Door-Wiring Wave (Plan 20) — Post-Execution Review
+
+## 1. Summary
+Phase 7.2 (Plan 20) has successfully resolved the critical identity-composition gaps identified in the Round 7.1 reviews. By wiring `principal_from_token_grant` into both the HTTP and MCP HITL doors, the SDK now enforces that audited subjects are derived from deployment-verified identities rather than caller claims. The implementation maintains the ruled "unauthenticated default" posture (T-07-24) while providing a hardened path for authenticated deployments, backed by a comprehensive end-to-end proof reaching replay dimension 2.
+
+## 2. Round-2 Finding Closure
+
+| Finding | Status | Evidence |
+| :--- | :--- | :--- |
+| **Codex-HIGH / Cursor N1** (Identity exists but doors don't compose it) | **CLOSED** | `routes/hitl.py` now retrieves `token_grant` from the request state and `hitl_server.py` calls `get_access_token()`. Both doors now use `principal_from_token_grant` to rebuild the submission principal from the verified client identity. |
+| **Cursor+Ollama N2** (Hardened surface not demonstrable) | **CLOSED** | `tests/http_api/test_hitl_door_identity.py` provides a full end-to-end proof: authenticated POST → derived principal → transport submission → gate resolution → replay record (dim-2). The verified subject is asserted at every stage. |
+
+## 3. New Concerns
+**None.** The implementation is surgically focused on D-IMPL-67 requirements.
+- **Security:** Refusal messages (HTTP 403 and MCP exceptions) avoid echoing token values or sensitive details, citing only the identity conflict.
+- **Contract Integrity:** The `subject_id` remains a required parameter in the tool/POST body, preserving the D-IMPL-21 input schema while treating it as a "claim that must match" the verified identity.
+- **Regression:** The unauthenticated posture is explicitly preserved and verified (`isinstance(grant, TokenGrant)` guard in HTTP; unchanged logic when no auth is bound).
+
+## 4. Risk Assessment: LOW
+The changes are highly targeted and TDD-validated. With 1,315 passing tests (including 8 new identity-specific assertions) and a clean `mypy --strict` sweep, the structural integrity of the HITL authority path is significantly improved with minimal risk to existing unauthenticated workflows. The hardened path is now ready for demonstration in Phase 8 examples.
+
+---
+
+## Codex Review (7.2)
+
+## Summary
+
+Based on the supplied as-built code and reported green sweep, D-IMPL-67 appears implemented: both HITL doors now compose the verified identity mechanism instead of trusting caller-supplied `subject_id`, and the hardened HTTP path is test-proven through audit/replay dim-2. I could not independently inspect the workspace because the local command sandbox failed before shell startup, so this review is based on the provided snippets and execution summary.
+
+## Round-2 Finding Closure
+
+| Finding | Status | Evidence |
+|---|---:|---|
+| Codex-HIGH | **CLOSED** | The core spoofing gap is closed for auth-bound paths. HTTP now reads `request.state.token_grant`, rejects conflicting body subjects with `403`, and rebuilds the submitted principal via `principal_from_token_grant`. MCP now reads `get_access_token()`, rejects missing/conflicting verified identity, and derives the principal via the same shared mechanism. |
+| N1 | **CLOSED** | The HTTP HITL door no longer accepts an arbitrary body `subject_id` when auth is bound. A mismatch between `submission.principal.approver.subject_id` and `grant.client_id` is refused before `deps.hitl_transport.submit(...)`; a match is still rebuilt from the verified grant, so equality alone is not the security mechanism. Unbound behavior remains unchanged as explicitly ruled out of scope. |
+| N2 | **CLOSED** | The hardened surface is now demonstrable. The reported `test_hardened_path_verified_subject_reaches_replay_dim2` proves auth-bound POST -> derived principal -> recorded submission -> `ApprovalGate.resolve` -> replay `hitl_actions` carries the verified subject. Phase 8 examples still need to bind auth, but that remaining obligation was explicitly left in Phase 8 scope. |
+
+## New Concerns
+
+**LOW — HTTP route silently treats non-`TokenGrant` state as unauthenticated posture.**  
+The route gates hardened behavior on `isinstance(grant, TokenGrant)`. Given the stated `create_app` contract, this is fine today, but if a future auth hook stashes a compatible-but-not-identical grant object, the route would fall back to accepting the caller principal. A stricter branch such as “attribute exists but is not `TokenGrant` => 500/403” would make the invariant fail closed.
+
+**LOW — MCP still exposes `subject_id` as user input by design.**  
+This is acceptable under D-IMPL-67 because it is now a claim-that-must-match and preserves the D-IMPL-21 schema. The residual is usability/security-footgun only: future callers may misunderstand that field unless examples make the matching requirement obvious in Phase 8.
+
+## Risk Assessment
+
+**LOW.** The original high-risk spoofing path is closed on both composed, authenticated doors, and the reported regression matrix is strong: 1315 passed, 0 skipped, mypy strict clean, lints clean, and auth posture tests unmodified. Residual risk is mainly future-maintenance drift around the `token_grant` type contract and Phase 8 documentation/examples, not a current blocker for D-IMPL-67.
+
+---
+
+## Cursor Review (7.2)
+
+# Cross-AI Review — Phase 7.2 Door-Wiring (POST-EXECUTION, Round 3)
+
+## 1. Summary
+
+Plan 07-20 realizes D-IMPL-67 as written: both HITL authority doors now compose the 7.1 mechanisms so that, when identity is verified, the audited `subject_id` is the deployment’s verified token identity via `principal_from_token_grant` (no caller subject parameter), and conflicting claims are typed refusals that never touch the transport / action route. HTTP auth-bound conflict → 403 before submit; MCP conflict/absence → `SubjectIdentityConflictRefused` / `UnverifiedCallerRefused`; the hardened path is asserted through receipt → `ApprovalGate` → replay dim-2. The default unbound HTTP posture and `AUTH_POSTURE_SENTENCE` remain intentionally unchanged. Against Dave’s ruling, the Round-2 door-composition gap is closed; what remains is the ruled-out-of-scope half of N2 (Phase 8 must bind `auth=` in examples) plus pre-existing LOW residuals (signed-binding optionality, non-subject field trust, CLI).
+
+## 2. Round-2 Finding Closure
+
+| Finding | Verdict | Evidence |
+|--------|---------|----------|
+| **Codex HIGH** — authority hardening opt-in / not end-to-end; no reject-on-conflict or server-side derivation on live HITL doors | **CLOSED** (as D-IMPL-67 scoped it) | `routes/hitl.py` reads `request.state.token_grant`, 403 on `subject_id != grant.client_id` with no transport touch, then rebuilds via `principal_from_token_grant` before `submit` (`71–100`). MCP `submit_hitl_action` uses `get_access_token()`, refuses on `None` / mismatch, derives binding from `TokenGrant(client_id=token.client_id, …)` (`282–313`). Tests: conflict 403 + empty submissions; MCP unit + cross-proc conflict. The *default remains opt-in* half of Codex’s HIGH was **explicitly not reopened** (T-07-24 / D-IMPL-67). |
+| **Cursor N1** — Auth ≠ principal binding; authenticated caller can still POST arbitrary `subject_id`; MCP params caller-typed | **CLOSED** | Auth-bound HTTP: conflict refused (`TestConflictRefusal`); match lands verified `auditor-1` (`TestDerivation`). MCP: `subject_id` is claim-that-must-match; audited subject comes from token via shared derivation; unit tests + `test_a_conflicting_subject_claim_is_a_tool_error`. `principal_from_token_grant` is called from both doors (not library-only). |
+| **Cursor+Ollama N2** — Soft default; hardened surface not forced / not demonstrable for Phase 8 | **PARTIALLY CLOSED** | **SDK half CLOSED:** `test_hardened_path_verified_subject_reaches_replay_dim2` proves auth bound → derived subject → `hitl_actions_block` → `build_replay_record(...).policy_bindings.hitl_actions` carries `auditor-1`. **Examples / default half NOT CLOSED (by ruling):** unbound `create_app(deps)` still accepts arbitrary subjects (`TestUnboundPostureUnchanged`); Phase 8 must still bind `auth=` to *show* the hardened surface. D-IMPL-67 item 3 only claimed the SDK-side proof. |
+
+## 3. New Concerns
+
+| ID | Severity | Finding |
+|----|----------|---------|
+| R1 | **LOW** | **HTTP happy-path proves subject equality, not derivation call.** With match required, Tests B / e2e would still pass if a regression kept the 403 check but passed the body principal through on match (skipping `principal_from_token_grant`). As-built code does derive; MCP weakens this similarly (`inspect.getsource` contains the name). A monkeypatch “was called with `grant`” assertion would harden regression detection. |
+| R2 | **LOW** | **Non-subject binding fields remain caller-typed under auth.** IdP ref, method, assurance, session_ref, action_time, product hash travel verbatim from the client even when subject is grant-derived — matching `principal_from_token_grant`’s contract and D-IMPL-67. Full non-repudiation still needs composed signed binding (**N5**, not reopened). |
+| R3 | **LOW** | **CLI HITL submit is outside this composition.** Grep shows `principal_from_token_grant` only in HTTP route + MCP HITL server (+ the helper). Acceptable for D-IMPL-67’s door list; Phase 8 / docs should not imply CLI inherits the same binding. |
+| R4 | **LOW** (carry-forward) | **N2 remainder / Phase 8 obligation.** Examples that call `create_app(deps)` without `auth=` still demonstrate the soft surface. Not a 7.2 defect; it is the residual D-IMPL-67 named. |
+
+No HIGH findings in this wave’s as-built doors relative to the ruling. N3/N5 remain out of scope as stated.
+
+## 4. Risk Assessment
+
+**Overall: LOW** for merging this 7.2 wave on `phase-i4.1`.
+
+Justification: The spoofing class Round 2 named for *auth-bound* HITL doors (authenticated caller attributing another `subject_id`) is eliminated at both HTTP and MCP by mechanism + typed refusal + tests into replay dim-2. Threat register items T-07.2-01..04 are mitigated as claimed; T-07.2-05 remains an accepted posture. Residual risk is configuration and demonstration (unbound default; Phase 8 must bind auth), not an unfinished door composition. Elevate only if merge messaging claims “HITL identity spoofing closed by default” rather than “closed when auth is bound, proven by tests, examples still must bind.”
+
+---
+
+## Ollama Review (7.2)
+
+## Review Summary  
+
+The 07‑20 wave successfully wired the two HITL entry points to the identity‑binding mechanism `principal_from_token_grant`. The HTTP `/hitl/actions` route now derives the audited principal from the verified `TokenGrant` (or returns a typed **403** on a mismatched `subject_id`), and the MCP `submit_hitl_action` tool binds the subject to the server‑verified token (raising **SubjectIdentityConflictRefused** or **UnverifiedCallerRefused** when appropriate). An end‑to‑end test proves that the verified subject propagates through the transport, the `ApprovalGate` resolution, and the replay‑dimension‑2 record. All existing tests, the AUTH_POSTURE_SENTENCE byte‑identity check, and the lint / type‑checking suites remain green.
+
+---
+
+## Round‑2 Finding Closure  
+
+| Finding (Phase 7.1) | Status | Evidence |
+|---------------------|--------|----------|
+| **Codex HIGH** – identity mechanisms existed but no HITL door composed them | **CLOSED** | `runtime/ccf_runtime/http_api/routes/hitl.py` and `runtime/ccf_runtime/mcp/hitl_server.py` both import and invoke `principal_from_token_grant`, turning the abstract mechanism into a concrete, enforced binding. |
+| **Cursor N1** – HTTP door lacked identity composition | **CLOSED** | The `act` endpoint now reads `request.state.token_grant`, validates `subject_id`, and rebuilds the submission with a derived principal. Conflict handling is a typed 403; unbound behaviour (no auth hook) is unchanged (Test C). |
+| **Cursor + Ollama N2** – MCP tool lacked identity composition | **CLOSED** | `submit_hitl_action` now calls `get_access_token()`, validates the token, raises `UnverifiedCallerRefused` or `SubjectIdentityConflictRefused`, and builds the principal via `principal_from_token_grant`. Unit and cross‑process tests exercise all paths. |
+
+All three previously‑open gaps are fully addressed; no residual code paths exist that allow an unauthenticated caller to dictate the audited subject when an auth hook is bound.
+
+---
+
+## New Concerns  
+
+| Concern | Severity | Reason |
+|---------|-----------|--------|
+| **Unused `TokenGrant` import in `routes/hitl.py`** | Low | The import is currently only for type checking; linting passes, but a future cleanup could remove it to avoid stale imports. |
+| **Retention of `subject_id` as a required tool argument** | Low | The argument now serves as a *claim‑that‑must‑match*; documentation and examples should emphasise that mismatches are rejected, to prevent developer confusion. |
+| **Potential reliance on the exact exception message strings for downstream tooling** | Medium | Tests assert that token values are not echoed, but any downstream scripts that parse the error text may break if the wording changes. Consider exposing explicit error‑code constants instead of free‑form strings. |
+| **No explicit OpenAPI security scheme for the bound‑auth path** | Low | The router automatically inherits the FastAPI security middleware, but the generated OpenAPI docs do not flag the `principal` binding as “derived”. Adding a brief description would improve discoverability. |
+
+None of the above affect functional correctness or security posture; they are minor maintainability or documentation items.
+
+---
+
+## Overall Risk Assessment  
+
+**Risk Level: LOW**
+
+*Justification*  
+
+- **Spoofing mitigation:** Auth‑bound doors now enforce that the audited subject equals the verified token identity; mismatches are rejected before any state change.  
+- **Confidentiality:** Refusal messages never reflect raw token values (validated by Test A and MCP unit tests).  
+- **Integrity:** The derived principal is built via a single, audited function (`principal_from_token_grant`), eliminating duplicated logic.  
+- **Availability:** No new external dependencies were added; the added checks are inexpensive and guarded by early returns, preserving existing performance characteristics.  
+- **Scope compliance:** The default unauthenticated posture (`AUTH_POSTURE_SENTENCE`) remains unchanged, as required by the ruling.
+
+Thus the system’s attack surface is reduced, and the residual risk is limited to the deliberately unchanged unauthenticated path, which is an acknowledged design decision. No high‑severity new issues were introduced.
+
+---
+
+## 7.2 Consensus Summary
+
+Risk verdicts: **LOW × 4** (first unanimous LOW of the three rounds).
+
+### Round-2 finding closure
+- **Codex HIGH / Cursor N1 (doors don't compose identity): CLOSED, 4/4.** Both doors call `principal_from_token_grant`; conflicts are typed refusals (HTTP 403, MCP `SubjectIdentityConflictRefused`/`UnverifiedCallerRefused`) before any transport touch; on match the principal is rebuilt from the verified grant, so equality is not the security mechanism.
+- **N2 (hardened surface demonstrable): SDK half CLOSED, 4/4** — end-to-end proof through replay dim-2. The examples-must-bind-auth half remains Phase 8 scope by the D-IMPL-67 ruling itself (Cursor's PARTIALLY reflects the ruling's own split, not a defect).
+
+### New findings register (all LOW except one MEDIUM)
+- R1 (LOW, Cursor): happy-path tests prove subject equality, not the derivation call itself — a monkeypatch was-called assertion would harden regression detection.
+- Codex LOW: HTTP route falls back to unauthenticated posture if `request.state.token_grant` is not a `TokenGrant` instance — a stricter fail-closed branch would be more future-proof.
+- R2/N5 (LOW, Cursor): non-subject binding fields (IdP ref, method, assurance, action_time) remain caller-typed under auth — full non-repudiation still requires composed SignedPrincipalBinding (not reopened, by ruling).
+- R3 (LOW, Cursor): CLI submit path is outside this composition (goes through HTTP; docs should not imply CLI inherits binding beyond what the HTTP door enforces).
+- Ollama MEDIUM: downstream tooling parsing refusal message strings could break on rewording — consider typed error-code constants later.
+- Ollama LOW ×3: unused-import hygiene, subject_id claim-that-must-match documentation, OpenAPI security-scheme description.
+- R4 (carry-forward): Phase 8 examples must bind `auth=` — the named residual.
+
+### Disposition recommendation
+Merge-ready. Accurate merge messaging per Cursor: "HITL identity spoofing closed when auth is bound, proven end-to-end; examples must bind auth (Phase 8)."
