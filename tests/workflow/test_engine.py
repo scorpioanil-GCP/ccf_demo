@@ -37,11 +37,14 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import pytest
 import yaml
+
+from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
 
 from ccf.agents.definitions import (
     AGENT_DEFINITION,
@@ -275,11 +278,30 @@ class _Bindings:
         return {"step": step_name}
 
 
+class _PermissiveDebt:
+    """A non-breaching DebtAssessmentBinding stub (07-17): every handoff
+    assesses OK, so pre-existing claims are exercised unchanged."""
+
+    async def assess(
+        self, *, tenant: str, step_name: str, ref: str
+    ) -> DebtAssessment:
+        return DebtAssessment(
+            debt=Decimal("0"),
+            signal=DebtSignal.OK,
+            factors=DebtFactors(
+                freshness=Decimal("1"),
+                completeness=Decimal("1"),
+                semantic_consistency=Decimal("1"),
+            ),
+        )
+
+
 def _engine(
     registry: ControlPlaneRegistry,
     tmp_path: Path,
     *,
     failing: frozenset[str] = frozenset(),
+    debt: bool = True,
 ) -> tuple[WorkflowEngine, InMemoryHitlTransport, _Bindings]:
     transport = InMemoryHitlTransport()
     bindings = _Bindings(failing=failing)
@@ -290,6 +312,7 @@ def _engine(
         skill_binding=bindings,
         agent_binding=bindings,
         clock=_ticking_clock(),
+        debt_binding=_PermissiveDebt() if debt else None,
     )
     return engine, transport, bindings
 

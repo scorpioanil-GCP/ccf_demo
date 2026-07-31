@@ -54,6 +54,12 @@ from ccf.hitl.override import (
     OverrideResolutionRefused,
     UnknownOverrideEventError,
 )
+from ccf.hitl.identity_binding import (
+    PrincipalBindingInvalid,
+    SignedPrincipalBinding,
+    sign_principal_binding,
+    verify_principal_binding,
+)
 from ccf.hitl.principal import (
     ApproverIdentity,
     AuthenticationContext,
@@ -137,4 +143,8 @@ __all__ = [
     "WebhookEndpoint",
     "WebhookEndpointConflict",
     "WebhookHitlNotifier",
+    "PrincipalBindingInvalid",
+    "SignedPrincipalBinding",
+    "sign_principal_binding",
+    "verify_principal_binding",
 ]

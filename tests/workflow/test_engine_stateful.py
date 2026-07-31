@@ -54,6 +54,7 @@ from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
 from tests.workflow.test_engine import (
     _Bindings,
+    _PermissiveDebt,
     _covenant,
     _refresh,
     _register_covenant_closure,
@@ -92,6 +93,7 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
             skill_binding=self.bindings,
             agent_binding=self.bindings,
             clock=_ticking_clock(),
+            debt_binding=_PermissiveDebt(),
         )
         self.workflows: dict[tuple[str, str], Workflow] = {}
         version = itertools.count()

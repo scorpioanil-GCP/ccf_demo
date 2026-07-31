@@ -79,6 +79,7 @@ INVENTORY: tuple[tuple[str, ...], ...] = (
     ),
     ("workflow", "status", "--tenant", "t", "--execution-id", "e"),
     ("hitl", "list", "--tenant", "t"),
+    ("hitl", "submit", "--file", "f"),
     ("hitl", "decide", "--file", "f"),
     ("replay", "query", "--content-address", "a"),
     ("replay", "resolve", "--uri", "u"),
@@ -406,6 +407,59 @@ def test_hitl_decide_output_states_submitted_with_disposition(
     }
     assert receipt["event_pending"] is False
     assert receipt["submission"]["event_key"] == submission["event_key"]
+
+
+# --- hitl submit is the primary verb; decide is a deprecated alias ----------
+# (D-IMPL-66(d): the verb states the ruled D-IMPL-62 submit-only semantics)
+
+
+def test_hitl_submit_builds_the_same_request_as_decide(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """``submit`` and ``decide`` build one identical RequestSpec; only
+    ``decide`` emits a deprecation notice, on stderr, naming ``submit``."""
+    from ccf_runtime.cli.main import build_parser
+
+    document = {"event_key": "acme-bank/e/gate", "action": "approve"}
+    action_file = tmp_path / "action.yaml"
+    action_file.write_text(yaml.safe_dump(document))
+    parser = build_parser()
+
+    submit_args = parser.parse_args(["hitl", "submit", "--file", str(action_file)])
+    decide_args = parser.parse_args(["hitl", "decide", "--file", str(action_file)])
+
+    capsys.readouterr()
+    submit_specs = submit_args.build(submit_args)
+    assert capsys.readouterr().err == ""  # submit is notice-free
+
+    decide_specs = decide_args.build(decide_args)
+    err = capsys.readouterr().err
+    assert "deprecated" in err.lower()
+    assert "ccf hitl submit" in err
+
+    assert submit_specs == decide_specs
+    assert len(submit_specs) == 1
+    spec = submit_specs[0]
+    assert spec.method == "POST"
+    assert spec.path == "/hitl/actions"
+    assert spec.json == document
+
+
+def test_hitl_submit_and_decide_help_state_the_ruled_semantics(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """``submit``'s help states the D-IMPL-62 truth; ``decide``'s says
+    deprecated."""
+    from ccf_runtime.cli.main import build_parser
+
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["hitl", "--help"])
+    text = capsys.readouterr().out
+    assert "submission only" in text
+    assert "resolution is the owning primitive's act" in text
+    assert "deprecated" in text.lower()
+    assert "use 'submit'" in text
 
 
 # --- skill grant / revoke through the governed ledger ----------------------

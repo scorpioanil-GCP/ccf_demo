@@ -34,8 +34,9 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Request, params
 
+from ccf_runtime.http_api.auth import HttpAuthProtocol
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.routes import (
     agent,
@@ -69,12 +70,31 @@ _MECHANISM_LINE = (
 )
 
 
-def create_app(deps: ApiDependencies) -> FastAPI:
+#: One optional-hook sentence beside the constant, kept out of it so the
+#: test-asserted D-22 posture string stays byte-identical (07-16;
+#: D-IMPL-66(a)).
+_AUTH_HOOK_LINE = (
+    "A deployment may bind an optional bearer-auth hook at create_app"
+    " (ccf_runtime.http_api.auth); when no hook is bound, the sentence"
+    " above is the posture in force."
+)
+
+
+def create_app(
+    deps: ApiDependencies, *, auth: HttpAuthProtocol | None = None
+) -> FastAPI:
     """Build the skeleton over ``deps`` — built, never hosted.
 
     Args:
         deps: The named provider bundle carrying every injected fabric
             handle (the same type the CLI's ``--local`` mode constructs).
+        auth: Optional D-IMPL-66(a) auth hook. When provided, every
+            mounted router except ``/health`` (liveness carries no
+            authority) refuses requests whose credentials the hook does
+            not recognise with 401, and the verified grant is stashed on
+            ``request.state.token_grant`` for route compositions. When
+            ``None`` — the default — nothing is registered and the
+            recorded T-07-24 posture is unchanged.
 
     Returns:
         A configured ``FastAPI`` application. Deliberately not started and
@@ -82,16 +102,49 @@ def create_app(deps: ApiDependencies) -> FastAPI:
     """
     app = FastAPI(
         title="CCF HTTP API",
-        description=f"{_MECHANISM_LINE} {AUTH_POSTURE_SENTENCE}",
+        description=(
+            f"{_MECHANISM_LINE} {AUTH_POSTURE_SENTENCE} {_AUTH_HOOK_LINE}"
+        ),
     )
-    app.include_router(agent.build_router(deps), prefix="/agent")
-    app.include_router(skill.build_router(deps), prefix="/skill")
-    app.include_router(workflow.build_router(deps), prefix="/workflow")
-    app.include_router(hitl.build_router(deps), prefix="/hitl")
-    app.include_router(replay.build_router(deps), prefix="/replay")
-    app.include_router(artifact.build_router(deps), prefix="/artifact")
-    app.include_router(product.build_router(deps), prefix="/product")
-    app.include_router(config.build_router(deps), prefix="/config")
+
+    guarded: list[params.Depends] = []
+    if auth is not None:
+        hook = auth
+
+        def _require_grant(request: Request) -> None:
+            grant = hook.grant_for_request(
+                authorization_header=request.headers.get("Authorization")
+            )
+            if grant is None:
+                raise HTTPException(status_code=401)
+            request.state.token_grant = grant
+
+        guarded = [Depends(_require_grant)]
+
+    app.include_router(
+        agent.build_router(deps), prefix="/agent", dependencies=guarded
+    )
+    app.include_router(
+        skill.build_router(deps), prefix="/skill", dependencies=guarded
+    )
+    app.include_router(
+        workflow.build_router(deps), prefix="/workflow", dependencies=guarded
+    )
+    app.include_router(
+        hitl.build_router(deps), prefix="/hitl", dependencies=guarded
+    )
+    app.include_router(
+        replay.build_router(deps), prefix="/replay", dependencies=guarded
+    )
+    app.include_router(
+        artifact.build_router(deps), prefix="/artifact", dependencies=guarded
+    )
+    app.include_router(
+        product.build_router(deps), prefix="/product", dependencies=guarded
+    )
+    app.include_router(
+        config.build_router(deps), prefix="/config", dependencies=guarded
+    )
 
     @app.get("/health", summary="Liveness (D-IMPL-23)")
     def health() -> dict[str, str]:

@@ -58,6 +58,8 @@ from ccf_runtime.workflow.engine import (
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
+from tests.workflow.test_engine import _PermissiveDebt
+
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
 
 
@@ -181,6 +183,7 @@ def test_an_exception_ref_routes_into_an_escalation_end_to_end(
         skill_binding=bindings,
         agent_binding=bindings,
         clock=_ticking_clock(),
+        debt_binding=_PermissiveDebt(),
     )
     workflow = _covenant(registry)
     tenant = workflow.definition.tenant
