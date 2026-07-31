@@ -34,7 +34,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, params
 
 from ccf_runtime.http_api.auth import HttpAuthProtocol
 from ccf_runtime.http_api.dependencies import ApiDependencies
@@ -107,7 +107,7 @@ def create_app(
         ),
     )
 
-    guarded: list[Depends] = []
+    guarded: list[params.Depends] = []
     if auth is not None:
         hook = auth
 
