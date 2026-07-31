@@ -124,7 +124,7 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
 
 ### Phase I — Examples Suite (§9)
 
-- [ ] **EXAM-01**: `00-quickstart` — minimal fabric, one typed Context Product
+- [x] **EXAM-01**: `00-quickstart` — minimal fabric, one typed Context Product
 - [ ] **EXAM-02**: `01-agent-basics` — agent from archetype via artifact +
       factory, all six specialization axes
 - [ ] **EXAM-03**: `02-skilling` — grant/exercise/revoke skill; governance
@@ -205,7 +205,7 @@ All 46 v1 requirements mapped (46/46).
 | EXPR-01 | Phase 7 | Complete |
 | EXPR-02 | Phase 7 | Complete |
 | EXPR-03 | Phase 7 | Complete |
-| EXAM-01 | Phase 8 | Pending |
+| EXAM-01 | Phase 8 | Complete |
 | EXAM-02 | Phase 8 | Pending |
 | EXAM-03 | Phase 8 | Pending |
 | EXAM-04 | Phase 8 | Pending |
