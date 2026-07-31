@@ -1,4 +1,4 @@
-"""The ``hitl`` noun — list/submit (D-IMPL-20/22); ``decide`` deprecated.
+"""The ``hitl`` noun — list/submit (D-IMPL-20/22); submit is the one verb.
 
 ``submit`` submits a complete typed action document from a file; an
 unattributed action dies at the route boundary by contract
@@ -6,9 +6,8 @@ unattributed action dies at the route boundary by contract
 ruling (D-IMPL-62)**: the printed output is the route's
 ``HitlActionReceipt`` — status ``submitted``, never ``resolved`` — with
 the honest queue/disposition state; resolution is the owning primitive's
-act at the composition root. ``decide`` remains as a deprecated alias
-per D-IMPL-66(d): it builds the identical request through the same
-builder and emits a one-line deprecation notice on stderr.
+act at the composition root. The former ``decide`` alias was removed in
+Phase 8 per D-15 (docs/DECISIONS.md): v0 ships one verb.
 
 Algorithmic module (CINV-03).
 """
@@ -16,7 +15,6 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import argparse
-import sys
 
 from ccf_runtime.cli.commands import RequestSpec, load_document
 
@@ -41,16 +39,6 @@ def _submit(args: argparse.Namespace) -> tuple[RequestSpec, ...]:
     )
 
 
-def _decide(args: argparse.Namespace) -> tuple[RequestSpec, ...]:
-    print(
-        "warning: 'ccf hitl decide' is deprecated — use 'ccf hitl submit'"
-        " (same request; the verb states the D-IMPL-62 submit-only"
-        " semantics)",
-        file=sys.stderr,
-    )
-    return _submit(args)
-
-
 def register(
     subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
 ) -> None:
@@ -71,10 +59,3 @@ def register(
     )
     submit.add_argument("--file", required=True, help="action document file")
     submit.set_defaults(build=_submit)
-
-    decide = verbs.add_parser(
-        "decide",
-        help="(deprecated — use 'submit') submit a typed action document file",
-    )
-    decide.add_argument("--file", required=True, help="action document file")
-    decide.set_defaults(build=_decide)

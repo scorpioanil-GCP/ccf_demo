@@ -1,0 +1,114 @@
+# Skilling-example skill material (CLAUDE.md §6.2 channel 2; D-IMPL-12/29;
+# clinical-trials-operations domain, D-IMPL-52).
+#
+# Two catalog entries: one whose declared requirements sit INSIDE the
+# agent's governance envelope (agent.yaml axis 4 permits `enrollment-read`),
+# and one whose requirements EXCEED it (`protocol-write` is not permitted) —
+# the tier-1 compatibility check refuses that grant and run.py asserts the
+# refusal fires. Requirement identifiers are opaque deployment values
+# compared structurally; the SDK ships no scope vocabulary (§6.4).
+
+policy_note: see agent.yaml referenced_artifacts.policy_regime
+
+skills:
+  # Within the envelope: a deterministic local callable (D-19 — its
+  # callable_ref is a registry KEY the composition root in run.py binds,
+  # never a dotted import path).
+  enrollment_metrics:
+    schema_version: "2.0.0"
+    artifact_version: "1.0.0"
+    name: enrollment-metrics
+    tenant: helix-trials
+    skill_type: local_callable
+    description: >-
+      Compute enrollment-velocity metrics for a named cohort from the
+      trial-operations enrollment summary — screened/enrolled counts and
+      days-to-target at the current rate.
+    argument_schema:
+      properties:
+        cohort_ref:
+          type: string
+          description: The enrollment cohort to compute metrics for.
+      required: [cohort_ref]
+    binding:
+      callable_ref: enrollment-metrics
+    requirements:
+      required_scopes: [enrollment-read]
+      required_context_products: [helix-trials.enrollment-summary]
+
+  # Outside the envelope: requires `protocol-write`, which the agent's
+  # policy regime does not permit. The grant below is the one the
+  # governance check must refuse.
+  amendment_writeback:
+    schema_version: "2.0.0"
+    artifact_version: "1.0.0"
+    name: protocol-amendment-writeback
+    tenant: helix-trials
+    skill_type: tool
+    description: >-
+      Write a protocol-amendment notification back to the trial master
+      file for a named cohort — a capability this agent's regime does not
+      permit it to bind.
+    argument_schema:
+      properties:
+        cohort_ref:
+          type: string
+          description: The enrollment cohort the amendment applies to.
+      required: [cohort_ref]
+    binding:
+      command: tmf-amendment-cli
+    requirements:
+      required_scopes: [enrollment-read, protocol-write]
+      required_context_products: [helix-trials.enrollment-summary]
+
+# Grant documents. The agent_definition_hash is derived identity (content
+# hash of the parsed definition), computed by mechanism at request time —
+# a hash is never a fixture value (D-IMPL-26).
+grants:
+  permitted:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: enrollment-analytics-metrics
+    tenant: helix-trials
+    skill_name: enrollment-metrics
+    skill_version: "1.0.0"
+  impermissible:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: enrollment-analytics-amendment
+    tenant: helix-trials
+    skill_name: protocol-amendment-writeback
+    skill_version: "1.0.0"
+
+# The tier-1 excess identifiers the refusal must name — a declared expected
+# outcome, kept beside the entry that produces it.
+expected_excess:
+  scopes: [protocol-write]
+
+# The composition-root callable binding (D-19): the key run.py registers,
+# and the deterministic record the bound callable answers with (merged with
+# the typed arguments at invoke time). Content here, mechanism in code.
+callable:
+  registered_key: enrollment-metrics
+  output_record:
+    computed: enrollment-velocity
+    screened: "412"
+    enrolled: "365"
+    days_to_target: "23"
+
+# Dispatch drive values: the typed arguments the exercise step supplies and
+# the full output the invocation must return.
+dispatch:
+  arguments:
+    cohort_ref: HX-COH-2201
+  expected_output:
+    computed: enrollment-velocity
+    screened: "412"
+    enrolled: "365"
+    days_to_target: "23"
+    cohort_ref: HX-COH-2201
+
+# Acting principals for the audited grant lifecycle (identity binding is
+# D-IMPL-21 scope; these are recorded actor strings).
+actors:
+  requesting_actor: trial-platform-operator

@@ -1,0 +1,64 @@
+# Example 07 ontology — the deployment's declared vocabulary (logistics
+# domain, D-09: non-adjacent reuse of example 01's domain family; the store
+# swap is the point, the domain is scenery). Everything in this file is a
+# *value*: entity classes, relationship types, attribute names, identifiers.
+# None of it exists in `/src`, and none of it exists in `run.py` (CLAUDE.md
+# §6.4 No-Hardcoding Rule).
+#
+# Authored fresh for this example. It mirrors the *shape* the assembly worker
+# accepts (whitepaper §7.3: identity_keys mint the canonical entity URI),
+# never the content of any test fixture or other example.
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+tenant_id: nordhaven-logistics
+
+# Source payload vocabulary -> E nodes. `match_key` selects a rule by
+# presence; `identity_keys` mint the canonical URI, so the same shipment
+# arriving from two source systems converges on one node.
+entity_rules:
+  - match_key: shipment_ref
+    entity_class: shipment
+    identity_keys: [shipment_ref]
+    attribute_keys:
+      - shipment_status
+      - cargo_description
+      - shipment_classification
+
+  - match_key: route_code
+    entity_class: route
+    identity_keys: [route_code]
+    attribute_keys:
+      - route_description
+      - transport_mode
+      - route_classification
+
+  - match_key: depot_code
+    entity_class: depot
+    identity_keys: [depot_code]
+    attribute_keys:
+      - depot_name
+      - region
+      - depot_classification
+
+# Typed first-class edges, emitted when one envelope resolves both endpoint
+# classes — co-occurrence in one source event is the evidence.
+relationship_rules:
+  - relationship_type: assigned_to
+    subject_entity_class: shipment
+    object_entity_class: route
+
+  - relationship_type: originates_at
+    subject_entity_class: shipment
+    object_entity_class: depot
+
+# Which attribute carries each class's policy classification.
+classification_attribute_by_class:
+  shipment: shipment_classification
+  route: route_classification
+  depot: depot_classification
+
+# The attribute the similarity corpus is built from, per ranked class.
+similarity_corpus_attribute_by_class:
+  route: route_description

@@ -115,3 +115,43 @@ jobs:
       # Coverage is informational only — D-17 sets no numeric gate.
       - name: Coverage (informational)
         run: pytest tests -q -m "not postgres and not chroma" --cov=ccf --cov-report=term
+
+  # The v0 examples suite is the adoption contract (CLAUDE.md §9): a broken
+  # example is a broken build. Always-on per D-10 — the same `make examples`
+  # a developer runs locally, command-for-command. Example 03 runs its
+  # deterministic leg here; the live legs are opt-in in live-legs.yml (D-11).
+  # Deliberately NOT `continue-on-error` — per the I.1 D-07 precedent, a step
+  # made non-blocking to hide a gap is worse than the gap.
+  examples:
+    name: examples suite (00–07, reference backends)
+    runs-on: ubuntu-latest
+    # Subprocess-spawning examples (04 cross-process, 07 MCP child) must not
+    # be able to hang the runner (review consensus concern 5).
+    timeout-minutes: 20
+
+    env:
+      # A skipped harness leg in example 03's deterministic run is a failure,
+      # not a minimal environment — same rule as the test job.
+      CCF_REQUIRE_HARNESSES: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package with dev extras
+        run: python -m pip install -e ".[dev]"
+
+      # The Makefile targets use .venv/bin/python; provide the venv the same
+      # editable install the job already has, so CI and local runs execute the
+      # identical `make examples` command string (D-10).
+      - name: Provision .venv for the Makefile command surface
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]"
+
+      - name: Run all eight examples (make examples)
+        run: make examples

@@ -57,6 +57,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
@@ -67,7 +68,18 @@ from mcp.server.fastmcp import FastMCP
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
-from ccf.hitl.transport import HitlActionSubmission, PendingHitlEvent
+from ccf.hitl.identity_binding import SignedPrincipalBinding
+from ccf.hitl.transport import (
+    HitlActionSubmission,
+    PendingHitlEvent,
+    SignedBindingInvalidRefused,
+    SignedBindingRequiredRefused,
+)
+from ccf_runtime.http_api.errors import (
+    ERROR_SIGNED_BINDING_INVALID,
+    ERROR_SIGNED_BINDING_REQUIRED,
+    refusal_detail,
+)
 from ccf_runtime.identity_binding import principal_from_token_grant
 from ccf_runtime.mcp.auth import TokenGrant
 
@@ -247,6 +259,8 @@ def build_hitl_server(
         action_time: str,
         product_content_hash: str,
         annotation: str | None = None,
+        signed_binding_signature: str | None = None,
+        signed_binding_key_id: str | None = None,
     ) -> str:
         """Submit one human action under a verified principal binding.
 
@@ -293,23 +307,65 @@ def build_hitl_server(
                 " server's verified identity, never the caller's claim"
                 " (D-IMPL-67; D-IMPL-21)"
             )
+        derived = principal_from_token_grant(
+            grant=TokenGrant(
+                client_id=token.client_id, scopes=tuple(token.scopes)
+            ),
+            identity_provider_ref=identity_provider_ref,
+            method=method,
+            assurance_level=assurance_level,
+            session_ref=session_ref,
+            action_time=parsed_time,
+            product_content_hash=product_content_hash,
+        )
+        signed_binding: SignedPrincipalBinding | None = None
+        if (signed_binding_signature is None) != (
+            signed_binding_key_id is None
+        ):
+            raise ValueError(
+                "signed_binding_signature and signed_binding_key_id are"
+                " presented together or not at all (D-16; D-IMPL-21)"
+            )
+        if (
+            signed_binding_signature is not None
+            and signed_binding_key_id is not None
+        ):
+            signed_binding = SignedPrincipalBinding(
+                binding=derived,
+                signature=signed_binding_signature,
+                key_id=signed_binding_key_id,
+            )
         submission = HitlActionSubmission(
             event_key=event_key,
             tenant=tenant,
             action=action,
-            principal=principal_from_token_grant(
-                grant=TokenGrant(
-                    client_id=token.client_id, scopes=tuple(token.scopes)
-                ),
-                identity_provider_ref=identity_provider_ref,
-                method=method,
-                assurance_level=assurance_level,
-                session_ref=session_ref,
-                action_time=parsed_time,
-                product_content_hash=product_content_hash,
-            ),
+            principal=derived,
             annotation=annotation,
+            signed_binding=signed_binding,
         )
-        return action_route(submission=submission)
+        try:
+            return action_route(submission=submission)
+        except SignedBindingRequiredRefused as error:
+            # D-16 door mapping (08-03): the MCP door carries the SAME
+            # shared error-code constants as the HTTP door — single
+            # source of truth, machine-attributable at both doors
+            # (T-08-07b). The payload is the one refusal-body shape.
+            raise ValueError(
+                json.dumps(
+                    refusal_detail(
+                        error_code=ERROR_SIGNED_BINDING_REQUIRED,
+                        message=str(error),
+                    )
+                )
+            ) from error
+        except SignedBindingInvalidRefused as error:
+            raise ValueError(
+                json.dumps(
+                    refusal_detail(
+                        error_code=ERROR_SIGNED_BINDING_INVALID,
+                        message=str(error),
+                    )
+                )
+            ) from error
 
     return server

@@ -1,0 +1,63 @@
+# Harness-portability ontology — the deployment's declared vocabulary
+# (e-commerce domain, D-IMPL-52; plan 08-10 D-06 rails). Everything in this
+# file is a *value*: entity classes, relationship types, attribute names,
+# identifiers. None of it exists in `/src`, and none of it exists in
+# `run.py` or `legs/` (CLAUDE.md §6.4 No-Hardcoding Rule).
+#
+# Authored fresh for this example. It mirrors the *shape* the assembly
+# worker accepts (whitepaper §7.3), never the content of any test fixture
+# or of any sibling example.
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+tenant_id: atlas-commerce
+
+# Source payload vocabulary -> E nodes. `identity_keys` mint the canonical
+# URI, so the same customer arriving from two source systems converges on
+# one node without either system knowing about the other.
+entity_rules:
+  - match_key: customer_ref
+    entity_class: customer
+    identity_keys: [customer_ref]
+    attribute_keys:
+      - customer_name
+      - loyalty_tier
+      - customer_classification
+
+  - match_key: order_ref
+    entity_class: order
+    identity_keys: [order_ref]
+    attribute_keys:
+      - order_status
+      - order_summary
+      - order_classification
+
+  - match_key: catalog_item_ref
+    entity_class: catalog_item
+    identity_keys: [catalog_item_ref]
+    attribute_keys:
+      - category
+      - catalog_item_classification
+
+# Typed first-class edges, emitted when one envelope resolves both endpoint
+# classes — co-occurrence in one source event is the evidence.
+relationship_rules:
+  - relationship_type: placed_by
+    subject_entity_class: order
+    object_entity_class: customer
+
+  - relationship_type: includes
+    subject_entity_class: order
+    object_entity_class: catalog_item
+
+# Which attribute carries each class's policy classification.
+classification_attribute_by_class:
+  customer: customer_classification
+  order: order_classification
+  catalog_item: catalog_item_classification
+
+# The attribute the similarity corpus is built from, per ranked class. The
+# SDK holds no corpus; the deployment says what text means "this order".
+similarity_corpus_attribute_by_class:
+  order: order_summary

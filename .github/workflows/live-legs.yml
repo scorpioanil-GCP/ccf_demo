@@ -1,0 +1,106 @@
+# Example 03 live legs — opt-in by design (D-11). The deterministic pipeline
+# runs unconditionally in ci.yml; these jobs exercise the same three harness
+# legs against a *live* model and are dispatched manually.
+#
+# Primary way to exercise the Ollama leg is a local run against a local Ollama
+# (`make example-03-live-ollama` — see examples/03-harness-portability/README.md
+# and the 08-CONTEXT discretion note); this workflow exists so the leg can also
+# be run on a GitHub-hosted runner. Runners are CPU-only (~16GB RAM), so only a
+# small model is feasible and runs are slow (08-RESEARCH.md Pitfall 2).
+name: live-legs
+
+on:
+  workflow_dispatch:
+    inputs:
+      ollama_model:
+        description: >-
+          Ollama model for the live leg (must be small enough for a CPU-only
+          runner — qwen3:0.6b-class)
+        required: false
+        default: "qwen3:0.6b"
+        type: string
+
+jobs:
+  examples-live-ollama:
+    name: example 03 live leg (Ollama, keyless — D-03)
+    runs-on: ubuntu-latest
+    # CPU-only runner safeguard (Ollama SUG5): a slow model pull or generation
+    # must not hang the runner.
+    timeout-minutes: 15
+
+    env:
+      CCF_OLLAMA_BASE_URL: "http://127.0.0.1:11434"
+      CCF_OLLAMA_MODEL: ${{ inputs.ollama_model }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package with dev extras
+        run: python -m pip install -e ".[dev]"
+
+      - name: Provision .venv for the Makefile command surface
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]"
+
+      - name: Install Ollama (official install script)
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Start Ollama and pull the model
+        run: |
+          ollama serve &
+          # Wait for the server to answer before pulling.
+          for i in $(seq 1 30); do
+            curl -fsS "$CCF_OLLAMA_BASE_URL/api/tags" >/dev/null 2>&1 && break
+            sleep 1
+          done
+          ollama pull "$CCF_OLLAMA_MODEL"
+
+      - name: Run example 03 live leg (Ollama)
+        run: make example-03-live-ollama
+
+  examples-live-anthropic:
+    name: example 03 live leg (Anthropic, secret-gated — D-11)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Fail fast with a clear message when the secret is absent, before any
+      # setup work. The key reaches only this job and is never echoed
+      # (T-08-28); the deterministic pipeline in ci.yml is keyless.
+      - name: Require ANTHROPIC_API_KEY secret
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY secret is not configured for this" \
+              "repository. Add it under Settings > Secrets and variables >" \
+              "Actions, then re-dispatch this workflow."
+            exit 1
+          fi
+          echo "ANTHROPIC_API_KEY secret is present."
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package with dev extras
+        run: python -m pip install -e ".[dev]"
+
+      - name: Provision .venv for the Makefile command surface
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]"
+
+      - name: Run example 03 live leg (Anthropic)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: make example-03-live-anthropic

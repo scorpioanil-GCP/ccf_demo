@@ -1,0 +1,63 @@
+# Agent-basics ontology — the deployment's declared vocabulary
+# (field-service/logistics domain, D-IMPL-52). Everything in this file is a
+# *value*: entity classes, relationship types, attribute names, identifiers.
+# None of it exists in `/src`, and none of it exists in `run.py`
+# (CLAUDE.md §6.4 No-Hardcoding Rule).
+#
+# Authored fresh for this example. It mirrors the *shape* the assembly worker
+# accepts (whitepaper §7.3), never the content of any test fixture or of
+# examples/00-quickstart.
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+tenant_id: cascadia-fieldworks
+
+# Source payload vocabulary -> E nodes. `identity_keys` mint the canonical
+# URI, so the same technician arriving from two source systems converges on
+# one node without either system knowing about the other.
+entity_rules:
+  - match_key: technician_ref
+    entity_class: technician
+    identity_keys: [technician_ref]
+    attribute_keys:
+      - technician_name
+      - trade
+      - technician_classification
+
+  - match_key: work_order_ref
+    entity_class: work_order
+    identity_keys: [work_order_ref]
+    attribute_keys:
+      - priority
+      - work_order_summary
+      - work_order_classification
+
+  - match_key: site_ref
+    entity_class: site
+    identity_keys: [site_ref]
+    attribute_keys:
+      - region
+      - site_classification
+
+# Typed first-class edges, emitted when one envelope resolves both endpoint
+# classes — co-occurrence in one source event is the evidence.
+relationship_rules:
+  - relationship_type: assigned_to
+    subject_entity_class: technician
+    object_entity_class: work_order
+
+  - relationship_type: located_at
+    subject_entity_class: work_order
+    object_entity_class: site
+
+# Which attribute carries each class's policy classification.
+classification_attribute_by_class:
+  technician: technician_classification
+  work_order: work_order_classification
+  site: site_classification
+
+# The attribute the similarity corpus is built from, per ranked class. The
+# SDK holds no corpus; the deployment says what text means "this work order".
+similarity_corpus_attribute_by_class:
+  work_order: work_order_summary

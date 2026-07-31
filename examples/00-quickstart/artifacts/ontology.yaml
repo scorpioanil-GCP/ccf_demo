@@ -1,0 +1,66 @@
+# Quickstart ontology — the deployment's declared vocabulary (banking domain,
+# D-IMPL-52). Everything in this file is a *value*: entity classes,
+# relationship types, attribute names, identifiers. None of it exists in
+# `/src`, and none of it exists in `run.py` (CLAUDE.md §6.4 No-Hardcoding
+# Rule) — the driver is thin loading-and-asserting logic over this artifact.
+#
+# Authored fresh for this example. It mirrors the *shape* the assembly worker
+# accepts (whitepaper §7.3: identity_keys mint the canonical entity URI,
+# INV-CH7-18), never the content of any test fixture.
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+tenant_id: meridian-bank
+
+# Source payload vocabulary -> E nodes. `match_key` selects a rule by
+# presence; `identity_keys` mint the canonical URI, so the same customer
+# arriving from two source systems converges on one node without either
+# system knowing about the other.
+entity_rules:
+  - match_key: customer_ref
+    entity_class: customer
+    identity_keys: [customer_ref]
+    attribute_keys:
+      - customer_name
+      - segment
+      - customer_classification
+
+  - match_key: account_number
+    entity_class: account
+    identity_keys: [account_number]
+    attribute_keys:
+      - account_type
+      - currency
+      - account_description
+      - account_classification
+
+  - match_key: mandate_id
+    entity_class: mandate
+    identity_keys: [mandate_id]
+    attribute_keys:
+      - mandate_scheme
+      - mandate_classification
+
+# Typed first-class edges, emitted when one envelope resolves both endpoint
+# classes — co-occurrence in one source event is the evidence.
+relationship_rules:
+  - relationship_type: holds
+    subject_entity_class: customer
+    object_entity_class: account
+
+  - relationship_type: authorizes
+    subject_entity_class: mandate
+    object_entity_class: account
+
+# Which attribute carries each class's policy classification — per class,
+# because a mandate's sensitivity and a customer's are different fields.
+classification_attribute_by_class:
+  customer: customer_classification
+  account: account_classification
+  mandate: mandate_classification
+
+# The attribute the similarity corpus is built from, per ranked class. The
+# SDK holds no corpus; the deployment says what text means "this account".
+similarity_corpus_attribute_by_class:
+  account: account_description

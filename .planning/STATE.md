@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-31T05:25:41.749Z"
+last_updated: "2026-07-31T08:45:03.747Z"
 progress:
-  total_phases: 8
-  completed_phases: 7
-  total_plans: 107
-  completed_plans: 94
-  percent: 88
+  total_phases: 1
+  completed_phases: 1
+  total_plans: 12
+  completed_plans: 12
+  percent: 100
 ---
 
 # STATE — CCF SDK
@@ -22,25 +22,31 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 8 — phase i.5 — examples suite & full ci verification
+**Current focus:** Phase 08 — phase-i-5-examples-suite-full-ci-verification
 
 ## Current Position
 
-Phase: 07 (phase-i-4-orchestration-hitl-experience) — AWAITING FINAL GATE APPROVAL
-Plan: 14 of 14 (all plans complete)
+Phase: 08 (phase-i-5-examples-suite-full-ci-verification) — EXECUTING
+Plan: 12 of 13 complete
 
 - **Phase:** 8 of 8 (phase i.5 — examples suite & full ci verification)
-- **Plan:** Not started
-  hardening (`HitlActionReceipt`) and D-IMPL-64 notify-only webhook transport
-  (`ccf.hitl.webhook`) built TDD; gate document updated; post-ruling sweep
-  1280/0/0, mypy 152 files, lints clean
+- **Plan:** 08-12 complete — examples suite wired into CI per D-10/D-11
+  (EXAM-09): ci.yml always-on `examples` job (`make examples`,
+  CCF_REQUIRE_HARNESSES=1, timeout-minutes 20, never continue-on-error);
+  new live-legs.yml with workflow_dispatch examples-live-ollama (installs
+  Ollama, pulls parameterized qwen3:0.6b-default model) and secret-gated
+  examples-live-anthropic (fail-fast when ANTHROPIC_API_KEY absent);
+  `make ci` finalized = ci-core + examples. Full local sweep GREEN as the
+  interim CI evidence: lint 0, mypy clean (156 files), pytest 1339 passed
+  / 0 skipped under required harnesses, all eight examples exit 0,
+  README/artifacts D-09 contract check 8/8 PASS. Push of `phase-i5`
+  remains flagged for Dave — not performed
 
-- **Status:** Ready to execute
-  rejects `docs/PHASE_I4_GATE.md`. D-GATE-I.4 NOT logged; `phase-i4` NOT merged.
+- **Status:** Executing Phase 08
 
-- **Branch:** `phase-i4` (created off `main` at 6520b70)
+- **Branch:** `phase-i5` (created off `main`)
 
-- **Progress:** [█████████░] 87%
+- **Progress:** [██████████] 100%
 
 **Nothing blocks Phase 7 planning on the decision log.** The 12-item Phase I
 gate list is RESOLVED in full (D-GATE-D, 2026-07-25), and D-GATE-I.3 states
@@ -79,6 +85,13 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 | 05-07      | ~8 min   | 2     | 3     |
 | 07-01      | ~15 min  | 3     | 2     |
 | 07-14      | 2 sess.  | 3     | 12    |
+| 08-01      | ~10 min  | 2     | 4     |
+| 08-02      | ~12 min  | 2     | 8     |
+| Phase 08 P03 | ~15 min | 3 tasks | 6 files |
+| Phase 08 P04 | 20min | 2 tasks | 6 files |
+| 08-09      | ~10 min  | 2     | 8     |
+| 08-10      | ~18 min  | 2     | 11    |
+| 08-12      | ~12 min  | 2     | 4     |
 
 ## Accumulated Context
 
@@ -130,6 +143,13 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 - [Phase 07]: D-IMPL-64 (Dave, 2026-07-30): webhook deferral REJECTED — the notify-only webhook HITL transport ships in v0 (`ccf.hitl.webhook`: injected `WebhookDeliveryProtocol`, typed refusals, no authority surface by construction) (07-14)
 - [Phase 07]: D-IMPL-65 (Dave, 2026-07-30): composition-root debt-cascade wiring closes the I.4 gate; NAMED next-phase commitment — the engine will refuse an agent-node handoff with no bound debt assessment (07-14)
 - [Phase 07]: fastapi==0.140.0 and httpx==0.28.1 are direct pins with stated reasons; CLI is stdlib argparse (no click/typer); ADK's `fastapi>=0.133` constraint interaction recorded for the gate (07-01)
+- [Phase 08]: D-15 executed — `ccf hitl decide` removed tree-wide, `submit` is the one verb; DECISIONS.md entry dated 2026-07-30 (08-02)
+- [Phase 08]: HITL HTTP door fails closed on non-TokenGrant grant objects (403 ERROR_INVALID_GRANT, never caller-principal fallback); refusal bodies carry typed `error_code` constants from `http_api/errors.py`, with `ERROR_SIGNED_BINDING_{REQUIRED,INVALID}` reserved for 08-03 (08-02)
+- [Phase ?]: 08-03: HitlPolicy artifact (ccf.hitl-policy) with schema-validated signed_binding_required (default false); D-16 refusals typed at the transport and mapped to shared ERROR_SIGNED_BINDING_* constants at both HTTP and MCP doors; R1 closed with was-called assertions
+- [Phase 08]: Example 07 store choice is a config artifact (`store.type`) interpreted by one factory seam; file root and MCP endpoint are env-templated so no path or port is committed; the MCP child interprets the same store_mcp.yaml auth block as the client factory, so credentials cannot drift (08-09)
+- [Phase ?]: ADK migration taken over suppression: google.adk.workflow.Workflow usable at 2.5.0 (BaseAgent is BaseNode); D-08 allowlist carries the harness Workflow name-collision, allowlist path matching Rule-1-fixed (08-04)
+- [Phase 08]: 08-12 — make ci finalized as ci-core + examples (the phase gate command, command-identical to the always-on Actions pipeline, D-10); live legs opt-in via live-legs.yml workflow_dispatch (Ollama model parameterized, default qwen3:0.6b; Anthropic secret-gated fail-fast) per D-11; push of phase-i5 flagged for Dave, not performed
+- [Phase 08]: A3 closed with zero adapter change — the discharge test and example 03's Claude leg drive a genuinely SDK-parsed ResultMessage through seam 4; example 03's session runs over the adapter's own seam-1 carrier, and legs/deterministic.py imports all three harness SDKs unconditionally so a missing harness is a failure, not a skip (08-10)
 
 ### Todos
 
@@ -143,13 +163,17 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 
 ## Session Continuity
 
-Last action: 07-14 Tasks 1–2 complete (2026-07-30) on `phase-i4` — gate package
-`docs/PHASE_I4_GATE.md` (131746d: sweep 1268/0/0, 16 D-25 rows, verbatim
-counterfactuals, deviations register, DESIGN/REQUIREMENTS corrections) and the
-§3.1 cross-AI review + triage (386422e: in-phase fixes applied; **four blocking
-findings require rulings — D-IMPL-62..65 logged OPEN**, phase stopped per §3.1).
+Last action: 08-12 complete (2026-07-31) on `phase-i5` — examples suite
+wired into CI per D-10/D-11 (EXAM-09, Task 1 f145f1e): ci.yml always-on
+`examples` job (make examples, CCF_REQUIRE_HARNESSES=1, timeout-minutes
+20, never continue-on-error) plus new live-legs.yml (workflow_dispatch
+examples-live-ollama with parameterized small model; secret-gated
+examples-live-anthropic with fail-fast); `make ci` finalized = ci-core +
+examples. Full local sweep GREEN (Task 2 evidence-only): lint 0, mypy
+clean (156 files), pytest 1339 passed / 0 skipped, all eight examples
+exit 0, D-09 README/artifacts contract check 8/8 PASS.
 
-Next action: **CHECKPOINT — awaiting Dave** (07-14 Task 3): rule on D-IMPL-62..65,
-then approve/reject the Phase I.4 gate. Only after approval: log D-GATE-I.4 and
-merge `phase-i4` to `main` --no-ff. Standing note: `main` is far ahead of
-`origin/main`; Dave has not authorized a push.
+Next action: remaining phase-08 plan (13 of 13), then phase gate review.
+Standing note: `phase-i5` and `main` are ahead of origin; Dave has not
+authorized a push — Actions evidence for the new examples/live-legs jobs
+awaits that authorization.

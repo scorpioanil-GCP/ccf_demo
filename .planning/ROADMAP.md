@@ -39,33 +39,33 @@ exists.
 Plans:
 **Wave 1**
 
-- [ ] 08-01-PLAN.md — Scaffold: phase-i5 branch, editable-install refresh, Makefile (ci-core/help), lint posture over /examples
+- [x] 08-01-PLAN.md — Scaffold: phase-i5 branch, editable-install refresh, Makefile (ci-core/help), lint posture over /examples
 
 **Wave 2**
 
-- [ ] 08-02-PLAN.md — Hardening A: D-15 remove `ccf hitl decide`, fail-closed TokenGrant branch, typed error-code constants (incl. ERROR_SIGNED_BINDING_*)
+- [x] 08-02-PLAN.md — Hardening A: D-15 remove `ccf hitl decide`, fail-closed TokenGrant branch, typed error-code constants (incl. ERROR_SIGNED_BINDING_*)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 08-03-PLAN.md — Hardening B: D-16 signed-binding requiredness + door mapping (HTTP/MCP), R1 was-called assertions
-- [ ] 08-04-PLAN.md — Hardening C: ADK SequentialAgent migration, D-IMPL-62 verb note, key-management doc note
-- [ ] 08-05-PLAN.md — examples/00-quickstart (banking) — convention template for Wave 4
+- [x] 08-03-PLAN.md — Hardening B: D-16 signed-binding requiredness + door mapping (HTTP/MCP), R1 was-called assertions
+- [x] 08-04-PLAN.md — Hardening C: ADK SequentialAgent migration, D-IMPL-62 verb note, key-management doc note
+- [x] 08-05-PLAN.md — examples/00-quickstart (banking) — convention template for Wave 4
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 08-06-PLAN.md — examples/01-agent-basics (field-service) + 02-skilling (clinical-trials ops)
-- [ ] 08-07-PLAN.md — examples/04-cross-process (property-intelligence, fresh artifacts)
-- [ ] 08-08-PLAN.md — examples/05-workflow-hitl (banking, auth-bound) + 06-decision-replay (energy/grid-ops)
-- [ ] 08-09-PLAN.md — examples/07-artifact-store-mcp (logistics, store swap)
-- [ ] 08-10-PLAN.md — examples/03-harness-portability deterministic leg (e-commerce) + A3 discharge
+- [x] 08-06-PLAN.md — examples/01-agent-basics (field-service) + 02-skilling (clinical-trials ops)
+- [x] 08-07-PLAN.md — examples/04-cross-process (property-intelligence, fresh artifacts)
+- [x] 08-08-PLAN.md — examples/05-workflow-hitl (banking, auth-bound) + 06-decision-replay (energy/grid-ops)
+- [x] 08-09-PLAN.md — examples/07-artifact-store-mcp (logistics, store swap)
+- [x] 08-10-PLAN.md — examples/03-harness-portability deterministic leg (e-commerce) + A3 discharge
 
 **Wave 5**
 
-- [ ] 08-11-PLAN.md — example 03 live legs: Ollama (default) + Anthropic (gated), decision table, structural equivalence
+- [x] 08-11-PLAN.md — example 03 live legs: Ollama (default) + Anthropic (gated), decision table, structural equivalence
 
 **Wave 6**
 
-- [ ] 08-12-PLAN.md — CI examples job + opt-in live-legs workflow + full local sweep + README contract check
+- [x] 08-12-PLAN.md — CI examples job + opt-in live-legs workflow + full local sweep + README contract check
 
 **Wave 7**
 
@@ -83,7 +83,7 @@ Plans:
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 20/20 | Complete   | 2026-07-31 |
-| 8. Phase I.5 — Examples Suite & Full CI Verification | 0/? | Not started | - |
+| 8. Phase I.5 — Examples Suite & Full CI Verification | 12/13 | In Progress|  |
 
 ## Coverage
 

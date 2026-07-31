@@ -124,22 +124,22 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
 
 ### Phase I — Examples Suite (§9)
 
-- [ ] **EXAM-01**: `00-quickstart` — minimal fabric, one typed Context Product
-- [ ] **EXAM-02**: `01-agent-basics` — agent from archetype via artifact +
+- [x] **EXAM-01**: `00-quickstart` — minimal fabric, one typed Context Product
+- [x] **EXAM-02**: `01-agent-basics` — agent from archetype via artifact +
       factory, all six specialization axes
-- [ ] **EXAM-03**: `02-skilling` — grant/exercise/revoke skill; governance
+- [x] **EXAM-03**: `02-skilling` — grant/exercise/revoke skill; governance
       check fires; replay captures grants
-- [ ] **EXAM-04**: `03-harness-portability` — one agent definition under two
+- [x] **EXAM-04**: `03-harness-portability` — one agent definition under two
       harnesses with equivalence assertion
-- [ ] **EXAM-05**: `04-cross-process` — assembler and consumer across
+- [x] **EXAM-05**: `04-cross-process` — assembler and consumer across
       processes via MCP egress and A2A with admission verification
-- [ ] **EXAM-06**: `05-workflow-hitl` — workflow with ApprovalGate +
+- [x] **EXAM-06**: `05-workflow-hitl` — workflow with ApprovalGate +
       ExceptionEscalation, suspend/resume, replay-recorded human action
-- [ ] **EXAM-07**: `06-decision-replay` — exact reproduction of a prior
+- [x] **EXAM-07**: `06-decision-replay` — exact reproduction of a prior
       Context Product from ArtifactStore-resolved versions
-- [ ] **EXAM-08**: `07-artifact-store-mcp` — swap file-backed store for
+- [x] **EXAM-08**: `07-artifact-store-mcp` — swap file-backed store for
       MCP-backed store with no other change
-- [ ] **EXAM-09**: All examples runnable end-to-end in CI, code + artifacts
+- [x] **EXAM-09**: All examples runnable end-to-end in CI, code + artifacts
       side by side, README each, one coherent neutral domain
 
 ## v2 (Deferred)
@@ -205,12 +205,12 @@ All 46 v1 requirements mapped (46/46).
 | EXPR-01 | Phase 7 | Complete |
 | EXPR-02 | Phase 7 | Complete |
 | EXPR-03 | Phase 7 | Complete |
-| EXAM-01 | Phase 8 | Pending |
-| EXAM-02 | Phase 8 | Pending |
-| EXAM-03 | Phase 8 | Pending |
-| EXAM-04 | Phase 8 | Pending |
-| EXAM-05 | Phase 8 | Pending |
-| EXAM-06 | Phase 8 | Pending |
-| EXAM-07 | Phase 8 | Pending |
-| EXAM-08 | Phase 8 | Pending |
-| EXAM-09 | Phase 8 | Pending |
+| EXAM-01 | Phase 8 | Complete |
+| EXAM-02 | Phase 8 | Complete |
+| EXAM-03 | Phase 8 | Complete |
+| EXAM-04 | Phase 8 | Complete |
+| EXAM-05 | Phase 8 | Complete |
+| EXAM-06 | Phase 8 | Complete |
+| EXAM-07 | Phase 8 | Complete |
+| EXAM-08 | Phase 8 | Complete |
+| EXAM-09 | Phase 8 | Complete |

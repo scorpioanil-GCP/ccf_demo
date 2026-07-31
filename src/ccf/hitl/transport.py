@@ -35,24 +35,37 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Mapping
 from typing import Literal, Protocol, runtime_checkable
 
 from pydantic import field_validator
 
 from ccf.artifacts.protocol import ArtifactStoreError, parse_artifact_uri
 from ccf.contracts.base import CCFContract
+from ccf.controlplane.artifacts import ArtifactClass, validate_semver
+from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.hitl.identity_binding import (
+    PrincipalBindingInvalid,
+    SignedPrincipalBinding,
+    verify_principal_binding,
+)
 from ccf.hitl.principal import HumanPrincipalBinding
+from ccf.peering.identity import IdentityProvider, JsonWebKey
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "HITL_ACTIONS",
     "HITL_EVENT_CLASSES",
+    "HITL_POLICY",
     "HITLTransportProtocol",
     "HitlActionReceipt",
     "HitlActionSubmission",
+    "HitlPolicy",
     "InMemoryHitlTransport",
     "PendingHitlEvent",
+    "SignedBindingInvalidRefused",
+    "SignedBindingRequiredRefused",
 ]
 
 #: The four HITL primitive event classes (CLAUDE.md §8.2). Mechanism
@@ -116,6 +129,69 @@ class PendingHitlEvent(CCFContract):
         return value
 
 
+class SignedBindingRequiredRefused(PermissionError):
+    """Policy requires a signed principal binding and none was presented.
+
+    SDK-defined (CLAUDE.md §8.2); the D-16 composition (08-CONTEXT),
+    designed within the D-IMPL-21/63/67 contract envelope. Raised at the
+    transport authority path when the Control Plane HITL policy in force
+    declares ``signed_binding_required: true`` and the submission carries
+    no :class:`~ccf.hitl.identity_binding.SignedPrincipalBinding`. A
+    distinct class from :class:`SignedBindingInvalidRefused` so the
+    Experience-Layer doors can map absence and invalidity to their own
+    error-code constants (``ERROR_SIGNED_BINDING_REQUIRED``).
+    """
+
+
+class SignedBindingInvalidRefused(PermissionError):
+    """A signed principal binding was presented and does not hold.
+
+    SDK-defined (CLAUDE.md §8.2); D-16 within D-IMPL-21/63/67. Raised when
+    the presented binding fails cryptographic verification
+    (:func:`~ccf.hitl.identity_binding.verify_principal_binding`, with the
+    typed identity error chained as the cause) or when the verified
+    binding's principal does not equal the submission's principal — a
+    validly signed binding over someone else's identity binds nothing
+    here (spoofing, T-08-06). Maps to ``ERROR_SIGNED_BINDING_INVALID``
+    at the doors.
+    """
+
+
+class HitlPolicy(CCFContract):
+    """The Control Plane HITL policy artifact (CLAUDE.md §8.2; D-16).
+
+    SDK-defined mechanism schema: which HITL postures a deployment
+    requires are the artifact's statements, never code constants
+    (No-Hardcoding, CLAUDE.md §6.4). This is the schema behind the
+    documented ``hitl.signed_binding_required`` surface examples set in
+    their ``artifacts/`` HITL policy YAML: a document like
+    ``{semver: "1.0.0", signed_binding_required: true}`` registered under
+    the deployment's chosen HITL-policy key.
+
+    Attributes:
+        semver: The artifact's own semver lane (whitepaper §6.3).
+        signed_binding_required: Whether a submission at the authority
+            path must carry a verifiable
+            :class:`~ccf.hitl.identity_binding.SignedPrincipalBinding`.
+            Defaults to ``False`` when the key is absent from the
+            document, so a missing key is well-defined rather than a
+            ``KeyError`` — requiredness *true* can only ever come from a
+            registered Control Plane value (T-08-07).
+    """
+
+    semver: str
+    signed_binding_required: bool = False
+
+    @field_validator("semver")
+    @classmethod
+    def _semver_is_well_formed(cls, value: str) -> str:
+        return validate_semver(value)
+
+
+#: The HITL policy artifact class (CLAUDE.md §8.2; D-16).
+HITL_POLICY = ArtifactClass(class_id="ccf.hitl-policy", contract=HitlPolicy)
+
+
 class HitlActionSubmission(CCFContract):
     """One human action returning through the authority path (D-IMPL-20/21).
 
@@ -131,6 +207,13 @@ class HitlActionSubmission(CCFContract):
     action: str
     principal: HumanPrincipalBinding
     annotation: str | None = None
+    #: The optional D-16 non-repudiation leg: a detached-JWS-signed copy of
+    #: the principal binding (D-IMPL-21 reference impl #2). Whether it is
+    #: required is the Control Plane HITL policy's statement
+    #: (:class:`HitlPolicy`), enforced at the transport authority path —
+    #: never a code constant. When present it travels on the recorded
+    #: submission, so the audit/receipt surface carries it verbatim.
+    signed_binding: SignedPrincipalBinding | None = None
 
     @field_validator("action")
     @classmethod
@@ -213,11 +296,111 @@ class InMemoryHitlTransport:
     implementation, not a placeholder for one. Queues are partitioned by
     tenant (D-23): two tenants' events and actions never interleave, and a
     view of one tenant's queue says nothing about another's.
+
+    **The D-16 composition (SDK-defined; CLAUDE.md §8.2; within
+    D-IMPL-21/63/67).** When a Control Plane and an HITL-policy key are
+    bound at construction, :meth:`submit` resolves the policy in force at
+    submission time and — when it declares ``signed_binding_required`` —
+    verifies the submission's signed binding and enforces principal match
+    before recording. The policy is re-resolved per submission, so
+    registering a flipped value changes behavior with zero code change.
+    All four D-16 arguments are optional together: an unconfigured
+    transport behaves exactly as before this composition existed.
+
+    Args:
+        control_plane: The registry the HITL policy resolves through. The
+            deployment's composition root supplies it; the transport never
+            constructs one.
+        hitl_policy_key: The Control Plane key the deployment registered
+            its :class:`HitlPolicy` under — deployment vocabulary, no
+            default (CINV-01).
+        identity_provider: The D-IMPL-15 provider signatures verify
+            through when the policy requires them.
+        trusted_keys: The public keys this deployment accepts approver
+            signatures under — trust stays the composition root's
+            statement, outside the verification seam.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        control_plane: ControlPlaneProtocol | None = None,
+        hitl_policy_key: str | None = None,
+        identity_provider: IdentityProvider | None = None,
+        trusted_keys: Mapping[str, JsonWebKey] | None = None,
+    ) -> None:
         self._pending: dict[str, deque[PendingHitlEvent]] = {}
         self._submissions: dict[str, list[HitlActionSubmission]] = {}
+        self._control_plane = control_plane
+        self._hitl_policy_key = hitl_policy_key
+        self._identity_provider = identity_provider
+        self._trusted_keys = trusted_keys
+
+    def _signed_binding_required(self) -> bool:
+        """Whether the policy in force requires a signed binding.
+
+        Resolved from the Control Plane per call — the requiredness value
+        lives ONLY in the registered :class:`HitlPolicy` artifact, never
+        here (T-08-07). An unbound Control Plane or key is the
+        pre-composition posture: not required.
+        """
+        if self._control_plane is None or self._hitl_policy_key is None:
+            return False
+        _, artifact = self._control_plane.resolve_latest(
+            self._hitl_policy_key
+        )
+        if not isinstance(artifact, HitlPolicy):
+            raise TypeError(
+                f"artifact under {self._hitl_policy_key!r} is not a"
+                f" HitlPolicy (got {type(artifact).__name__}); the"
+                " transport's policy key must name a registered"
+                " ccf.hitl-policy artifact"
+            )
+        return artifact.signed_binding_required
+
+    def _enforce_signed_binding(
+        self, submission: HitlActionSubmission
+    ) -> None:
+        """Refuse the submission unless its signed binding holds (D-16).
+
+        Raises:
+            SignedBindingRequiredRefused: the policy requires a binding
+                and the submission carries none.
+            SignedBindingInvalidRefused: the binding fails verification,
+                or its verified principal is not the submission's.
+            RuntimeError: the policy requires bindings but the transport
+                was constructed without verification machinery — broken
+                deployment wiring, not an expected refusal.
+        """
+        if submission.signed_binding is None:
+            raise SignedBindingRequiredRefused(
+                "the HITL policy in force requires a signed principal"
+                " binding and this submission carries none (D-16;"
+                " D-IMPL-21; CLAUDE.md §8.2)"
+            )
+        if self._identity_provider is None or self._trusted_keys is None:
+            raise RuntimeError(
+                "the HITL policy requires signed bindings but this"
+                " transport was constructed without an identity provider"
+                " or trusted keys — broken composition-root wiring"
+            )
+        try:
+            verified = verify_principal_binding(
+                submission.signed_binding,
+                provider=self._identity_provider,
+                public_keys=self._trusted_keys,
+            )
+        except PrincipalBindingInvalid as error:
+            raise SignedBindingInvalidRefused(
+                "the presented signed principal binding does not verify"
+                " (D-16; D-IMPL-21)"
+            ) from error
+        if verified != submission.principal:
+            raise SignedBindingInvalidRefused(
+                "the verified signed binding's principal is not the"
+                " submission's principal; a valid signature over a"
+                " different identity binds nothing here (D-16; T-08-06)"
+            )
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
         """Queue ``event`` for its tenant, preserving arrival order."""
@@ -235,7 +418,19 @@ class InMemoryHitlTransport:
         return tuple(self._pending.get(tenant, ()))
 
     def submit(self, *, submission: HitlActionSubmission) -> None:
-        """Record one human action returning through the authority path."""
+        """Record one human action returning through the authority path.
+
+        When the Control Plane HITL policy in force requires a signed
+        principal binding, the submission is verified before anything is
+        recorded (D-16): a refused submission never lands on the queue.
+
+        Raises:
+            SignedBindingRequiredRefused: binding required and absent.
+            SignedBindingInvalidRefused: binding invalid or its verified
+                principal mismatches the submission's.
+        """
+        if self._signed_binding_required():
+            self._enforce_signed_binding(submission)
         self._submissions.setdefault(submission.tenant, []).append(submission)
 
     def submissions(self, *, tenant: str) -> tuple[HitlActionSubmission, ...]:

@@ -136,7 +136,17 @@ class AllowlistEntry:
     reviewer: str
 
     def matches(self, file: str, rule: str, fp: str) -> bool:
-        return self.file == file and self.rule == rule and self.fingerprint == fp
+        # `file` is the path exactly as the lint reported it — absolute when
+        # the runner's --base is absolute (the default: cwd). Entries are
+        # repo-relative per the allowlist header, so match exactly or
+        # suffix-anchored at a path-segment boundary (same discipline as
+        # `_is_factory_module`; the fingerprint keeps the match exact on the
+        # offending literal either way).
+        return (
+            self.rule == rule
+            and self.fingerprint == fp
+            and (self.file == file or file.endswith("/" + self.file))
+        )
 
 
 @dataclass(frozen=True)

@@ -32,4 +32,23 @@
 #       reason: multi-clause SQL DDL misread as prose by the sentence heuristic
 #       reviewer: dave
 
-entries: []
+entries:
+  - file: runtime/ccf_runtime/orchestration/adk/driver.py
+    rule: cinv01c-factory-bypass
+    fingerprint: 917b985f2ee3a3d4779efcd96831f9531c53ea71ef8057033cda9fbcdfade45e
+    reason: >-
+      google.adk.workflow.Workflow (aliased AdkWorkflow) — the harness's own
+      topology object, ADK 2.5.0's non-deprecated successor to the removed
+      SequentialAgent composition (plan 08-04 Task 1, D-14). Not CCF's
+      Workflow: the CCF workflow handle this driver drives still comes only
+      from WorkflowFactory; the flagged call authors harness-side topology,
+      which is exactly the CINV-02 carve-out this module exists inside.
+    reviewer: dave
+  - file: runtime/ccf_runtime/orchestration/adk/driver.py
+    rule: cinv01c-factory-bypass
+    fingerprint: 8433ac381df8f9ea3d1c0cb4d4096bf49467af797c7125d292f78afa095bd962
+    reason: >-
+      Same as above — the resume-segment AdkWorkflow (google.adk.workflow
+      .Workflow) construction; harness-side topology, not a CCF Workflow
+      (plan 08-04 Task 1, D-14).
+    reviewer: dave

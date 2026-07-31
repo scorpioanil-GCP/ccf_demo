@@ -35,6 +35,22 @@ from tools.lints import (
 #: that actually holds the package, so `src/ccf/x.py` is `ccf.x`.
 LINTED_TREES: tuple[str, ...] = ("src", "runtime", "examples")
 
+#: Per-rule tree scoping — the lint posture over ``/examples``, stated in
+#: config rather than left to path accident (plan 08-01; 08-RESEARCH.md Open
+#: Question 3). CINV-01 (No-Hardcoding) covers ``examples`` because CLAUDE.md
+#: §6.4 applies the rule to ``/src``, ``/runtime``, and ``/examples`` alike.
+#: CINV-02 (harness imports) is scoped OFF the examples tree: CLAUDE.md §7.3
+#: words the invariant as "zero harness imports in **core**", and example 03
+#: (harness portability) necessarily imports harness SDKs. The exemption is
+#: this config surface — not an allowlist entry, and not merely a test
+#: assertion. Rules absent from this mapping run over every linted tree.
+RULE_TREE_SCOPE: dict[str, tuple[str, ...]] = {
+    "no-hardcoding": ("src", "runtime", "examples"),
+    "harness-imports": ("src", "runtime"),
+    "algorithmic": ("src", "runtime"),
+    "orchestration-imports": ("src", "runtime"),
+}
+
 #: Directories never worth walking.
 SKIP_DIRS: frozenset[str] = frozenset(
     {"__pycache__", ".git", ".venv", "venv", "build", "dist", ".mypy_cache"}
@@ -86,6 +102,8 @@ def run(
         for path in iter_python_files(root):
             module_name = module_name_for(path, root)
             for rule in rules:
+                if tree not in RULE_TREE_SCOPE.get(rule, LINTED_TREES):
+                    continue
                 found = CHECKERS[rule](path, module_name)
                 if rule == "no-hardcoding":
                     found = no_hardcoding.apply_allowlist(found, active)
