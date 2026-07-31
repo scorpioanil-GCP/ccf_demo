@@ -6,11 +6,16 @@
 **and what would fail if the implementation were broken** (D-25: rows are drafted from tests
 that fail under the broken implementation, never from plan intent). No numeric coverage gate.
 
-> **Status: REVIEWED — AWAITING DAVE, WITH FOUR OPEN RULINGS.** The §3.1 cross-AI review
-> ran (Codex + Cursor, 2026-07-30; §7). Findings were triaged blocking/advisory; the
-> evidence-and-wording findings were **fixed in-phase** (§7.2), and four findings whose fix
-> requires a ruling Dave has not made are logged as **D-IMPL-62..65 (OPEN)** per §3.1's
-> stop rule — the phase does not complete around them. `D-GATE-I.4` is **deliberately
+> **Status: RULED AND FIXED — AWAITING DAVE'S FINAL GATE APPROVAL.** The §3.1 cross-AI
+> review ran (Codex + Cursor, 2026-07-30; §7); findings were triaged blocking/advisory; the
+> evidence-and-wording findings were **fixed in-phase** (§7.2). The four findings that
+> required rulings were logged as **D-IMPL-62..65** and **Dave ruled on all four on
+> 2026-07-30** (recorded in `docs/DECISIONS.md`): D-IMPL-62 — submit-only with
+> honest-contract hardening (hardening **implemented in-phase**, §2.3); D-IMPL-63 —
+> identity-binding reference impls deferred to explicit follow-up-phase scope; D-IMPL-64 —
+> deferral **rejected**, the notify-only webhook transport **implemented in-phase** (§2.3);
+> D-IMPL-65 — composition-root wiring closes this gate, with a NAMED next-phase engine
+> commitment. The post-ruling sweep is green (§1). `D-GATE-I.4` is **deliberately
 > unwritten**; approval authority is Dave's alone (CLAUDE.md §3.1, §2). Per D-03: one
 > phase, one gate — ORCH + HITL + EXPR ship and gate together; there is no I.4a/I.4b split.
 
@@ -35,8 +40,8 @@ run on `main`; this sweep is the merged-phase-branch-head run that precedes it.
 
 | Leg | Command | Result |
 |-----|---------|--------|
-| Full suite, harnesses mandatory | `CCF_REQUIRE_HARNESSES=1 python -m pytest -q` | **1268 passed, 0 skipped, 0 failed**, exit 0 |
-| Strict typing | `python -m mypy` | **Success: no issues found in 151 source files** (`src` + `runtime` per `[tool.mypy] files`) |
+| Full suite, harnesses mandatory | `CCF_REQUIRE_HARNESSES=1 python -m pytest -q` | **1280 passed, 0 skipped, 0 failed**, exit 0 (post-ruling re-run, 2026-07-30; pre-ruling sweep was 1268/0/0) |
+| Strict typing | `python -m mypy` | **Success: no issues found in 152 source files** (`src` + `runtime` per `[tool.mypy] files`; 151 pre-ruling, +1 for `ccf.hitl.webhook`) |
 | Invariant lints (CINV-01a/b/c, CINV-02 incl. both carve-outs, CINV-03, d06-orchestration-split) | `python -m tools.lints --all` | **exit 0, zero findings** |
 
 **The skip count is zero — and that is the phase's own deliverable, not an accident.** I.3
@@ -49,7 +54,8 @@ tests/invariants/test_replay_by_construction.py` → 0.
 
 **Pass-count trajectory across the phase, no deletions:** 987 (phase baseline, 07-01) →
 1002 (07-02) → 1081 (07-04) → 1096 (07-06) → 1120/0-skips (07-07) → 1141 (07-08) →
-1161 (07-09) → 1232 (07-11) → 1257 (07-12) → **1268 (07-13, this sweep)**. Every plan's
+1161 (07-09) → 1232 (07-11) → 1257 (07-12) → 1268 (07-13) → **1280 (07-14, post-ruling
+fixes: D-IMPL-62 hardening + D-IMPL-64 webhook transport — this sweep)**. Every plan's
 SUMMARY records its own count; no test module was deleted in the phase (each plan's
 self-check asserts no unexpected deletions; 07-09's role-separation diff explicitly shows
 zero removed lines).
@@ -117,12 +123,12 @@ stated in the mandatory template:
 | # | Claim | Named mechanism | What would fail if broken |
 |---|-------|-----------------|---------------------------|
 | 14 | **MCP front door (EXPR-01), discharging the D-GATE-I.3 named Experience-edge deferral**: products (`ccf-experience-product://`) and agents (list/invoke Tools rendering every bound skill through the D-IMPL-56 shared derivation) on a role-separated authenticated server; **plus the D-IMPL-20 primary HITL authority channel** (`ccf-hitl-queue://` Resources; `submit_hitl_action` whose input schema *is* the D-IMPL-21 field set, so an unbound call is a tool-level refusal before a submission can exist). Both proven cross-process with dim-4/dim-2 landings independently recomputed by the parent process | `tests/crossproc/test_experience_edge.py`, `tests/crossproc/test_hitl_mcp.py`; `tests/invariants/test_mcp_role_separation.py` (+6 rows, additions only: module/import separation, scheme ownership, no-graph-import scans for both new roles cross-checked against egress, artifact, and each other) | A front-door address confused with an egress or artifact address in a replay record (the T-06-16 split extended to roles 3 and 4); a privileged path in the experience module (it imports no factory, no Control Plane, no agents, no graph package — source-grep-asserted by the test); a pending HITL event consumed by a refused submission |
-| 15 | **HTTP API skeleton (EXPR-03): the D-IMPL-22/23 ruled noun set exactly, OpenAPI 3.1.0 generated from the existing `extra=forbid` contracts, no ingest/L1/write path, product read-only** — the noun-set assertion is parsed from the D-IMPL-22 ruling text in `docs/DECISIONS.md`, so drift between ruling and surface is a red test, not a review catch | `tests/http_api/test_routes.py` (32 tests: set-equality, forbidden paths, contract round-trips, typed-4xx-vs-opaque-5xx refusal line), `tests/http_api/test_openapi.py` (validity + exact auth-posture string equality) | A route outside the ruled noun set; a write door onto L1 (the single-writer invariant's front-door leg); an OpenAPI document that stopped carrying the posture sentence verbatim |
-| 16 | **`ccf` CLI (EXPR-02): thin client, zero privileged paths** — every verb is a pure argv→request translation to the same routes; `--local` constructs the **identical** `ApiDependencies` bundle `create_app` consumes (type-asserted: `type(bundle) is ApiDependencies`); HTTP-vs-injected equivalence proven byte-identical against a real uvicorn server; `agent declare` has no inline-definition flag to parse (T-07-29); no URL literal in the package (test-scanned). `ccf skill import` is one-way (byte-level directory snapshot equal before/after) and never maps `allowed-tools` onto requirements (D-IMPL-29, T-07-28) | `tests/cli/test_cli.py` (39 CLI tests incl. exit-code discipline 0/1/2), `tests/cli/test_skill_import.py` | A CLI-only ledger path (T-07-27 — this is why `/skill/revocations` was added as a route rather than a CLI shortcut, §4.3); an importer that turned a SKILL.md's `allowed-tools` into granted requirements |
+| 15 | **HTTP API skeleton (EXPR-03): the D-IMPL-22/23 ruled noun set exactly, OpenAPI 3.1.0 generated from the existing `extra=forbid` contracts, no ingest/L1/write path, product read-only** — the noun-set assertion is parsed from the D-IMPL-22 ruling text in `docs/DECISIONS.md`, so drift between ruling and surface is a red test, not a review catch | `tests/http_api/test_routes.py` (with `test_openapi.py`, 34 tests: set-equality, forbidden paths, contract round-trips, typed-4xx-vs-opaque-5xx refusal line, OpenAPI validity + exact auth-posture string equality, and the two D-IMPL-62 receipt cases of row 17) | A route outside the ruled noun set; a write door onto L1 (the single-writer invariant's front-door leg); an OpenAPI document that stopped carrying the posture sentence verbatim |
+| 16 | **`ccf` CLI (EXPR-02): thin client, zero privileged paths** — every verb is a pure argv→request translation to the same routes; `--local` constructs the **identical** `ApiDependencies` bundle `create_app` consumes (type-asserted: `type(bundle) is ApiDependencies`); HTTP-vs-injected equivalence proven byte-identical against a real uvicorn server; `agent declare` has no inline-definition flag to parse (T-07-29); no URL literal in the package (test-scanned). `ccf skill import` is one-way (byte-level directory snapshot equal before/after) and never maps `allowed-tools` onto requirements (D-IMPL-29, T-07-28) | `tests/cli/test_cli.py` (40 CLI tests with `test_skill_import.py`, incl. exit-code discipline 0/1/2 and the D-IMPL-62 receipt-output case of row 17) | A CLI-only ledger path (T-07-27 — this is why `/skill/revocations` was added as a route rather than a CLI shortcut, §4.3); an importer that turned a SKILL.md's `allowed-tools` into granted requirements |
 
 ### 2.1 Row-by-row basis
 
-Every module named above ran inside the §1 whole-tree sweep (1268 passed, harnesses
+Every module named above ran inside the §1 whole-tree sweep (1280 passed, harnesses
 mandatory), and rows 3, 5 and 7 additionally cite **measured** counterfactuals (§2.2) rather
 than reasoning — the I.2 process defect (gate prose drafted from plan intent) that D-25
 exists to prevent. Lint-carried rows (9, 13, and the CINV-01c leg of row 1) are covered by
@@ -182,6 +188,17 @@ FAILED tests/workflow/test_slice.py::test_the_step_sequence_lands_on_dimension_5
 These are this phase's recorded-red form: assert-diff and collection-error reds, the same
 evidentiary class as I.3's `DID NOT RAISE` measurements — a red observed on the broken
 implementation, restored immediately, cited by the row that rests on it.
+
+### 2.3 Post-ruling evidence rows (D-IMPL-62 hardening, D-IMPL-64 webhook — built 07-14)
+
+Both fixes followed the same TDD discipline as every other wave: failing tests committed
+first, observed red, then the implementation. The reds here are pre-implementation reds
+(RED commits `b754a90` and `e107f01`), the D-25 species for new mechanism.
+
+| # | Claim, at the strength it is enforced | Named mechanism | What would fail if broken |
+|---|----------------------------------------|-----------------|---------------------------|
+| 17 | **The HTTP/CLI HITL action door is submit-only and says so honestly (D-IMPL-62)** — the response is `HitlActionReceipt`, whose `status` field is **type-closed to the literal `"submitted"`** (it cannot state or imply `resolved`), whose field set is closed (`extra=forbid`: status, submission echo, `event_pending`, `submissions_for_event`), and whose disposition fields carry **real queue state**, not an echo: immediately after a submit the event is still pending, because the submit alone effects no state transition — resolution is the owning primitive's act | `src/ccf/hitl/transport.py::HitlActionReceipt`; `runtime/ccf_runtime/http_api/routes/hitl.py`; `tests/http_api/test_routes.py::test_hitl_action_receipt_states_submitted_with_honest_disposition` (+ the unqueued-event case: `event_pending` is real queue state); `tests/cli/test_cli.py::test_hitl_decide_output_states_submitted_with_disposition` | Pre-implementation red observed: `KeyError: 'status'` on the old submission-echo response. A response that implied resolution, a receipt field claiming a transition that did not occur, or disposition fields computed from the request rather than the queue |
+| 18 | **The notify-only webhook transport (D-IMPL-64) carries no authority surface, by construction** — `HitlEventNotification`'s field set is exactly `{endpoint_key, event}` (no action, no principal; test-asserted); the module never imports the submission contract and the notifier exposes no `submit` (source-scanned); delivery is an **injected** `WebhookDeliveryProtocol` with `RecordingWebhookDeliverer` as the §11 reference impl; a failing endpoint is a **recorded** `WebhookDeliveryOutcome(delivered=False, error=…)` — never an exception into the authority path — and other endpoints still deliver; tenant isolation holds (D-23); duplicate endpoint keys are a typed `WebhookEndpointConflict`; endpoint registrations are typed caller-supplied values, never constants (CINV-01) | `src/ccf/hitl/webhook.py`; `tests/hitl/test_webhook.py` (9 cases: delivery + tenant isolation, failure recording, typed refusals, extra-field refusal, the three notify-only-by-construction scans, Protocol conformance) | Pre-implementation red observed: collection `ImportError` (module absent). A notification payload that grew an action or principal field; a notifier with a submit path (a notification channel becoming an authority channel — exactly what D-IMPL-20's separation forbids); a failed delivery raising into a workflow's execution path |
 
 ---
 
@@ -248,18 +265,21 @@ verifier+settings pair — the asymmetry is deliberate and visible, not an overs
 MCP surfaces are the D-IMPL-20 *primary* authority channel; the HTTP skeleton is the
 D-IMPL-23 minimal service-integration surface whose auth hooks are a future contract.
 
-### 4.2 Webhook notify-only leg — deferred from v0 (single owner: 07-08's SUMMARY)
+### 4.2 Webhook notify-only leg — deferral REJECTED by D-IMPL-64; shipped in-phase
 
-Cited from `07-08-SUMMARY.md`, the disposition's single source; nothing else re-litigates
-it: authority never flowed through the webhook leg in any design revision — every human
-action returns through the typed `HITLTransportProtocol` queue — the property that keeps a
-notification channel from becoming an authority channel, at the D-22 scope rows 7–8 state
-*(wording narrowed per review finding X-8)*. The v0 delivery surfaces
-are the transport Protocol and the MCP HITL server (D-IMPL-20's primary). A notify-only
-webhook emitter is a pure observer of pending events, implementable by any deployment
-against the Protocol with zero SDK change; shipping one would encode notification
-infrastructure choices (retry semantics, signing, endpoint registry) the SDK has no
-business making. `DESIGN.md` §5 was corrected in this plan to match (§4.6 below).
+The 07-08 deferral (single-owner rationale in its SUMMARY: authority never flowed through
+the webhook leg in any design revision — every human action returns through the typed
+`HITLTransportProtocol` queue; a notify-only emitter is a pure observer) was surfaced as
+D-IMPL-64 by the gate review, and **Dave rejected the deferral (2026-07-30): the ruled
+notify-only webhook transport ships in v0, this phase.** It was built in 07-14
+(`src/ccf/hitl/webhook.py`; row 18, §2.3) preserving exactly the properties the 07-08
+rationale named: authority never flows through the webhook — the notification payload has
+no authority surface by construction, and the notification-infrastructure choices the SDK
+has no business making (HTTP client, retries, signing, endpoint registry) stay outside the
+SDK behind the injected `WebhookDeliveryProtocol` seam, with endpoint registrations as
+typed caller-supplied values. `DESIGN.md` §5's 07-14 deferral correction is superseded by
+the ruling; the shipped surface now matches D-IMPL-20's original "two reference
+transports" text.
 
 ### 4.3 Other discretionary choices (in-phase judgment, not new D-IMPL entries)
 
@@ -378,39 +398,43 @@ no row asserts it at that strength.
   write-closure claim — nothing can *change* without a record — and widening to read
   auditing would be a new ruling, not a follow-up.
 - **T-07-24** (§4.1) travels forward as an accepted residual until an auth contract is
-  ruled for the HTTP surface.
+  ruled for the HTTP surface. Per the D-IMPL-62 ruling, no new auth surface was forked —
+  the honest-contract hardening changed what the response *says*, not who may say it.
+- **D-IMPL-63 (ruled deferral, named follow-up scope):** the two D-IMPL-21 reference
+  identity-binding implementations (auth-context-derived principal; JWS-signed binding
+  reusing D-IMPL-15) are **explicit follow-up-phase scope**. Caller-supplied principal
+  fields are the recorded v0 posture, consistent with the unauthenticated v0 HTTP surface.
+- **D-IMPL-65 (named next-phase engine commitment):** the engine will refuse an
+  agent-node handoff with no bound debt assessment. Scheduled scope, not an indefinite
+  posture; the v0 gate closes on composition-root debt-cascade wiring.
 
 ---
 
 ## 6. What Dave Is Asked To Decide
 
-1. **Rule on the four OPEN entries the gate review forced** (full text in
-   `docs/DECISIONS.md`; triage in §7):
-   - **D-IMPL-62** — the HTTP/CLI HITL action door: submit-only by design (authority
-     reserved to primitive-wired surfaces, MCP primary), or primitive-wired server-side?
-     Folds in the D-IMPL-23 "auth hooks"-vs-no-auth divergence (T-07-24) and the
-     D-IMPL-20/22 CLI-layering tension.
-   - **D-IMPL-63** — the two D-IMPL-21 reference identity-binding impls did not ship;
-     defer with the caller-supplied posture stated, or pull the MCP-auth-context
-     derivation into Phase 8?
-   - **D-IMPL-64** — ratify (or reject) the 07-08 v0 deferral of the notify-only webhook
-     emitter, a ruled D-IMPL-20 deliverable.
-   - **D-IMPL-65** — INV-CH7-68 per-handoff debt cascade: accept composition-root
-     responsibility as the v0 posture, or rule an engine-enforced check into a phase.
-2. Read §1 (the sweep — 1268/0/0 with harnesses mandatory, mypy 151 files, lints clean,
-   and the zero-skip milestone that closes CINV-04), §2 (sixteen rows across the four
-   criteria — for any row that reads as a claim rather than evidence, run the test it
-   names), §2.2 (the three measured counterfactuals, verbatim), §3 (requirements map, the
-   two discharged I.3 prerequisites, the GO probe), §4 (residual risks — **the
-   unauthenticated HTTP surface first** — the deviations register, the two rejected
-   suggestions, and the DESIGN.md corrections), §5 (the Phase 8 handoff), §7 (the review
-   report and triage).
-3. Optionally re-run, from the repository root with the project interpreter:
+The four OPEN rulings this section previously asked for were **ruled on 2026-07-30**
+(recorded in `docs/DECISIONS.md`): D-IMPL-62 — submit-only with honest-contract hardening
+(implemented, row 17); D-IMPL-63 — identity-binding reference impls deferred to named
+follow-up scope; D-IMPL-64 — deferral rejected, webhook transport implemented (row 18);
+D-IMPL-65 — composition-root now, engine commitment next phase. What remains is the gate
+itself:
+
+1. Read §1 (the post-ruling sweep — **1280/0/0** with harnesses mandatory, mypy 152
+   files, lints clean, and the zero-skip milestone that closes CINV-04), §2 (eighteen rows
+   across the four criteria — for any row that reads as a claim rather than evidence, run
+   the test it names), §2.2–§2.3 (the measured counterfactuals and the two post-ruling
+   TDD reds), §3 (requirements map, the two discharged I.3 prerequisites, the GO probe),
+   §4 (residual risks — **the unauthenticated HTTP surface first** — the deviations
+   register, the two rejected suggestions, the DESIGN.md corrections, and §4.2's
+   ruling-superseded webhook disposition), §5 (the Phase 8 handoff, now carrying the
+   D-IMPL-63 deferral and the D-IMPL-65 engine commitment as named scope), §7 (the review
+   report, triage, and ruling outcomes).
+2. Optionally re-run, from the repository root with the project interpreter:
    `CCF_REQUIRE_HARNESSES=1 PYTHONPATH=src:runtime .venv/bin/python -m pytest -q &&
    .venv/bin/python -m mypy && PYTHONPATH=src:runtime .venv/bin/python -m tools.lints --all`
-   (expect **1268 passed, 0 skipped**; mypy 151 files; lints exit 0).
-4. Confirm the four ROADMAP Phase 7 criteria against their rows (§3's mapping).
-5. **Approve or reject the Phase I.4 gate.** Approval authority is Dave's alone; the
+   (expect **1280 passed, 0 skipped**; mypy 152 files; lints exit 0).
+3. Confirm the four ROADMAP Phase 7 criteria against their rows (§3's mapping).
+4. **Approve or reject the Phase I.4 gate.** Approval authority is Dave's alone; the
    review passing is necessary, never sufficient.
 
 On approval — and only on approval — the `D-GATE-I.4` entry is appended to
@@ -430,6 +454,9 @@ supplied. Findings below are numbered `C-n` (Codex) and `X-n` (Cursor). Every fi
 reviewer's say-so alone.
 
 ### 7.1 Disposition table
+
+*(Rows marked "(OPEN), stop" record the triage as it stood at the checkpoint; all four
+entries were ruled 2026-07-30 — see §7.4 for the rulings and their in-phase consequences.)*
 
 | Finding | Substance | Class | Disposition |
 |---------|-----------|-------|-------------|
@@ -472,9 +499,19 @@ comment changes in `src/ccf/hitl/__init__.py` and
 `tests/invariants/test_replay_by_construction.py`): **1268 passed, 0 skipped**, mypy clean
 (151 files), `tools.lints --all` exit 0.
 
-### 7.4 The §3.1 stop
+### 7.4 The §3.1 stop — and its resolution
 
-Four blocking findings cannot be fixed without rulings Dave has not made. Per §3.1 they are
-logged as **D-IMPL-62, D-IMPL-63, D-IMPL-64, D-IMPL-65 (all OPEN)** and this phase **stops
-here** — the gate is presented with the rulings as its first ask (§6), and `D-GATE-I.4`
-is not written until Dave rules and approves.
+Four blocking findings could not be fixed without rulings Dave had not made. Per §3.1 they
+were logged as **D-IMPL-62..65 (OPEN)** and the phase **stopped** at the gate checkpoint.
+**Dave ruled on all four on 2026-07-30** (full rulings in `docs/DECISIONS.md`):
+
+| Entry | Ruling | In-phase consequence |
+|-------|--------|----------------------|
+| D-IMPL-62 | Submit-only with honest-contract hardening; MCP resolve-wiring is a ruled asymmetry; auth stays on T-07-24's residual entry | `HitlActionReceipt` implemented, TDD (row 17, §2.3) |
+| D-IMPL-63 | Deferred — identity-binding reference impls are explicit follow-up-phase scope; caller-supplied principal fields are the v0 posture | Handoff entry, §5 |
+| D-IMPL-64 | Deferral **rejected** — notify-only webhook transport ships in v0, this phase | `ccf.hitl.webhook` implemented, TDD (row 18, §2.3) |
+| D-IMPL-65 | Composition-root wiring closes this gate; engine refusal of an unbound-debt agent-node handoff is a named next-phase commitment | DESIGN §4 note updated; handoff entry, §5 |
+
+The full sweep was re-run after both implementations: **1280 passed, 0 skipped**, mypy
+clean (152 files), `tools.lints --all` exit 0. `D-GATE-I.4` remains unwritten until Dave
+approves the gate itself (§6).
