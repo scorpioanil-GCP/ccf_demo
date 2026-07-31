@@ -1,0 +1,80 @@
+# Cross-process ontology — the deployment's declared vocabulary
+# (property-intelligence domain, D-08; horizontal domain mix per D-IMPL-52).
+#
+# Authored 100% fresh for this example (D-07): every name and value here is
+# invented for `larkfield-estates`; nothing is ported from any prior
+# property-intelligence system. Everything in this file is a *value*: entity
+# classes, relationship types, attribute names, identifiers. None of it
+# exists in `/src`, and none of it exists in `producer_child.py` or `run.py`
+# (CLAUDE.md §6.4 No-Hardcoding Rule) — the drivers are thin
+# loading-and-asserting logic over this artifact.
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+tenant_id: larkfield-estates
+
+# Source payload vocabulary -> E nodes. `match_key` selects a rule by
+# presence; `identity_keys` mint the canonical URI, so the same property
+# arriving from two source systems converges on one node without either
+# system knowing about the other.
+entity_rules:
+  - match_key: property_ref
+    entity_class: property
+    identity_keys: [property_ref]
+    attribute_keys:
+      - property_name
+      - property_kind
+      - property_classification
+
+  - match_key: zone_ref
+    entity_class: zone
+    identity_keys: [zone_ref]
+    attribute_keys:
+      - zone_label
+      - zone_purpose
+      - zone_classification
+
+  - match_key: sensor_ref
+    entity_class: sensor
+    identity_keys: [sensor_ref]
+    attribute_keys:
+      - sensor_kind
+      - reading_summary
+      - sensor_classification
+
+  - match_key: occupancy_ref
+    entity_class: occupancy_signal
+    identity_keys: [occupancy_ref]
+    attribute_keys:
+      - occupancy_state
+      - occupancy_classification
+
+# Typed first-class edges, emitted when one envelope resolves both endpoint
+# classes — co-occurrence in one source event is the evidence. Subjects are
+# chosen so the traversal below walks forward from the property seed.
+relationship_rules:
+  - relationship_type: contains
+    subject_entity_class: property
+    object_entity_class: zone
+
+  - relationship_type: monitored_by
+    subject_entity_class: zone
+    object_entity_class: sensor
+
+  - relationship_type: signals
+    subject_entity_class: zone
+    object_entity_class: occupancy_signal
+
+# Which attribute carries each class's policy classification — per class,
+# because an occupancy signal's sensitivity and a zone's are different fields.
+classification_attribute_by_class:
+  property: property_classification
+  zone: zone_classification
+  sensor: sensor_classification
+  occupancy_signal: occupancy_classification
+
+# The attribute the similarity corpus is built from, per ranked class. The
+# SDK holds no corpus; the deployment says what text means "this sensor".
+similarity_corpus_attribute_by_class:
+  sensor: reading_summary

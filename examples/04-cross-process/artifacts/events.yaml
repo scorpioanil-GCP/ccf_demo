@@ -1,0 +1,86 @@
+# Cross-process event stream — L1 signal envelopes (property-intelligence
+# domain, D-08; authored fresh per D-07 — nothing here is ported).
+#
+# A handful of events, but not a flat happy path: the stream is built so the
+# producer's fabric has something real to do at each layer.
+#
+#   * ev-202 asserts the SAME property as ev-201 from a DIFFERENT source with
+#     identical attributes -> one claim whose lineage accumulates by
+#     set-union, not a second node.
+#   * ev-204 introduces a second, permitted sensor that the similarity
+#     operator must rank out — so "similarity did something" is
+#     distinguishable from an identity function.
+#   * ev-205 carries a RESTRICTED occupancy signal, which the policy operator
+#     must substitute out along with the edge that would otherwise leak its
+#     existence by absence.
+#
+# Payload keys are the *source systems'* vocabulary, never the fabric's.
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+envelopes:
+  - envelope_id: ev-201
+    source_system_id: site-registry
+    ingestion_timestamp: 2026-06-01T09:00:00Z
+    observed_time: 2026-06-01T08:50:00Z
+    payload:
+      property_ref: "LFE-PROP-0114"
+      property_name: "Larkfield Gate House"
+      property_kind: "residential"
+      property_classification: "internal"
+      zone_ref: "LFE-ZONE-0114-GARDEN"
+      zone_label: "walled garden perimeter"
+      zone_purpose: "perimeter"
+      zone_classification: "internal"
+
+  - envelope_id: ev-202
+    source_system_id: facilities-crm
+    ingestion_timestamp: 2026-06-01T09:05:00Z
+    observed_time: 2026-06-01T08:50:00Z
+    payload:
+      property_ref: "LFE-PROP-0114"
+      property_name: "Larkfield Gate House"
+      property_kind: "residential"
+      property_classification: "internal"
+
+  - envelope_id: ev-203
+    source_system_id: sensor-mesh
+    ingestion_timestamp: 2026-06-01T09:10:00Z
+    observed_time: 2026-06-01T09:08:00Z
+    payload:
+      zone_ref: "LFE-ZONE-0114-GARDEN"
+      zone_label: "walled garden perimeter"
+      zone_purpose: "perimeter"
+      zone_classification: "internal"
+      sensor_ref: "LFE-SNS-7731"
+      sensor_kind: "motion"
+      reading_summary: "garden perimeter motion overnight repeated"
+      sensor_classification: "internal"
+
+  - envelope_id: ev-204
+    source_system_id: sensor-mesh
+    ingestion_timestamp: 2026-06-01T09:12:00Z
+    observed_time: 2026-06-01T09:11:00Z
+    payload:
+      zone_ref: "LFE-ZONE-0114-GARDEN"
+      zone_label: "walled garden perimeter"
+      zone_purpose: "perimeter"
+      zone_classification: "internal"
+      sensor_ref: "LFE-SNS-8850"
+      sensor_kind: "humidity"
+      reading_summary: "greenhouse humidity stable daytime"
+      sensor_classification: "internal"
+
+  - envelope_id: ev-205
+    source_system_id: access-control
+    ingestion_timestamp: 2026-06-01T09:15:00Z
+    observed_time: 2026-06-01T09:14:00Z
+    payload:
+      zone_ref: "LFE-ZONE-0114-GARDEN"
+      zone_label: "walled garden perimeter"
+      zone_purpose: "perimeter"
+      zone_classification: "internal"
+      occupancy_ref: "LFE-OCC-3302"
+      occupancy_state: "resident-away"
+      occupancy_classification: "restricted"

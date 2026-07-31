@@ -1,0 +1,74 @@
+# Cross-process assembler agent definition — a declared, versioned Control
+# Plane artifact (CLAUDE.md §6.1/§6.2; D-IMPL-28). Property-intelligence
+# domain, D-08; authored fresh per D-07.
+#
+# All six specialization axes are here, as values. `/src` holds none of
+# them: the SDK ships the six-axis schema and the Agent Factory, never a
+# specific agent (CLAUDE.md §6.1 — "any agent found in library code is a
+# defect"; No-Hardcoding Rule §6.4). The `context_assembly` archetype makes
+# this the §6.3 `ContextAssemblyAgent` case: an assembler whose output is
+# itself a typed Context Product, served on the wire for other agents.
+# Instruction bindings are versioned-URI refs only; two-field versioning per
+# D-IMPL-28; decimals quoted so they parse as text, never floats (D-IMPL-26).
+
+keys:
+  agent_definition: larkfield-estates/agents/site-situation-assembler
+
+# The referenced Control Plane artifacts the producer registers so the
+# factory can resolve the definition's axis-4/axis-5 refs through Control
+# Plane resolution (never raw storage). Keys mirror the versioned URIs
+# below: {tenant}/{artifact_class}/{name}.
+referenced_artifacts:
+  policy_regime:
+    key: larkfield-estates/policy-bundle/situation-desk-regime
+    class_id: policy-bundle
+    semver: "1.0.0"
+    declaration:
+      regime: larkfield-situation-desk
+      permitted_classifications: [internal]
+  halflife_debt_profile:
+    key: larkfield-estates/debt-profile/perimeter-watch
+    class_id: debt-profile
+    semver: "1.0.0"
+    declaration:
+      review_cycle: nightly
+      risk_sensitivity: "1.1"
+      forced_llm_threshold: "0.35"
+      fail_closed_threshold: "0.80"
+
+agent_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: site-situation-assembler
+  tenant: larkfield-estates
+
+  # axis 1 — ordered archetype list (D-IMPL-19)
+  archetypes: [context_assembly]
+
+  # axis 2 — context contract: the product class this assembler emits and
+  # validates against before serving. Its own output is a typed Context
+  # Product, which is exactly what makes it consumable by other agents
+  # across the process boundary (§6.3, ContextAssemblyAgent).
+  context_contract:
+    consumes:
+      - product_class: larkfield-estates.property-situation
+        schema_version: "1.0.0"
+
+  # axis 3 — perspective (Π role-conditioning)
+  perspective:
+    role: situation-analyst
+    selection_params:
+      estate: larkfield
+
+  # axis 4 — policy regime (versioned-URI ref, never inline)
+  policy_regime:
+    ref: "ccf-artifact://larkfield-estates/policy-bundle/situation-desk-regime@1.0.0"
+
+  # axis 5 — half-life and debt profile (versioned-URI ref)
+  halflife_debt_profile:
+    ref: "ccf-artifact://larkfield-estates/debt-profile/perimeter-watch@1.0.0"
+
+  # axis 6 — instruction bindings: refs plus declared parameter names
+  instruction_bindings:
+    - prompt: "ccf-artifact://larkfield-estates/prompt/situation-brief@1.0.0"
+      parameters: [property_ref, as_of]

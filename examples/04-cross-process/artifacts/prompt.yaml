@@ -1,0 +1,22 @@
+# Cross-process prompt artifact (CLAUDE.md §6.2 axis 6; D-IMPL-28).
+# Property-intelligence domain, D-08; authored fresh per D-07.
+#
+# The template text and its declared parameters live here, never in code — a
+# prompt string literal in either driver would be the No-Hardcoding Rule
+# (§6.4) firing, and CINV-01 lints `/examples` for exactly that. Validation
+# is parse-only: `declared_parameters` must exactly equal the set Jinja2
+# reports as undeclared variables in `template`; nothing renders here.
+
+keys:
+  prompt_artifact: larkfield-estates/prompt/situation-brief
+
+prompt_artifact:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: situation-brief
+  tenant: larkfield-estates
+  declared_parameters: [property_ref, as_of]
+  template: |
+    Summarize the situation at property {{ property_ref }} as of
+    {{ as_of }}: active perimeter zones, sensors reporting relevant motion,
+    and whether the assembled context is fresh enough to act on.
