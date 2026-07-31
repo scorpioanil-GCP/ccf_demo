@@ -70,6 +70,24 @@ Per CLAUDE.md §13 (reasoning recorded there):
 - Homecams rebuild on the SDK — post-v0 validation exercise, explicitly not v0
 - Domain calibrations and regulatory policy bundles — never the SDK's problem
 
+## Current State
+
+**Shipped: v0.1.0 (2026-07-31, D-GATE-I).** Whitepaper-faithful v0 SDK on `main`:
+fabric L1–L6, six archetypes + Agent & Task Factory + governed skilling,
+bidirectional MCP + A2A/Peering + three harness adapters (Claude Agent SDK,
+Google ADK, LangGraph), Workflow/HITL primitives with signed-binding auth,
+MCP/CLI/HTTP front doors, eight-example suite in CI (1339 tests, mypy strict,
+all invariant lints green). Milestone audit: tech_debt, no blockers
+(.planning/v0.1-MILESTONE-AUDIT.md).
+
+## Next Milestone Goals
+
+Candidates for v0.2 (pending /gsd:new-milestone): performance test battery +
+baselines; comprehensive documentation; tech-debt register (HITL door
+authorization WR-01, transport synchronization WR-02, ADK driver robustness
+WR-03, ApprovalGate.resolve × D-16 composition, create_app auth-default
+warning, phase-7 Nyquist validation).
+
 ## Context
 
 - **Whitepaper:** `docs/CCF_Whitepaper_1-2.md` in-repo; every public class
@@ -139,4 +157,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-30
+*Last updated: 2026-07-31
