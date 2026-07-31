@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-31T06:26:43.074Z"
+last_updated: "2026-07-31T06:40:05.542Z"
 progress:
   total_phases: 1
   completed_phases: 1
@@ -27,14 +27,15 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 08 (phase-i-5-examples-suite-full-ci-verification) — EXECUTING
-Plan: 4 of 13 complete
+Plan: 5 of 13 complete
 
 - **Phase:** 8 of 8 (phase i.5 — examples suite & full ci verification)
-- **Plan:** 08-03 complete — D-16 signed-binding requiredness composed at
-  the HITL transport authority path (`HitlPolicy` artifact, two typed
-  refusals), mapped to shared `ERROR_SIGNED_BINDING_*` constants at both
-  the HTTP and MCP doors, R1 closed with was-called derivation
-  assertions; sweep 1337/0/0, mypy 156 files, lints clean
+- **Plan:** 08-04 complete — ADK driver migrated off deprecated
+  `SequentialAgent` onto `google.adk.workflow.Workflow` at the 2.5.0 pin
+  (conformance 40/40, no suppression needed; harness `Workflow`
+  name-collision carried by two reviewed D-08 allowlist entries),
+  D-IMPL-62 verb status note, `docs/security-notes.md` key-management
+  note; sweep 1337/0/0, mypy 156 files, lints clean
 
 - **Status:** Executing Phase 08
 
@@ -82,6 +83,7 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 | 08-01      | ~10 min  | 2     | 4     |
 | 08-02      | ~12 min  | 2     | 8     |
 | Phase 08 P03 | ~15 min | 3 tasks | 6 files |
+| Phase 08 P04 | 20min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -136,6 +138,7 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 - [Phase 08]: D-15 executed — `ccf hitl decide` removed tree-wide, `submit` is the one verb; DECISIONS.md entry dated 2026-07-30 (08-02)
 - [Phase 08]: HITL HTTP door fails closed on non-TokenGrant grant objects (403 ERROR_INVALID_GRANT, never caller-principal fallback); refusal bodies carry typed `error_code` constants from `http_api/errors.py`, with `ERROR_SIGNED_BINDING_{REQUIRED,INVALID}` reserved for 08-03 (08-02)
 - [Phase ?]: 08-03: HitlPolicy artifact (ccf.hitl-policy) with schema-validated signed_binding_required (default false); D-16 refusals typed at the transport and mapped to shared ERROR_SIGNED_BINDING_* constants at both HTTP and MCP doors; R1 closed with was-called assertions
+- [Phase ?]: ADK migration taken over suppression: google.adk.workflow.Workflow usable at 2.5.0 (BaseAgent is BaseNode); D-08 allowlist carries the harness Workflow name-collision, allowlist path matching Rule-1-fixed (08-04)
 
 ### Todos
 
@@ -149,13 +152,13 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 
 ## Session Continuity
 
-Last action: 08-03 complete (2026-07-31) on `phase-i5` — D-16
-signed-binding requiredness (Task 1 RED b80249a / GREEN 86ee2e3), door
-mapping at HTTP + MCP (Task 2 RED 6e04967 / GREEN 05eefce), R1 was-called
-assertions (317a871); full sweep 1337/0/0, mypy clean (156 files), lints
-clean. EXAM-06 deliberately NOT marked complete — it is shared with 08-08
-(example 05 itself).
+Last action: 08-04 complete (2026-07-31) on `phase-i5` — ADK driver
+migrated to `google.adk.workflow.Workflow` at the 2.5.0 pin (Task 1
+96d355c: BaseAgent segments plug in as BaseNodes, Runner via `node=`,
+two reviewed cinv01c D-08 allowlist entries + Rule-1 fix to allowlist
+path matching), D-IMPL-62 verb status note + `docs/security-notes.md`
+(Task 2 d099904); conformance 40/40, full sweep 1337/0/0, mypy clean
+(156 files), lints clean. EXAM-04 already marked complete.
 
-Next action: execute 08-04 (hardening wave part C — ADK SequentialAgent
-migration, D-IMPL-62 verb note, key-management doc note). Standing note:
+Next action: execute 08-05 (wave 4 — examples begin). Standing note:
 `main` is far ahead of `origin/main`; Dave has not authorized a push.

@@ -48,7 +48,7 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 08-03-PLAN.md — Hardening B: D-16 signed-binding requiredness + door mapping (HTTP/MCP), R1 was-called assertions
-- [ ] 08-04-PLAN.md — Hardening C: ADK SequentialAgent migration, D-IMPL-62 verb note, key-management doc note
+- [x] 08-04-PLAN.md — Hardening C: ADK SequentialAgent migration, D-IMPL-62 verb note, key-management doc note
 - [x] 08-05-PLAN.md — examples/00-quickstart (banking) — convention template for Wave 4
 
 **Wave 4** *(blocked on Wave 3 completion)*
@@ -83,7 +83,7 @@ Plans:
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 20/20 | Complete   | 2026-07-31 |
-| 8. Phase I.5 — Examples Suite & Full CI Verification | 4/13 | In Progress|  |
+| 8. Phase I.5 — Examples Suite & Full CI Verification | 5/13 | In Progress|  |
 
 ## Coverage
 

@@ -129,7 +129,7 @@ phase deliverable and, within Phase I, by Common Pillar (§4).
       factory, all six specialization axes
 - [ ] **EXAM-03**: `02-skilling` — grant/exercise/revoke skill; governance
       check fires; replay captures grants
-- [ ] **EXAM-04**: `03-harness-portability` — one agent definition under two
+- [x] **EXAM-04**: `03-harness-portability` — one agent definition under two
       harnesses with equivalence assertion
 - [ ] **EXAM-05**: `04-cross-process` — assembler and consumer across
       processes via MCP egress and A2A with admission verification
@@ -208,7 +208,7 @@ All 46 v1 requirements mapped (46/46).
 | EXAM-01 | Phase 8 | Complete |
 | EXAM-02 | Phase 8 | Pending |
 | EXAM-03 | Phase 8 | Pending |
-| EXAM-04 | Phase 8 | Pending |
+| EXAM-04 | Phase 8 | Complete |
 | EXAM-05 | Phase 8 | Pending |
 | EXAM-06 | Phase 8 | Pending |
 | EXAM-07 | Phase 8 | Pending |
