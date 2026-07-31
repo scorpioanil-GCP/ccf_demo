@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: executing
-last_updated: "2026-07-30T23:59:00.000Z"
+status: ready_to_plan
+last_updated: 2026-07-31T01:04:07.499Z
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 88
   completed_plans: 88
-  percent: 87
+  percent: 75
+stopped_at: Phase 07 complete (14/14) — ready to discuss Phase 8
 ---
 
 # STATE — CCF SDK
@@ -22,19 +23,19 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 07 — phase-i-4-orchestration-hitl-experience
+**Current focus:** Phase 8 — phase i.5 — examples suite & full ci verification
 
 ## Current Position
 
 Phase: 07 (phase-i-4-orchestration-hitl-experience) — AWAITING FINAL GATE APPROVAL
 Plan: 14 of 14 (all plans complete)
 
-- **Phase:** 7 of 8 (phase i.4 — orchestration, hitl, experience)
-- **Plan:** 07-14 complete — D-IMPL-62..65 ruled by Dave (2026-07-30); D-IMPL-62
+- **Phase:** 8 of 8 (phase i.5 — examples suite & full ci verification)
+- **Plan:** Not started
   hardening (`HitlActionReceipt`) and D-IMPL-64 notify-only webhook transport
   (`ccf.hitl.webhook`) built TDD; gate document updated; post-ruling sweep
   1280/0/0, mypy 152 files, lints clean
-- **Status:** STOPPED at the §3.1 final approval checkpoint — Dave approves or
+- **Status:** Ready to plan
   rejects `docs/PHASE_I4_GATE.md`. D-GATE-I.4 NOT logged; `phase-i4` NOT merged.
 - **Branch:** `phase-i4` (created off `main` at 6520b70)
 
