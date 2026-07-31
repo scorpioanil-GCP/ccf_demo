@@ -70,10 +70,10 @@ class TestPrincipalFromTokenGrant:
             _derive(product_content_hash="not-a-hash")
 
     def test_b_naive_action_time_is_rejected_unlaundered(self) -> None:
-        with pytest.raises((ValidationError, ValueError)):
+        from ccf.contracts.canonical import CanonicalizationError, canonical_bytes
+
+        with pytest.raises((ValidationError, CanonicalizationError)):
             binding = _derive(action_time=datetime(2026, 7, 30, 12, 0))
             # If contract construction admits the naive datetime, the
             # canonical serializer must refuse it (D-IMPL-38).
-            from ccf.contracts.canonical import canonical_bytes
-
             canonical_bytes(binding)
