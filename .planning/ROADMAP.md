@@ -430,7 +430,41 @@ Plans:
   4. Every example ships code + artifacts side by side with a README citing the whitepaper and CLAUDE.md sections it exercises; no example's code runs meaningfully with its artifacts deleted (No-Hardcoding demonstrated)
   5. Full Phase I review passes: all CI invariants green (CINV-01..04 across `/src`, `/runtime`, `/examples`), composition-preservation tests for every shipped operator pair, and the whitepaper-fidelity spot check on sampled public class docstrings
 
-**Plans**: TBD
+**Plans**: 13 plans
+
+> Note: criterion 1's "one coherent neutral domain (non-banking, non-property-intelligence)" is superseded by **D-IMPL-52** (Dave, 2026-07-25): horizontal domain mix, `00-quickstart` banking, `04-cross-process` property-intelligence (08-CONTEXT.md D-05..D-08). The gate verifies against the amended policy.
+
+Plans:
+**Wave 1**
+
+- [ ] 08-01-PLAN.md — Scaffold: phase-i5 branch, editable-install refresh, Makefile, lint posture over /examples
+
+**Wave 2**
+
+- [ ] 08-02-PLAN.md — Hardening A: D-15 remove `ccf hitl decide`, fail-closed TokenGrant branch, typed error-code constants
+- [ ] 08-03-PLAN.md — Hardening B: D-16 signed-binding requiredness at authority path, R1 was-called assertions
+- [ ] 08-04-PLAN.md — Hardening C: ADK SequentialAgent migration, D-IMPL-62 verb note, key-management doc note
+
+**Wave 3**
+
+- [ ] 08-05-PLAN.md — examples/00-quickstart (banking)
+- [ ] 08-06-PLAN.md — examples/01-agent-basics (field-service) + 02-skilling (clinical-trials ops)
+- [ ] 08-07-PLAN.md — examples/04-cross-process (property-intelligence, fresh artifacts)
+- [ ] 08-08-PLAN.md — examples/05-workflow-hitl (banking, auth-bound) + 06-decision-replay (energy/grid-ops)
+- [ ] 08-09-PLAN.md — examples/07-artifact-store-mcp (logistics, store swap)
+- [ ] 08-10-PLAN.md — examples/03-harness-portability deterministic leg (e-commerce) + A3 discharge
+
+**Wave 4**
+
+- [ ] 08-11-PLAN.md — example 03 live legs: Ollama (default) + Anthropic (gated), structural equivalence
+
+**Wave 5**
+
+- [ ] 08-12-PLAN.md — CI examples job + opt-in live-legs workflow + full local sweep
+
+**Wave 6**
+
+- [ ] 08-13-PLAN.md — v0 packaging (README, 0.1.0), Phase I gate: /gsd-review, Dave approval, D-GATE-I, merge, tag v0.1.0
 **Process notes**: Model mandate — Opus 5 (fallback Opus 4.8), "high" effort. Branch: `phase-i5`. Ends with `/gsd-review --phase Phase I --all` → triage → Dave approval → `D-GATE-I` before v0 is declared. Homecams-on-SDK rebuild is post-v0 (deferred).
 
 ## Progress
