@@ -3,7 +3,7 @@
 Written before the implementation per the TDD discipline. The claims:
 
 **Inventory.** Every ruled noun-verb pair parses and dispatches — workflow
-invoke/status/resume, hitl list/decide, replay query/resolve, config
+invoke/status/resume, hitl list/submit, replay query/resolve, config
 keys/versions/resolve, agent declare/list/show/versions, skill
 list/grant/revoke, artifact inspect/put, product get (D-IMPL-22).
 
@@ -80,7 +80,6 @@ INVENTORY: tuple[tuple[str, ...], ...] = (
     ("workflow", "status", "--tenant", "t", "--execution-id", "e"),
     ("hitl", "list", "--tenant", "t"),
     ("hitl", "submit", "--file", "f"),
-    ("hitl", "decide", "--file", "f"),
     ("replay", "query", "--content-address", "a"),
     ("replay", "resolve", "--uri", "u"),
     ("artifact", "inspect", "a"),
@@ -322,10 +321,10 @@ def test_workflow_invoke_status_resume(
     assert code == 1 and "declared transition" in out
 
 
-# --- hitl decide travels the typed authority path --------------------------
+# --- hitl submit travels the typed authority path --------------------------
 
 
-def test_hitl_decide_submits_the_typed_action(
+def test_hitl_submit_submits_the_typed_action(
     fabric: Fabric,
     deps: Any,
     tmp_path: Path,
@@ -353,7 +352,7 @@ def test_hitl_decide_submits_the_typed_action(
     action_file = tmp_path / "action.yaml"
     action_file.write_text(yaml.safe_dump(submission))
     code, _, _ = run_cli(
-        ["hitl", "decide", "--file", str(action_file)],
+        ["hitl", "submit", "--file", str(action_file)],
         capsys,
         dependencies=deps,
     )
@@ -362,7 +361,7 @@ def test_hitl_decide_submits_the_typed_action(
     assert submission["event_key"] in {s.event_key for s in recorded}
 
 
-def test_hitl_decide_output_states_submitted_with_disposition(
+def test_hitl_submit_output_states_submitted_with_disposition(
     fabric: Fabric,
     deps: Any,
     tmp_path: Path,
@@ -392,7 +391,7 @@ def test_hitl_decide_output_states_submitted_with_disposition(
     action_file = tmp_path / "receipt-action.yaml"
     action_file.write_text(yaml.safe_dump(submission))
     code, out, _ = run_cli(
-        ["hitl", "decide", "--file", str(action_file)],
+        ["hitl", "submit", "--file", str(action_file)],
         capsys,
         dependencies=deps,
     )
@@ -409,15 +408,36 @@ def test_hitl_decide_output_states_submitted_with_disposition(
     assert receipt["submission"]["event_key"] == submission["event_key"]
 
 
-# --- hitl submit is the primary verb; decide is a deprecated alias ----------
-# (D-IMPL-66(d): the verb states the ruled D-IMPL-62 submit-only semantics)
+# --- hitl submit is the ONLY verb; decide is removed (D-15, Phase 8) --------
 
 
-def test_hitl_submit_builds_the_same_request_as_decide(
+def test_hitl_decide_is_absent_from_the_parser(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """D-15: ``ccf hitl decide`` no longer exists — the parser rejects the
+    verb as an unknown choice with a nonzero exit; no deprecation path
+    remains."""
+    from ccf_runtime.cli.main import build_parser
+
+    parser = build_parser()
+    with pytest.raises(SystemExit) as excinfo:
+        parser.parse_args(["hitl", "decide", "--file", "f"])
+    assert excinfo.value.code != 0
+    err = capsys.readouterr().err
+    assert "invalid choice" in err
+    assert "decide" in err
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["hitl", "--help"])
+    text = capsys.readouterr().out
+    assert "decide" not in text
+    assert "deprecated" not in text.lower()
+
+
+def test_hitl_submit_builds_the_typed_request(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """``submit`` and ``decide`` build one identical RequestSpec; only
-    ``decide`` emits a deprecation notice, on stderr, naming ``submit``."""
+    """``submit`` — the one verb — builds one RequestSpec, notice-free."""
     from ccf_runtime.cli.main import build_parser
 
     document = {"event_key": "acme-bank/e/gate", "action": "approve"}
@@ -426,18 +446,11 @@ def test_hitl_submit_builds_the_same_request_as_decide(
     parser = build_parser()
 
     submit_args = parser.parse_args(["hitl", "submit", "--file", str(action_file)])
-    decide_args = parser.parse_args(["hitl", "decide", "--file", str(action_file)])
 
     capsys.readouterr()
     submit_specs = submit_args.build(submit_args)
     assert capsys.readouterr().err == ""  # submit is notice-free
 
-    decide_specs = decide_args.build(decide_args)
-    err = capsys.readouterr().err
-    assert "deprecated" in err.lower()
-    assert "ccf hitl submit" in err
-
-    assert submit_specs == decide_specs
     assert len(submit_specs) == 1
     spec = submit_specs[0]
     assert spec.method == "POST"
@@ -445,11 +458,10 @@ def test_hitl_submit_builds_the_same_request_as_decide(
     assert spec.json == document
 
 
-def test_hitl_submit_and_decide_help_state_the_ruled_semantics(
+def test_hitl_submit_help_states_the_ruled_semantics(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """``submit``'s help states the D-IMPL-62 truth; ``decide``'s says
-    deprecated."""
+    """``submit``'s help states the D-IMPL-62 truth."""
     from ccf_runtime.cli.main import build_parser
 
     parser = build_parser()
@@ -458,8 +470,6 @@ def test_hitl_submit_and_decide_help_state_the_ruled_semantics(
     text = capsys.readouterr().out
     assert "submission only" in text
     assert "resolution is the owning primitive's act" in text
-    assert "deprecated" in text.lower()
-    assert "use 'submit'" in text
 
 
 # --- skill grant / revoke through the governed ledger ----------------------
