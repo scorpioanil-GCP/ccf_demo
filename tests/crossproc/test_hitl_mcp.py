@@ -284,6 +284,180 @@ def test_an_action_missing_a_binding_field_is_refused_typed(
 
 
 @with_child
+def test_a_conflicting_subject_claim_is_a_tool_error(
+    child_server_port: int, bridge: SyncMcpBridge
+) -> None:
+    """D-IMPL-67 item 2, across the wire: a foreign subject claim is refused.
+
+    The token the client presents verifies to the fixture credit officer's
+    identity; a call claiming a different ``subject_id`` surfaces as a tool
+    error carrying the refusal, and the event survives untouched.
+    """
+    from ccf_runtime.mcp.hitl_server import (
+        SUBMIT_HITL_ACTION_TOOL,
+        hitl_queue_uri,
+    )
+
+    url = f"http://127.0.0.1:{child_server_port}/mcp"
+    event = pending_event()
+    conflicting = _action_arguments()
+    conflicting["subject_id"] = "someone-else-entirely"
+
+    is_error, body = _call_tool(
+        bridge, url, SUBMIT_HITL_ACTION_TOOL, conflicting
+    )
+
+    assert is_error, body
+    assert "identity" in body.lower()
+    view = json.loads(
+        _read_text(bridge, url, hitl_queue_uri(tenant=event.tenant))
+    )
+    assert [item["event_key"] for item in view["events"]] == [event.event_key]
+
+
+# --- the in-process identity-binding seam (D-IMPL-67 item 2) -----------------
+
+
+def _unit_server(tmp_path: Path, action_route: Any) -> Any:
+    """An authenticated HITL server over stub seams, for direct tool calls."""
+    from mcp.server.auth.settings import AuthSettings
+    from pydantic import AnyHttpUrl
+
+    from ccf.hitl.transport import PendingHitlEvent
+    from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
+    from ccf_runtime.mcp.hitl_server import build_hitl_server
+
+    token_file = tmp_path / "tokens.json"
+    token_file.write_text(
+        json.dumps({"unit-token": {"client_id": "auditor-1", "scopes": ["h"]}}),
+        encoding="utf-8",
+    )
+
+    def queue_view(*, tenant: str) -> tuple[PendingHitlEvent, ...]:
+        return ()
+
+    return build_hitl_server(
+        server_name="unit-hitl",
+        queue_view=queue_view,
+        action_route=action_route,
+        token_verifier=SourceBackedTokenVerifier(
+            source=FileTokenSource(path=token_file)
+        ),
+        auth_settings=AuthSettings(
+            issuer_url=AnyHttpUrl("https://issuer.invalid"),
+            resource_server_url=AnyHttpUrl("https://unit.invalid/mcp"),
+            required_scopes=["h"],
+        ),
+    )
+
+
+def _unit_arguments(*, subject_id: str) -> dict[str, Any]:
+    return {
+        "tenant": "unit-tenant",
+        "event_key": "unit-event-1",
+        "action": "approve",
+        "subject_id": subject_id,
+        "identity_provider_ref": "idp://unit/dev-token-file",
+        "method": "bearer-token",
+        "assurance_level": "dev",
+        "session_ref": "unit-session-1",
+        "action_time": "2026-07-30T12:00:00+00:00",
+        "product_content_hash": "c" * 64,
+    }
+
+
+def _tool_fn(server: Any) -> Any:
+    from ccf_runtime.mcp.hitl_server import SUBMIT_HITL_ACTION_TOOL
+
+    return server._tool_manager.get_tool(SUBMIT_HITL_ACTION_TOOL).fn
+
+
+def _access_token(client_id: str) -> Any:
+    from mcp.server.auth.provider import AccessToken
+
+    return AccessToken(token="unit-token", client_id=client_id, scopes=["h"])
+
+
+def test_a_conflicting_subject_is_a_typed_refusal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A caller-typed subject conflicting with the verified token identity."""
+    import ccf_runtime.mcp.hitl_server as hitl_server
+    from ccf_runtime.mcp.hitl_server import SubjectIdentityConflictRefused
+
+    routed: list[HitlActionSubmission] = []
+
+    def action_route(*, submission: HitlActionSubmission) -> str:
+        routed.append(submission)
+        return "{}"
+
+    server = _unit_server(tmp_path, action_route)
+    monkeypatch.setattr(
+        hitl_server, "get_access_token", lambda: _access_token("auditor-1")
+    )
+
+    with pytest.raises(SubjectIdentityConflictRefused) as excinfo:
+        _tool_fn(server)(**_unit_arguments(subject_id="someone-else"))
+
+    assert "unit-token" not in str(excinfo.value)
+    assert routed == []
+
+
+def test_a_matching_subject_binds_the_verified_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The routed submission's subject IS the verified client_id, derived
+    through ``principal_from_token_grant`` (one mechanism for both doors)."""
+    import ccf_runtime.mcp.hitl_server as hitl_server
+
+    routed: list[HitlActionSubmission] = []
+
+    def action_route(*, submission: HitlActionSubmission) -> str:
+        routed.append(submission)
+        return "{}"
+
+    server = _unit_server(tmp_path, action_route)
+    monkeypatch.setattr(
+        hitl_server, "get_access_token", lambda: _access_token("auditor-1")
+    )
+
+    _tool_fn(server)(**_unit_arguments(subject_id="auditor-1"))
+
+    (submission,) = routed
+    assert submission.principal.approver.subject_id == "auditor-1"
+    assert (
+        submission.principal.approver.identity_provider_ref
+        == "idp://unit/dev-token-file"
+    )
+    # The shared derivation mechanism serves this door too: the server no
+    # longer constructs a binding inline from the caller's claim.
+    source = inspect.getsource(hitl_server)
+    assert "principal_from_token_grant" in source
+
+
+def test_a_missing_access_token_is_a_typed_refusal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No verified token in context: refuse rather than trust the claim."""
+    import ccf_runtime.mcp.hitl_server as hitl_server
+    from ccf_runtime.mcp.hitl_server import UnverifiedCallerRefused
+
+    routed: list[HitlActionSubmission] = []
+
+    def action_route(*, submission: HitlActionSubmission) -> str:
+        routed.append(submission)
+        return "{}"
+
+    server = _unit_server(tmp_path, action_route)
+    monkeypatch.setattr(hitl_server, "get_access_token", lambda: None)
+
+    with pytest.raises(UnverifiedCallerRefused):
+        _tool_fn(server)(**_unit_arguments(subject_id="auditor-1"))
+
+    assert routed == []
+
+
+@with_child
 def test_an_unrecognised_credential_is_refused(
     child_server_port: int, bridge: SyncMcpBridge
 ) -> None:
