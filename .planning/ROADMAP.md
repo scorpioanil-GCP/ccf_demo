@@ -69,7 +69,7 @@ Plans:
 
 **Wave 7**
 
-- [ ] 08-13-PLAN.md — v0 packaging (README, 0.1.0), Phase I gate: /gsd-review, Dave approval, D-GATE-I, merge, tag v0.1.0
+- [x] 08-13-PLAN.md — v0 packaging (README, 0.1.0), Phase I gate: /gsd-review, Dave approval, D-GATE-I, merge, tag v0.1.0 — APPROVED 2026-07-31; v0.1.0 tagged on main
 **Process notes**: Model mandate — Opus 5 (fallback Opus 4.8), "high" effort. Branch: `phase-i5`. Ends with `/gsd-review --phase Phase I --all` → triage → Dave approval → `D-GATE-I` before v0 is declared. Homecams-on-SDK rebuild is post-v0 (deferred).
 
 ## Progress

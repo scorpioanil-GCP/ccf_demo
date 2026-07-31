@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: executing
-last_updated: "2026-07-31T08:45:03.747Z"
+status: complete
+last_updated: "2026-07-31T14:29:45Z"
 progress:
   total_phases: 1
   completed_phases: 1
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 13
+  completed_plans: 13
   percent: 100
 ---
 
@@ -26,11 +26,15 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 08 (phase-i-5-examples-suite-full-ci-verification) — EXECUTING
-Plan: 12 of 13 complete
+Phase: 08 (phase-i-5-examples-suite-full-ci-verification) — COMPLETE AND GATED (D-GATE-I, 2026-07-31)
+Plan: 13 of 13 complete
 
 - **Phase:** 8 of 8 (phase i.5 — examples suite & full ci verification)
-- **Plan:** 08-12 complete — examples suite wired into CI per D-10/D-11
+- **Plan:** 08-13 complete — Phase I gate: README + pyproject 0.1.0 +
+  PHASE_I5_GATE.md authored; §3.1 cross-AI review triaged (X-1 blocking
+  wording fix in-phase); Dave approved 2026-07-31; D-GATE-I logged;
+  phase-i5 merged to main --no-ff (358ba0d); v0.1.0 tagged on the merge
+  commit; push to origin authorized and performed. Previously: 08-12 — examples suite wired into CI per D-10/D-11
   (EXAM-09): ci.yml always-on `examples` job (`make examples`,
   CCF_REQUIRE_HARNESSES=1, timeout-minutes 20, never continue-on-error);
   new live-legs.yml with workflow_dispatch examples-live-ollama (installs
@@ -42,7 +46,7 @@ Plan: 12 of 13 complete
   README/artifacts D-09 contract check 8/8 PASS. Push of `phase-i5`
   remains flagged for Dave — not performed
 
-- **Status:** Executing Phase 08
+- **Status:** Phase 08 complete — Phase I gated, v0.1.0 declared
 
 - **Branch:** `phase-i5` (created off `main`)
 
@@ -62,7 +66,7 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 
 ## Performance Metrics
 
-- Phases complete and gated: 6/8
+- Phases complete and gated: 8/8 — Phase I closed (D-GATE-I, 2026-07-31); v0.1.0 declared
 - Requirements delivered: 31/46 mapped to gated phases — RSCH-01..04, DSGN-01..04,
   FEAS-01..04, FABR-01..09, CINV-01..04, AGNT-01..03, XPRC-01..03. **CINV-04 is
   partial**: two deferral skips (`hitl-action-capture`, `workflow-trace-capture`)
@@ -92,6 +96,7 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 | 08-09      | ~10 min  | 2     | 8     |
 | 08-10      | ~18 min  | 2     | 11    |
 | 08-12      | ~12 min  | 2     | 4     |
+| 08-13      | ~50 min  | 4     | 5     |
 
 ## Accumulated Context
 
@@ -150,6 +155,7 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 - [Phase ?]: ADK migration taken over suppression: google.adk.workflow.Workflow usable at 2.5.0 (BaseAgent is BaseNode); D-08 allowlist carries the harness Workflow name-collision, allowlist path matching Rule-1-fixed (08-04)
 - [Phase 08]: 08-12 — make ci finalized as ci-core + examples (the phase gate command, command-identical to the always-on Actions pipeline, D-10); live legs opt-in via live-legs.yml workflow_dispatch (Ollama model parameterized, default qwen3:0.6b; Anthropic secret-gated fail-fast) per D-11; push of phase-i5 flagged for Dave, not performed
 - [Phase 08]: A3 closed with zero adapter change — the discharge test and example 03's Claude leg drive a genuinely SDK-parsed ResultMessage through seam 4; example 03's session runs over the adapter's own seam-1 carrier, and legs/deterministic.py imports all three harness SDKs unconditionally so a missing harness is a failure, not a skip (08-10)
+- [Phase 08]: 08-13 — D-GATE-I logged (Dave, 2026-07-31): Phase I approved, v0.1.0 tagged on the main merge commit (358ba0d), push authorized and performed; review disposition X-1 fixed in-phase (composition-coverage row narrowed to the shipped_operators() test registry), C-4 rejected with rationale (README tracks CLAUDE.md mission wording)
 
 ### Todos
 
@@ -163,7 +169,10 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 
 ## Session Continuity
 
-Last action: 08-12 complete (2026-07-31) on `phase-i5` — examples suite
+Last action: 08-13 complete (2026-07-31) — Phase I gated and v0.1.0
+declared: D-GATE-I logged, phase-i5 merged to main --no-ff, v0.1.0 tagged
+on the merge commit, main/phase-i5/v0.1.0 pushed to origin per Dave's
+authorization. Prior: 08-12 — examples suite
 wired into CI per D-10/D-11 (EXAM-09, Task 1 f145f1e): ci.yml always-on
 `examples` job (make examples, CCF_REQUIRE_HARNESSES=1, timeout-minutes
 20, never continue-on-error) plus new live-legs.yml (workflow_dispatch
@@ -173,7 +182,7 @@ examples. Full local sweep GREEN (Task 2 evidence-only): lint 0, mypy
 clean (156 files), pytest 1339 passed / 0 skipped, all eight examples
 exit 0, D-09 README/artifacts contract check 8/8 PASS.
 
-Next action: remaining phase-08 plan (13 of 13), then phase gate review.
-Standing note: `phase-i5` and `main` are ahead of origin; Dave has not
-authorized a push — Actions evidence for the new examples/live-legs jobs
-awaits that authorization.
+Next action: v0 is declared — milestone complete. Post-v0 backlog:
+Homecams-on-SDK rebuild, PyPI motion, perf baselines, replay-explorer /
+graph-export CLI ideas. Observe the first Actions runs on origin for the
+EXAM-09 observed-evidence record.
