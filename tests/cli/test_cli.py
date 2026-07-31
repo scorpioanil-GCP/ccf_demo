@@ -467,7 +467,7 @@ def test_hitl_submit_help_states_the_ruled_semantics(
     parser = build_parser()
     with pytest.raises(SystemExit):
         parser.parse_args(["hitl", "--help"])
-    text = capsys.readouterr().out
+    text = " ".join(capsys.readouterr().out.split())  # wrap-tolerant
     assert "submission only" in text
     assert "resolution is the owning primitive's act" in text
 
