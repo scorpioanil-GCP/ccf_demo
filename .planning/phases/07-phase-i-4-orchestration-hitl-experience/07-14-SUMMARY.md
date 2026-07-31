@@ -122,3 +122,9 @@ not who may call it (auth remains T-07-24's accepted residual, per the ruling).
   D-IMPL-65 engine handoff refusal (named commitment), examples 03/05/06, advisory A3,
   `SequentialAgent` deprecation at the next google-adk pin bump, post-merge
   `pip install -e .`.
+
+## Self-Check: PASSED
+
+Created files exist (`src/ccf/hitl/webhook.py`, `tests/hitl/test_webhook.py`); all
+cited commits present (`bd44a9b`, `b754a90`, `4ae7402`, `e107f01`, `0130e35`,
+`acb5835`); post-ruling sweep re-verified green.
