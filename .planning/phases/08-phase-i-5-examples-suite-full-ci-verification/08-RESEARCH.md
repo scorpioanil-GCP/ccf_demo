@@ -442,25 +442,40 @@ is the one real environmental gate on "runs in CI" evidence — surface it to Da
 | A4 | Domain-assignment proposal (Pattern 4) is acceptable within D-06/D-07 | Patterns | Planner reassigns; rails unchanged |
 | A5 | Pushing `phase-i5` to origin for real Actions runs will be authorized | Environment | CI evidence proven via local `make ci` equivalence until authorized |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+*All four questions were resolved during planning; resolutions adopted by the phase-8 plan set are recorded inline below.*
 
 1. **Push authorization for CI evidence.** D-10 requires a real Actions pipeline running on
    every push, but `main` is ahead of `origin/main` and Dave hasn't authorized pushes.
    Recommendation: raise at plan presentation; interim evidence = local make-target parity.
+   **RESOLUTION (adopted):** Explicitly flagged as a Dave decision at the phase-gate checkpoint
+   (08-13); interim evidence is local `make ci` parity with identical command strings
+   (08-12, 08-13). No push occurs without Dave's authorization.
 2. **Where does the Ollama client live?** `/examples/03` keeps `/src`/`/runtime`
    provider-free (cleanest vs. general-purposeness); but if both live legs share it, a small
    `runtime` helper behind `LLMClientProtocol` may be justified. Recommendation: author it
    in example 03's directory first; promote only if a second consumer appears.
+   **RESOLUTION (adopted):** The Ollama client lives in example 03's directory (08-11), behind
+   `LLMClientProtocol`; `/src` and `/runtime` stay provider-free. Promotion deferred until a
+   second consumer appears.
 3. **CINV-02 posture for `/examples`.** Harness imports are required in example 03. The lint
    currently guards `/src` (+ runtime carve-outs). Recommendation: examples are exempt from
    CINV-02 by design (CLAUDE.md limits the invariant to core), but CINV-01 must extend to
    examples — state both explicitly in the lint config and its tests.
+   **RESOLUTION (adopted):** Examples are exempt from CINV-02 by design (CLAUDE.md scopes the
+   invariant to core); CINV-01 extends to `/examples`. Both postures are stated explicitly in
+   the lint config and verified by a posture test (08-01).
 4. **D-16 design shape.** "Compose `SignedPrincipalBinding` requiredness at the authority
    path" is planner-designed within D-IMPL-21/63/67 contracts. The likely seam: transport
    enqueue/resolve accepts an optional-but-policy-requirable signed binding; when the policy
    (Control Plane value, never a code constant) requires it, an unsigned submission is a
    typed refusal. Needs a small design note in the plan, not a new D-IMPL (it accelerates a
    named residual) — unless the contract question exceeds those rulings, then D-IMPL entry + stop.
+   **RESOLUTION (adopted):** The transport-seam design was adopted (08-03): transport
+   enqueue/resolve accepts an optional-but-policy-requirable signed binding; when the Control
+   Plane policy requires it, an unsigned submission is a typed refusal. Within D-IMPL-21/63/67
+   contracts — no new D-IMPL needed.
 
 ## Sources
 

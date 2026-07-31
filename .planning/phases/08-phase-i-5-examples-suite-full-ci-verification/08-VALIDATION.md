@@ -70,10 +70,10 @@ created: 2026-07-30
 ## Wave 0 Requirements
 
 - [ ] `Makefile` (or documented per-example run commands) — examples runner targets
-- [ ] `tests/examples/` harness — CI-invocable end-to-end runs of examples 00–07
+- [ ] Exit-code `make example-NN` targets — CI-invocable end-to-end runs of examples 00–07 (no separate `tests/examples/` pytest harness; the Makefile targets ARE the harness)
 - [ ] CI `examples` job in `.github/workflows/ci.yml`
 
-*Existing pytest infrastructure covers unit/invariant requirements; examples e2e harness is net-new.*
+*Existing pytest infrastructure covers unit/invariant requirements; the examples e2e runner is realized as net-new exit-code `make example-NN` targets wired into the CI `examples` job.*
 
 ---
 
