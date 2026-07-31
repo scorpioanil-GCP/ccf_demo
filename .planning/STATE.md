@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-30T20:55:38.503Z"
+last_updated: "2026-07-30T23:59:00.000Z"
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 88
-  completed_plans: 75
-  percent: 75
+  completed_plans: 88
+  percent: 87
 ---
 
 # STATE — CCF SDK
@@ -26,15 +26,19 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 07 (phase-i-4-orchestration-hitl-experience) — EXECUTING
-Plan: 2 of 14
+Phase: 07 (phase-i-4-orchestration-hitl-experience) — AWAITING FINAL GATE APPROVAL
+Plan: 14 of 14 (all plans complete)
 
 - **Phase:** 7 of 8 (phase i.4 — orchestration, hitl, experience)
-- **Plan:** 07-01 complete (D-IMPL-60/61 recorded, fastapi/httpx pinned); next wave unblocked
-- **Status:** Executing Phase 07
+- **Plan:** 07-14 complete — D-IMPL-62..65 ruled by Dave (2026-07-30); D-IMPL-62
+  hardening (`HitlActionReceipt`) and D-IMPL-64 notify-only webhook transport
+  (`ccf.hitl.webhook`) built TDD; gate document updated; post-ruling sweep
+  1280/0/0, mypy 152 files, lints clean
+- **Status:** STOPPED at the §3.1 final approval checkpoint — Dave approves or
+  rejects `docs/PHASE_I4_GATE.md`. D-GATE-I.4 NOT logged; `phase-i4` NOT merged.
 - **Branch:** `phase-i4` (created off `main` at 6520b70)
 
-- **Progress:** [█████████░] 85%
+- **Progress:** [█████████░] 87%
 
 **Nothing blocks Phase 7 planning on the decision log.** The 12-item Phase I
 gate list is RESOLVED in full (D-GATE-D, 2026-07-25), and D-GATE-I.3 states
@@ -72,6 +76,7 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 | 05-06      | ~12 min  | 2     | 20    |
 | 05-07      | ~8 min   | 2     | 3     |
 | 07-01      | ~15 min  | 3     | 2     |
+| 07-14      | 2 sess.  | 3     | 12    |
 
 ## Accumulated Context
 
@@ -118,6 +123,10 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 - [Phase 05]: Gate package (docs/PHASE_I2_GATE.md) follows the I.1 D-17 format; discretionary in-phase choices recorded in the gate doc §4, not as D-IMPL entries; D-GATE-I.2 deliberately NOT logged pending Dave's approval (05-07)
 - [Phase 07]: D-IMPL-60 (Dave, 2026-07-29): all three v0 SDKs get real OrchestrationProtocol drivers under `runtime/ccf_runtime/orchestration/<sdk>/` with bidirectional adapter-import ban; D-IMPL-17 cross-referenced, not edited (07-01)
 - [Phase 07]: D-IMPL-61 (Dave, 2026-07-30): absent per-node exception ref = propagate-to-terminal — a defined, audited transition to a terminal `failed` state recorded in the trace; validation-error reading declined (let-it-fail stays expressible). Gates 07-04's exception-routing validator (07-01)
+- [Phase 07]: D-IMPL-62 (Dave, 2026-07-30): HTTP/CLI HITL action door is submit-only with honest-contract hardening — `HitlActionReceipt` states `submitted` (type-closed) with real queue disposition; MCP in-process resolve-wiring is a ruled asymmetry; auth stays on T-07-24's residual entry (07-14)
+- [Phase 07]: D-IMPL-63 (Dave, 2026-07-30): the two D-IMPL-21 identity-binding reference impls are explicit follow-up-phase scope; caller-supplied principal fields are the recorded v0 posture (07-14)
+- [Phase 07]: D-IMPL-64 (Dave, 2026-07-30): webhook deferral REJECTED — the notify-only webhook HITL transport ships in v0 (`ccf.hitl.webhook`: injected `WebhookDeliveryProtocol`, typed refusals, no authority surface by construction) (07-14)
+- [Phase 07]: D-IMPL-65 (Dave, 2026-07-30): composition-root debt-cascade wiring closes the I.4 gate; NAMED next-phase commitment — the engine will refuse an agent-node handoff with no bound debt assessment (07-14)
 - [Phase 07]: fastapi==0.140.0 and httpx==0.28.1 are direct pins with stated reasons; CLI is stdlib argparse (no click/typer); ADK's `fastapi>=0.133` constraint interaction recorded for the gate (07-01)
 
 ### Todos
