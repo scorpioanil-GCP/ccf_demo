@@ -91,7 +91,10 @@ FIXTURES = _TESTS_ROOT / "fixtures" / "banking"
 DEV_TOKEN = "ccf-hitl-dev-token"
 
 #: Deployment vocabulary, chosen here because a test *is* the deployment.
-CLIENT_ID = "ccf-hitl-client"
+#: The token verifies to the fixture credit officer's subject id, because
+#: D-IMPL-67 binds the audited subject to the server's verified token
+#: identity — the parent asserts the bound subject against this value.
+CLIENT_ID = "credit-officer-11"
 SCOPE = "ccf:hitl"
 SERVER_NAME = "ccf-hitl-conformance"
 ISSUER_URL = "https://issuer.invalid"
