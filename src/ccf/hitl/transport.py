@@ -35,7 +35,7 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 from collections import deque
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 from pydantic import field_validator
 
@@ -49,6 +49,7 @@ __all__ = [
     "HITL_ACTIONS",
     "HITL_EVENT_CLASSES",
     "HITLTransportProtocol",
+    "HitlActionReceipt",
     "HitlActionSubmission",
     "InMemoryHitlTransport",
     "PendingHitlEvent",
@@ -140,6 +141,30 @@ class HitlActionSubmission(CCFContract):
                 f" {sorted(HITL_ACTIONS)} (D-IMPL-20)"
             )
         return value
+
+
+class HitlActionReceipt(CCFContract):
+    """The honest submit-only receipt (D-IMPL-62).
+
+    SDK-defined. D-IMPL-62 rules the HTTP/CLI HITL action door submit-only:
+    a submission enqueues on the typed transport and effects no state
+    transition and no authority action by itself — the owning primitive
+    resolves it. This receipt is the ruled hardening of that contract:
+    ``status`` is the literal ``"submitted"`` (it cannot state or imply
+    ``resolved`` — the field is type-closed to the one honest word), and
+    the two disposition fields carry real queue state so the caller sees
+    the action's disposition rather than inferring it from an echo:
+    ``event_pending`` — whether the submission's event is still on the
+    tenant's pending queue (it is, immediately after a submit; resolution
+    is the primitive's act) — and ``submissions_for_event`` — how many
+    actions the transport has recorded against this event key, this one
+    included.
+    """
+
+    status: Literal["submitted"]
+    submission: HitlActionSubmission
+    event_pending: bool
+    submissions_for_event: int
 
 
 @runtime_checkable

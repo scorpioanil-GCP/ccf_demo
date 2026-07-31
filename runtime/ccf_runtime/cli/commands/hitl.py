@@ -2,7 +2,11 @@
 
 ``decide`` submits a complete typed action document from a file; an
 unattributed action dies at the route boundary by contract
-(audit-by-construction, CLAUDE.md §8.2).
+(audit-by-construction, CLAUDE.md §8.2). The verb is **submit-only by
+ruling (D-IMPL-62)**: the printed output is the route's
+``HitlActionReceipt`` — status ``submitted``, never ``resolved`` — with
+the honest queue/disposition state; resolution is the owning primitive's
+act at the composition root.
 
 Algorithmic module (CINV-03).
 """
