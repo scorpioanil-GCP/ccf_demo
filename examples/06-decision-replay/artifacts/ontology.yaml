@@ -1,0 +1,44 @@
+# Decision-replay example ontology — energy/grid-operations domain
+# (D-IMPL-52; D-09). Everything in this file is a *value*: entity classes,
+# relationship types, attribute names, identifiers. None of it exists in
+# `/src` and none of it exists in `run.py` (CLAUDE.md §6.4).
+#
+# Authored fresh for this example: substations, feeders, and their load
+# readings — the operational state a load-shed authorization is decided
+# against.
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+tenant_id: boreal-grid
+
+entity_rules:
+  - match_key: substation_ref
+    entity_class: substation
+    identity_keys: [substation_ref]
+    attribute_keys:
+      - substation_name
+      - region
+      - substation_classification
+
+  - match_key: feeder_ref
+    entity_class: feeder
+    identity_keys: [feeder_ref]
+    attribute_keys:
+      - load_percent
+      - load_summary
+      - feeder_classification
+
+relationship_rules:
+  - relationship_type: fed_from
+    subject_entity_class: feeder
+    object_entity_class: substation
+
+# Which attribute carries each class's policy classification.
+classification_attribute_by_class:
+  substation: substation_classification
+  feeder: feeder_classification
+
+# The attribute the similarity corpus is built from, per ranked class.
+similarity_corpus_attribute_by_class:
+  feeder: load_summary

@@ -1,0 +1,45 @@
+# Decision-replay example HITL material (CLAUDE.md §8.2; D-IMPL-20/21;
+# D-16; D-14 replay leg). The recorded decision includes an AUTH-BOUND
+# approval: the D-16 policy requires a signed principal binding, and the
+# approver principal is derived from the verified token grant — so the
+# hardened HITL surface is demonstrated *in replay*, reproduced from the
+# record alone.
+
+keys:
+  hitl_policy: boreal-grid/hitl/load-shed-hitl-policy
+  signing_key_id: boreal-grid-shift-supervisor-key
+
+hitl_policy:
+  semver: "1.0.0"
+  signed_binding_required: true
+
+# subject_id deliberately equals the active token's client_id in
+# tokens.yaml (D-IMPL-67 derivation + subject-conflict refusal).
+approver:
+  identity:
+    subject_id: shift-supervisor-8
+    identity_provider_ref: idp://boreal-grid/dev-token-file
+  authentication:
+    method: bearer-token
+    assurance_level: dev
+    session_ref: session-ss-8
+  action_time: "2026-06-10T06:10:00+00:00"
+
+drive:
+  execution_id: exec-shed-1
+  approval_action: approve
+  resume_decision: authorized
+  expected_gate: load-shed-authorization
+
+node_outputs:
+  collect-telemetry:
+    telemetry_window: "30min"
+    feeders_reported: "3"
+
+debt_factors:
+  freshness: "1.0"
+  completeness: "1.0"
+  semantic_consistency: "1.0"
+
+clock:
+  base: "2026-06-10T06:05:00+00:00"
