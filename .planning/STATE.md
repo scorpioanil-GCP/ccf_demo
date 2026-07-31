@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-31T08:38:28.125Z"
+last_updated: "2026-07-31T08:45:03.747Z"
 progress:
   total_phases: 1
   completed_phases: 1
@@ -27,20 +27,20 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 08 (phase-i-5-examples-suite-full-ci-verification) — EXECUTING
-Plan: 10 of 13 complete
+Plan: 12 of 13 complete
 
 - **Phase:** 8 of 8 (phase i.5 — examples suite & full ci verification)
-- **Plan:** 08-10 complete — examples/03-harness-portability deterministic
-  base leg (EXAM-04, D-01/D-02): ONE atlas-commerce agent definition
-  executed unmodified under real ClaudeSDKClient-over-custom-Transport,
-  real ADK Runner, and real compiled LangGraph machinery — no network,
-  no keys, socket guard probe-asserted; product bytes and governed replay
-  fields byte-equal across the three legs, traces distinct per harness.
-  Advisory A3 CLOSED: tests/conformance/test_a3_discharge.py drives a
-  genuinely SDK-parsed ResultMessage through the Claude adapter's seam-4
-  isinstance gate (zero adapter change — the advisory was missing
-  evidence, not behavior). `make example-03` green, conformance 224
-  passed under CCF_REQUIRE_HARNESSES=1, lint + mypy (156 files) clean
+- **Plan:** 08-12 complete — examples suite wired into CI per D-10/D-11
+  (EXAM-09): ci.yml always-on `examples` job (`make examples`,
+  CCF_REQUIRE_HARNESSES=1, timeout-minutes 20, never continue-on-error);
+  new live-legs.yml with workflow_dispatch examples-live-ollama (installs
+  Ollama, pulls parameterized qwen3:0.6b-default model) and secret-gated
+  examples-live-anthropic (fail-fast when ANTHROPIC_API_KEY absent);
+  `make ci` finalized = ci-core + examples. Full local sweep GREEN as the
+  interim CI evidence: lint 0, mypy clean (156 files), pytest 1339 passed
+  / 0 skipped under required harnesses, all eight examples exit 0,
+  README/artifacts D-09 contract check 8/8 PASS. Push of `phase-i5`
+  remains flagged for Dave — not performed
 
 - **Status:** Executing Phase 08
 
@@ -91,6 +91,7 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 | Phase 08 P04 | 20min | 2 tasks | 6 files |
 | 08-09      | ~10 min  | 2     | 8     |
 | 08-10      | ~18 min  | 2     | 11    |
+| 08-12      | ~12 min  | 2     | 4     |
 
 ## Accumulated Context
 
@@ -147,6 +148,7 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 - [Phase ?]: 08-03: HitlPolicy artifact (ccf.hitl-policy) with schema-validated signed_binding_required (default false); D-16 refusals typed at the transport and mapped to shared ERROR_SIGNED_BINDING_* constants at both HTTP and MCP doors; R1 closed with was-called assertions
 - [Phase 08]: Example 07 store choice is a config artifact (`store.type`) interpreted by one factory seam; file root and MCP endpoint are env-templated so no path or port is committed; the MCP child interprets the same store_mcp.yaml auth block as the client factory, so credentials cannot drift (08-09)
 - [Phase ?]: ADK migration taken over suppression: google.adk.workflow.Workflow usable at 2.5.0 (BaseAgent is BaseNode); D-08 allowlist carries the harness Workflow name-collision, allowlist path matching Rule-1-fixed (08-04)
+- [Phase 08]: 08-12 — make ci finalized as ci-core + examples (the phase gate command, command-identical to the always-on Actions pipeline, D-10); live legs opt-in via live-legs.yml workflow_dispatch (Ollama model parameterized, default qwen3:0.6b; Anthropic secret-gated fail-fast) per D-11; push of phase-i5 flagged for Dave, not performed
 - [Phase 08]: A3 closed with zero adapter change — the discharge test and example 03's Claude leg drive a genuinely SDK-parsed ResultMessage through seam 4; example 03's session runs over the adapter's own seam-1 carrier, and legs/deterministic.py imports all three harness SDKs unconditionally so a missing harness is a failure, not a skip (08-10)
 
 ### Todos
@@ -161,19 +163,17 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 
 ## Session Continuity
 
-Last action: 08-10 complete (2026-07-31) on `phase-i5` —
-examples/03-harness-portability deterministic base leg (EXAM-04, Task 1
-3bcba71): one atlas-commerce agent definition unmodified under real
-ClaudeSDKClient/ADK-Runner/LangGraph loop machinery over scripted
-transports; product bytes and 7 governed replay fields byte-equal across
-the three legs, three distinct harness traces, five live dimensions,
-socket guard probe-asserted; `--mode live` exits 2 pending 08-11.
-Advisory A3 CLOSED (Task 2 1036271): tests/conformance/test_a3_discharge.py
-captures a genuinely SDK-parsed ResultMessage from a real session over a
-scripted Transport and drives it through the Claude adapter's seam-4
-isinstance gate — real session values, no sentinels, zero adapter change;
-regression pins the gate. `make example-03` green, conformance 224 passed
-(CCF_REQUIRE_HARNESSES=1), lint clean, mypy clean (156 files).
+Last action: 08-12 complete (2026-07-31) on `phase-i5` — examples suite
+wired into CI per D-10/D-11 (EXAM-09, Task 1 f145f1e): ci.yml always-on
+`examples` job (make examples, CCF_REQUIRE_HARNESSES=1, timeout-minutes
+20, never continue-on-error) plus new live-legs.yml (workflow_dispatch
+examples-live-ollama with parameterized small model; secret-gated
+examples-live-anthropic with fail-fast); `make ci` finalized = ci-core +
+examples. Full local sweep GREEN (Task 2 evidence-only): lint 0, mypy
+clean (156 files), pytest 1339 passed / 0 skipped, all eight examples
+exit 0, D-09 README/artifacts contract check 8/8 PASS.
 
-Next action: continue wave 4/5 examples toward 08-12 CI wiring. Standing note:
-`main` is far ahead of `origin/main`; Dave has not authorized a push.
+Next action: remaining phase-08 plan (13 of 13), then phase gate review.
+Standing note: `phase-i5` and `main` are ahead of origin; Dave has not
+authorized a push — Actions evidence for the new examples/live-legs jobs
+awaits that authorization.

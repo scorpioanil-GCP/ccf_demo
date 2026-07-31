@@ -65,7 +65,7 @@ Plans:
 
 **Wave 6**
 
-- [ ] 08-12-PLAN.md — CI examples job + opt-in live-legs workflow + full local sweep + README contract check
+- [x] 08-12-PLAN.md — CI examples job + opt-in live-legs workflow + full local sweep + README contract check
 
 **Wave 7**
 
@@ -83,7 +83,7 @@ Plans:
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 20/20 | Complete   | 2026-07-31 |
-| 8. Phase I.5 — Examples Suite & Full CI Verification | 11/13 | In Progress|  |
+| 8. Phase I.5 — Examples Suite & Full CI Verification | 12/13 | In Progress|  |
 
 ## Coverage
 
