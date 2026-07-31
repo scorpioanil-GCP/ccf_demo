@@ -328,3 +328,79 @@ Four independent reviewers (Gemini, Codex, Cursor, Ollama/gpt-oss:120b). Overall
 - **Webhook ownership (07-04/07-08/07-09)**: Cursor alone flags conflicting pointers about which plan decides webhook v0 fate.
 - **HTTP auth posture**: Codex marks accepted-but-weak as residual deployment risk for the gate; Ollama wants the exact posture sentence testable in OpenAPI info; others silent.
 - **Performance**: Ollama alone suggests a light benchmark smoke test; no other reviewer sees performance as in-scope.
+
+---
+
+# Cross-AI GATE Review — Phase 7 deliverables (07-14, 2026-07-30)
+
+Triage and dispositions: `docs/PHASE_I4_GATE.md` §7. Raw outputs verbatim below.
+
+## Codex (gate review)
+
+**Findings**
+
+1. **BLOCKING** — [docs/DECISIONS.md](/home/parkave/ccf_code/docs/DECISIONS.md:28) / [docs/PHASE_I4_GATE.md](/home/parkave/ccf_code/docs/PHASE_I4_GATE.md:248): D-IMPL-20 still rules **two reference transports**, including webhook notify-only. The gate/design defer the webhook emitter from v0 without a new or amended D-IMPL entry. This is an unsurfaced decision and a missing ruled deliverable.
+
+2. **BLOCKING** — [docs/DECISIONS.md](/home/parkave/ccf_code/docs/DECISIONS.md:31) / [runtime/ccf_runtime/http_api/app.py](/home/parkave/ccf_code/runtime/ccf_runtime/http_api/app.py:55): D-IMPL-23 says the HTTP API adds “auth hooks”; the shipped API explicitly performs **no authentication or authorization**, and the gate treats future auth as “a new contract.” That changes a ruled surface without a D-IMPL entry.
+
+3. **BLOCKING** — [docs/DECISIONS.md](/home/parkave/ccf_code/docs/DECISIONS.md:29) / [runtime/ccf_runtime/http_api/routes/hitl.py](/home/parkave/ccf_code/runtime/ccf_runtime/http_api/routes/hitl.py:43) / [runtime/ccf_runtime/mcp/hitl_server.py](/home/parkave/ccf_code/runtime/ccf_runtime/mcp/hitl_server.py:210): D-IMPL-21 calls for identity binding via the IdentityProvider family plus reference impls from HTTP/MCP auth context and JWS. The implementation accepts caller-supplied principal fields; MCP token identity is not bound to `subject_id`, and HTTP has no auth context. Gate row 7 proves field presence, not identity binding.
+
+4. **BLOCKING** — [docs/PHASE_I4_GATE.md](/home/parkave/ccf_code/docs/PHASE_I4_GATE.md:99) / [tests/invariants/test_replay_by_construction.py](/home/parkave/ccf_code/tests/invariants/test_replay_by_construction.py:103): Row 7/CINV-04 claims “every HITL action — approval, escalation, override, review — lands in replay dimension 2.” The named owning replay test is the ApprovalGate workflow slice; escalation/override/review tests assert their pre-serialized blocks, not a replay append. This claims more than the named test enforces for ROADMAP criterion 2.
+
+5. **BLOCKING** — [src/ccf/hitl/__init__.py](/home/parkave/ccf_code/src/ccf/hitl/__init__.py:14) / [tests/invariants/test_replay_by_construction.py](/home/parkave/ccf_code/tests/invariants/test_replay_by_construction.py:105): D-22 discipline is not contained to marked quotations/scoped rows. The package docstring asserts absolute “no path,” and the CINV registry asserts “every … by construction” for HITL/workflow. The gate’s D-22 sweep does not cover these load-bearing cited artifacts.
+
+6. **ADVISORY** — [.planning/REQUIREMENTS.md](/home/parkave/ccf_code/.planning/REQUIREMENTS.md:115): Phase 7 ORCH/HITL/EXPR boxes are ticked, but Phase I CI invariant rows remain unchecked/pending, including CINV-04, despite the gate claiming the deferrals are discharged and zero skips. Planning-status staleness, not a Phase 7 criterion miss.
+
+## Cursor (gate review)
+
+## Phase I.4 Gate Review — Triage
+
+**Verdict: not gate-ready.** Several BLOCKING items: Experience HITL bypasses primitives/replay, gate rows overclaim CI coverage for all four HITL primitives, and DESIGN §5’s structural audit argument still does not match what shipped. Suite green / mypy / lints are necessary and appear satisfied as stated; they do not discharge these defects.
+
+---
+
+### BLOCKING
+
+1. **HTTP/CLI HITL action path records a bound human action with no primitive resolve and no Decision Replay dim-2 landing.** `POST /hitl/actions` only calls `hitl_transport.submit` (`runtime/ccf_runtime/http_api/routes/hitl.py`); CLI `hitl decide` is the same route (`runtime/ccf_runtime/cli/commands/hitl.py`). No `ApprovalGate`/`OverrideBoundary`/… `resolve`, no `build_replay_record`. Tests assert transport presence only (`tests/http_api/test_routes.py`, `tests/cli/test_cli.py`). Contrasts with MCP HITL child, which does gate.resolve + replay write (`tests/crossproc/servers/mcp_hitl_child.py`). Attaches to: ROADMAP Phase 7 criterion 2; CLAUDE.md §8.2; gate rows 15–16 (silent on this gap); D-IMPL-20 (“serves … the `ccf hitl` CLI”).
+
+2. **`WorkflowEngine.resume` advances on a bare `decision: str` with no required prior HITL resolution or action record.** `runtime/ccf_runtime/workflow/engine.py` `resume()`; HTTP `/workflow/.../resume` mirrors it. DESIGN.md §5 structural arg #2 (“transitions state only when the Workflow primitive receives a validated action record”) is false as shipped; gate §4.6 did not correct it. Attaches to: DESIGN.md §5; CLAUDE.md §8.1/§8.2 composition; criterion 2.
+
+3. **Gate row 7 / CINV-04 overclaim capture completeness for all four HITL primitives.** Row 7 says remaining dim-2-write paths are guarded by CINV-04 owning test + “per-primitive dim-2 byte-equality tests.” CINV-04 `hitl-action-capture` invariant text names “approval, escalation, override, review” (`tests/invariants/test_replay_by_construction.py`) but owning + adversarial tests are ApprovalGate/`test_slice` only. Override/Escalation/Review tests assert `hitl_actions_block == canonical_bytes(record)` and AuditLog — they never call `build_replay_record`. Attaches to: `docs/PHASE_I4_GATE.md` row 7; CINV-04 registry; `tests/hitl/test_{override,escalation,review_queue}.py`.
+
+4. **Gate row 6 claims exception-path “resolution on dim 2”; named test does not land dim 2.** `tests/workflow/test_exception_paths.py` asserts `resolution.hitl_actions_block` truthy and later dim-5 contents — no `build_replay_record` / dim-2 equality. Attaches to: `docs/PHASE_I4_GATE.md` row 6.
+
+5. **DESIGN.md §5 structural arg #3 (“Replay write precedes state transition”) remains asserted and is not enforced.** Engine resume and HTTP resume do not require a prior replay append; primitives return a block for optional caller threading. Gate §4.6 listed four DESIGN corrections and omitted this. Attaches to: DESIGN.md §5 items 2–3; CLAUDE.md §11 write-time replay.
+
+6. **D-IMPL-20 still commits two reference transports (incl. webhooks); v0 webhook emitter deferred only in SUMMARY/DESIGN correction, with no DECISIONS amendment.** `docs/DECISIONS.md` D-IMPL-20 text unchanged; gate §4.2 / DESIGN Phase I.4 correction narrow delivery scope without a new `D-IMPL-NN`. Attaches to: D-IMPL-20; gate §4.2; DESIGN.md §5 Transport.
+
+7. **INV-CH7-68 debt cascade at AgentNode handoffs still listed as an enforced Workflow invariant; not implemented and not D-IMPL-deferred.** DESIGN.md §4 (“Debt cascade honored across handoffs”); engine has no `assess_debt` / fail-closed handoff path; gate §4.6 corrections omit it. Attaches to: DESIGN.md §4; whitepaper INV-CH7-68; unsurfaced deferral.
+
+---
+
+### ADVISORY
+
+8. **Absolute “unbypassable” wording outside a marked quotation.** Gate §4.2: “audit-by-construction unbypassable from a notification channel” — conflicts with the document’s own D-22 / §4.7 discipline. Attaches to: `docs/PHASE_I4_GATE.md` §4.2.
+
+9. **REQUIREMENTS evidence-map row mis-citation.** `.planning/REQUIREMENTS.md`: ORCH-01 → rows 1–5 (omits row 6); HITL-01 → rows 6–10 (row 6 is ORCH/D-IMPL-61). Gate §3 mapping is correct; REQUIREMENTS ticks cite the wrong rows. Attaches to: `.planning/REQUIREMENTS.md` ORCH-01/HITL-01.
+
+10. **D-IMPL-18 `variable_bindings` dropped from `WorkflowStateRecord` without a DECISIONS amendment** (openly noted in gate §4.6 / DESIGN correction — better than silent, still a ruling-text drift). Attaches to: D-IMPL-18; `runtime/ccf_runtime/workflow/state.py`.
+
+11. **DESIGN Transport blurb still says MCP “serves … the `ccf hitl` CLI”; shipped CLI is HTTP-thin-client, not MCP.** DESIGN.md §5 Transport after I.4 correction vs D-IMPL-22 / `cli/commands/hitl.py`. Attaches to: DESIGN.md §5; D-IMPL-20/22 tension.
+
+12. **ROADMAP criterion 4 / EXPR-01 “MCP egress” vocabulary vs shipped Experience-role server** (`ccf-experience-product://`). Functionally aligned with I.3 A5 amendment; wording still drifts. Attaches to: `.planning/ROADMAP.md` Phase 7 SC4; EXPR-01.
+
+13. **Accepted residuals already disclosed (carry forward, not new blockers):** T-07-24 unauthenticated HTTP (gate §4.1); unaudited `ControlPlaneStateStore.items` reads (gate §5); `SequentialAgent` deprecation (gate §5); examples 05/06 deferred to Phase 8 per D-04 (gate §1.1) — consistent with Phase 7 SC given D-04.
+
+---
+
+### What holds (non-findings)
+
+- Harness neutrality in `/src` for workflow/HITL/orchestration contracts: no harness imports observed; agent nodes via injected `AgentNodeBinding`.
+- Single-writer front-door leg: HTTP holds no graph/L1 ingest path (`http_api/app.py`; route tests).
+- No-Hardcoding / factory path for workflows: `WorkflowFactory` + CINV-01c as row 1 states; agent/skill/HITL-gate kinds exercised (e.g. covenant fixture + engine tests).
+- OrchestrationProtocol four-leg conformance surface and d06 split: present as claimed (not re-executed here; user-verified suite green relied on).
+- Gate D-22 header discipline is mostly followed; failures are the overclaims and the Experience HITL hole above, not a blanket absolute “no path” in criterion-2 rows.
+
+---
+
+**Dave ask:** treat findings 1–7 as must-fix before `D-GATE-I.4`. Highest leverage: wire HTTP/CLI HITL through the same primitive+replay composition MCP already demonstrates (or remove/refuse raw `transport.submit` as an authority surface), couple or honestly re-scope DESIGN §5 structural args + D-IMPL-20/18 text, and narrow row 7 / CINV-04 to the paths tests actually red under.

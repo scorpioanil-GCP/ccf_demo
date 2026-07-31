@@ -6,10 +6,13 @@
 **and what would fail if the implementation were broken** (D-25: rows are drafted from tests
 that fail under the broken implementation, never from plan intent). No numeric coverage gate.
 
-> **Status: AWAITING REVIEW.** `D-GATE-I.4` is **deliberately unwritten**. `/gsd-review`
-> passing is necessary and never sufficient; approval authority is Dave's alone
-> (CLAUDE.md §3.1, §2). Per D-03: one phase, one gate — ORCH + HITL + EXPR ship and gate
-> together; there is no I.4a/I.4b split.
+> **Status: REVIEWED — AWAITING DAVE, WITH FOUR OPEN RULINGS.** The §3.1 cross-AI review
+> ran (Codex + Cursor, 2026-07-30; §7). Findings were triaged blocking/advisory; the
+> evidence-and-wording findings were **fixed in-phase** (§7.2), and four findings whose fix
+> requires a ruling Dave has not made are logged as **D-IMPL-62..65 (OPEN)** per §3.1's
+> stop rule — the phase does not complete around them. `D-GATE-I.4` is **deliberately
+> unwritten**; approval authority is Dave's alone (CLAUDE.md §3.1, §2). Per D-03: one
+> phase, one gate — ORCH + HITL + EXPR ship and gate together; there is no I.4a/I.4b split.
 
 > **How to read the criterion-2 rows (D-22 wording template, mandatory).** Every row that
 > speaks to "unrecorded action" states **which paths are type-unrepresentable, naming the
@@ -86,7 +89,7 @@ the recorded reds are in §2.2 and in the cited plan SUMMARYs.
 | 3 | **Suspended state persists at the Control Plane boundary through the audited, token-gated seam — never a raw `put`** (D-IMPL-18; D-20 closed by 07-02). The write path is type-unrepresentable without a `StateWriteToken`, whose sole minting path is `AuditedStateWriter`; the subclass-skipping-`__init__` and forged-kwarg paths are CI-covered by the adversarial tests, observed red under the reverted seam (§2.2) | `tests/invariants/test_state_seam_closure.py` (7 cases: direct call, forged kwarg, token construction, subclass skipping `__init__`, both-signature token, sole-minting-path, two-tenant); engine's only state writes go through `AuditedStateWriter` (07-06 acceptance grep: the only `put(` in the engine is the ArtifactStore trace write) | Reverting the closure makes the invariant module fail at *collection* (`ImportError: cannot import name 'AuditedStateWriter'` — §2.2 verbatim); a workflow suspend that wrote state without its domain event would be silent Control Plane state with no audit record (INV-CH7-71), which is exactly the multiplied-call-site risk the I.3 handoff named |
 | 4 | **Suspend/resume round-trips correctly, including under interleaving** — resume decisions must name a transition the artifact declared (routing is the artifact's statement; no decision→state constant exists in code); undeclared decisions are typed refusals audited `resolved=False` | `tests/workflow/test_engine.py` round-trip cases; `tests/workflow/test_engine_stateful.py` — `hypothesis.stateful` `RuleBasedStateMachine` over two tenants × two workflow shapes with four invariants (incl. trace completeness) | A resume that re-executed instead of transitioning, a cross-tenant state leak, or a trace missing a transition — the stateful suite drives interleavings a straight-line test never reaches |
 | 5 | **Execution traces land in replay dimensions 4 and 5 verbatim** — the engine serializes the dim-5 step-sequence block and dim-4 delegation chain once; `build_replay_record` records them byte-for-byte (07-05 keyword discipline). CINV-04 `workflow-trace-capture` is **active** with its owning test proven red under a severed pass-through (§2.2) | `tests/workflow/test_slice.py::test_the_step_sequence_lands_on_dimension_5_verbatim`; `tests/replay/test_dimension_extensions.py` (five-dimension structural assertion INV-CH7-80, byte-equality, round-trip, two-tenant); `tests/invariants/test_replay_by_construction.py` (active-only registry) | Severing the dim-5 pass-through: `assert ... == outcome.step_sequence_block` fails against the `no-workflow-trace` sentinel — measured, verbatim in §2.2. A sixth dimension block is an INV-CH7-80 fidelity defect the structural assertion catches |
-| 6 | **D-IMPL-61 (option-a) exception semantics: an absent per-node exception ref is a defined, audited transition to the reserved terminal `failed` state, recorded in the trace as a first-class transition; a bound ref routes to its artifact-declared handler as a recorded transition** | `tests/workflow/test_definitions.py` (`WORKFLOW_FAILED_STATE` reserved: valid target, never a source, never the start); `tests/workflow/test_engine.py` exception cases; `tests/workflow/test_exception_paths.py` — end-to-end: failing node → artifact-declared handler ref → escalation on the shared transport → resolution on dim 2 → exception transition verbatim in the dim-5 block | An exception that fell through unrecorded, or a propagate-to-terminal that did not appear in the trace — the accepted consequence of option-a (an author can omit a handler) is mitigated exactly here: the trace makes the omission observable at first exercise |
+| 6 | **D-IMPL-61 (option-a) exception semantics: an absent per-node exception ref is a defined, audited transition to the reserved terminal `failed` state, recorded in the trace as a first-class transition; a bound ref routes to its artifact-declared handler as a recorded transition** | `tests/workflow/test_definitions.py` (`WORKFLOW_FAILED_STATE` reserved: valid target, never a source, never the start); `tests/workflow/test_engine.py` exception cases; `tests/workflow/test_exception_paths.py` — end-to-end: failing node → artifact-declared handler ref → escalation on the shared transport → a bound resolution producing its `hitl_actions_block` *(narrowed — closes review finding X-4: the test asserts the block is produced, and the **dim-5** exception transition verbatim through the replay path; it does not drive this block through `build_replay_record` — dim-2 landing of an arbitrary block is the builder guarantee cited in row 7)* → exception transition verbatim in the dim-5 block | An exception that fell through unrecorded, or a propagate-to-terminal that did not appear in the trace — the accepted consequence of option-a (an author can omit a handler) is mitigated exactly here: the trace makes the omission observable at first exercise |
 
 ### Criterion 2 — HITL primitives write to Decision Replay (D-22-scoped rows)
 
@@ -96,7 +99,7 @@ stated in the mandatory template:
 
 | # | Claim, in the D-22 template | Named mechanism | What would fail if broken |
 |---|------------------------------|-----------------|---------------------------|
-| 7 | **An unbound human action is type-unrepresentable via `HitlActionSubmission`**, whose `principal: HumanPrincipalBinding` is a required field on an `extra=forbid` contract (all four D-IMPL-21 fields required: approver identity + IdP ref, authentication context, injected `action_time`, sha256-shape `product_content_hash`); **the remaining paths — a primitive completing without its dim-2 write — are guarded by the CINV-04 owning tests** `tests/workflow/test_slice.py::test_the_human_action_lands_on_dimension_2_verbatim` (plus the per-primitive dim-2 byte-equality tests) **and were observed red under the severed capture** (§2.2 verbatim) | `src/ccf/hitl/principal.py`, `src/ccf/hitl/transport.py`; `tests/hitl/test_principal.py`, `tests/hitl/test_transport.py`; `tests/invariants/test_replay_by_construction.py` `hitl-action-capture` (active, with adversarial-case table) | Constructing a submission with no binding is a Pydantic validation error, not an anonymous record; severing the dim-2 pass-through turns the owning test red against the `no-hitl-actions` sentinel — measured, §2.2 |
+| 7 | **An unbound human action is type-unrepresentable via `HitlActionSubmission`**, whose `principal: HumanPrincipalBinding` is a required field on an `extra=forbid` contract (all four D-IMPL-21 fields required: approver identity + IdP ref, authentication context, injected `action_time`, sha256-shape `product_content_hash`); **capture completeness is CI-covered at this scope, stated precisely** *(narrowed — closes review findings X-3/C-4)*: the CINV-04 owning test `tests/workflow/test_slice.py::test_the_human_action_lands_on_dimension_2_verbatim` drives the **ApprovalGate** end to end through `build_replay_record` and was observed red under the severed capture (§2.2 verbatim); the other three primitives are covered **compositionally** — per-primitive byte-equality of the produced `hitl_actions_block` against the canonical action record (`tests/hitl/test_{escalation,override,review_queue}.py`) composed with the builder's verbatim-landing guarantee (`tests/replay/test_dimension_extensions.py::test_a_supplied_hitl_block_lands_on_dimension_2_verbatim`) — **not** by a per-primitive end-to-end replay drive. The CINV-04 registry's "every … by construction" sentences are marked CLAUDE.md quotations, not suite claims at that strength | `src/ccf/hitl/principal.py`, `src/ccf/hitl/transport.py`; `tests/hitl/test_principal.py`, `tests/hitl/test_transport.py`; `tests/invariants/test_replay_by_construction.py` `hitl-action-capture` (active, with adversarial-case table) | Constructing a submission with no binding is a Pydantic validation error, not an anonymous record; severing the dim-2 pass-through turns the owning test red against the `no-hitl-actions` sentinel — measured, §2.2 |
 | 8 | **ApprovalGate: rejection and TOCTOU refusal are recorded outcomes, not exceptions or absences** — both audit `resolved=False` under the `hitl_action` action; the approver's view is pinned by suspend-time `product_content_hash`, and a hash mismatch is a returned `GateResolutionRefused` with the event left pending (T-07-39). The sync `ApprovalSink` face is satisfied by composition (`ApprovalSinkAdapter` wrapping a completed bound `GateResolution`); `decide()` with nothing bound raises typed `UnboundDecisionError` — the adapter is type-unable to fabricate a verdict | `tests/hitl/test_approval_gate.py`; `tests/conformance/test_approval_sink.py` (the `approval-gate-adapter` param joined with **zero test-body changes** — diff-asserted); `tests/workflow/test_slice.py` TOCTOU mutate-between and two-approver (D-23) cases | A gate that resolved against a product the human did not see; a rejection that vanished instead of auditing `resolved=False`; a sink that produced a verdict no human made |
 | 9 | **ExceptionEscalation's D_c trigger reads Control-Plane values only** — `assess_debt` against the `DebtProfile` artifact; an OK-signal hand-off is a typed `EscalationRefused` audited `resolved=False`; no threshold exists in code (CINV-01b) | `tests/hitl/test_escalation.py`; `tools.lints --all` (cinv01b-numeric-table) | A threshold constant in `/src` fires the lint; an escalation on an OK signal would make the routing artifact's statement false |
 | 10 | **OverrideBoundary records both the original and the final value verbatim** (byte-asserted, T-07-16); the confirm path (`override=None`) is a recorded `approve` action, never an absence. **ReviewQueue items require ≥1 real `LineageEntry`** (§7.10.3 passage-lineage types, `PassageAnchor` instances — never strings); release/reject are bound actions; two-tenant isolation held (D-23, T-07-18) | `tests/hitl/test_override.py` (generic `OverrideBoundary[ProductT]`, mypy `--strict` clean); `tests/hitl/test_review_queue.py` | An override that erased what it overrode; a confirm that left no record; a review item with fabricated string lineage |
@@ -249,8 +252,9 @@ D-IMPL-23 minimal service-integration surface whose auth hooks are a future cont
 
 Cited from `07-08-SUMMARY.md`, the disposition's single source; nothing else re-litigates
 it: authority never flowed through the webhook leg in any design revision — every human
-action returns through the typed `HITLTransportProtocol` queue, which is what makes
-audit-by-construction unbypassable from a notification channel. The v0 delivery surfaces
+action returns through the typed `HITLTransportProtocol` queue — the property that keeps a
+notification channel from becoming an authority channel, at the D-22 scope rows 7–8 state
+*(wording narrowed per review finding X-8)*. The v0 delivery surfaces
 are the transport Protocol and the MCP HITL server (D-IMPL-20's primary). A notify-only
 webhook emitter is a pure observer of pending events, implementable by any deployment
 against the Protocol with zero SDK change; shipping one would encode notification
@@ -380,22 +384,97 @@ no row asserts it at that strength.
 
 ## 6. What Dave Is Asked To Decide
 
-1. Read §1 (the sweep — 1268/0/0 with harnesses mandatory, mypy 151 files, lints clean,
+1. **Rule on the four OPEN entries the gate review forced** (full text in
+   `docs/DECISIONS.md`; triage in §7):
+   - **D-IMPL-62** — the HTTP/CLI HITL action door: submit-only by design (authority
+     reserved to primitive-wired surfaces, MCP primary), or primitive-wired server-side?
+     Folds in the D-IMPL-23 "auth hooks"-vs-no-auth divergence (T-07-24) and the
+     D-IMPL-20/22 CLI-layering tension.
+   - **D-IMPL-63** — the two D-IMPL-21 reference identity-binding impls did not ship;
+     defer with the caller-supplied posture stated, or pull the MCP-auth-context
+     derivation into Phase 8?
+   - **D-IMPL-64** — ratify (or reject) the 07-08 v0 deferral of the notify-only webhook
+     emitter, a ruled D-IMPL-20 deliverable.
+   - **D-IMPL-65** — INV-CH7-68 per-handoff debt cascade: accept composition-root
+     responsibility as the v0 posture, or rule an engine-enforced check into a phase.
+2. Read §1 (the sweep — 1268/0/0 with harnesses mandatory, mypy 151 files, lints clean,
    and the zero-skip milestone that closes CINV-04), §2 (sixteen rows across the four
    criteria — for any row that reads as a claim rather than evidence, run the test it
    names), §2.2 (the three measured counterfactuals, verbatim), §3 (requirements map, the
    two discharged I.3 prerequisites, the GO probe), §4 (residual risks — **the
    unauthenticated HTTP surface first** — the deviations register, the two rejected
-   suggestions, and the DESIGN.md corrections), §5 (the Phase 8 handoff).
-2. Optionally re-run, from the repository root with the project interpreter:
+   suggestions, and the DESIGN.md corrections), §5 (the Phase 8 handoff), §7 (the review
+   report and triage).
+3. Optionally re-run, from the repository root with the project interpreter:
    `CCF_REQUIRE_HARNESSES=1 PYTHONPATH=src:runtime .venv/bin/python -m pytest -q &&
    .venv/bin/python -m mypy && PYTHONPATH=src:runtime .venv/bin/python -m tools.lints --all`
    (expect **1268 passed, 0 skipped**; mypy 151 files; lints exit 0).
-3. Confirm the four ROADMAP Phase 7 criteria against their rows (§3's mapping).
-4. **Approve or reject the Phase I.4 gate.** Approval authority is Dave's alone; the review
-   report (§7, appended by the review step) passing is necessary, never sufficient.
+4. Confirm the four ROADMAP Phase 7 criteria against their rows (§3's mapping).
+5. **Approve or reject the Phase I.4 gate.** Approval authority is Dave's alone; the
+   review passing is necessary, never sufficient.
 
 On approval — and only on approval — the `D-GATE-I.4` entry is appended to
 `docs/DECISIONS.md` with the date, and `phase-i4` is merged into `main` with `--no-ff`, the
 merge commit referencing the gate entry (CLAUDE.md §2.2, §3.1 step 4). Phase 8 begins after
 both, and not before.
+
+---
+
+## 7. Review Appendix — §3.1 Cross-AI Review and Triage (2026-07-30)
+
+Reviewers: **Codex** (API-key auth, `codex exec`, read-only instruction) and **Cursor**
+(`cursor agent -p --mode ask`), both run against the phase deliverables (this gate document
+plus the shipped `workflow`/`hitl`/`orchestration`/front-door trees) with the sweep facts
+supplied. Findings below are numbered `C-n` (Codex) and `X-n` (Cursor). Every finding was
+**verified against the code before triage** — none was accepted or dismissed on the
+reviewer's say-so alone.
+
+### 7.1 Disposition table
+
+| Finding | Substance | Class | Disposition |
+|---------|-----------|-------|-------------|
+| X-1 / C-2 (partial) | `POST /hitl/actions` + `ccf hitl decide` submit to the transport without a primitive `resolve` or dim-2 landing; the MCP HITL child, by contrast, drives gate resolve + replay write | **Blocking — ruling required** | Verified true (`routes/hitl.py` calls `submit` only; a submit alone effects no state transition and no authority action — the action becomes effective, and recorded, at primitive resolution). Whether the v0 door is submit-only by design or must compose a per-event-class resolve is a design ruling → **D-IMPL-62 (OPEN), stop** |
+| X-2, X-5 | `WorkflowEngine.resume` takes a bare decision; DESIGN §5 structural args 2–3 stated engine-side enforcement that is composition-root responsibility as shipped | **Blocking — fixed in-phase (docs) + folded into D-IMPL-62** | DESIGN §5 args 2 and 3 corrected to as-shipped scoped statements; the engine-enforced-precondition question recorded under D-IMPL-62 |
+| X-3 / C-4 | Row 7 / CINV-04 overclaimed per-primitive replay coverage: only the ApprovalGate slice drives `build_replay_record`; escalation/override/review are covered compositionally | **Blocking — fixed in-phase** | Row 7 narrowed to state the composition precisely (primitive-side byte-equality ∘ builder verbatim-landing guarantee); CINV-04 registry gained an explicit D-22 quotation-marking and scope comment |
+| X-4 | Row 6 claimed exception-path "resolution on dim 2"; the named test asserts block production and the dim-5 landing, not a dim-2 drive | **Blocking — fixed in-phase** | Row 6 narrowed to what the test asserts |
+| X-6 / C-1 | Webhook notify-only transport is a ruled D-IMPL-20 deliverable deferred without a decision-log entry | **Blocking — ruling required** | Verified true against D-IMPL-20's text → **D-IMPL-64 (OPEN), stop** (ratification ask; the 07-08 rationale carried intact) |
+| C-2 | D-IMPL-23 rules the API "adds … auth hooks"; shipped surface performs no auth (T-07-24) | **Blocking — ruling required** | Verified true → folded into **D-IMPL-62 (OPEN)** with the posture sentence and residual-risk row (§4.1) unchanged |
+| C-3 | D-IMPL-21's two reference identity-binding impls (auth-context-derived principal; JWS-signed binding) did not ship; principal fields are caller-supplied | **Blocking — ruling required** | Verified true (row 7's type-unrepresentable leg holds; the *binding-to-authenticated-context* leg does not exist) → **D-IMPL-63 (OPEN), stop** |
+| C-5 | D-22 absolute wording in load-bearing artifacts outside marked quotations: `src/ccf/hitl/__init__.py` docstring; CINV-04 registry "every … by construction" strings | **Blocking — fixed in-phase** | Docstring rewritten as marked quotation + scoped statement; registry strings marked as CLAUDE.md quotations with the enforcement scope stated in an adjacent comment (the strings themselves are unedited quotations, per the I.3 §4.9 rule against rewriting quotations) |
+| X-7 | DESIGN §4 lists INV-CH7-68 per-handoff debt cascade as an enforced Workflow invariant; the engine performs no per-handoff recomputation | **Blocking — ruling required** | Verified true (`assess_debt`/`DebtProfile` exist and drive ExceptionEscalation; no engine handoff check) → DESIGN §4 corrected + **D-IMPL-65 (OPEN), stop** |
+| X-8 | Absolute "unbypassable" in §4.2 outside a quotation | Advisory (fixed anyway) | Reworded, scoped to rows 7–8 |
+| X-9 | REQUIREMENTS evidence-row mis-citations (ORCH-01, HITL-01) | Advisory (fixed) | Corrected to rows 1–6 / 7–10 |
+| C-6 | REQUIREMENTS CINV-04 row still "Pending" despite the deferrals being discharged | Advisory (fixed) | CINV-04 ticked with evidence; the remaining stale Phase-4 "Pending" traceability rows predate this phase and are **carried forward** as planning-doc staleness, not silently rewritten at gate wave |
+| X-10 | D-IMPL-18's `variable_bindings` member absent from the shipped `WorkflowStateRecord`, noted openly but without a DECISIONS amendment | Advisory — carried | Recorded here; the record shape is the D-IMPL-18-consistent minimal set (state, status, trace, pinned URI); if Dave reads it as a ruled-member omission it joins the D-IMPL-62 ruling batch |
+| X-11 | DESIGN Transport blurb said MCP "serves … the `ccf hitl` CLI"; the shipped CLI is an HTTP thin client | Advisory (fixed) | DESIGN corrected; the D-IMPL-20 ruled-text tension recorded under D-IMPL-62 |
+| X-12 | ROADMAP criterion-4 "MCP server egress" vocabulary vs the shipped Experience-role server | Advisory — carried | Functionally aligned per the I.3 A5 amendment pattern; wording drift noted, not amended (ROADMAP criterion text is presented to Dave as-is) |
+| X-13 | Accepted residuals already disclosed (T-07-24, unaudited state reads, `SequentialAgent` deprecation, examples 05/06 per D-04) | Advisory — carried | Already in §§4–5 |
+| C — non-findings | Cursor's "what holds" list: harness neutrality in the new `/src` trees, no HTTP write door onto L1, factory path + CINV-01c, four-leg conformance surface | — | Recorded as corroboration |
+
+*(Codex's first run could not access the repository — its sandbox network shim
+(`bwrap`) is unavailable in this environment — and returned no findings; it was re-run
+without the sandbox under an explicit read-only instruction. Recorded per the §1.1-class
+discipline from I.3: a review that could not see the tree is not a passing review.)*
+
+### 7.2 What was fixed in-phase (this plan, post-review)
+
+Row 6 and row 7 narrowed; §4.2 reworded; `src/ccf/hitl/__init__.py` docstring rewritten to
+the quotation + D-22 scope form; CINV-04 registry quotation-marking comment added
+(comment-only — no test logic touched; suite re-verified green after, §7.3);
+DESIGN.md §4 (debt cascade) and §5 (structural args 2–3, transport blurb) corrected;
+REQUIREMENTS citations and CINV-04 status fixed. All recorded per-file in this plan's
+commits.
+
+### 7.3 Post-fix verification
+
+The full sweep was re-run after the in-phase fixes (the only non-doc edits are docstring/
+comment changes in `src/ccf/hitl/__init__.py` and
+`tests/invariants/test_replay_by_construction.py`): **1268 passed, 0 skipped**, mypy clean
+(151 files), `tools.lints --all` exit 0.
+
+### 7.4 The §3.1 stop
+
+Four blocking findings cannot be fixed without rulings Dave has not made. Per §3.1 they are
+logged as **D-IMPL-62, D-IMPL-63, D-IMPL-64, D-IMPL-65 (all OPEN)** and this phase **stops
+here** — the gate is presented with the rulings as its first ask (§6), and `D-GATE-I.4`
+is not written until Dave rules and approves.

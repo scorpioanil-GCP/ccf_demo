@@ -11,9 +11,14 @@ This package holds the contract layer the primitives (07-07/07-08)
 implement against: the :class:`~ccf.hitl.principal.HumanPrincipalBinding`
 that every human action must carry (D-IMPL-21), and the
 :class:`~ccf.hitl.transport.HITLTransportProtocol` typed queue with its
-in-memory reference implementation (D-IMPL-20). The load-bearing commitment:
-**no path through the HITL surface produces an unrecorded human action** —
-the authority path requires a principal binding by type.
+in-memory reference implementation (D-IMPL-20). The load-bearing commitment
+is CLAUDE.md §8.2's, quoted: "no path through the HITL surface produces an
+unrecorded human action". At the strength this package enforces it (D-22
+scoping): an *unattributed* action is type-unrepresentable — the submission
+and resolution contracts require a :class:`HumanPrincipalBinding` by type —
+and capture completeness is CI-covered by the CINV-04 owning tests
+(``tests/invariants/test_replay_by_construction.py``), each proven red
+under a severed capture, not asserted absolutely here.
 """
 
 from __future__ import annotations

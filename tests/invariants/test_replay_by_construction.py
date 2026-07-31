@@ -65,6 +65,19 @@ class Check(NamedTuple):
 
 
 #: The CINV-04 status, in full. Read by the D-17 gate checklist.
+#:
+#: D-22 scope marking (Phase I.4 gate review): where an ``invariant``
+#: sentence reads "every ... by construction (CLAUDE.md §n.n)", it is a
+#: **quotation of the cited CLAUDE.md commitment**, not this suite's own
+#: claim at that strength. The strength each check enforces is exactly its
+#: ``owning_test`` (plus the adversarial cases below), each observed red
+#: under a severed capture. For ``hitl-action-capture`` specifically: the
+#: owning test drives the ApprovalGate slice end to end; the other three
+#: primitives are covered compositionally — per-primitive byte-equality of
+#: the produced ``hitl_actions_block`` against the canonical action record
+#: (tests/hitl/) composed with the builder's verbatim-landing guarantee
+#: (tests/replay/test_dimension_extensions.py) — not by a per-primitive
+#: end-to-end replay drive.
 CINV_04_CHECKS: tuple[Check, ...] = (
     Check(
         name="replay-write-precedes-delivery",
