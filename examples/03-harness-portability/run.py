@@ -3,33 +3,29 @@
 The harness-neutrality proof (CLAUDE.md §7.3): ONE agent definition —
 ``artifacts/agents/order_insights.yaml``, loaded once, producing one
 :class:`~ccf.agents.agent.Agent` object — is executed unmodified under all
-three D-IMPL-24 reference adapters, on **real harness loop machinery over
-scripted/no-model transports** (D-01/D-02): a real ``ClaudeSDKClient``
-session over a custom ``Transport``, a real ADK ``Runner``, a real compiled
-LangGraph graph. No network, no keys — a guard fails the run if anything
-opens a socket.
+three D-IMPL-24 reference adapters, in two modes:
 
-What this demonstrates, as assertions:
-
-* **Byte-level equivalence (D-02).** The Context Product each harness
-  consumed — recovered out of each harness-native carrier, not assumed —
-  is byte-identical across the three legs, and equal to what the fabric
-  admitted. The governed replay fields (D-18) are exactly equal, field by
-  field.
-* **Harness attribution stays isolated.** Each leg's ``harness_trace``
-  names its own harness, carries the model and trace id that harness's own
-  run reported, and differs per harness — a governed field that diverged
-  or a trace that collapsed would both fail loudly.
-* **Advisory A3, example-side.** The Claude leg's seam-4 input is a
-  ``ResultMessage`` the real SDK session constructed over the scripted
-  wire — not a hand-built one.
-* **Five dimensions, live.** Every leg's replay record carries exactly the
-  five typed dimensions (INV-CH7-80).
+* ``--mode deterministic`` (D-01/D-02, the CI leg): **real harness loop
+  machinery over scripted/no-model transports** — a real ``ClaudeSDKClient``
+  session over a custom ``Transport``, a real ADK ``Runner``, a real
+  compiled LangGraph graph. No network, no keys — a guard fails the run if
+  anything opens a socket. Equivalence is **byte-level**: the Context
+  Product recovered out of each harness-native carrier is byte-identical
+  across the three legs, and the governed replay fields (D-18) are exactly
+  equal field by field.
+* ``--mode live`` (D-03/D-04, opt-in): the same legs against a live model —
+  ``--provider ollama`` (keyless local default) or ``--provider anthropic``
+  (gated on ``ANTHROPIC_API_KEY``). Equivalence is **structural, never
+  byte-equal**: a live model's output varies by construction, so the
+  assertions live on what CCF governs — the same Context Product consumed
+  (same class, version, lineage identity), five-dimension replay records
+  structurally complete (agent version, model version record, skill-set in
+  force), and every effect through governed emission.
 
 A missing harness import is a failure, not a skip (mirroring
 ``CCF_REQUIRE_HARNESSES=1``). Every domain and deployment value is loaded
-from ``artifacts/*.yaml`` (§6.4). Run it: ``make example-03``. The live
-legs (``--mode live``) land in plan 08-11; the flag surface is stable now.
+from ``artifacts/*.yaml`` (§6.4). Run it: ``make example-03``,
+``make example-03-live-ollama``, ``make example-03-live-anthropic``.
 """
 
 from __future__ import annotations
@@ -38,10 +34,11 @@ import argparse
 import socket
 import sys
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import yaml
 
@@ -86,6 +83,7 @@ from ccf.projection.engine import OperatorRegistry, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput
 from ccf.replay.record import (
     NO_GRANTS_SET_HASH,
+    DecisionReplayRecord,
     HarnessTrace,
     PolicyBinding,
     build_replay_record,
@@ -191,28 +189,30 @@ class OrderExperiencePlan:
         )
 
 
-def _deterministic() -> int:
-    # Imported here so `--mode live` never requires the harness SDKs the
-    # deterministic legs import unconditionally (a missing harness there is
-    # a failure by design, mirroring CCF_REQUIRE_HARNESSES).
-    from legs.deterministic import (
-        LegRun,
-        build_legs,
-        dimension_count,
-        drive_leg,
-        governed_fields,
-        install_no_model_guard,
-    )
+class DecisionBundle(NamedTuple):
+    """Everything both drive modes share: the fabric's one governed decision.
 
-    install_no_model_guard()
-    # The guard is only evidence if it fires.
-    try:
-        socket.create_connection(("127.0.0.1", 9))
-    except AssertionError:
-        pass
-    else:  # pragma: no cover - a broken guard is a broken example
-        raise AssertionError("the no-model guard is not installed")
+    Built once per run by :func:`_decision`: the booted fabric, the gated and
+    consumed Context Product, the ONE factory-constructed agent, the pinned
+    rendered instructions, and the record builder every leg's replay record
+    goes through. The two modes differ only in how the seam-4 execution is
+    produced — scripted (D-02) or live (D-03) — never in the fabric side.
+    """
 
+    tenant_id: str
+    definition: AgentDefinition
+    agent: Agent
+    consumed: ContextProductContract
+    instructions: tuple[str, ...]
+    harnesses: Mapping[str, Mapping[str, Any]]
+    build_record: Callable[
+        [ContextProductContract, HarnessTrace], DecisionReplayRecord
+    ]
+
+
+@contextmanager
+def _decision() -> Iterator[DecisionBundle]:
+    """Boot the full L1→L6 fabric from artifacts and yield the shared bundle."""
     ontology = _load("ontology.yaml")
     events = _load("events.yaml")
     control = _load("controlplane.yaml")
@@ -436,7 +436,7 @@ def _deterministic() -> int:
 
             def build_record(
                 recovered: ContextProductContract, trace: HarnessTrace
-            ) -> Any:
+            ) -> DecisionReplayRecord:
                 # Dimension 5's product_content_address derives from the
                 # product recovered from THIS leg's carrier: an adapter that
                 # corrupted what it delivered moves the address and the
@@ -456,71 +456,237 @@ def _deterministic() -> int:
                     harness_trace=trace,
                 )
 
-            # --- one agent, three harnesses, real loop machinery ------------
-            legs = build_legs(harnesses)
+            yield DecisionBundle(
+                tenant_id=tenant_id,
+                definition=definition,
+                agent=agent,
+                consumed=consumed,
+                instructions=instructions,
+                harnesses=harnesses,
+                build_record=build_record,
+            )
+        finally:
+            handle.close()
+
+
+def _deterministic() -> int:
+    # Imported here so `--mode live` never requires the deterministic
+    # scripted transports (a missing harness anywhere is a failure by
+    # design, mirroring CCF_REQUIRE_HARNESSES — both legs modules import all
+    # three SDKs unconditionally).
+    from legs.deterministic import (
+        LegRun,
+        build_legs,
+        dimension_count,
+        drive_leg,
+        governed_fields,
+        install_no_model_guard,
+    )
+
+    install_no_model_guard()
+    # The guard is only evidence if it fires.
+    try:
+        socket.create_connection(("127.0.0.1", 9))
+    except AssertionError:
+        pass
+    else:  # pragma: no cover - a broken guard is a broken example
+        raise AssertionError("the no-model guard is not installed")
+
+    with _decision() as bundle:
+        # --- one agent, three harnesses, real loop machinery ----------------
+        legs = build_legs(bundle.harnesses)
+        assert len({leg.harness_id for leg in legs}) == 3
+        runs: tuple[LegRun, ...] = tuple(
+            drive_leg(
+                leg,
+                agent=bundle.agent,
+                product=bundle.consumed,
+                instructions=bundle.instructions,
+                build_record=bundle.build_record,
+            )
+            for leg in legs
+        )
+
+        # The consumed product is byte-identical across the three legs —
+        # and identical to what the fabric admitted, unaltered (D-02).
+        delivered = {run.harness_id: run.product_bytes for run in runs}
+        assert len(set(delivered.values())) == 1, {
+            name: len(value) for name, value in delivered.items()
+        }
+        assert set(delivered.values()) == {canonical_bytes(bundle.consumed)}
+
+        # The governed emission is one effect, whichever harness drove it.
+        assert len({run.emission_address for run in runs}) == 1
+
+        # Governed replay fields exactly equal, field by field (D-18).
+        reference, *others = runs
+        expected_fields = governed_fields(reference.record)
+        for run in others:
+            actual = governed_fields(run.record)
+            assert set(actual) == set(expected_fields)
+            for name in sorted(expected_fields):
+                assert actual[name] == expected_fields[name], (
+                    f"governed replay field {name!r} diverged between"
+                    f" {reference.harness_id} and {run.harness_id}"
+                )
+
+        # Harness attribution stays isolated — and differs per harness.
+        assert (
+            len({canonical_bytes(run.trace) for run in runs}) == 3
+        ), "the three harness traces collapsed"
+        for run in runs:
+            assert "harness_trace" not in governed_fields(run.record)
+
+        # Each record is structurally complete: five dimensions, live.
+        for run in runs:
+            assert dimension_count(run.record) == 5, run.harness_id
+
+        print("examples/03-harness-portability: OK (deterministic)")
+        print(f"  tenant                {bundle.tenant_id}")
+        print(f"  agent                 {bundle.definition.name}")
+        print(
+            f"  agent definition hash {content_hash(bundle.definition)[:16]}…"
+        )
+        print(f"  legs                  {[run.harness_id for run in runs]}")
+        print(
+            f"  product bytes         {len(runs[0].product_bytes)}"
+            " (identical ×3)"
+        )
+        print(
+            "  governed fields       "
+            f"{len(expected_fields)} exactly equal ×3"
+        )
+        print(
+            "  harness traces        3 distinct: "
+            + ", ".join(run.trace.model_version for run in runs)
+        )
+        return 0
+
+
+def _live(provider_name: str) -> int:
+    """The live legs (plan 08-11, D-03/D-04): same fabric, a live model.
+
+    Runner safeguards (review consensus concern 2): every provider call is
+    bounded by the per-call timeout from ``CCF_LIVE_TIMEOUT_SECONDS`` /
+    ``artifacts/live.yaml``, the whole run by ``runner.budget_seconds``. An
+    unreachable provider, an absent key, or a breached budget exits 2 with
+    an actionable diagnostic; a failed CCF assertion still fails loudly.
+    """
+    import asyncio
+
+    import httpx
+    from claude_agent_sdk import CLIConnectionError, ProcessError
+
+    from legs.deterministic import dimension_count
+    from legs.live import (
+        LiveBudget,
+        LiveBudgetExceeded,
+        ProviderUnavailable,
+        build_live_legs,
+        drive_live_leg,
+        resolve_provider,
+    )
+
+    live_cfg = _load("live.yaml")
+    runner_cfg = live_cfg["runner"]
+    try:
+        provider = resolve_provider(
+            provider_name, live=live_cfg, runner=runner_cfg
+        )
+        budget = LiveBudget(seconds=float(runner_cfg["budget_seconds"]))
+        with _decision() as bundle:
+            legs = build_live_legs(
+                harnesses=bundle.harnesses,
+                provider=provider,
+                runner=runner_cfg,
+                budget=budget,
+            )
             assert len({leg.harness_id for leg in legs}) == 3
-            runs: tuple[LegRun, ...] = tuple(
-                drive_leg(
+            runs = tuple(
+                drive_live_leg(
                     leg,
-                    agent=agent,
-                    product=consumed,
-                    instructions=instructions,
-                    build_record=build_record,
+                    agent=bundle.agent,
+                    product=bundle.consumed,
+                    instructions=bundle.instructions,
+                    build_record=bundle.build_record,
                 )
                 for leg in legs
             )
+    except (ProviderUnavailable, LiveBudgetExceeded) as refusal:
+        print(f"examples/03-harness-portability: {refusal}", file=sys.stderr)
+        return 2
+    except (httpx.HTTPError, asyncio.TimeoutError) as failure:
+        print(
+            "examples/03-harness-portability: live provider"
+            f" {provider_name!r} unreachable or timed out"
+            f" ({type(failure).__name__}: {failure}) — start the provider"
+            " (e.g. `ollama serve`), point CCF_OLLAMA_BASE_URL at it, or"
+            " raise CCF_LIVE_TIMEOUT_SECONDS",
+            file=sys.stderr,
+        )
+        return 2
+    except (CLIConnectionError, ProcessError) as failure:
+        print(
+            "examples/03-harness-portability: the Claude Agent SDK session"
+            f" could not complete against provider {provider_name!r}"
+            f" ({type(failure).__name__}: {failure})",
+            file=sys.stderr,
+        )
+        return 2
 
-            # The consumed product is byte-identical across the three legs —
-            # and identical to what the fabric admitted, unaltered (D-02).
-            delivered = {run.harness_id: run.product_bytes for run in runs}
-            assert len(set(delivered.values())) == 1, {
-                name: len(value) for name, value in delivered.items()
-            }
-            assert set(delivered.values()) == {canonical_bytes(consumed)}
+    # --- D-04: structural equivalence, never byte-equality -------------------
+    # Same Context Product consumed: same product class, version, and lineage
+    # identity — recovered out of each harness's own carrier, not assumed.
+    recovered = tuple(
+        ContextProductContract.model_validate_json(run.product_bytes)
+        for run in runs
+    )
+    for product in recovered:
+        assert product.schema_name == bundle.consumed.schema_name
+        assert product.schema_version == bundle.consumed.schema_version
+        assert product.tenant_id == bundle.consumed.tenant_id
+        assert canonical_bytes(product.lineage) == canonical_bytes(
+            bundle.consumed.lineage
+        ), "lineage identity diverged under a live leg"
 
-            # The governed emission is one effect, whichever harness drove it.
-            assert len({run.emission_address for run in runs}) == 1
+    # Every effect passed through governed emission — one address, whichever
+    # harness drove it (the fabric side does not vary with the model).
+    assert len({run.emission_address for run in runs}) == 1
 
-            # Governed replay fields exactly equal, field by field (D-18).
-            reference, *others = runs
-            expected_fields = governed_fields(reference.record)
-            for run in others:
-                actual = governed_fields(run.record)
-                assert set(actual) == set(expected_fields)
-                for name in sorted(expected_fields):
-                    assert actual[name] == expected_fields[name], (
-                        f"governed replay field {name!r} diverged between"
-                        f" {reference.harness_id} and {run.harness_id}"
-                    )
+    for run in runs:
+        # Five typed dimensions, structurally complete (INV-CH7-80).
+        assert dimension_count(run.record) == 5, run.harness_id
+        # Agent version + skill-set in force populated on dimension 4.
+        conditioning = run.record.perspective_conditioning
+        assert canonical_bytes(conditioning) == canonical_bytes(
+            runs[0].record.perspective_conditioning
+        ), "agent conditioning diverged under a live leg"
+        # Model version record populated with THIS harness's own live trace.
+        assert run.record.model_version.harness_trace == run.trace
 
-            # Harness attribution stays isolated — and differs per harness.
-            assert (
-                len({canonical_bytes(run.trace) for run in runs}) == 3
-            ), "the three harness traces collapsed"
-            for run in runs:
-                assert "harness_trace" not in governed_fields(run.record)
+    # Three legs, three harnesses, one live model each — traces stay isolated.
+    assert len({run.harness_id for run in runs}) == 3
 
-            # Each record is structurally complete: five dimensions, live.
-            for run in runs:
-                assert dimension_count(run.record) == 5, run.harness_id
-
-            print("examples/03-harness-portability: OK (deterministic)")
-            print(f"  tenant                {tenant_id}")
-            print(f"  agent                 {definition.name}")
-            print(f"  agent definition hash {content_hash(definition)[:16]}…")
-            print(f"  legs                  {[run.harness_id for run in runs]}")
-            print(f"  product bytes         {len(runs[0].product_bytes)} (identical ×3)")
-            print(
-                "  governed fields       "
-                f"{len(expected_fields)} exactly equal ×3"
-            )
-            print(
-                "  harness traces        3 distinct: "
-                + ", ".join(run.trace.model_version for run in runs)
-            )
-            return 0
-        finally:
-            handle.close()
+    print(f"examples/03-harness-portability: OK (live, {provider.provider_id})")
+    print(f"  tenant                {bundle.tenant_id}")
+    print(f"  agent                 {bundle.definition.name}")
+    print(f"  provider              {provider.provider_id} ({provider.model})")
+    print(f"  legs                  {[run.harness_id for run in runs]}")
+    print(
+        "  reported models       "
+        + ", ".join(run.trace.model_version for run in runs)
+    )
+    print(
+        "  token accounting      "
+        + ", ".join(
+            f"{run.trace.input_tokens}/{run.trace.output_tokens}"
+            for run in runs
+        )
+    )
+    print("  equivalence           structural (D-04): product class,")
+    print("                        lineage identity, 5 dimensions, governed")
+    print("                        emission — never byte-equal model output")
+    return 0
 
 
 def main() -> int:
@@ -531,11 +697,14 @@ def main() -> int:
     parser.add_argument("--provider", choices=("ollama", "anthropic"))
     arguments = parser.parse_args()
     if arguments.mode == "live":
-        print(
-            "examples/03-harness-portability: live legs land in plan 08-11",
-            file=sys.stderr,
-        )
-        return 2
+        if arguments.provider is None:
+            print(
+                "examples/03-harness-portability: --mode live requires"
+                " --provider ollama|anthropic",
+                file=sys.stderr,
+            )
+            return 2
+        return _live(arguments.provider)
     return _deterministic()
 
 

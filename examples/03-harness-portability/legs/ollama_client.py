@@ -88,6 +88,15 @@ class OllamaChatClient:
         (``ANTHROPIC_BASE_URL``) and this client cannot drift apart."""
         return self._base_url
 
+    def probe(self, *, timeout_seconds: float) -> None:
+        """Fast reachability pre-flight; raises ``httpx.HTTPError`` if down.
+
+        Run before any leg starts so an unreachable Ollama is a prompt
+        exit-2 diagnostic rather than a harness CLI retrying against a dead
+        endpoint until the budget elapses.
+        """
+        httpx.get(f"{self._base_url}/api/tags", timeout=timeout_seconds)
+
     def chat(self, *, system: str, user: str) -> LiveChatResult:
         """One non-streaming chat turn; raises ``httpx.HTTPError`` on failure.
 

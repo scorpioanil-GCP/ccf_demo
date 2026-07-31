@@ -242,6 +242,10 @@ def resolve_provider(
         )
         # LLMClientProtocol smoke assertion — the plan's structural check.
         assert isinstance(client, LLMClientProtocol), type(client).__name__
+        # Fail fast on an unreachable endpoint (runner safeguard): the
+        # per-call timeout bounds the probe, and the failure surfaces as a
+        # diagnostic exit 2 before any harness leg starts.
+        client.probe(timeout_seconds=min(timeout_seconds, 10.0))
         return ProviderBinding(
             provider_id="ollama",
             model=client.model_version,
