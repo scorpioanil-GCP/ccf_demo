@@ -98,3 +98,62 @@ No gaps. Phase goal achieved with direct codebase evidence at all four levels (e
 
 _Verified: 2026-07-30_
 _Verifier: Claude (gsd-verifier)_
+
+---
+
+# Gap-Closure Cycle Verification (Phase 7.1 — plans 07-15..07-19, D-IMPL-66 a–e)
+
+**Verified:** 2026-07-30 (branch `phase-i4.1`)
+**Status:** passed
+**Score:** 5/5 D-IMPL-66 items verified (16/16 plan must-have truths)
+**Re-verification:** No — initial verification of the gap cycle (the passed verdict above stands unchanged)
+
+## D-IMPL-66 Item Verification
+
+| Item | Truth | Status | Evidence |
+| --- | --- | --- | --- |
+| (a) impl #2 | Signed HumanPrincipalBinding via D-IMPL-15 machinery, tamper detected | ✓ VERIFIED | `src/ccf/hitl/identity_binding.py` — `SignedPrincipalBinding` (CCFContract), `sign_principal_binding`/`verify_principal_binding` importing `ccf.peering.identity` (line 39); exported from `ccf.hitl.__init__`. Tests: round-trip, substituted-approver forgery fails, unknown-key fails typed, extras rejected (`tests/hitl/test_identity_binding.py`) |
+| (a) impl #1 + HTTP hook | Auth-context-derived principal; 401 on authority-bearing routes with hook; posture unchanged without | ✓ VERIFIED | `runtime/ccf_runtime/identity_binding.py::principal_from_token_grant` (no caller-typed subject_id — asserted by `inspect.signature` test); `runtime/ccf_runtime/http_api/auth.py` — `HttpAuthProtocol` + `BearerTokenAuth` reusing `ccf_runtime.mcp.auth.TokenSourceProtocol/TokenGrant`; `create_app(deps, *, auth=None)` wires guards, `/health` exempt. Tests: missing-header/unrecognised-token/non-bearer 401, recognised-token 200, no-hook no-401 posture test (`tests/http_api/test_auth.py`) |
+| (b) | Engine refuses agent-node handoff with no bound debt assessment; bound breach routes exception path | ✓ VERIFIED | `runtime/ccf_runtime/workflow/engine.py` — `DebtAssessmentBinding` Protocol (returns `ccf.halflife.debt.DebtAssessment`), `UnboundDebtAssessmentError(WorkflowWiringError)`, assessment precedes `run_agent` in the agent branch (lines 529–542). Red test present: `test_an_unbound_engine_refuses_an_agent_node_handoff` plus bound-clean, breach-routes-exception-ref, breach-no-ref-propagates, skill-only-unaffected (`tests/workflow/test_debt_handoff.py`) |
+| (c) | End-to-end `build_replay_record` drives for ExceptionEscalation, OverrideBoundary, ReviewQueue with byte-equal dimension-2 landing | ✓ VERIFIED | `tests/hitl/test_replay_e2e.py` — per-primitive drives asserting `replay.policy_bindings.hitl_actions == resolution.hitl_actions_block` for escalation, override, review release AND review rejection, plus positive-sentinel counterfactual |
+| (d) | `ccf hitl submit` primary; `decide` deprecated alias, same RequestSpec | ✓ VERIFIED | `runtime/ccf_runtime/cli/commands/hitl.py` — `_decide` delegates to `_submit` (one builder, `POST /hitl/actions`), stderr deprecation notice, help text "(deprecated — use 'submit')". CLI dispatch + D-IMPL-66(d) tests in `tests/cli/test_cli.py` |
+| (e) | Post-merge D-GATE-I.4 addendum superseding "remains unwritten" | ✓ VERIFIED | `docs/PHASE_I4_GATE.md` §8 "Post-merge status addendum (Phase 7.1, D-IMPL-66(e))": D-GATE-I.4 2026-07-30/Dave, merge commit `60f5192`, post-merge main sweep 1280/0/0, explicit supersession of §7.4's tail sentence; §1–§7 historical text unedited (append-only). Header STATUS line updated. `D-GATE-I.4` entry present in `docs/DECISIONS.md` |
+
+## Suite / Invariant Re-Verification
+
+| Check | Command | Result | Status |
+| --- | --- | --- | --- |
+| Full suite, harnesses mandatory | `CCF_REQUIRE_HARNESSES=1 PYTHONPATH=src:runtime .venv/bin/python -m pytest -q` | **1307 passed, 0 skipped, 0 failed** (87.8s) — matches expected 1307 | ✓ PASS |
+| Types | `mypy --strict src runtime tools` | Success: no issues found in 167 source files | ✓ PASS |
+| CI invariants (No-Hardcoding, harness imports, `@algorithmic`, orchestration split) | `python -m tools.lints --all` | exit 0 | ✓ PASS |
+| Default HTTP posture sentence | `git diff main -- runtime/ccf_runtime/http_api/app.py` | `AUTH_POSTURE_SENTENCE` constant byte-identical; the optional-hook sentence is a separate additive constant (`_AUTH_HOOK_LINE`) appended after it, deliberately kept out of the asserted string | ✓ PASS |
+
+## Key Link Verification (gap-cycle plans)
+
+| From | To | Via | Status |
+| --- | --- | --- | --- |
+| `src/ccf/hitl/identity_binding.py` | `src/ccf/peering/identity.py` | `from ccf.peering.identity import` (line 39) | ✓ WIRED |
+| `src/ccf/hitl/identity_binding.py` | `src/ccf/hitl/principal.py` | `HumanPrincipalBinding` payload | ✓ WIRED |
+| `runtime/ccf_runtime/http_api/auth.py` | `runtime/ccf_runtime/mcp/auth.py` | `TokenSourceProtocol`/`TokenGrant` reuse | ✓ WIRED |
+| `runtime/ccf_runtime/http_api/app.py` | `http_api/auth.py` | `auth: HttpAuthProtocol \| None = None` at `create_app` | ✓ WIRED |
+| `runtime/ccf_runtime/identity_binding.py` | `src/ccf/hitl/principal.py` | constructs `ApproverIdentity` + `HumanPrincipalBinding` | ✓ WIRED |
+| `workflow/engine.py` | `src/ccf/halflife/debt.py` | `DebtAssessment` return type; assessment precedes `run_agent` | ✓ WIRED |
+| `tests/hitl/test_replay_e2e.py` | `src/ccf/replay/record.py` | `build_replay_record(hitl_actions=...)` | ✓ WIRED |
+| `cli/commands/hitl.py` | `POST /hitl/actions` | one `RequestSpec` builder for both verbs | ✓ WIRED |
+
+## Anti-Patterns / Regressions
+
+None found in gap-cycle files (no TBD/FIXME/XXX/TODO markers; no inline prompts; no harness imports in `/src`; single-writer untouched). The suite count moved 1280 → 1307 (+27, all gap-cycle tests) with zero skips.
+
+## Human Verification Required
+
+None — every gap-cycle truth is exercised by the automated suite.
+
+## Gap-Cycle Verdict
+
+**passed.** All five D-IMPL-66 items (a–e) are closed with direct codebase evidence; no invariant regressions; the full suite, mypy --strict, and tools.lints --all are green on `phase-i4.1`.
+
+---
+
+_Gap-cycle verified: 2026-07-30_
+_Verifier: Claude (gsd-verifier)_
