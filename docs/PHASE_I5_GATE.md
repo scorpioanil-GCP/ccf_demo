@@ -1,5 +1,9 @@
 # Phase I.5 — Examples Suite & Full CI Verification: Gate Package (the Phase I gate)
 
+STATUS: **approved by Dave, 2026-07-31** (`D-GATE-I` in `docs/DECISIONS.md`), with push
+authorization granted. The "AWAITING" status block below records the pre-approval state
+as presented and is deliberately unedited (append-only discipline).
+
 **Phase:** 8 (Phase I.5) · **Branch:** `phase-i5` · **Assembled:** 2026-07-31
 **Protocol:** CLAUDE.md §3.1 (self-review → triage → present to Dave → `D-GATE-I` → merge → tag)
 **This is the Phase I gate — the v0 declaration.** Per D-17 (08-CONTEXT): approval →
