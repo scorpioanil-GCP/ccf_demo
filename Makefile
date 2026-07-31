@@ -34,8 +34,10 @@ test: ## Full pytest suite with harness legs required (CCF_REQUIRE_HARNESSES=1)
 
 ci-core: lint typecheck test ## Mid-phase verification sweep — MUST stay green from Wave 1 onward
 
-# `ci` becomes meaningful in plan 08-12 when the examples suite is complete;
-# use `ci-core` until then.
+# Finalized in plan 08-12: `ci` = ci-core + examples is the phase gate
+# command, reproducing the always-on Actions pipeline (ci.yml lint + test +
+# examples jobs) locally command-for-command (D-10). Live legs are opt-in
+# (live-legs.yml, D-11) and deliberately not part of `ci`.
 ci: ci-core examples ## Full local reproduction of the always-on pipeline (D-10)
 
 example-00: ## Run examples/00-quickstart (reference backends, D-13)
