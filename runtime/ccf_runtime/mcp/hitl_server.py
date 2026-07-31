@@ -34,6 +34,15 @@ server over a shared deployment must not be able to show one tenant's
 pending events to another by positional accident, and the per-tenant queue
 partitioning of the typed transport carries through to this surface intact.
 
+**The subject is the verified identity (D-IMPL-67 item 2).** The action
+Tool binds the submission's subject to the server's *verified* token
+identity through the shared derivation
+(:func:`~ccf_runtime.identity_binding.principal_from_token_grant`): a
+caller-typed ``subject_id`` is a claim that must match the verified
+``client_id``, a conflicting claim is a typed refusal
+(:class:`SubjectIdentityConflictRefused`), and an unverifiable call is
+refused outright (:class:`UnverifiedCallerRefused`) — never trusted.
+
 **Authenticated (D-26).** The verifier/settings pair is required, and
 required together, per the artifact-server precedent — this is the surface
 human authority crosses, and it is the last place an unauthenticated
@@ -51,18 +60,16 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
+from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
-from ccf.hitl.principal import (
-    ApproverIdentity,
-    AuthenticationContext,
-    HumanPrincipalBinding,
-)
 from ccf.hitl.transport import HitlActionSubmission, PendingHitlEvent
+from ccf_runtime.identity_binding import principal_from_token_grant
+from ccf_runtime.mcp.auth import TokenGrant
 
 __ccf_mode__ = "algorithmic"
 
@@ -74,6 +81,8 @@ __all__ = [
     "HitlQueueView",
     "HitlQueueViewProtocol",
     "NaiveActionTimeRefused",
+    "SubjectIdentityConflictRefused",
+    "UnverifiedCallerRefused",
     "build_hitl_server",
     "hitl_queue_uri",
 ]
@@ -103,6 +112,25 @@ class NaiveActionTimeRefused(ValueError):
     would refuse a naive datetime anyway (D-IMPL-38), and refusing it here
     keeps the ambiguity out of the submission before anything is routed —
     a replay must never have to guess which wall a human's clock hung on.
+    """
+
+
+class UnverifiedCallerRefused(RuntimeError):
+    """No verified access token was present for the in-flight tool call.
+
+    The D-26 auth middleware should make this unreachable — the server is
+    authenticated by construction — but the tool refuses rather than trusts
+    the caller's claim when the precondition fails (D-IMPL-67 item 2): a
+    subject the deployment did not verify never binds a human action.
+    """
+
+
+class SubjectIdentityConflictRefused(ValueError):
+    """The caller-typed ``subject_id`` conflicts with the verified identity.
+
+    The audited subject is the server's verified token identity, never the
+    caller's claim (D-IMPL-67; D-IMPL-21). The refusal names the conflict
+    without echoing token values.
     """
 
 
@@ -220,18 +248,29 @@ def build_hitl_server(
         product_content_hash: str,
         annotation: str | None = None,
     ) -> str:
-        """Submit one human action under a complete principal binding.
+        """Submit one human action under a verified principal binding.
 
         Every ``HumanPrincipalBinding`` field is a required parameter of
         this tool — the input schema *is* the D-IMPL-21 field set, so a call
         missing any of them is refused by the tool boundary before a
         submission can exist, and a malformed value (a non-hash product
         identity, an unknown action, a naive action time) is refused by the
-        typed contracts. Only a complete, validated submission reaches the
-        deployment's authority route.
+        typed contracts.
+
+        **The subject is the server's verified token identity, never the
+        caller's claim (D-IMPL-67 item 2).** ``subject_id`` remains a
+        required parameter — the D-IMPL-21 field-set input schema is
+        preserved — but it is a *claim that must match*: a value conflicting
+        with the verified identity is a typed refusal, and the binding that
+        reaches the deployment's authority route is derived through
+        :func:`~ccf_runtime.identity_binding.principal_from_token_grant`,
+        which has no caller subject parameter.
 
         Raises:
             NaiveActionTimeRefused: ``action_time`` carries no UTC offset.
+            UnverifiedCallerRefused: no verified access token in context.
+            SubjectIdentityConflictRefused: ``subject_id`` conflicts with
+                the verified token identity.
         """
         parsed_time = datetime.fromisoformat(action_time)
         if parsed_time.tzinfo is None:
@@ -240,20 +279,32 @@ def build_hitl_server(
                 " ambiguous instant cannot bind a human action (D-IMPL-38,"
                 " D-IMPL-21)"
             )
+        token = get_access_token()
+        if token is None:
+            raise UnverifiedCallerRefused(
+                "no verified access token accompanies this tool call; the"
+                " authority surface binds subjects to verified identities"
+                " only (D-IMPL-67; D-26)"
+            )
+        if subject_id != token.client_id:
+            raise SubjectIdentityConflictRefused(
+                "identity conflict: the claimed subject_id does not match"
+                " the verified token identity; the audited subject is the"
+                " server's verified identity, never the caller's claim"
+                " (D-IMPL-67; D-IMPL-21)"
+            )
         submission = HitlActionSubmission(
             event_key=event_key,
             tenant=tenant,
             action=action,
-            principal=HumanPrincipalBinding(
-                approver=ApproverIdentity(
-                    subject_id=subject_id,
-                    identity_provider_ref=identity_provider_ref,
+            principal=principal_from_token_grant(
+                grant=TokenGrant(
+                    client_id=token.client_id, scopes=tuple(token.scopes)
                 ),
-                authentication=AuthenticationContext(
-                    method=method,
-                    assurance_level=assurance_level,
-                    session_ref=session_ref,
-                ),
+                identity_provider_ref=identity_provider_ref,
+                method=method,
+                assurance_level=assurance_level,
+                session_ref=session_ref,
                 action_time=parsed_time,
                 product_content_hash=product_content_hash,
             ),
