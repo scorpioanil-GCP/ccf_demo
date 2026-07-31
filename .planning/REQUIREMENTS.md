@@ -168,30 +168,30 @@ All 46 v1 requirements mapped (46/46).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RSCH-01 | Phase 1 | Pending |
-| RSCH-02 | Phase 1 | Pending |
-| RSCH-03 | Phase 1 | Pending |
-| RSCH-04 | Phase 1 | Pending |
+| RSCH-01 | Phase 1 | Complete |
+| RSCH-02 | Phase 1 | Complete |
+| RSCH-03 | Phase 1 | Complete |
+| RSCH-04 | Phase 1 | Complete |
 | DSGN-01 | Phase 2 | Complete |
 | DSGN-02 | Phase 2 | Complete |
 | DSGN-03 | Phase 2 | Complete |
 | DSGN-04 | Phase 2 | Complete |
-| FEAS-01 | Phase 3 | Pending |
-| FEAS-02 | Phase 3 | Pending |
-| FEAS-03 | Phase 3 | Pending |
-| FEAS-04 | Phase 3 | Pending |
-| FABR-01 | Phase 4 | Pending |
-| FABR-02 | Phase 4 | Pending |
-| FABR-03 | Phase 4 | Pending |
+| FEAS-01 | Phase 3 | Complete |
+| FEAS-02 | Phase 3 | Complete |
+| FEAS-03 | Phase 3 | Complete |
+| FEAS-04 | Phase 3 | Complete |
+| FABR-01 | Phase 4 | Complete |
+| FABR-02 | Phase 4 | Complete |
+| FABR-03 | Phase 4 | Complete |
 | FABR-04 | Phase 4 | Complete |
-| FABR-05 | Phase 4 | Pending |
-| FABR-06 | Phase 4 | Pending |
-| FABR-07 | Phase 4 | Pending |
-| FABR-08 | Phase 4 | Pending |
-| FABR-09 | Phase 4 | Pending |
-| CINV-01 | Phase 4 | Pending |
-| CINV-02 | Phase 4 | Pending |
-| CINV-03 | Phase 4 | Pending |
+| FABR-05 | Phase 4 | Complete |
+| FABR-06 | Phase 4 | Complete |
+| FABR-07 | Phase 4 | Complete |
+| FABR-08 | Phase 4 | Complete |
+| FABR-09 | Phase 4 | Complete |
+| CINV-01 | Phase 4 | Complete |
+| CINV-02 | Phase 4 | Complete |
+| CINV-03 | Phase 4 | Complete |
 | CINV-04 | Phase 4 | Complete (deferrals discharged in Phase 7) |
 | AGNT-01 | Phase 5 | Complete |
 | AGNT-02 | Phase 5 | Complete |
