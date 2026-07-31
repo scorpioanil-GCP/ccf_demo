@@ -9,9 +9,9 @@ the same surface. **Notification and authority are separated by ruling**:
 this transport carries authority; the webhook leg is notify-only — the
 webhook notifies, the action always flows back through this typed queue, so
 audit-by-construction cannot be bypassed from a notification channel. The
-webhook leg's v0 disposition is owned by plan 07-08, the single owning plan
-for that surface; MCP server endpoints exposing these queues are the
-Experience-Layer primary (D-IMPL-20) and live on that surface, not here.
+notify-only webhook emitter ships in :mod:`ccf.hitl.webhook` per D-IMPL-64;
+MCP server endpoints exposing these queues are the Experience-Layer
+primary (D-IMPL-20) and live on that surface, not here.
 
 **The audit claim is D-22-scoped.** The transport carries the
 :class:`~ccf.hitl.principal.HumanPrincipalBinding` — the action-submission
@@ -176,8 +176,9 @@ class HITLTransportProtocol(Protocol):
     bespoke pager — and the SDK has no business choosing
     (:class:`InMemoryHitlTransport` is the development reference, not a
     recommendation). What the Protocol omits is deliberate: there is no
-    notification hook here — webhooks are notify-only and live elsewhere
-    (07-08) — and no replay handle: recording is the primitives' obligation.
+    notification hook here — webhooks are notify-only and live in
+    :mod:`ccf.hitl.webhook` (D-IMPL-64) — and no replay handle: recording
+    is the primitives' obligation.
 
     ``runtime_checkable`` supports composition-root wiring checks; it
     verifies method presence only, so static conformance still rests on

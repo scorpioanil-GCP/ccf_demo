@@ -71,9 +71,19 @@ from ccf.hitl.transport import (
     HITL_ACTIONS,
     HITL_EVENT_CLASSES,
     HITLTransportProtocol,
+    HitlActionReceipt,
     HitlActionSubmission,
     InMemoryHitlTransport,
     PendingHitlEvent,
+)
+from ccf.hitl.webhook import (
+    HitlEventNotification,
+    RecordingWebhookDeliverer,
+    WebhookDeliveryOutcome,
+    WebhookDeliveryProtocol,
+    WebhookEndpoint,
+    WebhookEndpointConflict,
+    WebhookHitlNotifier,
 )
 
 __ccf_mode__ = "algorithmic"
@@ -115,8 +125,16 @@ __all__ = [
     "UnknownGateEventError",
     "AuthenticationContext",
     "HITLTransportProtocol",
+    "HitlActionReceipt",
     "HitlActionSubmission",
+    "HitlEventNotification",
     "HumanPrincipalBinding",
     "InMemoryHitlTransport",
     "PendingHitlEvent",
+    "RecordingWebhookDeliverer",
+    "WebhookDeliveryOutcome",
+    "WebhookDeliveryProtocol",
+    "WebhookEndpoint",
+    "WebhookEndpointConflict",
+    "WebhookHitlNotifier",
 ]
