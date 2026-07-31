@@ -398,6 +398,80 @@ def test_hitl_action_with_an_extra_field_is_refused(app: Any) -> None:
     assert call(app, "POST", "/hitl/actions", json=submission).status_code == 422
 
 
+def _bound_submission(event_key: str) -> dict[str, Any]:
+    return {
+        "event_key": event_key,
+        "tenant": "acme-bank",
+        "action": "approve",
+        "principal": {
+            "approver": {
+                "subject_id": "risk-officer-7",
+                "identity_provider_ref": "idp:acme-sso",
+            },
+            "authentication": {
+                "method": "sso",
+                "assurance_level": "aal2",
+                "session_ref": "session-1",
+            },
+            "action_time": "2026-07-30T12:00:00+00:00",
+            "product_content_hash": "0" * 64,
+        },
+        "annotation": None,
+    }
+
+
+def test_hitl_action_receipt_states_submitted_with_honest_disposition(
+    app: Any, fabric: Fabric
+) -> None:
+    """D-IMPL-62 hardening: the action door is submit-only and says so.
+
+    The response states ``submitted`` — never ``resolved`` — and carries
+    the queue state that shows the disposition honestly: the submit alone
+    effects no state transition, so the pending event is still pending.
+    """
+    from ccf.hitl.transport import PendingHitlEvent
+
+    event = PendingHitlEvent(
+        event_key="acme-bank/http-receipt-1/gate",
+        event_class="approval-gate",
+        tenant="acme-bank",
+        workflow_state_ref="acme-bank/http-receipt-1",
+        product_content_hash="0" * 64,
+    )
+    fabric.hitl.enqueue(event=event)
+    response = call(
+        app, "POST", "/hitl/actions", json=_bound_submission(event.event_key)
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "submitted"
+    # the receipt's field set is closed — no field claims resolution
+    assert set(body) == {
+        "status",
+        "submission",
+        "event_pending",
+        "submissions_for_event",
+    }
+    assert body["event_pending"] is True
+    assert body["submissions_for_event"] == 1
+    assert body["submission"]["event_key"] == event.event_key
+
+
+def test_hitl_action_receipt_for_an_unqueued_event_is_not_pending(
+    app: Any,
+) -> None:
+    """The disposition state is real queue state, not an echo."""
+    body = call(
+        app,
+        "POST",
+        "/hitl/actions",
+        json=_bound_submission("acme-bank/never-enqueued/gate"),
+    ).json()
+    assert body["status"] == "submitted"
+    assert body["event_pending"] is False
+    assert body["submissions_for_event"] == 1
+
+
 # --- replay: decisions and exact-version resolution ------------------------
 
 

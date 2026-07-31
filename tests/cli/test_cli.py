@@ -361,6 +361,53 @@ def test_hitl_decide_submits_the_typed_action(
     assert submission["event_key"] in {s.event_key for s in recorded}
 
 
+def test_hitl_decide_output_states_submitted_with_disposition(
+    fabric: Fabric,
+    deps: Any,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """D-IMPL-62 hardening: the CLI output states ``submitted`` — never
+    implies resolution — and carries the honest disposition state."""
+    submission = {
+        "event_key": "acme-bank/cli-receipt-1/gate",
+        "tenant": "acme-bank",
+        "action": "approve",
+        "principal": {
+            "approver": {
+                "subject_id": "risk-officer-7",
+                "identity_provider_ref": "idp:acme-sso",
+            },
+            "authentication": {
+                "method": "sso",
+                "assurance_level": "aal2",
+                "session_ref": "session-1",
+            },
+            "action_time": "2026-07-30T12:00:00+00:00",
+            "product_content_hash": "0" * 64,
+        },
+        "annotation": None,
+    }
+    action_file = tmp_path / "receipt-action.yaml"
+    action_file.write_text(yaml.safe_dump(submission))
+    code, out, _ = run_cli(
+        ["hitl", "decide", "--file", str(action_file)],
+        capsys,
+        dependencies=deps,
+    )
+    assert code == 0
+    receipt = json.loads(out)
+    assert receipt["status"] == "submitted"
+    assert set(receipt) == {
+        "status",
+        "submission",
+        "event_pending",
+        "submissions_for_event",
+    }
+    assert receipt["event_pending"] is False
+    assert receipt["submission"]["event_key"] == submission["event_key"]
+
+
 # --- skill grant / revoke through the governed ledger ----------------------
 
 
