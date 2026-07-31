@@ -1,0 +1,21 @@
+# Harness-portability prompt artifact (CLAUDE.md §6.2 axis 6; D-IMPL-28).
+#
+# The template text and its declared parameters live here, never in code — a
+# prompt string literal in `run.py` or `legs/` would be the No-Hardcoding
+# Rule (§6.4) firing, and CINV-01 lints `/examples` for exactly that.
+# Rendered exactly once by the fabric; every harness leg receives the same
+# rendered string (T-06-64).
+
+keys:
+  prompt_artifact: atlas-commerce/prompt/order-experience-briefing
+
+prompt_artifact:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: order-experience-briefing
+  tenant: atlas-commerce
+  declared_parameters: [order_ref, as_of]
+  template: |
+    Brief the order-experience analyst on order {{ order_ref }} as of
+    {{ as_of }}: current status, who placed it, and whether the delayed
+    shipment warrants an expedited refund escalation.
