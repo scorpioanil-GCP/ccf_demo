@@ -53,9 +53,16 @@ def test_missing_trees_are_skipped_not_errors(tmp_path: pathlib.Path) -> None:
 
 
 def test_examples_and_runtime_trees_are_linted(tmp_path: pathlib.Path) -> None:
+    """Runtime is in CINV-02 scope; examples is not (plan 08-01 posture).
+
+    CLAUDE.md §7.3 scopes "zero harness imports" to core, and example 03
+    necessarily imports harness SDKs — RULE_TREE_SCOPE exempts the examples
+    tree from `harness-imports` while `no-hardcoding` still covers it (see
+    tests/lints/test_examples_scope.py for the full posture suite).
+    """
     _write(tmp_path, "runtime/ccf_runtime/x.py", "import langgraph\n")
     _write(tmp_path, "examples/00/run.py", "import google.adk\n")
-    assert len(run(tmp_path, ["harness-imports"])) == 2
+    assert len(run(tmp_path, ["harness-imports"])) == 1
 
 
 def test_the_real_repo_tree_passes_the_gate() -> None:
