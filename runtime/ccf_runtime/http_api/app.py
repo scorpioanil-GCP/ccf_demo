@@ -38,6 +38,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, params
 
 from ccf_runtime.http_api.auth import HttpAuthProtocol
 from ccf_runtime.http_api.dependencies import ApiDependencies
+from ccf_runtime.http_api.errors import ERROR_UNAUTHENTICATED, refusal_detail
 from ccf_runtime.http_api.routes import (
     agent,
     artifact,
@@ -116,7 +117,16 @@ def create_app(
                 authorization_header=request.headers.get("Authorization")
             )
             if grant is None:
-                raise HTTPException(status_code=401)
+                raise HTTPException(
+                    status_code=401,
+                    detail=refusal_detail(
+                        error_code=ERROR_UNAUTHENTICATED,
+                        message=(
+                            "the request carries no credential the bound"
+                            " auth hook recognises"
+                        ),
+                    ),
+                )
             request.state.token_grant = grant
 
         guarded = [Depends(_require_grant)]

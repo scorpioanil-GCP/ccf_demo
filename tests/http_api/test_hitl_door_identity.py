@@ -112,8 +112,13 @@ class TestConflictRefusal:
             headers={"Authorization": f"Bearer {_TOKEN}"},
         )
         assert response.status_code == 403
-        # The refusal names an identity conflict without echoing the token.
-        assert "identity" in response.text.lower()
+        # The refusal is the typed subject-conflict code (no prose parsing),
+        # and it never echoes the token.
+        from ccf_runtime.http_api.errors import ERROR_SUBJECT_CONFLICT
+
+        assert (
+            response.json()["detail"]["error_code"] == ERROR_SUBJECT_CONFLICT
+        )
         assert _TOKEN not in response.text
         # Nothing was enqueued or recorded on the refused path.
         assert fabric.hitl.submissions(tenant=tenant) == ()

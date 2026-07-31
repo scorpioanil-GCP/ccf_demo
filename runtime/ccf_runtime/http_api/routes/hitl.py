@@ -40,6 +40,11 @@ from ccf.hitl.transport import (
     PendingHitlEvent,
 )
 from ccf_runtime.http_api.dependencies import ApiDependencies
+from ccf_runtime.http_api.errors import (
+    ERROR_INVALID_GRANT,
+    ERROR_SUBJECT_CONFLICT,
+    refusal_detail,
+)
 from ccf_runtime.identity_binding import principal_from_token_grant
 from ccf_runtime.mcp.auth import TokenGrant
 
@@ -69,16 +74,34 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         submission: HitlActionSubmission, request: Request
     ) -> HitlActionReceipt:
         grant = getattr(request.state, "token_grant", None)
+        if grant is not None and not isinstance(grant, TokenGrant):
+            # Fail closed (Codex finding, 07-REVIEWS round 2): an object
+            # that is not the verified TokenGrant type never falls
+            # through to the caller-supplied principal.
+            raise HTTPException(
+                status_code=403,
+                detail=refusal_detail(
+                    error_code=ERROR_INVALID_GRANT,
+                    message=(
+                        "the stashed grant object is not a TokenGrant;"
+                        " the door refuses rather than fall back to the"
+                        " caller-supplied principal"
+                    ),
+                ),
+            )
         if isinstance(grant, TokenGrant):
             if submission.principal.approver.subject_id != grant.client_id:
                 raise HTTPException(
                     status_code=403,
-                    detail=(
-                        "identity conflict: the submission's principal"
-                        " subject does not match the verified caller"
-                        " identity; the audited subject is derived from the"
-                        " verified grant, never the caller's claim"
-                        " (D-IMPL-67; D-IMPL-21)"
+                    detail=refusal_detail(
+                        error_code=ERROR_SUBJECT_CONFLICT,
+                        message=(
+                            "identity conflict: the submission's principal"
+                            " subject does not match the verified caller"
+                            " identity; the audited subject is derived from"
+                            " the verified grant, never the caller's claim"
+                            " (D-IMPL-67; D-IMPL-21)"
+                        ),
                     ),
                 )
             derived = principal_from_token_grant(
