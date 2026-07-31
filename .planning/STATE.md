@@ -132,12 +132,13 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 
 ## Session Continuity
 
-Last action: Completed `07-01-PLAN.md` (2026-07-30) on `phase-i4` — D-IMPL-60
-written up per the D-IMPL-24 template (af2d09d), Dave's D-IMPL-61 ruling
-(option-a, propagate-to-terminal) recorded after the decision checkpoint
-(0d8aee3), fastapi/httpx pinned with stated reasons (c057f92); baseline
-987 passed / 2 skipped before and after.
+Last action: 07-14 Tasks 1–2 complete (2026-07-30) on `phase-i4` — gate package
+`docs/PHASE_I4_GATE.md` (131746d: sweep 1268/0/0, 16 D-25 rows, verbatim
+counterfactuals, deviations register, DESIGN/REQUIREMENTS corrections) and the
+§3.1 cross-AI review + triage (386422e: in-phase fixes applied; **four blocking
+findings require rulings — D-IMPL-62..65 logged OPEN**, phase stopped per §3.1).
 
-Next action: Execute the next Phase 7 wave (07-04 WorkflowDefinition schema is
-now unblocked by D-IMPL-61). Standing note: `main` is far ahead of `origin/main`;
-Dave has not authorized a push.
+Next action: **CHECKPOINT — awaiting Dave** (07-14 Task 3): rule on D-IMPL-62..65,
+then approve/reject the Phase I.4 gate. Only after approval: log D-GATE-I.4 and
+merge `phase-i4` to `main` --no-ff. Standing note: `main` is far ahead of
+`origin/main`; Dave has not authorized a push.
