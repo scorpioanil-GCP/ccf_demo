@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-31T05:55:22.679Z"
+last_updated: "2026-07-31T06:03:37.826Z"
 progress:
   total_phases: 1
   completed_phases: 1
@@ -27,18 +27,17 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 08 (phase-i-5-examples-suite-full-ci-verification) — EXECUTING
-Plan: 1 of 13
+Plan: 2 of 13 complete
 
 - **Phase:** 8 of 8 (phase i.5 — examples suite & full ci verification)
-- **Plan:** Not started
-  hardening (`HitlActionReceipt`) and D-IMPL-64 notify-only webhook transport
-  (`ccf.hitl.webhook`) built TDD; gate document updated; post-ruling sweep
-  1280/0/0, mypy 152 files, lints clean
+- **Plan:** 08-02 complete — D-15 `ccf hitl decide` removal (absence test,
+  DECISIONS.md entry) + fail-closed `isinstance(TokenGrant)` branch and
+  typed refusal error-code constants (`http_api/errors.py`, incl. reserved
+  signed-binding codes for 08-03); sweep 1323/0/0, mypy 156 files, lints clean
 
 - **Status:** Executing Phase 08
-  rejects `docs/PHASE_I4_GATE.md`. D-GATE-I.4 NOT logged; `phase-i4` NOT merged.
 
-- **Branch:** `phase-i4` (created off `main` at 6520b70)
+- **Branch:** `phase-i5` (created off `main`)
 
 - **Progress:** [██████████] 100%
 
@@ -79,6 +78,8 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 | 05-07      | ~8 min   | 2     | 3     |
 | 07-01      | ~15 min  | 3     | 2     |
 | 07-14      | 2 sess.  | 3     | 12    |
+| 08-01      | ~10 min  | 2     | 4     |
+| 08-02      | ~12 min  | 2     | 8     |
 
 ## Accumulated Context
 
@@ -130,6 +131,8 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 - [Phase 07]: D-IMPL-64 (Dave, 2026-07-30): webhook deferral REJECTED — the notify-only webhook HITL transport ships in v0 (`ccf.hitl.webhook`: injected `WebhookDeliveryProtocol`, typed refusals, no authority surface by construction) (07-14)
 - [Phase 07]: D-IMPL-65 (Dave, 2026-07-30): composition-root debt-cascade wiring closes the I.4 gate; NAMED next-phase commitment — the engine will refuse an agent-node handoff with no bound debt assessment (07-14)
 - [Phase 07]: fastapi==0.140.0 and httpx==0.28.1 are direct pins with stated reasons; CLI is stdlib argparse (no click/typer); ADK's `fastapi>=0.133` constraint interaction recorded for the gate (07-01)
+- [Phase 08]: D-15 executed — `ccf hitl decide` removed tree-wide, `submit` is the one verb; DECISIONS.md entry dated 2026-07-30 (08-02)
+- [Phase 08]: HITL HTTP door fails closed on non-TokenGrant grant objects (403 ERROR_INVALID_GRANT, never caller-principal fallback); refusal bodies carry typed `error_code` constants from `http_api/errors.py`, with `ERROR_SIGNED_BINDING_{REQUIRED,INVALID}` reserved for 08-03 (08-02)
 
 ### Todos
 
@@ -143,13 +146,11 @@ than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
 
 ## Session Continuity
 
-Last action: 07-14 Tasks 1–2 complete (2026-07-30) on `phase-i4` — gate package
-`docs/PHASE_I4_GATE.md` (131746d: sweep 1268/0/0, 16 D-25 rows, verbatim
-counterfactuals, deviations register, DESIGN/REQUIREMENTS corrections) and the
-§3.1 cross-AI review + triage (386422e: in-phase fixes applied; **four blocking
-findings require rulings — D-IMPL-62..65 logged OPEN**, phase stopped per §3.1).
+Last action: 08-02 complete (2026-07-31) on `phase-i5` — D-15 verb removal
+(RED 8d77d04 / GREEN b7d233a) and fail-closed grant branch + typed error
+codes (RED bf05655 / GREEN e866e08); full sweep 1323/0/0, mypy clean (156
+files), lints clean.
 
-Next action: **CHECKPOINT — awaiting Dave** (07-14 Task 3): rule on D-IMPL-62..65,
-then approve/reject the Phase I.4 gate. Only after approval: log D-GATE-I.4 and
-merge `phase-i4` to `main` --no-ff. Standing note: `main` is far ahead of
-`origin/main`; Dave has not authorized a push.
+Next action: execute 08-03 (hardening wave part B — signed-binding door
+mapping consuming the reserved ERROR_SIGNED_BINDING_* constants). Standing
+note: `main` is far ahead of `origin/main`; Dave has not authorized a push.

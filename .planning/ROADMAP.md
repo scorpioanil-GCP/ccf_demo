@@ -43,7 +43,7 @@ Plans:
 
 **Wave 2**
 
-- [ ] 08-02-PLAN.md — Hardening A: D-15 remove `ccf hitl decide`, fail-closed TokenGrant branch, typed error-code constants (incl. ERROR_SIGNED_BINDING_*)
+- [x] 08-02-PLAN.md — Hardening A: D-15 remove `ccf hitl decide`, fail-closed TokenGrant branch, typed error-code constants (incl. ERROR_SIGNED_BINDING_*)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -83,7 +83,7 @@ Plans:
 | 5. Phase I.2 — Agent Specialization Framework | 10/10 | Complete   | 2026-07-26 |
 | 6. Phase I.3 — Cross-Process & Harness Adapters | 25/25 | Complete   | 2026-07-28 |
 | 7. Phase I.4 — Orchestration, HITL, Experience | 20/20 | Complete   | 2026-07-31 |
-| 8. Phase I.5 — Examples Suite & Full CI Verification | 1/13 | In Progress|  |
+| 8. Phase I.5 — Examples Suite & Full CI Verification | 2/13 | In Progress|  |
 
 ## Coverage
 
