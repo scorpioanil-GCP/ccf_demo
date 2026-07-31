@@ -64,6 +64,7 @@ from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.resolution import resolve_pinned
 from ccf.controlplane.state import AuditedStateWriter
+from ccf.halflife.debt import DebtAssessment, DebtSignal
 from ccf.hitl.transport import HITLTransportProtocol, PendingHitlEvent
 from ccf.skills.grants import SplitAuditPlaneError
 from ccf.workflow.definitions import (
@@ -82,8 +83,10 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "WORKFLOW_TRACE_ARTIFACT_CLASS",
     "AgentNodeBinding",
+    "DebtAssessmentBinding",
     "ForeignStateRecordError",
     "SkillNodeBinding",
+    "UnboundDebtAssessmentError",
     "WorkflowCompleted",
     "WorkflowEngine",
     "WorkflowExceptionRouted",
@@ -116,6 +119,18 @@ class WorkflowWiringError(RuntimeError):
     A step ref that resolves to nothing, or nominal routing the artifact
     leaves ambiguous — a raised exception on the I.1 line, never a returned
     refusal: this is a broken deployment, not an expected outcome.
+    """
+
+
+class UnboundDebtAssessmentError(WorkflowWiringError):
+    """An agent-node handoff was attempted with no bound debt assessment.
+
+    D-IMPL-65's committed engine refusal, delivered in the 7.1 gap cycle
+    per D-IMPL-66(b): DESIGN.md §4 names per-handoff ``D_c`` recomputation
+    with fail-closed routing as a Workflow-primitive invariant
+    (INV-CH7-68), so an engine asked to hand off to an agent node without a
+    :class:`DebtAssessmentBinding` is a broken deployment — a raised
+    exception on the I.1 line, never a returned refusal.
     """
 
 
@@ -158,6 +173,28 @@ class AgentNodeBinding(Protocol):
         self, *, tenant: str, step_name: str, ref: str
     ) -> Mapping[str, str]:
         """Invoke the agent the step's pinned definition ref names."""
+        ...
+
+
+@runtime_checkable
+class DebtAssessmentBinding(Protocol):
+    """The seam a ``D_c`` assessment travels before every agent handoff.
+
+    INV-CH7-68 (debt cascades across multi-agent handoffs), D-IMPL-65's
+    named next-phase commitment, accelerated by D-IMPL-66(b). The
+    composition root binds this onto :func:`ccf.halflife.debt.assess_debt`
+    against the Control Plane's resolved debt-profile artifact
+    (``ccf.controlplane.artifacts``) for the decision class. The engine
+    holds no profile and no threshold (CINV-01):
+    it consumes only the :class:`~ccf.halflife.debt.DebtSignal` band the
+    assessment already carries — the artifact's statement, never a value of
+    this module's.
+    """
+
+    async def assess(
+        self, *, tenant: str, step_name: str, ref: str
+    ) -> DebtAssessment:
+        """Assess ``D_c`` for the handoff to the agent ``ref`` names."""
         ...
 
 
@@ -252,6 +289,11 @@ class WorkflowEngine:
             through a harness adapter at the composition root).
         clock: Time source for trace and audit timestamps. Injected, never
             read from the wall.
+        debt_binding: The per-agent-handoff ``D_c`` assessment seam
+            (INV-CH7-68; D-IMPL-65/66(b)). Optional at construction so a
+            skill-and-gate-only deployment carries no obligation it never
+            exercises — but an *agent-node* handoff on an engine with no
+            binding raises :class:`UnboundDebtAssessmentError`.
         audit: Optional explicitness affordance, constrained exactly as the
             grant ledger's: the Control Plane is the audit plane and there
             is one of it (INV-CH7-71), so this defaults to — and may only
@@ -272,6 +314,7 @@ class WorkflowEngine:
         agent_binding: AgentNodeBinding,
         clock: Callable[[], datetime],
         audit: AuditLog | None = None,
+        debt_binding: DebtAssessmentBinding | None = None,
     ) -> None:
         if audit is not None and audit is not control_plane.audit_log:
             raise SplitAuditPlaneError(
@@ -287,6 +330,7 @@ class WorkflowEngine:
         self._skill_binding = skill_binding
         self._agent_binding = agent_binding
         self._clock = clock
+        self._debt_binding = debt_binding
         self._audit = control_plane.audit_log if audit is None else audit
         self._writer = AuditedStateWriter(
             store=control_plane.state_store, audit=self._audit
@@ -481,6 +525,34 @@ class WorkflowEngine:
                     " to nothing this engine's Control Plane has registered;"
                     " broken wiring raises (I.1 line; DESIGN.md §3.5)"
                 )
+            if step.kind == "agent":
+                # INV-CH7-68 debt cascade: D_c is assessed BEFORE every
+                # agent handoff, outside the try/except so a fail-closed
+                # route is a deliberate transition, never an accident
+                # (D-IMPL-65; D-IMPL-66(b)).
+                if self._debt_binding is None:
+                    raise UnboundDebtAssessmentError(
+                        f"agent node {state!r} was reached on an engine"
+                        " with no bound DebtAssessmentBinding; INV-CH7-68"
+                        " requires D_c recomputed at every agent handoff"
+                        " (D-IMPL-65). Bind `debt_binding=` at the"
+                        " composition root onto ccf.halflife.debt"
+                        ".assess_debt against the class's debt profile"
+                    )
+                assessment = await self._debt_binding.assess(
+                    tenant=tenant, step_name=state, ref=step.ref
+                )
+                if assessment.signal is DebtSignal.FAIL_CLOSED:
+                    # The fabric does not know enough to support the
+                    # handoff: route the node's exception path without
+                    # ever invoking the agent (fail-closed, DESIGN.md §4).
+                    return self._route_exception(
+                        workflow,
+                        tenant=tenant,
+                        execution_id=execution_id,
+                        node=state,
+                        trace=trace,
+                    )
             try:
                 if step.kind == "skill":
                     await self._skill_binding.run_skill(
