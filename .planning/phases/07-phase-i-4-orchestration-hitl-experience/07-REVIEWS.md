@@ -664,3 +664,209 @@ Risk verdicts: Gemini LOW · Codex MEDIUM (with a process caveat resolved below)
 
 ### Disposition
 Phase 7 is gated and merged (D-GATE-I.4); these findings are Phase 8 planning inputs, aligning with already-named follow-up scope (D-IMPL-63, D-IMPL-65) plus new candidates: HITL E2E replay parametrization, `hitl submit` alias, gate-doc post-merge addendum, ADK deprecation migration, auth-hook example.
+
+---
+
+# Cross-AI Review — Phase 7.1 Gap-Closure Cycle (post-execution re-review)
+
+reviewed_at: 2026-07-30T19:10:23-07:00
+reviewers: [gemini, codex, cursor, ollama gpt-oss:120b-cloud]
+scope: gap plans 07-15..07-19 + SUMMARYs + gap-cycle verification + gate addendum, on phase-i4.1 (1307/0/0)
+
+## Gemini Review (7.1)
+
+The gap-closure cycle (Phase 7.1) has successfully addressed all five prior consensus concerns with high fidelity. The SDK now provides the mechanisms necessary to harden the HTTP surface, enforces critical architectural invariants (like the debt cascade) within the engine, and provides end-to-end replay proof for all HITL primitives.
+
+### Prior-Concern Closure Table
+
+| Concern | Status | Evidence |
+|:---|:---:|:---|
+| **1. Unauthenticated HTTP + caller-supplied principals** | **CLOSED** | `HttpAuthProtocol` and `BearerTokenAuth` added to `ccf_runtime.http_api.auth`. `principal_from_token_grant` ensures `subject_id` is derived from verified context. JWS-signed bindings implemented in `ccf.hitl.identity_binding`. |
+| **2. Compositional-only HITL replay coverage** | **CLOSED** | `tests/hitl/test_replay_e2e.py` now provides end-to-end `build_replay_record` drives for `ExceptionEscalation`, `OverrideBoundary`, and `ReviewQueue`, matching the proof strength of `ApprovalGate`. |
+| **3. 'ccf hitl decide' verb implying resolution** | **CLOSED** | `ccf hitl submit` is now the primary verb. `decide` is a deprecated alias emitting a stderr warning. Both share a single `RequestSpec` builder to prevent semantic drift. |
+| **4. Engine debt-cascade not enforced** | **CLOSED** | `WorkflowEngine` now requires a `DebtAssessmentBinding`. It enforces a Fail-Closed routing check before `run_agent` for all agent nodes, raising `UnboundDebtAssessmentError` if the seam is missing. |
+| **5. Stale gate-doc status** | **CLOSED** | `docs/PHASE_I4_GATE.md` §8 addendum records the formal `D-GATE-I.4` approval (2026-07-30), the merge commit (`60f5192`), and the final post-merge verification sweep. |
+
+### New Concerns
+
+| Finding | Severity | Substance |
+|:---|:---:|:---|
+| **Engine Breach Predicate Narrowing** | **LOW** | The engine routes to exception paths only on `FAIL_CLOSED`, not on `FORCED_LLM`. While consistent with the plan's "Fail-Closed routing" mandate, it means `FORCED_LLM` remains a value-only signal the engine passes through to the agent/harness rather than an orchestration-level gate. This is a correct mechanism/values split but should be noted by operators. |
+
+### Risk Assessment: LOW
+
+The project's technical integrity is at its highest point to date. The gap cycle was executed with rigorous TDD discipline (recorded red-then-green outputs) and maintained all core invariants. The transition to Phase 8 (Examples) is now unblocked, with a hardened and honest API surface ready for demonstration. The suite stands at **1307 passed / 0 skipped**, with `mypy --strict` and all custom lints clean.
+
+---
+
+## Codex Review (7.1)
+
+## Summary
+
+The gap cycle materially improves Phase 7.1, but I would not call all prior concerns fully closed. The strongest closures are HITL replay coverage, CLI verb honesty, engine debt-handoff enforcement, and gate-doc status. The authority-surface issue is only partially closed: the new auth hook and principal-binding helpers give deployments the tools to harden the HTTP/HITL path, but the default HTTP posture remains unauthenticated and the auth-derived principal is not described as being structurally wired into `/hitl/actions` submission semantics.
+
+## Prior-Concern Closure Table
+
+| Prior concern | Status | Evidence |
+|---|---:|---|
+| 1. Unauthenticated HTTP + caller-supplied principals on authority surfaces | **PARTIALLY CLOSED** | `BearerTokenAuth` and `create_app(..., auth=...)` add optional 401 enforcement, and `principal_from_token_grant` removes caller control of `subject_id` when used. `SignedPrincipalBinding` also detects tampering. However, the default remains unauthenticated by design, and the summaries say the verified grant is only stashed on `request.state.token_grant` for route compositions/future derivation. I do not see evidence that `/hitl/actions` must derive or verify the submitted principal from the auth context. |
+| 2. Compositional-only HITL replay coverage | **CLOSED** | `tests/hitl/test_replay_e2e.py` adds full primitive action → resolution → `build_replay_record(hitl_actions=...)` drives for `ExceptionEscalation`, `OverrideBoundary`, `ReviewQueue.release`, and `ReviewQueue.reject`, with byte-equality assertions on replay dimension 2. Residual is explicitly documented: replay landing remains caller obligation if `hitl_actions=None`. |
+| 3. `ccf hitl decide` verb implies resolution | **CLOSED** | `ccf hitl submit` is now primary, `decide` remains as deprecated alias, emits a notice, and shares the same single `POST /hitl/actions` request builder. |
+| 4. Engine debt-cascade not enforced | **CLOSED** | `DebtAssessmentBinding` and `UnboundDebtAssessmentError` move the check into the engine. Agent handoffs without a binding are refused; bound `FAIL_CLOSED` assessments route before `run_agent`; tests assert agent call count stays zero. Good mechanism/values separation: no `DebtProfile` or threshold in the engine. |
+| 5. Stale gate-doc status | **CLOSED** | `docs/PHASE_I4_GATE.md` has an append-only §8 addendum and top status line recording D-GATE-I.4 approval, merge commit, and post-merge sweep, while preserving historical §7 text. |
+
+## New Concerns
+
+**HIGH — Authority hardening remains opt-in and not end-to-end enforced.**  
+The gap cycle supplies a bearer hook, a signed binding format, and an auth-derived principal helper, but the acceptance evidence does not show that authority-bearing HITL submissions reject body principals that conflict with the verified token, require signed bindings, or derive the principal server-side. This leaves the original spoofing class mitigated by composition, not eliminated by the reference HTTP surface.
+
+**MEDIUM — Replay closure is coverage, not enforcement.**  
+The new E2E tests close the coverage gap, but the negative guard confirms `build_replay_record(hitl_actions=None)` still produces the sentinel. That is honest, but means the invariant still depends on caller wiring unless there is a separate active CINV check covering all production HITL paths.
+
+**LOW — Deprecated `decide` alias remains.**  
+This is acceptable compatibility, but it should have a removal policy or explicit “kept indefinitely” decision before v0 docs/examples normalize around `submit`.
+
+## Risk Assessment
+
+**Overall risk: MEDIUM.** The cycle closes four of five concerns to a strong standard and adds useful regression tests with clean suite/mypy/lint evidence. The remaining risk is concentrated but important: HTTP authority and HITL principal binding are still composition-time hardening tools, not a mandatory reference-path guarantee. For Phase 8 examples, that may be acceptable if every example binds auth and derives/verifies principals server-side; for SDK security posture, it remains the main residual gap.
+
+---
+
+## Cursor Review (7.1)
+
+# Cross-AI Re-Review — Phase 7.1 Gap-Closure (POST-EXECUTION)
+
+## 1. Summary
+
+Plans 07-15..07-19 deliver the D-IMPL-66 scoped artifacts and the suite is green at **1307/0/0**. Concerns **2–5 are CLOSED**. Concern **1 is PARTIALLY CLOSED**: both D-IMPL-21 reference bindings and an optional HTTP bearer hook exist and are tested, but authority-bearing HITL doors still accept **caller-typed** `HumanPrincipalBinding` / `subject_id`, the auth hook is **opt-in** (T-07-24 default unchanged), and there is **no route-level cross-check** that a submission’s principal matches `request.state.token_grant`. The gap cycle closed the *scheduled deferrals*; it did not make the live authority surface non-spoofable by construction.
+
+## 2. Prior-Concern Closure Table
+
+| # | Prior consensus concern | Verdict | Evidence |
+|---|-------------------------|---------|----------|
+| 1 | Unauthenticated HTTP + caller-supplied principals on authority surfaces | **PARTIALLY CLOSED** | **Closed as scoped:** `SignedPrincipalBinding` + `sign`/`verify` reuse `ccf.peering.identity` (`src/ccf/hitl/identity_binding.py`); tamper test raises `PrincipalBindingInvalid` ← `SignatureInvalid`. `principal_from_token_grant` binds `subject_id=grant.client_id` with no caller `subject_id` param (`runtime/ccf_runtime/identity_binding.py`). Optional `create_app(..., auth=BearerTokenAuth(...))` returns 401 on missing/bad token; `/health` exempt; unbound default preserves `AUTH_POSTURE_SENTENCE` byte-identical (`runtime/ccf_runtime/http_api/app.py`). **Not closed on the live door:** `POST /hitl/actions` still takes `HitlActionSubmission.principal: HumanPrincipalBinding` from the body (`routes/hitl.py`); MCP `submit_hitl_action` still takes caller `subject_id` (`mcp/hitl_server.py` ~214–249); `principal_from_token_grant` / `verify_principal_binding` are **not called from any route** (only tests + library). Auth can gate the request while the body still claims a different approver. |
+| 2 | Compositional-only HITL replay coverage | **CLOSED** | `tests/hitl/test_replay_e2e.py`: ExceptionEscalation, OverrideBoundary, ReviewQueue release **and** reject each assert `replay.policy_bindings.hitl_actions == resolution.hitl_actions_block`; override asserts both original and substitute; negative guard documents `hitl_actions=None` → `"no-hitl-actions"` sentinel. Matches ApprovalGate slice strength. |
+| 3 | `ccf hitl decide` implying resolution | **CLOSED** | `submit` is primary with D-IMPL-62-honest help; single `_submit` builder for `POST /hitl/actions`; `decide` is deprecated alias with stderr notice (`cli/commands/hitl.py`). |
+| 4 | Engine debt-cascade not enforced | **CLOSED** | Agent branch raises `UnboundDebtAssessmentError` if `debt_binding is None`; bound path assesses before `run_agent`; `DebtSignal.FAIL_CLOSED` routes via `_route_exception` with `run_agent` never called (`engine.py` ~528–555). Red + green tests in `tests/workflow/test_debt_handoff.py`. DESIGN.md §4 status sentence names `UnboundDebtAssessmentError` / `DebtAssessmentBinding` (historical 07-14 text retained). |
+| 5 | Stale gate-doc status | **CLOSED** | Header `STATUS: gated and merged…`; §8 addendum records D-GATE-I.4 / Dave / merge `60f5192` / 1280/0/0 sweep; §7.4 “remains unwritten” explicitly superseded; §1–§7 append-only. |
+
+## 3. New Concerns
+
+| ID | Severity | Finding |
+|----|----------|---------|
+| N1 | **MEDIUM** | **Auth ≠ principal binding on the wire.** With the hook bound, `TokenGrant` is stashed on `request.state` but HITL routes never derive or verify the submission principal from it. A bearer-authenticated caller can still POST an arbitrary `subject_id`. Same for MCP: tool params remain caller-typed. Hardening is library + opt-in door auth, not end-to-end identity binding on authority acts. |
+| N2 | **MEDIUM** | **Default posture still T-07-24.** Unbound `create_app(deps)` is unchanged; Phase 8 examples will still show the soft surface unless they explicitly bind `auth=` and (separately) wire principal derivation. D-IMPL-66’s “demonstrate the hardened surface” goal is not yet forced by composition defaults. |
+| N3 | **LOW** | **Debt seam is presence + FAIL_CLOSED only.** Engine does not recompute inherited/interim observations itself — that stays in the composition-root binding (correct CINV-01). `FORCED_LLM` does not block handoff (intentional per DESIGN / `DebtSignal` doctrine). `cli/local.py` leaves `debt_binding=None` (honest-empty); local agent handoffs hard-fail — fine if documented for Phase 8. |
+| N4 | **LOW** | **Doc drift:** `docs/DECISIONS.md` D-IMPL-62 text still narrates `ccf hitl decide` as the primary verb; runtime now prefers `submit`. Historical ruling text is fine if a one-line status note is added later; not blocking. |
+| N5 | **LOW** | **Signed binding is detect-only unless composed.** `verify_principal_binding` proves forgery detection; nothing requires a signed binding before enqueue/resolve. Non-repudiation is available, not mandatory. |
+
+## 4. Risk Assessment
+
+**Overall: MEDIUM**
+
+Concerns 2–5 are solidly closed with code + tests + (for 5) append-only gate honesty. Concern 4’s engine refusal is real, red-tested, and FAIL_CLOSED-routed before `run_agent`.
+
+Residual risk is concentrated in **concern 1 / N1–N2**: 7.1 delivered the *mechanisms* D-IMPL-66(a) named (two reference bindings + optional HTTP auth), and deliberately preserved the unauthenticated default. That matches the written ruling, but it does **not** eliminate the original spoofing path on HTTP/MCP HITL authority surfaces. Until a composition (or a later ruling) (1) binds the auth hook and (2) replaces caller-typed `subject_id` with auth-derived or verified-signed principals at the action door, Phase 8 can still demonstrate a surface where identity in the audit record is whatever the client typed.
+
+**Recommendation for Dave:** Accept 7.1 as closing D-IMPL-66(a–e) *as scoped*, with N1 recorded as an explicit Phase 8 (or thin 7.2) composition obligation: wire `principal_from_token_grant` (and/or require `SignedPrincipalBinding`) on `POST /hitl/actions` / MCP submit when auth is bound — not merely ship the helper unused.
+
+---
+
+## Ollama Review (7.1)
+
+# Phase 7 → 7.1 Gap‑Closure Review (post‑execution)
+
+**Project:** CCF SDK  
+**Reviewer:** *Cross‑AI Review Panel* (Claude & Co.)  
+**Date:** 2026‑07‑31  
+
+---
+
+## 1️⃣ Summary  
+
+The Phase 7.1 mini‑cycle was executed to close five consensus concerns raised in the post‑execution review of Phase 7 (D‑IMPL‑66).  Across five separate plans (07‑15 → 07‑19) the team delivered:
+
+* **Authenticated HTTP surface** (plan 16) and a **JWS‑signed principal binding** (plan 15) that eliminate caller‑supplied identity fields on authority‑bearing endpoints.  
+* **Full‑path replay coverage** for the three compositionally‑covered HITL primitives (plan 18) – matching the rigor already enjoyed by `ApprovalGate`.  
+* **Verb honesty** – `ccf hitl submit` is now the primary verb; `decide` remains only as a deprecated alias with a deprecation notice (plan 19).  
+* **Engine‑enforced debt cascade** (plan 17): a `DebtAssessmentBinding` seam, `UnboundDebtAssessmentError`, and fail‑closed routing of breached hand‑offs.  
+* **Gate‑doc hygiene** – an append‑only post‑merge addendum to `PHASE_I4_GATE.md` (plan 19) records D‑GATE‑I.4 approval and the final sweep results, superseding the stale “remains unwritten” line.
+
+All five original concerns are demonstrably **CLOSED**.  The codebase now passes a larger test matrix (1307 passed, 0 failed/skipped), `mypy --strict` reports no type errors, and the full set of CI invariants (`tools.lints`) are green.
+
+---
+
+## 2️⃣ Prior‑Concern Closure Table  
+
+| # | Concern (as listed in the prior round) | Closure Status | Evidence (commit / artifact) |
+|---|----------------------------------------|----------------|--------------------------------|
+| 1 | **Unauthenticated HTTP + caller‑supplied principals on authority surfaces** | **CLOSED** | – `runtime/ccf_runtime/http_api/auth.py` (BearerTokenAuth) <br> – `runtime/ccf_runtime/identity_binding.py` (principal derived from `TokenGrant`) <br> – Tests `tests/http_api/test_auth.py` verify 401 on missing/invalid token and unchanged posture when hook omitted. <br> – `src/ccf/hitl/identity_binding.py` provides JWS‑signed `SignedPrincipalBinding`; tamper test proves forgery detection. |
+| 2 | **Compositional‑only HITL replay coverage** (only `ApprovalGate` exercised end‑to‑end) | **CLOSED** | – New test suite `tests/hitl/test_replay_e2e.py` (plan 18) drives `ExceptionEscalation`, `OverrideBoundary`, and `ReviewQueue` through `build_replay_record` and asserts byte‑equality of `hitl_actions_block`. <br> – No source changes; the test failures would have exposed a missing wiring. |
+| 3 | **`ccf hitl decide` verb implying resolution** (verb‑honesty) | **CLOSED** | – `runtime/ccf_runtime/cli/commands/hitl.py` now registers `submit` as the primary verb; `decide` is a deprecated alias that delegates to the same builder and emits a deprecation notice (plan 19). <br> – CLI tests (`tests/cli/test_cli.py`) verify identical `RequestSpec`, deprecation output, and help‑text markings. |
+| 4 | **Engine debt‑cascade not enforced** (hand‑off proceeds even if no debt assessment) | **CLOSED** | – `runtime/ccf_runtime/workflow/engine.py` introduces `DebtAssessmentBinding` protocol and `UnboundDebtAssessmentError`. <br> – Red test (`tests/workflow/test_debt_handoff.py` – unbound engine raises) and green tests (bound assessment passes; breached assessment routes exception without invoking the agent). <br> – DESIGN.md §4 updated to record the new invariant. |
+| 5 | **Stale gate‑document status** (PHASE_I4_GATE.md still said “remains unwritten”) | **CLOSED** | – Append‑only addendum (`## 8. Post‑merge status addendum …`) added to `docs/PHASE_I4_GATE.md` (plan 19) with merge‑commit hash, approval date, and final sweep numbers. <br> – Top‑of‑doc status line “STATUS: gated and merged …”. <br> – Grep checks confirm no deletions of historic text. |
+
+All five items are **fully resolved**; the evidence is present in the repository history and passes the automated verification report included in the gap‑closure documentation.
+
+---
+
+## 3️⃣ New Concerns Introduced or Remaining  
+
+| # | Description | Severity | Rationale |
+|---|------------|----------|----------|
+| A | **Configuration‑drift risk for the optional HTTP auth hook** – deployments that forget to bind `auth=` at `create_app` will retain the original unauthenticated posture (T‑07‑24). | **MEDIUM** | The default is intentional (preserves v0 behavior), but a missing hook in a production deployment could unintentionally expose authority‑bearing routes. Mitigation is documentation (the `AUTH_POSTURE_SENTENCE` constant) and the tests that highlight the default. |
+| B | **Key‑management scope** – `SignedPrincipalBinding` relies on a `KeySource` supplied by the caller; the SDK does not provide key rotation, revocation, or secure storage guidance. | **LOW** | Out‑of‑scope per the project charter (no domain‑specific policy bundles). Nevertheless, deployments must supply a secure key source; this should be noted in the SDK documentation. |
+| C | **DebtAssessmentBinding optionality** – if a production deployment omits the binding the workflow engine will raise `UnboundDebtAssessmentError` on any agent hand‑off, potentially causing runtime crashes. | **MEDIUM** | The behavior is by design (fail‑closed), but it raises a new failure mode that must be configured correctly. The red test demonstrates the failure; the risk is mitigated by clear documentation and CI‑level checks that any engine constructed with agent nodes includes a binding. |
+| D | **No “hardening” of the `/health` endpoint** – it is deliberately exempt from authentication. While intentional, it could be a discovery vector for internal service enumeration. | **LOW** | Aligns with the whitepaper’s design; risk is minimal and already accounted for in the threat model (T‑07‑1‑07). |
+
+No high‑severity defects were introduced; all new code follows the whitepaper contracts, respects the `@algorithmic` mode, and passes the strict CI lint suite.
+
+---
+
+## 4️⃣ Overall Risk Assessment  
+
+**Risk Level: LOW**
+
+*All high‑impact security and correctness concerns raised in the previous round have been eliminated.*  
+The remaining risks are **configuration‑oriented** (auth hook omission, missing debt binding) and **operational** (key‑management responsibilities delegated to the consumer). Both are documented, covered by the test suite, and fall under the deployer’s responsibility rather than the SDK itself. No regressions were observed in the full test matrix (1307 passed), type‑checking, or linting.  
+
+Given the adherence to the whitepaper invariants, the exhaustive automated verification, and the absence of any new high‑severity findings, the SDK can be considered safe to progress to Phase 8 (example suite demonstration) and to be adopted by downstream teams.
+
+--- 
+
+**Reviewer signatures** (auto‑generated on behalf of the panel):  
+
+```
+Claude‑AI      ✅
+Ollama‑gpt‑oss ✅
+Codex          ✅
+Cursor         ✅
+```
+
+*End of review.*
+
+---
+
+## 7.1 Consensus Summary
+
+Risk verdicts: Gemini LOW · Ollama LOW · Codex MEDIUM · Cursor MEDIUM.
+
+### Unanimous closures (4/4 reviewers)
+- Concern 2 (HITL replay coverage) — CLOSED: e2e drives for all three primitives, byte-equality, ApprovalGate-strength.
+- Concern 3 (verb honesty) — CLOSED: `submit` primary, `decide` deprecated alias, single shared builder.
+- Concern 4 (engine debt cascade) — CLOSED: `DebtAssessmentBinding` + `UnboundDebtAssessmentError`, FAIL_CLOSED routes before `run_agent`, red-tested, CINV-01 held.
+- Concern 5 (gate-doc staleness) — CLOSED: append-only §8 addendum + STATUS line.
+
+### Split on concern 1 (authority surface)
+Gemini/Ollama: CLOSED as scoped. Codex/Cursor: PARTIALLY CLOSED — the mechanisms exist and are tested (both D-IMPL-21 bindings, opt-in `BearerTokenAuth`), matching D-IMPL-66(a)'s letter, but the live doors are not yet composed with them: `POST /hitl/actions` and MCP `submit_hitl_action` still accept caller-typed principals; `principal_from_token_grant` / `verify_principal_binding` are called from no route; the default posture is unchanged (intentionally, per the ruling). Cursor's N1: a bearer-authenticated caller can still submit an arbitrary `subject_id`.
+
+### New findings register
+- N1 (MEDIUM, Codex+Cursor): wire principal derivation/verification at the action doors when auth is bound — composition obligation for Phase 8 (or a thin 7.2).
+- N2 (MEDIUM, Cursor+Ollama): default posture still T-07-24; Phase 8 examples must explicitly bind `auth=` + principal derivation to "demonstrate the hardened surface" per D-IMPL-66's intent.
+- N3/N5 (LOW): FORCED_LLM passes through (intentional, DebtSignal doctrine); signed binding is detect-only unless composed.
+- N4 (LOW, Cursor): D-IMPL-62 text still narrates `decide` as primary — add a one-line status note.
+- Ollama B/C (LOW/MEDIUM): key-management guidance is deployment scope; `UnboundDebtAssessmentError` is a new fail-closed failure mode deployments must configure for (by design).
+- Codex LOW: `decide` alias needs a removal-or-keep policy before v0 docs normalize on `submit`.
+
+### Recommendation (Cursor, seconded by Codex's framing)
+Accept 7.1 as closing D-IMPL-66(a–e) as scoped; record N1/N2 as explicit Phase 8 composition obligations — examples wire `auth=` + `principal_from_token_grant` (and/or require `SignedPrincipalBinding`) at the HITL doors rather than shipping the helpers unused.
