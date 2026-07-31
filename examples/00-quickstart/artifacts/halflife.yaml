@@ -1,0 +1,47 @@
+# Quickstart λ_c table and D_c debt profile (whitepaper §7.7; banking domain,
+# D-IMPL-52).
+#
+# Every half-life, the risk-sensitivity multiplier and both debt thresholds
+# live here. The SDK ships the decay formula and the routing predicate, never
+# a calibration (INV-CH7-58/59; CLAUDE.md §11): an observation type with no
+# declared λ_c raises rather than decaying at a rate nobody chose.
+#
+# Decimal-valued entries are QUOTED. The canonical serializer refuses floats
+# (not bit-stable across platforms), and the artifact loader refuses a YAML
+# float rather than silently converting one.
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+# The (type, band, dominant decay driver, supersession event) row shape is
+# the whitepaper's commitment (INV-CH7-59); the values are this deployment's.
+half_life_table:
+  semver: "1.0.0"
+  entries:
+    payment-mandate-status:
+      half_life_seconds: 86400
+      decay_driver: mandate lifecycle events
+      supersession_event: mandate amendment or revocation
+    account-balance-snapshot:
+      half_life_seconds: 900
+      decay_driver: continuous transaction flow
+      supersession_event: newer balance snapshot
+    customer-segmentation:
+      half_life_seconds: 15552000
+      decay_driver: annual portfolio review
+      supersession_event: segmentation reassessment
+
+# Decision-class debt profile: the Freshness Budget multiplier and the two
+# D_c bands the CAR predicate reads (whitepaper §7.7 CAR).
+debt_profile:
+  semver: "1.0.0"
+  risk_sensitivity: "0.8"
+  forced_llm_threshold: "0.35"
+  fail_closed_threshold: "0.85"
+
+# The observation the driver evaluates for freshness at the decision instant
+# (`decision.now` in controlplane.yaml) — a dated, typed observation whose
+# vocabulary belongs to this table, not to the SDK.
+demonstration:
+  observation_type: customer-segmentation
+  observed_at: 2026-06-01T08:55:00Z
