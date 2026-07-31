@@ -404,3 +404,263 @@ Triage and dispositions: `docs/PHASE_I4_GATE.md` §7. Raw outputs verbatim below
 ---
 
 **Dave ask:** treat findings 1–7 as must-fix before `D-GATE-I.4`. Highest leverage: wire HTTP/CLI HITL through the same primitive+replay composition MCP already demonstrates (or remove/refuse raw `transport.submit` as an authority surface), couple or honestly re-scope DESIGN §5 structural args + D-IMPL-20/18 text, and narrow row 7 / CINV-04 to the paths tests actually red under.
+
+---
+
+# Cross-AI POST-EXECUTION Review — Phase 7
+
+reviewed_at: 2026-07-30T18:22:32-07:00
+reviewers: [gemini, codex, cursor, ollama gpt-oss:120b-cloud]
+scope: all 14 plans + docs/PHASE_I4_GATE.md (as-built state, post D-GATE-I.4 merge)
+
+## Gemini Review (post-execution)
+
+# Cross-AI Review — Phase 7 (Post-Execution): Orchestration, HITL, Experience
+
+## 1. Summary
+Phase 7 (I.4) successfully delivers the high-level coordination and interaction surfaces of the CCF SDK. The execution demonstrates exceptional architectural discipline, particularly in the structural separation of orchestration and adapter module trees and the "audit-by-construction" closure of the Control Plane state seam. The transition from the I.3 baseline to a functional multi-agent system with human gates was achieved through a rigorous TDD approach, resulting in a zero-skip test suite of 1280 cases. The phase effectively discharges the deferred Experience MCP edge and manages the significant external risk of the Claude Agent SDK driver through an early feasibility probe. The resulting fabric is now reachable via CLI, HTTP, and MCP, while maintaining strict fidelity to the whitepaper's single-writer and Decision Replay invariants.
+
+## 2. Strengths
+*   **Structural Integrity of Seams:** The bidirectional import ban between `ccf_runtime.orchestration` and `ccf_runtime.adapters` (D-06) is a masterclass in preventing "loop absorption." By making the LangGraph adapter's topology unreachable from the engine, the SDK successfully avoids shipping a loop it committed to never shipping.
+*   **Honest Contract Hardening (D-IMPL-62):** The decision to make the HTTP/CLI HITL doors "submit-only" with a `Literal["submitted"]` status receipt is a high-signal design choice. It prevents the API from lying about state transitions that it does not own, forcing resolution to happen through the primitive's own governed logic.
+*   **State Seam Closure (D-08/D-20):** The implementation of `StateWriteToken` and `AuditedStateWriter` transforms a "convention" into a "structure." Requiring a token that only the audited writer can mint ensures that no Control Plane state can change without a corresponding Audit Log entry, earning the "by construction" claim.
+*   **Replay Fidelity:** The use of verbatim pre-serialized blocks for dimensions 2 and 5 prevents "recording-time vs decision-time" observation drift. The five-dimension structural assertion (INV-CH7-80) ensures no contract creep occurs during extension.
+*   **Exhaustive Validation:** The `hypothesis.stateful` suite for the `WorkflowEngine` and the four-leg orchestrator conformance suite (D-IMPL-60) provide high confidence in the SDK's ability to coordinate agents across diverse external SDKs without leaking CCF state into foreign checkpointers.
+
+## 3. Concerns
+*   **Unauthenticated HTTP Surface (Residual Risk):** **Severity: MEDIUM.** While disclosed and accepted as an in-trust-boundary deployment, the HTTP API currently exposes all authority-bearing surfaces (workflow invocation, HITL submission) without authentication. In a v0 context this is acceptable, but it places a heavy burden on the deployment environment to prevent unauthorized fabric access.
+*   **Propagate-to-Terminal Defaults (D-IMPL-61):** **Severity: LOW.** The choice of "propagate-to-terminal" for missing exception refs is fidelity-conservative, but it introduces the risk that an author forgets a handler and the workflow terminates on the first failure. The audit trace mitigates this, but it remains a potential friction point for adoptability.
+*   **Sub-agent Deprecation in ADK:** **Severity: LOW.** The deprecation of `SequentialAgent` in Google ADK 2.5.0 is a minor technical debt item. While migration is noted as mechanical, it signals the start of the "SDK maintenance" phase where CCF must track upstream SDK drift.
+
+## 4. Suggestions
+*   **Decision Replay Explorer:** Given that dimensions 2, 4, and 5 now carry complex verbatim blocks (HITL actions, delegation chains, step sequences), a dedicated CLI verb (e.g., `ccf replay explain <hash>`) that parses and visualizes these transitions would significantly improve the developer experience for audit forensics.
+*   **Workflow Visualization:** Since `WorkflowDefinition` is a pure state machine, a `ccf workflow export-graph <uri>` command that generates a Mermaid or DOT diagram from the artifact would help authors verify their reachability and terminal conditions visually.
+*   **HTTP Auth Hook Template:** To mitigate the MEDIUM risk above, Phase 8 could include a "FastAPI Auth Hook" reference in the examples, demonstrating how to wrap the v0 API with an OIDC or API-key provider without changing the SDK core.
+
+## 5. Risk Assessment
+**Overall Risk: LOW.**
+The phase has successfully navigated its largest technical and external risks. The "blocking" findings from the cross-AI review were effectively triaged into rulings (D-IMPL-62..65) that prioritized structural honesty over convenience. The zero-skip test suite and strict CINV lints ensure that the fabric remains invariant-compliant. The residual risks are either accepted deployment-level considerations or scheduled technical debt. The system is stable, well-documented, and ready for the Phase 8 validation exercises.
+
+---
+
+## Codex Review (post-execution)
+
+## Summary
+
+Phase 7 appears well planned and largely well executed: the plans are unusually explicit about invariants, decision rulings, counterfactual tests, and evidence boundaries, and the gate document shows real post-review correction rather than rubber-stamping. The implementation seems to meet the phase goals on paper: workflow execution/suspend/resume, four HITL primitives, replay extensions, three front doors, and orchestration drivers are all mapped to tests. The main residual risks are not implementation breadth but trust-boundary weakness and evidence freshness: the supplied gate text still says `D-GATE-I.4` is unwritten and awaiting Dave’s approval, while the request says the phase was gated and merged. I could not independently inspect the repo due a local sandbox failure (`bwrap: loopback: Failed RTM_NEWADDR`), so this review is based on the supplied plans and gate package.
+
+## Strengths
+
+- Strong phase discipline: every major ambiguity became a named `D-IMPL` ruling rather than an implicit executor default.
+
+- Good fidelity to prior gate findings: D-20 state seam closure, D-22 scoped wording, D-24 path/symbol skepticism, and D-25 “rows from failing tests” were all carried into planning and execution.
+
+- The TDD/counterfactual pattern is excellent. Recorded reds for state seam closure and CINV-04 replay captures materially improve confidence.
+
+- Good separation of contracts and runtime implementation: `/src` protocols/contracts vs `/runtime` drivers/front doors mostly follows the project architecture.
+
+- HITL wording was narrowed after review. The final gate avoids overclaiming “no path” and distinguishes type-unrepresentable paths from CI-covered paths.
+
+- The plan correctly avoided slipping examples into Phase 7. Tests prove mechanism; examples remain Phase 8 packaging.
+
+- The orchestration/adapters split is well designed. Bidirectional import lints and negative tests are the right answer to the LangGraph topology absorption risk.
+
+## Concerns
+
+- **HIGH: Gate evidence appears stale or internally inconsistent.** The prompt says the phase was gated and merged, but the supplied gate document repeatedly says `D-GATE-I.4` is deliberately unwritten and awaiting Dave’s approval. If the document is the final artifact, the phase is not actually gated per its own protocol. If the phase was later approved and merged, the gate package should include the approval entry, merge commit, and post-merge `main` sweep.
+
+- **HIGH: HTTP API unauthenticated posture is a real security risk.** The gate records this honestly, but the risk is substantial because workflow invocation and HITL submission are authority-bearing. “Deploy inside the tenant trust boundary” is acceptable for a skeleton only if the default hosting path makes accidental exposure difficult.
+
+- **HIGH: D-IMPL-63 identity binding deferral weakens HITL guarantees.** Requiring `HumanPrincipalBinding` by type prevents anonymous actions, but caller-supplied principal fields are spoofable without auth-context-derived or signed bindings. Combined with unauthenticated HTTP, this is the sharpest residual trust gap.
+
+- **MEDIUM: HTTP/CLI HITL submit-only semantics remain easy to misuse.** `ccf hitl decide` and `POST /hitl/actions` submit but do not resolve. The receipt hardening is good, but the user-facing verb can still imply a completed authority decision.
+
+- **MEDIUM: Non-ApprovalGate HITL replay coverage is compositional, not end-to-end.** The narrowing is honest, but escalation, override, and review queue could still have integration bugs between primitive output and replay construction that only a full path would catch.
+
+- **MEDIUM: Orchestrator “real leg” evidence is still bounded.** The Claude leg uses real SDK session machinery but a scripted in-process wire, no model, no network, and no CLI. That may be the correct deterministic test shape, but it should not be read as production SDK behavior coverage.
+
+- **MEDIUM: D-IMPL-65 leaves an engine-level guard to Phase 8.** Composition-root wiring closes this gate, but alternate composition roots could bypass the intended debt-assessment precondition until the engine itself refuses unbound handoffs.
+
+- **LOW: Exact dependency pins may create near-term resolver friction.** The FastAPI/google-adk compatibility note is correctly recorded; this is acceptable but should be expected to surface again.
+
+- **LOW: The gate document has some superseded wording noise.** The webhook deferral section is corrected later by D-IMPL-64, but the document still carries “deferred” language in places. It is explained, but it increases review load.
+
+## Suggestions
+
+- Add a final post-merge addendum to `docs/PHASE_I4_GATE.md` with `D-GATE-I.4`, approval date, approver, merge commit, and post-merge `main` sweep results.
+
+- Treat HTTP auth and identity binding as early Phase 8 blockers, not late polish. At minimum, add explicit unsafe-by-default guardrails for hosted HTTP entry points.
+
+- Add end-to-end replay tests for `ExceptionEscalation`, `OverrideBoundary`, and `ReviewQueue`, each driving through `build_replay_record`, not only checking produced blocks.
+
+- Rename or alias `ccf hitl decide` to a submit-oriented verb, or make the output impossible to misread: `submitted`, `not resolved`, `event still pending`.
+
+- Add a Phase 8 regression test for D-IMPL-65: engine refuses agent-node handoff when the required debt assessment binding is absent.
+
+- Keep the scripted SDK conformance tests, but add at least one non-CI or nightly smoke path for real SDK runtime behavior where feasible.
+
+- Make the accepted unauthenticated HTTP posture visible in generated client docs and CLI help, not only OpenAPI metadata.
+
+## Risk Assessment
+
+**Overall risk: MEDIUM, with a HIGH process caveat.**
+
+The implementation evidence is broad and disciplined, and most scope appears achieved. The risk is not that the phase missed its main mechanics; it is that two authority-boundary items were deliberately deferred or accepted: unauthenticated HTTP and caller-supplied identity bindings. Those are manageable if treated as explicit v0 constraints and addressed early next phase.
+
+If the supplied gate document is still the current final artifact, risk becomes **HIGH** because the documented gate state contradicts the claim that the phase was approved and merged.
+
+---
+
+## Cursor Review (post-execution)
+
+# Cross-AI Post-Execution Review — Phase 7 (I.4)
+
+## 1. Summary
+
+Phase I.4 delivered what it promised: a factory-gated workflow engine with audited suspend/resume, four HITL primitives on a typed transport, three Experience front doors, and four OrchestrationProtocol legs — with CINV-04 at zero skips and claims scoped to actual enforcement after a real §3.1 review/ruling cycle (D-IMPL-62..65). Plans were unusually strong on prerequisites, falsifiability, and anti-overclaim discipline; execution fidelity is high against those plans and against `docs/PHASE_I4_GATE.md` / `07-VERIFICATION.md` (1280/0/0, mypy clean, lints green, `D-GATE-I.4` logged). Residual risk is concentrated in **deployment trust assumptions** (unauthenticated HTTP + caller-supplied principals) and a few **honest coverage narrowings** (compositional HITL replay for three primitives; Claude orchestrator on a scripted wire; deferred engine debt-cascade), not in missing phase deliverables.
+
+## 2. Strengths
+
+- **Prerequisite-first sequencing worked.** D-20 state-seam closure (07-02) and D-IMPL-56 (07-03) landed before the engine multiplied writers/skill surfaces — exactly the I.3 handoff’s failure mode prevention.
+- **Vertical slice (D-01) banked the hard path early.** ApprovalGate + suspend/resume + both CINV-04 flips in one path (`tests/workflow/test_slice.py`) is the right structural proof; straight-line-first would have deferred the real risk.
+- **“By construction” was earned, then scoped.** Token + `AuditedStateWriter`, required `HumanPrincipalBinding`, factory-only engine input, and bidirectional orchestration/adapters lint are structural. Gate rows use the D-22 template; HITL module docstrings quote CLAUDE.md rather than overclaim.
+- **Falsifiable evidence, not intent.** Recorded counterfactuals for state-seam revert and both CINV-04 severances; post-ruling TDD reds for `HitlActionReceipt` and webhook; four-leg conformance with unchanged shared bodies.
+- **Review process actually changed the product.** X-1/C-2/C-3/X-6/X-7 became D-IMPL-62..65; webhook deferral was rejected and shipped; submit-only door was hardened rather than papered over.
+- **Harness neutrality preserved under pressure.** Engine and `/src` orchestration stay harness-free; D-06 split linted both ways; A7’s “generalize LangGraph `_build_graph`” failure mode is structurally blocked.
+- **Front-door discipline.** No L1 write route; MCP roles separated (experience + HITL); CLI thin over HTTP via shared `ApiDependencies`; OpenAPI auth posture is an asserted sentence, not marketing prose.
+- **Deviations registered instead of bent to plan counters.** D-09 “8 call sites” → one textual writer; D-IMPL-45 dim wording drift recorded; DESIGN.md corrected in-phase.
+
+## 3. Concerns
+
+- **HIGH — Identity/auth posture is the phase’s real residual, not a footnote.** T-07-24 (unauthenticated HTTP) + D-IMPL-63 (caller-supplied principal fields, no auth-context/JWS binding) means a client inside the trust boundary can mint any `subject_id` / IdP ref. MCP is authenticated, but HTTP/CLI are authority-bearing for HITL and workflow. Gate documents this honestly; Phase 8 / follow-up must treat D-IMPL-63 as load-bearing, not optional polish.
+- **MEDIUM — HITL-01 “by construction” is ApprovalGate-strong, three-primitive-compositional.** Row 7 narrowing is correct: only the ApprovalGate slice drives `build_replay_record` end-to-end; escalation/override/review rely on block byte-equality ∘ builder verbatim landing. That is sound composition but weaker than CLAUDE.md §8.2’s absolute sentence. A wiring bug between ExceptionEscalation and replay write in a real composition root could slip past current CI.
+- **MEDIUM — HTTP/CLI ↔ MCP HITL asymmetry (D-IMPL-62) is easy to misuse.** `ccf hitl decide` **submits**; it does not resolve. MCP can resolve + land dim-2 in-process. Operators integrating only HTTP need an explicit composition-root resolve step. Verb name `decide` still implies resolution; receipt hardening helps, naming does not.
+- **MEDIUM — D-IMPL-65: INV-CH7-68 debt cascade is not engine-enforced.** `assess_debt` exists for ExceptionEscalation, but agent-node handoffs do not refuse missing debt assessment. Composition-root-now is an accepted gate close; until the named next-phase engine refusal ships, deployments can skip debt checks silently.
+- **MEDIUM — Claude OrchestrationProtocol leg is expressibility on a scripted Transport, not a model loop.** Gate is honest; still, ORCH-02 “real SDK topology” for Claude is thinner than LangGraph’s interrupt/Command path. Do not treat I.4’s Claude driver as discharging Phase 8 A3 / `examples/03` loop portability.
+- **LOW — D-IMPL-18 `variable_bindings` absent from `WorkflowStateRecord`.** Documented advisory; fine for v0 if intentional, but if Dave read D-IMPL-18 as a ruled member list, this is a quiet schema omission until amended.
+- **LOW — Unaudited state reads (`items`).** Write-closure claim holds; reads can still reconstruct current state without audit. Acceptable for v0; relevant if Control Plane state becomes an investigative surface.
+- **LOW — Process/doc drift.** Gate paste still says “awaiting Dave’s approval” while tree has `D-GATE-I.4` + merge; ROADMAP checklist for 07-14 reportedly stale. Confuses later auditors more than runtime.
+- **LOW — `google-adk` `SequentialAgent` deprecation.** Mechanical; deferred correctly, but will bitrot the ADK orchestrator leg at the next pin bump.
+
+## 4. Suggestions
+
+- **Phase 8 must-haves for residual risk:** (1) at least one end-to-end `build_replay_record` drive per non-Approval HITL primitive (or a shared fixture parametrized over all four); (2) start D-IMPL-63 identity-binding reference impls before any external HTTP deployment; (3) implement D-IMPL-65 engine refusal and add a red test for unbound debt at agent handoff.
+- **Rename or alias CLI verb** — add `ccf hitl submit` (keep `decide` as deprecated alias) so the D-IMPL-62 contract matches the verb.
+- **Composition-root cookbook** in `examples/05-workflow-hitl`: submit via HTTP → resolve via primitive/MCP → resume workflow, with an explicit note that HTTP alone is not authority completion.
+- **Amend D-IMPL-18** (or a short D-IMPL-NN) to record that `variable_bindings` is deferred/out of v0 `WorkflowStateRecord`, so the decision log matches the type.
+- **Fix bookkeeping:** sync ROADMAP 07-14 checkbox and ensure `PHASE_I4_GATE.md` status banner matches post-`D-GATE-I.4` state so Phase 8 agents don’t re-litigate an open gate.
+- **Do not expand OrchestrationProtocol scope in Phase 8** toward durable engines; keep Temporal behind the Protocol. The I.4 seam is already the right size.
+
+## 5. Risk Assessment
+
+**Overall: MEDIUM**
+
+| Axis | Level | Why |
+|------|--------|-----|
+| Mechanism completeness vs ORCH/HITL/EXPR | **LOW** | Four criteria evidenced; six requirements ticked; verification independently re-ran green |
+| Claim honesty / whitepaper–CLAUDE fidelity | **LOW** | Post-review narrowing + rulings closed the overclaim class that burned I.2/I.3 |
+| Production front-door / HITL security | **HIGH → overall MEDIUM** | Unauthenticated HTTP + forgeable principals are intentional v0, but they are authority surfaces |
+| Phase 8 dependency risk | **MEDIUM** | Examples 03/05/06, A3, D-IMPL-63/65, and fuller HITL E2E coverage are still required for adoptability claims |
+
+**Justification:** Plan quality and execution fidelity are strong enough that the phase goals are met as *mechanism*. The gate does not understate the HTTP auth residual, but the combination of that residual with caller-supplied identity and submit-only HTTP is the one place a competent team could ship an insecure composition while believing CI proved “audit by construction.” Treat that as Phase 8’s first security debt, not as closed by I.4’s green suite.
+
+---
+
+## Ollama Review (post-execution)
+
+## 1. Summary  
+
+Phase 7 (Phase I.4) delivered a very large body of work – a full workflow engine with audited suspend/resume, four HITL primitives, three front‑door entry points (MCP‑experience, MCP‑HITL, HTTP API), a complete OrchestrationProtocol with three real driver legs (LangGraph, Google ADK, Claude‑Agent SDK), and the supporting schema, lint and invariant infrastructure.  The implementation was driven by test‑first development, counter‑factual red‑tests, and a strict “by‑construction” claim‑scoping discipline (D‑22).  All gate‑level check‑lists are satisfied, the CI run reports **1280 passed / 0 skipped**, and the gate document is populated with the required evidence.  In short, the phase meets its stated success criteria, but the breadth of the scope introduces a few lingering risks that deserve attention before Phase 8 begins.
+
+---
+
+## 2. Strengths  
+
+| # | Observation |
+|---|--------------|
+| **S1 – Test‑driven rigor** | Every artifact (workflow definition, HITL primitive, orchestration driver, replay extensions, front‑doors) is covered by unit, integration and hypothesis‑stateful tests. Counter‑factual red‑tests guarantee that the “by‑construction’’ claims are actually proven. |
+| **S2 – Explicit invariant framing** | The D‑22 template forces every “no‑unrecorded‑action’’ statement to be scoped to a concrete type/contract and tied to a failing test. This eliminates the habit of writing unchecked absolute claims. |
+| **S3 – Architecture boundaries** | Clear separation of **src** (public contracts) vs **runtime** (implementations) and the **module‑tree split** (orchestration vs adapters) is enforced by custom lint rules that also ban bidirectional imports. |
+| **S4 – Reusable patterns** | The three‑edit replay‑extension pattern, the token‑gated `ControlPlaneStateStore.put`, and the `HumanPrincipalBinding` contract are reused across many components, reducing duplication and drift. |
+| **S5 – Comprehensive gating process** | The gate document contains per‑criterion rows, verbatim counter‑factual output, a deviation register, and a review triage record, meeting the CLAUDE‑md gating protocol. |
+| **S6 – Portability proof** | The vertical‑slice (ApprovalGate + ApprovalSinkAdapter) demonstrates that the engine, HITL, and replay work together in a minimal end‑to‑end scenario. |
+| **S7 – Future‑proof orchestration** | The `OrchestrationProtocol` is defined in **src**, drivers live under `runtime/ccf_runtime/orchestration/<sdk>/`, and a conformance suite guarantees replay‑equivalence across all three SDKs. |
+| **S8 – Zero‑harness imports in src** | Linting guarantees that the core SDK never pulls in any harness code, preserving the “harness‑neutral’’ guarantee. |
+| **S9 – Documentation of decisions** | All design rulings (D‑IMPL‑60, D‑IMPL‑61, etc.) are recorded in `DECISIONS.md` with dates and rationales, making later audits straightforward. |
+
+---
+
+## 3. Concerns  
+
+| Severity | Concern | Why it matters |
+|----------|---------|-----------------|
+| **HIGH** | **Unauthenticated HTTP surface** – The OpenAPI server is deliberately unauthenticated (residual risk noted). This surface exposes the full authority‑bearing APIs (workflow invoke, HITL decision, agent invoke). If deployed without a perimeter, an attacker can drive arbitrary workflows and record audit‑trail‑bypassing actions. | Security. Needs explicit mitigation plan before any production deployment. |
+| **HIGH** | **Token secrecy & reflection bypass** – The token that protects `ControlPlaneStateStore.put` is a module‑private class, but nothing prevents reflection or `type.__new__` from constructing it outside the module. No lint or runtime guard currently blocks such construction. | Could re‑enable unaudited writes, breaking the audit invariant (INV‑CH7‑71). |
+| **MEDIUM** | **Orchestrator driver dead‑locks** – The LangGraph driver runs a background event‑loop thread; the ADK and Claude drivers use hook callbacks. No stress or fuzz tests for concurrency, time‑outs, or resource exhaustion. | May surface only under load, causing stalls in orchestrated workflows. |
+| **MEDIUM** | **Missing performance verification** – No performance benchmark (throughput, latency, replay‑record size) is required for the engine, orchestrators, or front‑doors. The system may be viable for the test suite but could be too heavy for realistic workloads. | Affects adoptability (criterion 3) and may force later re‑engineering. |
+| **MEDIUM** | **Limited multi‑tenant isolation testing** – Tests cover two tenants, but the codebase is designed for arbitrary tenants. Edge cases (tenant ID colliding with reserved URIs, malformed IDs) are not exercised. | Could lead to cross‑tenant data leakage or replay‑record tampering. |
+| **MEDIUM** | **Webhook notify‑only leg lacks authentication** – The `HitlEventNotification` endpoint accepts unauthenticated POSTs. Although it is “notify‑only”, a malicious actor could flood the system or inject malformed payloads that affect downstream replay processing. | Potential denial‑of‑service or replay log corruption. |
+| **LOW**  | **CLI argument parsing – URL hard‑coding** – While lints check for hard‑coded URLs, the CLI still builds a default `http://localhost:8000` if none is supplied in some wrappers. This could cause accidental connections to a dev server in production. | Minor operational confusion. |
+| **LOW**  | **Custom lint maintenance burden** – The bespoke lint suite (`tools.lints`) is extensive; future contributors may forget to run it or may inadvertently edit the rule set, weakening guarantees. | Risk of silent drift. |
+| **LOW**  | **Replay‑record field growth** – The three‑edit pattern adds fields to dimensions 2/4/5. If future extensions add a 6th dimension, the invariant (`INV‑CH7‑80`) would be violated. No guard currently detects accidental field addition. | Could break downstream tools that assume exactly five dimensions. |
+
+---
+
+## 4. Suggestions  
+
+| Area | Action |
+|------|--------|
+| **Security – HTTP API** | • Add a configurable “auth‑required” flag with a simple token‑based scheme for the v0 surface; enforce it in the FastAPI dependency layer. <br>• Document the required deployment‑boundary (e.g., “run behind a reverse‑proxy that enforces mutual TLS”). |
+| **Token protection** | • Make the token type a *private* nested class (`_StateWriteToken`) and expose a factory function that verifies the caller’s module via `inspect.stack()`. <br>• Add a lint that flags any use of `type()` or `__new__` on the token class outside `state.py`. |
+| **Concurrency & dead‑lock testing** | • Add a fuzz/chaos test that runs many concurrent orchestrator driver sessions with random suspend/resume timing, verifying no hung threads after a timeout. <br>• Instrument the engine with a watchdog that logs any suspend handle that is not resumed within a configurable window. |
+| **Performance baseline** | • Implement a lightweight benchmark that runs a representative workflow (e.g., the banking payment‑release example) 1 000× and records latency & memory usage for engine, orchestrator drivers, and HTTP API. <br>• Record the numbers in the gate document as “baseline performance”. |
+| **Extended multi‑tenant testing** | • Add parametrized tests for ≥ 5 tenants with intentionally malformed tenant URIs (percent‑encoding, Unicode, reserved words) and verify isolation. |
+| **Webhook hardening** | • Require a signed JWT (or HMAC) in the notification payload, even if the endpoint remains “notify‑only”. <br>• Rate‑limit incoming webhook requests via FastAPI’s `starlette.middleware.limits`. |
+| **CLI robustness** | • Explicitly require the base URL to be supplied via `--endpoint` or `CCF_ENDPOINT` env var; fail fast if missing instead of defaulting to localhost. |
+| **Lint continuity** | • Add a CI step that runs `git diff --check` against `tools/lints` to detect accidental removal of lint rules. <br>• Document in `CONTRIBUTING.md` the requirement to run `tools/lints --all` locally before committing. |
+| **Replay dimension guard** | • Add a small runtime assertion in `record.py` that the top‑level dict has exactly the five expected keys; raise a clear error if a new field appears. |
+| **Documentation of residual risks** | • Expand the “Residual Risks” section of the gate doc to include concrete mitigation steps (e.g., network isolation for the unauthenticated API, rate‑limits for the webhook). |
+| **Future auth integration plan** | • Sketch a short “Version 0 → Version 1” migration path that adds authentication to the HTTP API without breaking replay semantics, and store it as a design note. |
+
+---
+
+## 5. Risk Assessment  
+
+**Overall risk: **`MEDIUM`
+
+*Justification*  
+
+- **Achievement of functional goals** – ✅ All success criteria are demonstrably met; the gate passes with full test coverage.  
+- **Security exposure** – The unauthenticated HTTP and webhook surfaces constitute a **high‑impact** vulnerability that could be exploited if the SDK is ever deployed in an environment without a strong perimeter. Although the SDK is intended as a library, the front‑door servers are shipped and could be run by downstream teams who may not apply the required network isolation. This pushes the overall risk to *medium* despite the functional success.  
+- **Complexity & integration** – The module‑tree split, three orchestrator drivers, and multi‑tenant replay system are intricate; hidden integration bugs (dead‑locks, token bypass) are possible. Absence of performance and stress testing adds uncertainty.  
+- **Mitigations in place** – The extensive test suite, invariant counter‑factuals, and lint rules greatly reduce the chance of regressions, pulling the risk back down from *high* to *medium*.  
+
+If the residual security concerns are addressed (auth flag, token hardening) and at least a baseline performance benchmark is added, the risk would drop to **low**. Until then, treat the Phase 7 delivery as production‑ready **only in a trusted, isolated environment**.
+
+---
+
+## Post-Execution Consensus Summary
+
+Risk verdicts: Gemini LOW · Codex MEDIUM (with a process caveat resolved below) · Cursor MEDIUM · Ollama MEDIUM.
+
+### Agreed Strengths (2+ reviewers)
+- Structural "by construction" enforcement earned, not asserted: token-gated state seam, factory-only engine input, D-06 bidirectional orchestration/adapters lint, D-22 scoped claims (all four).
+- TDD/counterfactual discipline — recorded reds for seam closure and CINV-04 flips; zero-skip 1280-test suite (all four).
+- The §3.1 review cycle materially changed the product: findings became rulings D-IMPL-62..65; webhook deferral rejected and shipped; submit-only door hardened (Gemini, Codex, Cursor).
+- Harness neutrality preserved; four-leg conformance on unchanged shared test bodies (Gemini, Cursor, Ollama).
+
+### Agreed Concerns (2+ reviewers — highest priority)
+1. **Identity/auth residual is the phase's sharpest gap (HIGH: Codex, Cursor, Ollama; MEDIUM: Gemini).** Unauthenticated v0 HTTP surface (T-07-24) combined with caller-supplied HumanPrincipalBinding fields (D-IMPL-63 deferral) means authority-bearing surfaces accept spoofable principals inside the trust boundary. Consensus: treat D-IMPL-63 identity bindings + HTTP auth as EARLY Phase 8 scope, not polish.
+2. **Non-ApprovalGate HITL replay coverage is compositional, not end-to-end (Codex, Cursor — MEDIUM).** Suggested: parametrized end-to-end `build_replay_record` drive per primitive in Phase 8.
+3. **`ccf hitl decide` verb still implies resolution despite submit-only semantics (Codex, Cursor — MEDIUM).** Suggested: `ccf hitl submit` alias with `decide` deprecated.
+4. **Claude orchestrator leg is expressibility-on-scripted-wire, not model-loop coverage (Codex, Cursor — MEDIUM).** Do not treat it as discharging Phase 8's example-03 loop-portability obligation.
+5. **D-IMPL-65 engine debt-cascade refusal must actually land next phase with a red test (Codex, Cursor).**
+6. **google-adk SequentialAgent deprecation will bitrot the ADK leg at next pin bump (Gemini, Cursor — LOW).**
+
+### Divergent Views
+- **Codex's HIGH process caveat (gate document says "awaiting approval" while phase is merged)** is a prompt-staleness artifact: the review prompt carried the pre-approval gate text; D-GATE-I.4 was logged and phase-i4 merged to main before this review ran. Cursor independently confirmed the tree has D-GATE-I.4 + merge. Actionable residue: add a post-merge addendum/status banner to PHASE_I4_GATE.md so later auditors don't re-litigate (Codex + Cursor bookkeeping suggestion).
+- Ollama raises token-reflection bypass of the state seam and missing performance baselines — not echoed by others; recorded as candidate Phase 8 hardening/benchmark items.
+- Gemini alone rates overall LOW, weighting the structural discipline; the MEDIUM majority weight the auth residual.
+
+### Disposition
+Phase 7 is gated and merged (D-GATE-I.4); these findings are Phase 8 planning inputs, aligning with already-named follow-up scope (D-IMPL-63, D-IMPL-65) plus new candidates: HITL E2E replay parametrization, `hitl submit` alias, gate-doc post-merge addendum, ADK deprecation migration, auth-hook example.
