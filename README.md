@@ -70,9 +70,10 @@ that carry everything specific (the No-Hardcoding Rule, CLAUDE.md §6.4).
 make ci        # lints + mypy --strict + full test suite + all eight examples
 ```
 
-`make ci` is command-identical to the always-on GitHub Actions pipeline
-(`.github/workflows/ci.yml`). The opt-in live-model legs live in
-`.github/workflows/live-legs.yml`.
+`make ci` runs the same command strings as the always-on GitHub Actions
+pipeline's invariant legs (`.github/workflows/ci.yml`); Actions additionally
+runs the lint unit tests and a Postgres service-container leg. The opt-in
+live-model legs live in `.github/workflows/live-legs.yml`.
 
 ## Documentation
 

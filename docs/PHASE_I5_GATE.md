@@ -19,7 +19,10 @@ Executed 2026-07-31 on the `phase-i5` branch head, repository root
 `/home/parkave/ccf_code`, interpreter `.venv/bin/python` (Python 3.12),
 `PYTHONPATH=src:runtime`. The command is `make ci` — finalized in 08-12 as
 `ci-core + examples`, command-identical to the always-on GitHub Actions pipeline
-(`.github/workflows/ci.yml`, D-10).
+(`.github/workflows/ci.yml`, D-10). *Precision (review finding X-3):* the shared command
+strings are identical (lints, mypy, required-harness pytest, `make examples`); Actions
+additionally runs the lint-unit step (`pytest tools/lints/tests`) and the Postgres
+service-container leg (`CCF_REQUIRE_POSTGRES=1`), which local `make ci` does not mirror.
 
 | Leg | Command | Result |
 |-----|---------|--------|
@@ -49,8 +52,8 @@ broken (the D-17/D-25 gate-row discipline carried from I.1–I.4).
 | 1 | **No-Hardcoding lint (CINV-01a/b/c)** green over `/src`, `/runtime`, **and `/examples`** | `tools/lints/no_hardcoding.py` via `tools.lints --all` (exit 0); the 08-01 `RULE_TREE_SCOPE` posture puts CINV-01 in force over `/examples` (with its three-test posture suite in `tests/lints/`); prompt-shaped literals, numeric policy tables, and factory-bypass construction all refuse | An inline prompt or agent definition in any example's `run.py`; a threshold constant in `/src`; an agent constructed outside `AgentFactory` — each is a lint finding and `make ci` is red |
 | 2 | **Harness-import lint (CINV-02)** — zero harness imports in `/src` | `tools/lints/harness_imports.py` via `tools.lints --all`; harness SDKs importable only under `runtime/ccf_runtime/adapters/` and the D-IMPL-60 orchestration driver tree (`tools/lints/orchestration_imports.py` enforces the split bidirectionally) | A `google.adk`/`claude_agent_sdk`/`langgraph` import in `/src` — a defect of the same class as an LLM client in an algorithmic module (CLAUDE.md §7.3) |
 | 3 | **`@algorithmic` lint (CINV-03)** — no LLM client in algorithmic modules | `tools/lints/algorithmic.py` via `tools.lints --all`; modules declaring `__ccf_mode__ = "algorithmic"` refuse LLM-client imports | A hidden model call in the algorithmic path — the Algorithmic ⇄ Semantic Alternation (whitepaper §7.6.6) broken structurally, not stylistically |
-| 4 | **Composition-preservation for every shipped operator pair** | `tests/properties/test_composition.py` — `itertools.product` over the operator registry (n², self-pairs included, grows automatically when an operator ships); `(A∘B)(G) = A(B(G))` asserted on `canonical_bytes`, bit for bit; composite from production `ccf.operators.planner.compose()` run through the intermediate cache; Hypothesis-generated states plus curated edge graphs (empty result, fully policy-filtered, temporal boundary) | Any pair whose composite diverges from its sequence — two content addresses for one plan, a replay that disagrees with itself; a hand-listed pair set someone forgot to extend (impossible: the parametrization is the registry) |
-| 5 | **Replay-by-construction checks** — HITL actions, workflow traces, skill-set capture | `tests/invariants/test_replay_by_construction.py` (active-only registry, zero deferral skips since 07-07); `hitl-action-capture` and `workflow-trace-capture` both active with recorded-red counterfactuals (PHASE_I4_GATE §2.2 verbatim); grant-set-in-force capture per I.2 (`tests/replay/` dimension-4 drives); end-to-end `build_replay_record` drives for all four HITL primitives (D-GATE-I.4.1 item c) | A human action, a workflow transition, or a skill grant that reached delivery without landing in the five-dimension record — each owning test observed red under a severed pass-through |
+| 4 | **Composition-preservation for every shipped operator pair** | `tests/properties/test_composition.py` — `itertools.product` (n², self-pairs included) over the test registry returned by `shipped_operators()` in `tests/properties/strategies.py`, which registers one instance of each of the four shipped operator categories; `(A∘B)(G) = A(B(G))` asserted on `canonical_bytes`, bit for bit; composite from production `ccf.operators.planner.compose()` run through the intermediate cache; Hypothesis-generated states plus curated edge graphs (empty result, fully policy-filtered, temporal boundary). *Scope stated honestly (review finding X-1): the registry is a test-maintained helper covering the four operators shipped today; extending it when a fifth operator ships is a maintainer step, not automatic* | Any pair whose composite diverges from its sequence — two content addresses for one plan, a replay that disagrees with itself; within the registered set, no pair can be forgotten (the parametrization is the product, not a hand-list of pairs) |
+| 5 | **Replay-by-construction checks** — HITL actions, workflow traces, skill-set capture | `tests/invariants/test_replay_by_construction.py` (active-only registry, zero deferral skips since 07-07); `hitl-action-capture` and `workflow-trace-capture` both active with recorded-red counterfactuals (PHASE_I4_GATE §2.2 verbatim); grant-set-in-force capture per I.2 (`tests/replay/` dimension-4 drives); end-to-end `build_replay_record` drives for all four HITL primitives (`tests/hitl/test_replay_e2e.py`, D-GATE-I.4.1 item c) | *D-22 scoping (review finding X-2):* on the exercised paths — the CINV-04 owning tests plus the per-primitive e2e drives — a human action, workflow transition, or skill grant severed from the record turns the owning test red (observed, PHASE_I4_GATE §2.2); the unscoped "no path" sentence is CLAUDE.md §8.2's quotation, not this row's claim |
 | 6 | **Full §9 examples suite passing end-to-end** | `make examples` — eight asserted programs, exit 0 = every invariant held; run in CI as an always-on job with `CCF_REQUIRE_HARNESSES=1` (a skipped harness leg is a failure) and `timeout-minutes: 20`, never `continue-on-error` (D-10); D-09 README/artifacts contract check 8/8 PASS (non-empty `artifacts/`, documented command, whitepaper + CLAUDE.md citations, domain-rationale line) | A broken example is a broken build — CLAUDE.md §9's own words; an example whose code still ran meaningfully with its artifacts deleted would violate the No-Hardcoding Rule (and row 1 catches the inline forms) |
 | 7 | **Example 03's portability assertion** (the two-harness §3.1 floor, shipped at three) | `examples/03-harness-portability` deterministic leg: **one** agent definition (`artifacts/agents/order_insights.yaml`, loaded once) executed under real `ClaudeSDKClient`, ADK `Runner`, and LangGraph loop machinery — product bytes identical ×3, 7 governed replay fields equal ×3, 3 distinct harness traces; `legs/deterministic.py` imports all three harness SDKs unconditionally (a missing harness is a failure, not a skip). Live legs (Ollama keyless default; Anthropic key-gated) assert D-04 structural equivalence | A harness whose consumption or replay record diverged from the other two; portability asserted rather than demonstrated (CLAUDE.md §7.3) |
 
@@ -136,6 +139,40 @@ Requirements EXAM-01..09 are ticked in `.planning/REQUIREMENTS.md` against plans
 
 ---
 
-## 7. Review Appendix — §3.1 Cross-AI Review and Triage
+## 7. Review Appendix — §3.1 Cross-AI Review and Triage (2026-07-31)
 
-*(Populated by the Phase I review task; see the disposition table below.)*
+Reviewers: **Cursor** (`cursor agent -p --mode ask`, full-tree access) and **Codex**
+(API-key auth, `codex exec`). Codex's sandboxed run could not execute any read command
+(`bwrap: loopback: Failed RTM_NEWADDR` — the same environment defect recorded at the I.4
+gate §7) and honestly reported it could review nothing; per the I.3/I.4 discipline that a
+review which could not see the tree is not a passing review, it was re-run with the
+deliverables supplied inline (gate document, README, pyproject, example 02's README +
+driver). The inline run is therefore document-scoped; Cursor's run is the full-tree leg.
+Every finding was **verified against the code before triage**.
+
+### 7.1 Disposition table
+
+Findings numbered `X-n` (Cursor) and `C-n` (Codex, inline run).
+
+| Finding | Substance | Class | Disposition |
+|---------|-----------|-------|-------------|
+| X-1 | §2 row 4 overclaimed composition coverage as "grows automatically / impossible to forget"; the pair source is the hand-maintained `shipped_operators()` test registry (four operators) | **Blocking — fixed in-phase** | Verified true (`tests/properties/strategies.py` registers exactly the four category instances). Row 4 narrowed: n² over the test registry, four operators today, extension is a maintainer step; the no-forgotten-pair claim scoped to the registered set |
+| X-2 | §2 row 5's failure column read as universal, dropping the I.4 D-22 exercised-path scoping | Advisory — fixed | Row 5 rewritten in the D-22 template: exercised-path claims named per owning test, the absolute sentence marked as CLAUDE.md §8.2 quotation; `tests/hitl/test_replay_e2e.py` cited explicitly. The stale "compositional-only" comment in the CINV-04 test module predates I.4.1's e2e drives — carried as planning-comment staleness, not rewritten at gate wave |
+| X-3 / (README) | "`make ci` is command-identical to Actions" stronger than the wiring — Actions adds the lint-unit step and the Postgres service-container leg | Advisory — fixed | Gate §1 and README reworded: shared command strings identical; the two Actions-only additions named (verified in `ci.yml`: `pytest tools/lints/tests`, `CCF_REQUIRE_POSTGRES=1` + postgres:16 service) |
+| X-4 | Example 03's README carries its D-09 domain rationale inline rather than as the `## Domain rationale (D-09)` section its seven siblings use | Advisory — carried | The D-09 contract check passes 8/8 (command, citations, rationale line present); consistency-of-shape only. Not edited at gate wave |
+| X-5 | §7 was a placeholder at review time | Advisory — resolved | This appendix is the resolution; per §3.1 the review report precedes presentation to Dave, which is the sequence followed |
+| C-1 | Only example 02 was supplied to the inline run; others unverifiable from supplied text | Scope note | Covered by Cursor's full-tree leg (its finding 7 spot-checked 00, 02/05, 03 and corroborated the No-Hardcoding posture) |
+| C-2 | Row 4's registry-vs-production-registry question flagged as unverifiable inline | Advisory | Same substance as X-1; resolved by the X-1 fix |
+| C-3 | Optional-dependency extras not visible in the supplied pyproject excerpt | Scope note | Extras exist as claimed (`adk`, `claude-agent`, `langgraph`, `harnesses`, `dev`) — verified directly |
+| C-4 | README's "layers onto any agent harness" broader than the three-harness evidence | Advisory — **rejected with rationale** | The sentence is CLAUDE.md §1/§7.3's own mission-level claim ("CCF layers onto the harness…", "works with any agent harness… because the seams are typed contract + MCP + A2A — nothing harness-shaped"); the README tracks the canonical document. The gate evidence (§2 row 7) states precisely what is *demonstrated*: three harnesses |
+| Corroborations | Cursor: zero harness imports under `/src`; example 03's unconditional three-SDK import surface; fidelity sample grounded (`CCFContract` `extra=forbid` §6.3, λ_c out of code §7.7); No-Hardcoding posture in spot-checked examples; packaging/ordering accurate and unexecuted. Codex: all §3.1 items covered with mechanism + failure mode; ordering commitment correct; Actions caveat honestly recorded | — | Recorded |
+
+### 7.2 Post-fix verification
+
+The in-phase fixes are documentation-only (gate rows 4–5, gate §1 wording, README
+verification wording). `make ci` re-run after the fixes: green (lints exit 0, mypy clean
+156 files, 1339 passed / 0 skipped, all eight examples exit 0).
+
+**Zero unfixed blocking findings. No finding required a new D-IMPL ruling** — nothing in
+this review surfaced a decision Dave has not already made; the one blocking finding was a
+gate-row wording defect, fixable in-phase per §3.1 step 2.
