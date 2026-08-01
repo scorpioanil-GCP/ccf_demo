@@ -50,6 +50,8 @@ from ccf.hitl.transport import (
     InMemoryHitlTransport,
     SignedBindingInvalidRefused,
     SignedBindingRequiredRefused,
+    enforce_signed_binding,
+    signed_binding_required,
 )
 from ccf.peering.identity import (
     DetachedJwsIdentityProvider,
@@ -268,6 +270,134 @@ def test_absent_key_in_the_policy_document_defaults_to_false() -> None:
     policy = parse_artifact({"semver": "1.0.0"}, HITL_POLICY)
     assert isinstance(policy, HitlPolicy)
     assert policy.signed_binding_required is False
+
+
+# --- 10-02 Task 1: module-level shared helpers (D-IMPL-69; D-13) ------------
+
+
+def test_helper_signed_binding_required_unbound_is_false() -> None:
+    """Unbound Control Plane or key is the pre-composition posture."""
+    assert (
+        signed_binding_required(control_plane=None, hitl_policy_key=None)
+        is False
+    )
+    assert (
+        signed_binding_required(
+            control_plane=None, hitl_policy_key=POLICY_KEY
+        )
+        is False
+    )
+
+
+def test_helper_signed_binding_required_resolves_per_call(
+    plane: ControlPlaneRegistry,
+) -> None:
+    plane.register_typed(POLICY_KEY, _policy(required=False), HITL_POLICY)
+    assert (
+        signed_binding_required(
+            control_plane=plane, hitl_policy_key=POLICY_KEY
+        )
+        is False
+    )
+    plane.register_typed(
+        POLICY_KEY, _policy(required=True, semver="1.0.1"), HITL_POLICY
+    )
+    assert (
+        signed_binding_required(
+            control_plane=plane, hitl_policy_key=POLICY_KEY
+        )
+        is True
+    )
+
+
+def test_helper_signed_binding_required_rejects_non_hitl_policy(
+    plane: ControlPlaneRegistry,
+) -> None:
+    """A key naming a non-HitlPolicy artifact is a TypeError, not a refusal."""
+    plane.register(POLICY_KEY, {"not": "a-policy"})
+    with pytest.raises(TypeError):
+        signed_binding_required(
+            control_plane=plane, hitl_policy_key=POLICY_KEY
+        )
+
+
+def test_helper_enforce_refuses_absent_binding(
+    provider: DetachedJwsIdentityProvider,
+    trusted_keys: Mapping[str, JsonWebKey],
+) -> None:
+    with pytest.raises(SignedBindingRequiredRefused):
+        enforce_signed_binding(
+            _submission(_binding(), None),
+            identity_provider=provider,
+            trusted_keys=trusted_keys,
+        )
+
+
+def test_helper_enforce_broken_wiring_is_a_runtime_error(
+    provider: DetachedJwsIdentityProvider,
+    trusted_keys: Mapping[str, JsonWebKey],
+) -> None:
+    """Requiring bindings without verification machinery is broken wiring."""
+    binding = _binding()
+    signed = sign_principal_binding(
+        binding, provider=provider, key_id=APPROVER_KID
+    )
+    with pytest.raises(RuntimeError):
+        enforce_signed_binding(
+            _submission(binding, signed),
+            identity_provider=None,
+            trusted_keys=trusted_keys,
+        )
+    with pytest.raises(RuntimeError):
+        enforce_signed_binding(
+            _submission(binding, signed),
+            identity_provider=provider,
+            trusted_keys=None,
+        )
+
+
+def test_helper_enforce_refuses_invalid_or_mismatched_binding(
+    provider: DetachedJwsIdentityProvider,
+    trusted_keys: Mapping[str, JsonWebKey],
+) -> None:
+    binding = _binding()
+    signed = sign_principal_binding(
+        binding, provider=provider, key_id=APPROVER_KID
+    )
+    tampered = signed.model_copy(
+        update={"signature": signed.signature[:-4] + "AAAA"}
+    )
+    with pytest.raises(SignedBindingInvalidRefused):
+        enforce_signed_binding(
+            _submission(binding, tampered),
+            identity_provider=provider,
+            trusted_keys=trusted_keys,
+        )
+    other = _binding("approver-2")
+    signed_other = sign_principal_binding(
+        other, provider=provider, key_id=APPROVER_KID
+    )
+    with pytest.raises(SignedBindingInvalidRefused):
+        enforce_signed_binding(
+            _submission(binding, signed_other),
+            identity_provider=provider,
+            trusted_keys=trusted_keys,
+        )
+
+
+def test_helper_enforce_admits_a_valid_binding(
+    provider: DetachedJwsIdentityProvider,
+    trusted_keys: Mapping[str, JsonWebKey],
+) -> None:
+    binding = _binding()
+    signed = sign_principal_binding(
+        binding, provider=provider, key_id=APPROVER_KID
+    )
+    enforce_signed_binding(
+        _submission(binding, signed),
+        identity_provider=provider,
+        trusted_keys=trusted_keys,
+    )
 
 
 def test_no_boolean_constant_in_src_encodes_requiredness() -> None:
