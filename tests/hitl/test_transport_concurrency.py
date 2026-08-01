@@ -1,0 +1,309 @@
+"""WR-02 — the HITL transport's concurrency contract under a live hammer.
+
+Claims pinned here (Phase-9 CONTEXT D-05/D-06/D-07/D-15; D-IMPL-69
+adjacency; CLAUDE.md §8.2): :class:`~ccf.hitl.transport.InMemoryHitlTransport`
+survives a 24-thread mixed-op hammer with no lost events, no duplicated
+events, and no deadlock — the plain :class:`threading.Lock` synchronization
+Task 09-03-1 added discharges the ``HITLTransportProtocol`` docstring's
+requirement that all methods be safe for concurrent calls from multiple
+threads (the FastAPI-threadpool doors invoke it exactly that way). A second,
+shorter case hammers the submit path of a D-16-wired transport (signed
+binding required, Control Plane resolve + JWS verification per submission)
+to show the verification path — which runs outside the lock by design —
+introduces no lock-ordering hazard.
+
+Always-on per D-15: no markers, no slow/nightly tagging. Deadlock detection
+is bounded ``join(timeout=...)`` + ``pytest.fail`` — no third-party
+timeout plugin. All randomness is seeded (``random.Random(seed)``) so a failure
+reproduces.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import random
+import threading
+from collections.abc import Mapping
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+import pytest
+from joserfc.jwk import ECKey
+
+from ccf.contracts.canonical import content_hash
+from ccf.controlplane.artifacts import parse_artifact
+from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.hitl.identity_binding import sign_principal_binding
+from ccf.hitl.principal import (
+    ApproverIdentity,
+    AuthenticationContext,
+    HumanPrincipalBinding,
+)
+from ccf.hitl.transport import (
+    HITL_POLICY,
+    HitlActionSubmission,
+    HitlPolicy,
+    InMemoryHitlTransport,
+    PendingHitlEvent,
+)
+from ccf.peering.identity import (
+    DetachedJwsIdentityProvider,
+    FileBackedKeySource,
+    JsonWebKey,
+)
+
+ACTION_TIME = datetime(2026, 7, 30, 12, 0, 0, tzinfo=UTC)
+
+#: 24 threads sits inside the ruled 16-32 envelope (Phase-9 CONTEXT D-07).
+THREAD_COUNT = 24
+#: Bounded per-thread op count keeps total runtime to seconds.
+OPS_PER_THREAD = 300
+#: Every join is bounded; a miss is a deadlock verdict, not a hang.
+JOIN_TIMEOUT_SECONDS = 30.0
+#: Deterministic base seed — per-thread seed is BASE_SEED + thread index.
+BASE_SEED = 90_302
+
+TENANTS = ("acme-bank", "globex", "initech")
+
+APPROVER_KID = "hitl-approver-signing-key"
+POLICY_KEY = "acme-bank/hitl/policy"
+
+
+def _binding(subject_id: str = "approver-1") -> HumanPrincipalBinding:
+    return HumanPrincipalBinding(
+        approver=ApproverIdentity(
+            subject_id=subject_id,
+            identity_provider_ref="test-idp",
+        ),
+        authentication=AuthenticationContext(
+            method="test-method",
+            assurance_level="test-level",
+            session_ref="test-session",
+        ),
+        action_time=ACTION_TIME,
+        product_content_hash=hashlib.sha256(b"fixture-product").hexdigest(),
+    )
+
+
+def _event(**mutations: Any) -> PendingHitlEvent:
+    document: dict[str, Any] = {
+        "event_key": "acme-bank/approvals/1",
+        "event_class": "approval-gate",
+        "tenant": "acme-bank",
+        "workflow_state_ref": "workflow-state/covenant-review/run-1",
+        "product_content_hash": content_hash({"product": "seen"}),
+        "policy_ref": (
+            "ccf-artifact://acme-bank/approval-policy/credit-officer@1.0.0"
+        ),
+    }
+    document.update(mutations)
+    return PendingHitlEvent.model_validate(document)
+
+
+def _submission(**mutations: Any) -> HitlActionSubmission:
+    document: dict[str, Any] = {
+        "event_key": "acme-bank/approvals/1",
+        "tenant": "acme-bank",
+        "action": "approve",
+        "principal": _binding(),
+        "annotation": None,
+    }
+    document.update(mutations)
+    return HitlActionSubmission.model_validate(document)
+
+
+def _join_all(threads: list[threading.Thread]) -> None:
+    """Bounded joins; a missed join is a deadlock, reported as a failure."""
+    for thread in threads:
+        thread.join(timeout=JOIN_TIMEOUT_SECONDS)
+        if thread.is_alive():
+            pytest.fail(
+                f"thread {thread.name} did not finish within"
+                f" {JOIN_TIMEOUT_SECONDS}s — deadlock or livelock in the"
+                " transport under concurrent load (WR-02)"
+            )
+
+
+# --- the mixed-op hammer ------------------------------------------------------
+
+
+def test_mixed_op_hammer_loses_and_duplicates_nothing() -> None:
+    """24 threads of seeded-random mixed ops: exactly-once accounting holds.
+
+    Every enqueued event key is namespaced per thread
+    (``{tenant}/hammer/{thread}/{i}``), so post-run accounting is
+    by-construction checkable: each key was dequeued exactly once OR is
+    still pending — never lost, never duplicated — and the number of
+    recorded submissions equals the sum of per-thread submit tallies.
+    """
+    transport = InMemoryHitlTransport()
+    barrier = threading.Barrier(THREAD_COUNT)
+
+    enqueued: list[list[str]] = [[] for _ in range(THREAD_COUNT)]
+    dequeued: list[list[str]] = [[] for _ in range(THREAD_COUNT)]
+    submitted: list[int] = [0] * THREAD_COUNT
+    errors: list[BaseException] = []
+
+    def hammer(index: int) -> None:
+        rng = random.Random(BASE_SEED + index)
+        try:
+            barrier.wait(timeout=JOIN_TIMEOUT_SECONDS)
+            for i in range(OPS_PER_THREAD):
+                tenant = rng.choice(TENANTS)
+                op = rng.randrange(5)
+                if op == 0:
+                    key = f"{tenant}/hammer/{index}/{i}"
+                    transport.enqueue(
+                        event=_event(event_key=key, tenant=tenant)
+                    )
+                    enqueued[index].append(key)
+                elif op == 1:
+                    popped = transport.dequeue(tenant=tenant)
+                    if popped is not None:
+                        dequeued[index].append(popped.event_key)
+                elif op == 2:
+                    snapshot = transport.pending(tenant=tenant)
+                    assert isinstance(snapshot, tuple)
+                elif op == 3:
+                    transport.submit(
+                        submission=_submission(
+                            event_key=f"{tenant}/hammer/{index}/{i}",
+                            tenant=tenant,
+                        )
+                    )
+                    submitted[index] += 1
+                else:
+                    recorded = transport.submissions(tenant=tenant)
+                    assert isinstance(recorded, tuple)
+        except BaseException as error:  # noqa: BLE001 - collected for report
+            errors.append(error)
+
+    threads = [
+        threading.Thread(target=hammer, args=(index,), name=f"hammer-{index}")
+        for index in range(THREAD_COUNT)
+    ]
+    for thread in threads:
+        thread.start()
+    _join_all(threads)
+
+    assert errors == [], f"worker threads raised: {errors!r}"
+
+    all_enqueued = [key for keys in enqueued for key in keys]
+    all_dequeued = [key for keys in dequeued for key in keys]
+    still_pending = [
+        event.event_key
+        for tenant in TENANTS
+        for event in transport.pending(tenant=tenant)
+    ]
+
+    # No duplication: nothing was dequeued twice, nothing pending twice,
+    # and nothing is simultaneously dequeued and pending.
+    assert len(all_dequeued) == len(set(all_dequeued))
+    assert len(still_pending) == len(set(still_pending))
+    assert set(all_dequeued).isdisjoint(still_pending)
+
+    # No loss, no invention: dequeued-once + still-pending == enqueued.
+    assert set(all_dequeued) | set(still_pending) == set(all_enqueued)
+    assert len(all_dequeued) + len(still_pending) == len(all_enqueued)
+
+    # Submission accounting: everything recorded, nothing lost.
+    total_recorded = sum(
+        len(transport.submissions(tenant=tenant)) for tenant in TENANTS
+    )
+    assert total_recorded == sum(submitted)
+
+    # Per-tenant FIFO for single-producer subsets: within one tenant's
+    # remaining queue, each producing thread's own keys appear in the
+    # order that thread enqueued them.
+    for tenant in TENANTS:
+        remaining = [
+            event.event_key for event in transport.pending(tenant=tenant)
+        ]
+        for index in range(THREAD_COUNT):
+            mine = [
+                key
+                for key in remaining
+                if key.startswith(f"{tenant}/hammer/{index}/")
+            ]
+            ordered = [key for key in enqueued[index] if key in set(mine)]
+            assert mine == ordered
+
+
+# --- the D-16-wired submit path under load ------------------------------------
+
+
+def test_d16_wired_submit_path_hammers_without_lock_ordering_issues(
+    tmp_path: Path,
+) -> None:
+    """Signed-binding verification per submission, hammered, no deadlock.
+
+    The verification path (Control Plane ``resolve_latest`` + JWS
+    verification) runs outside the queue lock by design (D-IMPL-69); this
+    case shows the composition holds under concurrent submits — every
+    verified submission is recorded exactly once and every join returns.
+    """
+    key_dir = tmp_path / "keys"
+    key_dir.mkdir()
+    key = ECKey.generate_key("P-256", parameters={"kid": APPROVER_KID})
+    (key_dir / f"{APPROVER_KID}.jwk").write_text(
+        json.dumps(key.as_dict(private=True)), encoding="utf-8"
+    )
+    provider = DetachedJwsIdentityProvider(
+        key_source=FileBackedKeySource(directory=key_dir)
+    )
+    trusted_keys: Mapping[str, JsonWebKey] = {
+        APPROVER_KID: key.as_dict(private=False)
+    }
+    plane = ControlPlaneRegistry()
+    policy = parse_artifact(
+        {"semver": "1.0.0", "signed_binding_required": True}, HITL_POLICY
+    )
+    assert isinstance(policy, HitlPolicy)
+    plane.register_typed(POLICY_KEY, policy, HITL_POLICY)
+    transport = InMemoryHitlTransport(
+        control_plane=plane,
+        hitl_policy_key=POLICY_KEY,
+        identity_provider=provider,
+        trusted_keys=trusted_keys,
+    )
+
+    binding = _binding()
+    signed = sign_principal_binding(
+        binding, provider=provider, key_id=APPROVER_KID
+    )
+
+    thread_count = 8
+    submits_per_thread = 25
+    barrier = threading.Barrier(thread_count)
+    errors: list[BaseException] = []
+
+    def submit_hammer(index: int) -> None:
+        try:
+            barrier.wait(timeout=JOIN_TIMEOUT_SECONDS)
+            for i in range(submits_per_thread):
+                transport.submit(
+                    submission=_submission(
+                        event_key=f"acme-bank/hammer/{index}/{i}",
+                        principal=binding,
+                        signed_binding=signed,
+                    )
+                )
+        except BaseException as error:  # noqa: BLE001
+            errors.append(error)
+
+    threads = [
+        threading.Thread(
+            target=submit_hammer, args=(index,), name=f"submit-{index}"
+        )
+        for index in range(thread_count)
+    ]
+    for thread in threads:
+        thread.start()
+    _join_all(threads)
+
+    assert errors == [], f"submit threads raised: {errors!r}"
+    recorded = transport.submissions(tenant="acme-bank")
+    assert len(recorded) == thread_count * submits_per_thread
+    assert all(entry.signed_binding == signed for entry in recorded)
