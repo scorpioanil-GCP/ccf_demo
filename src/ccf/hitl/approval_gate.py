@@ -337,8 +337,27 @@ class ApprovalGate:
                 identity_provider=self._identity_provider,
                 trusted_keys=self._trusted_keys,
             )
-        self._transport.submit(submission=submission)
-        self._consume(tenant, event_key)
+        claimed = self._transport.remove(tenant=tenant, event_key=event_key)
+        if claimed is None:
+            # A concurrent resolve claimed the event between the snapshot
+            # check above and this atomic claim (WR-02): exactly one
+            # resolver wins; the loser raises without submitting, so one
+            # human action never becomes two authority submissions.
+            raise UnknownGateEventError(
+                f"no pending HITL event {event_key!r} for tenant {tenant!r}:"
+                " a concurrent resolution claimed it after this call's"
+                " pending-snapshot check (WR-02 — exactly one resolve wins"
+                " the claim; this one lost)"
+            )
+        try:
+            self._transport.submit(submission=submission)
+        except BaseException:
+            # The claim precedes the submit so a failed submit must give
+            # the event back — a refused authority submission never
+            # consumes the pending event (Pitfall 4 doctrine). Re-enqueued
+            # at the tail: arrival order is re-established, not preserved.
+            self._transport.enqueue(event=claimed)
+            raise
         approved = action == "approve"
         self._record(
             event_key,
@@ -359,23 +378,6 @@ class ApprovalGate:
         )
 
     # -- helpers ---------------------------------------------------------------
-
-    def _consume(self, tenant: str, event_key: str) -> None:
-        """Remove one resolved event, preserving the others' relative order.
-
-        The transport Protocol deliberately exposes only queue semantics
-        (D-IMPL-20), so removal is a drain-and-requeue over the tenant's
-        events — order-preserving for everything not consumed.
-        """
-        retained: list[PendingHitlEvent] = []
-        while True:
-            pending = self._transport.dequeue(tenant=tenant)
-            if pending is None:
-                break
-            if pending.event_key != event_key:
-                retained.append(pending)
-        for pending in retained:
-            self._transport.enqueue(event=pending)
 
     def _record(
         self, event_key: str, *, version: str, resolved: bool, actor: str

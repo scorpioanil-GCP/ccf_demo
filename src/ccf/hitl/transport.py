@@ -361,11 +361,16 @@ class HITLTransportProtocol(Protocol):
     All methods of every conforming implementation must be safe for
     concurrent calls from multiple threads. The Experience-Layer HITL
     doors (HTTP and MCP) invoke the transport from FastAPI's threadpool,
-    so enqueue/dequeue/pending/submit/submissions race by construction in
-    any real deployment — an implementation whose queue state can be
-    lost, duplicated, or corrupted under concurrent access does not
-    conform to this Protocol. This docstring is the contract's sole
-    documentation surface (Phase-9 CONTEXT D-05/D-08).
+    so enqueue/dequeue/pending/remove/submit/submissions race by
+    construction in any real deployment — an implementation whose queue
+    state can be lost, duplicated, or corrupted under concurrent access
+    does not conform to this Protocol. ``remove`` exists precisely for
+    that mode (WR-02): consuming one resolved event must be a single
+    atomic operation of the implementation, because a caller-side
+    drain-and-requeue over ``dequeue``/``enqueue`` exposes concurrent
+    readers to a partially drained queue and lets two racing resolves
+    double-submit. This docstring is the contract's sole documentation
+    surface (Phase-9 CONTEXT D-05/D-08).
     """
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
@@ -378,6 +383,23 @@ class HITLTransportProtocol(Protocol):
 
     def pending(self, *, tenant: str) -> tuple[PendingHitlEvent, ...]:
         """The tenant's pending events, oldest first, without consuming."""
+        ...
+
+    def remove(
+        self, *, tenant: str, event_key: str
+    ) -> PendingHitlEvent | None:
+        """Atomically remove and return the tenant's pending event with
+        ``event_key``, or ``None`` when no such event is pending.
+
+        The compare-and-consume primitive (WR-02): removal is one atomic
+        operation of the conforming implementation — never a caller-side
+        drain-and-requeue over ``dequeue``/``enqueue``, which would expose
+        concurrent readers to a partially drained queue and let two
+        concurrent resolves both pass a ``pending()`` snapshot check. The
+        relative order of every event not removed is preserved. Exactly
+        one of any number of concurrent ``remove`` calls for the same
+        event receives it; the rest receive ``None``.
+        """
         ...
 
     def submit(self, *, submission: HitlActionSubmission) -> None:
@@ -498,6 +520,28 @@ class InMemoryHitlTransport:
         """The tenant's pending events, oldest first, without consuming."""
         with self._lock:
             return tuple(self._pending.get(tenant, ()))
+
+    def remove(
+        self, *, tenant: str, event_key: str
+    ) -> PendingHitlEvent | None:
+        """Atomically remove and return the named pending event (WR-02).
+
+        One lock acquisition covers the search and the removal, so a
+        concurrent ``pending()`` never observes a partially drained
+        queue, a concurrent ``enqueue`` never interleaves into a drain,
+        and exactly one of any number of racing removals for the same
+        event key receives the event. Every retained event keeps its
+        relative order.
+        """
+        with self._lock:
+            queue = self._pending.get(tenant)
+            if not queue:
+                return None
+            for index, event in enumerate(queue):
+                if event.event_key == event_key:
+                    del queue[index]
+                    return event
+            return None
 
     def submit(self, *, submission: HitlActionSubmission) -> None:
         """Record one human action returning through the authority path.

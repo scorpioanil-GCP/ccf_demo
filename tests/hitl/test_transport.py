@@ -165,6 +165,33 @@ def test_submitted_actions_return_through_the_same_surface() -> None:
     assert isinstance(recorded[0].principal, HumanPrincipalBinding)
 
 
+def test_remove_takes_the_named_event_and_preserves_the_rest() -> None:
+    """WR-02: removal is one atomic transport operation — the named event
+    comes out, every other event keeps its relative order."""
+    transport = InMemoryHitlTransport()
+    first = _event(event_key="acme-bank/approvals/1")
+    second = _event(event_key="acme-bank/approvals/2")
+    third = _event(event_key="acme-bank/approvals/3")
+    for event in (first, second, third):
+        transport.enqueue(event=event)
+
+    removed = transport.remove(tenant="acme-bank", event_key=second.event_key)
+
+    assert removed == second
+    assert transport.pending(tenant="acme-bank") == (first, third)
+
+
+def test_remove_of_an_absent_event_returns_none() -> None:
+    transport = InMemoryHitlTransport()
+    assert transport.remove(tenant="acme-bank", event_key="missing") is None
+    transport.enqueue(event=_event(event_key="acme-bank/approvals/1"))
+    assert transport.remove(tenant="acme-bank", event_key="missing") is None
+    # And exactly one of two sequential removes for the same key wins.
+    key = "acme-bank/approvals/1"
+    assert transport.remove(tenant="acme-bank", event_key=key) is not None
+    assert transport.remove(tenant="acme-bank", event_key=key) is None
+
+
 def test_queue_views_are_per_tenant() -> None:
     """D-23: two tenants' queues do not interleave."""
     transport = InMemoryHitlTransport()

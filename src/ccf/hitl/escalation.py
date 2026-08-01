@@ -425,8 +425,24 @@ class ExceptionEscalation:
                 identity_provider=self._identity_provider,
                 trusted_keys=self._trusted_keys,
             )
-        self._transport.submit(submission=submission)
-        self._consume(tenant, event_key)
+        claimed = self._transport.remove(tenant=tenant, event_key=event_key)
+        if claimed is None:
+            # A concurrent resolve claimed the event between the snapshot
+            # check above and this atomic claim (WR-02): exactly one
+            # resolver wins; the loser raises without submitting.
+            raise UnknownEscalationEventError(
+                f"no pending escalation {event_key!r} for tenant {tenant!r}:"
+                " a concurrent resolution claimed it after this call's"
+                " pending-snapshot check (WR-02 — exactly one resolve wins"
+                " the claim; this one lost)"
+            )
+        try:
+            self._transport.submit(submission=submission)
+        except BaseException:
+            # A refused authority submission never consumes the pending
+            # event: the claim is given back (re-enqueued at the tail).
+            self._transport.enqueue(event=claimed)
+            raise
         trigger = self._triggers.pop((tenant, event_key))
         accepted = action == "approve"
         self._record(
@@ -447,18 +463,6 @@ class ExceptionEscalation:
         )
 
     # -- helpers ---------------------------------------------------------------
-
-    def _consume(self, tenant: str, event_key: str) -> None:
-        """Remove one resolved event, preserving the others' relative order."""
-        retained: list[PendingHitlEvent] = []
-        while True:
-            pending = self._transport.dequeue(tenant=tenant)
-            if pending is None:
-                break
-            if pending.event_key != event_key:
-                retained.append(pending)
-        for pending in retained:
-            self._transport.enqueue(event=pending)
 
     def _record(
         self,

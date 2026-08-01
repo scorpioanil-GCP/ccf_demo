@@ -231,6 +231,52 @@ def test_mixed_op_hammer_loses_and_duplicates_nothing() -> None:
             assert mine == ordered
 
 
+# --- racing removes claim exactly once (WR-02) --------------------------------
+
+
+def test_racing_removes_for_one_event_yield_exactly_one_claim() -> None:
+    """WR-02: for each pending event, any number of concurrent ``remove``
+    calls yields exactly one winner — the compare-and-consume the HITL
+    primitives' resolve paths claim through, so one human action can
+    never become two authority submissions."""
+    transport = InMemoryHitlTransport()
+    event_count = 50
+    keys = [f"acme-bank/race/{i}" for i in range(event_count)]
+    for key in keys:
+        transport.enqueue(event=_event(event_key=key))
+
+    thread_count = 12
+    barrier = threading.Barrier(thread_count)
+    claims: list[list[str]] = [[] for _ in range(thread_count)]
+    errors: list[BaseException] = []
+
+    def racer(index: int) -> None:
+        try:
+            barrier.wait(timeout=JOIN_TIMEOUT_SECONDS)
+            for key in keys:
+                claimed = transport.remove(
+                    tenant="acme-bank", event_key=key
+                )
+                if claimed is not None:
+                    claims[index].append(claimed.event_key)
+        except BaseException as error:  # noqa: BLE001
+            errors.append(error)
+
+    threads = [
+        threading.Thread(target=racer, args=(index,), name=f"remove-{index}")
+        for index in range(thread_count)
+    ]
+    for thread in threads:
+        thread.start()
+    _join_all(threads)
+
+    assert errors == [], f"remove threads raised: {errors!r}"
+    all_claims = [key for claimed in claims for key in claimed]
+    assert sorted(all_claims) == sorted(keys)  # every event claimed once
+    assert len(all_claims) == len(set(all_claims))  # never twice
+    assert transport.pending(tenant="acme-bank") == ()
+
+
 # --- the D-16-wired submit path under load ------------------------------------
 
 
