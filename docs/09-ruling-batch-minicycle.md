@@ -1,9 +1,12 @@
 # Phase 9 Ruling Batch — Consolidated Phase D Mini-Cycle (HARD-01)
 
-**Status:** Awaiting Dave's interactive walkthrough. No item below is
-resolved; every "Recommendation" line is exactly that — a recommendation.
-Per CLAUDE.md §11 and REQUIREMENTS "Out of Scope", no ruling item may be
-defaulted: Dave's ruling or an explicit deferral are the only outcomes.
+**Status:** COMPLETE — all six items ruled by Dave in the interactive
+walkthrough of 2026-08-01 (zero deferrals; every ruling followed the
+document's recommendation). Rulings are logged as D-IMPL-68..73 in
+`docs/DECISIONS.md`; the per-item status table at the end of this
+document records the chosen options. Per CLAUDE.md §11 and REQUIREMENTS
+"Out of Scope", no ruling item was defaulted: every outcome below is
+Dave's ruling.
 
 **Deferral posture (D-04, partial-proceed):** a deferred item gates only
 its downstream consumer, never this phase. Items 1, 2, and 6 gate
@@ -351,11 +354,11 @@ DEFERRED (naming the gated downstream phase: items 1/2/6 → Phase 10,
 item 3 → Phase 11, items 4/5 → Phase 14). Deferrals remain open D-IMPL
 entries flagged for the D-GATE-9 presentation.
 
-| Item | Candidate # | Status |
-|------|-------------|--------|
-| 1 — WR-01 mapping shape | D-IMPL-68 | AWAITING RULING |
-| 2 — ApprovalGate × D-16 | D-IMPL-69 | AWAITING RULING |
-| 3 — Perf governance | D-IMPL-70 | AWAITING RULING |
-| 4 — Docs toolchain/publishing | D-IMPL-71 | AWAITING RULING |
-| 5 — Phase-8 D-10 `make ci` amendment | D-IMPL-72 | AWAITING RULING |
-| 6 — create_app warning | D-IMPL-73 | AWAITING RULING |
+| Item | Number | Status |
+|------|--------|--------|
+| 1 — WR-01 mapping shape | D-IMPL-68 | RESOLVED — Option C (Control Plane scope-mapping artifact, door-side enforcement, deny-by-default), 2026-08-01, Approver: Dave |
+| 2 — ApprovalGate × D-16 | D-IMPL-69 | RESOLVED — Option A (primitives verify HitlPolicy on resolve paths, typed refusals reused), 2026-08-01, Approver: Dave |
+| 3 — Perf governance | D-IMPL-70 | RESOLVED — Option A (Dave-gated re-baseline, reviewed thresholds.toml, opt-in perf.yml per D-11), 2026-08-01, Approver: Dave |
+| 4 — Docs toolchain/publishing | D-IMPL-71 | RESOLVED — Option A (CI-artifact-only; no public publishing), 2026-08-01, Approver: Dave |
+| 5 — Phase-8 D-10 `make ci` amendment | D-IMPL-72 | RESOLVED — Option A (amend now, effective at the Phase 14 plan creating the docs target), 2026-08-01, Approver: Dave |
+| 6 — create_app warning | D-IMPL-73 | RESOLVED — Option C (warning category + log record; suppression only via explicit acknowledgment kwarg, no env var), 2026-08-01, Approver: Dave |
