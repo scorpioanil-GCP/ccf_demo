@@ -86,6 +86,14 @@ lock), WR-03 loop-safe driver dispatch (`run_coroutine_sync` + typed
 driver-error hierarchy across all three adapters), and the six-item ruling
 batch D-IMPL-68..73 resolved by Dave with zero deferrals (1353 tests green).
 
+**Phase 10 complete (2026-08-01):** Authorization posture — HARD-04 per-tenant
+authorization at both HITL doors (ScopeMappingArtifact + deny-by-default
+`TenantAuthorizerProtocol`, allow/deny audited with artifact version) and
+HARD-05 signed-binding verification on all four HITL primitives plus
+`CcfInsecureDefaultWarning` on unauthenticated `create_app`; examples 05/06
+demonstrate authorized and refused tenant paths (1439 tests green; 10-REVIEW.md
+carries 1 Critical + 6 Warning advisory triage items).
+
 ## Current Milestone: v0.2 Performance, Documentation & Demonstration
 
 **Goal:** Make the v0.1 SDK production-credible and adoptable — measured
