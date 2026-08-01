@@ -92,10 +92,19 @@ def run_coroutine_sync(
         coro: The coroutine to execute.
         timeout: Optional bound, in seconds, on joining the background
             thread when one is used (T-09-06). ``None`` waits indefinitely.
+            On expiry ``TimeoutError`` is raised and the worker thread is
+            abandoned (``shutdown(wait=False)``) rather than joined — the
+            hung coroutine keeps running on its own thread until it
+            finishes, but the caller is unblocked immediately.
     """
     try:
         asyncio.get_running_loop()
     except RuntimeError:
         return asyncio.run(coro)
-    with ThreadPoolExecutor(max_workers=1) as executor:
+    # No context manager: __exit__ would shutdown(wait=True) and re-block
+    # the caller past the timeout it just enforced (T-09-06).
+    executor = ThreadPoolExecutor(max_workers=1)
+    try:
         return executor.submit(asyncio.run, coro).result(timeout)
+    finally:
+        executor.shutdown(wait=False)

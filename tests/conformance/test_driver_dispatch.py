@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+import time
 
 import pytest
 
@@ -69,6 +70,24 @@ def test_run_coroutine_sync_propagates_the_coroutine_error() -> None:
             run_coroutine_sync(boom())
 
     asyncio.run(host())
+
+
+def test_run_coroutine_sync_timeout_bounds_the_join() -> None:
+    """T-09-06: on the background-thread path, ``timeout`` actually unblocks
+    the caller — the executor is shut down with ``wait=False`` so its
+    ``__exit__``-style join cannot re-block past the enforced bound."""
+
+    async def hang() -> None:
+        await asyncio.sleep(3)
+
+    async def host() -> float:
+        start = time.monotonic()
+        with pytest.raises(TimeoutError):
+            run_coroutine_sync(hang(), timeout=0.2)
+        return time.monotonic() - start
+
+    elapsed = asyncio.run(host())
+    assert elapsed < 2  # unblocked at ~0.2s, never joined through the 3s hang
 
 
 def test_the_error_hierarchy_shape() -> None:
