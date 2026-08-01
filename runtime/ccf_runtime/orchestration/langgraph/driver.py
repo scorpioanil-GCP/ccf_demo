@@ -50,7 +50,10 @@ from langgraph.types import Command, interrupt
 
 from ccf.contracts.base import CCFContract
 from ccf.workflow.factory import Workflow
-from ccf_runtime.orchestration.common import SegmentNotExecutedError
+from ccf_runtime.orchestration.common import (
+    SegmentNotExecutedError,
+    WorkflowDriverError,
+)
 from ccf_runtime.workflow.engine import WorkflowEngine, WorkflowSuspended
 
 __all__ = ["LangGraphWorkflowDriver"]
@@ -115,11 +118,10 @@ class LangGraphWorkflowDriver:
         """
         tenant = workflow.definition.tenant
 
-        def _park(outcome: CCFContract) -> _Position:
-            key = (tenant, outcome.execution_id)  # type: ignore[attr-defined]
-            self._outcomes[key] = outcome
+        def _park(outcome: CCFContract, execution_id: str) -> _Position:
+            self._outcomes[(tenant, execution_id)] = outcome
             return {
-                "execution_id": key[1],
+                "execution_id": execution_id,
                 "suspended": isinstance(outcome, WorkflowSuspended),
             }
 
@@ -127,11 +129,15 @@ class LangGraphWorkflowDriver:
             outcome = await self._engine.execute(
                 workflow, execution_id=state["execution_id"]
             )
-            return _park(outcome)
+            return _park(outcome, state["execution_id"])
 
         async def gate(state: _Position) -> _Position:
             suspended = self._outcome(tenant, state["execution_id"])
-            assert isinstance(suspended, WorkflowSuspended)
+            if not isinstance(suspended, WorkflowSuspended):
+                raise WorkflowDriverError(
+                    f"gate node reached with non-suspended outcome for"
+                    f" {tenant!r}/{state['execution_id']!r}"
+                )
             decision = interrupt(
                 {"gate": suspended.gate, "event_key": suspended.event_key}
             )
@@ -140,7 +146,7 @@ class LangGraphWorkflowDriver:
                 execution_id=state["execution_id"],
                 decision=str(decision),
             )
-            return _park(outcome)
+            return _park(outcome, state["execution_id"])
 
         def route(state: _Position) -> str:
             return "gate" if state["suspended"] else END
