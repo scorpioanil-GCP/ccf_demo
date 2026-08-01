@@ -49,6 +49,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Mapping
 from datetime import datetime
 
@@ -207,6 +208,14 @@ class ReviewQueue:
         self._hitl_policy_key = hitl_policy_key
         self._identity_provider = identity_provider
         self._trusted_keys = trusted_keys
+        # Side-band item state, keyed (tenant, event_key). Per-instance
+        # and in-memory — narrower than the transport, which may be shared
+        # or durable — so :meth:`_resolve` verifies this state exists
+        # *before* touching the transport (WR-01) and surfaces absence as
+        # the typed broken-wiring error, never a bare ``KeyError`` after
+        # the authority path has already recorded the action. Guarded by
+        # its own lock: the transport's lock does not cover this dict.
+        self._state_lock = threading.Lock()
         self._items: dict[tuple[str, str], ReviewQueueItem] = {}
 
     def submit_for_review(
@@ -235,7 +244,8 @@ class ReviewQueue:
             policy_ref=policy_ref,
         )
         self._transport.enqueue(event=event)
-        self._items[(tenant, event_key)] = item
+        with self._state_lock:
+            self._items[(tenant, event_key)] = item
         return event
 
     def items(
@@ -248,11 +258,13 @@ class ReviewQueue:
         renders for its reviewers (D-23: one tenant's view says nothing
         about another's).
         """
+        with self._state_lock:
+            retained = dict(self._items)
         return tuple(
-            (pending, self._items[(tenant, pending.event_key)])
+            (pending, retained[(tenant, pending.event_key)])
             for pending in self._transport.pending(tenant=tenant)
             if pending.event_class == "review-queue"
-            and (tenant, pending.event_key) in self._items
+            and (tenant, pending.event_key) in retained
         )
 
     def release(
@@ -358,6 +370,22 @@ class ReviewQueue:
                     " current item and act on its hash"
                 ),
             )
+        with self._state_lock:
+            item = self._items.get((tenant, event_key))
+        if item is None:
+            # WR-01: the pending event exists on the transport but this
+            # instance holds no queued item for it — the transport may be
+            # shared or durable while this side-band state is
+            # per-instance. Refused typed and *before* any transport
+            # mutation.
+            raise UnknownReviewEventError(
+                f"review {event_key!r} for tenant {tenant!r} is pending"
+                " on the transport but this ReviewQueue instance holds"
+                " no queued item for it; the transport is shared state"
+                " while the item record is per-instance — resolve on the"
+                " instance that queued the item (broken wiring, not a"
+                " governance outcome; WR-01)"
+            )
         submission = HitlActionSubmission(
             event_key=event_key,
             tenant=tenant,
@@ -395,7 +423,8 @@ class ReviewQueue:
             # event: the claim is given back (re-enqueued at the tail).
             self._transport.enqueue(event=claimed)
             raise
-        item = self._items.pop((tenant, event_key))
+        with self._state_lock:
+            self._items.pop((tenant, event_key), None)
         self._record(
             event_key,
             version=event.product_content_hash,

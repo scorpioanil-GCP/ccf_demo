@@ -215,6 +215,33 @@ def test_two_tenants_queues_are_isolated() -> None:
     assert len(queue.items(tenant=other["event"]["tenant"])) == 1
 
 
+def test_releasing_on_a_second_instance_is_typed_and_mutates_nothing() -> None:
+    """WR-01: the transport may be shared across primitive instances, but
+    the queued item is per-instance side-band state. Releasing on an
+    instance that did not queue the item raises the typed broken-wiring
+    error *before* any transport mutation — never a bare ``KeyError``
+    after the authority path already recorded the action."""
+    fixture = _hitl()
+    queue, transport, audit = _queue()
+    document, item = _submit(queue, fixture)
+
+    other = ReviewQueue(transport=transport, audit=audit, clock=_clock())
+    with pytest.raises(UnknownReviewEventError):
+        other.release(
+            tenant=document["tenant"],
+            event_key=document["event_key"],
+            principal=_principal(
+                fixture,
+                "credit_officer",
+                product_content_hash=content_hash(item),
+            ),
+        )
+
+    # Nothing landed on the authority path and the event survives.
+    assert len(transport.pending(tenant=document["tenant"])) == 1
+    assert transport.submissions(tenant=document["tenant"]) == ()
+
+
 def test_releasing_an_unknown_event_raises() -> None:
     fixture = _hitl()
     queue, _, _ = _queue()

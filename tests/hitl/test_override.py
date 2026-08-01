@@ -198,6 +198,34 @@ def test_a_declined_override_is_a_recorded_action() -> None:
     assert events[-1].action == "hitl_action" and events[-1].resolved
 
 
+def test_resolving_on_a_second_instance_is_typed_and_mutates_nothing() -> None:
+    """WR-01: the transport may be shared across primitive instances, but
+    the proposal-time original is per-instance side-band state. Resolving
+    on an instance that did not propose raises the typed broken-wiring
+    error *before* any transport mutation — never a bare ``KeyError``
+    after the authority path already recorded the action."""
+    fixture = _hitl()
+    boundary, transport, audit = _boundary()
+    original = _propose(boundary, fixture)
+    document = fixture["override"]["event"]
+
+    other: OverrideBoundary[_Determination] = OverrideBoundary(
+        transport=transport, audit=audit, clock=_clock()
+    )
+    with pytest.raises(UnknownOverrideEventError):
+        other.resolve(
+            tenant=document["tenant"],
+            event_key=document["event_key"],
+            principal=_principal(
+                fixture, product_content_hash=content_hash(original)
+            ),
+        )
+
+    # Nothing landed on the authority path and the event survives.
+    assert len(transport.pending(tenant=document["tenant"])) == 1
+    assert transport.submissions(tenant=document["tenant"]) == ()
+
+
 def test_resolving_an_unknown_event_raises() -> None:
     fixture = _hitl()
     boundary, _, _ = _boundary()

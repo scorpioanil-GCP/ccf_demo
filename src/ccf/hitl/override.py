@@ -45,6 +45,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Generic, TypeVar
@@ -180,6 +181,14 @@ class OverrideBoundary(Generic[ProductT]):
         self._hitl_policy_key = hitl_policy_key
         self._identity_provider = identity_provider
         self._trusted_keys = trusted_keys
+        # Side-band original values, keyed (tenant, event_key). Per-instance
+        # and in-memory — narrower than the transport, which may be shared
+        # or durable — so :meth:`resolve` verifies this state exists
+        # *before* touching the transport (WR-01) and surfaces absence as
+        # the typed broken-wiring error, never a bare ``KeyError`` after
+        # the authority path has already recorded the action. Guarded by
+        # its own lock: the transport's lock does not cover this dict.
+        self._state_lock = threading.Lock()
         self._originals: dict[tuple[str, str], ProductT] = {}
 
     def propose(
@@ -208,7 +217,8 @@ class OverrideBoundary(Generic[ProductT]):
             policy_ref=policy_ref,
         )
         self._transport.enqueue(event=event)
-        self._originals[(tenant, event_key)] = original
+        with self._state_lock:
+            self._originals[(tenant, event_key)] = original
         return event
 
     def resolve(
@@ -249,8 +259,13 @@ class OverrideBoundary(Generic[ProductT]):
 
         Raises:
             UnknownOverrideEventError: ``event_key`` names no pending
-                override for ``tenant`` — broken wiring, not a governance
-                outcome.
+                override for ``tenant``, this instance holds no
+                proposal-time original for the pending event (WR-01 —
+                the transport may be shared while side-band state is
+                per-instance), or a concurrent resolve won the claim
+                (WR-02) — broken wiring or a lost race, not a
+                governance outcome. Checked before any transport
+                mutation, so no authority action lands unresolved.
         """
         event = next(
             (
@@ -287,6 +302,22 @@ class OverrideBoundary(Generic[ProductT]):
                     " (T-07-17; T-07-39 doctrine). The event stays pending —"
                     " re-review the current output and act on its hash"
                 ),
+            )
+        with self._state_lock:
+            original = self._originals.get((tenant, event_key))
+        if original is None:
+            # WR-01: the pending event exists on the transport but this
+            # instance holds no proposal-time original for it — the
+            # transport may be shared or durable while this side-band
+            # state is per-instance. Refused typed and *before* any
+            # transport mutation.
+            raise UnknownOverrideEventError(
+                f"override {event_key!r} for tenant {tenant!r} is pending"
+                " on the transport but this OverrideBoundary instance"
+                " holds no proposal-time original for it; the transport"
+                " is shared state while the original record is"
+                " per-instance — resolve on the instance that proposed"
+                " (broken wiring, not a governance outcome; WR-01)"
             )
         overridden = override is not None
         submission = HitlActionSubmission(
@@ -326,7 +357,8 @@ class OverrideBoundary(Generic[ProductT]):
             # event: the claim is given back (re-enqueued at the tail).
             self._transport.enqueue(event=claimed)
             raise
-        original = self._originals.pop((tenant, event_key))
+        with self._state_lock:
+            self._originals.pop((tenant, event_key), None)
         final = override if override is not None else original
         self._record(
             event_key,

@@ -56,6 +56,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Mapping
 from datetime import datetime
 
@@ -265,6 +266,14 @@ class ExceptionEscalation:
         self._hitl_policy_key = hitl_policy_key
         self._identity_provider = identity_provider
         self._trusted_keys = trusted_keys
+        # Side-band hand-off state, keyed (tenant, event_key). Per-instance
+        # and in-memory — narrower than the transport, which may be shared
+        # or durable — so :meth:`resolve` verifies this state exists
+        # *before* touching the transport (WR-01) and surfaces absence as
+        # the typed broken-wiring error, never a bare ``KeyError`` after
+        # the authority path has already recorded the action. Guarded by
+        # its own lock: the transport's lock does not cover this dict.
+        self._state_lock = threading.Lock()
         self._triggers: dict[tuple[str, str], EscalationTrigger] = {}
 
     def escalate(
@@ -322,7 +331,8 @@ class ExceptionEscalation:
             policy_ref=policy_ref,
         )
         self._transport.enqueue(event=event)
-        self._triggers[(tenant, event_key)] = trigger
+        with self._state_lock:
+            self._triggers[(tenant, event_key)] = trigger
         self._record(event_key, version=product_content_hash, resolved=True)
         return EscalationHandOff(event=event, trigger=trigger)
 
@@ -360,8 +370,13 @@ class ExceptionEscalation:
 
         Raises:
             UnknownEscalationEventError: ``event_key`` names no pending
-                escalation for ``tenant`` — broken wiring, not a
-                governance outcome.
+                escalation for ``tenant``, this instance holds no
+                hand-off trigger for the pending event (WR-01 — the
+                transport may be shared while side-band state is
+                per-instance), or a concurrent resolve won the claim
+                (WR-02) — broken wiring or a lost race, not a
+                governance outcome. Checked before any transport
+                mutation, so no authority action lands unresolved.
             EscalationActionError: ``action`` is not an escalation verdict.
         """
         if action not in ESCALATION_ACTIONS:
@@ -406,6 +421,24 @@ class ExceptionEscalation:
                     " hash (T-07-39 doctrine)"
                 ),
             )
+        with self._state_lock:
+            trigger = self._triggers.get((tenant, event_key))
+        if trigger is None:
+            # WR-01: the pending event exists on the transport but this
+            # instance holds no hand-off trigger for it — the transport
+            # may be shared or durable while this side-band state is
+            # per-instance. Refused typed and *before* any transport
+            # mutation: an authority submission whose resolution then
+            # crashes untyped would be a landed action with no
+            # resolution record.
+            raise UnknownEscalationEventError(
+                f"escalation {event_key!r} for tenant {tenant!r} is"
+                " pending on the transport but this ExceptionEscalation"
+                " instance holds no hand-off trigger for it; the"
+                " transport is shared state while the trigger record is"
+                " per-instance — resolve on the instance that escalated"
+                " (broken wiring, not a governance outcome; WR-01)"
+            )
         submission = HitlActionSubmission(
             event_key=event_key,
             tenant=tenant,
@@ -443,7 +476,8 @@ class ExceptionEscalation:
             # event: the claim is given back (re-enqueued at the tail).
             self._transport.enqueue(event=claimed)
             raise
-        trigger = self._triggers.pop((tenant, event_key))
+        with self._state_lock:
+            self._triggers.pop((tenant, event_key), None)
         accepted = action == "approve"
         self._record(
             event_key,
