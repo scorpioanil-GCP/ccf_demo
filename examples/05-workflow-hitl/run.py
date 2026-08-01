@@ -322,9 +322,7 @@ def _replay_execution(replay_doc: Mapping[str, Any]) -> ExecutionResult:
             plan_id=replay_doc["plan_id"], payload=dict(replay_doc["payload"])
         ),
         view=GraphView(
-            tenant_id="sterling-mutual"
-            if "tenant" not in replay_doc
-            else replay_doc["tenant"],
+            tenant_id=replay_doc["tenant"],
             as_of=boundary,
         ),
     )
