@@ -79,7 +79,10 @@ from claude_agent_sdk.types import HookInput, HookJSONOutput
 
 from ccf.contracts.base import CCFContract
 from ccf.workflow.factory import Workflow
-from ccf_runtime.orchestration.common import SegmentNotExecutedError
+from ccf_runtime.orchestration.common import (
+    SegmentNotExecutedError,
+    WorkflowDriverError,
+)
 from ccf_runtime.workflow.engine import WorkflowEngine, WorkflowSuspended
 
 __all__ = ["ClaudeAgentWorkflowDriver"]
@@ -167,7 +170,7 @@ class _ScriptedSessionTransport(Transport):
             instruction = json.loads(message["message"]["content"])
             self._turns.append(
                 asyncio.ensure_future(
-                    self._turn(
+                    self._guarded_turn(
                         instruction, message.get("session_id", "default")
                     )
                 )
@@ -191,6 +194,34 @@ class _ScriptedSessionTransport(Transport):
             }
         )
         return await future
+
+    async def _guarded_turn(
+        self, instruction: dict[str, Any], session_id: str
+    ) -> None:
+        """`_turn` with its failure mode made visible (Phase-9 review WR-02).
+
+        Turns are launched fire-and-forget from :meth:`write`, so an
+        exception inside :meth:`_turn` would otherwise never be observed —
+        no ``result`` frame reaches ``self._out`` and the client's
+        ``receive_response`` awaits forever. Any scripted-protocol drift
+        must fail fast instead: catch everything, emit an ``is_error``
+        result frame carrying the cause, and let ``_drive`` raise it typed.
+        """
+        try:
+            await self._turn(instruction, session_id)
+        except Exception as error:  # noqa: BLE001 — the wire must not hang
+            await self._out.put(
+                {
+                    "type": "result",
+                    "subtype": "error_during_execution",
+                    "duration_ms": 0,
+                    "duration_api_ms": 0,
+                    "is_error": True,
+                    "num_turns": 1,
+                    "session_id": session_id,
+                    "result": f"{type(error).__name__}: {error}",
+                }
+            )
 
     async def _turn(
         self, instruction: dict[str, Any], session_id: str
@@ -381,6 +412,11 @@ class ClaudeAgentWorkflowDriver:
             await client.query(json.dumps(instruction), session_id=session_id)
             async for message in client.receive_response():
                 if isinstance(message, ResultMessage):
+                    if message.is_error:
+                        raise WorkflowDriverError(
+                            f"scripted session turn failed for"
+                            f" {session_id!r}: {message.result}"
+                        )
                     self._transcripts.setdefault(key, []).append(
                         f"{message.session_id}:{message.result}"
                     )
