@@ -57,6 +57,15 @@ def test_mid_string_and_leading_globs_are_refused(pattern: str) -> None:
         _mapping(pattern)
 
 
+@pytest.mark.parametrize("pattern", ["*", "", "**"])
+def test_bare_glob_and_empty_patterns_are_refused(pattern: str) -> None:
+    """WR-03: the bare ``"*"`` would silently match every tenant and ``""``
+    is an exact match on the empty tenant — neither is a documented D-01
+    shape, so both are refused at registration, never interpreted."""
+    with pytest.raises(ValidationError):
+        _mapping(pattern)
+
+
 def test_a_malformed_semver_is_refused() -> None:
     with pytest.raises(ValidationError):
         ScopeMappingArtifact(semver="not-a-version", scopes={})

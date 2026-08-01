@@ -14,9 +14,11 @@ surfaces — and Control Plane ``register_typed`` accepts an
 "/src core untouched" then holds literally for HARD-04.
 
 **The D-01 grammar** is exact match plus a single trailing ``*`` prefix
-glob — no regex, no mid-string globs. Only the *placement* of ``*`` is
-validated; every other character is a literal. Malformed patterns are
-refused at registration (the boundary), not discovered at decision time.
+glob — no regex, no mid-string globs, and the glob requires a non-empty
+literal prefix: the empty pattern and the bare ``"*"`` are refused, so a
+one-character artifact typo can never become an all-tenant grant (WR-03).
+Every non-``*`` character is a literal. Malformed patterns are refused at
+registration (the boundary), not discovered at decision time.
 The matcher is two string branches; ``re`` is deliberately not imported.
 
 Scope strings, tenant names, action identifiers, and mapping values are
@@ -78,13 +80,16 @@ class ScopeEntry(CCFContract):
         cls, value: tuple[str, ...]
     ) -> tuple[str, ...]:
         for pattern in value:
-            if "*" in pattern[:-1]:
+            prefix = pattern[:-1] if pattern.endswith("*") else pattern
+            if not pattern or not prefix or "*" in prefix:
                 raise ValueError(
                     f"tenant pattern {pattern!r} is not exact-match or"
                     " single-trailing-* — the D-01 grammar admits"
                     " 'tenant-a' and 'tenant-*' shapes only; no regex, no"
-                    " mid-string or leading globs (D-IMPL-68; 10-CONTEXT"
-                    " D-01)"
+                    " mid-string or leading globs, no empty pattern, and"
+                    " no bare '*' (a grant-every-tenant glob must be an"
+                    " explicit non-empty prefix, never a one-character"
+                    " typo) (D-IMPL-68; 10-CONTEXT D-01)"
                 )
         return value
 
