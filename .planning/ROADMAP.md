@@ -139,7 +139,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 9. Hardening — Defect Fixes & Ruling Batch | 3/3 | Complete   | 2026-08-01 |
-| 10. Hardening — Authorization & Posture | 4/4 | Complete   | 2026-08-01 |
+| 10. Hardening — Authorization & Posture | 4/4 | Complete    | 2026-08-01 |
 | 11. Performance Battery | 0/? | Not started | - |
 | 12. Synthetic-Data Demonstration | 0/? | Not started | - |
 | 13. Examples Suite Upgrade | 0/? | Not started | - |
