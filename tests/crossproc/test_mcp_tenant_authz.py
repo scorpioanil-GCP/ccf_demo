@@ -27,12 +27,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import traceback
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
 import httpx
 import pytest
+from fastapi import Depends, FastAPI, Request
 from mcp.client.session import ClientSession
 from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
@@ -310,11 +312,19 @@ def test_over_the_wire_the_verified_token_authorizes_the_read(
 def test_over_the_wire_a_deny_carries_the_shared_code(
     harness: Harness,
 ) -> None:
-    with pytest.raises(McpError) as denied:
+    # The client helper re-raises through the ASGI task group, so the
+    # ``McpError`` carrying the payload sits in the exception chain; the
+    # assertion walks the rendered chain for the shared constant.
+    chain = ""
+    try:
         _read_resource_over_the_wire(
             harness, hitl_queue_uri(tenant="tenant-z")
         )
-    assert ERROR_TENANT_UNAUTHORIZED in str(denied.value)
+    except BaseException as error:
+        chain = "".join(traceback.format_exception(error))
+    assert chain, "the deny must surface as a protocol error"
+    assert McpError.__name__ in chain
+    assert ERROR_TENANT_UNAUTHORIZED in chain
 
 
 # --- cross-door consistency (D-02) ------------------------------------------
@@ -324,8 +334,6 @@ def _http_outcome(
     harness: Harness, *, tenant: str, action_id: str
 ) -> bool:
     """The HTTP door's observed outcome for one (grant, tenant, action)."""
-    from fastapi import Depends, FastAPI, Request
-
     from ccf_runtime.http_api.dependencies import ApiDependencies
     from ccf_runtime.http_api.routes import hitl as hitl_routes
 
@@ -365,7 +373,7 @@ def _http_outcome(
             )
 
     response = asyncio.run(go())
-    assert response.status_code in (200, 403)
+    assert response.status_code in (200, 403), response.text
     if response.status_code == 403:
         detail = response.json()["detail"]
         assert detail["error_code"] == ERROR_TENANT_UNAUTHORIZED
