@@ -29,6 +29,7 @@ from typing import Any, NamedTuple
 
 import pytest
 import yaml
+from _pytest.outcomes import Failed, Skipped
 
 from ccf.agents.definitions import TASK_DEFINITION, TaskDefinition
 from ccf.artifacts.file_store import FileArtifactStore
@@ -44,16 +45,15 @@ from ccf.hitl.principal import (
 )
 from ccf.hitl.transport import InMemoryHitlTransport
 from ccf.orchestration.protocol import OrchestrationProtocol
-from ccf_runtime.orchestration import SegmentNotExecutedError
 from ccf.workflow.definitions import WORKFLOW_DEFINITION, WorkflowDefinition
 from ccf.workflow.factory import Workflow, WorkflowFactory
+from ccf_runtime.orchestration import SegmentNotExecutedError
 from ccf_runtime.workflow.engine import (
     WorkflowCompleted,
     WorkflowEngine,
     WorkflowSuspended,
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
-from _pytest.outcomes import Failed, Skipped
 from conftest import HARNESS_REQUIRED_ENV, harness_unavailable
 
 pytestmark = [pytest.mark.conformance]
