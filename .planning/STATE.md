@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
-status: planning
+status: roadmap_created
 last_updated: "2026-08-01T05:49:36.688Z"
 last_activity: 2026-08-01
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -23,14 +23,15 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Milestone complete
+**Current focus:** v0.2 roadmap created — Phases 9–14 (harden → measure → demonstrate → upgrade examples → document)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 9 of 14 — Hardening — Defect Fixes & Ruling Batch (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-08-01 — Milestone v0.2 started
+Status: Roadmap created — ready to plan Phase 9
+Progress: [----------------------------------] 0/6 v0.2 phases
+Last activity: 2026-08-01 — v0.2 roadmap revised (Phases 9–14, 21/21 requirements mapped; Examples Suite Upgrade inserted as Phase 13)
 
 ## Performance Metrics
 
@@ -127,8 +128,8 @@ Last activity: 2026-08-01 — Milestone v0.2 started
 
 ### Todos
 
-- Plan Phase 1 (`/gsd:plan-phase 1`)
-- Verify repo prerequisites per CLAUDE.md §14 (remote, whitepaper present, Homecams readable, directory skeleton, placeholder docs)
+- Plan Phase 9 (`/gsd:plan-phase 9`) — includes surfacing the six-item D-IMPL ruling batch to Dave (HARD-01)
+- Phases 10–14 gated: 10 on the Phase 9 rulings; 11 on the hardened surface + perf-governance ruling; 13 on Phase 10 (parallel to 11/12); 14 on 11+12+13 outputs + docs-toolchain/D-10 rulings
 
 ### Blockers
 

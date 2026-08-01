@@ -36,6 +36,12 @@
 - [ ] **DEMO-02**: An end-to-end runnable example: data ingested through L1→L2, folded into the Context Graph, projected into typed Context Products, consumed by an agent that solves a concrete reasoning problem it could not solve from raw data alone
 - [ ] **DEMO-03**: A narrated walkthrough document in the docs site tracing the demo step-by-step ("how data folds into context"), literal-including the example's code and artifacts; demo runs in CI like the v0.1 examples
 
+### Examples (EXAM)
+
+- [ ] **EXAM-01**: Every v0.1 example (00–07) has a detailed narrated README — what it demonstrates, artifact-by-artifact explanation, whitepaper/CLAUDE.md sections exercised, and "what to change first to adapt it"
+- [ ] **EXAM-02**: Example scenarios are enriched to exercise more of the SDK surface (specialization axes, skilling, HITL, replay) through richer definition artifacts — example code stays thin and generic per No-Hardcoding
+- [ ] **EXAM-03**: The upgraded suite stays CI-green with a single documented command per example; any expected-output change is a reviewed, deliberate event
+
 ## Future Requirements (deferred)
 
 - Perf SaaS/dashboarding integration
@@ -53,4 +59,28 @@
 
 ## Traceability
 
-(Filled by roadmap.)
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| HARD-01 | Phase 9 | Pending |
+| HARD-02 | Phase 9 | Pending |
+| HARD-03 | Phase 9 | Pending |
+| HARD-04 | Phase 10 | Pending |
+| HARD-05 | Phase 10 | Pending |
+| PERF-01 | Phase 11 | Pending |
+| PERF-02 | Phase 11 | Pending |
+| PERF-03 | Phase 11 | Pending |
+| PERF-04 | Phase 11 | Pending |
+| DEMO-01 | Phase 12 | Pending |
+| DEMO-02 | Phase 12 | Pending |
+| DEMO-03 | Phase 12 | Pending |
+| EXAM-01 | Phase 13 | Pending |
+| EXAM-02 | Phase 13 | Pending |
+| EXAM-03 | Phase 13 | Pending |
+| DOCS-01 | Phase 14 | Pending |
+| DOCS-02 | Phase 14 | Pending |
+| DOCS-03 | Phase 14 | Pending |
+| DOCS-04 | Phase 14 | Pending |
+| DOCS-05 | Phase 14 | Pending |
+| DOCS-06 | Phase 14 | Pending |
+
+Coverage: 21/21 v0.2 requirements mapped, each to exactly one phase.
