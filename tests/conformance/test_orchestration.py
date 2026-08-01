@@ -486,7 +486,7 @@ def test_a_never_executed_segment_raises_the_same_typed_error_on_every_leg(
     adapter holds no outcome store of its own (``positions is None``), so
     the assertion runs where a driver actually holds ``_outcomes``."""
     if leg.positions is None:
-        return
+        pytest.skip("in-sdk reference adapter holds no outcome store")
     driver = leg.driver(world.engine)
     workflow = world.workflow()
     with pytest.raises(SegmentNotExecutedError) as raised:
@@ -504,7 +504,7 @@ def test_the_introspection_seam_is_loop_safe(
     code — no nested-run ``RuntimeError`` — and returns equivalent state
     (exercising the ADK session service's cross-loop read, A1)."""
     if leg.positions is None:
-        return
+        pytest.skip("in-sdk reference adapter holds no outcome store")
     workflow = world.workflow()
     driver = leg.driver(world.engine)
     suspended = asyncio.run(
