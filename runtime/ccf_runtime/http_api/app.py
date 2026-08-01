@@ -57,7 +57,12 @@ from ccf_runtime.http_api.routes import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["AUTH_POSTURE_SENTENCE", "CcfInsecureDefaultWarning", "create_app"]
+__all__ = [
+    "AUTH_POSTURE_SENTENCE",
+    "CcfDeadAuthorizerWarning",
+    "CcfInsecureDefaultWarning",
+    "create_app",
+]
 
 
 class CcfInsecureDefaultWarning(UserWarning):
@@ -71,6 +76,34 @@ class CcfInsecureDefaultWarning(UserWarning):
     §8.3; the warning text is a security-posture signal, not a domain
     value (No-Hardcoding boundary note in the D-IMPL-73 ruling).
     """
+
+
+class CcfDeadAuthorizerWarning(UserWarning):
+    """An authorizer was bound with no auth hook — it can never run (WR-05).
+
+    Emitted by :func:`create_app` when ``authorizer`` is supplied and
+    ``auth`` is ``None``. Under the ruled D-06 posture, tenant-authz
+    enforcement requires a verified ``TokenGrant``, which only a bound
+    auth hook produces — so an authorizer without an auth hook is inert
+    by construction. Unlike the plain insecure default, this is a
+    configuration in which the operator *explicitly expressed intent to
+    authorize* and gets zero enforcement; the warning is the missing
+    signal. Same emission pattern as :class:`CcfInsecureDefaultWarning`
+    (exported so CI can escalate and tests can target it); there is no
+    suppression kwarg — the fix is binding ``auth=``, not accepting the
+    dead configuration.
+    """
+
+
+#: The WR-05 dead-authorizer message: authorizer bound, auth unbound,
+#: enforcement structurally unreachable (D-06).
+_DEAD_AUTHORIZER_MESSAGE = (
+    "create_app was called with authorizer= but no auth= hook: tenant"
+    " authorization enforcement requires the verified TokenGrant only a"
+    " bound auth hook produces (D-06), so the supplied authorizer can"
+    " never run and the HITL routes enforce nothing. Bind auth= to make"
+    " the authorizer effective (WR-05; D-IMPL-68)."
+)
 
 
 #: One message for both ruled emission points (warnings.warn at
@@ -140,7 +173,9 @@ def create_app(
             handlers with the door-declared action IDs, refusing a deny
             with the typed 403 ``ERROR_TENANT_UNAUTHORIZED`` body.
             When ``None`` — the default — the HITL routes are
-            byte-identical to the unauthorized-posture routes.
+            byte-identical to the unauthorized-posture routes. Binding
+            an authorizer *without* ``auth`` leaves it structurally
+            inert and emits a :class:`CcfDeadAuthorizerWarning` (WR-05).
         acknowledge_insecure_default: Explicit acceptance of the
             unauthenticated posture (D-IMPL-73). When ``auth`` is
             ``None`` and this is ``False`` — the default — the SDK
@@ -160,6 +195,17 @@ def create_app(
             f"{_MECHANISM_LINE} {AUTH_POSTURE_SENTENCE} {_AUTH_HOOK_LINE}"
         ),
     )
+
+    if authorizer is not None and auth is None:
+        # WR-05: the operator expressed intent to authorize and wired a
+        # configuration in which enforcement is structurally unreachable
+        # (D-06: no auth hook, no TokenGrant, no authz). Warn at the
+        # call site — a dead authorizer with zero signal ships wide open
+        # while believing it is tenant-scoped.
+        warnings.warn(
+            CcfDeadAuthorizerWarning(_DEAD_AUTHORIZER_MESSAGE),
+            stacklevel=2,
+        )
 
     if auth is None and not acknowledge_insecure_default:
         # D-IMPL-73 emission point 1: construction-time warning aimed at

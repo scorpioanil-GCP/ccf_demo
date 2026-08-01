@@ -381,16 +381,41 @@ def test_authorizer_unbound_leaves_the_routes_open_as_today(
     assert response.status_code == 200
 
 
-def test_authorizer_bound_but_auth_unbound_is_inert(
+def test_authorizer_bound_but_auth_unbound_is_inert_and_warns(
     fabric: Fabric,
     token_file: Path,
     transport: InMemoryHitlTransport,
     mapping_version: str,
 ) -> None:
     """D-06: with no auth hook there is no TokenGrant, and enforcement is
-    inert — the recorded T-07-24 posture is unchanged."""
-    app = _build_app(
-        fabric, token_file, transport, mapping_key=MAPPING_KEY, with_auth=False
-    )
+    inert — the recorded T-07-24 posture is unchanged. WR-05: the dead
+    authorizer is no longer silent — construction emits a
+    ``CcfDeadAuthorizerWarning`` naming the unreachable enforcement."""
+    from ccf_runtime.http_api.app import CcfDeadAuthorizerWarning
+
+    with pytest.warns(CcfDeadAuthorizerWarning):
+        app = _build_app(
+            fabric,
+            token_file,
+            transport,
+            mapping_key=MAPPING_KEY,
+            with_auth=False,
+        )
     response = call(app, "GET", "/hitl/queue", params={"tenant": "tenant-z"})
     assert response.status_code == 200
+
+
+def test_authorizer_with_auth_bound_emits_no_dead_authorizer_warning(
+    fabric: Fabric,
+    token_file: Path,
+    transport: InMemoryHitlTransport,
+    mapping_version: str,
+) -> None:
+    """WR-05 counterpart: the effective configuration stays silent."""
+    import warnings as warnings_module
+
+    from ccf_runtime.http_api.app import CcfDeadAuthorizerWarning
+
+    with warnings_module.catch_warnings():
+        warnings_module.simplefilter("error", CcfDeadAuthorizerWarning)
+        _build_app(fabric, token_file, transport, mapping_key=MAPPING_KEY)
