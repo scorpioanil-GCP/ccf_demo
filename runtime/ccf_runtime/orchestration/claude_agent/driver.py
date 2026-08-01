@@ -47,6 +47,12 @@ and replay equivalence (T-07-34) forbids one.
 Not an algorithmic module: it imports an orchestrator SDK, which is exactly
 what the CINV-02 carve-out for ``ccf_runtime.orchestration`` exists to
 permit here and nowhere else.
+
+**Loop-safety (WR-03; Phase-9 CONTEXT D-10/D-11).** Outcome lookups raise
+the shared typed hierarchy
+(:class:`~ccf_runtime.orchestration.common.SegmentNotExecutedError`), never
+a bare ``KeyError``; the sync introspection seam holds no direct
+``asyncio.run``, so callers hosted inside a running event loop work as-is.
 """
 
 from __future__ import annotations
@@ -73,6 +79,7 @@ from claude_agent_sdk.types import HookInput, HookJSONOutput
 
 from ccf.contracts.base import CCFContract
 from ccf.workflow.factory import Workflow
+from ccf_runtime.orchestration.common import SegmentNotExecutedError
 from ccf_runtime.workflow.engine import WorkflowEngine, WorkflowSuspended
 
 __all__ = ["ClaudeAgentWorkflowDriver"]
@@ -269,6 +276,22 @@ class ClaudeAgentWorkflowDriver:
         #: turn results — the SDK-side "position" the suite asserts over.
         self._transcripts: dict[tuple[str, str], list[str]] = {}
 
+    def _outcome(self, tenant: str, execution_id: str) -> CCFContract:
+        """The engine's typed outcome for one execution — typed on absence.
+
+        Phase-9 CONTEXT D-10/D-11 (WR-03): a never-executed segment is a
+        driver condition, not a dict accident —
+        :class:`SegmentNotExecutedError`, never a bare ``KeyError``. The
+        same helper shape on every driver leg, parity-asserted.
+        """
+        try:
+            return self._outcomes[(tenant, execution_id)]
+        except KeyError:
+            raise SegmentNotExecutedError(
+                f"no executed segment for tenant {tenant!r},"
+                f" execution {execution_id!r}"
+            ) from None
+
     # -- the session choreography, authored against the engine's surface ------
 
     def _options(
@@ -363,7 +386,7 @@ class ClaudeAgentWorkflowDriver:
                     )
         finally:
             await client.disconnect()
-        return self._outcomes[key]
+        return self._outcome(tenant, execution_id)
 
     # -- OrchestrationProtocol -------------------------------------------------
 

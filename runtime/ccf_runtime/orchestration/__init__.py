@@ -15,11 +15,28 @@ WorkflowEngine` (:mod:`ccf_runtime.orchestration.reference`) is the
 conformance suite's reference leg, per the Protocol module's doctrine
 sentence.
 
+Shared driver mechanism — the loop-aware dispatch helper and the typed
+driver-error hierarchy (Phase-9 CONTEXT D-09..D-12, WR-03) — lives in
+:mod:`ccf_runtime.orchestration.common`, one copy for all driver legs,
+re-exported here.
+
 Algorithmic package (CINV-03).
 """
 
 from __future__ import annotations
 
+from ccf_runtime.orchestration.common import (
+    DriverStateRetrievalError,
+    SegmentNotExecutedError,
+    WorkflowDriverError,
+    run_coroutine_sync,
+)
+
 __ccf_mode__ = "algorithmic"
 
-__all__: list[str] = []
+__all__: list[str] = [
+    "DriverStateRetrievalError",
+    "SegmentNotExecutedError",
+    "WorkflowDriverError",
+    "run_coroutine_sync",
+]

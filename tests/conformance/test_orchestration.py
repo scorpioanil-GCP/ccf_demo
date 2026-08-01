@@ -44,6 +44,7 @@ from ccf.hitl.principal import (
 )
 from ccf.hitl.transport import InMemoryHitlTransport
 from ccf.orchestration.protocol import OrchestrationProtocol
+from ccf_runtime.orchestration import SegmentNotExecutedError
 from ccf.workflow.definitions import WORKFLOW_DEFINITION, WorkflowDefinition
 from ccf.workflow.factory import Workflow, WorkflowFactory
 from ccf_runtime.workflow.engine import (
@@ -474,6 +475,53 @@ def test_the_ccf_engine_stays_authoritative_for_suspended_state(
                 " graph position only (T-07-30)"
             )
             assert isinstance(value, (str, bool, int)), value
+
+
+def test_a_never_executed_segment_raises_the_same_typed_error_on_every_leg(
+    leg: OrchestrationLeg, world: World
+) -> None:
+    """D-13(b), WR-03: asking a driver for the outcome of an execution it
+    never ran raises :class:`SegmentNotExecutedError` — the SAME type on
+    every driver leg, never a bare ``KeyError``. The in-SDK reference
+    adapter holds no outcome store of its own (``positions is None``), so
+    the assertion runs where a driver actually holds ``_outcomes``."""
+    if leg.positions is None:
+        return
+    driver = leg.driver(world.engine)
+    workflow = world.workflow()
+    with pytest.raises(SegmentNotExecutedError) as raised:
+        driver._outcome(workflow.definition.tenant, "never-ran")  # type: ignore[attr-defined]
+    assert not isinstance(raised.value, KeyError)
+    assert "never-ran" in str(raised.value)
+    assert workflow.definition.tenant in str(raised.value)
+
+
+def test_the_introspection_seam_is_loop_safe(
+    leg: OrchestrationLeg, world: World
+) -> None:
+    """D-13(c), WR-03: each leg's sync introspection seam works both from a
+    plain sync context and from inside ``asyncio.run``-hosted coroutine
+    code — no nested-run ``RuntimeError`` — and returns equivalent state
+    (exercising the ADK session service's cross-loop read, A1)."""
+    if leg.positions is None:
+        return
+    workflow = world.workflow()
+    driver = leg.driver(world.engine)
+    suspended = asyncio.run(
+        driver.start_execution(workflow=workflow, execution_id="exec-1")
+    )
+    assert isinstance(suspended, WorkflowSuspended)
+    probe = leg.positions
+    from_sync = probe(driver, workflow, "exec-1")
+
+    async def hosted() -> tuple[object, ...]:
+        # The probe call happens while THIS loop runs in THIS thread —
+        # exactly the WR-03 defect scenario the fix removes.
+        return probe(driver, workflow, "exec-1")
+
+    from_inside_a_loop = asyncio.run(hosted())
+    assert from_sync  # the orchestrator did persist a position
+    assert from_inside_a_loop == from_sync
 
 
 def test_two_tenants_do_not_collide_through_the_leg(

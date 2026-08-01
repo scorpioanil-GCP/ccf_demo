@@ -37,6 +37,15 @@ something that is not a model call, driven by a real ``Runner`` (D-09).
 Not an algorithmic module: it imports an orchestrator SDK, which is exactly
 what the CINV-02 carve-out for ``ccf_runtime.orchestration`` exists to
 permit here and nowhere else.
+
+**Loop-safety (WR-03; Phase-9 CONTEXT D-09..D-11).** The sync introspection
+seam dispatches through :func:`~ccf_runtime.orchestration.common.
+run_coroutine_sync` — never a direct ``asyncio.run`` — so callers hosted
+inside a running event loop get state instead of a nested-run
+``RuntimeError``; outcome lookups raise the shared typed hierarchy
+(:class:`~ccf_runtime.orchestration.common.SegmentNotExecutedError`,
+:class:`~ccf_runtime.orchestration.common.DriverStateRetrievalError`), never
+a bare ``KeyError``.
 """
 
 from __future__ import annotations
@@ -53,6 +62,11 @@ from google.genai import types as genai_types
 
 from ccf.contracts.base import CCFContract
 from ccf.workflow.factory import Workflow
+from ccf_runtime.orchestration.common import (
+    DriverStateRetrievalError,
+    SegmentNotExecutedError,
+    run_coroutine_sync,
+)
 from ccf_runtime.workflow.engine import WorkflowEngine, WorkflowSuspended
 
 __all__ = ["AdkWorkflowDriver"]
@@ -154,6 +168,22 @@ class AdkWorkflowDriver:
         #: nothing CCF-typed reaches ADK's session machinery.
         self._outcomes: dict[tuple[str, str], CCFContract] = {}
 
+    def _outcome(self, tenant: str, execution_id: str) -> CCFContract:
+        """The engine's typed outcome for one execution — typed on absence.
+
+        Phase-9 CONTEXT D-10/D-11 (WR-03): a never-executed segment is a
+        driver condition, not a dict accident —
+        :class:`SegmentNotExecutedError`, never a bare ``KeyError``. The
+        same helper shape on every driver leg, parity-asserted.
+        """
+        try:
+            return self._outcomes[(tenant, execution_id)]
+        except KeyError:
+            raise SegmentNotExecutedError(
+                f"no executed segment for tenant {tenant!r},"
+                f" execution {execution_id!r}"
+            ) from None
+
     # -- the topology, authored here against the engine's public surface ------
 
     async def _run(
@@ -182,7 +212,7 @@ class AdkWorkflowDriver:
             ),
         ):
             pass
-        return self._outcomes[(tenant, execution_id)]
+        return self._outcome(tenant, execution_id)
 
     def _suspended(self, tenant: str, execution_id: str) -> bool:
         return isinstance(
@@ -274,17 +304,25 @@ class AdkWorkflowDriver:
 
         The conformance suite's T-07-33 assertion runs over this: the scalar
         position channels are all that may appear — no CCF workflow state.
+        Loop-aware (Phase-9 CONTEXT D-09): dispatch goes through
+        :func:`run_coroutine_sync`, so a caller hosted inside a running
+        event loop gets state, not a nested-run ``RuntimeError``; substrate
+        failures surface as :class:`DriverStateRetrievalError` (T-09-05).
         """
-        import asyncio
-
         tenant = workflow.definition.tenant
-        session = asyncio.run(
-            self._sessions.get_session(
-                app_name=_APP_NAME,
-                user_id=tenant,
-                session_id=f"{tenant}/{execution_id}",
+        try:
+            session = run_coroutine_sync(
+                self._sessions.get_session(
+                    app_name=_APP_NAME,
+                    user_id=tenant,
+                    session_id=f"{tenant}/{execution_id}",
+                )
             )
-        )
+        except Exception as exc:
+            raise DriverStateRetrievalError(
+                f"session retrieval failed for tenant {tenant!r},"
+                f" execution {execution_id!r}"
+            ) from exc
         if session is None:
             return ()
         return tuple(dict(session.state).values())
