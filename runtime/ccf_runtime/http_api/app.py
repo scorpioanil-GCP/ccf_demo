@@ -34,7 +34,11 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, HTTPException, Request, params
+import logging
+import warnings
+from typing import Awaitable, Callable
+
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, params
 
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
 from ccf_runtime.http_api.auth import HttpAuthProtocol
@@ -53,7 +57,35 @@ from ccf_runtime.http_api.routes import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["AUTH_POSTURE_SENTENCE", "create_app"]
+__all__ = ["AUTH_POSTURE_SENTENCE", "CcfInsecureDefaultWarning", "create_app"]
+
+
+class CcfInsecureDefaultWarning(UserWarning):
+    """The app was built on the insecure default posture (D-IMPL-73).
+
+    Emitted by :func:`create_app` when no auth hook is bound and the
+    caller has not passed ``acknowledge_insecure_default=True`` — the
+    single suppression surface (no environment variable, by ruling).
+    Exported so CI can escalate it (``-W error::…``) and tests can
+    target it (``pytest.warns``). SDK-defined mechanism per CLAUDE.md
+    §8.3; the warning text is a security-posture signal, not a domain
+    value (No-Hardcoding boundary note in the D-IMPL-73 ruling).
+    """
+
+
+#: One message for both ruled emission points (warnings.warn at
+#: construction; logging WARNING at first request) — the D-IMPL-73
+#: "two emission points to keep consistent" consequence, kept
+#: consistent by sharing the string.
+_INSECURE_DEFAULT_MESSAGE = (
+    "create_app was called with no auth hook: this application performs"
+    " no authentication or authorization and every request acts with the"
+    " full authority of the injected fabric handles. Bind auth=, or pass"
+    " acknowledge_insecure_default=True to accept this posture"
+    " explicitly (D-IMPL-73)."
+)
+
+_LOGGER = logging.getLogger("ccf_runtime.http_api")
 
 #: The exact, testable v0 auth-posture sentence (D-22 honesty; 07-10 Task 2).
 #: One constant so the served document and the test assert the same string.
@@ -87,6 +119,7 @@ def create_app(
     *,
     auth: HttpAuthProtocol | None = None,
     authorizer: TenantAuthorizerProtocol | None = None,
+    acknowledge_insecure_default: bool = False,
 ) -> FastAPI:
     """Build the skeleton over ``deps`` — built, never hosted.
 
@@ -108,6 +141,14 @@ def create_app(
             with the typed 403 ``ERROR_TENANT_UNAUTHORIZED`` body.
             When ``None`` — the default — the HITL routes are
             byte-identical to the unauthorized-posture routes.
+        acknowledge_insecure_default: Explicit acceptance of the
+            unauthenticated posture (D-IMPL-73). When ``auth`` is
+            ``None`` and this is ``False`` — the default — the SDK
+            emits a :class:`CcfInsecureDefaultWarning` at construction
+            and one logging WARNING at the first served request. This
+            kwarg is the single suppression surface: no environment
+            variable is consulted, so the acceptance is greppable in
+            the caller's code. Irrelevant once ``auth`` is bound.
 
     Returns:
         A configured ``FastAPI`` application. Deliberately not started and
@@ -119,6 +160,32 @@ def create_app(
             f"{_MECHANISM_LINE} {AUTH_POSTURE_SENTENCE} {_AUTH_HOOK_LINE}"
         ),
     )
+
+    if auth is None and not acknowledge_insecure_default:
+        # D-IMPL-73 emission point 1: construction-time warning aimed at
+        # the caller (stacklevel=2 points at the create_app call site).
+        warnings.warn(
+            CcfInsecureDefaultWarning(_INSECURE_DEFAULT_MESSAGE),
+            stacklevel=2,
+        )
+
+        # D-IMPL-73 emission point 2: once-only logging WARNING at the
+        # first served request, covering the operator loop. Same message
+        # as the construction warning (the ruling's consistency
+        # consequence). The flag is per-app, so each unacknowledged app
+        # logs exactly once.
+        logged = False
+
+        @app.middleware("http")
+        async def _log_insecure_default_once(
+            request: Request,
+            call_next: Callable[[Request], Awaitable[Response]],
+        ) -> Response:
+            nonlocal logged
+            if not logged:
+                logged = True
+                _LOGGER.warning(_INSECURE_DEFAULT_MESSAGE)
+            return await call_next(request)
 
     guarded: list[params.Depends] = []
     if auth is not None:

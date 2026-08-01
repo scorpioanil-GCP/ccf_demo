@@ -15,6 +15,7 @@ The ruled mechanism, asserted exactly:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import warnings
 from pathlib import Path
@@ -47,11 +48,14 @@ def _deps(fabric: Fabric) -> ApiDependencies:
 
 
 def call(app: Any, method: str, url: str, **kwargs: Any) -> httpx.Response:
-    transport = httpx.ASGITransport(app=app)
-    with httpx.Client(
-        transport=transport, base_url="http://testserver"
-    ) as client:
-        return client.request(method, url, **kwargs)
+    async def go() -> httpx.Response:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://fabric.invalid"
+        ) as client:
+            return await client.request(method, url, **kwargs)
+
+    return asyncio.run(go())
 
 
 class TestConstructionWarning:
@@ -72,7 +76,8 @@ class TestConstructionWarning:
     ) -> None:
         import json
 
-        from ccf_runtime.http_api.auth import BearerTokenAuth, FileTokenSource
+        from ccf_runtime.http_api.auth import BearerTokenAuth
+        from ccf_runtime.mcp.auth import FileTokenSource
 
         token_file = tmp_path / "tokens.json"
         token_file.write_text(
