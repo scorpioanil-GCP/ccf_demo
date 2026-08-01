@@ -211,3 +211,174 @@ def test_resolving_an_unknown_event_raises() -> None:
             ),
             override=None,
         )
+
+
+# --- 10-02 Task 2: resolve-surface signed-binding verification (D-IMPL-69) ---
+
+
+def _signing_env(tmp_path: Path) -> tuple[Any, str, dict[str, Any]]:
+    import json as _json
+
+    from joserfc.jwk import ECKey
+
+    from ccf.peering.identity import (
+        DetachedJwsIdentityProvider,
+        FileBackedKeySource,
+    )
+
+    key_dir = tmp_path / "keys"
+    key_dir.mkdir()
+    kid = "override-approver-key"
+    key = ECKey.generate_key("P-256", parameters={"kid": kid})
+    (key_dir / f"{kid}.jwk").write_text(
+        _json.dumps(key.as_dict(private=True)), encoding="utf-8"
+    )
+    provider = DetachedJwsIdentityProvider(
+        key_source=FileBackedKeySource(directory=key_dir)
+    )
+    return provider, kid, {kid: key.as_dict(private=False)}
+
+
+def _bound_boundary(
+    tmp_path: Path,
+) -> tuple[OverrideBoundary[_Determination], InMemoryHitlTransport, Any, str]:
+    from ccf.controlplane.artifacts import parse_artifact
+    from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.hitl.transport import HITL_POLICY
+
+    provider, kid, trusted = _signing_env(tmp_path)
+    plane = ControlPlaneRegistry()
+    policy_key = "acme-bank/hitl/policy"
+    plane.register_typed(
+        policy_key,
+        parse_artifact(
+            {"semver": "1.0.0", "signed_binding_required": True},
+            HITL_POLICY,
+        ),
+        HITL_POLICY,
+    )
+    transport = InMemoryHitlTransport(
+        control_plane=plane,
+        hitl_policy_key=policy_key,
+        identity_provider=provider,
+        trusted_keys=trusted,
+    )
+    boundary: OverrideBoundary[_Determination] = OverrideBoundary(
+        transport=transport,
+        audit=AuditLog(),
+        clock=_clock(),
+        control_plane=plane,
+        hitl_policy_key=policy_key,
+        identity_provider=provider,
+        trusted_keys=trusted,
+    )
+    return boundary, transport, provider, kid
+
+
+def test_override_required_and_unsigned_resolve_is_refused_event_pending(
+    tmp_path: Path,
+) -> None:
+    from ccf.hitl.identity_binding import sign_principal_binding
+    from ccf.hitl.transport import SignedBindingRequiredRefused
+
+    fixture = _hitl()
+    boundary, transport, provider, kid = _bound_boundary(tmp_path)
+    original = _propose(boundary, fixture)
+    document = fixture["override"]["event"]
+    principal = _principal(
+        fixture, product_content_hash=content_hash(original)
+    )
+    with pytest.raises(SignedBindingRequiredRefused):
+        boundary.resolve(
+            tenant=document["tenant"],
+            event_key=document["event_key"],
+            principal=principal,
+            override=None,
+        )
+    # The pending event survives the refusal.
+    assert len(transport.pending(tenant=document["tenant"])) == 1
+    assert transport.submissions(tenant=document["tenant"]) == ()
+    # A subsequent valid resolve of the SAME event succeeds.
+    signed = sign_principal_binding(principal, provider=provider, key_id=kid)
+    resolution = boundary.resolve(
+        tenant=document["tenant"],
+        event_key=document["event_key"],
+        principal=principal,
+        override=None,
+        signed_binding=signed,
+    )
+    assert isinstance(resolution, OverrideResolution)
+
+
+def test_override_required_and_tampered_binding_is_refused_event_pending(
+    tmp_path: Path,
+) -> None:
+    from ccf.hitl.identity_binding import sign_principal_binding
+    from ccf.hitl.transport import SignedBindingInvalidRefused
+
+    fixture = _hitl()
+    boundary, transport, provider, kid = _bound_boundary(tmp_path)
+    original = _propose(boundary, fixture)
+    document = fixture["override"]["event"]
+    principal = _principal(
+        fixture, product_content_hash=content_hash(original)
+    )
+    signed = sign_principal_binding(principal, provider=provider, key_id=kid)
+    tampered = signed.model_copy(
+        update={"signature": signed.signature[:-4] + "AAAA"}
+    )
+    with pytest.raises(SignedBindingInvalidRefused):
+        boundary.resolve(
+            tenant=document["tenant"],
+            event_key=document["event_key"],
+            principal=principal,
+            override=None,
+            signed_binding=tampered,
+        )
+    assert len(transport.pending(tenant=document["tenant"])) == 1
+    assert transport.submissions(tenant=document["tenant"]) == ()
+
+
+def test_override_required_and_valid_binding_passes_both_layers(
+    tmp_path: Path,
+) -> None:
+    """The transport's own second verification also passes (D-13)."""
+    from ccf.hitl.identity_binding import sign_principal_binding
+
+    fixture = _hitl()
+    boundary, transport, provider, kid = _bound_boundary(tmp_path)
+    original = _propose(boundary, fixture)
+    document = fixture["override"]["event"]
+    substitute = _Determination(**fixture["override"]["substitute"])
+    principal = _principal(
+        fixture, product_content_hash=content_hash(original)
+    )
+    signed = sign_principal_binding(principal, provider=provider, key_id=kid)
+    resolution = boundary.resolve(
+        tenant=document["tenant"],
+        event_key=document["event_key"],
+        principal=principal,
+        override=substitute,
+        signed_binding=signed,
+    )
+    assert isinstance(resolution, OverrideResolution)
+    recorded = transport.submissions(tenant=document["tenant"])
+    assert len(recorded) == 1
+    assert recorded[0].signed_binding == signed
+
+
+def test_override_unbound_kwargs_behave_as_before() -> None:
+    """No Control Plane bound: byte-identical pre-Phase-10 behavior."""
+    fixture = _hitl()
+    boundary, transport, _ = _boundary()
+    original = _propose(boundary, fixture)
+    document = fixture["override"]["event"]
+    resolution = boundary.resolve(
+        tenant=document["tenant"],
+        event_key=document["event_key"],
+        principal=_principal(
+            fixture, product_content_hash=content_hash(original)
+        ),
+        override=None,
+    )
+    assert isinstance(resolution, OverrideResolution)
