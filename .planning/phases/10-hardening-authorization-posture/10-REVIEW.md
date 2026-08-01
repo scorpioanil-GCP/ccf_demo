@@ -49,7 +49,12 @@ findings:
   warning: 6
   info: 5
   total: 12
-status: issues_found
+fixes:
+  fixed_at: 2026-08-01
+  fixed: 7
+  skipped: 0
+  remaining_info: 5
+status: critical_and_warnings_fixed
 ---
 
 # Phase 10: Code Review Report
@@ -57,7 +62,9 @@ status: issues_found
 **Reviewed:** 2026-08-01
 **Depth:** standard
 **Files Reviewed:** 41
-**Status:** issues_found
+**Status:** critical_and_warnings_fixed (2026-08-01 fix pass — CR-01 and
+WR-01 through WR-06 fixed; the five Info findings remain open, carried
+forward as advisory)
 
 ## Summary
 
@@ -83,6 +90,11 @@ posture gaps are listed below.
 ## Critical Issues
 
 ### CR-01: `AuditLog.append` is not thread-safe, and Phase 10 puts it on every request path
+
+**Fix status:** FIXED (commit `c5c5089`) — one `threading.Lock` guards
+sequence assignment, the append, `__len__`, and the `events()` snapshot;
+a 16-thread hammer test (`tests/controlplane/test_audit_concurrency.py`)
+asserts a gapless 0..N-1 sequence.
 
 **File:** `src/ccf/controlplane/audit.py:225-271`
 **Issue:** `append()` computes `sequence=len(self._events)` and then
@@ -119,6 +131,13 @@ def events(self) -> tuple[AuditEvent, ...]:
 
 ### WR-01: HITL primitives' side-band state diverges from the transport — bare `KeyError` after authority-path mutation
 
+**Fix status:** FIXED (commit `128d0c0`) — the three primitives check the
+side-band entry *before* any transport mutation and raise the typed
+`Unknown*EventError` (broken wiring) when absent; the dicts are guarded
+by a dedicated lock and the post-success pops use a default, so no bare
+`KeyError` path remains. Second-instance/shared-transport tests added
+for all three primitives.
+
 **File:** `src/ccf/hitl/escalation.py:268,325,430`; `src/ccf/hitl/override.py:183,211,313`; `src/ccf/hitl/review_queue.py:210,238,382`
 **Issue:** `ExceptionEscalation._triggers`, `OverrideBoundary._originals`,
 and `ReviewQueue._items` are plain instance dicts keyed by
@@ -140,6 +159,15 @@ state into the transport contract so the pending event carries it.
 
 ### WR-02: `_consume` drain-and-requeue is non-atomic — concurrent doors observe a partially drained queue and duplicate resolves double-submit
 
+**Fix status:** FIXED (commit `948c8f9`) — `remove(tenant, event_key)`
+added to `HITLTransportProtocol` and implemented atomically under
+`InMemoryHitlTransport`'s lock; all four primitives claim the event
+atomically *before* `submit` (the losing racer raises the typed
+`Unknown*EventError` without submitting; a failed submit re-enqueues the
+claim). The four `_consume` drain-and-requeue helpers are deleted, which
+also discharges IN-01's duplication concern for this code path. Covered
+by remove-semantics tests plus a 12-thread racing-remove hammer.
+
 **File:** `src/ccf/hitl/approval_gate.py:363-378` (and the identical helpers in `escalation.py:451-461`, `override.py:335-345`, `review_queue.py:397-407`)
 **Issue:** Consume is implemented as a loop of individual
 `dequeue`/`enqueue` calls. Each call is individually locked by
@@ -159,6 +187,10 @@ and make resolve claim the event atomically *before* submitting.
 
 ### WR-03: D-01 grammar accepts a bare `*` (grant-every-tenant) and the empty-string pattern
 
+**Fix status:** FIXED (commit `c97a84e`) — the validator now requires a
+non-empty literal prefix before the trailing glob and refuses the empty
+pattern; `"*"`, `""`, and `"**"` are tested refusals.
+
 **File:** `runtime/ccf_runtime/authz/artifact.py:75-89`
 **Issue:** The validator only rejects `*` occurring in `pattern[:-1]`. The
 pattern `"*"` passes (`"*"[:-1]` is `""`) and `tenant_pattern_matches("*", t)`
@@ -174,6 +206,10 @@ trailing glob), or — if grant-all is intended — document and test it
 explicitly as a deliberate shape.
 
 ### WR-04: A near-miss artifact under the mapping key aborts authorization with no audit record
+
+**Fix status:** FIXED (commit `3935243`) — the attempt is audited as an
+`authz_decision` deny (principal, tenant, action id, resolved version)
+before the `TypeError` surfaces; tested.
 
 **File:** `runtime/ccf_runtime/authz/protocol.py:147-153`
 **Issue:** When the registered artifact is not a `ScopeMappingArtifact`,
@@ -191,6 +227,12 @@ log the wiring error separately.
 
 ### WR-05: Authorizer bound with auth unbound is silently inert — no counterpart to the D-IMPL-73 warning
 
+**Fix status:** FIXED (commit `0f542d1`) — `create_app` emits a new
+exported `CcfDeadAuthorizerWarning` when `authorizer=` is supplied with
+`auth=None` (same pattern as `CcfInsecureDefaultWarning`, no suppression
+kwarg — the fix is binding `auth=`). The inert-posture test now asserts
+the warning; the effective configuration is asserted silent.
+
 **File:** `runtime/ccf_runtime/http_api/routes/hitl.py:115`, `runtime/ccf_runtime/http_api/app.py:117-156`
 **Issue:** `_enforce_tenant_authz` returns immediately when `grant is None`,
 so `create_app(deps, authorizer=...)` **without** `auth=` enforces nothing
@@ -207,6 +249,10 @@ raise or emit a dedicated warning (same pattern as
 `CcfInsecureDefaultWarning`) naming the dead authorizer.
 
 ### WR-06: Hardcoded tenant literal (dead branch) in example 05 driver
+
+**Fix status:** FIXED (commit `83c448d`) — exactly the suggested fix:
+`tenant_id=replay_doc["tenant"]`, missing key fails loudly. Example 05
+verified running end-to-end.
 
 **File:** `examples/05-workflow-hitl/run.py:325-328`
 **Issue:** `_replay_execution` contains
