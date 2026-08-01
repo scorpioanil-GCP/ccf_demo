@@ -218,6 +218,183 @@ def test_the_resolution_carries_the_preserialized_dim_2_block() -> None:
     assert event.product_content_hash in block
 
 
+# --- 10-02 Task 2: resolve-surface signed-binding verification (D-IMPL-69) ---
+
+
+def _signing_env(tmp_path: Path) -> tuple[Any, Any, dict[str, Any]]:
+    """A provider, its key id, and the trusted-keys mapping."""
+    import json as _json
+
+    from joserfc.jwk import ECKey
+
+    from ccf.peering.identity import (
+        DetachedJwsIdentityProvider,
+        FileBackedKeySource,
+    )
+
+    key_dir = tmp_path / "keys"
+    key_dir.mkdir()
+    kid = "gate-approver-key"
+    key = ECKey.generate_key("P-256", parameters={"kid": kid})
+    (key_dir / f"{kid}.jwk").write_text(
+        _json.dumps(key.as_dict(private=True)), encoding="utf-8"
+    )
+    provider = DetachedJwsIdentityProvider(
+        key_source=FileBackedKeySource(directory=key_dir)
+    )
+    return provider, kid, {kid: key.as_dict(private=False)}
+
+
+def _required_policy_plane() -> tuple[Any, str]:
+    from ccf.controlplane.artifacts import parse_artifact
+    from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.hitl.transport import HITL_POLICY
+
+    plane = ControlPlaneRegistry()
+    policy_key = "acme-bank/hitl/policy"
+    plane.register_typed(
+        policy_key,
+        parse_artifact(
+            {"semver": "1.0.0", "signed_binding_required": True},
+            HITL_POLICY,
+        ),
+        HITL_POLICY,
+    )
+    return plane, policy_key
+
+
+def _bound_gate(
+    tmp_path: Path,
+) -> tuple[ApprovalGate, InMemoryHitlTransport, Any, str]:
+    provider, kid, trusted = _signing_env(tmp_path)
+    plane, policy_key = _required_policy_plane()
+    transport = InMemoryHitlTransport(
+        control_plane=plane,
+        hitl_policy_key=policy_key,
+        identity_provider=provider,
+        trusted_keys=trusted,
+    )
+    gate = ApprovalGate(
+        transport=transport,
+        audit=AuditLog(),
+        clock=_clock(),
+        control_plane=plane,
+        hitl_policy_key=policy_key,
+        identity_provider=provider,
+        trusted_keys=trusted,
+    )
+    return gate, transport, provider, kid
+
+
+def test_gate_required_and_unsigned_resolve_is_refused_event_pending(
+    tmp_path: Path,
+) -> None:
+    """Refusal at the primitive layer; the event survives (Pitfall 4)."""
+    from ccf.hitl.identity_binding import sign_principal_binding
+    from ccf.hitl.transport import SignedBindingRequiredRefused
+
+    fixture = _hitl()
+    gate, transport, provider, kid = _bound_gate(tmp_path)
+    event = _event(fixture)
+    transport.enqueue(event=event)
+    principal = _principal(
+        fixture, product_content_hash=event.product_content_hash
+    )
+    with pytest.raises(SignedBindingRequiredRefused):
+        gate.resolve(
+            tenant=event.tenant,
+            event_key=event.event_key,
+            action="approve",
+            principal=principal,
+        )
+    # The pending event survives the refusal.
+    assert transport.pending(tenant=event.tenant) == (event,)
+    assert transport.submissions(tenant=event.tenant) == ()
+    # A subsequent valid resolve of the SAME event succeeds.
+    signed = sign_principal_binding(principal, provider=provider, key_id=kid)
+    resolution = gate.resolve(
+        tenant=event.tenant,
+        event_key=event.event_key,
+        action="approve",
+        principal=principal,
+        signed_binding=signed,
+    )
+    assert isinstance(resolution, GateResolution)
+
+
+def test_gate_required_and_tampered_binding_is_refused_event_pending(
+    tmp_path: Path,
+) -> None:
+    from ccf.hitl.identity_binding import sign_principal_binding
+    from ccf.hitl.transport import SignedBindingInvalidRefused
+
+    fixture = _hitl()
+    gate, transport, provider, kid = _bound_gate(tmp_path)
+    event = _event(fixture)
+    transport.enqueue(event=event)
+    principal = _principal(
+        fixture, product_content_hash=event.product_content_hash
+    )
+    signed = sign_principal_binding(principal, provider=provider, key_id=kid)
+    tampered = signed.model_copy(
+        update={"signature": signed.signature[:-4] + "AAAA"}
+    )
+    with pytest.raises(SignedBindingInvalidRefused):
+        gate.resolve(
+            tenant=event.tenant,
+            event_key=event.event_key,
+            action="approve",
+            principal=principal,
+            signed_binding=tampered,
+        )
+    assert transport.pending(tenant=event.tenant) == (event,)
+    assert transport.submissions(tenant=event.tenant) == ()
+
+
+def test_gate_required_and_valid_binding_passes_both_layers(
+    tmp_path: Path,
+) -> None:
+    """The transport's own second verification also passes (D-13)."""
+    from ccf.hitl.identity_binding import sign_principal_binding
+
+    fixture = _hitl()
+    gate, transport, provider, kid = _bound_gate(tmp_path)
+    event = _event(fixture)
+    transport.enqueue(event=event)
+    principal = _principal(
+        fixture, product_content_hash=event.product_content_hash
+    )
+    signed = sign_principal_binding(principal, provider=provider, key_id=kid)
+    resolution = gate.resolve(
+        tenant=event.tenant,
+        event_key=event.event_key,
+        action="approve",
+        principal=principal,
+        signed_binding=signed,
+    )
+    assert isinstance(resolution, GateResolution)
+    recorded = transport.submissions(tenant=event.tenant)
+    assert len(recorded) == 1
+    assert recorded[0].signed_binding == signed
+
+
+def test_gate_unbound_kwargs_behave_as_before() -> None:
+    """No Control Plane bound: byte-identical pre-Phase-10 behavior."""
+    fixture = _hitl()
+    gate, transport, _ = _gate()
+    event = _event(fixture)
+    transport.enqueue(event=event)
+    resolution = gate.resolve(
+        tenant=event.tenant,
+        event_key=event.event_key,
+        action="approve",
+        principal=_principal(
+            fixture, product_content_hash=event.product_content_hash
+        ),
+    )
+    assert isinstance(resolution, GateResolution)
+
+
 # --- the sync grant face ------------------------------------------------------
 
 

@@ -67,6 +67,8 @@ __all__ = [
     "PendingHitlEvent",
     "SignedBindingInvalidRefused",
     "SignedBindingRequiredRefused",
+    "enforce_signed_binding",
+    "signed_binding_required",
 ]
 
 #: The four HITL primitive event classes (CLAUDE.md §8.2). Mechanism
@@ -191,6 +193,93 @@ class HitlPolicy(CCFContract):
 
 #: The HITL policy artifact class (CLAUDE.md §8.2; D-16).
 HITL_POLICY = ArtifactClass(class_id="ccf.hitl-policy", contract=HitlPolicy)
+
+
+def signed_binding_required(
+    *,
+    control_plane: ControlPlaneProtocol | None,
+    hitl_policy_key: str | None,
+) -> bool:
+    """Whether the HITL policy in force requires a signed binding.
+
+    The shared verification helper (D-IMPL-69): one implementation consumed
+    by the transport authority path and by every HITL primitive resolution
+    surface. Sharing *code* is deliberate and permitted — D-13 forbids only
+    verified-marker plumbing between layers (a forgeable trust marker),
+    never a shared implementation each layer invokes independently.
+
+    Resolved from the Control Plane per call — the requiredness value lives
+    ONLY in the registered :class:`HitlPolicy` artifact, never here
+    (T-08-07). An unbound Control Plane or key is the pre-composition
+    posture: not required.
+
+    Raises:
+        TypeError: the key names a registered artifact that is not a
+            :class:`HitlPolicy` — broken deployment wiring.
+    """
+    if control_plane is None or hitl_policy_key is None:
+        return False
+    _, artifact = control_plane.resolve_latest(hitl_policy_key)
+    if not isinstance(artifact, HitlPolicy):
+        raise TypeError(
+            f"artifact under {hitl_policy_key!r} is not a HitlPolicy (got"
+            f" {type(artifact).__name__}); the bound policy key must name a"
+            " registered ccf.hitl-policy artifact"
+        )
+    return artifact.signed_binding_required
+
+
+def enforce_signed_binding(
+    submission: HitlActionSubmission,
+    *,
+    identity_provider: IdentityProvider | None,
+    trusted_keys: Mapping[str, JsonWebKey] | None,
+) -> None:
+    """Refuse the submission unless its signed binding holds.
+
+    The shared verification helper (D-16; D-IMPL-69; D-IMPL-21;
+    CLAUDE.md §8.2): one implementation, invoked independently by the
+    transport and by the HITL primitives — idempotent double verification
+    (D-13), never a trust marker crossing the layer seam.
+
+    Raises:
+        SignedBindingRequiredRefused: the policy requires a binding and
+            the submission carries none.
+        SignedBindingInvalidRefused: the binding fails verification, or
+            its verified principal is not the submission's.
+        RuntimeError: bindings are required but no identity provider or
+            trusted keys were supplied — broken deployment wiring, not an
+            expected refusal.
+    """
+    if submission.signed_binding is None:
+        raise SignedBindingRequiredRefused(
+            "the HITL policy in force requires a signed principal"
+            " binding and this submission carries none (D-16;"
+            " D-IMPL-21; D-IMPL-69; CLAUDE.md §8.2)"
+        )
+    if identity_provider is None or trusted_keys is None:
+        raise RuntimeError(
+            "the HITL policy requires signed bindings but no identity"
+            " provider or trusted keys were supplied — broken"
+            " composition-root wiring"
+        )
+    try:
+        verified = verify_principal_binding(
+            submission.signed_binding,
+            provider=identity_provider,
+            public_keys=trusted_keys,
+        )
+    except PrincipalBindingInvalid as error:
+        raise SignedBindingInvalidRefused(
+            "the presented signed principal binding does not verify"
+            " (D-16; D-IMPL-21; D-IMPL-69)"
+        ) from error
+    if verified != submission.principal:
+        raise SignedBindingInvalidRefused(
+            "the verified signed binding's principal is not the"
+            " submission's principal; a valid signature over a"
+            " different identity binds nothing here (D-16; T-08-06)"
+        )
 
 
 class HitlActionSubmission(CCFContract):
@@ -367,19 +456,10 @@ class InMemoryHitlTransport:
         here (T-08-07). An unbound Control Plane or key is the
         pre-composition posture: not required.
         """
-        if self._control_plane is None or self._hitl_policy_key is None:
-            return False
-        _, artifact = self._control_plane.resolve_latest(
-            self._hitl_policy_key
+        return signed_binding_required(
+            control_plane=self._control_plane,
+            hitl_policy_key=self._hitl_policy_key,
         )
-        if not isinstance(artifact, HitlPolicy):
-            raise TypeError(
-                f"artifact under {self._hitl_policy_key!r} is not a"
-                f" HitlPolicy (got {type(artifact).__name__}); the"
-                " transport's policy key must name a registered"
-                " ccf.hitl-policy artifact"
-            )
-        return artifact.signed_binding_required
 
     def _enforce_signed_binding(
         self, submission: HitlActionSubmission
@@ -395,35 +475,11 @@ class InMemoryHitlTransport:
                 was constructed without verification machinery — broken
                 deployment wiring, not an expected refusal.
         """
-        if submission.signed_binding is None:
-            raise SignedBindingRequiredRefused(
-                "the HITL policy in force requires a signed principal"
-                " binding and this submission carries none (D-16;"
-                " D-IMPL-21; CLAUDE.md §8.2)"
-            )
-        if self._identity_provider is None or self._trusted_keys is None:
-            raise RuntimeError(
-                "the HITL policy requires signed bindings but this"
-                " transport was constructed without an identity provider"
-                " or trusted keys — broken composition-root wiring"
-            )
-        try:
-            verified = verify_principal_binding(
-                submission.signed_binding,
-                provider=self._identity_provider,
-                public_keys=self._trusted_keys,
-            )
-        except PrincipalBindingInvalid as error:
-            raise SignedBindingInvalidRefused(
-                "the presented signed principal binding does not verify"
-                " (D-16; D-IMPL-21)"
-            ) from error
-        if verified != submission.principal:
-            raise SignedBindingInvalidRefused(
-                "the verified signed binding's principal is not the"
-                " submission's principal; a valid signature over a"
-                " different identity binds nothing here (D-16; T-08-06)"
-            )
+        enforce_signed_binding(
+            submission,
+            identity_provider=self._identity_provider,
+            trusted_keys=self._trusted_keys,
+        )
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
         """Queue ``event`` for its tenant, preserving arrival order."""

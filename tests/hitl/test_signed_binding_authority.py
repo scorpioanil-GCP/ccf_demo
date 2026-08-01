@@ -50,6 +50,8 @@ from ccf.hitl.transport import (
     InMemoryHitlTransport,
     SignedBindingInvalidRefused,
     SignedBindingRequiredRefused,
+    enforce_signed_binding,
+    signed_binding_required,
 )
 from ccf.peering.identity import (
     DetachedJwsIdentityProvider,
@@ -270,6 +272,134 @@ def test_absent_key_in_the_policy_document_defaults_to_false() -> None:
     assert policy.signed_binding_required is False
 
 
+# --- 10-02 Task 1: module-level shared helpers (D-IMPL-69; D-13) ------------
+
+
+def test_helper_signed_binding_required_unbound_is_false() -> None:
+    """Unbound Control Plane or key is the pre-composition posture."""
+    assert (
+        signed_binding_required(control_plane=None, hitl_policy_key=None)
+        is False
+    )
+    assert (
+        signed_binding_required(
+            control_plane=None, hitl_policy_key=POLICY_KEY
+        )
+        is False
+    )
+
+
+def test_helper_signed_binding_required_resolves_per_call(
+    plane: ControlPlaneRegistry,
+) -> None:
+    plane.register_typed(POLICY_KEY, _policy(required=False), HITL_POLICY)
+    assert (
+        signed_binding_required(
+            control_plane=plane, hitl_policy_key=POLICY_KEY
+        )
+        is False
+    )
+    plane.register_typed(
+        POLICY_KEY, _policy(required=True, semver="1.0.1"), HITL_POLICY
+    )
+    assert (
+        signed_binding_required(
+            control_plane=plane, hitl_policy_key=POLICY_KEY
+        )
+        is True
+    )
+
+
+def test_helper_signed_binding_required_rejects_non_hitl_policy(
+    plane: ControlPlaneRegistry,
+) -> None:
+    """A key naming a non-HitlPolicy artifact is a TypeError, not a refusal."""
+    plane.register(POLICY_KEY, {"not": "a-policy"})
+    with pytest.raises(TypeError):
+        signed_binding_required(
+            control_plane=plane, hitl_policy_key=POLICY_KEY
+        )
+
+
+def test_helper_enforce_refuses_absent_binding(
+    provider: DetachedJwsIdentityProvider,
+    trusted_keys: Mapping[str, JsonWebKey],
+) -> None:
+    with pytest.raises(SignedBindingRequiredRefused):
+        enforce_signed_binding(
+            _submission(_binding(), None),
+            identity_provider=provider,
+            trusted_keys=trusted_keys,
+        )
+
+
+def test_helper_enforce_broken_wiring_is_a_runtime_error(
+    provider: DetachedJwsIdentityProvider,
+    trusted_keys: Mapping[str, JsonWebKey],
+) -> None:
+    """Requiring bindings without verification machinery is broken wiring."""
+    binding = _binding()
+    signed = sign_principal_binding(
+        binding, provider=provider, key_id=APPROVER_KID
+    )
+    with pytest.raises(RuntimeError):
+        enforce_signed_binding(
+            _submission(binding, signed),
+            identity_provider=None,
+            trusted_keys=trusted_keys,
+        )
+    with pytest.raises(RuntimeError):
+        enforce_signed_binding(
+            _submission(binding, signed),
+            identity_provider=provider,
+            trusted_keys=None,
+        )
+
+
+def test_helper_enforce_refuses_invalid_or_mismatched_binding(
+    provider: DetachedJwsIdentityProvider,
+    trusted_keys: Mapping[str, JsonWebKey],
+) -> None:
+    binding = _binding()
+    signed = sign_principal_binding(
+        binding, provider=provider, key_id=APPROVER_KID
+    )
+    tampered = signed.model_copy(
+        update={"signature": signed.signature[:-4] + "AAAA"}
+    )
+    with pytest.raises(SignedBindingInvalidRefused):
+        enforce_signed_binding(
+            _submission(binding, tampered),
+            identity_provider=provider,
+            trusted_keys=trusted_keys,
+        )
+    other = _binding("approver-2")
+    signed_other = sign_principal_binding(
+        other, provider=provider, key_id=APPROVER_KID
+    )
+    with pytest.raises(SignedBindingInvalidRefused):
+        enforce_signed_binding(
+            _submission(binding, signed_other),
+            identity_provider=provider,
+            trusted_keys=trusted_keys,
+        )
+
+
+def test_helper_enforce_admits_a_valid_binding(
+    provider: DetachedJwsIdentityProvider,
+    trusted_keys: Mapping[str, JsonWebKey],
+) -> None:
+    binding = _binding()
+    signed = sign_principal_binding(
+        binding, provider=provider, key_id=APPROVER_KID
+    )
+    enforce_signed_binding(
+        _submission(binding, signed),
+        identity_provider=provider,
+        trusted_keys=trusted_keys,
+    )
+
+
 def test_no_boolean_constant_in_src_encodes_requiredness() -> None:
     """Grep-style assertion: no ``signed_binding_required = True`` in /src.
 
@@ -286,3 +416,171 @@ def test_no_boolean_constant_in_src_encodes_requiredness() -> None:
         if pattern.search(path.read_text(encoding="utf-8"))
     ]
     assert offenders == []
+
+
+# --- 10-02 Task 3: composed double-verification idempotency (D-13) ----------
+#
+# A primitive AND its transport both carry the verification kwargs. One
+# valid signed submission traverses BOTH verifications end-to-end without
+# refusal; removing the binding is refused at the primitive layer before
+# the transport is touched. No verified-marker exists between the layers —
+# the structural absence D-13 demands is asserted by the composition
+# itself: nothing is passed from primitive to transport except the
+# submission the transport re-verifies from scratch.
+
+
+def _both_layers_bound(
+    plane: ControlPlaneRegistry,
+    provider: DetachedJwsIdentityProvider,
+    trusted_keys: Mapping[str, JsonWebKey],
+) -> InMemoryHitlTransport:
+    plane.register_typed(POLICY_KEY, _policy(required=True), HITL_POLICY)
+    return _transport(plane, provider, trusted_keys)
+
+
+def test_approval_gate_double_verification_is_idempotent(
+    plane: ControlPlaneRegistry,
+    provider: DetachedJwsIdentityProvider,
+    trusted_keys: Mapping[str, JsonWebKey],
+) -> None:
+    from datetime import timedelta
+
+    from ccf.contracts.canonical import content_hash
+    from ccf.controlplane.audit import AuditLog
+    from ccf.hitl.approval_gate import ApprovalGate, GateResolution
+    from ccf.hitl.transport import PendingHitlEvent
+
+    transport = _both_layers_bound(plane, provider, trusted_keys)
+    state = {"now": datetime(2026, 7, 30, tzinfo=UTC)}
+
+    def clock() -> datetime:
+        state["now"] += timedelta(seconds=1)
+        return state["now"]
+
+    gate = ApprovalGate(
+        transport=transport,
+        audit=AuditLog(),
+        clock=clock,
+        control_plane=plane,
+        hitl_policy_key=POLICY_KEY,
+        identity_provider=provider,
+        trusted_keys=trusted_keys,
+    )
+    document = {
+        "event_key": "acme-bank/exec-hitl/idempotency-gate",
+        "event_class": "approval-gate",
+        "tenant": _TENANT,
+        "workflow_state_ref": "acme-bank/exec-hitl",
+    }
+    event = PendingHitlEvent(
+        **document, product_content_hash=content_hash(document)
+    )
+    transport.enqueue(event=event)
+    principal = _binding().model_copy(
+        update={"product_content_hash": event.product_content_hash}
+    )
+    # Unsigned: refused at the primitive layer BEFORE the transport is
+    # touched — no submission recorded, event still pending.
+    with pytest.raises(SignedBindingRequiredRefused):
+        gate.resolve(
+            tenant=_TENANT,
+            event_key=event.event_key,
+            action="approve",
+            principal=principal,
+        )
+    assert transport.submissions(tenant=_TENANT) == ()
+    assert transport.pending(tenant=_TENANT) == (event,)
+    # Valid signed: passes primitive verification AND the transport's own
+    # independent verification (idempotent double verification, D-13).
+    signed = sign_principal_binding(
+        principal, provider=provider, key_id=APPROVER_KID
+    )
+    resolution = gate.resolve(
+        tenant=_TENANT,
+        event_key=event.event_key,
+        action="approve",
+        principal=principal,
+        signed_binding=signed,
+    )
+    assert isinstance(resolution, GateResolution)
+    recorded = transport.submissions(tenant=_TENANT)
+    assert len(recorded) == 1
+    assert recorded[0].signed_binding == signed
+
+
+def test_review_queue_double_verification_is_idempotent(
+    plane: ControlPlaneRegistry,
+    provider: DetachedJwsIdentityProvider,
+    trusted_keys: Mapping[str, JsonWebKey],
+) -> None:
+    from datetime import timedelta
+
+    from ccf.contracts.canonical import content_hash
+    from ccf.contracts.claims import LineageEntry, PassageAnchor
+    from ccf.controlplane.audit import AuditLog
+    from ccf.signal.envelope import SourceIdentity
+    from ccf.hitl.review_queue import (
+        ReviewQueue,
+        ReviewQueueItem,
+        ReviewResolution,
+    )
+
+    transport = _both_layers_bound(plane, provider, trusted_keys)
+    state = {"now": datetime(2026, 7, 30, tzinfo=UTC)}
+
+    def clock() -> datetime:
+        state["now"] += timedelta(seconds=1)
+        return state["now"]
+
+    queue = ReviewQueue(
+        transport=transport,
+        audit=AuditLog(),
+        clock=clock,
+        control_plane=plane,
+        hitl_policy_key=POLICY_KEY,
+        identity_provider=provider,
+        trusted_keys=trusted_keys,
+    )
+    item = ReviewQueueItem(
+        output_ref="ccf-artifact://acme-bank/review/output@1.0.0",
+        lineage=(
+            LineageEntry(
+                source=SourceIdentity(system_id="fixture-system"),
+                envelope_id="env-idempotency-1",
+                observed_at=datetime(2026, 7, 15, tzinfo=UTC),
+                passage_anchor=PassageAnchor(
+                    kind="document-page", locator="fixture/1#p1"
+                ),
+            ),
+        ),
+    )
+    queue.submit_for_review(
+        tenant=_TENANT,
+        event_key="acme-bank/exec-rev/idempotency-review",
+        workflow_state_ref="acme-bank/exec-rev",
+        item=item,
+    )
+    principal = _binding().model_copy(
+        update={"product_content_hash": content_hash(item)}
+    )
+    with pytest.raises(SignedBindingRequiredRefused):
+        queue.release(
+            tenant=_TENANT,
+            event_key="acme-bank/exec-rev/idempotency-review",
+            principal=principal,
+        )
+    assert transport.submissions(tenant=_TENANT) == ()
+    assert len(transport.pending(tenant=_TENANT)) == 1
+    signed = sign_principal_binding(
+        principal, provider=provider, key_id=APPROVER_KID
+    )
+    resolution = queue.release(
+        tenant=_TENANT,
+        event_key="acme-bank/exec-rev/idempotency-review",
+        principal=principal,
+        signed_binding=signed,
+    )
+    assert isinstance(resolution, ReviewResolution)
+    recorded = transport.submissions(tenant=_TENANT)
+    assert len(recorded) == 1
+    assert recorded[0].signed_binding == signed

@@ -280,3 +280,184 @@ def test_resolving_an_unknown_event_raises() -> None:
                 fixture, product_content_hash=content_hash(document)
             ),
         )
+
+
+# --- 10-02 Task 3: resolve-surface signed-binding verification (D-IMPL-69) ---
+
+
+def _signing_env(tmp_path: Path) -> tuple[Any, str, dict[str, Any]]:
+    import json as _json
+
+    from joserfc.jwk import ECKey
+
+    from ccf.peering.identity import (
+        DetachedJwsIdentityProvider,
+        FileBackedKeySource,
+    )
+
+    key_dir = tmp_path / "keys"
+    key_dir.mkdir()
+    kid = "escalation-approver-key"
+    key = ECKey.generate_key("P-256", parameters={"kid": kid})
+    (key_dir / f"{kid}.jwk").write_text(
+        _json.dumps(key.as_dict(private=True)), encoding="utf-8"
+    )
+    provider = DetachedJwsIdentityProvider(
+        key_source=FileBackedKeySource(directory=key_dir)
+    )
+    return provider, kid, {kid: key.as_dict(private=False)}
+
+
+def _bound_escalation(
+    tmp_path: Path,
+) -> tuple[ExceptionEscalation, InMemoryHitlTransport, Any, str]:
+    from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.hitl.transport import HITL_POLICY
+
+    provider, kid, trusted = _signing_env(tmp_path)
+    plane = ControlPlaneRegistry()
+    policy_key = "acme-bank/hitl/policy"
+    plane.register_typed(
+        policy_key,
+        parse_artifact(
+            {"semver": "1.0.0", "signed_binding_required": True},
+            HITL_POLICY,
+        ),
+        HITL_POLICY,
+    )
+    transport = InMemoryHitlTransport(
+        control_plane=plane,
+        hitl_policy_key=policy_key,
+        identity_provider=provider,
+        trusted_keys=trusted,
+    )
+    escalation = ExceptionEscalation(
+        transport=transport,
+        audit=AuditLog(),
+        clock=_clock(),
+        control_plane=plane,
+        hitl_policy_key=policy_key,
+        identity_provider=provider,
+        trusted_keys=trusted,
+    )
+    return escalation, transport, provider, kid
+
+
+def test_escalation_required_and_unsigned_resolve_is_refused_event_pending(
+    tmp_path: Path,
+) -> None:
+    from ccf.hitl.identity_binding import sign_principal_binding
+    from ccf.hitl.transport import SignedBindingRequiredRefused
+
+    fixture = _hitl()
+    escalation, transport, provider, kid = _bound_escalation(tmp_path)
+    trigger = ExplicitEscalation(
+        reason=fixture["escalation"]["explicit_reason"]
+    )
+    _hand_off(escalation, fixture, trigger)
+    document = _event_document(fixture)
+    principal = _principal(
+        fixture, product_content_hash=content_hash(document)
+    )
+    with pytest.raises(SignedBindingRequiredRefused):
+        escalation.resolve(
+            tenant=document["tenant"],
+            event_key=document["event_key"],
+            action="approve",
+            principal=principal,
+        )
+    # The pending event survives the refusal.
+    assert len(transport.pending(tenant=document["tenant"])) == 1
+    assert transport.submissions(tenant=document["tenant"]) == ()
+    # A subsequent valid resolve of the SAME event succeeds.
+    signed = sign_principal_binding(principal, provider=provider, key_id=kid)
+    resolution = escalation.resolve(
+        tenant=document["tenant"],
+        event_key=document["event_key"],
+        action="approve",
+        principal=principal,
+        signed_binding=signed,
+    )
+    assert isinstance(resolution, EscalationResolution)
+
+
+def test_escalation_required_and_tampered_binding_is_refused_event_pending(
+    tmp_path: Path,
+) -> None:
+    from ccf.hitl.identity_binding import sign_principal_binding
+    from ccf.hitl.transport import SignedBindingInvalidRefused
+
+    fixture = _hitl()
+    escalation, transport, provider, kid = _bound_escalation(tmp_path)
+    trigger = ExplicitEscalation(
+        reason=fixture["escalation"]["explicit_reason"]
+    )
+    _hand_off(escalation, fixture, trigger)
+    document = _event_document(fixture)
+    principal = _principal(
+        fixture, product_content_hash=content_hash(document)
+    )
+    signed = sign_principal_binding(principal, provider=provider, key_id=kid)
+    tampered = signed.model_copy(
+        update={"signature": signed.signature[:-4] + "AAAA"}
+    )
+    with pytest.raises(SignedBindingInvalidRefused):
+        escalation.resolve(
+            tenant=document["tenant"],
+            event_key=document["event_key"],
+            action="approve",
+            principal=principal,
+            signed_binding=tampered,
+        )
+    assert len(transport.pending(tenant=document["tenant"])) == 1
+    assert transport.submissions(tenant=document["tenant"]) == ()
+
+
+def test_escalation_required_and_valid_binding_passes_both_layers(
+    tmp_path: Path,
+) -> None:
+    """The transport's own second verification also passes (D-13)."""
+    from ccf.hitl.identity_binding import sign_principal_binding
+
+    fixture = _hitl()
+    escalation, transport, provider, kid = _bound_escalation(tmp_path)
+    trigger = ExplicitEscalation(
+        reason=fixture["escalation"]["explicit_reason"]
+    )
+    _hand_off(escalation, fixture, trigger)
+    document = _event_document(fixture)
+    principal = _principal(
+        fixture, product_content_hash=content_hash(document)
+    )
+    signed = sign_principal_binding(principal, provider=provider, key_id=kid)
+    resolution = escalation.resolve(
+        tenant=document["tenant"],
+        event_key=document["event_key"],
+        action="approve",
+        principal=principal,
+        signed_binding=signed,
+    )
+    assert isinstance(resolution, EscalationResolution)
+    recorded = transport.submissions(tenant=document["tenant"])
+    assert len(recorded) == 1
+    assert recorded[0].signed_binding == signed
+
+
+def test_escalation_unbound_kwargs_behave_as_before() -> None:
+    """No Control Plane bound: byte-identical pre-Phase-10 behavior."""
+    fixture = _hitl()
+    escalation, transport, _ = _escalation()
+    trigger = ExplicitEscalation(
+        reason=fixture["escalation"]["explicit_reason"]
+    )
+    _hand_off(escalation, fixture, trigger)
+    document = _event_document(fixture)
+    resolution = escalation.resolve(
+        tenant=document["tenant"],
+        event_key=document["event_key"],
+        action="approve",
+        principal=_principal(
+            fixture, product_content_hash=content_hash(document)
+        ),
+    )
+    assert isinstance(resolution, EscalationResolution)

@@ -45,20 +45,25 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Generic, TypeVar
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.audit import AuditLog
+from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.hitl.approval_gate import HITL_ACTION_ARTIFACT_CLASS
+from ccf.hitl.identity_binding import SignedPrincipalBinding
 from ccf.hitl.principal import HumanPrincipalBinding
 from ccf.hitl.transport import (
     HITLTransportProtocol,
     HitlActionSubmission,
     PendingHitlEvent,
+    enforce_signed_binding,
+    signed_binding_required,
 )
+from ccf.peering.identity import IdentityProvider, JsonWebKey
 
 __ccf_mode__ = "algorithmic"
 
@@ -144,6 +149,17 @@ class OverrideBoundary(Generic[ProductT]):
         audit: The append-only log every resolution lands in, refusals
             included (``resolved=False``).
         clock: Time source for audit timestamps. Injected, never read.
+        control_plane: The registry the HITL policy resolves through
+            (D-IMPL-69; SDK-defined, CLAUDE.md §8.2). Optional together
+            with the other three verification kwargs: all-unbound is the
+            pre-Phase-10 posture, byte-identical behavior.
+        hitl_policy_key: The Control Plane key the deployment registered
+            its :class:`~ccf.hitl.transport.HitlPolicy` under —
+            deployment vocabulary, no default (CINV-01).
+        identity_provider: The D-IMPL-15 provider signatures verify
+            through when the policy requires them.
+        trusted_keys: The public keys this deployment accepts approver
+            signatures under.
     """
 
     def __init__(
@@ -152,10 +168,18 @@ class OverrideBoundary(Generic[ProductT]):
         transport: HITLTransportProtocol,
         audit: AuditLog,
         clock: Callable[[], datetime],
+        control_plane: ControlPlaneProtocol | None = None,
+        hitl_policy_key: str | None = None,
+        identity_provider: IdentityProvider | None = None,
+        trusted_keys: Mapping[str, JsonWebKey] | None = None,
     ) -> None:
         self._transport = transport
         self._audit = audit
         self._clock = clock
+        self._control_plane = control_plane
+        self._hitl_policy_key = hitl_policy_key
+        self._identity_provider = identity_provider
+        self._trusted_keys = trusted_keys
         self._originals: dict[tuple[str, str], ProductT] = {}
 
     def propose(
@@ -195,6 +219,7 @@ class OverrideBoundary(Generic[ProductT]):
         principal: HumanPrincipalBinding,
         override: ProductT | None = None,
         annotation: str | None = None,
+        signed_binding: SignedPrincipalBinding | None = None,
     ) -> OverrideResolution[ProductT] | OverrideResolutionRefused:
         """Resolve one pending boundary under a bound human decision.
 
@@ -202,6 +227,15 @@ class OverrideBoundary(Generic[ProductT]):
         override is unrepresentable through this signature (D-IMPL-21; the
         D-22 type-unrepresentable leg). The TOCTOU guard runs before
         anything is consumed or submitted.
+
+        **Signed-binding verification (D-IMPL-69; SDK-defined, CLAUDE.md
+        §8.2).** When a Control Plane is bound and the HitlPolicy in force
+        declares ``signed_binding_required``, this surface verifies
+        ``signed_binding`` before any queue consumption — a refused
+        resolution raises and leaves the event pending. Verification is
+        read-only and holds no lock; the transport re-verifies
+        independently at submission (idempotent double verification,
+        D-13).
 
         Args:
             override: The substituted value, or ``None`` — the human
@@ -261,7 +295,19 @@ class OverrideBoundary(Generic[ProductT]):
             action="override" if overridden else "approve",
             principal=principal,
             annotation=annotation,
+            signed_binding=signed_binding,
         )
+        if signed_binding_required(
+            control_plane=self._control_plane,
+            hitl_policy_key=self._hitl_policy_key,
+        ):
+            # Verify BEFORE any queue consumption: a refusal raises here
+            # and the pending event survives (D-IMPL-69; Pitfall 4).
+            enforce_signed_binding(
+                submission,
+                identity_provider=self._identity_provider,
+                trusted_keys=self._trusted_keys,
+            )
         self._transport.submit(submission=submission)
         self._consume(tenant, event_key)
         original = self._originals.pop((tenant, event_key))
