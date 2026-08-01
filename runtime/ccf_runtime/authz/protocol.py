@@ -130,6 +130,9 @@ class ControlPlaneTenantAuthorizer:
             TypeError: the artifact registered under the mapping key is
                 not a :class:`ScopeMappingArtifact` — a near-miss mapping
                 is refused, never interpreted (the HitlPolicy precedent).
+                The attempt is audited as a deny *before* the raise
+                (WR-04): even a misregistered mapping leaves an
+                ``authz_decision`` trace of who asked for what.
         """
         version = ""
         matched: str | None = None
@@ -145,6 +148,23 @@ class ControlPlaneTenantAuthorizer:
             pass
         else:
             if not isinstance(resolved, ScopeMappingArtifact):
+                # WR-04: the *attempt* is audited before the wiring error
+                # surfaces — "every decision, allow and deny alike" would
+                # otherwise have a hole exactly in the misconfiguration
+                # window an examiner cares about. Audited as a deny (the
+                # caller was not authorized), then raised as the wiring
+                # error it is (the HitlPolicy precedent).
+                self._control_plane.audit_log.append(
+                    action="authz_decision",
+                    key=tenant,
+                    version=version,
+                    resolved=False,
+                    occurred_at=self._clock(),
+                    actor=grant.client_id,
+                    artifact_class=SCOPE_MAPPING.class_id,
+                    authz_action_id=action_id,
+                    authz_matched_pattern=None,
+                )
                 raise TypeError(
                     f"artifact under {self._scope_mapping_key!r} is not a"
                     f" ScopeMappingArtifact (got"

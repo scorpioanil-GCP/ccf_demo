@@ -235,6 +235,31 @@ def test_a_wrong_class_artifact_under_the_key_is_a_type_error() -> None:
         )
 
 
+def test_a_near_miss_artifact_still_audits_the_attempt() -> None:
+    """WR-04: the authorization *attempt* leaves an ``authz_decision``
+    deny trace before the near-miss wiring error is raised — the
+    misconfiguration window is exactly where the attempt log matters."""
+    registry = _registry()
+    registry.register(MAPPING_KEY, {"semver": "1.0.0", "scopes": {}})
+    authorizer = _authorizer(registry)
+
+    with pytest.raises(TypeError):
+        authorizer.authorize(
+            grant=_grant(SCOPE),
+            tenant="tenant-a",
+            action_id=ACTION_HITL_QUEUE_READ,
+        )
+
+    (event,) = _authz_events(registry)
+    assert event.action == "authz_decision"
+    assert event.resolved is False
+    assert event.key == "tenant-a"
+    assert event.actor == CLIENT
+    assert event.authz_action_id == ACTION_HITL_QUEUE_READ
+    assert event.authz_matched_pattern is None
+    assert event.occurred_at == INSTANT
+
+
 # --- seam shape --------------------------------------------------------------
 
 
