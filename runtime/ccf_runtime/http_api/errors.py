@@ -29,6 +29,7 @@ __all__ = [
     "ERROR_SIGNED_BINDING_INVALID",
     "ERROR_SIGNED_BINDING_REQUIRED",
     "ERROR_SUBJECT_CONFLICT",
+    "ERROR_TENANT_UNAUTHORIZED",
     "ERROR_UNAUTHENTICATED",
     "refusal_detail",
 ]
@@ -53,6 +54,11 @@ ERROR_SIGNED_BINDING_REQUIRED: Final[str] = "signed-binding-required"
 #: A signed principal binding was presented and failed verification
 #: (reserved for 08-03's signed-binding door mapping).
 ERROR_SIGNED_BINDING_INVALID: Final[str] = "signed-binding-invalid"
+
+#: The authenticated caller's grant does not authorize this tenant ×
+#: action under the scope mapping in force (403; HARD-04; D-IMPL-68 —
+#: deny-by-default at the doors, one code for both renderings, D-08).
+ERROR_TENANT_UNAUTHORIZED: Final[str] = "tenant-unauthorized"
 
 
 def refusal_detail(*, error_code: str, message: str) -> dict[str, str]:
