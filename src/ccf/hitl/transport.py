@@ -34,6 +34,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import threading
 from collections import deque
 from collections.abc import Mapping
 from typing import Literal, Protocol, runtime_checkable
@@ -266,6 +267,16 @@ class HITLTransportProtocol(Protocol):
     ``runtime_checkable`` supports composition-root wiring checks; it
     verifies method presence only, so static conformance still rests on
     mypy.
+
+    **Concurrency contract (WR-02; D-IMPL-69 adjacency; CLAUDE.md §8.2).**
+    All methods of every conforming implementation must be safe for
+    concurrent calls from multiple threads. The Experience-Layer HITL
+    doors (HTTP and MCP) invoke the transport from FastAPI's threadpool,
+    so enqueue/dequeue/pending/submit/submissions race by construction in
+    any real deployment — an implementation whose queue state can be
+    lost, duplicated, or corrupted under concurrent access does not
+    conform to this Protocol. This docstring is the contract's sole
+    documentation surface (Phase-9 CONTEXT D-05/D-08).
     """
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
@@ -307,6 +318,17 @@ class InMemoryHitlTransport:
     All four D-16 arguments are optional together: an unconfigured
     transport behaves exactly as before this composition existed.
 
+    **Thread safety (WR-02; Phase-9 CONTEXT D-06).** A single plain
+    :class:`threading.Lock` guards every queue mutation and snapshot read
+    — the Protocol's concurrency contract, discharged here. The lock
+    scope is deliberately minimal: D-16 verification
+    (:meth:`_signed_binding_required` — a Control Plane resolve — and
+    :meth:`_enforce_signed_binding` — JWS verification) runs *outside*
+    the lock, per D-IMPL-69's "JWS verification stays outside any
+    transport lock." A refused submission never touches the queues, so
+    the refusal contract is unaffected; no locked method calls another
+    locked method, so no reentrant locking is needed.
+
     Args:
         control_plane: The registry the HITL policy resolves through. The
             deployment's composition root supplies it; the transport never
@@ -329,6 +351,7 @@ class InMemoryHitlTransport:
         identity_provider: IdentityProvider | None = None,
         trusted_keys: Mapping[str, JsonWebKey] | None = None,
     ) -> None:
+        self._lock = threading.Lock()
         self._pending: dict[str, deque[PendingHitlEvent]] = {}
         self._submissions: dict[str, list[HitlActionSubmission]] = {}
         self._control_plane = control_plane
@@ -404,18 +427,21 @@ class InMemoryHitlTransport:
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
         """Queue ``event`` for its tenant, preserving arrival order."""
-        self._pending.setdefault(event.tenant, deque()).append(event)
+        with self._lock:
+            self._pending.setdefault(event.tenant, deque()).append(event)
 
     def dequeue(self, *, tenant: str) -> PendingHitlEvent | None:
         """Pop the oldest pending event for ``tenant``, or ``None``."""
-        queue = self._pending.get(tenant)
-        if not queue:
-            return None
-        return queue.popleft()
+        with self._lock:
+            queue = self._pending.get(tenant)
+            if not queue:
+                return None
+            return queue.popleft()
 
     def pending(self, *, tenant: str) -> tuple[PendingHitlEvent, ...]:
         """The tenant's pending events, oldest first, without consuming."""
-        return tuple(self._pending.get(tenant, ()))
+        with self._lock:
+            return tuple(self._pending.get(tenant, ()))
 
     def submit(self, *, submission: HitlActionSubmission) -> None:
         """Record one human action returning through the authority path.
@@ -431,8 +457,12 @@ class InMemoryHitlTransport:
         """
         if self._signed_binding_required():
             self._enforce_signed_binding(submission)
-        self._submissions.setdefault(submission.tenant, []).append(submission)
+        with self._lock:
+            self._submissions.setdefault(submission.tenant, []).append(
+                submission
+            )
 
     def submissions(self, *, tenant: str) -> tuple[HitlActionSubmission, ...]:
         """The tenant's recorded actions, oldest first."""
-        return tuple(self._submissions.get(tenant, ()))
+        with self._lock:
+            return tuple(self._submissions.get(tenant, ()))
