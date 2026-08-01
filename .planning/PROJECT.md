@@ -80,6 +80,12 @@ MCP/CLI/HTTP front doors, eight-example suite in CI (1339 tests, mypy strict,
 all invariant lints green). Milestone audit: tech_debt, no blockers
 (.planning/v0.1-MILESTONE-AUDIT.md).
 
+**Phase 9 complete (2026-08-01):** Hardening — WR-02 thread-safe
+`InMemoryHitlTransport` (plain `threading.Lock`, D-16 verification outside the
+lock), WR-03 loop-safe driver dispatch (`run_coroutine_sync` + typed
+driver-error hierarchy across all three adapters), and the six-item ruling
+batch D-IMPL-68..73 resolved by Dave with zero deferrals (1353 tests green).
+
 ## Current Milestone: v0.2 Performance, Documentation & Demonstration
 
 **Goal:** Make the v0.1 SDK production-credible and adoptable — measured
@@ -172,4 +178,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-31
+*Last updated: 2026-08-01
