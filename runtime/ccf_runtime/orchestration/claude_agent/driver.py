@@ -331,7 +331,6 @@ class ClaudeAgentWorkflowDriver:
         """One session's options: the two node-advancement tools, the gate
         hook, and the permission callback — all closing over the engine's
         public surface and this driver's scalar transcript, nothing else."""
-        tenant, execution_id = key
 
         def _park(outcome: CCFContract) -> str:
             self._outcomes[key] = outcome
