@@ -36,6 +36,7 @@ from __future__ import annotations
 
 from fastapi import Depends, FastAPI, HTTPException, Request, params
 
+from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
 from ccf_runtime.http_api.auth import HttpAuthProtocol
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import ERROR_UNAUTHENTICATED, refusal_detail
@@ -82,7 +83,10 @@ _AUTH_HOOK_LINE = (
 
 
 def create_app(
-    deps: ApiDependencies, *, auth: HttpAuthProtocol | None = None
+    deps: ApiDependencies,
+    *,
+    auth: HttpAuthProtocol | None = None,
+    authorizer: TenantAuthorizerProtocol | None = None,
 ) -> FastAPI:
     """Build the skeleton over ``deps`` — built, never hosted.
 
@@ -96,6 +100,14 @@ def create_app(
             ``request.state.token_grant`` for route compositions. When
             ``None`` — the default — nothing is registered and the
             recorded T-07-24 posture is unchanged.
+        authorizer: Optional HARD-04 tenant authorizer (D-IMPL-68; 10-03).
+            When provided *and* the request carries a verified
+            ``TokenGrant`` (i.e. ``auth`` is also bound — D-06), the two
+            HITL routes enforce per-tenant authorization inside their
+            handlers with the door-declared action IDs, refusing a deny
+            with the typed 403 ``ERROR_TENANT_UNAUTHORIZED`` body.
+            When ``None`` — the default — the HITL routes are
+            byte-identical to the unauthorized-posture routes.
 
     Returns:
         A configured ``FastAPI`` application. Deliberately not started and
@@ -141,7 +153,9 @@ def create_app(
         workflow.build_router(deps), prefix="/workflow", dependencies=guarded
     )
     app.include_router(
-        hitl.build_router(deps), prefix="/hitl", dependencies=guarded
+        hitl.build_router(deps, authorizer=authorizer),
+        prefix="/hitl",
+        dependencies=guarded,
     )
     app.include_router(
         replay.build_router(deps), prefix="/replay", dependencies=guarded

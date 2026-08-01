@@ -43,6 +43,17 @@ caller-typed ``subject_id`` is a claim that must match the verified
 (:class:`SubjectIdentityConflictRefused`), and an unverifiable call is
 refused outright (:class:`UnverifiedCallerRefused`) — never trusted.
 
+**The HARD-04 tenant-authz composition (D-IMPL-68; 10-03).** When the
+caller binds a :class:`~ccf_runtime.authz.protocol.TenantAuthorizerProtocol`,
+both the queue resource (``hitl.queue.read`` with the URI tenant segment —
+the A1-verified ``get_access_token()`` mechanism) and the action tool
+(``hitl.action.submit`` with its ``tenant`` parameter, after identity
+verification) ask it before any seam is touched. A deny is the SAME shared
+constant the HTTP door carries (``ERROR_TENANT_UNAUTHORIZED``), rendered
+protocol-natively as a ``ValueError`` whose payload is the one
+refusal-body shape (D-08); the authorizer audits both outcomes itself
+(D-09/D-10). Unbound, behavior is unchanged.
+
 **Authenticated (D-26).** The verifier/settings pair is required, and
 required together, per the artifact-server precedent — this is the surface
 human authority crosses, and it is the last place an unauthenticated
@@ -75,9 +86,15 @@ from ccf.hitl.transport import (
     SignedBindingInvalidRefused,
     SignedBindingRequiredRefused,
 )
+from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
+from ccf_runtime.authz.refusals import (
+    ACTION_HITL_ACTION_SUBMIT,
+    ACTION_HITL_QUEUE_READ,
+)
 from ccf_runtime.http_api.errors import (
     ERROR_SIGNED_BINDING_INVALID,
     ERROR_SIGNED_BINDING_REQUIRED,
+    ERROR_TENANT_UNAUTHORIZED,
     refusal_detail,
 )
 from ccf_runtime.identity_binding import principal_from_token_grant
@@ -205,6 +222,7 @@ def build_hitl_server(
     action_route: HitlActionRouteProtocol,
     token_verifier: TokenVerifier,
     auth_settings: AuthSettings,
+    authorizer: TenantAuthorizerProtocol | None = None,
 ) -> FastMCP:
     """Build the authenticated HITL server over the two injected seams.
 
@@ -226,6 +244,12 @@ def build_hitl_server(
             (:mod:`ccf_runtime.mcp.auth` ships the reference implementation).
         auth_settings: Issuer, resource-server identity, required scopes —
             deployment values in their entirety.
+        authorizer: Optional HARD-04 tenant authorizer (D-IMPL-68). When
+            bound, the queue resource and the action tool enforce
+            per-tenant authorization with the door-declared action IDs,
+            denying with the shared ``ERROR_TENANT_UNAUTHORIZED``
+            constant rendered protocol-natively (D-08). When ``None`` —
+            the default — behavior is unchanged.
 
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
@@ -240,9 +264,54 @@ def build_hitl_server(
         auth=auth_settings,
     )
 
+    def _enforce_tenant_authz(*, tenant: str, action_id: str) -> None:
+        """Ask the bound authorizer before any injected seam is touched.
+
+        Inert when no authorizer is bound. The verified identity comes
+        from ``get_access_token()`` — available in tool AND resource
+        handlers on this authenticated server (A1 spike verdict,
+        ``tests/crossproc/test_fastmcp_resource_token_spike.py``). A deny
+        is the shared constant, rendered protocol-natively (D-08); the
+        authorizer audits both outcomes itself (D-09/D-10).
+        """
+        if authorizer is None:
+            return
+        token = get_access_token()
+        if token is None:
+            raise UnverifiedCallerRefused(
+                "no verified access token accompanies this call; the"
+                " tenant-authorized surface decides on verified"
+                " identities only (D-IMPL-68; D-26)"
+            )
+        decision = authorizer.authorize(
+            grant=TokenGrant(
+                client_id=token.client_id, scopes=tuple(token.scopes)
+            ),
+            tenant=tenant,
+            action_id=action_id,
+        )
+        if not decision.allowed:
+            raise ValueError(
+                json.dumps(
+                    refusal_detail(
+                        error_code=ERROR_TENANT_UNAUTHORIZED,
+                        message=(
+                            "the verified caller's grant does not"
+                            f" authorize action {action_id!r} on tenant"
+                            f" {tenant!r} under the scope mapping in"
+                            " force (HARD-04; D-IMPL-68 —"
+                            " deny-by-default)"
+                        ),
+                    )
+                )
+            )
+
     @server.resource(HITL_QUEUE_URI_TEMPLATE, mime_type=QUEUE_MIME_TYPE)
     def hitl_queue(tenant: str) -> str:
         """Serve one tenant's pending HITL events as canonical JSON."""
+        _enforce_tenant_authz(
+            tenant=tenant, action_id=ACTION_HITL_QUEUE_READ
+        )
         view = HitlQueueView(tenant=tenant, events=queue_view(tenant=tenant))
         return canonical_bytes(view).decode("utf-8")
 
@@ -307,6 +376,9 @@ def build_hitl_server(
                 " server's verified identity, never the caller's claim"
                 " (D-IMPL-67; D-IMPL-21)"
             )
+        _enforce_tenant_authz(
+            tenant=tenant, action_id=ACTION_HITL_ACTION_SUBMIT
+        )
         derived = principal_from_token_grant(
             grant=TokenGrant(
                 client_id=token.client_id, scopes=tuple(token.scopes)
