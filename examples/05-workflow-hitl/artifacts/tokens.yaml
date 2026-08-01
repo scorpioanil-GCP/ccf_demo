@@ -5,17 +5,26 @@
 # CINV-01). These are SYNTHETIC tokens for a runnable demonstration —
 # illustrative values, never production credentials.
 #
-# One ACTIVE entry (its client_id equals the approver subject in
-# hitl.yaml, which is what lets the derived principal match) and one
-# EXPIRED entry: the 401 refusal path is demonstrated from artifact data,
-# never from a hardcoded bad-token string.
+# One ACTIVE approver entry (its client_id equals the approver subject in
+# hitl.yaml, which is what lets the derived principal match), one EXPIRED
+# entry (the 401 refusal path), and one ACTIVE entry whose scope the
+# scope-mapping artifact does not map (the 403 tenant-unauthorized path,
+# Phase 10 D-16) — every refusal demonstrated from artifact data, never
+# from a hardcoded bad-token string.
 
 tokens:
-  - token: sm-disbursement-token-2026
+  - label: approver
+    token: sm-disbursement-token-2026
     client_id: disbursement-officer-31
     scopes: [hitl]
     status: active
-  - token: sm-disbursement-token-2024
+  - label: expired
+    token: sm-disbursement-token-2024
     client_id: disbursement-officer-31
     scopes: [hitl]
     status: expired
+  - label: unauthorized
+    token: sm-reporting-token-2026
+    client_id: reporting-analyst-7
+    scopes: [reporting]
+    status: active

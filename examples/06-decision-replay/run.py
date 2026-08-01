@@ -147,9 +147,12 @@ from ccf.skills.grants import (
 )
 from ccf.workflow.definitions import WORKFLOW_DEFINITION, WorkflowDefinition
 from ccf.workflow.factory import WorkflowFactory
+from ccf_runtime.authz.artifact import SCOPE_MAPPING, ScopeMappingArtifact
+from ccf_runtime.authz.protocol import ControlPlaneTenantAuthorizer
 from ccf_runtime.http_api.app import create_app
 from ccf_runtime.http_api.auth import BearerTokenAuth
 from ccf_runtime.http_api.dependencies import ApiDependencies
+from ccf_runtime.http_api.errors import ERROR_TENANT_UNAUTHORIZED
 from ccf_runtime.mcp.auth import TokenGrant
 from ccf_runtime.mcp.egress import ProductNotServable
 from ccf_runtime.workflow.engine import (
@@ -519,6 +522,9 @@ class RecordedDecision:
     definition: AgentDefinition
     grant: SkillGrant
     policy_version: str
+    authz_allowed_scope: str
+    authz_refused_scope: str
+    authz_refusal_code: str
 
 
 def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
@@ -594,6 +600,17 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
     assert hitl_policy.signed_binding_required is True
     registry.register_typed(
         hitl_doc["keys"]["hitl_policy"], hitl_policy, HITL_POLICY
+    )
+
+    # --- the scope-mapping policy artifact (HARD-04; D-IMPL-68) --------------
+    # Which scopes reach which tenants and actions is the deployment's
+    # statement, registered like every other Control Plane bundle; the
+    # driver holds no scope or tenant value (CINV-01).
+    scope_doc = _load("scope_mapping.yaml")
+    scope_mapping = parse_artifact(scope_doc["scope_mapping"], SCOPE_MAPPING)
+    assert isinstance(scope_mapping, ScopeMappingArtifact)
+    scope_mapping_version = registry.register_typed(
+        scope_doc["keys"]["scope_mapping"], scope_mapping, SCOPE_MAPPING
     )
 
     # --- boot and ingest -----------------------------------------------------
@@ -774,9 +791,44 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
         auth=BearerTokenAuth(
             token_source=ArtifactTokenSource(path=ARTIFACTS / "tokens.yaml")
         ),
+        # Tenant authorization at the door (HARD-04; D-IMPL-68): the
+        # authorizer interprets the registered scope mapping per request
+        # and audits every allow AND deny decision.
+        authorizer=ControlPlaneTenantAuthorizer(
+            control_plane=registry,
+            scope_mapping_key=scope_doc["keys"]["scope_mapping"],
+            clock=clock,
+        ),
     )
-    active = next(e for e in tokens_doc["tokens"] if e["status"] == "active")
+    entries = {e["label"]: e for e in tokens_doc["tokens"]}
+    active = entries["approver"]
+    outsider = entries["unauthorized"]
     bearer = {"Authorization": f"Bearer {active['token']}"}
+
+    # --- tenant authorization: allowed and refused (Phase 10 D-16) ------------
+    # The approver token's scope is mapped to this tenant and both HITL
+    # actions; the outsider token is AUTHENTICATED (its entry is active)
+    # but its scope is absent from the mapping, so deny-by-default refuses
+    # it with the typed 403 — the shared constant, never prose.
+    authz_refused = _call(
+        app,
+        "GET",
+        f"/hitl/queue?tenant={tenant_id}",
+        headers={"Authorization": f"Bearer {outsider['token']}"},
+    )
+    assert authz_refused.status_code == 403, authz_refused.text
+    authz_refusal_code = authz_refused.json()["detail"]["error_code"]
+    assert authz_refusal_code == ERROR_TENANT_UNAUTHORIZED
+    # Both outcomes land in the one Control Plane audit log with the exact
+    # mapping version in force (D-09/D-10).
+    denied = [
+        event
+        for event in audit.events()
+        if event.action == "authz_decision" and not event.resolved
+    ]
+    assert len(denied) == 1
+    assert denied[0].actor == outsider["client_id"]
+    assert denied[0].version == scope_mapping_version
     queue = _call(
         app, "GET", f"/hitl/queue?tenant={tenant_id}", headers=bearer
     )
@@ -900,6 +952,9 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
         definition=definition,
         grant=grant,
         policy_version=policy_version,
+        authz_allowed_scope=active["scopes"][0],
+        authz_refused_scope=outsider["scopes"][0],
+        authz_refusal_code=authz_refusal_code,
     )
 
 
@@ -1073,6 +1128,14 @@ def main() -> int:
             f"{resolved.perspective_conditioning.grant_set_hash[:16]}…"
         )
         print(f"  approver (reproduced)  {ctx.active_client_id}")
+        print(
+            "  authz allowed (200)    "
+            f"{ctx.authz_allowed_scope} scope → tenant {ctx.tenant_id}"
+        )
+        print(
+            "  authz refused (403)    "
+            f"{ctx.authz_refused_scope} scope → {ctx.authz_refusal_code}"
+        )
         print("  reproduction           byte-equal")
         return 0
 
