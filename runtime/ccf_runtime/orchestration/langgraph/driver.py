@@ -30,6 +30,12 @@ engine's own ``resume`` — routing stays the workflow artifact's statement
 Not an algorithmic module: it imports an orchestrator SDK, which is exactly
 what the CINV-02 carve-out for ``ccf_runtime.orchestration`` exists to
 permit here and nowhere else.
+
+**Loop-safety (WR-03; Phase-9 CONTEXT D-10/D-11).** Outcome lookups raise
+the shared typed hierarchy
+(:class:`~ccf_runtime.orchestration.common.SegmentNotExecutedError`), never
+a bare ``KeyError``; the sync introspection seam holds no direct
+``asyncio.run``, so callers hosted inside a running event loop work as-is.
 """
 
 from __future__ import annotations
@@ -44,6 +50,7 @@ from langgraph.types import Command, interrupt
 
 from ccf.contracts.base import CCFContract
 from ccf.workflow.factory import Workflow
+from ccf_runtime.orchestration.common import SegmentNotExecutedError
 from ccf_runtime.workflow.engine import WorkflowEngine, WorkflowSuspended
 
 __all__ = ["LangGraphWorkflowDriver"]
@@ -80,6 +87,21 @@ class LangGraphWorkflowDriver:
         #: channel, so nothing CCF-typed reaches the checkpointer.
         self._outcomes: dict[tuple[str, str], CCFContract] = {}
 
+    def _outcome(self, tenant: str, execution_id: str) -> CCFContract:
+        """The engine's typed outcome for one execution — typed on absence.
+
+        Phase-9 CONTEXT D-10 (WR-03): a never-executed segment is a driver
+        condition, not a dict accident — :class:`SegmentNotExecutedError`,
+        never a bare ``KeyError``.
+        """
+        try:
+            return self._outcomes[(tenant, execution_id)]
+        except KeyError:
+            raise SegmentNotExecutedError(
+                f"no executed segment for tenant {tenant!r},"
+                f" execution {execution_id!r}"
+            ) from None
+
     # -- the topology, authored here against the engine's public surface ------
 
     def _graph(self, workflow: Workflow) -> CompiledStateGraph[_Position]:
@@ -108,7 +130,7 @@ class LangGraphWorkflowDriver:
             return _park(outcome)
 
         async def gate(state: _Position) -> _Position:
-            suspended = self._outcomes[(tenant, state["execution_id"])]
+            suspended = self._outcome(tenant, state["execution_id"])
             assert isinstance(suspended, WorkflowSuspended)
             decision = interrupt(
                 {"gate": suspended.gate, "event_key": suspended.event_key}
@@ -150,7 +172,7 @@ class LangGraphWorkflowDriver:
         graph = self._graph(workflow)
         entry: _Position = {"execution_id": execution_id, "suspended": False}
         await graph.ainvoke(entry, self._config(workflow, execution_id))
-        return self._outcomes[(workflow.definition.tenant, execution_id)]
+        return self._outcome(workflow.definition.tenant, execution_id)
 
     async def resume_execution(
         self, *, workflow: Workflow, execution_id: str, decision: str
@@ -161,7 +183,7 @@ class LangGraphWorkflowDriver:
         await graph.ainvoke(
             Command(resume=decision), self._config(workflow, execution_id)
         )
-        return self._outcomes[(workflow.definition.tenant, execution_id)]
+        return self._outcome(workflow.definition.tenant, execution_id)
 
     # -- introspection for the conformance suite -------------------------------
 
