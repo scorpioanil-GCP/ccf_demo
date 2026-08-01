@@ -265,12 +265,12 @@ DECISIONS.md format verified: entries are `**D-IMPL-NN — title.** RESOLVED —
 | Deadlock as availability failure | DoS | Single lock, no nested acquisition (D-06), bounded joins in tests |
 | Nested-loop crash masking driver state | DoS/Info | Loop-aware dispatch + typed `DriverStateRetrievalError` instead of raw `RuntimeError` |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does `SegmentNotExecutedError` also subclass `KeyError`?** Existing conformance tests may rely on `KeyError`. Recommendation: planner greps test expectations; prefer clean break (parity tests are being rewritten anyway) unless something outside the parity suite catches `KeyError`.
-2. **Exact next D-IMPL numbers.** Log tail shows D-IMPL-66+; planner reads `docs/DECISIONS.md` end-to-end to assign the six numbers.
-3. **Branching for the mini-cycle.** config.json says `branching_strategy: none` but CLAUDE.md §2.2 mandates phase branches with D-GATE merges. Surface to Dave in the D-GATE-9 presentation if not already settled for v0.2.
-4. **Which files count as "expected-output files" for D-14.** Planner enumerates from the examples' verification machinery (e.g., `expected*` fixtures under `examples/`) before snapshotting.
+1. **Does `SegmentNotExecutedError` also subclass `KeyError`?** (RESOLVED) Clean break — plan 09-02's grep evidence found nothing outside the parity suite catching `KeyError`; the parity tests are rewritten in plan 09-02 Task 3 against the typed hierarchy.
+2. **Exact next D-IMPL numbers.** (RESOLVED) Executor verifies the actual tail of `docs/DECISIONS.md` in plan 09-01 Task 2 before pre-assigning the six candidate numbers (PATTERNS.md expects D-IMPL-68 but verification, not assumption, governs).
+3. **Branching for the mini-cycle.** (RESOLVED) Surfaced to Dave at the D-GATE-9 presentation per plan 09-01's output/summary instructions; not silently defaulted.
+4. **Which files count as "expected-output files" for D-14.** (RESOLVED) `run.py` outputs plus `artifacts/` trees per PATTERNS.md, encoded in plan 09-01 Task 1's hash-manifest enumeration.
 
 ## Assumptions Log
 
