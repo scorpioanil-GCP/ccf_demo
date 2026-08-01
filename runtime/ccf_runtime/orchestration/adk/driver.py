@@ -168,6 +168,22 @@ class AdkWorkflowDriver:
         #: nothing CCF-typed reaches ADK's session machinery.
         self._outcomes: dict[tuple[str, str], CCFContract] = {}
 
+    def _outcome(self, tenant: str, execution_id: str) -> CCFContract:
+        """The engine's typed outcome for one execution — typed on absence.
+
+        Phase-9 CONTEXT D-10/D-11 (WR-03): a never-executed segment is a
+        driver condition, not a dict accident —
+        :class:`SegmentNotExecutedError`, never a bare ``KeyError``. The
+        same helper shape on every driver leg, parity-asserted.
+        """
+        try:
+            return self._outcomes[(tenant, execution_id)]
+        except KeyError:
+            raise SegmentNotExecutedError(
+                f"no executed segment for tenant {tenant!r},"
+                f" execution {execution_id!r}"
+            ) from None
+
     # -- the topology, authored here against the engine's public surface ------
 
     async def _run(
@@ -196,13 +212,7 @@ class AdkWorkflowDriver:
             ),
         ):
             pass
-        try:
-            return self._outcomes[(tenant, execution_id)]
-        except KeyError:
-            raise SegmentNotExecutedError(
-                f"no executed segment for tenant {tenant!r},"
-                f" execution {execution_id!r}"
-            ) from None
+        return self._outcome(tenant, execution_id)
 
     def _suspended(self, tenant: str, execution_id: str) -> bool:
         return isinstance(
