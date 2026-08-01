@@ -304,6 +304,11 @@ class ClaudeAgentWorkflowDriver:
         #: The engine's typed outcomes, held driver-side keyed by
         #: ``(tenant, execution_id)`` — deliberately NEVER handed to the
         #: session, so nothing CCF-typed reaches the SDK's machinery.
+        #: Retention (here and for ``_transcripts``) is the driver
+        #: instance's lifetime (one entry per execution, no eviction —
+        #: Phase-9 review IN-04): sized for conformance-suite and
+        #: per-composition lifetimes; a long-lived composition root should
+        #: recycle the driver, not hold one forever.
         self._outcomes: dict[tuple[str, str], CCFContract] = {}
         #: Scalar session transcript per execution: session identity and
         #: turn results — the SDK-side "position" the suite asserts over.

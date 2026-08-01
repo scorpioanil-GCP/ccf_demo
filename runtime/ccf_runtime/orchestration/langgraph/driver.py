@@ -88,6 +88,11 @@ class LangGraphWorkflowDriver:
         #: The engine's typed outcomes, held driver-side keyed by
         #: ``(tenant, execution_id)`` — deliberately NOT a graph state
         #: channel, so nothing CCF-typed reaches the checkpointer.
+        #: Retention is the driver instance's lifetime (one entry per
+        #: execution, no eviction — Phase-9 review IN-04): sized for
+        #: conformance-suite and per-composition lifetimes; a long-lived
+        #: composition root should recycle the driver, not hold one
+        #: forever.
         self._outcomes: dict[tuple[str, str], CCFContract] = {}
 
     def _outcome(self, tenant: str, execution_id: str) -> CCFContract:

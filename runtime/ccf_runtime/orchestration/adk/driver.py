@@ -165,7 +165,11 @@ class AdkWorkflowDriver:
         self._sessions = InMemorySessionService()  # type: ignore[no-untyped-call]
         #: The engine's typed outcomes, held driver-side keyed by
         #: ``(tenant, execution_id)`` — deliberately NOT session state, so
-        #: nothing CCF-typed reaches ADK's session machinery.
+        #: nothing CCF-typed reaches ADK's session machinery. Retention is
+        #: the driver instance's lifetime (one entry per execution, no
+        #: eviction — Phase-9 review IN-04): sized for conformance-suite
+        #: and per-composition lifetimes; a long-lived composition root
+        #: should recycle the driver, not hold one forever.
         self._outcomes: dict[tuple[str, str], CCFContract] = {}
 
     def _outcome(self, tenant: str, execution_id: str) -> CCFContract:
