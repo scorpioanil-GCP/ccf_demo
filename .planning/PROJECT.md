@@ -80,18 +80,25 @@ MCP/CLI/HTTP front doors, eight-example suite in CI (1339 tests, mypy strict,
 all invariant lints green). Milestone audit: tech_debt, no blockers
 (.planning/v0.1-MILESTONE-AUDIT.md).
 
-## Current Milestone: v0.2 Performance, Documentation & Hardening
+## Current Milestone: v0.2 Performance, Documentation & Demonstration
 
-**Goal:** Make the v0.1 SDK production-credible — measured performance with
-regression gates, adopter-grade documentation, and closure of the
-security/robustness debt from the v0.1 audit.
+**Goal:** Make the v0.1 SDK production-credible and adoptable — measured
+performance with regression gates, adopter-grade documentation with detailed
+usage examples, a synthetic-data end-to-end demonstration of
+data→context→agentic reasoning, and closure of the security/robustness debt
+from the v0.1 audit.
 
 **Target features:**
-- Performance test battery: micro-benchmarks, fabric load/scale curves,
-  cross-process latency, replay-at-scale, committed baselines, `make perf`,
-  opt-in CI job with relative regression thresholds
-- Comprehensive documentation: adopter's guide, Protocol reference, OpenAPI
-  polish, security/deployment notes, definition-artifact schema reference
+- Detailed examples + usage documentation: adopter's guide, Protocol
+  reference, definition-artifact schema reference, how-to guides, generated
+  API reference, OpenAPI polish, security/deployment notes
+- Fake data store demonstration: a synthetic, deterministic data store
+  (domain values in artifacts per No-Hardcoding) ingested through L1→L2,
+  folded into the Context Graph, projected into Context Products, and
+  consumed by an agent solving a concrete reasoning problem end-to-end
+- Performance & scalability test battery: micro-benchmarks, fabric load/scale
+  curves, cross-process latency, replay-at-scale, committed baselines,
+  `make perf`, opt-in CI job with relative regression thresholds
 - Hardening intake: WR-01 HITL door authorization, WR-02 transport
   synchronization, WR-03 ADK driver robustness, ApprovalGate.resolve x D-16
   composition, create_app auth-default warning
