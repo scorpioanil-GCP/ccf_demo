@@ -42,6 +42,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import threading
 from datetime import datetime
 from typing import Literal
 
@@ -214,13 +215,24 @@ class AuditLog:
     Assigns each event its own sequence number, so callers cannot mis-number
     the log and a reader can detect a gap. Deliberately not a contract: it is
     mutable-by-appending state, whereas contracts are values.
+
+    **Thread safety (CR-01; the WR-02 transport precedent).** A single
+    plain :class:`threading.Lock` guards sequence assignment, the append,
+    and every snapshot read. HARD-04 put this log on every request path —
+    :class:`~ccf_runtime.authz.protocol.ControlPlaneTenantAuthorizer`
+    appends one ``authz_decision`` event per door request, and the HTTP
+    HITL handlers run on FastAPI's threadpool — so unsynchronized appends
+    would race by construction and could mint duplicate sequence numbers,
+    defeating the "gaps are detectable" contract above.
     """
 
     def __init__(self) -> None:
         self._events: list[AuditEvent] = []
+        self._lock = threading.Lock()
 
     def __len__(self) -> int:
-        return len(self._events)
+        with self._lock:
+            return len(self._events)
 
     def append(
         self,
@@ -241,39 +253,47 @@ class AuditLog:
         :class:`AuthzDecisionAuditEvent`; otherwise it is a plain
         :class:`AuditEvent` whose canonical bytes are unchanged by the
         HARD-04 extension (the A2 stability commitment).
+
+        Sequence assignment and the append happen under the log's lock,
+        so concurrent appends from door threads can neither duplicate nor
+        skip a sequence number (CR-01).
         """
         event: AuditEvent
-        if authz_action_id is not None or authz_matched_pattern is not None:
-            event = AuthzDecisionAuditEvent(
-                sequence=len(self._events),
-                action=action,
-                key=key,
-                version=version,
-                resolved=resolved,
-                occurred_at=occurred_at,
-                actor=actor,
-                artifact_class=artifact_class,
-                authz_action_id=authz_action_id,
-                authz_matched_pattern=authz_matched_pattern,
-            )
-        else:
-            event = AuditEvent(
-                sequence=len(self._events),
-                action=action,
-                key=key,
-                version=version,
-                resolved=resolved,
-                occurred_at=occurred_at,
-                actor=actor,
-                artifact_class=artifact_class,
-            )
-        self._events.append(event)
+        with self._lock:
+            if authz_action_id is not None or authz_matched_pattern is not None:
+                event = AuthzDecisionAuditEvent(
+                    sequence=len(self._events),
+                    action=action,
+                    key=key,
+                    version=version,
+                    resolved=resolved,
+                    occurred_at=occurred_at,
+                    actor=actor,
+                    artifact_class=artifact_class,
+                    authz_action_id=authz_action_id,
+                    authz_matched_pattern=authz_matched_pattern,
+                )
+            else:
+                event = AuditEvent(
+                    sequence=len(self._events),
+                    action=action,
+                    key=key,
+                    version=version,
+                    resolved=resolved,
+                    occurred_at=occurred_at,
+                    actor=actor,
+                    artifact_class=artifact_class,
+                )
+            self._events.append(event)
         return event
 
     def events(self) -> tuple[AuditEvent, ...]:
         """Return every recorded event, oldest first.
 
         A tuple rather than the internal list: a caller holding the log must not
-        be able to rewrite history through the reference it was handed.
+        be able to rewrite history through the reference it was handed. Taken
+        under the log's lock, so the snapshot never observes a half-appended
+        state (CR-01).
         """
-        return tuple(self._events)
+        with self._lock:
+            return tuple(self._events)
