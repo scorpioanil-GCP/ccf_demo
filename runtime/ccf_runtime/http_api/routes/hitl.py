@@ -27,6 +27,17 @@ deployment verified, never what the caller typed. A body principal whose
 that never touches the transport (D-IMPL-21). When no hook is bound, the
 recorded T-07-24 posture is unchanged: the submission travels as sent.
 
+**The HARD-04 tenant-authz composition (D-IMPL-68; 10-03).** When
+``create_app`` binds a :class:`~ccf_runtime.authz.protocol
+.TenantAuthorizerProtocol` alongside the auth hook (D-06), both routes ask
+it — inside the handler, where the tenant and the door-declared action ID
+are known (never a blanket router ``Depends``) — before any transport
+interaction. A deny is a typed 403 carrying the shared
+``ERROR_TENANT_UNAUTHORIZED`` constant, and both outcomes are audited by
+the authorizer itself (D-09/D-10). With an authorizer bound but no
+verified grant present (auth unbound), enforcement is inert: the recorded
+T-07-24 posture is unchanged.
+
 Algorithmic module (CINV-03).
 """
 
@@ -41,12 +52,18 @@ from ccf.hitl.transport import (
     SignedBindingInvalidRefused,
     SignedBindingRequiredRefused,
 )
+from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
+from ccf_runtime.authz.refusals import (
+    ACTION_HITL_ACTION_SUBMIT,
+    ACTION_HITL_QUEUE_READ,
+)
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import (
     ERROR_INVALID_GRANT,
     ERROR_SIGNED_BINDING_INVALID,
     ERROR_SIGNED_BINDING_REQUIRED,
     ERROR_SUBJECT_CONFLICT,
+    ERROR_TENANT_UNAUTHORIZED,
     refusal_detail,
 )
 from ccf_runtime.identity_binding import principal_from_token_grant
@@ -57,16 +74,74 @@ __ccf_mode__ = "algorithmic"
 __all__ = ["build_router"]
 
 
-def build_router(deps: ApiDependencies) -> APIRouter:
+def build_router(
+    deps: ApiDependencies,
+    *,
+    authorizer: TenantAuthorizerProtocol | None = None,
+) -> APIRouter:
     """The hitl router over the injected typed transport."""
     router = APIRouter()
+
+    def _grant_from(request: Request) -> TokenGrant | None:
+        """The stashed verified grant, failing closed on a near-miss."""
+        grant = getattr(request.state, "token_grant", None)
+        if grant is not None and not isinstance(grant, TokenGrant):
+            # Fail closed (Codex finding, 07-REVIEWS round 2): an object
+            # that is not the verified TokenGrant type never falls
+            # through to any authorization or principal path.
+            raise HTTPException(
+                status_code=403,
+                detail=refusal_detail(
+                    error_code=ERROR_INVALID_GRANT,
+                    message=(
+                        "the stashed grant object is not a TokenGrant;"
+                        " the door refuses rather than fall back to the"
+                        " caller-supplied identity"
+                    ),
+                ),
+            )
+        return grant
+
+    def _enforce_tenant_authz(
+        grant: TokenGrant | None, *, tenant: str, action_id: str
+    ) -> None:
+        """Ask the bound authorizer before any transport interaction.
+
+        Inert when no authorizer is bound, and inert when no verified
+        grant exists (auth unbound — D-06): the T-07-24 posture is
+        unchanged. A deny is the typed 403 with the shared constant
+        (D-08); the authorizer audits both outcomes itself (D-09/D-10).
+        """
+        if authorizer is None or grant is None:
+            return
+        decision = authorizer.authorize(
+            grant=grant, tenant=tenant, action_id=action_id
+        )
+        if not decision.allowed:
+            raise HTTPException(
+                status_code=403,
+                detail=refusal_detail(
+                    error_code=ERROR_TENANT_UNAUTHORIZED,
+                    message=(
+                        "the authenticated caller's grant does not"
+                        f" authorize action {action_id!r} on tenant"
+                        f" {tenant!r} under the scope mapping in force"
+                        " (HARD-04; D-IMPL-68 — deny-by-default)"
+                    ),
+                ),
+            )
 
     @router.get(
         "/queue",
         response_model=list[PendingHitlEvent],
         summary="HITL queue view (D-IMPL-23)",
     )
-    def queue(tenant: str) -> list[PendingHitlEvent]:
+    def queue(tenant: str, request: Request) -> list[PendingHitlEvent]:
+        _enforce_tenant_authz(
+            _grant_from(request),
+            tenant=tenant,
+            action_id=ACTION_HITL_QUEUE_READ,
+        )
         return list(deps.hitl_transport.pending(tenant=tenant))
 
     @router.post(
@@ -77,22 +152,12 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     def act(
         submission: HitlActionSubmission, request: Request
     ) -> HitlActionReceipt:
-        grant = getattr(request.state, "token_grant", None)
-        if grant is not None and not isinstance(grant, TokenGrant):
-            # Fail closed (Codex finding, 07-REVIEWS round 2): an object
-            # that is not the verified TokenGrant type never falls
-            # through to the caller-supplied principal.
-            raise HTTPException(
-                status_code=403,
-                detail=refusal_detail(
-                    error_code=ERROR_INVALID_GRANT,
-                    message=(
-                        "the stashed grant object is not a TokenGrant;"
-                        " the door refuses rather than fall back to the"
-                        " caller-supplied principal"
-                    ),
-                ),
-            )
+        grant = _grant_from(request)
+        _enforce_tenant_authz(
+            grant,
+            tenant=submission.tenant,
+            action_id=ACTION_HITL_ACTION_SUBMIT,
+        )
         if isinstance(grant, TokenGrant):
             if submission.principal.approver.subject_id != grant.client_id:
                 raise HTTPException(
