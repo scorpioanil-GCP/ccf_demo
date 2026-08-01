@@ -1,9 +1,9 @@
 ---
 phase: 7
 slug: phase-i-4-orchestration-hitl-experience
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: complete
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-07-30
 ---
 
@@ -38,7 +38,12 @@ created: 2026-07-30
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| (filled by planner) | — | — | ORCH-01, ORCH-02, HITL-01, EXPR-01, EXPR-02, EXPR-03 | — | — | unit/integration | pytest | ❌ W0 | ⬜ pending |
+| workflow-engine | 07-01..06 | 1–5 | ORCH-01 | — | state-machine suspend/resume, replay trace capture | unit/integration | `pytest tests/workflow` | ✅ | ✅ green |
+| orchestration-protocol | 07-12/13 | 8–9 | ORCH-02 | — | 3-driver conformance (LangGraph/ADK/Claude), engine refusal | integration | `CCF_REQUIRE_HARNESSES=1 pytest tests/conformance/test_orchestration.py tests/conformance/test_harness_portability.py` | ✅ | ✅ green |
+| hitl-primitives | 07-07/08, 07-15..20 | 5–7 | HITL-01 | — | audit-by-construction, identity binding, signed-binding authority, replay e2e | unit/integration | `pytest tests/hitl` (12 files, incl. test_replay_e2e.py) | ✅ | ✅ green |
+| mcp-egress | 07-09 | 6 | EXPR-01 | — | HITL transport doors, principal binding refusals | integration | `pytest tests/hitl/test_transport.py tests/http_api/test_hitl_door_identity.py` | ✅ | ✅ green |
+| cli | 07-11 | 7 | EXPR-02 | — | ccf CLI verbs incl. hitl submit, skill import | unit | `pytest tests/cli` | ✅ | ✅ green |
+| http-api | 07-10, 07-16 | 7 | EXPR-03 | — | 8 ruled nouns, OpenAPI 3.1.0, BearerAuth, typed refusals | integration | `pytest tests/http_api` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -65,11 +70,24 @@ created: 2026-07-30
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 180s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 180s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** retroactive audit passed (validate-phase, 2026-07-31)
+
+## Validation Audit 2026-07-31
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 (all 6 requirements already COVERED by green tests) |
+| Escalated | 0 |
+
+Retroactive audit: the draft per-task map was never populated during execution; all six
+requirements (ORCH-01/02, HITL-01, EXPR-01/02/03) were cross-referenced to existing suites
+and executed fresh — 177 passed (tests/hitl, tests/cli, tests/http_api) + 330 passed
+(tests/workflow, tests/conformance, tests/replay under CCF_REQUIRE_HARNESSES=1).
