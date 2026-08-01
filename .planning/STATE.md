@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.1
-milestone_name: milestone
-status: milestone_complete
-last_updated: 2026-07-31T19:58:14.994Z
+milestone: v0.2
+milestone_name: Performance, Documentation & Hardening
+status: planning
+last_updated: "2026-08-01T00:03:05.682Z"
+last_activity: 2026-08-01
 progress:
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 13
-  completed_plans: 107
-  percent: 100
-stopped_at: Milestone complete (Phase 08 was final phase)
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # STATE — CCF SDK
@@ -27,43 +27,10 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 08 (phase-i-5-examples-suite-full-ci-verification) — COMPLETE AND GATED (D-GATE-I, 2026-07-31)
-Plan: 13 of 13 complete
-
-- **Phase:** 08 of 8 (phase i.5 — examples suite & full ci verification)
-- **Plan:** Not started
-  PHASE_I5_GATE.md authored; §3.1 cross-AI review triaged (X-1 blocking
-  wording fix in-phase); Dave approved 2026-07-31; D-GATE-I logged;
-  phase-i5 merged to main --no-ff (358ba0d); v0.1.0 tagged on the merge
-  commit; push to origin authorized and performed. Previously: 08-12 — examples suite wired into CI per D-10/D-11
-  (EXAM-09): ci.yml always-on `examples` job (`make examples`,
-  CCF_REQUIRE_HARNESSES=1, timeout-minutes 20, never continue-on-error);
-  new live-legs.yml with workflow_dispatch examples-live-ollama (installs
-  Ollama, pulls parameterized qwen3:0.6b-default model) and secret-gated
-  examples-live-anthropic (fail-fast when ANTHROPIC_API_KEY absent);
-  `make ci` finalized = ci-core + examples. Full local sweep GREEN as the
-  interim CI evidence: lint 0, mypy clean (156 files), pytest 1339 passed
-  / 0 skipped under required harnesses, all eight examples exit 0,
-  README/artifacts D-09 contract check 8/8 PASS. Push of `phase-i5`
-  remains flagged for Dave — not performed
-
-- **Status:** Milestone complete
-
-- **Branch:** `phase-i5` (created off `main`)
-
-- **Progress:** [██████████] 100%
-
-**Nothing blocks Phase 7 planning on the decision log.** The 12-item Phase I
-gate list is RESOLVED in full (D-GATE-D, 2026-07-25), and D-GATE-I.3 states
-explicitly that nothing on the log blocks I.4 — D-IMPL-56 is RESOLVED with its
-implementation ruled into this phase, and advisories A3/A7 are advisory. One new
-ruling is pending write-up: **D-IMPL-60** (Dave, 2026-07-29) extending
-D-IMPL-17's orchestrator seam to all three v0 SDKs — see `07-CONTEXT.md` D-05..D-07.
-
-**Two inherited prerequisites, not notes** (`docs/PHASE_I3_GATE.md` §5):
-the `ControlPlaneStateStore.put` audit closure precedes any plan touching that
-seam, and the Workflow primitive is built against D-IMPL-17's boundary rather
-than by generalizing the LangGraph adapter's `_build_graph` (advisory A7).
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-08-01 — Milestone v0.2 started
 
 ## Performance Metrics
 

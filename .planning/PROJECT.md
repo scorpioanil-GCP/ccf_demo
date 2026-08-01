@@ -80,13 +80,21 @@ MCP/CLI/HTTP front doors, eight-example suite in CI (1339 tests, mypy strict,
 all invariant lints green). Milestone audit: tech_debt, no blockers
 (.planning/v0.1-MILESTONE-AUDIT.md).
 
-## Next Milestone Goals
+## Current Milestone: v0.2 Performance, Documentation & Hardening
 
-Candidates for v0.2 (pending /gsd:new-milestone): performance test battery +
-baselines; comprehensive documentation; tech-debt register (HITL door
-authorization WR-01, transport synchronization WR-02, ADK driver robustness
-WR-03, ApprovalGate.resolve × D-16 composition, create_app auth-default
-warning, phase-7 Nyquist validation).
+**Goal:** Make the v0.1 SDK production-credible — measured performance with
+regression gates, adopter-grade documentation, and closure of the
+security/robustness debt from the v0.1 audit.
+
+**Target features:**
+- Performance test battery: micro-benchmarks, fabric load/scale curves,
+  cross-process latency, replay-at-scale, committed baselines, `make perf`,
+  opt-in CI job with relative regression thresholds
+- Comprehensive documentation: adopter's guide, Protocol reference, OpenAPI
+  polish, security/deployment notes, definition-artifact schema reference
+- Hardening intake: WR-01 HITL door authorization, WR-02 transport
+  synchronization, WR-03 ADK driver robustness, ApprovalGate.resolve x D-16
+  composition, create_app auth-default warning
 
 ## Context
 
