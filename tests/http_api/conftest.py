@@ -363,7 +363,10 @@ def app(fabric: Fabric) -> Any:
             hitl_transport=fabric.hitl,
             skill_catalog=fabric.catalog,
             grant_ledger=fabric.ledger,
-        )
+        ),
+        # This fixture is about the routes, not the posture; the D-IMPL-73
+        # warning has its own dedicated suite (test_insecure_default_warning).
+        acknowledge_insecure_default=True,
     )
 
 

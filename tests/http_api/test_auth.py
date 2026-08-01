@@ -25,6 +25,7 @@ from typing import Any
 
 from ccf.hitl.principal import HumanPrincipalBinding
 from ccf_runtime.identity_binding import principal_from_token_grant
+from ccf_runtime.http_api.app import CcfInsecureDefaultWarning
 from ccf_runtime.mcp.auth import FileTokenSource, TokenGrant
 
 from .conftest import Fabric, call
@@ -173,7 +174,10 @@ class TestPosturePreserved:
     def test_d_no_hook_means_no_401_anywhere(self, fabric: Fabric) -> None:
         from ccf_runtime.http_api.app import create_app
 
-        app = create_app(_deps(fabric))
+        # The bare construction is the point here — the D-IMPL-73 warning
+        # fires and documents the posture this test asserts is preserved.
+        with pytest.warns(CcfInsecureDefaultWarning):
+            app = create_app(_deps(fabric))
         assert call(app, "GET", "/health").status_code == 200
         # Authority-bearing route: reaches route validation, never 401.
         assert call(app, "POST", "/hitl/actions", json={}).status_code == 422
