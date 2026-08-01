@@ -42,7 +42,7 @@ and the upgraded examples.
   3. The ADK workflow driver runs inside an existing event loop with no nested `asyncio.run`, raises typed errors, and cross-adapter parity tests pass across all three drivers (WR-03 fixed before/with WR-02 so the sync/async seam is clean when locks arrive)
   4. The full eight-example CI sweep still passes byte-identically — no expected-output regeneration (any regeneration is a blocking review event)
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 **Wave 1**
@@ -51,7 +51,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 09-02-PLAN.md — WR-03: shared loop-aware dispatch + typed driver errors across all three drivers + parity tests
+- [x] 09-02-PLAN.md — WR-03: shared loop-aware dispatch + typed driver errors across all three drivers + parity tests
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -132,7 +132,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 9. Hardening — Defect Fixes & Ruling Batch | 1/3 | In Progress|  |
+| 9. Hardening — Defect Fixes & Ruling Batch | 2/3 | In Progress|  |
 | 10. Hardening — Authorization & Posture | 0/? | Not started | - |
 | 11. Performance Battery | 0/? | Not started | - |
 | 12. Synthetic-Data Demonstration | 0/? | Not started | - |
