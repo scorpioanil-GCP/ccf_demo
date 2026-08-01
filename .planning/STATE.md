@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
-status: roadmap_created
-last_updated: "2026-08-01T05:49:36.688Z"
-last_activity: 2026-08-01
+status: planning
+last_updated: "2026-08-01T16:27:39.626Z"
+last_activity: 2026-08-01 — v0.2 roadmap revised (Phases 9–14, 21/21 requirements mapped; Examples Suite Upgrade inserted as Phase 13)
 progress:
   total_phases: 6
   completed_phases: 0
