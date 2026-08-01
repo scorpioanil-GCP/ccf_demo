@@ -402,19 +402,22 @@ raise ValueError(json.dumps(refusal_detail(error_code=ERROR_..., message=...)))
 | A1 | FastMCP's auth contextvar (`get_access_token`) is available inside **resource** handlers, not only tools | Pitfall 7 | MCP queue-read authorization needs a different grant-access mechanism; verify with a spike test in Wave 0 |
 | A2 | Adding optional fields to `AuditEvent` (if that path is chosen) does not break canonical-bytes replay pins | Pattern 6 / Pitfall 3 | Choose the companion-record path (Open Q3 option 2) instead |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Where does `ScopeMappingArtifact` live — `/src` or `runtime`?**
    - What we know: D-05 says `/src` core untouched and the interpreter lives in runtime; D-03 says it follows the D-IMPL-28 artifact pattern (whose classes live in `/src/ccf/controlplane/` and `/src/ccf/hitl/`). `HitlPolicy` lives in `/src` because the transport (in `/src`) reads it; nothing in `/src` will read the scope mapping.
+   - **RESOLVED: adopted** — the artifact class lives in `runtime/ccf_runtime/authz/artifact.py` beside the interpreter, placement rationale recorded in its docstring (10-01 Task 3).
    - Recommendation: put the artifact class in `runtime/ccf_runtime/authz/` beside the interpreter — Control Plane `register_typed` accepts any `ArtifactClass` regardless of module, and D-05's "/src untouched" then holds literally for HARD-04 (HARD-05 does touch `/src/ccf/hitl/` by ruling). Planner should state this placement explicitly.
 
 2. **Matrix scope — HITL surfaces only, or all eight HTTP nouns?**
    - What we know: ruling context and CONTEXT.md integration points name the HITL doors; most other routes carry no tenant parameter.
+   - **RESOLVED: adopted** — enforcement and matrix scoped to HITL surfaces only: 2 doors x 2 actions x allow/deny, 8 legs asserted (10-03); generalization path noted in docstrings.
    - Recommendation: scope enforcement and matrix to the four HITL action surfaces (2 doors × 2 actions × allow/deny minimum); note the generalization path in docstrings.
 
 3. **Audit-record mechanics for the D-09 tuple** (most consequential design point).
    - What we know: `AuditEvent` lacks fields for action-ID and matched-pattern; `AuditAction` is a closed Literal; D-11 forbids a new log surface; queue-read denials have no HITL action to attach to.
    - Options: (a) new `AuditAction "authz_decision"` + additive optional `AuditEvent` fields; (b) a typed `AuthzDecisionRecord` serialized into the existing shape (e.g. tuple canonicalized into `key`/`version`/`artifact_class` semantics is too lossy — likely needs (a)); Recommendation: (a), with replay-pin tests checked first (Assumption A2). If bytes break, escalate — this could be a small D-IMPL if the planner judges the audit contract change to exceed delegated discretion, though D-09–D-11 read as delegating the shape to this phase.
+   - **RESOLVED: option (a) adopted** — additive `authz_decision` AuditAction plus optional AuditEvent fields, gated by the A2 canonical-bytes pin written first (10-01 Tasks 1-2). Conditional escalation: if the A2 pin breaks, the executor STOPs and surfaces a D-IMPL rather than switching paths silently.
 
 ## Sources
 
