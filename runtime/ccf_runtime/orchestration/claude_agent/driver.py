@@ -27,8 +27,10 @@ node advancement travels as SDK-MCP **tool invocations** — the SDK's own
 control protocol routes ``tools/call`` into in-process handlers that call
 the engine; the hitl-gate yields through the **hook surface** —
 ``CanUseTool`` gates every call and a ``PostToolUse`` ``HookCallback``
-surfaces the engine's suspend handle driver-side; and a resume is a
-**continuation of the same session** (the same ``session_id``), whose tool
+surfaces the engine's suspend handle driver-side; and a resume carries the
+**same session identity** (the same ``session_id``) — each turn runs a
+fresh client over a fresh scripted transport; the engine, not the session,
+holds the continuity — and its tool
 turn hands the externally-bound decision to the engine's own ``resume`` —
 routing stays the workflow artifact's statement (CINV-01), interpreted by
 the engine, never by the session.
@@ -443,10 +445,11 @@ class ClaudeAgentWorkflowDriver:
     async def resume_execution(
         self, *, workflow: Workflow, execution_id: str, decision: str
     ) -> CCFContract:
-        """Continue the same session (same ``session_id``) with the resume
-        turn: the externally-bound decision goes to the engine's own resume
-        surface, and the session parks again on a later gate if the engine
-        suspends."""
+        """Continue under the same session identity (same ``session_id``)
+        with the resume turn — a fresh client over a fresh scripted
+        transport; continuity lives in the engine: the externally-bound
+        decision goes to the engine's own resume surface, and the session
+        parks again on a later gate if the engine suspends."""
         return await self._drive(
             workflow,
             execution_id,
