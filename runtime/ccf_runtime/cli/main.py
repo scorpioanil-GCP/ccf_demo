@@ -161,7 +161,13 @@ def main(
             )
         from ccf_runtime.http_api.app import create_app
 
-        transport = httpx.ASGITransport(app=create_app(dependencies))
+        # In-process ASGI transport over the caller's own handles: the app
+        # is never bound to a network interface, so the D-IMPL-73 insecure-
+        # default posture is the caller's existing in-process authority,
+        # not a new exposure surface — acknowledged, not suppressed.
+        transport = httpx.ASGITransport(
+            app=create_app(dependencies, acknowledge_insecure_default=True)
+        )
         base_url = _LOCAL_BASE
     else:
         configured = args.base_url or os.environ.get("CCF_BASE_URL")

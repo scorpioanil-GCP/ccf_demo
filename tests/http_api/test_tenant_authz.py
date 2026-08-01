@@ -176,6 +176,9 @@ def _build_app(
             else None
         ),
         authorizer=authorizer,
+        # The auth-unbound legs are posture regressions, not warning
+        # tests — acknowledge so the D-IMPL-73 warning stays out of scope.
+        acknowledge_insecure_default=not with_auth,
     )
 
 

@@ -1,16 +1,25 @@
 # Decision-replay example token table (D-26; D-14; T-08-20 accepted).
 # SYNTHETIC tokens for a runnable demonstration — illustrative values,
 # never production credentials. One ACTIVE entry (client_id equals the
-# approver subject in hitl.yaml) and one EXPIRED entry, per the example-05
-# pattern: token lifecycle is artifact data, never a hardcoded bad-token
-# string.
+# approver subject in hitl.yaml), one EXPIRED entry, and one ACTIVE entry
+# whose scope the scope-mapping artifact does not map (the 403
+# tenant-unauthorized path, Phase 10 D-16), per the example-05 pattern:
+# token lifecycle and authorization reach are artifact data, never a
+# hardcoded bad-token string.
 
 tokens:
-  - token: bg-shift-token-2026
+  - label: approver
+    token: bg-shift-token-2026
     client_id: shift-supervisor-8
     scopes: [hitl]
     status: active
-  - token: bg-shift-token-2024
+  - label: expired
+    token: bg-shift-token-2024
     client_id: shift-supervisor-8
     scopes: [hitl]
     status: expired
+  - label: unauthorized
+    token: bg-metering-token-2026
+    client_id: metering-analyst-3
+    scopes: [metering]
+    status: active

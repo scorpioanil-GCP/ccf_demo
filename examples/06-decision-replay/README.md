@@ -13,6 +13,17 @@ target — and the reproduced Context Product is **byte-equal** (canonical
 serializer) to the original. This is the replay leg of the D-14
 absorption: the hardened HITL surface demonstrated *in replay*.
 
+Phase 10 extends the door with **tenant authorization** (HARD-04;
+D-IMPL-68): a scope-mapping Control Plane artifact
+(`artifacts/scope_mapping.yaml`) binds token scopes to
+`tenant-pattern × action-id` sets, interpreted per request by
+`ControlPlaneTenantAuthorizer` bound at `create_app(authorizer=...)`. The
+shift supervisor's token scope is mapped and reaches the queue and submit
+actions (200); a second, authenticated token whose scope the mapping does
+not name is refused deny-by-default with the typed 403
+`tenant-unauthorized` — and both the allow and the deny land in the one
+Control Plane audit log with the exact mapping version in force.
+
 ## Run it
 
 ```
@@ -33,6 +44,7 @@ Exit code 0 means every assertion held; any failure exits nonzero.
 | Hardened HITL surface in replay (D-14/D-16; §8.2) | The recorded signed binding fails verification, or the reproduced approver principal differs from the recorded one (grant-derived subject, hash of what the approver saw) |
 | Version sensitivity of the audit record (D-IMPL-26/38) | A COPY of the record with a bumped policy-bundle version still reproduces instead of refusing (`ReplayUnresolvable`) |
 | Workflow trace on dimension 5 (§8.1) | The recorded step-sequence block is absent or not the engine's serialization |
+| Tenant authorization at the door, deny-by-default (HARD-04; D-IMPL-68) | The unmapped-scope token reaches the queue, the refusal is not the typed `ERROR_TENANT_UNAUTHORIZED` 403, or the deny is missing from the audit log (or carries the wrong mapping version) |
 
 ## Citations
 
@@ -44,7 +56,8 @@ Exit code 0 means every assertion held; any failure exits nonzero.
   (No-Hardcoding Rule), §9 (examples charter item 7)
 - D-IMPL-06/07 (snapshots), D-IMPL-26 (addressing), D-IMPL-44
   (re-hydration), D-IMPL-21/62/66(a)/67 (HITL identity), D-16 (signed
-  bindings), D-14 (examples bind auth — replay leg)
+  bindings), D-14 (examples bind auth — replay leg), D-IMPL-68 (tenant
+  authorization), Phase 10 D-16 (examples extended in place)
 
 ## Domain rationale (D-09)
 
@@ -64,7 +77,10 @@ for a runnable demo (T-08-20 accepted) — never production credentials.
 (`ontology.yaml`, `events.yaml`), the decision's declared parameters and
 the store class names (`controlplane.yaml`), the agent and its skill
 (`agent.yaml`, `prompt.yaml`, `skills.yaml`), the workflow and gate
-(`task.yaml`, `workflow.yaml`), and the D-16 policy + approver + tokens
-(`hitl.yaml`, `tokens.yaml`). `run.py` is thin mechanism structured as
+(`task.yaml`, `workflow.yaml`), the D-16 policy + approver + tokens
+(`hitl.yaml`, `tokens.yaml`), and the authorization statement
+(`scope_mapping.yaml` — add the `metering` scope to the mapping and
+re-run to watch the 403 leg fail, proving the refusal comes from the
+artifact, not the code). `run.py` is thin mechanism structured as
 `record()` / `replay_decision()`; deleting the artifacts leaves it nothing
 to run (§6.4).

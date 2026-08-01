@@ -161,7 +161,7 @@ def test_http_unauthenticated_posture_does_not_derive(
     monkeypatch.setattr(
         hitl_routes, "principal_from_token_grant", spy
     )
-    app = create_app(_deps(fabric))
+    app = create_app(_deps(fabric), acknowledge_insecure_default=True)
     tenant = "was-called-unauth-tenant"
     response = call(
         app,

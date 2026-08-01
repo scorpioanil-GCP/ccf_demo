@@ -637,7 +637,10 @@ def test_local_and_http_paths_produce_identical_output(
     bound.listen(16)
     port = bound.getsockname()[1]
     server = uvicorn.Server(
-        uvicorn.Config(create_app(deps), log_level="error")
+        uvicorn.Config(
+            create_app(deps, acknowledge_insecure_default=True),
+            log_level="error",
+        )
     )
     thread = threading.Thread(
         target=server.run, kwargs={"sockets": [bound]}, daemon=True

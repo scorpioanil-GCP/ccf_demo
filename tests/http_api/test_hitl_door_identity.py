@@ -179,7 +179,7 @@ class TestUnboundPostureUnchanged:
         from ccf_runtime.http_api.app import create_app
 
         tenant = f"{_TENANT}-unbound"
-        app = create_app(_deps(fabric))
+        app = create_app(_deps(fabric), acknowledge_insecure_default=True)
         response = call(
             app,
             "POST",
