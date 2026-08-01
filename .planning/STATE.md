@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-01T16:59:59.691Z"
-last_activity: 2026-08-01 -- Phase 09 planning complete
+last_updated: "2026-08-01T17:01:48.725Z"
+last_activity: 2026-08-01 -- Phase 09 execution started
 progress:
   total_phases: 6
   completed_phases: 0
@@ -23,15 +23,15 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** v0.2 roadmap created — Phases 9–14 (harden → measure → demonstrate → upgrade examples → document)
+**Current focus:** Phase 09 — hardening-defect-fixes-ruling-batch
 
 ## Current Position
 
-Phase: 9 of 14 — Hardening — Defect Fixes & Ruling Batch (not started)
-Plan: —
-Status: Ready to execute
+Phase: 09 (hardening-defect-fixes-ruling-batch) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 09
 Progress: [----------------------------------] 0/6 v0.2 phases
-Last activity: 2026-08-01 -- Phase 09 planning complete
+Last activity: 2026-08-01 -- Phase 09 execution started
 
 ## Performance Metrics
 
