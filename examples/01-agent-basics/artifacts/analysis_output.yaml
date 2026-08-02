@@ -4,6 +4,13 @@
 # lives in code, its canned output CONTENT lives here. These are structured
 # data records (not prompt text), which keeps CINV-01 mechanical over
 # run.py: zero prompt-shaped or domain string literals in code.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the model identifier and every output record's fields and
+# values are [ADAPT]; the keys `model_version` and `outputs` are
+# [MECHANISM].
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"

@@ -8,6 +8,15 @@
 #
 # The keys are deployment vocabulary too. The SDK never enumerates Control
 # Plane keys; the fabric is told which ones to pin.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: key names under `keys:`, the policy-bundle values, every
+# operator parameter value, the product schema name and the `expected:`
+# values are [ADAPT]; the section names (`keys`, `policy_bundle`,
+# `operator_parameters`, `product_class`, `perspective`, `decision`,
+# `expected`) and their sub-keys are [MECHANISM].
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
@@ -54,6 +63,7 @@ operator_parameters:
     relationship_types:
       - holds
       - authorizes
+      - domiciled_at
     depth_limit: 2
 
 # The product class this fabric serves, and the perspective it is served to.
@@ -85,6 +95,8 @@ expected:
   entity_classes:
     - customer
     - account
+    - branch
   relationship_types:
     - holds
-  entity_count: 2
+    - domiciled_at
+  entity_count: 3

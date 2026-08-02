@@ -9,6 +9,14 @@
 # Decimal-valued entries are QUOTED. The canonical serializer refuses floats
 # (not bit-stable across platforms), and the artifact loader refuses a YAML
 # float rather than silently converting one.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: observation-type names and every calibrated value are
+# [ADAPT]; the row shape (`half_life_seconds`, `decay_driver`,
+# `supersession_event`) and the profile keys (`risk_sensitivity`,
+# `forced_llm_threshold`, `fail_closed_threshold`) are [MECHANISM].
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
@@ -30,6 +38,10 @@ half_life_table:
       half_life_seconds: 15552000
       decay_driver: annual portfolio review
       supersession_event: segmentation reassessment
+    branch-directory-record:
+      half_life_seconds: 2592000
+      decay_driver: branch network reorganizations
+      supersession_event: branch directory republication
 
 # Decision-class debt profile: the Freshness Budget multiplier and the two
 # D_c bands the CAR predicate reads (whitepaper §7.7 CAR).

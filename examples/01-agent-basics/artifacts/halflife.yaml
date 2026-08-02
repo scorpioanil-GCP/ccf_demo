@@ -1,0 +1,57 @@
+# Agent-basics λ_c table and D_c evaluation inputs (whitepaper §7.7;
+# field-service domain, D-IMPL-52).
+#
+# This artifact makes the agent's axis-5 half-life/debt profile *observable*:
+# the driver scores the declared observations against this table, combines
+# them with the declared completeness and consistency factors, and asserts
+# that the resulting D_c crosses the agent's `forced_llm_threshold` (declared
+# in agent.yaml, axis 5) — the gating outcome below is an expected value the
+# deployment reviewed, not something the code decides.
+#
+# Decimal-valued entries are QUOTED. The canonical serializer refuses floats
+# (not bit-stable across platforms), and the artifact loader refuses a YAML
+# float rather than silently converting one.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: observation-type names, every calibrated value, and the
+# reviewed `expected_signal` are [ADAPT]; the row shape
+# (`half_life_seconds`, `decay_driver`, `supersession_event`) and the
+# evaluation keys (`observations`, `completeness`, `semantic_consistency`,
+# `expected_signal`) are [MECHANISM].
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+# The (type, band, dominant decay driver, supersession event) row shape is
+# the whitepaper's commitment (INV-CH7-59); the values are this deployment's.
+half_life_table:
+  semver: "1.0.0"
+  entries:
+    work-order-status:
+      half_life_seconds: 3600
+      decay_driver: field progress updates from technicians
+      supersession_event: status transition on the work order
+    technician-roster-entry:
+      half_life_seconds: 604800
+      decay_driver: weekly roster publication
+      supersession_event: roster republication
+
+# The D_c evaluation the driver performs at the decision instant
+# (`decision.now` in controlplane.yaml), under the agent's axis-5 profile
+# from agent.yaml (risk_sensitivity, forced_llm_threshold,
+# fail_closed_threshold). The work-order status is deliberately aged — last
+# observed 37 minutes before the decision against a one-hour half-life
+# inflated by the 1.2 risk sensitivity — so the computed debt lands above
+# the Forced-LLM band and below Fail-Closed.
+debt_evaluation:
+  observations:
+    - observation_type: work-order-status
+      observed_at: 2026-05-11T07:23:00Z
+    - observation_type: technician-roster-entry
+      observed_at: 2026-05-11T06:50:00Z
+  completeness: "0.80"
+  semantic_consistency: "0.95"
+  # Reviewed outcome: which CAR routing state the assessment must land in.
+  expected_signal: forced_llm

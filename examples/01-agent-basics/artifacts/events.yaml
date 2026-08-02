@@ -12,6 +12,13 @@
 #     that would otherwise leak its existence by absence.
 #
 # Payload keys are the *source systems'* vocabulary, never the fabric's.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: everything under `payload:` and every source system id is
+# [ADAPT]; the envelope keys (`envelope_id`, `source_system_id`,
+# `ingestion_timestamp`, `observed_time`, `payload`) are [MECHANISM].
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"

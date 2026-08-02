@@ -5,6 +5,13 @@
 # firing, and CINV-01 lints `/examples` for exactly that. Validation is
 # parse-only (D-13): `declared_parameters` must exactly equal the set Jinja2
 # reports as undeclared variables in `template`; nothing renders here.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the artifact name, tenant, template text and parameter
+# names are [ADAPT]; the keys `prompt_artifact`, `declared_parameters` and
+# `template` are [MECHANISM].
 
 keys:
   prompt_artifact: cascadia-fieldworks/prompt/work-order-briefing
