@@ -9,6 +9,15 @@
 # axes are here, as values; `/src` and the example code hold none of them
 # (No-Hardcoding Rule §6.4). Decimals are quoted so they parse as text,
 # never floats (D-IMPL-26).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: tenant, agent name, product-class names, role/selection values,
+# threshold values, prompt parameter names. [MECHANISM]: the six axis field
+# names (`archetypes`, `context_contract`, `perspective`, `policy_regime`,
+# `halflife_debt_profile`, `instruction_bindings`), `referenced_artifacts`
+# structure, the `ref` URI scheme.
 
 keys:
   agent_definition: atlas-commerce/agents/order-experience-insights

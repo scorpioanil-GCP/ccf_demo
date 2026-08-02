@@ -11,6 +11,17 @@
 # No key *material* is here: keys are generated per run into a temp directory
 # and never committed. What is declared is which identifier the producer is
 # entitled to sign under, which is policy rather than secret (D-IMPL-15).
+# Every identity/trust value below is OBVIOUSLY SYNTHETIC — fictional peer
+# names and a hash-shaped label, never real credentials.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: peer ids, key id, producer hash label, ceilings, endpoint path,
+# the consumer's own lineage values, federation vocabulary. [MECHANISM]:
+# `consumer`/`producer`/`federation` block field names (`peer_id`,
+# `key_id`, `producer_hash`, `lineage`, `entity_rule`,
+# `record_key_aliases`, ...).
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
@@ -30,9 +41,15 @@ consumer:
   # The consuming fabric's own lineage at admission time (CLAUDE.md §7.2:
   # inbound L extends the consumer's by set-union, never replaces it). These
   # are the consumer deployment's statements about its own state.
+  # Two consumer-side operators, deliberately disjoint from the producer's
+  # four-operator plan: the merged lineage the admission gate produces must
+  # be exactly `producer ∪ consumer`, and the asserted union is only
+  # convincing evidence of set-union (not replacement) when both sides
+  # contribute members the other lacks.
   lineage:
     operators_invoked:
       - temporal.as-of
+      - policy.consumer-desk-filter
     policy_bundle_versions:
       - larkfield-consumer-own-policy
     graph_snapshot_at: 2026-06-01T10:00:00Z

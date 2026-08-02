@@ -5,6 +5,13 @@
 # Rule (§6.4) firing, and CINV-01 lints `/examples` for exactly that.
 # Rendered exactly once by the fabric; every harness leg receives the same
 # rendered string (T-06-64).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: the template text, parameter names, tenant, artifact name.
+# [MECHANISM]: `declared_parameters`, `template`, version field names, the
+# `keys` block.
 
 keys:
   prompt_artifact: atlas-commerce/prompt/order-experience-briefing

@@ -7,6 +7,14 @@
 # Authored fresh for this example. It mirrors the *shape* the assembly
 # worker accepts (whitepaper §7.3), never the content of any test fixture
 # or of any sibling example.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: tenant_id, entity classes, relationship types, attribute names.
+# [MECHANISM]: `entity_rules`, `relationship_rules`,
+# `classification_attribute_by_class`,
+# `similarity_corpus_attribute_by_class` and their inner field names.
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
@@ -40,6 +48,14 @@ entity_rules:
       - category
       - catalog_item_classification
 
+  - match_key: shipment_ref
+    entity_class: shipment
+    identity_keys: [shipment_ref]
+    attribute_keys:
+      - carrier_name
+      - shipment_status
+      - shipment_classification
+
 # Typed first-class edges, emitted when one envelope resolves both endpoint
 # classes — co-occurrence in one source event is the evidence.
 relationship_rules:
@@ -51,11 +67,16 @@ relationship_rules:
     subject_entity_class: order
     object_entity_class: catalog_item
 
+  - relationship_type: shipped_via
+    subject_entity_class: order
+    object_entity_class: shipment
+
 # Which attribute carries each class's policy classification.
 classification_attribute_by_class:
   customer: customer_classification
   order: order_classification
   catalog_item: catalog_item_classification
+  shipment: shipment_classification
 
 # The attribute the similarity corpus is built from, per ranked class. The
 # SDK holds no corpus; the deployment says what text means "this order".

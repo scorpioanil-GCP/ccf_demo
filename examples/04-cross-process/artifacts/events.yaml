@@ -14,7 +14,19 @@
 #     must substitute out along with the edge that would otherwise leak its
 #     existence by absence.
 #
+#   * ev-206 adds a SECOND perimeter-relevant sensor (a camera confirming
+#     the same overnight motion) that the similarity operator must keep —
+#     so the exchanged product carries two sensors and the cross-process
+#     admission story covers a multi-sensor payload.
+#
 # Payload keys are the *source systems'* vocabulary, never the fabric's.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: every payload key and value, source system ids, timestamps.
+# [MECHANISM]: the envelope field names (`envelope_id`, `source_system_id`,
+# `ingestion_timestamp`, `observed_time`, `payload`).
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
@@ -70,6 +82,20 @@ envelopes:
       sensor_ref: "LFE-SNS-8850"
       sensor_kind: "humidity"
       reading_summary: "greenhouse humidity stable daytime"
+      sensor_classification: "internal"
+
+  - envelope_id: ev-206
+    source_system_id: sensor-mesh
+    ingestion_timestamp: 2026-06-01T09:13:00Z
+    observed_time: 2026-06-01T09:12:30Z
+    payload:
+      zone_ref: "LFE-ZONE-0114-GARDEN"
+      zone_label: "walled garden perimeter"
+      zone_purpose: "perimeter"
+      zone_classification: "internal"
+      sensor_ref: "LFE-SNS-9102"
+      sensor_kind: "camera"
+      reading_summary: "garden perimeter motion overnight camera confirmation"
       sensor_classification: "internal"
 
   - envelope_id: ev-205

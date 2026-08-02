@@ -8,6 +8,14 @@
 # exists in `/src`, and none of it exists in `producer_child.py` or `run.py`
 # (CLAUDE.md §6.4 No-Hardcoding Rule) — the drivers are thin
 # loading-and-asserting logic over this artifact.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: tenant_id, entity classes, relationship types, attribute names.
+# [MECHANISM]: `entity_rules`, `relationship_rules`,
+# `classification_attribute_by_class`,
+# `similarity_corpus_attribute_by_class` and their inner field names.
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"

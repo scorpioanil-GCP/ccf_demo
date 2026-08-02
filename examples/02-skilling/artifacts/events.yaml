@@ -8,6 +8,13 @@
 #     operator must substitute out along with its `enrolls_at` edge.
 #
 # Payload keys are the *source systems'* vocabulary, never the fabric's.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: every payload key and value, source system ids, timestamps.
+# [MECHANISM]: the envelope field names (`envelope_id`, `source_system_id`,
+# `ingestion_timestamp`, `observed_time`, `payload`).
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"

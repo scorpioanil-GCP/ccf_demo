@@ -1,6 +1,15 @@
 # Skilling-example skill material (CLAUDE.md §6.2 channel 2; D-IMPL-12/29;
 # clinical-trials-operations domain, D-IMPL-52).
 #
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: skill names, tenants, descriptions, scope identifiers, argument
+# names, output-record content, actor strings. [MECHANISM]: `skills`,
+# `grants`, `expected_excess`, `callable`, `dispatch`, `actors` top-level
+# keys, and every field name inside a catalog entry (`skill_type`,
+# `binding`, `requirements`, `argument_schema`, ...).
+#
 # Two catalog entries: one whose declared requirements sit INSIDE the
 # agent's governance envelope (agent.yaml axis 4 permits `enrollment-read`),
 # and one whose requirements EXCEED it (`protocol-write` is not permitted) —
@@ -32,6 +41,35 @@ skills:
       required: [cohort_ref]
     binding:
       callable_ref: enrollment-metrics
+    requirements:
+      required_scopes: [enrollment-read]
+      required_context_products: [helix-trials.enrollment-summary]
+
+  # Also within the envelope, but never granted: an `mcp`-type entry whose
+  # requirements the regime WOULD permit. It exists to show the catalog is
+  # wider than any one agent's bound set — registration is discovery, a
+  # grant is capability. run.py asserts the agent's bound surface holds
+  # only the granted skill; this one stays invisible to the agent
+  # (§7.3 seam 2) despite being registered and grantable.
+  site_status_feed:
+    schema_version: "2.0.0"
+    artifact_version: "1.0.0"
+    name: site-status-feed
+    tenant: helix-trials
+    skill_type: mcp
+    description: >-
+      Read the current recruitment-status resource for a named trial site
+      from the site-operations MCP server — a registered, permitted
+      capability this agent has simply not been granted.
+    argument_schema:
+      properties:
+        site_ref:
+          type: string
+          description: The trial site whose status resource to read.
+      required: [site_ref]
+    binding:
+      server: site-operations-mcp
+      resource: helix-trials/site-status
     requirements:
       required_scopes: [enrollment-read]
       required_context_products: [helix-trials.enrollment-summary]
