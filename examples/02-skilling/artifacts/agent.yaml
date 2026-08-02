@@ -2,6 +2,15 @@
 # artifact (CLAUDE.md §6.1/§6.2; D-IMPL-28). Clinical-trials-operations
 # domain, D-IMPL-52.
 #
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: tenant, agent name, scope identifiers, product-class names,
+# role/selection values, threshold values. [MECHANISM]: the six axis field
+# names (`archetypes`, `context_contract`, `perspective`, `policy_regime`,
+# `halflife_debt_profile`, `instruction_bindings`), `referenced_artifacts`
+# structure, `skill_governance` envelope field names, `ref` URI scheme.
+#
 # The axis-4 policy regime below carries the D-IMPL-29 `skill_governance`
 # envelope this example exercises: `permitted_scopes` names the ONE
 # requirement scope agents under this regime may bind (`enrollment-read`)

@@ -2,6 +2,15 @@
 # D-IMPL-52). Every number, threshold, version identifier and product-class
 # property the example uses is here; `run.py` holds none of them
 # (CLAUDE.md §6.4; D-IMPL-38/39).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: key paths, regime/jurisdiction values, classifications, entity
+# classes, relationship types, schema names, principal/role strings,
+# timestamps, TTL numbers, the `expected:` values. [MECHANISM]: every
+# field name (`keys`, `policy_bundle`, `operator_parameters`,
+# `product_class`, `perspective`, `decision`, `artifacts`, `expected`).
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"

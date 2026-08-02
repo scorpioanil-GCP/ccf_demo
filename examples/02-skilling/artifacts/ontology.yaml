@@ -7,6 +7,13 @@
 # Authored fresh for this example; it mirrors the *shape* the assembly
 # worker accepts (whitepaper §7.3), never the content of any test fixture
 # or earlier example.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: tenant_id, entity classes, relationship types, attribute names.
+# [MECHANISM]: `entity_rules`, `relationship_rules`,
+# `classification_attribute_by_class` and their inner field names.
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
