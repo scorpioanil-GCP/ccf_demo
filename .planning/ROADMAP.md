@@ -155,9 +155,9 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 13-02-PLAN.md — Examples 00 + 01: enrichment + narrated READMEs; 01 exercises all six specialization axes meaningfully (Wave 2)
-- [ ] 13-03-PLAN.md — Examples 02 + 03 + 04: skilling depth, harness-portability (deterministic leg), A2A admission narration (Wave 2)
-- [ ] 13-04-PLAN.md — Examples 05 + 06: ReviewQueue into 05, OverrideBoundary into 06, replay-recorded HITL (Wave 2)
+- [x] 13-02-PLAN.md — Examples 00 + 01: enrichment + narrated READMEs; 01 exercises all six specialization axes meaningfully (Wave 2)
+- [x] 13-03-PLAN.md — Examples 02 + 03 + 04: skilling depth, harness-portability (deterministic leg), A2A admission narration (Wave 2)
+- [x] 13-04-PLAN.md — Examples 05 + 06: ReviewQueue into 05, OverrideBoundary into 06, replay-recorded HITL (Wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -186,7 +186,7 @@ Plans:
 | 10. Hardening — Authorization & Posture | 4/4 | Complete    | 2026-08-01 |
 | 11. Performance Battery | 5/5 | Complete    | 2026-08-02 |
 | 12. Synthetic-Data Demonstration | 3/3 | Complete    | 2026-08-02 |
-| 13. Examples Suite Upgrade | 1/5 | In Progress|  |
+| 13. Examples Suite Upgrade | 4/5 | In Progress|  |
 | 14. Documentation Suite | 0/? | Not started | - |
 
 ## Coverage
