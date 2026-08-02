@@ -20,7 +20,8 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 
 .PHONY: help install lint typecheck test ci-core ci examples \
 	example-00 example-01 example-02 example-03 example-04 example-05 \
-	example-06 example-07 example-03-live-ollama example-03-live-anthropic \
+	example-06 example-07 example-08 \
+	example-03-live-ollama example-03-live-anthropic \
 	perf perf-micro perf-scale perf-xproc perf-replay
 
 help: ## List targets with one-line descriptions
@@ -71,7 +72,10 @@ example-06: ## Run examples/06-decision-replay
 example-07: ## Run examples/07-artifact-store-mcp
 	$(ENV) $(PYTHON) examples/07-artifact-store-mcp/run.py
 
-examples: example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 ## Run all eight examples in order, stopping on first failure
+example-08: ## Run examples/08-e2e-demo (deterministic; --live is opt-in and never CI, D-10/D-12)
+	$(ENV) $(PYTHON) examples/08-e2e-demo/run.py
+
+examples: example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 ## Run all nine examples in order, stopping on first failure
 
 # Perf battery (Phase 11). `perf` NEVER joins `ci` or `ci-core`: always-on CI
 # never times anything (Phase-8 D-10 / D-IMPL-70) — perf runs only via these
