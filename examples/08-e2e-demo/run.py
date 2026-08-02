@@ -232,12 +232,15 @@ def _mapped_rows(
     id_column = column_by_role[entry["envelope_id_role"]]
     observed_column = column_by_role[entry["observed_time_role"]]
     selected = [column_by_role[role] for role in roles]
-    quoted = ", ".join(f'"{name}"' for name in selected)
+    quoted = ", ".join(generator.sql_identifier(name) for name in selected)
+    id_sql = generator.sql_identifier(id_column)
+    observed_sql = generator.sql_identifier(observed_column)
+    table_sql = generator.sql_identifier(table["name"])
     rows: list[dict[str, str]] = []
     with sqlite3.connect(workdir / source["db_file"]) as connection:
         cursor = connection.execute(
-            f'SELECT {quoted}, "{id_column}", "{observed_column}" '
-            f'FROM "{table["name"]}" ORDER BY "{id_column}"'
+            f"SELECT {quoted}, {id_sql}, {observed_sql} "
+            f"FROM {table_sql} ORDER BY {id_sql}"
         )
         for values in cursor:
             payload = {
