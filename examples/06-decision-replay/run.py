@@ -942,7 +942,7 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
     # "the original agent output and the override are both in the replay
     # record"; T-07-16). This driver only interprets (§6.4).
     override_doc = hitl_doc["override"]
-    boundary: OverrideBoundary[ShedDetermination] = OverrideBoundary(
+    override_boundary: OverrideBoundary[ShedDetermination] = OverrideBoundary(
         transport=transport,
         audit=audit,
         clock=clock,
@@ -953,7 +953,7 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
     )
     override_original = ShedDetermination(**override_doc["original"])
     override_substitute = ShedDetermination(**override_doc["substitute"])
-    proposed = boundary.propose(
+    proposed = override_boundary.propose(
         tenant=tenant_id,
         event_key=override_doc["event"]["event_key"],
         workflow_state_ref=override_doc["event"]["workflow_state_ref"],
@@ -979,7 +979,7 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
     )
     # The artifact decides override vs confirm; the driver interprets.
     overriding = override_doc["drive"]["action"] == "override"
-    resolution = boundary.resolve(
+    resolution = override_boundary.resolve(
         tenant=tenant_id,
         event_key=proposed.event_key,
         principal=overrider_binding,
