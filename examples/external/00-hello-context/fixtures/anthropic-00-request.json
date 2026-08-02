@@ -1,0 +1,32 @@
+{
+  "model": "claude-fixture",
+  "max_tokens": 1024,
+  "messages": [
+    {
+      "role": "user",
+      "content": "Use the available tools to retrieve the governed context, then state your recommendation."
+    }
+  ],
+  "tools": [
+    {
+      "name": "list_agents",
+      "description": "discovered from the CCF experience server's tools/list at run time",
+      "input_schema": {"type": "object", "properties": {"tenant": {"type": "string"}}}
+    },
+    {
+      "name": "get_context",
+      "description": "discovered from the CCF experience server's tools/list at run time",
+      "input_schema": {"type": "object", "properties": {"tenant": {"type": "string"}, "entity": {"type": "string"}}}
+    },
+    {
+      "name": "get_lineage",
+      "description": "discovered from the CCF experience server's tools/list at run time",
+      "input_schema": {"type": "object", "properties": {}}
+    },
+    {
+      "name": "get_replay_record",
+      "description": "discovered from the CCF experience server's tools/list at run time",
+      "input_schema": {"type": "object", "properties": {}}
+    }
+  ]
+}
