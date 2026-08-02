@@ -313,27 +313,34 @@ def _structured_cycles(
             tolerance_percent
         )
 
-    def _walk(
-        start: str, node: str, path: list[tuple[str, str, float, datetime]]
-    ) -> None:
-        last = path[-1]
-        seen = {step[0] for step in path}
-        for edge in adjacency.get(node, ()):
-            if edge[3] <= last[3] or edge[3] - path[0][3] > span:
-                continue
-            if not _extends(last[2], edge[2]):
-                continue
-            if edge[1] == start:
-                if len(path) + 1 >= min_length:
-                    found.add(tuple(sorted(step[0] for step in path + [edge])))
-                continue
-            if edge[1] in seen or edge[1] == node:
-                continue
-            _walk(start, edge[1], path + [edge])
+    def _walk(start: str, first: tuple[str, str, float, datetime]) -> None:
+        # Explicit-stack DFS: path depth is bounded by memory, never by the
+        # interpreter recursion limit, so artifact-declared tolerance/span
+        # parameters cannot abort the run with RecursionError (WR-04).
+        stack: list[list[tuple[str, str, float, datetime]]] = [[first]]
+        while stack:
+            path = stack.pop()
+            last = path[-1]
+            node = last[1]
+            seen = {step[0] for step in path}
+            for edge in adjacency.get(node, ()):
+                if edge[3] <= last[3] or edge[3] - path[0][3] > span:
+                    continue
+                if not _extends(last[2], edge[2]):
+                    continue
+                if edge[1] == start:
+                    if len(path) + 1 >= min_length:
+                        found.add(
+                            tuple(sorted(step[0] for step in path + [edge]))
+                        )
+                    continue
+                if edge[1] in seen or edge[1] == node:
+                    continue
+                stack.append(path + [edge])
 
     for edge in ordered:
         if edge[0] != edge[1]:
-            _walk(edge[0], edge[1], [edge])
+            _walk(edge[0], edge)
     return sorted(found)
 
 
