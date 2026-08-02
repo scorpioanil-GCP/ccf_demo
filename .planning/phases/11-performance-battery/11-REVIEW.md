@@ -52,7 +52,7 @@ findings:
   warning: 5
   info: 7
   total: 12
-status: issues_found
+status: fixed
 ---
 
 # Phase 11: Code Review Report
@@ -60,7 +60,7 @@ status: issues_found
 **Reviewed:** 2026-08-01
 **Depth:** standard
 **Files Reviewed:** 41
-**Status:** issues_found
+**Status:** fixed (5/5 warnings fixed; info findings advisory, carried forward)
 
 ## Narrative Findings (AI reviewer)
 
@@ -74,11 +74,15 @@ No blockers found after tracing the gate math (nearest-rank percentile index for
 
 ### WR-01: Readiness handshake has no deadline — a hung producer child hangs `make perf-xproc` forever
 
+**Fixed:** commit `b3cb64b`
+
 **File:** `perf/suites/crossproc/conftest.py:136`
 **Issue:** `proc.stdout.readline()` blocks indefinitely if the child starts but never prints `READY ...` and never exits (e.g., a server that deadlocks during startup). The docstring frames the blocking readline as a virtue ("never a wait-loop"), but a handshake without a deadline is a hang, not a gate. In CI the 30-minute job timeout eventually kills it; a local `make perf-xproc` wedges until the user notices. The teardown `finally` does run only after the readline returns — which it never does.
 **Fix:** Bound the handshake, e.g. read the announcement on a helper thread and `thread.join(timeout=HANDSHAKE_TIMEOUT_SECONDS)`, or use `selectors`/`os.set_blocking` with a deadline; on expiry, fall through to the existing killpg teardown and raise with the captured stderr.
 
 ### WR-02: Smoke-test timeout can orphan the crossproc producer grandchild — the exact T-11-10 threat the fixture guards against
+
+**Fixed:** commit `9d22648`
 
 **File:** `tests/perf_smoke/test_smoke.py:61-76`
 **Issue:** `subprocess.run(..., timeout=SUITE_TIMEOUT_SECONDS)` kills only the direct child (the inner pytest). The crossproc suite's producer child is spawned with `start_new_session=True`, so it is in a different session/process group and survives the kill — its fixture `finally` never runs because the inner pytest died on SIGKILL. Result: on a crossproc hang, the always-on job fails loudly (good) but leaves an orphaned two-server process holding ports (the T-11-10 threat, now unmitigated on this path).
@@ -86,11 +90,15 @@ No blockers found after tracing the gate math (nearest-rank percentile index for
 
 ### WR-03: Unique-edge sampler can loop forever; feasibility is documented in a comment two files away, not enforced
 
+**Fixed:** commit `c78bf21`
+
 **File:** `perf/synth/generator.py:170-174`
 **Issue:** The `while len(edge_set) < target_edges` loop terminates only if `hub_count * tail_count >= K_AVG_DEGREE * rung` unique (hub, tail) pairs exist (each pair admits exactly one relationship type). `perf/suites/scale/conftest.py` documents that below ~400 entities the sampler "cannot terminate," but `_topology()` itself performs no feasibility check — `_topology(300)` is a silent infinite loop, not an error. Any future caller (Phase 12 reuse is explicitly invited by `perf/synth/__init__.py`) that picks a small rung hangs instead of failing.
 **Fix:** In `_topology`, before the loop: `if hub_count * tail_count < target_edges: raise ValueError(f"rung {rung} cannot yield {target_edges} unique edges from {hub_count} hubs x {tail_count} tails")`.
 
 ### WR-04: Malformed threshold override raises `KeyError`/`ValueError`, not the promised `ThresholdConfigError`
+
+**Fixed:** commit `02c3c16`
 
 **File:** `perf/gate.py:139-142`
 **Issue:** `resolve_threshold` promises typed config errors ("unknown suite, malformed table" per the `ThresholdConfigError` docstring, and README: "gate.py rejects a tighter override with a typed load error"). But an override table missing the `threshold` key raises a bare `KeyError` at `override_table["threshold"]`, and a non-numeric value (`threshold = "0.3"` is fine, but `threshold = "abc"`) raises `ValueError` from `float()`. Same for a non-numeric suite `default` at line 138. These propagate as tracebacks out of `evaluate()`/`main()`.
@@ -105,6 +113,8 @@ except (KeyError, TypeError, ValueError) as exc:
 (and equivalently for the suite default).
 
 ### WR-05: Replay-side operator construction duplicates `build_operator_registry` instead of sharing it — drift breaks the byte-exact assert at the worst time
+
+**Fixed:** commit `d30e03d`
 
 **File:** `perf/suites/replay/conftest.py:111-187` (vs `perf/suites/common.py:92-179`)
 **Issue:** `_operators()` is a near-verbatim copy of `common.build_operator_registry` (parameter wiring, corpus construction, all four operators), and `PerfPanelPlan` near-duplicates `PerfPlan` (differing only in one payload key). The replay design depends on "same declared parameters → same parameter hashes"; the record phase and replay environment both call the local `_operators`, so they agree with each other — but a future parameter change made in `common.py` (which micro/scale use) silently diverges from the replay suite's copy. The byte-exact assert only protects internal consistency of the replay file, not cross-suite consistency, and the divergence would surface as a confusing opt-in-run failure long after the edit. Also `_load`/`_instant` are now triplicated (`common.py`, `crossproc/conftest.py`, `replay/conftest.py`).
