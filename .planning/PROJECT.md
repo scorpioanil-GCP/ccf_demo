@@ -72,6 +72,8 @@ Per CLAUDE.md §13 (reasoning recorded there):
 
 ## Current State
 
+Phase 12 complete (2026-08-02) — synthetic-data demonstration shipped: deterministic banking fraud-ring scenario (all vocabulary in artifacts), end-to-end `examples/08-e2e-demo` proving the executed contrast (0 cycles over raw rows vs the planted 5-member ring over governed context), ninth example in CI via `make example-08`, narrated walkthrough (`docs/demo-walkthrough.md`) ready for Phase 14 mkdocs mount. DEMO-01/02/03 validated; review warnings WR-01..05 fixed; threats_open: 0.
+
 Phase 11 complete — performance battery shipped: perf gate pipeline, deterministic synthetic generator, four benchmark suites, bitrot smoke, opt-in perf.yml CI (v0.2).
 
 **Shipped: v0.1.0 (2026-07-31, D-GATE-I).** Whitepaper-faithful v0 SDK on `main`:
