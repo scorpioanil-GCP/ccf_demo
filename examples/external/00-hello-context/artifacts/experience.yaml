@@ -1,0 +1,66 @@
+# Hello-context Experience-surface deployment values (CLAUDE.md §8.3 —
+# the MCP front door for external agent runtimes; §7.1).
+#
+# Everything the MCP surface advertises lives HERE, never in serve.py:
+# server identity, auth issuer/resource values, tool names AND their prose
+# descriptions (No-Hardcoding, §6.4 — code is interpreter only), the
+# agent-exposure declaration, and the model name a live-mode client leg
+# uses. serve.py registers what this file declares.
+#
+# [ADAPT] domain vocabulary and prose — safe to change for your domain
+# [MECHANISM] structural keys interpreted by serve.py — do not rename
+#
+# [ADAPT]: server_name, issuer/resource URLs, scope names, tool prose,
+# model name.
+# [MECHANISM]: `auth`, `tools`, `agent_exposure`, `live_mode` and their
+# inner field names.
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+server_name: first-meridian-bank.credit-context.experience
+
+# AuthSettings values (D-26: verifier AND settings, together, always).
+# Bearer-token auth is on from day one; there is no anonymous mode (D-12).
+auth:
+  issuer_url: "https://auth.first-meridian.example"
+  resource_server_url: "https://context.first-meridian.example"
+  required_scope: "context:read"
+
+# Deployment-side tools registered on the experience server in serve.py.
+# The prose below is the tool description the MCP surface advertises —
+# artifact-carried, never inline in code (§6.4).
+tools:
+  get_context:
+    name: get_context
+    description: >-
+      Return the credit-context Context Product for one borrower of one
+      tenant, as canonical JSON. Arguments: tenant (the owning tenant id)
+      and entity (the borrower reference). Serving is replay-recorded
+      fabric-side; the caller carries no audit obligation.
+  get_lineage:
+    name: get_lineage
+    description: >-
+      Read-only: return the lineage block of the served credit-context
+      product — operators invoked, policy bundle versions, graph snapshot
+      instant — as canonical JSON.
+  get_replay_record:
+    name: get_replay_record
+    description: >-
+      Read-only: return the five-dimension Decision Replay record the
+      fabric appended for the most recent externally-served product, read
+      back from the ArtifactStore, as canonical JSON.
+
+# This example exposes NO agents on the front door (hello-world scope):
+# the agent directory returns an empty tuple and invocation refuses. The
+# declaration lives here so serve.py interprets rather than decides.
+agent_exposure:
+  agents: []
+  invocation_refusal: "no agents are exposed on this deployment"
+
+# Model the LLM client legs use when run live (CI runs transport-level
+# replay instead — D-09). A model name in code is a deployment value in
+# code, so it lives here and legs read it from env.
+live_mode:
+  anthropic_model: claude-sonnet-4-5
+  gemini_model: gemini-2.5-flash
