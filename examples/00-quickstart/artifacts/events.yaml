@@ -12,8 +12,18 @@
 #   * ev-103 carries a RESTRICTED mandate, which the policy operator must
 #     substitute out along with the edge that would otherwise leak its
 #     existence by absence.
+#   * ev-104 introduces the branch the surviving account is domiciled at —
+#     an internally-classified node two hops from the customer, so the
+#     bounded traversal has a real second hop to walk.
 #
 # Payload keys are the *source systems'* vocabulary, never the fabric's.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: everything under `payload:` and every source system id is
+# [ADAPT]; the envelope keys (`envelope_id`, `source_system_id`,
+# `ingestion_timestamp`, `observed_time`, `payload`) are [MECHANISM].
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
@@ -67,6 +77,20 @@ envelopes:
       mandate_id: "MND-0009"
       mandate_scheme: "sepa_b2b_direct_debit"
       mandate_classification: "restricted"
+      account_number: "MB-ACC-4401"
+      account_type: "payments"
+      currency: "EUR"
+      account_description: "corporate payments account eur sepa instant"
+      account_classification: "internal"
+
+  - envelope_id: ev-104
+    source_system_id: branch-directory
+    ingestion_timestamp: 2026-06-01T09:20:00Z
+    observed_time: 2026-06-01T09:18:00Z
+    payload:
+      branch_code: "MB-BR-016"
+      branch_name: "Frankfurt Westend Corporate Center"
+      branch_classification: "internal"
       account_number: "MB-ACC-4401"
       account_type: "payments"
       currency: "EUR"
