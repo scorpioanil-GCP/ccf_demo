@@ -1,0 +1,38 @@
+# Performance-battery task definition fixture (CLAUDE.md §6.4/§8.1;
+# D-IMPL-28). Registered by the micro suite so the WorkflowFactory
+# construction path can be benchmarked (D-23: "task factory construction").
+# Three steps — one of each step kind — so the constructed handle exercises
+# the full semantic-validation surface. Neutral perf vocabulary (D-09).
+
+keys:
+  task_definition: perf-tenant/tasks/panel-cycle
+  referenced_agent_definition: perf-tenant/ccf.agent-definition/panel-insights
+
+referenced_artifacts:
+  sample_panel_skill:
+    key: perf-tenant/skill/sample-panel
+    class_id: skill
+    semver: "1.0.0"
+    declaration:
+      capability: sample-panel
+      source: perf-synth
+
+task_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: panel-cycle
+  tenant: perf-tenant
+
+  steps:
+    - kind: skill
+      name: sample-panel
+      ref: "ccf-artifact://perf-tenant/skill/sample-panel@1.0.0"
+    - kind: agent
+      name: assess-panel
+      ref: "ccf-artifact://perf-tenant/ccf.agent-definition/panel-insights@1.0.0"
+    - kind: hitl-gate
+      name: panel-review
+
+  instruction_bindings:
+    - prompt: "ccf-artifact://perf-tenant/prompt/panel-brief@1.0.0"
+      parameters: [panel_ref, as_of]

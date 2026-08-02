@@ -1,0 +1,17 @@
+# Performance-battery prompt artifact fixture (CLAUDE.md §6.2 axis 6;
+# D-IMPL-28; D-13). The template lives here, never in code — the micro
+# suite's factory benchmark registers this artifact and resolves it through
+# Control Plane resolution only. Neutral perf vocabulary (D-09).
+
+keys:
+  prompt_artifact: perf-tenant/prompt/panel-brief
+
+prompt_artifact:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: panel-brief
+  tenant: perf-tenant
+  declared_parameters: [panel_ref, as_of]
+  template: |
+    Summarize panel {{ panel_ref }} as of {{ as_of }}: entity count,
+    relationship coverage, and any lattice segments below the review floor.
