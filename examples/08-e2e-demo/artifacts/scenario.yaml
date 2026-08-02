@@ -208,10 +208,10 @@ ring:
 # ---------------------------------------------------------------------------
 noise:
   counts:
-    counterparties: 1200      # noise counterparties (ring adds 5)
-    ledger_accounts: 1155     # first N noise counterparties also hold accounts
-    transactions: 3600
-    wires: 900
+    population: 1200          # noise counterparties (ring adds 5)
+    ledger_entities: 1155     # first N of the population also hold ledger rows
+    ledger_movements: 3600
+    transfer_movements: 900
   amounts:
     transaction: { min: 45.0, max: 24500.0 }
     wire: { min: 850.0, max: 98000.0 }
@@ -272,9 +272,9 @@ expected:
     kyc_registry:
       counterparties: 1205    # 1200 noise + 5 ring
   checksums:
-    core_banking: null        # backfilled by first generation (Task 2)
-    wires: null
-    kyc_registry: null
-  ring_signature: null        # sha256 over the 5 circular wire rows
+    core_banking: "0b7e14933049bfd28d07e18389851028a2650b455ab055d0c5dc57363b601ee7"
+    wires: "c3ab2c13b427d7ef77e0db7da240a68e17ffc8875d5a541dd62b19d44d5cc90c"
+    kyc_registry: "06a99c8f015ed76edcedf3ae9d2c79c53f5bebbb4bd17a5be8f359d4342929a9"
+  ring_signature: "c33291b7c613b837538433e4fc0d0164cbfec54f18636d96ff1de0ef1380ba65"
   cycle_count: 1
   cycle_members: [M1, M2, M3, M4, M5]
