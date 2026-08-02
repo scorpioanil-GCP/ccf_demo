@@ -2,6 +2,9 @@
 # D-IMPL-28). Wraps the pinned load-shed task and adds ONLY routing: the
 # operator's decision at the gate authorizes or withholds the shed. Every
 # routing value lives here, never in code (§6.4; CINV-01).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 keys:
   workflow_definition: boreal-grid/workflows/load-shed-authorization

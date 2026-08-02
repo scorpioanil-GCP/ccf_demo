@@ -1,7 +1,10 @@
 # Workflow-HITL example HITL material (CLAUDE.md §8.2; D-IMPL-20/21;
 # D-16; SDK-defined). Every approver identity, authentication statement,
-# policy value, routing decision, node output, and drive value the example
-# exercises is here. `run.py` holds none of them (§6.4).
+# policy value, routing decision, node output, review item, and drive
+# value the example exercises is here. `run.py` holds none of them (§6.4).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 keys:
   hitl_policy: sterling-mutual/hitl/disbursement-hitl-policy
@@ -62,6 +65,44 @@ debt_factors:
 # The injected clock's base instant — no wall clock in the example.
 clock:
   base: "2026-06-02T10:00:00+00:00"
+
+# ReviewQueue material (CLAUDE.md §8.2; whitepaper §7.10.3): the generated
+# disbursement briefing is reviewed asynchronously before release. The
+# item pins the reviewed output by versioned URI and carries the
+# passage-level lineage the reviewer must see — an item without lineage is
+# unconstructible. The reviewer's subject_id deliberately equals the
+# ACTIVE `reviewer` token's client_id in tokens.yaml (the D-IMPL-67
+# identity convention this example uses everywhere), and the review action
+# is signed under the same D-16 policy as the approval.
+review:
+  event:                                                       # [MECHANISM]
+    event_key: sterling-mutual/exec-disburse-1/briefing-review # [ADAPT]
+    workflow_state_ref: sterling-mutual/exec-disburse-1        # [ADAPT]
+  item:
+    output_ref: "ccf-artifact://sterling-mutual/ccf.context-product/disbursement-briefing@1.0.0"
+    lineage:
+      - source:
+          system_id: loan-origination            # [ADAPT]
+        envelope_id: env-loan-file-4471          # [ADAPT]
+        observed_at: "2026-06-02T08:30:00+00:00"
+        passage_anchor:
+          kind: document-page                    # [ADAPT]
+          locator: "loan-file/SM-LOAN-4471#p3"   # [ADAPT]
+  reviewer:
+    # Which tokens.yaml entry this reviewer's identity is bound to; the
+    # driver asserts the entry is ACTIVE and the subject matches.
+    token_label: reviewer                        # [MECHANISM]
+    identity:
+      subject_id: credit-review-officer-7        # [ADAPT]
+      identity_provider_ref: idp://sterling-mutual/dev-token-file
+    authentication:
+      method: bearer-token
+      assurance_level: dev
+      session_ref: session-cro-7
+    action_time: "2026-06-02T10:25:00+00:00"
+  drive:
+    # `release` or `reject` — the driver interprets, never decides (§6.4).
+    action: release                              # [ADAPT]
 
 # Values for the decision's replay record (whitepaper §7.10.1). The
 # workflow and HITL blocks land verbatim from what the engine and the

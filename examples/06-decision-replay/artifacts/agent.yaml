@@ -7,6 +7,9 @@
 # check. The replay record must carry BOTH this definition's version and
 # the grant-set in force (dimension 4) — the decision replays against the
 # skills the agent actually had.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 keys:
   agent_definition: boreal-grid/agents/grid-load-analytics

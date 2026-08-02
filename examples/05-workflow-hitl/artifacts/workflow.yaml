@@ -3,6 +3,9 @@
 # routing: transitions, terminal states, the per-node exception ref that
 # drives the ExceptionEscalation path, and the per-gate approval-policy
 # binding. Every routing value lives here, never in code (§6.4; CINV-01).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 keys:
   workflow_definition: sterling-mutual/workflows/loan-disbursement

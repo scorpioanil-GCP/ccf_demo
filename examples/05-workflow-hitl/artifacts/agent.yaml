@@ -3,6 +3,9 @@
 # node invokes this definition by pinned versioned URI; no agent exists in
 # example code (§6.1 — "any agent found in library code is a defect").
 # Instruction bindings are versioned-URI refs only (§6.4).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 keys:
   agent_definition: sterling-mutual/agents/disbursement-analytics

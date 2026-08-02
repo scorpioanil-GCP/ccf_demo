@@ -10,6 +10,9 @@
 # step value lives here, never in code (No-Hardcoding Rule §6.4); refs are
 # pinned versioned URIs (D-IMPL-26); the hitl-gate step carries no ref by
 # schema — its approval-policy binding lives on the workflow wrapper.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 keys:
   task_definition: sterling-mutual/tasks/loan-disbursement

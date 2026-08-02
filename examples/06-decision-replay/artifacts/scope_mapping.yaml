@@ -15,6 +15,9 @@
 # Adapt-first: change `tenant_patterns` (exact match or single trailing
 # `*` prefix glob — the D-01 grammar) and the scope names to your own
 # deployment's vocabulary.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 keys:
   scope_mapping: boreal-grid/scope-mapping
