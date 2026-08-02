@@ -301,7 +301,14 @@ def _structured_cycles(
     found: set[tuple[str, ...]] = set()
 
     def _extends(previous: float, amount: float) -> bool:
-        return abs(amount - previous) / previous * 100.0 <= tolerance_percent
+        # Guard against zero (division) and negative (sign-inverted
+        # tolerance) previous amounts: compare against the magnitude.
+        denominator = abs(previous)
+        if denominator == 0.0:
+            return amount == previous
+        return abs(amount - previous) / denominator * 100.0 <= (
+            tolerance_percent
+        )
 
     def _walk(
         start: str, node: str, path: list[tuple[str, str, float, datetime]]
