@@ -1,0 +1,39 @@
+# E2E-demo prompt artifact (CLAUDE.md §6.2 axis 6; §6.4; Phase 12 CONTEXT
+# D-12). The ONLY place prompt text exists in this example — a prompt
+# string literal in run.py would be the No-Hardcoding Rule firing, and
+# CINV-01 lints `/examples` for exactly that.
+#
+# This prompt is used ONLY under `--live` (narration-only, D-12): the LLM
+# writes a citation-anchored investigation summary from the typed Context
+# Product. Detection is deterministic and identical in both modes; nothing
+# about the model's text is ever asserted.
+
+keys:
+  prompt_artifact: meridian-bank/prompt/ring-investigation-summary
+
+prompt_artifact:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: ring-investigation-summary
+  tenant: meridian-bank
+  declared_parameters: [cycle_members, as_of]
+  template: |
+    A deterministic cycle-detection skill running over a governed,
+    typed Context Product has identified a circular payment pattern
+    among the following resolved counterparties as of {{ as_of }}:
+    {{ cycle_members }}. Write a short investigation summary for a
+    financial-crime analyst. Anchor every claim to one of the listed
+    counterparties by name; do not introduce facts beyond the list.
+
+# --live provider configuration (deployment values, never code constants).
+# Environment variables override the recorded defaults:
+#   CCF_OLLAMA_BASE_URL overrides providers.ollama.default_base_url
+#   CCF_OLLAMA_MODEL    overrides providers.ollama.default_model
+live:
+  providers:
+    ollama:
+      default_base_url: "http://localhost:11434"
+      default_model: "qwen3-vl:8b"
+  runner:
+    timeout_seconds: 120
+    max_tokens: 512

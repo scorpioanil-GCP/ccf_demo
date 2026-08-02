@@ -1,0 +1,110 @@
+# E2E-demo Control Plane bundle (banking domain, D-IMPL-52; Phase 12
+# CONTEXT D-01). Every key, threshold, version identifier, query string,
+# product-class property, decision instant, and expected outcome the demo
+# asserts lives here. `run.py` holds none of them (CLAUDE.md §6.4; MAX_TTL
+# has no SDK default, D-IMPL-39; operator parameters are declared artifacts
+# with no silent defaults, D-IMPL-38).
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+keys:
+  resolution_spec: meridian-bank/entity-resolution-spec/payment-network
+  policy_bundle: meridian-bank/policy-bundle/financial-crime-analyst
+  max_ttl: meridian-bank/product/payment-network-context/max-ttl
+  half_life_table: meridian-bank/half-life/payment-network-observation-types
+  debt_profile: meridian-bank/debt-profile/ring-investigation-review
+
+# The policy bundle in force, stamped onto every claim at assembly and
+# carried into the product's policy binding and replay dimension 2.
+policy_bundle:
+  regime: meridian-bank-financial-crime
+  jurisdiction: DE
+  permitted_classifications:
+    - internal
+
+# Per-class TTL ceiling (INV-CH7-48, D-IMPL-39).
+max_ttl_seconds: 900
+
+# Declared operator parameter sets (D-IMPL-38). The financial-crime-analyst
+# perspective may see internally-classified state; ledger movements are
+# ranked against the memo query and trimmed below the floor; both temporal
+# axes reconcile to the boundary; the neighborhood expands two hops from
+# counterparties over the three typed edges that carry the linking evidence.
+operator_parameters:
+  policy:
+    permitted_classifications:
+      - internal
+  similarity:
+    query: "standing order"
+    minimum_score_percent: 50
+    ranked_entity_classes:
+      - movement
+    index_version: "meridian-bank-movement-memo-corpus@2026-07-01"
+  temporal:
+    require_valid_at_boundary: true
+  traversal:
+    seed_entity_classes:
+      - counterparty
+    relationship_types:
+      - holds
+      - registered_at
+      - delivered_at
+    depth_limit: 2
+
+# The product class this fabric serves, and the perspective it serves to.
+product_class:
+  schema_name: meridian-bank.payment-network-context
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  plan_id: meridian-bank.payment-network-context.plan
+  product_ttl_seconds: 600
+
+perspective:
+  principal_id: analyst-4471
+  role: financial-crime-analyst
+
+# The decision's instants and the fabric's ingestion instant. Explicit
+# inputs, never clock reads: the demo replays because these are data.
+decision:
+  ingestion_timestamp: 2026-06-30T12:00:00Z
+  temporal_boundary: 2026-07-01T00:00:00Z
+  now: 2026-07-01T00:00:05Z
+  clock_base: 2026-07-01T00:00:10Z
+
+artifacts:
+  replay_record_class: decision-replay-record
+
+# What the demo must produce, as declared by the deployment that authored
+# the scenario. The driver asserts against these rather than carrying
+# domain expectations of its own (D-11: BOTH outcomes are pinned).
+expected:
+  # Executed baseline over raw per-source rows: with no entity resolution
+  # the ring's wire aliases resolve to no known counterparty, and the noise
+  # that does resolve forms no structured cycle.
+  baseline_cycles: 0
+  # Governed pass over the typed Context Product: exactly the planted ring.
+  governed_cycles: 1
+  cycle_members:
+    - "Bluegate Trading Company S.A."
+    - "Harrow Point Consulting Pte. Ltd."
+    - "Kestrel Marine Supply GmbH"
+    - "Northquay Advisory Limited"
+    - "Palmera Logistics S.L."
+  # The gated product's payload shape at the boundary.
+  entity_count: 4458
+  entity_count_by_class:
+    counterparty: 1205
+    site: 1188
+    account: 1160
+    transfer: 905
+  relationship_count_by_type:
+    holds: 1160
+    registered_at: 1205
+    delivered_at: 905
+  # L1/L2 banner facts: envelopes ingested and canonical counterparties
+  # resolved (1160 ledger holders + 1205 registry entries converge on 1205
+  # nodes — the tax reference is the evidence).
+  envelopes_ingested: 6870
+  resolved_seed_entities: 1205
