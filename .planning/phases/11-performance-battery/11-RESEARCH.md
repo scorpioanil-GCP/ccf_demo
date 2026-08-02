@@ -500,12 +500,12 @@ perf-micro: ## Micro-benchmarks (operators, factory, gates, run_coroutine_sync)
 | A2 | pytest-benchmark raw JSON `stats.data` contains per-round timings sufficient for p95/p99 at chosen round counts | Pattern 6 / Pitfall 1 | If rounds too few for stable p99, raise min-rounds in the micro suite; docs confirm complete data is exported |
 | A3 | `--benchmark-disable` runs each benchmark exactly once as a plain test (smoke-test mechanism) | Anti-patterns | If flag semantics differ, smoke test wraps callables directly; verify with `pytest --help` at install |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should large speed-ups fail the gate or warn?**
+1. **Should large speed-ups fail the gate or warn?** *(RESOLVED — adopted in plan 11-01 Task 2: warn-not-fail on speed-ups, documented in gate docstring + perf/README.md)*
    - What we know: D-19..D-22 define slowdown thresholds; a 10x "improvement" usually means the benchmark stopped measuring the real work.
    - Recommendation: warn loudly on improvements beyond the threshold, fail only on slowdowns; document in `perf/README.md`. Planner discretion — does not need Dave.
-2. **Top-rung feasibility (100k entities through real L2 paths).**
+2. **Top-rung feasibility (100k entities through real L2 paths).** *(RESOLVED — adopted in plans 11-03/11-05: bottom-up ladder with D-07 rung flex, calibrated against the 3-minute budget)*
    - What we know: D-07 allows flexing the rung; L2 throughput at 100k is unmeasured.
    - Recommendation: build the ladder bottom-up during implementation, time rung construction, and flex the top rung to fit the 3-minute scale budget; record the chosen sizes in `perf/README.md`.
 
