@@ -72,6 +72,8 @@ Per CLAUDE.md §13 (reasoning recorded there):
 
 ## Current State
 
+Phase 11 complete — performance battery shipped: perf gate pipeline, deterministic synthetic generator, four benchmark suites, bitrot smoke, opt-in perf.yml CI (v0.2).
+
 **Shipped: v0.1.0 (2026-07-31, D-GATE-I).** Whitepaper-faithful v0 SDK on `main`:
 fabric L1–L6, six archetypes + Agent & Task Factory + governed skilling,
 bidirectional MCP + A2A/Peering + three harness adapters (Claude Agent SDK,
@@ -186,4 +188,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-01
+*Last updated: 2026-08-02
