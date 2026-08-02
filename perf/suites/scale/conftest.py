@@ -25,6 +25,7 @@ the 500 rung is exactly as reproducible as the pinned ones.
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING, Any, Iterator
 
 import pytest
@@ -36,7 +37,16 @@ if TYPE_CHECKING:
 
 #: The flexed ladder (D-07; see module docstring). Parametrized benchmark
 #: IDs — e.g. ``test_assembly_scale[500]`` — derive from these values.
-SCALE_RUNGS = (500, 1_000)
+#:
+#: Smoke knob (D-04, plan 11-05): the always-on bitrot smoke test sets
+#: ``CCF_PERF_SMOKE=1`` and runs with ``--benchmark-disable`` — each callable
+#: executes exactly once as a plain test, and the ladder collapses to its
+#: smallest rung so always-on CI stays fast. Rung IDs are unchanged (they
+#: remain baseline keys, Pitfall 6); the knob only trims which params run.
+_FULL_RUNGS = (500, 1_000)
+SCALE_RUNGS = (
+    _FULL_RUNGS[:1] if os.environ.get("CCF_PERF_SMOKE") == "1" else _FULL_RUNGS
+)
 
 #: Explicit pedantic rounds per rung for the *assembly* curve (D-25 budget
 #: split; Pitfall 3). Assembly is ~5 ms/envelope, so the 1k rung runs two
