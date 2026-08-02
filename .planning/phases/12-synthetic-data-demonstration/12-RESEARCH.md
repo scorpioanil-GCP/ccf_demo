@@ -247,14 +247,14 @@ Not applicable in the ecosystem sense — this phase composes in-repo mechanism.
 | A2 | pymdownx.snippets with repo-root base_path is what Phase 14 will configure | Pitfall 5 | Path prefix edit in one doc when Phase 14 lands — trivial |
 | A3 | The skills dispatch surface supports registering a new local callable skill purely via artifacts + example-local callable code (as example 06's `dispatch.expected_output` suggests) | Don't Hand-Roll | If callables must live in /src, the cycle-detection skill's *mechanism* home needs a decision — see Open Question 1 |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Where does the cycle-detection callable live?**
+1. **Where does the cycle-detection callable live?** — RESOLVED: example-local callable in `examples/08-e2e-demo/run.py`, registered through the CallableRegistry at the composition root, with parameters (relationship type, thresholds) interpreted from `skills.yaml` (adopted in plan 12-02).
    - What we know: `src/ccf/skills/callables.py` exists; example 06 dispatches a skill and asserts against `skills.yaml`'s `expected_output`; example code may carry thin generic mechanism.
    - What's unclear: whether a graph-cycle-detection function counts as generic mechanism (fine in example code or even `/src`) or as demo-specific logic. It is domain-free (pure graph algorithm over a typed product), so example-local callable code registered through the catalog is the safest reading — parameters (which relationship type, thresholds) come from `skills.yaml`.
    - Recommendation: planner should read `src/ccf/skills/callables.py` and example 02/06's skill registration before writing the task; default to an example-local callable interpreted via artifact parameters.
-2. **Baseline-contrast placement** — one run.py stage (recommended: "Stage 0: raw-data baseline") vs a separate script. Recommend one run.py per D-15's single command.
-3. **Generation step shape** — Claude's discretion per CONTEXT; recommend generation as run.py's first stage (self-contained single command) writing into the tempfile working dir, with `generator.py` as a sibling module for walkthrough literal-inclusion.
+2. **Baseline-contrast placement** — RESOLVED: an executed run.py stage ("Stage 0: raw-data baseline") inside the single command, per D-15 (adopted in plan 12-02).
+3. **Generation step shape** — RESOLVED: generation is run.py's first stage (self-contained single command) writing into the tempfile working dir, with `generator.py` as a sibling module for walkthrough literal-inclusion (adopted in plans 12-01/12-02).
 
 ## Environment Availability
 
