@@ -16,6 +16,8 @@ coverage.xml
 .env
 # Perf battery run outputs are never committed (Phase 11 D-02); baselines are.
 perf/results/
+# Runtime ArtifactStore output of examples/external servers — never committed.
+examples/external/*/.store/
 *.pem
 node_modules/
 .DS_Store
