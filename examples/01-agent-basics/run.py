@@ -55,9 +55,18 @@ from ccf.assembly.worker import (
 )
 from ccf.boot import boot
 from ccf.contracts.canonical import content_hash
-from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
+from ccf.controlplane.artifacts import (
+    DEBT_PROFILE,
+    HALF_LIFE_TABLE,
+    DebtProfile,
+    HalfLifeTable,
+    declared_artifact_class,
+    parse_artifact,
+)
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.graph.protocols import GraphView
+from ccf.halflife.debt import DebtFactors, FreshnessScorer, assess_debt
+from ccf.halflife.decay import Observation
 from ccf.llm import LLMClientProtocol
 from ccf.operators.base import OperatorOutput
 from ccf.operators.categories import (
@@ -211,6 +220,7 @@ def main() -> int:
     prompt_doc = _load("prompt.yaml")
     agent_doc = _load("agent.yaml")
     analysis = _load("analysis_output.yaml")
+    halflife = _load("halflife.yaml")
 
     tenant_id: str = ontology["tenant_id"]
     keys = control["keys"]
@@ -398,6 +408,20 @@ def main() -> int:
             assert sorted(
                 {entry["entity_class"] for entry in payload["entities"]}
             ) == sorted(expected["entity_classes"]), payload
+            # axis 3 witness: the served payload's conditioning role is the
+            # definition's declared Π role — rebinding the perspective
+            # changes this served field.
+            assert (
+                payload["role"]
+                == expected["role"]
+                == definition.perspective.role
+            ), payload
+            # axis 4 witness: the regime-excluded entity class appears
+            # nowhere in the served view — exclusion is asserted by name.
+            assert not (
+                {entry["entity_class"] for entry in payload["entities"]}
+                & set(expected["excluded_entity_classes"])
+            ), payload
 
             # --- the Agent Factory: the only construction path (§6.4) -------
             agent = AgentFactory(control_plane=registry).construct(
@@ -428,6 +452,13 @@ def main() -> int:
             # axis 2 — context contract: the served product is admitted
             consumed = agent.consume(gated.product, now=now)
             assert consumed is gated.product
+            # axis 2 witness: the consumed product's class is exactly the
+            # class the definition's context contract declares.
+            contract = agent_doc["agent_definition"]["context_contract"][
+                "consumes"
+            ][0]
+            assert gated.product.schema_name == contract["product_class"]
+            assert gated.product.schema_version == contract["schema_version"]
             # axis 3 — perspective: the Π role from the definition
             conditioning = agent.perspective_conditioning(
                 principal_id=perspective.principal_id,
@@ -457,6 +488,53 @@ def main() -> int:
             assert frozenset(resolved.declared_parameters) == frozenset(
                 binding.parameters
             )
+
+            # --- axis 5 made observable: the debt profile gates (§7.7) ------
+            # axis 5 witness: the definition's referenced debt profile is
+            # parsed typed from its declaration, minus deployment-only keys.
+            axis5 = agent_doc["referenced_artifacts"]["halflife_debt_profile"]
+            profile = parse_artifact(
+                {
+                    "semver": axis5["semver"],
+                    **{
+                        name: axis5["declaration"][name]
+                        for name in DebtProfile.model_fields
+                        if name in axis5["declaration"]
+                    },
+                },
+                DEBT_PROFILE,
+            )
+            assert isinstance(profile, DebtProfile)
+            table = parse_artifact(
+                halflife["half_life_table"], HALF_LIFE_TABLE
+            )
+            assert isinstance(table, HalfLifeTable)
+            evaluation = halflife["debt_evaluation"]
+            scorer = FreshnessScorer(
+                table=table, risk_sensitivity=profile.risk_sensitivity
+            )
+            factors = DebtFactors(
+                freshness=scorer.score(
+                    tuple(
+                        Observation(
+                            observation_type=item["observation_type"],
+                            observed_at=_instant(item["observed_at"]),
+                        )
+                        for item in evaluation["observations"]
+                    ),
+                    now=now,
+                ),
+                completeness=evaluation["completeness"],
+                semantic_consistency=evaluation["semantic_consistency"],
+            )
+            assessment = assess_debt(factors, profile=profile)
+            # axis 5 witness: the CAR routing state the assessed D_c lands
+            # in matches the reviewed expectation the artifacts declare.
+            assert (
+                assessment.signal.value == evaluation["expected_signal"]
+            ), assessment
+            assert assessment.debt > profile.forced_llm_threshold, assessment
+            assert assessment.debt <= profile.fail_closed_threshold, assessment
 
             # --- run the agent's analytic step (D-12, keyless) --------------
             analyst = ScriptedAnalyst(
@@ -518,6 +596,8 @@ def main() -> int:
             print(f"  agent version          {definition.artifact_version}")
             print(f"  archetypes             {list(declared_archetypes)}")
             print(f"  consumed product       {gated.product.schema_name}")
+            print(f"  context debt D_c       {assessment.debt}")
+            print(f"  debt signal (axis 5)   {assessment.signal.value}")
             print(
                 "  dim-4 definition hash  "
                 f"{dimension_four.agent_definition_hash[:16]}…"

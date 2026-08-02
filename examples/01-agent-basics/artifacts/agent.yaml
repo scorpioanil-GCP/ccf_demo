@@ -8,6 +8,17 @@
 # refs only; an inline prompt string here or anywhere else is a D-13
 # violation. Two-field versioning per D-IMPL-28; decimals quoted so they
 # parse as text, never floats (D-IMPL-26).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the agent name, tenant, role, region, every URI, threshold
+# value and parameter name are [ADAPT]; the six axis keys (`archetypes`,
+# `context_contract`, `perspective`, `policy_regime`,
+# `halflife_debt_profile`, `instruction_bindings`) and the artifact
+# framing keys (`keys`, `referenced_artifacts`, `agent_definition`,
+# `schema_version`, `artifact_version`, `ref`, `semver`, `class_id`,
+# `declaration`) are [MECHANISM].
 
 keys:
   agent_definition: cascadia-fieldworks/agents/response-time-analytics

@@ -5,6 +5,15 @@
 # no SDK default (D-IMPL-39), operator parameters are declared artifacts with
 # no silent defaults (D-IMPL-38), and every domain value is deployment
 # configuration (CLAUDE.md §6.4).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: key names under `keys:`, the policy-bundle values, every
+# operator parameter value, the product schema name and the `expected:`
+# values are [ADAPT]; the section names (`keys`, `policy_bundle`,
+# `operator_parameters`, `product_class`, `perspective`, `decision`,
+# `expected`) and their sub-keys are [MECHANISM].
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
@@ -84,3 +93,12 @@ expected:
   relationship_types:
     - assigned_to
   entity_count: 2
+  # Axis 3 made visible: the role the served payload is conditioned to must
+  # be exactly the role the agent's definition declares (agent.yaml,
+  # `perspective.role`) — a rebound perspective changes this served field.
+  role: dispatch-analyst
+  # Axis 4 made visible: the entity class the policy regime keeps out of the
+  # served view entirely (the restricted defence-sector site and its
+  # `located_at` edge). The driver asserts its absence by name.
+  excluded_entity_classes:
+    - site
