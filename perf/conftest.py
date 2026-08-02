@@ -64,17 +64,16 @@ def _resolution_spec(ontology: Any) -> Any:
     )
 
 
-def build_fabric(*, rung: int, database_path: Path) -> "FabricHandle":
-    """Boot a fabric from the perf artifacts and ingest one rung through L2.
+def boot_fabric(*, database_path: Path) -> "FabricHandle":
+    """Boot an empty fabric from the perf artifacts — no ingestion.
 
-    The only construction path the perf tree uses: composition-root boot,
-    artifact-registered Control Plane state, and ``handle.worker.ingest`` for
-    every envelope. The caller owns ``handle.close()``.
+    Extracted from :func:`build_fabric` so the fabric-scale assembly curve
+    (11-03) can boot a fresh graph inside a pedantic ``setup`` callable and
+    time *only* the ``handle.worker.ingest`` loop. The caller owns
+    ``handle.close()``.
     """
     from ccf.boot import boot
     from ccf.controlplane.registry import ControlPlaneRegistry
-
-    from perf.synth.generator import generate_events
 
     ontology = _load("ontology.yaml")
     control = _load("controlplane.yaml")
@@ -87,7 +86,7 @@ def build_fabric(*, rung: int, database_path: Path) -> "FabricHandle":
     policy_version = registry.register(
         keys["policy_bundle"], control["policy_bundle"]
     )
-    handle = boot(
+    return boot(
         database_path=database_path,
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
@@ -95,6 +94,18 @@ def build_fabric(*, rung: int, database_path: Path) -> "FabricHandle":
         policy_bundle_key=keys["policy_bundle"],
         policy_bundle_version=policy_version,
     )
+
+
+def build_fabric(*, rung: int, database_path: Path) -> "FabricHandle":
+    """Boot a fabric from the perf artifacts and ingest one rung through L2.
+
+    The only construction path the perf tree uses: composition-root boot,
+    artifact-registered Control Plane state, and ``handle.worker.ingest`` for
+    every envelope. The caller owns ``handle.close()``.
+    """
+    from perf.synth.generator import generate_events
+
+    handle = boot_fabric(database_path=database_path)
     try:
         for envelope in generate_events(rung):
             handle.worker.ingest(envelope)

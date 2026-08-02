@@ -1,0 +1,49 @@
+# Performance-battery workflow definition fixture (CLAUDE.md §8.1;
+# D-IMPL-28). Wraps the pinned panel-cycle task and adds only routing —
+# the WorkflowFactory construction path over this wrapper is the
+# benchmark subject. Neutral perf vocabulary (D-09).
+
+keys:
+  workflow_definition: perf-tenant/workflows/panel-cycle
+  task_definition: perf-tenant/ccf.task-definition/panel-cycle
+
+referenced_artifacts:
+  sample_exception_handler:
+    key: perf-tenant/exception-handler/sample-panel-failed
+    class_id: exception-handler
+    semver: "1.0.0"
+    declaration:
+      routes_to: perf-operations-desk
+  panel_review_policy:
+    key: perf-tenant/approval-policy/panel-reviewer
+    class_id: approval-policy
+    semver: "1.0.0"
+    declaration:
+      approver_role: panel-reviewer
+      quorum: "1"
+
+workflow_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: panel-cycle-workflow
+  tenant: perf-tenant
+
+  task_definition_ref: "ccf-artifact://perf-tenant/ccf.task-definition/panel-cycle@1.0.0"
+
+  start: sample-panel
+  transitions:
+    - source: sample-panel
+      target: assess-panel
+    - source: assess-panel
+      target: panel-review
+    - source: panel-review
+      target: accepted
+    - source: panel-review
+      target: declined
+  terminal_states: [accepted, declined]
+
+  exception_refs:
+    sample-panel: "ccf-artifact://perf-tenant/exception-handler/sample-panel-failed@1.0.0"
+
+  gate_policies:
+    panel-review: "ccf-artifact://perf-tenant/approval-policy/panel-reviewer@1.0.0"

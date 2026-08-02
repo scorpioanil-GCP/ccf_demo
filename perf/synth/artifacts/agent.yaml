@@ -1,0 +1,61 @@
+# Performance-battery agent definition fixture (Phase 11 D-23; CLAUDE.md
+# §6.1/§6.2/§6.4). A declared, versioned Control Plane artifact the micro
+# suite constructs through the Agent Factory — the construction path is the
+# benchmark subject; every value here is neutral perf vocabulary with no
+# domain meaning (D-09).
+
+keys:
+  agent_definition: perf-tenant/agents/panel-insights
+
+referenced_artifacts:
+  policy_regime:
+    key: perf-tenant/policy-bundle/perf-battery-agent
+    class_id: policy-bundle
+    semver: "1.0.0"
+    declaration:
+      regime: perf-battery
+      permitted_classifications: [tag_open]
+  halflife_debt_profile:
+    key: perf-tenant/debt-profile/panel-review
+    class_id: debt-profile
+    semver: "1.0.0"
+    declaration:
+      review_cycle: per-run
+      risk_sensitivity: "1.0"
+      forced_llm_threshold: "0.50"
+      fail_closed_threshold: "0.90"
+
+agent_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: panel-insights
+  tenant: perf-tenant
+
+  # axis 1 — ordered archetype list (D-IMPL-19)
+  archetypes: [analytics_insights]
+
+  # axis 2 — context contract: the product class the perf fabric serves
+  # (controlplane.yaml `product_class`).
+  context_contract:
+    consumes:
+      - product_class: perf-tenant.perf-panel
+        schema_version: "1.0.0"
+
+  # axis 3 — perspective (Π role-conditioning)
+  perspective:
+    role: perf-analyst
+    selection_params:
+      panel: alpha
+
+  # axis 4 — policy regime (versioned-URI ref, never inline)
+  policy_regime:
+    ref: "ccf-artifact://perf-tenant/policy-bundle/perf-battery-agent@1.0.0"
+
+  # axis 5 — half-life and debt profile (versioned-URI ref)
+  halflife_debt_profile:
+    ref: "ccf-artifact://perf-tenant/debt-profile/panel-review@1.0.0"
+
+  # axis 6 — instruction bindings: refs plus declared parameter names (D-13)
+  instruction_bindings:
+    - prompt: "ccf-artifact://perf-tenant/prompt/panel-brief@1.0.0"
+      parameters: [panel_ref, as_of]
