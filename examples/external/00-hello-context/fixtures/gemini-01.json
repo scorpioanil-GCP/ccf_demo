@@ -1,0 +1,22 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Recommendation: extend-credit-line. The credit-context product for borrower FMB-BRW-0007 (Acme Industrial) shows a fully reconciled four-entity neighborhood — borrower, revolving credit facility, and the two surviving financial signals — indicating strengthened liquidity coverage and widened covenant headroom. All four operator categories ran under the bound policy bundle per the product lineage, so I recommend extending the revolving credit line."
+          }
+        ]
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1377,
+    "candidatesTokenCount": 88,
+    "totalTokenCount": 1465
+  },
+  "modelVersion": "gemini-fixture"
+}

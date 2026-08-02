@@ -1,0 +1,22 @@
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Use the available tools to retrieve the governed context, then state your recommendation."
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "functionDeclarations": [
+        {"name": "list_agents", "description": "discovered from the CCF experience server's tools/list at run time", "parameters": {"type": "OBJECT", "properties": {"tenant": {"type": "STRING"}}}},
+        {"name": "get_context", "description": "discovered from the CCF experience server's tools/list at run time", "parameters": {"type": "OBJECT", "properties": {"tenant": {"type": "STRING"}, "entity": {"type": "STRING"}}}},
+        {"name": "get_lineage", "description": "discovered from the CCF experience server's tools/list at run time", "parameters": {"type": "OBJECT", "properties": {}}},
+        {"name": "get_replay_record", "description": "discovered from the CCF experience server's tools/list at run time", "parameters": {"type": "OBJECT", "properties": {}}}
+      ]
+    }
+  ]
+}

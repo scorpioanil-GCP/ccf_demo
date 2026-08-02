@@ -1,0 +1,28 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "functionCall": {
+              "name": "get_context",
+              "args": {
+                "tenant": "first-meridian-bank",
+                "entity": "FMB-BRW-0007"
+              }
+            }
+          }
+        ]
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 655,
+    "candidatesTokenCount": 41,
+    "totalTokenCount": 696
+  },
+  "modelVersion": "gemini-fixture"
+}
