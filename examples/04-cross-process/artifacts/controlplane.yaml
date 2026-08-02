@@ -9,6 +9,16 @@
 #
 # The keys are deployment vocabulary too. The SDK never enumerates Control
 # Plane keys; the fabric is told which ones to pin.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: key paths, regime/jurisdiction values, classifications, the
+# similarity query, entity classes, relationship types, schema names,
+# principal/role strings, timestamps, TTL numbers, the `expected:` values.
+# [MECHANISM]: every field name (`keys`, `policy_bundle`,
+# `operator_parameters`, `product_class`, `perspective`, `decision`,
+# `expected`).
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
@@ -88,4 +98,4 @@ expected:
   relationship_types:
     - contains
     - monitored_by
-  entity_count: 3
+  entity_count: 4

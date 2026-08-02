@@ -10,6 +10,13 @@
 # itself a typed Context Product, served on the wire for other agents.
 # Instruction bindings are versioned-URI refs only; two-field versioning per
 # D-IMPL-28; decimals quoted so they parse as text, never floats (D-IMPL-26).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: tenant, agent name, product-class names, role/selection values,
+# threshold values. [MECHANISM]: the six axis field names,
+# `referenced_artifacts` structure, the `ref` URI scheme.
 
 keys:
   agent_definition: larkfield-estates/agents/site-situation-assembler

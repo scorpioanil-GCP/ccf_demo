@@ -6,6 +6,13 @@
 # (§6.4) firing, and CINV-01 lints `/examples` for exactly that. Validation
 # is parse-only: `declared_parameters` must exactly equal the set Jinja2
 # reports as undeclared variables in `template`; nothing renders here.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: the template text, parameter names, tenant, artifact name.
+# [MECHANISM]: `declared_parameters`, `template`, version field names, the
+# `keys` block.
 
 keys:
   prompt_artifact: larkfield-estates/prompt/situation-brief
