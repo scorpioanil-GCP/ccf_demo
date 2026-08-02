@@ -5,6 +5,16 @@
 # no SDK default (D-IMPL-39), operator parameters are declared artifacts with
 # no silent defaults (D-IMPL-38), and every domain value is deployment
 # configuration (CLAUDE.md §6.4).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: key paths, regime/jurisdiction values, classifications, the
+# similarity query, entity classes, relationship types, schema names,
+# principal/role strings, timestamps, TTL numbers, the `expected:` values.
+# [MECHANISM]: every field name (`keys`, `policy_bundle`,
+# `operator_parameters`, `product_class`, `perspective`, `decision`,
+# `instruction_parameters`, `artifacts`, `expected`).
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
@@ -49,6 +59,7 @@ operator_parameters:
     relationship_types:
       - placed_by
       - includes
+      - shipped_via
     depth_limit: 2
 
 # The product class this fabric serves — the SAME class the agent definition
@@ -87,6 +98,8 @@ expected:
   entity_classes:
     - customer
     - order
+    - shipment
   relationship_types:
     - placed_by
-  entity_count: 2
+    - shipped_via
+  entity_count: 3

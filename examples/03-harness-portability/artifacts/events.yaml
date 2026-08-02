@@ -11,7 +11,19 @@
 #     which the policy operator must substitute out along with the
 #     `includes` edge that would otherwise leak its existence by absence.
 #
+#   * ec-104 attaches the delayed shipment behind ORD-5521's trouble, so
+#     the two-hop traversal has a second typed edge (`shipped_via`) to
+#     expand — and the byte-identical equivalence across the three
+#     harnesses covers three entity classes, not two.
+#
 # Payload keys are the *source systems'* vocabulary, never the fabric's.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# [ADAPT]: every payload key and value, source system ids, timestamps.
+# [MECHANISM]: the envelope field names (`envelope_id`, `source_system_id`,
+# `ingestion_timestamp`, `observed_time`, `payload`).
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
@@ -63,6 +75,20 @@ envelopes:
       catalog_item_ref: "SKU-AGE-0771"
       category: "age-gated"
       catalog_item_classification: "restricted"
+      order_ref: "ORD-5521"
+      order_status: "delayed"
+      order_summary: "delayed shipment refund request expedited courier"
+      order_classification: "internal"
+
+  - envelope_id: ec-104
+    source_system_id: logistics-tracking
+    ingestion_timestamp: 2026-06-02T09:20:00Z
+    observed_time: 2026-06-02T09:18:00Z
+    payload:
+      shipment_ref: "SHP-88410"
+      carrier_name: "Cascadia Parcel"
+      shipment_status: "stalled-at-hub"
+      shipment_classification: "internal"
       order_ref: "ORD-5521"
       order_status: "delayed"
       order_summary: "delayed shipment refund request expedited courier"
