@@ -89,13 +89,13 @@ Plans:
   3. Cross-process latency (MCP egress, A2A/peering) and replay-at-scale suites run and empirically support the year-scale replay claim
   4. An opt-in `perf.yml` CI job compares against committed runner-class-keyed baselines using relative-median thresholds from `perf/thresholds.toml`, and the re-baseline ritual is documented
 
-**Plans:** 5 plans
+**Plans:** 2/5 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 11-01-PLAN.md — Foundation: pytest-benchmark extra + A1 check, gate.py + thresholds.toml + gate unit tests, Makefile perf targets
-- [ ] 11-02-PLAN.md — Synthetic generator: perf/synth/ neutral artifacts + seeded topology/decision stream, rung fixtures, determinism tests
+- [x] 11-01-PLAN.md — Foundation: pytest-benchmark extra + A1 check, gate.py + thresholds.toml + gate unit tests, Makefile perf targets
+- [x] 11-02-PLAN.md — Synthetic generator: perf/synth/ neutral artifacts + seeded topology/decision stream, rung fixtures, determinism tests
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -155,7 +155,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 9. Hardening — Defect Fixes & Ruling Batch | 3/3 | Complete   | 2026-08-01 |
 | 10. Hardening — Authorization & Posture | 4/4 | Complete    | 2026-08-01 |
-| 11. Performance Battery | 0/? | Not started | - |
+| 11. Performance Battery | 2/5 | In Progress|  |
 | 12. Synthetic-Data Demonstration | 0/? | Not started | - |
 | 13. Examples Suite Upgrade | 0/? | Not started | - |
 | 14. Documentation Suite | 0/? | Not started | - |
