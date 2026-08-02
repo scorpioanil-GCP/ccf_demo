@@ -75,8 +75,10 @@ def source_checksum(db_path: Path, table: str, columns: list[str]) -> str:
     """sha256 over the SORTED logical row tuples of one table.
 
     Rows are read with an ``ORDER BY`` over every listed column and hashed as
-    sorted ``|``-joined text lines, so neither insertion order nor SQLite
-    file-format details can leak into the pin (D-08).
+    sorted ``repr(tuple(row))`` lines — an unambiguous encoding in which
+    embedded ``|``/newlines and NULL-vs-``"None"`` remain distinguishable —
+    so neither insertion order nor SQLite file-format details can leak into
+    the pin, and distinct logical rows never collide (D-08).
     """
     quoted = ", ".join(sql_identifier(c) for c in columns)
     with sqlite3.connect(db_path) as connection:
@@ -84,7 +86,7 @@ def source_checksum(db_path: Path, table: str, columns: list[str]) -> str:
             f"SELECT {quoted} FROM {sql_identifier(table)} ORDER BY {quoted}"
         ).fetchall()
     digest = hashlib.sha256()
-    for line in sorted("|".join(str(v) for v in row) for row in rows):
+    for line in sorted(repr(tuple(row)) for row in rows):
         digest.update(line.encode("utf-8"))
         digest.update(b"\n")
     return digest.hexdigest()
@@ -373,7 +375,7 @@ def generate(scenario: dict[str, Any], out_dir: Path) -> dict[str, Any]:
             )
         )
         ring_lines.append(
-            f"{origin['name']}|{target['name']}|{edge['amount']}|{sent}"
+            repr((origin["name"], target["name"], edge["amount"], sent))
         )
     emit(transfers, transfers_name, {"movements": wires})
 

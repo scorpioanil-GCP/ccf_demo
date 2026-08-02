@@ -272,9 +272,9 @@ expected:
     kyc_registry:
       counterparties: 1205    # 1200 noise + 5 ring
   checksums:
-    core_banking: "0b7e14933049bfd28d07e18389851028a2650b455ab055d0c5dc57363b601ee7"
-    wires: "c3ab2c13b427d7ef77e0db7da240a68e17ffc8875d5a541dd62b19d44d5cc90c"
-    kyc_registry: "06a99c8f015ed76edcedf3ae9d2c79c53f5bebbb4bd17a5be8f359d4342929a9"
-  ring_signature: "c33291b7c613b837538433e4fc0d0164cbfec54f18636d96ff1de0ef1380ba65"
+    core_banking: "57b1a53e82ebe7b9ded86e7a663fcb4882b10694e72485b06b921a90d2b2dfd4"
+    wires: "ca4364396c3a47312a1d1a5331490a93510c8ea18660400c5a7f419fdba6b2ad"
+    kyc_registry: "0a0dd9f6832ab6bed7f3a2af2b8c02ebe2f7517b9826c18fa74c60c994dd92a1"
+  ring_signature: "b1cc30cb01411850c643b9b3513d0953fd69553c50459e5a327cc7095125fe5e"
   cycle_count: 1
   cycle_members: [M1, M2, M3, M4, M5]
