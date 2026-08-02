@@ -1,0 +1,23 @@
+{
+  "id": "msg_fixture_anthropic_00",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-fixture",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_fixture_00",
+      "name": "get_context",
+      "input": {
+        "tenant": "first-meridian-bank",
+        "entity": "FMB-BRW-0007"
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 712,
+    "output_tokens": 63
+  }
+}

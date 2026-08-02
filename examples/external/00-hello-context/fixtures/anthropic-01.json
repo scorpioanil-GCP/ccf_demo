@@ -1,0 +1,18 @@
+{
+  "id": "msg_fixture_anthropic_01",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-fixture",
+  "content": [
+    {
+      "type": "text",
+      "text": "Recommendation: extend-credit-line. The served credit-context product for borrower FMB-BRW-0007 (Acme Industrial) shows a reconciled borrower -> credit_facility -> financial_signal neighborhood of four entities, with the surviving signals indicating strengthened liquidity coverage and widened covenant headroom. The lineage block confirms all four operator categories ran under the bound policy bundle, so I recommend extending the revolving credit line."
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 1418,
+    "output_tokens": 96
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Use the available tools to retrieve the governed context, then state your recommendation."
+        }
+      ]
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "functionCall": {
+            "name": "get_context",
+            "args": {"tenant": "first-meridian-bank", "entity": "FMB-BRW-0007"}
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "parts": [
+        {
+          "functionResponse": {
+            "name": "get_context",
+            "response": {"result": "<canonical JSON of the served first-meridian-bank.credit-context product, as returned by the get_context tool>"}
+          }
+        }
+      ]
+    }
+  ]
+}
