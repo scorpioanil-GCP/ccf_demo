@@ -31,7 +31,9 @@ findings:
   warning: 2
   info: 5
   total: 7
+  fixed: 2
 status: issues_found
+fixed: [WR-01, WR-02]
 ---
 
 # Phase 13: Code Review Report
@@ -102,6 +104,10 @@ override_boundary: OverrideBoundary[ShedDetermination] = OverrideBoundary(
 proposed = override_boundary.propose(...)
 resolution = override_boundary.resolve(...)
 ```
+**resolution:** Fixed 2026-08-02 (commit 80bdf5f) — the `OverrideBoundary`
+instance and its `propose`/`resolve` uses renamed to `override_boundary`;
+the line-573 `datetime` binding untouched. `make example-06` and
+`make lint` green.
 
 #### WR-02: Magic index `mcp_refs[1]` couples the wire-fetch assertion to tuple position
 
@@ -126,6 +132,11 @@ return canonical_bytes(gated.product), {
 ...
 fresh.get(content_address=mcp_refs["product"].content_address)
 ```
+**resolution:** Fixed 2026-08-02 (commit 4ef3148) — `workload()` now
+returns `dict[str, ArtifactRef]` keyed by artifact role
+(`replay_record`/`product`/`policy_bundle`); all assertion, retrieval,
+and print sites in `main()` index by name. `make example-07` and
+`make lint` green.
 
 ### Info
 
