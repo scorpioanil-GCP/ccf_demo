@@ -168,8 +168,8 @@ Plans:
 
 **Goal:** An engineer with an existing agent in their own harness (Anthropic SDK, Google ADK, or a bare MCP client) can point it at the CCF MCP egress server and consume decision-ready, typed Context Products — with zero CCF imports on the client side. CCF operates as a black box behind MCP; the replay record still lands on the fabric side. This demonstrates §7.1 MCP-as-egress / §8.3 Experience Layer as the primary adoption path, rather than asserting it.
 **Rationale (Dave, 2026-08-02):** Users must never be forced to construct agents inside CCF — that becomes tech debt. The harness-independent MCP consumption path is the most important example set the suite needs.
-**Requirements**: TBD (candidate: extend EXAM-* or new EXAM-04)
-**Suggested scope:** `examples/09-external-consumer-anthropic` (pure `anthropic`-SDK agent, CCF only as an MCP server URL); a generic-MCP-client or ADK variant; README discipline per the Phase-13 D-02 template; runnable in CI (`make example-09`), deterministic leg for CI plus optional live leg.
+**Requirements**: EXAM-04
+**Suggested scope:** `examples/external/00-hello-context` (locked D-01 layout — new `examples/external/` family unified by consumption model, examples 00–08 unchanged): four client legs (`client_bare.py`, `client_anthropic.py`, `client_adk.py`, plus the `.mcp.json` leg), CCF only as an authenticated MCP server URL; family charter README per D-02/D-03; runnable in CI (`make example-ext-00`), deterministic leg for CI plus optional live leg.
 **Depends on:** Phase 13. Must land before Phase 14 (Documentation Suite) so the docs can literal-include it.
 **Plans:** 4 plans
 

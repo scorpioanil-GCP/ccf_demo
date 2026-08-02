@@ -41,6 +41,7 @@
 - [ ] **EXAM-01**: Every v0.1 example (00–07) has a detailed narrated README — what it demonstrates, artifact-by-artifact explanation, whitepaper/CLAUDE.md sections exercised, and "what to change first to adapt it"
 - [ ] **EXAM-02**: Example scenarios are enriched to exercise more of the SDK surface (specialization axes, skilling, HITL, replay) through richer definition artifacts — example code stays thin and generic per No-Hardcoding
 - [ ] **EXAM-03**: The upgraded suite stays CI-green with a single documented command per example; any expected-output change is a reviewed, deliberate event
+- [ ] **EXAM-04**: An external agent with zero CCF imports client-side consumes typed Context Products, lineage, and the replay record over the authenticated MCP surface, deterministically in CI, across bare-MCP, Anthropic-SDK, and Google-ADK legs (family charter + `examples/external/00-hello-context`)
 
 ## Future Requirements (deferred)
 
@@ -76,6 +77,7 @@
 | EXAM-01 | Phase 13 | Pending |
 | EXAM-02 | Phase 13 | Pending |
 | EXAM-03 | Phase 13 | Pending |
+| EXAM-04 | Phase 13.1 | Pending |
 | DOCS-01 | Phase 14 | Pending |
 | DOCS-02 | Phase 14 | Pending |
 | DOCS-03 | Phase 14 | Pending |
@@ -83,4 +85,4 @@
 | DOCS-05 | Phase 14 | Pending |
 | DOCS-06 | Phase 14 | Pending |
 
-Coverage: 21/21 v0.2 requirements mapped, each to exactly one phase.
+Coverage: 22/22 v0.2 requirements mapped, each to exactly one phase.
