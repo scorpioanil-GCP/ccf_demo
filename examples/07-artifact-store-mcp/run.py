@@ -235,7 +235,8 @@ def workload(
 
     Returns:
         The served product's canonical bytes, and the refs of every artifact
-        persisted to the store (the replay record and the product at rest).
+        persisted to the store (the replay record, the product at rest, and
+        the Control Plane policy bundle — three §7.4 artifact classes).
     """
     ontology = _load("ontology.yaml")
     events = _load("events.yaml")
@@ -430,9 +431,18 @@ def workload(
                     name=control["artifacts"]["product_name"],
                     artifact=gated.product,
                 )
+                bundle_ref = store.put(
+                    tenant_id=tenant_id,
+                    artifact_class=control["artifacts"][
+                        "policy_bundle_artifact_class"
+                    ],
+                    name=control["artifacts"]["policy_bundle_artifact_name"],
+                    artifact=control["policy_bundle"],
+                )
             return canonical_bytes(gated.product), (
                 served.replay_ref,
                 product_ref,
+                bundle_ref,
             )
         finally:
             handle.close()

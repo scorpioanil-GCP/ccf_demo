@@ -5,6 +5,9 @@
 # has no SDK default (D-IMPL-39), operator parameters are declared artifacts
 # with no silent defaults (D-IMPL-38), and every domain value is deployment
 # configuration (CLAUDE.md §6.4).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
@@ -69,11 +72,17 @@ decision:
   now: 2026-07-01T07:00:05Z
 
 # Artifact classes and names this deployment files its persisted artifacts
-# under — deployment vocabulary the stores are told, never assume.
+# under — deployment vocabulary the stores are told, never assume. Three
+# §7.4 artifact classes flow through the store seam: the decision replay
+# record, the Context Product at rest, and the Control Plane policy bundle
+# that governed the decision — so the pluggability proof covers a Control
+# Plane bundle, not just decision outputs.
 artifacts:
-  replay_record_class: decision-replay-record
+  replay_record_class: decision-replay-record  # [ADAPT] value; [MECHANISM] key
   product_class: context-product
   product_name: shipment-context-summary
+  policy_bundle_artifact_class: control-plane-bundle
+  policy_bundle_artifact_name: dispatch-desk-policy-bundle
 
 # What the served product should contain, as declared by the deployment that
 # authored the events. The driver asserts against these instead of carrying
@@ -86,4 +95,4 @@ expected:
   relationship_types:
     - assigned_to
     - originates_at
-  entity_count: 3
+  entity_count: 4
