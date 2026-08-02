@@ -205,14 +205,17 @@ Not applicable — no external ecosystem. The relevant "state of the art" is the
 |---|-------|---------|---------------|
 | — | (empty — all claims verified against the local codebase) | | |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does any example beyond 08 need an actual regeneration *command* vs an edit workflow?**
    - What we know: 00–07 have no generated output files; 08 regenerates expected_output.txt via its own run.
    - Recommendation: READMEs for 00–07 document the edit-the-expected-block workflow with the D-10 warning; only 08's README documents a literal regeneration command. Planner should phrase D-10 compliance per-example accordingly.
+   - **RESOLVED:** Plan 13-01 Task 1 part 4 fixes per-example regeneration phrasing — edit-the-expected-block workflow for 00–07, literal regeneration command only for 08.
 2. **Which examples absorb OverrideBoundary / ReviewQueue (D-07, Claude's discretion)?**
    - Recommendation: ReviewQueue fits 05 (a ContentGeneration-adjacent review step) or 06 (adds a fourth HITL dimension to replay); OverrideBoundary fits 06 best (original output + override both in the replay record is the replay example's whole point). Planner decides during task design; do not force both into one example.
+   - **RESOLVED:** Plan 13-04 places ReviewQueue in example 05 and OverrideBoundary in example 06.
 3. **Deferred-but-permitted README headings CI check** — planner MAY add a trivial headings grep to `ci-core`; cheap insurance for template drift across eight files. Optional.
+   - **RESOLVED:** No new CI target added (D-12). The headings check runs as a grep in plan 13-05 Task 2 acceptance criteria (and matching checks in plans 13-02..13-04) instead.
 
 ## Environment Availability
 
