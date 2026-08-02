@@ -45,7 +45,18 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-__all__ = ["generate", "source_checksum"]
+__all__ = ["generate", "source_checksum", "sql_identifier"]
+
+
+def sql_identifier(name: object) -> str:
+    """Quote an artifact-supplied SQL identifier, escaping embedded quotes.
+
+    Table and column names cannot travel as bound parameters; they come from
+    the versioned scenario artifact (T-12-01) and are double-quoted here with
+    any embedded ``"`` doubled, so a hostile identifier cannot break out of
+    the quoting. Mechanism only — no vocabulary (CLAUDE.md §6.4).
+    """
+    return '"' + str(name).replace('"', '""') + '"'
 
 # Documented RNG stream offsets (see module docstring).
 _STREAM_POPULATION = 0
@@ -64,16 +75,18 @@ def source_checksum(db_path: Path, table: str, columns: list[str]) -> str:
     """sha256 over the SORTED logical row tuples of one table.
 
     Rows are read with an ``ORDER BY`` over every listed column and hashed as
-    sorted ``|``-joined text lines, so neither insertion order nor SQLite
-    file-format details can leak into the pin (D-08).
+    sorted ``repr(tuple(row))`` lines — an unambiguous encoding in which
+    embedded ``|``/newlines and NULL-vs-``"None"`` remain distinguishable —
+    so neither insertion order nor SQLite file-format details can leak into
+    the pin, and distinct logical rows never collide (D-08).
     """
-    quoted = ", ".join(f'"{c}"' for c in columns)
+    quoted = ", ".join(sql_identifier(c) for c in columns)
     with sqlite3.connect(db_path) as connection:
         rows = connection.execute(
-            f'SELECT {quoted} FROM "{table}" ORDER BY {quoted}'
+            f"SELECT {quoted} FROM {sql_identifier(table)} ORDER BY {quoted}"
         ).fetchall()
     digest = hashlib.sha256()
-    for line in sorted("|".join(str(v) for v in row) for row in rows):
+    for line in sorted(repr(tuple(row)) for row in rows):
         digest.update(line.encode("utf-8"))
         digest.update(b"\n")
     return digest.hexdigest()
@@ -129,12 +142,15 @@ def _create_and_fill(
     table: dict[str, Any],
     rows: list[tuple[Any, ...]],
 ) -> None:
-    columns_sql = ", ".join(f'"{c["name"]}" {c["type"]}' for c in table["columns"])
+    columns_sql = ", ".join(
+        f'{sql_identifier(c["name"])} {c["type"]}' for c in table["columns"]
+    )
     placeholders = ", ".join("?" for _ in table["columns"])
+    table_sql = sql_identifier(table["name"])
     with sqlite3.connect(db_path) as connection:
-        connection.execute(f'CREATE TABLE "{table["name"]}" ({columns_sql})')
+        connection.execute(f"CREATE TABLE {table_sql} ({columns_sql})")
         connection.executemany(
-            f'INSERT INTO "{table["name"]}" VALUES ({placeholders})', rows
+            f"INSERT INTO {table_sql} VALUES ({placeholders})", rows
         )
         connection.commit()
 
@@ -359,7 +375,7 @@ def generate(scenario: dict[str, Any], out_dir: Path) -> dict[str, Any]:
             )
         )
         ring_lines.append(
-            f"{origin['name']}|{target['name']}|{edge['amount']}|{sent}"
+            repr((origin["name"], target["name"], edge["amount"], sent))
         )
     emit(transfers, transfers_name, {"movements": wires})
 

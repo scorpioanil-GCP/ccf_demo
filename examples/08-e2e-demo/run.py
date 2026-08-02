@@ -135,6 +135,17 @@ def _banner(title: str, facts: Mapping[str, str]) -> None:
         print(line)
 
 
+def _require(condition: bool, message: object) -> None:
+    """Unconditional verification check (review WR-01).
+
+    Every load-bearing demo check goes through here instead of ``assert``,
+    so ``python -O`` / ``PYTHONOPTIMIZE=1`` can never strip the
+    verification the README's exit-code-0 promise depends on.
+    """
+    if not condition:
+        raise RuntimeError(f"demo verification failed: {message}")
+
+
 def _load(name: str) -> Any:
     return yaml.safe_load((ARTIFACTS / name).read_text(encoding="utf-8"))
 
@@ -221,12 +232,15 @@ def _mapped_rows(
     id_column = column_by_role[entry["envelope_id_role"]]
     observed_column = column_by_role[entry["observed_time_role"]]
     selected = [column_by_role[role] for role in roles]
-    quoted = ", ".join(f'"{name}"' for name in selected)
+    quoted = ", ".join(generator.sql_identifier(name) for name in selected)
+    id_sql = generator.sql_identifier(id_column)
+    observed_sql = generator.sql_identifier(observed_column)
+    table_sql = generator.sql_identifier(table["name"])
     rows: list[dict[str, str]] = []
     with sqlite3.connect(workdir / source["db_file"]) as connection:
         cursor = connection.execute(
-            f'SELECT {quoted}, "{id_column}", "{observed_column}" '
-            f'FROM "{table["name"]}" ORDER BY "{id_column}"'
+            f"SELECT {quoted}, {id_sql}, {observed_sql} "
+            f"FROM {table_sql} ORDER BY {id_sql}"
         )
         for values in cursor:
             payload = {
@@ -290,29 +304,43 @@ def _structured_cycles(
     found: set[tuple[str, ...]] = set()
 
     def _extends(previous: float, amount: float) -> bool:
-        return abs(amount - previous) / previous * 100.0 <= tolerance_percent
+        # Guard against zero (division) and negative (sign-inverted
+        # tolerance) previous amounts: compare against the magnitude.
+        denominator = abs(previous)
+        if denominator == 0.0:
+            return amount == previous
+        return abs(amount - previous) / denominator * 100.0 <= (
+            tolerance_percent
+        )
 
-    def _walk(
-        start: str, node: str, path: list[tuple[str, str, float, datetime]]
-    ) -> None:
-        last = path[-1]
-        seen = {step[0] for step in path}
-        for edge in adjacency.get(node, ()):
-            if edge[3] <= last[3] or edge[3] - path[0][3] > span:
-                continue
-            if not _extends(last[2], edge[2]):
-                continue
-            if edge[1] == start:
-                if len(path) + 1 >= min_length:
-                    found.add(tuple(sorted(step[0] for step in path + [edge])))
-                continue
-            if edge[1] in seen or edge[1] == node:
-                continue
-            _walk(start, edge[1], path + [edge])
+    def _walk(start: str, first: tuple[str, str, float, datetime]) -> None:
+        # Explicit-stack DFS: path depth is bounded by memory, never by the
+        # interpreter recursion limit, so artifact-declared tolerance/span
+        # parameters cannot abort the run with RecursionError (WR-04).
+        stack: list[list[tuple[str, str, float, datetime]]] = [[first]]
+        while stack:
+            path = stack.pop()
+            last = path[-1]
+            node = last[1]
+            seen = {step[0] for step in path}
+            for edge in adjacency.get(node, ()):
+                if edge[3] <= last[3] or edge[3] - path[0][3] > span:
+                    continue
+                if not _extends(last[2], edge[2]):
+                    continue
+                if edge[1] == start:
+                    if len(path) + 1 >= min_length:
+                        found.add(
+                            tuple(sorted(step[0] for step in path + [edge]))
+                        )
+                    continue
+                if edge[1] in seen or edge[1] == node:
+                    continue
+                stack.append(path + [edge])
 
     for edge in ordered:
         if edge[0] != edge[1]:
-            _walk(edge[0], edge[1], [edge])
+            _walk(edge[0], edge)
     return sorted(found)
 
 
@@ -589,10 +617,13 @@ def main(*, live: bool = False) -> int:
 
         # --- Stage 1: GENERATE — scenario.yaml becomes three source DBs ----
         shape = generator.generate(scenario, workdir)
-        assert shape["row_counts"] == expected_rows(scenario), shape
-        assert shape["checksums"] == scenario["expected"]["checksums"], shape
-        assert (
-            shape["ring_signature"] == scenario["expected"]["ring_signature"]
+        _require(shape["row_counts"] == expected_rows(scenario), shape)
+        _require(
+            shape["checksums"] == scenario["expected"]["checksums"], shape
+        )
+        _require(
+            shape["ring_signature"] == scenario["expected"]["ring_signature"],
+            shape,
         )
         total_rows = sum(
             count
@@ -637,7 +668,7 @@ def main(*, live: bool = False) -> int:
         baseline = _run_detection(
             payment_rows, known=known_raw, arguments=arguments
         )
-        assert len(baseline) == expected["baseline_cycles"], baseline
+        _require(len(baseline) == expected["baseline_cycles"], baseline)
         _banner(
             "STAGE 2 - BASELINE: the same detection over raw rows",
             {
@@ -659,8 +690,8 @@ def main(*, live: bool = False) -> int:
         )
         table = parse_artifact(halflife["half_life_table"], HALF_LIFE_TABLE)
         profile = parse_artifact(halflife["debt_profile"], DEBT_PROFILE)
-        assert isinstance(table, HalfLifeTable)
-        assert isinstance(profile, DebtProfile)
+        _require(isinstance(table, HalfLifeTable), type(table))
+        _require(isinstance(profile, DebtProfile), type(profile))
         registry.register(keys["half_life_table"], table)
         registry.register(keys["debt_profile"], profile)
 
@@ -688,8 +719,14 @@ def main(*, live: bool = False) -> int:
                 for record in view.entities
                 if record.claim.entity_class == seed_class
             )
-            assert len(envelopes) == expected["envelopes_ingested"]
-            assert resolved_seeds == expected["resolved_seed_entities"]
+            _require(
+                len(envelopes) == expected["envelopes_ingested"],
+                len(envelopes),
+            )
+            _require(
+                resolved_seeds == expected["resolved_seed_entities"],
+                resolved_seeds,
+            )
             _banner(
                 "STAGE 3 - INGEST: L1 envelopes -> L2 entity resolution",
                 {
@@ -817,22 +854,26 @@ def main(*, live: bool = False) -> int:
                 registry=registry,
                 product_class=product_class,
             )
-            assert isinstance(gated, ServableProduct), gated
-            assert (
+            _require(isinstance(gated, ServableProduct), gated)
+            _require(
                 gated.product.lineage.operators_invoked
-                == execution.operators_invoked
+                == execution.operators_invoked,
+                gated.product.lineage.operators_invoked,
             )
             payload = gated.product.payload
-            assert payload["entity_count"] == expected["entity_count"], (
-                payload["entity_count_by_class"]
+            _require(
+                payload["entity_count"] == expected["entity_count"],
+                payload["entity_count_by_class"],
             )
-            assert (
+            _require(
                 payload["entity_count_by_class"]
-                == expected["entity_count_by_class"]
+                == expected["entity_count_by_class"],
+                payload["entity_count_by_class"],
             )
-            assert (
+            _require(
                 payload["relationship_count_by_type"]
-                == expected["relationship_count_by_type"]
+                == expected["relationship_count_by_type"],
+                payload["relationship_count_by_type"],
             )
             _banner(
                 "STAGE 4 - PRODUCT: operators -> projection -> gated product",
@@ -860,7 +901,7 @@ def main(*, live: bool = False) -> int:
                 table=table,
                 risk_sensitivity=profile.risk_sensitivity,
             )
-            assert 0 < retained <= 1, retained
+            _require(0 < retained <= 1, retained)
 
             # --- Stage 5: AGENT — factory-built, governed skill, the find --
             for reference in agent_doc["referenced_artifacts"].values():
@@ -881,26 +922,30 @@ def main(*, live: bool = False) -> int:
             prompt = parse_artifact(
                 prompt_doc["prompt_artifact"], PROMPT_ARTIFACT
             )
-            assert isinstance(prompt, PromptArtifact)
+            _require(isinstance(prompt, PromptArtifact), type(prompt))
             registry.register_typed(
                 prompt_doc["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
             )
             definition = parse_artifact(
                 agent_doc["agent_definition"], AGENT_DEFINITION
             )
-            assert isinstance(definition, AgentDefinition)
+            _require(
+                isinstance(definition, AgentDefinition), type(definition)
+            )
             definition_key = agent_doc["keys"]["agent_definition"]
             definition_version = registry.register_versioned(
                 definition_key, definition, AGENT_DEFINITION
             )
-            assert isinstance(definition_version, str)
+            _require(
+                isinstance(definition_version, str), type(definition_version)
+            )
             definition_hash = content_hash(definition)
 
             catalog = SkillCatalog(registry)
             skill_doc = next(iter(skills_doc["skills"].values()))
             entry = parse_artifact(skill_doc, SKILL_CATALOG_ENTRY)
-            assert isinstance(entry, SkillCatalogEntry)
-            assert isinstance(catalog.register(entry), str)
+            _require(isinstance(entry, SkillCatalogEntry), type(entry))
+            _require(isinstance(catalog.register(entry), str), entry)
             ledger = GrantLedger(
                 control_plane=registry,
                 catalog=catalog,
@@ -921,7 +966,7 @@ def main(*, live: bool = False) -> int:
                 definition_version=definition_version,
                 bound_skills=ledger.bound_view(definition_hash),
             )
-            assert isinstance(agent, Agent)
+            _require(isinstance(agent, Agent), type(agent))
             grant = SkillGrant(
                 agent_definition_hash=definition_hash, **skills_doc["grant"]
             )
@@ -930,25 +975,35 @@ def main(*, live: bool = False) -> int:
                 definition=definition,
                 actor=skills_doc["actors"]["requesting_actor"],
             )
-            assert granted == content_hash(grant), granted
+            _require(granted == content_hash(grant), granted)
             in_force = ledger.grant_set_hash(definition_hash)
 
-            assert agent.consume(gated.product, now=now) is gated.product
+            _require(
+                agent.consume(gated.product, now=now) is gated.product,
+                "consumed product is not the served product",
+            )
             invocation = agent.invoke_skill(
                 skills_doc["grant"]["skill_name"],
                 arguments=skills_doc["dispatch"]["arguments"],
             )
-            assert isinstance(invocation, SkillInvocation)
-            detection = dict(invocation.output)
-            assert detection == skills_doc["dispatch"]["expected_output"], (
-                detection
+            _require(
+                isinstance(invocation, SkillInvocation), type(invocation)
             )
-            assert int(detection["cycles_found"]) == expected[
-                "governed_cycles"
-            ]
-            assert detection["cycle_members"].split("|") == expected[
-                "cycle_members"
-            ]
+            detection = dict(invocation.output)
+            _require(
+                detection == skills_doc["dispatch"]["expected_output"],
+                detection,
+            )
+            _require(
+                int(detection["cycles_found"])
+                == expected["governed_cycles"],
+                detection,
+            )
+            _require(
+                detection["cycle_members"].split("|")
+                == expected["cycle_members"],
+                detection,
+            )
             _banner(
                 "STAGE 5 - AGENT: granted skill over governed context",
                 {
@@ -995,20 +1050,28 @@ def main(*, live: bool = False) -> int:
                     ],
                 ),
             )
-            assert store.exists(
-                content_address=served.replay_ref.content_address
+            _require(
+                store.exists(
+                    content_address=served.replay_ref.content_address
+                ),
+                served.replay_ref.content_address,
             )
-            assert served.replay_ref.content_address == content_hash(record)
+            _require(
+                served.replay_ref.content_address == content_hash(record),
+                served.replay_ref.content_address,
+            )
             restored = DecisionReplayRecord.model_validate_json(
                 store.get(content_address=served.replay_ref.content_address)
             )
-            assert restored == record
-            assert (
+            _require(restored == record, "replay round-trip mismatch")
+            _require(
                 restored.perspective_conditioning.agent_definition_hash
-                == definition_hash
+                == definition_hash,
+                restored.perspective_conditioning.agent_definition_hash,
             )
-            assert restored.perspective_conditioning.grant_set_hash == (
-                in_force
+            _require(
+                restored.perspective_conditioning.grant_set_hash == in_force,
+                restored.perspective_conditioning.grant_set_hash,
             )
             _banner(
                 "STAGE 6 - REPLAY: the decision, recorded and served",
@@ -1026,8 +1089,10 @@ def main(*, live: bool = False) -> int:
             expected_narration = (ARTIFACTS / "expected_output.txt").read_text(
                 encoding="utf-8"
             )
-            assert narration == expected_narration, (
-                "staged narration diverged from artifacts/expected_output.txt"
+            _require(
+                narration == expected_narration,
+                "staged narration diverged from"
+                " artifacts/expected_output.txt",
             )
 
             print("")

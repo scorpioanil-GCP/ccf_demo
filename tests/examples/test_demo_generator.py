@@ -110,7 +110,9 @@ def test_planted_ring_is_in_the_generated_store(
     with sqlite3.connect(tmp_path / transfer_source["db_file"]) as connection:
         for edge in edges:
             rows = connection.execute(
-                f'SELECT count(*) FROM "{table["name"]}" WHERE "{id_column}" = ?',
+                "SELECT count(*) FROM "
+                f"{generator.sql_identifier(table['name'])}"
+                f" WHERE {generator.sql_identifier(id_column)} = ?",
                 (edge["reference"],),
             ).fetchone()
             assert rows[0] == 1, f"ring edge {edge['reference']} missing"
@@ -125,7 +127,8 @@ def test_row_counts_visible_via_plain_sqlite(
         with sqlite3.connect(tmp_path / source["db_file"]) as connection:
             for table in source["tables"].values():
                 (count,) = connection.execute(
-                    f'SELECT count(*) FROM "{table["name"]}"'
+                    "SELECT count(*) FROM "
+                    f"{generator.sql_identifier(table['name'])}"
                 ).fetchone()
                 expected = scenario["expected"]["row_counts"][source_name][
                     table["name"]
