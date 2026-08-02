@@ -33,6 +33,9 @@ def _load_gate() -> ModuleType:
     spec = importlib.util.spec_from_file_location("perf_gate_under_test", GATE_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    # dataclasses (and other machinery) resolve the defining module through
+    # sys.modules, so register it before executing.
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
