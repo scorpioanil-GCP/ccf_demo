@@ -24,6 +24,7 @@ Runtime containment:
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -36,6 +37,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 #: the measured smoke wall times, but a hang fails loudly instead of wedging
 #: the always-on job.
 SUITE_TIMEOUT_SECONDS = 300
+
+#: Grace given to a timed-out suite's process group after SIGTERM before
+#: escalating to SIGKILL (mirrors the crossproc fixture's own discipline).
+KILL_GRACE_SECONDS = 10
 
 #: The four battery suites under ``perf/suites/`` (D-25 taxonomy).
 SUITES = ("micro", "scale", "crossproc", "replay")
@@ -58,7 +63,12 @@ def test_suite_runs_untimed(suite: str) -> None:
     env["CCF_PERF_SMOKE"] = "1"
     env.setdefault("CCF_PERF_RUNNER_CLASS", "local")
 
-    completed = subprocess.run(
+    # The inner pytest gets its own session so a timeout can reap the WHOLE
+    # process group: the crossproc suite's producer child is itself spawned
+    # with ``start_new_session=True`` inside a group descended from this one,
+    # and killing only the direct child would orphan it holding ports
+    # (threat T-11-10) — its fixture ``finally`` never runs after a SIGKILL.
+    proc = subprocess.Popen(
         [
             sys.executable,
             "-m",
@@ -70,13 +80,38 @@ def test_suite_runs_untimed(suite: str) -> None:
         ],
         cwd=REPO_ROOT,
         env=env,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=SUITE_TIMEOUT_SECONDS,
+        start_new_session=True,
     )
-    assert completed.returncode == 0, (
+    try:
+        stdout, stderr = proc.communicate(timeout=SUITE_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        # SIGTERM → wait(grace) → SIGKILL on the whole group, mirroring the
+        # crossproc fixture's own teardown ladder, then fail loudly.
+        group = os.getpgid(proc.pid)
+        try:
+            os.killpg(group, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            proc.wait(timeout=KILL_GRACE_SECONDS)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(group, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        stdout, stderr = proc.communicate()
+        pytest.fail(
+            f"perf suite '{suite}' timed out after {SUITE_TIMEOUT_SECONDS}s; "
+            "its process group was reaped\n"
+            f"--- stdout ---\n{stdout}\n"
+            f"--- stderr ---\n{stderr}"
+        )
+    assert proc.returncode == 0, (
         f"perf suite '{suite}' failed under --benchmark-disable "
-        f"(exit {completed.returncode})\n"
-        f"--- stdout ---\n{completed.stdout}\n"
-        f"--- stderr ---\n{completed.stderr}"
+        f"(exit {proc.returncode})\n"
+        f"--- stdout ---\n{stdout}\n"
+        f"--- stderr ---\n{stderr}"
     )
