@@ -89,6 +89,45 @@ class PerfPlan:
         )
 
 
+class PerfPanelPlan:
+    """The replay suite's Π — thin, like every projection.
+
+    Differs from :class:`PerfPlan` only in its payload shape (relationship
+    TYPES rather than a count); kept as a second plan class so the replay
+    record's byte-exact reproduction assert has a distinct, stable payload.
+    """
+
+    def __init__(self, *, plan_id: str, required: tuple[str, ...]) -> None:
+        self._plan_id = plan_id
+        self._required = required
+
+    @property
+    def plan_id(self) -> str:
+        return self._plan_id
+
+    def required_operators(self) -> tuple[str, ...]:
+        return self._required
+
+    def invoke(
+        self,
+        *,
+        view: GraphView,
+        operator_outputs: Mapping[str, OperatorOutput],
+        perspective: Perspective,
+        temporal_boundary: datetime,
+    ) -> ProjectionOutput:
+        return ProjectionOutput(
+            plan_id=self._plan_id,
+            payload={
+                "role": perspective.role,
+                "entity_count": len(view.entities),
+                "relationship_types": sorted(
+                    {edge.claim.relationship_type for edge in view.relationships}
+                ),
+            },
+        )
+
+
 def build_operator_registry(
     *,
     reader: Any,
@@ -108,11 +147,36 @@ def build_operator_registry(
     product lineage).
     """
     keys = control["keys"]
+    policy_version, _ = registry.resolve_latest(keys["policy_bundle"])
+    operators = build_operators(
+        reader=reader,
+        control=control,
+        ontology=ontology,
+        policy_version=policy_version,
+    )
+    return operators, policy_version
+
+
+def build_operators(
+    *,
+    reader: Any,
+    control: Any,
+    ontology: Any,
+    policy_version: str,
+) -> OperatorRegistry:
+    """The four-category chain from the perf artifacts, given an explicit
+    policy-bundle version.
+
+    The single source of operator parameter wiring for every perf suite —
+    micro/scale go through :func:`build_operator_registry` (which resolves
+    the version off the booted Control Plane), while the replay suite's
+    record phase and replay environment call this directly with the version
+    they computed (example 06 discipline: same declared parameters → same
+    parameter hashes → the recorded step sequence reproduces).
+    """
     params = control["operator_parameters"]
     boundary = instant(control["decision"]["temporal_boundary"])
     tenant_id: str = ontology["tenant_id"]
-
-    policy_version, _ = registry.resolve_latest(keys["policy_bundle"])
 
     operators = OperatorRegistry()
     operators.register(
@@ -176,4 +240,4 @@ def build_operator_registry(
             )
         )
     )
-    return operators, policy_version
+    return operators

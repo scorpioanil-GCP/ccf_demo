@@ -39,7 +39,6 @@ import sys
 import tempfile
 import threading
 from collections.abc import Iterator
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -68,6 +67,8 @@ from ccf.products.contract import ContextProductContract  # noqa: E402
 from ccf_runtime.mcp.egress import product_uri  # noqa: E402
 from ccf_runtime.peering.typed_http import TypedHttpWire  # noqa: E402
 
+from perf.suites.common import instant as _instant  # noqa: E402
+
 #: Warm-up round-trips performed on each transport before the fixture yields
 #: (research Pitfall 5: exclude startup/import cost from every timed round).
 WARMUP_ROUND_TRIPS = 10
@@ -89,12 +90,6 @@ def _load(name: str) -> Any:
     return yaml.safe_load(
         (_EXAMPLE_ARTIFACTS / name).read_text(encoding="utf-8")
     )
-
-
-def _instant(value: object) -> datetime:
-    if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=UTC)
-    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
 
 
 class CrossProcessEndpoints(NamedTuple):

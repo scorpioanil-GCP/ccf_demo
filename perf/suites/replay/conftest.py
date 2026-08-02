@@ -33,14 +33,13 @@ from __future__ import annotations
 
 import os
 import sys
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime"):
@@ -50,18 +49,7 @@ for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime"):
 from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf.contracts.canonical import canonical_bytes, content_hash  # noqa: E402
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
-from ccf.graph.protocols import GraphReader, GraphView  # noqa: E402
-from ccf.operators.base import OperatorOutput  # noqa: E402
-from ccf.operators.categories import (  # noqa: E402
-    PolicyFilter,
-    PolicyFilterParameters,
-    SimilaritySelect,
-    SimilaritySelectParameters,
-    TemporalAsOf,
-    TemporalAsOfParameters,
-    TraversalNeighborhood,
-    TraversalNeighborhoodParameters,
-)
+from ccf.graph.protocols import GraphReader  # noqa: E402
 from ccf.products.contract import (  # noqa: E402
     ContextProductContract,
     MaxTTL,
@@ -80,11 +68,14 @@ from ccf.replay.record import (  # noqa: E402
     build_replay_record,
 )
 from ccf.replay.serve import ReplayWriter  # noqa: E402
-from ccf.similarity.protocol import TokenOverlapIndex  # noqa: E402
 
+from perf.suites.common import (  # noqa: E402
+    PerfPanelPlan,
+    build_operators,
+    instant as _instant,
+    load_artifact as _load,
+)
 from perf.synth.generator import decision_stream  # noqa: E402
-
-ARTIFACTS = Path(__file__).resolve().parents[2] / "synth" / "artifacts"
 
 #: Which generator rung backs the recorded decision's fabric. One small,
 #: real fabric for every ladder rung: the variable under measurement is the
@@ -96,129 +87,6 @@ FABRIC_RUNG = 1_000
 #: ladder rungs replicate them deterministically (see the D-07 flex note in
 #: ``test_replay_scale.py``).
 HISTORY_SOURCE_RUNG = 100_000
-
-
-def _load(name: str) -> Any:
-    return yaml.safe_load((ARTIFACTS / name).read_text(encoding="utf-8"))
-
-
-def _instant(value: object) -> datetime:
-    if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=UTC)
-    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-
-
-def _operators(
-    *,
-    control: Any,
-    ontology: Any,
-    reader: GraphReader,
-    tenant_id: str,
-    boundary: datetime,
-    policy_version: str,
-) -> OperatorRegistry:
-    """The four-category chain from the perf artifacts — used identically by
-    the record phase and the replay environment (example 06 discipline:
-    same declared parameters → same parameter hashes → the recorded step
-    sequence reproduces)."""
-    params = control["operator_parameters"]
-    operators = OperatorRegistry()
-    operators.register(
-        PolicyFilter(
-            parameters=PolicyFilterParameters(
-                permitted_policy_bundle_versions=frozenset({policy_version}),
-                classification_attribute_by_class=dict(
-                    ontology["classification_attribute_by_class"]
-                ),
-                permitted_classifications=frozenset(
-                    params["policy"]["permitted_classifications"]
-                ),
-            )
-        )
-    )
-    corpus_attribute = ontology["similarity_corpus_attribute_by_class"]
-    view = reader.as_of(tenant_id=tenant_id, at=boundary)
-    corpus = {
-        (tenant_id, record.claim.entity_uri): record.claim.attributes[
-            corpus_attribute[record.claim.entity_class]
-        ]
-        for record in view.entities
-        if record.claim.entity_class in corpus_attribute
-    }
-    operators.register(
-        SimilaritySelect(
-            parameters=SimilaritySelectParameters(
-                query=params["similarity"]["query"],
-                minimum_score_percent=params["similarity"][
-                    "minimum_score_percent"
-                ],
-                ranked_entity_classes=frozenset(
-                    params["similarity"]["ranked_entity_classes"]
-                ),
-            ),
-            index=TokenOverlapIndex(
-                corpus=corpus,
-                index_version=params["similarity"]["index_version"],
-            ),
-        )
-    )
-    operators.register(
-        TemporalAsOf(
-            parameters=TemporalAsOfParameters(
-                require_valid_at_boundary=params["temporal"][
-                    "require_valid_at_boundary"
-                ]
-            )
-        )
-    )
-    operators.register(
-        TraversalNeighborhood(
-            parameters=TraversalNeighborhoodParameters(
-                seed_entity_classes=frozenset(
-                    params["traversal"]["seed_entity_classes"]
-                ),
-                relationship_types=frozenset(
-                    params["traversal"]["relationship_types"]
-                ),
-                depth_limit=params["traversal"]["depth_limit"],
-            )
-        )
-    )
-    return operators
-
-
-class PerfPanelPlan:
-    """The perf deployment's Π — thin, like every projection."""
-
-    def __init__(self, *, plan_id: str, required: tuple[str, ...]) -> None:
-        self._plan_id = plan_id
-        self._required = required
-
-    @property
-    def plan_id(self) -> str:
-        return self._plan_id
-
-    def required_operators(self) -> tuple[str, ...]:
-        return self._required
-
-    def invoke(
-        self,
-        *,
-        view: GraphView,
-        operator_outputs: Mapping[str, OperatorOutput],
-        perspective: Perspective,
-        temporal_boundary: datetime,
-    ) -> ProjectionOutput:
-        return ProjectionOutput(
-            plan_id=self._plan_id,
-            payload={
-                "role": perspective.role,
-                "entity_count": len(view.entities),
-                "relationship_types": sorted(
-                    {edge.claim.relationship_type for edge in view.relationships}
-                ),
-            },
-        )
 
 
 class PerfReplayEnvironment:
@@ -240,12 +108,10 @@ class PerfReplayEnvironment:
         self._now = now
 
     def _registry(self) -> OperatorRegistry:
-        return _operators(
+        return build_operators(
             control=self._control,
             ontology=self._ontology,
             reader=self._reader,
-            tenant_id=self._ontology["tenant_id"],
-            boundary=_instant(self._control["decision"]["temporal_boundary"]),
             policy_version=self._policy_version,
         )
 
@@ -315,12 +181,10 @@ def recorded_decision(fabric_1k: Any) -> RecordedDecision:
     registry = fabric_1k.registry
     policy_version = content_hash(control["policy_bundle"])
 
-    operators = _operators(
+    operators = build_operators(
         control=control,
         ontology=ontology,
         reader=fabric_1k.reader,
-        tenant_id=tenant_id,
-        boundary=boundary,
         policy_version=policy_version,
     )
     declared_class = control["product_class"]
