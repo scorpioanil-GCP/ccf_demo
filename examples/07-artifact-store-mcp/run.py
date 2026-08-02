@@ -227,7 +227,7 @@ def build_store(config_name: str, stack: ExitStack) -> ArtifactStoreProtocol:
 
 def workload(
     store_config_name: str,
-) -> tuple[bytes, tuple[ArtifactRef, ...]]:
+) -> tuple[bytes, dict[str, ArtifactRef]]:
     """Run the full fabric workload against the configured store.
 
     Called exactly twice, with only ``store_config_name`` differing — that
@@ -235,8 +235,9 @@ def workload(
 
     Returns:
         The served product's canonical bytes, and the refs of every artifact
-        persisted to the store (the replay record, the product at rest, and
-        the Control Plane policy bundle — three §7.4 artifact classes).
+        persisted to the store, keyed by artifact role (the replay record,
+        the product at rest, and the Control Plane policy bundle — three
+        §7.4 artifact classes).
     """
     ontology = _load("ontology.yaml")
     events = _load("events.yaml")
@@ -439,11 +440,11 @@ def workload(
                     name=control["artifacts"]["policy_bundle_artifact_name"],
                     artifact=control["policy_bundle"],
                 )
-            return canonical_bytes(gated.product), (
-                served.replay_ref,
-                product_ref,
-                bundle_ref,
-            )
+            return canonical_bytes(gated.product), {
+                "replay_record": served.replay_ref,
+                "product": product_ref,
+                "policy_bundle": bundle_ref,
+            }
         finally:
             handle.close()
 
@@ -516,8 +517,9 @@ def main() -> int:
 
             # (2) The same artifacts landed, at the same exact versions: same
             # classes and names in the URIs, same content addresses.
-            assert len(mcp_refs) == len(file_refs)
-            for over_file, over_mcp in zip(file_refs, mcp_refs, strict=True):
+            assert mcp_refs.keys() == file_refs.keys()
+            for role, over_mcp in mcp_refs.items():
+                over_file = file_refs[role]
                 assert over_mcp.uri == over_file.uri
                 assert over_mcp.content_address == over_file.content_address
 
@@ -526,18 +528,20 @@ def main() -> int:
             # server's, and no "latest" was ever involved.
             with ExitStack() as stack:
                 fresh = build_store("store_mcp.yaml", stack)
-                for ref in mcp_refs:
+                for ref in mcp_refs.values():
                     assert fresh.resolve_uri(uri=ref.uri) == ref.content_address
                     assert fresh.exists(content_address=ref.content_address)
                 served_product = ContextProductContract.model_validate_json(
-                    fresh.get(content_address=mcp_refs[1].content_address)
+                    fresh.get(
+                        content_address=mcp_refs["product"].content_address
+                    )
                 )
             assert canonical_bytes(served_product) == file_bytes
 
             print("examples/07-artifact-store-mcp: OK")
             print("  stores                 FileArtifactStore, McpArtifactStore")
             print(f"  product bytes          {len(file_bytes)} (byte-identical)")
-            for ref in mcp_refs:
+            for ref in mcp_refs.values():
                 print(f"  artifact               {ref.uri}")
             print("  swap surface           artifacts/store_{file,mcp}.yaml")
             return 0
