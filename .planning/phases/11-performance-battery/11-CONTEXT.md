@@ -1,6 +1,6 @@
 # Phase 11: Performance Battery - Context
 
-**Gathered:** 2026-08-01
+**Gathered:** 2026-08-01 (updated same day — second discussion pass)
 **Status:** Ready for planning
 
 <domain>
@@ -90,17 +90,53 @@ Requirements: PERF-01, PERF-02, PERF-03, PERF-04.
   threshold** in `thresholds.toml` to absorb transport noise — the
   suite-defaults design (D-11) handles this naturally.
 
+### Threshold numbers (update pass — locks former discretion item)
+- **D-19:** Suite-default relative-median threshold is **10%** for the
+  micro-benchmark and fabric-scale suites.
+- **D-20:** Cross-process latency suite default is **25%** (the D-18 "looser
+  default" made concrete — absorbs localhost transport noise on shared
+  runners).
+- **D-21:** Replay-at-scale suite default is **15%**; the primary guard
+  remains the curve-shape (sub-linear or documented-linear) and byte-exact
+  replay assertions — the % gate is secondary.
+- **D-22:** Per-benchmark overrides in `perf/thresholds.toml` may only
+  **loosen** the suite default (documented noise concessions). Tightening
+  happens by lowering the suite default, keeping the review story simple.
+
+### Benchmark selection (update pass — locks former discretion item)
+- **D-23:** Micro suite is a **representative set (~10–15 benchmarks)**: one
+  per operator category (traversal/temporal/policy/similarity) plus a
+  composed chain, agent + task factory construction, all three validation
+  gates, and the `run_coroutine_sync` overhead benchmark (D-05).
+- **D-24:** Dedicated **composed-vs-sequential** benchmark quantifying the
+  cost of `(A∘B)(G)` versus `A(B(G))` — timing evidence for the composition
+  claim, feeding Phase 14's PERFORMANCE.md.
+- **D-25:** The ~10-minute budget splits **micro 2 / fabric-scale 3 /
+  cross-process 2 / replay 3 minutes** — scale-curve suites get the room.
+- **D-26:** Fabric-scale curves cover **assembly + projection only** — exactly
+  the PERF-02 scope, no operator- or serve-path curves in v0.2.
+
+### Generator topology (update pass — locks former discretion item)
+- **D-27:** Degree distribution is **skewed/hub-heavy** (power-law-ish: few
+  hub entities, long sparse tail), deterministic under the fixed seed —
+  stresses traversal worst cases like real context graphs.
+- **D-28:** **Constant average degree across rungs** (edges grow linearly
+  with entities) so curve shape is attributable to entity count alone.
+- **D-29:** Entities carry a **multi-observation temporal history** (~3–10
+  timestamped observations, hubs more) — exercises temporal stitching,
+  supersession, and half-life decay non-degenerately.
+- **D-30:** The **same generator emits both graph fixtures and the
+  deterministic decision-record stream** for the replay ladder (D-16) — one
+  seed, one checksum discipline; replay records reference real fixture state.
+
 ### Claude's Discretion
-- Exact benchmark selection within the named surfaces (which operators,
-  factory paths, validation gates), rounds/warmup calibration, and per-rung
-  sizing to hit the ~10-minute budget.
+- Rounds/warmup calibration and per-rung sizing to hit the per-suite budgets
+  in D-25.
 - Exact module layout inside `perf/`, Makefile target names, and `perf.yml`
   job structure (must be `workflow_dispatch` opt-in per D-IMPL-70, mirroring
   the live-legs.yml pattern).
-- Threshold numeric values proposed for review (D-IMPL-70 evidence: 10–15%
-  relative-median is ecosystem practice on shared runners).
-- Graph topology/connectivity profile of the synthetic generator, provided
-  determinism (D-08) and L2/factory-only construction hold.
+- Exact hub/tail parameters of the skewed distribution and per-entity
+  observation counts, provided D-08 determinism and D-27..D-29 shape hold.
 
 </decisions>
 

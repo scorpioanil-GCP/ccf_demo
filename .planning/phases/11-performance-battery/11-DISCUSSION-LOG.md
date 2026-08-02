@@ -152,3 +152,44 @@
 
 - Promotion of perf gating to always-on CI — future D-IMPL per D-IMPL-70
 - Optimizations motivated by run_coroutine_sync overhead numbers — measure now, act later
+
+---
+
+# Second pass — update session (2026-08-01, later same day)
+
+**Areas discussed:** Threshold numbers, Benchmark selection, Generator topology, Revisit locked decisions
+
+## Threshold numbers
+
+| Question | Options | Selected |
+|---|---|---|
+| Suite-default for micro + fabric-scale | 10% / 15% / leave to planner | **10%** |
+| Cross-process suite default | 25% / 20% / 50% | **25%** |
+| Replay-at-scale suite default | 15% / 10% / report-only | **15%** |
+| Override direction | loosen only / both directions | **Loosen only** |
+
+## Benchmark selection
+
+| Question | Options | Selected |
+|---|---|---|
+| Micro suite comprehensiveness | representative (~10–15) / exhaustive / minimal | **Representative set** |
+| 10-min budget split | 2/3/2/3 / even 2.5 / planner decides | **2/3/2/3 (micro/fabric/x-proc/replay)** |
+| Composed-vs-sequential benchmark | yes / no | **Yes** |
+| Fabric-scale curve scope | assembly+projection only / +operators / +serve path | **Assembly + projection only** |
+
+## Generator topology
+
+| Question | Options | Selected |
+|---|---|---|
+| Degree distribution | skewed hub-heavy / uniform / both | **Skewed/hub-heavy** |
+| Density scaling across rungs | constant avg degree / growing density | **Constant avg degree** |
+| Temporal richness | multi-observation history / single snapshot | **Multi-observation history (3–10, hubs more)** |
+| Replay decision-record source | same generator / separate sampler | **Same generator** |
+
+## Revisit locked decisions
+
+| Question | Options | Selected |
+|---|---|---|
+| Re-open D-01..D-18? | none / D-01 / D-07 / D-15+D-16 | **None — keep all** |
+
+Result: D-19..D-30 added to CONTEXT.md; Claude's Discretion narrowed to calibration, module layout, and distribution parameters.
