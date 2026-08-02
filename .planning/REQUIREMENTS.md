@@ -32,9 +32,9 @@
 
 ### Demonstration (DEMO)
 
-- [ ] **DEMO-01**: A synthetic fake data store — deterministic, multi-entity, domain values entirely in definition artifacts — ships as the demonstration substrate
-- [ ] **DEMO-02**: An end-to-end runnable example: data ingested through L1→L2, folded into the Context Graph, projected into typed Context Products, consumed by an agent that solves a concrete reasoning problem it could not solve from raw data alone
-- [ ] **DEMO-03**: A narrated walkthrough document in the docs site tracing the demo step-by-step ("how data folds into context"), literal-including the example's code and artifacts; demo runs in CI like the v0.1 examples
+- [x] **DEMO-01**: A synthetic fake data store — deterministic, multi-entity, domain values entirely in definition artifacts — ships as the demonstration substrate
+- [x] **DEMO-02**: An end-to-end runnable example: data ingested through L1→L2, folded into the Context Graph, projected into typed Context Products, consumed by an agent that solves a concrete reasoning problem it could not solve from raw data alone
+- [x] **DEMO-03**: A narrated walkthrough document in the docs site tracing the demo step-by-step ("how data folds into context"), literal-including the example's code and artifacts; demo runs in CI like the v0.1 examples
 
 ### Examples (EXAM)
 
@@ -70,9 +70,9 @@
 | PERF-02 | Phase 11 | Complete |
 | PERF-03 | Phase 11 | Complete |
 | PERF-04 | Phase 11 | Complete |
-| DEMO-01 | Phase 12 | Pending |
-| DEMO-02 | Phase 12 | Pending |
-| DEMO-03 | Phase 12 | Pending |
+| DEMO-01 | Phase 12 | Complete |
+| DEMO-02 | Phase 12 | Complete |
+| DEMO-03 | Phase 12 | Complete |
 | EXAM-01 | Phase 13 | Pending |
 | EXAM-02 | Phase 13 | Pending |
 | EXAM-03 | Phase 13 | Pending |
