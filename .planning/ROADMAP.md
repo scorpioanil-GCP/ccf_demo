@@ -24,7 +24,7 @@ and the upgraded examples.
 - [x] **Phase 9: Hardening — Defect Fixes & Ruling Batch** - Thread-safe HITL transports, loop-safe ADK driver, and the six-item D-IMPL ruling batch surfaced to Dave as one mini-cycle (completed 2026-08-01)
 - [x] **Phase 10: Hardening — Authorization & Posture** - Per-tenant HITL door authorization, ApprovalGate × signed-binding composition, create_app posture warning — implemented per Dave's rulings (completed 2026-08-01)
 - [x] **Phase 11: Performance Battery** - `perf/` tree with four suites, deterministic synthetic dataset generator, committed runner-class-keyed baselines, `make perf`, opt-in regression-gated CI (completed 2026-08-02)
-- [ ] **Phase 12: Synthetic-Data Demonstration** - Fake data store + end-to-end data→context→agentic-reasoning example, running in CI
+- [x] **Phase 12: Synthetic-Data Demonstration** - Fake data store + end-to-end data→context→agentic-reasoning example, running in CI (completed 2026-08-02)
 - [ ] **Phase 13: Examples Suite Upgrade** - v0.1 examples 00–07 upgraded with detailed narrated READMEs and richer scenarios/artifacts exercising more SDK surface, CI stays green
 - [ ] **Phase 14: Documentation Suite** - mkdocs site with generated Protocol/API reference, adopter's guide, schema reference, security notes, PERFORMANCE.md, narrated demo walkthrough — `make docs --strict` in always-on CI
 
@@ -118,7 +118,7 @@ Plans:
   3. The demo runs in CI alongside the v0.1 examples with a single documented command, deterministically
   4. A narrated step-by-step walkthrough document ("how data folds into context") exists that literal-includes the example's code and artifacts by path, ready for the docs site
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 **Wave 1**
@@ -131,7 +131,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 12-03-PLAN.md — Makefile/CI wiring, README, docs/demo-walkthrough.md with literal includes (DEMO-03)
+- [x] 12-03-PLAN.md — Makefile/CI wiring, README, docs/demo-walkthrough.md with literal includes (DEMO-03)
 
 ### Phase 13: Examples Suite Upgrade
 
@@ -169,7 +169,7 @@ Plans:
 | 9. Hardening — Defect Fixes & Ruling Batch | 3/3 | Complete   | 2026-08-01 |
 | 10. Hardening — Authorization & Posture | 4/4 | Complete    | 2026-08-01 |
 | 11. Performance Battery | 5/5 | Complete    | 2026-08-02 |
-| 12. Synthetic-Data Demonstration | 2/3 | In Progress|  |
+| 12. Synthetic-Data Demonstration | 3/3 | Complete   | 2026-08-02 |
 | 13. Examples Suite Upgrade | 0/? | Not started | - |
 | 14. Documentation Suite | 0/? | Not started | - |
 
