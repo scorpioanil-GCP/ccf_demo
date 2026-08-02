@@ -15,7 +15,14 @@
 #     must substitute out along with the edge that would otherwise leak its
 #     existence by absence.
 #
+#   * ev-504 asserts a SECOND shipment on the same rail route from a third
+#     source system -> the traversal expansion carries two shipments, so
+#     the served product's shape depends on real multi-entity assembly.
+#
 # Payload keys are the *source systems'* vocabulary, never the fabric's.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
@@ -72,3 +79,17 @@ envelopes:
       depot_name: "Bonded Customs Warehouse 04"
       region: "north"
       depot_classification: "restricted"
+
+  - envelope_id: ev-504
+    source_system_id: booking-desk
+    ingestion_timestamp: 2026-07-01T06:20:00Z
+    observed_time: 2026-07-01T06:18:00Z
+    payload:
+      shipment_ref: "SHP-2202"
+      shipment_status: "booked"
+      cargo_description: "chilled produce containers"
+      shipment_classification: "internal"
+      route_code: "RT-NORTH-01"
+      route_description: "overnight rail freight corridor hamburg oslo"
+      transport_mode: "rail"
+      route_classification: "internal"

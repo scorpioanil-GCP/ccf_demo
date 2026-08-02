@@ -7,6 +7,9 @@
 #
 # The root directory is templated from an environment variable the driver
 # sets per run (a scratch directory), so no absolute path is committed.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"

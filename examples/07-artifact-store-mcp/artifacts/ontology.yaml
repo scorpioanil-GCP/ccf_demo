@@ -8,6 +8,9 @@
 # Authored fresh for this example. It mirrors the *shape* the assembly worker
 # accepts (whitepaper §7.3: identity_keys mint the canonical entity URI),
 # never the content of any test fixture or other example.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"

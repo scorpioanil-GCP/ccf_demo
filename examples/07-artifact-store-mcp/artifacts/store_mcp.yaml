@@ -13,6 +13,9 @@
 # authorizes nothing but a temporary directory; the `.invalid` TLD on the
 # issuer/resource identities is reserved precisely so a stray resolution
 # cannot succeed (metadata only — nothing dials them).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
