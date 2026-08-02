@@ -16,10 +16,10 @@
 
 ### Performance (PERF)
 
-- [ ] **PERF-01**: Adopter can run `make perf` locally and get a reproducible micro-benchmark suite (operators, factory, validation gates) with p50/p95/p99
-- [ ] **PERF-02**: Fabric load/scale curves measure assembly and projection across graph sizes via a deterministic, domain-neutral synthetic dataset generator (built through L2/factory paths)
-- [ ] **PERF-03**: Cross-process latency (MCP egress, A2A/peering) and replay-at-scale suites prove the year-scale replay claim empirically
-- [ ] **PERF-04**: Committed runner-class-keyed baselines + `thresholds.toml` with relative-median regression gating in an opt-in `perf.yml` CI job; re-baseline ritual documented
+- [x] **PERF-01**: Adopter can run `make perf` locally and get a reproducible micro-benchmark suite (operators, factory, validation gates) with p50/p95/p99
+- [x] **PERF-02**: Fabric load/scale curves measure assembly and projection across graph sizes via a deterministic, domain-neutral synthetic dataset generator (built through L2/factory paths)
+- [x] **PERF-03**: Cross-process latency (MCP egress, A2A/peering) and replay-at-scale suites prove the year-scale replay claim empirically
+- [x] **PERF-04**: Committed runner-class-keyed baselines + `thresholds.toml` with relative-median regression gating in an opt-in `perf.yml` CI job; re-baseline ritual documented
 
 ### Documentation (DOCS)
 
@@ -66,10 +66,10 @@
 | HARD-03 | Phase 9 | Pending |
 | HARD-04 | Phase 10 | Complete |
 | HARD-05 | Phase 10 | Complete |
-| PERF-01 | Phase 11 | Pending |
-| PERF-02 | Phase 11 | Pending |
-| PERF-03 | Phase 11 | Pending |
-| PERF-04 | Phase 11 | Pending |
+| PERF-01 | Phase 11 | Complete |
+| PERF-02 | Phase 11 | Complete |
+| PERF-03 | Phase 11 | Complete |
+| PERF-04 | Phase 11 | Complete |
 | DEMO-01 | Phase 12 | Pending |
 | DEMO-02 | Phase 12 | Pending |
 | DEMO-03 | Phase 12 | Pending |
