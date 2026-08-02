@@ -1,0 +1,70 @@
+# Perf battery — opt-in by design (D-IMPL-70). Always-on CI never times
+# anything: the deterministic bitrot smoke (tests/perf_smoke) runs every suite
+# with --benchmark-disable in ci.yml, while this workflow runs the real timed
+# battery (`make perf`) and is dispatched manually only — no push, no
+# pull_request, no schedule triggers, ever.
+#
+# The runner image is PINNED to ubuntu-24.04 (never a floating image tag): the
+# runner-class key `gh-ubuntu-24.04` names the image, and baselines under
+# perf/baselines/<runner-class>.json are only comparable against the same
+# class (D-10). gate.py needs no workflow logic: it exits nonzero only on a
+# gated regression against a committed baseline; a missing baseline is loud
+# report-only with exit 0 (D-13). Baselines are recorded manually after Dave's
+# approval per the re-baseline ritual in perf/README.md — never by this job.
+name: perf
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Which perf suite to run
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - micro
+          - scale
+          - crossproc
+          - replay
+
+jobs:
+  perf:
+    name: perf battery (${{ inputs.suite }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    env:
+      CCF_PERF_RUNNER_CLASS: gh-ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Provision .venv for the Makefile command surface
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]"
+
+      - name: Run the perf battery via the Makefile surface
+        run: |
+          case "${{ inputs.suite }}" in
+            all)       make perf ;;
+            micro)     make perf-micro ;;
+            scale)     make perf-scale ;;
+            crossproc) make perf-xproc ;;
+            replay)    make perf-replay ;;
+            *) echo "::error::unknown suite '${{ inputs.suite }}'"; exit 1 ;;
+          esac
+
+      - name: Upload results artifact (raw JSON + gate reports + curve fit)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-results-${{ inputs.suite }}-${{ github.run_id }}
+          path: perf/results/
+          if-no-files-found: warn

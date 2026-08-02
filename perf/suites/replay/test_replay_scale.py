@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +43,17 @@ from ccf.replay.engine import replay
 from .conftest import PopulatedStore, RecordedDecision
 
 #: The decision-record ladder (D-16): three decades of history size.
-LADDER = (1_000, 10_000, 100_000)
+#:
+#: Smoke knob (D-04, plan 11-05): under ``CCF_PERF_SMOKE=1`` (the always-on
+#: bitrot smoke, run with ``--benchmark-disable``) the ladder collapses to
+#: its smallest rung — the byte-exact reproduction assert still runs, only
+#: the curve fit is skipped (it needs every rung's median).
+_FULL_LADDER = (1_000, 10_000, 100_000)
+LADDER = (
+    _FULL_LADDER[:1]
+    if os.environ.get("CCF_PERF_SMOKE") == "1"
+    else _FULL_LADDER
+)
 
 #: Documented tolerance on the fitted exponent: ``b <= 1.0 + EPS`` is the
 #: documented-linear bound (D-16/D-21). 0.1 absorbs three-point fit noise
@@ -92,11 +103,19 @@ def test_replay_at_scale(
     # (b) The timing, over exactly the asserted path.
     benchmark.extra_info["history_records"] = history_records
     benchmark.pedantic(replay_once, rounds=3, iterations=1, warmup_rounds=1)
-    _MEDIANS[history_records] = benchmark.stats.stats.median
+    # Under --benchmark-disable (the D-04 smoke) the fixture runs the
+    # callable once and records no stats — nothing to feed the curve fit.
+    if benchmark.stats is not None:
+        _MEDIANS[history_records] = benchmark.stats.stats.median
 
 
 def test_curve_shape(recorded_decision: RecordedDecision) -> None:
     """Fit ``t = a * n^b`` over the rung medians; assert documented-linear."""
+    if len(LADDER) < 3 or not _MEDIANS:
+        pytest.skip(
+            "curve fit needs the full ladder with timing enabled — "
+            "skipped under the CCF_PERF_SMOKE / --benchmark-disable bitrot run"
+        )
     assert sorted(_MEDIANS) == sorted(LADDER), (
         "curve fit needs every ladder rung's median; got "
         f"{sorted(_MEDIANS)} — run the whole module, not a single rung"
