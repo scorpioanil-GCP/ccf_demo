@@ -118,7 +118,7 @@ Plans:
   3. The demo runs in CI alongside the v0.1 examples with a single documented command, deterministically
   4. A narrated step-by-step walkthrough document ("how data folds into context") exists that literal-includes the example's code and artifacts by path, ready for the docs site
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 **Wave 1**
@@ -127,7 +127,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 12-02-PLAN.md — run.py end-to-end: baseline contrast, L1→L6 pipeline, agent + cycle-detection skill, byte-compared narration, --live (DEMO-02)
+- [x] 12-02-PLAN.md — run.py end-to-end: baseline contrast, L1→L6 pipeline, agent + cycle-detection skill, byte-compared narration, --live (DEMO-02)
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -169,7 +169,7 @@ Plans:
 | 9. Hardening — Defect Fixes & Ruling Batch | 3/3 | Complete   | 2026-08-01 |
 | 10. Hardening — Authorization & Posture | 4/4 | Complete    | 2026-08-01 |
 | 11. Performance Battery | 5/5 | Complete    | 2026-08-02 |
-| 12. Synthetic-Data Demonstration | 1/3 | In Progress|  |
+| 12. Synthetic-Data Demonstration | 2/3 | In Progress|  |
 | 13. Examples Suite Upgrade | 0/? | Not started | - |
 | 14. Documentation Suite | 0/? | Not started | - |
 
