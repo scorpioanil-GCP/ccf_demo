@@ -1,0 +1,65 @@
+# Performance-battery Control Plane bundle (Phase 11 D-09; CLAUDE.md §6.4).
+#
+# Mirrors examples/04-cross-process/artifacts/controlplane.yaml in shape:
+# Control Plane keys, policy bundle, MAX_TTL ceiling, declared operator
+# parameter sets, product class, perspective, and the decision's explicit
+# instants. Every value is neutral and invented for the perf battery; the
+# wave-2 suites register these values — none live as code constants.
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+keys:
+  resolution_spec: perf-tenant/entity-resolution-spec
+  policy_bundle: perf-tenant/policy-bundle/perf-battery
+  max_ttl: perf-tenant/product/perf-panel/max-ttl
+
+policy_bundle:
+  regime: perf-battery
+  jurisdiction: ZZ
+  permitted_classifications:
+    - tag_open
+
+# Per-class TTL ceiling (D-IMPL-39). A value this fixture chose, not a
+# recommendation.
+max_ttl_seconds: 900
+
+# Declared operator parameter sets (D-IMPL-38) for the wave-2 suites.
+operator_parameters:
+  policy:
+    permitted_classifications:
+      - tag_open
+  similarity:
+    query: "flux vertex lattice"
+    minimum_score_percent: 10
+    ranked_entity_classes:
+      - node_alpha
+    index_version: "perf-alpha-corpus@2026-08-01"
+  temporal:
+    require_valid_at_boundary: true
+  traversal:
+    seed_entity_classes:
+      - node_alpha
+    relationship_types:
+      - rel_link
+      - rel_tie
+    depth_limit: 2
+
+product_class:
+  schema_name: perf-tenant.perf-panel
+  schema_version: "1.0.0"
+  ttl_anchor: from_decision
+  assembly_mode: algorithmic
+  plan_id: perf-tenant.perf-panel.plan
+  product_ttl_seconds: 300
+
+perspective:
+  principal_id: perf-runner-001
+  role: perf-analyst
+
+# Explicit instants, never clock reads (determinism, D-08). The temporal
+# boundary sits after every generated observation (generator epoch
+# 2026-01-01T00:00:00Z plus bounded offsets).
+decision:
+  temporal_boundary: 2026-06-01T00:00:00Z
+  now: 2026-06-01T00:00:05Z
