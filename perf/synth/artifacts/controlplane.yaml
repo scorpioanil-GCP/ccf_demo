@@ -63,3 +63,10 @@ perspective:
 decision:
   temporal_boundary: 2026-06-01T00:00:00Z
   now: 2026-06-01T00:00:05Z
+
+# ArtifactStore class names the replay-at-scale suite writes under (D-16/D-30;
+# CLAUDE.md §6.4 — class names are declared values, not code constants).
+artifacts:
+  replay_record_class: perf-replay-record
+  history_record_class: perf-decision-history
+  history_record_name: perf-decision-history-stream
