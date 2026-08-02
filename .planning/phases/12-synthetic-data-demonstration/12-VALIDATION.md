@@ -1,9 +1,9 @@
 ---
 phase: 12
 slug: synthetic-data-demonstration
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-08-01
 ---
 
@@ -36,13 +36,11 @@ created: 2026-08-01
 
 ## Per-Task Verification Map
 
-*To be filled by planner from RESEARCH.md Validation Architecture — one row per task with automated command per DEMO-01..03.*
-
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| — | — | — | DEMO-01 | — | deterministic generation (pinned checksum) | unit | TBD by planner | ❌ W0 | ⬜ pending |
-| — | — | — | DEMO-02 | — | end-to-end example run + baseline contrast | integration | TBD by planner | ❌ W0 | ⬜ pending |
-| — | — | — | DEMO-03 | — | CI single-command run, deterministic | integration | TBD by planner | ❌ W0 | ⬜ pending |
+| 12-01/T1-T2 | 12-01 | 1 | DEMO-01 | T-12-01 | deterministic generation (pinned checksums + ring signature) | unit | `PYTHONPATH=src:runtime python -m pytest tests/examples/test_demo_generator.py -x -q` | ✅ | ✅ green |
+| 12-02/T1-T3 | 12-02 | 2 | DEMO-02 | T-12-04 | end-to-end example run + executed baseline contrast (0 raw / 1 governed, byte-compared narration) | integration | `make example-08` | ✅ | ✅ green |
+| 12-03/T1-T2 | 12-03 | 3 | DEMO-03 | T-12-07 | CI single-command run, deterministic (nine-example aggregate; walkthrough includes resolve) | integration | `make examples` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -50,8 +48,8 @@ created: 2026-08-01
 
 ## Wave 0 Requirements
 
-- [ ] Test stubs for the new example (checksum pin, end-to-end run) — planner assigns exact paths
-- [ ] Existing pytest infrastructure covers framework needs (no installs)
+- [x] Test stubs for the new example (checksum pin, end-to-end run) — `tests/examples/test_demo_generator.py` (12-01) + `make example-08` byte-compare (12-02)
+- [x] Existing pytest infrastructure covers framework needs (no installs)
 
 ---
 
