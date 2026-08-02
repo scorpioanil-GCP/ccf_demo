@@ -6,6 +6,9 @@
 # tenant-unauthorized path, Phase 10 D-16), per the example-05 pattern:
 # token lifecycle and authorization reach are artifact data, never a
 # hardcoded bad-token string.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 tokens:
   - label: approver

@@ -2,6 +2,9 @@
 # D-IMPL-28). The minimal grid-ops decision path: one telemetry skill
 # step, then the load-shed authorization gate. Every step value lives
 # here, never in code (§6.4); refs are pinned versioned URIs (D-IMPL-26).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 keys:
   task_definition: boreal-grid/tasks/load-shed-authorization

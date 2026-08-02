@@ -34,6 +34,11 @@ What this demonstrates, as assertions:
 * **Version sensitivity.** Bumping the recorded policy-bundle version in a
   COPY of the record (never the canonical one) makes reproduction refuse
   (``ReplayUnresolvable``) — the audit record is version-sensitive.
+* **The OverrideBoundary, in replay (§8.2; D-07).** The shift supervisor
+  substitutes the agent's shed determination at a typed boundary; the
+  override decision's own record resolves from the store and dimension 2
+  carries BOTH the original output and the override, byte-assertably,
+  with the overrider's signed binding verifying from the record alone.
 
 Every domain value is loaded from ``artifacts/*.yaml`` (CLAUDE.md §6.4).
 Run it: ``make example-06``. Exit 0 means every assertion held.
@@ -79,6 +84,7 @@ from ccf.assembly.worker import (
     RelationshipResolutionRule,
 )
 from ccf.boot import boot
+from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.audit import AuditLog
@@ -89,6 +95,11 @@ from ccf.hitl.approval_gate import HitlActionRecord
 from ccf.hitl.identity_binding import (
     sign_principal_binding,
     verify_principal_binding,
+)
+from ccf.hitl.override import (
+    OverrideActionRecord,
+    OverrideBoundary,
+    OverrideResolution,
 )
 from ccf.hitl.principal import (
     ApproverIdentity,
@@ -221,6 +232,18 @@ def _envelopes(ontology: Any, events: Any) -> tuple[SignalEnvelope, ...]:
         )
         for item in events["envelopes"]
     )
+
+
+class ShedDetermination(CCFContract):
+    # The deployment's typed agent-output shape at the OverrideBoundary —
+    # deployment code, like the projection: the SDK ships the boundary
+    # mechanism only, and every VALUE this shape carries lives in
+    # artifacts/hitl.yaml, never here (§6.4; CINV-01). Decimals travel as
+    # quoted strings per the artifact convention.
+
+    feeder_ref: str
+    shed_megawatts: str
+    duration_minutes: str
 
 
 class GridLoadPlan:
@@ -515,6 +538,10 @@ class RecordedDecision:
     reader: GraphReader
     environment: GridReplayEnvironment
     record_address: str
+    override_record_address: str
+    override_original: ShedDetermination
+    override_final: ShedDetermination
+    override_overridden: bool
     original_product: ContextProductContract
     provider: DetachedJwsIdentityProvider
     trusted: Mapping[str, JsonWebKey]
@@ -908,6 +935,97 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
         ),
     )
 
+    # --- the OverrideBoundary: the human substitutes the shed scope -----------
+    # The agent's shed determination crosses a typed boundary where the
+    # shift supervisor substitutes it. Original and substitute are BOTH
+    # artifact values; both must land in the replay record (§8.2 —
+    # "the original agent output and the override are both in the replay
+    # record"; T-07-16). This driver only interprets (§6.4).
+    override_doc = hitl_doc["override"]
+    boundary: OverrideBoundary[ShedDetermination] = OverrideBoundary(
+        transport=transport,
+        audit=audit,
+        clock=clock,
+        control_plane=registry,
+        hitl_policy_key=hitl_doc["keys"]["hitl_policy"],
+        identity_provider=provider,
+        trusted_keys=trusted,
+    )
+    override_original = ShedDetermination(**override_doc["original"])
+    override_substitute = ShedDetermination(**override_doc["substitute"])
+    proposed = boundary.propose(
+        tenant=tenant_id,
+        event_key=override_doc["event"]["event_key"],
+        workflow_state_ref=override_doc["event"]["workflow_state_ref"],
+        original=override_original,
+    )
+    # The proposal-time content hash is what the overrider's binding must
+    # echo (T-07-17/T-07-39 TOCTOU doctrine).
+    assert proposed.product_content_hash == content_hash(override_original)
+    overrider = override_doc["overrider"]
+    overrider_entry = entries[overrider["token_label"]]
+    assert overrider_entry["status"] == "active"
+    assert (
+        overrider["identity"]["subject_id"] == overrider_entry["client_id"]
+    )
+    overrider_binding = HumanPrincipalBinding(
+        approver=ApproverIdentity(**overrider["identity"]),
+        authentication=AuthenticationContext(**overrider["authentication"]),
+        action_time=_instant(overrider["action_time"]),
+        product_content_hash=proposed.product_content_hash,
+    )
+    overrider_signed = sign_principal_binding(
+        overrider_binding, provider=provider, key_id=key_id
+    )
+    # The artifact decides override vs confirm; the driver interprets.
+    overriding = override_doc["drive"]["action"] == "override"
+    resolution = boundary.resolve(
+        tenant=tenant_id,
+        event_key=proposed.event_key,
+        principal=overrider_binding,
+        override=override_substitute if overriding else None,
+        signed_binding=overrider_signed,
+    )
+    assert isinstance(resolution, OverrideResolution)
+    assert resolution.record.overridden == overriding
+    assert resolution.record.original == override_original
+    override_final = override_substitute if overriding else override_original
+    assert resolution.record.final == override_final
+    # Both values are in the pre-serialized dimension-2 block, byte-
+    # assertably (T-07-16 mitigation).
+    assert (
+        canonical_bytes(override_original).decode("utf-8")
+        in resolution.hitl_actions_block
+    )
+    assert (
+        canonical_bytes(override_final).decode("utf-8")
+        in resolution.hitl_actions_block
+    )
+
+    # The override decision's OWN five-dimension record lands in the same
+    # store: dimension 2 carries the override block verbatim.
+    override_record = build_replay_record(
+        execution=execution,
+        product=gated.product,
+        perspective=perspective,
+        policy_bindings=(
+            PolicyBinding(key=keys["policy_bundle"], version=policy_version),
+        ),
+        assembly_mode=declared_class["assembly_mode"],
+        recorded_at=now,
+        agent_conditioning=conditioning,
+        hitl_actions=resolution.hitl_actions_block,
+        workflow_step_sequence=outcome.step_sequence_block,
+    )
+    override_served = serve(
+        product=gated,
+        record=override_record,
+        replay_writer=ReplayWriter(
+            store=store,
+            artifact_class=control["artifacts"]["replay_record_class"],
+        ),
+    )
+
     # The artifacts a forensic replay resolves land in the SAME store, at
     # exact content-addressed versions (CLAUDE.md §7.4; D-IMPL-26/27).
     store.put(
@@ -945,6 +1063,10 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
             now=now,
         ),
         record_address=served.replay_ref.content_address,
+        override_record_address=override_served.replay_ref.content_address,
+        override_original=override_original,
+        override_final=override_final,
+        override_overridden=overriding,
         original_product=gated.product,
         provider=provider,
         trusted=trusted,
@@ -1045,6 +1167,46 @@ def replay_decision(ctx: RecordedDecision) -> DecisionReplayRecord:
         "["
     )
 
+    # --- the OverrideBoundary, reproduced from ITS record (§8.2; D-07) --------
+    # The override decision's record resolves from the store and replays:
+    # the reproduced product is byte-equal, and dimension 2 carries BOTH
+    # the agent's original output and the human's override, verbatim.
+    override_outcome = replay(
+        record_address=ctx.override_record_address,
+        store=ctx.store,
+        reader=ctx.reader,
+        control_plane=ctx.registry,
+        environment=ctx.environment,
+    )
+    assert canonical_bytes(override_outcome.product) == canonical_bytes(
+        ctx.original_product
+    )
+    override_block = override_outcome.record.policy_bindings.hitl_actions
+    override_action = OverrideActionRecord[
+        ShedDetermination
+    ].model_validate_json(override_block)
+    assert override_action.overridden == ctx.override_overridden
+    assert override_action.original == ctx.override_original
+    assert override_action.final == ctx.override_final
+    # Byte-assertable: both values are literally in the recorded block.
+    assert (
+        canonical_bytes(ctx.override_original).decode("utf-8")
+        in override_block
+    )
+    assert (
+        canonical_bytes(ctx.override_final).decode("utf-8") in override_block
+    )
+    # The overrider's signed binding verifies from the record alone and
+    # reproduces the grant-derived subject (D-14/D-16).
+    assert override_action.submission.signed_binding is not None
+    reproduced_overrider = verify_principal_binding(
+        override_action.submission.signed_binding,
+        provider=ctx.provider,
+        public_keys=ctx.trusted,
+    )
+    assert reproduced_overrider == override_action.submission.principal
+    assert reproduced_overrider.approver.subject_id == ctx.active_client_id
+
     # --- negative: a moving-target ref is refused outright --------------------
     # Deliberately-invalid input constructed inline for the refusal test —
     # the only place the moving-target token appears in this example.
@@ -1135,6 +1297,14 @@ def main() -> int:
         print(
             "  authz refused (403)    "
             f"{ctx.authz_refused_scope} scope → {ctx.authz_refusal_code}"
+        )
+        print(
+            "  override (dim 2)       "
+            f"{ctx.override_original.shed_megawatts}MW/"
+            f"{ctx.override_original.duration_minutes}min → "
+            f"{ctx.override_final.shed_megawatts}MW/"
+            f"{ctx.override_final.duration_minutes}min"
+            " (both values in the record)"
         )
         print("  reproduction           byte-equal")
         return 0

@@ -2,6 +2,9 @@
 # D-IMPL-52). Every number, threshold, version identifier, query string
 # and product-class property the example uses is here; `run.py` holds
 # none of them (CLAUDE.md §6.4; D-IMPL-38/39).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"

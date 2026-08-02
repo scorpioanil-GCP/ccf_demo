@@ -4,6 +4,9 @@
 # the grant that binds it — so the recorded decision's dimension 4 carries
 # a real, non-empty skill-set in force, resolvable from the ArtifactStore
 # at replay time.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 skills:
   feeder_load_metrics:

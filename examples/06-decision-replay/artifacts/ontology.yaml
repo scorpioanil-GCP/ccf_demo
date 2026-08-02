@@ -6,6 +6,9 @@
 # Authored fresh for this example: substations, feeders, and their load
 # readings — the operational state a load-shed authorization is decided
 # against.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
