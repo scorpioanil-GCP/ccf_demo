@@ -1,0 +1,280 @@
+# Demo scenario definition — the versioned artifact that carries EVERY domain
+# value the end-to-end demonstration needs (CLAUDE.md §6.4 No-Hardcoding Rule;
+# Phase 12 CONTEXT D-01..D-08). `generator.py` is a pure interpreter of this
+# file: it holds zero vocabulary — no source names, table names, aliases,
+# amounts, or lexicon words. Change this file to make your own demo.
+#
+# Determinism (D-08): the `seed` below is the single documented seed. Changing
+# it — or any value in this file — invalidates every pinned checksum in the
+# `expected` block and in tests/examples/test_demo_generator.py. Update the
+# pins in the same commit or the drift alarm fires, as designed.
+
+artifact_version: "1.0.0"
+
+# The documented fixed seed (D-08). Changing it invalidates all pinned
+# checksums below — regeneration is a reviewed, deliberate event.
+seed: 20260812
+
+# Fixed epoch every timestamp derives from (never a clock read).
+epoch: "2026-03-02T00:00:00+00:00"
+
+# ---------------------------------------------------------------------------
+# Three source systems (D-03). Each declares its SQLite file, its mechanism
+# role (how the generator interprets it), and its table/column vocabulary.
+# Column `role` keys are mechanism selectors the interpreter understands;
+# column `name` values are this scenario's domain vocabulary.
+# ---------------------------------------------------------------------------
+sources:
+  core_banking:
+    role: ledger
+    db_file: core_banking.db
+    tables:
+      entities:
+        name: accounts
+        columns:
+          - { role: id, name: account_number, type: TEXT }
+          - { role: holder, name: holder_name, type: TEXT }
+          - { role: tax_id, name: holder_tax_id, type: TEXT }
+          - { role: currency, name: currency, type: TEXT }
+          - { role: balance, name: balance, type: TEXT }
+          - { role: opened, name: opened_date, type: TEXT }
+      movements:
+        name: transactions
+        columns:
+          - { role: id, name: txn_id, type: TEXT }
+          - { role: account, name: account_number, type: TEXT }
+          - { role: counterparty_account, name: counterparty_account, type: TEXT }
+          - { role: amount, name: amount, type: TEXT }
+          - { role: currency, name: currency, type: TEXT }
+          - { role: booked, name: booked_at, type: TEXT }
+          - { role: memo, name: memo, type: TEXT }
+
+  wires:
+    role: transfer_log
+    db_file: wires.db
+    tables:
+      movements:
+        name: wire_transfers
+        columns:
+          - { role: id, name: wire_reference, type: TEXT }
+          - { role: sender, name: originator_name, type: TEXT }
+          - { role: sender_bic, name: originator_bic, type: TEXT }
+          - { role: beneficiary, name: beneficiary_name, type: TEXT }
+          - { role: beneficiary_bic, name: beneficiary_bic, type: TEXT }
+          - { role: beneficiary_address, name: beneficiary_address, type: TEXT }
+          - { role: amount, name: amount, type: TEXT }
+          - { role: currency, name: currency, type: TEXT }
+          - { role: sent, name: value_date, type: TEXT }
+          - { role: purpose, name: purpose, type: TEXT }
+
+  kyc_registry:
+    role: registry
+    db_file: kyc_registry.db
+    tables:
+      entities:
+        name: counterparties
+        columns:
+          - { role: id, name: registry_id, type: TEXT }
+          - { role: name, name: legal_name, type: TEXT }
+          - { role: tax_id, name: tax_id, type: TEXT }
+          - { role: address, name: registered_address, type: TEXT }
+          - { role: jurisdiction, name: jurisdiction, type: TEXT }
+          - { role: registered, name: registered_date, type: TEXT }
+
+# ---------------------------------------------------------------------------
+# The planted fraud ring (D-02): five aliased counterparties whose per-source
+# identifiers are GENUINELY DISJOINT — the core-banking account number, the
+# wire beneficiary-name variant, and the KYC registry id never string-match
+# across sources (RESEARCH Pitfall 4). Only entity-resolution evidence links
+# them: the tax id shared between the ledger account and the KYC entry, and
+# the registered address shared between the wire alias and the KYC entry.
+# Both pieces of linking evidence live here, in the artifact.
+# ---------------------------------------------------------------------------
+ring:
+  members:
+    - key: M1
+      ledger:
+        id: "ACCT-31-8046-1127"
+        holder: "Harrow Point Consulting"
+        tax_id: "TIN-58-2214907"
+        currency: USD
+        balance: "15230.00"
+        opened_day_offset: -320
+      transfer_alias:
+        name: "Harrowpoint Cnslt Pte"
+        bic: "HRPTSGS1XXX"
+        address: "12 Harbourfront Way, Suite 400, Singapore"
+      registry:
+        id: "KYC-REG-70441"
+        name: "Harrow Point Consulting Pte. Ltd."
+        tax_id: "TIN-58-2214907"
+        address: "12 Harbourfront Way, Suite 400, Singapore"
+        jurisdiction: SG
+        registered_day_offset: -410
+
+    - key: M2
+      ledger:
+        id: "ACCT-47-2210-8853"
+        holder: "Bluegate Trading"
+        tax_id: "TIN-71-6630255"
+        currency: USD
+        balance: "20915.00"
+        opened_day_offset: -286
+      transfer_alias:
+        name: "Blue Gate Trdg Co"
+        bic: "BLGTCHG2XXX"
+        address: "48 Rue de la Bourse, Geneva"
+      registry:
+        id: "KYC-REG-70518"
+        name: "Bluegate Trading Company S.A."
+        tax_id: "TIN-71-6630255"
+        address: "48 Rue de la Bourse, Geneva"
+        jurisdiction: CH
+        registered_day_offset: -377
+
+    - key: M3
+      ledger:
+        id: "ACCT-09-5531-6642"
+        holder: "Kestrel Marine Supply"
+        tax_id: "TIN-24-8841173"
+        currency: USD
+        balance: "11480.00"
+        opened_day_offset: -251
+      transfer_alias:
+        name: "Kestrel Mrn Sply"
+        bic: "KSTLDEH3XXX"
+        address: "Alsterufer 22, Hamburg"
+      registry:
+        id: "KYC-REG-70602"
+        name: "Kestrel Marine Supply GmbH"
+        tax_id: "TIN-24-8841173"
+        address: "Alsterufer 22, Hamburg"
+        jurisdiction: DE
+        registered_day_offset: -348
+
+    - key: M4
+      ledger:
+        id: "ACCT-66-1408-3379"
+        holder: "Palmera Logistics"
+        tax_id: "TIN-46-1120583"
+        currency: USD
+        balance: "18770.00"
+        opened_day_offset: -233
+      transfer_alias:
+        name: "Palmera Logistica SL"
+        bic: "PLMRESM4XXX"
+        address: "Calle Serrano 91, Madrid"
+      registry:
+        id: "KYC-REG-70699"
+        name: "Palmera Logistics S.L."
+        tax_id: "TIN-46-1120583"
+        address: "Calle Serrano 91, Madrid"
+        jurisdiction: ES
+        registered_day_offset: -302
+
+    - key: M5
+      ledger:
+        id: "ACCT-72-9963-0518"
+        holder: "Northquay Advisory"
+        tax_id: "TIN-83-4472961"
+        currency: USD
+        balance: "22640.00"
+        opened_day_offset: -198
+      transfer_alias:
+        name: "Nrthquay Advsry Ltd"
+        bic: "NTQYIED5XXX"
+        address: "1 Custom House Quay, Dublin"
+      registry:
+        id: "KYC-REG-70754"
+        name: "Northquay Advisory Limited"
+        tax_id: "TIN-83-4472961"
+        address: "1 Custom House Quay, Dublin"
+        jurisdiction: IE
+        registered_day_offset: -269
+
+  # The circular payment pattern: M1 -> M2 -> M3 -> M4 -> M5 -> M1, realized
+  # as wire transfers between the members' wire aliases. Timestamps derive
+  # from `epoch` + day_offset days + hour hours.
+  edges:
+    - { from: M1, to: M2, reference: "WR-2026-118834", amount: "48200.00", currency: USD, day_offset: 3,  hour: 14, purpose: "Consulting services Q1" }
+    - { from: M2, to: M3, reference: "WR-2026-119207", amount: "47150.00", currency: USD, day_offset: 6,  hour: 10, purpose: "Marine equipment procurement" }
+    - { from: M3, to: M4, reference: "WR-2026-119552", amount: "46800.00", currency: USD, day_offset: 9,  hour: 16, purpose: "Freight and logistics settlement" }
+    - { from: M4, to: M5, reference: "WR-2026-120018", amount: "47990.00", currency: USD, day_offset: 12, hour: 11, purpose: "Advisory retainer" }
+    - { from: M5, to: M1, reference: "WR-2026-120441", amount: "48425.00", currency: USD, day_offset: 15, hour: 15, purpose: "Management consulting fees" }
+
+# ---------------------------------------------------------------------------
+# Noise generation rules (D-04): ~1200 plausible counterparties at the low
+# end of the 1k–5k band so CI stays fast. All lexicons live here.
+# ---------------------------------------------------------------------------
+noise:
+  counts:
+    counterparties: 1200      # noise counterparties (ring adds 5)
+    ledger_accounts: 1155     # first N noise counterparties also hold accounts
+    transactions: 3600
+    wires: 900
+  amounts:
+    transaction: { min: 45.0, max: 24500.0 }
+    wire: { min: 850.0, max: 98000.0 }
+    balance: { min: 120.0, max: 250000.0 }
+  time:
+    activity_days: 90         # movements land in epoch + [0, activity_days)
+    history_days: 1460        # openings/registrations land in epoch - [30, history_days)
+  id_prefixes:
+    account: "ACCT"
+    transaction: "TXN"
+    wire: "WR-2026"
+    registry: "KYC-REG"
+    tax: "TIN"
+  currencies: [USD, EUR, GBP]
+  jurisdictions: [US, GB, DE, FR, ES, IE, NL, SG, CH, CA]
+  company_words:
+    [Alder, Brookfield, Cinder, Dovetail, Eastlake, Fairmont, Granite,
+     Halcyon, Ironwood, Juniper, Kingsway, Lakeshore, Marlow, Norwood,
+     Oakhurst, Pembroke, Quarry, Redstone, Summit, Thornbury]
+  company_activities:
+    [Trading, Holdings, Logistics, Consulting, Marine, Textiles, Foods,
+     Engineering, Freight, Capital, Materials, Systems]
+  company_suffixes:
+    [Ltd, LLC, GmbH, "S.A.", "B.V.", Inc, "Pte. Ltd.", PLC]
+  streets:
+    [Harbor Road, Mill Lane, Station Approach, King Street, Market Square,
+     Bridge Avenue, Canal Walk, Foundry Row, Orchard Close, Wharf Terrace,
+     Beacon Hill, Garden Parade, Victoria Embankment, Castle Yard, Linden Allee]
+  cities:
+    [Rotterdam, Hamburg, Lyon, Bilbao, Cork, Manchester, Baltimore,
+     Toronto, Zurich, Antwerp, Gothenburg, Valencia]
+  bics:
+    [NBRDUS33XXX, GTBKGB2LXXX, HLSVDEFFXXX, CRLYFRPPXXX, BBVAESMMXXX,
+     IRSHIE2DXXX, RABONL2UXXX, OCBCSGSGXXX, UBSWCHZHXXX, ROYCCAT2XXX,
+     SEBAGB2LXXX, COMMDEFFXXX]
+  purposes:
+    [Invoice settlement, Supplier payment, Freight charges, Service fees,
+     Equipment purchase, Quarterly settlement, Commission payment,
+     Insurance premium, Licensing fees, Contract milestone]
+  memos:
+    [POS purchase, Standing order, Salary credit, Utility payment,
+     Card settlement, Direct debit, Interest posting, Fee reversal,
+     Cash deposit, Transfer out]
+
+# ---------------------------------------------------------------------------
+# Expected shape and content pins (D-08). Row counts are arithmetic over the
+# noise counts + ring; checksums and the ring signature are backfilled from
+# the first generation run and committed together with the generator — any
+# later mismatch is the drift alarm working as designed.
+# ---------------------------------------------------------------------------
+expected:
+  row_counts:
+    core_banking:
+      accounts: 1160          # 1155 noise + 5 ring
+      transactions: 3600
+    wires:
+      wire_transfers: 905     # 900 noise + 5 ring edges
+    kyc_registry:
+      counterparties: 1205    # 1200 noise + 5 ring
+  checksums:
+    core_banking: null        # backfilled by first generation (Task 2)
+    wires: null
+    kyc_registry: null
+  ring_signature: null        # sha256 over the 5 circular wire rows
+  cycle_count: 1
+  cycle_members: [M1, M2, M3, M4, M5]
