@@ -24,7 +24,7 @@ findings:
   warning: 5
   info: 5
   total: 10
-status: issues_found
+status: fixed
 ---
 
 # Phase 12: Code Review Report
@@ -59,6 +59,8 @@ reliance on `assert` for all demo verification.
 
 ### WR-01: Entire demo verification is `assert`-based and vanishes under `python -O`
 
+**resolution:** RESOLVED — fix(12) 1df8b69 — bare asserts replaced with unconditional `_require` helper
+
 **File:** `examples/08-e2e-demo/run.py:592-1031` (throughout `main`)
 **Issue:** Every correctness check in the demo — generation checksum pins
 (592–596), the baseline zero (640), envelope/resolution counts (691–692),
@@ -83,6 +85,8 @@ which raises explicitly rather than using an `assert` statement.)
 
 ### WR-02: `ZeroDivisionError` / sign bug in amount-tolerance check
 
+**resolution:** RESOLVED — fix(12) fda8cf4 — zero/negative amounts guarded in tolerance check
+
 **File:** `examples/08-e2e-demo/run.py:292-293`
 **Issue:** `_extends` computes
 `abs(amount - previous) / previous * 100.0 <= tolerance_percent`.
@@ -105,6 +109,8 @@ def _extends(previous: float, amount: float) -> bool:
 
 ### WR-03: SQL identifier quoting does not escape embedded double quotes
 
+**resolution:** RESOLVED — fix(12) 997e092 — embedded quotes escaped in centralized identifier quoting
+
 **File:** `examples/08-e2e-demo/generator.py:70-73, 132-138`; `examples/08-e2e-demo/run.py:224-230`; `tests/examples/test_demo_generator.py:113, 128`
 **Issue:** Table and column names from `scenario.yaml` are interpolated
 into SQL as `f'"{name}"'` with no escaping. A name containing a `"`
@@ -126,6 +132,8 @@ def _ident(name: str) -> str:
 
 ### WR-04: Unbounded recursion in `_structured_cycles._walk`
 
+**resolution:** RESOLVED — fix(12) a27785c — recursion converted to explicit-stack iteration
+
 **File:** `examples/08-e2e-demo/run.py:294-315`
 **Issue:** `_walk` recurses once per edge appended to the path; maximum
 depth equals the number of distinct parties reachable under the tolerance
@@ -142,6 +150,8 @@ enforce a documented path-length ceiling (e.g. derive it from
 and stop extending paths beyond it.
 
 ### WR-05: Checksum line encoding is collision-prone (`|`-joined `str()` values)
+
+**resolution:** RESOLVED — fix(12) d281efa — collision-safe repr row encoding; pins regenerated
 
 **File:** `examples/08-e2e-demo/generator.py:76-79, 361-363`
 **Issue:** `source_checksum` and the ring signature hash rows as
