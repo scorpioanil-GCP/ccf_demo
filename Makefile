@@ -20,8 +20,9 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 
 .PHONY: help install lint typecheck test ci-core ci examples \
 	example-00 example-01 example-02 example-03 example-04 example-05 \
-	example-06 example-07 example-08 \
+	example-06 example-07 example-08 example-ext-00 \
 	example-03-live-ollama example-03-live-anthropic \
+	example-ext-00-live-anthropic example-ext-00-live-adk \
 	perf perf-micro perf-scale perf-xproc perf-replay
 
 help: ## List targets with one-line descriptions
@@ -75,7 +76,10 @@ example-07: ## Run examples/07-artifact-store-mcp
 example-08: ## Run examples/08-e2e-demo (deterministic; --live is opt-in and never CI, D-10/D-12)
 	$(ENV) $(PYTHON) examples/08-e2e-demo/run.py
 
-examples: example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 ## Run all nine examples in order, stopping on first failure
+example-ext-00: ## Run examples/external/00-hello-context — all legs deterministic via replay server
+	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py
+
+examples: example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 example-ext-00 ## Run all ten examples in order, stopping on first failure
 
 # Perf battery (Phase 11). `perf` NEVER joins `ci` or `ci-core`: always-on CI
 # never times anything (Phase-8 D-10 / D-IMPL-70) — perf runs only via these
@@ -114,3 +118,9 @@ example-03-live-ollama: ## Example 03 live leg via Ollama (opt-in, D-11; not par
 
 example-03-live-anthropic: ## Example 03 live leg via Anthropic (opt-in, D-11; not part of `examples`)
 	$(ENV) $(PYTHON) examples/03-harness-portability/run.py --mode live --provider anthropic
+
+example-ext-00-live-anthropic: ## External example 00 Anthropic leg live (opt-in, D-11; never in `examples`/`ci`)
+	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py --live --legs anthropic
+
+example-ext-00-live-adk: ## External example 00 ADK/Gemini leg live (opt-in, D-11; never in `examples`/`ci`)
+	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py --live --legs adk
