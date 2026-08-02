@@ -32,6 +32,11 @@ What this demonstrates, as assertions:
 * **The ExceptionEscalation path (§8.1; D-IMPL-61).** A failing node
   routes to its declared exception handler as a first-class recorded,
   audited transition.
+* **The ReviewQueue (§8.2; whitepaper §7.10.3).** The generated briefing
+  is queued for asynchronous review with passage-level lineage; the
+  reviewer's signed release lands in the audit log AND on replay
+  dimension 2 byte-for-byte — audit-by-construction for the third
+  exercised HITL primitive.
 
 Every domain value — tenant, steps, routing, policy, approver, tokens,
 outputs, instants — is loaded from ``artifacts/*.yaml``; deleting the
@@ -58,6 +63,7 @@ from joserfc.jwk import ECKey
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import canonical_bytes, content_hash
+from ccf.contracts.claims import LineageEntry
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.audit import AuditLog
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -69,6 +75,12 @@ from ccf.hitl.principal import (
     ApproverIdentity,
     AuthenticationContext,
     HumanPrincipalBinding,
+)
+from ccf.hitl.review_queue import (
+    ReviewActionRecord,
+    ReviewQueue,
+    ReviewQueueItem,
+    ReviewResolution,
 )
 from ccf.hitl.transport import (
     HITL_POLICY,
@@ -663,6 +675,126 @@ def main() -> int:
             == f"workflow:{state_key}"
         )
 
+        # --- the ReviewQueue: async review before release (§8.2; §7.10.3) ---
+        # The generated disbursement briefing is queued for asynchronous
+        # human review pre-release. Every value — item, lineage anchors,
+        # reviewer identity, the release/reject decision — is artifact
+        # content; this driver only interprets (§6.4).
+        review_doc = hitl_doc["review"]
+        review_queue = ReviewQueue(
+            transport=transport,
+            audit=audit,
+            clock=clock,
+            control_plane=registry,
+            hitl_policy_key=hitl_doc["keys"]["hitl_policy"],
+            identity_provider=provider,
+            trusted_keys=trusted,
+        )
+        item = ReviewQueueItem(
+            output_ref=review_doc["item"]["output_ref"],
+            lineage=tuple(
+                LineageEntry.model_validate(entry)
+                for entry in review_doc["item"]["lineage"]
+            ),
+        )
+        pending_review = review_queue.submit_for_review(
+            tenant=tenant,
+            event_key=review_doc["event"]["event_key"],
+            workflow_state_ref=review_doc["event"]["workflow_state_ref"],
+            item=item,
+        )
+        # The submission-time content hash binds what the reviewer will see
+        # (T-07-39 TOCTOU doctrine, same as the ApprovalGate leg).
+        assert pending_review.product_content_hash == content_hash(item)
+        ((queued_event, queued_item),) = review_queue.items(tenant=tenant)
+        assert queued_event.event_key == pending_review.event_key
+        assert queued_item == item
+
+        # The reviewer's identity follows the same convention as the
+        # approver's: subject_id equals an ACTIVE token's client_id.
+        reviewer = review_doc["reviewer"]
+        reviewer_entry = entries[reviewer["token_label"]]
+        assert reviewer_entry["status"] == "active"
+        assert (
+            reviewer["identity"]["subject_id"] == reviewer_entry["client_id"]
+        )
+        reviewer_binding = HumanPrincipalBinding(
+            approver=ApproverIdentity(**reviewer["identity"]),
+            authentication=AuthenticationContext(**reviewer["authentication"]),
+            action_time=_instant(reviewer["action_time"]),
+            product_content_hash=pending_review.product_content_hash,
+        )
+        reviewer_signed = sign_principal_binding(
+            reviewer_binding, provider=provider, key_id=key_id
+        )
+        # The artifact decides release vs reject; the driver interprets.
+        review_action = (
+            review_queue.release
+            if review_doc["drive"]["action"] == "release"
+            else review_queue.reject
+        )
+        review_resolution = review_action(
+            tenant=tenant,
+            event_key=pending_review.event_key,
+            principal=reviewer_binding,
+            signed_binding=reviewer_signed,
+        )
+        assert isinstance(review_resolution, ReviewResolution)
+        assert review_resolution.record.released == (
+            review_doc["drive"]["action"] == "release"
+        )
+        assert review_resolution.record.item == item
+        # Audit-by-construction: the review action is in the Control Plane
+        # audit log with the reviewer as actor — recorded, never opt-in.
+        review_audits = [
+            event
+            for event in audit.events()
+            if event.action == "hitl_action"
+            and event.actor == reviewer["identity"]["subject_id"]
+        ]
+        assert len(review_audits) == 1 and review_audits[0].resolved
+        # The review queue is drained; nothing is left pending.
+        assert review_queue.items(tenant=tenant) == ()
+
+        # Dimension 2 for the review decision: the pre-serialized block
+        # lands verbatim on a replay record, byte-equal and round-trippable.
+        review_replay = build_replay_record(
+            execution=execution,
+            product=product,
+            perspective=perspective,
+            policy_bindings=(
+                PolicyBinding(
+                    key=replay_doc["policy_binding_key"],
+                    version=replay_doc["policy_binding_version"],
+                ),
+            ),
+            assembly_mode=replay_doc["assembly_mode"],
+            recorded_at=_instant(replay_doc["recorded_at"]),
+            agent_conditioning=PerspectiveConditioning(
+                principal_id=replay_doc["perspective"]["principal_id"],
+                role=replay_doc["perspective"]["role"],
+                delegation_chain=outcome.delegation_chain,
+            ),
+            hitl_actions=review_resolution.hitl_actions_block,
+            workflow_step_sequence=outcome.step_sequence_block,
+        )
+        assert (
+            review_replay.policy_bindings.hitl_actions
+            == review_resolution.hitl_actions_block
+        )
+        restored_review = ReviewActionRecord.model_validate_json(
+            review_replay.policy_bindings.hitl_actions
+        )
+        assert restored_review.item == item
+        assert (
+            restored_review.submission.principal.approver.subject_id
+            == reviewer["identity"]["subject_id"]
+        )
+        assert (
+            review_doc["item"]["output_ref"]
+            in review_replay.policy_bindings.hitl_actions
+        )
+
         # --- the ExceptionEscalation path (D-IMPL-61) ------------------------
         escalation_id: str = drive["escalation_execution_id"]
         bindings.failing = frozenset({drive["failing_step"]})
@@ -698,6 +830,12 @@ def main() -> int:
             f"{outsider['scopes'][0]} scope → {authz_refusal_code}"
         )
         print(f"  terminal state         {outcome.terminal_state}")
+        print(
+            "  review "
+            f"{'released' if review_resolution.record.released else 'rejected'}"
+            f"        {reviewer['identity']['subject_id']}"
+            f" → {review_doc['item']['output_ref']}"
+        )
         print(f"  escalation handler     {routed.handler_ref}")
         return 0
 

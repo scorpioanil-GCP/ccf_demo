@@ -10,7 +10,12 @@
 # entry (the 401 refusal path), and one ACTIVE entry whose scope the
 # scope-mapping artifact does not map (the 403 tenant-unauthorized path,
 # Phase 10 D-16) — every refusal demonstrated from artifact data, never
-# from a hardcoded bad-token string.
+# from a hardcoded bad-token string. A fourth ACTIVE `reviewer` entry
+# backs the ReviewQueue leg: its client_id equals the reviewer subject in
+# hitl.yaml, keeping the identity convention uniform across primitives.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 tokens:
   - label: approver
@@ -27,4 +32,9 @@ tokens:
     token: sm-reporting-token-2026
     client_id: reporting-analyst-7
     scopes: [reporting]
+    status: active
+  - label: reviewer
+    token: sm-credit-review-token-2026
+    client_id: credit-review-officer-7
+    scopes: [hitl]
     status: active

@@ -3,6 +3,9 @@
 # The template text and its declared parameters live here, never in code —
 # a prompt string literal in `run.py` would be the No-Hardcoding Rule
 # (§6.4) firing, and CINV-01 lints `/examples` for exactly that.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
 
 keys:
   prompt_artifact: sterling-mutual/prompt/disbursement-briefing
