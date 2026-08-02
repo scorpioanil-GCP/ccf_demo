@@ -107,4 +107,4 @@ expected:
   # resolved (1160 ledger holders + 1205 registry entries converge on 1205
   # nodes — the tax reference is the evidence).
   envelopes_ingested: 6870
-  resolved_counterparties: 1205
+  resolved_seed_entities: 1205
