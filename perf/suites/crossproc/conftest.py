@@ -16,8 +16,10 @@ Two disciplines are load-bearing (research Pitfall 5; D-15):
 
 * **Readiness is a handshake, never a wait-loop.** The child prints
   ``READY {mcp_port} {a2a_port}`` only once both its servers report started;
-  the parent's *blocking* ``readline()`` is the gate. Nothing here polls or
-  pauses on a timer.
+  the parent's ``readline()`` is the gate. Nothing here polls or pauses on a
+  timer — but the handshake carries a deadline
+  (:data:`HANDSHAKE_TIMEOUT_SECONDS`): a child that starts and then wedges
+  before announcing fails the session loudly instead of hanging it forever.
 * **Warm-up precedes yield.** Before any benchmark sees a client, the fixture
   performs :data:`WARMUP_ROUND_TRIPS` real round-trips on EACH transport, so
   import cost, first-connection setup, and lazy-init on either side never
@@ -35,6 +37,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -71,6 +74,11 @@ WARMUP_ROUND_TRIPS = 10
 
 #: Grace given to a terminated child before escalating to SIGKILL.
 TERMINATE_TIMEOUT_SECONDS = 10
+
+#: Deadline on the READY handshake: a child that starts but never announces
+#: (e.g., deadlocks during server startup) must fail the session, not wedge
+#: it — a handshake without a deadline is a hang, not a gate (T-11-10).
+HANDSHAKE_TIMEOUT_SECONDS = 60
 
 #: Deadline every synchronous MCP call is bounded by. Lifecycle mechanism
 #: values, not domain values.
@@ -133,7 +141,24 @@ def crossproc_endpoints() -> Iterator[CrossProcessEndpoints]:
                     start_new_session=True,
                 )
             assert proc.stdout is not None
-            announcement = proc.stdout.readline().decode().strip()
+            # Deadline-bounded handshake: readline on a helper thread so a
+            # hung child trips the timeout and falls through to the killpg
+            # teardown in ``finally`` instead of blocking forever.
+            stdout = proc.stdout
+            lines: list[bytes] = []
+            reader = threading.Thread(
+                target=lambda: lines.append(stdout.readline()), daemon=True
+            )
+            reader.start()
+            reader.join(timeout=HANDSHAKE_TIMEOUT_SECONDS)
+            if reader.is_alive() or not lines:
+                captured = stderr_path.read_text(encoding="utf-8")
+                raise AssertionError(
+                    "producer child did not announce readiness within "
+                    f"{HANDSHAKE_TIMEOUT_SECONDS}s; its stderr was:\n"
+                    f"{captured}"
+                )
+            announcement = lines[0].decode().strip()
             if not announcement.startswith("READY "):
                 captured = stderr_path.read_text(encoding="utf-8")
                 raise AssertionError(
