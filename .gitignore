@@ -12,8 +12,10 @@ dist/
 .coverage.*
 htmlcov/
 coverage.xml
-.venv/
+.venv
 .env
+# Perf battery run outputs are never committed (Phase 11 D-02); baselines are.
+perf/results/
 *.pem
 node_modules/
 .DS_Store

@@ -72,6 +72,11 @@ langgraph = ["langgraph==1.2.9"]
 # resolved by the pinned setuptools>=77 / pip in use (research assumption A1, verified
 # empirically at plan 06-02 execution).
 harnesses = ["ccf[adk,claude-agent,langgraph]"]
+# 11-RESEARCH.md Standard Stack (D-01): pytest-benchmark is the locked timing
+# harness for the perf battery — benchmarks are pytest tests under perf/ and
+# never join always-on CI (Phase-8 D-10 / D-IMPL-70). A1 compatibility with
+# the pytest 9.1.1 pin verified empirically at plan 11-01 execution.
+perf = ["pytest-benchmark==5.2.3"]
 dev = [
   "pytest==9.1.1",
   "hypothesis==6.161.5",
@@ -80,6 +85,8 @@ dev = [
   "pytest-cov==7.1.0",
   # D-08: CI and contributors get all three harness legs from `pip install -e ".[dev]"`.
   "ccf[harnesses]",
+  # Phase 11 D-01: dev environments get the perf harness from the same one command.
+  "ccf[perf]",
 ]
 
 # Single distribution for v0 shipping two packages: the `ccf` library (src layout,
