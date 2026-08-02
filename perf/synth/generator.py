@@ -162,6 +162,15 @@ def _topology(rung: int) -> _Topology:
     # Every tail attaches at least once, then extra edges fill to k * rung
     # unique (subject, object) pairs (D-28: constant average degree).
     target_edges = K_AVG_DEGREE * rung
+    # Feasibility guard: each (hub, tail) pair admits exactly ONE
+    # relationship type, so the unique-edge sampler below can only
+    # terminate if enough distinct pairs exist. Fail loudly instead of
+    # looping forever on an infeasible rung (below ~400 entities).
+    if hub_count * tail_count < target_edges:
+        raise ValueError(
+            f"rung {rung} cannot yield {target_edges} unique edges from "
+            f"{hub_count} hubs x {tail_count} tails; pick a larger rung"
+        )
     edge_set: set[tuple[str, str, str]] = set()
     for tail in tails:
         hub = rng.choices(hubs, weights=weights, k=1)[0]
