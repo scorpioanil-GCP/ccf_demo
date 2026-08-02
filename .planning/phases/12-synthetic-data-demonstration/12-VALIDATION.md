@@ -58,3 +58,15 @@ created: 2026-08-01
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
 | Walkthrough doc reads correctly / narration quality | DEMO-03 | Prose quality is human judgment | Read the walkthrough doc end-to-end; verify literal-includes resolve |
+
+---
+
+## Validation Audit 2026-08-02
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+Post-fix re-audit after review fixes WR-01..WR-05 (commits 1df8b69..d281efa): DEMO-01 re-verified via `pytest tests/examples/` (4 passed, WR-05 pins regenerated), DEMO-02 via `make example-08` (exit 0, byte-identical consecutive runs), DEMO-03 unchanged (fixes touched only example-08 files). `nyquist_compliant: true` stands. One manual-only row (walkthrough prose quality) tracked in 12-HUMAN-UAT.md.
