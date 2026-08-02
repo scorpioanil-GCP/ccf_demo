@@ -135,11 +135,21 @@ def resolve_threshold(suite: str, benchmark_id: str, config: dict) -> float:
         raise ThresholdConfigError(
             f"suite {suite!r} has no [suite.{suite}] default in thresholds.toml"
         )
-    default = float(suites[suite]["default"])
+    try:
+        default = float(suites[suite]["default"])
+    except (TypeError, ValueError) as exc:
+        raise ThresholdConfigError(
+            f"suite {suite!r} default is malformed: {exc}"
+        ) from exc
     override_table = config.get("override", {}).get(benchmark_id)
     if override_table is None:
         return default
-    override = float(override_table["threshold"])
+    try:
+        override = float(override_table["threshold"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ThresholdConfigError(
+            f"override for {benchmark_id!r} is malformed: {exc}"
+        ) from exc
     if override < default:
         raise ThresholdConfigError(
             f"override for {benchmark_id!r} ({override}) is tighter than the "
