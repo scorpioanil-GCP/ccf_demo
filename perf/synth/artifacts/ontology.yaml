@@ -1,0 +1,73 @@
+# Performance-battery synthetic ontology — deliberately meaningless vocabulary
+# (Phase 11 D-09; CLAUDE.md §6.4 No-Hardcoding Rule).
+#
+# Every entity class, relationship type, attribute name, payload key and
+# lexicon word here is an invented *value* with no domain meaning at all —
+# unmistakably not a domain pack. The generator (`perf/synth/generator.py`)
+# holds none of these names as code constants; it interprets this artifact.
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+
+tenant_id: perf-tenant
+
+# Rule 0 is the HUB class (D-27: few hubs, long sparse tail); the remaining
+# rules are the tail classes. The generator derives hub/tail roles from the
+# relationship_rules below (subjects are hubs), not from position by magic.
+entity_rules:
+  - match_key: alpha_ref
+    entity_class: node_alpha
+    identity_keys: [alpha_ref]
+    attribute_keys:
+      - alpha_label
+      - alpha_tag
+
+  - match_key: beta_ref
+    entity_class: node_beta
+    identity_keys: [beta_ref]
+    attribute_keys:
+      - beta_label
+      - beta_tag
+
+  - match_key: gamma_ref
+    entity_class: node_gamma
+    identity_keys: [gamma_ref]
+    attribute_keys:
+      - gamma_label
+      - gamma_tag
+
+# Typed edges minted when one envelope resolves both endpoint classes.
+# Subjects are the hub class, so traversal expands hub-outward (D-27).
+relationship_rules:
+  - relationship_type: rel_link
+    subject_entity_class: node_alpha
+    object_entity_class: node_beta
+
+  - relationship_type: rel_tie
+    subject_entity_class: node_alpha
+    object_entity_class: node_gamma
+
+# Which attribute carries each class's policy classification (consumed by the
+# wave-2 policy-operator suites via controlplane.yaml).
+classification_attribute_by_class:
+  node_alpha: alpha_tag
+  node_beta: beta_tag
+  node_gamma: gamma_tag
+
+# The attribute the similarity corpus is built from, per ranked class.
+similarity_corpus_attribute_by_class:
+  node_alpha: alpha_label
+
+# Generated attribute *values* — also artifact-owned so the generator code
+# contains zero ontology vocabulary (values-in-artifacts, D-09).
+attribute_values:
+  classification: tag_open
+  label_lexicon:
+    - flux
+    - vertex
+    - lattice
+    - quanta
+    - spline
+    - torus
+    - kernel
+    - facet
