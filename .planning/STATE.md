@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-02T17:21:49.031Z"
+last_updated: "2026-08-02T21:43:30.606Z"
 last_activity: 2026-08-02 -- Phase 13 execution started
 progress:
-  total_phases: 6
-  completed_phases: 4
+  total_phases: 7
+  completed_phases: 5
   total_plans: 20
-  completed_plans: 15
-  percent: 67
+  completed_plans: 20
+  percent: 71
 ---
 
 # STATE — CCF SDK
@@ -68,6 +68,10 @@ Last activity: 2026-08-02 -- Phase 13 execution started
 | 08-13      | ~50 min  | 4     | 5     |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 13.1 inserted after Phase 13: External-Consumer Examples (MCP Egress): independent-harness agents consume CCF via MCP, zero client-side CCF imports — primary adoption path, demonstrated not asserted (Dave, 2026-08-02) (URGENT)
 
 ### Decisions
 

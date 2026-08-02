@@ -26,6 +26,7 @@ and the upgraded examples.
 - [x] **Phase 11: Performance Battery** - `perf/` tree with four suites, deterministic synthetic dataset generator, committed runner-class-keyed baselines, `make perf`, opt-in regression-gated CI (completed 2026-08-02)
 - [x] **Phase 12: Synthetic-Data Demonstration** - Fake data store + end-to-end data→context→agentic-reasoning example, running in CI (completed 2026-08-02)
 - [x] **Phase 13: Examples Suite Upgrade** - v0.1 examples 00–07 upgraded with detailed narrated READMEs and richer scenarios/artifacts exercising more SDK surface, CI stays green (completed 2026-08-02)
+- [ ] **Phase 13.1: External-Consumer Examples (MCP Egress)** (INSERTED) - Independent agents built in their own harness (Anthropic SDK, ADK, bare MCP client) consume CCF context via MCP egress with zero CCF imports client-side — CCF as a black box; demonstrates §7.1 MCP-as-egress as the primary adoption path
 - [ ] **Phase 14: Documentation Suite** - mkdocs site with generated Protocol/API reference, adopter's guide, schema reference, security notes, PERFORMANCE.md, narrated demo walkthrough — `make docs --strict` in always-on CI
 
 ## Phase Details
@@ -162,6 +163,18 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 13-05-PLAN.md — Example 07 enrichment + 08 README retrofit + suite-wide `make ci` phase gate (Wave 3)
+
+### Phase 13.1: External-Consumer Examples (MCP Egress) (INSERTED)
+
+**Goal:** An engineer with an existing agent in their own harness (Anthropic SDK, Google ADK, or a bare MCP client) can point it at the CCF MCP egress server and consume decision-ready, typed Context Products — with zero CCF imports on the client side. CCF operates as a black box behind MCP; the replay record still lands on the fabric side. This demonstrates §7.1 MCP-as-egress / §8.3 Experience Layer as the primary adoption path, rather than asserting it.
+**Rationale (Dave, 2026-08-02):** Users must never be forced to construct agents inside CCF — that becomes tech debt. The harness-independent MCP consumption path is the most important example set the suite needs.
+**Requirements**: TBD (candidate: extend EXAM-* or new EXAM-04)
+**Suggested scope:** `examples/09-external-consumer-anthropic` (pure `anthropic`-SDK agent, CCF only as an MCP server URL); a generic-MCP-client or ADK variant; README discipline per the Phase-13 D-02 template; runnable in CI (`make example-09`), deterministic leg for CI plus optional live leg.
+**Depends on:** Phase 13. Must land before Phase 14 (Documentation Suite) so the docs can literal-include it.
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 13.1 to break down)
 
 ### Phase 14: Documentation Suite
 
