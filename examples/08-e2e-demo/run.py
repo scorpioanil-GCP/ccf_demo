@@ -38,6 +38,7 @@ code below is thin loading, mapping, and asserting logic.
 
 from __future__ import annotations
 
+import argparse
 import sqlite3
 import sys
 import tempfile
@@ -48,6 +49,15 @@ from typing import Any
 
 import yaml
 
+from ccf.agents.agent import Agent
+from ccf.agents.definitions import (
+    AGENT_DEFINITION,
+    PROMPT_ARTIFACT,
+    AgentDefinition,
+    PromptArtifact,
+)
+from ccf.agents.factory import AgentFactory
+from ccf.agents.prompts import render_instruction
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.assembly.worker import (
     EntityResolutionRule,
@@ -56,11 +66,13 @@ from ccf.assembly.worker import (
 )
 from ccf.boot import boot
 from ccf.contracts.canonical import content_hash
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import (
     DEBT_PROFILE,
     HALF_LIFE_TABLE,
     DebtProfile,
     HalfLifeTable,
+    declared_artifact_class,
     parse_artifact,
 )
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -86,8 +98,22 @@ from ccf.products.contract import (
 from ccf.products.gates import ServableProduct, run_gates
 from ccf.projection.engine import OperatorRegistry, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput
+from ccf.replay.record import (
+    DecisionReplayRecord,
+    PolicyBinding,
+    build_replay_record,
+)
+from ccf.replay.serve import ReplayWriter, serve
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from ccf.similarity.protocol import TokenOverlapIndex
+from ccf.skills.callables import CallableRegistry
+from ccf.skills.catalog import (
+    SKILL_CATALOG_ENTRY,
+    SkillCatalog,
+    SkillCatalogEntry,
+)
+from ccf.skills.dispatch import SkillInvocation
+from ccf.skills.grants import ApprovalOutcome, GrantLedger, SkillGrant
 
 import generator
 
@@ -120,6 +146,26 @@ def _instant(value: object) -> datetime:
     if isinstance(value, datetime):
         return value if value.tzinfo else value.replace(tzinfo=UTC)
     return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+
+def _ticking_clock(base: datetime) -> Any:
+    # Deterministic audit-timestamp source: the base instant is artifact
+    # data and each read advances one second. Never a wall-clock read.
+    state = {"now": base}
+
+    def clock() -> datetime:
+        state["now"] += timedelta(seconds=1)
+        return state["now"]
+
+    return clock
+
+
+class RefusedSink:
+    # The regime declares grant_requires_approval: false — the tier-2 sink
+    # must never be consulted; consultation is a hard failure.
+
+    def decide(self, grant: SkillGrant) -> ApprovalOutcome:
+        raise AssertionError("tier-2 sink consulted under an auto regime")
 
 
 def _resolution_spec(ontology: Any) -> EntityResolutionSpec:
@@ -314,6 +360,138 @@ def _run_detection(
     )
 
 
+def _governed_detection(
+    payload: Mapping[str, Any], arguments: Mapping[str, str]
+) -> Mapping[str, str]:
+    """The cycle-detection skill body: generic graph mechanism over the
+    typed Context Product payload, interpreting ONLY the class, edge-type
+    and attribute names the dispatch arguments declare (§6.4). Purely
+    algorithmic — no model anywhere on this path (D-10)."""
+    party_class = arguments["counterparty_entity_class"]
+    transfer_class = arguments["transfer_entity_class"]
+    site_link = arguments["site_link_type"]
+    registration_link = arguments["registration_link_type"]
+    name_attribute = arguments["name_attribute"]
+    beneficiary_attribute = arguments["beneficiary_attribute"]
+
+    parties = {
+        entity["entity_uri"]: entity["attributes"]
+        for entity in payload["entities"]
+        if entity["entity_class"] == party_class
+    }
+    transfers = [
+        entity
+        for entity in payload["entities"]
+        if entity["entity_class"] == transfer_class
+    ]
+    site_to_parties: dict[str, set[str]] = {}
+    transfer_to_site: dict[str, str] = {}
+    for edge in payload["relationships"]:
+        if edge["relationship_type"] == registration_link:
+            site_to_parties.setdefault(edge["object_uri"], set()).add(
+                edge["subject_uri"]
+            )
+        elif edge["relationship_type"] == site_link:
+            transfer_to_site[edge["subject_uri"]] = edge["object_uri"]
+
+    # Canonical display names -> party URIs; ambiguous names resolve to
+    # nothing rather than to a guess.
+    known: dict[str, str] = {}
+    ambiguous: set[str] = set()
+    for uri in sorted(parties):
+        name = parties[uri].get(name_attribute)
+        if name is None or name in ambiguous:
+            continue
+        if name in known and known[name] != uri:
+            ambiguous.add(name)
+            del known[name]
+            continue
+        known[name] = uri
+    # Wire aliases -> party URIs, via the site the alias's inbound wires
+    # deliver to and the counterparty registered at that site — the L2
+    # evidence chain, walked over typed edges only.
+    for transfer in transfers:
+        site = transfer_to_site.get(transfer["entity_uri"])
+        candidates = site_to_parties.get(site or "", set())
+        if len(candidates) != 1:
+            continue
+        alias = transfer["attributes"].get(beneficiary_attribute)
+        canonical = next(iter(candidates))
+        if alias is None or alias in ambiguous:
+            continue
+        if alias in known and known[alias] != canonical:
+            ambiguous.add(alias)
+            del known[alias]
+            continue
+        known[alias] = canonical
+
+    cycles = _run_detection(
+        [dict(transfer["attributes"]) for transfer in transfers],
+        known=known,
+        arguments=arguments,
+    )
+    first = cycles[0] if cycles else ()
+    members = sorted(
+        str(parties[uri].get(name_attribute, uri)) for uri in first
+    )
+    return {
+        "cycles_found": str(len(cycles)),
+        "cycle_length": str(len(first)),
+        "cycle_members": "|".join(members),
+    }
+
+
+def _live_narration(
+    *,
+    prompt_doc: Any,
+    definition: AgentDefinition,
+    agent: Agent,
+    detection: Mapping[str, str],
+    boundary: datetime,
+) -> None:
+    """Opt-in ``--live`` narration (D-10/D-12): render the prompt artifact
+    against the deterministic detection outcome and print the model's
+    citation-anchored summary. Prints OUTSIDE the byte-compared narration
+    buffer; asserts nothing about model text. The HTTP client import is
+    deferred so the deterministic run needs no live dependency wired."""
+    import os
+
+    import httpx  # deferred: live-only dependency use
+
+    provider = prompt_doc["live"]["providers"]["ollama"]
+    runner = prompt_doc["live"]["runner"]
+    base_url = os.environ.get(
+        "CCF_OLLAMA_BASE_URL", str(provider["default_base_url"])
+    )
+    model = os.environ.get(
+        "CCF_OLLAMA_MODEL", str(provider["default_model"])
+    )
+    binding = definition.instruction_bindings[0]
+    artifact = agent.instruction_artifact(binding.prompt)
+    rendered = render_instruction(
+        binding=binding,
+        artifact=artifact,
+        parameter_values={
+            "cycle_members": detection["cycle_members"],
+            "as_of": boundary.isoformat(),
+        },
+    )
+    response = httpx.post(
+        f"{base_url}/api/chat",
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": rendered}],
+            "stream": False,
+            "options": {"num_predict": int(runner["max_tokens"])},
+        },
+        timeout=float(runner["timeout_seconds"]),
+    )
+    response.raise_for_status()
+    print("")
+    print(f"--live investigation summary ({model}):")
+    print(response.json()["message"]["content"])
+
+
 class PaymentNetworkPlan:
     """The deployment's Π: the resolved payment network as its reader —
     the financial-crime analyst's skill — needs it. Deployment code, like
@@ -389,12 +567,14 @@ class PaymentNetworkPlan:
         )
 
 
-def main() -> int:
+def main(*, live: bool = False) -> int:
     scenario = _load("scenario.yaml")
     ontology = _load("ontology.yaml")
     control = _load("controlplane.yaml")
     halflife = _load("halflife.yaml")
     skills_doc = _load("skills.yaml")
+    agent_doc = _load("agent.yaml")
+    prompt_doc = _load("prompt.yaml")
 
     tenant_id: str = ontology["tenant_id"]
     keys = control["keys"]
@@ -469,7 +649,8 @@ def main() -> int:
         )
 
         # --- Stage 3: INGEST — L1 envelopes through the single writer ------
-        registry = ControlPlaneRegistry()
+        clock = _ticking_clock(_instant(control["decision"]["clock_base"]))
+        registry = ControlPlaneRegistry(clock=clock)
         spec_version = registry.register(
             keys["resolution_spec"], _resolution_spec(ontology)
         )
@@ -681,8 +862,185 @@ def main() -> int:
             )
             assert 0 < retained <= 1, retained
 
+            # --- Stage 5: AGENT — factory-built, governed skill, the find --
+            for reference in agent_doc["referenced_artifacts"].values():
+                artifact_class = declared_artifact_class(
+                    reference["class_id"]
+                )
+                declared_artifact = parse_artifact(
+                    {
+                        "class_id": reference["class_id"],
+                        "semver": reference["semver"],
+                        "declaration": reference["declaration"],
+                    },
+                    artifact_class,
+                )
+                registry.register_typed(
+                    reference["key"], declared_artifact, artifact_class
+                )
+            prompt = parse_artifact(
+                prompt_doc["prompt_artifact"], PROMPT_ARTIFACT
+            )
+            assert isinstance(prompt, PromptArtifact)
+            registry.register_typed(
+                prompt_doc["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
+            )
+            definition = parse_artifact(
+                agent_doc["agent_definition"], AGENT_DEFINITION
+            )
+            assert isinstance(definition, AgentDefinition)
+            definition_key = agent_doc["keys"]["agent_definition"]
+            definition_version = registry.register_versioned(
+                definition_key, definition, AGENT_DEFINITION
+            )
+            assert isinstance(definition_version, str)
+            definition_hash = content_hash(definition)
+
+            catalog = SkillCatalog(registry)
+            skill_doc = next(iter(skills_doc["skills"].values()))
+            entry = parse_artifact(skill_doc, SKILL_CATALOG_ENTRY)
+            assert isinstance(entry, SkillCatalogEntry)
+            assert isinstance(catalog.register(entry), str)
+            ledger = GrantLedger(
+                control_plane=registry,
+                catalog=catalog,
+                sink=RefusedSink(),
+                clock=clock,
+            )
+            callables = CallableRegistry()
+            callables.register(
+                skill_doc["binding"]["callable_ref"],
+                lambda call_arguments: _governed_detection(
+                    payload, call_arguments
+                ),
+            )
+            agent = AgentFactory(
+                control_plane=registry, callable_registry=callables
+            ).construct(
+                definition_key=definition_key,
+                definition_version=definition_version,
+                bound_skills=ledger.bound_view(definition_hash),
+            )
+            assert isinstance(agent, Agent)
+            grant = SkillGrant(
+                agent_definition_hash=definition_hash, **skills_doc["grant"]
+            )
+            granted = ledger.request(
+                grant,
+                definition=definition,
+                actor=skills_doc["actors"]["requesting_actor"],
+            )
+            assert granted == content_hash(grant), granted
+            in_force = ledger.grant_set_hash(definition_hash)
+
+            assert agent.consume(gated.product, now=now) is gated.product
+            invocation = agent.invoke_skill(
+                skills_doc["grant"]["skill_name"],
+                arguments=skills_doc["dispatch"]["arguments"],
+            )
+            assert isinstance(invocation, SkillInvocation)
+            detection = dict(invocation.output)
+            assert detection == skills_doc["dispatch"]["expected_output"], (
+                detection
+            )
+            assert int(detection["cycles_found"]) == expected[
+                "governed_cycles"
+            ]
+            assert detection["cycle_members"].split("|") == expected[
+                "cycle_members"
+            ]
+            _banner(
+                "STAGE 5 - AGENT: granted skill over governed context",
+                {
+                    "agent": f"{definition.name}"
+                    f"@{definition.artifact_version}",
+                    "archetypes": ", ".join(
+                        agent.identity.archetype_composition
+                    ),
+                    "skill invoked": skills_doc["grant"]["skill_name"],
+                    "structured cycles found": detection["cycles_found"],
+                    "ring size": detection["cycle_length"],
+                    "ring members": detection["cycle_members"],
+                    "freshness "
+                    + f"({demonstration['observation_type']})": str(retained),
+                },
+            )
+
+            # --- Stage 6: REPLAY — record, serve, round-trip ----------------
+            conditioning = agent.perspective_conditioning(
+                principal_id=perspective.principal_id,
+                grant_set_hash=in_force,
+            )
+            record = build_replay_record(
+                execution=execution,
+                product=gated.product,
+                perspective=perspective,
+                policy_bindings=(
+                    PolicyBinding(
+                        key=keys["policy_bundle"], version=policy_version
+                    ),
+                ),
+                assembly_mode=declared["assembly_mode"],
+                recorded_at=now,
+                agent_conditioning=conditioning,
+            )
+            store = FileArtifactStore(root=workdir / "artifacts")
+            served = serve(
+                product=gated,
+                record=record,
+                replay_writer=ReplayWriter(
+                    store=store,
+                    artifact_class=control["artifacts"][
+                        "replay_record_class"
+                    ],
+                ),
+            )
+            assert store.exists(
+                content_address=served.replay_ref.content_address
+            )
+            assert served.replay_ref.content_address == content_hash(record)
+            restored = DecisionReplayRecord.model_validate_json(
+                store.get(content_address=served.replay_ref.content_address)
+            )
+            assert restored == record
+            assert (
+                restored.perspective_conditioning.agent_definition_hash
+                == definition_hash
+            )
+            assert restored.perspective_conditioning.grant_set_hash == (
+                in_force
+            )
+            _banner(
+                "STAGE 6 - REPLAY: the decision, recorded and served",
+                {
+                    "replay record": served.replay_ref.content_address[:16]
+                    + "...",
+                    "dimensions": "fabric snapshot, policy bindings, model"
+                    " version, perspective, generation path",
+                    "skill-set in force": in_force[:16] + "...",
+                },
+            )
+
+            # --- narration byte-compare (D-08/D-16) -------------------------
+            narration = "\n".join(_NARRATION) + "\n"
+            expected_narration = (ARTIFACTS / "expected_output.txt").read_text(
+                encoding="utf-8"
+            )
+            assert narration == expected_narration, (
+                "staged narration diverged from artifacts/expected_output.txt"
+            )
+
             print("")
             print("examples/08-e2e-demo: OK")
+
+            if live:
+                _live_narration(
+                    prompt_doc=prompt_doc,
+                    definition=definition,
+                    agent=agent,
+                    detection=detection,
+                    boundary=boundary,
+                )
             return 0
         finally:
             handle.close()
@@ -698,4 +1056,21 @@ def expected_rows(scenario: Any) -> dict[str, dict[str, int]]:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    parser = argparse.ArgumentParser(
+        description=(
+            "End-to-end demo: raw synthetic banking data becomes governed"
+            " context and a factory-built agent finds the planted fraud"
+            " ring. --live adds LLM narration only; detection is identical"
+            " in both modes."
+        )
+    )
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help=(
+            "after the deterministic run completes, render the prompt"
+            " artifact and print a live model's investigation summary"
+            " (never required, never asserted, never in always-on CI)"
+        ),
+    )
+    sys.exit(main(live=parser.parse_args().live))

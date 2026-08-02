@@ -1,0 +1,48 @@
+
+==================================================================
+  STAGE 1 - GENERATE: scenario.yaml -> three source systems
+==================================================================
+  source systems               3
+  rows written                 6870
+  checksums                    all pinned values matched
+
+==================================================================
+  STAGE 2 - BASELINE: the same detection over raw rows
+==================================================================
+  payment rows examined        905
+  rows with unknown parties    5
+  structured cycles found      0
+  verdict                      nothing to see from raw data alone
+
+==================================================================
+  STAGE 3 - INGEST: L1 envelopes -> L2 entity resolution
+==================================================================
+  envelopes ingested           6870
+  canonical counterparty nodes 1205
+  how                          disjoint source identifiers converged on shared evidence
+
+==================================================================
+  STAGE 4 - PRODUCT: operators -> projection -> gated product
+==================================================================
+  operators invoked            4
+  entities served              4458
+  typed edges served           3270
+  gates                        empty-operator, lineage equality, TTL - all passed
+
+==================================================================
+  STAGE 5 - AGENT: granted skill over governed context
+==================================================================
+  agent                        payment-ring-analytics@1.0.0
+  archetypes                   analytics_insights
+  skill invoked                payment-cycle-detect
+  structured cycles found      1
+  ring size                    5
+  ring members                 Bluegate Trading Company S.A.|Harrow Point Consulting Pte. Ltd.|Kestrel Marine Supply GmbH|Northquay Advisory Limited|Palmera Logistics S.L.
+  freshness (wire-transfer-record) 0.478173298384253064
+
+==================================================================
+  STAGE 6 - REPLAY: the decision, recorded and served
+==================================================================
+  replay record                708ad1dfcddeb091...
+  dimensions                   fabric snapshot, policy bindings, model version, perspective, generation path
+  skill-set in force           6592ac147e297f35...
