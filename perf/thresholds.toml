@@ -1,0 +1,39 @@
+# perf/thresholds.toml — relative-median gate thresholds for the perf battery.
+#
+# Repo-owned and reviewed per D-IMPL-70: this file, together with the
+# committed baselines under perf/baselines/, is the entire gating policy.
+# `perf/gate.py` reads it with stdlib tomllib.
+#
+# Structure (D-11):
+#   [suite.<name>]   default = <fraction>   — suite-level default threshold
+#   [override."<benchmark_id>"] threshold = <fraction>
+#                                           — optional per-benchmark override
+#                                             for known-noisy benchmarks
+#
+# LOOSEN-ONLY RULE (D-22): an override may only be LOOSER (greater or equal)
+# than its suite default. gate.py rejects a tighter override with a typed
+# load error. Tightening happens by lowering the suite default, never by a
+# per-benchmark override — so the reviewed suite default remains the floor.
+
+[suite.micro]
+# D-19: 10% relative-median for the micro-benchmark suite.
+default = 0.10
+
+[suite.scale]
+# D-19: 10% for the fabric-scale (assembly + projection) curves.
+default = 0.10
+
+[suite.crossproc]
+# D-20: 25% for cross-process latency — looser to absorb localhost transport
+# and scheduler noise (D-18).
+default = 0.25
+
+[suite.replay]
+# D-21: 15% for replay-at-scale; the primary guard is the curve-shape and
+# byte-exact replay assertions in the suite itself — this % gate is secondary.
+default = 0.15
+
+# Example per-benchmark override (D-11/D-22) — must be >= its suite default:
+#
+# [override."perf/suites/crossproc/test_roundtrip.py::test_mcp_egress_roundtrip"]
+# threshold = 0.35
