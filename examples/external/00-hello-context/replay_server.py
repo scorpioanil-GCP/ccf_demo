@@ -30,7 +30,10 @@ either direction, refuses startup with the unpaired filenames on stderr
 (D-06). There is therefore no ordinal that serves without a fingerprint
 comparison. For Gemini the comparison includes the model segment of the
 URL path, since that API carries the model in the URL rather than the
-body (D-08).
+body (D-08) — which catches a client leg that does not honour the pinned
+model label. It does NOT verify that the recorded fixture was captured
+against that model: both sides of that field come from the harness, not
+from the fixture. See :func:`fingerprint` for the exact guarantee.
 
 No CCF imports: this is a stand-in for a vendor's model API, and the
 fabric is not involved. Binds 127.0.0.1 on port 0 and prints
@@ -160,20 +163,41 @@ def url_model(path: str) -> str:
 
 
 def fingerprint(
-    prefix: str, body: dict[str, object], path: str = ""
+    prefix: str,
+    body: dict[str, object],
+    path: str = "",
+    *,
+    expected_gemini_model: str = "",
 ) -> dict[str, object]:
     """Reduce a request to the drift-detecting shape for its path.
+
+    A pure reduction: everything it depends on arrives as an argument.
+    (It formerly read ``CCF_EXT00_GEMINI_MODEL`` from the process
+    environment, which made an otherwise pure function depend on ambient
+    state and made an unset variable indistinguishable from an
+    intentionally empty model.) :func:`build_app` resolves the pinned
+    label once and passes it in.
 
     Anthropic (``/v1/messages``): model, sorted tool names, message
     count. Gemini (``:generateContent``): sorted function-declaration
     names, content count, and the model segment of the URL — the Gemini
-    body carries NO model field, so without the URL a request for a
-    different model would be served another model's fixture (D-08).
+    body carries NO model field, so without the URL the model is not in
+    the comparison at all (D-08).
 
-    ``path`` is the ACTUAL side of the comparison. The committed request
-    fixtures are body-only (D-11, no re-capture), so the EXPECTED side
-    passes no path and the model is read from ``CCF_EXT00_GEMINI_MODEL``,
-    the env seam ``run.py`` sets from the fixture label it hands the leg.
+    ``path`` is the ACTUAL side of the comparison — the URL the client leg
+    really emitted. The committed request fixtures are body-only (D-11, no
+    re-capture), so the EXPECTED side passes no path and takes
+    ``expected_gemini_model``, the label ``run.py`` pins.
+
+    **What the Gemini model comparison does and does not guarantee.** Both
+    sides of ``url_model`` derive from the harness, not from the recorded
+    fixture: the expected side is the pinned label, the actual side is the
+    URL ``client_adk.py`` emits. So it catches a client leg that ignores
+    the pinned model — a real seam — but it CANNOT detect that a fixture
+    was recorded against a different model than the one now pinned.
+    Fixture-vs-model correspondence is unverified and stays unverified
+    until a re-capture records the model into the request fixture (D-11
+    forbids re-capture this phase).
 
     Intentional residual (D-08): the field set stays coarse — a request
     with the same model, tools, and counts but different message content
@@ -197,17 +221,36 @@ def fingerprint(
             d.get("name") for d in declarations if isinstance(d, dict)
         ),
         "content_count": len(body.get("contents") or []),
-        "url_model": (
-            url_model(path)
-            if path
-            else os.environ.get("CCF_EXT00_GEMINI_MODEL", "")
-        ),
+        "url_model": url_model(path) if path else expected_gemini_model,
     }
 
 
-def build_app(fixtures_dir: Path = FIXTURES) -> Starlette:
+#: Env seam through which ``run.py`` pins the Gemini fixture label.
+GEMINI_MODEL_ENV = "CCF_EXT00_GEMINI_MODEL"
+
+
+def build_app(
+    fixtures_dir: Path = FIXTURES, *, expected_gemini_model: str | None = None
+) -> Starlette:
+    """Host the replay app over ``fixtures_dir``.
+
+    ``expected_gemini_model`` is the EXPECTED side of the Gemini
+    ``url_model`` comparison (see :func:`fingerprint`). It is resolved
+    ONCE, here, from the argument or the :data:`GEMINI_MODEL_ENV` seam
+    ``run.py`` sets — never read inside the reduction. When it resolves to
+    ``None`` and a Gemini request arrives, the handler answers a loud 500
+    naming the unset variable rather than fingerprinting an empty model
+    against a real one and reporting a mismatch no operator can interpret.
+    Anthropic replay is unaffected, so standalone ``python
+    replay_server.py`` still starts and still serves that leg.
+    """
     fixtures = _load_fixtures(fixtures_dir)
     cursors: dict[str, int] = {prefix: 0 for _, prefix in SUFFIXES}
+    pinned_gemini_model = (
+        expected_gemini_model
+        if expected_gemini_model is not None
+        else os.environ.get(GEMINI_MODEL_ENV)
+    )
 
     async def replay(request: Request) -> Response:
         path = request.url.path
@@ -243,8 +286,27 @@ def build_app(fixtures_dir: Path = FIXTURES) -> Starlette:
                 )
             # Every ordinal has a recorded request: startup refused
             # otherwise (D-06), so there is no unfingerprinted serve path.
+            if prefix == "gemini" and pinned_gemini_model is None:
+                # Loud and named, never a silent "" that produces an
+                # uninterpretable mismatch diagnostic.
+                return JSONResponse(
+                    {
+                        "error": (
+                            f"{GEMINI_MODEL_ENV} is not set; it pins the "
+                            "expected side of the Gemini model comparison "
+                            "and run.py supplies it"
+                        ),
+                        "path": path,
+                        "ordinal": ordinal,
+                    },
+                    status_code=500,
+                )
             recorded_request = recorded[ordinal]["request"]
-            expected = fingerprint(prefix, recorded_request)
+            expected = fingerprint(
+                prefix,
+                recorded_request,
+                expected_gemini_model=pinned_gemini_model or "",
+            )
             actual = fingerprint(prefix, body, path)
             if expected != actual:
                 # D-03: drift fails loudly with a diagnostic naming

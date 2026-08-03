@@ -239,25 +239,78 @@ def test_gemini_fingerprint_catches_model_in_url_drift() -> None:
     assert baseline["url_model"] == "pinned-model"
 
 
-def test_gemini_expected_fingerprint_reads_the_pinned_model_from_env(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """D-08: with no path, the expected model comes from the run.py env seam.
+def test_gemini_expected_fingerprint_takes_the_pinned_model_explicitly() -> None:
+    """D-08: with no path, the expected model is an explicit argument.
 
     The committed request fixtures are body-only (D-11, no re-capture), so
-    the expected side of the comparison is env-derived rather than recorded.
+    the expected side of the comparison is harness-pinned rather than
+    recorded. It arrives as a parameter: `fingerprint` is a pure reduction
+    and reads no process environment.
     """
     replay_server = _load_replay_server()
     recorded = json.loads(
         (FIXTURES / "gemini-00-request.json").read_text("utf-8")
     )
 
-    monkeypatch.setenv("CCF_EXT00_GEMINI_MODEL", "pinned-model")
-    expected = replay_server.fingerprint("gemini", recorded)
+    expected = replay_server.fingerprint(
+        "gemini", recorded, expected_gemini_model="pinned-model"
+    )
     assert expected["url_model"] == "pinned-model"
     assert expected == replay_server.fingerprint(
         "gemini", recorded, path="/v1beta/models/pinned-model:generateContent"
     )
+
+
+def test_fingerprint_ignores_the_ambient_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """WR-02: the reduction must not depend on invisible global state."""
+    replay_server = _load_replay_server()
+    recorded = json.loads(
+        (FIXTURES / "gemini-00-request.json").read_text("utf-8")
+    )
+
+    monkeypatch.setenv(replay_server.GEMINI_MODEL_ENV, "ambient-model")
+    assert replay_server.fingerprint("gemini", recorded)["url_model"] == ""
+
+
+def test_an_unset_gemini_model_env_is_a_named_500_not_a_silent_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """WR-02: unset must be loud and named, not fingerprinted as "".
+
+    Standalone `python replay_server.py` leaves the variable unset. The
+    old default produced a mismatch diagnostic comparing "" against a real
+    model, which the operator had no way to interpret.
+    """
+    from starlette.testclient import TestClient
+
+    replay_server = _load_replay_server()
+    monkeypatch.delenv(replay_server.GEMINI_MODEL_ENV, raising=False)
+    app = replay_server.build_app(FIXTURES)
+
+    recorded = json.loads(
+        (FIXTURES / "gemini-00-request.json").read_text("utf-8")
+    )
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1beta/models/m:generateContent", json=recorded
+        )
+
+    assert response.status_code == 500
+    assert replay_server.GEMINI_MODEL_ENV in response.json()["error"]
+
+
+def test_the_gemini_fixture_label_matches_what_the_readme_documents() -> None:
+    """WR-01: nothing else ties the label in run.py to the capture recipe.
+
+    `fixtures/README.md`'s Normalize step tells the operator which literal
+    to write into the recordings; `run.py` pins the same literal for the
+    replay harness. A rename in one place silently diverged from the other.
+    """
+    run = _load_module("ext00_run_label", EXAMPLE_DIR / "run.py")
+    readme = (FIXTURES / "README.md").read_text("utf-8")
+    assert f"`{run.GEMINI_FIXTURE_LABEL}`" in readme
 
 
 # --------------------------------------------------------------------------
