@@ -1,3 +1,390 @@
 # Adopter's guide
 
-This page is a stub; plan 14-07 fills it.
+This is the guided path from a fresh checkout to a governed, replayable
+deployment: install the SDK, declare a vocabulary, serve your first typed
+Context Product, declare an agent, grant it a capability, wrap it in a
+workflow with a human gate, replay the decision that came out, and finally
+consume the result from a process that has never heard of CCF.
+
+Every block of code and every artifact on this page is **literal-included
+from an example the CI pipeline runs**. Nothing here is pasted, so nothing
+here can drift: if one of these sources moves, this page fails to build. Each
+section names the one command that runs its example, so you can reproduce
+what you are reading as you read it.
+
+The through-line to keep in view: the code you see is thin, generic
+machinery, and everything specific to a deployment lives in versioned
+definition artifacts. That separation is the No-Hardcoding Rule, and it is
+what makes an agent a piece of governed data rather than a fork of the SDK.
+
+## Install
+
+Python 3.12 or newer. From the repository root, create a virtual environment
+and install the package with the `dev` extra — that pulls the test toolchain
+and all three harness legs:
+
+```sh
+python -m venv .venv && . .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+If you also intend to build this documentation site, install the `docs` extra
+alongside it (`pip install -e ".[dev,docs]"`), then `make docs`. To verify the
+install end to end before going further:
+
+```sh
+make ci
+```
+
+That runs the invariant lints, `mypy --strict`, the full test suite, and every
+example in this guide.
+
+## Declare an ontology and serve your first Context Product
+
+Run: `make example-00`.
+
+A deployment's vocabulary — which entity kinds exist, which attributes
+identify them, which relationships connect them — is an artifact, not code.
+The quickstart's ontology is the smallest complete example of one. Read it as
+the template for your own domain: the identifier keys mint the canonical
+entity URI, so the same real-world thing arriving from two unrelated source
+systems converges on one node without either system knowing about the other.
+
+```yaml
+--8<-- "examples/00-quickstart/artifacts/ontology.yaml"
+```
+
+The driver's job is to translate that declaration into the typed resolution
+specification the assembly worker accepts. This is the whole of it — loading
+and shaping, with no vocabulary of its own:
+
+```py
+--8<-- "examples/00-quickstart/run.py:ontology"
+```
+
+Raw source records enter through L1 as signal envelopes. The envelope carries
+the tenant, the source identity, and both timestamps that matter — when the
+fabric saw it and when the world produced it:
+
+```py
+--8<-- "examples/00-quickstart/run.py:ingest"
+```
+
+Assembly is where the single-writer invariant lives. Every Control Plane
+artifact is registered under a key and pinned to a version first; only then
+does the fabric boot, and only the assembly worker ever writes to the graph:
+
+```py
+--8<-- "examples/00-quickstart/run.py:assemble"
+```
+
+Reading is done by composable operators in four categories — traversal,
+temporal, policy, and similarity. Their parameters come from artifacts, which
+is what makes an operator plan reproducible later. See the
+[operator and projection Protocols](../reference/protocols/operators-and-projection.md)
+for the surface each one implements:
+
+```py
+--8<-- "examples/00-quickstart/run.py:operators"
+```
+
+A projection is the one piece of genuine deployment code in this picture: it
+declares which operators its interpretation depends on and interprets their
+output. It cannot tell the engine what ran — which is precisely what leaves
+the delivery gate something real to check:
+
+```py
+--8<-- "examples/00-quickstart/run.py:project"
+```
+
+Three validation gates stand between a candidate and a servable product:
+the empty-operator guard, lineage strict equality, and the TTL bound. Lineage
+strict equality is the interesting one — what the product claims ran must be
+exactly what the engine resolved as having run. The
+[Context Product Protocols](../reference/protocols/context-products.md) and
+[product registration](../reference/artifacts/product-registration.md) pages
+document the typed surface:
+
+```py
+--8<-- "examples/00-quickstart/run.py:gate"
+```
+
+Before delivery, the decision is recorded across five dimensions. This is
+audit by construction: there is no path that serves a product without
+producing its record.
+
+```py
+--8<-- "examples/00-quickstart/run.py:record"
+```
+
+Serving writes that record to the artifact store, content-addressed, and
+hands back the product together with the reference:
+
+```py
+--8<-- "examples/00-quickstart/run.py:serve"
+```
+
+You now have a fabric. Everything that follows consumes it.
+
+## Declare an agent
+
+Run: `make example-01`.
+
+The SDK ships six archetypes as mechanism. It ships no agents at all — an
+agent is a declared, versioned Control Plane artifact, produced by the Agent
+Factory from that artifact. This is the definition file in full; the six
+specialization axes are all visible in it (archetype binding, context
+contract, perspective, policy regime, half-life and debt profile, and
+instruction bindings by reference — never inline prompt text):
+
+```yaml
+--8<-- "examples/01-agent-basics/artifacts/agent.yaml"
+```
+
+Registering the definition and everything it references is a Control Plane
+operation, each artifact pinned at a version. The
+[agent definition reference](../reference/artifacts/agent-definitions.md) and
+[prompt artifact reference](../reference/artifacts/prompt-artifacts.md)
+document the schemas:
+
+```py
+--8<-- "examples/01-agent-basics/run.py:agent-artifacts"
+```
+
+Construction goes through the factory and nowhere else. The agent's identity
+derives from the content hash of its definition, so identity is a property of
+the artifact rather than of anything written in code:
+
+```py
+--8<-- "examples/01-agent-basics/run.py:agent-factory"
+```
+
+Each of the six axes resolves observably — the perspective conditions the
+served view, the policy regime excludes what it excludes, and the referenced
+artifacts resolve at pinned versions or construction refuses. The
+[agent Protocol surface](../reference/protocols/agents.md) names the
+methods used here:
+
+```py
+--8<-- "examples/01-agent-basics/run.py:specialization-axes"
+```
+
+Which agent, at which version, composed from which archetypes — all of it
+lands in the replay record's fourth dimension:
+
+```py
+--8<-- "examples/01-agent-basics/run.py:agent-replay"
+```
+
+## Grant a skill — and revoke it
+
+Run: `make example-02`.
+
+Skilling is the second, separate specialization channel. Capabilities attach
+and detach over an agent's life **without re-declaring the agent**: the
+definition artifact is byte-identical before and after the cycle below. Skills
+are catalog entries with declared requirements, which is what makes the
+governance check mechanical:
+
+```yaml
+--8<-- "examples/02-skilling/artifacts/skills.yaml"
+```
+
+Registration puts the entries in the Control Plane catalog and constructs the
+agent against a live view of the grant ledger — so grants and revocations take
+effect at invocation time on the same constructed agent:
+
+```py
+--8<-- "examples/02-skilling/run.py:skill-catalog"
+```
+
+A grant is a request through the ledger. It is audited, it changes the
+in-force grant-set identity, and only then does the capability appear on the
+agent's surface. The
+[skill catalog](../reference/artifacts/skill-catalog.md) and
+[skill grant](../reference/artifacts/skill-grants.md) references document both
+artifact shapes:
+
+```py
+--8<-- "examples/02-skilling/run.py:skill-grant"
+```
+
+Exercising the granted capability is an ordinary typed invocation:
+
+```py
+--8<-- "examples/02-skilling/run.py:skill-exercise"
+```
+
+Governance is structural, not advisory. A grant whose declared requirements
+exceed the agent's policy regime is refused with a typed value naming the
+excess scopes, the refusal is audited, and nothing binds — the capability
+simply does not exist from the agent's point of view:
+
+```py
+--8<-- "examples/02-skilling/run.py:skill-refusal"
+```
+
+Revocation is symmetrical, and equally audited:
+
+```py
+--8<-- "examples/02-skilling/run.py:skill-revoke"
+```
+
+Adapt this first by writing your own catalog entries and regime scopes. The
+refusal path is the part worth exercising deliberately: a deployment that has
+never seen its own governance check fire does not know whether it works.
+
+## Compose a workflow with a human gate
+
+Run: `make example-05`.
+
+Workflows are Control Plane artifacts too — states, transitions, terminal
+conditions, and exception routes, all declared rather than coded. See the
+[workflow definition reference](../reference/artifacts/workflow-definitions.md)
+for the schema:
+
+```yaml
+--8<-- "examples/05-workflow-hitl/artifacts/workflow.yaml"
+```
+
+The engine is constructed with its injected seams — the artifact store, the
+HITL transport, the node bindings, and a clock — and the workflow itself comes
+from the factory. The
+[orchestration and workflow Protocols](../reference/protocols/orchestration-and-workflow.md)
+page documents the surfaces:
+
+```py
+--8<-- "examples/05-workflow-hitl/run.py:workflow-construct"
+```
+
+Execution runs until it reaches the approval gate, then suspends with
+persisted state. Suspension is a declared outcome, not an exception:
+
+```py
+--8<-- "examples/05-workflow-hitl/run.py:workflow-suspend"
+```
+
+The human's action arrives through the authenticated HTTP door and is bound
+to exactly what the approver saw, by content hash, and signed. The
+[HITL Protocols](../reference/protocols/hitl.md) and the
+[HTTP API reference](../reference/http-api.md) cover the door:
+
+```py
+--8<-- "examples/05-workflow-hitl/run.py:hitl-approval"
+```
+
+Every failure mode fails closed and typed — unauthenticated, expired,
+unsigned, and tampered are four distinct refusals, and none of them reaches
+the authority path:
+
+```py
+--8<-- "examples/05-workflow-hitl/run.py:hitl-refusals"
+```
+
+The valid submission is admitted, and the audited principal is **derived from
+the verified token**, never taken from the caller's claim about itself:
+
+```py
+--8<-- "examples/05-workflow-hitl/run.py:hitl-admitted"
+```
+
+The human decision then drives the workflow to its declared terminal state:
+
+```py
+--8<-- "examples/05-workflow-hitl/run.py:workflow-resume"
+```
+
+And the human action lands in the record verbatim — approver, signature, and
+the hash of what they were shown — alongside the engine's step sequence:
+
+```py
+--8<-- "examples/05-workflow-hitl/run.py:hitl-replay"
+```
+
+## Replay the decision
+
+Run: `make example-06`.
+
+Replay is the payoff for everything above. From a record address alone, the
+engine resolves the graph snapshot, the policy bundle version, the agent
+version, the skill-set in force, and the prompt artifact version — each at its
+exact recorded version, never at "latest" — and reproduces the product
+byte-for-byte through the canonical serializer:
+
+```py
+--8<-- "examples/06-decision-replay/run.py:replay-reproduce"
+```
+
+Version resolution is the mechanism that makes the reproduction meaningful.
+The agent definition comes back from the store at its recorded content hash,
+the prompt artifact at the version that definition pins, and the grant-set
+hash is recomputed from the stored grant rather than trusted. The
+[artifact store Protocol](../reference/protocols/artifact-store.md) is the
+seam these resolutions go through:
+
+```py
+--8<-- "examples/06-decision-replay/run.py:replay-agent-version"
+```
+
+The negative case is the proof that the record is version-sensitive rather
+than merely descriptive: bump a recorded policy-bundle version in a copy of
+the record to one the Control Plane never registered, and reproduction
+refuses outright:
+
+```py
+--8<-- "examples/06-decision-replay/run.py:replay-version-sensitivity"
+```
+
+If you take one habit from this guide into production, take this one: assert
+byte-equality of reproduction in your own test suite. It is the single check
+that catches an artifact quietly becoming a moving target.
+
+## Consume the fabric from outside
+
+Run: `make example-ext-00`.
+
+The last step is the one your consumers will actually experience. An external
+agent runtime reaches Context Products over MCP egress and needs **nothing**
+from this codebase — no imports, no shared types, no build coupling. The whole
+integration surface is a URL and a token:
+
+```py
+--8<-- "examples/external/00-hello-context/client_bare.py:mcp-connect"
+```
+
+Everything else is discovered from the server: the advertised tools, their
+argument schemas, and the products on offer. A consumer written this way keeps
+working as the fabric grows new surfaces:
+
+```py
+--8<-- "examples/external/00-hello-context/client_bare.py:mcp-discover"
+```
+
+Reading a product resource is the terminal step — and this client, with zero
+CCF imports, is the strongest available statement that the typed contract on
+the wire is the real boundary. The
+[runtime surface reference](../reference/protocols/runtime-surfaces.md)
+documents the egress side:
+
+```py
+--8<-- "examples/external/00-hello-context/client_bare.py:mcp-resource"
+```
+
+## Where to go next
+
+You have now walked the whole arc: vocabulary, fabric, agent, capability,
+orchestration with a human in the loop, forensic replay, and external
+consumption. To adapt it, work outward from the artifacts — a new ontology, a
+new agent definition, your own catalog entries and policy regime, your own
+workflow — and leave the drivers alone. If you find yourself editing code to
+change behaviour, that is the signal that a value belongs in an artifact.
+
+From here, the how-to guides are task-shaped:
+[granting and revoking a skill](../how-to/grant-and-revoke-a-skill.md),
+[running agents cross-process](../how-to/run-agents-cross-process.md),
+[composing a workflow with HITL](../how-to/compose-a-workflow-with-hitl.md),
+[swapping the artifact store](../how-to/swap-the-artifact-store.md), and
+[binding a harness adapter](../how-to/bind-a-harness-adapter.md). The
+[architectural invariants](../concepts/invariants.md) and the
+[anatomy of a replay record](../concepts/replay-anatomy.md) explain why the
+mechanism is shaped the way it is.
