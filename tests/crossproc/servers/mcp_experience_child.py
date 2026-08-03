@@ -123,6 +123,12 @@ REPLAY_DIRNAME = "replay"
 #: vocabulary chosen by this test deployment.
 REPLAY_ARTIFACT_CLASS = "ccf.decision-replay"
 
+#: The tool prose this test deployment supplies to the builder — deployment
+#: values like ``SERVER_NAME`` (the module authors none of its own; CINV-01).
+GET_CONTEXT_DESCRIPTION = "Serve this deployment's assembled banking product"
+GET_LINEAGE_DESCRIPTION = "Serve the assembled product's lineage"
+GET_REPLAY_RECORD_DESCRIPTION = "Serve the most recent decision replay record"
+
 
 def authorized_http_client(token: str = DEV_TOKEN) -> httpx.AsyncClient:
     """An HTTP client presenting ``token`` as a bearer credential."""
@@ -301,8 +307,15 @@ def replay_inputs(
     return execution, product, perspective
 
 
-def build_server(*, workspace: Path) -> FastMCP:
-    """Assemble the product, the agent world, and the experience server."""
+def build_server(
+    *, workspace: Path, tool_allowlist: frozenset[str] | None = None
+) -> FastMCP:
+    """Assemble the product, the agent world, and the experience server.
+
+    ``tool_allowlist`` passes straight through to the builder so the parent
+    can assert registration-time omission (D-IMPL-74's D-05 leg) against a
+    server otherwise identical to the default-built one.
+    """
     assembled = build_servable_product(
         database_path=workspace / "experience-child.sqlite3"
     )
@@ -311,6 +324,7 @@ def build_server(*, workspace: Path) -> FastMCP:
     writer = ReplayWriter(
         store=replay_store, artifact_class=REPLAY_ARTIFACT_CLASS
     )
+    latest_record: dict[str, str | None] = {"record": None}
 
     def resolve_product(
         *, tenant: str, product_class: str, version: str
@@ -386,6 +400,7 @@ def build_server(*, workspace: Path) -> FastMCP:
             agent_conditioning=conditioning,
         )
         capability = writer.write_replay_record(record=record)
+        latest_record["record"] = canonical_bytes(record).decode("utf-8")
         return canonical_bytes(
             {
                 "invocation": dict(invocation.output),
@@ -397,11 +412,39 @@ def build_server(*, workspace: Path) -> FastMCP:
             }
         ).decode("utf-8")
 
+    def provide_context(*, tenant: str, entity: str) -> str:
+        """Serve the one assembled product for its own tenant (T-07-21)."""
+        if tenant != assembled.address.tenant:
+            raise ExperienceProductNotServable(f"{tenant}/{entity}")
+        return canonical_bytes(assembled.servable.product).decode("utf-8")
+
+    def provide_lineage() -> str:
+        """Serve the assembled product's lineage as canonical JSON."""
+        return canonical_bytes(assembled.servable.product.lineage).decode(
+            "utf-8"
+        )
+
+    def read_replay_record() -> str:
+        """Serve the most recent record the invoker landed, or refuse."""
+        record = latest_record["record"]
+        if record is None:
+            raise ExperienceProductNotServable(
+                "no decision has been recorded yet"
+            )
+        return record
+
     return build_experience_server(
         server_name=SERVER_NAME,
         product_resolver=resolve_product,
         agent_directory=directory,
         agent_invoker=invoke,
+        context_provider=provide_context,
+        lineage_provider=provide_lineage,
+        replay_record_reader=read_replay_record,
+        get_context_description=GET_CONTEXT_DESCRIPTION,
+        get_lineage_description=GET_LINEAGE_DESCRIPTION,
+        get_replay_record_description=GET_REPLAY_RECORD_DESCRIPTION,
+        tool_allowlist=tool_allowlist,
         token_verifier=SourceBackedTokenVerifier(
             source=FileTokenSource(path=write_token_file(workspace=workspace))
         ),
