@@ -258,3 +258,160 @@ def test_gemini_expected_fingerprint_reads_the_pinned_model_from_env(
     assert expected == replay_server.fingerprint(
         "gemini", recorded, path="/v1beta/models/pinned-model:generateContent"
     )
+
+
+# --------------------------------------------------------------------------
+# D-09 / D-10 — capture-proxy recording gate, query forwarding, redaction
+# --------------------------------------------------------------------------
+
+#: One minimal Gemini-shaped request body. The proxy never inspects the
+#: body's shape, so a placeholder is enough to exercise the gate.
+_PROXY_BODY = {"contents": [{"parts": [{"text": "hello"}]}]}
+
+
+def _load_capture_proxy() -> Any:
+    return _load_module(
+        "ext00_capture_proxy_hardening", FIXTURES / "capture_proxy.py"
+    )
+
+
+def _proxy_client(
+    out_dir: pathlib.Path,
+    responder: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> Any:
+    """A TestClient over the capture proxy with a mocked upstream.
+
+    `responder` receives the forwarded `httpx.Request` and returns the
+    `httpx.Response` the vendor would have. No sockets, no API keys
+    (D-11).
+    """
+    import httpx
+    from starlette.testclient import TestClient
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key-never-persisted")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-never-persisted")
+    proxy = _load_capture_proxy()
+    app = proxy.build_app(out_dir, transport=httpx.MockTransport(responder))
+    return TestClient(app)
+
+
+def _persisted_text(out_dir: pathlib.Path) -> str:
+    return "\n".join(
+        path.read_text("utf-8") for path in sorted(out_dir.glob("*.json"))
+    )
+
+
+def test_a_non_200_upstream_is_passed_through_and_never_recorded(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-09: an error body must not consume a fixture ordinal.
+
+    Recording unconditionally meant a transient vendor 429 landed as
+    `gemini-00.json` and pushed the real first turn to ordinal 01.
+    """
+    import httpx
+
+    calls = {"n": 0}
+
+    def responder(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(404, json={"error": "nope"})
+        return httpx.Response(200, json={"candidates": []})
+
+    url = "/v1beta/models/m:generateContent"
+    with _proxy_client(tmp_path, responder, monkeypatch) as client:
+        first = client.post(url, json=_PROXY_BODY)
+        assert first.status_code == 404
+        assert first.json() == {"error": "nope"}
+        assert sorted(p.name for p in tmp_path.glob("*.json")) == []
+
+        second = client.post(url, json=_PROXY_BODY)
+        assert second.status_code == 200
+
+    # The ordinal was not consumed by the 404: the first real capture is 00.
+    assert sorted(p.name for p in tmp_path.glob("*.json")) == [
+        "gemini-00-request.json",
+        "gemini-00.json",
+    ]
+
+
+def test_a_non_json_200_is_passed_through_and_never_recorded(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-09: a 200 that is not JSON (an SSE stream, an HTML error page)."""
+    import httpx
+
+    def responder(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, content=b"data: streaming\n\n", headers={
+                "content-type": "text/event-stream"
+            }
+        )
+
+    with _proxy_client(tmp_path, responder, monkeypatch) as client:
+        response = client.post(
+            "/v1beta/models/m:generateContent", json=_PROXY_BODY
+        )
+
+    assert response.status_code == 200
+    assert response.content == b"data: streaming\n\n"
+    assert list(tmp_path.glob("*.json")) == []
+
+
+def test_the_query_string_is_forwarded_upstream_verbatim(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-10: dropping the query made captures unfaithful (e.g. `?alt=sse`)."""
+    import httpx
+
+    seen: list[str] = []
+
+    def responder(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return httpx.Response(200, json={"candidates": []})
+
+    with _proxy_client(tmp_path, responder, monkeypatch) as client:
+        client.post(
+            "/v1beta/models/m:generateContent?alt=sse&key=SECRETVALUE",
+            json=_PROXY_BODY,
+        )
+
+    assert len(seen) == 1
+    assert seen[0].startswith("https://generativelanguage.googleapis.com")
+    assert "/v1beta/models/m:generateContent" in seen[0]
+    assert "alt=sse" in seen[0]
+    assert "key=SECRETVALUE" in seen[0]
+
+
+def test_key_bearing_query_params_are_redacted_on_persist(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-10/T-13.3-04: a forwarded secret must never reach the fixtures.
+
+    Keys ride in headers for both vendors, and headers are never written
+    (T-13.2-06) — but Gemini also accepts `?key=`, so the persisted query
+    is redacted and the header set stays entirely off disk.
+    """
+    import httpx
+
+    def responder(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"candidates": []})
+
+    with _proxy_client(tmp_path, responder, monkeypatch) as client:
+        client.post(
+            "/v1beta/models/m:generateContent?alt=sse&key=SECRETVALUE"
+            "&api_key=OTHERSECRET",
+            json=_PROXY_BODY,
+        )
+
+    persisted = _persisted_text(tmp_path)
+    assert persisted, "nothing was captured"
+    assert "SECRETVALUE" not in persisted
+    assert "OTHERSECRET" not in persisted
+    assert "test-key-never-persisted" not in persisted
+    # The non-secret part of the query survives; the secrets are placeheld.
+    assert "alt=sse" in persisted
+    for header in ("x-goog-api-key", "x-api-key", "authorization"):
+        assert header not in persisted.lower()
