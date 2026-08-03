@@ -2,16 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
-status: ready_to_plan
-last_updated: 2026-08-03T02:38:40.101Z
-last_activity: 2026-08-03 -- Phase 13.2 execution started
+status: planning
+last_updated: "2026-08-03T05:15:50.964Z"
+last_activity: 2026-08-03
 progress:
-  total_phases: 8
-  completed_phases: 6
+  total_phases: 9
+  completed_phases: 7
   total_plans: 29
   completed_plans: 29
-  percent: 75
-stopped_at: Phase 13.2 complete (5/5) — ready to discuss Phase 14
+  percent: 78
 ---
 
 # STATE — CCF SDK
@@ -24,11 +23,11 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 14 — documentation suite
+**Current focus:** Phase 13.3 — review-residual hardening (then Phase 14 — documentation suite)
 
 ## Current Position
 
-Phase: 14
+Phase: 13.3
 Plan: Not started
 Status: Ready to plan
 Progress: [----------------------------------] 0/6 v0.2 phases
@@ -74,6 +73,7 @@ Last activity: 2026-08-03
 
 - Phase 13.1 inserted after Phase 13: External-Consumer Examples (MCP Egress): independent-harness agents consume CCF via MCP, zero client-side CCF imports — primary adoption path, demonstrated not asserted (Dave, 2026-08-02) (URGENT)
 - Phase 13.2 inserted after Phase 13: external-example-hardening — post-execution cross-AI review re-checks for 13.1 (fixtures vs live SDK traffic, LLM tool-surface narrowing, byte-path probe, clean-runner install, .mcp.json verification) (URGENT)
+- Phase 13.3 inserted after Phase 13: Review-Residual Hardening (URGENT)
 
 ### Decisions
 
