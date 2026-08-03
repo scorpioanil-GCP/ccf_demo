@@ -493,14 +493,23 @@ def test_key_bearing_query_params_are_redacted_on_persist(
     with _proxy_client(tmp_path, responder, monkeypatch) as client:
         client.post(
             "/v1beta/models/m:generateContent?alt=sse&key=SECRETVALUE"
-            "&api_key=OTHERSECRET",
+            "&api_key=OTHERSECRET&Key=CASEDSECRET"
+            "&access_token=TOKENSECRET&X-Auth=AUTHSECRET",
             json=_PROXY_BODY,
         )
 
     persisted = _persisted_text(tmp_path)
     assert persisted, "nothing was captured"
-    assert "SECRETVALUE" not in persisted
-    assert "OTHERSECRET" not in persisted
+    # WR-03: exact-match, case-sensitive redaction persisted `Key=`,
+    # `access_token=` and friends verbatim into a git-tracked directory.
+    for secret in (
+        "SECRETVALUE",
+        "OTHERSECRET",
+        "CASEDSECRET",
+        "TOKENSECRET",
+        "AUTHSECRET",
+    ):
+        assert secret not in persisted
     assert "test-key-never-persisted" not in persisted
     # The non-secret part of the query survives; the secrets are placeheld.
     assert "alt=sse" in persisted

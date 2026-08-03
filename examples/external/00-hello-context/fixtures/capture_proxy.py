@@ -34,7 +34,8 @@ headers are NEVER written to disk in either direction. The outbound key is
 injected at forward time from ``ANTHROPIC_API_KEY`` / ``GOOGLE_API_KEY``
 in the process environment. Only request and response BODIES are
 recorded, plus — when the request carried one — the query string under a
-reserved key with ``key`` / ``api_key`` values replaced by a placeholder,
+reserved key with every key-shaped parameter value replaced by a
+placeholder (case-insensitive substring match, :data:`SECRET_QUERY_MARKERS`),
 since Gemini also accepts the key as a query parameter.
 
 Binds 127.0.0.1 on port 0 and prints ``READY <port>`` once started (the
@@ -86,9 +87,15 @@ ROUTES: tuple[tuple[str, str, str, str, str], ...] = (
 #: x-api-key from the client) is dropped and re-derived.
 FORWARDED_REQUEST_HEADERS = ("content-type", "anthropic-version", "accept")
 
-#: Query parameters that can carry key material and are therefore never
-#: persisted with their value (D-10).
-REDACTED_QUERY_PARAMS = frozenset({"key", "api_key"})
+#: Substrings that mark a query parameter as key-bearing. Matched
+#: case-insensitively against the parameter NAME, and by substring rather
+#: than equality (D-10): exact-match on {"key", "api_key"} persisted
+#: `?Key=`, `?API_KEY=` and `?access_token=` verbatim into a git-tracked
+#: directory. Redaction is the only thing between a live key and a
+#: committed file, so it takes the conservative side of the trade — a
+#: false positive costs one unreviewable query value, a false negative
+#: costs a leaked credential.
+SECRET_QUERY_MARKERS = ("key", "token", "secret", "password", "auth")
 
 #: Placeholder written in place of a redacted query value.
 REDACTED = "REDACTED"
@@ -97,6 +104,17 @@ REDACTED = "REDACTED"
 #: recorded in the request fixture. Absent when the request had no query,
 #: which is why the committed (query-less) 13.2 fixtures are unaffected.
 QUERY_KEY = "__request_query__"
+
+
+def is_secret_query_param(name: str) -> bool:
+    """Does this query-parameter name look key-bearing? (D-10)
+
+    Case-folded substring match against :data:`SECRET_QUERY_MARKERS`, so
+    ``Key``, ``API_KEY`` and ``access_token`` are all caught alongside the
+    literal ``key`` Gemini documents.
+    """
+    lowered = name.lower()
+    return any(marker in lowered for marker in SECRET_QUERY_MARKERS)
 
 
 def redact_query(query: str) -> str:
@@ -109,7 +127,7 @@ def redact_query(query: str) -> str:
     """
     return urlencode(
         [
-            (name, REDACTED if name in REDACTED_QUERY_PARAMS else value)
+            (name, REDACTED if is_secret_query_param(name) else value)
             for name, value in parse_qsl(query, keep_blank_values=True)
         ]
     )
