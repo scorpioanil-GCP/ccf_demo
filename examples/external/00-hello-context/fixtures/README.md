@@ -43,16 +43,24 @@ recording proxy (`capture_proxy.py`) and diff utility
    active token in `artifacts/tokens.yaml`).
 2. Export real credentials: `ANTHROPIC_API_KEY` (Anthropic leg) and
    `GOOGLE_API_KEY` (ADK leg) — from your environment, never committed.
-3. Start the recording proxy with a scratch output directory:
-   `python fixtures/capture_proxy.py /tmp/capture-out` (note its
-   `READY <port>` line). The proxy forwards each POST to the real vendor
-   API — the key is injected into outbound headers at forward time — and
-   tees the request body to `<prefix>-NN-request.json` and the response
-   body to `<prefix>-NN.json`. **Bodies only, never headers**, in either
+3. Start the recording proxy: `python fixtures/capture_proxy.py`
+   (optionally with an explicit output directory as `argv[1]`). It prints
+   three lines: the output directory, the secret-bearing base URL to
+   export, and `READY <port>`. With no `argv[1]` it records into a fresh
+   timestamped scratch directory — **never** into this committed
+   `fixtures/` directory, so promotion is always a deliberate `mv` whose
+   diff you review. The proxy forwards each POST to the real vendor API —
+   the key is injected into outbound headers at forward time — and tees
+   the request body to `<prefix>-NN-request.json` and the response body
+   to `<prefix>-NN.json`. **Bodies only, never headers**, in either
    direction: headers are where key material rides.
 4. Point the client legs at the proxy via the same base-URL seam the
-   replay server uses: `ANTHROPIC_BASE_URL=http://127.0.0.1:<proxy-port>`
-   and `GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:<proxy-port>`.
+   replay server uses, using the URL the proxy printed —
+   `ANTHROPIC_BASE_URL=http://127.0.0.1:<proxy-port>/<secret>` and
+   `GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:<proxy-port>/<secret>`.
+   The one-time secret in that path is what stops any other local process
+   from making the proxy spend your API credit or write into the capture
+   directory; a request without it is refused `403` and forwards nothing.
 5. Export the live model names from `artifacts/experience.yaml`
    (`live_mode.anthropic_model` -> `CCF_EXAMPLE_MODEL`,
    `live_mode.gemini_model` -> `CCF_EXAMPLE_GEMINI_MODEL`).

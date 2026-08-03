@@ -15,6 +15,9 @@ Routing is by path suffix, exactly as in ``replay_server.py``:
                                   generativelanguage.googleapis.com,
                                   recorded as ``gemini-NN``
 
+Every request must present a one-time SECRET as the FIRST path segment
+(``/<secret>/v1/messages``); see the security posture below.
+
 Recording spec (D-09/D-10, 13.3):
 
 * **Forward** the request path AND query string verbatim, so a capture is
@@ -38,18 +41,37 @@ reserved key with every key-shaped parameter value replaced by a
 placeholder (case-insensitive substring match, :data:`SECRET_QUERY_MARKERS`),
 since Gemini also accepts the key as a query parameter.
 
+**Confused-deputy defence (IN-01).** Injecting the operator's real key on
+the forward path makes an unauthenticated loopback listener a deputy for
+that key: any local process — including a web page issuing a CORS-simple
+POST to ``http://127.0.0.1:<port>/`` — could otherwise spend vendor credit
+and write attacker-controlled content into the fixture tree. So the proxy
+mints a one-time secret at startup and requires it as the FIRST PATH
+SEGMENT of every request; anything else is refused ``403`` before a key is
+injected, before anything is forwarded, and before an ordinal is claimed.
+
+The secret rides in the path rather than in a header deliberately: the
+capture flow points vendor SDKs at the proxy through their own base-URL
+variables (``ANTHROPIC_BASE_URL`` / ``GOOGLE_GEMINI_BASE_URL``), and those
+SDKs offer no seam for an extra header — but a base URL with a path prefix
+they append their own route to needs no SDK cooperation at all. ``main``
+prints the exact base URL to export.
+
 Binds 127.0.0.1 on port 0 and prints ``READY <port>`` once started (the
-suite's handshake pattern). Recordings land in an output directory given
-as ``argv[1]`` (default: this ``fixtures/`` directory — review the diff
-before committing, per README.md).
+suite's handshake pattern), preceded by the secret-bearing base URL.
+Recordings land in an output directory given as ``argv[1]`` (default: a
+fresh timestamped scratch directory, never the committed ``fixtures/``).
 """
 
 from __future__ import annotations
 
 import json
 import os
+import secrets
 import socket
 import sys
+import tempfile
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode
 
@@ -61,10 +83,21 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
-_FIXTURES_DIR = Path(__file__).resolve().parent
-
 #: Path suffix -> (fixture filename prefix, upstream base, key env var,
 #: key header name). Same routing table shape as replay_server.SUFFIXES.
+#:
+#: **On CLAUDE.md §6.4 (IN-05).** The No-Hardcoding Rule bars routing
+#: tables as code constants because routing is normally a *deployment*
+#: value the Control Plane owns. This table is not that. It is a
+#: transcription of two vendors' published wire protocols — Anthropic
+#: serves ``/v1/messages`` and authenticates with ``x-api-key``; Google
+#: serves ``:generateContent`` and authenticates with ``x-goog-api-key``.
+#: Those facts are fixed by the vendors, not chosen by any deployment, and
+#: this module is a stand-in for the vendors themselves rather than fabric
+#: code (it imports no CCF). An artifact seam here would let an operator
+#: "configure" where Anthropic's API lives, which is not a real degree of
+#: freedom. The rule still binds everything the fabric owns: no prompt, no
+#: agent definition, no threshold, no policy value appears in this file.
 ROUTES: tuple[tuple[str, str, str, str, str], ...] = (
     (
         "/v1/messages",
@@ -133,10 +166,33 @@ def redact_query(query: str) -> str:
     )
 
 
+def strip_secret(path: str, secret: str) -> str | None:
+    """Consume the leading secret path segment, or ``None`` if absent (IN-01).
+
+    ``/<secret>/v1/messages`` -> ``/v1/messages``. Compared in constant
+    time, because the whole point of the segment is that a local caller
+    cannot guess it. Returns ``None`` on any mismatch, which the handler
+    turns into a ``403`` before a key is injected or an ordinal claimed.
+    """
+    segments = path.split("/", 2)
+    presented = segments[1] if len(segments) > 1 else ""
+    if not secrets.compare_digest(presented, secret):
+        return None
+    return "/" + (segments[2] if len(segments) > 2 else "")
+
+
 def build_app(
-    out_dir: Path, transport: httpx.BaseTransport | None = None
+    out_dir: Path,
+    *,
+    secret: str,
+    transport: httpx.BaseTransport | None = None,
 ) -> Starlette:
     """Host the capture proxy, writing fixture pairs into ``out_dir``.
+
+    ``secret`` is the one-time capture secret every request must present as
+    its first path segment (IN-01); it is REQUIRED rather than defaulted,
+    so there is no construction path that yields an open deputy for the
+    operator's API key. ``main`` mints one per process.
 
     ``transport`` is the injection seam the tests use to stand in a fake
     upstream; production capture leaves it ``None`` and httpx dials the
@@ -146,7 +202,21 @@ def build_app(
     counters: dict[str, int] = {prefix: 0 for _, prefix, *_ in ROUTES}
 
     async def capture(request: Request) -> Response:
-        path = request.url.path
+        # IN-01: the secret is checked FIRST — before the route is matched,
+        # before a key leaves the environment, before anything is forwarded,
+        # and before an ordinal is claimed. An unauthenticated local caller
+        # can neither spend vendor credit nor renumber the fixture sequence.
+        path_or_none = strip_secret(request.url.path, secret)
+        if path_or_none is None:
+            return JSONResponse(
+                {
+                    "error": "missing or incorrect capture secret; it is the "
+                    "first path segment, and main() prints the base URL "
+                    "to export"
+                },
+                status_code=403,
+            )
+        path = path_or_none
         for suffix, prefix, base, key_env, key_header in ROUTES:
             if not path.endswith(suffix):
                 continue
@@ -240,9 +310,25 @@ def build_app(
     )
 
 
+def default_out_dir(now: datetime | None = None) -> Path:
+    """A fresh timestamped scratch directory under the system temp dir.
+
+    IN-02: the default used to be this committed ``fixtures/`` directory,
+    so a capture run with no ``argv[1]`` overwrote ``anthropic-00.json``
+    and friends in place. Git makes that recoverable, which is not the same
+    as making it acceptable — a one-time capture tool should not have a
+    destructive default. Promotion into ``fixtures/`` is now an explicit
+    reviewed ``mv`` (README.md), exactly as D-10 intends.
+    """
+    stamp = (now or datetime.now()).strftime("%Y%m%dT%H%M%S")
+    return Path(tempfile.gettempdir()) / f"ccf-ext00-capture-{stamp}"
+
+
 def main() -> None:
     """Bind loopback port 0, host the capture app, announce READY."""
-    out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else _FIXTURES_DIR
+    out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else default_out_dir()
+    # IN-01: minted per process, never persisted, never logged to a file.
+    secret = secrets.token_urlsafe(24)
 
     bound = socket.socket()
     bound.bind(("127.0.0.1", 0))
@@ -250,13 +336,19 @@ def main() -> None:
     port = bound.getsockname()[1]
 
     server = uvicorn.Server(
-        uvicorn.Config(build_app(out_dir), log_level="error")
+        uvicorn.Config(build_app(out_dir, secret=secret), log_level="error")
     )
 
     async def host() -> None:
         async def announce() -> None:
             while not server.started:
                 await anyio.sleep(0.005)
+            print(f"recording into {out_dir}", flush=True)
+            print(
+                "export this as ANTHROPIC_BASE_URL / "
+                f"GOOGLE_GEMINI_BASE_URL: http://127.0.0.1:{port}/{secret}",
+                flush=True,
+            )
             print(f"READY {port}", flush=True)
 
         async def serve() -> None:

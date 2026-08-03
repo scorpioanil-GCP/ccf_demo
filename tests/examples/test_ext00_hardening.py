@@ -362,6 +362,17 @@ def test_the_gemini_fixture_label_matches_what_the_readme_documents() -> None:
 _PROXY_BODY = {"contents": [{"parts": [{"text": "hello"}]}]}
 
 
+#: The capture secret these tests present as the first path segment
+#: (IN-01). `main()` mints a random one per process; a fixed value keeps
+#: the tests readable, and `build_app` requires it either way.
+_PROXY_SECRET = "test-capture-secret"
+
+
+def _capture_url(path: str) -> str:
+    """Prefix a vendor path with the capture secret segment (IN-01)."""
+    return f"/{_PROXY_SECRET}{path}"
+
+
 def _load_capture_proxy() -> Any:
     return _load_module(
         "ext00_capture_proxy_hardening", FIXTURES / "capture_proxy.py"
@@ -385,7 +396,11 @@ def _proxy_client(
     monkeypatch.setenv("GOOGLE_API_KEY", "test-key-never-persisted")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-never-persisted")
     proxy = _load_capture_proxy()
-    app = proxy.build_app(out_dir, transport=httpx.MockTransport(responder))
+    app = proxy.build_app(
+        out_dir,
+        secret=_PROXY_SECRET,
+        transport=httpx.MockTransport(responder),
+    )
     return TestClient(app)
 
 
@@ -413,7 +428,7 @@ def test_a_non_200_upstream_is_passed_through_and_never_recorded(
             return httpx.Response(404, json={"error": "nope"})
         return httpx.Response(200, json={"candidates": []})
 
-    url = "/v1beta/models/m:generateContent"
+    url = _capture_url("/v1beta/models/m:generateContent")
     with _proxy_client(tmp_path, responder, monkeypatch) as client:
         first = client.post(url, json=_PROXY_BODY)
         assert first.status_code == 404
@@ -447,7 +462,7 @@ def test_a_malformed_request_body_consumes_no_ordinal(
         forwarded.append(str(request.url))
         return httpx.Response(200, json={"candidates": []})
 
-    url = "/v1beta/models/m:generateContent"
+    url = _capture_url("/v1beta/models/m:generateContent")
     with _proxy_client(tmp_path, responder, monkeypatch) as client:
         for body in (b"not json", b'["a", "list"]'):
             refused = client.post(
@@ -468,6 +483,70 @@ def test_a_malformed_request_body_consumes_no_ordinal(
     ]
 
 
+def test_a_request_without_the_capture_secret_is_refused(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """IN-01: the proxy must not be an open deputy for the operator's key.
+
+    Without the secret segment, any local process — a web page issuing a
+    CORS-simple POST included — could make the proxy inject the real
+    `GOOGLE_API_KEY` and spend vendor credit, and could write
+    attacker-controlled bodies into the fixture tree. The refusal happens
+    before the key is read, before anything is forwarded, and before an
+    ordinal is claimed.
+    """
+    import httpx
+
+    forwarded: list[str] = []
+
+    def responder(request: httpx.Request) -> httpx.Response:
+        forwarded.append(str(request.url))
+        return httpx.Response(200, json={"candidates": []})
+
+    vendor_path = "/v1beta/models/m:generateContent"
+    with _proxy_client(tmp_path, responder, monkeypatch) as client:
+        for path in (vendor_path, f"/wrong-secret{vendor_path}", "/"):
+            refused = client.post(path, json=_PROXY_BODY)
+            assert refused.status_code == 403
+            assert "capture secret" in refused.json()["error"]
+
+        good = client.post(_capture_url(vendor_path), json=_PROXY_BODY)
+        assert good.status_code == 200
+
+    # Nothing was forwarded for the unauthenticated calls, and the first
+    # real capture still lands at ordinal 00.
+    assert len(forwarded) == 1
+    assert sorted(p.name for p in tmp_path.glob("*.json")) == [
+        "gemini-00-request.json",
+        "gemini-00.json",
+    ]
+
+
+def test_the_default_capture_output_dir_is_never_the_committed_fixtures(
+    tmp_path: pathlib.Path,
+) -> None:
+    """IN-02: a capture run with no argv[1] must not overwrite fixtures.
+
+    The old default was this committed `fixtures/` directory, so the
+    no-argument invocation rewrote `anthropic-00.json` and friends in
+    place. Promotion into `fixtures/` is a reviewed `mv` (D-10), not the
+    easy path.
+    """
+    proxy = _load_capture_proxy()
+    default = proxy.default_out_dir()
+
+    assert default != FIXTURES
+    assert FIXTURES not in default.parents
+    assert not default.exists(), "the default must be a fresh directory"
+    # Distinct per run, so two captures cannot silently overwrite each other.
+    import datetime
+
+    other = proxy.default_out_dir(
+        datetime.datetime(2000, 1, 1, 0, 0, 0)  # noqa: DTZ001
+    )
+    assert other != default
+
+
 def test_a_non_json_200_is_passed_through_and_never_recorded(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -483,7 +562,8 @@ def test_a_non_json_200_is_passed_through_and_never_recorded(
 
     with _proxy_client(tmp_path, responder, monkeypatch) as client:
         response = client.post(
-            "/v1beta/models/m:generateContent", json=_PROXY_BODY
+            _capture_url("/v1beta/models/m:generateContent"),
+            json=_PROXY_BODY,
         )
 
     assert response.status_code == 200
@@ -505,7 +585,9 @@ def test_the_query_string_is_forwarded_upstream_verbatim(
 
     with _proxy_client(tmp_path, responder, monkeypatch) as client:
         client.post(
-            "/v1beta/models/m:generateContent?alt=sse&key=SECRETVALUE",
+            _capture_url(
+                "/v1beta/models/m:generateContent?alt=sse&key=SECRETVALUE"
+            ),
             json=_PROXY_BODY,
         )
 
@@ -532,9 +614,11 @@ def test_key_bearing_query_params_are_redacted_on_persist(
 
     with _proxy_client(tmp_path, responder, monkeypatch) as client:
         client.post(
-            "/v1beta/models/m:generateContent?alt=sse&key=SECRETVALUE"
-            "&api_key=OTHERSECRET&Key=CASEDSECRET"
-            "&access_token=TOKENSECRET&X-Auth=AUTHSECRET",
+            _capture_url(
+                "/v1beta/models/m:generateContent?alt=sse&key=SECRETVALUE"
+                "&api_key=OTHERSECRET&Key=CASEDSECRET"
+                "&access_token=TOKENSECRET&X-Auth=AUTHSECRET"
+            ),
             json=_PROXY_BODY,
         )
 
