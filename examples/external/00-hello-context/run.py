@@ -285,7 +285,8 @@ async def _mcp_call_text(url: str, token: str, tool: str, arguments: dict) -> st
         async with ClientSession(read, write) as session:
             await session.initialize()
             result = await session.call_tool(tool, arguments)
-    assert not result.isError, f"{tool} refused: {result.content}"
+    if result.isError:
+        raise AssertionError(f"{tool} refused: {result.content}")
     return "".join(getattr(block, "text", "") for block in result.content)
 
 
@@ -310,7 +311,8 @@ async def _mcp_probe(
             resource = await session.read_resource(AnyUrl(resource_uri))
             result = await session.call_tool(tool, arguments)
             listing = await session.list_tools()
-    assert not result.isError, f"{tool} refused: {result.content}"
+    if result.isError:
+        raise AssertionError(f"{tool} refused: {result.content}")
     resource_text = "".join(
         getattr(block, "text", "") for block in resource.contents
     )
@@ -359,7 +361,10 @@ def _leg_environments(
             "gemini_model"
         ]
     else:
-        assert replay_port is not None
+        if replay_port is None:
+            raise AssertionError(
+                "offline mode needs the replay server's port; none was bound"
+            )
         redirect = f"http://127.0.0.1:{replay_port}"
         recorded_request = json.loads(
             (FIXTURES / "anthropic-00-request.json").read_text(
@@ -391,10 +396,11 @@ def _assert_bad_token_refused(url: str, revoked_token: str) -> None:
         json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
         timeout=30.0,
     )
-    assert response.status_code == 401, (
-        f"revoked token was not refused with 401 (got "
-        f"{response.status_code}): the auth path has regressed"
-    )
+    if response.status_code != 401:
+        raise AssertionError(
+            f"revoked token was not refused with 401 (got "
+            f"{response.status_code}): the auth path has regressed"
+        )
 
 
 def _assert_zero_ccf_imports() -> None:
@@ -405,7 +411,8 @@ def _assert_zero_ccf_imports() -> None:
         for path in sorted(_EXAMPLE_ROOT.glob("client_*.py"))
         if pattern.search(path.read_text(encoding="utf-8"))
     ]
-    assert not offenders, f"CCF imports found in client legs: {offenders}"
+    if offenders:
+        raise AssertionError(f"CCF imports found in client legs: {offenders}")
 
 
 def _assert_seven_heading_readme() -> None:
@@ -416,17 +423,19 @@ def _assert_seven_heading_readme() -> None:
         for line in readme.splitlines()
         if line.startswith("## ")
     )
-    assert len(headings) == len(README_HEADINGS), (
-        f"README.md has {len(headings)} '## ' headings; the template "
-        f"requires exactly {len(README_HEADINGS)}: {headings}"
-    )
+    if len(headings) != len(README_HEADINGS):
+        raise AssertionError(
+            f"README.md has {len(headings)} '## ' headings; the template "
+            f"requires exactly {len(README_HEADINGS)}: {headings}"
+        )
     for position, (actual, expected) in enumerate(
         zip(headings, README_HEADINGS), start=1
     ):
-        assert actual == expected, (
-            f"README.md heading {position} is {actual!r}; the Phase-13 "
-            f"template requires {expected!r} at that position (D-08)"
-        )
+        if actual != expected:
+            raise AssertionError(
+                f"README.md heading {position} is {actual!r}; the Phase-13 "
+                f"template requires {expected!r} at that position (D-08)"
+            )
 
 
 def _assert_byte_equal_reproduction(served_bytes: bytes) -> None:
@@ -455,7 +464,8 @@ def _assert_byte_equal_reproduction(served_bytes: bytes) -> None:
         artifact_class=control["artifacts"]["serve_request_class"],
         name=active["client_id"],
     )
-    assert versions, "no ServeRequestRecord landed in the ArtifactStore"
+    if not versions:
+        raise AssertionError("no ServeRequestRecord landed in the ArtifactStore")
     serve_request = resolve_artifact(
         store=store,
         content_address=versions[-1],
@@ -500,10 +510,11 @@ def _assert_byte_equal_reproduction(served_bytes: bytes) -> None:
             )
         finally:
             handle.close()
-    assert canonical_bytes(outcome.product) == served_bytes, (
-        "the replayed product's canonical bytes differ from the bytes the "
-        "front door served — D-16 reproduction failed"
-    )
+    if canonical_bytes(outcome.product) != served_bytes:
+        raise AssertionError(
+            "the replayed product's canonical bytes differ from the bytes the "
+            "front door served — D-16 reproduction failed"
+        )
 
 
 def main() -> int:
@@ -524,7 +535,8 @@ def main() -> int:
     args = parser.parse_args()
     legs = tuple(leg.strip() for leg in args.legs.split(",") if leg.strip())
     unknown = set(legs) - set(ALL_LEGS)
-    assert not unknown, f"unknown legs: {sorted(unknown)}"
+    if unknown:
+        raise AssertionError(f"unknown legs: {sorted(unknown)}")
 
     ontology = fabric._load("ontology.yaml")
     product_doc = fabric._load("product.yaml")
@@ -614,12 +626,10 @@ def main() -> int:
                         {},
                     )
                 )
-            assert "operators_invoked" in evidence, (
-                "no lineage retrieved over MCP"
-            )
-            assert "content_generation_path" in evidence, (
-                "no replay record retrieved over MCP"
-            )
+            if "operators_invoked" not in evidence:
+                raise AssertionError("no lineage retrieved over MCP")
+            if "content_generation_path" not in evidence:
+                raise AssertionError("no replay record retrieved over MCP")
             print("PASS 5: lineage + replay record retrieved over MCP (D-15)")
 
             # One authenticated session: the templated Experience resource,
@@ -648,13 +658,12 @@ def main() -> int:
             # (canonical_bytes in ccf_runtime.mcp.experience) and the
             # get_context tool (the deployment's serve path) — must yield
             # byte-identical product serializations.
-            assert resource_text.encode("utf-8") == served_text.encode(
-                "utf-8"
-            ), (
-                "the Experience resource path and the get_context tool "
-                "serve different bytes for the same product — dual "
-                "serve-path serialization divergence (D-07)"
-            )
+            if resource_text.encode("utf-8") != served_text.encode("utf-8"):
+                raise AssertionError(
+                    "the Experience resource path and the get_context tool "
+                    "serve different bytes for the same product — dual "
+                    "serve-path serialization divergence (D-07)"
+                )
             print(
                 "PASS 6: resource path and get_context serve identical "
                 "bytes (D-07)"
@@ -663,10 +672,11 @@ def main() -> int:
             # Allowlist visibility: tools/list advertises exactly the
             # artifact-carried allowlist — nothing filtered, nothing extra.
             allowlist = frozenset(experience["tool_allowlist"])
-            assert advertised == allowlist, (
-                f"tools/list advertises {sorted(advertised)} but the "
-                f"artifact allowlist declares {sorted(allowlist)} (D-05)"
-            )
+            if advertised != allowlist:
+                raise AssertionError(
+                    f"tools/list advertises {sorted(advertised)} but the "
+                    f"artifact allowlist declares {sorted(allowlist)} (D-05)"
+                )
             print(
                 "PASS 7: advertised tools equal the artifact allowlist "
                 "(D-05)"

@@ -508,19 +508,39 @@ def build_credit_context(*, database_path: Path) -> AssembledContext:
             registry=registry,
             product_class=product_class,
         )
-        assert isinstance(gated, ServableProduct), gated
+        # Explicit raises, not asserts: `python -O` strips assert
+        # statements, and gate admission plus the pre-delivery self-check
+        # are guarantees this deployment makes, not development hints.
+        if not isinstance(gated, ServableProduct):
+            raise ExperienceProductNotServable(
+                f"the product did not pass the validation gates: {gated}"
+            )
 
         # Fabric-side self-check: the served view matches what the
         # deployment declared it expects — before anything external sees it.
         expected = product_doc["expected"]
         payload = gated.product.payload
-        assert payload["entity_count"] == expected["entity_count"], payload
-        assert sorted(
+        actual_classes = sorted(
             {entry["entity_class"] for entry in payload["entities"]}
-        ) == sorted(expected["entity_classes"]), payload
-        assert payload["relationship_types"] == sorted(
-            expected["relationship_types"]
-        ), payload
+        )
+        for label, got, want in (
+            ("entity_count", payload["entity_count"], expected["entity_count"]),
+            (
+                "entity_classes",
+                actual_classes,
+                sorted(expected["entity_classes"]),
+            ),
+            (
+                "relationship_types",
+                payload["relationship_types"],
+                sorted(expected["relationship_types"]),
+            ),
+        ):
+            if got != want:
+                raise ExperienceProductNotServable(
+                    f"assembled product {label} is {got!r}; "
+                    f"product.yaml expects {want!r}"
+                )
 
         record = build_replay_record(
             execution=execution,
