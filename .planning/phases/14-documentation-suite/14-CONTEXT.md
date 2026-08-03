@@ -50,9 +50,18 @@ Every API signature is generated, every number is measured, and every snippet is
 - **D-17: Placement of the carried-over documents** — PERFORMANCE.md → **Reference** (measured fact with methodology and environment manifest); security & deployment notes → **How-to** (operator standing it up safely); narrated demo walkthrough → **Tutorial**, beside the adopter's guide.
 - **D-18: The whitepaper cross-reference index shows section numbers and titles only, no quoted body text.** A table mapping each SDK surface to the whitepaper section that specifies it (e.g. `ContextProduct` → §6.3, §7.6). Useful to anyone holding the whitepaper, discloses no proprietary content, and keeps the publish-safety scan satisfiable. Paraphrasing the commitments was rejected as still-derived content that muddies the scan definition.
 
+### Post-research rulings (Dave, 2026-08-03)
+
+Added after `14-RESEARCH.md` surfaced four items the discussion could not have anticipated.
+
+- **D-19: DOCS-06 ships with real measured numbers — the baseline is run and committed inside Phase 14.** Research found `perf/baselines/` holds only `.gitkeep` and `perf/results/` is gitignored, so there was nothing measured to publish. Dave approves running the Phase 11 battery on a named runner class and committing the resulting baseline under D-IMPL-70's Dave-gated re-baseline ritual, logged as **D-IMPL-75**. Consequence: Phase 14 carries a measurement plan, not only a documentation plan, and the baseline commit is a gated act requiring Dave's sign-off on the produced numbers before PERFORMANCE.md cites them.
+- **D-20: The 13 whitepaper-quoting docstrings are rewritten to paraphrase + `§` citation.** Research found verbatim body-text quotes at ≥10 words in `src/ccf/halflife/{debt,decay}.py`, `src/ccf/peering/__init__.py`, `src/ccf/projection/__init__.py`, `src/ccf/controlplane/artifacts.py`, `src/ccf/operators/{planner,categories}.py`, and `runtime/ccf_runtime/cdc/adapter.py` — all of which mkdocstrings would publish. Each is reworked to a paraphrased commitment plus its section citation, per CLAUDE.md §11 ("cite the section in the docstring of every public class"). **No allowlist**: the publish-safety scan stays purely default-deny with zero exceptions, and narrowing the D-13 reference selection to hide the modules was rejected as fragile — it would silently re-expose the text the first time a Protocol page is added. Wave 0 work; blocks the first green publish scan.
+- **D-21: `README.md` does not become the site index.** The site gets a purpose-written `public/index.md`. README currently links three never-publish paths (the whitepaper and internal phase deliverables); a README obliged to stay scan-clean is a standing trap for every future contributor.
+- **D-22: `D-IMPL-NN` identifiers may appear on published pages.** Bare decision-ID references (e.g. "ruled under D-IMPL-71") disclose no proprietary content and keep the published docs traceable to the decision log. Carried-over documents do not need them stripped.
+
 ### Claude's Discretion
 
-None — every question in this discussion received an explicit ruling. Two items are flagged above as planning-level detail rather than open decisions: the JSON-artifact include mechanism (D-09) and the exact marker-string set the publish scan keys on (D-02/D-18).
+Every question in this discussion received an explicit ruling. Two items remain planning-level detail rather than open decisions: the JSON-artifact include mechanism (D-09 — research finds this largely moot, as all 65 example definition artifacts are YAML and the 13 JSON files are replay fixtures and gitignored output, not an authoring surface) and the exact marker-string set the publish scan keys on (D-02/D-18 — research recommends 10-word normalized shingles, validated with positive and negative controls).
 
 </decisions>
 
