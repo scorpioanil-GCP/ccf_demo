@@ -257,14 +257,24 @@ def build_app(
     against a real one and reporting a mismatch no operator can interpret.
     Anthropic replay is unaffected, so standalone ``python
     replay_server.py`` still starts and still serves that leg.
+
+    **Empty is unset (NEW-01).** ``CCF_EXT00_GEMINI_MODEL=`` — an exported
+    but empty variable, which is what a shell yields from an unset
+    substitution such as ``CCF_EXT00_GEMINI_MODEL="$SOME_TYPO"`` — used to
+    count as SET: it skipped the loud-500 path and fingerprinted
+    ``url_model: ""`` against a real model, producing exactly the
+    uninterpretable mismatch the 500 exists to prevent. There is no such
+    thing as an intentionally empty model label, so empty collapses to
+    ``None`` here and takes the named refusal.
     """
     fixtures = _load_fixtures(fixtures_dir)
     cursors: dict[str, int] = {prefix: 0 for _, prefix in SUFFIXES}
-    pinned_gemini_model = (
+    resolved = (
         expected_gemini_model
         if expected_gemini_model is not None
         else os.environ.get(GEMINI_MODEL_ENV)
     )
+    pinned_gemini_model = resolved or None
 
     async def replay(request: Request) -> Response:
         path = request.url.path

@@ -370,6 +370,47 @@ def test_an_unset_gemini_model_env_is_a_named_500_not_a_silent_empty(
     assert replay_server.GEMINI_MODEL_ENV in response.json()["error"]
 
 
+@pytest.mark.parametrize("empty", ["", None])
+def test_an_empty_gemini_model_is_treated_as_unset(
+    monkeypatch: pytest.MonkeyPatch, empty: str | None
+) -> None:
+    """NEW-01: an exported-but-empty label must take the same named 500.
+
+    `build_app` guarded on `is None`, so `CCF_EXT00_GEMINI_MODEL=` counted
+    as SET — the shape a shell produces from an unset substitution like
+    `CCF_EXT00_GEMINI_MODEL="$SOME_TYPO"`. It bypassed the loud-500 path
+    and forwarded an empty expected label into `fingerprint()`, yielding
+    `url_model: ""` against a real model: precisely the uninterpretable
+    mismatch the 500 exists to prevent. There is no intentionally-empty
+    model label, so empty collapses to unset — through the argument seam
+    and through the env seam alike.
+    """
+    from starlette.testclient import TestClient
+
+    replay_server = _load_replay_server()
+    if empty is None:
+        monkeypatch.setenv(replay_server.GEMINI_MODEL_ENV, "")
+        app = replay_server.build_app(FIXTURES)
+    else:
+        monkeypatch.delenv(replay_server.GEMINI_MODEL_ENV, raising=False)
+        app = replay_server.build_app(FIXTURES, expected_gemini_model=empty)
+
+    recorded = json.loads(
+        (FIXTURES / "gemini-00-request.json").read_text("utf-8")
+    )
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1beta/models/m:generateContent", json=recorded
+        )
+
+    assert response.status_code == 500
+    payload = response.json()
+    assert replay_server.GEMINI_MODEL_ENV in payload["error"]
+    # Never the fingerprint-mismatch path: that diagnostic would compare
+    # "" against a real model and tell the operator nothing actionable.
+    assert payload["error"] != "request fingerprint mismatch"
+
+
 def test_the_gemini_fixture_label_matches_what_the_readme_documents() -> None:
     """WR-01: nothing else ties the label in run.py to the capture recipe.
 
