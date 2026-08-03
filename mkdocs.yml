@@ -39,24 +39,22 @@ validation:
     omitted_files: warn
     not_found: warn
 
-# D-06: the never-publish charter is a repo-tree document, deliberately out of
-# nav — exactly like its precedent, examples/external/README.md.
+# D-06: the never-publish charter is deliberately out of nav — exactly like its
+# precedent, examples/external/README.md.
 #
-# 14-RESEARCH A5 proposed `not_in_nav` alone; that assumption is FALSIFIED.
-# MkDocs 1.6 treats `README.md` as an alias for `index.md`, and when both exist
-# in a directory it emits `Excluding 'README.md' from the site because it
-# conflicts with 'index.md'` — a WARNING, therefore fatal under `strict: true`.
-# `not_in_nav` cannot silence it, because the file never becomes a page at all.
-# `exclude_docs` removes it before the conflict is evaluated, so the build is
-# clean and the charter stays readable where it governs: the source tree.
-# This also strictly shrinks the published surface, which D-01 prefers.
-exclude_docs: |
-  README.md
-
-# Retained for the same D-06 intent and as documentation of it: were MkDocs to
-# stop aliasing README.md, this is the entry that keeps the charter out of nav.
+# 14-RESEARCH A5 proposed `not_in_nav` on a file named `README.md`; that
+# assumption is FALSIFIED. MkDocs 1.6 treats `README.md` as an alias for
+# `index.md`, and when both exist in a directory it emits `Excluding
+# 'README.md' from the site because it conflicts with 'index.md'` — a WARNING,
+# therefore fatal under `strict: true`. `not_in_nav` cannot silence it, because
+# the file never becomes a page at all.
+#
+# Dave's ruling (2026-08-03, wave 1 gate): keep the charter PUBLISHED rather
+# than source-tree-only. Renaming it to `charter.md` sidesteps the README alias
+# entirely, so `not_in_nav` works as originally intended — the page builds and
+# is reachable by URL, but no nav entry points at it. No `exclude_docs` needed.
 not_in_nav: |
-  README.md
+  charter.md
 
 plugins:
   - search
@@ -109,7 +107,7 @@ markdown_extensions:
   - pymdownx.inlinehilite
 
 # Every path enumerated explicitly — no globs. The nav is authoritative: it
-# lists 37 pages, and `README.md` is the single `not_in_nav` page, for the 38
+# lists 37 pages, and `charter.md` is the single `not_in_nav` page, for the 38
 # files under `public/`.
 nav:
   - Home: index.md
