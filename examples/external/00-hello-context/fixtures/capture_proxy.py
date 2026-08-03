@@ -43,12 +43,22 @@ since Gemini also accepts the key as a query parameter.
 
 **Confused-deputy defence (IN-01).** Injecting the operator's real key on
 the forward path makes an unauthenticated loopback listener a deputy for
-that key: any local process — including a web page issuing a CORS-simple
-POST to ``http://127.0.0.1:<port>/`` — could otherwise spend vendor credit
-and write attacker-controlled content into the fixture tree. So the proxy
-mints a one-time secret at startup and requires it as the FIRST PATH
-SEGMENT of every request; anything else is refused ``403`` before a key is
-injected, before anything is forwarded, and before an ordinal is claimed.
+that key: an unprivileged caller on loopback — including a web page
+issuing a CORS-simple POST to ``http://127.0.0.1:<port>/`` — could
+otherwise spend vendor credit and write attacker-controlled content into
+the fixture tree. So the proxy mints a one-time secret at startup and
+requires it as the FIRST PATH SEGMENT of every request; anything else is
+refused ``403`` before a key is injected, before anything is forwarded,
+and before an ordinal is claimed.
+
+**What this does NOT defend against.** The secret is exported into the
+client legs' environment as part of ``ANTHROPIC_BASE_URL`` /
+``GOOGLE_GEMINI_BASE_URL``, so a process running as the same user that
+can read those legs' environment (``/proc/<pid>/environ``) recovers it and
+is inside the boundary. That is not a regression: the same process could
+read ``ANTHROPIC_API_KEY`` from the same place and skip the proxy
+entirely. The guarantee is exactly "a caller that cannot read the client
+legs' environment cannot use this proxy" — no more.
 
 The secret rides in the path rather than in a header deliberately: the
 capture flow points vendor SDKs at the proxy through their own base-URL
