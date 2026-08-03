@@ -228,7 +228,19 @@ Plans:
   4. Security & deployment notes document the hardened postures from Phases 9–10, and the OpenAPI spec is regenerated from `create_app()` with a CI drift check
   5. `make docs --strict` passes in always-on CI (logged D-10 amendment), and PERFORMANCE.md publishes the Phase 11 measured baselines with methodology and environment manifest
 
-**Plans**: TBD
+**Plans**: 10 plans in 4 waves
+
+Plans:
+- [ ] 14-01-PLAN.md — docs toolchain foundation: `docs` extra, `site/` gitignored, `public/` docroot + stubs, `mkdocs.yml` with `check_paths: true` and raised link validation
+- [ ] 14-02-PLAN.md — `tools/publish_scan.py` never-publish gate (no allowlist) + its controls, then the D-20 rework of the 13 whitepaper-quoting docstrings
+- [ ] 14-03-PLAN.md — committed `openapi.json`, `make openapi` regenerator, and the always-on drift assertion against `create_app()`
+- [ ] 14-04-PLAN.md — D-03 move: `git mv` walkthrough, security notes and all 11 diagrams into `public/`; repoint inbound refs; Dave rules the CLAUDE.md edit
+- [ ] 14-05-PLAN.md — Concepts section: five pillar pages with in-page diagrams, invariants, replay anatomy, whitepaper cross-reference index, diagram-coverage test
+- [ ] 14-06-PLAN.md — Reference section: 12 curated Protocol pages, 8 generated artifact-schema pages, the HTTP contract page, and the mkdocstrings drift control
+- [ ] 14-07-PLAN.md — snippet markers in six example sources + the adopter's guide, all literal-included; snippet drift control
+- [ ] 14-08-PLAN.md — five task how-to pages over green CI-run examples + the security & deployment page finished as a how-to
+- [ ] 14-09-PLAN.md — run the perf battery, Dave-gated baseline commit (D-IMPL-75), PERFORMANCE.md with methodology and environment manifest
+- [ ] 14-10-PLAN.md — `docs-strict` gate target, `make ci` D-IMPL-72 amendment, always-on CI docs job with artifact upload
 
 ## Progress
 
@@ -239,7 +251,7 @@ Plans:
 | 11. Performance Battery | 5/5 | Complete    | 2026-08-02 |
 | 12. Synthetic-Data Demonstration | 3/3 | Complete    | 2026-08-02 |
 | 13. Examples Suite Upgrade | 5/5 | Complete   | 2026-08-02 |
-| 14. Documentation Suite | 0/? | Not started | - |
+| 14. Documentation Suite | 0/10 | Planned | - |
 
 ## Coverage
 

@@ -93,7 +93,7 @@ Every question in this discussion received an explicit ruling. Two items remain 
 - `Makefile` — gains `docs` / `docs-strict`; `ci: ci-core examples` becomes `ci: ci-core examples docs-strict` per D-IMPL-72. The Makefile mirrors `ci.yml` command-for-command (D-10) and uses `PYTHON := .venv/bin/python` with `PYTHONPATH=src:runtime`.
 - `.github/workflows/ci.yml` — gains the docs job plus artifact upload. (`perf.yml` and `live-legs.yml` stay opt-in per D-IMPL-70 / D-11 and are not touched.)
 - `pyproject.toml` — docs dependencies (mkdocs-material, mkdocstrings[python], pymdown-extensions) as an extra; `[tool.mypy] files` is authoritative for the typecheck surface.
-- `src/ccf/lints/` + `tools.lints` — the existing CINV lint harness, the pattern any new docs-side check would follow.
+- `tools/lints/` — the existing CINV lint harness, the pattern any new docs-side check follows. (Corrected 2026-08-03: this was written as `src/ccf/lints/`, which does not exist. `14-RESEARCH.md` and `14-PATTERNS.md` have the correct path.)
 
 </canonical_refs>
 
