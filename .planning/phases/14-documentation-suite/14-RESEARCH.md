@@ -108,7 +108,7 @@ above as planning-level detail rather than open decisions: the JSON-artifact inc
 | Makefile mirrors ci.yml command-for-command | Phase-8 D-10 | The docs CI job must invoke `make docs-strict`, not a bespoke command string. |
 | `PYTHON := .venv/bin/python`, `PYTHONPATH=src:runtime` | Makefile header | The docs target follows the same shape. mkdocstrings `paths:` config makes PYTHONPATH redundant for the handler, but keep the env prefix for consistency. |
 | Private repo, proprietary IP — the whitepaper must never be published | §2.2 | The reason D-01/D-02 exist. |
-| Surface gaps as `D-IMPL-NN`, do not pick a default | §11, §15 | Open Question 1 (perf baselines) is likely a `D-IMPL` for Dave, not a planner call. |
+| Surface gaps as `D-IMPL-NN`, do not pick a default | §11, §15 | Open Question 1 (perf baselines) is likely a `D-IMPL` for Dave, not a planner call. *(Resolved: D-19 + D-IMPL-75, gated at plan 14-09 Task 2.)* |
 
 ## Architectural Responsibility Map
 
@@ -396,7 +396,7 @@ recommendation**: strong positive control, and its 13 hits are all genuine verba
 **D-18 compatibility confirmed:** `§7.6`-style references are single tokens; the normalizer
 drops `§` and a section number cannot form a 10-word body-text shingle. A cross-reference table
 of section numbers and titles cannot trip the scan. (`D-IMPL-NN` identifiers likewise — but see
-Open Question 3 on whether D-IMPL numbers should be published at all.)
+Open Question 3 on whether D-IMPL numbers should be published at all — resolved as legal, D-22.)
 
 Additional scan components beyond shingles:
 - **Path/filename denylist** on the built tree: any occurrence of the literal strings
@@ -879,7 +879,11 @@ integration for the common case (and ruled out by D-04 anyway).
 | A4 | `openapi.json` is byte-stable across repeated runs on the same pins | Pattern 3 | If FastAPI introduces set-derived ordering anywhere, the drift test flakes; mitigate by asserting on the parsed dict, not the bytes, if it does |
 | A5 | `not_in_nav: "README.md"` correctly silences the D-06 charter under strict validation | mkdocs.yml skeleton | Verify in Wave 0; the alternative is `exclude_docs` |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All five questions below were resolved during `/gsd:discuss-phase` and planning. The original
+> text is retained verbatim as the reasoning record; each carries a **Resolution** line naming the
+> decision or plan task that closed it. Nothing in this section is outstanding.
 
 1. **PERFORMANCE.md has no measured numbers to publish.** `git ls-files perf/baselines` returns
    only `.gitkeep`; `perf/results/` is gitignored (`.gitignore`: "Perf battery run outputs are
@@ -901,6 +905,11 @@ integration for the common case (and ruled out by D-04 anyway).
      yet established. (b) is deliverable today; (a) is the stronger reading of DOCS-06.
      **This looks like a `D-IMPL-NN`, not a planner call** (CLAUDE.md §11: surface gaps, do not
      paper over them).
+   - **Resolution: shape (a), per D-19 and D-IMPL-75.** D-19 approves producing the baseline inside
+     this phase; plan 14-09 Task 1 runs the battery under runner class `local`, Task 2 is a blocking
+     human checkpoint where Dave approves the numbers and D-IMPL-75 is logged, and Task 3 publishes
+     them by whole-file include of the committed `perf/baselines/local.json`. On rejection Task 3
+     does not run.
 
 2. **CLAUDE.md edits for the D-03 move.** `CLAUDE.md:162`, `:1227`, `:1248` name
    `docs/diagrams/` as the Phase D deliverable location and as part of the canonical directory
@@ -910,6 +919,9 @@ integration for the common case (and ruled out by D-04 anyway).
    - Recommendation: the plan should propose the CLAUDE.md diff (add `public/` to the §14
      skeleton; repoint the three `docs/diagrams` references) and route it through Dave with the
      phase gate rather than editing silently.
+   - **Resolution: routed to Dave as plan 14-04 Task 2**, a `checkpoint:decision` that displays the
+     exact four-hunk diff before asking, with three options (apply now, defer to the phase gate,
+     revise wording). The recommendation was adopted as the mechanism; the ruling itself is Dave's.
 
 3. **Should `D-IMPL-NN` identifiers appear on published pages?** Docstrings across `src/` and
    `runtime/` cite them heavily (e.g. `ArtifactStoreProtocol` cites D-IMPL-26); mkdocstrings will
@@ -920,17 +932,29 @@ integration for the common case (and ruled out by D-04 anyway).
    - Recommendation: treat as legal (do not add `D-IMPL` to the scan denylist — it would trip on
      dozens of legitimate docstrings), and add one line to `public/README.md` or the index page
      explaining that `D-IMPL-NN` refers to the SDK's internal decision log. Confirm with Dave.
+   - **Resolution: legal, per D-22.** The recommendation was adopted in full. Plan 14-01 Task 2
+     requires the explanatory line in `public/README.md`, and plan 14-02 Task 2 asserts a
+     `D-IMPL-71` string produces zero scan findings — the compatibility assertion that keeps
+     decision identifiers off the denylist.
 
 4. **How-to page inventory.** Explicitly listed in CONTEXT §deferred as a planner-level call. The
    available raw material: `security-notes.md` (moved), plus natural how-tos derivable from
    examples 02 (grant/revoke a skill), 04 (cross-process), 05 (workflow + HITL), 07 (swap the
    ArtifactStore), and the harness-adapter seam. Recommend 4–6 pages, each a narration layer over
    an existing green example (D-10's posture), not new prose about untested paths.
+   - **Resolution: five task pages, the planner's call as CONTEXT §deferred delegated.** Plan 14-08
+     writes `grant-and-revoke-a-skill`, `run-agents-cross-process`, `compose-a-workflow-with-hitl`,
+     `swap-the-artifact-store` and `bind-a-harness-adapter` — exactly the five surfaces named above,
+     each narrating an example that already runs green in CI. `security-and-deployment` (moved by
+     plan 14-04) is the sixth How-to page, giving six total.
 
 5. **Does the site index reuse `README.md`?** CONTEXT §deferred leaves it open. Recommendation:
    a distinct `public/index.md`. `README.md` currently links to `docs/CCF_Whitepaper_1-2.md`,
    `docs/DECISIONS.md`, and `docs/SPEC_INVENTORY.md` in its Documentation section — reusing it as
    the index would put three never-publish paths on the front page.
+   - **Resolution: no, per D-21.** `public/index.md` is a purpose-written landing page (plan 14-01
+     Task 2, finished by plan 14-10 Task 3). The repo `README.md` is explicitly not the index, for
+     exactly the three-never-publish-links reason given above.
 
 ## Validation Architecture
 
@@ -963,7 +987,7 @@ integration for the common case (and ruled out by D-04 anyway).
 | DOCS-05 | An endpoint change fails the drift check | negative | covered by the above (any route edit breaks it); add a docstring in the test naming `make openapi` as the fix | ✅ |
 | DOCS-06 | `make docs-strict` is part of `make ci` | unit | grep the Makefile for `ci: ci-core examples docs-strict` | ❌ Wave 0 |
 | DOCS-06 | The docs job runs in always-on CI and uploads the artifact | manual/CI | first green CI run on the branch | n/a |
-| DOCS-06 | PERFORMANCE.md numbers trace to a committed source | manual | reviewer check — **blocked on Open Question 1** | n/a |
+| DOCS-06 | PERFORMANCE.md numbers trace to a committed source | manual | reviewer check — *Open Question 1 resolved: D-19 + D-IMPL-75; the source is the committed `perf/baselines/local.json`, approved at plan 14-09 Task 2* | n/a |
 
 ### Sampling Rate
 
@@ -1055,7 +1079,7 @@ risk is information disclosure, which is unusually high stakes here (proprietary
 - Drift-gate mechanisms (D-07/D-08/D-11/D-14): **HIGH** — every claim empirically probed, including the two silent-default traps
 - Publish-scan design (D-02): **HIGH** — prototyped against real repo content with positive and negative controls and an N-sensitivity sweep
 - Repo integration points: **HIGH** — every path, line number, and config value read from the file
-- PERFORMANCE.md source material (DOCS-06): **LOW** — Open Question 1; the required inputs do not exist in the repo and creating them is Dave-gated
+- PERFORMANCE.md source material (DOCS-06): **LOW at research time** — Open Question 1; the required inputs did not exist in the repo and creating them is Dave-gated. *Resolved by D-19: plan 14-09 produces the baseline inside this phase behind the D-IMPL-70 human gate.*
 
 **Research date:** 2026-08-03
 **Valid until:** 2026-09-02 (30 days) — but re-check `mkdocs` before any version bump; the
