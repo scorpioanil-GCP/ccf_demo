@@ -24,7 +24,7 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 	example-03-live-ollama example-03-live-anthropic \
 	example-ext-00-live-anthropic example-ext-00-live-adk \
 	perf perf-micro perf-scale perf-xproc perf-replay \
-	docs docs-serve
+	docs docs-serve openapi
 
 help: ## List targets with one-line descriptions
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -136,3 +136,10 @@ docs: ## Build the documentation site with mkdocs (D-IMPL-71; built into site/, 
 # opt-in and NEVER joins `ci` — it blocks forever by design.
 docs-serve: ## Serve the docs locally with live reload (opt-in; never part of `ci`)
 	$(ENV) $(PYTHON) -m mkdocs serve
+
+# D-12's deliberate exception to D-11's generate-at-build posture: the HTTP
+# contract is committed so endpoint changes surface as reviewable diffs. The
+# drift assertion lives in the already-always-on `test` job, so this target
+# needs no `ci:` wiring.
+openapi: ## Regenerate the committed openapi.json — the D-12 drift baseline
+	$(ENV) $(PYTHON) tools/dump_openapi.py
