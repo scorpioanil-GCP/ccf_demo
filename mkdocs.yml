@@ -1,0 +1,158 @@
+# CCF SDK documentation site (Phase 14, D-IMPL-71).
+#
+# This file lives at the REPO ROOT, not inside `public/`: `pymdownx.snippets`
+# resolves `base_path` against the process CWD, not against the config file's
+# directory (14-RESEARCH Pitfall 2), and `make` always runs at the repo root.
+#
+# Every tuning knob below carries its citation. Two of MkDocs' defaults are
+# silently permissive and are explicitly closed here — `pymdownx.snippets`
+# `check_paths` and the whole `validation:` block. Without them this build
+# reports success on documentation that is quietly empty or quietly broken.
+
+site_name: CCF SDK
+site_description: Cognitive Context Fabric SDK — governed, typed, replay-ready context
+
+# D-01: publication is default-deny by existence. `public/` is the ENTIRE
+# published surface; nothing outside it is a documentation source.
+docs_dir: public
+# Build output only, gitignored (D-02 / 14-RESEARCH Pitfall 6).
+site_dir: site
+# Belt-and-braces: promotes WARNING to error even without `--strict` on the
+# command line, so `make docs` and `make docs-strict` gate identically.
+strict: true
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - content.code.copy
+
+# 14-RESEARCH Pitfall 3: every level below defaults to `info`, and `--strict`
+# only promotes WARNING. Without this block a dead `[link](nope.md)` builds
+# clean at exit 0 — the gate would exist and gate nothing.
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+  nav:
+    omitted_files: warn
+    not_found: warn
+
+# D-06: the never-publish charter is a repo-tree document, deliberately out of
+# nav — exactly like its precedent, examples/external/README.md.
+#
+# 14-RESEARCH A5 proposed `not_in_nav` alone; that assumption is FALSIFIED.
+# MkDocs 1.6 treats `README.md` as an alias for `index.md`, and when both exist
+# in a directory it emits `Excluding 'README.md' from the site because it
+# conflicts with 'index.md'` — a WARNING, therefore fatal under `strict: true`.
+# `not_in_nav` cannot silence it, because the file never becomes a page at all.
+# `exclude_docs` removes it before the conflict is evaluated, so the build is
+# clean and the charter stays readable where it governs: the source tree.
+# This also strictly shrinks the published surface, which D-01 prefers.
+exclude_docs: |
+  README.md
+
+# Retained for the same D-06 intent and as documentation of it: were MkDocs to
+# stop aliasing README.md, this is the entry that keeps the charter out of nav.
+not_in_nav: |
+  README.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          # The two packages under [tool.mypy] files — CLAUDE.md §10 / §14.
+          paths: ["src", "runtime"]
+          options:
+            # PUBLISH SAFETY, not aesthetics (D-02): rendered source would put
+            # whole module bodies and their internal comments onto published
+            # pages, widening the leak surface far beyond docstrings.
+            show_source: false
+            separate_signature: true
+            show_signature_annotations: true
+            members_order: source
+            extensions:
+              # Renders Pydantic models' JSON Schema — the typed-contract
+              # surface CLAUDE.md §11 requires at every boundary.
+              - griffe_pydantic:
+                  schema: true
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.snippets:
+      # 14-RESEARCH Pitfall 2: resolved against the process CWD (repo root
+      # under make), NOT this file's directory. Note this leaves the internal
+      # deliverable tree nominally reachable by a `--8<--` directive; that is a
+      # known non-guard (Pitfall 4). The boundary is the pre-build include-path
+      # check and the post-build publish scan, never this setting.
+      base_path: ["."]
+      # 14-RESEARCH Pitfall 1: at the default `false` BOTH a missing file and a
+      # missing named section build clean at exit 0 with an empty block, and
+      # `--strict` cannot help because nothing is emitted to warn about.
+      # This one line is D-08 in its entirety.
+      check_paths: true
+      # Blocks `../` escapes above base_path. Never turn this off.
+      restrict_base_path: true
+      # Snippet regions taken from inside function bodies render flush-left
+      # instead of as an accidental code block.
+      dedent_subsections: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+
+# Every path enumerated explicitly — no globs. The nav is authoritative: it
+# lists 37 pages, and `README.md` is the single `not_in_nav` page, for the 38
+# files under `public/`.
+nav:
+  - Home: index.md
+  - Tutorial:
+      - Adopter's guide: tutorial/adopters-guide.md
+  - How-to:
+      - Grant and revoke a skill: how-to/grant-and-revoke-a-skill.md
+      - Run agents cross-process: how-to/run-agents-cross-process.md
+      - Compose a workflow with HITL: how-to/compose-a-workflow-with-hitl.md
+      - Swap the artifact store: how-to/swap-the-artifact-store.md
+      - Bind a harness adapter: how-to/bind-a-harness-adapter.md
+  - Concepts:
+      - Pillars:
+          - Data and Context Layer: concepts/pillars/data-context.md
+          - Orchestration Layer: concepts/pillars/orchestration.md
+          - Core Agent Types: concepts/pillars/agent-types.md
+          - Human in the Loop and Control: concepts/pillars/hitl.md
+          - Experience Layer: concepts/pillars/experience.md
+      - Invariants: concepts/invariants.md
+      - Replay anatomy: concepts/replay-anatomy.md
+      - Whitepaper cross-reference: concepts/whitepaper-index.md
+  - Reference:
+      - Protocols:
+          - Storage and Context Graph: reference/protocols/storage-and-graph.md
+          - Similarity: reference/protocols/similarity.md
+          - Operators and projection: reference/protocols/operators-and-projection.md
+          - Context Products: reference/protocols/context-products.md
+          - Harness adapter: reference/protocols/harness-adapter.md
+          - Artifact store: reference/protocols/artifact-store.md
+          - Orchestration and workflow: reference/protocols/orchestration-and-workflow.md
+          - HITL: reference/protocols/hitl.md
+          - Agents: reference/protocols/agents.md
+          - Peering: reference/protocols/peering.md
+          - Half-life and debt: reference/protocols/halflife-and-debt.md
+          - Runtime surfaces: reference/protocols/runtime-surfaces.md
+      - Definition artifacts:
+          - Agent definitions: reference/artifacts/agent-definitions.md
+          - Task definitions: reference/artifacts/task-definitions.md
+          - Prompt artifacts: reference/artifacts/prompt-artifacts.md
+          - Workflow definitions: reference/artifacts/workflow-definitions.md
+          - Skill catalog: reference/artifacts/skill-catalog.md
+          - Skill grants: reference/artifacts/skill-grants.md
+          - Control Plane artifacts: reference/artifacts/control-plane-artifacts.md
+          - Product registration: reference/artifacts/product-registration.md
+      - HTTP API: reference/http-api.md
+      - Performance: reference/performance.md
