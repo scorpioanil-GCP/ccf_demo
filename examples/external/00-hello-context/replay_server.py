@@ -17,10 +17,13 @@ Fixtures are matched ordinal-per-path: the first matching request gets
 fixture index 0, the next gets 1, and so on — adequate for a fixed, short
 tool-use conversation, and simple enough to review. Fixture files live in
 ``fixtures/`` (``anthropic-00.json``, ``gemini-00.json``, …), each with a
-sibling ``*-request.json`` recorded-request file kept for review diffing;
-this server never validates against them. A request past the last fixture
-for its path is answered 500 naming the exhausted path — fail loudly,
-never loop.
+sibling ``*-request.json`` recorded-request file. Before serving ordinal
+N, a per-path fingerprint of the incoming body is compared against the
+recorded request N (D-03): a drifted request is answered 500 with a JSON
+diagnostic naming the path, the ordinal, and the ``expected`` vs
+``actual`` fingerprints — fail loudly, never serve the wrong fixture. A
+request past the last fixture for its path is likewise answered 500
+naming the exhausted path — fail loudly, never loop.
 
 No CCF imports: this is a stand-in for a vendor's model API, and the
 fabric is not involved. Binds 127.0.0.1 on port 0 and prints
@@ -52,11 +55,13 @@ SUFFIXES: tuple[tuple[str, str], ...] = (
 
 
 def _load_fixtures() -> dict[str, list[dict[str, object]]]:
-    """Load every response fixture at startup, ordered by filename ordinal.
+    """Load every fixture pair at startup, ordered by filename ordinal.
 
-    ``*-request.json`` siblings are recorded requests kept for review
-    diffing and are deliberately skipped. A missing or empty directory is
-    a valid state (zero fixtures loaded); startup still succeeds.
+    Each entry pairs the recorded response with its sibling
+    ``*-request.json`` recorded request (``None`` when a sibling is
+    absent — the fingerprint check is then skipped for that ordinal). A
+    missing or empty directory is a valid state (zero fixtures loaded);
+    startup still succeeds.
     """
     loaded: dict[str, list[dict[str, object]]] = {
         prefix: [] for _, prefix in SUFFIXES
@@ -67,10 +72,52 @@ def _load_fixtures() -> dict[str, list[dict[str, object]]]:
         for path in sorted(FIXTURES.glob(f"{prefix}-*.json")):
             if path.name.endswith("-request.json"):
                 continue
+            request_path = path.with_name(
+                path.name.replace(".json", "-request.json")
+            )
+            recorded_request = (
+                json.loads(request_path.read_text(encoding="utf-8"))
+                if request_path.is_file()
+                else None
+            )
             loaded[prefix].append(
-                json.loads(path.read_text(encoding="utf-8"))
+                {
+                    "response": json.loads(
+                        path.read_text(encoding="utf-8")
+                    ),
+                    "request": recorded_request,
+                }
             )
     return loaded
+
+
+def fingerprint(prefix: str, body: dict[str, object]) -> dict[str, object]:
+    """Reduce a request body to the drift-detecting shape for its path.
+
+    Anthropic (``/v1/messages``): model, sorted tool names, message
+    count. Gemini (``:generateContent``): sorted function-declaration
+    names, content count — the Gemini body carries NO model field (it
+    rides in the URL path).
+    """
+    if prefix == "anthropic":
+        tools = body.get("tools") or []
+        return {
+            "model": body.get("model"),
+            "tool_names": sorted(
+                t.get("name") for t in tools if isinstance(t, dict)
+            ),
+            "message_count": len(body.get("messages") or []),
+        }
+    declarations = []
+    tools = body.get("tools") or []
+    if tools and isinstance(tools[0], dict):
+        declarations = tools[0].get("functionDeclarations") or []
+    return {
+        "function_names": sorted(
+            d.get("name") for d in declarations if isinstance(d, dict)
+        ),
+        "content_count": len(body.get("contents") or []),
+    }
 
 
 def _build_app() -> Starlette:
@@ -96,8 +143,38 @@ def _build_app() -> Starlette:
                     },
                     status_code=500,
                 )
+            try:
+                body = await request.json()
+            except Exception:
+                # T-13.2-09: a malformed body gets the same loud 500
+                # diagnostic shape, never an unhandled exception.
+                return JSONResponse(
+                    {
+                        "error": "request body is not valid JSON",
+                        "path": path,
+                        "ordinal": ordinal,
+                    },
+                    status_code=500,
+                )
+            recorded_request = recorded[ordinal]["request"]
+            if recorded_request is not None:
+                expected = fingerprint(prefix, recorded_request)
+                actual = fingerprint(prefix, body)
+                if expected != actual:
+                    # D-03: drift fails loudly with a diagnostic naming
+                    # both fingerprints — never serve the wrong fixture.
+                    return JSONResponse(
+                        {
+                            "error": "request fingerprint mismatch",
+                            "path": path,
+                            "ordinal": ordinal,
+                            "expected": expected,
+                            "actual": actual,
+                        },
+                        status_code=500,
+                    )
             cursors[prefix] = ordinal + 1
-            return JSONResponse(recorded[ordinal])
+            return JSONResponse(recorded[ordinal]["response"])
         return JSONResponse(
             {"error": "no fixture route for path", "path": path},
             status_code=500,
