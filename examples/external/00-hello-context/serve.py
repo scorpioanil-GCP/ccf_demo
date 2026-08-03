@@ -18,12 +18,17 @@ What this process does, in order:
    the front door rather than the egress role). Bearer-token auth is on
    from day one; the verifier reads ``artifacts/tokens.yaml`` and there is
    no anonymous mode.
-3. Extends the returned server deployment-side with the tools this
-   deployment declares in ``artifacts/experience.yaml``: ``get_context``
-   (the mid-loop tool an external agent calls), read-only ``get_lineage``
-   and ``get_replay_record``, plus a concrete (non-templated) product
-   resource so browsing clients see something listable. Tool names and
-   prose come from the artifact, never from this file (CLAUDE.md §6.4).
+3. Composes — never registers — the three external-consumption tools
+   the SDK promoted (D-IMPL-74): the provider closures for
+   ``get_context`` (the mid-loop tool an external agent calls) and the
+   read-only ``get_lineage`` / ``get_replay_record`` are passed *into*
+   ``build_experience_server`` along with their artifact-carried prose
+   and the ``tool_allowlist`` from ``artifacts/experience.yaml``. The
+   allowlist advertises exactly those three tools; the agent tools are
+   absent from it, so they are never registered (D-05 — registration-time
+   omission). A concrete (non-templated) product resource is added so
+   browsing clients see something listable. Tool names and prose come
+   from the artifact, never from this file (CLAUDE.md §6.4).
 4. Serves every externally-delivered product through
    ``ccf.replay.serve.ReplayWriter`` -> ``DeliveryCapability`` against a
    file-backed ArtifactStore, so the five-dimension Decision Replay record
@@ -543,41 +548,18 @@ def main() -> None:
             return assembled.servable
 
         def agent_directory(*, tenant: str) -> tuple[()]:
-            # Artifacts-declared empty exposure: this deployment exposes no
-            # agents on the front door (hello-world scope).
+            # Artifacts-declared empty exposure (hello-world scope). The
+            # agent tools are absent from the artifact's tool_allowlist,
+            # so this seam is never reachable from the wire.
             del tenant
             return tuple(experience["agent_exposure"]["agents"])
 
         def agent_invoker(**_: object) -> str:
             raise RuntimeError(experience["agent_exposure"]["invocation_refusal"])
 
-        auth_values = experience["auth"]
-        server = build_experience_server(
-            server_name=experience["server_name"],
-            product_resolver=resolve,
-            agent_directory=agent_directory,
-            agent_invoker=agent_invoker,
-            token_verifier=SourceBackedTokenVerifier(
-                source=ArtifactTokenSource(path=ARTIFACTS / "tokens.yaml")
-            ),
-            auth_settings=AuthSettings(
-                issuer_url=AnyHttpUrl(auth_values["issuer_url"]),
-                resource_server_url=AnyHttpUrl(auth_values["resource_server_url"]),
-                required_scopes=[auth_values["required_scope"]],
-            ),
-        )
-
-        # Deployment-side extension of the front door: tool names and prose
-        # from artifacts (CLAUDE.md §6.4), registered post-construction —
-        # composition over the shipped module, never modification of it.
-        tools = experience["tools"]
         focus = product_doc["focus"]
 
-        @server.tool(
-            name=tools["get_context"]["name"],
-            description=tools["get_context"]["description"],
-        )
-        def get_context(tenant: str, entity: str) -> str:
+        def context_provider(*, tenant: str, entity: str) -> str:
             if (
                 tenant != assembled.address.tenant
                 or entity != focus["entity_ref"]
@@ -587,20 +569,12 @@ def main() -> None:
                 f"get_context tenant={tenant} entity={entity}"
             ).decode("utf-8")
 
-        @server.tool(
-            name=tools["get_lineage"]["name"],
-            description=tools["get_lineage"]["description"],
-        )
-        def get_lineage() -> str:
+        def lineage_provider() -> str:
             return canonical_bytes(assembled.servable.product.lineage).decode(
                 "utf-8"
             )
 
-        @server.tool(
-            name=tools["get_replay_record"]["name"],
-            description=tools["get_replay_record"]["description"],
-        )
-        def get_replay_record() -> str:
+        def replay_record_reader() -> str:
             ref = latest["replay_ref"]
             if ref is None:
                 raise ExperienceProductNotServable(
@@ -609,6 +583,37 @@ def main() -> None:
             return store.get(content_address=ref.content_address).decode(
                 "utf-8"
             )
+
+        # Composition, not registration (D-15): the promoted tools live in
+        # the shipped builder; this deployment supplies provider closures,
+        # artifact-carried prose, and the artifact-carried allowlist, which
+        # names exactly the three consumption tools — so the agent tools
+        # are never registered and cannot be advertised (D-05, D-IMPL-74).
+        auth_values = experience["auth"]
+        tools = experience["tools"]
+        server = build_experience_server(
+            server_name=experience["server_name"],
+            product_resolver=resolve,
+            agent_directory=agent_directory,
+            agent_invoker=agent_invoker,
+            context_provider=context_provider,
+            lineage_provider=lineage_provider,
+            replay_record_reader=replay_record_reader,
+            get_context_description=tools["get_context"]["description"],
+            get_lineage_description=tools["get_lineage"]["description"],
+            get_replay_record_description=tools["get_replay_record"][
+                "description"
+            ],
+            token_verifier=SourceBackedTokenVerifier(
+                source=ArtifactTokenSource(path=ARTIFACTS / "tokens.yaml")
+            ),
+            auth_settings=AuthSettings(
+                issuer_url=AnyHttpUrl(auth_values["issuer_url"]),
+                resource_server_url=AnyHttpUrl(auth_values["resource_server_url"]),
+                required_scopes=[auth_values["required_scope"]],
+            ),
+            tool_allowlist=frozenset(experience["tool_allowlist"]),
+        )
 
         # Concrete (non-templated) resource for the hello product, so
         # resources/list shows a browsable entry even in clients that do
