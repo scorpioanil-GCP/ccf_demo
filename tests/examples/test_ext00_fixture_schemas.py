@@ -16,6 +16,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import pathlib
+import sys
+import warnings
 from typing import Any
 
 import pytest
@@ -71,7 +73,20 @@ def test_anthropic_response_fixture_validates(path: pathlib.Path) -> None:
 #: looks like fixture corruption rather than an SDK upgrade. So its absence
 #: degrades to the structural assertions the request fixtures already get,
 #: and only the SDK-type validation is lost.
+#:
+#: The degraded path WARNS rather than passing quietly (IN-03, iteration 4).
+#: A green suite otherwise looks identical whether the strong or the weak
+#: assertion ran, so the coverage loss could persist unnoticed across many
+#: `google-adk` bumps. The warning surfaces it in pytest's run summary.
 _FROM_RESPONSE = getattr(GenerateContentResponse, "_from_response", None)
+
+#: Emitted once per degraded gemini-response test. Named so a future reader
+#: greps from the warning back to the reason.
+_DEGRADED_VALIDATION_WARNING = (
+    "google-genai no longer exposes GenerateContentResponse._from_response;"
+    " gemini fixture validation degraded from SDK-type validation to"
+    " structural assertions"
+)
 
 
 @pytest.mark.parametrize(
@@ -80,6 +95,7 @@ _FROM_RESPONSE = getattr(GenerateContentResponse, "_from_response", None)
 def test_gemini_response_fixture_validates(path: pathlib.Path) -> None:
     document = _load(path)
     if _FROM_RESPONSE is None:
+        warnings.warn(_DEGRADED_VALIDATION_WARNING, stacklevel=2)
         candidates = document["candidates"]
         assert isinstance(candidates, list) and candidates, (
             f"{path.name}: no candidates"
@@ -113,6 +129,23 @@ def test_gemini_request_fixture_shape(path: pathlib.Path) -> None:
     assert isinstance(declarations, list) and declarations
     for declaration in declarations:
         assert isinstance(declaration["name"], str) and declaration["name"]
+
+
+def test_the_degraded_gemini_validation_path_warns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """IN-03 (iteration 4): the WR-09 fallback must not degrade silently.
+
+    Simulates the future `google-genai` bump that removes the private
+    `_from_response` by blanking the module constant the test reads, then
+    asserts the structural fallback still validates the fixture AND that
+    it announces the lost SDK-type coverage. Without the warning a green
+    suite looks identical either way.
+    """
+    monkeypatch.setattr(sys.modules[__name__], "_FROM_RESPONSE", None)
+    path = _response_paths("gemini")[0]
+    with pytest.warns(UserWarning, match="_from_response"):
+        test_gemini_response_fixture_validates(path)
 
 
 def _load_replay_server() -> Any:
