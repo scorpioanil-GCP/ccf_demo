@@ -284,6 +284,39 @@ def test_an_empty_fixture_directory_still_starts(
     replay_server.require_paired_fixtures(tmp_path / "absent")
 
 
+def test_a_fixture_stem_containing_json_resolves_its_real_sibling(
+    tmp_path: pathlib.Path,
+) -> None:
+    """IN-03: `_load_fixtures` must anchor the suffix, not replace-all.
+
+    `find_orphans` already anchors (`name[: -len('.json')]`), so a stem
+    carrying `.json` earlier in the name passes the D-06 pairing check.
+    `_load_fixtures` used `path.name.replace(".json", "-request.json")`,
+    which substitutes EVERY occurrence — turning
+    `anthropic-v1.json-00.json` into `anthropic-v1-request.json-00-request.json`
+    and raising FileNotFoundError *after* the set was declared sound.
+
+    Every committed fixture name is immune (D-11 keeps them that way), so
+    this pins the latent case rather than a live break.
+    """
+    replay_server = _load_replay_server()
+    stem = "anthropic-v1.json-00"
+    source = json.loads((FIXTURES / "anthropic-00-request.json").read_text("utf-8"))
+    response = json.loads((FIXTURES / "anthropic-00.json").read_text("utf-8"))
+    _write(tmp_path / f"{stem}-request.json", source)
+    _write(tmp_path / f"{stem}.json", response)
+
+    # The pairing gate accepts it, which is precisely what makes the
+    # downstream replace-all a latent defect rather than a caught one.
+    assert replay_server.find_orphans(tmp_path) == []
+    replay_server.require_paired_fixtures(tmp_path)
+
+    loaded = replay_server._load_fixtures(tmp_path)
+    assert len(loaded["anthropic"]) == 1
+    assert loaded["anthropic"][0]["request"] == source
+    assert loaded["anthropic"][0]["response"] == response
+
+
 # --------------------------------------------------------------------------
 # D-08 — the Gemini fingerprint carries the URL-path model segment
 # --------------------------------------------------------------------------

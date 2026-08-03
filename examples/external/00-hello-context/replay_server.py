@@ -149,8 +149,14 @@ def _load_fixtures(fixtures_dir: Path) -> dict[str, list[dict[str, object]]]:
         for path in sorted(fixtures_dir.glob(f"{prefix}-*.json")):
             if path.name.endswith("-request.json"):
                 continue
+            # Anchor on the trailing suffix, exactly as find_orphans does
+            # (IN-03). `.replace(".json", ...)` substitutes EVERY
+            # occurrence, so a stem containing ".json" earlier in the name
+            # would pass the D-06 pairing check above and then raise
+            # FileNotFoundError here — after require_paired_fixtures has
+            # already declared the set sound.
             request_path = path.with_name(
-                path.name.replace(".json", "-request.json")
+                f"{path.name[: -len('.json')]}-request.json"
             )
             loaded[prefix].append(
                 {
