@@ -42,7 +42,7 @@
 - [ ] **EXAM-02**: Example scenarios are enriched to exercise more of the SDK surface (specialization axes, skilling, HITL, replay) through richer definition artifacts — example code stays thin and generic per No-Hardcoding
 - [ ] **EXAM-03**: The upgraded suite stays CI-green with a single documented command per example; any expected-output change is a reviewed, deliberate event
 - [x] **EXAM-04**: An external agent with zero CCF imports client-side consumes typed Context Products, lineage, and the replay record over the authenticated MCP surface, deterministically in CI, across bare-MCP, Anthropic-SDK, and Google-ADK legs (family charter + `examples/external/00-hello-context`)
-- [ ] **EXAM-05**: The external-consumer example is hardened against the four-AI consensus concerns — live-captured diff-reviewed fixtures with a schema guard and request-fingerprint replay matching, a server-side tool allowlist, byte-path/README/duration assertion hardening — and the three external-consumption tools (`get_context`, `get_lineage`, `get_replay_record`) are promoted into the SDK Experience surface, enabled by default
+- [x] **EXAM-05**: The external-consumer example is hardened against the four-AI consensus concerns — live-captured diff-reviewed fixtures with a schema guard and request-fingerprint replay matching, a server-side tool allowlist, byte-path/README/duration assertion hardening — and the three external-consumption tools (`get_context`, `get_lineage`, `get_replay_record`) are promoted into the SDK Experience surface, enabled by default
 
 ## Future Requirements (deferred)
 
@@ -79,7 +79,7 @@
 | EXAM-02 | Phase 13 | Pending |
 | EXAM-03 | Phase 13 | Pending |
 | EXAM-04 | Phase 13.1 | Complete |
-| EXAM-05 | Phase 13.2 | Pending |
+| EXAM-05 | Phase 13.2 | Complete |
 | DOCS-01 | Phase 14 | Pending |
 | DOCS-02 | Phase 14 | Pending |
 | DOCS-03 | Phase 14 | Pending |
