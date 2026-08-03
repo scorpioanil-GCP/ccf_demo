@@ -2,21 +2,36 @@
   "candidates": [
     {
       "content": {
-        "role": "model",
         "parts": [
           {
-            "text": "Recommendation: extend-credit-line. The credit-context product for borrower FMB-BRW-0007 (Acme Industrial) shows a fully reconciled four-entity neighborhood — borrower, revolving credit facility, and the two surviving financial signals — indicating strengthened liquidity coverage and widened covenant headroom. All four operator categories ran under the bound policy bundle per the product lineage, so I recommend extending the revolving credit line."
+            "functionCall": {
+              "args": {},
+              "id": "ci9xpy8j",
+              "name": "get_replay_record"
+            },
+            "thoughtSignature": "EpkHCpYHARFNMg9n340ukA866iPDSo6xSIT0tfQTn682F2lPk5URQM3iAeQC6bLr40cBtsUOVeUA+CsbR/e9bghEtnFQ5TcfPBOyn0HJ3wnZH88+87zIVB+AS+rTzbeNy6TpgmG+e3WOzEbHygclGNfH1lFG6NglJkWORIJMqPP+NPKUZzCivVvpGXu2NbQ8cFbwkFXbUKTOWMZ7K+BXUHHr63DR4xfH78qdRyRw0k8xnX25ld35DKky7oYOq12gBJuMOxqQSS6JnhvUlAIuqUL4CQy/9lA9TehFaIRPxwGQ5EvZe8x/fzzoe8N2P49rL0qLp8YMFBPrNNSho0AmMBKdHAFE4rEddy9uAC+oHe+mgfC/6UvhjRe2e7Wy+85ZRr4/fFn6SmbDiE9qn1S4y4GkJl0CEtszv8/fQKOiPg4R/JG9BZZ2sjGqKwAWIDEKY155FLCL413KYMyrtvwiHxVAWD6Zof6/eMqfTTxXwTTPbA6YuV0aHis/j2Bd26EUx0e136eD7E+B8F/9uUTXgx9BFtF1UZlWrSD+5bd4wkTeCl7D9quh02Wr/xM5zxkgdPttcbYOaCNMdj8lmSQCxjnwbpFCAiSQ3G4VWXw2KKjjEujiX0fI1Yb3Yv5CvR0xqOUupJVywiKjAbKgIPEys6ZyAOlngssWyMIHFqIc8vXxu1BdbZQ5wzWbUGriFY67TxfY4dWnmrA2MyRrqHKM7Q+BSYF+v+8OJxkmt9aSVc/2si7DrF3xWq0Es2Lk7+OE34WK1ihwTjIUUbx9IJcT1xJJArvMulBThiYojEGficM9ophJjmHZY5O/k2a4g06CiJfVLspx9A0cbxqnodSGoiUZXiIklVB3xsNDbizJmTlmZjXDuoRpFE+bRUzl3Gv8m5kdmx6dGzK6X1IQcdmpYc6yrjSXY98ieJ64Tl2RVnDS/j4mdNioKX6uftgfiBWG4w0brPX/5e4/M12JZTLCHGeT7oiZDiKJiFCTPNPTiAHcHy7RbM2/P4KK6JBZha/65gnbB8BAWTZlIcnFEBYDGzQrGVXkKzPNBgG2iNYtWUrBMURAKfPcuPcnJ1u/dBJfhFhl1fC3eQZK1e1qTlbLKxf5zPlC42IF57zb9foy/hgf7k8Kdf5eznor7VmI8TBJC32PnjLXBpssm5ad8bbeek7TdCzHDdvEjkX60BsnsSW47s1uNHmpCnfmOpw+sVfQ3HHkr0AX8r+mILQ9"
           }
-        ]
+        ],
+        "role": "model"
       },
+      "finishMessage": "Model generated function call(s).",
       "finishReason": "STOP",
       "index": 0
     }
   ],
+  "modelVersion": "gemini-fixture",
+  "responseId": "Ku5vatztJdyIz7IPqOu3CA",
   "usageMetadata": {
-    "promptTokenCount": 1377,
-    "candidatesTokenCount": 88,
-    "totalTokenCount": 1465
-  },
-  "modelVersion": "gemini-fixture"
+    "candidatesTokenCount": 12,
+    "promptTokenCount": 1746,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 1746
+      }
+    ],
+    "serviceTier": "standard",
+    "thoughtsTokenCount": 381,
+    "totalTokenCount": 2139
+  }
 }

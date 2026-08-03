@@ -1,23 +1,35 @@
 {
-  "id": "msg_fixture_anthropic_00",
-  "type": "message",
-  "role": "assistant",
-  "model": "claude-fixture",
   "content": [
     {
-      "type": "tool_use",
-      "id": "toolu_fixture_00",
-      "name": "get_context",
+      "caller": {
+        "type": "direct"
+      },
+      "id": "toolu_01DQpqs9ELPwGJ1VeSaxVfqo",
       "input": {
-        "tenant": "first-meridian-bank",
-        "entity": "FMB-BRW-0007"
-      }
+        "entity": "FMB-BRW-0007",
+        "tenant": "first-meridian-bank"
+      },
+      "name": "get_context",
+      "type": "tool_use"
     }
   ],
+  "id": "msg_011Cdewh5ys29fXqfMc6yxtc",
+  "model": "claude-fixture",
+  "role": "assistant",
+  "stop_details": null,
   "stop_reason": "tool_use",
   "stop_sequence": null,
+  "type": "message",
   "usage": {
-    "input_tokens": 712,
-    "output_tokens": 63
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "not_available",
+    "input_tokens": 862,
+    "output_tokens": 84,
+    "service_tier": "standard"
   }
 }

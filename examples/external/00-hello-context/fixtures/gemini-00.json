@@ -2,27 +2,39 @@
   "candidates": [
     {
       "content": {
-        "role": "model",
         "parts": [
           {
             "functionCall": {
-              "name": "get_context",
               "args": {
-                "tenant": "first-meridian-bank",
-                "entity": "FMB-BRW-0007"
-              }
-            }
+                "entity": "FMB-BRW-0007",
+                "tenant": "first-meridian-bank"
+              },
+              "id": "x08589v3",
+              "name": "get_context"
+            },
+            "thoughtSignature": "ErACCq0CARFNMg/CUvozsSFsgqHbSIX2l8V/39e4xTBCXs8ZsRX5AfqL1xxYKi3ZVsbqWorKUnsJAxcaaN5o+qYUflM/OX3IOvZRj4yw1OFX3tNb5QikqCJDaPIqQH0mrkQPP3GGGcjj1qftTtR7WyOzLAjrjjbXy+WNJ3+fTcPj4j2+/LrDPMnCGb3RxkpW2JJb3fw0f7sAfheJ3XjQY4qT/yiS7Z+5mnZyMoVWLzQlG5ZYRdLbiPBIdbjxwTM3ENrxwmvL1XLNM64E441h/yU+mZ2OIAETvE3p1nCzTjMVUtCZA/fDl+VVJ6yv71BGKSKFoQ7tYtKowfQd3zjttlyLrTebKucOiEtsaAY0gLyd4jHD2wEMHjR+NSsVXl4UXxU6brAr5QTmR+6Qpn4pCUZJeA=="
           }
-        ]
+        ],
+        "role": "model"
       },
+      "finishMessage": "Model generated function call(s).",
       "finishReason": "STOP",
       "index": 0
     }
   ],
+  "modelVersion": "gemini-fixture",
+  "responseId": "Ke5vasfwIubjz7IP7pO-2Ao",
   "usageMetadata": {
-    "promptTokenCount": 655,
-    "candidatesTokenCount": 41,
-    "totalTokenCount": 696
-  },
-  "modelVersion": "gemini-fixture"
+    "candidatesTokenCount": 36,
+    "promptTokenCount": 435,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 435
+      }
+    ],
+    "serviceTier": "standard",
+    "thoughtsTokenCount": 68,
+    "totalTokenCount": 539
+  }
 }

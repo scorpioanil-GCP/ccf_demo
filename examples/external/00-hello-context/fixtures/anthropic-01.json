@@ -1,18 +1,27 @@
 {
-  "id": "msg_fixture_anthropic_01",
-  "type": "message",
-  "role": "assistant",
-  "model": "claude-fixture",
   "content": [
     {
-      "type": "text",
-      "text": "Recommendation: extend-credit-line. The served credit-context product for borrower FMB-BRW-0007 (Acme Industrial) shows a reconciled borrower -> credit_facility -> financial_signal neighborhood of four entities, with the surviving signals indicating strengthened liquidity coverage and widened covenant headroom. The lineage block confirms all four operator categories ran under the bound policy bundle, so I recommend extending the revolving credit line."
+      "text": "Based on the governed context retrieved for borrower FMB-BRW-0007, the system has assembled a credit analysis subgraph containing 4 entities: the borrower entity, one credit facility, and two financial signals that provide evidence for the credit assessment. The context was computed using policy-governed operators including principal subgraph selection, similarity corpus selection, and typed neighborhood traversal as of July 1, 2026. This structured context provides the foundational data relationships needed for credit decision-making, though a full credit recommendation would require examining the specific attributes and risk indicators within these linked entities to assess creditworthiness, repayment capacity, and appropriate facility terms.",
+      "type": "text"
     }
   ],
+  "id": "msg_011CdewhDT5Eewyjqv3Vaxbe",
+  "model": "claude-fixture",
+  "role": "assistant",
+  "stop_details": null,
   "stop_reason": "end_turn",
   "stop_sequence": null,
+  "type": "message",
   "usage": {
-    "input_tokens": 1418,
-    "output_tokens": 96
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "not_available",
+    "input_tokens": 1420,
+    "output_tokens": 146,
+    "service_tier": "standard"
   }
 }

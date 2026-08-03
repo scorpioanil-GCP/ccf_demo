@@ -1,31 +1,142 @@
 {
   "contents": [
     {
-      "role": "user",
       "parts": [
         {
-          "text": "Use the available tools to retrieve the governed context, then state your recommendation."
+          "text": "Call the get_context tool with tenant 'first-meridian-bank' and entity 'FMB-BRW-0007' to retrieve the governed context, then state your credit recommendation in one short paragraph."
         }
-      ]
+      ],
+      "role": "user"
     },
     {
-      "role": "model",
       "parts": [
         {
           "functionCall": {
-            "name": "get_context",
-            "args": {"tenant": "first-meridian-bank", "entity": "FMB-BRW-0007"}
-          }
+            "args": {
+              "entity": "FMB-BRW-0007",
+              "tenant": "first-meridian-bank"
+            },
+            "id": "x08589v3",
+            "name": "get_context"
+          },
+          "thoughtSignature": "ErACCq0CARFNMg_CUvozsSFsgqHbSIX2l8V_39e4xTBCXs8ZsRX5AfqL1xxYKi3ZVsbqWorKUnsJAxcaaN5o-qYUflM_OX3IOvZRj4yw1OFX3tNb5QikqCJDaPIqQH0mrkQPP3GGGcjj1qftTtR7WyOzLAjrjjbXy-WNJ3-fTcPj4j2-_LrDPMnCGb3RxkpW2JJb3fw0f7sAfheJ3XjQY4qT_yiS7Z-5mnZyMoVWLzQlG5ZYRdLbiPBIdbjxwTM3ENrxwmvL1XLNM64E441h_yU-mZ2OIAETvE3p1nCzTjMVUtCZA_fDl-VVJ6yv71BGKSKFoQ7tYtKowfQd3zjttlyLrTebKucOiEtsaAY0gLyd4jHD2wEMHjR-NSsVXl4UXxU6brAr5QTmR-6Qpn4pCUZJeA=="
         }
-      ]
+      ],
+      "role": "model"
     },
     {
-      "role": "user",
       "parts": [
         {
           "functionResponse": {
+            "id": "x08589v3",
             "name": "get_context",
-            "response": {"result": "<canonical JSON of the served first-meridian-bank.credit-context product, as returned by the get_context tool>"}
+            "response": {
+              "content": [
+                {
+                  "text": "{\"expires_at\":\"2026-07-01T10:05:05.000000Z\",\"lineage\":{\"graph_snapshot_at\":\"2026-07-01T10:00:00.000000Z\",\"operators_invoked\":[\"policy.principal-subgraph\",\"similarity.corpus-select\",\"temporal.as-of-boundary\",\"traversal.typed-neighborhood\"],\"policy_bundle_versions\":[\"abb813cd7bf54fc27f2c3608845d8e45f966b1f89d73192537fbb97cc496081c\"]},\"payload\":{\"entities\":[{\"entity_class\":\"borrower\",\"entity_uri\":\"borrower://54e1225b622e91e4144ce5907f748affe60ed56526b051922b2e48abe3654af1\"},{\"entity_class\":\"credit_facility\",\"entity_uri\":\"credit_facility://779cca9cfe21724a7857bde7498fe4368a6a322de95a155aa91c6cb75fa7143d\"},{\"entity_class\":\"financial_signal\",\"entity_uri\":\"financial_signal://ca170a49990fc783b3bee8e347d29602a3b54748e89de493b2269b0e3695a5b8\"},{\"entity_class\":\"financial_signal\",\"entity_uri\":\"financial_signal://cf12450a58071d06b7a07efb65fb60c8798c0a61570392ba165148a88ac731e6\"}],\"entity_count\":4,\"relationship_types\":[\"evidenced_by\",\"holds\"],\"role\":\"credit-analyst\"},\"plan_id\":\"first-meridian-bank.credit-context.plan\",\"schema_name\":\"first-meridian-bank.credit-context\",\"schema_version\":\"1.0.0\",\"temporal_boundary\":\"2026-07-01T10:00:00.000000Z\",\"tenant_id\":\"first-meridian-bank\",\"ttl_anchor\":\"from_decision\"}",
+                  "type": "text"
+                }
+              ],
+              "isError": false,
+              "structuredContent": {
+                "result": "{\"expires_at\":\"2026-07-01T10:05:05.000000Z\",\"lineage\":{\"graph_snapshot_at\":\"2026-07-01T10:00:00.000000Z\",\"operators_invoked\":[\"policy.principal-subgraph\",\"similarity.corpus-select\",\"temporal.as-of-boundary\",\"traversal.typed-neighborhood\"],\"policy_bundle_versions\":[\"abb813cd7bf54fc27f2c3608845d8e45f966b1f89d73192537fbb97cc496081c\"]},\"payload\":{\"entities\":[{\"entity_class\":\"borrower\",\"entity_uri\":\"borrower://54e1225b622e91e4144ce5907f748affe60ed56526b051922b2e48abe3654af1\"},{\"entity_class\":\"credit_facility\",\"entity_uri\":\"credit_facility://779cca9cfe21724a7857bde7498fe4368a6a322de95a155aa91c6cb75fa7143d\"},{\"entity_class\":\"financial_signal\",\"entity_uri\":\"financial_signal://ca170a49990fc783b3bee8e347d29602a3b54748e89de493b2269b0e3695a5b8\"},{\"entity_class\":\"financial_signal\",\"entity_uri\":\"financial_signal://cf12450a58071d06b7a07efb65fb60c8798c0a61570392ba165148a88ac731e6\"}],\"entity_count\":4,\"relationship_types\":[\"evidenced_by\",\"holds\"],\"role\":\"credit-analyst\"},\"plan_id\":\"first-meridian-bank.credit-context.plan\",\"schema_name\":\"first-meridian-bank.credit-context\",\"schema_version\":\"1.0.0\",\"temporal_boundary\":\"2026-07-01T10:00:00.000000Z\",\"tenant_id\":\"first-meridian-bank\",\"ttl_anchor\":\"from_decision\"}"
+              }
+            }
+          }
+        }
+      ],
+      "role": "user"
+    }
+  ],
+  "generationConfig": {},
+  "systemInstruction": {
+    "parts": [
+      {
+        "text": "You are an agent. Your internal name is \"external_consumer\"."
+      }
+    ],
+    "role": "user"
+  },
+  "tools": [
+    {
+      "functionDeclarations": [
+        {
+          "description": "Return the credit-context Context Product for one borrower of one tenant, as canonical JSON. Arguments: tenant (the owning tenant id) and entity (the borrower reference). Serving is replay-recorded fabric-side; the caller carries no audit obligation.",
+          "name": "get_context",
+          "parameters_json_schema": {
+            "properties": {
+              "entity": {
+                "title": "Entity",
+                "type": "string"
+              },
+              "tenant": {
+                "title": "Tenant",
+                "type": "string"
+              }
+            },
+            "required": [
+              "tenant",
+              "entity"
+            ],
+            "title": "get_contextArguments",
+            "type": "object"
+          },
+          "response_json_schema": {
+            "properties": {
+              "result": {
+                "title": "Result",
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "title": "get_contextOutput",
+            "type": "object"
+          }
+        },
+        {
+          "description": "Read-only: return the lineage block of the served credit-context product \u2014 operators invoked, policy bundle versions, graph snapshot instant \u2014 as canonical JSON.",
+          "name": "get_lineage",
+          "parameters_json_schema": {
+            "properties": {},
+            "title": "get_lineageArguments",
+            "type": "object"
+          },
+          "response_json_schema": {
+            "properties": {
+              "result": {
+                "title": "Result",
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "title": "get_lineageOutput",
+            "type": "object"
+          }
+        },
+        {
+          "description": "Read-only: return the five-dimension Decision Replay record the fabric appended for the most recent externally-served product, read back from the ArtifactStore, as canonical JSON.",
+          "name": "get_replay_record",
+          "parameters_json_schema": {
+            "properties": {},
+            "title": "get_replay_recordArguments",
+            "type": "object"
+          },
+          "response_json_schema": {
+            "properties": {
+              "result": {
+                "title": "Result",
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "title": "get_replay_recordOutput",
+            "type": "object"
           }
         }
       ]

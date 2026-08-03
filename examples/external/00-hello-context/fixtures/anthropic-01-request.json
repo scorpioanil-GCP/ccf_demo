@@ -1,31 +1,79 @@
 {
-  "model": "claude-fixture",
   "max_tokens": 1024,
   "messages": [
     {
-      "role": "user",
-      "content": "Use the available tools to retrieve the governed context, then state your recommendation."
+      "content": "Call the get_context tool with tenant 'first-meridian-bank' and entity 'FMB-BRW-0007' to retrieve the governed context, then state your credit recommendation in one short paragraph.",
+      "role": "user"
     },
     {
-      "role": "assistant",
       "content": [
         {
-          "type": "tool_use",
-          "id": "toolu_fixture_00",
+          "caller": {
+            "type": "direct"
+          },
+          "id": "toolu_01DQpqs9ELPwGJ1VeSaxVfqo",
+          "input": {
+            "entity": "FMB-BRW-0007",
+            "tenant": "first-meridian-bank"
+          },
           "name": "get_context",
-          "input": {"tenant": "first-meridian-bank", "entity": "FMB-BRW-0007"}
+          "type": "tool_use"
         }
-      ]
+      ],
+      "role": "assistant"
     },
     {
-      "role": "user",
       "content": [
         {
-          "type": "tool_result",
-          "tool_use_id": "toolu_fixture_00",
-          "content": "<canonical JSON of the served first-meridian-bank.credit-context product, as returned by the get_context tool>"
+          "content": "{\"expires_at\":\"2026-07-01T10:05:05.000000Z\",\"lineage\":{\"graph_snapshot_at\":\"2026-07-01T10:00:00.000000Z\",\"operators_invoked\":[\"policy.principal-subgraph\",\"similarity.corpus-select\",\"temporal.as-of-boundary\",\"traversal.typed-neighborhood\"],\"policy_bundle_versions\":[\"abb813cd7bf54fc27f2c3608845d8e45f966b1f89d73192537fbb97cc496081c\"]},\"payload\":{\"entities\":[{\"entity_class\":\"borrower\",\"entity_uri\":\"borrower://54e1225b622e91e4144ce5907f748affe60ed56526b051922b2e48abe3654af1\"},{\"entity_class\":\"credit_facility\",\"entity_uri\":\"credit_facility://779cca9cfe21724a7857bde7498fe4368a6a322de95a155aa91c6cb75fa7143d\"},{\"entity_class\":\"financial_signal\",\"entity_uri\":\"financial_signal://ca170a49990fc783b3bee8e347d29602a3b54748e89de493b2269b0e3695a5b8\"},{\"entity_class\":\"financial_signal\",\"entity_uri\":\"financial_signal://cf12450a58071d06b7a07efb65fb60c8798c0a61570392ba165148a88ac731e6\"}],\"entity_count\":4,\"relationship_types\":[\"evidenced_by\",\"holds\"],\"role\":\"credit-analyst\"},\"plan_id\":\"first-meridian-bank.credit-context.plan\",\"schema_name\":\"first-meridian-bank.credit-context\",\"schema_version\":\"1.0.0\",\"temporal_boundary\":\"2026-07-01T10:00:00.000000Z\",\"tenant_id\":\"first-meridian-bank\",\"ttl_anchor\":\"from_decision\"}",
+          "tool_use_id": "toolu_01DQpqs9ELPwGJ1VeSaxVfqo",
+          "type": "tool_result"
         }
-      ]
+      ],
+      "role": "user"
+    }
+  ],
+  "model": "claude-fixture",
+  "tools": [
+    {
+      "description": "Return the credit-context Context Product for one borrower of one tenant, as canonical JSON. Arguments: tenant (the owning tenant id) and entity (the borrower reference). Serving is replay-recorded fabric-side; the caller carries no audit obligation.",
+      "input_schema": {
+        "properties": {
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "tenant": {
+            "title": "Tenant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant",
+          "entity"
+        ],
+        "title": "get_contextArguments",
+        "type": "object"
+      },
+      "name": "get_context"
+    },
+    {
+      "description": "Read-only: return the lineage block of the served credit-context product \u2014 operators invoked, policy bundle versions, graph snapshot instant \u2014 as canonical JSON.",
+      "input_schema": {
+        "properties": {},
+        "title": "get_lineageArguments",
+        "type": "object"
+      },
+      "name": "get_lineage"
+    },
+    {
+      "description": "Read-only: return the five-dimension Decision Replay record the fabric appended for the most recent externally-served product, read back from the ArtifactStore, as canonical JSON.",
+      "input_schema": {
+        "properties": {},
+        "title": "get_replay_recordArguments",
+        "type": "object"
+      },
+      "name": "get_replay_record"
     }
   ]
 }

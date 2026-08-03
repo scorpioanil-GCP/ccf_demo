@@ -1,21 +1,105 @@
 {
   "contents": [
     {
-      "role": "user",
       "parts": [
         {
-          "text": "Use the available tools to retrieve the governed context, then state your recommendation."
+          "text": "Call the get_context tool with tenant 'first-meridian-bank' and entity 'FMB-BRW-0007' to retrieve the governed context, then state your credit recommendation in one short paragraph."
         }
-      ]
+      ],
+      "role": "user"
     }
   ],
+  "generationConfig": {},
+  "systemInstruction": {
+    "parts": [
+      {
+        "text": "You are an agent. Your internal name is \"external_consumer\"."
+      }
+    ],
+    "role": "user"
+  },
   "tools": [
     {
       "functionDeclarations": [
-        {"name": "list_agents", "description": "discovered from the CCF experience server's tools/list at run time", "parameters": {"type": "OBJECT", "properties": {"tenant": {"type": "STRING"}}}},
-        {"name": "get_context", "description": "discovered from the CCF experience server's tools/list at run time", "parameters": {"type": "OBJECT", "properties": {"tenant": {"type": "STRING"}, "entity": {"type": "STRING"}}}},
-        {"name": "get_lineage", "description": "discovered from the CCF experience server's tools/list at run time", "parameters": {"type": "OBJECT", "properties": {}}},
-        {"name": "get_replay_record", "description": "discovered from the CCF experience server's tools/list at run time", "parameters": {"type": "OBJECT", "properties": {}}}
+        {
+          "description": "Return the credit-context Context Product for one borrower of one tenant, as canonical JSON. Arguments: tenant (the owning tenant id) and entity (the borrower reference). Serving is replay-recorded fabric-side; the caller carries no audit obligation.",
+          "name": "get_context",
+          "parameters_json_schema": {
+            "properties": {
+              "entity": {
+                "title": "Entity",
+                "type": "string"
+              },
+              "tenant": {
+                "title": "Tenant",
+                "type": "string"
+              }
+            },
+            "required": [
+              "tenant",
+              "entity"
+            ],
+            "title": "get_contextArguments",
+            "type": "object"
+          },
+          "response_json_schema": {
+            "properties": {
+              "result": {
+                "title": "Result",
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "title": "get_contextOutput",
+            "type": "object"
+          }
+        },
+        {
+          "description": "Read-only: return the lineage block of the served credit-context product \u2014 operators invoked, policy bundle versions, graph snapshot instant \u2014 as canonical JSON.",
+          "name": "get_lineage",
+          "parameters_json_schema": {
+            "properties": {},
+            "title": "get_lineageArguments",
+            "type": "object"
+          },
+          "response_json_schema": {
+            "properties": {
+              "result": {
+                "title": "Result",
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "title": "get_lineageOutput",
+            "type": "object"
+          }
+        },
+        {
+          "description": "Read-only: return the five-dimension Decision Replay record the fabric appended for the most recent externally-served product, read back from the ArtifactStore, as canonical JSON.",
+          "name": "get_replay_record",
+          "parameters_json_schema": {
+            "properties": {},
+            "title": "get_replay_recordArguments",
+            "type": "object"
+          },
+          "response_json_schema": {
+            "properties": {
+              "result": {
+                "title": "Result",
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "title": "get_replay_recordOutput",
+            "type": "object"
+          }
+        }
       ]
     }
   ]
