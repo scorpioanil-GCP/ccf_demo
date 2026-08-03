@@ -35,9 +35,10 @@ everything the family charter claims actually held:
 
 Every domain and deployment value comes from ``artifacts/*.yaml`` or the
 versioned ``fixtures/`` (CLAUDE.md §6.4); this file interprets. Readiness
-is a blocking ``readline()`` on each child's ``READY <port>`` line — no
-sleeps. Children are terminated in ``finally`` with a kill fallback
-(T-13.1-14; example-04 precedent).
+is a ``readline()`` on each child's ``READY <port>`` line, bounded by
+``READY_TIMEOUT_SECONDS`` — no sleeps, and no unbounded wait either.
+Children are terminated in ``finally`` with a kill fallback (T-13.1-14;
+example-04 precedent).
 
 Run it: ``make example-ext-00``. Live variants (never CI, D-11):
 ``make example-ext-00-live-anthropic`` / ``make example-ext-00-live-adk``.
@@ -50,6 +51,7 @@ import asyncio
 import json
 import os
 import re
+import select
 import subprocess
 import sys
 import tempfile
@@ -96,6 +98,11 @@ from datetime import timedelta  # noqa: E402
 ARTIFACTS = _EXAMPLE_ROOT / "artifacts"
 FIXTURES = _EXAMPLE_ROOT / "fixtures"
 TERMINATE_TIMEOUT_SECONDS = 10.0
+#: Bound on the wait for a child's `READY <port>` line. Generous enough
+#: for a cold uvicorn start on a loaded CI runner, finite so a child that
+#: starts but never binds fails the build with a diagnostic instead of
+#: hanging it (no diagnostic, no timeout, no signal).
+READY_TIMEOUT_SECONDS = 60.0
 ALL_LEGS = ("bare", "anthropic", "adk")
 
 #: Fixture-matching label for the Gemini leg. The Anthropic label is read
@@ -212,28 +219,52 @@ class HelloReplayEnvironment:
 def _spawn(
     script: str, stderr_dir: Path, env: dict[str, str] | None = None
 ) -> tuple[subprocess.Popen[bytes], int]:
-    """Spawn a READY-announcing child; block on its announcement line.
+    """Spawn a READY-announcing child; wait, bounded, for its line.
 
-    A child that dies before announcing (the D-06 unpaired-fixture
-    refusal, for one) closes stdout, so the blocking readline returns
-    empty and the assertion below names the script and its stderr file —
-    a visible failure, never a hang.
+    Two failure modes, both visible rather than fatal-by-hanging:
+
+    * A child that DIES before announcing (the D-06 unpaired-fixture
+      refusal, for one) closes stdout, so the readline returns empty and
+      the raise below names the script and its stderr file.
+    * A child that STARTS but never reaches READY — a uvicorn bind that
+      stalls, a fixture load that blocks — used to hang this process
+      forever, and since this runs in CI it hung the build with no
+      diagnostic. `select` bounds the wait at
+      `READY_TIMEOUT_SECONDS`, then kills the child and raises.
+
+    The stderr file handle is closed on every path (it was leaked
+    outright on the old exception path); the child keeps its own dup of
+    the descriptor.
     """
     stderr_path = stderr_dir / f"{Path(script).stem}.stderr"
-    proc = subprocess.Popen(
-        [sys.executable, str(_EXAMPLE_ROOT / script)],
-        stdout=subprocess.PIPE,
-        stderr=stderr_path.open("wb"),
-        start_new_session=True,
-        env=env,
-    )
-    assert proc.stdout is not None
-    announcement = proc.stdout.readline().decode().strip()
-    if not announcement.startswith("READY "):
-        raise AssertionError(
-            f"{script} did not announce readiness: {announcement!r}; see "
-            f"{stderr_path}"
+    with stderr_path.open("wb") as stderr_file:
+        proc = subprocess.Popen(
+            [sys.executable, str(_EXAMPLE_ROOT / script)],
+            stdout=subprocess.PIPE,
+            stderr=stderr_file,
+            start_new_session=True,
+            env=env,
         )
+    if proc.stdout is None:  # pragma: no cover - stdout=PIPE was requested
+        raise AssertionError(f"{script} was spawned without a stdout pipe")
+    try:
+        ready, _, _ = select.select(
+            [proc.stdout], [], [], READY_TIMEOUT_SECONDS
+        )
+        if not ready:
+            raise AssertionError(
+                f"{script} did not announce readiness within "
+                f"{READY_TIMEOUT_SECONDS:.0f}s; see {stderr_path}"
+            )
+        announcement = proc.stdout.readline().decode().strip()
+        if not announcement.startswith("READY "):
+            raise AssertionError(
+                f"{script} did not announce readiness: {announcement!r}; see "
+                f"{stderr_path}"
+            )
+    except BaseException:
+        _terminate(proc)
+        raise
     return proc, int(announcement.split()[1])
 
 
