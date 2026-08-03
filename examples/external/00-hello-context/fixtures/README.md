@@ -32,29 +32,51 @@ recording fails loudly rather than looping.
 
 Fixtures are versioned in git, and regenerating them is a **reviewed
 event**: the new request/response pairs land in a commit whose diff a
-human reviews before merge — never a silent refresh. Regenerate by
-running each leg live and capturing the wire traffic:
+human reviews before merge — never a silent refresh. The in-tree
+recording proxy (`capture_proxy.py`) and diff utility
+(`diff_fixtures.py`) make both halves mechanical.
+
+### Capture
 
 1. Start the fabric: `python serve.py` (note the `READY <port>` line) and
    export `CCF_MCP_URL=http://127.0.0.1:<port>/mcp` plus `CCF_TOKEN` (the
    active token in `artifacts/tokens.yaml`).
-2. **Unset the replay redirects** — `ANTHROPIC_BASE_URL` and
-   `GOOGLE_GEMINI_BASE_URL` must not be set.
-3. Export real credentials: `ANTHROPIC_API_KEY` (Anthropic leg) and
+2. Export real credentials: `ANTHROPIC_API_KEY` (Anthropic leg) and
    `GOOGLE_API_KEY` (ADK leg) — from your environment, never committed.
-4. Export the live model names from `artifacts/experience.yaml`
+3. Start the recording proxy with a scratch output directory:
+   `python fixtures/capture_proxy.py /tmp/capture-out` (note its
+   `READY <port>` line). The proxy forwards each POST to the real vendor
+   API — the key is injected into outbound headers at forward time — and
+   tees the request body to `<prefix>-NN-request.json` and the response
+   body to `<prefix>-NN.json`. **Bodies only, never headers**, in either
+   direction: headers are where key material rides.
+4. Point the client legs at the proxy via the same base-URL seam the
+   replay server uses: `ANTHROPIC_BASE_URL=http://127.0.0.1:<proxy-port>`
+   and `GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:<proxy-port>`.
+5. Export the live model names from `artifacts/experience.yaml`
    (`live_mode.anthropic_model` -> `CCF_EXAMPLE_MODEL`,
    `live_mode.gemini_model` -> `CCF_EXAMPLE_GEMINI_MODEL`).
-5. Run each leg through a recording proxy (e.g. `mitmproxy`) or with the
-   SDKs' HTTP-level logging enabled, and save each POST body as
-   `<prefix>-NN-request.json` and each response body as
-   `<prefix>-NN.json`, in conversation order, pretty-printed.
-6. Re-run the offline harness (serve.py + replay_server.py with the
-   base-URL redirects restored) and confirm both legs exit 0 before
-   committing.
+6. Run each leg (`python client_anthropic.py`, `python client_adk.py`).
+   The recordings land in the scratch directory in conversation order.
 
-When recording, replace live model identifiers in the saved responses
-with the fixture names the CI harness passes (`claude-fixture`,
-`gemini-fixture`) only if you want CI to keep asserting on those names;
-otherwise update the harness env accordingly — either way the change is
-part of the reviewed diff.
+### Normalize
+
+Replace the live model identifiers in the recorded files with the fixture
+names the CI harness passes: `claude-fixture` in the Anthropic
+request/response `model` fields, `gemini-fixture` for the Gemini leg
+(its model rides in the URL path, so only response `modelVersion`-style
+fields need touching). The ordinal count is data, not contract — commit
+whatever conversation actually happened.
+
+### Diff review (the D-10 reviewed-event mechanism)
+
+7. Render the review diff with the stdlib utility:
+   `python fixtures/diff_fixtures.py fixtures /tmp/capture-out` — it
+   re-serializes each JSON file canonically and prints a unified diff,
+   exiting nonzero when anything differs. A human reads this diff before
+   the recordings replace the checked-in fixtures.
+8. Copy the reviewed recordings into `fixtures/`, then re-run the offline
+   harness (`make example-ext-00`) and confirm all assertions pass before
+   committing. Verify no key material:
+   `grep -rE "sk-ant|AIza|Authorization" fixtures/*.json` must match
+   nothing.
