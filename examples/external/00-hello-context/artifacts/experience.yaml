@@ -11,9 +11,9 @@
 # [MECHANISM] structural keys interpreted by serve.py — do not rename
 #
 # [ADAPT]: server_name, issuer/resource URLs, scope names, tool prose,
-# model name.
-# [MECHANISM]: `auth`, `tools`, `agent_exposure`, `live_mode` and their
-# inner field names.
+# model name, allowlisted tool names.
+# [MECHANISM]: `auth`, `tools`, `tool_allowlist`, `agent_exposure`,
+# `live_mode` and their inner field names.
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
@@ -50,6 +50,18 @@ tools:
       Read-only: return the five-dimension Decision Replay record the
       fabric appended for the most recent externally-served product, read
       back from the ArtifactStore, as canonical JSON.
+
+# [MECHANISM] `tool_allowlist`: the D-05 exposure control passed into
+# `build_experience_server`. A tool absent from this list is never
+# registered, so tools/list cannot advertise it and a model physically
+# cannot call it (registration-time omission — D-IMPL-74). This deployment
+# advertises exactly the three external-consumption tools; the agent
+# tools (list_agents, invoke_agent) are deliberately absent because this
+# example exposes no agents (see agent_exposure below).
+tool_allowlist:
+  - get_context  # [ADAPT]
+  - get_lineage  # [ADAPT]
+  - get_replay_record  # [ADAPT]
 
 # This example exposes NO agents on the front door (hello-world scope):
 # the agent directory returns an empty tuple and invocation refuses. The
