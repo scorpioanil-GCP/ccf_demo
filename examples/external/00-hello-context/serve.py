@@ -566,7 +566,14 @@ def main() -> None:
         assembled = build_credit_context(
             database_path=Path(scratch) / "fabric.sqlite3"
         )
-        latest: dict[str, ArtifactRef | None] = {"replay_ref": None}
+        # Keyed by the VERIFIED client identity, not a single process-global
+        # slot. A shared slot served whichever record was written last to
+        # whichever caller asked next: client A's decision record was
+        # readable by client B, and under concurrency a caller could read a
+        # record that was not its own even with one client. The
+        # ServeRequestRecord below is already per-client_id, so the
+        # deployment distinguishes callers everywhere else too.
+        latest: dict[str, ArtifactRef] = {}
 
         def _serve_recorded(request: str) -> bytes:
             # D-13/D-14: the replay record is appended BEFORE the bytes can
@@ -575,13 +582,20 @@ def main() -> None:
             # arguments or URI, timestamp — is captured fabric-side. The
             # client carries no obligation.
             token = get_access_token()
-            assert token is not None  # auth middleware refused already if not
+            if token is None:
+                # Unreachable behind the auth middleware, which refuses an
+                # unverified caller before the tool body runs — but the
+                # dereference below is a guarantee, not a hint, and a bare
+                # assert would vanish under `python -O`.
+                raise ExperienceProductNotServable(
+                    "no verified access token in context"
+                )
             served = serve(
                 product=assembled.servable,
                 record=assembled.record,
                 replay_writer=writer,
             )
-            latest["replay_ref"] = served.replay_ref
+            latest[token.client_id] = served.replay_ref
             store.put(
                 tenant_id=assembled.address.tenant,
                 artifact_class=serve_request_class,
@@ -628,10 +642,17 @@ def main() -> None:
             )
 
         def replay_record_reader() -> str:
-            ref = latest["replay_ref"]
+            # Read back under the SAME verified identity that wrote it: a
+            # caller reads its own decision record and no one else's.
+            token = get_access_token()
+            if token is None:
+                raise ExperienceProductNotServable(
+                    "no verified access token in context"
+                )
+            ref = latest.get(token.client_id)
             if ref is None:
                 raise ExperienceProductNotServable(
-                    "no product has been served yet"
+                    "no product has been served to this client yet"
                 )
             return store.get(content_address=ref.content_address).decode(
                 "utf-8"
