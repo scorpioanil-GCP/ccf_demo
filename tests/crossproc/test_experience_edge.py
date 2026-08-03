@@ -245,6 +245,152 @@ def test_an_allowlist_excluded_tool_is_never_registered(
     } <= advertised
 
 
+# --- builder fail-fast validation (D-01/D-03/D-05; Dave, 2026-08-02) --------
+
+
+def _builder_kwargs(tmp_path: Path) -> dict[str, Any]:
+    """Minimal valid arguments for :func:`build_experience_server`.
+
+    Only the unconditionally-required seams are supplied. The
+    conditionally-required provider/description pairs (D-03) are each test's
+    business, which is the point: what is required now depends on what the
+    allowlist admits, not on the signature.
+    """
+    from mcp.server.auth.settings import AuthSettings
+    from pydantic import AnyHttpUrl
+
+    from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
+
+    from crossproc.servers.mcp_experience_child import (
+        ISSUER_URL,
+        RESOURCE_SERVER_URL,
+        SCOPE,
+        SERVER_NAME,
+        write_token_file,
+    )
+
+    def unreachable(*args: Any, **kwargs: Any) -> Any:  # pragma: no cover
+        raise AssertionError("a construction-time test calls no seam")
+
+    return {
+        "server_name": SERVER_NAME,
+        "product_resolver": unreachable,
+        "agent_directory": unreachable,
+        "agent_invoker": unreachable,
+        "token_verifier": SourceBackedTokenVerifier(
+            source=FileTokenSource(path=write_token_file(workspace=tmp_path))
+        ),
+        "auth_settings": AuthSettings(
+            issuer_url=AnyHttpUrl(ISSUER_URL),
+            resource_server_url=AnyHttpUrl(RESOURCE_SERVER_URL),
+            required_scopes=[SCOPE],
+        ),
+    }
+
+
+def test_an_unknown_allowlist_entry_is_refused(tmp_path: Path) -> None:
+    """D-01 (Dave, 2026-08-02): the allowlist fails closed, never fails open.
+
+    An allowlist naming a tool the SDK does not have used to register nothing
+    and say nothing, so the surface the deployment intended and the surface
+    actually served diverged in silence. The builder now refuses, naming the
+    entry it could not resolve.
+    """
+    from ccf_runtime.mcp.experience import build_experience_server
+
+    with pytest.raises(ValueError) as raised:
+        build_experience_server(
+            tool_allowlist=frozenset({"not_a_tool"}),
+            **_builder_kwargs(tmp_path),
+        )
+
+    assert "not_a_tool" in str(raised.value)
+
+
+def test_an_allowlisted_tool_without_its_provider_is_refused(
+    tmp_path: Path,
+) -> None:
+    """D-03 (Dave, 2026-08-02): allowlisted implies provider *and* description.
+
+    The providers are Optional now (D-04), so requiredness had to move
+    somewhere; registration time is where it can be conditional on the
+    allowlist. A tool admitted with no seam behind it would advertise itself
+    and then fail on first call — the failure belongs at build time.
+    """
+    from ccf_runtime.mcp.experience import (
+        GET_CONTEXT_TOOL,
+        build_experience_server,
+    )
+
+    with pytest.raises(ValueError) as raised:
+        build_experience_server(
+            tool_allowlist=frozenset({GET_CONTEXT_TOOL}),
+            context_provider=None,
+            get_context_description="served for this test only",
+            **_builder_kwargs(tmp_path),
+        )
+
+    assert GET_CONTEXT_TOOL in str(raised.value)
+
+
+def test_an_allowlisted_tool_without_its_description_is_refused(
+    tmp_path: Path,
+) -> None:
+    """D-03: the description leg is required on the same terms as the provider.
+
+    Asymmetric with the agent tools on purpose (D-13): the consumption tools
+    author no prose of their own (CINV-01), so an absent description is a
+    missing deployment value, not a defaultable one.
+    """
+    from ccf_runtime.mcp.experience import (
+        GET_CONTEXT_TOOL,
+        build_experience_server,
+    )
+
+    def provide_context(*, tenant: str, entity: str) -> str:  # pragma: no cover
+        raise AssertionError("a construction-time test calls no seam")
+
+    with pytest.raises(ValueError) as raised:
+        build_experience_server(
+            tool_allowlist=frozenset({GET_CONTEXT_TOOL}),
+            context_provider=provide_context,
+            get_context_description=None,
+            **_builder_kwargs(tmp_path),
+        )
+
+    assert GET_CONTEXT_TOOL in str(raised.value)
+
+
+def test_the_agent_tools_advertise_the_sdk_default_descriptions(
+    tmp_path: Path,
+) -> None:
+    """D-12/D-13 (Dave, 2026-08-02): the agent tools are parameterized too.
+
+    They used to fall through to their inner functions' docstrings, which is
+    exactly the CINV-01 unevenness the promoted tools do not have. They now
+    carry ``description=`` like every sibling, defaulting to SDK constants
+    when the deployment supplies none — the deliberate asymmetry D-13 rules.
+    """
+    import anyio
+
+    from ccf_runtime.mcp.experience import (
+        DEFAULT_INVOKE_AGENT_DESCRIPTION,
+        DEFAULT_LIST_AGENTS_DESCRIPTION,
+        INVOKE_AGENT_TOOL,
+        LIST_AGENTS_TOOL,
+    )
+
+    from crossproc.servers.mcp_experience_child import build_server
+
+    server = build_server(workspace=tmp_path)
+    advertised = {
+        tool.name: tool.description for tool in anyio.run(server.list_tools)
+    }
+
+    assert advertised[LIST_AGENTS_TOOL] == DEFAULT_LIST_AGENTS_DESCRIPTION
+    assert advertised[INVOKE_AGENT_TOOL] == DEFAULT_INVOKE_AGENT_DESCRIPTION
+
+
 # --- the cross-process round trips ------------------------------------------
 
 
