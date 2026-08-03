@@ -1,4 +1,4 @@
-"""examples/external/00-hello-context — one command, four legs, six assertions.
+"""examples/external/00-hello-context — one command, four legs, eight assertions.
 
 The fabric-side orchestrator (CCF imports are allowed HERE and only here —
 the client legs stay zero-CCF-import by charter, D-05/D-06). One process
@@ -15,12 +15,18 @@ everything the family charter claims actually held:
    CI run proves the refusal path stays live (T-13.1-11).
 3. **Zero CCF imports in the client legs (D-06).** A static grep over
    ``client_*.py`` — the charter's mechanical enforcement.
-4. **Seven-heading README (D-17).** Exactly seven ``## `` headings, per the
-   Phase-13 D-02 template; the ``.mcp.json`` docs-only leg lives there.
+4. **Seven-heading README (D-17/D-08).** The seven Phase-13 D-02 template
+   headings, matched by exact name and order (``README_HEADINGS``); the
+   ``.mcp.json`` docs-only leg lives there.
 5. **D-15 retrieval.** The bare leg's output shows lineage AND the
    five-dimension Decision Replay record (whitepaper §7.10) retrieved over
    the same authenticated MCP surface the product came from.
-6. **D-16 byte-equal reproduction (T-13.1-12).** The serve-time replay
+6. **D-07 byte-path probe.** In one authenticated session, the templated
+   Experience resource and the ``get_context`` tool serve byte-identical
+   product serializations — the dual serve paths cannot silently diverge.
+7. **Allowlist visibility (D-05).** ``tools/list`` advertises exactly the
+   tool names ``artifacts/experience.yaml`` allowlists — nothing more.
+8. **D-16 byte-equal reproduction (T-13.1-12).** The serve-time replay
    record is resolved from the file-backed ArtifactStore (CLAUDE.md §7.4)
    at its exact content address, replayed through
    ``ccf.replay.engine.replay`` against a rebuilt-from-artifacts fabric,
@@ -46,6 +52,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -65,6 +72,7 @@ for _root in (
 
 import httpx  # noqa: E402
 import yaml  # noqa: E402
+from pydantic import AnyUrl  # noqa: E402
 from mcp import ClientSession  # noqa: E402
 from mcp.client.streamable_http import streamablehttp_client  # noqa: E402
 
@@ -96,6 +104,20 @@ ALL_LEGS = ("bare", "anthropic", "adk")
 #: as ``fixtures/README.md`` documents it. It names a fixture, never a
 #: deployment model — live model names live in ``artifacts/experience.yaml``.
 GEMINI_FIXTURE_LABEL = "gemini-fixture"
+
+#: The seven Phase-13 D-02 template headings, by exact name and in order
+#: (D-08). One module-level tuple is the single source of truth for the
+#: README structural assertion — a count alone would accept a renamed or
+#: reordered README (RESEARCH Pitfall 6).
+README_HEADINGS = (
+    "What this demonstrates",
+    "Run it",
+    "The story",
+    "Artifact-by-artifact",
+    "Whitepaper / CLAUDE.md sections exercised",
+    "What to change first",
+    "What would fail",
+)
 
 
 class HelloReplayEnvironment:
@@ -226,6 +248,37 @@ async def _mcp_call_text(url: str, token: str, tool: str, arguments: dict) -> st
     return "".join(getattr(block, "text", "") for block in result.content)
 
 
+async def _mcp_probe(
+    url: str,
+    token: str,
+    resource_uri: str,
+    tool: str,
+    arguments: dict,
+) -> tuple[str, str, frozenset[str]]:
+    """One authenticated session, three reads (D-07 + allowlist visibility).
+
+    Returns the templated Experience resource's text (``read_resource`` —
+    the ``canonical_bytes(servable.product)`` path in
+    ``ccf_runtime.mcp.experience``), the ``get_context`` tool's text (the
+    serve path), and the set of tool names ``tools/list`` advertises.
+    """
+    headers = {"Authorization": f"Bearer {token}"}
+    async with streamablehttp_client(url, headers=headers) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            resource = await session.read_resource(AnyUrl(resource_uri))
+            result = await session.call_tool(tool, arguments)
+            listing = await session.list_tools()
+    assert not result.isError, f"{tool} refused: {result.content}"
+    resource_text = "".join(
+        getattr(block, "text", "") for block in resource.contents
+    )
+    tool_text = "".join(
+        getattr(block, "text", "") for block in result.content
+    )
+    return resource_text, tool_text, frozenset(t.name for t in listing.tools)
+
+
 def _run_leg(script: str, env: dict[str, str]) -> str:
     completed = subprocess.run(
         [sys.executable, str(_EXAMPLE_ROOT / script)],
@@ -315,15 +368,24 @@ def _assert_zero_ccf_imports() -> None:
 
 
 def _assert_seven_heading_readme() -> None:
-    """D-17: exactly seven `## ` headings, per the Phase-13 D-02 template."""
+    """D-17/D-08: the seven Phase-13 template headings, by name, in order."""
     readme = (_EXAMPLE_ROOT / "README.md").read_text(encoding="utf-8")
-    headings = [
-        line for line in readme.splitlines() if line.startswith("## ")
-    ]
-    assert len(headings) == 7, (
-        f"README.md has {len(headings)} '## ' headings; the template "
-        f"requires exactly 7: {headings}"
+    headings = tuple(
+        line[len("## "):].strip()
+        for line in readme.splitlines()
+        if line.startswith("## ")
     )
+    assert len(headings) == len(README_HEADINGS), (
+        f"README.md has {len(headings)} '## ' headings; the template "
+        f"requires exactly {len(README_HEADINGS)}: {headings}"
+    )
+    for position, (actual, expected) in enumerate(
+        zip(headings, README_HEADINGS), start=1
+    ):
+        assert actual == expected, (
+            f"README.md heading {position} is {actual!r}; the Phase-13 "
+            f"template requires {expected!r} at that position (D-08)"
+        )
 
 
 def _assert_byte_equal_reproduction(served_bytes: bytes) -> None:
@@ -404,6 +466,7 @@ def _assert_byte_equal_reproduction(served_bytes: bytes) -> None:
 
 
 def main() -> int:
+    started = time.monotonic()  # D-09: soft annotation only, never a gate
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--legs",
@@ -476,7 +539,10 @@ def main() -> int:
             print("PASS 3: zero CCF imports in client_*.py (D-06)")
 
             _assert_seven_heading_readme()
-            print("PASS 4: README has exactly seven '## ' headings (D-17)")
+            print(
+                "PASS 4: README headings match the seven Phase-13 template "
+                "names in order (D-17/D-08)"
+            )
 
             # D-15: lineage and the five-dimension replay record were
             # retrieved OVER MCP. The bare leg carries the demonstration;
@@ -507,11 +573,20 @@ def main() -> int:
             )
             print("PASS 5: lineage + replay record retrieved over MCP (D-15)")
 
-            # Capture the exact bytes the front door serves, for D-16.
-            served_text = asyncio.run(
-                _mcp_call_text(
+            # One authenticated session: the templated Experience resource,
+            # the get_context tool (this also captures the exact bytes the
+            # front door serves, for D-16), and tools/list.
+            declared_class = product_doc["product_class"]
+            resource_uri = fabric.experience_product_uri(
+                tenant=ontology["tenant_id"],
+                product_class=declared_class["schema_name"],
+                version=declared_class["schema_version"],
+            )
+            resource_text, served_text, advertised = asyncio.run(
+                _mcp_probe(
                     url,
                     active["token"],
+                    resource_uri,
                     experience["tools"]["get_context"]["name"],
                     {
                         "tenant": ontology["tenant_id"],
@@ -519,17 +594,46 @@ def main() -> int:
                     },
                 )
             )
+
+            # D-07: both serve paths — the templated resource
+            # (canonical_bytes in ccf_runtime.mcp.experience) and the
+            # get_context tool (the deployment's serve path) — must yield
+            # byte-identical product serializations.
+            assert resource_text.encode("utf-8") == served_text.encode(
+                "utf-8"
+            ), (
+                "the Experience resource path and the get_context tool "
+                "serve different bytes for the same product — dual "
+                "serve-path serialization divergence (D-07)"
+            )
+            print(
+                "PASS 6: resource path and get_context serve identical "
+                "bytes (D-07)"
+            )
+
+            # Allowlist visibility: tools/list advertises exactly the
+            # artifact-carried allowlist — nothing filtered, nothing extra.
+            allowlist = frozenset(experience["tool_allowlist"])
+            assert advertised == allowlist, (
+                f"tools/list advertises {sorted(advertised)} but the "
+                f"artifact allowlist declares {sorted(allowlist)} (D-05)"
+            )
+            print(
+                "PASS 7: advertised tools equal the artifact allowlist "
+                "(D-05)"
+            )
         finally:
             _terminate(serve_proc)
             _terminate(replay_proc)
 
         _assert_byte_equal_reproduction(served_text.encode("utf-8"))
-        print("PASS 6: fabric-side byte-equal reproduction (D-16)")
+        print("PASS 8: fabric-side byte-equal reproduction (D-16)")
 
     docs_leg = " + docs-only .mcp.json leg" if not args.live else ""
+    print(f"duration: {time.monotonic() - started:.1f}s")
     print(
         "examples/external/00-hello-context: OK "
-        f"({len(legs)} runnable legs{docs_leg}; 6 assertions)"
+        f"({len(legs)} runnable legs{docs_leg}; 8 assertions)"
     )
     return 0
 

@@ -26,9 +26,11 @@ charter's zero-CCF-imports rule — see [`../README.md`](../README.md)):
 `run.py` orchestrates the fabric and all runnable legs offline and
 asserts, every CI run: legs exit 0; a revoked bearer token is refused
 with 401; the client legs contain zero CCF imports; this README keeps its
-seven-heading shape; lineage and the replay record were retrieved over
-MCP; and the served bytes are reproduced **byte-equal** from the replay
-record alone, fabric-side.
+seven-heading shape (by exact name and order); lineage and the replay
+record were retrieved over MCP; the templated resource and the
+`get_context` tool serve byte-identical product JSON; `tools/list`
+advertises exactly the artifact allowlist; and the served bytes are
+reproduced **byte-equal** from the replay record alone, fabric-side.
 
 ## Run it
 
@@ -180,8 +182,10 @@ the point — they never knew the domain existed.
 | --- | --- |
 | Bearer auth on from day one (no anonymous mode) | `run.py` PASS 2: the revoked token from `artifacts/tokens.yaml` must be refused with HTTP 401; a server that stopped enforcing auth fails CI |
 | Zero CCF imports in client legs (family charter) | `run.py` PASS 3: a static grep over `client_*.py` for `import ccf` / `from ccf_runtime` fails the run on any match |
-| Seven-heading README template | `run.py` PASS 4: `grep -c '^## '` on this file must equal exactly 7 |
+| Seven-heading README template | `run.py` PASS 4: the seven `## ` headings on this file must match the template names, in order (`README_HEADINGS` in `run.py`) |
 | Lineage and replay readable by clients over MCP | `run.py` PASS 5: the bare leg's output must show `operators_invoked` and `content_generation_path` retrieved over the front door |
-| Replay record lands before bytes leave; byte-equal reproduction | `run.py` PASS 6: the record resolved from `.store/` at its exact content address must replay to the served bytes; any drift in artifacts, operators, or state raises a divergence |
+| One serialization across both serve paths | `run.py` PASS 6: the templated Experience resource and the `get_context` tool must return byte-identical product JSON in one authenticated session |
+| Allowlist is the whole advertised surface | `run.py` PASS 7: `tools/list` must equal `tool_allowlist` from `artifacts/experience.yaml` — a tool registered outside the artifact fails the run |
+| Replay record lands before bytes leave; byte-equal reproduction | `run.py` PASS 8: the record resolved from `.store/` at its exact content address must replay to the served bytes; any drift in artifacts, operators, or state raises a divergence |
 | No-Hardcoding Rule (CLAUDE.md §6.4) | `make lint`: prompt prose, tool descriptions, tokens, model names, or thresholds appearing in any `.py` here fail the CI lint |
 | Gate-admitted products only | `serve.py`'s self-check: the served payload must match `artifacts/product.yaml` `expected:` before the server ever announces `READY` |
