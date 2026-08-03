@@ -48,6 +48,16 @@ def test_internal_derived_doc_is_a_positive_control() -> None:
     assert len([f for f in findings if RULE_SHINGLE in f]) > 20
 
 
+def test_html_element_boundaries_do_not_mask_a_quote() -> None:
+    # Rendered pages break sentences across elements; if tags were not
+    # stripped before normalization, one `<em>` would defeat the whole gate.
+    quoted = (
+        "only the Assembly worker holds a <em>write handle</em> to the graph"
+    )
+    findings = scan_text(f"<p>{quoted}</p>", PAGE, whitepaper_shingles())
+    assert RULE_SHINGLE in _rules(findings)
+
+
 def test_whitepaper_named_path_trips_the_internal_path_rule() -> None:
     path = pathlib.Path("site/CCF_Whitepaper_1-2/index.html")
     assert RULE_INTERNAL_PATH in _rules(scan_text("hello", path, frozenset()))
