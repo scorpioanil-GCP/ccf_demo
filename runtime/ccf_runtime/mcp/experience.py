@@ -70,6 +70,9 @@ from ccf.skills.toolsurface import render_tool_surface
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "DEFAULT_INVOKE_AGENT_DESCRIPTION",
+    "DEFAULT_LIST_AGENTS_DESCRIPTION",
+    "DEFAULT_PRODUCT_RESOURCE_DESCRIPTION",
     "EXPERIENCE_PRODUCT_URI_SCHEME",
     "EXPERIENCE_PRODUCT_URI_TEMPLATE",
     "EXPERIENCE_TOOLS",
@@ -148,6 +151,26 @@ EXPERIENCE_TOOLS = frozenset(
         GET_LINEAGE_TOOL,
         GET_REPLAY_RECORD_TOOL,
     }
+)
+
+#: What :data:`LIST_AGENTS_TOOL` advertises when the deployment supplies no
+#: description of its own (D-13; Dave, 2026-08-02). The agent tools take a
+#: default and the three consumption tools do not, deliberately: the agent
+#: tools' shape is SDK mechanism, so the SDK can state it without authoring a
+#: deployment's prose (CINV-01; CLAUDE.md §6.4).
+DEFAULT_LIST_AGENTS_DESCRIPTION = (
+    "List a tenant's exposed agents and their bound skill tool surfaces."
+)
+
+#: What :data:`INVOKE_AGENT_TOOL` advertises absent a deployment value (D-13).
+DEFAULT_INVOKE_AGENT_DESCRIPTION = (
+    "Invoke one bound skill of one declared agent for one tenant."
+)
+
+#: What the templated product resource advertises absent a deployment value
+#: (D-14; Dave, 2026-08-02) — the same treatment, for the same reason.
+DEFAULT_PRODUCT_RESOURCE_DESCRIPTION = (
+    "Serve a tenant's gate-admitted Context Product as canonical JSON."
 )
 
 
@@ -378,18 +401,29 @@ def agent_tool_listing(agent: ExposedAgent) -> AgentToolListing:
     )
 
 
+def _missing(tool: str) -> str:
+    """The D-03 refusal, phrased once so all three tools refuse alike."""
+    return (
+        f"{tool} is allowlisted but its provider or description was not"
+        " supplied; a tool this server admits must have both"
+    )
+
+
 def build_experience_server(
     *,
     server_name: str,
     product_resolver: ExperienceProductResolverProtocol,
     agent_directory: AgentDirectoryProtocol,
     agent_invoker: AgentInvokerProtocol,
-    context_provider: ContextProviderProtocol,
-    lineage_provider: LineageProviderProtocol,
-    replay_record_reader: ReplayRecordReaderProtocol,
-    get_context_description: str,
-    get_lineage_description: str,
-    get_replay_record_description: str,
+    context_provider: ContextProviderProtocol | None = None,
+    lineage_provider: LineageProviderProtocol | None = None,
+    replay_record_reader: ReplayRecordReaderProtocol | None = None,
+    get_context_description: str | None = None,
+    get_lineage_description: str | None = None,
+    get_replay_record_description: str | None = None,
+    list_agents_description: str | None = None,
+    invoke_agent_description: str | None = None,
+    product_resource_description: str | None = None,
     token_verifier: TokenVerifier,
     auth_settings: AuthSettings,
     tool_allowlist: frozenset[str] | None = None,
@@ -419,6 +453,22 @@ def build_experience_server(
     time — nothing is filtered after the fact. ``None`` (the default)
     registers every tool in :data:`EXPERIENCE_TOOLS`.
 
+    **The allowlist fails closed (D-01; Dave, 2026-08-02).** An entry naming
+    a tool this module does not have is a ``ValueError``, not a silent
+    no-op: a deployment that misspells a tool name would otherwise serve a
+    surface it did not intend and learn nothing about it. Enforcement lives
+    here, in mechanism, rather than in each deployment's composition.
+
+    **Allowlisted implies supplied (D-03/D-04; Dave, 2026-08-02).** The
+    three consumption seams and their prose are Optional parameters with
+    ``None`` defaults — callers that pass everything are unaffected — but a
+    tool the allowlist admits with no provider or no description behind it
+    raises at build time, named. Requiredness is conditional on exposure,
+    which is the only place it can be stated once the surface is
+    configurable. The agent Tools and the product resource take SDK default
+    descriptions instead (D-12/D-13/D-14): their shape is SDK mechanism, so
+    describing it authors nobody's domain prose (CINV-01; CLAUDE.md §6.4).
+
     Args:
         server_name: The name this server advertises. Deployment identity.
         product_resolver: The deployment's assemble-and-gate path.
@@ -426,18 +476,28 @@ def build_experience_server(
         agent_invoker: The deployment's factory-path invocation seam.
         context_provider: The deployment's entity-scoped product resolution
             (and any serve-recording it performs) behind
-            :data:`GET_CONTEXT_TOOL`.
+            :data:`GET_CONTEXT_TOOL`. Required when that tool is
+            allowlisted (D-03).
         lineage_provider: The deployment's lineage serving behind
-            :data:`GET_LINEAGE_TOOL`.
+            :data:`GET_LINEAGE_TOOL`. Required when allowlisted (D-03).
         replay_record_reader: The deployment's most-recent-record read
-            behind :data:`GET_REPLAY_RECORD_TOOL`.
+            behind :data:`GET_REPLAY_RECORD_TOOL`. Required when
+            allowlisted (D-03).
         get_context_description: The prose :data:`GET_CONTEXT_TOOL`
-            advertises. A deployment value (CINV-01).
+            advertises. A deployment value (CINV-01); required when that
+            tool is allowlisted (D-03).
         get_lineage_description: The prose :data:`GET_LINEAGE_TOOL`
-            advertises. A deployment value (CINV-01).
+            advertises. A deployment value (CINV-01); required when
+            allowlisted (D-03).
         get_replay_record_description: The prose
             :data:`GET_REPLAY_RECORD_TOOL` advertises. A deployment value
-            (CINV-01).
+            (CINV-01); required when allowlisted (D-03).
+        list_agents_description: Overrides
+            :data:`DEFAULT_LIST_AGENTS_DESCRIPTION` (D-12/D-13).
+        invoke_agent_description: Overrides
+            :data:`DEFAULT_INVOKE_AGENT_DESCRIPTION` (D-12/D-13).
+        product_resource_description: Overrides
+            :data:`DEFAULT_PRODUCT_RESOURCE_DESCRIPTION` (D-14).
         token_verifier: Verifies presented bearer tokens
             (:mod:`ccf_runtime.mcp.auth` ships the reference implementation).
         auth_settings: Issuer, resource-server identity, required scopes —
@@ -445,12 +505,24 @@ def build_experience_server(
         tool_allowlist: Which Tools to register; ``None`` registers all of
             :data:`EXPERIENCE_TOOLS`.
 
+    Raises:
+        ValueError: The allowlist names a tool outside
+            :data:`EXPERIENCE_TOOLS` (D-01), or a tool it admits has no
+            provider or no description supplied (D-03).
+
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
         address is chosen here — hosting is the deployment's decision, and a
         library that picked an interface would be picking an exposure
         surface (T-06-14).
     """
+    if tool_allowlist is not None:
+        unknown = frozenset(tool_allowlist) - EXPERIENCE_TOOLS
+        if unknown:
+            raise ValueError(
+                f"tool_allowlist names unknown tools: {sorted(unknown)};"
+                f" this server registers {sorted(EXPERIENCE_TOOLS)}"
+            )
     allowed = EXPERIENCE_TOOLS if tool_allowlist is None else frozenset(tool_allowlist)
 
     server = FastMCP(
@@ -461,7 +533,15 @@ def build_experience_server(
         auth=auth_settings,
     )
 
-    @server.resource(EXPERIENCE_PRODUCT_URI_TEMPLATE, mime_type=PRODUCT_MIME_TYPE)
+    @server.resource(
+        EXPERIENCE_PRODUCT_URI_TEMPLATE,
+        mime_type=PRODUCT_MIME_TYPE,
+        description=(
+            product_resource_description
+            if product_resource_description is not None
+            else DEFAULT_PRODUCT_RESOURCE_DESCRIPTION
+        ),
+    )
     def context_product(tenant: str, product_class: str, version: str) -> str:
         """Serve one gate-admitted Context Product as canonical JSON.
 
@@ -476,7 +556,14 @@ def build_experience_server(
 
     if LIST_AGENTS_TOOL in allowed:
 
-        @server.tool(name=LIST_AGENTS_TOOL)
+        @server.tool(
+            name=LIST_AGENTS_TOOL,
+            description=(
+                list_agents_description
+                if list_agents_description is not None
+                else DEFAULT_LIST_AGENTS_DESCRIPTION
+            ),
+        )
         def list_agents(tenant: str) -> str:
             """List one tenant's exposed agents with their rendered tool surfaces."""
             catalog = AgentToolCatalog(
@@ -490,7 +577,14 @@ def build_experience_server(
 
     if INVOKE_AGENT_TOOL in allowed:
 
-        @server.tool(name=INVOKE_AGENT_TOOL)
+        @server.tool(
+            name=INVOKE_AGENT_TOOL,
+            description=(
+                invoke_agent_description
+                if invoke_agent_description is not None
+                else DEFAULT_INVOKE_AGENT_DESCRIPTION
+            ),
+        )
         def invoke_agent(
             tenant: str,
             definition_key: str,
@@ -513,24 +607,35 @@ def build_experience_server(
             )
 
     if GET_CONTEXT_TOOL in allowed:
+        # Narrowed before the closure so the tool body captures a
+        # non-Optional name (D-03's check is what makes that sound).
+        if context_provider is None or get_context_description is None:
+            raise ValueError(_missing(GET_CONTEXT_TOOL))
+        context_seam = context_provider
 
         @server.tool(
             name=GET_CONTEXT_TOOL, description=get_context_description
         )
         def get_context(tenant: str, entity: str) -> str:
             """Serve one tenant's entity-scoped product via the injected seam."""
-            return context_provider(tenant=tenant, entity=entity)
+            return context_seam(tenant=tenant, entity=entity)
 
     if GET_LINEAGE_TOOL in allowed:
+        if lineage_provider is None or get_lineage_description is None:
+            raise ValueError(_missing(GET_LINEAGE_TOOL))
+        lineage_seam = lineage_provider
 
         @server.tool(
             name=GET_LINEAGE_TOOL, description=get_lineage_description
         )
         def get_lineage() -> str:
             """Serve the product's lineage via the injected seam."""
-            return lineage_provider()
+            return lineage_seam()
 
     if GET_REPLAY_RECORD_TOOL in allowed:
+        if replay_record_reader is None or get_replay_record_description is None:
+            raise ValueError(_missing(GET_REPLAY_RECORD_TOOL))
+        replay_seam = replay_record_reader
 
         @server.tool(
             name=GET_REPLAY_RECORD_TOOL,
@@ -538,6 +643,6 @@ def build_experience_server(
         )
         def get_replay_record() -> str:
             """Serve the most-recent replay record via the injected seam."""
-            return replay_record_reader()
+            return replay_seam()
 
     return server
