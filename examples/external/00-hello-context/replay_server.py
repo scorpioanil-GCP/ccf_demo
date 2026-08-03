@@ -60,6 +60,20 @@ _EXAMPLE_ROOT = Path(__file__).resolve().parent
 FIXTURES = _EXAMPLE_ROOT / "fixtures"
 
 #: Path suffix -> fixture filename prefix. The whole routing table.
+#:
+#: **On CLAUDE.md §6.4 (IN-05).** The No-Hardcoding Rule names routing
+#: tables explicitly, so recording the judgment rather than leaving it
+#: implicit: this table is a vendor wire-protocol fact, not Control Plane
+#: configuration. Anthropic's Messages API is reached at ``/v1/messages``
+#: and Google's Generate-Content API at ``:generateContent`` — the vendors
+#: fix those paths; no deployment chooses them, and no operator has a
+#: reason to reconfigure them. This module is a stand-in for the vendors
+#: themselves (it imports nothing from CCF), so an artifact seam here would
+#: manufacture a degree of freedom that does not exist. The rule binds in
+#: full everywhere it has purchase: no prompt, no agent or task definition,
+#: no threshold, no policy value is expressed as a constant in this file,
+#: and the fixture LABELS this server compares against arrive from
+#: ``run.py`` and the fixtures, never from a literal here.
 SUFFIXES: tuple[tuple[str, str], ...] = (
     ("/v1/messages", "anthropic"),
     (":generateContent", "gemini"),
