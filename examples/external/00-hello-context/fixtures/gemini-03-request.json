@@ -1,0 +1,217 @@
+{
+  "contents": [
+    {
+      "parts": [
+        {
+          "text": "Call the get_context tool with tenant 'first-meridian-bank' and entity 'FMB-BRW-0007' to retrieve the governed context, then state your credit recommendation in one short paragraph."
+        }
+      ],
+      "role": "user"
+    },
+    {
+      "parts": [
+        {
+          "functionCall": {
+            "args": {
+              "entity": "FMB-BRW-0007",
+              "tenant": "first-meridian-bank"
+            },
+            "id": "x08589v3",
+            "name": "get_context"
+          },
+          "thoughtSignature": "ErACCq0CARFNMg_CUvozsSFsgqHbSIX2l8V_39e4xTBCXs8ZsRX5AfqL1xxYKi3ZVsbqWorKUnsJAxcaaN5o-qYUflM_OX3IOvZRj4yw1OFX3tNb5QikqCJDaPIqQH0mrkQPP3GGGcjj1qftTtR7WyOzLAjrjjbXy-WNJ3-fTcPj4j2-_LrDPMnCGb3RxkpW2JJb3fw0f7sAfheJ3XjQY4qT_yiS7Z-5mnZyMoVWLzQlG5ZYRdLbiPBIdbjxwTM3ENrxwmvL1XLNM64E441h_yU-mZ2OIAETvE3p1nCzTjMVUtCZA_fDl-VVJ6yv71BGKSKFoQ7tYtKowfQd3zjttlyLrTebKucOiEtsaAY0gLyd4jHD2wEMHjR-NSsVXl4UXxU6brAr5QTmR-6Qpn4pCUZJeA=="
+        }
+      ],
+      "role": "model"
+    },
+    {
+      "parts": [
+        {
+          "functionResponse": {
+            "id": "x08589v3",
+            "name": "get_context",
+            "response": {
+              "content": [
+                {
+                  "text": "{\"expires_at\":\"2026-07-01T10:05:05.000000Z\",\"lineage\":{\"graph_snapshot_at\":\"2026-07-01T10:00:00.000000Z\",\"operators_invoked\":[\"policy.principal-subgraph\",\"similarity.corpus-select\",\"temporal.as-of-boundary\",\"traversal.typed-neighborhood\"],\"policy_bundle_versions\":[\"abb813cd7bf54fc27f2c3608845d8e45f966b1f89d73192537fbb97cc496081c\"]},\"payload\":{\"entities\":[{\"entity_class\":\"borrower\",\"entity_uri\":\"borrower://54e1225b622e91e4144ce5907f748affe60ed56526b051922b2e48abe3654af1\"},{\"entity_class\":\"credit_facility\",\"entity_uri\":\"credit_facility://779cca9cfe21724a7857bde7498fe4368a6a322de95a155aa91c6cb75fa7143d\"},{\"entity_class\":\"financial_signal\",\"entity_uri\":\"financial_signal://ca170a49990fc783b3bee8e347d29602a3b54748e89de493b2269b0e3695a5b8\"},{\"entity_class\":\"financial_signal\",\"entity_uri\":\"financial_signal://cf12450a58071d06b7a07efb65fb60c8798c0a61570392ba165148a88ac731e6\"}],\"entity_count\":4,\"relationship_types\":[\"evidenced_by\",\"holds\"],\"role\":\"credit-analyst\"},\"plan_id\":\"first-meridian-bank.credit-context.plan\",\"schema_name\":\"first-meridian-bank.credit-context\",\"schema_version\":\"1.0.0\",\"temporal_boundary\":\"2026-07-01T10:00:00.000000Z\",\"tenant_id\":\"first-meridian-bank\",\"ttl_anchor\":\"from_decision\"}",
+                  "type": "text"
+                }
+              ],
+              "isError": false,
+              "structuredContent": {
+                "result": "{\"expires_at\":\"2026-07-01T10:05:05.000000Z\",\"lineage\":{\"graph_snapshot_at\":\"2026-07-01T10:00:00.000000Z\",\"operators_invoked\":[\"policy.principal-subgraph\",\"similarity.corpus-select\",\"temporal.as-of-boundary\",\"traversal.typed-neighborhood\"],\"policy_bundle_versions\":[\"abb813cd7bf54fc27f2c3608845d8e45f966b1f89d73192537fbb97cc496081c\"]},\"payload\":{\"entities\":[{\"entity_class\":\"borrower\",\"entity_uri\":\"borrower://54e1225b622e91e4144ce5907f748affe60ed56526b051922b2e48abe3654af1\"},{\"entity_class\":\"credit_facility\",\"entity_uri\":\"credit_facility://779cca9cfe21724a7857bde7498fe4368a6a322de95a155aa91c6cb75fa7143d\"},{\"entity_class\":\"financial_signal\",\"entity_uri\":\"financial_signal://ca170a49990fc783b3bee8e347d29602a3b54748e89de493b2269b0e3695a5b8\"},{\"entity_class\":\"financial_signal\",\"entity_uri\":\"financial_signal://cf12450a58071d06b7a07efb65fb60c8798c0a61570392ba165148a88ac731e6\"}],\"entity_count\":4,\"relationship_types\":[\"evidenced_by\",\"holds\"],\"role\":\"credit-analyst\"},\"plan_id\":\"first-meridian-bank.credit-context.plan\",\"schema_name\":\"first-meridian-bank.credit-context\",\"schema_version\":\"1.0.0\",\"temporal_boundary\":\"2026-07-01T10:00:00.000000Z\",\"tenant_id\":\"first-meridian-bank\",\"ttl_anchor\":\"from_decision\"}"
+              }
+            }
+          }
+        }
+      ],
+      "role": "user"
+    },
+    {
+      "parts": [
+        {
+          "functionCall": {
+            "args": {},
+            "id": "ci9xpy8j",
+            "name": "get_replay_record"
+          },
+          "thoughtSignature": "EpkHCpYHARFNMg9n340ukA866iPDSo6xSIT0tfQTn682F2lPk5URQM3iAeQC6bLr40cBtsUOVeUA-CsbR_e9bghEtnFQ5TcfPBOyn0HJ3wnZH88-87zIVB-AS-rTzbeNy6TpgmG-e3WOzEbHygclGNfH1lFG6NglJkWORIJMqPP-NPKUZzCivVvpGXu2NbQ8cFbwkFXbUKTOWMZ7K-BXUHHr63DR4xfH78qdRyRw0k8xnX25ld35DKky7oYOq12gBJuMOxqQSS6JnhvUlAIuqUL4CQy_9lA9TehFaIRPxwGQ5EvZe8x_fzzoe8N2P49rL0qLp8YMFBPrNNSho0AmMBKdHAFE4rEddy9uAC-oHe-mgfC_6UvhjRe2e7Wy-85ZRr4_fFn6SmbDiE9qn1S4y4GkJl0CEtszv8_fQKOiPg4R_JG9BZZ2sjGqKwAWIDEKY155FLCL413KYMyrtvwiHxVAWD6Zof6_eMqfTTxXwTTPbA6YuV0aHis_j2Bd26EUx0e136eD7E-B8F_9uUTXgx9BFtF1UZlWrSD-5bd4wkTeCl7D9quh02Wr_xM5zxkgdPttcbYOaCNMdj8lmSQCxjnwbpFCAiSQ3G4VWXw2KKjjEujiX0fI1Yb3Yv5CvR0xqOUupJVywiKjAbKgIPEys6ZyAOlngssWyMIHFqIc8vXxu1BdbZQ5wzWbUGriFY67TxfY4dWnmrA2MyRrqHKM7Q-BSYF-v-8OJxkmt9aSVc_2si7DrF3xWq0Es2Lk7-OE34WK1ihwTjIUUbx9IJcT1xJJArvMulBThiYojEGficM9ophJjmHZY5O_k2a4g06CiJfVLspx9A0cbxqnodSGoiUZXiIklVB3xsNDbizJmTlmZjXDuoRpFE-bRUzl3Gv8m5kdmx6dGzK6X1IQcdmpYc6yrjSXY98ieJ64Tl2RVnDS_j4mdNioKX6uftgfiBWG4w0brPX_5e4_M12JZTLCHGeT7oiZDiKJiFCTPNPTiAHcHy7RbM2_P4KK6JBZha_65gnbB8BAWTZlIcnFEBYDGzQrGVXkKzPNBgG2iNYtWUrBMURAKfPcuPcnJ1u_dBJfhFhl1fC3eQZK1e1qTlbLKxf5zPlC42IF57zb9foy_hgf7k8Kdf5eznor7VmI8TBJC32PnjLXBpssm5ad8bbeek7TdCzHDdvEjkX60BsnsSW47s1uNHmpCnfmOpw-sVfQ3HHkr0AX8r-mILQ9"
+        }
+      ],
+      "role": "model"
+    },
+    {
+      "parts": [
+        {
+          "functionResponse": {
+            "id": "ci9xpy8j",
+            "name": "get_replay_record",
+            "response": {
+              "content": [
+                {
+                  "text": "{\"content_generation_path\":{\"operator_plan\":[\"policy.principal-subgraph\",\"similarity.corpus-select\",\"temporal.as-of-boundary\",\"traversal.typed-neighborhood\"],\"plan_id\":\"first-meridian-bank.credit-context.plan\",\"product_content_address\":\"694e28657d24253ebe52e946b9c4397581ac935b46712f29c1404eb4caf544e8\",\"steps\":[{\"category\":\"policy\",\"operator_key\":\"policy.principal-subgraph\",\"parameter_hash\":\"4d706d9cde6891bdd02318e321cad5b296a18d35118b31eb5a316bce457c70b8\"},{\"category\":\"similarity\",\"operator_key\":\"similarity.corpus-select\",\"parameter_hash\":\"df13fbb6cecf3b5573686fb796eae604f5ae64418d284f7e005ac0157ea269ce\"},{\"category\":\"temporal\",\"operator_key\":\"temporal.as-of-boundary\",\"parameter_hash\":\"02d6d2c8db26213e4c3aedea6df9740b8d21811f87e6f08dea70d9880c740084\"},{\"category\":\"traversal\",\"operator_key\":\"traversal.typed-neighborhood\",\"parameter_hash\":\"7c8063aa7fea22fdbfb5df25104fdff0b908fff09d94e51c890512e1fa2691a9\"}],\"workflow_step_sequence\":\"no-workflow-trace\"},\"context_fabric_snapshot\":{\"graph_snapshot_id\":\"1c5b33a25191f12215c4b78f5bceaaad1e8752a51d94d97388bf30b0ec7cb0c5\",\"store_watermark\":\"747d69d9e4346e45f6e3f730d47b10b39c79ec3e77aaffbfbeed14dd331022c9\",\"temporal_boundary\":\"2026-07-01T10:00:00.000000Z\",\"tenant_id\":\"first-meridian-bank\",\"touched_entities\":[\"borrower://54e1225b622e91e4144ce5907f748affe60ed56526b051922b2e48abe3654af1\",\"credit_facility://779cca9cfe21724a7857bde7498fe4368a6a322de95a155aa91c6cb75fa7143d\",\"financial_signal://ca170a49990fc783b3bee8e347d29602a3b54748e89de493b2269b0e3695a5b8\",\"financial_signal://cf12450a58071d06b7a07efb65fb60c8798c0a61570392ba165148a88ac731e6\"],\"touched_relationships\":[\"6e1eba8a5b123fea10e02abb3e260f65a02c5b45baea560f13b656779ddc66c5\",\"85ac26cc823daec84ef292941a501d1ea40ecd62d52b76c52926e2b62b3cd518\",\"c89c93501ca59331e3e220bbf78f1975d8d3cbcf01102ba70afafba7d05cacb3\"]},\"model_version\":{\"assembly_mode\":\"algorithmic\",\"harness_trace\":{\"harness_id\":\"no-harness\",\"input_tokens\":0,\"model_version\":\"no-harness\",\"output_tokens\":0,\"trace_id\":\"no-harness\",\"trace_provider\":\"no-harness\"},\"model_version\":\"none\"},\"perspective_conditioning\":{\"agent_definition_hash\":\"no-agent\",\"agent_definition_uri\":\"no-agent\",\"archetype_composition\":[],\"delegation_chain\":[\"credit-desk-201\"],\"grant_set_hash\":\"no-grants\",\"principal_id\":\"credit-desk-201\",\"role\":\"credit-analyst\"},\"policy_bindings\":{\"bindings\":[{\"key\":\"first-meridian-bank/policy-bundle/credit-desk\",\"version\":\"abb813cd7bf54fc27f2c3608845d8e45f966b1f89d73192537fbb97cc496081c\"}],\"hitl_actions\":\"no-hitl-actions\"},\"recorded_at\":\"2026-07-01T10:00:05.000000Z\",\"tenant_id\":\"first-meridian-bank\"}",
+                  "type": "text"
+                }
+              ],
+              "isError": false,
+              "structuredContent": {
+                "result": "{\"content_generation_path\":{\"operator_plan\":[\"policy.principal-subgraph\",\"similarity.corpus-select\",\"temporal.as-of-boundary\",\"traversal.typed-neighborhood\"],\"plan_id\":\"first-meridian-bank.credit-context.plan\",\"product_content_address\":\"694e28657d24253ebe52e946b9c4397581ac935b46712f29c1404eb4caf544e8\",\"steps\":[{\"category\":\"policy\",\"operator_key\":\"policy.principal-subgraph\",\"parameter_hash\":\"4d706d9cde6891bdd02318e321cad5b296a18d35118b31eb5a316bce457c70b8\"},{\"category\":\"similarity\",\"operator_key\":\"similarity.corpus-select\",\"parameter_hash\":\"df13fbb6cecf3b5573686fb796eae604f5ae64418d284f7e005ac0157ea269ce\"},{\"category\":\"temporal\",\"operator_key\":\"temporal.as-of-boundary\",\"parameter_hash\":\"02d6d2c8db26213e4c3aedea6df9740b8d21811f87e6f08dea70d9880c740084\"},{\"category\":\"traversal\",\"operator_key\":\"traversal.typed-neighborhood\",\"parameter_hash\":\"7c8063aa7fea22fdbfb5df25104fdff0b908fff09d94e51c890512e1fa2691a9\"}],\"workflow_step_sequence\":\"no-workflow-trace\"},\"context_fabric_snapshot\":{\"graph_snapshot_id\":\"1c5b33a25191f12215c4b78f5bceaaad1e8752a51d94d97388bf30b0ec7cb0c5\",\"store_watermark\":\"747d69d9e4346e45f6e3f730d47b10b39c79ec3e77aaffbfbeed14dd331022c9\",\"temporal_boundary\":\"2026-07-01T10:00:00.000000Z\",\"tenant_id\":\"first-meridian-bank\",\"touched_entities\":[\"borrower://54e1225b622e91e4144ce5907f748affe60ed56526b051922b2e48abe3654af1\",\"credit_facility://779cca9cfe21724a7857bde7498fe4368a6a322de95a155aa91c6cb75fa7143d\",\"financial_signal://ca170a49990fc783b3bee8e347d29602a3b54748e89de493b2269b0e3695a5b8\",\"financial_signal://cf12450a58071d06b7a07efb65fb60c8798c0a61570392ba165148a88ac731e6\"],\"touched_relationships\":[\"6e1eba8a5b123fea10e02abb3e260f65a02c5b45baea560f13b656779ddc66c5\",\"85ac26cc823daec84ef292941a501d1ea40ecd62d52b76c52926e2b62b3cd518\",\"c89c93501ca59331e3e220bbf78f1975d8d3cbcf01102ba70afafba7d05cacb3\"]},\"model_version\":{\"assembly_mode\":\"algorithmic\",\"harness_trace\":{\"harness_id\":\"no-harness\",\"input_tokens\":0,\"model_version\":\"no-harness\",\"output_tokens\":0,\"trace_id\":\"no-harness\",\"trace_provider\":\"no-harness\"},\"model_version\":\"none\"},\"perspective_conditioning\":{\"agent_definition_hash\":\"no-agent\",\"agent_definition_uri\":\"no-agent\",\"archetype_composition\":[],\"delegation_chain\":[\"credit-desk-201\"],\"grant_set_hash\":\"no-grants\",\"principal_id\":\"credit-desk-201\",\"role\":\"credit-analyst\"},\"policy_bindings\":{\"bindings\":[{\"key\":\"first-meridian-bank/policy-bundle/credit-desk\",\"version\":\"abb813cd7bf54fc27f2c3608845d8e45f966b1f89d73192537fbb97cc496081c\"}],\"hitl_actions\":\"no-hitl-actions\"},\"recorded_at\":\"2026-07-01T10:00:05.000000Z\",\"tenant_id\":\"first-meridian-bank\"}"
+              }
+            }
+          }
+        }
+      ],
+      "role": "user"
+    },
+    {
+      "parts": [
+        {
+          "functionCall": {
+            "args": {},
+            "id": "ijrmig2u",
+            "name": "get_lineage"
+          },
+          "thoughtSignature": "EqoBCqcBARFNMg_Zas5ibzvubqq8-9xJyNdqgMhIIgcZ2Qor1BE4VO4LJTbUZEF37X4myUUbqq_9N3r4Z-p7qfuUA8WZrY_h49BbEWzEji7oEvpfJM6NCi5nOpcfwVH5MVffcCTV9yWYTXs1ziygy77QpWVXZhGxE6MRGHmMNWhlZ8qjupit-Zt3bchxAE8V7jEFLGBBJru0TVdxOHr4CYJn9uPacG9s7k5xsr8="
+        }
+      ],
+      "role": "model"
+    },
+    {
+      "parts": [
+        {
+          "functionResponse": {
+            "id": "ijrmig2u",
+            "name": "get_lineage",
+            "response": {
+              "content": [
+                {
+                  "text": "{\"graph_snapshot_at\":\"2026-07-01T10:00:00.000000Z\",\"operators_invoked\":[\"policy.principal-subgraph\",\"similarity.corpus-select\",\"temporal.as-of-boundary\",\"traversal.typed-neighborhood\"],\"policy_bundle_versions\":[\"abb813cd7bf54fc27f2c3608845d8e45f966b1f89d73192537fbb97cc496081c\"]}",
+                  "type": "text"
+                }
+              ],
+              "isError": false,
+              "structuredContent": {
+                "result": "{\"graph_snapshot_at\":\"2026-07-01T10:00:00.000000Z\",\"operators_invoked\":[\"policy.principal-subgraph\",\"similarity.corpus-select\",\"temporal.as-of-boundary\",\"traversal.typed-neighborhood\"],\"policy_bundle_versions\":[\"abb813cd7bf54fc27f2c3608845d8e45f966b1f89d73192537fbb97cc496081c\"]}"
+              }
+            }
+          }
+        }
+      ],
+      "role": "user"
+    }
+  ],
+  "generationConfig": {},
+  "systemInstruction": {
+    "parts": [
+      {
+        "text": "You are an agent. Your internal name is \"external_consumer\"."
+      }
+    ],
+    "role": "user"
+  },
+  "tools": [
+    {
+      "functionDeclarations": [
+        {
+          "description": "Return the credit-context Context Product for one borrower of one tenant, as canonical JSON. Arguments: tenant (the owning tenant id) and entity (the borrower reference). Serving is replay-recorded fabric-side; the caller carries no audit obligation.",
+          "name": "get_context",
+          "parameters_json_schema": {
+            "properties": {
+              "entity": {
+                "title": "Entity",
+                "type": "string"
+              },
+              "tenant": {
+                "title": "Tenant",
+                "type": "string"
+              }
+            },
+            "required": [
+              "tenant",
+              "entity"
+            ],
+            "title": "get_contextArguments",
+            "type": "object"
+          },
+          "response_json_schema": {
+            "properties": {
+              "result": {
+                "title": "Result",
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "title": "get_contextOutput",
+            "type": "object"
+          }
+        },
+        {
+          "description": "Read-only: return the lineage block of the served credit-context product \u2014 operators invoked, policy bundle versions, graph snapshot instant \u2014 as canonical JSON.",
+          "name": "get_lineage",
+          "parameters_json_schema": {
+            "properties": {},
+            "title": "get_lineageArguments",
+            "type": "object"
+          },
+          "response_json_schema": {
+            "properties": {
+              "result": {
+                "title": "Result",
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "title": "get_lineageOutput",
+            "type": "object"
+          }
+        },
+        {
+          "description": "Read-only: return the five-dimension Decision Replay record the fabric appended for the most recent externally-served product, read back from the ArtifactStore, as canonical JSON.",
+          "name": "get_replay_record",
+          "parameters_json_schema": {
+            "properties": {},
+            "title": "get_replay_recordArguments",
+            "type": "object"
+          },
+          "response_json_schema": {
+            "properties": {
+              "result": {
+                "title": "Result",
+                "type": "string"
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "title": "get_replay_recordOutput",
+            "type": "object"
+          }
+        }
+      ]
+    }
+  ]
+}

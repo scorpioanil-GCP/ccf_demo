@@ -1,0 +1,39 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Based on the governed context retrieved for borrower `FMB-BRW-0007` under tenant `first-meridian-bank`, the borrower is linked to credit facility `779cca9cfe21724a7857bde7498fe4368a6a322de95a155aa91c6cb75fa7143d`, which is supported by two distinct financial signals (`ca170a49990fc783b3bee8e347d29602a3b54748e89de493b2269b0e3695a5b8` and `cf12450a58071d06b7a07efb65fb60c8798c0a61570392ba165148a88ac731e6`). Because the retrieved structural context confirms the appropriate alignment of these components under the verified credit-desk policy bundle (`abb813cd7bf54fc27f2c3608845d8e45f966b1f89d73192537fbb97cc496081c`), we recommend proceeding with the approval of this credit facility, subject to standard verification of the specific underlying financial metrics in the payload.",
+            "thoughtSignature": "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"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "modelVersion": "gemini-fixture",
+  "responseId": "Le5vaoHgGu_Uz7IPvo6B4A4",
+  "usageMetadata": {
+    "cacheTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 2017
+      }
+    ],
+    "cachedContentTokenCount": 2017,
+    "candidatesTokenCount": 328,
+    "promptTokenCount": 5172,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 5172
+      }
+    ],
+    "serviceTier": "standard",
+    "thoughtsTokenCount": 783,
+    "totalTokenCount": 6283
+  }
+}

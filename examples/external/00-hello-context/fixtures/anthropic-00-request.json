@@ -1,32 +1,52 @@
 {
-  "model": "claude-fixture",
   "max_tokens": 1024,
   "messages": [
     {
-      "role": "user",
-      "content": "Use the available tools to retrieve the governed context, then state your recommendation."
+      "content": "Call the get_context tool with tenant 'first-meridian-bank' and entity 'FMB-BRW-0007' to retrieve the governed context, then state your credit recommendation in one short paragraph.",
+      "role": "user"
     }
   ],
+  "model": "claude-fixture",
   "tools": [
     {
-      "name": "list_agents",
-      "description": "discovered from the CCF experience server's tools/list at run time",
-      "input_schema": {"type": "object", "properties": {"tenant": {"type": "string"}}}
+      "description": "Return the credit-context Context Product for one borrower of one tenant, as canonical JSON. Arguments: tenant (the owning tenant id) and entity (the borrower reference). Serving is replay-recorded fabric-side; the caller carries no audit obligation.",
+      "input_schema": {
+        "properties": {
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "tenant": {
+            "title": "Tenant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant",
+          "entity"
+        ],
+        "title": "get_contextArguments",
+        "type": "object"
+      },
+      "name": "get_context"
     },
     {
-      "name": "get_context",
-      "description": "discovered from the CCF experience server's tools/list at run time",
-      "input_schema": {"type": "object", "properties": {"tenant": {"type": "string"}, "entity": {"type": "string"}}}
+      "description": "Read-only: return the lineage block of the served credit-context product \u2014 operators invoked, policy bundle versions, graph snapshot instant \u2014 as canonical JSON.",
+      "input_schema": {
+        "properties": {},
+        "title": "get_lineageArguments",
+        "type": "object"
+      },
+      "name": "get_lineage"
     },
     {
-      "name": "get_lineage",
-      "description": "discovered from the CCF experience server's tools/list at run time",
-      "input_schema": {"type": "object", "properties": {}}
-    },
-    {
-      "name": "get_replay_record",
-      "description": "discovered from the CCF experience server's tools/list at run time",
-      "input_schema": {"type": "object", "properties": {}}
+      "description": "Read-only: return the five-dimension Decision Replay record the fabric appended for the most recent externally-served product, read back from the ArtifactStore, as canonical JSON.",
+      "input_schema": {
+        "properties": {},
+        "title": "get_replay_recordArguments",
+        "type": "object"
+      },
+      "name": "get_replay_record"
     }
   ]
 }
