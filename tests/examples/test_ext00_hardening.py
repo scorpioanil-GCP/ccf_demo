@@ -762,3 +762,51 @@ def test_key_bearing_query_params_are_redacted_on_persist(
     assert "alt=sse" in persisted
     for header in ("x-goog-api-key", "x-api-key", "authorization"):
         assert header not in persisted.lower()
+
+
+def test_the_d15_fallback_works_with_every_client_leg_deselected() -> None:
+    """WR-04: the D-15 stand-in must not depend on incidental leg ordering.
+
+    `get_replay_record` is per-client (WR-06) and refuses a client that
+    has served nothing. `run.py`'s D-15 fallback — taken whenever the
+    `bare` leg is deselected — read lineage and the replay record
+    directly, and worked only because every *other* leg happens to call
+    `get_context` first. With no legs at all it failed with
+    `AssertionError: get_replay_record refused: [...]`, which reads as an
+    Experience-surface regression and sends a reader to `experience.py`
+    rather than to "you deselected the leg that produces the record".
+
+    Driving the real harness end-to-end is the only thing that would have
+    caught it: the defect is an interaction between two files, invisible
+    to any structural assertion over either one. `--legs ""` needs no
+    replay server and no vendor key, so it costs ~1.5s.
+    """
+    import subprocess
+    import sys
+
+    completed = subprocess.run(
+        [sys.executable, "run.py", "--legs", ""],
+        cwd=EXAMPLE_DIR,
+        env={
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join(
+                [str(REPO_ROOT / "src"), str(REPO_ROOT / "runtime")]
+            ),
+        },
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+    combined = completed.stdout + completed.stderr
+
+    assert "get_replay_record refused" not in combined, (
+        "the D-15 fallback still depends on another leg having served "
+        f"first:\n{combined}"
+    )
+    assert completed.returncode == 0, combined
+    # The fallback serves itself, so PASS 5 is genuinely demonstrated
+    # rather than skipped, and every later assertion still holds.
+    assert "PASS 1: client legs exit 0 ()" in combined
+    for pass_number in range(1, 9):
+        assert f"PASS {pass_number}:" in combined, combined

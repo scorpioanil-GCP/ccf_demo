@@ -636,12 +636,39 @@ def main() -> int:
                 "names in order (D-17/D-08)"
             )
 
+            # The arguments the deployment's get_context tool takes. Entity
+            # refs in the served payload are content-hashed and not
+            # client-discoverable, so the harness derives them from the
+            # artifacts (plan-03 contract). Resolved HERE, above the D-15
+            # block, because the fallback below needs them too (WR-04).
+            get_context_arguments = {
+                "tenant": ontology["tenant_id"],
+                "entity": product_doc["focus"]["entity_ref"],
+            }
+
             # D-15: lineage and the five-dimension replay record were
             # retrieved OVER MCP. The bare leg carries the demonstration;
             # when it is deselected, a direct MCP read stands in.
             if "bare" in outputs:
                 evidence = outputs["bare"]
             else:
+                # WR-04: get_replay_record is per-client (WR-06) and refuses
+                # a client that has served nothing. Every selected leg
+                # happens to call get_context first, so this stand-in used
+                # to work only by accident of leg ordering — and with the
+                # legs deselected entirely (`--legs ""`) it failed with
+                # "get_replay_record refused", a diagnostic that points at
+                # the Experience surface rather than at the real cause.
+                # Make the dependency explicit: this branch serves itself
+                # the product whose record it is about to read.
+                asyncio.run(
+                    _mcp_call_text(
+                        url,
+                        active["token"],
+                        experience["tools"]["get_context"]["name"],
+                        get_context_arguments,
+                    )
+                )
                 evidence = asyncio.run(
                     _mcp_call_text(
                         url,
@@ -672,10 +699,6 @@ def main() -> int:
                 product_class=declared_class["schema_name"],
                 version=declared_class["schema_version"],
             )
-            get_context_arguments = {
-                "tenant": ontology["tenant_id"],
-                "entity": product_doc["focus"]["entity_ref"],
-            }
             # IN-04: name the serve whose bytes PASS 8 compares, so the D-16
             # assertion selects that serve's record explicitly rather than
             # depending on _mcp_probe's internal read order.
