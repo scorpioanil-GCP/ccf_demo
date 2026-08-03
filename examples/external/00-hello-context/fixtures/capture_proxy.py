@@ -15,10 +15,23 @@ Routing is by path suffix, exactly as in ``replay_server.py``:
                                   generativelanguage.googleapis.com,
                                   recorded as ``gemini-NN``
 
-Security posture (T-13.2-06): API keys ride in HTTP headers, so headers
-are NEVER written to disk in either direction. The outbound key is
+Recording spec (D-09/D-10, 13.3):
+
+* **Forward** the request path AND query string verbatim, so a capture is
+  faithful to the call the SDK actually made (``?alt=sse`` selects a
+  different response shape).
+* **Record only a 200 carrying JSON.** Every other upstream answer — a
+  429, a 500, an SSE stream, an HTML error page — is returned to the
+  caller byte-for-byte and consumes NO fixture ordinal, so a transient
+  vendor failure cannot renumber the real turns.
+
+Security posture (T-13.2-06/T-13.3-04): API keys ride in HTTP headers, so
+headers are NEVER written to disk in either direction. The outbound key is
 injected at forward time from ``ANTHROPIC_API_KEY`` / ``GOOGLE_API_KEY``
-in the process environment; only request and response BODIES are recorded.
+in the process environment. Only request and response BODIES are
+recorded, plus — when the request carried one — the query string under a
+reserved key with ``key`` / ``api_key`` values replaced by a placeholder,
+since Gemini also accepts the key as a query parameter.
 
 Binds 127.0.0.1 on port 0 and prints ``READY <port>`` once started (the
 suite's handshake pattern). Recordings land in an output directory given
@@ -33,6 +46,7 @@ import os
 import socket
 import sys
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode
 
 import anyio
 import httpx
@@ -68,8 +82,44 @@ ROUTES: tuple[tuple[str, str, str, str, str], ...] = (
 #: x-api-key from the client) is dropped and re-derived.
 FORWARDED_REQUEST_HEADERS = ("content-type", "anthropic-version", "accept")
 
+#: Query parameters that can carry key material and are therefore never
+#: persisted with their value (D-10).
+REDACTED_QUERY_PARAMS = frozenset({"key", "api_key"})
 
-def _build_app(out_dir: Path) -> Starlette:
+#: Placeholder written in place of a redacted query value.
+REDACTED = "REDACTED"
+
+#: Reserved key under which a non-empty, redacted request query is
+#: recorded in the request fixture. Absent when the request had no query,
+#: which is why the committed (query-less) 13.2 fixtures are unaffected.
+QUERY_KEY = "__request_query__"
+
+
+def redact_query(query: str) -> str:
+    """Replace every key-bearing query value with the placeholder (D-10).
+
+    Gemini accepts ``?key=`` as an alternative to the header, so a
+    faithfully-captured query can carry live key material. Parsed and
+    re-encoded rather than string-spliced, so an escaped or repeated
+    parameter cannot slip a secret past the filter.
+    """
+    return urlencode(
+        [
+            (name, REDACTED if name in REDACTED_QUERY_PARAMS else value)
+            for name, value in parse_qsl(query, keep_blank_values=True)
+        ]
+    )
+
+
+def build_app(
+    out_dir: Path, transport: httpx.BaseTransport | None = None
+) -> Starlette:
+    """Host the capture proxy, writing fixture pairs into ``out_dir``.
+
+    ``transport`` is the injection seam the tests use to stand in a fake
+    upstream; production capture leaves it ``None`` and httpx dials the
+    real vendor.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     counters: dict[str, int] = {prefix: 0 for _, prefix, *_ in ROUTES}
 
@@ -89,16 +139,44 @@ def _build_app(out_dir: Path) -> Starlette:
             for name in FORWARDED_REQUEST_HEADERS:
                 if name in request.headers:
                     headers[name] = request.headers[name]
-            async with httpx.AsyncClient(timeout=120.0) as client:
+            # D-10: path AND query, verbatim. Dropping the query made the
+            # capture unfaithful to the call the SDK actually made
+            # (``?alt=sse`` selects a different response shape entirely).
+            query = request.url.query
+            target = f"{base}{path}" + (f"?{query}" if query else "")
+            async with httpx.AsyncClient(
+                timeout=120.0, transport=transport
+            ) as client:
                 upstream = await client.post(
-                    f"{base}{path}", content=body, headers=headers
+                    target, content=body, headers=headers
+                )
+            # D-09: only a 200 carrying JSON is a recordable turn. Anything
+            # else — a 429, a 500, an SSE stream, an HTML error page — goes
+            # back to the caller byte-for-byte and consumes NO ordinal, so a
+            # transient failure cannot shift the real turns' numbering.
+            try:
+                response_doc = (
+                    upstream.json() if upstream.status_code == 200 else None
+                )
+            except ValueError:
+                response_doc = None
+            if response_doc is None:
+                return Response(
+                    content=upstream.content,
+                    status_code=upstream.status_code,
+                    media_type=upstream.headers.get("content-type"),
                 )
             ordinal = counters[prefix]
             counters[prefix] = ordinal + 1
-            # BODIES ONLY, both directions — headers carry key material
-            # and are never serialized (T-13.2-06).
+            # BODIES ONLY, both directions — headers carry key material and
+            # are never serialized, in either direction (T-13.2-06). The one
+            # non-body datum recorded is the request query, and only when
+            # present, under a reserved key, with key-bearing params redacted
+            # (D-10/T-13.3-04) — so a captured `?alt=` stays reviewable while
+            # a captured `?key=` cannot reach the fixture tree.
             request_doc = json.loads(body)
-            response_doc = upstream.json()
+            if query:
+                request_doc[QUERY_KEY] = redact_query(query)
             (out_dir / f"{prefix}-{ordinal:02d}-request.json").write_text(
                 json.dumps(request_doc, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
@@ -130,7 +208,7 @@ def main() -> None:
     port = bound.getsockname()[1]
 
     server = uvicorn.Server(
-        uvicorn.Config(_build_app(out_dir), log_level="error")
+        uvicorn.Config(build_app(out_dir), log_level="error")
     )
 
     async def host() -> None:

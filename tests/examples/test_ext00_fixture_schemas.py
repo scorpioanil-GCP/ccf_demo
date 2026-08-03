@@ -119,13 +119,18 @@ def test_fingerprint_detects_drift() -> None:
     drifted["messages"].append({"role": "user", "content": "extra"})
     assert replay_server.fingerprint("anthropic", drifted) != baseline
 
+    gemini_path = "/v1beta/models/pinned-model:generateContent"
     gemini_recorded = _load(FIXTURES / "gemini-00-request.json")
-    gemini_baseline = replay_server.fingerprint("gemini", gemini_recorded)
+    gemini_baseline = replay_server.fingerprint(
+        "gemini", gemini_recorded, path=gemini_path
+    )
     gemini_drifted = json.loads(json.dumps(gemini_recorded))
     gemini_drifted["tools"][0]["functionDeclarations"].pop()
     assert (
-        replay_server.fingerprint("gemini", gemini_drifted)
+        replay_server.fingerprint("gemini", gemini_drifted, path=gemini_path)
         != gemini_baseline
     )
-    # The gemini fingerprint carries no model field — it rides in the URL.
+    # The gemini BODY carries no model field — it rides in the URL, which
+    # is why the fingerprint reduces the path instead (D-08).
     assert "model" not in gemini_baseline
+    assert gemini_baseline["url_model"] == "pinned-model"
