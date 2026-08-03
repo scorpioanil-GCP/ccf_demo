@@ -8,9 +8,10 @@ D-IMPL-36 (intermediate results).
 *set* of operators (:mod:`ccf.projection.plan`); this module resolves that set
 against the registry and imposes ``Policy → Similarity → Temporal → Traversal``.
 Policy first so that Similarity ranks only over the principal-permissible
-subgraph — "no filter runs after retrieval because no retrieval of inadmissible
-content happened" (INV-CH7-26). Temporal before Traversal so a walk expands over
-temporally reconciled state rather than over claims the boundary excludes. A
+subgraph: §7.4 puts admissibility upstream of retrieval precisely so there is
+never inadmissible content to filter out afterwards (INV-CH7-26). Temporal
+before Traversal so a walk expands over temporally reconciled state rather
+than over claims the boundary excludes. A
 projection cannot express the forbidden order because it never expresses an
 order at all.
 

@@ -1,9 +1,9 @@
 """Typed Control Plane artifact classes (whitepaper §7.8; DESIGN.md §7).
 
-The Control Plane "defines what the fabric is allowed to do"; the artifacts in
-this module are how it says so. Each is a :class:`~ccf.contracts.base.CCFContract`
-— frozen, closed-world, canonically serializable — which buys three properties
-the registry alone cannot:
+§7.8 makes the Control Plane the place where the fabric's permitted behaviour
+is declared; the artifacts in this module are how it says so. Each is a
+:class:`~ccf.contracts.base.CCFContract` — frozen, closed-world, canonically
+serializable — which buys three properties the registry alone cannot:
 
 **Registering the wrong thing is a detectable error.** A bare mapping stored
 under a λ_c key looks exactly like a correct one until a decay computation
