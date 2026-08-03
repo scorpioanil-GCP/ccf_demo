@@ -171,12 +171,25 @@ def strip_secret(path: str, secret: str) -> str | None:
 
     ``/<secret>/v1/messages`` -> ``/v1/messages``. Compared in constant
     time, because the whole point of the segment is that a local caller
-    cannot guess it. Returns ``None`` on any mismatch, which the handler
+    cannot guess it. Returns ``None`` on **every** mismatch — including a
+    segment this function cannot even compare as text — which the handler
     turns into a ``403`` before a key is injected or an ordinal claimed.
+
+    **Why UTF-8 bytes and not ``str`` (WR-01).** ``compare_digest`` refuses
+    ``str`` operands containing non-ASCII characters, raising
+    ``TypeError``. Uvicorn and the Starlette ``TestClient`` percent-decode
+    ``scope["path"]``, so ``POST /%C3%A9/v1/messages`` presented ``"é"``
+    here and crashed the one function whose whole job is to refuse
+    unauthenticated requests cleanly — an anonymous ``500`` instead of the
+    documented ``403``. Encoding both operands makes every byte string
+    comparable while keeping the comparison constant-time; do not add a
+    length short-circuit, which would leak the secret's length.
     """
     segments = path.split("/", 2)
     presented = segments[1] if len(segments) > 1 else ""
-    if not secrets.compare_digest(presented, secret):
+    if not secrets.compare_digest(
+        presented.encode("utf-8"), secret.encode("utf-8")
+    ):
         return None
     return "/" + (segments[2] if len(segments) > 2 else "")
 

@@ -453,12 +453,19 @@ def _proxy_client(
     out_dir: pathlib.Path,
     responder: Any,
     monkeypatch: pytest.MonkeyPatch,
+    *,
+    raise_server_exceptions: bool = True,
 ) -> Any:
     """A TestClient over the capture proxy with a mocked upstream.
 
     `responder` receives the forwarded `httpx.Request` and returns the
     `httpx.Response` the vendor would have. No sockets, no API keys
     (D-11).
+
+    `raise_server_exceptions=False` makes an unhandled handler exception
+    observable as a 500 response rather than being re-raised into the
+    test — which is how a refusal that *crashes* is told apart from a
+    refusal that *refuses* (WR-01).
     """
     import httpx
     from starlette.testclient import TestClient
@@ -471,7 +478,7 @@ def _proxy_client(
         secret=_PROXY_SECRET,
         transport=httpx.MockTransport(responder),
     )
-    return TestClient(app)
+    return TestClient(app, raise_server_exceptions=raise_server_exceptions)
 
 
 def _persisted_text(out_dir: pathlib.Path) -> str:
@@ -564,6 +571,13 @@ def test_a_request_without_the_capture_secret_is_refused(
     attacker-controlled bodies into the fixture tree. The refusal happens
     before the key is read, before anything is forwarded, and before an
     ordinal is claimed.
+
+    The percent-encoded shape is the WR-01 regression: `scope["path"]` is
+    percent-decoded before it reaches `strip_secret`, so `%C3%A9` arrived
+    as `"é"` and `secrets.compare_digest` raised `TypeError` on non-ASCII
+    `str` operands — an anonymous unhandled 500 from the one function
+    whose job is to refuse cleanly. `raise_server_exceptions=False` is
+    what makes that 500 observable here instead of re-raised.
     """
     import httpx
 
@@ -574,10 +588,24 @@ def test_a_request_without_the_capture_secret_is_refused(
         return httpx.Response(200, json={"candidates": []})
 
     vendor_path = "/v1beta/models/m:generateContent"
-    with _proxy_client(tmp_path, responder, monkeypatch) as client:
-        for path in (vendor_path, f"/wrong-secret{vendor_path}", "/"):
+    with _proxy_client(
+        tmp_path, responder, monkeypatch, raise_server_exceptions=False
+    ) as client:
+        for path in (
+            vendor_path,
+            f"/wrong-secret{vendor_path}",
+            "/",
+            # WR-01: a non-ASCII first segment must refuse, not crash.
+            f"/%C3%A9{vendor_path}",
+            # ...and a non-ASCII segment that is otherwise the secret's
+            # own length, so the refusal cannot be an accident of shape.
+            "/" + "é" * len(_PROXY_SECRET) + vendor_path,
+        ):
             refused = client.post(path, json=_PROXY_BODY)
-            assert refused.status_code == 403
+            assert refused.status_code == 403, (
+                f"{path!r} produced {refused.status_code}, not the "
+                "documented 403"
+            )
             assert "capture secret" in refused.json()["error"]
 
         good = client.post(_capture_url(vendor_path), json=_PROXY_BODY)
