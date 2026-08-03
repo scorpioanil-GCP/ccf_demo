@@ -58,19 +58,36 @@ def test_anthropic_response_fixture_validates(path: pathlib.Path) -> None:
     assert message.content, f"{path.name}: empty content block list"
 
 
+#: The google-genai client path that strips forward-compat extra fields
+#: before Pydantic validation — exactly what the live client does with a
+#: real vendor response. The live capture carries fields (e.g.
+#: `usageMetadata.serviceTier`) newer than the installed SDK's model, so
+#: bare `model_validate` would reject a genuine vendor payload.
+#:
+#: It is PRIVATE (leading underscore). google-genai arrives transitively
+#: through the exactly-pinned `google-adk==2.5.0` extra in pyproject.toml,
+#: which is what keeps this call site stable — but a pin can be bumped, and
+#: a hard dependency on a private method would then fail in a way that
+#: looks like fixture corruption rather than an SDK upgrade. So its absence
+#: degrades to the structural assertions the request fixtures already get,
+#: and only the SDK-type validation is lost.
+_FROM_RESPONSE = getattr(GenerateContentResponse, "_from_response", None)
+
+
 @pytest.mark.parametrize(
     "path", _response_paths("gemini"), ids=lambda p: p.name
 )
 def test_gemini_response_fixture_validates(path: pathlib.Path) -> None:
-    # Parse through the SDK's own client path (`_from_response`), which
-    # strips forward-compat extra fields before Pydantic validation —
-    # exactly what the live google-genai client does with a real vendor
-    # response. The live capture carries fields (e.g.
-    # `usageMetadata.serviceTier`) newer than the pinned SDK's model, so
-    # bare `model_validate` would reject a genuine vendor payload.
-    response = GenerateContentResponse._from_response(
-        response=_load(path), kwargs={}
-    )
+    document = _load(path)
+    if _FROM_RESPONSE is None:
+        candidates = document["candidates"]
+        assert isinstance(candidates, list) and candidates, (
+            f"{path.name}: no candidates"
+        )
+        parts = candidates[0]["content"]["parts"]
+        assert isinstance(parts, list) and parts, f"{path.name}: no parts"
+        return
+    response = _FROM_RESPONSE(response=document, kwargs={})
     assert response.candidates, f"{path.name}: no candidates"
 
 

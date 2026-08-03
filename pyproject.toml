@@ -65,6 +65,11 @@ chroma = ["chromadb==1.5.9"]
 # than the `chroma` weight argument: harness neutrality is an install-time property as
 # well as an import-time one (CLAUDE.md §7.3). A LangGraph deployment must not be made to
 # install Google's SDK. Pins per 06-RESEARCH.md Standard Stack.
+# The exact pin also fixes the transitive `google-genai` version, which
+# `tests/examples/test_ext00_fixture_schemas.py` depends on for
+# `GenerateContentResponse._from_response` — a PRIVATE SDK method. See the
+# comment at that call site: it degrades to structural assertions if a
+# future bump removes the method, so this is a stability note, not a lock.
 adk = ["google-adk==2.5.0"]
 claude-agent = ["claude-agent-sdk==0.2.128"]
 langgraph = ["langgraph==1.2.9"]
