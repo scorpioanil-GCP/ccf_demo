@@ -94,6 +94,22 @@ def _read_text(bridge: SyncMcpBridge, url: str, uri: str) -> str:
     )
 
 
+def _list_tool_names(bridge: SyncMcpBridge, url: str) -> set[str]:
+    """The tool names ``tools/list`` advertises over the wire."""
+
+    async def operation(session: ClientSession) -> set[str]:
+        result = await session.list_tools()
+        return {tool.name for tool in result.tools}
+
+    return bridge.run(
+        run_with_session(
+            url=url,
+            operation=operation,
+            http_client_factory=authorized_http_client,
+        )
+    )
+
+
 def _call_tool(
     bridge: SyncMcpBridge, url: str, name: str, arguments: dict[str, Any]
 ) -> tuple[bool, str]:
@@ -153,6 +169,80 @@ def test_the_experience_scheme_is_its_own() -> None:
 
     assert EXPERIENCE_PRODUCT_URI_SCHEME != PRODUCT_URI_SCHEME
     assert EXPERIENCE_PRODUCT_URI_SCHEME != ARTIFACT_URI_SCHEME
+
+
+# --- the promoted default-ON tools and the allowlist (D-IMPL-74) ------------
+
+
+@with_child
+def test_a_default_built_server_advertises_the_promoted_tools(
+    child_server_port: int, bridge: SyncMcpBridge
+) -> None:
+    """D-IMPL-74: the three external-consumption tools register by default.
+
+    Asserted over the wire against the default-built child, because
+    ``tools/list`` is exactly what an external consumer sees: nothing was
+    opted into, and the front door serves external consumption out of the
+    box (Dave, 2026-08-02).
+    """
+    from ccf_runtime.mcp.experience import (
+        GET_CONTEXT_TOOL,
+        GET_LINEAGE_TOOL,
+        GET_REPLAY_RECORD_TOOL,
+        INVOKE_AGENT_TOOL,
+        LIST_AGENTS_TOOL,
+    )
+
+    url = f"http://127.0.0.1:{child_server_port}/mcp"
+    advertised = _list_tool_names(bridge, url)
+
+    assert {
+        GET_CONTEXT_TOOL,
+        GET_LINEAGE_TOOL,
+        GET_REPLAY_RECORD_TOOL,
+        LIST_AGENTS_TOOL,
+        INVOKE_AGENT_TOOL,
+    } <= advertised
+
+
+def test_an_allowlist_excluded_tool_is_never_registered(
+    tmp_path: Path,
+) -> None:
+    """D-05 via D-IMPL-74: omission happens at registration time.
+
+    A server built with an allowlist that excludes ``invoke_agent`` does not
+    advertise it — the tool was never registered, so no post-hoc filter is
+    involved and the model physically cannot call it. Asserted in-process on
+    the same ``build_server`` composition the child runs, so the only
+    difference from the default-built server is the allowlist itself.
+    """
+    import anyio
+
+    from ccf_runtime.mcp.experience import (
+        EXPERIENCE_TOOLS,
+        GET_CONTEXT_TOOL,
+        GET_LINEAGE_TOOL,
+        GET_REPLAY_RECORD_TOOL,
+        INVOKE_AGENT_TOOL,
+        LIST_AGENTS_TOOL,
+    )
+
+    from crossproc.servers.mcp_experience_child import build_server
+
+    server = build_server(
+        workspace=tmp_path,
+        tool_allowlist=EXPERIENCE_TOOLS - {INVOKE_AGENT_TOOL},
+    )
+
+    advertised = {tool.name for tool in anyio.run(server.list_tools)}
+
+    assert INVOKE_AGENT_TOOL not in advertised
+    assert {
+        GET_CONTEXT_TOOL,
+        GET_LINEAGE_TOOL,
+        GET_REPLAY_RECORD_TOOL,
+        LIST_AGENTS_TOOL,
+    } <= advertised
 
 
 # --- the cross-process round trips ------------------------------------------

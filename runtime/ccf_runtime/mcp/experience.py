@@ -72,6 +72,10 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "EXPERIENCE_PRODUCT_URI_SCHEME",
     "EXPERIENCE_PRODUCT_URI_TEMPLATE",
+    "EXPERIENCE_TOOLS",
+    "GET_CONTEXT_TOOL",
+    "GET_LINEAGE_TOOL",
+    "GET_REPLAY_RECORD_TOOL",
     "INVOKE_AGENT_TOOL",
     "LIST_AGENTS_TOOL",
     "AgentDirectoryProtocol",
@@ -79,9 +83,12 @@ __all__ = [
     "AgentToolCatalog",
     "AgentToolListing",
     "AgentToolSurface",
+    "ContextProviderProtocol",
     "ExperienceProductNotServable",
     "ExperienceProductResolverProtocol",
     "ExposedAgent",
+    "LineageProviderProtocol",
+    "ReplayRecordReaderProtocol",
     "agent_tool_listing",
     "build_experience_server",
     "experience_product_uri",
@@ -111,6 +118,37 @@ LIST_AGENTS_TOOL = "list_agents"
 #: The agent-invocation Tool: one bound skill of one declared agent,
 #: dispatched through the deployment's injected factory path.
 INVOKE_AGENT_TOOL = "invoke_agent"
+
+#: The external context-consumption Tool: one tenant's entity-scoped
+#: Context Product, resolved through the deployment's injected context
+#: provider. Promoted from deployment-side composition and registered by
+#: default (D-IMPL-74; Dave, 2026-08-02) — external context consumption is
+#: the primary adoption path, so the front door serves it out of the box.
+GET_CONTEXT_TOOL = "get_context"
+
+#: The lineage Tool: the served product's lineage, resolved through the
+#: deployment's injected lineage provider. Default-registered (D-IMPL-74).
+GET_LINEAGE_TOOL = "get_lineage"
+
+#: The replay-record Tool: the most-recent Decision Replay record as
+#: canonical JSON, resolved through the deployment's injected reader.
+#: Default-registered (D-IMPL-74).
+GET_REPLAY_RECORD_TOOL = "get_replay_record"
+
+#: Every Tool this server can register — the default allowlist. A
+#: deployment passes a subset to :func:`build_experience_server` to keep a
+#: tool off the wire entirely: a tool absent from the allowlist is never
+#: registered, so ``tools/list`` cannot advertise it (D-IMPL-74, the D-05
+#: exposure control; registration-time omission, never post-hoc filtering).
+EXPERIENCE_TOOLS = frozenset(
+    {
+        LIST_AGENTS_TOOL,
+        INVOKE_AGENT_TOOL,
+        GET_CONTEXT_TOOL,
+        GET_LINEAGE_TOOL,
+        GET_REPLAY_RECORD_TOOL,
+    }
+)
 
 
 class ExperienceProductNotServable(LookupError):
@@ -235,6 +273,63 @@ class AgentInvokerProtocol(Protocol):
         ...
 
 
+@runtime_checkable
+class ContextProviderProtocol(Protocol):
+    """What a deployment plugs into :data:`GET_CONTEXT_TOOL`.
+
+    SDK-defined, an extension beyond the whitepaper (CLAUDE.md §8.3 — the
+    Experience front door; §7.1 — the Experience Layer access surface).
+    The deployment resolves the entity-scoped product — and performs any
+    serve-recording it owes its own replay posture — behind this seam; the
+    module holds no fabric handle of any kind (T-07-20). Protocol rather
+    than a base class (CLAUDE.md §11), keyword-only like every sibling seam.
+    """
+
+    def __call__(self, *, tenant: str, entity: str) -> str:
+        """Return the entity-scoped Context Product as canonical JSON.
+
+        Raises:
+            ExperienceProductNotServable: nothing servable at that address.
+        """
+        ...
+
+
+@runtime_checkable
+class LineageProviderProtocol(Protocol):
+    """What a deployment plugs into :data:`GET_LINEAGE_TOOL`.
+
+    SDK-defined (CLAUDE.md §8.3, §7.1). The deployment decides which
+    product's lineage the front door serves; this module only carries the
+    string it is handed (T-07-20).
+    """
+
+    def __call__(self) -> str:
+        """Return the served product's lineage as canonical JSON.
+
+        Raises:
+            ExperienceProductNotServable: no lineage is servable yet.
+        """
+        ...
+
+
+@runtime_checkable
+class ReplayRecordReaderProtocol(Protocol):
+    """What a deployment plugs into :data:`GET_REPLAY_RECORD_TOOL`.
+
+    SDK-defined (CLAUDE.md §8.3, §7.1). The deployment reads the
+    most-recent Decision Replay record from wherever it persists records;
+    this module never touches a store of its own (T-07-20).
+    """
+
+    def __call__(self) -> str:
+        """Return the most-recent Decision Replay record as canonical JSON.
+
+        Raises:
+            ExperienceProductNotServable: no decision has been recorded yet.
+        """
+        ...
+
+
 def experience_product_uri(
     *, tenant: str, product_class: str, version: str
 ) -> str:
@@ -289,10 +384,17 @@ def build_experience_server(
     product_resolver: ExperienceProductResolverProtocol,
     agent_directory: AgentDirectoryProtocol,
     agent_invoker: AgentInvokerProtocol,
+    context_provider: ContextProviderProtocol,
+    lineage_provider: LineageProviderProtocol,
+    replay_record_reader: ReplayRecordReaderProtocol,
+    get_context_description: str,
+    get_lineage_description: str,
+    get_replay_record_description: str,
     token_verifier: TokenVerifier,
     auth_settings: AuthSettings,
+    tool_allowlist: frozenset[str] | None = None,
 ) -> FastMCP:
-    """Build the authenticated Experience-surface server over three seams.
+    """Build the authenticated Experience-surface server over six seams.
 
     ``stateless_http=True`` is load-bearing rather than a tuning choice: it
     is what makes the client's session-per-call cheap (:mod:`ccf.mcp.client`,
@@ -303,15 +405,45 @@ def build_experience_server(
     *together*, because ``FastMCP`` installs its authentication middleware
     only when both are present (D-26, the artifact-server precedent).
 
+    The three external-consumption Tools (:data:`GET_CONTEXT_TOOL`,
+    :data:`GET_LINEAGE_TOOL`, :data:`GET_REPLAY_RECORD_TOOL`) register by
+    default (D-IMPL-74; Dave, 2026-08-02): external context consumption is
+    the primary adoption path, so the front door serves it out of the box.
+    Their description strings are deployment values supplied here — like
+    ``server_name`` — because this module authors no tool prose (CINV-01;
+    CLAUDE.md §6.4).
+
+    ``tool_allowlist`` is the D-05 exposure control: a tool absent from it
+    is never registered, so ``tools/list`` cannot advertise it and the
+    model physically cannot call it. Omission happens at registration
+    time — nothing is filtered after the fact. ``None`` (the default)
+    registers every tool in :data:`EXPERIENCE_TOOLS`.
+
     Args:
         server_name: The name this server advertises. Deployment identity.
         product_resolver: The deployment's assemble-and-gate path.
         agent_directory: The deployment's per-tenant agent exposure.
         agent_invoker: The deployment's factory-path invocation seam.
+        context_provider: The deployment's entity-scoped product resolution
+            (and any serve-recording it performs) behind
+            :data:`GET_CONTEXT_TOOL`.
+        lineage_provider: The deployment's lineage serving behind
+            :data:`GET_LINEAGE_TOOL`.
+        replay_record_reader: The deployment's most-recent-record read
+            behind :data:`GET_REPLAY_RECORD_TOOL`.
+        get_context_description: The prose :data:`GET_CONTEXT_TOOL`
+            advertises. A deployment value (CINV-01).
+        get_lineage_description: The prose :data:`GET_LINEAGE_TOOL`
+            advertises. A deployment value (CINV-01).
+        get_replay_record_description: The prose
+            :data:`GET_REPLAY_RECORD_TOOL` advertises. A deployment value
+            (CINV-01).
         token_verifier: Verifies presented bearer tokens
             (:mod:`ccf_runtime.mcp.auth` ships the reference implementation).
         auth_settings: Issuer, resource-server identity, required scopes —
             deployment values in their entirety.
+        tool_allowlist: Which Tools to register; ``None`` registers all of
+            :data:`EXPERIENCE_TOOLS`.
 
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
@@ -319,6 +451,8 @@ def build_experience_server(
         library that picked an interface would be picking an exposure
         surface (T-06-14).
     """
+    allowed = EXPERIENCE_TOOLS if tool_allowlist is None else frozenset(tool_allowlist)
+
     server = FastMCP(
         server_name,
         stateless_http=True,
@@ -340,38 +474,70 @@ def build_experience_server(
         )
         return canonical_bytes(servable.product).decode("utf-8")
 
-    @server.tool(name=LIST_AGENTS_TOOL)
-    def list_agents(tenant: str) -> str:
-        """List one tenant's exposed agents with their rendered tool surfaces."""
-        catalog = AgentToolCatalog(
-            tenant=tenant,
-            agents=tuple(
-                agent_tool_listing(agent)
-                for agent in agent_directory(tenant=tenant)
-            ),
-        )
-        return canonical_bytes(catalog).decode("utf-8")
+    if LIST_AGENTS_TOOL in allowed:
 
-    @server.tool(name=INVOKE_AGENT_TOOL)
-    def invoke_agent(
-        tenant: str,
-        definition_key: str,
-        definition_version: str,
-        skill: str,
-        arguments: dict[str, str],
-    ) -> str:
-        """Invoke one agent's bound skill through the injected factory path.
+        @server.tool(name=LIST_AGENTS_TOOL)
+        def list_agents(tenant: str) -> str:
+            """List one tenant's exposed agents with their rendered tool surfaces."""
+            catalog = AgentToolCatalog(
+                tenant=tenant,
+                agents=tuple(
+                    agent_tool_listing(agent)
+                    for agent in agent_directory(tenant=tenant)
+                ),
+            )
+            return canonical_bytes(catalog).decode("utf-8")
 
-        Passed through verbatim: what the deployment's invoker produced is
-        what the wire carries — this module adds nothing and interprets
-        nothing (T-07-20).
-        """
-        return agent_invoker(
-            tenant=tenant,
-            definition_key=definition_key,
-            definition_version=definition_version,
-            skill=skill,
-            arguments=arguments,
+    if INVOKE_AGENT_TOOL in allowed:
+
+        @server.tool(name=INVOKE_AGENT_TOOL)
+        def invoke_agent(
+            tenant: str,
+            definition_key: str,
+            definition_version: str,
+            skill: str,
+            arguments: dict[str, str],
+        ) -> str:
+            """Invoke one agent's bound skill through the injected factory path.
+
+            Passed through verbatim: what the deployment's invoker produced is
+            what the wire carries — this module adds nothing and interprets
+            nothing (T-07-20).
+            """
+            return agent_invoker(
+                tenant=tenant,
+                definition_key=definition_key,
+                definition_version=definition_version,
+                skill=skill,
+                arguments=arguments,
+            )
+
+    if GET_CONTEXT_TOOL in allowed:
+
+        @server.tool(
+            name=GET_CONTEXT_TOOL, description=get_context_description
         )
+        def get_context(tenant: str, entity: str) -> str:
+            """Serve one tenant's entity-scoped product via the injected seam."""
+            return context_provider(tenant=tenant, entity=entity)
+
+    if GET_LINEAGE_TOOL in allowed:
+
+        @server.tool(
+            name=GET_LINEAGE_TOOL, description=get_lineage_description
+        )
+        def get_lineage() -> str:
+            """Serve the product's lineage via the injected seam."""
+            return lineage_provider()
+
+    if GET_REPLAY_RECORD_TOOL in allowed:
+
+        @server.tool(
+            name=GET_REPLAY_RECORD_TOOL,
+            description=get_replay_record_description,
+        )
+        def get_replay_record() -> str:
+            """Serve the most-recent replay record via the injected seam."""
+            return replay_record_reader()
 
     return server
