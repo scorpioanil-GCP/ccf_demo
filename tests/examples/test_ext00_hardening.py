@@ -154,6 +154,35 @@ def test_declaring_an_agent_without_allowlisting_the_tool_is_refused() -> None:
 
 
 # --------------------------------------------------------------------------
+# IN-04 — the D-16 reproduction names its serve instead of taking the newest
+# --------------------------------------------------------------------------
+
+
+def test_run_py_selects_the_d16_serve_record_by_label_not_position() -> None:
+    """IN-04: `versions[-1]` coupled PASS 8 to `_mcp_probe`'s read order.
+
+    Both serve paths append a `ServeRequestRecord` under the same verified
+    client_id, so "newest in the store" only matched the compared bytes
+    because `read_resource` happens to run before `call_tool`. Reordering
+    those two lines would have compared a record from a different serve —
+    and passed anyway today (one product, identical bytes), which is the
+    hazard. The label seam is shared: `serve.py` writes it, `run.py` reads
+    by it, so a rename cannot silently split the two sides.
+    """
+    serve = _load_serve()
+    source = (EXAMPLE_DIR / "run.py").read_text(encoding="utf-8")
+
+    label = serve.get_context_request_label(tenant="t", entity="e")
+    assert label == "get_context tenant=t entity=e"
+    # run.py must not resolve "newest in the store" any more. (The phrase
+    # still appears in the docstring explaining what was wrong; it is the
+    # resolution call that must be gone.)
+    assert "content_address=versions[-1]" not in source
+    assert "fabric.get_context_request_label(" in source
+    assert "serve_request_label=" in source
+
+
+# --------------------------------------------------------------------------
 # D-07 — a drifted request reaches a loud 500 through the FULL handler path
 # --------------------------------------------------------------------------
 

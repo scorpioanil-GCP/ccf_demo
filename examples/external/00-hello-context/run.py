@@ -438,10 +438,23 @@ def _assert_seven_heading_readme() -> None:
             )
 
 
-def _assert_byte_equal_reproduction(served_bytes: bytes) -> None:
+def _assert_byte_equal_reproduction(
+    served_bytes: bytes, *, serve_request_label: str
+) -> None:
     """D-16/T-13.1-12: resolve the serve record from the store, replay it
     against a fabric rebuilt from the same artifacts, and require the
-    reproduced product's canonical bytes to equal the served bytes."""
+    reproduced product's canonical bytes to equal the served bytes.
+
+    ``serve_request_label`` names WHICH serve produced ``served_bytes``
+    (``serve.get_context_request_label``). It is not decoration: this
+    deployment records a ``ServeRequestRecord`` for the templated resource
+    read as well as for the ``get_context`` call, both under the same
+    client identity. Taking ``versions[-1]`` compared ``served_bytes``
+    against whichever record happened to land last, which lined up only
+    because ``_mcp_probe`` calls ``read_resource`` before ``call_tool``
+    (IN-04) — an invisible coupling that stays green today (one product,
+    identical bytes) and breaks silently the moment the example grows a
+    second product."""
     ontology = fabric._load("ontology.yaml")
     events = fabric._load("events.yaml")
     control = fabric._load("controlplane.yaml")
@@ -452,10 +465,12 @@ def _assert_byte_equal_reproduction(served_bytes: bytes) -> None:
 
     store = FileArtifactStore(root=_EXAMPLE_ROOT / ".store")
 
-    # The serve event and the decision record name each other (D-13): the
-    # newest ServeRequestRecord for the presenting client identity carries
-    # the exact versioned URI of the replay record its delivery landed
-    # under. Names move; the resolved address does not (D-IMPL-26).
+    # The serve event and the decision record name each other (D-13): each
+    # ServeRequestRecord for the presenting client identity carries the
+    # exact versioned URI of the replay record ITS delivery landed under.
+    # Names move; the resolved address does not (D-IMPL-26). Select the
+    # record by the serve it describes rather than by store position, so
+    # the D-16 comparison is bound to the serve that produced these bytes.
     active = next(
         entry for entry in tokens["tokens"] if entry["status"] == "active"
     )
@@ -466,11 +481,27 @@ def _assert_byte_equal_reproduction(served_bytes: bytes) -> None:
     )
     if not versions:
         raise AssertionError("no ServeRequestRecord landed in the ArtifactStore")
-    serve_request = resolve_artifact(
-        store=store,
-        content_address=versions[-1],
-        contract=fabric.ServeRequestRecord,
-    )
+    matching = [
+        record
+        for record in (
+            resolve_artifact(
+                store=store,
+                content_address=address,
+                contract=fabric.ServeRequestRecord,
+            )
+            for address in versions
+        )
+        if record.request == serve_request_label
+    ]
+    if not matching:
+        raise AssertionError(
+            "no ServeRequestRecord in the ArtifactStore describes the serve "
+            f"that produced the compared bytes ({serve_request_label!r}); "
+            "the D-16 reproduction has nothing to bind to"
+        )
+    # Newest among the records for THIS serve — the probe issues one
+    # get_context call, so this is that call's record.
+    serve_request = matching[-1]
     record_address = store.resolve_uri(uri=serve_request.replay_uri)
 
     # Rebuild the fabric from the same artifacts serve.py booted from —
@@ -641,16 +672,24 @@ def main() -> int:
                 product_class=declared_class["schema_name"],
                 version=declared_class["schema_version"],
             )
+            get_context_arguments = {
+                "tenant": ontology["tenant_id"],
+                "entity": product_doc["focus"]["entity_ref"],
+            }
+            # IN-04: name the serve whose bytes PASS 8 compares, so the D-16
+            # assertion selects that serve's record explicitly rather than
+            # depending on _mcp_probe's internal read order.
+            get_context_label = fabric.get_context_request_label(
+                tenant=get_context_arguments["tenant"],
+                entity=get_context_arguments["entity"],
+            )
             resource_text, served_text, advertised = asyncio.run(
                 _mcp_probe(
                     url,
                     active["token"],
                     resource_uri,
                     experience["tools"]["get_context"]["name"],
-                    {
-                        "tenant": ontology["tenant_id"],
-                        "entity": product_doc["focus"]["entity_ref"],
-                    },
+                    get_context_arguments,
                 )
             )
 
@@ -685,7 +724,10 @@ def main() -> int:
             _terminate(serve_proc)
             _terminate(replay_proc)
 
-        _assert_byte_equal_reproduction(served_text.encode("utf-8"))
+        _assert_byte_equal_reproduction(
+            served_text.encode("utf-8"),
+            serve_request_label=get_context_label,
+        )
         print("PASS 8: fabric-side byte-equal reproduction (D-16)")
 
     docs_leg = " + docs-only .mcp.json leg" if not args.live else ""

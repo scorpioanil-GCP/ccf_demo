@@ -190,6 +190,22 @@ def validate_agent_exposure(
         )
 
 
+def get_context_request_label(*, tenant: str, entity: str) -> str:
+    """The ``ServeRequestRecord.request`` descriptor for a get_context serve.
+
+    Every serve — the templated Experience resource AND the `get_context`
+    tool — appends a `ServeRequestRecord` under the same verified
+    `client_id`, and each names the delivery it recorded. A caller that
+    wants the record for ONE specific serve therefore has to identify that
+    serve, not reach for "newest in the store": `run.py`'s D-16
+    reproduction did the latter and silently depended on `_mcp_probe`
+    calling `read_resource` before `call_tool` (IN-04). One function, used
+    by the writer here and by the reader in `run.py`, is the seam that
+    makes the selection explicit instead of positional.
+    """
+    return f"get_context tenant={tenant} entity={entity}"
+
+
 def _load(name: str) -> Any:
     return yaml.safe_load((ARTIFACTS / name).read_text(encoding="utf-8"))
 
@@ -653,7 +669,7 @@ def main() -> None:
             ):
                 raise ExperienceProductNotServable(f"{tenant}/{entity}")
             return _serve_recorded(
-                f"get_context tenant={tenant} entity={entity}"
+                get_context_request_label(tenant=tenant, entity=entity)
             ).decode("utf-8")
 
         def lineage_provider() -> str:
