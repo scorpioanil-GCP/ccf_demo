@@ -23,7 +23,8 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 	example-06 example-07 example-08 example-ext-00 \
 	example-03-live-ollama example-03-live-anthropic \
 	example-ext-00-live-anthropic example-ext-00-live-adk \
-	perf perf-micro perf-scale perf-xproc perf-replay
+	perf perf-micro perf-scale perf-xproc perf-replay \
+	docs docs-serve
 
 help: ## List targets with one-line descriptions
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -124,3 +125,14 @@ example-ext-00-live-anthropic: ## External example 00 Anthropic leg live (opt-in
 
 example-ext-00-live-adk: ## External example 00 ADK/Gemini leg live (opt-in, D-11; never in `examples`/`ci`)
 	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py --live --legs adk
+
+# Docs (Phase 14, D-IMPL-71). `docs` is the plain build; the strict publish gate
+# (`docs-strict`) arrives with the publish scan in a later plan and composes into
+# `ci` there (D-IMPL-72) — this plan deliberately leaves the `ci:` line untouched.
+docs: ## Build the documentation site with mkdocs (D-IMPL-71; built into site/, never hosted)
+	$(ENV) $(PYTHON) -m mkdocs build
+
+# Interactive authoring server only. Like the perf and live-leg targets, it is
+# opt-in and NEVER joins `ci` — it blocks forever by design.
+docs-serve: ## Serve the docs locally with live reload (opt-in; never part of `ci`)
+	$(ENV) $(PYTHON) -m mkdocs serve
