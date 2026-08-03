@@ -52,7 +52,7 @@ import hmac
 import socket
 import sys
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -122,6 +122,7 @@ from ccf_runtime.mcp.experience import (  # noqa: E402
     GET_CONTEXT_TOOL,
     GET_LINEAGE_TOOL,
     GET_REPLAY_RECORD_TOOL,
+    LIST_AGENTS_TOOL,
     ExperienceProductNotServable,
     build_experience_server,
     experience_product_uri,
@@ -162,6 +163,31 @@ def validate_tool_names(tools: Mapping[str, Any]) -> None:
                 f"{constant!r} — rename the artifact value or bind a "
                 f"different tool"
             )
+
+
+def validate_agent_exposure(
+    agent_exposure: Mapping[str, Any], tool_allowlist: Sequence[str]
+) -> None:
+    """Refuse composition when declared agents could never be served.
+
+    This deployment exposes no agents, so it allowlists neither agent tool
+    and supplies neither agent seam (D-03). Adding an entry under
+    `agent_exposure.agents` is the README's "what to change first"
+    instinct, and it must not fail somewhere downstream: without
+    `list_agents` allowlisted the entry is simply unreachable, and with it
+    allowlisted the raw artifact mapping would flow untyped into the SDK's
+    `ExposedAgent` surface and blow up at call time. Validation belongs at
+    the artifact boundary, never deferred (CLAUDE.md §11).
+    """
+    declared = agent_exposure["agents"]
+    if declared and LIST_AGENTS_TOOL not in tool_allowlist:
+        raise ValueError(
+            f"experience.yaml agent_exposure.agents declares "
+            f"{len(declared)} agent(s), but {LIST_AGENTS_TOOL!r} is absent "
+            f"from tool_allowlist, so no caller could ever see them — add "
+            f"the tool to the allowlist and pass an agent_directory that "
+            f"validates each entry into an ExposedAgent"
+        )
 
 
 def _load(name: str) -> Any:
@@ -584,16 +610,6 @@ def main() -> None:
             )
             return assembled.servable
 
-        def agent_directory(*, tenant: str) -> tuple[()]:
-            # Artifacts-declared empty exposure (hello-world scope). The
-            # agent tools are absent from the artifact's tool_allowlist,
-            # so this seam is never reachable from the wire.
-            del tenant
-            return tuple(experience["agent_exposure"]["agents"])
-
-        def agent_invoker(**_: object) -> str:
-            raise RuntimeError(experience["agent_exposure"]["invocation_refusal"])
-
         focus = product_doc["focus"]
 
         def context_provider(*, tenant: str, entity: str) -> str:
@@ -629,11 +645,17 @@ def main() -> None:
         auth_values = experience["auth"]
         tools = experience["tools"]
         validate_tool_names(tools)
+        validate_agent_exposure(
+            experience["agent_exposure"], experience["tool_allowlist"]
+        )
+        # No agent_directory / agent_invoker: the agent tools are absent
+        # from the artifact allowlist, so the builder registers neither and
+        # requires neither (D-03). A deployment that exposes agents
+        # allowlists the tools and supplies the seams; this one does not
+        # hand in dead callables to satisfy a signature.
         server = build_experience_server(
             server_name=experience["server_name"],
             product_resolver=resolve,
-            agent_directory=agent_directory,
-            agent_invoker=agent_invoker,
             context_provider=context_provider,
             lineage_provider=lineage_provider,
             replay_record_reader=replay_record_reader,

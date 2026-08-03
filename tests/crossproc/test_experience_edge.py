@@ -274,9 +274,10 @@ def _builder_kwargs(tmp_path: Path) -> dict[str, Any]:
 
     return {
         "server_name": SERVER_NAME,
+        # `product_resolver` alone: it backs the templated product
+        # resource, which is not allowlist-gated and so always registers.
+        # The agent seams are conditional like every other provider (D-03).
         "product_resolver": unreachable,
-        "agent_directory": unreachable,
-        "agent_invoker": unreachable,
         "token_verifier": SourceBackedTokenVerifier(
             source=FileTokenSource(path=write_token_file(workspace=tmp_path))
         ),
@@ -331,6 +332,51 @@ def test_an_allowlisted_tool_without_its_provider_is_refused(
         )
 
     assert GET_CONTEXT_TOOL in str(raised.value)
+
+
+def test_an_allowlisted_agent_tool_without_its_provider_is_refused(
+    tmp_path: Path,
+) -> None:
+    """D-03 reaches the agent seams too: requiredness follows exposure.
+
+    They were unconditionally required, so a deployment allowlisting only
+    the consumption tools still had to hand in dead `agent_directory` /
+    `agent_invoker` callables to satisfy the signature — precisely the
+    shape D-03 exists to remove.
+    """
+    from ccf_runtime.mcp.experience import (
+        INVOKE_AGENT_TOOL,
+        LIST_AGENTS_TOOL,
+        build_experience_server,
+    )
+
+    for tool in (LIST_AGENTS_TOOL, INVOKE_AGENT_TOOL):
+        with pytest.raises(ValueError) as raised:
+            build_experience_server(
+                tool_allowlist=frozenset({tool}),
+                **_builder_kwargs(tmp_path),
+            )
+        assert tool in str(raised.value)
+
+
+def test_a_server_exposing_no_agent_tools_needs_no_agent_seams(
+    tmp_path: Path,
+) -> None:
+    """The other half of D-03: omission is legal when nothing is exposed."""
+    from ccf_runtime.mcp.experience import (
+        GET_LINEAGE_TOOL,
+        build_experience_server,
+    )
+
+    def provide_lineage() -> str:  # pragma: no cover - never called
+        raise AssertionError("a construction-time test calls no seam")
+
+    build_experience_server(
+        tool_allowlist=frozenset({GET_LINEAGE_TOOL}),
+        lineage_provider=provide_lineage,
+        get_lineage_description="served for this test only",
+        **_builder_kwargs(tmp_path),
+    )
 
 
 def test_an_allowlisted_tool_without_its_description_is_refused(

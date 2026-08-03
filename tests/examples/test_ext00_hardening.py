@@ -113,6 +113,46 @@ def test_a_drifted_artifact_tool_name_is_refused() -> None:
     assert "wrong_name" in message
 
 
+def _load_experience_doc() -> Any:
+    import yaml
+
+    doc: Any = yaml.safe_load(
+        (EXAMPLE_DIR / "artifacts" / "experience.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    return doc
+
+
+def test_the_committed_agent_exposure_declares_no_agents() -> None:
+    """The shipped artifact composes: no agents, no agent tools, no seams."""
+    serve = _load_serve()
+    doc = _load_experience_doc()
+    serve.validate_agent_exposure(doc["agent_exposure"], doc["tool_allowlist"])
+
+
+def test_declaring_an_agent_without_allowlisting_the_tool_is_refused() -> None:
+    """WR-05: the README's "what to change first" instinct must not defer.
+
+    An entry added under `agent_exposure.agents` while `list_agents` stays
+    off the allowlist is unreachable; with the tool on, a raw artifact
+    mapping would flow untyped into the SDK's `ExposedAgent` surface and
+    fail at call time. Either way the refusal belongs at the artifact
+    boundary (CLAUDE.md §11).
+    """
+    from ccf_runtime.mcp.experience import LIST_AGENTS_TOOL
+
+    serve = _load_serve()
+    doc = _load_experience_doc()
+
+    with pytest.raises(ValueError) as excinfo:
+        serve.validate_agent_exposure(
+            {"agents": [{"name": "analyst"}]}, doc["tool_allowlist"]
+        )
+
+    assert LIST_AGENTS_TOOL in str(excinfo.value)
+
+
 # --------------------------------------------------------------------------
 # D-07 — a drifted request reaches a loud 500 through the FULL handler path
 # --------------------------------------------------------------------------

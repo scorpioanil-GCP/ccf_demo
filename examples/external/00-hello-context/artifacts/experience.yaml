@@ -63,9 +63,17 @@ tool_allowlist:
   - get_lineage  # [ADAPT]
   - get_replay_record  # [ADAPT]
 
-# This example exposes NO agents on the front door (hello-world scope):
-# the agent directory returns an empty tuple and invocation refuses. The
-# declaration lives here so serve.py interprets rather than decides.
+# This example exposes NO agents on the front door (hello-world scope).
+# Because the agent tools are absent from tool_allowlist above, the SDK
+# builder registers neither and requires neither agent seam, so serve.py
+# passes no agent_directory and no agent_invoker at all — a deployment
+# does not hand in dead callables to satisfy a signature (D-03).
+#
+# [ADAPT] Declaring an agent here is only half the change: add
+# `list_agents` to tool_allowlist and pass an agent_directory that
+# validates each entry into an `ExposedAgent`. serve.py refuses to
+# compose if you declare agents without allowlisting the tool, rather
+# than letting the entry sit silently unreachable.
 agent_exposure:
   agents: []
   invocation_refusal: "no agents are exposed on this deployment"

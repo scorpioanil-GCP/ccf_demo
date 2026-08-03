@@ -402,10 +402,11 @@ def agent_tool_listing(agent: ExposedAgent) -> AgentToolListing:
 
 
 def _missing(tool: str) -> str:
-    """The D-03 refusal, phrased once so all three tools refuse alike."""
+    """The D-03 refusal, phrased once so every tool refuses alike."""
     return (
         f"{tool} is allowlisted but its provider or description was not"
         " supplied; a tool this server admits must have both"
+        " (agent-tool descriptions default; their providers do not)"
     )
 
 
@@ -413,8 +414,8 @@ def build_experience_server(
     *,
     server_name: str,
     product_resolver: ExperienceProductResolverProtocol,
-    agent_directory: AgentDirectoryProtocol,
-    agent_invoker: AgentInvokerProtocol,
+    agent_directory: AgentDirectoryProtocol | None = None,
+    agent_invoker: AgentInvokerProtocol | None = None,
     context_provider: ContextProviderProtocol | None = None,
     lineage_provider: LineageProviderProtocol | None = None,
     replay_record_reader: ReplayRecordReaderProtocol | None = None,
@@ -469,11 +470,25 @@ def build_experience_server(
     descriptions instead (D-12/D-13/D-14): their shape is SDK mechanism, so
     describing it authors nobody's domain prose (CINV-01; CLAUDE.md §6.4).
 
+    The rule applies to the agent *providers* on the same terms: a
+    deployment that allowlists neither agent tool supplies neither
+    ``agent_directory`` nor ``agent_invoker``, rather than handing in dead
+    callables to satisfy a signature. ``product_resolver`` stays
+    unconditionally required because the templated product resource is not
+    allowlist-gated — it registers on every server this builder produces,
+    so its seam is never dead.
+
     Args:
         server_name: The name this server advertises. Deployment identity.
-        product_resolver: The deployment's assemble-and-gate path.
-        agent_directory: The deployment's per-tenant agent exposure.
-        agent_invoker: The deployment's factory-path invocation seam.
+        product_resolver: The deployment's assemble-and-gate path. Always
+            required: it backs the templated product resource, which is
+            not allowlist-gated.
+        agent_directory: The deployment's per-tenant agent exposure behind
+            :data:`LIST_AGENTS_TOOL`. Required when that tool is
+            allowlisted (D-03).
+        agent_invoker: The deployment's factory-path invocation seam
+            behind :data:`INVOKE_AGENT_TOOL`. Required when that tool is
+            allowlisted (D-03).
         context_provider: The deployment's entity-scoped product resolution
             (and any serve-recording it performs) behind
             :data:`GET_CONTEXT_TOOL`. Required when that tool is
@@ -555,6 +570,13 @@ def build_experience_server(
         return canonical_bytes(servable.product).decode("utf-8")
 
     if LIST_AGENTS_TOOL in allowed:
+        # D-03 applies to the agent seams on the same terms as the three
+        # consumption seams: requiredness is conditional on exposure. A
+        # deployment that allowlists no agent tools hands in no agent
+        # callables — it does not supply dead ones to satisfy a signature.
+        if agent_directory is None:
+            raise ValueError(_missing(LIST_AGENTS_TOOL))
+        directory_seam = agent_directory
 
         @server.tool(
             name=LIST_AGENTS_TOOL,
@@ -570,12 +592,15 @@ def build_experience_server(
                 tenant=tenant,
                 agents=tuple(
                     agent_tool_listing(agent)
-                    for agent in agent_directory(tenant=tenant)
+                    for agent in directory_seam(tenant=tenant)
                 ),
             )
             return canonical_bytes(catalog).decode("utf-8")
 
     if INVOKE_AGENT_TOOL in allowed:
+        if agent_invoker is None:
+            raise ValueError(_missing(INVOKE_AGENT_TOOL))
+        invoker_seam = agent_invoker
 
         @server.tool(
             name=INVOKE_AGENT_TOOL,
@@ -598,7 +623,7 @@ def build_experience_server(
             what the wire carries — this module adds nothing and interprets
             nothing (T-07-20).
             """
-            return agent_invoker(
+            return invoker_seam(
                 tenant=tenant,
                 definition_key=definition_key,
                 definition_version=definition_version,
