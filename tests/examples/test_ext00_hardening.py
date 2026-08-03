@@ -337,6 +337,44 @@ def test_a_non_200_upstream_is_passed_through_and_never_recorded(
     ]
 
 
+def test_a_malformed_request_body_consumes_no_ordinal(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-09: a body that cannot be recorded must not claim an ordinal.
+
+    The 13.3 residual: the ordinal was claimed before ``json.loads(body)``,
+    so a malformed body returned an unhandled 500 with the ordinal already
+    spent and the next real capture landing at ``gemini-01``.
+    """
+    import httpx
+
+    forwarded: list[str] = []
+
+    def responder(request: httpx.Request) -> httpx.Response:
+        forwarded.append(str(request.url))
+        return httpx.Response(200, json={"candidates": []})
+
+    url = "/v1beta/models/m:generateContent"
+    with _proxy_client(tmp_path, responder, monkeypatch) as client:
+        for body in (b"not json", b'["a", "list"]'):
+            refused = client.post(
+                url, content=body, headers={"content-type": "application/json"}
+            )
+            assert refused.status_code == 400
+            assert "JSON object" in refused.json()["error"]
+
+        good = client.post(url, json=_PROXY_BODY)
+        assert good.status_code == 200
+
+    # Nothing was forwarded upstream for the unrecordable bodies, and the
+    # first real capture is still ordinal 00.
+    assert len(forwarded) == 1
+    assert sorted(p.name for p in tmp_path.glob("*.json")) == [
+        "gemini-00-request.json",
+        "gemini-00.json",
+    ]
+
+
 def test_a_non_json_200_is_passed_through_and_never_recorded(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

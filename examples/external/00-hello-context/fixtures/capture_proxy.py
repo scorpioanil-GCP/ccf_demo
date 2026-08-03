@@ -24,6 +24,10 @@ Recording spec (D-09/D-10, 13.3):
   429, a 500, an SSE stream, an HTML error page — is returned to the
   caller byte-for-byte and consumes NO fixture ordinal, so a transient
   vendor failure cannot renumber the real turns.
+* **A request body that is not a JSON object is refused with 400**
+  before anything is forwarded, for the same reason: it can never be
+  recorded, so it must never claim an ordinal (and must never spend
+  vendor credit on a call whose capture is impossible).
 
 Security posture (T-13.2-06/T-13.3-04): API keys ride in HTTP headers, so
 headers are NEVER written to disk in either direction. The outbound key is
@@ -135,6 +139,26 @@ def build_app(
                     status_code=500,
                 )
             body = await request.body()
+            # D-09 ordinal conservation: a request whose body cannot be
+            # recorded is not a capturable turn, so it is refused BEFORE
+            # anything is forwarded and BEFORE an ordinal is claimed. Doing
+            # the parse after the ordinal claim spent an ordinal on an
+            # unhandled 500 — the exact renumbering hazard D-09 exists to
+            # prevent.
+            try:
+                parsed = json.loads(body)
+            except ValueError:
+                parsed = None
+            if not isinstance(parsed, dict):
+                return JSONResponse(
+                    {
+                        "error": "request body is not a JSON object; "
+                        "nothing forwarded, no ordinal consumed",
+                        "path": path,
+                    },
+                    status_code=400,
+                )
+            request_doc: dict[str, object] = parsed
             headers = {key_header: key}
             for name in FORWARDED_REQUEST_HEADERS:
                 if name in request.headers:
@@ -173,8 +197,8 @@ def build_app(
             # non-body datum recorded is the request query, and only when
             # present, under a reserved key, with key-bearing params redacted
             # (D-10/T-13.3-04) — so a captured `?alt=` stays reviewable while
-            # a captured `?key=` cannot reach the fixture tree.
-            request_doc = json.loads(body)
+            # a captured `?key=` cannot reach the fixture tree. The body was
+            # parsed and shape-checked before the ordinal was claimed.
             if query:
                 request_doc[QUERY_KEY] = redact_query(query)
             (out_dir / f"{prefix}-{ordinal:02d}-request.json").write_text(
