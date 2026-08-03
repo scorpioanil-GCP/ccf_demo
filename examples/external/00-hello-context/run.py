@@ -48,6 +48,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import re
 import subprocess
 import sys
@@ -208,14 +209,23 @@ class HelloReplayEnvironment:
         )
 
 
-def _spawn(script: str, stderr_dir: Path) -> tuple[subprocess.Popen[bytes], int]:
-    """Spawn a READY-announcing child; block on its announcement line."""
+def _spawn(
+    script: str, stderr_dir: Path, env: dict[str, str] | None = None
+) -> tuple[subprocess.Popen[bytes], int]:
+    """Spawn a READY-announcing child; block on its announcement line.
+
+    A child that dies before announcing (the D-06 unpaired-fixture
+    refusal, for one) closes stdout, so the blocking readline returns
+    empty and the assertion below names the script and its stderr file —
+    a visible failure, never a hang.
+    """
     stderr_path = stderr_dir / f"{Path(script).stem}.stderr"
     proc = subprocess.Popen(
         [sys.executable, str(_EXAMPLE_ROOT / script)],
         stdout=subprocess.PIPE,
         stderr=stderr_path.open("wb"),
         start_new_session=True,
+        env=env,
     )
     assert proc.stdout is not None
     announcement = proc.stdout.readline().decode().strip()
@@ -504,11 +514,19 @@ def main() -> int:
             url = f"http://127.0.0.1:{serve_port}/mcp"
             replay_port: int | None = None
             if not args.live:
+                # D-08: the Gemini API carries the model in the URL, not
+                # the body, so the replay server cannot read the expected
+                # model off the (body-only) recorded request. It is handed
+                # the SAME label the adk leg is given below, through this
+                # env seam — the `*_BASE_URL` pattern, one level up.
                 replay_proc, replay_port = _spawn(
-                    "replay_server.py", Path(scratch)
+                    "replay_server.py",
+                    Path(scratch),
+                    env={
+                        **os.environ,
+                        "CCF_EXT00_GEMINI_MODEL": GEMINI_FIXTURE_LABEL,
+                    },
                 )
-
-            import os
 
             base_env = {
                 **os.environ,
