@@ -399,6 +399,7 @@ def main() -> int:
             trusted_keys=trusted,
         )
         bindings = NodeBindings(hitl_doc["node_outputs"])
+        # --8<-- [start:workflow-construct]
         engine = WorkflowEngine(
             control_plane=registry,
             artifact_store=FileArtifactStore(root=root / "artifacts"),
@@ -412,7 +413,9 @@ def main() -> int:
         workflow = factory.construct(
             definition_key=workflow_key, definition_version=workflow_version
         )
+        # --8<-- [end:workflow-construct]
 
+        # --8<-- [start:workflow-suspend]
         # --- execute: the workflow suspends at the ApprovalGate -------------
         execution_id: str = drive["approval_execution_id"]
         suspended = asyncio.run(
@@ -425,6 +428,7 @@ def main() -> int:
         assert isinstance(record, WorkflowStateRecord)
         assert record.status == "suspended"
         assert record.current_state == drive["expected_gate"]
+        # --8<-- [end:workflow-suspend]
 
         # --- the hardened door: create_app(auth=BearerTokenAuth(...)) -------
         catalog = SkillCatalog(registry)
@@ -498,6 +502,7 @@ def main() -> int:
         # (T-07-39 TOCTOU binding).
         assert pending.product_content_hash == content_hash(record)
 
+        # --8<-- [start:hitl-approval]
         # --- the approver's binding, signed (sign_principal_binding) --------
         approver = hitl_doc["approver"]
         binding = HumanPrincipalBinding(
@@ -517,7 +522,9 @@ def main() -> int:
                 "annotation": None,
                 "signed_binding": binding_doc,
             }
+        # --8<-- [end:hitl-approval]
 
+        # --8<-- [start:hitl-refusals]
         # --- negative cases: every refusal typed, nothing lands -------------
         # 1. Unauthenticated: no bearer token at all.
         refused = _call(app, "POST", "/hitl/actions", json=submission_body(None))
@@ -565,7 +572,9 @@ def main() -> int:
 
         # No refusal reached the authority path.
         assert transport.submissions(tenant=tenant) == ()
+        # --8<-- [end:hitl-refusals]
 
+        # --8<-- [start:hitl-admitted]
         # --- the valid signed submission: admitted, principal DERIVED -------
         admitted = _call(
             app,
@@ -584,7 +593,9 @@ def main() -> int:
             submission.principal.approver.subject_id == active["client_id"]
         )
         assert submission.signed_binding == signed
+        # --8<-- [end:hitl-admitted]
 
+        # --8<-- [start:workflow-resume]
         # --- resume: the human decision drives the declared terminal --------
         # The door is submit-only by ruling (D-IMPL-62): the submission above
         # IS the authority-path landing (D-16-verified), and the owning
@@ -608,6 +619,7 @@ def main() -> int:
         terminal = registry.state_store.get(WORKFLOW_STATE, state_key)
         assert isinstance(terminal, WorkflowStateRecord)
         assert terminal.status == "terminal"
+        # --8<-- [end:workflow-resume]
 
         # --- replay: dimensions 2 and 5 land verbatim (§7.10.1) -------------
         replay_doc = dict(hitl_doc["replay"])
@@ -655,6 +667,7 @@ def main() -> int:
             hitl_actions=hitl_actions_block,
             workflow_step_sequence=outcome.step_sequence_block,
         )
+        # --8<-- [start:hitl-replay]
         # Dimension 2: the human action, byte-for-byte — grant-derived
         # approver, the signed binding, and the hash of what they saw.
         assert replay.policy_bindings.hitl_actions == hitl_actions_block
@@ -674,6 +687,7 @@ def main() -> int:
             replay.perspective_conditioning.delegation_chain[0]
             == f"workflow:{state_key}"
         )
+        # --8<-- [end:hitl-replay]
 
         # --- the ReviewQueue: async review before release (§8.2; §7.10.3) ---
         # The generated disbursement briefing is queued for asynchronous

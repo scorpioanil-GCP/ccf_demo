@@ -239,6 +239,7 @@ def main() -> int:
             keys["policy_bundle"], control["policy_bundle"]
         )
 
+        # --8<-- [start:agent-artifacts]
         # Axis-6 target: the prompt artifact, registered typed (D-13).
         prompt = parse_artifact(prompt_doc["prompt_artifact"], PROMPT_ARTIFACT)
         assert isinstance(prompt, PromptArtifact)
@@ -268,6 +269,7 @@ def main() -> int:
             definition_key, definition, AGENT_DEFINITION
         )
         assert isinstance(definition_version, str)
+        # --8<-- [end:agent-artifacts]
 
         # --- boot the fabric (SQLite) and ingest via L1 ---------------------
         handle = boot(
@@ -423,6 +425,7 @@ def main() -> int:
                 & set(expected["excluded_entity_classes"])
             ), payload
 
+            # --8<-- [start:agent-factory]
             # --- the Agent Factory: the only construction path (§6.4) -------
             agent = AgentFactory(control_plane=registry).construct(
                 definition_key=definition_key,
@@ -438,7 +441,9 @@ def main() -> int:
                 f"{AGENT_DEFINITION.class_id}/{definition.name}"
                 f"@{definition.artifact_version}"
             )
+            # --8<-- [end:agent-factory]
 
+            # --8<-- [start:specialization-axes]
             # --- all six specialization axes resolve (§6.2 channel 1) -------
             # axis 1 — archetype binding, in declaration order (D-IMPL-19)
             declared_archetypes = tuple(
@@ -488,6 +493,7 @@ def main() -> int:
             assert frozenset(resolved.declared_parameters) == frozenset(
                 binding.parameters
             )
+            # --8<-- [end:specialization-axes]
 
             # --- axis 5 made observable: the debt profile gates (§7.7) ------
             # axis 5 witness: the definition's referenced debt profile is
@@ -574,6 +580,7 @@ def main() -> int:
                 store.get(content_address=served.replay_ref.content_address)
             )
             assert restored == record
+            # --8<-- [start:agent-replay]
             dimension_four = restored.perspective_conditioning
             assert dimension_four.agent_definition_hash == content_hash(
                 definition
@@ -589,6 +596,7 @@ def main() -> int:
             assert dimension_four.delegation_chain == (
                 perspective.principal_id,
             )
+            # --8<-- [end:agent-replay]
 
             print("examples/01-agent-basics: OK")
             print(f"  tenant                 {tenant_id}")
