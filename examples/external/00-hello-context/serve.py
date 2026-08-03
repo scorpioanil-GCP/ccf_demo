@@ -119,12 +119,49 @@ from ccf.similarity.protocol import TokenOverlapIndex  # noqa: E402
 
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, TokenGrant  # noqa: E402
 from ccf_runtime.mcp.experience import (  # noqa: E402
+    GET_CONTEXT_TOOL,
+    GET_LINEAGE_TOOL,
+    GET_REPLAY_RECORD_TOOL,
     ExperienceProductNotServable,
     build_experience_server,
     experience_product_uri,
 )
 
 ARTIFACTS = _EXAMPLE_ROOT / "artifacts"
+
+#: Artifact key -> the SDK tool constant that key's provider is bound to
+#: in the `build_experience_server` call below. The artifact carries the
+#: names and the prose (§6.4); the binding of key to seam is the thing
+#: this file interprets, so it is the thing that must be checked.
+TOOL_NAME_BINDINGS: tuple[tuple[str, str], ...] = (
+    ("get_context", GET_CONTEXT_TOOL),
+    ("get_lineage", GET_LINEAGE_TOOL),
+    ("get_replay_record", GET_REPLAY_RECORD_TOOL),
+)
+
+
+def validate_tool_names(tools: Mapping[str, Any]) -> None:
+    """Refuse composition when an artifact tool name is not the SDK's (D-02).
+
+    `build_experience_server` registers the three promoted consumption
+    tools under the SDK's own constants; the artifact's `tools.*.name`
+    values are what the deployment *believes* it advertises. A divergence
+    is silent today and only surfaces when a caller invokes a tool that
+    was never registered — so it fails here, at composition time, before
+    the server starts, naming the artifact key, the declared value, and
+    the expected constant.
+
+    D-02/D-05 (Dave, 2026-08-02). No warn-and-continue.
+    """
+    for artifact_key, constant in TOOL_NAME_BINDINGS:
+        declared = tools[artifact_key]["name"]
+        if declared != constant:
+            raise ValueError(
+                f"experience.yaml tools.{artifact_key}.name is {declared!r}; "
+                f"the SDK tool constant this deployment binds it to is "
+                f"{constant!r} — rename the artifact value or bind a "
+                f"different tool"
+            )
 
 
 def _load(name: str) -> Any:
@@ -591,6 +628,7 @@ def main() -> None:
         # are never registered and cannot be advertised (D-05, D-IMPL-74).
         auth_values = experience["auth"]
         tools = experience["tools"]
+        validate_tool_names(tools)
         server = build_experience_server(
             server_name=experience["server_name"],
             product_resolver=resolve,
