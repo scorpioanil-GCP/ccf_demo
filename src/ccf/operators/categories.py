@@ -92,8 +92,8 @@ class PolicyFilter:
     """Policy category — principal-scoped subgraph substitution (INV-CH7-26).
 
     Whitepaper §7.4. Runs *first* in every plan so that no later stage can
-    observe inadmissible state; "no filter runs after retrieval because no
-    retrieval of inadmissible content happened".
+    observe inadmissible state — with admissibility settled up front, there is
+    nothing inadmissible left for a downstream filter to remove.
     """
 
     key = "policy.principal-subgraph"

@@ -1,9 +1,10 @@
 """`CDCSourceAdapter` — the v0 reference ingress for Pattern 1 (FABR-09).
 
-Whitepaper §8.3 Pattern 1 ("CDC streams committed transactions from the
-source's write-ahead log; the source is undisturbed — no query-path coupling,
-no schema coupling"); DESIGN.md §2A.4.1; D-IMPL-04(b) (ingestion is async and
-lives in ``ccf-runtime`` while the fabric core stays synchronous).
+Whitepaper §8.3 Pattern 1: CDC reads committed transactions off the source's
+replication log, leaving the source itself untouched — neither its query path
+nor its schema is coupled to the fabric. DESIGN.md §2A.4.1; D-IMPL-04(b)
+(ingestion is async and lives in ``ccf-runtime`` while the fabric core stays
+synchronous).
 
 **What this adapter is not.** It is not a CDC transport. It holds no Kafka
 consumer, no Debezium client, no replication-slot cursor, and the SDK takes no

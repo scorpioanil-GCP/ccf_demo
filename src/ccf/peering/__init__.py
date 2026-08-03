@@ -2,10 +2,11 @@
 
 SDK-defined extension (CLAUDE.md §7.2, marked as an extension, not
 whitepaper-derived mechanism); the whitepaper hook is §8.3 Pattern 4, which
-commits to federation trust boundaries "resolved via Policy bindings carried in the
-exchanged Context Product and verified at the consumer's Control Plane before
-admission". D-IMPL-15 (identity and signing) and D-IMPL-16 (Control Plane
-scope at the federation boundary) are the rulings this package realizes.
+commits to federation trust boundaries being settled by the Policy bindings the
+exchanged Context Product carries, checked by the *receiving* Control Plane and
+checked before anything is admitted. D-IMPL-15 (identity and signing) and
+D-IMPL-16 (Control Plane scope at the federation boundary) are the rulings
+this package realizes.
 
 **A Peering is the category; A2A is its first transport, not its name**
 (``D-IMPL-59``, Dave, 2026-07-27). Two fabrics, each with its own Control Plane,

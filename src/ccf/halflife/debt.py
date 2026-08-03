@@ -1,10 +1,10 @@
 """D_c — Context Debt and the debt-driven routing signals (whitepaper §7.7).
 
-Context Debt is "the gap, at assembly time, between contextual coverage the
-current decision requires and contextual coverage the fabric can actually
-deliver" — and the whitepaper is emphatic that it is "a runtime signal the
-agent must consume as a first-class decision input, not a log-line to be read
-after the fact." This module computes it and turns it into a typed signal.
+§7.7 defines D_c as the shortfall measured at assembly time: how much less
+coverage the fabric delivered than the decision at hand needs. It is committed
+to as a live input the agent reads before deciding, not as after-the-fact
+telemetry — which is why this module returns it as a typed value on the
+decision path rather than emitting it to a log.
 
 Two forms, both committed to by §7.7::
 
@@ -25,11 +25,11 @@ The routing bands
 -----------------
 :func:`assess_debt` returns the D_c value together with a
 :class:`DebtSignal` drawn from the Conditional Assessment Routing predicate:
-D_c above the class's Forced-LLM threshold routes to Forced LLM ("the LLM must
-be invoked with explicit awareness of the debt"); D_c above the class's
-Fail-Closed threshold declines rather than deciding. The whitepaper's
-conservative bias is the reason both bands exist: "elevated D_c biases urgency
-upward, not downward" — debt is a risk amplifier.
+D_c above the class's Forced-LLM threshold routes to Forced LLM, where the
+semantic stage is invoked knowing what the context is missing; D_c above the
+class's Fail-Closed threshold declines rather than deciding. Both bands exist
+because §7.7 treats debt as a risk amplifier — a thinner context raises the
+urgency of a finding rather than discounting it.
 
 **In I.1 the signals are values and nothing more.** No LLM path exists in the
 fabric core, and no HITL escalation surface has shipped yet, so
@@ -96,10 +96,9 @@ class DebtSignal(StrEnum):
             partial or stale, and a semantic stage must be invoked *with
             explicit awareness of the debt*.
         FAIL_CLOSED: D_c is above the class's Fail-Closed threshold. The fabric
-            does not know enough to support the decision. The whitepaper's
-            posture is that "the absence of strong evidence against a suspicion
-            is treated as an argument for caution", so this state escalates and
-            never quietly proceeds.
+            does not know enough to support the decision. §7.7 reads missing
+            counter-evidence as grounds for caution rather than reassurance, so
+            this state escalates and never quietly proceeds.
 
     The two escalation states are deliberately distinct: Forced-LLM is *more*
     reasoning, Fail-Closed is *no* decision. Collapsing them would make an
@@ -291,10 +290,10 @@ def context_debt(factors: DebtFactors) -> Decimal:
     """Return ``D_c = 1 − (F · C · S)`` (whitepaper §7.7; INV-CH7-62).
 
     Multiplicative-conjunctive by commitment: any factor at zero drives D_c to
-    one, which is the algebraic statement of the Trust Triangle's conjunctive
-    gating — a product whose lineage leg is weak fails the triangle even when
-    the other two legs are strong (INV-CH7-66). There is no weighted-additive
-    alternative in this module to fall back to.
+    one. That is the Trust Triangle's conjunctive gating written algebraically
+    — one weak leg condemns the product however strong the remaining two are
+    (INV-CH7-66). There is no weighted-additive alternative in this module to
+    fall back to.
     """
     return _UNIT - (
         factors.freshness * factors.completeness * factors.semantic_consistency

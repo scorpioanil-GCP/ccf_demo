@@ -8,10 +8,10 @@ graph (INV-CH7-40). Construct once, interpret many.
 Two modules: :mod:`ccf.projection.plan` declares the structural
 ``ProjectionPlan`` interface (dispatch by structural typing, never by
 inheritance — INV-CH7-41), and :mod:`ccf.projection.engine` runs the two-stage
-execution the whitepaper separates — the operator plan answers *what is true*
-(principal-agnostic, memoizable), the projection plan answers *what that truth
-means in this decision context* (principal-conditioned), and neither concern
-leaks into the other (INV-CH7-42).
+execution §7.5 separates — the operator plan settles the facts
+(principal-agnostic, memoizable), the projection plan settles their
+significance for one principal's decision (principal-conditioned), and neither
+concern leaks into the other (INV-CH7-42).
 
 Algorithmic package (CINV-03): the slice is Mode 1, pure algorithmic — no LLM
 participates in projection here or anywhere else in I.1.

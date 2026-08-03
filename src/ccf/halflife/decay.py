@@ -97,9 +97,10 @@ class TemporalOrderError(ValueError):
 class Observation(CCFContract):
     """One dated observation, typed by the vocabulary λ_c is configured against.
 
-    Whitepaper §7.7: the fabric stores λ_c "as a Control Plane configuration per
-    observation type, not as a per-document attribute", so decay needs exactly
-    two things from an observation — which type it is, and when it was made.
+    Whitepaper §7.7 binds λ_c to the observation *type* in Control Plane
+    configuration and explicitly not to the individual document, so decay needs
+    exactly two things from an observation — which type it is, and when it was
+    made. Nothing about the rate travels on the observation itself.
 
     Attributes:
         observation_type: The deployment's observation-type name. Its
@@ -136,11 +137,11 @@ def effective_half_life(
 ) -> timedelta:
     """Scale ``half_life`` into a decision class's Freshness Budget.
 
-    Whitepaper §7.7: the Freshness Budget is ``λ_c × Risk Sensitivity``, so "a
-    high-risk decision class consumes its freshness budget faster than a
-    low-risk class does, because its tolerance for stale context is tighter."
-    A sensitivity below one shortens the effective half-life; above one widens
-    it. The multiplier is a per-class Control Plane value
+    Whitepaper §7.7 defines the Freshness Budget as ``λ_c × Risk Sensitivity``:
+    the more consequential the decision class, the less staleness it tolerates,
+    so its budget is spent sooner on the same observation. A sensitivity below
+    one shortens the effective half-life; above one widens it. The multiplier
+    is a per-class Control Plane value
     (:class:`ccf.controlplane.artifacts.DebtProfile`), never an SDK constant.
 
     Raises:
