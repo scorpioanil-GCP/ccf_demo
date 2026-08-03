@@ -159,7 +159,7 @@ appendix to the inventory. Phase R also reads
 own architecture (the whitepaper's diagrams are inventoried, not redrawn).
 
 ### Phase D — Design (`gsd-planner`)
-**Deliverable:** `docs/DESIGN.md`, `docs/DECISIONS.md`, `docs/diagrams/`
+**Deliverable:** `docs/DESIGN.md`, `docs/DECISIONS.md`, `public/diagrams/`
 **Purpose:** Produce the SDK's architectural shape against the inventory.
 Surface every design decision Dave has to rule on. Produce architecture
 diagrams (component, sequence, layered, deployment) for the SDK itself,
@@ -1224,7 +1224,9 @@ When this `CLAUDE.md` is approved by Dave:
 4. Create the directory skeleton:
    ```
    /docs                  # Phase R, D, F deliverables
-   /docs/diagrams         # SDK architecture diagrams (Phase D)
+   /public                # D-01: the published surface — the only tree mkdocs
+                          #   reads; publication is default-deny by existence
+   /public/diagrams       # SDK architecture diagrams (Phase D)
    /references            # Whitepaper + reference material
    /src                   # Phase I only (library — fabric, archetypes, ops)
    /runtime               # Phase I only (agent host, harness adapters, MCP, A2A, HTTP, CLI)
@@ -1245,7 +1247,7 @@ When this `CLAUDE.md` is approved by Dave:
 
 After Dave approves the inventory, run `gsd-planner` for Phases D and F.
 Phase D must produce **one architecture diagram per pillar** in
-`docs/diagrams/`, showing how each pillar (§4) maps onto SDK mechanism,
+`public/diagrams/`, showing how each pillar (§4) maps onto SDK mechanism,
 plus the harness-adapter seam diagram and the ArtifactStore seam diagram
 (§3).
 
