@@ -23,18 +23,18 @@ This is the Phase D design deliverable (DSGN-01): the CCF SDK's architectural sh
 
 | Section | Pillar / concern | Diagram(s) |
 |---------|------------------|------------|
-| §2 (§2A + §2B) | Data and Context Layer | `docs/diagrams/pillar-data-context.mmd`; `docs/diagrams/seq-single-writer-write-path.mmd`; `docs/diagrams/seq-replay-resolution.mmd` |
-| §3 | Core Agent Types | `docs/diagrams/pillar-agent-types.mmd` |
-| §4 | Orchestration Layer | `docs/diagrams/pillar-orchestration.mmd` |
-| §5 | Human in the Loop and Control | `docs/diagrams/pillar-hitl.mmd`; `docs/diagrams/seq-hitl-suspend-resume.mmd` |
-| §6 | Experience Layer | `docs/diagrams/pillar-experience.mmd` |
-| §8 | Seams | `docs/diagrams/seam-harness-adapter.mmd`; `docs/diagrams/seam-artifact-store.mmd`; `docs/diagrams/seq-a2a-admission.mmd` |
+| §2 (§2A + §2B) | Data and Context Layer | `public/diagrams/pillar-data-context.mmd`; `public/diagrams/seq-single-writer-write-path.mmd`; `public/diagrams/seq-replay-resolution.mmd` |
+| §3 | Core Agent Types | `public/diagrams/pillar-agent-types.mmd` |
+| §4 | Orchestration Layer | `public/diagrams/pillar-orchestration.mmd` |
+| §5 | Human in the Loop and Control | `public/diagrams/pillar-hitl.mmd`; `public/diagrams/seq-hitl-suspend-resume.mmd` |
+| §6 | Experience Layer | `public/diagrams/pillar-experience.mmd` |
+| §8 | Seams | `public/diagrams/seam-harness-adapter.mmd`; `public/diagrams/seam-artifact-store.mmd`; `public/diagrams/seq-a2a-admission.mmd` |
 
 ---
 
 ## 2. Pillar: Data and Context Layer
 
-The fabric itself — L1–L6 plus half-life/debt, replay, and the closed loop. Component diagram: `docs/diagrams/pillar-data-context.mmd`. Write-path sequence: `docs/diagrams/seq-single-writer-write-path.mmd`.
+The fabric itself — L1–L6 plus half-life/debt, replay, and the closed loop. Component diagram: `public/diagrams/pillar-data-context.mmd`. Write-path sequence: `public/diagrams/seq-single-writer-write-path.mmd`.
 
 ## 2A. The Write Side (L1–L3, Ingress, Single-Writer)
 
@@ -199,14 +199,14 @@ All ingress terminates in `SignalEnvelope` emission; nothing in this section acq
 - **Responsibility:** Make "only the Assembly worker holds a write handle to the graph" an enforced architectural property, not a convention (INV-CH7-10): every read-path service is constructed without a write handle, the absence enforced by dependency injection at boot rather than runtime discipline. Deterministic state transitions are the precondition for deterministic replay — if any read-path component could write, graph history would be contaminated by non-Assembly transitions Decision Replay could not reconstruct.
 - **Protocol/type signatures:** The four-layer enforcement stack per the D-IMPL-41 ruling: (1) **interface split** — separate `GraphReader`/`GraphWriter` Protocols (D-IMPL-34); read-path constructors accept only `GraphReader`, so write-handle absence is a structural property of the constructor signature (INV-CH7-15); (2) **DI-at-boot** — the composition root constructs exactly one `GraphWriter` and injects it into L2/Assembly only; (3) **static gate** — strict mypy in CI rejects non-L2 `GraphWriter` type references, plus an import lint (same machinery as the `@algorithmic` and harness lints) forbidding the writer module's import outside L2 and the composition root; CI failure is build failure — Python's honest equivalent of build-time prevention; (4) **runtime backstop** — the writer handle is constructed with a boot-time token only the composition root can mint. The residual-honesty note (Python cannot make determined-insider evasion impossible; the claim strength is "no unforced path exists and every forced path fails CI or fails at boot") lands in DESIGN.md's Invariant Preservation chapter per the ruling.
 - **Invariants enforced:** **Single-writer enforcement at boot** — the named architectural invariant (INV-CH7-10, INV-CH7-15). The invariant holds across every boundary that might otherwise erode it: **A2A admission** — an inbound A2A Context Product is verified at the consumer's Control Plane and then enters L3 only through L2, never directly (INV-CH8-08; CLAUDE.md §10); **harness effect capture** — no harness ever acquires a write handle; adapter effect capture routes through governed emission or L2 write-back (CLAUDE.md §7.3 seam 3; D-IMPL-25's `effects: unsupported` declaration is a verified capability, not an unimplemented seam); **ArtifactStore** — the store is a persistence substrate behind mechanism, never a second writer (CLAUDE.md §7.4); **HTTP surface** — L1 ingestion is deliberately absent from the v0 HTTP API because a generic write endpoint would invite a second writer path (D-IMPL-23 ruling).
-- **Seams:** The composition root is the one place `GraphWriter` is visible outside `ccf.assembly`; the write path is rendered in `docs/diagrams/seq-single-writer-write-path.mmd` (D-09 sequence diagram). The enforcement-strength claim throughout this section is bounded by the honest residual claim of §9 (expanded argument 1, per the D-IMPL-41 ruling): no unforced path exists, and every forced path fails CI or fails at boot — never a claim of absolute prevention.
+- **Seams:** The composition root is the one place `GraphWriter` is visible outside `ccf.assembly`; the write path is rendered in `public/diagrams/seq-single-writer-write-path.mmd` (D-09 sequence diagram). The enforcement-strength claim throughout this section is bounded by the honest residual claim of §9 (expanded argument 1, per the D-IMPL-41 ruling): no unforced path exists, and every forced path fails CI or fails at boot — never a claim of absolute prevention.
 - **D-IMPL rulings embodied:** D-IMPL-41 (the stack itself); D-IMPL-34 (the interface seam); D-IMPL-25 and D-IMPL-23 (boundary-preserving rulings cited above); D-IMPL-16 (verify-every-admission — no fast path that could weaken the L2-only entry).
 
 ---
 
 #### 2A.5.4 The write path, end to end
 
-The complete write path — rendered as the D-09 sequence diagram in `docs/diagrams/seq-single-writer-write-path.mmd` — composes the components above into the one route by which anything becomes graph state:
+The complete write path — rendered as the D-09 sequence diagram in `public/diagrams/seq-single-writer-write-path.mmd` — composes the components above into the one route by which anything becomes graph state:
 
 1. **Signal arrives.** A source event reaches an ingress adapter: CDC change event (§2A.4.1), MCP resource read (§2A.4.2), semantic-layer definition (§2A.4.3), or an unstructured document entering the Pattern 5 pipeline (§2A.4.4).
 2. **L1 normalizes.** The adapter emits a `SignalEnvelope` (D-IMPL-33): tenant-scoped, lineage-addressable, payload opaque. No interpretation has occurred (INV-CH7-02).
@@ -332,7 +332,7 @@ Scope of §2B: the read side of the fabric pillar — L4 Context Operators, L5 C
 #### Component: Snapshot strategy and artifact resolution — exact versions, never "latest"
 
 - **Responsibility:** Per the **D-IMPL-06 ruling**, snapshots are **logical by construction**: `graph_snapshot_id` = temporal boundary + tenant + store-state watermark, plus the touched-substate manifest already enumerated by lineage strict equality — never a physical graph copy. The full-fidelity tier additionally materializes the touched substate as a content-addressed ArtifactStore artifact; similarity-index snapshots are the version pinned in L with version-pinned reads a `SimilarityIndex` Protocol obligation (D-IMPL-03).
-- **Addressing:** per the **D-IMPL-26 ruling**, hybrid: content-addressed canonical identity `sha256(canonical_serialization)` plus versioned-URI naming `ccf-artifact://{tenant}/{artifact_class}/{name}@{artifact_version}` through an append-only Control Plane mapping. **`@latest` is permitted only at authoring surfaces — a replay record or lineage entry never stores "latest"; it stores the hash** (URI carried as annotation). Replay resolution therefore resolves exact artifact versions by hash: graph snapshot, policy bundle version, agent version, skill-set, prompt-artifact versions — `docs/diagrams/seq-replay-resolution.mmd` renders this sequence.
+- **Addressing:** per the **D-IMPL-26 ruling**, hybrid: content-addressed canonical identity `sha256(canonical_serialization)` plus versioned-URI naming `ccf-artifact://{tenant}/{artifact_class}/{name}@{artifact_version}` through an append-only Control Plane mapping. **`@latest` is permitted only at authoring surfaces — a replay record or lineage entry never stores "latest"; it stores the hash** (URI carried as annotation). Replay resolution therefore resolves exact artifact versions by hash: graph snapshot, policy bundle version, agent version, skill-set, prompt-artifact versions — `public/diagrams/seq-replay-resolution.mmd` renders this sequence.
 - **Substrate split:** per the **D-IMPL-27 ruling**, immutable replay-relevant artifacts route through the ArtifactStore; hot mutable state stays on native Protocols. **Determinism-obligation note (INV-CH7-80/89 dependency):** the ArtifactStore seam design (owned by §6/§8) must preserve replay determinism per D-IMPL-26.
 - **Lifecycle:** per the **D-IMPL-50 ruling** the SDK ships the fidelity-lifecycle engine above the ArtifactStore Protocol: three-tier compression (Full fidelity / Compressed / Tombstoned), the never-compress/never-tombstone severity exemption enforced in mechanism, and the structural `retention-reason` field on every transition (INV-CH7-89); retention windows, severity thresholds, and tombstone minima are Control Plane values. Governance-side statement of the same lifecycle with the WORM-archives-remain-records-of-record constraint: INV-CH8-20 (replay-anchor retention lifecycle at scale). Regulatory regime → artifact mapping is discharged by these primitives; specific regime bundles are user policy configuration, not SDK content (INV-CH8-15).
 - **Cold-archive re-hydration:** per the **D-IMPL-44 ruling**, every compressed record carries a typed `ReHydrationRecipe`; re-hydration re-runs L2 assembly against archived source signals under pinned Control Plane versions and verifies bit-for-bit against the stored hash — or fails loudly; `ColdSourceArchiveProtocol` is the pluggable archive seam with a file-backed dev impl.
@@ -352,7 +352,7 @@ Scope of §2B: the read side of the fabric pillar — L4 Context Operators, L5 C
 
 ## 3. Pillar: Core Agent Types
 
-Component diagram: `docs/diagrams/pillar-agent-types.mmd`.
+Component diagram: `public/diagrams/pillar-agent-types.mmd`.
 
 **Extension status:** The entire Agent Specialization Framework is **SDK-defined, cites CLAUDE.md §6** — the whitepaper's Chapter 3 describes agents as consumers of the fabric; it does not specify a framework for building specialized agents. Every component below is labeled with its CLAUDE.md anchor and its whitepaper hook (per the SPEC_INVENTORY "SDK Extensions and Whitepaper Hooks" table).
 
@@ -493,7 +493,7 @@ The whitepaper's archetype mapping framework (§8.11) commits a **platform-versu
 
 ## 4. Pillar: Orchestration Layer
 
-Component diagram: `docs/diagrams/pillar-orchestration.mmd`.
+Component diagram: `public/diagrams/pillar-orchestration.mmd`.
 
 This pillar is an **SDK-defined extension** — it cites CLAUDE.md §8.1 as its canonical surface, not the whitepaper. The whitepaper hooks it attaches to are cited per inventory entry (INV-CHx-NN). Contract altitude per locked D-07: responsibilities, Protocol/type signatures, invariants, seams — no implementation code.
 
@@ -541,7 +541,7 @@ Per the D-IMPL-49 ruling, this is recorded explicitly: **swarm-level intent deco
 
 ## 5. Pillar: Human in the Loop and Control
 
-Component diagram: `docs/diagrams/pillar-hitl.mmd`. Gate suspend/resume sequence: `docs/diagrams/seq-hitl-suspend-resume.mmd`.
+Component diagram: `public/diagrams/pillar-hitl.mmd`. Gate suspend/resume sequence: `public/diagrams/seq-hitl-suspend-resume.mmd`.
 
 This pillar is an **SDK-defined extension** — it cites CLAUDE.md §8.2 as its canonical surface, not the whitepaper. Whitepaper hooks: escalation/fail-closed routing (INV-CH7-65, INV-CH7-67, INV-CH8-16, INV-CH8-18), the audit plane (INV-CH7-71), the closed-loop interpretation gate (INV-CH7-75, D-IMPL-43), and replay dimension 2 extension (INV-CH7-82).
 
@@ -606,7 +606,7 @@ The Orchestration (§4) and HITL (§5) pillars together produce the governance l
 
 ## 6. Pillar: Experience Layer (SDK-defined, CLAUDE.md §8.3)
 
-The Experience Layer is the front door: three v0 surfaces, nothing more. It adds delivery, authentication hooks, and serialization over the fabric — never new semantics, never a second write path. Diagram: `docs/diagrams/pillar-experience.mmd`.
+The Experience Layer is the front door: three v0 surfaces, nothing more. It adds delivery, authentication hooks, and serialization over the fabric — never new semantics, never a second write path. Diagram: `public/diagrams/pillar-experience.mmd`.
 
 ### 6.1 MCP server (egress front door)
 
@@ -640,7 +640,7 @@ Per CLAUDE.md §8.3/§13: no mobile SDK, no chat adapter, no web UI, no human-ta
 
 ## 7. Cross-Cutting: Control Plane / Data Plane
 
-*The two orthogonal planes cut across all six fabric layers and every SDK extension (CLAUDE.md §10). Rendered inside `docs/diagrams/pillar-data-context.mmd` as the Control Plane subgraph governing the Data Plane fabric.*
+*The two orthogonal planes cut across all six fabric layers and every SDK extension (CLAUDE.md §10). Rendered inside `public/diagrams/pillar-data-context.mmd` as the Control Plane subgraph governing the Data Plane fabric.*
 - **Responsibility:** Structural separation: the Control Plane defines what the fabric may do (policies, operator parameters, projection rules and entitlements, per-class D_c thresholds, per-type λ_c, materialization policy); the Data Plane executes against those definitions under controlled handoff (INV-CH7-70). **The Control Plane is also the audit plane**: every operator invocation, projection computation, and product assembly is observable for replay as a first-class property; every configuration change is versioned, timestamped, and retained against the decisions made under it; invalidation flows as published events, never direct side-effects (INV-CH7-71 — this audit plane is also what backs HITL audit-by-construction, designed in §5).
 - **Configuration surface:** the six whitepaper classes — policy definitions, operator behavior rules, projection logic, D_c thresholds, λ_c tables, materialization policy (INV-CH7-72) — **plus the SDK-defined artifact classes**: agent definitions, task definitions, prompt artifacts, skill catalog entries and grants, workflow definitions, HITL policies, A2A trust policy (CLAUDE.md §7.4/§10; formats per the D-IMPL-28 ruling, marked as SDK extensions). In the v0 design the Control Plane is an in-process versioned registry with a remote extension point (CLAUDE.md §13); all parameter classes follow the D-IMPL-38 declared-schema, versioned, no-silent-default discipline; closed-loop updates enter through the D-IMPL-43 gated interpretation path.
 - **Invariants enforced (plane-boundary register, INV-CH7-73):** (a) single-writer for graph state — realized by the D-IMPL-41 four-layer enforcement stack (reader/writer Protocol split per D-IMPL-34, DI at boot, mypy + import lint CI gate, boot-token runtime backstop), with the honest residual claim ("no unforced path exists and every forced path fails CI or fails at boot") recorded for the Invariant Preservation chapter — full write-path design owned by §2A; (b) projection stateless; (c) lineage strict equality at the stage-3a gate; (d) TTL bounds at stage-3b with MAX_TTL per D-IMPL-39; (e) tenant-scoped kw-only `tenant_id` on every execute call per the D-IMPL-05 ruling. Data Plane determinism — bit-for-bit identity under fixed (graph state, config, temporal boundary), randomness isolated at reproducible boundaries — is the foundation replay stands on (INV-CH7-74). Auditability-at-scale for agentic work rests on the same plane properties (INV-CH8-20).
@@ -669,7 +669,7 @@ MCP is allocated to exactly the five CLAUDE.md §7.1 edges — an SDK-defined ex
 
 ### 8.2 A2A federation (per D-IMPL-14/15/16 rulings)
 
-SDK-defined elevation of Pattern 4 (INV-CH8-08, §8.3) to a v0 commitment per CLAUDE.md §7.2. Diagram: `docs/diagrams/seq-a2a-admission.mmd`.
+SDK-defined elevation of Pattern 4 (INV-CH8-08, §8.3) to a v0 commitment per CLAUDE.md §7.2. Diagram: `public/diagrams/seq-a2a-admission.mmd`.
 
 - **Responsibility:** Cross-process, cross-organization Context Product exchange. The Context Product Contract is the stable layer; the wire is replaceable.
 - **Protocol/type signatures:** `WireProtocol` abstraction with the Linux Foundation A2A protocol (JSON-RPC over HTTPS, Agent Card discovery, task/artifact model) as the v0 default implementation, carrying the typed Context Product as the artifact payload; mTLS via deployment configuration; a plain typed-HTTP fallback transport as the second reference implementation (D-IMPL-14).
@@ -680,7 +680,7 @@ SDK-defined elevation of Pattern 4 (INV-CH8-08, §8.3) to a v0 commitment per CL
 
 ### 8.3 HarnessAdapterProtocol (per D-IMPL-24/25 rulings)
 
-The load-bearing neutrality seam (CLAUDE.md §7.3): CCF layers onto any harness as the trust-and-control plane; it never absorbs the agent loop and does not ship one. Diagram: `docs/diagrams/seam-harness-adapter.mmd`.
+The load-bearing neutrality seam (CLAUDE.md §7.3): CCF layers onto any harness as the trust-and-control plane; it never absorbs the agent loop and does not ship one. Diagram: `public/diagrams/seam-harness-adapter.mmd`.
 
 - **Responsibility:** Bind an agent definition (a Control Plane artifact, §6.1) to a concrete harness at runtime across exactly four seams:
   1. **Context injection** — typed Context Products into the harness's context/memory/prompt-assembly surface; the harness never touches L3 or raw signal.
@@ -694,7 +694,7 @@ The load-bearing neutrality seam (CLAUDE.md §7.3): CCF layers onto any harness 
 
 ### 8.4 ArtifactStore seam (per D-IMPL-26/27 rulings)
 
-SDK-defined persistence surface (CLAUDE.md §7.4). Diagram: `docs/diagrams/seam-artifact-store.mmd`.
+SDK-defined persistence surface (CLAUDE.md §7.4). Diagram: `public/diagrams/seam-artifact-store.mmd`.
 
 - **Responsibility:** Persist CCF artifacts through an `ArtifactStoreProtocol` with an MCP-backed reference implementation (the separate D-IMPL-13 artifact server contract) and a file-backed dev implementation, so users point at their own persistent store by implementing the Protocol or standing up a conforming MCP server.
 - **Artifact classes in scope (per the D-IMPL-27 mutability split):** Immutable, versioned, replay-relevant artifacts route through the store — Decision Replay records with all extensions (HITL, workflow, skill-set, agent-version), materialized graph-substate and similarity-index snapshots (D-IMPL-06), Context Products at rest, Control Plane bundles (policy bundles, λ_c tables, workflow definitions, HITL policies, A2A trust policy), and all No-Hardcoding artifacts (agent/task definitions, prompt artifacts, skill catalog entries and grants). Hot mutable state stays on native Protocols: live Context Graph on GraphStore (D-IMPL-02), live similarity index (D-IMPL-03), operator-plan intermediate caches (D-IMPL-36), suspended workflow execution state (D-IMPL-18) — mutable until terminal, whose terminal trace then lands in the store. The mutability criterion is a single structural rule.
@@ -750,13 +750,13 @@ Per locked D-10, this chapter argues each of the seven named architectural invar
 
 | Invariant | Structural argument (design construct) | Enforcement point | Diagram/section ref |
 |-----------|----------------------------------------|-------------------|---------------------|
-| Single-writer enforcement (only L2/Assembly writes L3) | `GraphReader`/`GraphWriter` Protocol split (D-IMPL-34): read-path constructors accept only `GraphReader`, so write-handle absence is a constructor-signature property; the composition root constructs exactly one `GraphWriter` at boot and injects it into L2 only; boot-token backstop (D-IMPL-41 four-layer stack) | DI composition root at boot; strict mypy + writer-module import lint in CI; boot-time token mint | §2A.5.3; `docs/diagrams/seq-single-writer-write-path.mmd` |
-| Composition-preservation `(A∘B)(G) = A(B(G))` | Operators are pure, read-only, sync functions over `GraphReader` views (INV-CH7-22) — no mutation path exists to break commutation with state; every intermediate carries its own provenance sub-chain and is cached on a deterministic key (D-IMPL-36), so a cache hit is by construction the value replay would produce | CI property-test harness over every shipped operator pair (CINV-adjacent test design below) | §2B.1; `docs/diagrams/pillar-data-context.mmd` |
-| Three validation gates (empty-operator guard, lineage strict equality, TTL bounds) | The canonical gate sequence — empty-operator guard → lineage strict equality → TTL bounds — is the **only** construction path of a servable `ContextProductContract` — it runs before any cache write or delivery (INV-CH7-52), and the contract base is `extra=forbid`, so an unvalidated or forged product is a type/validation failure, not a served product | L6 delivery boundary, pre-cache and pre-delivery; MAX_TTL registration validation at the Control Plane (D-IMPL-39) | §2B.3; `docs/diagrams/pillar-data-context.mmd` |
+| Single-writer enforcement (only L2/Assembly writes L3) | `GraphReader`/`GraphWriter` Protocol split (D-IMPL-34): read-path constructors accept only `GraphReader`, so write-handle absence is a constructor-signature property; the composition root constructs exactly one `GraphWriter` at boot and injects it into L2 only; boot-token backstop (D-IMPL-41 four-layer stack) | DI composition root at boot; strict mypy + writer-module import lint in CI; boot-time token mint | §2A.5.3; `public/diagrams/seq-single-writer-write-path.mmd` |
+| Composition-preservation `(A∘B)(G) = A(B(G))` | Operators are pure, read-only, sync functions over `GraphReader` views (INV-CH7-22) — no mutation path exists to break commutation with state; every intermediate carries its own provenance sub-chain and is cached on a deterministic key (D-IMPL-36), so a cache hit is by construction the value replay would produce | CI property-test harness over every shipped operator pair (CINV-adjacent test design below) | §2B.1; `public/diagrams/pillar-data-context.mmd` |
+| Three validation gates (empty-operator guard, lineage strict equality, TTL bounds) | The canonical gate sequence — empty-operator guard → lineage strict equality → TTL bounds — is the **only** construction path of a servable `ContextProductContract` — it runs before any cache write or delivery (INV-CH7-52), and the contract base is `extra=forbid`, so an unvalidated or forged product is a type/validation failure, not a served product | L6 delivery boundary, pre-cache and pre-delivery; MAX_TTL registration validation at the Control Plane (D-IMPL-39) | §2B.3; `public/diagrams/pillar-data-context.mmd` |
 | Algorithmic ⇄ Semantic Alternation (LLMs never see raw signal) | L1's opaque payload typing makes interpretation structurally unavailable below L2 (§2A.2); LLM access exists only through `LLMClientProtocol` (D-IMPL-09), giving the lint a single crisp import target; algorithmic modules carry the `@algorithmic` tag and cannot import it | CI `@algorithmic` import lint (CINV-03); per-stage lint targets in the Pattern 5 pipeline (D-IMPL-08) | §2B.3 (Alternation component); §2A.2; §2A.4.4 |
-| Audit-by-construction (every HITL action, workflow trace, and skill event replay-recorded) | The typed action record is the **completion token**: a suspended gate transitions only on a validated action record whose `extra=forbid` schema requires `HumanPrincipalBinding` (D-IMPL-21), and the replay append is a defined precondition of the state transition; all ingress/egress rides one `HITLTransportProtocol` queue — webhooks are notify-only (D-IMPL-20); skill grants/revocations are versioned Control Plane artifacts landing in replay dimension 4 | Workflow transition function (replay write precedes transition); Control Plane audit plane (INV-CH7-71); replay-by-construction CI checks (CINV-04) | §5 (Audit-by-construction); `docs/diagrams/seq-hitl-suspend-resume.mmd` |
-| No-Hardcoding Rule (no inline prompts/definitions/values in code) | The Agent & Task Factory is the **only** construction path for agents and tasks — code contains interpreters and factories, never the things interpreted; prompts exist only as Jinja2 artifacts behind versioned URIs (D-IMPL-28); thresholds, tables, and routing values are typed Control Plane parameter artifacts with no SDK-side defaults (D-IMPL-38/39/40) | CI prompt-shaped-literal lint + factory-bypass lint (CINV-01); Control Plane registration validation | §3.5; §7; `docs/diagrams/pillar-agent-types.mmd` |
-| Zero harness imports in core | No module in `/src` imports a harness; harness bindings live only in `/runtime/adapters/<harness>/` behind `HarnessAdapterProtocol`, and the only edges crossing the core/harness boundary are the four typed seams — shown structurally in the seam diagram, whose CCF-core subgraph contains no harness node | CI import lint on `/src` (CINV-02), same machinery as the `@algorithmic` lint | §8.3; `docs/diagrams/seam-harness-adapter.mmd` |
+| Audit-by-construction (every HITL action, workflow trace, and skill event replay-recorded) | The typed action record is the **completion token**: a suspended gate transitions only on a validated action record whose `extra=forbid` schema requires `HumanPrincipalBinding` (D-IMPL-21), and the replay append is a defined precondition of the state transition; all ingress/egress rides one `HITLTransportProtocol` queue — webhooks are notify-only (D-IMPL-20); skill grants/revocations are versioned Control Plane artifacts landing in replay dimension 4 | Workflow transition function (replay write precedes transition); Control Plane audit plane (INV-CH7-71); replay-by-construction CI checks (CINV-04) | §5 (Audit-by-construction); `public/diagrams/seq-hitl-suspend-resume.mmd` |
+| No-Hardcoding Rule (no inline prompts/definitions/values in code) | The Agent & Task Factory is the **only** construction path for agents and tasks — code contains interpreters and factories, never the things interpreted; prompts exist only as Jinja2 artifacts behind versioned URIs (D-IMPL-28); thresholds, tables, and routing values are typed Control Plane parameter artifacts with no SDK-side defaults (D-IMPL-38/39/40) | CI prompt-shaped-literal lint + factory-bypass lint (CINV-01); Control Plane registration validation | §3.5; §7; `public/diagrams/pillar-agent-types.mmd` |
+| Zero harness imports in core | No module in `/src` imports a harness; harness bindings live only in `/runtime/adapters/<harness>/` behind `HarnessAdapterProtocol`, and the only edges crossing the core/harness boundary are the four typed seams — shown structurally in the seam diagram, whose CCF-core subgraph contains no harness node | CI import lint on `/src` (CINV-02), same machinery as the `@algorithmic` lint | §8.3; `public/diagrams/seam-harness-adapter.mmd` |
 
 ### Per-invariant structural arguments (expanded)
 

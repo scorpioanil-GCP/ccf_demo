@@ -82,7 +82,7 @@ live-model legs live in `.github/workflows/live-legs.yml`.
 - [`CLAUDE.md`](CLAUDE.md) — project orientation: the five pillars, the
   Agent Specialization Framework, harness neutrality, and the SDK
   extensions beyond the whitepaper.
-- [`docs/DESIGN.md`](docs/DESIGN.md) / [`docs/diagrams/`](docs/diagrams/) —
+- [`docs/DESIGN.md`](docs/DESIGN.md) / [`public/diagrams/`](public/diagrams/) —
   the SDK's architecture against the spec inventory.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — the decision log: every
   `D-IMPL-NN` ruling and every `D-GATE` phase approval.
