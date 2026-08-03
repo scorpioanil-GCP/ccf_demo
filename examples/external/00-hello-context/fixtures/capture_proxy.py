@@ -59,8 +59,9 @@ prints the exact base URL to export.
 
 Binds 127.0.0.1 on port 0 and prints ``READY <port>`` once started (the
 suite's handshake pattern), preceded by the secret-bearing base URL.
-Recordings land in an output directory given as ``argv[1]`` (default: a
-fresh timestamped scratch directory, never the committed ``fixtures/``).
+Recordings land in an output directory given as ``argv[1]``. The default
+is a private scratch directory created by ``tempfile.mkdtemp`` — mode
+``0o700``, unguessable name, never the committed ``fixtures/``.
 """
 
 from __future__ import annotations
@@ -210,6 +211,13 @@ def build_app(
     ``transport`` is the injection seam the tests use to stand in a fake
     upstream; production capture leaves it ``None`` and httpx dials the
     real vendor.
+
+    ``out_dir`` is created if absent. For the DEFAULT directory this is a
+    no-op — :func:`default_out_dir` has already created it atomically at
+    mode ``0o700`` (WR-02). The permissive ``exist_ok`` therefore applies
+    only to a directory the operator named explicitly on the command line,
+    where reusing or pre-creating the path is their own deliberate choice
+    rather than something a third party can predict.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     counters: dict[str, int] = {prefix: 0 for _, prefix, *_ in ROUTES}
@@ -324,17 +332,36 @@ def build_app(
 
 
 def default_out_dir(now: datetime | None = None) -> Path:
-    """A fresh timestamped scratch directory under the system temp dir.
+    """Create and return a private scratch directory under the temp dir.
 
     IN-02: the default used to be this committed ``fixtures/`` directory,
     so a capture run with no ``argv[1]`` overwrote ``anthropic-00.json``
     and friends in place. Git makes that recoverable, which is not the same
     as making it acceptable — a one-time capture tool should not have a
-    destructive default. Promotion into ``fixtures/`` is now an explicit
+    destructive default. Promotion into ``fixtures/`` is an explicit
     reviewed ``mv`` (README.md), exactly as D-10 intends.
+
+    **Created here, not merely named (WR-01/WR-02).** The first cut of this
+    fix returned ``<tempdir>/ccf-ext00-capture-<stamp>`` at second
+    granularity and let the caller ``mkdir(exist_ok=True)`` it. That name
+    is fully derivable by any other local process, and the system temp dir
+    is shared: a hostile same-host process could pre-create the path — as a
+    directory it owns, or as a symlink pointing elsewhere — and
+    ``exist_ok=True`` would have accepted it silently, putting the captured
+    vendor request and response bodies (which the operator then promotes
+    into the git tree) somewhere it controls. That is the same threat model
+    the IN-01 capture secret defends against, so leaving it half-open was
+    inconsistent. Two same-second runs also collided onto one directory and
+    overwrote each other's ordinal ``00``.
+
+    ``tempfile.mkdtemp`` closes both: it creates the directory atomically,
+    mode ``0o700``, with a random suffix that cannot be guessed or
+    collided with. The timestamp is retained only as a human-readable
+    prefix so an operator can tell two capture runs apart at a glance; it
+    is decoration, not the uniqueness mechanism.
     """
     stamp = (now or datetime.now()).strftime("%Y%m%dT%H%M%S")
-    return Path(tempfile.gettempdir()) / f"ccf-ext00-capture-{stamp}"
+    return Path(tempfile.mkdtemp(prefix=f"ccf-ext00-capture-{stamp}-"))
 
 
 def main() -> None:

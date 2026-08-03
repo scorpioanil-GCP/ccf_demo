@@ -25,7 +25,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import pathlib
+import shutil
 from typing import Any
 
 import pytest
@@ -621,28 +623,51 @@ def test_a_request_without_the_capture_secret_is_refused(
 
 
 def test_the_default_capture_output_dir_is_never_the_committed_fixtures(
-    tmp_path: pathlib.Path,
 ) -> None:
-    """IN-02: a capture run with no argv[1] must not overwrite fixtures.
+    """IN-02/WR-02: the default must be private, unguessable, and not fixtures.
 
-    The old default was this committed `fixtures/` directory, so the
+    The original default was this committed `fixtures/` directory, so the
     no-argument invocation rewrote `anthropic-00.json` and friends in
     place. Promotion into `fixtures/` is a reviewed `mv` (D-10), not the
     easy path.
+
+    WR-02: the IN-02 replacement was `<tempdir>/ccf-ext00-capture-<stamp>`
+    at second granularity — a fully predictable path in a shared,
+    world-writable directory, opened with `mkdir(exist_ok=True)`. A
+    hostile local process could pre-create or symlink it and receive the
+    captured vendor bodies; two same-second runs silently collided. The
+    same-second assertion below is the regression that pins it, since a
+    fixed timestamp is exactly what the old implementation made collide.
     """
     proxy = _load_capture_proxy()
-    default = proxy.default_out_dir()
-
-    assert default != FIXTURES
-    assert FIXTURES not in default.parents
-    assert not default.exists(), "the default must be a fresh directory"
-    # Distinct per run, so two captures cannot silently overwrite each other.
     import datetime
+    import stat
 
-    other = proxy.default_out_dir(
-        datetime.datetime(2000, 1, 1, 0, 0, 0)  # noqa: DTZ001
-    )
-    assert other != default
+    fixed = datetime.datetime(2000, 1, 1, 0, 0, 0)  # noqa: DTZ001
+    default = proxy.default_out_dir()
+    created: list[pathlib.Path] = [default]
+    try:
+        assert default != FIXTURES
+        assert FIXTURES not in default.parents
+        # mkdtemp creates it; the caller never races to claim the name.
+        assert default.is_dir()
+        assert not default.is_symlink()
+        assert sorted(default.iterdir()) == []
+        if os.name == "posix":
+            mode = stat.S_IMODE(default.stat().st_mode)
+            assert mode == 0o700, f"expected 0o700, got {mode:#o}"
+
+        # Two calls at the SAME instant must still be distinct directories:
+        # the timestamp is decoration, mkdtemp's random suffix is the
+        # uniqueness mechanism. This is the assertion the old
+        # year-2000-vs-now comparison could not make.
+        same_second = [proxy.default_out_dir(fixed) for _ in range(2)]
+        created.extend(same_second)
+        assert same_second[0] != same_second[1]
+        assert default not in same_second
+    finally:
+        for path in created:
+            shutil.rmtree(path, ignore_errors=True)
 
 
 def test_a_non_json_200_is_passed_through_and_never_recorded(
