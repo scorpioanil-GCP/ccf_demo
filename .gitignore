@@ -18,6 +18,9 @@ coverage.xml
 perf/results/
 # Runtime ArtifactStore output of examples/external servers — never committed.
 examples/external/*/.store/
+# Build output of `mkdocs build` — never committed (D-02 / 14-RESEARCH Pitfall 6);
+# `public/` and `openapi.json` are the committed halves.
+site/
 *.pem
 node_modules/
 .DS_Store

@@ -87,6 +87,21 @@ harnesses = ["ccf[adk,claude-agent,langgraph]"]
 # never join always-on CI (Phase-8 D-10 / D-IMPL-70). A1 compatibility with
 # the pytest 9.1.1 pin verified empirically at plan 11-01 execution.
 perf = ["pytest-benchmark==5.2.3"]
+# Phase 14 D-IMPL-71: the documentation toolchain. Never a core dependency — the
+# SDK's runtime has no use for a static-site generator, and a docs build is a
+# build-time concern only. `mkdocs` is exact-pinned rather than `>=` for a reason
+# stronger than reproducibility: MkDocs 2.0 is announced as a backward-incompatible
+# rewrite with no migration path, and every plugin below stops working on it
+# (14-RESEARCH.md Pitfall 7). A `>=` here would silently break the docs gate the
+# day 2.0 lands on PyPI.
+docs = [
+  "mkdocs==1.6.1",
+  "mkdocs-material==9.7.7",
+  "mkdocstrings[python]==1.0.6",
+  "mkdocstrings-python==2.0.5",
+  "pymdown-extensions==11.0.1",
+  "griffe-pydantic==1.3.1",
+]
 dev = [
   "pytest==9.1.1",
   "hypothesis==6.161.5",
@@ -99,6 +114,9 @@ dev = [
   "ccf[perf]",
   # Phase 13.1: CI installs the Anthropic client leg for examples/external (EXAM-04).
   "ccf[anthropic]",
+  # Phase 14 D-IMPL-71: the docs toolchain arrives with the same one command, so no
+  # existing CI job's `pip install -e ".[dev]"` step changes to gain `make docs`.
+  "ccf[docs]",
 ]
 
 # Single distribution for v0 shipping two packages: the `ccf` library (src layout,
