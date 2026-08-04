@@ -14,6 +14,13 @@ ENV := PYTHONPATH=src:runtime
 # declared runner-class key (D-10) — CI sets gh-ubuntu-24.04; local runs
 # default to `local`; users may override: make perf CCF_PERF_RUNNER_CLASS=key.
 CCF_PERF_RUNNER_CLASS ?= local
+
+# Docs gate environment (Phase 14). The repo root joins the path because the
+# publish scan is invoked as a script (`tools/publish_scan.py`), and a script
+# run puts the script's own directory on sys.path, not the cwd — so `from
+# tools.lints import ...` needs `.` explicitly, unlike the `-m tools.lints`
+# form the `lint` target uses.
+ENV_DOCS := PYTHONPATH=.:src:runtime
 ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_CLASS)
 
 .DEFAULT_GOAL := help
@@ -24,7 +31,7 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 	example-03-live-ollama example-03-live-anthropic \
 	example-ext-00-live-anthropic example-ext-00-live-adk \
 	perf perf-micro perf-scale perf-xproc perf-replay \
-	docs docs-serve openapi
+	docs docs-strict docs-serve openapi
 
 help: ## List targets with one-line descriptions
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -48,7 +55,12 @@ ci-core: lint typecheck test ## Mid-phase verification sweep — MUST stay green
 # command, reproducing the always-on Actions pipeline (ci.yml lint + test +
 # examples jobs) locally command-for-command (D-10). Live legs are opt-in
 # (live-legs.yml, D-11) and deliberately not part of `ci`.
-ci: ci-core examples ## Full local reproduction of the always-on pipeline (D-10)
+#
+# Amended in plan 14-10: D-IMPL-72 pre-authorized adding the docs gate to this
+# composition, effective at the plan that creates the docs build target. That
+# gate is now complete (strict build + publish scan, D-02), so `docs-strict`
+# joins `ci` here — never as a half-armed or dead target.
+ci: ci-core examples docs-strict ## Full local reproduction of the always-on pipeline (D-10)
 
 example-00: ## Run examples/00-quickstart (reference backends, D-13)
 	$(ENV) $(PYTHON) examples/00-quickstart/run.py
@@ -126,11 +138,23 @@ example-ext-00-live-anthropic: ## External example 00 Anthropic leg live (opt-in
 example-ext-00-live-adk: ## External example 00 ADK/Gemini leg live (opt-in, D-11; never in `examples`/`ci`)
 	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py --live --legs adk
 
-# Docs (Phase 14, D-IMPL-71). `docs` is the plain build; the strict publish gate
-# (`docs-strict`) arrives with the publish scan in a later plan and composes into
-# `ci` there (D-IMPL-72) — this plan deliberately leaves the `ci:` line untouched.
+# Docs (Phase 14, D-IMPL-71). `docs` is the plain build; `docs-strict` is the
+# always-on gate wired into `ci` per D-IMPL-72 (plan 14-10).
 docs: ## Build the documentation site with mkdocs (D-IMPL-71; built into site/, never hosted)
 	$(ENV) $(PYTHON) -m mkdocs build
+
+# The whole docs gate as one blocking target (D-IMPL-72), in three ordered
+# steps. The pre-build structural scan runs FIRST so a symlink or an escaping
+# include is reported before the build has a chance to copy it; then the strict
+# build; then the post-build content scan over the tree that would actually
+# ship (D-02). No `|| true`, no `-` prefix, no report-only flag anywhere in this
+# recipe: the exit code is the only gate signal, exactly as `tools/lints` and
+# `tools/publish_scan.py` both state — a non-blocking mode is how an invariant
+# quietly stops being one.
+docs-strict: ## Blocking docs gate: pre-build scan + strict build + site scan (D-IMPL-72, D-02)
+	$(ENV_DOCS) $(PYTHON) tools/publish_scan.py --pre-build
+	$(ENV_DOCS) $(PYTHON) -m mkdocs build --strict
+	$(ENV_DOCS) $(PYTHON) tools/publish_scan.py site
 
 # Interactive authoring server only. Like the perf and live-leg targets, it is
 # opt-in and NEVER joins `ci` — it blocks forever by design.

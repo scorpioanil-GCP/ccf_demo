@@ -16,10 +16,29 @@ specification `CCF_Whitepaper_1-2.md` together with `DECISIONS.md`,
 under `public/` may reference any of them.** No link. No `--8<--` snippet
 include. No symlink. No transitive path that resolves into that tree.
 
-The rule is proved, not asserted: `tools/publish_scan.py` runs post-build
-against the exact tree that uploads, and it takes **no allowlist** (D-20).
-A page that names a proprietary passage fails the build; there is no
-mechanism for excusing one.
+The rule is proved, not asserted, and one command reproduces the whole proof
+locally:
+
+```console
+$ make docs-strict
+```
+
+That target runs three checks, in this order, and blocks on any of them:
+
+1. **The pre-build structural scan** over `public/` — symlinks and includes
+   that escape the published tree are reported before the build has a chance
+   to copy them.
+2. **The strict build** — `mkdocs build --strict`, where a broken link, a
+   missing anchor, a page outside the nav, or an unresolved snippet is an
+   error rather than a warning.
+3. **The post-build content scan** over `site/` — the exact tree that
+   uploads, checked against the never-publish rule with **no allowlist**
+   (D-20). A page that names a proprietary passage fails the build; there is
+   no mechanism for excusing one.
+
+The CI `docs` job runs that identical command on every push and pull request
+and uploads the result as the `ccf-docs-site` artifact. It is deliberately
+not made non-blocking: a gate that can be waved through is not a gate.
 
 ## Mermaid diagrams need a browser
 

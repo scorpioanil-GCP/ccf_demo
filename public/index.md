@@ -24,15 +24,42 @@ agentic systems:
 - **[Experience Layer](concepts/pillars/experience.md)** — the front doors:
   MCP egress, the `ccf` CLI, and the HTTP API.
 
-## Where to go next
+## Start here
 
-- **[Tutorial](tutorial/adopters-guide.md)** — a guided path from install to a
-  governed, replayable deployment.
-- **How-to guides** — task-shaped recipes, starting with
-  [granting and revoking a skill](how-to/grant-and-revoke-a-skill.md).
-- **Concepts** — the ideas behind the mechanism, including the
-  [architectural invariants](concepts/invariants.md) and the
-  [anatomy of a replay record](concepts/replay-anatomy.md).
-- **Reference** — the [Protocol surface](reference/protocols/agents.md), the
-  [definition artifact schemas](reference/artifacts/agent-definitions.md), and
-  the [HTTP API](reference/http-api.md).
+If you are reading this for the first time, take one path and take it in
+order:
+
+1. Read the **[adopter's guide](tutorial/adopters-guide.md)** end to end — it
+   goes from install to a governed, replayable deployment.
+2. Read the **pillar you actually care about** from the five linked above.
+3. Read the **Reference surface that realizes it** — the
+   [Protocols](reference/protocols/agents.md) it is built from and the
+   [definition artifacts](reference/artifacts/agent-definitions.md) you
+   declare against it.
+
+Everything else is reachable from the four sections below.
+
+## The four sections
+
+- **Tutorial** — learning-oriented, read in order. The
+  [adopter's guide](tutorial/adopters-guide.md) is the guided path from
+  install to a running deployment;
+  [how data folds into context](tutorial/demo-walkthrough.md) walks the
+  end-to-end demo signal by signal.
+- **How-to guides** — task-shaped recipes for a specific job:
+  [managing keys and secrets](how-to/security-and-deployment.md),
+  [granting and revoking a skill](how-to/grant-and-revoke-a-skill.md),
+  [running agents cross-process](how-to/run-agents-cross-process.md),
+  [composing a workflow with HITL](how-to/compose-a-workflow-with-hitl.md),
+  [swapping the artifact store](how-to/swap-the-artifact-store.md), and
+  [binding a harness adapter](how-to/bind-a-harness-adapter.md).
+- **Concepts** — the ideas behind the mechanism: one page per
+  [pillar](concepts/pillars/data-context.md) (five in all), plus the
+  [architectural invariants](concepts/invariants.md), the
+  [anatomy of a replay record](concepts/replay-anatomy.md), and the
+  [whitepaper cross-reference](concepts/whitepaper-index.md).
+- **Reference** — the precise surface: twelve
+  [Protocol pages](reference/protocols/storage-and-graph.md), eight
+  [definition artifact schemas](reference/artifacts/agent-definitions.md), the
+  [HTTP contract](reference/http-api.md), and the
+  [performance envelope](reference/performance.md).
