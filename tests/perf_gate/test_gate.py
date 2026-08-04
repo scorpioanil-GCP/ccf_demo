@@ -203,6 +203,49 @@ def test_id_drift_warns_in_both_directions() -> None:
     assert report.rows[0].verdict == "NO BASELINE — NOT GATED"
 
 
+def test_drift_check_ignores_baseline_entries_of_suites_that_did_not_run() -> None:
+    """A single-suite run must not warn about other suites' baseline entries.
+
+    The committed baseline covers the whole battery, so `make perf-micro`
+    gates only the micro results against it. Baseline entries owned by
+    scale/crossproc/replay are not drift — those suites simply did not run.
+    """
+    results = {"suites/micro/test_gates.py::test_gate_ttl_bounds": _stats(1.0)}
+    baseline = {
+        "suites/micro/test_gates.py::test_gate_ttl_bounds": 1.0,
+        "suites/scale/test_assembly.py::test_assembly_scale[500]": 17.1,
+        "suites/crossproc/test_peering.py::test_peering_roundtrip": 0.0007,
+        "suites/replay/test_replay_scale.py::test_replay_at_scale[1000]": 0.57,
+    }
+    report = gate.evaluate(results, baseline, make_config(), "micro")
+    assert report.exit_code == 0
+    assert report.warnings == []
+
+
+def test_drift_check_still_warns_within_the_suite_that_ran() -> None:
+    """Genuine drift inside the executed suite must still warn (Pitfall 6)."""
+    results = {"suites/micro/test_gates.py::test_renamed": _stats(1.0)}
+    baseline = {
+        "suites/micro/test_gates.py::test_gate_ttl_bounds": 1.0,
+        "suites/scale/test_assembly.py::test_assembly_scale[500]": 17.1,
+    }
+    report = gate.evaluate(results, baseline, make_config(), "micro")
+    joined = "\n".join(report.warnings)
+    assert "test_gate_ttl_bounds" in joined  # vanished from the suite that ran
+    assert "test_assembly_scale" not in joined  # scale did not run — not drift
+
+
+def test_drift_check_keeps_unattributable_baseline_entries_visible() -> None:
+    """An entry with no `suites/<name>/` owner cannot be scoped away."""
+    results = {"suites/micro/test_gates.py::test_gate_ttl_bounds": _stats(1.0)}
+    baseline = {
+        "suites/micro/test_gates.py::test_gate_ttl_bounds": 1.0,
+        "legacy_unprefixed_id": 1.0,
+    }
+    report = gate.evaluate(results, baseline, make_config(), "micro")
+    assert any("legacy_unprefixed_id" in w for w in report.warnings)
+
+
 # ---------------------------------------------------------------------------
 # Runner class handling (D-10, T-11-02)
 # ---------------------------------------------------------------------------

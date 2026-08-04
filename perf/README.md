@@ -160,8 +160,24 @@ accident of omission.
 
 ## Phase 14 pointer
 
-Phase 14's `PERFORMANCE.md` links to (and partially includes) this
-document as the canonical description of the measurement methodology and
-the re-baseline ritual (D-14). Curve artifacts intended for it land in
-`perf/results/replay.curve.json` (fitted replay-growth exponent) and the
-per-suite `*.results.json` files.
+The published performance reference is **`public/reference/performance.md`**
+(DOCS-06). It carries the methodology, the environment manifest, the
+claims boundary, and the re-baseline ritual for an external audience;
+this document remains the canonical internal description (D-14).
+
+**How the page gets its numbers.** It performs a whole-file snippet
+include of the committed baseline for its runner class — so every
+published number *is* the approved baseline by construction and cannot
+drift. No median is transcribed into prose on that page, and a lint
+asserts as much.
+
+**Why not the curve artifacts.** The fitted replay-growth exponent
+(`perf/results/replay.curve.json`) and the per-suite `*.results.json`
+files land under gitignored `perf/results/`, so they are not committed
+and a published page cannot include them. The page therefore publishes
+the committed baseline; the curve artifacts stay a local review aid
+under ritual step 2.
+
+**First baseline recorded:** runner class `local`, 2026-08-03, approved
+by Dave (D-IMPL-75). A baseline now exists, so runs gate against it
+rather than printing the D-13 report-only notice.

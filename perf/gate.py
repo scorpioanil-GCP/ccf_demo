@@ -67,6 +67,11 @@ RUNNER_CLASS_ENV = "CCF_PERF_RUNNER_CLASS"
 #: Loud per-entry verdict for ungated benchmarks (D-13).
 NOT_GATED = "NO BASELINE — NOT GATED"
 
+#: Benchmark ids are pytest node ids rooted at ``perf/``, so a suite-owned id
+#: reads ``suites/<suite>/<file>::<test>``. Used to scope the drift check to
+#: the suite that actually ran.
+SUITE_ID_PREFIX = "suites/"
+
 
 class ThresholdConfigError(ValueError):
     """A thresholds.toml violation: unknown suite, malformed table, or an
@@ -171,6 +176,25 @@ def sanitize_runner_class(value: str | None) -> str | None:
     return value
 
 
+def baseline_entry_in_scope(benchmark_id: str, suite: str) -> bool:
+    """True when a baseline entry belongs to the suite currently being gated.
+
+    The committed baseline covers the whole battery, but each ``make perf-*``
+    target gates one suite. Without scoping, every single-suite run reports
+    the other suites' entries as benchmark-ID drift (Pitfall 6) — noise that
+    trains reviewers to ignore a genuinely load-bearing warning.
+
+    Benchmark ids are pytest node ids rooted at ``perf/``, so the owning suite
+    is the path segment after ``suites/``. An id that carries no such owner
+    cannot be attributed and stays **in scope**: drift detection is never
+    weakened by an id this function fails to parse.
+    """
+    if not benchmark_id.startswith(SUITE_ID_PREFIX):
+        return True
+    owner = benchmark_id[len(SUITE_ID_PREFIX):].split("/", 1)[0]
+    return owner == suite
+
+
 def evaluate(
     results: dict[str, dict[str, float]],
     baseline: dict[str, float] | None,
@@ -184,7 +208,9 @@ def evaluate(
     exists for the runner class. Slowdowns beyond threshold FAIL; speed-ups
     beyond threshold WARN and never fail; entries absent from the baseline
     are loudly NOT GATED (D-13); baseline entries with no current benchmark
-    warn so ID drift is visible in both directions (Pitfall 6).
+    warn so ID drift is visible in both directions (Pitfall 6) — scoped by
+    :func:`baseline_entry_in_scope` to the suite that ran, so a whole-battery
+    baseline does not report the un-run suites as drift.
     """
     report = Report()
     for benchmark_id, stats in results.items():
@@ -215,7 +241,8 @@ def evaluate(
                 median, baseline_median, threshold, verdict)
         )
     if baseline is not None:
-        for orphan in sorted(set(baseline) - set(results)):
+        in_scope = {k for k in baseline if baseline_entry_in_scope(k, suite)}
+        for orphan in sorted(in_scope - set(results)):
             report.warnings.append(
                 f"baseline entry {orphan!r} has no matching current benchmark "
                 "— possible benchmark-ID drift (Pitfall 6)"
