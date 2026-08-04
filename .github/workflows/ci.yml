@@ -155,3 +155,57 @@ jobs:
 
       - name: Run all eight examples (make examples)
         run: make examples
+
+  # The documentation site is built as an Actions artifact and never hosted
+  # (D-IMPL-71) — the upload below is how adopters actually read it. The job is
+  # always-on because D-IMPL-72 composes the docs gate into the same pipeline as
+  # lint, test and examples, and the publish scan is part of that gate rather
+  # than a follow-up step (D-02): `make docs-strict` runs the pre-build scan,
+  # the strict build and the site scan as one blocking command, so there is no
+  # path on which the build succeeds and the scan never runs.
+  #
+  # Deliberately NOT `continue-on-error` — per the I.1 D-07 precedent, a step
+  # made non-blocking to hide a gap is worse than the gap. A softened docs job
+  # would silently retire the never-publish guarantee this phase exists to
+  # enforce.
+  docs:
+    name: docs gate (strict build + publish scan, D-IMPL-72)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package with dev extras
+        run: python -m pip install -e ".[dev]"
+
+      # The Makefile targets use .venv/bin/python; provide the venv the same
+      # editable install the job already has, so CI and local runs execute the
+      # identical `make docs-strict` command string (D-10).
+      - name: Provision .venv for the Makefile command surface
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]"
+
+      # The docs checkers are the enforcement mechanism for the publish gate,
+      # so they are themselves tested in CI. `pytest tests` in the test job does
+      # not reach them (testpaths is the shipped suite and stops at `tests`);
+      # run them here, before the gate they implement. Same precedent as the
+      # lint job's checker unit tests.
+      - name: Docs-gate checker unit tests (publish scan + docs gates)
+        run: pytest tools/publish_scan_tests tools/docs_tests -q
+
+      - name: Docs gate (make docs-strict)
+        run: make docs-strict
+
+      # D-05 default retention. The upload runs only after the gate passes: a
+      # nonzero exit from the step above fails the job and nothing ships.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ccf-docs-site
+          path: site/
