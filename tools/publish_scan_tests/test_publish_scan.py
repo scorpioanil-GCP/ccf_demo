@@ -10,15 +10,20 @@ from __future__ import annotations
 
 import pathlib
 
+import pytest
+
 from tools.publish_scan import (
+    PREBUILD_TREE,
     RULE_INCLUDE_ESCAPE,
     RULE_INTERNAL_PATH,
     RULE_SHINGLE,
     RULE_SYMLINK,
     WHITEPAPER,
+    iter_files,
     main,
     scan_prebuild,
     scan_text,
+    scan_tree,
     whitepaper_shingles,
 )
 
@@ -229,7 +234,96 @@ def test_main_exits_zero_on_a_clean_tree(tmp_path: pathlib.Path) -> None:
     assert main([str(tree)]) == 0
 
 
+# --- CR-02: the content scan reads by exclusion, not by inclusion ----------
+#
+# A suffix allowlist and a directory skiplist are both default-ALLOW, in a
+# gate whose charter is default-deny. `.mmd` is not a synthetic case: eleven
+# `.mmd` files are copied verbatim into `site/diagrams/` on every build.
+
+
+def test_a_leak_in_a_non_text_suffix_is_still_caught(
+    tmp_path: pathlib.Path,
+) -> None:
+    tree = tmp_path / "site"
+    (tree / "diagrams").mkdir(parents=True)
+    (tree / "diagrams" / "leak.mmd").write_text(_read(WHITEPAPER), encoding="utf-8")
+    assert main([str(tree)]) == 1
+
+
+def test_a_leak_under_a_build_directory_is_still_caught(
+    tmp_path: pathlib.Path,
+) -> None:
+    tree = tmp_path / "site"
+    (tree / "build").mkdir(parents=True)
+    (tree / "build" / "leak.md").write_text(_read(WHITEPAPER), encoding="utf-8")
+    assert main([str(tree)]) == 1
+
+
+def test_a_leak_in_an_extensionless_file_is_still_caught(
+    tmp_path: pathlib.Path,
+) -> None:
+    tree = tmp_path / "site"
+    tree.mkdir()
+    (tree / "LEAK").write_text(_read(WHITEPAPER), encoding="utf-8")
+    assert main([str(tree)]) == 1
+
+
+def test_scanning_a_tree_below_a_directory_named_build_still_scans(
+    tmp_path: pathlib.Path,
+) -> None:
+    # SKIP_DIRS was matched against the FULL path, so an absolute scan root
+    # containing a `build` segment silently skipped every file beneath it.
+    tree = tmp_path / "build" / "site"
+    tree.mkdir(parents=True)
+    (tree / "leak.html").write_text(_read(WHITEPAPER), encoding="utf-8")
+    assert main([str(tree)]) == 1
+
+
+def test_binary_assets_are_path_checked_but_not_read_as_prose(
+    tmp_path: pathlib.Path,
+) -> None:
+    tree = tmp_path / "site"
+    tree.mkdir()
+    (tree / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00\x01\x02\x03")
+    assert main([str(tree)]) == 0
+
+
+# --- CR-03: the gate fails CLOSED on a tree it could not read --------------
+
+
+def test_main_exits_nonzero_on_a_missing_tree(tmp_path: pathlib.Path) -> None:
+    assert main([str(tmp_path / "nope-tree")]) != 0
+
+
+def test_main_exits_nonzero_on_an_empty_tree(tmp_path: pathlib.Path) -> None:
+    tree = tmp_path / "site"
+    tree.mkdir()
+    assert main([str(tree)]) != 0
+
+
+def test_scan_tree_refuses_a_missing_tree(tmp_path: pathlib.Path) -> None:
+    with pytest.raises(SystemExit):
+        scan_tree(tmp_path / "nope-tree")
+
+
+def test_scan_prebuild_refuses_a_missing_tree(tmp_path: pathlib.Path) -> None:
+    with pytest.raises(SystemExit):
+        scan_prebuild(tmp_path / "nope-tree")
+
+
+def test_the_prebuild_tree_is_populated() -> None:
+    """Precondition: `main(["--pre-build"]) == 0` must mean something.
+
+    The comment this replaced claimed the pre-build mode "cannot be pointed
+    somewhere harmless", which was false in the other direction: before CR-03
+    a *missing* `public/` also returned 0, so the assertion below passed
+    vacuously. `tools/docs_tests/test_diagram_coverage.py` is the model —
+    assert the fixture tree is real and non-empty before asserting on it.
+    """
+    root = pathlib.Path(PREBUILD_TREE)
+    assert root.is_dir(), f"missing pre-build tree: {root}"
+    assert iter_files(root), f"no files under {root}"
+
+
 def test_main_exits_zero_in_prebuild_mode_on_this_repo() -> None:
-    # There is no `--root`: the pre-build tree is a constant, so the mode
-    # cannot be pointed somewhere harmless to make it pass.
     assert main(["--pre-build"]) == 0

@@ -111,15 +111,14 @@ INCLUDE_ALLOWED_PREFIXES: tuple[str, ...] = (
 #: separate from the prefixes so a root-level file cannot open a whole tree.
 INCLUDE_ALLOWED_FILES: frozenset[str] = frozenset({"openapi.json"})
 
-#: Directories never worth walking, mirroring the lints runner.
+#: Directories not worth walking when iterating *source* trees, mirroring the
+#: lints runner. Deliberately NOT applied to the published or pre-build trees:
+#: in a tree that ships, no directory name exempts its contents from the
+#: never-publish rule, and a skiplist matched against path segments made an
+#: absolute scan root containing a `build`/`dist` segment skip everything
+#: beneath it. Retained here for `tools/publish_scan_tests`' source walk.
 SKIP_DIRS: frozenset[str] = frozenset(
     {"__pycache__", ".git", ".venv", "venv", "build", "dist", ".mypy_cache"}
-)
-
-#: Suffixes whose bytes are read as text and scanned for quoted prose. Files
-#: outside this set are still path-checked.
-TEXT_SUFFIXES: frozenset[str] = frozenset(
-    {".html", ".htm", ".md", ".txt", ".json", ".xml", ".js", ".css", ".yml", ".yaml"}
 )
 
 _TAG_RE = re.compile(r"<[^>]*>")
@@ -284,34 +283,65 @@ def scan_text(text: str, path: pathlib.Path, shingles: frozenset[str]) -> list[s
 
 
 def iter_files(root: pathlib.Path) -> list[pathlib.Path]:
-    """Every file under `root`, skipping build/VCS noise. Symlinks included."""
+    """Every file under `root`. Symlinks included, nothing excluded.
+
+    No directory is skipped: a file that ships is a file that publishes, and a
+    directory-name skiplist is default-allow in a default-deny gate.
+    """
     if not root.is_dir():
         return []
     return [
         path
         for path in sorted(root.rglob("*"))
-        if not any(part in SKIP_DIRS for part in path.parts)
-        and (path.is_file() or path.is_symlink())
+        if path.is_file() or path.is_symlink()
     ]
 
 
+def require_populated(root: pathlib.Path, mode: str) -> list[pathlib.Path]:
+    """Files under `root`, or a hard exit if there are none (CR-03).
+
+    Fail-closed is the whole point. Before this, `publish_scan.py /tmp/typo`
+    exited 0, and so did a run against a `site/` that a partially-failed build
+    never wrote — the gate reported clean over a tree it had not read, which
+    is the failure mode the module's own self-test exists to prevent, left
+    open one level up.
+    """
+    if not root.is_dir():
+        raise SystemExit(
+            f"{mode}: {root} is not a directory — the gate cannot certify a"
+            " tree it did not read (fail closed)"
+        )
+    files = iter_files(root)
+    if not files:
+        raise SystemExit(
+            f"{mode}: {root} contains no files — refusing to report clean over"
+            " an empty tree"
+        )
+    return files
+
+
 def scan_tree(root: pathlib.Path) -> list[str]:
-    """Post-build scan of the rendered tree at `root` (`pub01`, `pub02`)."""
+    """Post-build scan of the rendered tree at `root` (`pub01`, `pub02`).
+
+    Every file is read and shingle-checked. There is no suffix allowlist: the
+    eleven `.mmd` diagram sources mkdocs copies verbatim into `site/diagrams/`
+    are as much a publication channel as an `.html` page, and so is any asset
+    type added later. Bytes that do not decode are scanned anyway with
+    `errors="ignore"` rather than skipped — an unclassifiable file gets read,
+    never waved through.
+    """
     shingles = whitepaper_shingles()
     findings: list[str] = []
-    for path in iter_files(root):
-        if path.suffix.lower() in TEXT_SUFFIXES:
-            text = path.read_text(encoding="utf-8", errors="ignore")
-            findings.extend(scan_text(text, path, shingles))
-        else:
-            findings.extend(scan_path(path))
+    for path in require_populated(root, "post-build scan"):
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        findings.extend(scan_text(text, path, shingles))
     return findings
 
 
 def scan_prebuild(root: pathlib.Path) -> list[str]:
     """Structural guards over the hand-authored tree (`pub03`, `pub04`)."""
     findings: list[str] = []
-    for path in iter_files(root):
+    for path in require_populated(root, "pre-build scan"):
         if path.is_symlink():
             findings.append(
                 format_finding(
@@ -377,10 +407,16 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
-    if args.pre_build:
-        findings = scan_prebuild(pathlib.Path(PREBUILD_TREE))
-    else:
-        findings = scan_tree(args.tree)
+    try:
+        if args.pre_build:
+            findings = scan_prebuild(pathlib.Path(PREBUILD_TREE))
+        else:
+            findings = scan_tree(args.tree)
+    except SystemExit as unreadable:
+        # Fail closed (CR-03). Exit 2 rather than 1 so an operator can tell
+        # "the tree leaked" from "there was no tree to read".
+        print(unreadable, file=sys.stderr)
+        return 2
 
     for finding in findings:
         print(finding)
