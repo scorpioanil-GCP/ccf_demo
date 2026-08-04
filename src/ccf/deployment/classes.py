@@ -52,6 +52,7 @@ from ccf.controlplane.artifacts import (
     OPERATOR_PARAMETERS_TEMPORAL,
     OPERATOR_PARAMETERS_TRAVERSAL,
     RESOLUTION_SPEC,
+    SIGNAL_BATCH,
     ArtifactClass,
     declared_artifact_class,
 )
@@ -74,6 +75,10 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     OPERATOR_PARAMETERS_TEMPORAL.class_id: OPERATOR_PARAMETERS_TEMPORAL,
     OPERATOR_PARAMETERS_POLICY.class_id: OPERATOR_PARAMETERS_POLICY,
     OPERATOR_PARAMETERS_SIMILARITY.class_id: OPERATOR_PARAMETERS_SIMILARITY,
+    # A `role: load` class under D-IMPL-80: addressable by a manifest so it can
+    # be *parsed*, never registered. The manifest's own `role` field carries the
+    # distinction and 15-10 enforces it; this mapping only says the class exists.
+    SIGNAL_BATCH.class_id: SIGNAL_BATCH,
 }
 
 

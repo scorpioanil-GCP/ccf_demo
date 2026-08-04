@@ -76,6 +76,7 @@ from ccf.operators.params import (
     TemporalAsOfParameters,
     TraversalNeighborhoodParameters,
 )
+from ccf.signal.envelope import SignalEnvelope
 
 __ccf_mode__ = "algorithmic"
 
@@ -87,6 +88,7 @@ __all__ = [
     "OPERATOR_PARAMETERS_TEMPORAL",
     "OPERATOR_PARAMETERS_TRAVERSAL",
     "RESOLUTION_SPEC",
+    "SIGNAL_BATCH",
     "ArtifactClass",
     "ArtifactLoadError",
     "DebtProfile",
@@ -95,6 +97,7 @@ __all__ = [
     "HalfLifeTable",
     "OperatorParametersArtifact",
     "PolicyFilterParametersArtifact",
+    "SignalBatch",
     "SimilaritySelectParametersArtifact",
     "TemporalAsOfParametersArtifact",
     "TraversalNeighborhoodParametersArtifact",
@@ -386,6 +389,75 @@ class PolicyFilterParametersArtifact(OperatorParametersArtifact):
     permitted_classifications: frozenset[str]
 
 
+class SignalBatch(VersionedArtifact):
+    """A batch of L1 event envelopes, parsed rather than hand-marshalled (§7.1).
+
+    Whitepaper §7.1 (Signal Layer) for what an envelope *is*; this class is the
+    SDK-defined parsing seam for a serialized batch of them (CLAUDE.md §6.4).
+    ``envelopes`` is typed as :class:`~ccf.signal.envelope.SignalEnvelope`, so
+    each mapping in the document is validated into a real envelope by the
+    contract itself. That is the whole point: the artifact document adopts the
+    SDK's **own** field vocabulary — ``source: {system_id: ...}``,
+    ``raw_payload:`` — rather than the SDK growing a second vocabulary to
+    accommodate a document's flat keys. A translation removed is one that cannot
+    drift; a translation relocated into ``/src`` is the same defect with a better
+    address.
+
+    **This is a** ``role: load`` **artifact under D-IMPL-80.** It is parsed and
+    validated through the same :func:`parse_artifact` seam as every other class,
+    and ``load_and_boot`` hands it back to the caller on the boot result — but it
+    is never passed to ``register_typed`` and never appears in the pin set. The
+    asymmetry is the interesting part. Registering a batch would content-hash raw
+    event data into Control Plane state, and by D-06's own rationale the
+    registered artifact set is dimension 2 of the five-dimension Decision Replay
+    record (whitepaper §7.10.1). Re-authoring an events file would then change
+    "what was in force" exactly as a policy-bundle bump does — which is not what
+    an event stream is. Events are what the fabric *observed*; the Control Plane
+    is what the fabric was *permitted to do*. D-IMPL-80 makes the distinction an
+    explicit, required ``role`` field on each manifest entry rather than a
+    property an executor has to infer from the class, and a manifest entry naming
+    no ``role`` is refused.
+
+    **Why the batch carries** ``tenant_id``. Every envelope declares its own
+    (INV-CH7-16 — no untenanted path), but every event in a batch belongs to one
+    tenant, and today that value lives in a *different* document — the ontology
+    (``ontology.yaml``) — which D-03 makes closed-world over resolution rules
+    only. Carrying it here keeps it authored, once, in the artifact that needs
+    it, rather than turning it into a loader argument no artifact records.
+    Disagreement between the batch and an envelope is **refused, never
+    repaired**: silently stamping the batch's value onto an envelope that omits
+    it would put a value nobody authored into the fabric's observation record.
+
+    :class:`~ccf.signal.envelope.SignalEnvelope` and
+    :class:`~ccf.signal.envelope.SourceIdentity` are untouched by this class.
+    ``raw_payload`` stays opaque to L1 and its keys stay the source system's
+    vocabulary; renaming the *container* key in a serialized document says
+    nothing about the payload inside it.
+
+    Attributes:
+        tenant_id: The one tenant every envelope in this batch belongs to.
+        envelopes: The batch itself. ``min_length=1`` because an empty batch is
+            an authoring mistake, not an ingestion of nothing.
+    """
+
+    tenant_id: str
+    envelopes: tuple[SignalEnvelope, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _every_envelope_names_this_tenant(self) -> "SignalBatch":
+        disagreeing = sorted(
+            envelope.envelope_id
+            for envelope in self.envelopes
+            if envelope.tenant_id != self.tenant_id
+        )
+        if disagreeing:
+            raise ValueError(
+                f"envelopes {', '.join(disagreeing)} name a tenant other than"
+                f" the batch's {self.tenant_id!r}; state one tenant per batch"
+            )
+        return self
+
+
 #: The λ_c table class (whitepaper §7.7).
 HALF_LIFE_TABLE = ArtifactClass(class_id="ccf.half-life-table", contract=HalfLifeTable)
 #: The decision-class debt profile class (whitepaper §7.7 CAR).
@@ -422,6 +494,11 @@ OPERATOR_PARAMETERS_SIMILARITY = ArtifactClass(
     class_id="ccf.operator-parameters.similarity",
     contract=SimilaritySelectParametersArtifact,
 )
+#: The L1 event-batch class (whitepaper §7.1). **A** ``role: load`` **class under
+#: D-IMPL-80** — parsed and returned, never registered and never pinned, because
+#: raw event data in the Control Plane would put an events file into replay
+#: dimension 2. See :class:`SignalBatch`.
+SIGNAL_BATCH = ArtifactClass(class_id="ccf.signal-batch", contract=SignalBatch)
 
 
 def _reject_floats(value: object, path: str) -> None:
