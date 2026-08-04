@@ -27,7 +27,7 @@ and the upgraded examples.
 - [x] **Phase 12: Synthetic-Data Demonstration** - Fake data store + end-to-end data→context→agentic-reasoning example, running in CI (completed 2026-08-02)
 - [x] **Phase 13: Examples Suite Upgrade** - v0.1 examples 00–07 upgraded with detailed narrated READMEs and richer scenarios/artifacts exercising more SDK surface, CI stays green (completed 2026-08-02)
 - [x] **Phase 13.1: External-Consumer Examples (MCP Egress)** (INSERTED) - Independent agents built in their own harness (Anthropic SDK, ADK, bare MCP client) consume CCF context via MCP egress with zero CCF imports client-side — CCF as a black box; demonstrates §7.1 MCP-as-egress as the primary adoption path (completed 2026-08-02)
-- [ ] **Phase 14: Documentation Suite** - mkdocs site with generated Protocol/API reference, adopter's guide, schema reference, security notes, PERFORMANCE.md, narrated demo walkthrough — `make docs --strict` in always-on CI
+- [x] **Phase 14: Documentation Suite** - mkdocs site with generated Protocol/API reference, adopter's guide, schema reference, security notes, PERFORMANCE.md, narrated demo walkthrough — `make docs --strict` in always-on CI (completed 2026-08-04)
 
 ## Phase Details
 
@@ -261,7 +261,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 14-10-PLAN.md — `docs-strict` gate target, `make ci` D-IMPL-72 amendment, always-on CI docs job with artifact upload
+- [x] 14-10-PLAN.md — `docs-strict` gate target, `make ci` D-IMPL-72 amendment, always-on CI docs job with artifact upload
 
 ## Progress
 
@@ -272,7 +272,7 @@ Plans:
 | 11. Performance Battery | 5/5 | Complete    | 2026-08-02 |
 | 12. Synthetic-Data Demonstration | 3/3 | Complete    | 2026-08-02 |
 | 13. Examples Suite Upgrade | 5/5 | Complete   | 2026-08-02 |
-| 14. Documentation Suite | 9/10 | In Progress|  |
+| 14. Documentation Suite | 10/10 | Complete   | 2026-08-04 |
 
 ## Coverage
 
