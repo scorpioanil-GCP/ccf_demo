@@ -16,6 +16,7 @@ D-IMPL-70), so it is loaded by file path rather than imported as a package.
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import pathlib
@@ -314,10 +315,136 @@ def test_main_pass_exits_zero(
 # Structural: gate.py never writes baselines (D-13, T-11-03)
 # ---------------------------------------------------------------------------
 
+#: Method names that mutate the thing they are called on.
+_MUTATING_METHODS = frozenset(
+    {"write_text", "write_bytes", "unlink", "touch", "rename", "replace", "mkdir"}
+)
+
+#: Free functions that mutate a path passed as an argument.
+_MUTATING_FUNCTIONS = frozenset(
+    {"copy", "copy2", "copyfile", "move", "replace", "rename", "remove", "dump"}
+)
+
+
+def _mentions(node: ast.AST, names: set[str]) -> bool:
+    """Whether any `Name` in `node`'s subtree is one of `names`."""
+    return any(
+        isinstance(child, ast.Name) and child.id in names
+        for child in ast.walk(node)
+    )
+
+
+def baseline_write_offenders(source: str) -> list[str]:
+    """Every expression in `source` that could write to the baselines dir.
+
+    WR-06: this replaces a line grep that only fired when `"baselines"` and
+    `write_text`/`open(` appeared on the SAME source line. Splitting the
+    statement across two lines — `p = BASELINES_DIR / "x.json"` then
+    `p.write_text(...)` — defeated it entirely, as did `shutil.copy`,
+    `os.replace` and `json.dump` to an open handle. A control that reads as
+    structural but discriminates almost nothing is worse than no control,
+    because it is trusted.
+
+    Aliases are resolved across the whole module before any call is judged,
+    so the check is line-independent by construction.
+    """
+    tree = ast.parse(source)
+    aliases = {"BASELINES_DIR"}
+    # Fixed point: an alias of an alias is still an alias.
+    for _ in range(8):
+        grown = set(aliases)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                targets = (
+                    [node.target] if isinstance(node, ast.AnnAssign) else node.targets
+                )
+                if node.value is not None and _mentions(node.value, aliases):
+                    grown |= {t.id for t in targets if isinstance(t, ast.Name)}
+        if grown == aliases:
+            break
+        aliases = grown
+    aliases.discard("BASELINES_DIR")
+    aliases.add("BASELINES_DIR")
+
+    offenders: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Attribute):
+            if func.attr in _MUTATING_METHODS and _mentions(func.value, aliases):
+                offenders.append(ast.unparse(node))
+                continue
+            if func.attr == "open" and _mentions(func.value, aliases):
+                offenders.append(ast.unparse(node))
+                continue
+            if func.attr in _MUTATING_FUNCTIONS and any(
+                _mentions(arg, aliases) for arg in node.args
+            ):
+                offenders.append(ast.unparse(node))
+                continue
+        name = func.id if isinstance(func, ast.Name) else None
+        if name == "open" and any(_mentions(arg, aliases) for arg in node.args):
+            offenders.append(ast.unparse(node))
+        elif name in _MUTATING_FUNCTIONS and any(
+            _mentions(arg, aliases) for arg in node.args
+        ):
+            offenders.append(ast.unparse(node))
+    return offenders
+
+
+@pytest.mark.parametrize(
+    "evasion",
+    [
+        # The exact reformatting WR-06 named: two lines, so the old grep missed it.
+        'p = BASELINES_DIR / "x.json"\np.write_text("{}")\n',
+        'p = BASELINES_DIR / "x.json"\nwith p.open("w") as fh:\n    fh.write("{}")\n',
+        'p = BASELINES_DIR / "x.json"\nshutil.copy(src, p)\n',
+        'p = BASELINES_DIR / "x.json"\nos.replace(tmp, p)\n',
+        'p = BASELINES_DIR / "x.json"\nq = p\njson.dump({}, open(q, "w"))\n',
+    ],
+)
+def test_the_no_write_control_catches_a_reformatted_write(evasion: str) -> None:
+    assert baseline_write_offenders(evasion), evasion
+
+
+def test_the_no_write_control_does_not_fire_on_a_read() -> None:
+    read_only = 'p = BASELINES_DIR / "x.json"\ndata = json.loads(p.read_text())\n'
+    assert baseline_write_offenders(read_only) == []
+
+
 def test_gate_source_has_no_baseline_write_path() -> None:
     source = GATE_PATH.read_text()
-    for line in source.splitlines():
-        if "baselines" in line and ("open(" in line or "write_text" in line):
-            assert '"w"' not in line and "'w'" not in line, line
+    assert baseline_write_offenders(source) == []
     # The only baseline interaction is a read.
     assert "def record_baseline" not in source
+
+
+def test_gate_leaves_the_baselines_directory_byte_identical(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Behavioural counterpart to the structural check (D-13, T-11-03).
+
+    The source check can only see what it knows to look for; this one runs the
+    gate in every polarity and compares the directory's bytes.
+    """
+    baselines = tmp_path / "baselines"
+    baselines.mkdir()
+    make_baseline(baselines / "local.json", {"test_a": 1.0})
+    monkeypatch.setenv("CCF_PERF_RUNNER_CLASS", "local")
+    monkeypatch.setattr(gate, "BASELINES_DIR", baselines)
+
+    def snapshot() -> dict[str, bytes]:
+        return {
+            str(p.relative_to(baselines)): p.read_bytes()
+            for p in sorted(baselines.rglob("*"))
+            if p.is_file()
+        }
+
+    before = snapshot()
+    for timings in ({"test_a": [1.0]}, {"test_a": [99.0]}, {"test_b": [1.0]}):
+        raw = tmp_path / "micro.raw.json"
+        make_raw_json(raw, timings)
+        gate.main([str(raw), "--suite", "micro"])
+    assert snapshot() == before
