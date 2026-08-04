@@ -7,10 +7,16 @@ a fabric. That wiring is the SDK's own extension, and this package is its home.
 Nothing here is whitepaper-derived, and nothing here may quietly become an
 implementation of something the whitepaper *does* specify.
 
-The package ships empty on purpose. It exists from the moment the phase's
-standing guard exists (``tests/products/test_gate_independence.py``) so that the
-guard has a real, non-vacuous target rather than being retrofitted around
-helpers already written.
+The package began empty on purpose: it existed from the moment the phase's
+standing guard existed (``tests/products/test_gate_independence.py``) so that the
+guard had a real, non-vacuous target rather than being retrofitted around helpers
+already written.
+
+Modules
+-------
+
+* :mod:`ccf.deployment.classes` — class-id → ``ArtifactClass`` resolution, with
+  deployment-authored schemas landing on the declared envelope by design.
 
 CINV-03: "algorithmic" means no model call, not no I/O
 ------------------------------------------------------
@@ -69,6 +75,8 @@ Algorithmic package (CINV-03).
 
 from __future__ import annotations
 
+from ccf.deployment.classes import SDK_ARTIFACT_CLASSES, resolve_artifact_class
+
 __ccf_mode__ = "algorithmic"
 
-__all__: list[str] = []
+__all__ = ["SDK_ARTIFACT_CLASSES", "resolve_artifact_class"]
