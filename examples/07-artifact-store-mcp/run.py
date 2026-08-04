@@ -191,6 +191,7 @@ class ShipmentPlan:
 # whatever the artifact declared — no conditional around workload logic.
 
 
+# --8<-- [start:store-factory]
 def _file_store(declared: Any, stack: ExitStack) -> ArtifactStoreProtocol:
     return FileArtifactStore(root=os.environ[declared["root_env"]])
 
@@ -220,6 +221,7 @@ def build_store(config_name: str, stack: ExitStack) -> ArtifactStoreProtocol:
     """Construct the store the named config artifact declares."""
     declared = _load(config_name)["store"]
     return _STORE_FACTORIES[declared["type"]](declared, stack)
+    # --8<-- [end:store-factory]
 
 
 # --- the one workload --------------------------------------------------------
@@ -414,6 +416,7 @@ def workload(
             )
 
             # --- persistence: the ONLY store-touching lines in the workload --
+            # --8<-- [start:store-persist]
             with ExitStack() as stack:
                 store = build_store(store_config_name, stack)
                 served = serve(
@@ -445,6 +448,7 @@ def workload(
                 "product": product_ref,
                 "policy_bundle": bundle_ref,
             }
+            # --8<-- [end:store-persist]
         finally:
             handle.close()
 
@@ -486,6 +490,7 @@ def main() -> int:
         stderr_path = root / "mcp-store-child.stderr"
         try:
             # --- run 1: the file-backed store ---------------------------------
+            # --8<-- [start:store-swap]
             os.environ[store_file["root_env"]] = str(root / "file-artifacts")
             file_bytes, file_refs = workload("store_file.yaml")
 
@@ -510,8 +515,10 @@ def main() -> int:
 
             # --- run 2: the identical workload, MCP-backed store --------------
             mcp_bytes, mcp_refs = workload("store_mcp.yaml")
+            # --8<-- [end:store-swap]
 
             # --- the pluggability assertions ----------------------------------
+            # --8<-- [start:store-equivalence]
             # (1) The served product is byte-identical across the two stores.
             assert mcp_bytes == file_bytes
 
@@ -537,6 +544,7 @@ def main() -> int:
                     )
                 )
             assert canonical_bytes(served_product) == file_bytes
+            # --8<-- [end:store-equivalence]
 
             print("examples/07-artifact-store-mcp: OK")
             print("  stores                 FileArtifactStore, McpArtifactStore")

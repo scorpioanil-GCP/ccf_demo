@@ -406,6 +406,7 @@ def _decision() -> Iterator[DecisionBundle]:
             ) == sorted(expected["entity_classes"]), payload
 
             # --- ONE agent object, constructed once, factory-only (§6.4) ----
+            # --8<-- [start:harness-agent]
             agent = AgentFactory(control_plane=registry).construct(
                 definition_key=definition_key,
                 definition_version=definition_version,
@@ -433,7 +434,9 @@ def _decision() -> Iterator[DecisionBundle]:
                 principal_id=perspective.principal_id,
                 grant_set_hash=NO_GRANTS_SET_HASH,
             )
+            # --8<-- [end:harness-agent]
 
+            # --8<-- [start:harness-replay-hook]
             def build_record(
                 recovered: ContextProductContract, trace: HarnessTrace
             ) -> DecisionReplayRecord:
@@ -456,6 +459,7 @@ def _decision() -> Iterator[DecisionBundle]:
                     harness_trace=trace,
                 )
 
+            # --8<-- [end:harness-replay-hook]
             yield DecisionBundle(
                 tenant_id=tenant_id,
                 definition=definition,
@@ -494,6 +498,7 @@ def _deterministic() -> int:
 
     with _decision() as bundle:
         # --- one agent, three harnesses, real loop machinery ----------------
+        # --8<-- [start:harness-legs]
         legs = build_legs(bundle.harnesses)
         assert len({leg.harness_id for leg in legs}) == 3
         runs: tuple[LegRun, ...] = tuple(
@@ -514,7 +519,9 @@ def _deterministic() -> int:
             name: len(value) for name, value in delivered.items()
         }
         assert set(delivered.values()) == {canonical_bytes(bundle.consumed)}
+        # --8<-- [end:harness-legs]
 
+        # --8<-- [start:harness-governed-fields]
         # The governed emission is one effect, whichever harness drove it.
         assert len({run.emission_address for run in runs}) == 1
 
@@ -540,6 +547,7 @@ def _deterministic() -> int:
         # Each record is structurally complete: five dimensions, live.
         for run in runs:
             assert dimension_count(run.record) == 5, run.harness_id
+        # --8<-- [end:harness-governed-fields]
 
         print("examples/03-harness-portability: OK (deterministic)")
         print(f"  tenant                {bundle.tenant_id}")
