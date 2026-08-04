@@ -188,7 +188,7 @@ def main() -> int:
         key = _write_key(key_dir, producer_values["key_id"])
 
         # --- the consumer's Control Plane: trust is declared, then pinned ---
-        # --8<-- [start:a2a-trust-policy]
+        # --8<-- [start:peer-trust-policy]
         registry = ControlPlaneRegistry()
         spec_version = registry.register(
             control["keys"]["resolution_spec"],
@@ -232,7 +232,7 @@ def main() -> int:
             ),
             INBOUND_PAYLOAD_CEILING,
         )
-        # --8<-- [end:a2a-trust-policy]
+        # --8<-- [end:peer-trust-policy]
 
         # --- the consuming fabric, and the one gate before L2 ---------------
         database_path = root / "consumer.sqlite3"
@@ -257,7 +257,7 @@ def main() -> int:
             max_ttl_key=control["keys"]["max_ttl"],
             max_ttl_version=max_ttl_version,
         )
-        # --8<-- [start:a2a-gate]
+        # --8<-- [start:peer-gate]
         admission_store = FileArtifactStore(root=root / "admission-records")
         gate = PeeringAdmissionGate(
             identity=DetachedJwsIdentityProvider(
@@ -282,7 +282,7 @@ def main() -> int:
                 consumer_values["lineage"]["graph_snapshot_at"]
             ),
         )
-        # --8<-- [end:a2a-gate]
+        # --8<-- [end:peer-gate]
 
         # --- host the consumer's A2A endpoint, port bound before serving ----
         bound = socket.socket()
@@ -318,7 +318,7 @@ def main() -> int:
                 # --- spawn the assembler subprocess, READY handshake --------
                 # Its own session/process group, so teardown can reap the
                 # whole group; stderr captured for diagnosis on failure.
-                # --8<-- [start:a2a-spawn]
+                # --8<-- [start:peer-spawn]
                 with stderr_path.open("wb") as stderr_sink:
                     proc = subprocess.Popen(
                         [sys.executable, str(CHILD)],
@@ -345,7 +345,7 @@ def main() -> int:
                 # The child emits before it announces, so both carriages —
                 # genuine and tampered — have already been accepted here.
                 received = tuple(wire.receive())
-                # --8<-- [end:a2a-spawn]
+                # --8<-- [end:peer-spawn]
                 server.should_exit = True
                 thread.join(timeout=TERMINATE_TIMEOUT_SECONDS)
 
@@ -380,7 +380,7 @@ def main() -> int:
             # --8<-- [end:mcp-egress]
 
             # --- (2) A2A admission: verified, recorded, then admitted -------
-            # --8<-- [start:a2a-admit]
+            # --8<-- [start:peer-admit]
             admitted = gate.admit(
                 inbound=genuine, consumer_lineage=consumer_lineage, now=now
             )
@@ -406,9 +406,9 @@ def main() -> int:
             assert admitted.lineage.graph_snapshot_at == (
                 producer_lineage.graph_snapshot_at
             )
-            # --8<-- [end:a2a-admit]
+            # --8<-- [end:peer-admit]
 
-            # --8<-- [start:a2a-admission-record]
+            # --8<-- [start:peer-admission-record]
             # The immutable AdmissionRecord exists at an exact version: the
             # audit verdict points at it by content address, the store holds
             # it, and its content hashes back to that very address — no
@@ -431,11 +431,11 @@ def main() -> int:
             assert record.merged_lineage == admitted.lineage
             assert record.producer_lineage == producer_lineage
             assert record.consumer_lineage == consumer_lineage
-            # --8<-- [end:a2a-admission-record]
+            # --8<-- [end:peer-admission-record]
 
             # Admission only through L2 (single-writer): the graph moves
             # only when the typed federated door ingests the admitted value.
-            # --8<-- [start:a2a-ingest]
+            # --8<-- [start:peer-ingest]
             before_ingest = _graph_digest(database_path)
             declared_federation = federation["federation"]
             envelopes = handle.worker.ingest_admitted(
@@ -461,10 +461,10 @@ def main() -> int:
                 == declared_federation["entity_rule"]["entity_class"]
             ]
             assert len(federated) == len(admitted.product.payload["entities"])
-            # --8<-- [end:a2a-ingest]
+            # --8<-- [end:peer-ingest]
 
             # --- (3) the negative case: tampering is refused, L3 untouched --
-            # --8<-- [start:a2a-refusal]
+            # --8<-- [start:peer-refusal]
             before_refusal = _graph_digest(database_path)
             refusal = gate.admit(
                 inbound=tampered, consumer_lineage=consumer_lineage, now=now
@@ -481,7 +481,7 @@ def main() -> int:
             assert refused_events
             assert all(event.resolved is False for event in refused_events)
             assert isinstance(tampered, InboundProduct)
-            # --8<-- [end:a2a-refusal]
+            # --8<-- [end:peer-refusal]
 
             print("examples/04-cross-process: OK")
             print(f"  tenant                 {tenant_id}")
