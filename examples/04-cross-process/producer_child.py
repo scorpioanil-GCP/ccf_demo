@@ -143,6 +143,7 @@ def _instant(value: object) -> datetime:
 
 def _resolution_spec(ontology: Any) -> EntityResolutionSpec:
     return EntityResolutionSpec(
+        semver=ontology["artifact_version"],
         entity_rules=tuple(
             EntityResolutionRule(
                 match_key=rule["match_key"],

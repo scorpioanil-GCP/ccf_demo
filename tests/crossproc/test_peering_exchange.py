@@ -328,6 +328,7 @@ def _consumer_resolution_spec() -> EntityResolutionSpec:
     banking = _resolution_spec(ONTOLOGY)
     declared = FEDERATION["federation"]["entity_rule"]
     return EntityResolutionSpec(
+        semver="1.0.0",
         entity_rules=(
             *banking.entity_rules,
             EntityResolutionRule(

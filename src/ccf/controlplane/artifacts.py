@@ -28,6 +28,19 @@ which fixes the envelope (class identity, lane, canonical serializability)
 while leaving the declaration itself open. The SDK does not get to invent a
 policy-bundle schema on a user's behalf.
 
+Where the primitives live
+-------------------------
+
+:class:`ArtifactClass`, :class:`VersionedArtifact` and :func:`validate_semver`
+are defined in :mod:`ccf.controlplane.artifact_base` and re-exported here, so
+every import path that predates that module still resolves. They sit there
+rather than here because this module names
+:class:`~ccf.assembly.worker.EntityResolutionSpec` to declare
+:data:`RESOLUTION_SPEC`, and ``ccf.assembly.worker`` reaches
+``ccf.controlplane.registry``, which needs ``ArtifactClass`` — leaving it here
+would close ``artifacts -> worker -> registry -> artifacts`` at import time. See
+that module's docstring for the constraint that keeps the cycle broken.
+
 Algorithmic module (CINV-03).
 """
 
@@ -35,7 +48,6 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -43,49 +55,40 @@ from typing import Any
 import yaml
 from pydantic import Field, field_validator, model_validator
 
+from ccf.assembly.worker import EntityResolutionSpec
 from ccf.contracts.base import CCFContract
+from ccf.controlplane.artifact_base import (
+    ArtifactClass,
+    VersionedArtifact,
+    validate_semver,
+)
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "DEBT_PROFILE",
+    "HALF_LIFE_TABLE",
+    "RESOLUTION_SPEC",
     "ArtifactClass",
     "ArtifactLoadError",
     "DebtProfile",
     "DeclaredArtifact",
     "HalfLifeEntry",
     "HalfLifeTable",
+    "VersionedArtifact",
     "declared_artifact_class",
     "load_artifact",
     "parse_artifact",
     "validate_semver",
 ]
 
-#: Semantic Versioning ``MAJOR.MINOR.PATCH`` with optional pre-release/build.
-#: The *grammar* is mechanism (whitepaper §6.3 requires semver on contracts);
-#: which version an artifact is on is the author's statement.
-_SEMVER_RE = re.compile(
-    r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
-)
+#: Retained name for the base that moved to
+#: :mod:`ccf.controlplane.artifact_base` and became public there. Every existing
+#: subclass and every reference in the plan record keeps resolving through it.
+_VersionedArtifact = VersionedArtifact
 
 _UNIT = Decimal(1)
 _ZERO = Decimal(0)
-
-
-def validate_semver(value: str) -> str:
-    """Return ``value`` if it is a well-formed semantic version, else raise.
-
-    The one place the semver grammar lives (whitepaper §6.3 requires semver on
-    contracts). Every versioned artifact field — the single-lane ``semver`` of
-    SDK artifact classes here, and the D-IMPL-28 two-field lanes on agent and
-    prompt artifacts — validates through this function rather than re-declaring
-    the regex, so the grammar cannot drift between modules.
-
-    Raises:
-        ValueError: ``value`` is not a semantic version.
-    """
-    if not _SEMVER_RE.match(value):
-        raise ValueError(f"{value!r} is not a semantic version")
-    return value
 
 
 class ArtifactLoadError(ValueError):
@@ -98,52 +101,7 @@ class ArtifactLoadError(ValueError):
     """
 
 
-@dataclass(frozen=True)
-class ArtifactClass:
-    """The identity and contract of one Control Plane artifact class.
-
-    Kept as a plain frozen dataclass rather than a contract because it is
-    *about* artifacts rather than being one: it carries a Python type, which
-    has no canonical serialization and never belongs in a content hash.
-
-    Attributes:
-        class_id: Stable identifier recorded on audit events, so the audit
-            plane answers "what class of thing was registered" without
-            re-reading the artifact.
-        contract: The contract every artifact of this class must satisfy.
-    """
-
-    class_id: str
-    contract: type[CCFContract]
-
-    def validate(self, artifact: object) -> CCFContract:
-        """Return ``artifact`` if it satisfies this class, else raise.
-
-        Raises:
-            TypeError: the artifact is not an instance of the class contract.
-                A near-miss mapping with the right keys is still a rejection —
-                structural luck is not a contract.
-        """
-        if not isinstance(artifact, self.contract):
-            raise TypeError(
-                f"artifact for class {self.class_id!r} must be a"
-                f" {self.contract.__name__}, got {type(artifact).__name__}"
-            )
-        return artifact
-
-
-class _VersionedArtifact(CCFContract):
-    """Shared surface of every SDK-owned artifact class: its own semver lane."""
-
-    semver: str
-
-    @field_validator("semver")
-    @classmethod
-    def _semver_is_well_formed(cls, value: str) -> str:
-        return validate_semver(value)
-
-
-class DeclaredArtifact(_VersionedArtifact):
+class DeclaredArtifact(VersionedArtifact):
     """An artifact whose *schema* is the deployment's, not the SDK's.
 
     Policy bundles, operator parameter sets, ontology declarations: the
@@ -200,7 +158,7 @@ class HalfLifeEntry(CCFContract):
         return value
 
 
-class HalfLifeTable(_VersionedArtifact):
+class HalfLifeTable(VersionedArtifact):
     """The per-observation-type λ_c table, as a versioned artifact (INV-CH7-58).
 
     The table ships empty of rows by design: ``entries`` has no default, so a
@@ -214,7 +172,7 @@ class HalfLifeTable(_VersionedArtifact):
     entries: Mapping[str, HalfLifeEntry] = Field(min_length=1)
 
 
-class DebtProfile(_VersionedArtifact):
+class DebtProfile(VersionedArtifact):
     """A decision class's D_c calibration (whitepaper §7.7 CAR; INV-CH7-65).
 
     Three declared values, none with a default:
@@ -269,6 +227,15 @@ class DebtProfile(_VersionedArtifact):
 HALF_LIFE_TABLE = ArtifactClass(class_id="ccf.half-life-table", contract=HalfLifeTable)
 #: The decision-class debt profile class (whitepaper §7.7 CAR).
 DEBT_PROFILE = ArtifactClass(class_id="ccf.debt-profile", contract=DebtProfile)
+#: The L2 entity-resolution vocabulary class (whitepaper §7.3; D-IMPL-77).
+#:
+#: The contract lives in :mod:`ccf.assembly.worker` rather than here because the
+#: spec gained ``semver`` *in place* — a wrapper holding the lane beside the spec
+#: would have changed what :func:`ccf.boot.boot` receives, and that signature is
+#: the one contract D-05 committed to preserving.
+RESOLUTION_SPEC = ArtifactClass(
+    class_id="ccf.resolution-spec", contract=EntityResolutionSpec
+)
 
 
 def _reject_floats(value: object, path: str) -> None:

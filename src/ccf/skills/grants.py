@@ -50,7 +50,7 @@ from pydantic import field_validator
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
-from ccf.controlplane.artifacts import ArtifactClass, validate_semver
+from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
 from ccf.controlplane.state import AuditedStateWriter
 from ccf.controlplane.registry import (

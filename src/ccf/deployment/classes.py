@@ -47,6 +47,7 @@ from __future__ import annotations
 from ccf.controlplane.artifacts import (
     DEBT_PROFILE,
     HALF_LIFE_TABLE,
+    RESOLUTION_SPEC,
     ArtifactClass,
     declared_artifact_class,
 )
@@ -64,6 +65,7 @@ __all__ = ["SDK_ARTIFACT_CLASSES", "resolve_artifact_class"]
 SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     HALF_LIFE_TABLE.class_id: HALF_LIFE_TABLE,
     DEBT_PROFILE.class_id: DEBT_PROFILE,
+    RESOLUTION_SPEC.class_id: RESOLUTION_SPEC,
 }
 
 

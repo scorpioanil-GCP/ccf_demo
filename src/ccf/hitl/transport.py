@@ -43,7 +43,7 @@ from pydantic import field_validator
 
 from ccf.artifacts.protocol import ArtifactStoreError, parse_artifact_uri
 from ccf.contracts.base import CCFContract
-from ccf.controlplane.artifacts import ArtifactClass, validate_semver
+from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.hitl.identity_binding import (
     PrincipalBindingInvalid,

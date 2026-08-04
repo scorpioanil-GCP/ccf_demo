@@ -60,7 +60,7 @@ from collections.abc import Mapping
 from pydantic import Field, field_validator
 
 from ccf.contracts.base import CCFContract
-from ccf.controlplane.artifacts import ArtifactClass, validate_semver
+from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 from ccf.peering.identity import JsonWebKey
 
 __ccf_mode__ = "algorithmic"

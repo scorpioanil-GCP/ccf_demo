@@ -156,6 +156,7 @@ def test_partial_identity_is_refused_rather_than_hashed() -> None:
 
     strategy = SpecDrivenEntityResolution(
         spec=EntityResolutionSpec(
+            semver="1.0.0",
             entity_rules=(
                 EntityResolutionRule(
                     match_key="account_number",
