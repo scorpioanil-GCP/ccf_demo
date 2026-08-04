@@ -1,0 +1,2095 @@
+{
+  "components": {
+    "schemas": {
+      "AgentDeclarationRequest": {
+        "additionalProperties": false,
+        "description": "One declaration: the Control Plane key and the artifact payload.",
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/AgentDefinition"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "definition"
+        ],
+        "title": "AgentDeclarationRequest",
+        "type": "object"
+      },
+      "AgentDeclared": {
+        "additionalProperties": false,
+        "description": "The registered outcome \u2014 the key and its content-hash version.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "version"
+        ],
+        "title": "AgentDeclared",
+        "type": "object"
+      },
+      "AgentDefinition": {
+        "additionalProperties": false,
+        "description": "A declared, versioned agent \u2014 all six specialization axes (\u00a76.1/\u00a76.2).\n\nSDK-defined (CLAUDE.md \u00a76; D-IMPL-28). The artifact the Agent Factory\ninterprets and the only supported description of an agent; nothing here is\nexecutable. Changing any axis is a new agent version (channel 1);\ncapability changes travel through skilling (channel 2) and never touch\nthis contract.",
+        "properties": {
+          "archetypes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Archetypes",
+            "type": "array"
+          },
+          "artifact_version": {
+            "title": "Artifact Version",
+            "type": "string"
+          },
+          "context_contract": {
+            "$ref": "#/components/schemas/ContextContract"
+          },
+          "halflife_debt_profile": {
+            "$ref": "#/components/schemas/VersionedRef"
+          },
+          "instruction_bindings": {
+            "items": {
+              "$ref": "#/components/schemas/InstructionBinding"
+            },
+            "title": "Instruction Bindings",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "perspective": {
+            "$ref": "#/components/schemas/PerspectiveBinding"
+          },
+          "policy_regime": {
+            "$ref": "#/components/schemas/VersionedRef"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "tenant": {
+            "title": "Tenant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "artifact_version",
+          "name",
+          "tenant",
+          "archetypes",
+          "context_contract",
+          "perspective",
+          "policy_regime",
+          "halflife_debt_profile",
+          "instruction_bindings"
+        ],
+        "title": "AgentDefinition",
+        "type": "object"
+      },
+      "ApproverIdentity": {
+        "additionalProperties": false,
+        "description": "Who approved: subject id plus identity-provider reference (D-IMPL-21).\n\nSDK-defined. ``identity_provider_ref`` names the provider that\nauthenticated the subject \u2014 the pluggable ``IdentityProvider`` family of\nD-IMPL-15 (OIDC/SAML enterprise providers being the realistic\nhuman-principal path, vs. mTLS+JWS for workloads). The SDK enumerates no\nprovider vocabulary: which providers exist is deployment configuration,\nand this contract only requires that the binding *names* one, so replay\ncan answer \"who, per which authority\" (D-23 multi-principal).",
+        "properties": {
+          "identity_provider_ref": {
+            "title": "Identity Provider Ref",
+            "type": "string"
+          },
+          "subject_id": {
+            "title": "Subject Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_id",
+          "identity_provider_ref"
+        ],
+        "title": "ApproverIdentity",
+        "type": "object"
+      },
+      "ArtifactPutRequest": {
+        "additionalProperties": false,
+        "description": "One put: the addressing facts and the canonicalizable payload.",
+        "properties": {
+          "artifact": {
+            "additionalProperties": true,
+            "title": "Artifact",
+            "type": "object"
+          },
+          "artifact_class": {
+            "title": "Artifact Class",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "artifact_class",
+          "name",
+          "artifact"
+        ],
+        "title": "ArtifactPutRequest",
+        "type": "object"
+      },
+      "ArtifactRef": {
+        "additionalProperties": false,
+        "description": "A resolvable reference to one stored artifact version.\n\nAttributes:\n    content_address: ``sha256`` of the artifact's canonical bytes. This is\n        the identity; everything else on this contract is naming.\n    uri: The versioned URI, carried as annotation (D-IMPL-26).\n    tenant_id: Owning tenant \u2014 artifacts are tenant-scoped like everything\n        else in the fabric (D-IMPL-05).\n    artifact_class: Which class of artifact this is (replay record, policy\n        bundle, agent definition, \u2026). Deployment vocabulary; the SDK\n        enumerates none of it.\n    name: The logical name within the class.",
+        "properties": {
+          "artifact_class": {
+            "title": "Artifact Class",
+            "type": "string"
+          },
+          "content_address": {
+            "title": "Content Address",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "uri": {
+            "title": "Uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_address",
+          "uri",
+          "tenant_id",
+          "artifact_class",
+          "name"
+        ],
+        "title": "ArtifactRef",
+        "type": "object"
+      },
+      "AuthenticationContext": {
+        "additionalProperties": false,
+        "description": "How the approver was authenticated (D-IMPL-21).\n\nSDK-defined. Method, assurance level, and session reference are the\nprovider's statements carried verbatim \u2014 deployment vocabulary the SDK\ndoes not enumerate (mechanism, not values), present so the replay record\ncan distinguish a strongly-authenticated approval from a weakly-\nauthenticated one without interpreting either.",
+        "properties": {
+          "assurance_level": {
+            "title": "Assurance Level",
+            "type": "string"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "session_ref": {
+            "title": "Session Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "method",
+          "assurance_level",
+          "session_ref"
+        ],
+        "title": "AuthenticationContext",
+        "type": "object"
+      },
+      "ConfigRegistered": {
+        "additionalProperties": false,
+        "description": "The registered outcome \u2014 the key and its content-hash version.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "version"
+        ],
+        "title": "ConfigRegistered",
+        "type": "object"
+      },
+      "ConfigRegistrationRequest": {
+        "additionalProperties": false,
+        "description": "One registration: key, SDK-typed class id, and the artifact document.\n\nAdded for the D-IMPL-22 CLI surface (07-11): `ccf skill import` must\nregister prompt artifacts through the same D-05 versioned path any\nclient takes, over the wire \u2014 the CLI holds no registry handle.",
+        "properties": {
+          "artifact": {
+            "additionalProperties": true,
+            "title": "Artifact",
+            "type": "object"
+          },
+          "class_id": {
+            "title": "Class Id",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "class_id",
+          "artifact"
+        ],
+        "title": "ConfigRegistrationRequest",
+        "type": "object"
+      },
+      "ConsumedProduct": {
+        "additionalProperties": false,
+        "description": "One Context Product schema an agent reads (axis 2; CLAUDE.md \u00a76.2).\n\n``schema_version`` pins the product class's own lane \u2014 a consumer that\nnames no version consumes whatever the producer ships next, which is a\ncontract drift replay cannot survive (whitepaper \u00a76.3).",
+        "properties": {
+          "product_class": {
+            "title": "Product Class",
+            "type": "string"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_class",
+          "schema_version"
+        ],
+        "title": "ConsumedProduct",
+        "type": "object"
+      },
+      "ContextContract": {
+        "additionalProperties": false,
+        "description": "Axis 2 \u2014 which Context Product schemas the agent reads (CLAUDE.md \u00a76.2).\n\nEmission bindings (which projection an assembler emits to) extend this\ncontract when the ContextAssembly archetype's transport lands; the shape is\nadditive by design.",
+        "properties": {
+          "consumes": {
+            "items": {
+              "$ref": "#/components/schemas/ConsumedProduct"
+            },
+            "title": "Consumes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "consumes"
+        ],
+        "title": "ContextContract",
+        "type": "object"
+      },
+      "GrantIssued": {
+        "additionalProperties": false,
+        "description": "The issued outcome \u2014 the grant's content hash, its D-07 identity.",
+        "properties": {
+          "grant_hash": {
+            "title": "Grant Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant_hash"
+        ],
+        "title": "GrantIssued",
+        "type": "object"
+      },
+      "GrantRequest": {
+        "additionalProperties": false,
+        "description": "One grant request: the grant artifact plus its pinned definition ref.",
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "definition_key": {
+            "title": "Definition Key",
+            "type": "string"
+          },
+          "definition_version": {
+            "title": "Definition Version",
+            "type": "string"
+          },
+          "grant": {
+            "$ref": "#/components/schemas/SkillGrant"
+          }
+        },
+        "required": [
+          "grant",
+          "definition_key",
+          "definition_version",
+          "actor"
+        ],
+        "title": "GrantRequest",
+        "type": "object"
+      },
+      "GrantRevocationRequest": {
+        "additionalProperties": false,
+        "description": "One revocation: the grant's D-07 identity and the acting principal.\n\nAdded for the D-IMPL-22 CLI surface (07-11): \u00a78.3 rules \"skill\ngrant/revoke\" for the CLI, the CLI is a thin client with zero\nprivileged paths, so the revoke verb requires this route \u2014 the same\naudited :meth:`~ccf.skills.grants.GrantLedger.revoke` transition any\nin-process client takes.",
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "grant_hash": {
+            "title": "Grant Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant_hash",
+          "actor"
+        ],
+        "title": "GrantRevocationRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HitlActionReceipt": {
+        "additionalProperties": false,
+        "description": "The honest submit-only receipt (D-IMPL-62).\n\nSDK-defined. D-IMPL-62 rules the HTTP/CLI HITL action door submit-only:\na submission enqueues on the typed transport and effects no state\ntransition and no authority action by itself \u2014 the owning primitive\nresolves it. This receipt is the ruled hardening of that contract:\n``status`` is the literal ``\"submitted\"`` (it cannot state or imply\n``resolved`` \u2014 the field is type-closed to the one honest word), and\nthe two disposition fields carry real queue state so the caller sees\nthe action's disposition rather than inferring it from an echo:\n``event_pending`` \u2014 whether the submission's event is still on the\ntenant's pending queue (it is, immediately after a submit; resolution\nis the primitive's act) \u2014 and ``submissions_for_event`` \u2014 how many\nactions the transport has recorded against this event key, this one\nincluded.",
+        "properties": {
+          "event_pending": {
+            "title": "Event Pending",
+            "type": "boolean"
+          },
+          "status": {
+            "const": "submitted",
+            "title": "Status",
+            "type": "string"
+          },
+          "submission": {
+            "$ref": "#/components/schemas/HitlActionSubmission"
+          },
+          "submissions_for_event": {
+            "title": "Submissions For Event",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "submission",
+          "event_pending",
+          "submissions_for_event"
+        ],
+        "title": "HitlActionReceipt",
+        "type": "object"
+      },
+      "HitlActionSubmission": {
+        "additionalProperties": false,
+        "description": "One human action returning through the authority path (D-IMPL-20/21).\n\nSDK-defined. ``principal`` is required by type: there is no way to\nconstruct a submission without a complete\n:class:`~ccf.hitl.principal.HumanPrincipalBinding`, which is how the\nno-unrecorded-human-action commitment (CLAUDE.md \u00a78.2) is enforced at\nthe contract boundary rather than audited after the fact.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "annotation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annotation"
+          },
+          "event_key": {
+            "title": "Event Key",
+            "type": "string"
+          },
+          "principal": {
+            "$ref": "#/components/schemas/HumanPrincipalBinding"
+          },
+          "signed_binding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedPrincipalBinding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tenant": {
+            "title": "Tenant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_key",
+          "tenant",
+          "action",
+          "principal"
+        ],
+        "title": "HitlActionSubmission",
+        "type": "object"
+      },
+      "HumanPrincipalBinding": {
+        "additionalProperties": false,
+        "description": "One human action's complete principal binding (D-IMPL-21; CLAUDE.md \u00a78.2).\n\nSDK-defined. The four D-IMPL-21 fields, all required: approver identity,\nauthentication context, action time (injected), and the content hash of\nthe Context Product the approver saw. Audit-by-construction holds\nregardless of identity provider: no HITL action lands without a binding,\nbecause the HITL action contracts require this type as a field \u2014\nomission is a validation error at the boundary, never a null in the\nreplay record.",
+        "properties": {
+          "action_time": {
+            "format": "date-time",
+            "title": "Action Time",
+            "type": "string"
+          },
+          "approver": {
+            "$ref": "#/components/schemas/ApproverIdentity"
+          },
+          "authentication": {
+            "$ref": "#/components/schemas/AuthenticationContext"
+          },
+          "product_content_hash": {
+            "title": "Product Content Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approver",
+          "authentication",
+          "action_time",
+          "product_content_hash"
+        ],
+        "title": "HumanPrincipalBinding",
+        "type": "object"
+      },
+      "InstructionBinding": {
+        "additionalProperties": false,
+        "description": "Axis 6 \u2014 one prompt reference plus its declared parameters (D-13).\n\n``prompt`` is a versioned URI; the template text lives in the referenced\n:class:`PromptArtifact`, never here (No-Hardcoding Rule, \u00a76.4). This\ncontract deliberately has no field that could carry inline prompt text.\n``parameters`` are the names the binding declares it will supply, validated\nagainst the artifact's own declaration by\n:func:`ccf.agents.prompts.validate_instruction_binding`.",
+        "properties": {
+          "parameters": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Parameters",
+            "type": "array"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt",
+          "parameters"
+        ],
+        "title": "InstructionBinding",
+        "type": "object"
+      },
+      "LocalCallableBinding": {
+        "additionalProperties": false,
+        "description": "A ``local_callable`` skill's descriptor: a registry key.\n\nA *reference*, never an import. ``callable_ref`` names a key in the\ndeployment's :class:`~ccf.skills.callables.CallableRegistry`, populated by\nexplicit registration at the composition root; dispatch resolves it there\nand imports nothing, so an entry can only name a callable this deployment\nalready chose to offer, whatever artifact source the entry arrived from\n(D-19; IN-06 \u2014 this replaces the I.2 T-05-18 precondition, which MCP and\nPeering artifact sources invalidate).\n\nThe field's name and ``str`` type are unchanged by that ruling \u2014 only the\nmeaning of the string changed, from a dotted module path to a key \u2014 so no\nartifact schema version breaks.",
+        "properties": {
+          "callable_ref": {
+            "title": "Callable Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "callable_ref"
+        ],
+        "title": "LocalCallableBinding",
+        "type": "object"
+      },
+      "McpBinding": {
+        "additionalProperties": false,
+        "description": "An ``mcp`` skill's descriptor: which server and resource it names.\n\nOne of the four types, not the unified mechanism (D-IMPL-12). No MCP\nclient is constructed from this block in I.2.",
+        "properties": {
+          "resource": {
+            "title": "Resource",
+            "type": "string"
+          },
+          "server": {
+            "title": "Server",
+            "type": "string"
+          }
+        },
+        "required": [
+          "server",
+          "resource"
+        ],
+        "title": "McpBinding",
+        "type": "object"
+      },
+      "PeeringBinding": {
+        "additionalProperties": false,
+        "description": "A ``peering`` skill's descriptor: the remote peer-endpoint it names.\n\nThe token names what class of counterparty the skill reaches \u2014 a peer\nfabric holding its own Control Plane \u2014 never the transport that carries\nit (D-IMPL-59 part 1). ``endpoint`` was always a *logical peer-endpoint\nname* and never a URI, so the field was about a peer from the start.\n\nA descriptor, not a transport: Peering admission verification (CLAUDE.md\n\u00a77.2) applies when products actually cross the boundary, which no code\nin this wave does.",
+        "properties": {
+          "endpoint": {
+            "title": "Endpoint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "endpoint"
+        ],
+        "title": "PeeringBinding",
+        "type": "object"
+      },
+      "PendingHitlEvent": {
+        "additionalProperties": false,
+        "description": "One pending HITL event awaiting a human (D-IMPL-20; CLAUDE.md \u00a78.2).\n\nSDK-defined. The typed record the ruling specifies: event class,\nworkflow state reference, the identity of the Context Product the human\nmust see (its D-IMPL-26 content hash \u2014 the same identity the\n:class:`~ccf.hitl.principal.HumanPrincipalBinding` echoes back, so\n\"what was shown\" and \"what was approved\" are comparable byte for byte),\nand the deadline/escalation policy reference, pinned.",
+        "properties": {
+          "event_class": {
+            "title": "Event Class",
+            "type": "string"
+          },
+          "event_key": {
+            "title": "Event Key",
+            "type": "string"
+          },
+          "policy_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Ref"
+          },
+          "product_content_hash": {
+            "title": "Product Content Hash",
+            "type": "string"
+          },
+          "tenant": {
+            "title": "Tenant",
+            "type": "string"
+          },
+          "workflow_state_ref": {
+            "title": "Workflow State Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_key",
+          "event_class",
+          "tenant",
+          "workflow_state_ref",
+          "product_content_hash"
+        ],
+        "title": "PendingHitlEvent",
+        "type": "object"
+      },
+      "PerspectiveBinding": {
+        "additionalProperties": false,
+        "description": "Axis 3 \u2014 the \u03a0 role-conditioning shaping the agent's view (\u00a76.2).\n\n``selection_params`` is deployment vocabulary; the SDK enumerates none of\nit. Values are strings because they participate in canonical serialization\nand therefore in content identity \u2014 a float here would make the agent's\nidentity platform-dependent.",
+        "properties": {
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "selection_params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Selection Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "role",
+          "selection_params"
+        ],
+        "title": "PerspectiveBinding",
+        "type": "object"
+      },
+      "ProcedureBinding": {
+        "additionalProperties": false,
+        "description": "A ``procedure`` skill's descriptor: a pinned instruction reference.\n\nSDK-defined (D-IMPL-56; CLAUDE.md \u00a76.2 channel 2, \u00a77.3 seam 1). The\ninstruction content travels by reference \u2014 an\n:class:`~ccf.agents.definitions.InstructionBinding` naming a versioned\nprompt artifact \u2014 and is consumed on seam 1 (context injection) **only**.\nA procedure never becomes a seam-2 tool: smuggling instruction text into\nthe tool surface would hand the harness authored prose the Control Plane\nnever versioned (T-07-05), so the binding deliberately has no field that\ncould carry inline text (No-Hardcoding Rule, CLAUDE.md \u00a76.4).",
+        "properties": {
+          "instruction": {
+            "$ref": "#/components/schemas/InstructionBinding"
+          }
+        },
+        "required": [
+          "instruction"
+        ],
+        "title": "ProcedureBinding",
+        "type": "object"
+      },
+      "SignedPrincipalBinding": {
+        "additionalProperties": false,
+        "description": "A principal binding together with its detached JWS (D-IMPL-21).\n\nSDK-defined (CLAUDE.md \u00a78.2); D-IMPL-66(a). The binding travels in the\nclear \u2014 audit consumers read it without keys \u2014 and the signature is the\ndetached compact JWS (``protected..signature``) exactly as\n:mod:`ccf.peering.identity` produced it over the binding's canonical\nbytes. A verifier recomputes those bytes from :attr:`binding`, so a\nsigned copy and a delivered copy cannot silently differ.\n\nAttributes:\n    binding: The human-principal binding that was signed.\n    signature: The detached compact JWS, ``{protected}..{signature}``.\n    key_id: The key identifier the signature was made under \u2014 the\n        claim the verifier holds against the protected header's ``kid``.",
+        "properties": {
+          "binding": {
+            "$ref": "#/components/schemas/HumanPrincipalBinding"
+          },
+          "key_id": {
+            "title": "Key Id",
+            "type": "string"
+          },
+          "signature": {
+            "title": "Signature",
+            "type": "string"
+          }
+        },
+        "required": [
+          "binding",
+          "signature",
+          "key_id"
+        ],
+        "title": "SignedPrincipalBinding",
+        "type": "object"
+      },
+      "SkillArgumentProperty": {
+        "additionalProperties": false,
+        "description": "One argument's typed spec on a catalog entry (D-IMPL-56).\n\nJSON-Schema-shaped by construction: ``type`` is a closed Literal over the\nJSON Schema primitive type names, and ``description`` is required with no\ndefault \u2014 the same D-16 forcing function as the entry description,\nbecause a property whose meaning an adapter would have to invent is the\nsame defect one schema level down. Nested property specs beyond one\nlevel are out of v0 scope by ruling.",
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "string",
+              "number",
+              "integer",
+              "boolean",
+              "array",
+              "object"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "description"
+        ],
+        "title": "SkillArgumentProperty",
+        "type": "object"
+      },
+      "SkillArgumentSchema": {
+        "additionalProperties": false,
+        "description": "The typed argument declaration on a catalog entry (D-IMPL-56).\n\nJSON-Schema-shaped and MCP-``inputSchema``-compatible, pre-specified:\n``properties`` maps argument names to typed specs, ``required`` is a\nsubset of the property names, and the rendered surface always pins\n``additionalProperties`` to ``false`` \u2014 structurally, mirroring this\ncontract's own ``extra=forbid`` closed world. One shared derivation\n(:mod:`ccf.skills.toolsurface`) renders it into every harness.",
+        "properties": {
+          "properties": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SkillArgumentProperty"
+            },
+            "title": "Properties",
+            "type": "object"
+          },
+          "required": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required",
+            "type": "array"
+          }
+        },
+        "required": [
+          "properties",
+          "required"
+        ],
+        "title": "SkillArgumentSchema",
+        "type": "object"
+      },
+      "SkillCatalogEntry": {
+        "additionalProperties": false,
+        "description": "One versioned skill catalog entry (D-IMPL-12; CLAUDE.md \u00a76.2 channel 2).\n\nSDK-defined. The artifact the grant machinery (05-06) binds against by\nversion \u2014 a grant references an entry, never copies it, so upgrading a\nskill is a new entry version and a new grant, both audited.\n\nTwo-field versioning per D-IMPL-28: ``schema_version`` is this class's\nlane; ``artifact_version`` is the author's content claim, hash-verified\nat registration (D-05).\n\n``description`` and ``argument_schema`` are required with no default and\nno sentinel (D-IMPL-56; D-16): the tool surface every harness renders is\na declared artifact property, produced by the one shared derivation in\n:mod:`ccf.skills.toolsurface` \u2014 never adapter-authored prose.",
+        "properties": {
+          "argument_schema": {
+            "$ref": "#/components/schemas/SkillArgumentSchema"
+          },
+          "artifact_version": {
+            "title": "Artifact Version",
+            "type": "string"
+          },
+          "binding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocalCallableBinding"
+              },
+              {
+                "$ref": "#/components/schemas/ToolBinding"
+              },
+              {
+                "$ref": "#/components/schemas/McpBinding"
+              },
+              {
+                "$ref": "#/components/schemas/PeeringBinding"
+              },
+              {
+                "$ref": "#/components/schemas/ProcedureBinding"
+              }
+            ],
+            "title": "Binding"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "requirements": {
+            "$ref": "#/components/schemas/SkillRequirements"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "skill_type": {
+            "enum": [
+              "local_callable",
+              "tool",
+              "mcp",
+              "peering",
+              "procedure"
+            ],
+            "title": "Skill Type",
+            "type": "string"
+          },
+          "tenant": {
+            "title": "Tenant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "artifact_version",
+          "name",
+          "tenant",
+          "skill_type",
+          "description",
+          "argument_schema",
+          "binding",
+          "requirements"
+        ],
+        "title": "SkillCatalogEntry",
+        "type": "object"
+      },
+      "SkillGrant": {
+        "additionalProperties": false,
+        "description": "One skill grant \u2014 a declared, versioned Control Plane artifact.\n\nCLAUDE.md \u00a76.2 channel 2; D-IMPL-12/29. A grant *references*, never\ncopies: the agent by definition content hash (D-IMPL-26 canonical\nidentity) and the catalog entry by pinned version \u2014 upgrading a skill is\na new entry version and a new grant, both audited. The grant's own\ncontent hash is its identity and the member the D-07 grant-set hash is\ncomputed over.\n\nTwo-field versioning per D-IMPL-28: ``schema_version`` is this class's\nlane; ``artifact_version`` is the author's content claim, hash-verified\nat registration (D-05).",
+        "properties": {
+          "agent_definition_hash": {
+            "title": "Agent Definition Hash",
+            "type": "string"
+          },
+          "artifact_version": {
+            "title": "Artifact Version",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "skill_name": {
+            "title": "Skill Name",
+            "type": "string"
+          },
+          "skill_version": {
+            "title": "Skill Version",
+            "type": "string"
+          },
+          "tenant": {
+            "title": "Tenant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "artifact_version",
+          "name",
+          "tenant",
+          "agent_definition_hash",
+          "skill_name",
+          "skill_version"
+        ],
+        "title": "SkillGrant",
+        "type": "object"
+      },
+      "SkillRequirements": {
+        "additionalProperties": false,
+        "description": "The typed requirements declaration on a catalog entry (D-IMPL-29).\n\nThe block the tier-1 policy-compatibility check (05-06) compares against\nan agent's policy regime and context contract \u2014 structurally, as\nsubset/equality over opaque identifiers. Both members are required with\nno default: an empty frozenset is the author's explicit statement that\nthe skill needs nothing of that kind, which is not the same statement as\nsilence (D-IMPL-38).\n\nAttributes:\n    required_scopes: Policy-regime identifiers this skill's dispatch will\n        require. Opaque to the SDK; declared by the deployment.\n    required_context_products: Context Product classes this skill reads.\n        Opaque to the SDK; held against the agent's context contract.",
+        "properties": {
+          "required_context_products": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required Context Products",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "required_scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required Scopes",
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "required_scopes",
+          "required_context_products"
+        ],
+        "title": "SkillRequirements",
+        "type": "object"
+      },
+      "ToolBinding": {
+        "additionalProperties": false,
+        "description": "A ``tool`` skill's descriptor: the command/entry it names.\n\nDescriptor fields only \u2014 the SDK stores what the deployment declared and\nships no execution surface for it here (D-08; dispatch is 05-06 scope).",
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "title": "ToolBinding",
+        "type": "object"
+      },
+      "TraceEntry": {
+        "additionalProperties": false,
+        "description": "One recorded state transition in an execution's trace (CLAUDE.md \u00a78.1).\n\nSDK-defined. Frozen and canonically serializable, so the trace the\nengine serializes for replay dimension 5 is byte-stable: the same\nexecution serializes to the same block, and the block is recorded\nverbatim (07-05).\n\nAttributes:\n    sequence: Position in this execution's trace, from zero. Ordering is\n        the entry's own claim, never inferred from timestamps.\n    source: The state the machine left.\n    target: The state \u2014 or, for an exception routed to a handler, the\n        pinned handler ref (D-13) \u2014 the machine moved to.\n    kind: Which category of event this was (:data:`TRACE_ENTRY_KINDS`).\n    occurred_at: Timestamp from the engine's injected clock.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sequence",
+          "source",
+          "target",
+          "kind",
+          "occurred_at"
+        ],
+        "title": "TraceEntry",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VersionedRef": {
+        "additionalProperties": false,
+        "description": "A pinned ``ccf-artifact://`` reference (axes 4 and 5; D-IMPL-26).\n\nA ref, never the artifact: the policy bundle and the debt profile are\nControl Plane artifacts with their own lanes, and inlining either into a\ndefinition would give one document two version identities.",
+        "properties": {
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "VersionedRef",
+        "type": "object"
+      },
+      "WorkflowCompleted": {
+        "additionalProperties": false,
+        "description": "A terminal outcome, with the replay handoff the engine serialized.\n\n``step_sequence_block`` is the canonical serialization of the execution\ntrace \u2014 serialized once, here, and passed verbatim to replay dimension 5\n(07-05 keyword); ``delegation_chain`` extends dimension 4 with the\nworkflow execution id followed by the agent-definition identities the\nexecution invoked, in declaration order (CLAUDE.md \u00a78.1).",
+        "properties": {
+          "delegation_chain": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Delegation Chain",
+            "type": "array"
+          },
+          "execution_id": {
+            "title": "Execution Id",
+            "type": "string"
+          },
+          "step_sequence_block": {
+            "title": "Step Sequence Block",
+            "type": "string"
+          },
+          "tenant": {
+            "title": "Tenant",
+            "type": "string"
+          },
+          "terminal_state": {
+            "title": "Terminal State",
+            "type": "string"
+          },
+          "trace_artifact": {
+            "$ref": "#/components/schemas/ArtifactRef"
+          }
+        },
+        "required": [
+          "tenant",
+          "execution_id",
+          "terminal_state",
+          "step_sequence_block",
+          "delegation_chain",
+          "trace_artifact"
+        ],
+        "title": "WorkflowCompleted",
+        "type": "object"
+      },
+      "WorkflowExceptionRouted": {
+        "additionalProperties": false,
+        "description": "An exception path taken to its ref'd handler \u2014 an expected outcome.\n\nFirst-class recorded transition (D-13; CLAUDE.md \u00a78.1): the node's\nexception ref resolved and the execution's state was handed to it. A\nnode with *no* ref never produces this \u2014 absence propagates to the\nreserved ``failed`` terminal instead (D-IMPL-61 option-a).",
+        "properties": {
+          "execution_id": {
+            "title": "Execution Id",
+            "type": "string"
+          },
+          "handler_ref": {
+            "title": "Handler Ref",
+            "type": "string"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "tenant": {
+            "title": "Tenant",
+            "type": "string"
+          },
+          "trace_artifact": {
+            "$ref": "#/components/schemas/ArtifactRef"
+          }
+        },
+        "required": [
+          "tenant",
+          "execution_id",
+          "node",
+          "handler_ref",
+          "trace_artifact"
+        ],
+        "title": "WorkflowExceptionRouted",
+        "type": "object"
+      },
+      "WorkflowInvocationRequest": {
+        "additionalProperties": false,
+        "description": "One invocation: the pinned definition reference and an execution id.",
+        "properties": {
+          "definition_key": {
+            "title": "Definition Key",
+            "type": "string"
+          },
+          "definition_version": {
+            "title": "Definition Version",
+            "type": "string"
+          },
+          "execution_id": {
+            "title": "Execution Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "definition_key",
+          "definition_version",
+          "execution_id"
+        ],
+        "title": "WorkflowInvocationRequest",
+        "type": "object"
+      },
+      "WorkflowResumptionRequest": {
+        "additionalProperties": false,
+        "description": "One resumption: the same pinned reference plus the human's decision.",
+        "properties": {
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "definition_key": {
+            "title": "Definition Key",
+            "type": "string"
+          },
+          "definition_version": {
+            "title": "Definition Version",
+            "type": "string"
+          },
+          "execution_id": {
+            "title": "Execution Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "definition_key",
+          "definition_version",
+          "execution_id",
+          "decision"
+        ],
+        "title": "WorkflowResumptionRequest",
+        "type": "object"
+      },
+      "WorkflowStateRecord": {
+        "additionalProperties": false,
+        "description": "One execution's live state on the Control Plane seam (D-IMPL-18/27).\n\nSDK-defined. The typed, opaque record the engine writes through the\naudited surface and validates on read (isinstance, foreign-record typed\nerror) \u2014 the ``GrantStateRecord`` discipline applied to workflows. Keyed\n``(tenant, execution_id)`` so two tenants running the same workflow\ndefinition concurrently never collide (D-23).\n\nAttributes:\n    tenant: Owning tenant of this execution.\n    execution_id: Caller-supplied execution identity within the tenant.\n    current_state: The node the machine is at.\n    status: Where the machine is in its lifecycle\n        (:data:`WORKFLOW_STATUSES`).\n    trace: Every transition recorded so far, in order.\n    workflow_definition_uri: The pinned versioned URI of the workflow\n        definition this execution runs (D-IMPL-26) \u2014 resume validates\n        the supplied handle against it, so an execution never continues\n        under a definition it was not started with.",
+        "properties": {
+          "current_state": {
+            "title": "Current State",
+            "type": "string"
+          },
+          "execution_id": {
+            "title": "Execution Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant": {
+            "title": "Tenant",
+            "type": "string"
+          },
+          "trace": {
+            "items": {
+              "$ref": "#/components/schemas/TraceEntry"
+            },
+            "title": "Trace",
+            "type": "array"
+          },
+          "workflow_definition_uri": {
+            "title": "Workflow Definition Uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant",
+          "execution_id",
+          "current_state",
+          "status",
+          "trace",
+          "workflow_definition_uri"
+        ],
+        "title": "WorkflowStateRecord",
+        "type": "object"
+      },
+      "WorkflowSuspended": {
+        "additionalProperties": false,
+        "description": "A typed suspended handle \u2014 suspension is a value, not an exception.\n\nReturned when execution reaches a hitl-gate node (CLAUDE.md \u00a78.1). The\ngate interaction in 07-06 goes through the injected HITL transport stub\nonly; the real ApprovalGate (07-07) owns gate semantics.",
+        "properties": {
+          "event_key": {
+            "title": "Event Key",
+            "type": "string"
+          },
+          "execution_id": {
+            "title": "Execution Id",
+            "type": "string"
+          },
+          "gate": {
+            "title": "Gate",
+            "type": "string"
+          },
+          "tenant": {
+            "title": "Tenant",
+            "type": "string"
+          },
+          "trace_artifact": {
+            "$ref": "#/components/schemas/ArtifactRef"
+          }
+        },
+        "required": [
+          "tenant",
+          "execution_id",
+          "gate",
+          "event_key",
+          "trace_artifact"
+        ],
+        "title": "WorkflowSuspended",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Typed HTTP front door over the fabric's existing extra=forbid contracts, mirroring the D-IMPL-22/23 ruled noun set (CLAUDE.md \u00a78.3; EXPR-03). This API performs no authentication or authorization in v0: every request acts with the full authority of the injected fabric handles, it must be deployed inside the tenant trust boundary, and any future authentication is a new contract, not a configuration of this one. A deployment may bind an optional bearer-auth hook at create_app (ccf_runtime.http_api.auth); when no hook is bound, the sentence above is the posture in force.",
+    "title": "CCF HTTP API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/agent/declaration": {
+      "get": {
+        "operationId": "declaration_agent_declaration_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent show (D-IMPL-23)"
+      }
+    },
+    "/agent/declarations": {
+      "get": {
+        "operationId": "declarations_agent_declarations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Declarations Agent Declarations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Agent list (D-IMPL-23)"
+      },
+      "post": {
+        "operationId": "declare_agent_declarations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentDeclarationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentDeclared"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent declare (D-IMPL-23)"
+      }
+    },
+    "/agent/versions": {
+      "get": {
+        "operationId": "versions_agent_versions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Versions Agent Versions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent versions (D-IMPL-23)"
+      }
+    },
+    "/artifact": {
+      "post": {
+        "operationId": "put_artifact_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtifactPutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactRef"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Artifact put (D-IMPL-23)"
+      }
+    },
+    "/artifact/{content_address}": {
+      "get": {
+        "operationId": "get_artifact__content_address__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "content_address",
+            "required": true,
+            "schema": {
+              "title": "Content Address",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Artifact get (D-IMPL-23)"
+      }
+    },
+    "/config/keys": {
+      "get": {
+        "operationId": "keys_config_keys_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "class_id",
+            "required": true,
+            "schema": {
+              "title": "Class Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Keys Config Keys Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Config keys (D-IMPL-23)"
+      }
+    },
+    "/config/registrations": {
+      "post": {
+        "operationId": "registration_config_registrations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigRegistered"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Config register (D-IMPL-22)"
+      }
+    },
+    "/config/resolution": {
+      "get": {
+        "operationId": "resolution_config_resolution_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Config resolve (D-IMPL-23)"
+      }
+    },
+    "/config/versions": {
+      "get": {
+        "operationId": "versions_config_versions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Versions Config Versions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Config versions (D-IMPL-23)"
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Liveness (D-IMPL-23)"
+      }
+    },
+    "/hitl/actions": {
+      "post": {
+        "operationId": "act_hitl_actions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HitlActionSubmission"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HitlActionReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "HITL action submission \u2014 submit-only (D-IMPL-23/62)"
+      }
+    },
+    "/hitl/queue": {
+      "get": {
+        "operationId": "queue_hitl_queue_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tenant",
+            "required": true,
+            "schema": {
+              "title": "Tenant",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PendingHitlEvent"
+                  },
+                  "title": "Response Queue Hitl Queue Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "HITL queue view (D-IMPL-23)"
+      }
+    },
+    "/product/{tenant}/{product_class}/{version}": {
+      "get": {
+        "operationId": "retrieve_product__tenant___product_class___version__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant",
+            "required": true,
+            "schema": {
+              "title": "Tenant",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "product_class",
+            "required": true,
+            "schema": {
+              "title": "Product Class",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Product retrieval (D-IMPL-23)"
+      }
+    },
+    "/replay/decisions": {
+      "get": {
+        "operationId": "decision_replay_decisions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "content_address",
+            "required": true,
+            "schema": {
+              "title": "Content Address",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replay decision (D-IMPL-23)"
+      }
+    },
+    "/replay/resolutions": {
+      "get": {
+        "operationId": "resolution_replay_resolutions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "uri",
+            "required": true,
+            "schema": {
+              "title": "Uri",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replay resolve (D-IMPL-23)"
+      }
+    },
+    "/skill/catalog": {
+      "get": {
+        "operationId": "catalog_skill_catalog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SkillCatalogEntry"
+                  },
+                  "title": "Response Catalog Skill Catalog Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Skill catalog (D-IMPL-23)"
+      },
+      "post": {
+        "operationId": "register_entry_skill_catalog_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillCatalogEntry"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Skill catalog register (D-IMPL-22)"
+      }
+    },
+    "/skill/grants": {
+      "post": {
+        "operationId": "grant_skill_grants_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantIssued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Skill grant (D-IMPL-23)"
+      }
+    },
+    "/skill/revocations": {
+      "post": {
+        "operationId": "revoke_skill_revocations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantRevocationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantRevocationRequest"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Skill revoke (D-IMPL-22)"
+      }
+    },
+    "/workflow/execution": {
+      "get": {
+        "operationId": "execution_workflow_execution_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tenant",
+            "required": true,
+            "schema": {
+              "title": "Tenant",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "execution_id",
+            "required": true,
+            "schema": {
+              "title": "Execution Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowStateRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Workflow status (D-IMPL-23)"
+      }
+    },
+    "/workflow/invocations": {
+      "post": {
+        "operationId": "invoke_workflow_invocations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowInvocationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/WorkflowSuspended"
+                    },
+                    {
+                      "$ref": "#/components/schemas/WorkflowCompleted"
+                    },
+                    {
+                      "$ref": "#/components/schemas/WorkflowExceptionRouted"
+                    }
+                  ],
+                  "title": "Response Invoke Workflow Invocations Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Workflow invoke (D-IMPL-23)"
+      }
+    },
+    "/workflow/resumptions": {
+      "post": {
+        "operationId": "resume_workflow_resumptions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowResumptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/WorkflowSuspended"
+                    },
+                    {
+                      "$ref": "#/components/schemas/WorkflowCompleted"
+                    },
+                    {
+                      "$ref": "#/components/schemas/WorkflowExceptionRouted"
+                    }
+                  ],
+                  "title": "Response Resume Workflow Resumptions Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Workflow resume (D-IMPL-23)"
+      }
+    }
+  }
+}
