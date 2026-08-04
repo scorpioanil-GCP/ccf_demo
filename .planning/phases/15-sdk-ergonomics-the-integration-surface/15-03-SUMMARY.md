@@ -3,7 +3,7 @@ phase: 15-sdk-ergonomics-the-integration-surface
 plan: 03
 subsystem: repo-tooling
 tags: [ergo-03, audit, measurement, falsification]
-status: paused-at-checkpoint
+status: complete
 requires:
   - "15-01 (the surface: Makefile target and the committed manifest)"
 provides:
@@ -28,9 +28,12 @@ key-files:
   modified:
     - Makefile
 decisions:
+  - "A6 volume is 3 findings — under threshold; D-IMPL-78 lands in plan 15-04 as scoped, no re-surfacing needed (Dave, 2026-08-04)"
+  - "The two prose-diagnostic cinv01a-prompt-shape false positives are resolved by RULE REFINEMENT, not by allowlist entries — binding on plan 15-04 (Dave, 2026-08-04)"
+  - "A1: EntityResolutionSpec needs no custom validator; 15-07 is not re-sized, but ccf.resolution-spec must rule on the root schema_version/artifact_version pair"
   - "Measured reg spans run ~1 line below 15-RESEARCH.md §1.3 per file; the research table counted the `registry = ControlPlaneRegistry()` construction line inside the registration cluster. Every other column reproduces exactly. Method kept as documented; see Reconciliation below."
 metrics:
-  tasks_completed: 3
+  tasks_completed: 4
   tasks_total: 4
   completed: 2026-08-04
 ---
@@ -42,7 +45,16 @@ executable audit that pins achieved numbers and is structurally unable to confla
 relocated lines with removed lines — plus three falsification measurements that settle the
 sizing of plans 15-04, 15-07, and 15-12.
 
-**Status: paused at the Task 4 blocking checkpoint.** Tasks 1–3 are complete and committed.
+**Status: complete.** All four tasks done; the Task 4 checkpoint was approved by Dave on
+2026-08-04.
+
+## Carry-forwards — read this before executing 15-04 or 15-07
+
+| For | Carry-forward |
+|---|---|
+| **15-04** | A6 volume is **3 findings**, under threshold — proceed as scoped, D-IMPL-78 needs no re-surfacing. Resolve the two prose-diagnostic false positives by **refining `cinv01a-prompt-shape`**, **not** by adding allowlist entries (Dave's explicit ruling — see "Task 4 — the checkpoint ruling"). `tests/agents/test_agent.py:93` (factory-bypass) is genuine and must keep firing. |
+| **15-07** | No custom validator needed for `EntityResolutionSpec` — not re-sized. But stripping D-03's three keys alone is insufficient: root `schema_version` and `artifact_version` fail `extra_forbidden` first. `ccf.resolution-spec` must decide: declare the two-field versioning, or strip it in the loader. |
+| **15-12 / example rewrites** | 36 of 65 example YAMLs carry root `schema_version`, 37 carry `artifact_version`; **no `/src`, `/runtime`, or `/tests` code reads a root-level occurrence** — every consumed occurrence is nested on a typed class. Treat the root pairs as churnable. |
 
 ## What was built
 
@@ -222,9 +234,53 @@ No `cinv01b-numeric-table` findings at all, which is the surprising half of the 
 
 **Sizing verdict: 3 is far under the plan's "roughly under 30" threshold, so D-IMPL-78 lands
 in plan 15-04 as scoped.** Two of the three are false positives of the same class (long
-multi-sentence diagnostic messages, which the phase's own conventions actively encourage), so
-15-04 will need either an allowlist entry per message or a refinement that distinguishes a
-failure message from a prompt. That is a judgment call for the developer — see the checkpoint.
+multi-sentence diagnostic messages, which the phase's own conventions actively encourage). The
+disposition of those two was the Task 4 checkpoint question; it is now ruled — see below.
+
+## Task 4 — the checkpoint ruling (Dave, 2026-08-04)
+
+**APPROVED. Plan 15-04 proceeds as scoped.** The A6 volume (3 findings) is workable and
+D-IMPL-78 does **not** need re-surfacing as a new decision.
+
+### Ruling for the two prose-diagnostic false positives: RULE REFINEMENT, not allowlist
+
+This is Dave's explicit choice, and it is binding on plan 15-04. **15-04 must refine
+`cinv01a-prompt-shape` so it stops firing on developer-facing diagnostic strings. 15-04 must
+NOT resolve these two sites by adding allowlist entries.**
+
+The two sites the refinement must stop flagging:
+
+| Site | Rule | What it is |
+|---|---|---|
+| `tests/http_api/test_openapi.py:38` | `cinv01a-prompt-shape` | `_DRIFT_MESSAGE` — multi-sentence failure message naming `make openapi` |
+| `tests/test_surface_drift.py:78` | `cinv01a-prompt-shape` | the surface-drift failure message naming `make surface` |
+
+The one finding that is **genuine and must still fire** after the refinement:
+
+| Site | Rule | Why genuine |
+|---|---|---|
+| `tests/agents/test_agent.py:93` | `cinv01c-factory-bypass` | a test helper calls `Agent(**values)` directly; CLAUDE.md §6.4 requires tests to construct agents through the factory from fixture artifacts |
+
+**Rationale to record.** Two allowlist entries today becomes friction on every future
+diagnostic message, and this phase's own conventions actively encourage multi-sentence
+diagnostics that name their own fix (15-01 ships a test asserting exactly that). The
+distinction is mechanically detectable: **a prompt is a string sent to a model; a diagnostic is
+a string shown to a developer.** `cinv01a-prompt-shape` currently detects "long English string
+literal," which is a proxy for the wrong thing. The refinement's job is to replace that proxy
+with the real distinction.
+
+**Scope boundary.** Task 4 RECORDS this ruling only. The rule refinement itself is plan
+15-04's work and was deliberately not implemented here; `tools/lints/__main__.py` remains
+unmodified by plan 15-03.
+
+### A1 verdict confirmed for plan 15-07 — no re-sizing, one caveat
+
+`EntityResolutionSpec.model_validate` needs **no custom validator**, so 15-07 does not grow a
+task. The caveat carried forward: stripping D-03's three keys alone is **insufficient** —
+validation fails first with `extra_forbidden` on the root-level `schema_version` and
+`artifact_version`. **The `ccf.resolution-spec` artifact class must decide whether it declares
+that two-field versioning itself or the loader strips it.** That is a schema decision inside
+15-07's existing scope.
 
 ## Deviations from Plan
 
@@ -252,7 +308,7 @@ token and `Change type: added`. The live manifest and the frozen baseline were n
 - `tests/test_surface_drift.py` — passes (no undocumented drift)
 - `make lint` — clean
 - `make typecheck` — Success, 162 source files
-- Human checkpoint (Task 4) — **outstanding**
+- Human checkpoint (Task 4) — **approved by Dave, 2026-08-04**, with the rule-refinement ruling recorded above and in `docs/surface-changes/15-03-audit-baseline.md`
 
 ## Commits
 
@@ -260,4 +316,5 @@ token and `Change type: added`. The live manifest and the frozen baseline were n
 |---|---|---|
 | 1 | `1a10643` | feat(15-03): measure the examples tree's mechanical surface (ERGO-03) |
 | 2 | `da5bcdb` | test(15-03): make the Criterion 1 surface audit executable (ERGO-03) |
-| 3 | this commit | docs(15-03): record the A1/A3/A6 falsification verdicts |
+| 3 | `b67fa54` | docs(15-03): record the A1/A3/A6 falsification verdicts |
+| 4 | this commit | docs(15-03): record Dave's checkpoint ruling — rule refinement, not allowlist |

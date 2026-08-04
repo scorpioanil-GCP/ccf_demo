@@ -6,6 +6,31 @@ Both entries are `Public surface: false`. `tools/dump_surface.py` walks only
 empirically: `tools/dump_surface.py --report` reports `added (0)`,
 `removed (0)`, `reshaped (0)` for this plan.
 
+## Carry-forward ruling for plan 15-04 (not a surface change)
+
+Dave approved the Task 4 checkpoint on 2026-08-04. The widened No-Hardcoding
+lint over `tests/` produces **3 findings** — under threshold, so D-IMPL-78
+lands in plan 15-04 as scoped and needs no re-surfacing.
+
+Two of the three are prose-diagnostic false positives of
+`cinv01a-prompt-shape`: `tests/http_api/test_openapi.py:38` (the `make openapi`
+drift message) and `tests/test_surface_drift.py:78` (the `make surface` drift
+message). **Dave's explicit ruling: resolve these by RULE REFINEMENT, not by
+allowlist entries.** Two allowlist entries today becomes friction on every
+future diagnostic message, and this phase's own conventions actively encourage
+multi-sentence diagnostics that name their own fix (15-01 ships a test
+asserting exactly that). The distinction is mechanically detectable — a prompt
+is a string sent to a model; a diagnostic is a string shown to a developer.
+`cinv01a-prompt-shape` currently detects "long English string literal," which
+is a proxy for the wrong thing.
+
+The third finding, `tests/agents/test_agent.py:93`
+(`cinv01c-factory-bypass`, a direct `Agent(**values)` call), is **genuine** per
+CLAUDE.md §6.4 and must keep firing after the refinement.
+
+Plan 15-03 records this ruling only; the refinement itself is 15-04's work and
+`tools/lints/__main__.py` is unmodified by this plan.
+
 ## tools/measure_examples.py
 
 - Surface: tools/measure_examples.py
