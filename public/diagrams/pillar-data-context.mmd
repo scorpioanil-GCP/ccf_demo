@@ -26,7 +26,7 @@ flowchart TD
             Pi["&Pi; — required_operators() + invoke()<br/>selection: (perspective, class, params)"]
         end
         subgraph L6["L6 Context Products"]
-            Gates["Three validation gates:<br/>empty-operator guard,<br/>lineage strict equality, TTL bounds"]
+            Gates["Three validation gates:<br/>empty-operator guard,<br/>lineage strict equality (set-union L),<br/>TTL bounds"]
             Cache["Product cache<br/>(Fresh / Near-Expiry /<br/>Invalidated / Re-Derived)"]
         end
     end
