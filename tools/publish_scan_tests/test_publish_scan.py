@@ -96,6 +96,75 @@ def test_include_reaching_into_planning_trips_the_include_escape_rule(
     assert RULE_INCLUDE_ESCAPE in _rules(scan_prebuild(root))
 
 
+# --- CR-01: the three evasions of the prefix-denylist form -----------------
+#
+# Each of these was confirmed by the Phase 14 review to embed
+# `docs/DECISIONS.md` into a rendered page under the project's own
+# `base_path: ["."]` / `restrict_base_path: true`, while `scan_prebuild`
+# reported clean. The gate is default-deny by charter, so the check is a
+# POSITIVE allowlist of include roots over a normalized path, and anything
+# that does not normalize into a permitted root is a finding.
+
+
+def _prebuild_page(tmp_path: pathlib.Path, body: str) -> pathlib.Path:
+    root = tmp_path / "public"
+    root.mkdir()
+    (root / "page.md").write_text(body, encoding="utf-8")
+    return root
+
+
+def test_include_with_leading_dot_slash_trips_the_include_escape_rule(
+    tmp_path: pathlib.Path,
+) -> None:
+    root = _prebuild_page(tmp_path, '--8<-- "./docs/DECISIONS.md"\n')
+    assert RULE_INCLUDE_ESCAPE in _rules(scan_prebuild(root))
+
+
+def test_include_using_traversal_trips_the_include_escape_rule(
+    tmp_path: pathlib.Path,
+) -> None:
+    root = _prebuild_page(tmp_path, '--8<-- "public/../docs/DECISIONS.md"\n')
+    assert RULE_INCLUDE_ESCAPE in _rules(scan_prebuild(root))
+
+
+def test_include_in_block_form_trips_the_include_escape_rule(
+    tmp_path: pathlib.Path,
+) -> None:
+    root = _prebuild_page(tmp_path, "--8<--\ndocs/DECISIONS.md\n--8<--\n")
+    assert RULE_INCLUDE_ESCAPE in _rules(scan_prebuild(root))
+
+
+def test_include_of_references_tree_trips_the_include_escape_rule(
+    tmp_path: pathlib.Path,
+) -> None:
+    root = _prebuild_page(tmp_path, '--8<-- "references/CH03.md"\n')
+    assert RULE_INCLUDE_ESCAPE in _rules(scan_prebuild(root))
+
+
+def test_absolute_include_trips_the_include_escape_rule(
+    tmp_path: pathlib.Path,
+) -> None:
+    root = _prebuild_page(tmp_path, '--8<-- "/etc/passwd"\n')
+    assert RULE_INCLUDE_ESCAPE in _rules(scan_prebuild(root))
+
+
+def test_block_form_include_of_example_source_is_clean(
+    tmp_path: pathlib.Path,
+) -> None:
+    # The allowlist must not turn the legitimate block form into a false
+    # positive: closing an evasion by rejecting everything is not a fix.
+    root = _prebuild_page(
+        tmp_path, "--8<--\nexamples/00-quickstart/run.py:assemble\n--8<--\n"
+    )
+    assert scan_prebuild(root) == []
+
+
+def test_the_repo_public_tree_includes_only_permitted_roots() -> None:
+    # D-20: no allowlist file. Every include the shipped tree actually uses
+    # must normalize into a permitted root, or the tree gets fixed.
+    assert [f for f in scan_prebuild(pathlib.Path("public")) if RULE_INCLUDE_ESCAPE in f] == []
+
+
 # --- clean cases -----------------------------------------------------------
 
 

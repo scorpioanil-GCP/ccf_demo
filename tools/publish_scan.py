@@ -28,9 +28,13 @@ Four rules:
     whitepaper outright.
 
 ``pub04-include-escape``
-    A snippet-include directive in public Markdown reaches into `docs/` or
-    `.planning/`. `restrict_base_path` blocks `../` traversal but not sibling
-    access, so this is checked here.
+    A snippet-include directive in public Markdown names a target outside
+    `INCLUDE_ALLOWED_PREFIXES`. `restrict_base_path` blocks `../` traversal
+    above the base path but not sibling access, so this is checked here — and
+    it is checked as a positive allowlist over a *normalized* target, in both
+    the inline and the block directive forms, because a denylist of internal
+    prefixes is defeated by `./docs/x`, by `public/../docs/x`, and by any
+    internal tree nobody remembered to enumerate.
 
 Unlike CINV-01 — which has legitimate exceptions and therefore takes
 `tools/lints/allowlist.yaml` — this scan takes **no allowlist**, and it has no
@@ -51,6 +55,7 @@ from __future__ import annotations
 import argparse
 import functools
 import pathlib
+import posixpath
 import re
 import sys
 from typing import Sequence
@@ -91,9 +96,20 @@ INTERNAL_PATH_TOKENS: tuple[str, ...] = (
     ".planning",
 )
 
-#: Snippet includes whose target starts with one of these reach out of the
-#: published surface and into internal trees.
-INCLUDE_ESCAPE_PREFIXES: tuple[str, ...] = ("docs/", ".planning/")
+#: The include roots a published page may reach into — a POSITIVE allowlist,
+#: because the charter is default-deny and a denylist of internal prefixes is
+#: evaded by `./docs/…`, by `public/../docs/…`, and by anything not yet
+#: enumerated (`references/`, absolute paths). A target is permitted only if it
+#: normalizes to a relative path under one of these roots.
+INCLUDE_ALLOWED_PREFIXES: tuple[str, ...] = (
+    "examples/",
+    "public/",
+    "perf/baselines/",
+)
+
+#: Individual repo-root files the published tree legitimately embeds. Kept
+#: separate from the prefixes so a root-level file cannot open a whole tree.
+INCLUDE_ALLOWED_FILES: frozenset[str] = frozenset({"openapi.json"})
 
 #: Directories never worth walking, mirroring the lints runner.
 SKIP_DIRS: frozenset[str] = frozenset(
@@ -110,7 +126,17 @@ _TAG_RE = re.compile(r"<[^>]*>")
 _CODE_SPAN_RE = re.compile(r"`[^`]*`")
 _NON_WORD_RE = re.compile(r"[^a-z0-9 ]")
 _FIGURE_RE = re.compile(r"Fig-CH\d{2}-\d{2}")
-_INCLUDE_RE = re.compile(r"-{2,}8<-{2,}\s*\"?([^\"\s]+)\"?")
+#: A whole line that is nothing but a snippet directive. Matching the whole
+#: line — rather than searching anywhere in it — is what lets a bare `--8<--`
+#: be recognized as the block-form delimiter rather than as a target.
+_INCLUDE_LINE_RE = re.compile(r"^\s*-{2,}8<-{2,}\s*\"?([^\"\s]*)\"?\s*$")
+
+#: An inline directive with a target, anywhere on a line. The quotes are
+#: required because they are required by `pymdownx.snippets` itself for this
+#: form — without them, the code span in the charter's own prose sentence
+#: ("No `--8<--` snippet include") reads as a directive whose target is a
+#: backtick.
+_INCLUDE_INLINE_RE = re.compile(r"-{2,}8<-{2,}\s*\"([^\"]+)\"")
 
 
 def normalize(text: str) -> list[str]:
@@ -151,6 +177,58 @@ def _token_matches(segment: str, token: str) -> bool:
     """
     pattern = f"(?<![A-Za-z0-9]){re.escape(token)}(?![A-Za-z])"
     return re.search(pattern, segment) is not None
+
+
+def include_targets(text: str) -> list[tuple[int, str]]:
+    """`(lineno, target)` for every snippet include in `text`.
+
+    `pymdownx.snippets` accepts two forms and the gate must see both: the
+    inline `--8<-- "target"`, and the block form, in which a bare `--8<--`
+    opens a list of one-per-line targets and a second bare `--8<--` closes it.
+    A gate that parses only the inline form is defeated by a two-line edit.
+    """
+    found: list[tuple[int, str]] = []
+    in_block = False
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        whole = _INCLUDE_LINE_RE.match(line)
+        if whole is not None and not whole.group(1):
+            in_block = not in_block
+            continue
+        if whole is not None:
+            found.append((lineno, whole.group(1)))
+            continue
+        if in_block:
+            stripped = line.strip().strip('"')
+            if stripped:
+                found.append((lineno, stripped))
+            continue
+        for target in _INCLUDE_INLINE_RE.findall(line):
+            found.append((lineno, target))
+    return found
+
+
+def include_escapes(target: str) -> bool:
+    """Whether `target` leaves the permitted include roots.
+
+    Normalization happens before the comparison, so `./docs/x` and
+    `public/../docs/x` are judged as the `docs/x` they resolve to. Absolute
+    paths, `../` escapes above the base path, and anything not under an
+    enumerated root are all escapes — unknown input is rejected, which is what
+    default-deny means.
+    """
+    stem = target.split("::", 1)[0].split(":", 1)[0].strip()
+    if not stem:
+        return False
+    if stem.startswith("/") or stem.startswith("\\"):
+        return True
+    normalized = pathlib.PurePosixPath(
+        posixpath.normpath(stem.replace("\\", "/"))
+    ).as_posix()
+    if normalized.startswith("../") or normalized == "..":
+        return True
+    if normalized in INCLUDE_ALLOWED_FILES:
+        return False
+    return not normalized.startswith(INCLUDE_ALLOWED_PREFIXES)
 
 
 def scan_path(path: pathlib.Path) -> list[str]:
@@ -247,17 +325,17 @@ def scan_prebuild(root: pathlib.Path) -> list[str]:
         if path.suffix.lower() != ".md":
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
-        for lineno, line in enumerate(text.splitlines(), start=1):
-            for target in _INCLUDE_RE.findall(line):
-                if target.startswith(INCLUDE_ESCAPE_PREFIXES):
-                    findings.append(
-                        format_finding(
-                            path,
-                            lineno,
-                            RULE_INCLUDE_ESCAPE,
-                            f"snippet include reaches an internal tree: {target!r}",
-                        )
+        for lineno, target in include_targets(text):
+            if include_escapes(target):
+                findings.append(
+                    format_finding(
+                        path,
+                        lineno,
+                        RULE_INCLUDE_ESCAPE,
+                        "snippet include leaves the permitted roots"
+                        f" {INCLUDE_ALLOWED_PREFIXES}: {target!r}",
                     )
+                )
     return findings
 
 
