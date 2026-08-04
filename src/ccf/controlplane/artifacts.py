@@ -36,6 +36,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
@@ -293,14 +294,79 @@ def _reject_floats(value: object, path: str) -> None:
             _reject_floats(item, f"{path}[{index}]")
 
 
+#: An ISO-8601 date-time that names no UTC designator and no ``±HH:MM`` offset.
+#: Matched against *text*, because after :class:`_ArtifactLoader` a
+#: timestamp-shaped scalar reaches this module as a string.
+_NAIVE_TIMESTAMP_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}[Tt ]\d{2}:\d{2}:\d{2}(?:\.\d+)?$"
+)
+
+
+class _ArtifactLoader(yaml.SafeLoader):
+    """A ``SafeLoader`` that reads timestamps as text and lets contracts parse them.
+
+    ``2026-08-03T12:00:00Z`` is not an implicit timezone: ``Z`` is the ISO-8601
+    UTC designator and the author stated UTC explicitly. PyYAML's timestamp
+    resolver drops it and hands back a *naive* ``datetime``, which the registry
+    then refuses as non-canonicalizable — punishing the author for a rule they
+    did not break. That naive value is a parser defect, not an authoring one.
+
+    So the resolver is removed here and timestamp-shaped scalars arrive as
+    ``str``. A contract field annotated ``datetime`` parses the string into an
+    aware value, exactly as the SDK already refuses floats rather than repairing
+    them (:func:`_reject_floats`; D-IMPL-38, D-02).
+
+    The resolver table is *copied* rather than mutated in place: mutating
+    ``yaml.SafeLoader``'s class attribute would change YAML parsing for every
+    other caller in the process, a far larger blast radius than this decision
+    authorizes.
+    """
+
+    yaml_implicit_resolvers = {
+        first_char: [
+            (tag, regexp)
+            for tag, regexp in resolvers
+            if tag != "tag:yaml.org,2002:timestamp"
+        ]
+        for first_char, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+    }
+
+
+def _reject_naive_timestamps(value: object, path: str) -> None:
+    """Refuse a date-time anywhere in an artifact document that names no zone.
+
+    Sibling of :func:`_reject_floats`, and refused for the same reason: a
+    timestamp with no UTC designator and no offset is ambiguous, and guessing a
+    zone would make an artifact's meaning depend on where it was read. Say ``Z``
+    or say ``+HH:MM`` (D-IMPL-38).
+    """
+    if isinstance(value, datetime) and value.tzinfo is None:
+        raise ArtifactLoadError(
+            f"{path or '<root>'}: naive timestamp; state the zone as 'Z' or an"
+            " offset (D-IMPL-38)"
+        )
+    if isinstance(value, str) and _NAIVE_TIMESTAMP_RE.match(value):
+        raise ArtifactLoadError(
+            f"{path or '<root>'}: timestamp names no zone; state it as 'Z' or an"
+            " offset (D-IMPL-38)"
+        )
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            _reject_naive_timestamps(item, f"{path}.{key}" if path else str(key))
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _reject_naive_timestamps(item, f"{path}[{index}]")
+
+
 def parse_artifact(document: object, artifact_class: ArtifactClass) -> CCFContract:
     """Validate an already-parsed document as an instance of ``artifact_class``.
 
     Raises:
-        ArtifactLoadError: the document contains a float, or does not satisfy
-            the class contract.
+        ArtifactLoadError: the document contains a float or a zone-less
+            timestamp, or does not satisfy the class contract.
     """
     _reject_floats(document, "")
+    _reject_naive_timestamps(document, "")
     try:
         return artifact_class.contract.model_validate(document)
     except ValueError as error:
@@ -316,12 +382,15 @@ def load_artifact(text: str, artifact_class: ArtifactClass) -> CCFContract:
     one. Deliberately takes text rather than a path: reading the file is the
     caller's concern, and keeping I/O out of this module keeps it algorithmic.
 
+    Parsing goes through :class:`_ArtifactLoader`, so a timestamp-shaped scalar
+    reaches the contract as text and is parsed by the field's own annotation.
+
     Raises:
-        ArtifactLoadError: the text is not YAML, holds a float, or does not
-            satisfy the class contract.
+        ArtifactLoadError: the text is not YAML, holds a float or a zone-less
+            timestamp, or does not satisfy the class contract.
     """
     try:
-        document = yaml.safe_load(text)
+        document = yaml.load(text, Loader=_ArtifactLoader)
     except yaml.YAMLError as error:
         raise ArtifactLoadError(f"artifact is not valid YAML: {error}") from error
     return parse_artifact(document, artifact_class)
