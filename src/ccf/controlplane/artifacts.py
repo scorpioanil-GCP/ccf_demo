@@ -62,12 +62,21 @@ from ccf.controlplane.artifact_base import (
     VersionedArtifact,
     validate_semver,
 )
+from ccf.operators.params import (
+    SimilaritySelectParameters,
+    TemporalAsOfParameters,
+    TraversalNeighborhoodParameters,
+)
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "DEBT_PROFILE",
     "HALF_LIFE_TABLE",
+    "OPERATOR_PARAMETERS_POLICY",
+    "OPERATOR_PARAMETERS_SIMILARITY",
+    "OPERATOR_PARAMETERS_TEMPORAL",
+    "OPERATOR_PARAMETERS_TRAVERSAL",
     "RESOLUTION_SPEC",
     "ArtifactClass",
     "ArtifactLoadError",
@@ -75,6 +84,11 @@ __all__ = [
     "DeclaredArtifact",
     "HalfLifeEntry",
     "HalfLifeTable",
+    "OperatorParametersArtifact",
+    "PolicyFilterParametersArtifact",
+    "SimilaritySelectParametersArtifact",
+    "TemporalAsOfParametersArtifact",
+    "TraversalNeighborhoodParametersArtifact",
     "VersionedArtifact",
     "declared_artifact_class",
     "load_artifact",
@@ -223,6 +237,138 @@ class DebtProfile(VersionedArtifact):
         return self
 
 
+class OperatorParametersArtifact(VersionedArtifact):
+    """Marker base of every operator-parameters artifact class (whitepaper §7.4).
+
+    Carries no fields of its own. It exists so that the operator-registry builder
+    can type its ``parameters`` mapping as
+    ``Mapping[str, OperatorParametersArtifact]`` and accept all four canonical
+    categories *by type*. Without it the builder would have to ``isinstance``-filter
+    four unrelated classes — and that idiom, copied into adopter code to assemble
+    the mapping, is precisely the new duplication class this surface exists to
+    prevent.
+
+    **No field in this hierarchy carries a default.** Every value is required at
+    plan time and must arrive from a Control Plane artifact. A default is a value
+    nobody chose, and a value nobody chose cannot be audited, cannot be versioned,
+    and silently changes the meaning of a replay when the SDK revises it
+    (D-IMPL-38; :mod:`ccf.operators.params`).
+
+    **Why these classes live here and not in** :mod:`ccf.operators.params`. Two
+    reasons. ``ccf.operators`` is L4, and an L4 module importing the Control
+    Plane's versioned base would invert a layer. And a *subclass* leaves every
+    existing direct construction site — tests, perf fixtures, adopter code —
+    untouched, which the additive posture of this surface requires.
+    """
+
+
+class TraversalNeighborhoodParametersArtifact(
+    OperatorParametersArtifact, TraversalNeighborhoodParameters
+):
+    """The Traversal category's parameters as a versioned artifact (§7.4).
+
+    Inherits :class:`~ccf.operators.params.TraversalNeighborhoodParameters`
+    verbatim, so a parsed artifact **is** a traversal parameter set and passes
+    straight to :class:`~ccf.operators.categories.TraversalNeighborhood` with no
+    field translation. There is no second vocabulary to drift: the artifact adds
+    a semver lane and nothing else.
+
+    No field gains a default here. ``depth_limit`` in particular stays required —
+    the bound is the operator's entire correctness claim (INV-CH7-24), and a
+    default bound is one nobody chose.
+    """
+
+
+class TemporalAsOfParametersArtifact(
+    OperatorParametersArtifact, TemporalAsOfParameters
+):
+    """The Temporal category's parameters as a versioned artifact (§7.4).
+
+    Inherits :class:`~ccf.operators.params.TemporalAsOfParameters` verbatim, so a
+    parsed artifact is accepted directly by
+    :class:`~ccf.operators.categories.TemporalAsOf`.
+
+    ``require_valid_at_boundary`` keeps no default: which of the bitemporal
+    model's two axes a decision needs is a decision-class property, so it is
+    declared rather than assumed, and a flag nobody set is a flag nobody chose.
+    """
+
+
+class SimilaritySelectParametersArtifact(
+    OperatorParametersArtifact, SimilaritySelectParameters
+):
+    """The Similarity category's parameters as a versioned artifact (§7.4).
+
+    Inherits :class:`~ccf.operators.params.SimilaritySelectParameters` verbatim —
+    ``query``, ``minimum_score_percent``, ``ranked_entity_classes`` — so a parsed
+    artifact is accepted directly by
+    :class:`~ccf.operators.categories.SimilaritySelect`.
+
+    It declares **one artifact-only field beyond the operator's contract**, and
+    the asymmetry is deliberate rather than an oversight.
+
+    Attributes:
+        similarity_corpus_attribute_by_class: ``entity_class -> attribute key``
+            naming the attribute whose text forms that class's corpus entry. It
+            governs :class:`~ccf.similarity.token_overlap.TokenOverlapIndex`
+            *construction* — the registry builder reads it before the operator
+            exists — and it is deliberately **absent** from
+            :class:`~ccf.operators.params.SimilaritySelectParameters`, because
+            putting a construction-time value on the per-invocation parameter set
+            would make the L4 invoke contract carry state no invocation reads.
+            No default: a class absent from this mapping contributes no corpus
+            entry, and guessing an attribute name is guessing what a deployment
+            meant by "similar".
+    """
+
+    similarity_corpus_attribute_by_class: Mapping[str, str]
+
+
+class PolicyFilterParametersArtifact(OperatorParametersArtifact):
+    """The Policy category's *declarable* parameters (§7.4; D-IMPL-76).
+
+    Alone among the four, this class is **not** a subclass of its operator's
+    parameter set. It carries the two fields a deployment can author and omits
+    :attr:`~ccf.operators.params.PolicyFilterParameters.permitted_policy_bundle_versions`
+    entirely. Both rejected alternatives look reasonable until written down:
+
+    * **Subclass and leave the version set required.** ``params.py`` declares it
+      required with no default, so the artifact could never parse — the adopter
+      has no value to author, because the value is a content hash minted at
+      registration (D-IMPL-76).
+    * **Subclass and default it to** ``frozenset()``. Then a parsed artifact
+      satisfies ``isinstance(x, PolicyFilterParameters)`` and can be handed
+      straight to :class:`~ccf.operators.categories.PolicyFilter` by anyone who
+      bypasses the builder — producing an operator that admits *nothing* while
+      looking fully configured. That is a silent failure in the other direction,
+      and exactly the kind of value-nobody-chose the parameters module refuses.
+
+    A separate, deliberately incomplete contract makes the incompleteness
+    *structural*: the type system says this is not an operator parameter set, and
+    the operator-registry builder is the only thing that turns it into one, by
+    constructing a real
+    :class:`~ccf.operators.params.PolicyFilterParameters` with the version set
+    taken from the adopter-passed pins. The deployment still names which bundles
+    it admits — the SDK only resolves the pin, and the adopter passes it
+    (D-IMPL-76).
+
+    Attributes:
+        classification_attribute_by_class: ``entity_class -> attribute key``
+            carrying that class's classification. Per class rather than one
+            global key, because classes carry their sensitivity in their own
+            vocabulary — two classes in the same deployment routinely carry their
+            sensitivity in differently-named fields. An entity class absent from
+            this mapping is inadmissible.
+        permitted_classifications: The classification values the principal may
+            see. Everything else — *including an entity carrying no
+            classification at all* — is excluded: the fabric does not admit state
+            it cannot prove is admissible.
+    """
+
+    classification_attribute_by_class: Mapping[str, str]
+    permitted_classifications: frozenset[str]
+
+
 #: The λ_c table class (whitepaper §7.7).
 HALF_LIFE_TABLE = ArtifactClass(class_id="ccf.half-life-table", contract=HalfLifeTable)
 #: The decision-class debt profile class (whitepaper §7.7 CAR).
@@ -235,6 +381,29 @@ DEBT_PROFILE = ArtifactClass(class_id="ccf.debt-profile", contract=DebtProfile)
 #: the one contract D-05 committed to preserving.
 RESOLUTION_SPEC = ArtifactClass(
     class_id="ccf.resolution-spec", contract=EntityResolutionSpec
+)
+#: The Traversal category's parameter class (whitepaper §7.4).
+OPERATOR_PARAMETERS_TRAVERSAL = ArtifactClass(
+    class_id="ccf.operator-parameters.traversal",
+    contract=TraversalNeighborhoodParametersArtifact,
+)
+#: The Temporal category's parameter class (whitepaper §7.4).
+OPERATOR_PARAMETERS_TEMPORAL = ArtifactClass(
+    class_id="ccf.operator-parameters.temporal",
+    contract=TemporalAsOfParametersArtifact,
+)
+#: The Policy category's parameter class (whitepaper §7.4; D-IMPL-76 — the
+#: admitted policy-bundle version set is *not* declared here; the adopter passes
+#: it to the operator-registry builder).
+OPERATOR_PARAMETERS_POLICY = ArtifactClass(
+    class_id="ccf.operator-parameters.policy",
+    contract=PolicyFilterParametersArtifact,
+)
+#: The Similarity category's parameter class (whitepaper §7.4). Carries the
+#: construction-time corpus attribute map alongside the operator's own fields.
+OPERATOR_PARAMETERS_SIMILARITY = ArtifactClass(
+    class_id="ccf.operator-parameters.similarity",
+    contract=SimilaritySelectParametersArtifact,
 )
 
 
