@@ -28,8 +28,10 @@ and the upgraded examples.
 - [x] **Phase 12: Synthetic-Data Demonstration** - Fake data store + end-to-end data→context→agentic-reasoning example, running in CI (completed 2026-08-02)
 - [x] **Phase 13: Examples Suite Upgrade** - v0.1 examples 00–07 upgraded with detailed narrated READMEs and richer scenarios/artifacts exercising more SDK surface, CI stays green (completed 2026-08-02)
 - [x] **Phase 13.1: External-Consumer Examples (MCP Egress)** (INSERTED) - Independent agents built in their own harness (Anthropic SDK, ADK, bare MCP client) consume CCF context via MCP egress with zero CCF imports client-side — CCF as a black box; demonstrates §7.1 MCP-as-egress as the primary adoption path (completed 2026-08-02)
-- [ ] **Phase 14: Documentation Suite** - mkdocs site with generated Protocol/API reference, adopter's guide, schema reference, security notes, PERFORMANCE.md, narrated demo walkthrough — `make docs --strict` in always-on CI (10/10 plans executed and verified 5/5; **held open** pending Phase 14.1 — human UAT found the guide teaches an agent-first mental model for an agent-optional capability, `14-HUMAN-UAT.md` G-01)
-- [ ] **Phase 14.1: Documentation — The Deterministic Path & The Adoption Argument** (INSERTED) - Close UAT gap G-01: make agent-free Context Product assembly the first-class story, argue why CCF beats a hand-rolled MCP server, and reframe the pillar and how-to surfaces for an adopter who already has external agents
+- [x] **Phase 14: Documentation Suite** - mkdocs site with generated Protocol/API reference, adopter's guide, schema reference, security notes, PERFORMANCE.md, narrated demo walkthrough — `make docs --strict` in always-on CI (10/10 plans executed and verified 5/5; **closed as-shipped 2026-08-03**. The G-01 framing defect stands deliberately: the docs describe an integration surface Phase 15 will replace, so the fix lands in Phase 16 against the new surface rather than twice against the old one. The published site carries no provisional banner — this note is roadmap-internal, per Dave, 2026-08-03)
+- [ ] ~~**Phase 14.1: Documentation — The Deterministic Path & The Adoption Argument** (INSERTED)~~ — **SUPERSEDED by Phase 16**, 2026-08-03, before any plan was written. Every success criterion is absorbed there
+- [ ] **Phase 15: SDK Ergonomics — The Integration Surface** (INSERTED) - Loaders, artifact classes, factories, and wiring helpers so the day-1 integration is a fraction of today's ~450-line example; abstraction line held at marshalling-and-wiring so no governance decision leaves adopter code and no replay dimension is hidden
+- [ ] **Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument** - One document, two sections (deterministic + external MCP consumption; CCF-agent assembly + MCP/A2A consumption), banking scenarios from the whitepaper, re-cut snippet markers so a reader can see which code is CCF and which is theirs
 
 ## Phase Details
 
@@ -265,40 +267,135 @@ Plans:
 
 - [x] 14-10-PLAN.md — `docs-strict` gate target, `make ci` D-IMPL-72 amendment, always-on CI docs job with artifact upload
 
-### Phase 14.1: Documentation — The Deterministic Path & The Adoption Argument (INSERTED)
+### Phase 14.1: Documentation — The Deterministic Path & The Adoption Argument (SUPERSEDED)
+
+**Status**: superseded by Phase 16, 2026-08-03, before any plan was written. Dave's
+discuss-phase read of the SDK surface found a defect underneath the documentation defect:
+the integration surface the docs describe is itself too verbose to document well. Rewriting
+the documentation against a surface we intend to change is wasted work, so the ergonomics
+pass (Phase 15) comes first and the documentation rewrite (Phase 16) follows it, carrying
+every success criterion below plus the structure Dave specified in this discussion.
+
+Nothing in this entry is dropped — see Phase 16, which absorbs it whole.
+
+### Phase 15: SDK Ergonomics — The Integration Surface
+
+**Goal**: The day-1 integration an adopter writes against CCF is a fraction of what it is
+today, because the SDK absorbs the mechanical work it currently leaves to every deployment —
+without hiding one governance decision from the adopter or one dimension from the replay
+record
+**Depends on**: Phase 14 (closed as-shipped; its documentation stands as the record of the
+surface being replaced)
+**Requirements**: ERGO-01..ERGO-NN to be minted at planning
+**Origin**: Dave, 2026-08-03, coding against the CCF SDK documentation. "The whole purpose of
+the SDK is to provide as much abstraction around details as possible and save me the time of
+doing them manually."
+
+**The evidence that opened it** (measured against `examples/00-quickstart/run.py`, 451 lines):
+
+  - ~85 lines are CI assertions and print summaries — no adopter writes them, but they are
+    inside the published snippets, inflating the apparent integration cost
+  - ~105 lines are YAML→typed-object marshalling: `_resolution_spec`, `_envelopes`, and four
+    hand-built operator parameter sets. `src/ccf/controlplane/artifacts.py` registers exactly
+    **two** artifact classes with a declarative parse path (`ccf.half-life-table`,
+    `ccf.debt-profile`); every other artifact shape is marshalled by hand in example code
+  - ~45 lines are the projection Π — genuinely deployment code (whitepaper §7.5) and not a
+    target
+  - ~55 lines are the actual CCF call spine — roughly eight calls, L1 through L6
+
+  The No-Hardcoding Rule (CLAUDE.md §6.4) pushed the *values* into artifacts correctly and
+  left most of the *interpreters* in `/examples`, where they are copy-paste fodder. §6.4 says
+  code contains interpreters and factories, never the things interpreted — the interpreter
+  for half-life tables lives in `/src` where it belongs; the interpreter for operator
+  parameters does not exist.
+
+**Success Criteria** (what must be TRUE):
+
+  1. A holistic audit of the adopter-facing surface exists, naming every point where a
+     deployment writes mechanical code the SDK could supply, with the day-1 line count
+     measured before and after
+  2. Declarative artifact classes and loaders cover the shapes an adopter must currently
+     hand-marshal — resolution specs, signal envelopes, operator parameters, product-class
+     declarations, perspectives — reached through the same `parse_artifact` seam that already
+     serves half-life tables and debt profiles
+  3. Boot, registry population, and operator-registry construction are reachable from
+     artifacts without per-deployment wiring code
+  4. Every shipped helper is answerable to "what does this hide from the replay record?" with
+     "nothing" — the abstraction line is **marshalling and wiring only** (D-15A below)
+  5. The eight-example suite and `examples/external/` are rewritten to the streamlined
+     surface and stay CI-green, with the day-1 example demonstrably smaller
+  6. Every removed or reshaped public surface is recorded, so Phase 16 can document the
+     surface that exists rather than the one that was
+
+**Rulings carried in from the discussion (Dave, 2026-08-03):**
+
+  - **D-15A — the abstraction line is marshalling and wiring only.** Helpers may absorb
+    YAML→typed-object loading, registry population, boot wiring, and operator construction
+    from artifacts. Every point where a deployment *asserts something the fabric then
+    verifies* stays explicit in adopter code. The worked case: `run_gates()` takes the
+    engine's resolved operators separately from the product's own lineage claim precisely so
+    lineage strict equality has two independent sources; a helper computing both from one
+    input would make the gate tautological and silently delete a whitepaper invariant.
+    Dave reserves the right to revisit surface by surface where an ergonomic win requires
+    touching a governance boundary — such cases are surfaced as decisions, not resolved by
+    the phase.
+  - **D-15B — free rein on the public API, pre-1.0.** The phase may reshape, rename, collapse,
+    or remove any public surface in the way; examples and docs are rewritten to match.
+    `v0.1.0` stays tagged as the historical artifact. Anyone building against v0.1/v0.2 today
+    has a migration, and that is accepted.
+
+**Non-goals**: new fabric capability; demonstrating Assembly Modes 2 or 3 (v0.3); the
+documentation rewrite itself (Phase 16). Simplification that costs an invariant is not
+simplification — it is a fidelity defect, and CLAUDE.md §1 ranks fidelity first.
+
+**Plans**: TBD at `/gsd:plan-phase 15`
+
+### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
 
 **Goal**: An adopter who already has agents — the majority banking case — finishes the docs
-knowing that assembling a Context Product needs no CCF agent, and knowing why CCF is worth
-adopting over a hand-rolled MCP server
-**Depends on**: Phase 14 (the site, the gates, and the snippet vocabulary it built)
-**Requirements**: closes UAT gap G-01 (`14-HUMAN-UAT.md`); new DOCS-07..DOCS-09 to be minted
-at planning
-**Origin**: Dave's UAT read-through of the adopter's guide, 2026-08-03. Every machine gate
-passed; the mental model the docs teach was wrong.
+knowing that assembling a Context Product needs no CCF agent, knowing why CCF is worth
+adopting over a hand-rolled MCP server, and able to tell at a glance which lines of any
+example are CCF surface, which are their own, and which are the example testing itself
+**Depends on**: Phase 15 (the surface this documents must settle first)
+**Requirements**: closes UAT gap G-01 (`14-HUMAN-UAT.md`); absorbs superseded Phase 14.1;
+new DOCS-07..DOCS-NN to be minted at planning
+**Origin**: Dave's UAT read-through, 2026-08-03 (G-01), extended by his discuss-phase
+findings the same day on document structure and code legibility.
 
 **Success Criteria** (what must be TRUE):
 
   1. A how-to page demonstrates assembling and serving a Context Product with **no agent of
-     any kind**, literal-included from `examples/00-quickstart`, and it is reachable from the
-     How-to section rather than buried in the tutorial arc
+     any kind**, literal-included from the day-1 example, reachable from the How-to section
+     rather than buried in the tutorial arc
   2. A page argues CCF against the hand-rolled alternative in concrete terms — what a
      Context Product carries that an MCP payload does not (the six axes, lineage, policy
-     regime, freshness/debt posture, validation gates, replay record), with the comparison
-     grounded in shipped mechanism rather than assertion
+     regime, freshness/debt posture, validation gates, replay record), grounded in shipped
+     mechanism rather than assertion
   3. The Data and Context Layer pillar page no longer frames the pillar around agents; it
      reads for a consumer, agentic or not
-  4. The adopter's guide carries an explicit off-ramp after the Context Product section
-     stating that everything below it is optional, and the guide's opening states plainly
-     that the SDK ships no agents and requires none
-  5. A worked example shows an external agent — zero CCF imports — consuming a governed
-     Context Product in a banking scenario, and the docs literal-include it
-  6. Assembly Mode is documented as the eighth primitive, naming all three modes and stating
+  4. The adopter's guide is **one document** (Dave: "no developer wants to reference two
+     documents") in two sections: **Section 1** — construct a Context Product deterministically
+     and consume it from an external agent over MCP, the day-1 pattern, shown across several
+     worked instances; **Section 2** — construct a Context Product using CCF agents and consume
+     it externally, over MCP *and* A2A. The guide's opening states plainly that the SDK ships
+     no agents and requires none, and Section 2 is explicitly marked optional
+  5. Worked examples are **banking-specific and drawn from the whitepaper's own scenarios**,
+     on simulated data as the suite already uses (Dave, 2026-08-03). Note: A2A is already
+     demonstrated by `examples/04-cross-process` (assembler subprocess, MCP + A2A, admission
+     verification, tampered-envelope refusal) — its domain is property situational assembly
+     and is re-domained to banking in Phase 15
+  6. **Snippet markers are re-cut so CI assertions and print summaries fall outside every
+     published snippet**, and markers isolate the CCF call spine from the deployment's own
+     code — the reader can see the boundary without prose telling them where it is
+  7. Assembly Mode is documented as the eighth primitive, naming all three modes and stating
      honestly which are demonstrated today (Mode 1) and which are not (Modes 2 and 3, G-02)
 
 **Non-goals**: demonstrating Mode 2 or Mode 3 — that is the v0.3 milestone. This phase may
-only describe the mode taxonomy and mark the undemonstrated modes as such.
+only describe the mode taxonomy and mark the undemonstrated modes as such. No SDK surface
+change: if the docs cannot be written cleanly, that is a Phase 15 defect, not a Phase 16
+workaround.
 
-**Plans**: TBD at `/gsd:plan-phase 14.1`
+**Plans**: TBD at `/gsd:plan-phase 16`
 
 ## Progress
 
@@ -310,11 +407,19 @@ only describe the mode taxonomy and mark the undemonstrated modes as such.
 | 12. Synthetic-Data Demonstration | 3/3 | Complete    | 2026-08-02 |
 | 13. Examples Suite Upgrade | 5/5 | Complete   | 2026-08-02 |
 | 13.1. External-Consumer Examples (MCP Egress) | 4/4 | Complete   | 2026-08-02 |
-| 14. Documentation Suite | 10/10 | Held open   | — (verified 5/5; UAT G-01 open) |
-| 14.1. Docs — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
+| 14. Documentation Suite | 10/10 | Complete   | 2026-08-03 (verified 5/5; G-01 deliberately deferred to 16) |
+| 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
+| 15. SDK Ergonomics — The Integration Surface | 0/? | Planned   | — |
+| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
 
 All 21 v0.2 requirements mapped, each to exactly one phase:
 HARD-01..03 → 9; HARD-04..05 → 10; PERF-01..04 → 11;
 DEMO-01..03 → 12; EXAM-01..03 → 13; DOCS-01..06 → 14.
+
+Phases 15 and 16 were inserted 2026-08-03 and mint their own requirements at planning
+(ERGO-01..NN → 15; DOCS-07..NN → 16). They extend v0.2 rather than opening a new milestone:
+Phase 15 fixes the surface the v0.2 documentation describes, and Phase 16 rewrites that
+documentation against it, so the milestone's "adopter-grade documentation suite" goal is not
+actually met until both land. v0.3 (Assembly Modes) is unchanged and still follows.
