@@ -1315,9 +1315,23 @@ serves zero criteria.
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> **Status: all four questions are closed.** Q1 and Q2 were ruled by Dave as D-IMPL-76 and
+> D-IMPL-77 (2026-08-04) and are recorded in `docs/DECISIONS.md`. Q3 and Q4 were explicitly
+> inside Claude's discretion per `15-CONTEXT.md` and were decided during planning, at the plan
+> locations cited below. Nothing here gates execution. Each question retains its full original
+> analysis — the reasoning is what makes the ruling reviewable — with the resolution stated
+> inline at the head of the entry.
 
 ### Q1 — `PolicyFilterParameters.permitted_policy_bundle_versions` (candidate **D-IMPL-76**). **Blocks ERGO-08.**
+
+> **RESOLVED — D-IMPL-76 (Dave, 2026-08-04): option (b).** The builder takes the pin set as an
+> argument and the adopter passes it. The pin stays in the adopter's hand, consistent with D-06's
+> posture for `build_replay_record`, at a cost of one adopter line. Option (a) is *not* shipped as
+> an opt-in. Implemented in plan `15-11` (`build_operator_registry`), whose must-have truth reads
+> "the permitted policy bundle versions come from the adopter-passed pin set, not from the
+> artifact and not from the registry".
 
 **What we know.** `PolicyFilterParameters` has three fields (`params.py:59-61`):
 `permitted_policy_bundle_versions: frozenset[str]`, `classification_attribute_by_class`,
@@ -1357,6 +1371,12 @@ makes it the consistent answer rather than a special case. **Ask Dave.**
 
 ### Q2 — `EntityResolutionSpec` semver placement (candidate **D-IMPL-77**). **Blocks ERGO-07.**
 
+> **RESOLVED — D-IMPL-77 (Dave, 2026-08-04): add `semver` in place.** `EntityResolutionSpec`
+> inherits `_VersionedArtifact` rather than being wrapped, so `boot()`'s contract is preserved as
+> D-05 requires. The resulting content-hash churn is handled as a reviewed, deliberate
+> regeneration event: plan `15-07` is `autonomous: false` and carries a regeneration checkpoint
+> for exactly this reason.
+
 **What we know.** `EntityResolutionSpec` is a `CCFContract` (`worker.py:105`) with no `semver`
 field. SDK-owned artifact classes get their semver lane from `_VersionedArtifact`
 (`artifacts.py:134-142`), where `semver` has no default. `registry.register` versions by
@@ -1375,6 +1395,11 @@ phase committed to preserving. But it is a content-hash change to an L2 contract
 
 ### Q3 — Does the D-05 manifest carry `tenant_id`?
 
+> **RESOLVED — Claude's discretion (no ruling required), decided in plan `15-10`.** The manifest
+> carries an **optional** `tenant_id`; when absent the caller supplies it, so a single manifest
+> can still serve a multi-tenant deployment per D-IMPL-05. This is the recommendation below,
+> adopted unchanged.
+
 Explicitly left to Claude's discretion in CONTEXT.md. Evidence for carrying it: `tenant_id` lives
 in `ontology.yaml:24` today, is read at `run.py:191`, and flows into `_envelopes` (`run.py:126`),
 `handle.reader.as_of` (`run.py:249`), and `ContextProductContract` (`run.py:334`) — five consumers
@@ -1389,6 +1414,10 @@ but the planner should decide it explicitly rather than by omission, because the
 forces the question.
 
 ### Q4 — Does `examples/03-harness-portability`'s live leg constrain the rewrite?
+
+> **RESOLVED — no constraint, recorded in plan `15-15`.** The live legs are excluded from
+> `make ci` and carry zero mechanical wiring, so the rewrite touches only `03/run.py`. `15-15`
+> carries "the live legs are untouched" as a must-have truth and scopes its rewrite accordingly.
 
 `legs/live.py` (641 lines) and `legs/ollama_client.py` (147 lines) have **zero** mechanical
 wiring (§1.3) and are excluded from `make ci` (live legs are opt-in per `Makefile` comments at

@@ -348,112 +348,71 @@ doing them manually."
 documentation rewrite itself (Phase 16). Simplification that costs an invariant is not
 simplification — it is a fidelity defect, and CLAUDE.md §1 ranks fidelity first.
 
-**Plans**: 21 plans across 12 waves
+**Plans**: 21 plans across 14 waves
 
 Plans:
-**Wave 1** — instrumentation and standing guards (nothing else may start first)
+**Wave 1** — the public-surface baseline (nothing else may start first)
 
-- [ ] 15-01-PLAN.md — Public-surface baseline: `tools/dump_surface.py`, committed manifest, drift gate, surface-change fragment home (ERGO-01, ERGO-17)
+- [ ] 15-01-PLAN.md — Public-surface baseline: `tools/dump_surface.py` (`--check` + `--report`), committed manifest, documented-drift gate, surface-change fragment home (ERGO-01, ERGO-17)
+
+**Wave 2** — standing guards, built on the baseline
+
 - [ ] 15-02-PLAN.md — `ccf.deployment` package shell + the D-15A gate-independence guard + the no-allowlist import ban (ERGO-02, ERGO-04)
 - [ ] 15-03-PLAN.md — Executable surface audit baseline + falsification of research assumptions A1/A3/A6 (ERGO-03)
 
-**Wave 2**
+**Wave 3**
 
 - [ ] 15-04-PLAN.md — D-IMPL-78: widen CINV-01 over `tests/` (two edits: `LINTED_TREES` and `RULE_TREE_SCOPE`) (ERGO-16)
 - [ ] 15-05-PLAN.md — D-02 timestamp handling in the artifact load path (ERGO-06)
 - [ ] 15-06-PLAN.md — class-id → `ArtifactClass` lookup + `tests/deployment/` package (ERGO-05)
 
-**Wave 3**
+**Wave 4**
 
 - [ ] 15-07-PLAN.md — `ccf.resolution-spec` + `EntityResolutionSpec` semver in place, with its own regeneration checkpoint (D-IMPL-77) (ERGO-07)
 
-**Wave 4**
+**Wave 5**
 
 - [ ] 15-08-PLAN.md — Four operator-parameters artifact classes + both `artifacts.py` docstring amendments (ERGO-08)
 
-**Wave 5**
+**Wave 6**
 
 - [ ] 15-09-PLAN.md — Signal-batch, perspective, and product-class artifact classes (ERGO-09)
 
-**Wave 6**
+**Wave 7**
 
 - [ ] 15-10-PLAN.md — `ccf.deployment-manifest` + `load_and_boot` + the plain pin set (ERGO-10)
 
-**Wave 7**
-
-- [ ] 15-11-PLAN.md — Two-phase view-aware operator-registry builder (ERGO-11)
-- [ ] 15-12-PLAN.md — `ccf schema export` via a new HTTP route + committed schemas + freshness gate (D-IMPL-79) (ERGO-12)
-
 **Wave 8**
 
-- [ ] 15-13-PLAN.md — Rewrite `00-quickstart` and relocate its assertions — establishes the recipe (ERGO-13, ERGO-16)
+- [ ] 15-11-PLAN.md — `build_operator_registry`, two-phase and view-aware, pin set passed in (D-IMPL-76) (ERGO-11)
+- [ ] 15-12-PLAN.md — Committed JSON Schemas + `ccf schema export` through an HTTP route (D-IMPL-79) (ERGO-12)
 
 **Wave 9**
 
-- [ ] 15-14-PLAN.md — Rewrite examples 01 and 02 (ERGO-13, ERGO-16)
-- [ ] 15-15-PLAN.md — Rewrite examples 03 and 07; live legs untouched (ERGO-13, ERGO-16)
-- [ ] 15-16-PLAN.md — Rewrite example 08 + demo narration regeneration checkpoint (ERGO-13, ERGO-16)
+- [ ] 15-13-PLAN.md — Rewrite example 00 quickstart — the day-1 integration (ERGO-13, ERGO-16, ERGO-12)
 
 **Wave 10**
 
-- [ ] 15-17-PLAN.md — Rewrite example 06, highest risk: pin set stays explicit (ERGO-14, ERGO-16)
-- [ ] 15-18-PLAN.md — Rewrite example 04 + D-10 re-domaining to banking, two separate commits (ERGO-14, ERGO-16)
-- [ ] 15-19-PLAN.md — Rewrite example 05, mostly a D-09 relocation (ERGO-14, ERGO-16)
+- [ ] 15-14-PLAN.md — Rewrite examples 01 agent-basics and 02 skilling (ERGO-13, ERGO-16, ERGO-12)
+- [ ] 15-15-PLAN.md — Rewrite examples 03 harness-portability and 07 artifact-store-mcp (ERGO-13, ERGO-16, ERGO-12)
+- [ ] 15-16-PLAN.md — Rewrite example 08 e2e-demo + the DEMO-03 narration review (ERGO-13, ERGO-16, ERGO-12)
 
 **Wave 11**
 
-- [ ] 15-20-PLAN.md — Rewrite `examples/external/.../serve.py`; client legs keep zero CCF imports (ERGO-15)
+- [ ] 15-17-PLAN.md — Rewrite example 06 decision-replay, pins kept explicit (ERGO-14, ERGO-16, ERGO-12)
+- [ ] 15-18-PLAN.md — Rewrite example 04 cross-process + re-domain to banking, as two commits (ERGO-14, ERGO-16, ERGO-12)
 
 **Wave 12**
 
-- [ ] 15-21-PLAN.md — Phase close: assemble `SURFACE-CHANGES.md`, generated surface diff, criterion-1 audit, `/gsd-review`, present to Dave (ERGO-01, ERGO-03, ERGO-17)
+- [ ] 15-19-PLAN.md — Rewrite example 05 workflow-hitl (ERGO-14, ERGO-16, ERGO-12)
 
-### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
+**Wave 13**
 
-**Goal**: An adopter who already has agents — the majority banking case — finishes the docs
-knowing that assembling a Context Product needs no CCF agent, knowing why CCF is worth
-adopting over a hand-rolled MCP server, and able to tell at a glance which lines of any
-example are CCF surface, which are their own, and which are the example testing itself
-**Depends on**: Phase 15 (the surface this documents must settle first)
-**Requirements**: closes UAT gap G-01 (`14-HUMAN-UAT.md`); absorbs superseded Phase 14.1;
-new DOCS-07..DOCS-NN to be minted at planning
-**Origin**: Dave's UAT read-through, 2026-08-03 (G-01), extended by his discuss-phase
-findings the same day on document structure and code legibility.
+- [ ] 15-20-PLAN.md — Rewrite the external example's `serve.py`, client legs untouched (ERGO-15, ERGO-12)
 
-**Success Criteria** (what must be TRUE):
+**Wave 14**
 
-  1. A how-to page demonstrates assembling and serving a Context Product with **no agent of
-     any kind**, literal-included from the day-1 example, reachable from the How-to section
-     rather than buried in the tutorial arc
-  2. A page argues CCF against the hand-rolled alternative in concrete terms — what a
-     Context Product carries that an MCP payload does not (the six axes, lineage, policy
-     regime, freshness/debt posture, validation gates, replay record), grounded in shipped
-     mechanism rather than assertion
-  3. The Data and Context Layer pillar page no longer frames the pillar around agents; it
-     reads for a consumer, agentic or not
-  4. The adopter's guide is **one document** (Dave: "no developer wants to reference two
-     documents") in two sections: **Section 1** — construct a Context Product deterministically
-     and consume it from an external agent over MCP, the day-1 pattern, shown across several
-     worked instances; **Section 2** — construct a Context Product using CCF agents and consume
-     it externally, over MCP *and* A2A. The guide's opening states plainly that the SDK ships
-     no agents and requires none, and Section 2 is explicitly marked optional
-  5. Worked examples are **banking-specific and drawn from the whitepaper's own scenarios**,
-     on simulated data as the suite already uses (Dave, 2026-08-03). Note: A2A is already
-     demonstrated by `examples/04-cross-process` (assembler subprocess, MCP + A2A, admission
-     verification, tampered-envelope refusal) — its domain is property situational assembly
-     and is re-domained to banking in Phase 15
-  6. **Snippet markers are re-cut so CI assertions and print summaries fall outside every
-     published snippet**, and markers isolate the CCF call spine from the deployment's own
-     code — the reader can see the boundary without prose telling them where it is
-  7. Assembly Mode is documented as the eighth primitive, naming all three modes and stating
-     honestly which are demonstrated today (Mode 1) and which are not (Modes 2 and 3, G-02)
-
-**Non-goals**: demonstrating Mode 2 or Mode 3 — that is the v0.3 milestone. This phase may
-only describe the mode taxonomy and mark the undemonstrated modes as such. No SDK surface
-change: if the docs cannot be written cleanly, that is a Phase 15 defect, not a Phase 16
-workaround.
-
-**Plans**: TBD at `/gsd:plan-phase 16`
+- [ ] 15-21-PLAN.md — Phase close: curated surface-change log, the single manifest regeneration and criterion-1 audit, the tree-wide `$schema` and D-14 gates, `/gsd-review` and presentation to Dave (ERGO-01, ERGO-03, ERGO-12, ERGO-17)
 
 ## Progress
 
@@ -467,7 +426,7 @@ workaround.
 | 13.1. External-Consumer Examples (MCP Egress) | 4/4 | Complete   | 2026-08-02 |
 | 14. Documentation Suite | 10/10 | Complete   | 2026-08-03 (verified 5/5; G-01 deliberately deferred to 16) |
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
-| 15. SDK Ergonomics — The Integration Surface | 0/? | Planned   | — |
+| 15. SDK Ergonomics — The Integration Surface | 0/21 | Planned (21 plans, 14 waves) | — |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
