@@ -353,7 +353,7 @@ simplification — it is a fidelity defect, and CLAUDE.md §1 ranks fidelity fir
 Plans:
 **Wave 1** — the public-surface baseline (nothing else may start first)
 
-- [ ] 15-01-PLAN.md — Public-surface baseline: `tools/dump_surface.py` (`--check` + `--report`), committed manifest, documented-drift gate, surface-change fragment home (ERGO-01, ERGO-17)
+- [x] 15-01-PLAN.md — Public-surface baseline: `tools/dump_surface.py` (`--check` + `--report`), committed manifest, documented-drift gate, surface-change fragment home (ERGO-01, ERGO-17)
 
 **Wave 2** — standing guards, built on the baseline
 
@@ -426,7 +426,7 @@ Plans:
 | 13.1. External-Consumer Examples (MCP Egress) | 4/4 | Complete   | 2026-08-02 |
 | 14. Documentation Suite | 10/10 | Complete   | 2026-08-03 (verified 5/5; G-01 deliberately deferred to 16) |
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
-| 15. SDK Ergonomics — The Integration Surface | 0/21 | Planned (21 plans, 14 waves) | — |
+| 15. SDK Ergonomics — The Integration Surface | 1/21 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
