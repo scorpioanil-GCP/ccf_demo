@@ -76,6 +76,8 @@ from ccf.operators.params import (
     TemporalAsOfParameters,
     TraversalNeighborhoodParameters,
 )
+from ccf.products.contract import AssemblyMode, TTLAnchor
+from ccf.projection.plan import Perspective
 from ccf.signal.envelope import SignalEnvelope
 
 __ccf_mode__ = "algorithmic"
@@ -87,6 +89,8 @@ __all__ = [
     "OPERATOR_PARAMETERS_SIMILARITY",
     "OPERATOR_PARAMETERS_TEMPORAL",
     "OPERATOR_PARAMETERS_TRAVERSAL",
+    "PERSPECTIVE",
+    "PRODUCT_CLASS",
     "RESOLUTION_SPEC",
     "SIGNAL_BATCH",
     "ArtifactClass",
@@ -96,7 +100,9 @@ __all__ = [
     "HalfLifeEntry",
     "HalfLifeTable",
     "OperatorParametersArtifact",
+    "PerspectiveArtifact",
     "PolicyFilterParametersArtifact",
+    "ProductClassDeclaration",
     "SignalBatch",
     "SimilaritySelectParametersArtifact",
     "TemporalAsOfParametersArtifact",
@@ -458,6 +464,93 @@ class SignalBatch(VersionedArtifact):
         return self
 
 
+class PerspectiveArtifact(VersionedArtifact, Perspective):
+    """The Π role-conditioning tuple as a versioned artifact (§7.5).
+
+    Inherits :class:`~ccf.projection.plan.Perspective` verbatim — the same shape
+    plan 15-08 used for the operator-parameters classes — so a parsed artifact
+    **is** a ``Perspective`` and passes straight into projection invocation with
+    no field translation. ``principal_id`` and ``role`` keep the meanings §7.5
+    gives them (INV-CH7-43) and land verbatim in replay dimension 4, so a
+    decision is re-readable against the viewpoint that produced it.
+
+    The artifact adds a ``semver`` lane and nothing else. There is no second
+    vocabulary here to drift from the projection contract, which is the entire
+    reason for subclassing rather than declaring two fields that happen to match.
+    """
+
+
+class ProductClassDeclaration(VersionedArtifact):
+    """A product class's authored governance, minus the pin registration mints (§7.6).
+
+    Whitepaper §7.6 (the delivery contract and its class-level governance);
+    D-IMPL-31 for the TTL anchor, INV-CH7-55 for the assembly mode, INV-CH7-49
+    for the per-class schema lane. This is the artifact an adopter writes; the
+    servable :class:`~ccf.products.contract.RegisteredProductClass` is what
+    :func:`~ccf.products.contract.register_product_class` returns from it.
+
+    **It deliberately does not declare** ``max_ttl_version``. That pin is minted
+    by *registering* the :class:`~ccf.products.contract.MaxTTL` value, and it is
+    a content hash of what was registered — the same shape D-IMPL-76 ruled on for
+    the policy bundle's admitted-version set. An artifact that declared it would
+    be authoring a hash of something it does not contain. This is what keeps
+    Gate 3 (TTL bounds) meaningful: the ceiling stays an authored artifact value,
+    the pin is *derived* from registering it, and a product's own ``expires_at``
+    remains a separately authored number. Gate 3 checks one against the other,
+    which is only a check while the two come from independent places.
+
+    **Why the operator set is declared here.**
+    ``required_operator_keys`` is what a projection's
+    :meth:`~ccf.projection.plan.ProjectionPlan.required_operators` returns. It
+    lives on the product class rather than on a projection artifact because the
+    product class is already the artifact that declares what the product *is*,
+    and the operator set an interpretation requires is a property of the product,
+    not of the code computing it.
+
+    The property this field exists to protect is that the projection's
+    **declaration** and the engine's **resolution** stay two independent
+    mechanisms. The lineage strict-equality gate (Gate 2, INV-CH7-47) compares
+    them; a projection that returns the operator registry's own keys makes that
+    comparison a value against itself, and the gate silently stops being a gate.
+    Giving the declaration an authored source is what makes the independence
+    real. Plan 15-21 adds a standing AST guard against the registry-reading
+    shortcut tree-wide.
+
+    ``min_length=1`` on the operator keys is the whitepaper's own posture, not an
+    ergonomics choice: §7.6 specifies the empty-operator guard as the first of
+    the three validation gates, and states that "a projection must have resolved
+    at least one operator to have meaningfully read the graph, and an empty set
+    indicates a misconfigured projection rather than a trivially-successful one."
+    A declaration of zero operators could only ever produce a resolved set of
+    zero, which Gate 1 refuses at assembly time. Refusing it here refuses it
+    where the author can still fix it. A deployment that serves no product simply
+    authors no document of this class — that is a different thing from a product
+    class declaring it needs nothing.
+
+    Attributes:
+        schema_name: Class identity.
+        schema_version: The product class's **own** semver lane (INV-CH7-49),
+            which is not the artifact's ``semver`` lane. Two lanes because they
+            version different things: how the product's schema evolved, and how
+            this declaration document evolved. Lanes are never compared across
+            classes.
+        ttl_anchor: Declared TTL derivation anchor (D-IMPL-31).
+        assembly_mode: Declared assembly mode (INV-CH7-55).
+        max_ttl_key: Control Plane key of the class's MAX_TTL artifact. The key
+            is authored; the version pinning it is not.
+        required_operator_keys: Registry keys of the operators the class's
+            interpretation depends on. Order is not significant — the engine
+            imposes the dependency order (INV-CH7-28).
+    """
+
+    schema_name: str
+    schema_version: str
+    ttl_anchor: TTLAnchor
+    assembly_mode: AssemblyMode
+    max_ttl_key: str
+    required_operator_keys: tuple[str, ...] = Field(min_length=1)
+
+
 #: The λ_c table class (whitepaper §7.7).
 HALF_LIFE_TABLE = ArtifactClass(class_id="ccf.half-life-table", contract=HalfLifeTable)
 #: The decision-class debt profile class (whitepaper §7.7 CAR).
@@ -499,6 +592,14 @@ OPERATOR_PARAMETERS_SIMILARITY = ArtifactClass(
 #: raw event data in the Control Plane would put an events file into replay
 #: dimension 2. See :class:`SignalBatch`.
 SIGNAL_BATCH = ArtifactClass(class_id="ccf.signal-batch", contract=SignalBatch)
+#: The Π role-conditioning class (whitepaper §7.5).
+PERSPECTIVE = ArtifactClass(class_id="ccf.perspective", contract=PerspectiveArtifact)
+#: The product-class governance declaration (whitepaper §7.6). The MAX_TTL
+#: *version* is deliberately absent — registering the ceiling mints it, exactly
+#: as D-IMPL-76 ruled for the policy bundle's admitted-version set.
+PRODUCT_CLASS = ArtifactClass(
+    class_id="ccf.product-class", contract=ProductClassDeclaration
+)
 
 
 def _reject_floats(value: object, path: str) -> None:

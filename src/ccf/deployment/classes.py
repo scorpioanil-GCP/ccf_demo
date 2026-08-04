@@ -51,6 +51,8 @@ from ccf.controlplane.artifacts import (
     OPERATOR_PARAMETERS_SIMILARITY,
     OPERATOR_PARAMETERS_TEMPORAL,
     OPERATOR_PARAMETERS_TRAVERSAL,
+    PERSPECTIVE,
+    PRODUCT_CLASS,
     RESOLUTION_SPEC,
     SIGNAL_BATCH,
     ArtifactClass,
@@ -79,6 +81,8 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     # be *parsed*, never registered. The manifest's own `role` field carries the
     # distinction and 15-10 enforces it; this mapping only says the class exists.
     SIGNAL_BATCH.class_id: SIGNAL_BATCH,
+    PERSPECTIVE.class_id: PERSPECTIVE,
+    PRODUCT_CLASS.class_id: PRODUCT_CLASS,
 }
 
 
