@@ -217,6 +217,31 @@ def test_the_real_internal_deliverable_name_still_matches() -> None:
     assert RULE_INTERNAL_PATH in _rules(scan_text("x", path, frozenset()))
 
 
+def test_a_lowercased_slug_of_an_internal_name_still_matches() -> None:
+    # WR-02. MkDocs slugifies a page name into a lowercase directory, so
+    # `CCF_Whitepaper_1-2.md` publishes at `site/ccf_whitepaper_1-2/index.html`.
+    # Case-sensitive token matching reads that as a clean path. `pub01` does not
+    # cover the residual case — an internal file that names a deliverable but
+    # quotes no whitepaper body text forms no shingle, so `pub02` is the only
+    # rule that can catch it, and it must be case-insensitive to do so.
+    for path in (
+        pathlib.Path("site/ccf_whitepaper_1-2/index.html"),
+        pathlib.Path("site/spec_inventory/index.html"),
+        pathlib.Path("site/phase_i1_gate/index.html"),
+    ):
+        assert RULE_INTERNAL_PATH in _rules(scan_text("x", path, frozenset())), path
+
+
+def test_the_case_insensitive_boundary_still_holds() -> None:
+    # Widening to case-insensitive must not widen the word boundary: a longer
+    # word that merely contains a token stays clean in either case.
+    for path in (
+        pathlib.Path("site/PHASE_INTEGRATION_guide/index.html"),
+        pathlib.Path("site/phase_integration_guide/index.html"),
+    ):
+        assert scan_text("harmless prose", path, frozenset()) == [], path
+
+
 # --- exit codes ------------------------------------------------------------
 
 

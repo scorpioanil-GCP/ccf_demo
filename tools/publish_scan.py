@@ -173,9 +173,18 @@ def _token_matches(segment: str, token: str) -> bool:
     must not be preceded by an alphanumeric character, and must not be
     followed by a letter. `PHASE_I1_GATE.md` matches `PHASE_I`;
     `PHASE_INTEGRATION` does not.
+
+    Case-insensitive (WR-02). MkDocs slugifies a page name into a lowercase
+    directory, so `CCF_Whitepaper_1-2.md` publishes at
+    `site/ccf_whitepaper_1-2/index.html`. Matching case-sensitively would read
+    that as a clean path, and `pub01` does not cover the residual case: an
+    internal file that names a deliverable but quotes no whitepaper body text
+    forms no shingle, leaving `pub02` as the only rule that can catch it. The
+    word boundary is unchanged, so the widening cannot produce a false positive
+    that the case-sensitive form did not already produce.
     """
     pattern = f"(?<![A-Za-z0-9]){re.escape(token)}(?![A-Za-z])"
-    return re.search(pattern, segment) is not None
+    return re.search(pattern, segment, re.IGNORECASE) is not None
 
 
 def include_targets(text: str) -> list[tuple[int, str]]:
