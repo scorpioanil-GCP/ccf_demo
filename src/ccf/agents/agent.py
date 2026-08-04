@@ -143,6 +143,66 @@ def _validated_bound_skills(bound_skills: object) -> BoundSkillView | None:
     return bound_skills
 
 
+def _validate_coherence(
+    definition: AgentDefinition,
+    identity: AgentIdentity,
+    components: tuple[ArchetypeComponent, ...],
+) -> None:
+    """Refuse inputs that do not describe one coherent agent (D-06, IN-02).
+
+    Extracted from :meth:`Agent.__init__` so the guard is nameable and can be
+    exercised on deliberately-corrupted inputs *without* constructing an
+    ``Agent`` outside the factory (plan 15-04): with CINV-01 widened over
+    ``tests/`` per D-IMPL-78, a unit test of the constructor's own validation
+    would otherwise have to bypass the Agent Factory to reach it, which
+    CLAUDE.md §6.4 forbids and the CINV-01c rule now catches. The guard is
+    the substrate the factory relies on; it is checked here, and the factory
+    remains the only construction path.
+
+    Raises:
+        AgentConstructionError: identity does not name the definition, or the
+            composed components do not realize its declared archetypes.
+    """
+    expected_hash = content_hash(definition)
+    if identity.definition_hash != expected_hash:
+        raise AgentConstructionError(
+            "identity.definition_hash does not equal the content hash of"
+            f" the definition ({identity.definition_hash!r} !="
+            f" {expected_hash!r}); agent identity is content identity"
+            " (D-06, D-IMPL-26)"
+        )
+    expected_uri = artifact_uri(
+        tenant_id=definition.tenant,
+        artifact_class=AGENT_DEFINITION.class_id,
+        name=definition.name,
+        artifact_version=definition.artifact_version,
+    )
+    if identity.definition_uri != expected_uri:
+        raise AgentConstructionError(
+            "identity.definition_uri does not name the definition"
+            f" ({identity.definition_uri!r} != {expected_uri!r}); the URI"
+            " is derived from the definition's own naming triple and"
+            " version, and replay dimension 4 serializes it verbatim —"
+            " a drifted annotation would describe the decision as having"
+            " been made under an artifact it was not (D-IMPL-26;"
+            " DESIGN.md §3.6; IN-02)"
+        )
+    if identity.archetype_composition != definition.archetypes:
+        raise AgentConstructionError(
+            "identity.archetype_composition"
+            f" {identity.archetype_composition!r} is not the definition's"
+            f" declared archetype list {definition.archetypes!r}"
+            " (D-IMPL-19 declaration order is identity)"
+        )
+    realized = tuple(component.archetype_id for component in components)
+    if realized != definition.archetypes:
+        raise AgentConstructionError(
+            f"composed components realize {realized!r}, but the definition"
+            f" declares {definition.archetypes!r}; every declared archetype"
+            " must be realized by exactly its bundle, in order"
+        )
+
+
 class Agent:
     """One declared agent, running form (CLAUDE.md §6.1; D-IMPL-11).
 
@@ -206,56 +266,19 @@ class Agent:
         mcp_skills: McpSkillRegistry | None = None,
         peering_skills: PeeringSkillRegistry | None = None,
     ) -> None:
-        expected_hash = content_hash(definition)
-        if identity.definition_hash != expected_hash:
-            raise AgentConstructionError(
-                "identity.definition_hash does not equal the content hash of"
-                f" the definition ({identity.definition_hash!r} !="
-                f" {expected_hash!r}); agent identity is content identity"
-                " (D-06, D-IMPL-26)"
-            )
-        expected_uri = artifact_uri(
-            tenant_id=definition.tenant,
-            artifact_class=AGENT_DEFINITION.class_id,
-            name=definition.name,
-            artifact_version=definition.artifact_version,
-        )
-        if identity.definition_uri != expected_uri:
-            raise AgentConstructionError(
-                "identity.definition_uri does not name the definition"
-                f" ({identity.definition_uri!r} != {expected_uri!r}); the URI"
-                " is derived from the definition's own naming triple and"
-                " version, and replay dimension 4 serializes it verbatim —"
-                " a drifted annotation would describe the decision as having"
-                " been made under an artifact it was not (D-IMPL-26;"
-                " DESIGN.md §3.6; IN-02)"
-            )
-        if identity.archetype_composition != definition.archetypes:
-            raise AgentConstructionError(
-                "identity.archetype_composition"
-                f" {identity.archetype_composition!r} is not the definition's"
-                f" declared archetype list {definition.archetypes!r}"
-                " (D-IMPL-19 declaration order is identity)"
-            )
-        realized = tuple(component.archetype_id for component in components)
-        if realized != definition.archetypes:
-            raise AgentConstructionError(
-                f"composed components realize {realized!r}, but the definition"
-                f" declares {definition.archetypes!r}; every declared archetype"
-                " must be realized by exactly its bundle, in order"
-            )
+        _validate_coherence(definition, identity, components)
         self._definition = definition
         self._identity = identity
         self._components = components
         self._instruction_artifacts = dict(instruction_artifacts)
         self._bound_skills = _validated_bound_skills(bound_skills)
-        self._callable_registry = (
-            callable_registry if callable_registry is not None else CallableRegistry()
-        )
         # Held by reference, never constructed here: a registry the agent made
         # for itself would be the SDK choosing servers and peers. ``None`` is a
         # positive statement that this deployment wired none, and dispatch
         # turns it into a named wiring error rather than a silent no-op.
+        self._callable_registry = (
+            callable_registry if callable_registry is not None else CallableRegistry()
+        )
         self._mcp_skills = mcp_skills
         self._peering_skills = peering_skills
 

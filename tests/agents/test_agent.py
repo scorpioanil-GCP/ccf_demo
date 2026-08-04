@@ -12,11 +12,15 @@ Written before the implementation per the TDD discipline (CLAUDE.md §6.1,
   class: no construction token exists (D-12 — deliberate divergence from the
   I.1 ``_GATE_TOKEN`` pattern).
 
-These are unit tests of the constructor's own validation — the substrate the
-factory relies on — so they construct ``Agent`` directly from the banking
-fixture definition. Everything else in the suite constructs agents through
-the factory only (CLAUDE.md §6.4); the lint trees (`/src`, `/runtime`,
-`/examples`) never construct one outside ``factory.py``.
+**Every agent here is built by the Agent Factory from the banking fixture
+artifacts** (CLAUDE.md §6.4 — "Tests construct agents the same way, from
+fixture artifacts"). The constructor's coherence guard is still unit-tested
+on deliberately-corrupted inputs, but through
+``ccf.agents.agent._validate_coherence`` — the guard extracted for exactly
+this purpose — rather than by calling ``Agent(...)`` with a corrupted
+identity. Before plan 15-04 this module bypassed the factory in a helper;
+D-IMPL-78 widened CINV-01 over ``tests/``, which surfaced that bypass as the
+one genuine finding, and it is fixed here rather than allowlisted.
 
 All axis values live in the banking fixture YAML, none in this module
 (No-Hardcoding Rule, §6.4).
@@ -32,16 +36,28 @@ from typing import Any
 import pytest
 import yaml
 
-from ccf.agents.agent import Agent, AgentIdentity, EmittedEffect
+from ccf.agents.agent import (
+    Agent,
+    AgentIdentity,
+    EmittedEffect,
+    _validate_coherence,
+    _validated_bound_skills,
+)
 from ccf.agents.archetypes import ARCHETYPES, ArchetypeComponent
-from ccf.agents.definitions import AGENT_DEFINITION, AgentDefinition
+from ccf.agents.definitions import (
+    AGENT_DEFINITION,
+    PROMPT_ARTIFACT,
+    AgentDefinition,
+)
+from ccf.agents.factory import AgentFactory
 from ccf.agents.errors import (
     AgentConstructionError,
     ConsumptionRefused,
     SkillNotBound,
 )
 from ccf.contracts.canonical import content_hash
-from ccf.controlplane.artifacts import parse_artifact
+from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
+from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.replay.record import NO_GRANTS_SET_HASH, PerspectiveConditioning
 
@@ -51,6 +67,14 @@ FIXTURE = (
     / "banking"
     / "agents"
     / "covenant_analytics.yaml"
+)
+
+PROMPT_FIXTURE = (
+    Path(__file__).parent.parent
+    / "fixtures"
+    / "banking"
+    / "prompts"
+    / "covenant_summary.yaml"
 )
 
 
@@ -80,17 +104,38 @@ def _components(
     return tuple(ARCHETYPES[identifier] for identifier in definition.archetypes)
 
 
-def _agent(**overrides: Any) -> Agent:
+def _registry() -> ControlPlaneRegistry:
+    """A Control Plane holding every artifact the fixture definition names."""
+    plane = ControlPlaneRegistry()
+    prompt_fixture = yaml.safe_load(PROMPT_FIXTURE.read_text())
+    prompt = parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT)
+    plane.register_typed(
+        prompt_fixture["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
+    )
+    for reference in yaml.safe_load(FIXTURE.read_text())["referenced_artifacts"].values():
+        artifact_class = declared_artifact_class(reference["class_id"])
+        declared = parse_artifact(
+            {
+                "class_id": reference["class_id"],
+                "semver": reference["semver"],
+                "declaration": reference["declaration"],
+            },
+            artifact_class,
+        )
+        plane.register_typed(reference["key"], declared, artifact_class)
+    return plane
+
+
+def _agent() -> Agent:
+    """One agent, built the supported way: factory, fixture artifacts, no bypass."""
+    registry = _registry()
     definition = _definition()
-    values: dict[str, Any] = {
-        "definition": definition,
-        "identity": _identity(definition),
-        "components": _components(definition),
-        "instruction_artifacts": {},
-        "bound_skills": None,
-    }
-    values.update(overrides)
-    return Agent(**values)
+    key = f"{definition.tenant}/{AGENT_DEFINITION.class_id}/{definition.name}"
+    version = registry.register_versioned(key, definition, AGENT_DEFINITION)
+    assert isinstance(version, str)
+    return AgentFactory(control_plane=registry).construct(
+        definition_key=key, definition_version=version
+    )
 
 
 def _product(definition: AgentDefinition, *, expires_at: datetime) -> ContextProductContract:
@@ -123,20 +168,40 @@ def test_a_matching_identity_block_constructs() -> None:
     assert agent.identity.archetype_composition == definition.archetypes
 
 
+def _refuses(**overrides: Any) -> None:
+    """Assert the constructor's coherence guard refuses a corrupted input.
+
+    Driven through ``_validate_coherence`` rather than through ``Agent(...)``:
+    the factory derives identity from the definition, so a mismatch cannot be
+    expressed factory-side, and bypassing the factory to express it is exactly
+    what CINV-01c refuses (CLAUDE.md §6.4).
+    """
+    definition = _definition()
+    values: dict[str, Any] = {
+        "identity": _identity(definition),
+        "components": _components(definition),
+    }
+    values.update(overrides)
+    with pytest.raises(AgentConstructionError):
+        _validate_coherence(definition, values["identity"], values["components"])
+
+
+def test_the_guard_accepts_the_coherent_inputs_the_factory_produces() -> None:
+    """Vacuity guard: the corruption tests below must fail for their reason."""
+    definition = _definition()
+    _validate_coherence(definition, _identity(definition), _components(definition))
+
+
 def test_a_mismatched_definition_hash_is_refused() -> None:
     definition = _definition()
-    with pytest.raises(AgentConstructionError):
-        _agent(identity=_identity(definition, definition_hash="0" * 64))
+    _refuses(identity=_identity(definition, definition_hash="0" * 64))
 
 
 def test_a_mismatched_archetype_composition_is_refused() -> None:
     definition = _definition()
-    with pytest.raises(AgentConstructionError):
-        _agent(
-            identity=_identity(
-                definition, archetype_composition=("context_assembly",)
-            )
-        )
+    _refuses(
+        identity=_identity(definition, archetype_composition=("context_assembly",))
+    )
 
 
 def test_a_drifted_definition_uri_is_refused() -> None:
@@ -146,8 +211,7 @@ def test_a_drifted_definition_uri_is_refused() -> None:
         f"ccf-artifact://{definition.tenant}/{AGENT_DEFINITION.class_id}/"
         f"{definition.name}@99.99.99"
     )
-    with pytest.raises(AgentConstructionError):
-        _agent(identity=_identity(definition, definition_uri=drifted))
+    _refuses(identity=_identity(definition, definition_uri=drifted))
 
 
 def test_a_foreign_tenant_in_the_definition_uri_is_refused() -> None:
@@ -157,13 +221,11 @@ def test_a_foreign_tenant_in_the_definition_uri_is_refused() -> None:
         f"ccf-artifact://other-bank/{AGENT_DEFINITION.class_id}/"
         f"{definition.name}@{definition.artifact_version}"
     )
-    with pytest.raises(AgentConstructionError):
-        _agent(identity=_identity(definition, definition_uri=foreign))
+    _refuses(identity=_identity(definition, definition_uri=foreign))
 
 
 def test_components_must_match_the_declared_composition() -> None:
-    with pytest.raises(AgentConstructionError):
-        _agent(components=())
+    _refuses(components=())
 
 
 def test_no_construction_token_exists() -> None:
@@ -255,6 +317,11 @@ def test_perspective_conditioning_requires_an_explicit_grant_set_hash() -> None:
 
 def test_a_raw_mapping_is_refused_at_the_bound_skills_seam() -> None:
     """WR-03: only the grant ledger's BoundSkillView is admissible —
-    capabilities reach an agent through governed grants exclusively."""
+    capabilities reach an agent through governed grants exclusively.
+
+    Driven through the seam's own validator for the same reason the coherence
+    corruptions are: the factory passes the grant ledger's view, so a raw
+    mapping can only reach the constructor by bypassing it (CLAUDE.md §6.4).
+    """
     with pytest.raises(AgentConstructionError):
-        _agent(bound_skills={"summarize-covenants": object()})
+        _validated_bound_skills({"summarize-covenants": object()})
