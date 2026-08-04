@@ -23,10 +23,19 @@ chose is a number no examiner can trace to a decision anyone made
 (CLAUDE.md §11, CINV-01; D-IMPL-38).
 
 Artifact classes whose *schema* belongs to a deployment rather than to the SDK
-— policy bundles, operator parameter sets — use :class:`DeclaredArtifact`,
-which fixes the envelope (class identity, lane, canonical serializability)
-while leaving the declaration itself open. The SDK does not get to invent a
-policy-bundle schema on a user's behalf.
+— policy bundles, ontology declarations, **deployment-authored** operator
+parameter sets — use :class:`DeclaredArtifact`, which fixes the envelope (class
+identity, lane, canonical serializability) while leaving the declaration itself
+open. The SDK does not get to invent a policy-bundle schema on a user's behalf.
+
+The rule is *the SDK owns the schema of what it ships and never invents one for
+what it does not*, which is narrower than "operator parameter sets belong to the
+deployment". The four operator categories the SDK ships have typed classes
+(:class:`OperatorParametersArtifact` and its subclasses) precisely because their
+parameter contracts are already ``/src`` code — :mod:`ccf.operators.params`,
+whose own docstring calls them Control Plane values a deployment declares,
+versions and replays against. A category the SDK does not ship is a
+deployment-authored schema and takes the open envelope.
 
 Where the primitives live
 -------------------------
@@ -118,12 +127,20 @@ class ArtifactLoadError(ValueError):
 class DeclaredArtifact(VersionedArtifact):
     """An artifact whose *schema* is the deployment's, not the SDK's.
 
-    Policy bundles, operator parameter sets, ontology declarations: the
-    whitepaper fixes that these are versioned Control Plane artifacts, not what
-    fields they hold. This envelope supplies the parts that are mechanism —
-    class identity, semver lane, canonical serializability — and leaves
-    ``declaration`` open. Anything inside it must still be canonically
+    Policy bundles, ontology declarations, **deployment-authored** operator
+    parameter sets: the whitepaper fixes that these are versioned Control Plane
+    artifacts, not what fields they hold. This envelope supplies the parts that
+    are mechanism — class identity, semver lane, canonical serializability — and
+    leaves ``declaration`` open. Anything inside it must still be canonically
     serializable, so a float in a declaration fails at registration.
+
+    The qualifier on operator parameter sets is load-bearing. The four categories
+    the SDK ships — traversal, temporal, policy, similarity — have typed classes
+    (:class:`OperatorParametersArtifact` and its subclasses), because the SDK
+    already owns those parameter contracts in :mod:`ccf.operators.params` and an
+    open envelope over a schema the SDK wrote would be refusing to validate what
+    it can. The envelope's reason is unchanged for everything else: the SDK does
+    not get to invent a policy-bundle schema on a user's behalf.
 
     Attributes:
         class_id: Which declared class this is an instance of.
