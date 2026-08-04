@@ -36,11 +36,28 @@ from ccf.controlplane.artifact_base import ArtifactClass
 from ccf.controlplane.artifacts import (
     DEBT_PROFILE,
     HALF_LIFE_TABLE,
+    OPERATOR_PARAMETERS_POLICY,
+    OPERATOR_PARAMETERS_SIMILARITY,
+    OPERATOR_PARAMETERS_TEMPORAL,
+    OPERATOR_PARAMETERS_TRAVERSAL,
     RESOLUTION_SPEC,
     ArtifactLoadError,
     parse_artifact,
 )
 from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
+from ccf.operators.categories import (
+    PolicyFilter,
+    SimilaritySelect,
+    TemporalAsOf,
+    TraversalNeighborhood,
+)
+from ccf.operators.params import (
+    PolicyFilterParameters,
+    SimilaritySelectParameters,
+    TemporalAsOfParameters,
+    TraversalNeighborhoodParameters,
+)
+from ccf.similarity.protocol import TokenOverlapIndex
 
 _SEMVER = "1.0.0"
 
@@ -123,6 +140,51 @@ CASES: tuple[_Case, ...] = (
             "similarity_corpus_attribute_by_class",
         ),
     ),
+    _Case(
+        artifact_class=OPERATOR_PARAMETERS_TRAVERSAL,
+        document={
+            "semver": _SEMVER,
+            "seed_entity_classes": ["fixture-entity"],
+            "relationship_types": ["fixture-edge"],
+            "depth_limit": 2,
+        },
+        unknown_keys=("tenant_id",),
+    ),
+    _Case(
+        artifact_class=OPERATOR_PARAMETERS_TEMPORAL,
+        document={
+            "semver": _SEMVER,
+            "require_valid_at_boundary": True,
+        },
+        unknown_keys=("tenant_id",),
+    ),
+    _Case(
+        artifact_class=OPERATOR_PARAMETERS_POLICY,
+        # Exactly three keys, and the omission is the point: the version set is a
+        # content hash minted at registration (D-IMPL-76), so an authored
+        # document has no value to state for it. These fixtures are the
+        # authoring pattern adopters copy, and one inventing a plausible-looking
+        # version set would teach the wrong thing.
+        document={
+            "semver": _SEMVER,
+            "classification_attribute_by_class": {"fixture-entity": "fixture_class"},
+            "permitted_classifications": ["fixture-classification"],
+        },
+        unknown_keys=("tenant_id", "permitted_policy_bundle_versions"),
+    ),
+    _Case(
+        artifact_class=OPERATOR_PARAMETERS_SIMILARITY,
+        document={
+            "semver": _SEMVER,
+            "query": "fixture query",
+            "minimum_score_percent": 10,
+            "ranked_entity_classes": ["fixture-entity"],
+            "similarity_corpus_attribute_by_class": {
+                "fixture-entity": "fixture_attribute"
+            },
+        },
+        unknown_keys=("tenant_id",),
+    ),
 )
 
 _IDS = tuple(case.artifact_class.class_id for case in CASES)
@@ -182,6 +244,129 @@ def test_a_document_that_states_no_semver_is_refused(case: _Case) -> None:
     document = {key: value for key, value in case.document.items() if key != "semver"}
     with pytest.raises(ArtifactLoadError):
         parse_artifact(document, case.artifact_class)
+
+
+def _document_for(class_id: str) -> dict[str, Any]:
+    """The round-trip document for ``class_id``, so the operator tests below
+    exercise the *same* fixture the envelope tests do rather than a second one
+    that could drift from it."""
+    for case in CASES:
+        if case.artifact_class.class_id == class_id:
+            return case.document
+    raise AssertionError(f"no case for {class_id}")
+
+
+# --- the operator-parameters classes: one vocabulary, not two -----------------
+
+
+def test_a_parsed_traversal_artifact_is_accepted_by_the_traversal_operator() -> None:
+    """No field translation exists between artifact and operator, because there
+    is nothing to translate: the artifact *is* the parameter set.
+
+    Proving it by construction rather than asserting it in a docstring is the
+    point — a second field vocabulary would drift from the operator contract
+    silently, and this is where that drift stops (T-15-08-02).
+    """
+    parsed = parse_artifact(
+        _document_for("ccf.operator-parameters.traversal"),
+        OPERATOR_PARAMETERS_TRAVERSAL,
+    )
+    assert isinstance(parsed, TraversalNeighborhoodParameters)
+    operator = TraversalNeighborhood(parameters=parsed)
+    assert operator.parameters is parsed
+
+
+def test_a_parsed_temporal_artifact_is_accepted_by_the_temporal_operator() -> None:
+    """Sibling of the traversal case; same claim, same absence of mapping."""
+    parsed = parse_artifact(
+        _document_for("ccf.operator-parameters.temporal"),
+        OPERATOR_PARAMETERS_TEMPORAL,
+    )
+    assert isinstance(parsed, TemporalAsOfParameters)
+    operator = TemporalAsOf(parameters=parsed)
+    assert operator.parameters is parsed
+
+
+def test_a_parsed_similarity_artifact_is_accepted_by_the_similarity_operator() -> None:
+    """The artifact-only corpus map does not obstruct the operator contract.
+
+    ``similarity_corpus_attribute_by_class`` governs index *construction* and is
+    absent from :class:`SimilaritySelectParameters` on purpose; the artifact
+    still satisfies that contract and reaches the operator unmapped.
+    """
+    parsed = parse_artifact(
+        _document_for("ccf.operator-parameters.similarity"),
+        OPERATOR_PARAMETERS_SIMILARITY,
+    )
+    assert isinstance(parsed, SimilaritySelectParameters)
+    operator = SimilaritySelect(
+        parameters=parsed,
+        index=TokenOverlapIndex(corpus={}, index_version="fixture-index"),
+    )
+    assert operator.parameters is parsed
+
+
+def test_the_similarity_corpus_map_is_artifact_only() -> None:
+    """The construction-time value stays off the per-invocation contract.
+
+    Adding it to :class:`SimilaritySelectParameters` would put a value no
+    invocation reads onto the L4 invoke contract, which is the reason it lives
+    on the artifact instead (D-03).
+    """
+    assert (
+        "similarity_corpus_attribute_by_class"
+        not in SimilaritySelectParameters.model_fields
+    )
+
+
+# --- the policy artifact is deliberately not an operator parameter set --------
+
+
+def test_a_parsed_policy_artifact_is_not_a_policy_filter_parameter_set() -> None:
+    """The incompleteness is *structural*, and this is what protects D-IMPL-76.
+
+    ``permitted_policy_bundle_versions`` is a content hash minted at
+    registration, so no artifact can declare it and the adopter passes the pin
+    set to the operator-registry builder. Had the artifact subclassed
+    :class:`PolicyFilterParameters` with a ``frozenset()`` default, a parsed
+    document would satisfy ``isinstance`` and could be handed straight to
+    :class:`PolicyFilter` by anyone bypassing the builder — yielding an operator
+    that admits nothing while looking fully configured (T-15-08-05). The type
+    system refuses that here.
+
+    The refusal has two halves. The static half is the annotation:
+    ``PolicyFilter.__init__`` takes a ``PolicyFilterParameters``, and the artifact
+    is not one — but ``mypy``'s ``files`` are ``src`` and ``runtime``, so no test
+    can assert that and this module does not pretend to. What it asserts is the
+    dynamic half, which is the one that matters if the annotation is ignored: an
+    operator built by bypassing the builder cannot read its own admission set at
+    all. It raises rather than admitting nothing — a loud failure rather than a
+    silent fail-open.
+    """
+    parsed = parse_artifact(
+        _document_for("ccf.operator-parameters.policy"), OPERATOR_PARAMETERS_POLICY
+    )
+    assert not isinstance(parsed, PolicyFilterParameters)
+    assert "permitted_policy_bundle_versions" not in type(parsed).model_fields
+    bypassed = PolicyFilter(parameters=parsed)  # type: ignore[arg-type]
+    with pytest.raises(AttributeError):
+        _ = bypassed.parameters.permitted_policy_bundle_versions
+
+
+def test_the_policy_document_states_no_version_set() -> None:
+    """The authored document omits the pin entirely — not even an empty one.
+
+    The fixture is the authoring pattern adopters copy. The contract is
+    closed-world, so stating the key at all is a parse failure rather than a
+    harmless redundancy.
+    """
+    document = _document_for("ccf.operator-parameters.policy")
+    assert "permitted_policy_bundle_versions" not in document
+    with pytest.raises(ArtifactLoadError):
+        parse_artifact(
+            {**document, "permitted_policy_bundle_versions": ["anything"]},
+            OPERATOR_PARAMETERS_POLICY,
+        )
 
 
 def test_every_sdk_artifact_class_has_a_round_trip_case() -> None:
