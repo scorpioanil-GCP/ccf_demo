@@ -55,6 +55,15 @@ ALLOWED_CCF_PREFIXES = (
     "ccf.artifacts.protocol",
     "ccf.contracts",
     "ccf.controlplane.artifacts",
+    # D-IMPL-77 (15-07): `validate_semver`, `VersionedArtifact` and
+    # `ArtifactClass` moved out of `ccf.controlplane.artifacts` into this module
+    # to break an import cycle. Admitting it *narrows* the consumption surface
+    # rather than widening it: `artifact_base` imports nothing from `ccf` except
+    # `ccf.contracts.base` — a constraint stated in its own module docstring and
+    # the property it exists to hold — so it is strictly more constrained than
+    # the `ccf.controlplane.artifacts` entry directly above, and reaches no
+    # fabric layer at all.
+    "ccf.controlplane.artifact_base",
     "ccf.controlplane.registry",
     # IN-01 (05-11): the shared pinned-resolution helper and the read-surface
     # Protocol it is typed against. Same tier as `ccf.controlplane.registry`

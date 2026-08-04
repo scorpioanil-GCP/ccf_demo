@@ -44,6 +44,7 @@ def _resolution_spec(ontology: Any) -> Any:
     )
 
     return EntityResolutionSpec(
+        semver=ontology["artifact_version"],
         entity_rules=tuple(
             EntityResolutionRule(
                 match_key=rule["match_key"],
