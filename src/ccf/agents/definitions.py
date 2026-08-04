@@ -39,7 +39,7 @@ from pydantic import field_validator, model_validator
 
 from ccf.artifacts.protocol import ArtifactStoreError, parse_artifact_uri
 from ccf.contracts.base import CCFContract
-from ccf.controlplane.artifacts import ArtifactClass, validate_semver
+from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 
 __ccf_mode__ = "algorithmic"
 
@@ -95,7 +95,7 @@ class _TwoLaneVersioned(CCFContract):
     """Shared D-IMPL-28 surface: schema lane + author-bumped artifact version.
 
     Distinct from the single-lane
-    :class:`~ccf.controlplane.artifacts._VersionedArtifact` because definition
+    :class:`~ccf.controlplane.artifact_base.VersionedArtifact` because definition
     artifacts carry two statements, not one: which schema shape they satisfy
     (``schema_version``) and which content revision they are
     (``artifact_version``, hash-verified per D-05).

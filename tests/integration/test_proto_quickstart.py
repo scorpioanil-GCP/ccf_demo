@@ -137,6 +137,7 @@ def events() -> Any:
 
 def _resolution_spec(ontology: Any) -> EntityResolutionSpec:
     return EntityResolutionSpec(
+        semver="1.0.0",
         entity_rules=tuple(
             EntityResolutionRule(
                 match_key=rule["match_key"],

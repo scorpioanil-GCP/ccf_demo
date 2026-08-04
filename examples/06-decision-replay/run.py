@@ -200,6 +200,7 @@ def _ticking_clock(base: datetime) -> Any:
 
 def _resolution_spec(ontology: Any) -> EntityResolutionSpec:
     return EntityResolutionSpec(
+        semver=ontology["artifact_version"],
         entity_rules=tuple(
             EntityResolutionRule(
                 match_key=rule["match_key"],

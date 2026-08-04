@@ -27,7 +27,8 @@ error that must surface at the point of use, not a condition the fabric papers
 over with a number nobody chose.
 
 **Typed registration.** :meth:`ControlPlaneRegistry.register_typed` validates an
-artifact against a declared :class:`~ccf.controlplane.artifacts.ArtifactClass`
+artifact against a declared
+:class:`~ccf.controlplane.artifact_base.ArtifactClass`
 before it is stored. Untyped :meth:`~ControlPlaneRegistry.register` remains,
 because artifact classes whose schema belongs to a deployment rather than to
 the SDK must still be registrable — but anything the SDK *has* a contract for
@@ -51,7 +52,7 @@ from typing import Protocol, runtime_checkable
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
-from ccf.controlplane.artifacts import ArtifactClass
+from ccf.controlplane.artifact_base import ArtifactClass
 from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
 from ccf.controlplane.state import ControlPlaneStateStore, InMemoryStateStore
 

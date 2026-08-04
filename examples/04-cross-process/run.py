@@ -138,6 +138,7 @@ def _consumer_resolution_spec(federation: Any) -> EntityResolutionSpec:
     """
     declared = federation["federation"]["entity_rule"]
     return EntityResolutionSpec(
+        semver=federation["artifact_version"],
         entity_rules=(
             EntityResolutionRule(
                 match_key=declared["match_key"],

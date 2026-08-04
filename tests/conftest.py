@@ -55,6 +55,7 @@ def _resolution_spec() -> Any:
     )
 
     return EntityResolutionSpec(
+        semver="1.0.0",
         entity_rules=(
             EntityResolutionRule(
                 match_key="counterparty_lei",

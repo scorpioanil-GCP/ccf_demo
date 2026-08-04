@@ -48,6 +48,7 @@ from pydantic import Field
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
+from ccf.controlplane.artifact_base import VersionedArtifact
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph.protocols import GraphWriter, UpsertResult
 from ccf.peering.admission import AdmittedProduct
@@ -102,12 +103,28 @@ class RelationshipResolutionRule(CCFContract):
     object_entity_class: str
 
 
-class EntityResolutionSpec(CCFContract):
+class EntityResolutionSpec(VersionedArtifact):
     """The full resolution vocabulary for a deployment.
 
     A Control Plane artifact, versioned like any other: changing how sources
     map onto the ontology changes what the graph means, so it needs the same
-    audit lineage as a policy bundle.
+    audit lineage as a policy bundle. That sentence is now literally true —
+    the class inherits
+    :class:`~ccf.controlplane.artifact_base.VersionedArtifact` and is reachable
+    through :func:`~ccf.controlplane.artifacts.parse_artifact` as the
+    ``ccf.resolution-spec`` class (D-IMPL-77).
+
+    Inherited from the base rather than wrapped beside it, because a wrapper
+    would hand :func:`ccf.boot.boot` a wrapper where it expects a spec, and
+    ``boot()``'s signature is the one contract D-05 preserves. The consequence
+    is accepted deliberately: ``semver`` changes the spec's content hash, so
+    every ``resolution_spec_version`` pin minted after this change differs from
+    one minted before it.
+
+    ``semver`` has no default (see the base). A spec that never states its lane
+    cannot be registered — and a default lane would be a version nobody chose,
+    which is exactly the value the registry's bump check would then compare
+    against.
     """
 
     entity_rules: tuple[EntityResolutionRule, ...]

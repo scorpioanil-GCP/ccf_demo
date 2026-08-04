@@ -152,7 +152,7 @@ from ccf.artifacts.protocol import (
     ArtifactStoreProtocol,
 )
 from ccf.contracts.base import CCFContract
-from ccf.controlplane.artifacts import ArtifactClass, validate_semver
+from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 from ccf.controlplane.audit import AuditAction, AuditLog
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.peering.identity import IdentityError, IdentityProvider
