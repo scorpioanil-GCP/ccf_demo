@@ -19,16 +19,16 @@ for a given artifact document. That is the manifest author's decision, and the
 closed-world contract's job to reject when it is wrong — the lookup's only claim
 is that the string reaches a contract at all.
 
-**Deviation from the plan, recorded here because it changes what (b) proves.**
-The plan specified (b) over ``ccf.controlplane.artifacts.__all__``. That set is
-currently *vacuous* for this purpose: ``__all__`` lists the classes and
-functions, and the two shipped ``ArtifactClass`` **instances**
-(``HALF_LIFE_TABLE``, ``DEBT_PROFILE``) are not in it. An ``__all__``-only scan
-would find zero instances and pass while proving nothing. So (b) scans every
-public module attribute instead, which is a superset of the ``__all__`` names and
-catches a new constant however it is declared. ``artifacts.py`` is owned by
-another plan this wave and was deliberately not edited to add the constants to
-``__all__``.
+**Why (b) scans module attributes rather than ``__all__``.** 15-06 specified (b)
+over ``ccf.controlplane.artifacts.__all__``, but that set was *vacuous* for the
+purpose at the time: ``__all__`` listed the classes and functions while the
+shipped ``ArtifactClass`` **instances** were absent from it, so an
+``__all__``-only scan would have found zero instances and passed while proving
+nothing. 15-07 owns ``artifacts.py`` and has since added ``HALF_LIFE_TABLE``,
+``DEBT_PROFILE`` and ``RESOLUTION_SPEC`` to ``__all__``, closing that gap. The
+attribute scan is kept regardless, because it is a *superset* of the ``__all__``
+names: it still catches a constant that is declared but never exported, which is
+exactly the drift an ``__all__``-only scan would now wave through.
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ _EDIT_ME = "ccf/deployment/classes.py"
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 _LIVE_MANIFEST = _REPO_ROOT / "docs" / "surface" / "v0.2-surface.json"
-_FRAGMENT = _REPO_ROOT / "docs" / "surface-changes" / "15-06-class-lookup.md"
+_FRAGMENT_DIR = _REPO_ROOT / "docs" / "surface-changes"
 
 
 def _exported_artifact_classes() -> dict[str, ArtifactClass]:
@@ -151,33 +151,48 @@ def test_an_unnamed_class_id_is_refused(class_id: str) -> None:
 
 
 def _fragment_public_added() -> set[str]:
-    """``Surface`` values in this plan's fragment that are ``added`` + public."""
-    text = _FRAGMENT.read_text(encoding="utf-8")
+    """``Surface`` values across **every** fragment that are ``added`` + public.
+
+    Every fragment, not only this plan's. The manifest is frozen between 15-01
+    and 15-21, so its accumulated ``added`` set grows with each merged plan in
+    between; scanning one fragment would make this test fail for plan *N* the
+    moment plan *N+1* added a name — a permanent false red that says nothing
+    about either plan's correctness (found in wave 4 by 15-07, whose seven
+    additions broke a single-fragment scan).
+
+    Both assertion directions survive the widening. ``added <= claimed`` still
+    catches an entry any plan forgot to write, because no other fragment claims
+    a name its author never recorded; ``claimed <= added`` still catches a
+    fragment claiming a name the tree does not actually export.
+    """
     claimed: set[str] = set()
-    surface: str | None = None
-    public = False
-    change: str | None = None
-    for line in text.splitlines() + ["## "]:
-        stripped = line.strip()
-        if stripped.startswith("## ") or stripped.startswith("- Surface: "):
-            if surface and public and change == "added":
-                claimed.add(surface)
-            surface, public, change = None, False, None
-        if stripped.startswith("- Surface: "):
-            surface = stripped.removeprefix("- Surface: ").strip()
-        elif stripped.startswith("- Public surface: "):
-            public = stripped.removeprefix("- Public surface: ").strip() == "true"
-        elif stripped.startswith("- Change type: "):
-            change = stripped.removeprefix("- Change type: ").strip()
+    for fragment in sorted(_FRAGMENT_DIR.glob("*.md")):
+        if fragment.name == "README.md":
+            continue
+        surface: str | None = None
+        public = False
+        change: str | None = None
+        for line in fragment.read_text(encoding="utf-8").splitlines() + ["## "]:
+            stripped = line.strip()
+            if stripped.startswith("## ") or stripped.startswith("- Surface: "):
+                if surface and public and change == "added":
+                    claimed.add(surface)
+                surface, public, change = None, False, None
+            if stripped.startswith("- Surface: "):
+                surface = stripped.removeprefix("- Surface: ").strip()
+            elif stripped.startswith("- Public surface: "):
+                public = stripped.removeprefix("- Public surface: ").strip() == "true"
+            elif stripped.startswith("- Change type: "):
+                change = stripped.removeprefix("- Change type: ").strip()
     return claimed
 
 
-def test_this_plans_fragment_claims_exactly_what_it_added() -> None:
-    """Subset-equality in **both** directions, asserted at this plan's own wave.
+def test_the_phases_fragments_claim_exactly_what_was_added() -> None:
+    """Subset-equality in **both** directions, asserted at each plan's own wave.
 
-    An entry this plan forgot to write fails here, in wave 3, rather than in
-    15-21's completeness cross-check at wave 14 — the most expensive point in
-    the phase to discover it.
+    An entry a plan forgot to write fails here, at the wave that added it,
+    rather than in 15-21's completeness cross-check at wave 14 — the most
+    expensive point in the phase to discover it.
     """
     committed = json.loads(_LIVE_MANIFEST.read_text(encoding="utf-8"))
     added = set(diff_surfaces(committed, build_surface())["added"])
