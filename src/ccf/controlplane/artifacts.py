@@ -302,7 +302,12 @@ _NAIVE_TIMESTAMP_RE = re.compile(
 )
 
 
-class _ArtifactLoader(yaml.SafeLoader):
+# PyYAML ships no inline types, so `SafeLoader` is `Any` here and mypy's strict
+# mode refuses the subclass on principle. The base is still exactly `SafeLoader`
+# at runtime — this loader narrows what it resolves and widens nothing — and
+# everything it parses is validated by a typed contract immediately after, the
+# same closure the `yaml` mypy override in `pyproject.toml` rests on.
+class _ArtifactLoader(yaml.SafeLoader):  # type: ignore[misc]
     """A ``SafeLoader`` that reads timestamps as text and lets contracts parse them.
 
     ``2026-08-03T12:00:00Z`` is not an implicit timezone: ``Z`` is the ISO-8601
