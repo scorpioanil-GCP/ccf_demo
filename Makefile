@@ -184,5 +184,12 @@ surface: ## Regenerate the committed public-surface manifest — the D-15 baseli
 # `relocatable` (assertions/prints D-09 moves to tests/) are separate figures
 # and are never summed. The audit assertion lives in the always-on `test` job
 # (tests/examples/test_surface_audit.py).
-measure-examples: ## Re-measure examples/ mechanical surface — the ERGO-03 baseline
-	$(ENV) $(PYTHON) tools/measure_examples.py
+#
+# `measure-examples` writes the after/ side, which is what the eight example
+# rewrite plans need. The before/ baseline is deliberately NOT reachable from
+# a make target: it is written once at phase start and rewriting it mid-phase
+# destroys the comparison. Use `python tools/measure_examples.py --baseline`
+# if you genuinely mean to re-freeze it. Pass ONLY=<path prefix> to restrict a
+# run to one example so parallel worktrees do not overwrite each other.
+measure-examples: ## Re-measure examples/ mechanical surface into after/ (ONLY=<prefix> to narrow)
+	$(ENV) $(PYTHON) tools/measure_examples.py $(if $(ONLY),--only $(ONLY),)

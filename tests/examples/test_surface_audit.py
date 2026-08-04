@@ -45,13 +45,14 @@ if str(REPO_ROOT) not in sys.path:  # the tools/ package is not installed
     sys.path.insert(0, str(REPO_ROOT))
 
 from tools.measure_examples import (  # noqa: E402
+    AFTER_DIR,
     BEFORE_DIR,
     fragment_name,
+    main,
     measure_file,
+    measure_tree,
     serialize,
 )
-
-AFTER_DIR = REPO_ROOT / "docs" / "surface" / "examples" / "after"
 
 #: The phase-start tree carried 24 measured modules; a baseline that shrank
 #: below the research-documented floor means fragments were deleted, not that
@@ -212,3 +213,91 @@ def test_the_report_covers_every_baseline_file() -> None:
         fragment["path"] for fragment in _fragments(BEFORE_DIR).values()
     }
     assert set(report["per_file"]) == recorded_paths
+
+
+# --- the writer's side: which directory a run actually writes -------------
+#
+# The consumer above reads `after/`. Until the pre-wave-9 fix, nothing wrote
+# it: `measure_examples.py` had only a `BEFORE_DIR` writer, and the eight
+# rewrite plans instruct executors to run `make measure-examples` to produce
+# `after/` fragments. That command wrote `before/` — so each rewrite would
+# have overwritten the phase-start baseline it was supposed to be measured
+# against, and the audit would have compared the rewritten tree to itself and
+# reported no change. These tests pin the write target in both directions.
+
+
+def test_a_default_run_writes_after_not_the_baseline(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The failure mode that made Criterion 1 unmeasurable."""
+    fake_before = tmp_path / "before"
+    fake_after = tmp_path / "after"
+    monkeypatch.setattr("tools.measure_examples.BEFORE_DIR", fake_before)
+    monkeypatch.setattr("tools.measure_examples.AFTER_DIR", fake_after)
+
+    assert main([]) == 0
+
+    assert fake_after.is_dir() and any(fake_after.glob("*.json"))
+    assert not fake_before.exists(), (
+        "a default run touched the phase-start baseline"
+    )
+
+
+def test_the_baseline_is_written_only_under_an_explicit_flag(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--baseline` is the only path to the immutable 'before' side."""
+    fake_before = tmp_path / "before"
+    fake_after = tmp_path / "after"
+    monkeypatch.setattr("tools.measure_examples.BEFORE_DIR", fake_before)
+    monkeypatch.setattr("tools.measure_examples.AFTER_DIR", fake_after)
+
+    assert main(["--baseline"]) == 0
+
+    assert fake_before.is_dir() and any(fake_before.glob("*.json"))
+    assert not fake_after.exists()
+
+
+def test_only_restricts_a_run_to_one_example() -> None:
+    """Parallel rewrite worktrees must not overwrite each other's fragments.
+
+    Asserted on `measure_tree` rather than on files, so the guarantee is about
+    the filter itself and not about whatever the tree happens to contain.
+    """
+    everything = measure_tree()
+    narrowed = measure_tree("examples/00-quickstart")
+
+    assert narrowed, "the prefix matched nothing — the filter is vacuous here"
+    assert set(narrowed) < set(everything)
+    assert all(
+        measurement["path"].startswith("examples/00-quickstart")
+        for measurement in narrowed.values()
+    )
+
+
+def test_a_prefix_matching_nothing_fails_loudly(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A typo'd --only must not report success having written nothing.
+
+    A rewrite plan that mistypes its prefix would otherwise see exit 0, commit
+    no fragment, and leave the audit silently skipping that example.
+    """
+    monkeypatch.setattr("tools.measure_examples.AFTER_DIR", tmp_path / "after")
+
+    assert main(["--only", "examples/does-not-exist"]) == 1
+    assert not (tmp_path / "after").exists()
+
+
+def test_check_verifies_after_not_the_frozen_baseline() -> None:
+    """`--check` must stay meaningful for the whole phase, not just its start.
+
+    Pointed at `before/`, `--check` compared a *frozen* record against a
+    *fresh* measurement, so it could only pass while the tree still equalled
+    the baseline. It went red the moment plan 15-07 added `semver=` to ten
+    example constructors — a legitimate change, and exactly the kind this
+    phase exists to make. Nothing noticed, because `--check` is wired into no
+    make target and no CI job. Pointed at `after/`, it asserts the thing that
+    stays true all phase: a recorded win still measures what it claims.
+    """
+    assert main(["--check"]) == 0

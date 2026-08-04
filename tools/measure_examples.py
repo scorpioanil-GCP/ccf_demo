@@ -29,6 +29,20 @@ The baseline is written as one JSON fragment per measured file under
 the eight example-rewrite plans can each write their own `after/` fragment in
 parallel worktrees without colliding on a shared file.
 
+Which directory gets written
+----------------------------
+
+`after/` is the default write target and `before/` requires `--baseline`,
+because the two have opposite lifetimes: `after/` is rewritten by each example
+rewrite, while `before/` is the phase-start record that must not move — it is
+the whole "before" side of the Criterion 1 comparison. Defaulting to `before/`
+would mean every rewrite plan running `make measure-examples`, as those plans
+instruct, silently overwrote the baseline it was supposed to be measured
+against, leaving the audit comparing the rewritten tree to itself and
+reporting no change where the real answer was the phase's headline number.
+`--only PREFIX` narrows a run to one example so parallel worktrees do not
+overwrite each other's fragments.
+
 Measurement method (15-RESEARCH.md §1 Method)
 ---------------------------------------------
 
@@ -66,6 +80,11 @@ EXAMPLES_ROOT = REPO_ROOT / "examples"
 
 #: The phase-start baseline, one fragment per measured file.
 BEFORE_DIR = REPO_ROOT / "docs" / "surface" / "examples" / "before"
+
+#: The phase-close re-measurement, written per-example by the rewrite plans.
+#: ``tests/examples/test_surface_audit.py`` reads this directory to produce the
+#: four separate figures Criterion 1 reports.
+AFTER_DIR = REPO_ROOT / "docs" / "surface" / "examples" / "after"
 
 #: Marshalling helpers extracted as named functions (15-RESEARCH.md §1 pass 2).
 HELPER_NAMES = frozenset(
@@ -216,11 +235,22 @@ def serialize(measurement: dict[str, Any]) -> str:
     return json.dumps(measurement, indent=2, sort_keys=True) + "\n"
 
 
-def measure_tree() -> dict[str, dict[str, Any]]:
-    """Fragment name -> measurement, for every example module."""
+def measure_tree(only: str | None = None) -> dict[str, dict[str, Any]]:
+    """Fragment name -> measurement, for every example module.
+
+    ``only`` restricts the measurement to modules whose repo-relative path
+    starts with the given prefix. That filter is what lets the eight
+    example-rewrite plans each write their own ``after/`` fragments from
+    parallel worktrees: a plan rewriting ``examples/01-agent-basics`` passes
+    that prefix and cannot touch another plan's fragments even by accident.
+    Without it, every plan would rewrite all fragments on every run and the
+    last worktree merged would silently win.
+    """
     emitted: dict[str, dict[str, Any]] = {}
     for path in example_files():
         measurement = measure_file(path)
+        if only is not None and not measurement["path"].startswith(only):
+            continue
         emitted[fragment_name(measurement["path"])] = measurement
     return emitted
 
@@ -228,46 +258,82 @@ def measure_tree() -> dict[str, dict[str, Any]]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Measure the mechanical surface of examples/ and write the"
-            " per-file baseline fragments (ERGO-03)."
+            "Measure the mechanical surface of examples/ (ERGO-03). Writes"
+            " after/ fragments by default; the before/ baseline is written"
+            " only under --baseline, because it is the phase-start record."
         )
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--check",
         action="store_true",
         help=(
-            "Write nothing; exit 1 if any committed fragment differs from a"
-            " fresh measurement."
+            "Write nothing; exit 1 if any committed after/ fragment differs"
+            " from a fresh measurement. The CI mode. Vacuous until the first"
+            " example is rewritten, which is correct — an unrewritten example"
+            " has nothing to be stale against."
+        ),
+    )
+    mode.add_argument(
+        "--baseline",
+        action="store_true",
+        help=(
+            "Rewrite the before/ baseline. Phase-start only — this is the"
+            " immutable 'before' side of Criterion 1, and rewriting it"
+            " mid-phase destroys the comparison the audit reports."
+        ),
+    )
+    parser.add_argument(
+        "--only",
+        metavar="PREFIX",
+        default=None,
+        help=(
+            "Restrict to modules whose repo-relative path starts with PREFIX"
+            " (e.g. examples/01-agent-basics). Each example-rewrite plan"
+            " passes its own prefix so parallel worktrees cannot overwrite"
+            " one another's fragments."
         ),
     )
     args = parser.parse_args(argv)
 
-    emitted = measure_tree()
+    emitted = measure_tree(args.only)
+
+    if not emitted:
+        print(
+            f"No example modules matched --only {args.only!r}. Nothing was"
+            " written. Check the prefix against a repo-relative path such as"
+            " examples/00-quickstart.",
+            file=sys.stderr,
+        )
+        return 1
 
     if args.check:
         divergent: list[str] = []
         for name, measurement in emitted.items():
-            fragment = BEFORE_DIR / name
+            fragment = AFTER_DIR / name
             if not fragment.exists():
                 continue
             if fragment.read_text(encoding="utf-8") != serialize(measurement):
                 divergent.append(name)
         if divergent:
             print(
-                "These baseline fragments differ from a fresh measurement: "
+                "These after/ fragments no longer match a fresh measurement: "
                 + ", ".join(sorted(divergent))
-                + ". Run `make measure-examples` and review the diff — the"
-                " before/ baseline is the phase-start record and should not"
-                " move.",
+                + ". A rewritten example grew or shrank without its recorded"
+                " number moving with it, which would let the Criterion 1"
+                " report claim a win the tree no longer delivers. Re-measure"
+                " with `make measure-examples ONLY=<path prefix>` and review"
+                " the diff.",
                 file=sys.stderr,
             )
             return 1
         return 0
 
-    BEFORE_DIR.mkdir(parents=True, exist_ok=True)
+    target = BEFORE_DIR if args.baseline else AFTER_DIR
+    target.mkdir(parents=True, exist_ok=True)
     for name, measurement in emitted.items():
-        (BEFORE_DIR / name).write_text(serialize(measurement), encoding="utf-8")
-    print(f"wrote {len(emitted)} fragments to {BEFORE_DIR}")
+        (target / name).write_text(serialize(measurement), encoding="utf-8")
+    print(f"wrote {len(emitted)} fragments to {target}")
     return 0
 
 
