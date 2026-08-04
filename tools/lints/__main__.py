@@ -44,6 +44,13 @@ LINTED_TREES: tuple[str, ...] = ("src", "runtime", "examples")
 #: (harness portability) necessarily imports harness SDKs. The exemption is
 #: this config surface — not an allowlist entry, and not merely a test
 #: assertion. Rules absent from this mapping run over every linted tree.
+#:
+#: The ``harness-imports`` checker carries three rules under one AST walk —
+#: ``cinv02-harness``, ``cinv02-graph-writer``, and ``cinv02-deployment-gates``
+#: (the D-15A ban on ``ccf.deployment`` importing ``ccf.products.gates``). All
+#: three share this checker's ``("src", "runtime")`` scope, which already covers
+#: ``ccf.deployment``; the third rule needs no ``CHECKERS`` key of its own, and
+#: naming it here keeps the config surface an honest description of what runs.
 RULE_TREE_SCOPE: dict[str, tuple[str, ...]] = {
     "no-hardcoding": ("src", "runtime", "examples"),
     "harness-imports": ("src", "runtime"),
