@@ -24,6 +24,7 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
 
+# --8<-- [start:mcp-connect]
 @asynccontextmanager
 async def connect(url: str, token: str):
     """Short-lived session per call — the server is stateless."""
@@ -32,8 +33,10 @@ async def connect(url: str, token: str):
         async with ClientSession(read, write) as session:
             await session.initialize()
             yield session
+# --8<-- [end:mcp-connect]
 
 
+# --8<-- [start:mcp-discover]
 async def main() -> None:
     url = os.environ["CCF_MCP_URL"]
     token = os.environ["CCF_TOKEN"]
@@ -55,7 +58,9 @@ async def main() -> None:
         text = "".join(getattr(block, "text", "") for block in result.content)
         assert text, f"{tool.name} returned no content"
         print(f"[{tool.name}] {text}")
+    # --8<-- [end:mcp-discover]
 
+    # --8<-- [start:mcp-resource]
     uri = os.environ.get("CCF_EXAMPLE_RESOURCE_URI")
     if not uri:
         async with connect(url, token) as session:
@@ -65,6 +70,7 @@ async def main() -> None:
     body = "".join(getattr(block, "text", "") for block in contents)
     assert body, f"resource {uri} returned no content"
     print(f"[resource {uri}] {body}")
+# --8<-- [end:mcp-resource]
 
 
 if __name__ == "__main__":

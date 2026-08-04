@@ -95,6 +95,7 @@ def _instant(value: object) -> datetime:
     return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
 
 
+# --8<-- [start:ontology]
 def _resolution_spec(ontology: Any) -> EntityResolutionSpec:
     return EntityResolutionSpec(
         entity_rules=tuple(
@@ -115,8 +116,10 @@ def _resolution_spec(ontology: Any) -> EntityResolutionSpec:
             for rule in ontology["relationship_rules"]
         ),
     )
+# --8<-- [end:ontology]
 
 
+# --8<-- [start:ingest]
 def _envelopes(ontology: Any, events: Any) -> tuple[SignalEnvelope, ...]:
     return tuple(
         SignalEnvelope(
@@ -129,6 +132,7 @@ def _envelopes(ontology: Any, events: Any) -> tuple[SignalEnvelope, ...]:
         )
         for item in events["envelopes"]
     )
+# --8<-- [end:ingest]
 
 
 class QuickstartPlan:
@@ -192,6 +196,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="ccf-quickstart-") as scratch:
         root = Path(scratch)
 
+        # --8<-- [start:assemble]
         # --- Control Plane: register every declared artifact, versioned -----
         registry = ControlPlaneRegistry()
         spec_version = registry.register(
@@ -219,7 +224,9 @@ def main() -> int:
         try:
             for envelope in _envelopes(ontology, events):
                 handle.worker.ingest(envelope)
+            # --8<-- [end:assemble]
 
+            # --8<-- [start:operators]
             # --- L4/L5: the four-category operator chain, from artifacts ----
             params = control["operator_parameters"]
             operators = OperatorRegistry()
@@ -286,7 +293,9 @@ def main() -> int:
                     )
                 )
             )
+            # --8<-- [end:operators]
 
+            # --8<-- [start:project]
             declared = control["product_class"]
             plan = QuickstartPlan(
                 plan_id=declared["plan_id"], required=operators.keys()
@@ -302,7 +311,9 @@ def main() -> int:
                 tenant_id=tenant_id,
                 temporal_boundary=boundary,
             )
+            # --8<-- [end:project]
 
+            # --8<-- [start:gate]
             # --- L6: the three validation gates ----------------------------
             max_ttl_version = registry.register(
                 keys["max_ttl"], MaxTTL(seconds=control["max_ttl_seconds"])
@@ -347,6 +358,7 @@ def main() -> int:
                 gated.product.lineage.operators_invoked
                 == execution.operators_invoked
             )
+            # --8<-- [end:gate]
 
             # The served view matches what the deployment declared it expects.
             expected = control["expected"]
@@ -359,6 +371,7 @@ def main() -> int:
                 expected["relationship_types"]
             ), payload
 
+            # --8<-- [start:record]
             # --- replay before delivery ------------------------------------
             record = build_replay_record(
                 execution=execution,
@@ -372,6 +385,8 @@ def main() -> int:
                 assembly_mode=declared["assembly_mode"],
                 recorded_at=now,
             )
+            # --8<-- [end:record]
+            # --8<-- [start:serve]
             store = FileArtifactStore(root=root / "artifacts")
             served = serve(
                 product=gated,
@@ -402,6 +417,7 @@ def main() -> int:
                 restored.perspective_conditioning.role == perspective.role
             )
             assert restored.content_generation_path.plan_id == execution.plan_id
+            # --8<-- [end:serve]
 
             # --- λ_c: freshness of a declared observation at decision time --
             demonstration = halflife["demonstration"]

@@ -365,6 +365,7 @@ def main() -> int:
                 == expected["entity_count"]
             ), gated.product.payload
 
+            # --8<-- [start:skill-catalog]
             # --- (1) register skills in the Control Plane catalog -----------
             catalog = SkillCatalog(registry)
             for document in skills_doc["skills"].values():
@@ -398,12 +399,14 @@ def main() -> int:
             assert isinstance(agent, Agent)
             assert agent.bound_skill_names == ()
             assert ledger.grant_set_hash(definition_hash) == NO_GRANTS_SET_HASH
+            # --8<-- [end:skill-catalog]
 
             permitted_name = skills_doc["grants"]["permitted"]["skill_name"]
             impermissible_name = skills_doc["grants"]["impermissible"][
                 "skill_name"
             ]
 
+            # --8<-- [start:skill-grant]
             # --- (2) grant the permitted skill via the Control Plane --------
             permitted = SkillGrant(
                 agent_definition_hash=definition_hash,
@@ -424,7 +427,9 @@ def main() -> int:
                 frozenset({content_hash(permitted)})
             )
             assert agent.bound_skill_names == (permitted_name,)
+            # --8<-- [end:skill-grant]
 
+            # --8<-- [start:skill-exercise]
             # --- (3) exercise it (deterministic local callable, D-19) -------
             consumed = agent.consume(gated.product, now=now)
             assert consumed is gated.product
@@ -435,6 +440,7 @@ def main() -> int:
             assert dict(invocation.output) == skills_doc["dispatch"][
                 "expected_output"
             ]
+            # --8<-- [end:skill-exercise]
 
             # Replay at the exercise step: dimension 4 carries the skill-set
             # in force (D-07) — the decision replays against the skills the
@@ -479,6 +485,7 @@ def main() -> int:
                 == definition_hash
             )
 
+            # --8<-- [start:skill-refusal]
             # --- (4) the impermissible grant is refused by governance -------
             impermissible = SkillGrant(
                 agent_definition_hash=definition_hash,
@@ -510,7 +517,9 @@ def main() -> int:
                 pass
             else:
                 raise AssertionError("impermissible skill was bound")
+            # --8<-- [end:skill-refusal]
 
+            # --8<-- [start:skill-revoke]
             # --- (5) revoke the permitted skill ------------------------------
             ledger.revoke(content_hash(permitted), actor=actor)
             assert ledger.state(content_hash(permitted)) == "revoked"
@@ -536,6 +545,7 @@ def main() -> int:
                 pass
             else:
                 raise AssertionError("revoked skill still bound")
+            # --8<-- [end:skill-revoke]
 
             # --- (6) the agent was never re-declared -------------------------
             assert (

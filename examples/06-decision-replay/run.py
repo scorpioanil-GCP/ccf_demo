@@ -1086,6 +1086,7 @@ def replay_decision(ctx: RecordedDecision) -> DecisionReplayRecord:
     control = _load("controlplane.yaml")
     agent_class: str = control["artifacts"]["agent_definition_class"]
 
+    # --8<-- [start:replay-reproduce]
     # --- exact reproduction (whitepaper §7.10) --------------------------------
     outcome = replay(
         record_address=ctx.record_address,
@@ -1103,7 +1104,9 @@ def replay_decision(ctx: RecordedDecision) -> DecisionReplayRecord:
         outcome.product_content_address
         == resolved.content_generation_path.product_content_address
     )
+    # --8<-- [end:replay-reproduce]
 
+    # --8<-- [start:replay-agent-version]
     # --- agent version, from the store at its exact recorded hash -------------
     dimension_four = resolved.perspective_conditioning
     agent_definition = resolve_artifact(
@@ -1141,6 +1144,7 @@ def replay_decision(ctx: RecordedDecision) -> DecisionReplayRecord:
     assert dimension_four.grant_set_hash == grant_set_hash(
         frozenset({content_hash(resolved_grant)})
     )
+    # --8<-- [end:replay-agent-version]
 
     # --- the hardened HITL surface, reproduced from the record (D-14) ---------
     action = HitlActionRecord.model_validate_json(
@@ -1225,6 +1229,7 @@ def replay_decision(ctx: RecordedDecision) -> DecisionReplayRecord:
         refused = True
     assert refused, "a moving-target ref must be refused (D-IMPL-26)"
 
+    # --8<-- [start:replay-version-sensitivity]
     # --- negative: the audit record is version-sensitive ----------------------
     # Mutate a COPY of the record (never the canonical one): bump the
     # recorded policy-bundle version to one that was never registered.
@@ -1264,6 +1269,7 @@ def replay_decision(ctx: RecordedDecision) -> DecisionReplayRecord:
         "a record naming a policy-bundle version the Control Plane never"
         " registered must refuse to reproduce (D-IMPL-26/38)"
     )
+    # --8<-- [end:replay-version-sensitivity]
     return resolved
 
 
