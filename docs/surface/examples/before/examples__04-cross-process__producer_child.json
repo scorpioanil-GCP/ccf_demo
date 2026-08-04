@@ -1,0 +1,14 @@
+{
+  "asserts": 13,
+  "boot": 8,
+  "helpers": 41,
+  "imports": 71,
+  "mech": 143,
+  "opblk": 62,
+  "path": "examples/04-cross-process/producer_child.py",
+  "prints": 1,
+  "raw": 630,
+  "reg": 32,
+  "relocatable": 14,
+  "removable": 143
+}

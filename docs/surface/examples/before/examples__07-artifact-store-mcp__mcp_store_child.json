@@ -1,0 +1,14 @@
+{
+  "asserts": 0,
+  "boot": 0,
+  "helpers": 0,
+  "imports": 19,
+  "mech": 0,
+  "opblk": 0,
+  "path": "examples/07-artifact-store-mcp/mcp_store_child.py",
+  "prints": 1,
+  "raw": 135,
+  "reg": 0,
+  "relocatable": 1,
+  "removable": 0
+}

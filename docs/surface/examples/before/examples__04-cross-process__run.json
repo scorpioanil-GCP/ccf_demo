@@ -1,0 +1,14 @@
+{
+  "asserts": 51,
+  "boot": 8,
+  "helpers": 25,
+  "imports": 55,
+  "mech": 53,
+  "opblk": 0,
+  "path": "examples/04-cross-process/run.py",
+  "prints": 17,
+  "raw": 533,
+  "reg": 20,
+  "relocatable": 68,
+  "removable": 53
+}

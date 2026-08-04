@@ -1,0 +1,14 @@
+{
+  "asserts": 0,
+  "boot": 0,
+  "helpers": 0,
+  "imports": 12,
+  "mech": 0,
+  "opblk": 0,
+  "path": "examples/external/00-hello-context/replay_server.py",
+  "prints": 9,
+  "raw": 400,
+  "reg": 0,
+  "relocatable": 9,
+  "removable": 0
+}
