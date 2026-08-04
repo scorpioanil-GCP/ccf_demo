@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "date": "2026-08-03",
+    "commit": "8aefb2ad18b17c0596d0124378c0d40548cfc623",
+    "runner_class": "local",
+    "approved": "Dave, 2026-08-03, phase-14 wave-2 gate"
+  },
+  "benchmarks": {
+    "suites/crossproc/test_mcp_egress.py::test_mcp_egress_roundtrip": 0.019081171492871363,
+    "suites/crossproc/test_peering.py::test_peering_roundtrip": 0.0007382779949693941,
+    "suites/micro/test_dispatch.py::test_run_coroutine_sync_overhead": 2.9279995942488313e-05,
+    "suites/micro/test_factory.py::test_agent_factory_construct": 0.00011784100206568837,
+    "suites/micro/test_factory.py::test_task_factory_construct": 6.52960006846115e-05,
+    "suites/micro/test_gates.py::test_gate_empty_operator_guard": 8.00006091594696e-07,
+    "suites/micro/test_gates.py::test_gate_lineage_strict_equality": 1.8239952623844147e-06,
+    "suites/micro/test_gates.py::test_gate_ttl_bounds": 4.592002369463444e-06,
+    "suites/micro/test_operators.py::test_composed_ab": 0.23092777200508863,
+    "suites/micro/test_operators.py::test_composed_chain": 0.36890328499430325,
+    "suites/micro/test_operators.py::test_policy_operator": 0.0006969729947741143,
+    "suites/micro/test_operators.py::test_sequential_ab": 0.0011980884955846705,
+    "suites/micro/test_operators.py::test_similarity_operator": 0.00046995500451885164,
+    "suites/micro/test_operators.py::test_temporal_operator": 0.002326959991478361,
+    "suites/micro/test_operators.py::test_traversal_operator": 0.0015755469939904287,
+    "suites/replay/test_replay_scale.py::test_replay_at_scale[1000]": 0.5697490270104026,
+    "suites/replay/test_replay_scale.py::test_replay_at_scale[10000]": 0.5645892089960398,
+    "suites/replay/test_replay_scale.py::test_replay_at_scale[100000]": 0.5696419310115743,
+    "suites/scale/test_assembly.py::test_assembly_scale[500]": 17.148355951998383,
+    "suites/scale/test_assembly.py::test_assembly_scale[1000]": 41.15517336350604,
+    "suites/scale/test_projection.py::test_projection_scale[500]": 0.15373192199331243,
+    "suites/scale/test_projection.py::test_projection_scale[1000]": 0.3762791369954357
+  }
+}
