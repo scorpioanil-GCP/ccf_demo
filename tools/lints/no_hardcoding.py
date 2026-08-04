@@ -10,6 +10,21 @@ Three heuristics, one AST walk, plus the D-08 allowlist:
     obvious non-prose (SQL, URIs, single tokens) is filtered before scoring —
     SQL is the main false-positive class (04-RESEARCH.md Pitfall 1).
 
+    **Developer-facing diagnostics are excluded structurally** (Dave,
+    2026-08-04; plan 15-04). *A prompt is a string sent to a model; a
+    diagnostic is a string shown to a developer.* The scoring signals detect
+    "long English string literal", which is a proxy for the wrong thing: it
+    cannot tell a system instruction from a multi-sentence CI failure message
+    naming its own fix — and this repo's conventions actively encourage the
+    latter (15-01 ships a test asserting a drift message names the command
+    that regenerates the artifact). Rather than allowlisting each such
+    message, :func:`is_developer_diagnostic` separates the two categories on
+    the distinction itself: a literal that carries developer-toolchain
+    markers (a backticked command, a repo-relative filename, a ``callable()``
+    reference) and does **not** address a reader is a diagnostic, and is not
+    scored. The exemption is this rule, not an allowlist entry, so every
+    future diagnostic message inherits it.
+
 ``cinv01b-numeric-table``
     A module-level dict/list/tuple/set constant whose values are predominantly
     numeric — a half-life table, a threshold band, a routing weight map. These
@@ -76,6 +91,41 @@ PROMPT_SCORE_THRESHOLD = 2
 
 _SQL_OPENERS = ("select", "insert", "update", "delete", "create", "with", "alter")
 _SENTENCE_RE = re.compile(r"[.!?](?:\s|$)")
+
+# --- CINV-01a: prompt vs developer diagnostic ------------------------------
+#
+# Dave's ruling, 2026-08-04 (plan 15-03 Task 4 checkpoint; implemented in
+# 15-04): the two prose-diagnostic false positives the widened lint surfaced
+# are resolved by refining this rule, NOT by allowlist entries. The rule's
+# job is to separate two categories that the scoring signals conflate.
+
+#: A backticked span — how this repo quotes a command a developer should run
+#: (``Run `make openapi` and commit the result``).
+_BACKTICK_SPAN_RE = re.compile(r"`[^`\n]{2,120}`")
+#: A repo-relative filename or path. A prompt names entities and policies; a
+#: diagnostic names the file that is wrong and the artifact that fixes it.
+_REPO_PATH_RE = re.compile(
+    r"\b[\w./-]*\w\.(?:py|json|ya?ml|toml|md|cfg|ini|txt|lock|sh|proto)\b"
+)
+#: A zero-argument callable reference (``create_app()``) — source vocabulary,
+#: not natural language a model is asked to follow.
+_CALLABLE_REF_RE = re.compile(r"\b[A-Za-z_]\w*\(\)")
+
+#: Any one of these makes a literal *developer-facing*. Kept as a tuple so the
+#: discriminator is enumerable and testable rather than buried in a boolean.
+DIAGNOSTIC_MARKERS: tuple[re.Pattern[str], ...] = (
+    _BACKTICK_SPAN_RE,
+    _REPO_PATH_RE,
+    _CALLABLE_REF_RE,
+)
+
+#: Second-person address. Prompts talk *to* a reader ("you are", "your
+#: answer"); diagnostics describe state ("the committed spec no longer
+#: matches"). Deliberately asymmetric: a message that both names a `make`
+#: target and addresses a reader is still scored, because the cost of a
+#: false positive (reword, or a reviewed allowlist entry) is lower than the
+#: cost of a prompt slipping through behind a filename.
+_SECOND_PERSON_RE = re.compile(r"\byou(?:r|'re|'ve)?\b", re.IGNORECASE)
 
 #: Modules whose declared-parameter fields must carry no numeric default.
 PARAM_SCHEMA_MARKERS: tuple[str, ...] = ("params", "parameters", "thresholds")
@@ -251,6 +301,42 @@ def _is_prose_candidate(text: str) -> bool:
     return True
 
 
+def addresses_a_reader(text: str) -> bool:
+    """Whether `text` is written *to* someone — the mark of an instruction.
+
+    Three ways a literal addresses a reader: a role-preamble opener ("You
+    are…", "Always…"), second-person pronouns anywhere in the body, or
+    template-brace density at or above :data:`MIN_BRACES` (a filled-in
+    prompt template). Any one of them keeps the literal in scoring even if it
+    also carries developer-toolchain markers.
+    """
+    lowered = text.strip().lower()
+    if any(lowered.startswith(opener) for opener in ROLE_OPENERS):
+        return True
+    if text.count("{") >= MIN_BRACES:
+        return True
+    return bool(_SECOND_PERSON_RE.search(text))
+
+
+def is_developer_diagnostic(text: str) -> bool:
+    """Whether `text` is a message shown to a developer, not sent to a model.
+
+    The discriminator Dave's 2026-08-04 ruling asked for: a prompt is a
+    string sent to a model, a diagnostic is a string shown to a developer,
+    and the difference is mechanically detectable. A literal qualifies when
+    it carries at least one :data:`DIAGNOSTIC_MARKERS` signal — a backticked
+    command, a repo-relative filename, a ``callable()`` reference — and does
+    not :func:`addresses_a_reader`.
+
+    Both halves are load-bearing. Without the markers, any impersonal prose
+    would escape; without the reader test, a prompt would escape by
+    mentioning a filename.
+    """
+    if addresses_a_reader(text):
+        return False
+    return any(pattern.search(text) for pattern in DIAGNOSTIC_MARKERS)
+
+
 def prompt_score(text: str) -> int:
     """Count the prompt-shape signals `text` exhibits (0-4)."""
     lowered = text.strip().lower()
@@ -337,6 +423,8 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
             continue
         text = node.value
         if not _is_prose_candidate(text):
+            continue
+        if is_developer_diagnostic(text):
             continue
         if prompt_score(text) >= PROMPT_SCORE_THRESHOLD:
             emit(

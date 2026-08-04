@@ -9,14 +9,17 @@ import textwrap
 import pytest
 
 from tools.lints.no_hardcoding import (
+    DIAGNOSTIC_MARKERS,
     RULE_FACTORY_BYPASS,
     RULE_NUMERIC_TABLE,
     RULE_PROMPT_SHAPE,
     Allowlist,
     AllowlistEntry,
+    addresses_a_reader,
     apply_allowlist,
     check_source,
     fingerprint,
+    is_developer_diagnostic,
     load_allowlist,
 )
 
@@ -71,6 +74,86 @@ def test_module_docstring_is_never_flagged() -> None:
 def test_function_docstring_is_never_flagged() -> None:
     source = f'def f():\n    """{PROMPT}"""\n    return 1\n'
     assert check_source(source, SRC, "ccf.operators.traversal") == []
+
+
+# --- CINV-01a: prompt vs developer diagnostic (Dave, 2026-08-04) -----------
+#
+# The ruling these tests pin: "a prompt is a string sent to a model; a
+# diagnostic is a string shown to a developer", and the two are separated by
+# rule refinement rather than by allowlist entries (plan 15-03 Task 4
+# checkpoint; implemented in 15-04). Both directions are asserted here — a
+# refinement proven only on the strings it was asked to stop flagging is not
+# proven at all.
+
+#: Verbatim shape of ``tests/http_api/test_openapi.py``'s ``_DRIFT_MESSAGE``:
+#: multi-sentence, impersonal, naming the command that regenerates the
+#: artifact. One of the two sites the ruling names.
+DIAGNOSTIC = (
+    "The committed openapi.json no longer matches what create_app() emits."
+    " Run `make openapi` and commit the result. A moved endpoint or a"
+    " FastAPI/Pydantic version bump legitimately changes the published"
+    " contract — that diff is reviewable and desirable, not a test bug."
+)
+
+#: A prompt dressed in every developer-toolchain marker the discriminator
+#: looks for. It must still be refused: the markers alone never excuse a
+#: literal that addresses a reader.
+PROMPT_WEARING_DIAGNOSTIC_MARKERS = (
+    "You are a covenant analyst. Read the `make report` output from"
+    " docs/policy.yaml and call render() before answering. Never speculate"
+    " beyond the evidence you are given, and always cite the passage."
+)
+
+
+def test_a_developer_diagnostic_is_not_a_prompt() -> None:
+    """The negative direction: the refinement clears the real sites."""
+    assert is_developer_diagnostic(DIAGNOSTIC)
+    source = f"_DRIFT_MESSAGE = {DIAGNOSTIC!r}\n"
+    assert check_source(source, SRC, "ccf.operators.traversal") == []
+
+
+def test_a_prompt_wearing_diagnostic_markers_is_still_flagged() -> None:
+    """The positive direction: the rule still catches a genuine prompt.
+
+    A refinement that can be defeated by mentioning a filename would have
+    replaced a false-positive problem with a false-negative one.
+    """
+    assert not is_developer_diagnostic(PROMPT_WEARING_DIAGNOSTIC_MARKERS)
+    source = f"SYSTEM = {PROMPT_WEARING_DIAGNOSTIC_MARKERS!r}\n"
+    findings = check_source(source, SRC, "ccf.operators.traversal")
+    assert _rules(findings) == [RULE_PROMPT_SHAPE]
+
+
+def test_the_discriminator_needs_both_halves() -> None:
+    """Neither half alone decides — impersonal prose without a toolchain
+    marker is not a diagnostic, and second-person address is not enough to
+    make one."""
+    impersonal_prose_without_markers = (
+        "The covenant headroom narrowed materially over the quarter."
+        " Every claim must be grounded in the evidence provided."
+        " Speculation beyond that evidence is not acceptable."
+    )
+    assert not is_developer_diagnostic(impersonal_prose_without_markers)
+    assert addresses_a_reader(PROMPT)
+    assert not addresses_a_reader(DIAGNOSTIC)
+
+
+def test_every_diagnostic_marker_is_individually_sufficient() -> None:
+    """Each marker in DIAGNOSTIC_MARKERS carries the classification alone,
+    so the tuple is an enumerable discriminator rather than one regex with
+    two unreachable siblings."""
+    carriers = (
+        "The committed artifact drifted. Run `make surface` and commit it."
+        " That diff is reviewable, not a bug.",
+        "The committed docs/surface/v0.2-surface.json no longer agrees with"
+        " the live tree. Regenerate it. That diff is reviewable, not a bug.",
+        "The document emitted by create_app() no longer agrees with the"
+        " committed copy. Regenerate it. That diff is reviewable, not a bug.",
+    )
+    assert len(carriers) == len(DIAGNOSTIC_MARKERS)
+    for text in carriers:
+        assert is_developer_diagnostic(text), text
+        assert check_source(f"M = {text!r}\n", SRC, "ccf.operators.traversal") == []
 
 
 # --- CINV-01b numeric tables ----------------------------------------------

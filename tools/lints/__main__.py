@@ -1,9 +1,10 @@
 """`python -m tools.lints` — the blocking CI gate for CINV-01/02/03 (D-07).
 
-Walks the linted trees (`src/`, `runtime/`, `examples/`), derives each file's
-dotted module name from its path, runs the selected checkers, applies the D-08
-allowlist to CINV-01 findings, prints what survives, and exits nonzero if
-anything does.
+Walks the linted trees (`src/`, `runtime/`, `examples/`, `tests/`), derives
+each file's dotted module name from its path, runs the selected checkers,
+applies the D-08 allowlist to CINV-01 findings, prints what survives, and
+exits nonzero if anything does. Not every rule runs over every tree — see
+`RULE_TREE_SCOPE`.
 
 Exit code is the only gate signal. There is deliberately no report-only,
 warning-only, or `--exit-zero` mode: D-07 requires the lints to block from the
@@ -33,7 +34,7 @@ from tools.lints import (
 #: Trees that are linted, and the package root each one contributes.
 #: (directory, strip_prefix) — module names are derived relative to the root
 #: that actually holds the package, so `src/ccf/x.py` is `ccf.x`.
-LINTED_TREES: tuple[str, ...] = ("src", "runtime", "examples")
+LINTED_TREES: tuple[str, ...] = ("src", "runtime", "examples", "tests")
 
 #: Per-rule tree scoping — the lint posture over ``/examples``, stated in
 #: config rather than left to path accident (plan 08-01; 08-RESEARCH.md Open
@@ -51,8 +52,20 @@ LINTED_TREES: tuple[str, ...] = ("src", "runtime", "examples")
 #: three share this checker's ``("src", "runtime")`` scope, which already covers
 #: ``ccf.deployment``; the third rule needs no ``CHECKERS`` key of its own, and
 #: naming it here keeps the config surface an honest description of what runs.
+#:
+#: CINV-01 also covers ``tests`` (D-IMPL-78, Dave, 2026-08-04; plan 15-04).
+#: D-09 relocates the example CI assertions into ``tests/``, and those
+#: assertions carry domain expectations read from ``expected:`` artifact
+#: blocks. Without this scope the relocation would move domain values out of
+#: a structural invariant's reach with every CI gate still green — a
+#: CI-invisible weakening arrived at as a side effect of an ergonomics
+#: change. The other three rules stay ``("src", "runtime")`` deliberately:
+#: test modules exercising the harness adapters import harness SDKs and
+#: would trip CINV-02, and the invariant is worded over core (CLAUDE.md
+#: §7.3). As with ``/examples``, the exemption surface is this config file —
+#: not an allowlist entry, and not merely a test assertion.
 RULE_TREE_SCOPE: dict[str, tuple[str, ...]] = {
-    "no-hardcoding": ("src", "runtime", "examples"),
+    "no-hardcoding": ("src", "runtime", "examples", "tests"),
     "harness-imports": ("src", "runtime"),
     "algorithmic": ("src", "runtime"),
     "orchestration-imports": ("src", "runtime"),
