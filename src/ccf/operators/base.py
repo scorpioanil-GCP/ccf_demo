@@ -60,10 +60,10 @@ OperatorCategory = Literal["policy", "similarity", "temporal", "traversal"]
 #: Planner dependency order (whitepaper §7.4, INV-CH7-28).
 #:
 #: Policy first because Similarity must rank only over the principal-permissible
-#: subgraph — "no filter runs after retrieval because no retrieval of
-#: inadmissible content happened" (INV-CH7-26). Temporal before Traversal
-#: because a walk should expand over temporally reconciled state, not over
-#: claims the boundary excludes.
+#: subgraph: admissibility is settled up front, so inadmissible content is never
+#: retrieved and no post-retrieval filter is required (INV-CH7-26). Temporal
+#: before Traversal because a walk should expand over temporally reconciled
+#: state, not over claims the boundary excludes.
 CATEGORY_ORDER: tuple[OperatorCategory, ...] = (
     "policy",
     "similarity",
