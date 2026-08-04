@@ -1,0 +1,14 @@
+{
+  "asserts": 60,
+  "boot": 8,
+  "helpers": 40,
+  "imports": 61,
+  "mech": 118,
+  "opblk": 38,
+  "path": "examples/02-skilling/run.py",
+  "prints": 8,
+  "raw": 571,
+  "reg": 32,
+  "relocatable": 68,
+  "removable": 118
+}

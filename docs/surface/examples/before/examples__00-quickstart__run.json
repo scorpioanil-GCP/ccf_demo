@@ -1,0 +1,14 @@
+{
+  "asserts": 30,
+  "boot": 8,
+  "helpers": 45,
+  "imports": 54,
+  "mech": 143,
+  "opblk": 64,
+  "path": "examples/00-quickstart/run.py",
+  "prints": 10,
+  "raw": 451,
+  "reg": 26,
+  "relocatable": 40,
+  "removable": 143
+}

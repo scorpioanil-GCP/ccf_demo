@@ -1,0 +1,14 @@
+{
+  "asserts": 94,
+  "boot": 0,
+  "helpers": 8,
+  "imports": 86,
+  "mech": 28,
+  "opblk": 0,
+  "path": "examples/05-workflow-hitl/run.py",
+  "prints": 18,
+  "raw": 858,
+  "reg": 20,
+  "relocatable": 112,
+  "removable": 28
+}

@@ -1,0 +1,14 @@
+{
+  "asserts": 3,
+  "boot": 0,
+  "helpers": 0,
+  "imports": 7,
+  "mech": 0,
+  "opblk": 0,
+  "path": "examples/external/00-hello-context/client_bare.py",
+  "prints": 2,
+  "raw": 77,
+  "reg": 0,
+  "relocatable": 5,
+  "removable": 0
+}

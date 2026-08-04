@@ -1,0 +1,14 @@
+{
+  "asserts": 101,
+  "boot": 8,
+  "helpers": 49,
+  "imports": 126,
+  "mech": 175,
+  "opblk": 77,
+  "path": "examples/06-decision-replay/run.py",
+  "prints": 29,
+  "raw": 1320,
+  "reg": 41,
+  "relocatable": 130,
+  "removable": 175
+}

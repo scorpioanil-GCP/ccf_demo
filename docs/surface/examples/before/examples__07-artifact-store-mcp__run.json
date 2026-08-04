@@ -1,0 +1,14 @@
+{
+  "asserts": 19,
+  "boot": 8,
+  "helpers": 38,
+  "imports": 53,
+  "mech": 132,
+  "opblk": 64,
+  "path": "examples/07-artifact-store-mcp/run.py",
+  "prints": 8,
+  "raw": 587,
+  "reg": 22,
+  "relocatable": 27,
+  "removable": 132
+}

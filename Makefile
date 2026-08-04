@@ -31,7 +31,7 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 	example-03-live-ollama example-03-live-anthropic \
 	example-ext-00-live-anthropic example-ext-00-live-adk \
 	perf perf-micro perf-scale perf-xproc perf-replay \
-	docs docs-strict docs-serve openapi surface
+	docs docs-strict docs-serve openapi surface measure-examples
 
 help: ## List targets with one-line descriptions
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -176,3 +176,13 @@ openapi: ## Regenerate the committed openapi.json — the D-12 drift baseline
 # instead. The drift assertion lives in the always-on `test` job.
 surface: ## Regenerate the committed public-surface manifest — the D-15 baseline
 	$(ENV) $(PYTHON) tools/dump_surface.py
+
+# ERGO-03's measured half (D-11/D-12): the per-file mechanical, assertion, and
+# print line counts of the examples tree, committed as the phase-start baseline
+# under docs/surface/examples/before/. Criterion 1's report is a re-measurement
+# by this same tool, never a re-estimate. `removable` (mechanical wiring) and
+# `relocatable` (assertions/prints D-09 moves to tests/) are separate figures
+# and are never summed. The audit assertion lives in the always-on `test` job
+# (tests/examples/test_surface_audit.py).
+measure-examples: ## Re-measure examples/ mechanical surface — the ERGO-03 baseline
+	$(ENV) $(PYTHON) tools/measure_examples.py

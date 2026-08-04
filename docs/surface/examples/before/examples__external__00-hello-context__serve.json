@@ -1,0 +1,14 @@
+{
+  "asserts": 0,
+  "boot": 8,
+  "helpers": 41,
+  "imports": 69,
+  "mech": 132,
+  "opblk": 61,
+  "path": "examples/external/00-hello-context/serve.py",
+  "prints": 1,
+  "raw": 773,
+  "reg": 22,
+  "relocatable": 1,
+  "removable": 132
+}
