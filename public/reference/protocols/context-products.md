@@ -12,9 +12,11 @@ mismatch and a TTL breach are each a refusal, never a warning.
 
 ::: ccf.products.contract.ProductLineage
 
-::: ccf.products.contract.RegisteredProductClass
-
-::: ccf.products.contract.MaxTTL
+The registration surface a product class is served under — `RegisteredProductClass` and
+`MaxTTL` — is generated once, on
+[Context Product registration](../artifacts/product-registration.md), because it is an
+authoring artifact rather than a runtime Protocol. Rendering it twice would give the same
+identifier two primary URLs, which the strict build refuses.
 
 ::: ccf.products.gates.run_gates
 
