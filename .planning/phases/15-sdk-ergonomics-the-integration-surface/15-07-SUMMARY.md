@@ -2,7 +2,7 @@
 phase: 15-sdk-ergonomics-the-integration-surface
 plan: 07
 subsystem: controlplane
-status: paused-at-checkpoint
+status: complete
 tags: [artifacts, resolution-spec, semver, import-cycle, D-IMPL-77]
 requires: ["15-05", "15-06"]
 provides:
@@ -42,9 +42,13 @@ decisions: [D-IMPL-77]
 the same `parse_artifact` seam that already serves λ_c tables and debt profiles,
 with the versioned-artifact primitives relocated to a cycle-free module.
 
-**Status: PAUSED at Task 3, a `checkpoint:human-verify` gate.** Tasks 1, 2 and 4 are
-complete and committed. Task 4 was executed *before* the checkpoint deliberately —
-see "Deviations".
+**Status: COMPLETE.** All four tasks done. Task 3's `checkpoint:human-verify` gate was
+**approved by Dave on 2026-08-04**, with the A1 ruling accepted as recorded and **no
+`D-IMPL-NN` required** — the coordinator independently re-verified the `halflife.yaml`
+precedent (root keys at lines 21-22, nested `half_life_table:` with its own `semver` at
+26-27, `run.py:208` passing the nested mapping) before bringing it to Dave, and confirmed
+this is reading an existing tested precedent rather than making a design choice. Task 4
+was executed *before* the gate deliberately — see "Deviations".
 
 ## The A1 ruling — root versioning (binding on 15-08, 15-09, 15-10)
 
@@ -228,6 +232,32 @@ it has no committed-file footprint. Nothing was regenerated because there was no
 regenerate. That is the claim the checkpoint asks Dave to confirm.
 
 No replay record changed shape; only the values pins would take at runtime.
+
+## Cross-AI review findings — both resolved in execution, neither is a live defect
+
+A cross-AI review (gemini, codex, cursor, ollama) ran while this plan was paused at the
+Task 3 gate. It raised two HIGH concerns **against the plan's text**, both of which this
+plan's *execution* had already resolved. Recorded here explicitly so 15-21's auditor does
+not chase them.
+
+**1. "The fragment under-claims the public diff" — resolved; the plan text was wrong.**
+Reviewers read Task 4's acceptance criterion of *"two entries"* and correctly inferred it
+could not cover the real diff. The delivered fragment claims **eight** entries, matching
+every name `tools/dump_surface.py --report` attributes to this plan, and explicitly asserts
+`ccf.controlplane.artifacts.ArtifactClass` does **not** appear under `removed`. A useful
+detail for the auditor: `--report`'s `added` list is the manifest's *accumulated* set across
+every plan merged since 15-01 froze it — it showed 11, of which 4 are 15-06's, already
+claimed in that plan's own fragment. A plan claims its own additions, not the whole list.
+
+**2. "The `semver` blast radius is understated" — resolved; `files_modified` was stale.**
+Reviewers noted the plan's 7-file list omitted every `EntityResolutionSpec` constructor call
+site. Execution absorbed **33 non-planning files** (12 `src/`, 10 `examples/`, 8 `tests/`, 1
+`runtime/`, 1 `perf/`, 1 `docs/`) — the semver sites plus the eight modules re-pointed at
+`artifact_base` to break the second cycle edge.
+
+Both were corrected in `15-07-PLAN.md` (commit `0a4e433`), annotated inline as
+post-execution so the plan record reads as a record rather than as retroactive prescience.
+**Neither finding indicates anything wrong with the shipped tree.**
 
 ## Threat Flags
 
