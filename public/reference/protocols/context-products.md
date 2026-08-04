@@ -1,3 +1,29 @@
 # Context Product contract
 
-This page is a stub; plan 14-06 fills it.
+The Context Product Contract is the SDK's stable wire surface: everything that crosses a
+process, a harness or an organizational boundary crosses as one of these. `CCFContract` is the
+typed base every contract inherits. The gate surfaces below are the three validation gates a
+product must clear before the delivery layer will serve it — an empty operator plan, a lineage
+mismatch and a TTL breach are each a refusal, never a warning.
+
+::: ccf.contracts.base.CCFContract
+
+::: ccf.products.contract.ContextProductContract
+
+::: ccf.products.contract.ProductLineage
+
+The registration surface a product class is served under — `RegisteredProductClass` and
+`MaxTTL` — is generated once, on
+[Context Product registration](../artifacts/product-registration.md), because it is an
+authoring artifact rather than a runtime Protocol. Rendering it twice would give the same
+identifier two primary URLs, which the strict build refuses.
+
+::: ccf.products.gates.run_gates
+
+::: ccf.products.gates.ServableProduct
+
+::: ccf.products.gates.EmptyOperatorRefusal
+
+::: ccf.products.gates.LineageMismatchRefusal
+
+::: ccf.products.gates.TTLRefusal
