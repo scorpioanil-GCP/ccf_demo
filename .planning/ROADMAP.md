@@ -286,7 +286,7 @@ without hiding one governance decision from the adopter or one dimension from th
 record
 **Depends on**: Phase 14 (closed as-shipped; its documentation stands as the record of the
 surface being replaced)
-**Requirements**: ERGO-01..ERGO-NN to be minted at planning
+**Requirements**: ERGO-01..ERGO-17 (minted 2026-08-04; see `.planning/REQUIREMENTS.md`)
 **Origin**: Dave, 2026-08-03, coding against the CCF SDK documentation. "The whole purpose of
 the SDK is to provide as much abstraction around details as possible and save me the time of
 doing them manually."
@@ -348,7 +348,65 @@ doing them manually."
 documentation rewrite itself (Phase 16). Simplification that costs an invariant is not
 simplification — it is a fidelity defect, and CLAUDE.md §1 ranks fidelity first.
 
-**Plans**: TBD at `/gsd:plan-phase 15`
+**Plans**: 21 plans across 12 waves
+
+Plans:
+**Wave 1** — instrumentation and standing guards (nothing else may start first)
+
+- [ ] 15-01-PLAN.md — Public-surface baseline: `tools/dump_surface.py`, committed manifest, drift gate, surface-change fragment home (ERGO-01, ERGO-17)
+- [ ] 15-02-PLAN.md — `ccf.deployment` package shell + the D-15A gate-independence guard + the no-allowlist import ban (ERGO-02, ERGO-04)
+- [ ] 15-03-PLAN.md — Executable surface audit baseline + falsification of research assumptions A1/A3/A6 (ERGO-03)
+
+**Wave 2**
+
+- [ ] 15-04-PLAN.md — D-IMPL-78: widen CINV-01 over `tests/` (two edits: `LINTED_TREES` and `RULE_TREE_SCOPE`) (ERGO-16)
+- [ ] 15-05-PLAN.md — D-02 timestamp handling in the artifact load path (ERGO-06)
+- [ ] 15-06-PLAN.md — class-id → `ArtifactClass` lookup + `tests/deployment/` package (ERGO-05)
+
+**Wave 3**
+
+- [ ] 15-07-PLAN.md — `ccf.resolution-spec` + `EntityResolutionSpec` semver in place, with its own regeneration checkpoint (D-IMPL-77) (ERGO-07)
+
+**Wave 4**
+
+- [ ] 15-08-PLAN.md — Four operator-parameters artifact classes + both `artifacts.py` docstring amendments (ERGO-08)
+
+**Wave 5**
+
+- [ ] 15-09-PLAN.md — Signal-batch, perspective, and product-class artifact classes (ERGO-09)
+
+**Wave 6**
+
+- [ ] 15-10-PLAN.md — `ccf.deployment-manifest` + `load_and_boot` + the plain pin set (ERGO-10)
+
+**Wave 7**
+
+- [ ] 15-11-PLAN.md — Two-phase view-aware operator-registry builder (ERGO-11)
+- [ ] 15-12-PLAN.md — `ccf schema export` via a new HTTP route + committed schemas + freshness gate (D-IMPL-79) (ERGO-12)
+
+**Wave 8**
+
+- [ ] 15-13-PLAN.md — Rewrite `00-quickstart` and relocate its assertions — establishes the recipe (ERGO-13, ERGO-16)
+
+**Wave 9**
+
+- [ ] 15-14-PLAN.md — Rewrite examples 01 and 02 (ERGO-13, ERGO-16)
+- [ ] 15-15-PLAN.md — Rewrite examples 03 and 07; live legs untouched (ERGO-13, ERGO-16)
+- [ ] 15-16-PLAN.md — Rewrite example 08 + demo narration regeneration checkpoint (ERGO-13, ERGO-16)
+
+**Wave 10**
+
+- [ ] 15-17-PLAN.md — Rewrite example 06, highest risk: pin set stays explicit (ERGO-14, ERGO-16)
+- [ ] 15-18-PLAN.md — Rewrite example 04 + D-10 re-domaining to banking, two separate commits (ERGO-14, ERGO-16)
+- [ ] 15-19-PLAN.md — Rewrite example 05, mostly a D-09 relocation (ERGO-14, ERGO-16)
+
+**Wave 11**
+
+- [ ] 15-20-PLAN.md — Rewrite `examples/external/.../serve.py`; client legs keep zero CCF imports (ERGO-15)
+
+**Wave 12**
+
+- [ ] 15-21-PLAN.md — Phase close: assemble `SURFACE-CHANGES.md`, generated surface diff, criterion-1 audit, `/gsd-review`, present to Dave (ERGO-01, ERGO-03, ERGO-17)
 
 ### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
 
