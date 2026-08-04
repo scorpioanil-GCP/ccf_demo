@@ -253,10 +253,10 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 14-05-PLAN.md — Concepts section: five pillar pages with in-page diagrams, invariants, replay anatomy, whitepaper cross-reference index, diagram-coverage test
-- [ ] 14-06-PLAN.md — Reference section: 12 curated Protocol pages, 8 generated artifact-schema pages, the HTTP contract page, and the mkdocstrings drift control
+- [x] 14-05-PLAN.md — Concepts section: five pillar pages with in-page diagrams, invariants, replay anatomy, whitepaper cross-reference index, diagram-coverage test
+- [x] 14-06-PLAN.md — Reference section: 12 curated Protocol pages, 8 generated artifact-schema pages, the HTTP contract page, and the mkdocstrings drift control
 - [x] 14-07-PLAN.md — snippet markers in six example sources + the adopter's guide, all literal-included; snippet drift control
-- [ ] 14-08-PLAN.md — five task how-to pages over green CI-run examples + the security & deployment page finished as a how-to
+- [x] 14-08-PLAN.md — five task how-to pages over green CI-run examples + the security & deployment page finished as a how-to
 - [x] 14-09-PLAN.md — run the perf battery, Dave-gated baseline commit (D-IMPL-75), PERFORMANCE.md with methodology and environment manifest
 
 **Wave 4** *(blocked on Wave 3 completion)*
@@ -272,7 +272,7 @@ Plans:
 | 11. Performance Battery | 5/5 | Complete    | 2026-08-02 |
 | 12. Synthetic-Data Demonstration | 3/3 | Complete    | 2026-08-02 |
 | 13. Examples Suite Upgrade | 5/5 | Complete   | 2026-08-02 |
-| 14. Documentation Suite | 6/10 | In Progress|  |
+| 14. Documentation Suite | 9/10 | In Progress|  |
 
 ## Coverage
 
