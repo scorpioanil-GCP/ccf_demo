@@ -101,7 +101,10 @@ def test_include_reaching_into_planning_trips_the_include_escape_rule(
 
 def test_the_two_moved_public_docs_are_shingle_clean() -> None:
     shingles = whitepaper_shingles()
-    for rel in ("docs/security-notes.md", "docs/demo-walkthrough.md"):
+    for rel in (
+        "public/how-to/security-and-deployment.md",
+        "public/tutorial/demo-walkthrough.md",
+    ):
         findings = scan_text(_read(rel), PAGE, shingles)
         assert [f for f in findings if RULE_SHINGLE in f] == []
 

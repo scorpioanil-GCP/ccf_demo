@@ -1,4 +1,4 @@
-# Security Notes — Key Management (v0)
+# Manage keys and secrets when deploying (v0)
 
 > SDK-defined documentation (CLAUDE.md §7.2, §8.2; D-IMPL-15, D-IMPL-21).
 > Records the shipped v0 key-management posture — where signing keys come

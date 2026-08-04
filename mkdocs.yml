@@ -107,13 +107,18 @@ markdown_extensions:
   - pymdownx.inlinehilite
 
 # Every path enumerated explicitly — no globs. The nav is authoritative: it
-# lists 37 pages, and `charter.md` is the single `not_in_nav` page, for the 38
-# files under `public/`.
+# lists 39 pages, and `charter.md` is the single `not_in_nav` page, for the 40
+# markdown files under `public/`. (The eleven `.mmd` diagram sources under
+# `public/diagrams/` are embedded by the Concepts pages, not nav entries.)
 nav:
   - Home: index.md
   - Tutorial:
       - Adopter's guide: tutorial/adopters-guide.md
+      - How data folds into context: tutorial/demo-walkthrough.md
   - How-to:
+      # D-17 placement: the security and deployment notes lead the How-to
+      # section.
+      - Manage keys and secrets: how-to/security-and-deployment.md
       - Grant and revoke a skill: how-to/grant-and-revoke-a-skill.md
       - Run agents cross-process: how-to/run-agents-cross-process.md
       - Compose a workflow with HITL: how-to/compose-a-workflow-with-hitl.md

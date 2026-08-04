@@ -1,15 +1,8 @@
 <!--
-  Phase 14 docs-site note: every `--8<--` directive below is a
-  pymdownx.snippets literal include whose path is REPO-ROOT-RELATIVE.
-  When this page is mounted in mkdocs, configure
-
-      markdown_extensions:
-        - pymdownx.snippets:
-            base_path: [".."]   # or the repo root, relative to docs/
-
-  so the include paths (examples/08-e2e-demo/...) resolve unchanged
-  (Phase 12 RESEARCH A2). Nothing in this page pastes code — the doc
-  always shows the exact files that run in CI.
+  Snippet configuration for every literal include below lives in
+  `mkdocs.yml` (pymdownx.snippets `base_path: ["."]`, repo root).
+  Nothing in this page pastes code — the doc always shows the exact
+  files that run in CI.
 -->
 
 # How data folds into context

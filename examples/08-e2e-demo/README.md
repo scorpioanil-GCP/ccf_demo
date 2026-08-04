@@ -91,4 +91,4 @@ event.
 
 The narrated, step-by-step walkthrough — how raw rows fold into context,
 stage by stage, with every code and artifact excerpt literal-included —
-is [docs/demo-walkthrough.md](../../docs/demo-walkthrough.md).
+is [public/tutorial/demo-walkthrough.md](../../public/tutorial/demo-walkthrough.md).
