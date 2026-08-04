@@ -85,8 +85,8 @@ Paired with a lint-level ban: **`ccf.deployment` must not import `ccf.products.g
 
 Nothing else may start before these land.
 
-- [ ] `tools/dump_surface.py` + `docs/surface/v0.2-surface.json` phase-start baseline
-      + `tests/test_surface_drift.py` — **captured before the first surface change, or
+- [ ] `tools/dump_surface.py` + the live `docs/surface/v0.2-surface.json` + the frozen
+      `docs/surface/v0.2-surface-baseline.json` phase-start copy + `tests/test_surface_drift.py` — **captured before the first surface change, or
       Success Criterion 6 cannot be satisfied honestly**
 - [ ] `tests/products/test_gate_independence.py` — the D-15A standing guard
 - [ ] `tests/examples/test_surface_audit.py` — records the §1.3 before-numbers as baseline
