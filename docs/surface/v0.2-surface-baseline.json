@@ -3475,7 +3475,7 @@
       },
       "source": {
         "kind": "constant",
-        "shape": "NoneType"
+        "shape": "module"
       }
     }
   },
@@ -3825,8 +3825,8 @@
         }
       },
       "SplitAuditPlaneError": {
-        "kind": "constant",
-        "shape": "NoneType"
+        "kind": "class",
+        "shape": "type"
       },
       "TenantMismatch": {
         "kind": "contract",

@@ -153,6 +153,26 @@ def _shape_of(obj: Any, kind: str) -> Any:
     return type(obj).__name__
 
 
+def _resolve_export(module: Any, module_name: str, name: str) -> Any:
+    """The object ``name`` denotes on ``module``, import-order independently.
+
+    A package that lists submodules in ``__all__`` (``ccf.signal`` lists
+    ``envelope`` and ``source``) only binds them as attributes once something
+    imports them. A bare ``getattr`` therefore describes the *interpreter's
+    current import state* rather than the package's declared surface, and the
+    manifest changes depending on what else ran first — deterministic when
+    ``build_surface`` runs alone, drifting under the full test suite. Import
+    the submodule explicitly so the answer is the same either way.
+    """
+    obj = getattr(module, name, None)
+    if obj is not None:
+        return obj
+    try:
+        return importlib.import_module(f"{module_name}.{name}")
+    except ImportError:
+        return None
+
+
 def build_surface() -> dict[str, Any]:
     """The manifest document: dotted module name → its public surface."""
     document: dict[str, Any] = {}
@@ -164,7 +184,7 @@ def build_surface() -> dict[str, Any]:
         names = sorted(exported)
         entries: dict[str, Any] = {}
         for name in names:
-            obj = getattr(module, name, None)
+            obj = _resolve_export(module, module_name, name)
             kind = _kind_of(obj)
             entries[name] = {"kind": kind, "shape": _shape_of(obj, kind)}
         document[module_name] = {"__all__": names, "exports": entries}

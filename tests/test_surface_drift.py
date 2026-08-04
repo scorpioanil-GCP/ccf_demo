@@ -178,6 +178,26 @@ def test_a_fragment_claim_admits_the_drift_it_names() -> None:
     assert unclaimed_drift(before, after, "Surface: m.b.q") == ["m.a.x"]
 
 
+def test_no_export_resolves_to_nothing() -> None:
+    """The manifest must not depend on what the process imported first.
+
+    A package listing submodules in ``__all__`` only binds them as attributes
+    once something imports them, so a bare ``getattr`` records ``NoneType``
+    when ``build_surface`` runs alone and ``module`` when the full suite has
+    already pulled the submodule in — drift with no source change. A
+    ``NoneType`` shape is the fingerprint of that failure mode, and there is
+    no legitimate reason for a declared export to resolve to nothing.
+    """
+    document = json.loads(_LIVE_MANIFEST.read_text(encoding="utf-8"))
+    unresolved = [
+        f"{module}.{name}"
+        for module, record in document.items()
+        for name, entry in record["exports"].items()
+        if entry["shape"] == "NoneType"
+    ]
+    assert not unresolved, unresolved
+
+
 def test_the_frozen_baseline_exists_and_is_non_vacuous() -> None:
     """The immutable "before" side of ROADMAP Success Criterion 6.
 
