@@ -4,6 +4,7 @@
 
 - [x] **v0.1** — Whitepaper-faithful v0 SDK: fabric core (L1–L6), Agent Specialization Framework, cross-process + harness adapters, orchestration/HITL/experience, eight-example suite, full CI. Completed 2026-07-31, tag `v0.1.0`, D-GATE-I. → [archive](.planning/milestones/v0.1-ROADMAP.md)
 - [ ] **v0.2** — Performance, Documentation & Demonstration: hardening intake (WR-01/02/03 + posture rulings), reproducible perf battery with committed baselines and regression gates, synthetic-data end-to-end demonstration, upgraded examples suite, adopter-grade documentation suite. (current)
+- [ ] **v0.3** — Assembly Modes: close the whitepaper-fidelity gap in which two of the three Assembly Modes (§7.6) are declarable but undemonstrated. Pattern 5 unstructured ingestion (D-IMPL-08), a credit-memo exemplar demonstrating Mode 2 (`llm_packaged`) and Mode 3 (`swarm_assembled`) agent-swarm assembly over structured *and* unstructured sources with A2A coordination, and Part 2 of the two-part assembly document. (planned — see `14-HUMAN-UAT.md` G-02 for the evidence)
 
 ## Current Milestone: v0.2 Performance, Documentation & Demonstration
 
@@ -27,7 +28,8 @@ and the upgraded examples.
 - [x] **Phase 12: Synthetic-Data Demonstration** - Fake data store + end-to-end data→context→agentic-reasoning example, running in CI (completed 2026-08-02)
 - [x] **Phase 13: Examples Suite Upgrade** - v0.1 examples 00–07 upgraded with detailed narrated READMEs and richer scenarios/artifacts exercising more SDK surface, CI stays green (completed 2026-08-02)
 - [x] **Phase 13.1: External-Consumer Examples (MCP Egress)** (INSERTED) - Independent agents built in their own harness (Anthropic SDK, ADK, bare MCP client) consume CCF context via MCP egress with zero CCF imports client-side — CCF as a black box; demonstrates §7.1 MCP-as-egress as the primary adoption path (completed 2026-08-02)
-- [x] **Phase 14: Documentation Suite** - mkdocs site with generated Protocol/API reference, adopter's guide, schema reference, security notes, PERFORMANCE.md, narrated demo walkthrough — `make docs --strict` in always-on CI (completed 2026-08-04)
+- [ ] **Phase 14: Documentation Suite** - mkdocs site with generated Protocol/API reference, adopter's guide, schema reference, security notes, PERFORMANCE.md, narrated demo walkthrough — `make docs --strict` in always-on CI (10/10 plans executed and verified 5/5; **held open** pending Phase 14.1 — human UAT found the guide teaches an agent-first mental model for an agent-optional capability, `14-HUMAN-UAT.md` G-01)
+- [ ] **Phase 14.1: Documentation — The Deterministic Path & The Adoption Argument** (INSERTED) - Close UAT gap G-01: make agent-free Context Product assembly the first-class story, argue why CCF beats a hand-rolled MCP server, and reframe the pillar and how-to surfaces for an adopter who already has external agents
 
 ## Phase Details
 
@@ -263,6 +265,41 @@ Plans:
 
 - [x] 14-10-PLAN.md — `docs-strict` gate target, `make ci` D-IMPL-72 amendment, always-on CI docs job with artifact upload
 
+### Phase 14.1: Documentation — The Deterministic Path & The Adoption Argument (INSERTED)
+
+**Goal**: An adopter who already has agents — the majority banking case — finishes the docs
+knowing that assembling a Context Product needs no CCF agent, and knowing why CCF is worth
+adopting over a hand-rolled MCP server
+**Depends on**: Phase 14 (the site, the gates, and the snippet vocabulary it built)
+**Requirements**: closes UAT gap G-01 (`14-HUMAN-UAT.md`); new DOCS-07..DOCS-09 to be minted
+at planning
+**Origin**: Dave's UAT read-through of the adopter's guide, 2026-08-03. Every machine gate
+passed; the mental model the docs teach was wrong.
+
+**Success Criteria** (what must be TRUE):
+
+  1. A how-to page demonstrates assembling and serving a Context Product with **no agent of
+     any kind**, literal-included from `examples/00-quickstart`, and it is reachable from the
+     How-to section rather than buried in the tutorial arc
+  2. A page argues CCF against the hand-rolled alternative in concrete terms — what a
+     Context Product carries that an MCP payload does not (the six axes, lineage, policy
+     regime, freshness/debt posture, validation gates, replay record), with the comparison
+     grounded in shipped mechanism rather than assertion
+  3. The Data and Context Layer pillar page no longer frames the pillar around agents; it
+     reads for a consumer, agentic or not
+  4. The adopter's guide carries an explicit off-ramp after the Context Product section
+     stating that everything below it is optional, and the guide's opening states plainly
+     that the SDK ships no agents and requires none
+  5. A worked example shows an external agent — zero CCF imports — consuming a governed
+     Context Product in a banking scenario, and the docs literal-include it
+  6. Assembly Mode is documented as the eighth primitive, naming all three modes and stating
+     honestly which are demonstrated today (Mode 1) and which are not (Modes 2 and 3, G-02)
+
+**Non-goals**: demonstrating Mode 2 or Mode 3 — that is the v0.3 milestone. This phase may
+only describe the mode taxonomy and mark the undemonstrated modes as such.
+
+**Plans**: TBD at `/gsd:plan-phase 14.1`
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -272,7 +309,9 @@ Plans:
 | 11. Performance Battery | 5/5 | Complete    | 2026-08-02 |
 | 12. Synthetic-Data Demonstration | 3/3 | Complete    | 2026-08-02 |
 | 13. Examples Suite Upgrade | 5/5 | Complete   | 2026-08-02 |
-| 14. Documentation Suite | 10/10 | Complete   | 2026-08-04 |
+| 13.1. External-Consumer Examples (MCP Egress) | 4/4 | Complete   | 2026-08-02 |
+| 14. Documentation Suite | 10/10 | Held open   | — (verified 5/5; UAT G-01 open) |
+| 14.1. Docs — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
 
