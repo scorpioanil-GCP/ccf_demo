@@ -3,126 +3,91 @@
 The audit-by-construction proof, in an energy/grid-operations domain: a
 load-shed authorization is decided against a real fabric — an
 ``AnalyticsInsightsAgent`` with a skill grant in force, a minimal grid-ops
-workflow suspending at an ApprovalGate, and an AUTH-BOUND human approval
-through ``create_app(auth=BearerTokenAuth(...))`` with a D-16-required
-``SignedPrincipalBinding`` (the replay leg of the D-14 absorption). Then,
-**from the replay record alone**, the decision is reproduced: graph
-snapshot, policy bundle version, agent version, skill-set in force, and
-prompt-artifact version all resolve from the ArtifactStore at their EXACT
-recorded versions, and the reproduced Context Product is **byte-equal**
-(canonical serializer) to the original.
+workflow suspending at an ApprovalGate, and an AUTH-BOUND human approval through
+``create_app(auth=BearerTokenAuth(...))`` with a D-16-required
+``SignedPrincipalBinding`` (the replay leg of the D-14 absorption). Then, **from
+the replay record alone**, the decision is reproduced: graph snapshot, policy
+bundle version, agent version, skill-set in force, and prompt-artifact version
+all resolve from the ArtifactStore at their EXACT recorded versions.
 
-Structure (review consensus concern 4 mitigation): ``record()`` and
-``replay_decision()`` are explicit helper functions inside this example
-directory, each with its own artifact-resolution checks, called in
-sequence by ``main()``.
+This file is the **call spine** an adopter would actually write. It asserts
+nothing and prints nothing: its assertions live in
+``tests/examples/test_decision_replay_output.py``, where they are run by
+``pytest`` and can fail a build (D-09). ``make example-06`` running clean means
+the spine executed; the test module is what says it was *right*.
 
-What this demonstrates, as assertions:
+The one thing the spine still does itself, and must: **it selects which policy
+bindings were in force.** Every ``PolicyBinding`` below is built from a pin the
+adopter read off ``BootedFabric.pins`` by key. ``pins`` is never handed to
+``build_replay_record``, and ``ResolvedPins`` grows no helper that would turn a
+pin set into bindings — D-06 keeps that selection in adopter code, because
+dimension 2 assembled by a rule nobody in the deployment wrote down is not an
+audit record. In the file whose whole subject is that record, the selection stays
+on the page.
 
-* **Exact reproduction (whitepaper §7.10; D-IMPL-06/26/44).** The replay
-  engine re-executes against the logical snapshot and the reproduced
-  product's canonical bytes equal the original's.
-* **Exact-version resolution, never a moving target.** The agent
-  definition resolves at its recorded content hash; the prompt artifact
-  and skill grant resolve content-addressed and are checked against the
-  versions the record (and the definition it pins) declares. A ref asking
-  for the moving-target token is refused (``MovingTargetRefused``).
-* **The hardened HITL surface, in replay (D-14/D-16).** The record's
-  dimension 2 carries the grant-derived approver principal AND the signed
-  binding; the signature verifies from the record alone and reproduces the
-  approver principal exactly as recorded.
-* **Version sensitivity.** Bumping the recorded policy-bundle version in a
-  COPY of the record (never the canonical one) makes reproduction refuse
-  (``ReplayUnresolvable``) — the audit record is version-sensitive.
-* **The OverrideBoundary, in replay (§8.2; D-07).** The shift supervisor
-  substitutes the agent's shed determination at a typed boundary; the
-  override decision's own record resolves from the store and dimension 2
-  carries BOTH the original output and the override, byte-assertably,
-  with the overrider's signed binding verifying from the record alone.
+Every domain value is loaded from ``artifacts/*.yaml`` and enumerated by
+``artifacts/manifest.yaml`` (CLAUDE.md §6.4, the No-Hardcoding Rule).
 
-Every domain value is loaded from ``artifacts/*.yaml`` (CLAUDE.md §6.4).
-Run it: ``make example-06``. Exit 0 means every assertion held.
+Run it: ``make example-06`` (or
+``PYTHONPATH=src:runtime python examples/06-decision-replay/run.py``).
 """
 
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import sys
 import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import yaml
 from joserfc.jwk import ECKey
 
-from ccf.agents.agent import Agent
 from ccf.agents.definitions import (
     AGENT_DEFINITION,
     PROMPT_ARTIFACT,
     TASK_DEFINITION,
     AgentDefinition,
     PromptArtifact,
-    TaskDefinition,
 )
 from ccf.agents.factory import AgentFactory
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.artifacts.protocol import (
-    LATEST_VERSION_TOKEN,
-    MovingTargetRefused,
-    artifact_uri,
-    parse_artifact_uri,
-)
-from ccf.assembly.worker import (
-    EntityResolutionRule,
-    EntityResolutionSpec,
-    RelationshipResolutionRule,
-)
-from ccf.boot import boot
+from ccf.artifacts.protocol import parse_artifact_uri
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
-from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
+from ccf.controlplane.artifacts import (
+    DeclaredArtifact,
+    OperatorParametersArtifact,
+    PerspectiveArtifact,
+    ProductClassDeclaration,
+    SignalBatch,
+    declared_artifact_class,
+    load_artifact,
+)
 from ccf.controlplane.audit import AuditLog
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.deployment import build_operator_registry, load_and_boot
+from ccf.deployment.pins import ResolvedPins
 from ccf.graph.protocols import GraphReader, GraphView
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
 from ccf.hitl.approval_gate import HitlActionRecord
-from ccf.hitl.identity_binding import (
-    sign_principal_binding,
-    verify_principal_binding,
-)
-from ccf.hitl.override import (
-    OverrideActionRecord,
-    OverrideBoundary,
-    OverrideResolution,
-)
+from ccf.hitl.identity_binding import sign_principal_binding
+from ccf.hitl.override import OverrideBoundary, OverrideResolution
 from ccf.hitl.principal import (
     ApproverIdentity,
     AuthenticationContext,
     HumanPrincipalBinding,
 )
-from ccf.hitl.transport import (
-    HITL_POLICY,
-    HitlPolicy,
-    InMemoryHitlTransport,
-    PendingHitlEvent,
-)
+from ccf.hitl.transport import HITL_POLICY, InMemoryHitlTransport, PendingHitlEvent
 from ccf.operators.base import OperatorOutput
-from ccf.operators.categories import (
-    PolicyFilter,
-    PolicyFilterParameters,
-    SimilaritySelect,
-    SimilaritySelectParameters,
-    TemporalAsOf,
-    TemporalAsOfParameters,
-    TraversalNeighborhood,
-    TraversalNeighborhoodParameters,
-)
+from ccf.operators.registry import OperatorRegistry
 from ccf.peering.identity import (
     DetachedJwsIdentityProvider,
     FileBackedKeySource,
@@ -135,60 +100,37 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.gates import ServableProduct, run_gates
-from ccf.projection.engine import OperatorRegistry, ProjectionEngine
+from ccf.projection.engine import ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput
-from ccf.replay.engine import (
-    ReplayUnresolvable,
-    replay,
-    resolve_artifact,
-    resolve_artifact_at_uri,
-)
+from ccf.replay.engine import replay, resolve_artifact
 from ccf.replay.record import DecisionReplayRecord, PolicyBinding, build_replay_record
-from ccf.replay.serve import ReplayWriter, serve
-from ccf.signal.envelope import SignalEnvelope, SourceIdentity
-from ccf.similarity.protocol import TokenOverlapIndex
+from ccf.replay.serve import ReplayWriter, ServedProduct, serve
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog, SkillCatalogEntry
-from ccf.skills.dispatch import SkillInvocation
-from ccf.skills.grants import (
-    ApprovalOutcome,
-    GrantLedger,
-    SkillGrant,
-    grant_set_hash,
-)
+from ccf.skills.grants import ApprovalOutcome, GrantLedger, SkillGrant
 from ccf.workflow.definitions import WORKFLOW_DEFINITION, WorkflowDefinition
 from ccf.workflow.factory import WorkflowFactory
-from ccf_runtime.authz.artifact import SCOPE_MAPPING, ScopeMappingArtifact
+from ccf_runtime.authz.artifact import SCOPE_MAPPING
 from ccf_runtime.authz.protocol import ControlPlaneTenantAuthorizer
 from ccf_runtime.http_api.app import create_app
 from ccf_runtime.http_api.auth import BearerTokenAuth
 from ccf_runtime.http_api.dependencies import ApiDependencies
-from ccf_runtime.http_api.errors import ERROR_TENANT_UNAUTHORIZED
 from ccf_runtime.mcp.auth import TokenGrant
 from ccf_runtime.mcp.egress import ProductNotServable
-from ccf_runtime.workflow.engine import (
-    WorkflowCompleted,
-    WorkflowEngine,
-    WorkflowSuspended,
-)
-from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
+from ccf_runtime.workflow.engine import WorkflowEngine, WorkflowSuspended
 
 ARTIFACTS = Path(__file__).resolve().parent / "artifacts"
-
-
-def _load(name: str) -> Any:
-    return yaml.safe_load((ARTIFACTS / name).read_text(encoding="utf-8"))
-
-
-def _instant(value: object) -> datetime:
-    # PyYAML resolves `...Z` timestamps to naive datetimes; the canonical
-    # serializer refuses naive datetimes (D-IMPL-38).
-    if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=UTC)
-    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+MANIFEST = ARTIFACTS / "manifest.yaml"
 
 
 def _ticking_clock(base: datetime) -> Any:
+    """A monotone audit clock seeded from an artifact, never from the wall.
+
+    Every Control Plane registration and every HITL action is stamped from it,
+    so the audit sequence is a function of a declared instant rather than of
+    when the example happened to run — which is what makes the run replayable at
+    all.
+    """
     state = {"now": base}
 
     def clock() -> datetime:
@@ -198,49 +140,12 @@ def _ticking_clock(base: datetime) -> Any:
     return clock
 
 
-def _resolution_spec(ontology: Any) -> EntityResolutionSpec:
-    return EntityResolutionSpec(
-        semver=ontology["artifact_version"],
-        entity_rules=tuple(
-            EntityResolutionRule(
-                match_key=rule["match_key"],
-                entity_class=rule["entity_class"],
-                identity_keys=tuple(rule["identity_keys"]),
-                attribute_keys=tuple(rule.get("attribute_keys", ())),
-            )
-            for rule in ontology["entity_rules"]
-        ),
-        relationship_rules=tuple(
-            RelationshipResolutionRule(
-                relationship_type=rule["relationship_type"],
-                subject_entity_class=rule["subject_entity_class"],
-                object_entity_class=rule["object_entity_class"],
-            )
-            for rule in ontology["relationship_rules"]
-        ),
-    )
-
-
-def _envelopes(ontology: Any, events: Any) -> tuple[SignalEnvelope, ...]:
-    return tuple(
-        SignalEnvelope(
-            tenant_id=ontology["tenant_id"],
-            envelope_id=item["envelope_id"],
-            source=SourceIdentity(system_id=item["source_system_id"]),
-            ingestion_timestamp=_instant(item["ingestion_timestamp"]),
-            observed_time=_instant(item["observed_time"]),
-            raw_payload=dict(item["payload"]),
-        )
-        for item in events["envelopes"]
-    )
-
-
 class ShedDetermination(CCFContract):
     # The deployment's typed agent-output shape at the OverrideBoundary —
-    # deployment code, like the projection: the SDK ships the boundary
-    # mechanism only, and every VALUE this shape carries lives in
-    # artifacts/hitl.yaml, never here (§6.4; CINV-01). Decimals travel as
-    # quoted strings per the artifact convention.
+    # deployment code, like the projection: the SDK ships the boundary mechanism
+    # only, and every VALUE this shape carries lives in artifacts/hitl-drive.yaml
+    # (§6.4; CINV-01). Decimals travel as quoted strings per the artifact
+    # convention.
 
     feeder_ref: str
     shed_megawatts: str
@@ -248,9 +153,20 @@ class ShedDetermination(CCFContract):
 
 
 class GridLoadPlan:
-    # The deployment's Π — deployment code, like every projection. Both the
-    # record phase and the replay environment construct it identically, so
-    # the interpretation the record names is the one the replay resolves.
+    """The deployment's Π: what the reconciled subgraph means to its reader.
+
+    A projection is deployment code — this is what a user writes, and it is never
+    a rewrite target (whitepaper §7.5).
+
+    ``required`` is passed in from the product-class artifact's
+    ``required_operator_keys``, never read off the operator registry. The
+    declaration and the engine's resolution must stay two independent
+    mechanisms: Gate 2 compares them, and a plan that returned the registry's own
+    keys would make that comparison a value against itself. That matters twice
+    over here — the replay environment reconstructs this plan, so a registry-fed
+    ``required`` would have made the gate tautological in the reproduction as
+    well as in the original.
+    """
 
     def __init__(self, *, plan_id: str, required: tuple[str, ...]) -> None:
         self._plan_id = plan_id
@@ -290,104 +206,22 @@ class GridLoadPlan:
         )
 
 
-def _operators(
-    *,
-    control: Any,
-    ontology: Any,
-    reader: GraphReader,
-    tenant_id: str,
-    boundary: datetime,
-    policy_version: str,
-) -> OperatorRegistry:
-    """The four-category operator chain, from artifacts — used identically
-    by the record phase and by the replay environment (D-IMPL-38: same
-    declared parameters -> same parameter hashes -> the recorded step
-    sequence reproduces)."""
-    params = control["operator_parameters"]
-    operators = OperatorRegistry()
-    operators.register(
-        PolicyFilter(
-            parameters=PolicyFilterParameters(
-                permitted_policy_bundle_versions=frozenset({policy_version}),
-                classification_attribute_by_class=dict(
-                    ontology["classification_attribute_by_class"]
-                ),
-                permitted_classifications=frozenset(
-                    params["policy"]["permitted_classifications"]
-                ),
-            )
-        )
-    )
-    corpus_attribute = ontology["similarity_corpus_attribute_by_class"]
-    view = reader.as_of(tenant_id=tenant_id, at=boundary)
-    corpus = {
-        (tenant_id, record.claim.entity_uri): record.claim.attributes[
-            corpus_attribute[record.claim.entity_class]
-        ]
-        for record in view.entities
-        if record.claim.entity_class in corpus_attribute
-    }
-    operators.register(
-        SimilaritySelect(
-            parameters=SimilaritySelectParameters(
-                query=params["similarity"]["query"],
-                minimum_score_percent=params["similarity"][
-                    "minimum_score_percent"
-                ],
-                ranked_entity_classes=frozenset(
-                    params["similarity"]["ranked_entity_classes"]
-                ),
-            ),
-            index=TokenOverlapIndex(
-                corpus=corpus,
-                index_version=params["similarity"]["index_version"],
-            ),
-        )
-    )
-    operators.register(
-        TemporalAsOf(
-            parameters=TemporalAsOfParameters(
-                require_valid_at_boundary=params["temporal"][
-                    "require_valid_at_boundary"
-                ]
-            )
-        )
-    )
-    operators.register(
-        TraversalNeighborhood(
-            parameters=TraversalNeighborhoodParameters(
-                seed_entity_classes=frozenset(
-                    params["traversal"]["seed_entity_classes"]
-                ),
-                relationship_types=frozenset(
-                    params["traversal"]["relationship_types"]
-                ),
-                depth_limit=params["traversal"]["depth_limit"],
-            )
-        )
-    )
-    return operators
-
-
 class ArtifactTokenSource:
-    # TokenSourceProtocol over the token-table artifact: only ACTIVE
-    # entries yield a grant; the expired entry refuses like an unknown
-    # token (fail closed; example-05 pattern).
+    # TokenSourceProtocol over the token-table artifact: only ACTIVE entries
+    # yield a grant; the expired entry refuses like an unknown token (fail
+    # closed; example-05 pattern). The entries arrive already parsed off
+    # `booted.artifacts`, so there is no second read of the file to drift.
 
-    def __init__(self, *, path: Path) -> None:
-        self._path = path
+    def __init__(self, *, entries: tuple[Mapping[str, Any], ...]) -> None:
+        self._entries = entries
 
     def grant_for(self, *, token: str) -> TokenGrant | None:
-        import hmac
-
-        table = yaml.safe_load(self._path.read_text(encoding="utf-8"))
-        for entry in table["tokens"]:
+        for entry in self._entries:
             if entry["status"] != "active":
                 continue
             if hmac.compare_digest(entry["token"], token):
                 return TokenGrant(
-                    client_id=entry["client_id"],
-                    scopes=tuple(entry["scopes"]),
+                    client_id=entry["client_id"], scopes=tuple(entry["scopes"])
                 )
         return None
 
@@ -424,16 +258,14 @@ class DeclaredDebt:
             factors=DebtFactors(
                 freshness=Decimal(self._factors["freshness"]),
                 completeness=Decimal(self._factors["completeness"]),
-                semantic_consistency=Decimal(
-                    self._factors["semantic_consistency"]
-                ),
+                semantic_consistency=Decimal(self._factors["semantic_consistency"]),
             ),
         )
 
 
 class UnconsultedSink:
-    # The regime declares grant_requires_approval: false — tier 2 must
-    # never be consulted; consultation is a hard failure.
+    # The regime declares grant_requires_approval: false — tier 2 must never be
+    # consulted; consultation is a hard failure.
 
     def decide(self, grant: SkillGrant) -> ApprovalOutcome:
         raise AssertionError("tier-2 sink consulted under an auto regime")
@@ -457,70 +289,79 @@ def _call(app: Any, method: str, url: str, **kwargs: Any) -> httpx.Response:
 
 
 class GridReplayEnvironment:
-    """The deployment side of the replay seam (``ReplayEnvironment``): the
-    projection, the operators as declared, and the product envelope — all
-    rebuilt from the same artifacts the record phase used, and VERIFIED by
-    the engine against the record rather than trusted."""
+    """The deployment side of the replay seam (``ReplayEnvironment``).
+
+    The projection, the operators as declared, and the product envelope — all
+    rebuilt from the same artifacts the record phase used, and VERIFIED by the
+    engine against the record rather than trusted.
+
+    It holds the same ``pins`` the record phase read, because the policy
+    operator's admitted-bundle set is completed from them (D-IMPL-76): a replay
+    that rebuilt the operator chain from a *different* admission set would
+    reproduce a product the original fabric was never permitted to serve.
+    """
 
     def __init__(
         self,
         *,
-        control: Any,
-        ontology: Any,
+        declared: ProductClassDeclaration,
+        governance: Mapping[str, Any],
+        parameters: Mapping[str, OperatorParametersArtifact],
+        pins: ResolvedPins,
+        policy_bundle_key: str,
         reader: GraphReader,
-        policy_version: str,
+        tenant_id: str,
+        boundary: datetime,
         now: datetime,
     ) -> None:
-        self._control = control
-        self._ontology = ontology
+        self._declared = declared
+        self._governance = governance
+        self._parameters = parameters
+        self._pins = pins
+        self._policy_bundle_key = policy_bundle_key
         self._reader = reader
-        self._policy_version = policy_version
+        self._tenant_id = tenant_id
+        self._boundary = boundary
         self._now = now
 
     def resolve_plan(self, *, plan_id: str) -> Any:
-        declared = self._control["product_class"]
-        if plan_id != declared["plan_id"]:
+        if plan_id != self._governance["plan_id"]:
             raise LookupError(plan_id)
+        # From the ARTIFACT, exactly as the record phase did — not from
+        # `resolve_operators`'s registry, which would make Gate 2 compare the
+        # reproduction's own resolution against itself.
         return GridLoadPlan(
-            plan_id=declared["plan_id"],
-            required=self._registry().keys(),
+            plan_id=self._governance["plan_id"],
+            required=self._declared.required_operator_keys,
         )
 
-    def _registry(self) -> OperatorRegistry:
-        return _operators(
-            control=self._control,
-            ontology=self._ontology,
-            reader=self._reader,
-            tenant_id=self._ontology["tenant_id"],
-            boundary=_instant(self._control["decision"]["temporal_boundary"]),
-            policy_version=self._policy_version,
+    def resolve_operators(self, *, operator_keys: tuple[str, ...]) -> OperatorRegistry:
+        return build_operator_registry(
+            parameters=self._parameters,
+            view=self._reader.as_of(tenant_id=self._tenant_id, at=self._boundary),
+            pins=self._pins,
+            policy_bundle_key=self._policy_bundle_key,
+            similarity_index_version=self._governance["similarity_index_version"],
         )
-
-    def resolve_operators(
-        self, *, operator_keys: tuple[str, ...]
-    ) -> OperatorRegistry:
-        return self._registry()
 
     def rehydrate_product(
         self, *, record: DecisionReplayRecord, projection: ProjectionOutput
     ) -> ContextProductContract:
-        declared = self._control["product_class"]
         return ContextProductContract(
-            schema_name=declared["schema_name"],
-            schema_version=declared["schema_version"],
+            schema_name=self._declared.schema_name,
+            schema_version=self._declared.schema_version,
             plan_id=projection.plan_id,
             tenant_id=record.tenant_id,
             temporal_boundary=record.context_fabric_snapshot.temporal_boundary,
             expires_at=self._now
-            + timedelta(seconds=declared["product_ttl_seconds"]),
-            ttl_anchor=declared["ttl_anchor"],
+            + timedelta(seconds=self._governance["product_ttl_seconds"]),
+            ttl_anchor=self._declared.ttl_anchor,
             lineage=ProductLineage(
                 operators_invoked=frozenset(
                     record.content_generation_path.operator_plan
                 ),
                 policy_bundle_versions=frozenset(
-                    binding.version
-                    for binding in record.policy_bindings.bindings
+                    binding.version for binding in record.policy_bindings.bindings
                 ),
                 graph_snapshot_at=record.context_fabric_snapshot.temporal_boundary,
             ),
@@ -528,177 +369,193 @@ class GridReplayEnvironment:
         )
 
 
-@dataclass
-class RecordedDecision:
-    """Everything the replay phase needs, plus the originals it must NOT
-    need (kept only to assert byte-equality against)."""
+@dataclass(frozen=True)
+class ReplayDemonstration:
+    """What one run of the spine produced, for a caller to inspect.
 
+    The example returns its state rather than checking it here, so that
+    ``tests/examples/test_decision_replay_output.py`` can hold the assertions
+    where a test runner will actually run them.
+
+    The ``booted`` fabric is returned still open, unlike the quickstart's: the
+    replay leg reads through its ``reader``, and so do the tests' own negative
+    probes. Its caller owns closing it.
+    """
+
+    booted: Any
     tenant_id: str
+    artifacts: Mapping[str, CCFContract]
     registry: ControlPlaneRegistry
+    audit: AuditLog
     store: FileArtifactStore
-    reader: GraphReader
     environment: GridReplayEnvironment
-    record_address: str
-    override_record_address: str
+
+    product: ContextProductContract
+    operators_invoked: frozenset[str]
+    record: DecisionReplayRecord
+    served: ServedProduct
+    policy_version: str
+
+    definition: AgentDefinition
+    definition_version: str
+    prompt: PromptArtifact
+    grant: SkillGrant
+    grant_set_hash: str
+    skill_output: Mapping[str, str]
+
+    approver_client_id: str
+    authz_refusal_status: int
+    authz_refusal_code: str
+    authz_refused_client_id: str
+    scope_mapping_version: str
+
+    reproduced: ContextProductContract
+    reproduced_record: DecisionReplayRecord
+    reproduced_address: str
+    resolved_definition: AgentDefinition
+    resolved_prompt: PromptArtifact
+    resolved_prompt_pinned_version: str
+    resolved_grant: SkillGrant
+    agent_definition_class: str
+
+    override_record: DecisionReplayRecord
+    override_served: ServedProduct
+    override_resolution: OverrideResolution[ShedDetermination]
     override_original: ShedDetermination
     override_final: ShedDetermination
     override_overridden: bool
-    original_product: ContextProductContract
-    provider: DetachedJwsIdentityProvider
-    trusted: Mapping[str, JsonWebKey]
-    active_client_id: str
-    definition: AgentDefinition
-    grant: SkillGrant
-    policy_version: str
-    authz_allowed_scope: str
-    authz_refused_scope: str
-    authz_refusal_code: str
+    reproduced_override_record: DecisionReplayRecord
+    reproduced_override_product: ContextProductContract
+
+    mutated_record_address: str
 
 
-def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
-    """Phase 1: make the decision — fabric, skilled agent, auth-bound
-    approval — and land its five-dimension record in the ArtifactStore."""
-    ontology = _load("ontology.yaml")
-    events = _load("events.yaml")
-    control = _load("controlplane.yaml")
-    agent_doc = _load("agent.yaml")
-    prompt_doc = _load("prompt.yaml")
-    skills_doc = _load("skills.yaml")
-    task_doc = _load("task.yaml")
-    workflow_doc = _load("workflow.yaml")
-    hitl_doc = _load("hitl.yaml")
-    tokens_doc = _load("tokens.yaml")
-
-    tenant_id: str = ontology["tenant_id"]
-    keys = control["keys"]
-    boundary = _instant(control["decision"]["temporal_boundary"])
-    now = _instant(control["decision"]["now"])
-    clock = _ticking_clock(_instant(hitl_doc["clock"]["base"]))
-
-    # --- Control Plane: fabric + agent + workflow + HITL closures -----------
+def run(*, root: Path) -> ReplayDemonstration:
+    """Record a decision against ``root``, then reproduce it from its record."""
+    # The audit clock must exist before the FIRST registration, and the first
+    # registration happens inside `load_and_boot` — so the one instant that
+    # seeds it is read here, through the SDK's own artifact loader, from the very
+    # document the manifest names as `decision`. Everything after boot reads that
+    # artifact off `booted.artifacts`; this is the single ordering constraint the
+    # one-call boot cannot absorb.
+    decision_document = (ARTIFACTS / "decision.yaml").read_text(encoding="utf-8")
+    decision = cast(
+        DeclaredArtifact,
+        load_artifact(
+            decision_document,
+            declared_artifact_class(yaml.safe_load(decision_document)["class_id"]),
+        ),
+    )
+    clock = _ticking_clock(
+        datetime.fromisoformat(decision.declaration["clock_base"])
+    )
     audit = AuditLog()
     registry = ControlPlaneRegistry(clock=clock, audit_log=audit)
-    spec_version = registry.register(
-        keys["resolution_spec"], _resolution_spec(ontology)
+
+    # --8<-- [start:boot]
+    # 1. One call replaces the registration prologue and the boot: the manifest
+    #    names every artifact in force, `load_and_boot` parses all of them,
+    #    registers the `role: register` ones, and boots on the resulting pins.
+    booted = load_and_boot(
+        MANIFEST, registry=registry, database_path=str(root / "grid.sqlite3")
     )
-    policy_version = registry.register(
-        keys["policy_bundle"], control["policy_bundle"]
-    )
-    for doc in (agent_doc, task_doc, workflow_doc):
-        for reference in doc.get("referenced_artifacts", {}).values():
-            artifact_class = declared_artifact_class(reference["class_id"])
-            declared = parse_artifact(
-                {
-                    "class_id": reference["class_id"],
-                    "semver": reference["semver"],
-                    "declaration": reference["declaration"],
-                },
-                artifact_class,
-            )
-            registry.register_typed(reference["key"], declared, artifact_class)
-    prompt = parse_artifact(prompt_doc["prompt_artifact"], PROMPT_ARTIFACT)
-    assert isinstance(prompt, PromptArtifact)
-    registry.register_typed(
-        prompt_doc["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
-    )
-    definition = parse_artifact(agent_doc["agent_definition"], AGENT_DEFINITION)
-    assert isinstance(definition, AgentDefinition)
-    definition_key = agent_doc["keys"]["agent_definition"]
-    definition_version = registry.register_versioned(
-        definition_key, definition, AGENT_DEFINITION
-    )
-    assert isinstance(definition_version, str)
-    definition_hash = content_hash(definition)
-    task = parse_artifact(task_doc["task_definition"], TASK_DEFINITION)
-    assert isinstance(task, TaskDefinition)
-    registry.register_versioned(
-        workflow_doc["keys"]["task_definition"], task, TASK_DEFINITION
-    )
-    workflow_definition = parse_artifact(
-        workflow_doc["workflow_definition"], WORKFLOW_DEFINITION
-    )
-    assert isinstance(workflow_definition, WorkflowDefinition)
-    workflow_key = workflow_doc["keys"]["workflow_definition"]
-    workflow_version = registry.register_versioned(
-        workflow_key, workflow_definition, WORKFLOW_DEFINITION
-    )
-    assert isinstance(workflow_version, str)
-    hitl_policy = parse_artifact(hitl_doc["hitl_policy"], HITL_POLICY)
-    assert isinstance(hitl_policy, HitlPolicy)
-    assert hitl_policy.signed_binding_required is True
-    registry.register_typed(
-        hitl_doc["keys"]["hitl_policy"], hitl_policy, HITL_POLICY
+    # --8<-- [end:boot]
+
+    # Each artifact comes back under its own manifest key, already validated
+    # against the class the manifest declared for it — so these casts restate
+    # what `load_and_boot` already enforced.
+    events = cast(SignalBatch, booted.artifacts["events"])
+    governance = cast(
+        DeclaredArtifact, booted.artifacts["product-governance"]
+    ).declaration
+    declared = cast(ProductClassDeclaration, booted.artifacts["product-class"])
+    perspective = cast(PerspectiveArtifact, booted.artifacts["perspective"])
+    registration = cast(
+        DeclaredArtifact, booted.artifacts["agent-registration"]
+    ).declaration
+    dispatch = cast(DeclaredArtifact, booted.artifacts["skill-dispatch"]).declaration
+    human = cast(DeclaredArtifact, booted.artifacts["hitl-drive"]).declaration
+    probes = cast(DeclaredArtifact, booted.artifacts["replay-probes"]).declaration
+    token_entries = tuple(
+        cast(DeclaredArtifact, booted.artifacts["tokens"]).declaration["tokens"]
     )
 
-    # --- the scope-mapping policy artifact (HARD-04; D-IMPL-68) --------------
-    # Which scopes reach which tenants and actions is the deployment's
-    # statement, registered like every other Control Plane bundle; the
-    # driver holds no scope or tenant value (CINV-01).
-    scope_doc = _load("scope_mapping.yaml")
-    scope_mapping = parse_artifact(scope_doc["scope_mapping"], SCOPE_MAPPING)
-    assert isinstance(scope_mapping, ScopeMappingArtifact)
-    scope_mapping_version = registry.register_typed(
-        scope_doc["keys"]["scope_mapping"], scope_mapping, SCOPE_MAPPING
+    boundary = datetime.fromisoformat(decision.declaration["temporal_boundary"])
+    now = datetime.fromisoformat(decision.declaration["now"])
+
+    # 2. Ingest from the batch the manifest declared `role: load`.
+    for envelope in events.envelopes:
+        booted.handle.worker.ingest(envelope)
+
+    # 3. The graph view at the temporal boundary this deployment named.
+    view = booted.handle.reader.as_of(tenant_id=booted.tenant_id, at=boundary)
+
+    # 4. The operator-parameters mapping, assembled by naming this deployment's
+    #    OWN manifest keys. Deliberately not an isinstance filter or a class-id
+    #    match: those are type introspection, and copied across nine examples
+    #    they would be a new duplication class.
+    parameters: Mapping[str, OperatorParametersArtifact] = {
+        key: cast(OperatorParametersArtifact, booted.artifacts[key])
+        for key in ("traversal", "temporal", "policy", "similarity")
+    }
+
+    # 5. The four-category operator chain (L4), from those artifacts.
+    operators = build_operator_registry(
+        parameters=parameters,
+        view=view,
+        pins=booted.pins,
+        policy_bundle_key="policy-bundle",
+        similarity_index_version=governance["similarity_index_version"],
     )
 
-    # --- boot and ingest -----------------------------------------------------
-    handle = boot(
-        database_path=root / "grid.sqlite3",
-        registry=registry,
-        resolution_spec_key=keys["resolution_spec"],
-        resolution_spec_version=spec_version,
-        policy_bundle_key=keys["policy_bundle"],
-        policy_bundle_version=policy_version,
-    )
-    handle_holder["handle"] = handle
-    for envelope in _envelopes(ontology, events):
-        handle.worker.ingest(envelope)
-
-    # --- the decision's projection + gates -----------------------------------
-    operators = _operators(
-        control=control,
-        ontology=ontology,
-        reader=handle.reader,
-        tenant_id=tenant_id,
-        boundary=boundary,
-        policy_version=policy_version,
-    )
-    declared_class = control["product_class"]
-    plan = GridLoadPlan(
-        plan_id=declared_class["plan_id"], required=operators.keys()
-    )
-    perspective = Perspective(
-        principal_id=control["perspective"]["principal_id"],
-        role=control["perspective"]["role"],
-    )
+    # 6. Project (L5). The plan's `required` comes from the product-class
+    #    artifact — never from the operator registry's own keys.
     execution = ProjectionEngine(
-        reader=handle.reader, registry=operators
+        reader=booted.handle.reader, registry=operators
     ).execute(
-        plan=plan,
+        plan=GridLoadPlan(
+            plan_id=governance["plan_id"],
+            required=declared.required_operator_keys,
+        ),
         perspective=perspective,
-        tenant_id=tenant_id,
+        tenant_id=booted.tenant_id,
         temporal_boundary=boundary,
     )
+
+    # 7. L6 — and this cluster stays in adopter code deliberately.
+    #
+    #    Gate 3 compares the class's TTL CEILING against this product's own
+    #    `expires_at`. That is only a check while the two are independently
+    #    authored. Registering the MaxTTL value here is what MINTS
+    #    `max_ttl_version` — the pin is a content hash of what was registered,
+    #    which is why the product-class artifact cannot declare it. A helper that
+    #    minted the pin and stamped the product would be comparing a value
+    #    against itself, so the SDK ships no such helper.
     max_ttl_version = registry.register(
-        keys["max_ttl"], MaxTTL(seconds=control["max_ttl_seconds"])
+        declared.max_ttl_key, MaxTTL(seconds=governance["max_ttl_seconds"])
     )
     product_class = register_product_class(
         registry=registry,
-        schema_name=declared_class["schema_name"],
-        schema_version=declared_class["schema_version"],
-        ttl_anchor=declared_class["ttl_anchor"],
-        assembly_mode=declared_class["assembly_mode"],
-        max_ttl_key=keys["max_ttl"],
+        schema_name=declared.schema_name,
+        schema_version=declared.schema_version,
+        ttl_anchor=declared.ttl_anchor,
+        assembly_mode=declared.assembly_mode,
+        max_ttl_key=declared.max_ttl_key,
         max_ttl_version=max_ttl_version,
     )
+
+    # 8. The lineage the product CLAIMS, and the gates. `engine_resolved` is
+    #    passed as a separate argument from a second, independent source — the
+    #    engine's own resolution — because Gate 2 exists to catch a producer
+    #    misdeclaring.
+    policy_version = booted.pins.version_for("policy-bundle")
     candidate = ContextProductContract(
         schema_name=product_class.schema_name,
         schema_version=product_class.schema_version,
         plan_id=execution.plan_id,
-        tenant_id=tenant_id,
+        tenant_id=booted.tenant_id,
         temporal_boundary=boundary,
-        expires_at=now
-        + timedelta(seconds=declared_class["product_ttl_seconds"]),
+        expires_at=now + timedelta(seconds=governance["product_ttl_seconds"]),
         ttl_anchor=product_class.ttl_anchor,
         lineage=ProductLineage(
             operators_invoked=execution.operators_invoked,
@@ -707,34 +564,102 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
         ),
         payload=execution.projection.payload,
     )
-    gated = run_gates(
+    match run_gates(
         candidate,
         engine_resolved=execution.operators_invoked,
         now=now,
         registry=registry,
         product_class=product_class,
-    )
-    assert isinstance(gated, ServableProduct), gated
-    expected = control["expected"]
-    assert gated.product.payload["entity_count"] == expected["entity_count"]
+    ):
+        case ServableProduct() as gated:
+            pass
+        case refusal:
+            raise RuntimeError(
+                f"the three validation gates refused this product: {refusal}"
+            )
 
-    # --- the skilled agent: grant in force at decision time (D-07) -----------
-    catalog = SkillCatalog(registry)
-    entry = parse_artifact(
-        skills_doc["skills"]["feeder_load_metrics"], SKILL_CATALOG_ENTRY
+    # --- the SDK classes the manifest deliberately cannot address -------------
+    # Five are AUTHOR-VERSIONED (`register_versioned` runs the D-05 bump check
+    # that `load_and_boot`'s `register_typed` does not); two more are SDK classes
+    # the manifest cannot address at all, because an unknown-to-the-manifest
+    # class id resolves to the open envelope and the transport and the authorizer
+    # read their real contracts back off the Control Plane by key. Each still
+    # validates against its own contract here.
+    prompt = cast(
+        PromptArtifact,
+        load_artifact(
+            (ARTIFACTS / "prompt-artifact.yaml").read_text(encoding="utf-8"),
+            PROMPT_ARTIFACT,
+        ),
     )
-    assert isinstance(entry, SkillCatalogEntry)
-    assert isinstance(catalog.register(entry), str)
+    registry.register_typed(
+        registration["prompt_artifact_key"], prompt, PROMPT_ARTIFACT
+    )
+    definition = cast(
+        AgentDefinition,
+        load_artifact(
+            (ARTIFACTS / "agent-definition.yaml").read_text(encoding="utf-8"),
+            AGENT_DEFINITION,
+        ),
+    )
+    definition_key = registration["agent_definition_key"]
+    definition_version = registry.register_versioned(
+        definition_key, definition, AGENT_DEFINITION
+    )
+    definition_hash = content_hash(definition)
+    registry.register_versioned(
+        registration["task_definition_key"],
+        load_artifact(
+            (ARTIFACTS / "task-definition.yaml").read_text(encoding="utf-8"),
+            TASK_DEFINITION,
+        ),
+        TASK_DEFINITION,
+    )
+    workflow_definition = cast(
+        WorkflowDefinition,
+        load_artifact(
+            (ARTIFACTS / "workflow-definition.yaml").read_text(encoding="utf-8"),
+            WORKFLOW_DEFINITION,
+        ),
+    )
+    workflow_key = registration["workflow_definition_key"]
+    workflow_version = registry.register_versioned(
+        workflow_key, workflow_definition, WORKFLOW_DEFINITION
+    )
+    registry.register_typed(
+        registration["hitl_policy_key"],
+        load_artifact(
+            (ARTIFACTS / "hitl-policy.yaml").read_text(encoding="utf-8"),
+            HITL_POLICY,
+        ),
+        HITL_POLICY,
+    )
+    scope_mapping_version = registry.register_typed(
+        registration["scope_mapping_key"],
+        load_artifact(
+            (ARTIFACTS / "scope-mapping.yaml").read_text(encoding="utf-8"),
+            SCOPE_MAPPING,
+        ),
+        SCOPE_MAPPING,
+    )
+
+    # --- the skilled agent: grant in force at decision time (D-07) ------------
+    catalog = SkillCatalog(registry)
+    entry = cast(
+        SkillCatalogEntry,
+        load_artifact(
+            (ARTIFACTS / "skill-catalog-entry.yaml").read_text(encoding="utf-8"),
+            SKILL_CATALOG_ENTRY,
+        ),
+    )
+    catalog.register(entry)
     ledger = GrantLedger(
-        control_plane=registry,
-        catalog=catalog,
-        sink=UnconsultedSink(),
-        clock=clock,
+        control_plane=registry, catalog=catalog, sink=UnconsultedSink(), clock=clock
     )
     callables = CallableRegistry()
-    output_record = dict(skills_doc["callable"]["output_record"])
+    output_record = dict(dispatch["callable_output_record"])
     callables.register(
-        skills_doc["callable"]["registered_key"],
+        entry.binding.callable_ref,
         lambda arguments: {**output_record, **arguments},
     )
     agent = AgentFactory(
@@ -744,26 +669,21 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
         definition_version=definition_version,
         bound_skills=ledger.bound_view(definition_hash),
     )
-    assert isinstance(agent, Agent)
     grant = SkillGrant(
-        agent_definition_hash=definition_hash, **skills_doc["grant"]
+        agent_definition_hash=definition_hash, **dispatch["grant_request"]
     )
-    granted = ledger.request(
-        grant, definition=definition, actor=skills_doc["actors"]["requesting_actor"]
+    ledger.request(
+        grant, definition=definition, actor=dispatch["requesting_actor"]
     )
-    assert granted == content_hash(grant)
     in_force = ledger.grant_set_hash(definition_hash)
-    assert in_force == grant_set_hash(frozenset({content_hash(grant)}))
-    assert agent.consume(gated.product, now=now) is gated.product
+    agent.consume(gated.product, now=now)
     invocation = agent.invoke_skill(
-        skills_doc["grant"]["skill_name"],
-        arguments=skills_doc["dispatch"]["arguments"],
+        dispatch["grant_request"]["skill_name"],
+        arguments=dispatch["dispatch"]["arguments"],
     )
-    assert isinstance(invocation, SkillInvocation)
-    assert dict(invocation.output) == skills_doc["dispatch"]["expected_output"]
 
     # --- the workflow suspends at the load-shed ApprovalGate ------------------
-    key_id: str = hitl_doc["keys"]["signing_key_id"]
+    key_id: str = human["signing_key_id"]
     key_dir = root / "keys"
     key_dir.mkdir()
     key = ECKey.generate_key("P-256", parameters={"kid": key_id})
@@ -776,7 +696,7 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
     trusted: dict[str, JsonWebKey] = {key_id: key.as_dict(private=False)}
     transport = InMemoryHitlTransport(
         control_plane=registry,
-        hitl_policy_key=hitl_doc["keys"]["hitl_policy"],
+        hitl_policy_key=registration["hitl_policy_key"],
         identity_provider=provider,
         trusted_keys=trusted,
     )
@@ -785,24 +705,21 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
         control_plane=registry,
         artifact_store=store,
         hitl_transport=transport,
-        skill_binding=NodeBindings(hitl_doc["node_outputs"]),
-        agent_binding=NodeBindings(hitl_doc["node_outputs"]),
+        skill_binding=NodeBindings(human["node_outputs"]),
+        agent_binding=NodeBindings(human["node_outputs"]),
         clock=clock,
-        debt_binding=DeclaredDebt(hitl_doc["debt_factors"]),
+        debt_binding=DeclaredDebt(human["debt_factors"]),
     )
     factory = WorkflowFactory(control_plane=registry)
     workflow = factory.construct(
         definition_key=workflow_key, definition_version=workflow_version
     )
-    drive = hitl_doc["drive"]
+    drive = human["drive"]
     suspended = asyncio.run(
         engine.execute(workflow, execution_id=drive["execution_id"])
     )
-    assert isinstance(suspended, WorkflowSuspended), suspended
-    assert suspended.gate == drive["expected_gate"]
-    state_key = f"{tenant_id}/{drive['execution_id']}"
-    state = registry.state_store.get(WORKFLOW_STATE, state_key)
-    assert isinstance(state, WorkflowStateRecord)
+    if not isinstance(suspended, WorkflowSuspended):  # pragma: no cover
+        raise RuntimeError(f"the workflow did not suspend at a gate: {suspended!r}")
 
     # --- the AUTH-BOUND approval through the hardened door (D-14) -------------
     app = create_app(
@@ -816,69 +733,49 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
             skill_catalog=catalog,
             grant_ledger=ledger,
         ),
-        auth=BearerTokenAuth(
-            token_source=ArtifactTokenSource(path=ARTIFACTS / "tokens.yaml")
-        ),
-        # Tenant authorization at the door (HARD-04; D-IMPL-68): the
-        # authorizer interprets the registered scope mapping per request
-        # and audits every allow AND deny decision.
+        auth=BearerTokenAuth(token_source=ArtifactTokenSource(entries=token_entries)),
+        # Tenant authorization at the door (HARD-04; D-IMPL-68): the authorizer
+        # interprets the registered scope mapping per request and audits every
+        # allow AND deny decision.
         authorizer=ControlPlaneTenantAuthorizer(
             control_plane=registry,
-            scope_mapping_key=scope_doc["keys"]["scope_mapping"],
+            scope_mapping_key=registration["scope_mapping_key"],
             clock=clock,
         ),
     )
-    entries = {e["label"]: e for e in tokens_doc["tokens"]}
+    entries = {entry_row["label"]: entry_row for entry_row in token_entries}
     active = entries["approver"]
     outsider = entries["unauthorized"]
     bearer = {"Authorization": f"Bearer {active['token']}"}
 
-    # --- tenant authorization: allowed and refused (Phase 10 D-16) ------------
-    # The approver token's scope is mapped to this tenant and both HITL
-    # actions; the outsider token is AUTHENTICATED (its entry is active)
-    # but its scope is absent from the mapping, so deny-by-default refuses
-    # it with the typed 403 — the shared constant, never prose.
+    # The outsider token is AUTHENTICATED (its entry is active) but its scope is
+    # absent from the mapping, so deny-by-default refuses it.
     authz_refused = _call(
         app,
         "GET",
-        f"/hitl/queue?tenant={tenant_id}",
+        f"/hitl/queue?tenant={booted.tenant_id}",
         headers={"Authorization": f"Bearer {outsider['token']}"},
     )
-    assert authz_refused.status_code == 403, authz_refused.text
-    authz_refusal_code = authz_refused.json()["detail"]["error_code"]
-    assert authz_refusal_code == ERROR_TENANT_UNAUTHORIZED
-    # Both outcomes land in the one Control Plane audit log with the exact
-    # mapping version in force (D-09/D-10).
-    denied = [
-        event
-        for event in audit.events()
-        if event.action == "authz_decision" and not event.resolved
-    ]
-    assert len(denied) == 1
-    assert denied[0].actor == outsider["client_id"]
-    assert denied[0].version == scope_mapping_version
     queue = _call(
-        app, "GET", f"/hitl/queue?tenant={tenant_id}", headers=bearer
+        app, "GET", f"/hitl/queue?tenant={booted.tenant_id}", headers=bearer
     )
-    assert queue.status_code == 200, queue.text
     (pending_doc,) = queue.json()
     pending = PendingHitlEvent.model_validate(pending_doc)
-    assert pending.product_content_hash == content_hash(state)
-    approver = hitl_doc["approver"]
+    approver = human["approver"]
     binding = HumanPrincipalBinding(
         approver=ApproverIdentity(**approver["identity"]),
         authentication=AuthenticationContext(**approver["authentication"]),
-        action_time=_instant(approver["action_time"]),
+        action_time=datetime.fromisoformat(approver["action_time"]),
         product_content_hash=pending.product_content_hash,
     )
     signed = sign_principal_binding(binding, provider=provider, key_id=key_id)
-    admitted = _call(
+    _call(
         app,
         "POST",
         "/hitl/actions",
         json={
             "event_key": pending.event_key,
-            "tenant": tenant_id,
+            "tenant": booted.tenant_id,
             "action": drive["approval_action"],
             "principal": binding.model_dump(mode="json"),
             "annotation": None,
@@ -886,19 +783,15 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
         },
         headers=bearer,
     )
-    assert admitted.status_code == 200, admitted.text
-    (submission,) = transport.submissions(tenant=tenant_id)
-    assert submission.principal.approver.subject_id == active["client_id"]
-    assert submission.signed_binding == signed
+    (submission,) = transport.submissions(tenant=booted.tenant_id)
 
-    # The door is submit-only (D-IMPL-62): the D-16-verified submission IS
-    # the authority-path landing; this driver — the owning composition —
-    # consumes the event and resumes.
+    # The door is submit-only (D-IMPL-62): the D-16-verified submission IS the
+    # authority-path landing; this driver — the owning composition — consumes the
+    # event and resumes.
     action_record = HitlActionRecord(
         event=pending, submission=submission, approved=True
     )
-    hitl_actions_block = canonical_bytes(action_record).decode("utf-8")
-    assert transport.dequeue(tenant=tenant_id) is not None
+    transport.dequeue(tenant=booted.tenant_id)
     outcome = asyncio.run(
         engine.resume(
             workflow,
@@ -906,113 +799,93 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
             decision=drive["resume_decision"],
         )
     )
-    assert isinstance(outcome, WorkflowCompleted), outcome
-    assert outcome.terminal_state == drive["resume_decision"]
 
+    # --8<-- [start:record]
     # --- the five-dimension record, served through the ReplayWriter -----------
+    # `policy_bindings` is built HERE, from the pin the adopter read off
+    # `BootedFabric.pins` by key. `pins` itself is never passed: D-06 keeps the
+    # SELECTION of which bindings were in force in adopter hands, because
+    # dimension 2 assembled by a rule nobody in the deployment wrote down is not
+    # an audit record — and this is the file whose whole subject is that record.
     conditioning = agent.perspective_conditioning(
-        principal_id=perspective.principal_id,
-        grant_set_hash=ledger.grant_set_hash(definition_hash),
+        principal_id=perspective.principal_id, grant_set_hash=in_force
     ).model_copy(update={"delegation_chain": outcome.delegation_chain})
-    replay_record = build_replay_record(
+    record = build_replay_record(
         execution=execution,
         product=gated.product,
         perspective=perspective,
         policy_bindings=(
-            PolicyBinding(key=keys["policy_bundle"], version=policy_version),
+            PolicyBinding(key="policy-bundle", version=policy_version),
         ),
-        assembly_mode=declared_class["assembly_mode"],
+        assembly_mode=declared.assembly_mode,
         recorded_at=now,
         agent_conditioning=conditioning,
-        hitl_actions=hitl_actions_block,
+        hitl_actions=canonical_bytes(action_record).decode("utf-8"),
         workflow_step_sequence=outcome.step_sequence_block,
     )
     served = serve(
         product=gated,
-        record=replay_record,
+        record=record,
         replay_writer=ReplayWriter(
-            store=store,
-            artifact_class=control["artifacts"]["replay_record_class"],
+            store=store, artifact_class=governance["replay_record_class"]
         ),
     )
+    # --8<-- [end:record]
 
     # --- the OverrideBoundary: the human substitutes the shed scope -----------
-    # The agent's shed determination crosses a typed boundary where the
-    # shift supervisor substitutes it. Original and substitute are BOTH
-    # artifact values; both must land in the replay record (§8.2 —
-    # "the original agent output and the override are both in the replay
-    # record"; T-07-16). This driver only interprets (§6.4).
-    override_doc = hitl_doc["override"]
+    # The agent's shed determination crosses a typed boundary where the shift
+    # supervisor substitutes it. Original and substitute are BOTH artifact
+    # values; both must land in the replay record (§8.2; T-07-16).
+    override_doc = human["override"]
     override_boundary: OverrideBoundary[ShedDetermination] = OverrideBoundary(
         transport=transport,
         audit=audit,
         clock=clock,
         control_plane=registry,
-        hitl_policy_key=hitl_doc["keys"]["hitl_policy"],
+        hitl_policy_key=registration["hitl_policy_key"],
         identity_provider=provider,
         trusted_keys=trusted,
     )
     override_original = ShedDetermination(**override_doc["original"])
     override_substitute = ShedDetermination(**override_doc["substitute"])
     proposed = override_boundary.propose(
-        tenant=tenant_id,
+        tenant=booted.tenant_id,
         event_key=override_doc["event"]["event_key"],
         workflow_state_ref=override_doc["event"]["workflow_state_ref"],
         original=override_original,
     )
-    # The proposal-time content hash is what the overrider's binding must
-    # echo (T-07-17/T-07-39 TOCTOU doctrine).
-    assert proposed.product_content_hash == content_hash(override_original)
     overrider = override_doc["overrider"]
-    overrider_entry = entries[overrider["token_label"]]
-    assert overrider_entry["status"] == "active"
-    assert (
-        overrider["identity"]["subject_id"] == overrider_entry["client_id"]
-    )
     overrider_binding = HumanPrincipalBinding(
         approver=ApproverIdentity(**overrider["identity"]),
         authentication=AuthenticationContext(**overrider["authentication"]),
-        action_time=_instant(overrider["action_time"]),
+        action_time=datetime.fromisoformat(overrider["action_time"]),
+        # The proposal-time content hash is what the overrider's binding must
+        # echo (T-07-17/T-07-39 TOCTOU doctrine).
         product_content_hash=proposed.product_content_hash,
-    )
-    overrider_signed = sign_principal_binding(
-        overrider_binding, provider=provider, key_id=key_id
     )
     # The artifact decides override vs confirm; the driver interprets.
     overriding = override_doc["drive"]["action"] == "override"
     resolution = override_boundary.resolve(
-        tenant=tenant_id,
+        tenant=booted.tenant_id,
         event_key=proposed.event_key,
         principal=overrider_binding,
         override=override_substitute if overriding else None,
-        signed_binding=overrider_signed,
-    )
-    assert isinstance(resolution, OverrideResolution)
-    assert resolution.record.overridden == overriding
-    assert resolution.record.original == override_original
-    override_final = override_substitute if overriding else override_original
-    assert resolution.record.final == override_final
-    # Both values are in the pre-serialized dimension-2 block, byte-
-    # assertably (T-07-16 mitigation).
-    assert (
-        canonical_bytes(override_original).decode("utf-8")
-        in resolution.hitl_actions_block
-    )
-    assert (
-        canonical_bytes(override_final).decode("utf-8")
-        in resolution.hitl_actions_block
+        signed_binding=sign_principal_binding(
+            overrider_binding, provider=provider, key_id=key_id
+        ),
     )
 
-    # The override decision's OWN five-dimension record lands in the same
-    # store: dimension 2 carries the override block verbatim.
+    # The override decision's OWN five-dimension record lands in the same store:
+    # dimension 2 carries the override block verbatim. Its bindings are selected
+    # here too, from the same pin, by the same explicit lookup.
     override_record = build_replay_record(
         execution=execution,
         product=gated.product,
         perspective=perspective,
         policy_bindings=(
-            PolicyBinding(key=keys["policy_bundle"], version=policy_version),
+            PolicyBinding(key="policy-bundle", version=policy_version),
         ),
-        assembly_mode=declared_class["assembly_mode"],
+        assembly_mode=declared.assembly_mode,
         recorded_at=now,
         agent_conditioning=conditioning,
         hitl_actions=resolution.hitl_actions_block,
@@ -1022,299 +895,180 @@ def record(root: Path, handle_holder: dict[str, Any]) -> RecordedDecision:
         product=gated,
         record=override_record,
         replay_writer=ReplayWriter(
-            store=store,
-            artifact_class=control["artifacts"]["replay_record_class"],
+            store=store, artifact_class=governance["replay_record_class"]
         ),
     )
 
-    # The artifacts a forensic replay resolves land in the SAME store, at
-    # exact content-addressed versions (CLAUDE.md §7.4; D-IMPL-26/27).
+    # The artifacts a forensic replay resolves land in the SAME store, at exact
+    # content-addressed versions (CLAUDE.md §7.4; D-IMPL-26/27).
     store.put(
-        tenant_id=tenant_id,
-        artifact_class=control["artifacts"]["agent_definition_class"],
+        tenant_id=booted.tenant_id,
+        artifact_class=probes["agent_definition_class"],
         name=definition.name,
         artifact=definition,
     )
-    prompt_name = parse_artifact_uri(
-        agent_doc["agent_definition"]["instruction_bindings"][0]["prompt"]
-    )
+    prompt_name = parse_artifact_uri(definition.instruction_bindings[0].prompt)
     store.put(
-        tenant_id=tenant_id,
+        tenant_id=booted.tenant_id,
         artifact_class=prompt_name.artifact_class,
         name=prompt_name.name,
         artifact=prompt,
     )
     store.put(
-        tenant_id=tenant_id,
-        artifact_class=control["artifacts"]["skill_grant_class"],
-        name=control["artifacts"]["skill_grant_name"],
+        tenant_id=booted.tenant_id,
+        artifact_class=probes["skill_grant_class"],
+        name=probes["skill_grant_name"],
         artifact=grant,
     )
 
-    return RecordedDecision(
-        tenant_id=tenant_id,
-        registry=registry,
-        store=store,
-        reader=handle.reader,
-        environment=GridReplayEnvironment(
-            control=_load("controlplane.yaml"),
-            ontology=ontology,
-            reader=handle.reader,
-            policy_version=policy_version,
-            now=now,
-        ),
-        record_address=served.replay_ref.content_address,
-        override_record_address=override_served.replay_ref.content_address,
-        override_original=override_original,
-        override_final=override_final,
-        override_overridden=overriding,
-        original_product=gated.product,
-        provider=provider,
-        trusted=trusted,
-        active_client_id=active["client_id"],
-        definition=definition,
-        grant=grant,
-        policy_version=policy_version,
-        authz_allowed_scope=active["scopes"][0],
-        authz_refused_scope=outsider["scopes"][0],
-        authz_refusal_code=authz_refusal_code,
+    environment = GridReplayEnvironment(
+        declared=declared,
+        governance=governance,
+        parameters=parameters,
+        pins=booted.pins,
+        policy_bundle_key="policy-bundle",
+        reader=booted.handle.reader,
+        tenant_id=booted.tenant_id,
+        boundary=boundary,
+        now=now,
     )
-
-
-def replay_decision(ctx: RecordedDecision) -> DecisionReplayRecord:
-    """Phase 2: from the record address alone, resolve every recorded
-    version exactly and reproduce the decision byte-for-byte."""
-    control = _load("controlplane.yaml")
-    agent_class: str = control["artifacts"]["agent_definition_class"]
 
     # --8<-- [start:replay-reproduce]
     # --- exact reproduction (whitepaper §7.10) --------------------------------
-    outcome = replay(
-        record_address=ctx.record_address,
-        store=ctx.store,
-        reader=ctx.reader,
-        control_plane=ctx.registry,
-        environment=ctx.environment,
-    )
-    resolved = outcome.record
-    # Byte equality through the canonical serializer: the same bytes.
-    assert canonical_bytes(outcome.product) == canonical_bytes(
-        ctx.original_product
-    )
-    assert (
-        outcome.product_content_address
-        == resolved.content_generation_path.product_content_address
+    # From the record address alone. The engine re-resolves the graph snapshot,
+    # the plan, and the operator chain, and VERIFIES each against the record
+    # rather than trusting the environment that offered them.
+    outcome_replay = replay(
+        record_address=served.replay_ref.content_address,
+        store=store,
+        reader=booted.handle.reader,
+        control_plane=registry,
+        environment=environment,
     )
     # --8<-- [end:replay-reproduce]
 
     # --8<-- [start:replay-agent-version]
-    # --- agent version, from the store at its exact recorded hash -------------
-    dimension_four = resolved.perspective_conditioning
-    agent_definition = resolve_artifact(
-        store=ctx.store,
+    # --- exact-version resolution, never a moving target ----------------------
+    # Dimension 4 records WHICH agent, at which content identity, with which
+    # skill-set. Each of the three resolves out of the ArtifactStore at the exact
+    # version the record (or the definition it pins) names — `resolve_artifact`
+    # takes a content address, so there is no "latest" to ask for.
+    dimension_four = outcome_replay.record.perspective_conditioning
+    resolved_definition = resolve_artifact(
+        store=store,
         content_address=dimension_four.agent_definition_hash,
         contract=AgentDefinition,
     )
-    assert dimension_four.agent_definition_uri.endswith(
-        f"@{agent_definition.artifact_version}"
+    pinned_prompt = parse_artifact_uri(
+        resolved_definition.instruction_bindings[0].prompt
     )
-    assert content_hash(agent_definition) == content_hash(ctx.definition)
-
-    # --- prompt-artifact version, pinned by the resolved definition -----------
-    pinned_prompt = agent_definition.instruction_bindings[0].prompt
-    prompt_name = parse_artifact_uri(pinned_prompt)
-    (prompt_address,) = ctx.store.versions(
-        tenant_id=ctx.tenant_id,
-        artifact_class=prompt_name.artifact_class,
-        name=prompt_name.name,
+    (prompt_address,) = store.versions(
+        tenant_id=booted.tenant_id,
+        artifact_class=pinned_prompt.artifact_class,
+        name=pinned_prompt.name,
     )
     resolved_prompt = resolve_artifact(
-        store=ctx.store, content_address=prompt_address, contract=PromptArtifact
+        store=store, content_address=prompt_address, contract=PromptArtifact
     )
-    assert resolved_prompt.artifact_version == prompt_name.artifact_version
-
-    # --- skill-set in force, recomputed from the stored grant (D-07) ----------
-    (grant_address,) = ctx.store.versions(
-        tenant_id=ctx.tenant_id,
-        artifact_class=control["artifacts"]["skill_grant_class"],
-        name=control["artifacts"]["skill_grant_name"],
+    (grant_address,) = store.versions(
+        tenant_id=booted.tenant_id,
+        artifact_class=probes["skill_grant_class"],
+        name=probes["skill_grant_name"],
     )
     resolved_grant = resolve_artifact(
-        store=ctx.store, content_address=grant_address, contract=SkillGrant
-    )
-    assert dimension_four.grant_set_hash == grant_set_hash(
-        frozenset({content_hash(resolved_grant)})
+        store=store, content_address=grant_address, contract=SkillGrant
     )
     # --8<-- [end:replay-agent-version]
 
-    # --- the hardened HITL surface, reproduced from the record (D-14) ---------
-    action = HitlActionRecord.model_validate_json(
-        resolved.policy_bindings.hitl_actions
+    # The override decision's record replays the same way, out of the same store.
+    override_replay = replay(
+        record_address=override_served.replay_ref.content_address,
+        store=store,
+        reader=booted.handle.reader,
+        control_plane=registry,
+        environment=environment,
     )
-    assert action.submission.signed_binding is not None
-    reproduced_principal = verify_principal_binding(
-        action.submission.signed_binding,
-        provider=ctx.provider,
-        public_keys=ctx.trusted,
-    )
-    # The approver principal and binding reproduce exactly as recorded:
-    # the grant-derived subject, and the hash of what the approver saw.
-    assert reproduced_principal == action.submission.principal
-    assert (
-        reproduced_principal.approver.subject_id == ctx.active_client_id
-    )
-    assert (
-        reproduced_principal.product_content_hash
-        == action.event.product_content_hash
-    )
-    # The workflow trace is on dimension 5, verbatim and non-empty.
-    assert resolved.content_generation_path.workflow_step_sequence.startswith(
-        "["
-    )
-
-    # --- the OverrideBoundary, reproduced from ITS record (§8.2; D-07) --------
-    # The override decision's record resolves from the store and replays:
-    # the reproduced product is byte-equal, and dimension 2 carries BOTH
-    # the agent's original output and the human's override, verbatim.
-    override_outcome = replay(
-        record_address=ctx.override_record_address,
-        store=ctx.store,
-        reader=ctx.reader,
-        control_plane=ctx.registry,
-        environment=ctx.environment,
-    )
-    assert canonical_bytes(override_outcome.product) == canonical_bytes(
-        ctx.original_product
-    )
-    override_block = override_outcome.record.policy_bindings.hitl_actions
-    override_action = OverrideActionRecord[
-        ShedDetermination
-    ].model_validate_json(override_block)
-    assert override_action.overridden == ctx.override_overridden
-    assert override_action.original == ctx.override_original
-    assert override_action.final == ctx.override_final
-    # Byte-assertable: both values are literally in the recorded block.
-    assert (
-        canonical_bytes(ctx.override_original).decode("utf-8")
-        in override_block
-    )
-    assert (
-        canonical_bytes(ctx.override_final).decode("utf-8") in override_block
-    )
-    # The overrider's signed binding verifies from the record alone and
-    # reproduces the grant-derived subject (D-14/D-16).
-    assert override_action.submission.signed_binding is not None
-    reproduced_overrider = verify_principal_binding(
-        override_action.submission.signed_binding,
-        provider=ctx.provider,
-        public_keys=ctx.trusted,
-    )
-    assert reproduced_overrider == override_action.submission.principal
-    assert reproduced_overrider.approver.subject_id == ctx.active_client_id
-
-    # --- negative: a moving-target ref is refused outright --------------------
-    # Deliberately-invalid input constructed inline for the refusal test —
-    # the only place the moving-target token appears in this example.
-    moving_target = artifact_uri(
-        tenant_id=ctx.tenant_id,
-        artifact_class=agent_class,
-        name=agent_definition.name,
-        artifact_version=LATEST_VERSION_TOKEN,
-    )
-    refused = False
-    try:
-        resolve_artifact_at_uri(
-            store=ctx.store, uri=moving_target, contract=AgentDefinition
-        )
-    except MovingTargetRefused:
-        refused = True
-    assert refused, "a moving-target ref must be refused (D-IMPL-26)"
 
     # --8<-- [start:replay-version-sensitivity]
-    # --- negative: the audit record is version-sensitive ----------------------
-    # Mutate a COPY of the record (never the canonical one): bump the
-    # recorded policy-bundle version to one that was never registered.
-    binding = resolved.policy_bindings.bindings[0]
-    mutated_binding = binding.model_copy(
-        update={"version": control["artifacts"]["unregistered_policy_version"]}
-    )
+    # --- the version-sensitivity probe, prepared -----------------------------
+    # A COPY of the record — never the canonical one — with its recorded
+    # policy-bundle version bumped to one the Control Plane never registered. The
+    # canonical record must stay intact: it is the thing the reproduction above
+    # exists to reproduce.
+    resolved = outcome_replay.record
     mutated = resolved.model_copy(
         update={
             "policy_bindings": resolved.policy_bindings.model_copy(
                 update={
-                    "bindings": (mutated_binding,)
+                    "bindings": (
+                        resolved.policy_bindings.bindings[0].model_copy(
+                            update={
+                                "version": probes["unregistered_policy_version"]
+                            }
+                        ),
+                    )
                     + resolved.policy_bindings.bindings[1:]
                 }
             )
         }
     )
-    assert mutated != resolved
-    mutated_ref = ctx.store.put(
-        tenant_id=ctx.tenant_id,
-        artifact_class=control["artifacts"]["replay_record_class"],
-        name=control["artifacts"]["mutated_record_name"],
+    mutated_ref = store.put(
+        tenant_id=booted.tenant_id,
+        artifact_class=governance["replay_record_class"],
+        name=probes["mutated_record_name"],
         artifact=mutated,
     )
-    unresolvable = False
-    try:
-        replay(
-            record_address=mutated_ref.content_address,
-            store=ctx.store,
-            reader=ctx.reader,
-            control_plane=ctx.registry,
-            environment=ctx.environment,
-        )
-    except ReplayUnresolvable:
-        unresolvable = True
-    assert unresolvable, (
-        "a record naming a policy-bundle version the Control Plane never"
-        " registered must refuse to reproduce (D-IMPL-26/38)"
-    )
     # --8<-- [end:replay-version-sensitivity]
-    return resolved
+
+    return ReplayDemonstration(
+        booted=booted,
+        tenant_id=booted.tenant_id,
+        artifacts=booted.artifacts,
+        registry=registry,
+        audit=audit,
+        store=store,
+        environment=environment,
+        product=gated.product,
+        operators_invoked=execution.operators_invoked,
+        record=record,
+        served=served,
+        policy_version=policy_version,
+        definition=definition,
+        definition_version=definition_version,
+        prompt=prompt,
+        grant=grant,
+        grant_set_hash=in_force,
+        skill_output=dict(invocation.output),
+        approver_client_id=active["client_id"],
+        authz_refusal_status=authz_refused.status_code,
+        authz_refusal_code=authz_refused.json()["detail"]["error_code"],
+        authz_refused_client_id=outsider["client_id"],
+        scope_mapping_version=scope_mapping_version,
+        reproduced=outcome_replay.product,
+        reproduced_record=resolved,
+        reproduced_address=outcome_replay.product_content_address,
+        resolved_definition=resolved_definition,
+        resolved_prompt=resolved_prompt,
+        resolved_prompt_pinned_version=pinned_prompt.artifact_version,
+        resolved_grant=resolved_grant,
+        agent_definition_class=probes["agent_definition_class"],
+        override_record=override_record,
+        override_served=override_served,
+        override_resolution=resolution,
+        override_original=override_original,
+        override_final=override_substitute if overriding else override_original,
+        override_overridden=overriding,
+        reproduced_override_record=override_replay.record,
+        reproduced_override_product=override_replay.product,
+        mutated_record_address=mutated_ref.content_address,
+    )
 
 
 def main() -> int:
-    handle_holder: dict[str, Any] = {}
     with tempfile.TemporaryDirectory(prefix="ccf-decision-replay-") as scratch:
-        try:
-            ctx = record(Path(scratch), handle_holder)
-            resolved = replay_decision(ctx)
-        finally:
-            handle = handle_holder.get("handle")
-            if handle is not None:
-                handle.close()
-
-        print("examples/06-decision-replay: OK")
-        print(f"  tenant                 {ctx.tenant_id}")
-        print(f"  replay record          {ctx.record_address[:16]}…")
-        print(
-            "  agent (dim 4)          "
-            f"{resolved.perspective_conditioning.agent_definition_uri}"
-        )
-        print(
-            "  grant-set hash         "
-            f"{resolved.perspective_conditioning.grant_set_hash[:16]}…"
-        )
-        print(f"  approver (reproduced)  {ctx.active_client_id}")
-        print(
-            "  authz allowed (200)    "
-            f"{ctx.authz_allowed_scope} scope → tenant {ctx.tenant_id}"
-        )
-        print(
-            "  authz refused (403)    "
-            f"{ctx.authz_refused_scope} scope → {ctx.authz_refusal_code}"
-        )
-        print(
-            "  override (dim 2)       "
-            f"{ctx.override_original.shed_megawatts}MW/"
-            f"{ctx.override_original.duration_minutes}min → "
-            f"{ctx.override_final.shed_megawatts}MW/"
-            f"{ctx.override_final.duration_minutes}min"
-            " (both values in the record)"
-        )
-        print("  reproduction           byte-equal")
-        return 0
+        result = run(root=Path(scratch))
+        result.booted.handle.close()
+    return 0
 
 
 if __name__ == "__main__":

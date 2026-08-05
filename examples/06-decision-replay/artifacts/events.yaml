@@ -1,29 +1,48 @@
-# Decision-replay example event stream — L1 signal envelopes
-# (energy/grid-ops domain, D-IMPL-52). Not a flat happy path:
+# yaml-language-server: $schema=../../../docs/schemas/ccf.signal-batch.json
+# Decision-replay event stream — L1 signal envelopes (energy/grid-ops domain,
+# D-IMPL-52). Not a flat happy path:
 #
-#   * gd-301 asserts the SAME substation as gd-300 from a DIFFERENT source
-#     with identical attributes -> one claim whose lineage accumulates by
-#     set-union, not a second node.
-#   * gd-302 introduces a routine-load feeder the similarity operator must
-#     rank out — "similarity did something" is distinguishable from an
-#     identity function.
+#   * gd-301 asserts the SAME substation as gd-300 from a DIFFERENT source with
+#     identical attributes -> one claim whose lineage accumulates by set-union
+#     (INV-CH7-17), not a second node.
+#   * gd-302 introduces a routine-load feeder the similarity operator must rank
+#     out — "similarity did something" is distinguishable from an identity
+#     function.
 #   * gd-303 carries a RESTRICTED feeder (a defense-site spur) the policy
 #     operator must substitute out along with its `fed_from` edge.
 #
-# Payload keys are the source systems' vocabulary, never the fabric's.
+# The document adopts the SDK's OWN envelope vocabulary — `source: {system_id}`,
+# `raw_payload:` — rather than a flat shape the loader would have to translate.
+# A translation removed is one that cannot drift.
+#
+# Payload keys are the *source systems'* vocabulary, never the fabric's.
+#
+# **`role: load`, and the SDK FIXES it that way (D-IMPL-80).** Registering a
+# signal batch would content-hash raw event data into Control Plane state and
+# therefore into replay dimension 2, so re-authoring this file would look like a
+# change to what was in force. It is not. Events are what the fabric OBSERVED;
+# the Control Plane is what the fabric was PERMITTED TO DO.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: everything under `raw_payload:` and every source system id is
+# [ADAPT]; the envelope keys (`envelope_id`, `tenant_id`, `source`,
+# `system_id`, `ingestion_timestamp`, `observed_time`, `raw_payload`) are
+# [MECHANISM].
 
-schema_version: "1.0.0"
-artifact_version: "1.0.0"
+semver: "1.0.0"
+
+tenant_id: boreal-grid
 
 envelopes:
   - envelope_id: gd-300
-    source_system_id: scada-historian
+    tenant_id: boreal-grid
+    source:
+      system_id: scada-historian
     ingestion_timestamp: 2026-06-10T05:00:00Z
     observed_time: 2026-06-10T04:55:00Z
-    payload:
+    raw_payload:
       substation_ref: "BG-SUB-114"
       substation_name: "Kettle River 114"
       region: "north-interconnect"
@@ -34,20 +53,24 @@ envelopes:
       feeder_classification: "internal"
 
   - envelope_id: gd-301
-    source_system_id: asset-registry
+    tenant_id: boreal-grid
+    source:
+      system_id: asset-registry
     ingestion_timestamp: 2026-06-10T05:05:00Z
     observed_time: 2026-06-10T04:55:00Z
-    payload:
+    raw_payload:
       substation_ref: "BG-SUB-114"
       substation_name: "Kettle River 114"
       region: "north-interconnect"
       substation_classification: "internal"
 
   - envelope_id: gd-302
-    source_system_id: scada-historian
+    tenant_id: boreal-grid
+    source:
+      system_id: scada-historian
     ingestion_timestamp: 2026-06-10T05:10:00Z
     observed_time: 2026-06-10T05:02:00Z
-    payload:
+    raw_payload:
       substation_ref: "BG-SUB-114"
       substation_name: "Kettle River 114"
       region: "north-interconnect"
@@ -58,10 +81,12 @@ envelopes:
       feeder_classification: "internal"
 
   - envelope_id: gd-303
-    source_system_id: asset-registry
+    tenant_id: boreal-grid
+    source:
+      system_id: asset-registry
     ingestion_timestamp: 2026-06-10T05:15:00Z
     observed_time: 2026-06-10T05:12:00Z
-    payload:
+    raw_payload:
       substation_ref: "BG-SUB-114"
       substation_name: "Kettle River 114"
       region: "north-interconnect"
