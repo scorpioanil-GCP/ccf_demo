@@ -172,7 +172,13 @@ def _fragment_public_added() -> set[str]:
         surface: str | None = None
         public = False
         change: str | None = None
-        for line in fragment.read_text(encoding="utf-8").splitlines() + ["## "]:
+        # The end-of-file sentinel must survive `.strip()`. A bare "## " does
+        # not — strip removes the trailing space and the flush branch, which
+        # tests `startswith("## ")`, never fires. That silently dropped the
+        # **last section of the last fragment**, which went unnoticed only
+        # because 15-09's happened to be `Public surface: false` (found by
+        # 15-10, whose last section is a public addition).
+        for line in fragment.read_text(encoding="utf-8").splitlines() + ["## eof"]:
             stripped = line.strip()
             if stripped.startswith("## ") or stripped.startswith("- Surface: "):
                 if surface and public and change == "added":
