@@ -32,7 +32,7 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 	example-ext-00-live-anthropic example-ext-00-live-adk \
 	perf perf-micro perf-scale perf-xproc perf-replay \
 	docs docs-strict docs-serve openapi schemas schema-headers surface \
-	measure-examples
+	surface-changes measure-examples
 
 help: ## List targets with one-line descriptions
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -194,6 +194,16 @@ schema-headers: ## Verify example artifact $$schema headers name the class that 
 # instead. The drift assertion lives in the always-on `test` job.
 surface: ## Regenerate the committed public-surface manifest — the D-15 baseline
 	$(ENV) $(PYTHON) tools/dump_surface.py
+
+# D-15's curated half: docs/SURFACE-CHANGES.md assembled from the per-plan
+# docs/surface-changes/ fragments. The fragments are written incrementally as
+# plans land (a migration note assembled retroactively is a note written from
+# the diff); this target joins them. The assembler refuses any entry missing
+# one of the seven fields, so an incomplete migration note is a red build
+# rather than a shipped document. The drift assertion lives in the always-on
+# `test` job (tests/test_surface_drift.py).
+surface-changes: ## Assemble docs/SURFACE-CHANGES.md from the per-plan fragments — the D-15B migration note
+	$(ENV) $(PYTHON) tools/assemble_surface_changes.py
 
 # ERGO-03's measured half (D-11/D-12): the per-file mechanical, assertion, and
 # print line counts of the examples tree, committed as the phase-start baseline
