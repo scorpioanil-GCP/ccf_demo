@@ -1,0 +1,22 @@
+{
+  "additionalProperties": false,
+  "description": "The largest inbound payload a tenant will decode, as an artifact.\n\nA typed, versioned Control Plane artifact on the\n:class:`~ccf.products.contract.MaxTTL` precedent, for the same three\nreasons: registering the wrong thing under the ceiling key is a detectable\nerror, the ceiling carries its own semver lane, and the *number* stays out\nof code. **The SDK ships no default** (D-IMPL-38) \u2014 how large a legitimate\nproduct is in a given federation is something only that deployment knows,\nand a ceiling nobody chose is either a denial-of-service hole or an outage.\n\nAttributes:\n    semver: This artifact's own lane. No default, so a ceiling whose author\n        never stated its lane cannot be constructed.\n    max_payload_bytes: The ceiling, measured on the received payload member\n        before anything decodes it. Must be positive: a zero ceiling admits\n        nothing and is far more likely a mistake than a policy.",
+  "properties": {
+    "max_payload_bytes": {
+      "exclusiveMinimum": 0,
+      "title": "Max Payload Bytes",
+      "type": "integer"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "max_payload_bytes"
+  ],
+  "title": "InboundPayloadCeiling",
+  "type": "object",
+  "x-ccf-class-id": "ccf.peering-inbound-payload-ceiling"
+}

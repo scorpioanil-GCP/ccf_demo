@@ -1,0 +1,80 @@
+{
+  "$defs": {
+    "PeerTrustGrant": {
+      "additionalProperties": false,
+      "description": "What one peer is entitled to assert, per D-IMPL-16.\n\nFour declared sets, none with a default. Empty is expressible and means\nexactly what it says \u2014 this peer may assert nothing of that kind \u2014 because\na grant that quietly defaulted to \"anything\" would be the fast path this\ncontract exists to make unreachable.\n\nAttributes:\n    signing_keys: Public JWKs this peer may sign with, keyed by the ``kid``\n        its protected header will declare. The admission gate hands this\n        mapping to :meth:`~ccf.peering.identity.IdentityProvider.verify`, which\n        is how a peer's identity is bound to its entitlements: a product\n        signed by a key outside this mapping is not this peer's, whatever\n        the header claims.\n    permitted_producer_hashes: The ``producer_agent_definition_hash``\n        values this peer may claim to have produced under.\n    permitted_schema_names: The Context Product classes it may send.\n    permitted_policy_regimes: The policy-regime identifiers it may claim.",
+      "properties": {
+        "permitted_policy_regimes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Permitted Policy Regimes",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "permitted_producer_hashes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Permitted Producer Hashes",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "permitted_schema_names": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Permitted Schema Names",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "signing_keys": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Signing Keys",
+          "type": "object"
+        }
+      },
+      "required": [
+        "signing_keys",
+        "permitted_producer_hashes",
+        "permitted_schema_names",
+        "permitted_policy_regimes"
+      ],
+      "title": "PeerTrustGrant",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One tenant's federation policy, as a versioned Control Plane artifact.\n\nTenant-scoped by construction (D-IMPL-05): the tenant is a field on the\nartifact and part of its content, so two tenants naming the same peer hold\ntwo different artifacts with two different content addresses. One tenant's\ngrant to a peer therefore cannot admit that peer for another \u2014 not by\nconvention, but because there is no shared object for it to leak through.\n\n``peers`` requires at least one entry: an empty policy is indistinguishable\nfrom a deployment that forgot to configure one, and registering it would\nlet a federation come up trusting nothing while looking configured.\n\nAttributes:\n    semver: This artifact's own lane. No default \u2014 see the module\n        docstring.\n    tenant_id: The tenant this policy governs admission for.\n    peers: Peer identifier to its entitlements.",
+  "properties": {
+    "peers": {
+      "additionalProperties": {
+        "$ref": "#/$defs/PeerTrustGrant"
+      },
+      "minProperties": 1,
+      "title": "Peers",
+      "type": "object"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    },
+    "tenant_id": {
+      "title": "Tenant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "tenant_id",
+    "peers"
+  ],
+  "title": "PeeringTrustPolicy",
+  "type": "object",
+  "x-ccf-class-id": "ccf.peering-trust-policy"
+}

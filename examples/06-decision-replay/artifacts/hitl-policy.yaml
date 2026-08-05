@@ -1,4 +1,4 @@
-# ccf-schema: deferred(15-21) `ccf.hitl-policy` is an SDK-owned class with no committed schema — it is neither manifest-addressable (`SDK_ARTIFACT_CLASSES`) nor author-versioned (`author_versioned_classes()`), so `tools/dump_schemas.py` emits nothing for it and no honest `$schema` target exists; the envelope route is refused because this document IS a `ccf.hitl-policy`, not a deployment-authored class, and wrapping it in `DeclaredArtifact` would hide its own contract from the checker
+# yaml-language-server: $schema=../../../docs/schemas/ccf.hitl-policy.json
 # The D-16 HITL policy in force at the load-shed gate (CLAUDE.md §8.2;
 # D-IMPL-20/21; energy/grid-ops domain, D-IMPL-52).
 #

@@ -1,0 +1,52 @@
+{
+  "$defs": {
+    "ScopeEntry": {
+      "additionalProperties": false,
+      "description": "One scope's authorization statement: which tenants, which actions.\n\nAttributes:\n    tenant_patterns: D-01 patterns (exact or single-trailing-``*``)\n        naming the tenants this scope reaches.\n    action_ids: The door-declared action identifiers this scope may\n        perform (D-02; :mod:`ccf_runtime.authz.refusals` holds the\n        HITL doors' declarations).",
+      "properties": {
+        "action_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Action Ids",
+          "type": "array"
+        },
+        "tenant_patterns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tenant Patterns",
+          "type": "array"
+        }
+      },
+      "required": [
+        "tenant_patterns",
+        "action_ids"
+      ],
+      "title": "ScopeEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The Control Plane scope-mapping policy artifact (D-IMPL-68; D-03).\n\nMaps each token scope string to the tenants and door-declared actions\nit authorizes. Interpreted by\n:class:`~ccf_runtime.authz.protocol.ControlPlaneTenantAuthorizer`;\nwhich scopes exist, and what they reach, are the deployment's\nstatements (CINV-01) \u2014 the SDK invents no scope vocabulary (D-02).\n\nAttributes:\n    semver: The artifact's own semver lane (D-04; whitepaper \u00a76.3).\n    scopes: Scope string \u2192 :class:`ScopeEntry`.",
+  "properties": {
+    "scopes": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ScopeEntry"
+      },
+      "title": "Scopes",
+      "type": "object"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "scopes"
+  ],
+  "title": "ScopeMappingArtifact",
+  "type": "object",
+  "x-ccf-class-id": "ccf.scope-mapping"
+}

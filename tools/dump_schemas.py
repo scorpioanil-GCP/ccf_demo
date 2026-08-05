@@ -69,8 +69,10 @@ schema of the class it actually is" is verified rather than assumed.
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import pathlib
+import pkgutil
 import sys
 from typing import Any
 
@@ -153,17 +155,105 @@ def author_versioned_classes() -> dict[str, Any]:
     }
 
 
+def unaddressable_classes() -> dict[str, Any]:
+    """SDK-owned classes in neither other set, found rather than listed.
+
+    Plan 15-17 reported two classes with no committed schema — ``ccf.hitl-policy``
+    and ``ccf.scope-mapping`` — and this bucket exists to close that. Written as
+    a discovery rather than a list, it immediately found **five**: the two
+    reported, plus ``ccf.admission-record``, ``ccf.peering-trust-policy`` and
+    ``ccf.peering-inbound-payload-ceiling``, which nobody had noticed at all.
+    That is the argument for the mechanism in one line — a hand-maintained third
+    list would have carried two entries and been wrong the day it was written.
+
+    None is author-versioned (all carry ``semver``, not ``artifact_version``),
+    and none is manifest-addressable, for two different reasons:
+
+    * ``ccf.scope-mapping`` lives in :mod:`ccf_runtime`, and
+      :data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES` lives in ``/src``.
+      ``/src`` never imports ``/runtime`` — the dependency runs one way only —
+      so that class *cannot* join the set without inverting it.
+    * The rest live in ``/src`` and could join. Whether they should is an SDK
+      contract question about manifest addressability, and granting a schema
+      does not prejudge it either way.
+
+    **These are not all hand-authored documents, and the bucket does not claim
+    they are.** ``ccf.hitl-policy`` and ``ccf.scope-mapping`` an adopter writes;
+    ``ccf.admission-record`` the fabric *produces* at an A2A boundary. A schema
+    serves both cases — one as the contract you author against, the other as the
+    published shape of what you receive — and the useful invariant is the
+    simple one: **every** :class:`~ccf.controlplane.artifact_base.ArtifactClass`
+    in the tree has a committed schema, so no class is invisible to an adopter
+    reading ``docs/schemas/``. What a schema never grants is addressability;
+    that stays governed by the two sets above.
+
+    **Discovered, not enumerated.** The buckets above are hand-maintained lists
+    held to a membership rule by a test. This one walks the ``ccf`` and
+    ``ccf_runtime`` trees for ``ArtifactClass`` instances and returns whatever
+    is in neither other set, because the failure it exists to fix was precisely
+    a class nobody remembered to list.
+    """
+    from ccf.controlplane.artifact_base import ArtifactClass
+    from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
+
+    known = {**SDK_ARTIFACT_CLASSES, **author_versioned_classes()}
+    found: dict[str, Any] = {}
+    for module_name in _artifact_bearing_modules():
+        module = importlib.import_module(module_name)
+        for name in dir(module):
+            candidate = getattr(module, name, None)
+            if not isinstance(candidate, ArtifactClass):
+                continue
+            if candidate.class_id in known:
+                continue
+            found[candidate.class_id] = candidate
+    return found
+
+
+def _artifact_bearing_modules() -> list[str]:
+    """Dotted names of every importable module under ``ccf`` and ``ccf_runtime``.
+
+    Deliberately a filesystem walk rather than an import list: a class defined
+    in a module nobody imports here is exactly the class that goes un-emitted.
+    Modules that fail to import are skipped — an optional-dependency module is
+    not a schema gap, and raising here would make ``make schemas`` hostage to
+    every extra.
+    """
+    names: list[str] = []
+    for package_name in ("ccf", "ccf_runtime"):
+        try:
+            package = importlib.import_module(package_name)
+        except ImportError:  # pragma: no cover - defensive
+            continue
+        for info in pkgutil.walk_packages(
+            list(package.__path__), prefix=f"{package_name}."
+        ):
+            if any(part.startswith("_") for part in info.name.split(".")):
+                continue
+            try:
+                importlib.import_module(info.name)
+            except Exception:  # noqa: BLE001 - optional extras are not gaps
+                continue
+            names.append(info.name)
+    return sorted(names)
+
+
 def schema_owned_classes() -> dict[str, Any]:
     """Every class with a committed schema, keyed by ``class_id``.
 
-    The union a ``$schema`` header may name: manifest-addressable classes plus
-    the author-versioned ones. The **envelope** is deliberately not here — it is
-    not a class any document *is*, it is the shape every deployment-authored
-    document shares, and the header checker routes it separately.
+    The union a ``$schema`` header may name: manifest-addressable classes, the
+    author-versioned ones, and the unaddressable remainder. The **envelope** is
+    deliberately not here — it is not a class any document *is*, it is the shape
+    every deployment-authored document shares, and the header checker routes it
+    separately.
     """
     from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
 
-    return {**SDK_ARTIFACT_CLASSES, **author_versioned_classes()}
+    return {
+        **SDK_ARTIFACT_CLASSES,
+        **author_versioned_classes(),
+        **unaddressable_classes(),
+    }
 
 
 def schema_path(class_id: str) -> pathlib.Path:

@@ -1,0 +1,80 @@
+{
+  "$defs": {
+    "ProductLineage": {
+      "additionalProperties": false,
+      "description": "The L axis as it appears on a delivered product (INV-CH7-47).\n\nAttributes:\n    operators_invoked: The operator set the *producer declares* it ran.\n        Declared, not observed \u2014 the L6 lineage gate compares it against\n        the engine's independent record, and a field the engine filled in\n        would make that comparison vacuous.\n    policy_bundle_versions: Every Control Plane policy-bundle version bound\n        into the state this product was assembled from. A set, because\n        state assembled under two bundle versions has two bindings and\n        collapsing them would lose the one that mattered.\n    graph_snapshot_at: The temporal anchor of the graph state read.",
+      "properties": {
+        "graph_snapshot_at": {
+          "format": "date-time",
+          "title": "Graph Snapshot At",
+          "type": "string"
+        },
+        "operators_invoked": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Operators Invoked",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "policy_bundle_versions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Policy Bundle Versions",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "operators_invoked",
+        "policy_bundle_versions",
+        "graph_snapshot_at"
+      ],
+      "title": "ProductLineage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "What crossed a Peering, persisted at the boundary (D-IMPL-58 reading (d)).\n\nSDK-defined extension (CLAUDE.md \u00a77.2, \u00a77.4). Dave's ruling of 2026-07-27\nresolves D-IMPL-58 as **reading (d)**: the merged :class:`\n~ccf.products.contract.ProductLineage` is persisted *at the admission\nboundary* rather than in graph state, and\n``ccf.contracts.claims.LineageEntry`` is not extended. The defect being\nclosed is that :meth:`PeeringAdmissionGate.admit` computed the union into\n:attr:`AdmittedProduct.lineage` and nothing read it \u2014 ``ingest_admitted``\nreads ``admitted.product`` and never ``admitted.lineage`` \u2014 so lineage\ncontinuity was a property of a wrapper L2 discards. Under (d) the property\nbecomes true *and* correctly located: continuity is a property of the\nfederation boundary, which is what CLAUDE.md \u00a77.2 actually describes.\n\n**Why this is an ArtifactStore artifact and not Control Plane state\n(D-IMPL-27).** D-IMPL-27 splits substrates by mutability, and this record is\nimmutable, versioned and replay-relevant: it describes one crossing that\nalready happened, so there is nothing about it to update. Content addressing\n(D-IMPL-26) then makes immutability structural rather than procedural \u2014 the\nsame bytes yield the same address, so no overwrite path is needed or\noffered, and replay resolves an exact version rather than \"latest\".\n\n**What the audit log does and does not carry \u2014 stated here so the next\nreader does not repeat the false premise D-IMPL-58's correction paragraph\nrecords.** :meth:`~ccf.controlplane.audit.AuditLog.append` carries *scalars\nonly* (``action, key, version, resolved, occurred_at, actor,\nartifact_class``); there is no payload field, and an\n:class:`~ccf.controlplane.audit.AuditEvent` cannot hold a ``ProductLineage``.\nSo the audit plane answers *was this admitted, by whom, when* \u2014 a verdict \u2014\nand this artifact answers *what was admitted*. The verdict points at the\nrecord through the reference triple, and neither structure pretends to be\nthe other.\n\n**Producer and consumer are carried alongside the merge, not only the\nmerge.** A union that cannot be decomposed cannot be audited: an examiner\nhanded only ``merged_lineage`` cannot say which side contributed which\noperator, and reconstructing it from the peer's product later depends on\nthat product still being available. All three are recorded so the crossing\nis legible from this artifact alone.\n\nAttributes:\n    tenant_id: The consuming tenant whose Control Plane admitted (D-IMPL-05).\n    peer_id: The peer whose signature and entitlements were verified.\n    product_content_address: Address of the admitted product \u2014 the bytes\n        whose signature verified, which is the same witness the\n        attributability gate used. This is what ties the record to a\n        specific crossing rather than to a schema.\n    producer_lineage: The inbound product's declared lineage.\n    consumer_lineage: The consuming fabric's own lineage at admission.\n    merged_lineage: The union :func:`union_lineage` computed \u2014 what\n        CLAUDE.md \u00a77.2's \"extends, not replaces\" commitment produced.\n    admitted_at: The evaluation instant the gate was given. Supplied, never\n        read from a clock, so the record is as deterministic as the verdict.\n\nNo value here is a deployment's: no peer id, no schema, no regime is\nauthored in this module (CINV-01).",
+  "properties": {
+    "admitted_at": {
+      "format": "date-time",
+      "title": "Admitted At",
+      "type": "string"
+    },
+    "consumer_lineage": {
+      "$ref": "#/$defs/ProductLineage"
+    },
+    "merged_lineage": {
+      "$ref": "#/$defs/ProductLineage"
+    },
+    "peer_id": {
+      "title": "Peer Id",
+      "type": "string"
+    },
+    "producer_lineage": {
+      "$ref": "#/$defs/ProductLineage"
+    },
+    "product_content_address": {
+      "title": "Product Content Address",
+      "type": "string"
+    },
+    "tenant_id": {
+      "title": "Tenant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "peer_id",
+    "product_content_address",
+    "producer_lineage",
+    "consumer_lineage",
+    "merged_lineage",
+    "admitted_at"
+  ],
+  "title": "AdmissionRecord",
+  "type": "object",
+  "x-ccf-class-id": "ccf.admission-record"
+}

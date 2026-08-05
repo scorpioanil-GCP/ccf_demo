@@ -1,0 +1,21 @@
+{
+  "additionalProperties": false,
+  "description": "The Control Plane HITL policy artifact (CLAUDE.md \u00a78.2; D-16).\n\nSDK-defined mechanism schema: which HITL postures a deployment\nrequires are the artifact's statements, never code constants\n(No-Hardcoding, CLAUDE.md \u00a76.4). This is the schema behind the\ndocumented ``hitl.signed_binding_required`` surface examples set in\ntheir ``artifacts/`` HITL policy YAML: a document like\n``{semver: \"1.0.0\", signed_binding_required: true}`` registered under\nthe deployment's chosen HITL-policy key.\n\nAttributes:\n    semver: The artifact's own semver lane (whitepaper \u00a76.3).\n    signed_binding_required: Whether a submission at the authority\n        path must carry a verifiable\n        :class:`~ccf.hitl.identity_binding.SignedPrincipalBinding`.\n        Defaults to ``False`` when the key is absent from the\n        document, so a missing key is well-defined rather than a\n        ``KeyError`` \u2014 requiredness *true* can only ever come from a\n        registered Control Plane value (T-08-07).",
+  "properties": {
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    },
+    "signed_binding_required": {
+      "default": false,
+      "title": "Signed Binding Required",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "semver"
+  ],
+  "title": "HitlPolicy",
+  "type": "object",
+  "x-ccf-class-id": "ccf.hitl-policy"
+}

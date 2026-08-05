@@ -466,3 +466,74 @@ def test_the_noun_returns_request_specs_and_main_has_no_branch() -> None:
     assert "args.verb" not in source
     for noun in ('"schema"', "'schema'"):
         assert noun not in source, noun
+
+
+# --- the third bucket: no ArtifactClass is invisible ----------------------
+#
+# Plans 15-13 and 15-14 each found an artifact class with no honest `$schema`
+# target and added an emission bucket for it. Plan 15-17 found two more and
+# deferred them. The pattern is the tell: hand-maintained lists of "classes
+# that need schemas" go stale the moment someone adds a class, and the failure
+# is silent — an adopter simply has nothing to point a header at. These tests
+# hold the discovery mechanism to the invariant that replaced the lists.
+
+
+def test_every_artifact_class_in_the_tree_has_a_committed_schema() -> None:
+    """The invariant the third bucket exists to hold.
+
+    Written as a walk rather than a list for the same reason the bucket is:
+    a class defined in a module nobody thought to check is exactly the class
+    that goes un-emitted. When this fails, the fix is `make schemas`, not an
+    edit to this test.
+    """
+    from tools.dump_schemas import _artifact_bearing_modules, schema_owned_classes
+
+    import importlib
+
+    from ccf.controlplane.artifact_base import ArtifactClass
+
+    owned = schema_owned_classes()
+    missing: list[str] = []
+    for module_name in _artifact_bearing_modules():
+        module = importlib.import_module(module_name)
+        for name in dir(module):
+            candidate = getattr(module, name, None)
+            if isinstance(candidate, ArtifactClass) and candidate.class_id not in owned:
+                missing.append(f"{candidate.class_id} ({module_name})")
+    assert not missing, (
+        "These artifact classes have no committed schema, so an adopter has"
+        f" nothing to point a $schema header at: {sorted(set(missing))}."
+        " Run `make schemas` and commit the result."
+    )
+
+
+def test_the_discovery_is_not_vacuous() -> None:
+    """A walk that silently found nothing would pass the test above forever."""
+    from tools.dump_schemas import _artifact_bearing_modules, unaddressable_classes
+
+    modules = _artifact_bearing_modules()
+    assert len(modules) >= 50, len(modules)
+    assert any(name.startswith("ccf_runtime.") for name in modules), (
+        "the walk never reached /runtime, where ccf.scope-mapping lives"
+    )
+    found = unaddressable_classes()
+    assert "ccf.scope-mapping" in found, sorted(found)
+    assert "ccf.hitl-policy" in found, sorted(found)
+
+
+def test_a_schema_grants_no_manifest_addressability() -> None:
+    """The line the third bucket must not blur.
+
+    Emitting a schema is authoring help. Manifest addressability is governance:
+    a manifest entry naming an author-versioned class would silently drop the
+    D-05 bump check, which is why those classes are kept out of
+    SDK_ARTIFACT_CLASSES despite having schemas. The same must hold here.
+    """
+    from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
+    from tools.dump_schemas import author_versioned_classes, unaddressable_classes
+
+    for class_id in {**author_versioned_classes(), **unaddressable_classes()}:
+        assert class_id not in SDK_ARTIFACT_CLASSES, (
+            f"{class_id} gained manifest addressability by being given a"
+            " schema; a schema is authoring help, never governance"
+        )

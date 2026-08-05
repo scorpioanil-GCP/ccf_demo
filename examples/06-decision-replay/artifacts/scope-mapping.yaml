@@ -1,4 +1,4 @@
-# ccf-schema: deferred(15-21) `ccf.scope-mapping` is an SDK-owned class with no committed schema, and it lives in `/runtime` rather than `/src` — so it is neither manifest-addressable nor emittable from `tools/dump_schemas.py` without `/src` reaching into the runtime tree; the envelope route is refused because this document IS a `ccf.scope-mapping`, and wrapping it in `DeclaredArtifact` would hide its own contract from the checker
+# yaml-language-server: $schema=../../../docs/schemas/ccf.scope-mapping.json
 # Decision-replay scope mapping (HARD-04; D-IMPL-68; Phase 10 D-16).
 #
 # The deployment's authorization statement: which token scopes reach which
