@@ -335,7 +335,9 @@ Replay is the payoff for everything above. From a record address alone, the
 engine resolves the graph snapshot, the policy bundle version, the agent
 version, the skill-set in force, and the prompt artifact version — each at its
 exact recorded version, never at "latest" — and reproduces the product
-byte-for-byte through the canonical serializer:
+byte-for-byte through the canonical serializer. The byte-equality assertion
+itself lives in `tests/examples/test_decision_replay_output.py`, where a runner
+can fail on it; the spine is the call it asserts about:
 
 ```py
 --8<-- "examples/06-decision-replay/run.py:replay-reproduce"
@@ -343,8 +345,8 @@ byte-for-byte through the canonical serializer:
 
 Version resolution is the mechanism that makes the reproduction meaningful.
 The agent definition comes back from the store at its recorded content hash,
-the prompt artifact at the version that definition pins, and the grant-set
-hash is recomputed from the stored grant rather than trusted. The
+the prompt artifact at the version that definition pins, and the stored grant
+is what the recorded grant-set hash is recomputed from rather than trusted. The
 [artifact store Protocol](../reference/protocols/artifact-store.md) is the
 seam these resolutions go through:
 
@@ -353,9 +355,10 @@ seam these resolutions go through:
 ```
 
 The negative case is the proof that the record is version-sensitive rather
-than merely descriptive: bump a recorded policy-bundle version in a copy of
-the record to one the Control Plane never registered, and reproduction
-refuses outright:
+than merely descriptive. The spine prepares it — a **copy** of the record, never
+the canonical one, with its recorded policy-bundle version bumped to one the
+Control Plane never registered — and the test suite then asserts that replaying
+that copy raises `ReplayUnresolvable` rather than reproducing anything:
 
 ```py
 --8<-- "examples/06-decision-replay/run.py:replay-version-sensitivity"

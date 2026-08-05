@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The AGENT's policy regime — specialization axis 4 (CLAUDE.md §6.2; D-IMPL-29;
+# energy/grid-ops domain, D-IMPL-52).
+#
+# Distinct from `policy-bundle.yaml`, which governs the fabric's assembly and
+# admission. This one governs the agent: it carries the D-IMPL-29
+# `skill_governance` envelope, and `telemetry-read` is the one scope agents
+# under this regime may bind — which is what admits the grant in
+# `skill-dispatch.yaml` through the tier-1 compatibility check.
+#
+# `grant_requires_approval: false` is what makes the tier-2 approval sink
+# unreachable in this run. `run.py` installs a sink that raises if consulted, so
+# that "the auto regime did not silently escalate" is executed rather than
+# assumed.
+#
+# The agent definition reaches this document by versioned-URI ref, never inline
+# (§6.4). The manifest registers it under the key that ref names — so the ref
+# and the registration are two independent statements of one fact.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: policy-bundle
+
+declaration:
+  regime: grid-operations-regime
+  permitted_classifications: [internal]
+  skill_governance:
+    permitted_scopes: [telemetry-read]
+    grant_requires_approval: false

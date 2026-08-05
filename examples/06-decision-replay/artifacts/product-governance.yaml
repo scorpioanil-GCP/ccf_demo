@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The remaining governance values this deployment puts in force, in one
+# deployment-authored document (energy/grid-ops domain, D-IMPL-52).
+#
+# Every value here is one the SDK deliberately declines to own:
+#
+#   * `max_ttl_seconds` — the per-class TTL ceiling (INV-CH7-48, D-IMPL-39).
+#     MAX_TTL has no SDK default. `run.py` registers this number as a typed
+#     `MaxTTL` to MINT the pin `register_product_class` needs; the number and
+#     the pin are therefore two things, which is what leaves Gate 3 something
+#     real to compare against `product_ttl_seconds` below.
+#   * `product_ttl_seconds` — how long an individual product stays servable. A
+#     SEPARATELY authored number from the ceiling, on purpose.
+#   * `similarity_index_version` — the version identity this deployment assigns
+#     to the corpus state at its named boundary (INV-CH7-27, D-IMPL-38).
+#   * `plan_id` — the projection's identity, carried into replay dimension 5 and
+#     resolved back out of the record by the replay environment.
+#   * `replay_record_class` — the artifact class the replay writer stores under,
+#     and the class the replay leg reads the record back from.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: boreal-grid.product-governance
+
+declaration:
+  max_ttl_seconds: 900
+  product_ttl_seconds: 600
+  similarity_index_version: "boreal-feeder-corpus@2026-06-01"
+  plan_id: boreal-grid.feeder-load-context.plan
+  replay_record_class: decision-replay-record

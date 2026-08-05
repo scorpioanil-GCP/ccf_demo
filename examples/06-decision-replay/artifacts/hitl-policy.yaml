@@ -1,0 +1,22 @@
+# ccf-schema: deferred(15-21) `ccf.hitl-policy` is an SDK-owned class with no committed schema — it is neither manifest-addressable (`SDK_ARTIFACT_CLASSES`) nor author-versioned (`author_versioned_classes()`), so `tools/dump_schemas.py` emits nothing for it and no honest `$schema` target exists; the envelope route is refused because this document IS a `ccf.hitl-policy`, not a deployment-authored class, and wrapping it in `DeclaredArtifact` would hide its own contract from the checker
+# The D-16 HITL policy in force at the load-shed gate (CLAUDE.md §8.2;
+# D-IMPL-20/21; energy/grid-ops domain, D-IMPL-52).
+#
+# `signed_binding_required: true` is what makes the approval AUTH-BOUND: the
+# transport refuses a submission that carries no signed principal binding, and
+# the binding is what the replay leg verifies from the record alone. This is the
+# whole point of the example's hardened-HITL dimension — a human action that
+# cannot be reproduced from the record is not an audit record.
+#
+# Registered by `run.py` rather than by the manifest, because the manifest
+# resolves an unknown class id to the open `DeclaredArtifact` envelope and the
+# transport reads a real `HitlPolicy` back off the Control Plane by key.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the value is [ADAPT]; the keys `semver` and
+# `signed_binding_required` are [MECHANISM].
+
+semver: "1.0.0"
+signed_binding_required: true
