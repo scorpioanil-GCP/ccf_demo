@@ -53,6 +53,13 @@ _EDIT_ME = "ccf/deployment/classes.py"
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 _LIVE_MANIFEST = _REPO_ROOT / "docs" / "surface" / "v0.2-surface.json"
+#: The frozen phase-start copy — the "before" side of the accumulated diff this
+#: module cross-checks the fragments against. See
+#: :func:`test_the_phases_fragments_claim_exactly_what_was_added` for why the
+#: *frozen* file and not the live one.
+_FROZEN_BASELINE = (
+    _REPO_ROOT / "docs" / "surface" / "v0.2-surface-baseline.json"
+)
 _FRAGMENT_DIR = _REPO_ROOT / "docs" / "surface-changes"
 
 
@@ -199,9 +206,22 @@ def test_the_phases_fragments_claim_exactly_what_was_added() -> None:
     An entry a plan forgot to write fails here, at the wave that added it,
     rather than in 15-21's completeness cross-check at wave 14 — the most
     expensive point in the phase to discover it.
+
+    **The "before" side is the frozen baseline, not the live manifest.** Both
+    sides of this comparison accumulate across the phase: ``claimed`` is the
+    union of every fragment (see :func:`_fragment_public_added` for why), so
+    the diff it is checked against has to be the accumulated one too. Between
+    15-01 and 15-21 the two files are byte-identical and either read gives the
+    same answer — which is why this originally read the live manifest and was
+    correct for nineteen waves. It stops being correct the instant 15-21
+    regenerates the live manifest: ``diff(live, live)`` is empty, and the
+    ``claimed <= added`` direction then fails for all 52 legitimately-claimed
+    names. Reading the frozen file is correct in *both* regimes, and the
+    baseline's immutability is itself asserted, by digest and by commit
+    provenance, in ``tests/test_surface_completeness.py``.
     """
-    committed = json.loads(_LIVE_MANIFEST.read_text(encoding="utf-8"))
-    added = set(diff_surfaces(committed, build_surface())["added"])
+    baseline = json.loads(_FROZEN_BASELINE.read_text(encoding="utf-8"))
+    added = set(diff_surfaces(baseline, build_surface())["added"])
     claimed = _fragment_public_added()
     assert added <= claimed, f"added but unclaimed: {sorted(added - claimed)}"
     assert claimed <= added, f"claimed but not added: {sorted(claimed - added)}"
