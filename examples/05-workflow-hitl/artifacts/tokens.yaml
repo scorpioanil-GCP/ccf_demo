@@ -1,40 +1,49 @@
-# Workflow-HITL example token table (D-26; D-14; T-08-20 accepted).
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# Workflow-HITL token table (D-26; D-14; T-08-20 accepted).
 #
-# The example's in-driver token source reads this table; no token value,
-# client identifier, scope, or lifecycle status exists in code (§6.4;
-# CINV-01). These are SYNTHETIC tokens for a runnable demonstration —
-# illustrative values, never production credentials.
+# The example's in-driver token source reads this table; no token value, client
+# identifier, scope, or lifecycle status exists in code (§6.4; CINV-01). These are
+# SYNTHETIC tokens for a runnable demonstration — illustrative values, never
+# production credentials.
 #
 # One ACTIVE approver entry (its client_id equals the approver subject in
-# hitl.yaml, which is what lets the derived principal match), one EXPIRED
-# entry (the 401 refusal path), and one ACTIVE entry whose scope the
-# scope-mapping artifact does not map (the 403 tenant-unauthorized path,
-# Phase 10 D-16) — every refusal demonstrated from artifact data, never
-# from a hardcoded bad-token string. A fourth ACTIVE `reviewer` entry
-# backs the ReviewQueue leg: its client_id equals the reviewer subject in
-# hitl.yaml, keeping the identity convention uniform across primitives.
+# `hitl-drive.yaml`, which is what lets the derived principal match), one EXPIRED
+# entry (the 401 refusal path), one ACTIVE entry whose scope `scope-mapping.yaml`
+# does not map (the 403 tenant-unauthorized path, Phase 10 D-16), and a fourth
+# ACTIVE `reviewer` entry backing the ReviewQueue leg — every refusal
+# demonstrated from artifact data, never from a hardcoded bad-token string.
+#
+# `role: load`, and never otherwise: registering this would content-hash
+# credential material into the audit plane.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
 
-tokens:
-  - label: approver
-    token: sm-disbursement-token-2026
-    client_id: disbursement-officer-31
-    scopes: [hitl]
-    status: active
-  - label: expired
-    token: sm-disbursement-token-2024
-    client_id: disbursement-officer-31
-    scopes: [hitl]
-    status: expired
-  - label: unauthorized
-    token: sm-reporting-token-2026
-    client_id: reporting-analyst-7
-    scopes: [reporting]
-    status: active
-  - label: reviewer
-    token: sm-credit-review-token-2026
-    client_id: credit-review-officer-7
-    scopes: [hitl]
-    status: active
+semver: "1.0.0"
+class_id: sterling-mutual.token-table
+
+declaration:
+  tokens:
+    - label: approver
+      token: sm-disbursement-token-2026
+      client_id: disbursement-officer-31
+      scopes: [hitl]
+      status: active
+    - label: expired
+      token: sm-disbursement-token-2024
+      client_id: disbursement-officer-31
+      scopes: [hitl]
+      status: expired
+    - label: unauthorized
+      token: sm-reporting-token-2026
+      client_id: reporting-analyst-7
+      scopes: [reporting]
+      status: active
+    - label: reviewer
+      token: sm-credit-review-token-2026
+      client_id: credit-review-officer-7
+      scopes: [hitl]
+      status: active

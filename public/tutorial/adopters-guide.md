@@ -270,7 +270,18 @@ conditions, and exception routes, all declared rather than coded. See the
 for the schema:
 
 ```yaml
---8<-- "examples/05-workflow-hitl/artifacts/workflow.yaml"
+--8<-- "examples/05-workflow-hitl/artifacts/workflow-definition.yaml"
+```
+
+A workflow definition is one of the four **author-versioned** classes a
+deployment manifest deliberately cannot name. Registering it runs a bump check
+that holds the author's `artifact_version` against the document's content
+identity — so re-authoring routing under an unchanged version is refused. The
+manifest's registration path does not run that check, so the driver registers
+these four itself rather than trading the governance for a shorter file:
+
+```py
+--8<-- "examples/05-workflow-hitl/run.py:register-definitions"
 ```
 
 The engine is constructed with its injected seams — the artifact store, the
@@ -301,7 +312,8 @@ to exactly what the approver saw, by content hash, and signed. The
 
 Every failure mode fails closed and typed — unauthenticated, expired,
 unsigned, and tampered are four distinct refusals, and none of them reaches
-the authority path:
+the authority path. The spine drives all four; that each is the *right* typed
+refusal is asserted in `tests/examples/test_workflow_hitl_output.py`:
 
 ```py
 --8<-- "examples/05-workflow-hitl/run.py:hitl-refusals"

@@ -1,0 +1,150 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.deployment-manifest.json
+# The one document naming what this deployment puts in force (D-06, D-08,
+# D-IMPL-80; banking/lending domain, D-IMPL-52).
+#
+# Every artifact is ENUMERATED, never globbed: the set of Control Plane artifacts
+# in force is dimension 2 of the five-dimension Decision Replay record, and a
+# pattern would make that set a function of directory contents at boot time with
+# no artifact recording that a dropped-in file changed what was in force.
+# `ManifestEntry` refuses a glob at parse.
+#
+# The BACKEND is declared as a kind only (D-08). There is no DSN and no database
+# path here, deliberately: a connection string is a deployment ENVIRONMENT value,
+# and putting one in a versioned, content-hashed artifact would persist it into
+# the audit plane.
+#
+# Each `key` is the Control Plane key its artifact is in force under AND the key
+# it comes back under on `BootedFabric.artifacts`. Short unnamespaced keys are
+# this deployment's own vocabulary and `run.py` names them as literals; the five
+# ref-resolved entries keep their full namespaced keys, because those keys are
+# what an agent definition's, a task definition's or a workflow definition's
+# versioned-URI refs resolve against — and a ref and its key must be the same
+# string.
+#
+# **What is NOT here, and why — the plan 15-19 ruling.** Six documents in this
+# directory are outside the manifest, each for a stated reason rather than by
+# omission:
+#
+#   * `agent-definition.yaml`, `prompt-artifact.yaml`, `task-definition.yaml`,
+#     `workflow-definition.yaml` — `ccf.agent-definition`, `ccf.prompt-artifact`,
+#     `ccf.task-definition` and `ccf.workflow-definition` are **author-versioned**
+#     SDK-owned classes. They register through `register_versioned`, which holds
+#     the author's `artifact_version` claim against content identity (the D-05
+#     bump check); `load_and_boot` registers through `register_typed`, which does
+#     not run that check. So they are deliberately absent from
+#     `SDK_ARTIFACT_CLASSES`, and a manifest entry naming one would silently drop
+#     the governance the class exists to carry. `run.py` registers them itself.
+#     They still carry real `$schema` headers — plan 15-14 committed their schemas
+#     without making them manifest-addressable.
+#   * `hitl-policy.yaml`, `scope-mapping.yaml` — `ccf.hitl-policy` and
+#     `ccf.scope-mapping` are SDK-owned classes that are not manifest-addressable
+#     either, so a manifest entry naming one would resolve to the open
+#     `DeclaredArtifact` envelope, and the transport and the authorizer — which
+#     read their real contracts back off the Control Plane by key — would find the
+#     wrong type there. `run.py` registers both itself.
+#
+# What the manifest DID absorb: the five documents that used to sit inline in
+# `agent.yaml`, `task.yaml` and `workflow.yaml` under `referenced_artifacts:`,
+# walked at run time by a hand-written registration closure.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `tenant_id`, every `key`, every `path`, and the
+# non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
+# `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
+# `artifacts`, `path`, `key`, `class_id` and `role`, the `ccf.`-prefixed class
+# ids, and the `role` values are [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: sterling-mutual
+backend: sqlite
+
+resolution_spec_key: resolution-spec
+policy_bundle_key: policy-bundle
+
+artifacts:
+  # --- role: register — into the registry, into the pin set, into replay
+  #     dimension 2. This is "what this fabric was permitted to do".
+  - path: resolution-spec.yaml
+    key: resolution-spec
+    class_id: ccf.resolution-spec
+    role: register
+
+  - path: policy-bundle.yaml
+    key: policy-bundle
+    class_id: sterling-mutual.policy-bundle
+    role: register
+
+  # The agent's axis-4 and axis-5 declarations, under the keys its versioned-URI
+  # refs resolve against. `register`, because a policy regime and a debt profile
+  # are precisely "what this agent was permitted to do".
+  - path: agent-policy-regime.yaml
+    key: sterling-mutual/policy-bundle/lending-operations
+    class_id: policy-bundle
+    role: register
+
+  - path: agent-debt-profile.yaml
+    key: sterling-mutual/debt-profile/disbursement-review
+    class_id: debt-profile
+    role: register
+
+  # What the task's first step may invoke.
+  - path: task-skill.yaml
+    key: sterling-mutual/skill/verify-loan-file
+    class_id: skill
+    role: register
+
+  # Where a failing node escalates, and who may approve at the gate. Both are
+  # standing statements of what the fabric may do, and the keys are what the
+  # workflow definition's `exception_refs` and `gate_policies` resolve against.
+  - path: exception-handler.yaml
+    key: sterling-mutual/exception-handler/loan-file-fetch-failed
+    class_id: exception-handler
+    role: register
+
+  - path: approval-policy.yaml
+    key: sterling-mutual/approval-policy/disbursement-officer
+    class_id: approval-policy
+    role: register
+
+  # --- role: load — parsed and validated through the same seam as everything
+  #     above, then handed back on `BootedFabric.artifacts`. Never registered,
+  #     never pinned, never in replay dimension 2.
+
+  # The events batch. The SDK FIXES this role (D-IMPL-80, SDK_ARTIFACT_ROLES);
+  # writing `role: register` here is refused before anything is read.
+  - path: events.yaml
+    key: events
+    class_id: ccf.signal-batch
+    role: load
+
+  # Where the six driver-registered documents file in the Control Plane, plus the
+  # approver signing key's name. Wiring the driver reads; the artifacts
+  # themselves are registered by `register_versioned` / `register_typed`.
+  - path: agent-registration.yaml
+    key: agent-registration
+    class_id: sterling-mutual.agent-registration
+    role: load
+
+  # What this run's human actors do. The POLICY governing them is registered
+  # (`hitl-policy.yaml`, `approval-policy.yaml`); one run's actions are not.
+  - path: hitl-drive.yaml
+    key: hitl-drive
+    class_id: sterling-mutual.hitl-drive
+    role: load
+
+  # What this run's replay record is shaped from. An envelope for one record is
+  # not a statement of what was permitted.
+  - path: replay-values.yaml
+    key: replay-values
+    class_id: sterling-mutual.replay-values
+    role: load
+
+  # Synthetic credential material. `load`, and never otherwise: registering it
+  # would content-hash tokens into the audit plane.
+  - path: tokens.yaml
+    key: tokens
+    class_id: sterling-mutual.token-table
+    role: load

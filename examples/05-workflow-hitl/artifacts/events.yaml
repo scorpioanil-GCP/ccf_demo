@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.signal-batch.json
+# Workflow-HITL event stream — L1 signal envelopes (banking/lending domain,
+# D-IMPL-52).
+#
+# Deliberately small. This example's subject is the Orchestration Layer and the
+# HITL primitives, not the L1–L6 pipeline (examples 00 and 06 are where the
+# pipeline is exercised) — but the workflow suspends over a *real* fabric, and
+# the loan the approver is deciding about is a real entity in it. `sm-500` and
+# `sm-501` assert the same loan from two sources, so its lineage accumulates by
+# set-union (INV-CH7-17) rather than producing a second node.
+#
+# Payload keys are the *source systems'* vocabulary, never the fabric's.
+#
+# **`role: load`, and the SDK FIXES it that way (D-IMPL-80).** Registering a
+# signal batch would content-hash raw event data into Control Plane state and
+# therefore into replay dimension 2. Events are what the fabric OBSERVED; the
+# Control Plane is what the fabric was PERMITTED TO DO.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: everything under `raw_payload:` and every source system id is
+# [ADAPT]; the envelope keys (`envelope_id`, `tenant_id`, `source`,
+# `system_id`, `ingestion_timestamp`, `observed_time`, `raw_payload`) are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: sterling-mutual
+
+envelopes:
+  - envelope_id: sm-500
+    tenant_id: sterling-mutual
+    source:
+      system_id: loan-origination
+    ingestion_timestamp: 2026-06-02T08:30:00Z
+    observed_time: 2026-06-02T08:25:00Z
+    raw_payload:
+      loan_ref: "SM-LOAN-4471"
+      facility_type: "term-loan"
+      disbursement_stage: "awaiting-approval"
+      loan_classification: "internal"
+      borrower_ref: "SM-BORROWER-118"
+      borrower_name: "Kestrel Freight Holdings"
+      book: "retail-lending"
+      borrower_classification: "internal"
+
+  - envelope_id: sm-501
+    tenant_id: sterling-mutual
+    source:
+      system_id: credit-master
+    ingestion_timestamp: 2026-06-02T08:40:00Z
+    observed_time: 2026-06-02T08:25:00Z
+    raw_payload:
+      loan_ref: "SM-LOAN-4471"
+      facility_type: "term-loan"
+      disbursement_stage: "awaiting-approval"
+      loan_classification: "internal"

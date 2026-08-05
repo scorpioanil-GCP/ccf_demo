@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.resolution-spec.json
+# Workflow-HITL entity-resolution spec — the deployment's declared vocabulary
+# (banking/lending domain, D-IMPL-52). Everything here is a *value*: entity
+# classes, match keys, attribute names, relationship types. None of it exists in
+# `/src` and none of it exists in `run.py` (CLAUDE.md §6.4).
+#
+# Closed-world over resolution rules only (D-03). `tenant_id` lives on the
+# manifest, which is where this deployment's own identity already is.
+#
+# Loans and the borrowers behind them: the operational state a disbursement
+# approval is decided against. The workflow's ApprovalGate is the subject of this
+# example, but the gate suspends over a *fabric* — so the fabric is real here
+# rather than mocked, and the graph view the replay record's dimension 1 names is
+# the one this spec resolved.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: every entity class name, match key, attribute name and
+# relationship type is [ADAPT]; the keys `semver`, `entity_rules`, `match_key`,
+# `entity_class`, `identity_keys`, `attribute_keys`, `relationship_rules`,
+# `relationship_type`, `subject_entity_class` and `object_entity_class` are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+entity_rules:
+  - match_key: loan_ref
+    entity_class: loan
+    identity_keys: [loan_ref]
+    attribute_keys:
+      - facility_type
+      - disbursement_stage
+      - loan_classification
+
+  - match_key: borrower_ref
+    entity_class: borrower
+    identity_keys: [borrower_ref]
+    attribute_keys:
+      - borrower_name
+      - book
+      - borrower_classification
+
+relationship_rules:
+  - relationship_type: borrowed_by
+    subject_entity_class: loan
+    object_entity_class: borrower

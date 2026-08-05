@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.task-definition.json
+# Workflow-HITL task definition (CLAUDE.md §6.4/§8.1; D-IMPL-28; SDK-defined).
+# Banking domain per D-09 — approval workflows under regulatory pressure are the
+# canonical HITL case. Authored fresh: tenant, steps, and every identifier are
+# distinct from both the test payment-release fixture and
+# `examples/00-quickstart`.
+#
+# Three steps: one skill invocation, one agent invocation, one hitl-gate
+# (CLAUDE.md §8.1 — every step is one of exactly those three kinds). Every step
+# value lives here, never in code (No-Hardcoding Rule §6.4); refs are pinned
+# versioned URIs (D-IMPL-26); the hitl-gate step carries no ref by schema — its
+# approval-policy binding lives on the workflow wrapper.
+#
+# **Not addressable by the manifest**: `ccf.task-definition` is author-versioned
+# and registers through `register_versioned`'s D-05 bump check, which
+# `load_and_boot`'s `register_typed` does not run. `run.py` registers it under the
+# key `agent-registration.yaml` names — the key the workflow definition's
+# `task_definition_ref` resolves against.
+#
+# The skill this task's first step invokes is now `task-skill.yaml`, enumerated
+# by the manifest, rather than an inline `referenced_artifacts:` block here.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `name`, `tenant`, every step `name`, and the domain vocabulary
+# inside each `ref` are [ADAPT]; the keys `schema_version`, `artifact_version`,
+# `name`, `tenant`, `steps`, `kind`, `ref`, `instruction_bindings` and the step
+# `kind` VALUES (`skill`, `agent`, `hitl-gate`) are [MECHANISM].
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+name: loan-disbursement
+tenant: sterling-mutual
+
+steps:
+  - kind: skill
+    name: verify-loan-file
+    ref: "ccf-artifact://sterling-mutual/skill/verify-loan-file@1.0.0"
+  - kind: agent
+    name: assess-disbursement
+    ref: "ccf-artifact://sterling-mutual/ccf.agent-definition/disbursement-analytics@1.0.0"
+  - kind: hitl-gate
+    name: disbursement-approval
+
+# Instruction bindings by versioned ref only (axis-6 discipline; §6.4).
+instruction_bindings:
+  - prompt: "ccf-artifact://sterling-mutual/prompt/disbursement-briefing@1.0.0"
+    parameters: [loan_ref, as_of]
