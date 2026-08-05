@@ -41,6 +41,7 @@ from ccf_runtime.cli.commands import (
     hitl,
     product,
     replay,
+    schema,
     skill,
     workflow,
 )
@@ -91,6 +92,7 @@ def build_parser() -> argparse.ArgumentParser:
     artifact.register(subparsers)
     product.register(subparsers)
     config.register(subparsers)
+    schema.register(subparsers)
     return parser
 
 

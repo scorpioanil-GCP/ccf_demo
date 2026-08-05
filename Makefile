@@ -31,7 +31,8 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 	example-03-live-ollama example-03-live-anthropic \
 	example-ext-00-live-anthropic example-ext-00-live-adk \
 	perf perf-micro perf-scale perf-xproc perf-replay \
-	docs docs-strict docs-serve openapi surface measure-examples
+	docs docs-strict docs-serve openapi schemas schema-headers surface \
+	measure-examples
 
 help: ## List targets with one-line descriptions
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
@@ -167,6 +168,23 @@ docs-serve: ## Serve the docs locally with live reload (opt-in; never part of `c
 # needs no `ci:` wiring.
 openapi: ## Regenerate the committed openapi.json — the D-12 drift baseline
 	$(ENV) $(PYTHON) tools/dump_openapi.py
+
+# ERGO-12's committed half, on the same D-12 reasoning as `openapi`: the
+# schemas are what adopters author against in their editor, before anything
+# runs, so they are committed and reviewed as diffs. The set comes from
+# SDK_ARTIFACT_CLASSES; adding an ArtifactClass without re-running this is a
+# red build, because the drift assertion lives in the always-on `test` job.
+schemas: ## Regenerate the committed docs/schemas/ tree — the ERGO-12 authoring baseline
+	$(ENV_DOCS) $(PYTHON) tools/dump_schemas.py
+
+# The assertion half of the `$schema` headers on example artifact documents.
+# Auto-arming: a directory joins the checked set as soon as it carries its
+# first header, so each example-rewrite plan gates its own headers at its own
+# wave. Pass DIR=<path> to check one directory (what a rewrite plan runs in
+# its own verify step); --require-all is the tree-wide form for the phase
+# close. Also always-on via tests/cli/test_schema_export.py.
+schema-headers: ## Verify example artifact $$schema headers name the class that accepts them (DIR=<path> to narrow)
+	$(ENV_DOCS) $(PYTHON) tools/check_schema_headers.py $(DIR)
 
 # D-15's generated half: the public surface of every /src and /runtime module
 # with an `__all__`, committed so a removed or reshaped export surfaces as a

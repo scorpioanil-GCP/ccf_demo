@@ -1,0 +1,101 @@
+{
+  "$defs": {
+    "SignalEnvelope": {
+      "additionalProperties": false,
+      "description": "The canonical L1 event envelope; the L1\u2192L2 handoff artifact.\n\nDESIGN.md \u00a72A.2.1 (D-IMPL-33 schema ruling); whitepaper \u00a77.1.\n\nAttributes:\n    tenant_id: Tenant scope, required on every envelope. Single-tenant\n        deployments are the degenerate one-fixed-tenant case, never a\n        separate mode (D-IMPL-05).\n    envelope_id: SDK-assigned identity. Lineage entries and the\n        re-hydration recipe (D-IMPL-44) address signals by this id.\n    source: Logical identity of the emitting system.\n    ingestion_timestamp: When the fabric received the signal.\n    observed_time: When the event occurred at the source, when the source\n        can say. ``None`` means unknown \u2014 L2 reconciles against the\n        bitemporal T axis rather than guessing a value here.\n    raw_payload: The source record, opaque to L1. Its keys are the\n        source's vocabulary, never the fabric's.\n    source_metadata: Adapter-supplied extension block, also opaque.",
+      "properties": {
+        "envelope_id": {
+          "title": "Envelope Id",
+          "type": "string"
+        },
+        "ingestion_timestamp": {
+          "format": "date-time",
+          "title": "Ingestion Timestamp",
+          "type": "string"
+        },
+        "observed_time": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed Time"
+        },
+        "raw_payload": {
+          "additionalProperties": true,
+          "title": "Raw Payload",
+          "type": "object"
+        },
+        "source": {
+          "$ref": "#/$defs/SourceIdentity"
+        },
+        "source_metadata": {
+          "additionalProperties": true,
+          "title": "Source Metadata",
+          "type": "object"
+        },
+        "tenant_id": {
+          "title": "Tenant Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "envelope_id",
+        "source",
+        "ingestion_timestamp",
+        "raw_payload"
+      ],
+      "title": "SignalEnvelope",
+      "type": "object"
+    },
+    "SourceIdentity": {
+      "additionalProperties": false,
+      "description": "Structured identity of the system a signal came from.\n\nINV-CH8-01: lineage records source **identity, not location**. A hostname,\nconnection string, or bucket path would bind the fabric's history to a\ndeployment topology and break the moment the estate migrates; a stable\nlogical ``system_id`` does not. Where that id comes from is deployment\nconfiguration \u2014 the SDK never enumerates source systems.",
+      "properties": {
+        "system_id": {
+          "title": "System Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "system_id"
+      ],
+      "title": "SourceIdentity",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A batch of L1 event envelopes, parsed rather than hand-marshalled (\u00a77.1).\n\nWhitepaper \u00a77.1 (Signal Layer) for what an envelope *is*; this class is the\nSDK-defined parsing seam for a serialized batch of them (CLAUDE.md \u00a76.4).\n``envelopes`` is typed as :class:`~ccf.signal.envelope.SignalEnvelope`, so\neach mapping in the document is validated into a real envelope by the\ncontract itself. That is the whole point: the artifact document adopts the\nSDK's **own** field vocabulary \u2014 ``source: {system_id: ...}``,\n``raw_payload:`` \u2014 rather than the SDK growing a second vocabulary to\naccommodate a document's flat keys. A translation removed is one that cannot\ndrift; a translation relocated into ``/src`` is the same defect with a better\naddress.\n\n**This is a** ``role: load`` **artifact under D-IMPL-80.** It is parsed and\nvalidated through the same :func:`parse_artifact` seam as every other class,\nand ``load_and_boot`` hands it back to the caller on the boot result \u2014 but it\nis never passed to ``register_typed`` and never appears in the pin set. The\nasymmetry is the interesting part. Registering a batch would content-hash raw\nevent data into Control Plane state, and by D-06's own rationale the\nregistered artifact set is dimension 2 of the five-dimension Decision Replay\nrecord (whitepaper \u00a77.10.1). Re-authoring an events file would then change\n\"what was in force\" exactly as a policy-bundle bump does \u2014 which is not what\nan event stream is. Events are what the fabric *observed*; the Control Plane\nis what the fabric was *permitted to do*. D-IMPL-80 makes the distinction an\nexplicit, required ``role`` field on each manifest entry rather than a\nproperty an executor has to infer from the class, and a manifest entry naming\nno ``role`` is refused.\n\n**Why the batch carries** ``tenant_id``. Every envelope declares its own\n(INV-CH7-16 \u2014 no untenanted path), but every event in a batch belongs to one\ntenant, and today that value lives in a *different* document \u2014 the ontology\n(``ontology.yaml``) \u2014 which D-03 makes closed-world over resolution rules\nonly. Carrying it here keeps it authored, once, in the artifact that needs\nit, rather than turning it into a loader argument no artifact records.\nDisagreement between the batch and an envelope is **refused, never\nrepaired**: silently stamping the batch's value onto an envelope that omits\nit would put a value nobody authored into the fabric's observation record.\n\n:class:`~ccf.signal.envelope.SignalEnvelope` and\n:class:`~ccf.signal.envelope.SourceIdentity` are untouched by this class.\n``raw_payload`` stays opaque to L1 and its keys stay the source system's\nvocabulary; renaming the *container* key in a serialized document says\nnothing about the payload inside it.\n\nAttributes:\n    tenant_id: The one tenant every envelope in this batch belongs to.\n    envelopes: The batch itself. ``min_length=1`` because an empty batch is\n        an authoring mistake, not an ingestion of nothing.",
+  "properties": {
+    "envelopes": {
+      "items": {
+        "$ref": "#/$defs/SignalEnvelope"
+      },
+      "minItems": 1,
+      "title": "Envelopes",
+      "type": "array"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    },
+    "tenant_id": {
+      "title": "Tenant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "tenant_id",
+    "envelopes"
+  ],
+  "title": "SignalBatch",
+  "type": "object",
+  "x-ccf-class-id": "ccf.signal-batch"
+}

@@ -1,0 +1,33 @@
+{
+  "additionalProperties": false,
+  "description": "The Policy category's *declarable* parameters (\u00a77.4; D-IMPL-76).\n\nAlone among the four, this class is **not** a subclass of its operator's\nparameter set. It carries the two fields a deployment can author and omits\n:attr:`~ccf.operators.params.PolicyFilterParameters.permitted_policy_bundle_versions`\nentirely. Both rejected alternatives look reasonable until written down:\n\n* **Subclass and leave the version set required.** ``params.py`` declares it\n  required with no default, so the artifact could never parse \u2014 the adopter\n  has no value to author, because the value is a content hash minted at\n  registration (D-IMPL-76).\n* **Subclass and default it to** ``frozenset()``. Then a parsed artifact\n  satisfies ``isinstance(x, PolicyFilterParameters)`` and can be handed\n  straight to :class:`~ccf.operators.categories.PolicyFilter` by anyone who\n  bypasses the builder \u2014 producing an operator that admits *nothing* while\n  looking fully configured. That is a silent failure in the other direction,\n  and exactly the kind of value-nobody-chose the parameters module refuses.\n\nA separate, deliberately incomplete contract makes the incompleteness\n*structural*: the type system says this is not an operator parameter set, and\nthe operator-registry builder is the only thing that turns it into one, by\nconstructing a real\n:class:`~ccf.operators.params.PolicyFilterParameters` with the version set\ntaken from the adopter-passed pins. The deployment still names which bundles\nit admits \u2014 the SDK only resolves the pin, and the adopter passes it\n(D-IMPL-76).\n\nAttributes:\n    classification_attribute_by_class: ``entity_class -> attribute key``\n        carrying that class's classification. Per class rather than one\n        global key, because classes carry their sensitivity in their own\n        vocabulary \u2014 two classes in the same deployment routinely carry their\n        sensitivity in differently-named fields. An entity class absent from\n        this mapping is inadmissible.\n    permitted_classifications: The classification values the principal may\n        see. Everything else \u2014 *including an entity carrying no\n        classification at all* \u2014 is excluded: the fabric does not admit state\n        it cannot prove is admissible.",
+  "properties": {
+    "classification_attribute_by_class": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Classification Attribute By Class",
+      "type": "object"
+    },
+    "permitted_classifications": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Permitted Classifications",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "classification_attribute_by_class",
+    "permitted_classifications"
+  ],
+  "title": "PolicyFilterParametersArtifact",
+  "type": "object",
+  "x-ccf-class-id": "ccf.operator-parameters.policy"
+}

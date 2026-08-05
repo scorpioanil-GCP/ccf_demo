@@ -1,0 +1,52 @@
+{
+  "$defs": {
+    "HalfLifeEntry": {
+      "additionalProperties": false,
+      "description": "One row of a \u03bb_c table (whitepaper \u00a77.7; INV-CH7-59).\n\nThe whitepaper's illustrative table is four columns wide \u2014 observation\ntype, \u03bb_c band, dominant decay driver, supersession event \u2014 and the *row\nshape is the commitment*, so all four are required. The driver and the\nsupersession event are not documentation: supersession is a Policy event\nthat collapses the decay curve rather than continuing it (INV-CH7-60), and\nan entry that never names its supersession event cannot participate in that\nmechanism later.\n\nAttributes:\n    half_life_seconds: \u03bb_c as whole seconds. Integer rather than a\n        fractional quantity because seconds are exact and floats are not;\n        sub-second half-lives are outside the bands the whitepaper's\n        operational story contemplates.\n    decay_driver: What actually makes this observation type go stale.\n    supersession_event: The event that ends this observation's validity for\n        current-value queries.",
+      "properties": {
+        "decay_driver": {
+          "title": "Decay Driver",
+          "type": "string"
+        },
+        "half_life_seconds": {
+          "title": "Half Life Seconds",
+          "type": "integer"
+        },
+        "supersession_event": {
+          "title": "Supersession Event",
+          "type": "string"
+        }
+      },
+      "required": [
+        "half_life_seconds",
+        "decay_driver",
+        "supersession_event"
+      ],
+      "title": "HalfLifeEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The per-observation-type \u03bb_c table, as a versioned artifact (INV-CH7-58).\n\nThe table ships empty of rows by design: ``entries`` has no default, so a\ndeployment that registers no calibration gets a registration failure rather\nthan a fabric that decays everything at a rate the SDK picked. \u03bb_c \"is\ndomain-specific\" and the whitepaper's own values are \"illustrative, not\nempirical\" \u2014 the SDK's contribution is this shape and the curve in\n:mod:`ccf.halflife.decay`.",
+  "properties": {
+    "entries": {
+      "additionalProperties": {
+        "$ref": "#/$defs/HalfLifeEntry"
+      },
+      "minProperties": 1,
+      "title": "Entries",
+      "type": "object"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "entries"
+  ],
+  "title": "HalfLifeTable",
+  "type": "object",
+  "x-ccf-class-id": "ccf.half-life-table"
+}

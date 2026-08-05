@@ -1,0 +1,59 @@
+{
+  "additionalProperties": false,
+  "description": "A product class's authored governance, minus the pin registration mints (\u00a77.6).\n\nWhitepaper \u00a77.6 (the delivery contract and its class-level governance);\nD-IMPL-31 for the TTL anchor, INV-CH7-55 for the assembly mode, INV-CH7-49\nfor the per-class schema lane. This is the artifact an adopter writes; the\nservable :class:`~ccf.products.contract.RegisteredProductClass` is what\n:func:`~ccf.products.contract.register_product_class` returns from it.\n\n**It deliberately does not declare** ``max_ttl_version``. That pin is minted\nby *registering* the :class:`~ccf.products.contract.MaxTTL` value, and it is\na content hash of what was registered \u2014 the same shape D-IMPL-76 ruled on for\nthe policy bundle's admitted-version set. An artifact that declared it would\nbe authoring a hash of something it does not contain. This is what keeps\nGate 3 (TTL bounds) meaningful: the ceiling stays an authored artifact value,\nthe pin is *derived* from registering it, and a product's own ``expires_at``\nremains a separately authored number. Gate 3 checks one against the other,\nwhich is only a check while the two come from independent places.\n\n**Why the operator set is declared here.**\n``required_operator_keys`` is what a projection's\n:meth:`~ccf.projection.plan.ProjectionPlan.required_operators` returns. It\nlives on the product class rather than on a projection artifact because the\nproduct class is already the artifact that declares what the product *is*,\nand the operator set an interpretation requires is a property of the product,\nnot of the code computing it.\n\nThe property this field exists to protect is that the projection's\n**declaration** and the engine's **resolution** stay two independent\nmechanisms. The lineage strict-equality gate (Gate 2, INV-CH7-47) compares\nthem; a projection that returns the operator registry's own keys makes that\ncomparison a value against itself, and the gate silently stops being a gate.\nGiving the declaration an authored source is what makes the independence\nreal. Plan 15-21 adds a standing AST guard against the registry-reading\nshortcut tree-wide.\n\n``min_length=1`` on the operator keys is the whitepaper's own posture, not an\nergonomics choice: \u00a77.6 specifies the empty-operator guard as the first of\nthe three validation gates, and states that \"a projection must have resolved\nat least one operator to have meaningfully read the graph, and an empty set\nindicates a misconfigured projection rather than a trivially-successful one.\"\nA declaration of zero operators could only ever produce a resolved set of\nzero, which Gate 1 refuses at assembly time. Refusing it here refuses it\nwhere the author can still fix it. A deployment that serves no product simply\nauthors no document of this class \u2014 that is a different thing from a product\nclass declaring it needs nothing.\n\nAttributes:\n    schema_name: Class identity.\n    schema_version: The product class's **own** semver lane (INV-CH7-49),\n        which is not the artifact's ``semver`` lane. Two lanes because they\n        version different things: how the product's schema evolved, and how\n        this declaration document evolved. Lanes are never compared across\n        classes.\n    ttl_anchor: Declared TTL derivation anchor (D-IMPL-31).\n    assembly_mode: Declared assembly mode (INV-CH7-55).\n    max_ttl_key: Control Plane key of the class's MAX_TTL artifact. The key\n        is authored; the version pinning it is not.\n    required_operator_keys: Registry keys of the operators the class's\n        interpretation depends on. Order is not significant \u2014 the engine\n        imposes the dependency order (INV-CH7-28).",
+  "properties": {
+    "assembly_mode": {
+      "enum": [
+        "algorithmic",
+        "llm_packaged",
+        "swarm_assembled"
+      ],
+      "title": "Assembly Mode",
+      "type": "string"
+    },
+    "max_ttl_key": {
+      "title": "Max Ttl Key",
+      "type": "string"
+    },
+    "required_operator_keys": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Required Operator Keys",
+      "type": "array"
+    },
+    "schema_name": {
+      "title": "Schema Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    },
+    "ttl_anchor": {
+      "enum": [
+        "from_decision",
+        "from_entity_freshness"
+      ],
+      "title": "Ttl Anchor",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "schema_name",
+    "schema_version",
+    "ttl_anchor",
+    "assembly_mode",
+    "max_ttl_key",
+    "required_operator_keys"
+  ],
+  "title": "ProductClassDeclaration",
+  "type": "object",
+  "x-ccf-class-id": "ccf.product-class"
+}

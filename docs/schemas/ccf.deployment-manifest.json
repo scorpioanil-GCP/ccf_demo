@@ -1,0 +1,92 @@
+{
+  "$defs": {
+    "ManifestEntry": {
+      "additionalProperties": false,
+      "description": "One artifact a deployment manifest names (SDK-defined; CLAUDE.md \u00a76.4).\n\nAttributes:\n    path: Location of the artifact document, relative to the manifest file's\n        own directory. Enumerated, never matched \u2014 see\n        :meth:`_path_is_a_name_not_a_pattern`.\n    key: The Control Plane key this artifact is in force under, and the key\n        it is returned under on the boot result. Unique within a manifest.\n    class_id: The artifact class the document is validated against, resolved\n        through :func:`~ccf.deployment.classes.resolve_artifact_class`.\n    role: ``register`` or ``load`` \u2014 **required, with no default**\n        (D-IMPL-80, RESOLVED 2026-08-04, Dave).\n\n        ``register`` is what every artifact did before this ruling: into the\n        registry, into the pin set. ``load`` is parsed, validated, and\n        returned, but never registered and never pinned.\n\n        The distinction exists because registering an artifact\n        content-hashes it into Control Plane state, and by D-06's own\n        rationale the registered artifact set is dimension 2 of the\n        five-dimension Decision Replay record (whitepaper \u00a77.10.1). For a\n        signal batch that would mean re-authoring an events file changes\n        \"what was in force\" exactly as a policy-bundle bump does \u2014 but\n        events are what the fabric *observed*, not what it was *permitted to\n        do*.\n\n        **Why no default.** Either default would have the SDK deciding a\n        replay-dimension-2 boundary on the adopter's behalf, which is the\n        objection :func:`ccf.boot.boot` already raises against every other\n        default (D-IMPL-38). An entry naming no ``role`` is refused by the\n        contract before anything is read, let alone registered.\n\n        For the one class where the SDK *does* know the answer, the choice\n        is additionally held to it by\n        :func:`~ccf.deployment.classes.refuse_role_the_sdk_fixes`, which\n        runs before any registration. That check lives beside the class\n        registry rather than here because it is a property of the class, and\n        because this module cannot import ``ccf.deployment`` without closing\n        an import cycle.",
+      "properties": {
+        "class_id": {
+          "title": "Class Id",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "register",
+            "load"
+          ],
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "key",
+        "class_id",
+        "role"
+      ],
+      "title": "ManifestEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The one document naming what a deployment puts in force (D-06).\n\nSDK-defined mechanism (CLAUDE.md \u00a76.4 and \u00a710): the whitepaper fixes that\nControl Plane artifacts are typed, versioned, and exactly pinned at decision\ntime (\u00a77.8, \u00a77.10); it does not specify the document that enumerates them.\nThis is that document, and it is itself a content-hashable artifact \u2014 so\n\"what was this deployment configured to put in force\" is answerable by\nreading one versioned thing.\n\n**The backend is declared as a kind only (D-08).** There is no DSN field and\nno database-path field, deliberately: a connection string is a deployment\n*environment* value that\n:func:`ccf.boot.boot` already documents as never persisted, and putting one\nin a versioned, content-hashed artifact would persist it into the audit\nplane. The manifest says which substrate; the environment supplies how to\nreach it, and :func:`~ccf.deployment.manifest.load_and_boot` refuses loudly\nif the two do not agree.\n\n**Q3 \u2014 where** ``tenant_id`` **lives.** It is carried here, optionally, and\nthe caller supplies it when absent. D-03 makes ``ccf.resolution-spec``\nclosed-world over resolution rules only, so the value that examples read out\nof an ontology document today has to live somewhere, and the manifest is\nwhere the deployment's own identity already is. It is *optional* rather than\nrequired because D-IMPL-05 makes tenancy a first-class runtime axis, and a\nmanifest-pinned tenant would stop one manifest serving a multi-tenant\ndeployment. Exactly one of the two sources must supply it: the entry point\nrefuses both-absent and refuses a conflicting pair, mirroring\n``_open_backend``'s refuse-to-infer posture rather than picking a winner.\n\nAttributes:\n    artifacts: Every artifact in force, enumerated. ``min_length=1`` because\n        a manifest naming nothing is an authoring mistake rather than a\n        deployment that configures nothing.\n    backend: Which graph substrate this deployment runs on \u2014 the kind, not\n        the connection.\n    resolution_spec_key: Manifest key of the entity-resolution spec.\n    policy_bundle_key: Manifest key of the policy bundle in force.\n    tenant_id: The deployment's tenant, when the manifest names it.",
+  "properties": {
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/ManifestEntry"
+      },
+      "minItems": 1,
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "backend": {
+      "enum": [
+        "sqlite",
+        "postgres"
+      ],
+      "title": "Backend",
+      "type": "string"
+    },
+    "policy_bundle_key": {
+      "title": "Policy Bundle Key",
+      "type": "string"
+    },
+    "resolution_spec_key": {
+      "title": "Resolution Spec Key",
+      "type": "string"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    },
+    "tenant_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tenant Id"
+    }
+  },
+  "required": [
+    "semver",
+    "artifacts",
+    "backend",
+    "resolution_spec_key",
+    "policy_bundle_key"
+  ],
+  "title": "DeploymentManifest",
+  "type": "object",
+  "x-ccf-class-id": "ccf.deployment-manifest"
+}
