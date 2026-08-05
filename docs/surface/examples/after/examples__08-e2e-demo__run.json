@@ -1,0 +1,14 @@
+{
+  "asserts": 0,
+  "boot": 0,
+  "helpers": 0,
+  "imports": 64,
+  "mech": 13,
+  "opblk": 0,
+  "path": "examples/08-e2e-demo/run.py",
+  "prints": 6,
+  "raw": 1104,
+  "reg": 13,
+  "relocatable": 6,
+  "removable": 13
+}

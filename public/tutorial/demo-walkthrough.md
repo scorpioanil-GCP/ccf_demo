@@ -81,12 +81,12 @@ The interpreter that turns this artifact into three SQLite databases:
 
 The run opens with two stages of banners (all console output is
 deterministic and byte-compared in CI against
-`artifacts/expected_output.txt` — the full expected transcript is in
-§8 below).
+`artifacts/expected_output.txt` by `tests/examples/test_e2e_demo_output.py`
+— the full expected transcript is in §8 below).
 
 **Stage 1 — GENERATE** interprets the scenario: 6,870 rows across the
 three databases, and every pinned checksum (per-database SHA-256, ring
-signature) is asserted before anything else happens.
+signature) is checked against the artifact's pins.
 
 **Stage 2 — BASELINE** is the honesty stage. The demo's headline claim —
 *an agent solves a problem it could not solve from the raw data alone* —
@@ -117,17 +117,23 @@ graph through the **single writer** — `handle.worker.ingest` is the only
 write path in the entire example (CLAUDE.md §10).
 
 How rows map to envelopes, and how envelopes resolve into canonical
-entities, is again entirely artifact-declared. The ontology below carries
-the deployment's whole vocabulary: entity classes, identity keys,
-relationship rules, and the `ingest` block that selects scenario sources
+entities, is again entirely artifact-declared, across two documents. The
+resolution spec carries the deployment's graph vocabulary — entity
+classes, identity keys, relationship rules:
+
+```yaml
+--8<-- "examples/08-e2e-demo/artifacts/resolution-spec.yaml"
+```
+
+The ingest spec carries the L1 mapping, which selects scenario sources
 and columns **by mechanism role**, never by name — which is why `run.py`
 contains no source vocabulary at all:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/ontology.yaml"
+--8<-- "examples/08-e2e-demo/artifacts/ingest-spec.yaml"
 ```
 
-Read the two load-bearing rules closely:
+Read the two load-bearing rules in the resolution spec closely:
 
 - `identity_keys: [party_tax_ref]` — the ledger account holder and the
   KYC entry mint the **same** canonical `counterparty` URI because both
@@ -166,16 +172,34 @@ typed edges served           3270
 gates                        empty-operator, lineage equality, TTL - all passed
 ```
 
-The fabric configuration — control plane bundle, policy bindings, and
-the per-observation-type half-life table that later shows up as a
-freshness number in Stage 5 — are artifacts too:
+The fabric configuration is artifacts too — one document per artifact
+class, with a single manifest naming every one of them and saying which
+are put *in force* and which are merely loaded. The manifest is the
+document to read first: it is the whole of what this deployment was
+permitted to do, enumerated rather than globbed, and it is what `run.py`
+hands to one `load_and_boot` call:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/controlplane.yaml"
+--8<-- "examples/08-e2e-demo/artifacts/manifest.yaml"
+```
+
+The policy bundle it puts in force, stamped onto every claim at assembly
+and carried into replay dimension 2:
+
+```yaml
+--8<-- "examples/08-e2e-demo/artifacts/policy-bundle.yaml"
+```
+
+And the per-observation-type half-life table that later shows up as a
+freshness number in Stage 5, with the debt profile whose risk
+sensitivity scales it:
+
+```yaml
+--8<-- "examples/08-e2e-demo/artifacts/half-life-table.yaml"
 ```
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/halflife.yaml"
+--8<-- "examples/08-e2e-demo/artifacts/debt-profile.yaml"
 ```
 
 ## 6. Stage 5: the agent and its governed skill find the ring
@@ -187,7 +211,7 @@ specialization (context contract, policy regime, instruction binding)
 fixed in a definition artifact:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/agent.yaml"
+--8<-- "examples/08-e2e-demo/artifacts/agent-definition.yaml"
 ```
 
 Capability arrives through the second channel — **skilling** (CLAUDE.md
@@ -197,10 +221,17 @@ envelope; and the dispatch arguments carry **every** graph-vocabulary
 name and threshold the callable interprets. The callable in `run.py` is
 generic walk-a-graph mechanism; the artifact tells it what a
 counterparty is, what a transfer is, which edges link them, and how
-tight the ring's structure must be:
+tight the ring's structure must be. The catalog entry declares the
+argument schema:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/skills.yaml"
+--8<-- "examples/08-e2e-demo/artifacts/skill-catalog-entry.yaml"
+```
+
+The grant that binds it, and the dispatch values the callable interprets:
+
+```yaml
+--8<-- "examples/08-e2e-demo/artifacts/skill-dispatch.yaml"
 ```
 
 Invoked over the typed Context Product — the same detection, the same
@@ -224,6 +255,15 @@ constraints the artifact declares — near-constant consecutive amounts,
 strictly increasing timestamps, a bounded span — applied to *resolved*
 parties. The parameters are values; move them in `skills.yaml` and watch
 the boundary move.
+
+Note which of these documents the deployment manifest names and which it
+does not. `ccf.agent-definition`, `ccf.prompt-artifact` and
+`ccf.skill-catalog-entry` are **author-versioned**: they register through
+`register_versioned`, which holds the author's declared `artifact_version`
+against the document's content identity. `load_and_boot` registers through
+`register_typed`, which does not run that check — so those three classes are
+deliberately not manifest-addressable and `run.py` registers them itself.
+They carry real `$schema` headers all the same.
 
 ## 7. Stage 6: replay, and why you can trust any of this
 
@@ -252,8 +292,11 @@ the same banners you saw quoted above:
 ```
 
 And the thin, generic driver that produced it — six labeled stages of
-loading, mapping, and asserting; deleting the artifacts would leave it
-nothing to run (§6.4):
+loading and mapping, opening with a single `load_and_boot` call over the
+manifest above; deleting the artifacts would leave it nothing to run
+(§6.4). It checks nothing itself: the driver returns its state and
+`tests/examples/test_e2e_demo_output.py` holds every assertion,
+including the byte-comparison, where a test runner can fail a build:
 
 ```python
 --8<-- "examples/08-e2e-demo/run.py"
@@ -276,7 +319,7 @@ investigation summary. Detection itself is identical in both modes —
 the model narrates a result the fabric already proved:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/prompt.yaml"
+--8<-- "examples/08-e2e-demo/artifacts/prompt-artifact.yaml"
 ```
 
 **Where to go next:** open `examples/08-e2e-demo/artifacts/scenario.yaml`

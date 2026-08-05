@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.half-life-table.json
+# E2E-demo λ_c table (whitepaper §7.7; banking domain, D-IMPL-52).
+#
+# Every half-life lives here. The SDK ships the decay formula, never a
+# calibration (INV-CH7-58/59; CLAUDE.md §11): an observation type with no
+# declared λ_c raises rather than decaying at a rate nobody chose.
+#
+# Decimal-valued entries are QUOTED wherever they appear. The canonical
+# serializer refuses floats (not bit-stable across platforms), and the artifact
+# loader refuses a YAML float rather than silently converting one.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: observation-type names and every calibrated value are [ADAPT];
+# the row shape (`half_life_seconds`, `decay_driver`, `supersession_event`) is
+# [MECHANISM].
+
+semver: "1.0.0"
+
+entries:
+  wire-transfer-record:
+    half_life_seconds: 7776000
+    decay_driver: settlement finality and archive rollover
+    supersession_event: transfer amendment or recall
+  kyc-registration:
+    half_life_seconds: 31536000
+    decay_driver: annual KYC refresh cycle
+    supersession_event: registration reassessment
+  ledger-balance-snapshot:
+    half_life_seconds: 900
+    decay_driver: continuous transaction flow
+    supersession_event: newer balance snapshot

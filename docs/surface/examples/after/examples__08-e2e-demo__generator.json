@@ -1,0 +1,14 @@
+{
+  "asserts": 0,
+  "boot": 0,
+  "helpers": 0,
+  "imports": 7,
+  "mech": 0,
+  "opblk": 0,
+  "path": "examples/08-e2e-demo/generator.py",
+  "prints": 0,
+  "raw": 431,
+  "reg": 0,
+  "relocatable": 0,
+  "removable": 0
+}
