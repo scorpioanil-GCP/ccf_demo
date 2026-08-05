@@ -118,6 +118,7 @@ from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.mcp.auth import TokenGrant
 from ccf_runtime.mcp.egress import ProductNotServable
 from ccf_runtime.workflow.engine import WorkflowEngine, WorkflowSuspended
+from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
 ARTIFACTS = Path(__file__).resolve().parent / "artifacts"
 MANIFEST = ARTIFACTS / "manifest.yaml"
@@ -400,9 +401,20 @@ class ReplayDemonstration:
     definition_version: str
     prompt: PromptArtifact
     grant: SkillGrant
+    granted_address: str
     grant_set_hash: str
     skill_output: Mapping[str, str]
+    consumed: ContextProductContract
 
+    suspended_gate: str
+    suspended_state_hash: str
+    terminal_state: str
+    submission: Any
+    # The verification material a reader of the record needs, and no more: the
+    # detached-JWS provider and the PUBLIC keys. A signed binding verifies from
+    # the record alone plus these — never from anything the live run held.
+    identity_provider: DetachedJwsIdentityProvider
+    trusted_keys: Mapping[str, JsonWebKey]
     approver_client_id: str
     authz_refusal_status: int
     authz_refusal_code: str
@@ -672,11 +684,11 @@ def run(*, root: Path) -> ReplayDemonstration:
     grant = SkillGrant(
         agent_definition_hash=definition_hash, **dispatch["grant_request"]
     )
-    ledger.request(
+    granted_address = ledger.request(
         grant, definition=definition, actor=dispatch["requesting_actor"]
     )
     in_force = ledger.grant_set_hash(definition_hash)
-    agent.consume(gated.product, now=now)
+    consumed = agent.consume(gated.product, now=now)
     invocation = agent.invoke_skill(
         dispatch["grant_request"]["skill_name"],
         arguments=dispatch["dispatch"]["arguments"],
@@ -720,6 +732,16 @@ def run(*, root: Path) -> ReplayDemonstration:
     )
     if not isinstance(suspended, WorkflowSuspended):  # pragma: no cover
         raise RuntimeError(f"the workflow did not suspend at a gate: {suspended!r}")
+    # The suspended state's content identity, captured HERE — before the resume
+    # mutates it. This is what the approver is shown the hash of, and what their
+    # signed binding must echo (T-07-17 TOCTOU doctrine); reading it after the
+    # resume would hash a different state and prove nothing.
+    suspended_state = registry.state_store.get(
+        WORKFLOW_STATE, f"{booted.tenant_id}/{drive['execution_id']}"
+    )
+    if not isinstance(suspended_state, WorkflowStateRecord):  # pragma: no cover
+        raise RuntimeError("the suspended workflow left no state record")
+    suspended_state_hash = content_hash(suspended_state)
 
     # --- the AUTH-BOUND approval through the hardened door (D-14) -------------
     app = create_app(
@@ -1037,8 +1059,16 @@ def run(*, root: Path) -> ReplayDemonstration:
         definition_version=definition_version,
         prompt=prompt,
         grant=grant,
+        granted_address=granted_address,
         grant_set_hash=in_force,
         skill_output=dict(invocation.output),
+        consumed=consumed,
+        suspended_gate=suspended.gate,
+        suspended_state_hash=suspended_state_hash,
+        terminal_state=outcome.terminal_state,
+        submission=submission,
+        identity_provider=provider,
+        trusted_keys=trusted,
         approver_client_id=active["client_id"],
         authz_refusal_status=authz_refused.status_code,
         authz_refusal_code=authz_refused.json()["detail"]["error_code"],
