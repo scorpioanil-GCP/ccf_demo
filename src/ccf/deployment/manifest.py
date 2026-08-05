@@ -1,0 +1,323 @@
+"""One call from a manifest to a booted fabric — wiring, and nothing past wiring.
+
+SDK-defined mechanism (CLAUDE.md §6.4 and §10). :func:`ccf.boot.boot` is already
+well-shaped: every Control Plane binding is an explicit, pinned ``(key, version)``
+pair, there are no defaults and no "latest", because a fabric whose configuration
+drifts between boots cannot be replayed (D-IMPL-38, whitepaper §7.10). Its
+contract is preserved here verbatim — this module changes what *produces* the
+pins, never what ``boot`` requires of them. ``boot`` remains directly callable
+and every existing call site keeps working (D-14 is additive).
+
+Why the manifest enumerates
+---------------------------
+
+The set of Control Plane artifacts in force is dimension 2 of the
+five-dimension Decision Replay record (whitepaper §7.10.1). A glob would make
+that set a function of directory contents at boot time, with **no artifact
+recording that a dropped-in file changed what was in force** — so
+:class:`~ccf.controlplane.artifacts.ManifestEntry` refuses a pattern at parse
+and the manifest names every file.
+
+The boundary this module must not cross
+---------------------------------------
+
+The governance risk an ergonomics entry point runs is growing past wiring. The
+next obvious convenience — *and it also runs the operators* — would swallow the
+projection engine's independently-resolved operator set and make lineage strict
+equality (INV-CH7-47) compare a value against itself. The gate would stay green
+and the invariant would be gone with no failing test to say so.
+
+``tests/products/test_gate_independence.py`` and the ``cinv02-deployment-gates``
+lint rule stand against exactly that, and this module does not weaken either.
+:func:`load_and_boot`'s own docstring states the boundary in the negative, so
+the line is legible from the surface rather than only from the guard.
+
+Algorithmic module (CINV-03) — see the package docstring for why file I/O here
+is not a contradiction.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
+
+from ccf.boot import FabricHandle, boot
+from ccf.contracts.base import CCFContract
+from ccf.controlplane.artifacts import (
+    DEPLOYMENT_MANIFEST,
+    DeploymentManifest,
+    load_artifact,
+)
+from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.deployment.classes import refuse_role_the_sdk_fixes, resolve_artifact_class
+from ccf.deployment.pins import ArtifactPin, ResolvedPins
+
+__ccf_mode__ = "algorithmic"
+
+__all__ = ["BootedFabric", "load_and_boot"]
+
+
+@dataclass(frozen=True)
+class BootedFabric:
+    """What :func:`load_and_boot` hands back: the fabric, its pins, its artifacts.
+
+    A frozen dataclass rather than a :class:`~ccf.contracts.base.CCFContract`,
+    for the reason :class:`~ccf.controlplane.artifact_base.ArtifactClass`
+    records: it carries a live handle, which has no canonical serialization and
+    never belongs in a content hash.
+
+    Attributes:
+        handle: The booted fabric, exactly as :func:`ccf.boot.boot` returns it —
+            reader, worker, Control Plane, and **no writer**.
+        pins: The record of what was put in force: ``role: register`` entries
+            only.
+        tenant_id: The resolved tenant, from the manifest or from the caller.
+        artifacts: Every parsed artifact, keyed by manifest key, **both roles**.
+
+            This is D-IMPL-80's return path. The ruling requires ``role: load``
+            entries to come back to the caller rather than being registered;
+            returning the ``register``-role ones alongside them costs nothing
+            and closes a second gap. Without it, an adopter needing the parsed
+            operator-parameters artifacts to hand to a registry builder would
+            re-read them off disk or ``isinstance``-filter them out of the
+            Control Plane — and that filtering idiom, copied across nine
+            examples, is a new duplication class of exactly the sort this phase
+            exists to remove. With it the adopter writes
+            ``{key: booted.artifacts[key] for key in (...)}``, naming its own
+            manifest keys: explicit deployment configuration rather than type
+            introspection.
+
+            **What this does not weaken.** ``role`` governs registration and
+            pinning, never visibility. A ``role: load`` artifact appearing here
+            is still absent from ``pins``, still absent from the Control Plane
+            registry, and still absent from replay dimension 2. ``artifacts`` is
+            a parse result handed back to the caller; ``pins`` is the record of
+            what was put in force.
+    """
+
+    handle: FabricHandle
+    pins: ResolvedPins
+    tenant_id: str
+    artifacts: Mapping[str, CCFContract]
+
+
+def _resolve_tenant(manifest: DeploymentManifest, supplied: str | None) -> str:
+    """Return the one tenant this deployment runs as, or refuse.
+
+    Exactly one source may supply it. Both-absent and a conflicting pair are
+    both refused rather than resolved by precedence, mirroring
+    ``_open_backend``'s refuse-to-infer posture: a deployment whose tenant
+    depends on which source won is a deployment whose graph scope nobody wrote
+    down (INV-CH7-16, D-IMPL-05).
+    """
+    if manifest.tenant_id is None and supplied is None:
+        raise ValueError(
+            "no tenant_id: the manifest declares none and none was supplied;"
+            " state it in exactly one of the two places"
+        )
+    if (
+        manifest.tenant_id is not None
+        and supplied is not None
+        and manifest.tenant_id != supplied
+    ):
+        raise ValueError(
+            f"tenant_id conflict: the manifest declares"
+            f" {manifest.tenant_id!r} and {supplied!r} was supplied; the fabric"
+            " does not choose between them — remove one"
+        )
+    resolved = manifest.tenant_id if manifest.tenant_id is not None else supplied
+    assert resolved is not None  # narrowed by the both-absent refusal above
+    return resolved
+
+
+def _preflight_backend(
+    manifest: DeploymentManifest,
+    *,
+    database_path: str | None,
+    postgres_dsn: str | None,
+) -> None:
+    """Refuse a backend declaration the environment cannot satisfy (D-08).
+
+    **This runs before any artifact is parsed and before anything is
+    registered**, and the ordering is the whole point. A manifest declaring
+    ``postgres`` with no DSN supplied parses perfectly well, so a check placed
+    beside the ``boot`` call at the end would register every artifact first and
+    fail afterwards — leaving Control Plane state from a fabric that never
+    booted. That is a replay-integrity problem, not an untidiness: the registry
+    would then answer "what was in force" for a deployment that never ran.
+
+    The refusal is loud and there is **no fallback to SQLite**. A fabric that
+    guessed its substrate could boot against a development file in production
+    and still pass every test — the reason ``_open_backend`` refuses to infer,
+    inherited here rather than re-decided.
+
+    Raises:
+        ValueError: the declared backend's connection argument is missing, or an
+            argument for the other backend was supplied instead.
+    """
+    supplied = {"sqlite": database_path, "postgres": postgres_dsn}
+    argument = {"sqlite": "database_path", "postgres": "postgres_dsn"}
+    declared = manifest.backend
+    other = "postgres" if declared == "sqlite" else "sqlite"
+    if supplied[declared] is None:
+        raise ValueError(
+            f"the manifest declares backend {declared!r} and no"
+            f" {argument[declared]} was supplied; the fabric does not guess a"
+            " substrate and does not fall back"
+        )
+    if supplied[other] is not None:
+        raise ValueError(
+            f"the manifest declares backend {declared!r} but"
+            f" {argument[other]} was also supplied; supply only the argument"
+            " the manifest's declared backend needs"
+        )
+
+
+def load_and_boot(
+    manifest_path: str | Path,
+    *,
+    registry: ControlPlaneProtocol,
+    database_path: str | None = None,
+    postgres_dsn: str | None = None,
+    tenant_id: str | None = None,
+) -> BootedFabric:
+    """Load a manifest, validate and register what it names, and boot the fabric.
+
+    Replaces the hand-written registration prologue that preceded every
+    :func:`ccf.boot.boot` call with one call over one content-hashable document.
+
+    What this call does, in order:
+
+    1. Parses the manifest through
+       :func:`~ccf.controlplane.artifacts.load_artifact` — never
+       PyYAML's plain safe loader, because the artifact loader is what
+       suppresses the
+       timestamp resolver (D-02) and refuses floats and zone-less timestamps.
+    2. **Preflights** the tenant, the D-IMPL-80 role of every entry, and the
+       declared backend against the supplied connection argument — all before
+       any document is read and before anything is registered.
+    3. Parses **every** entry, then registers the ``role: register`` ones. Two
+       phases, deliberately: a malformed document at entry seven would otherwise
+       leave entries one through six registered, which is partial Control Plane
+       state produced by a deployment that never booted.
+    4. Calls :func:`ccf.boot.boot` with the pins it just collected.
+
+    What this call does **not** do — the abstraction line, stated on the surface
+    rather than only in the guard: it does not execute operators, does not
+    project, does not build a Context Product, does not run the three validation
+    gates, and does not construct a product's lineage record. The adopter reads
+    ``pins`` and passes them to ``build_replay_record`` itself, because D-06
+    requires that line to stay in adopter code — the moment the SDK selects which
+    bindings are in force, dimension 2 of the replay record is assembled by a
+    rule nobody in the deployment wrote down.
+
+    What is **still not guaranteed**, stated rather than papered over: a failure
+    *inside* the registration loop — a backend error, say — can still leave
+    earlier entries registered. That is accepted. Registration is
+    content-addressed and audited, so a corrected re-run registers identical
+    content to identical versions and the audit log shows both attempts. There
+    is deliberately no rollback: a Control Plane that silently un-registers is
+    worse than one that records a retry.
+
+    The day-1 shape of what follows this call, so the spine is written down
+    where the call is: the adopter ingests from
+    ``booted.artifacts[<signal-batch-key>].envelopes`` through
+    ``booted.handle.worker``, builds a view from ``booted.handle.reader``,
+    assembles the ``parameters`` mapping for the operator-registry builder by
+    naming its own manifest keys against ``booted.artifacts``, and mints the
+    MAX_TTL registration and the product-class registration itself. That last
+    part is deliberate: the TTL pin must stay an independently authored
+    registration, or Gate 3 compares a ceiling against itself.
+
+    **Handle lifecycle.** The returned ``handle`` owns a backend connection, and
+    its disposal contract is unchanged from :func:`ccf.boot.boot`:
+    :meth:`ccf.boot.FabricHandle.close` retires the writer and closes the store,
+    and the handle is a context manager, so ``with booted.handle:`` is the
+    ordinary shape. What changes here is not the contract but how cheap it is to
+    acquire a handle absentmindedly — one call is easy to put in a loop over
+    manifests, over tenants, or over test cases, and a loop that never closes
+    leaks one connection per iteration and will eventually be refused a boot by
+    the single-writer check. Close each handle before booting the next.
+
+    Args:
+        manifest_path: The manifest document. Every entry's ``path`` resolves
+            relative to **this file's own directory**, never the process's
+            working directory — a deployment's artifact set must not depend on
+            where a script was launched from.
+        registry: The Control Plane to register into. A caller argument, never
+            constructed here: a registry built behind the adopter's back would
+            split the audit sequence in two, and the Control Plane is the audit
+            plane, singular (whitepaper §7.8.2).
+        database_path: SQLite file, when the manifest declares ``sqlite``.
+        postgres_dsn: libpq connection string, when the manifest declares
+            ``postgres``. From the environment; never persisted, and never in
+            the manifest.
+        tenant_id: The deployment's tenant, when the manifest does not name it.
+
+    Raises:
+        ValueError: the tenant is absent from both sources or conflicts between
+            them; the declared backend's connection argument is missing or the
+            wrong one was supplied; or an entry declares a role the SDK fixes
+            otherwise (D-IMPL-80).
+        ccf.controlplane.artifacts.ArtifactLoadError: the manifest or any
+            artifact document is not valid YAML, or does not satisfy its
+            declared class contract.
+        OSError: the manifest or a named artifact document cannot be read.
+    """
+    manifest_file = Path(manifest_path)
+    manifest = load_artifact(
+        manifest_file.read_text(encoding="utf-8"), DEPLOYMENT_MANIFEST
+    )
+    assert isinstance(manifest, DeploymentManifest)  # DEPLOYMENT_MANIFEST's contract
+
+    resolved_tenant = _resolve_tenant(manifest, tenant_id)
+    for entry in manifest.artifacts:
+        refuse_role_the_sdk_fixes(entry.class_id, entry.role)
+    _preflight_backend(
+        manifest, database_path=database_path, postgres_dsn=postgres_dsn
+    )
+
+    # Phase one: parse everything. Nothing is registered until every document in
+    # the manifest has been read and validated.
+    root = manifest_file.parent
+    parsed: dict[str, CCFContract] = {}
+    for entry in manifest.artifacts:
+        artifact_class = resolve_artifact_class(entry.class_id)
+        document = (root / entry.path).read_text(encoding="utf-8")
+        parsed[entry.key] = load_artifact(document, artifact_class)
+
+    # Phase two: register the ones the manifest marks `role: register`.
+    pinned: list[ArtifactPin] = []
+    for entry in manifest.artifacts:
+        if entry.role == "load":
+            # D-IMPL-80. Nothing happens here, deliberately. A `register_typed`
+            # call on this branch would content-hash raw event data into Control
+            # Plane state and therefore into Decision Replay dimension 2.
+            continue
+        artifact_class = resolve_artifact_class(entry.class_id)
+        version = registry.register_typed(
+            entry.key, parsed[entry.key], artifact_class
+        )
+        pinned.append(
+            ArtifactPin(
+                key=entry.key, version=version, class_id=entry.class_id
+            )
+        )
+
+    pins = ResolvedPins(entries=tuple(pinned))
+    handle = boot(
+        database_path=database_path,
+        postgres_dsn=postgres_dsn,
+        registry=registry,
+        resolution_spec_key=manifest.resolution_spec_key,
+        resolution_spec_version=pins.version_for(manifest.resolution_spec_key),
+        policy_bundle_key=manifest.policy_bundle_key,
+        policy_bundle_version=pins.version_for(manifest.policy_bundle_key),
+    )
+    return BootedFabric(
+        handle=handle,
+        pins=pins,
+        tenant_id=resolved_tenant,
+        artifacts=parsed,
+    )
