@@ -408,7 +408,7 @@ Plans:
 
 **Wave 13**
 
-- [ ] 15-20-PLAN.md — Rewrite the external example's `serve.py`, client legs untouched (ERGO-15, ERGO-12)
+- [x] 15-20-PLAN.md — Rewrite the external example's `serve.py`, client legs untouched (ERGO-15, ERGO-12)
 
 **Wave 14**
 
@@ -426,7 +426,7 @@ Plans:
 | 13.1. External-Consumer Examples (MCP Egress) | 4/4 | Complete   | 2026-08-02 |
 | 14. Documentation Suite | 10/10 | Complete   | 2026-08-03 (verified 5/5; G-01 deliberately deferred to 16) |
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
-| 15. SDK Ergonomics — The Integration Surface | 19/21 | In Progress|  |
+| 15. SDK Ergonomics — The Integration Surface | 20/21 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
