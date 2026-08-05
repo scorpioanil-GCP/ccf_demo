@@ -46,6 +46,7 @@ from __future__ import annotations
 
 from ccf.controlplane.artifacts import (
     DEBT_PROFILE,
+    DEPLOYMENT_MANIFEST,
     HALF_LIFE_TABLE,
     OPERATOR_PARAMETERS_POLICY,
     OPERATOR_PARAMETERS_SIMILARITY,
@@ -56,12 +57,18 @@ from ccf.controlplane.artifacts import (
     RESOLUTION_SPEC,
     SIGNAL_BATCH,
     ArtifactClass,
+    ArtifactRole,
     declared_artifact_class,
 )
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["SDK_ARTIFACT_CLASSES", "resolve_artifact_class"]
+__all__ = [
+    "SDK_ARTIFACT_CLASSES",
+    "SDK_ARTIFACT_ROLES",
+    "refuse_role_the_sdk_fixes",
+    "resolve_artifact_class",
+]
 
 #: Every artifact class whose schema the SDK owns, keyed by ``class_id``.
 #:
@@ -79,11 +86,67 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     OPERATOR_PARAMETERS_SIMILARITY.class_id: OPERATOR_PARAMETERS_SIMILARITY,
     # A `role: load` class under D-IMPL-80: addressable by a manifest so it can
     # be *parsed*, never registered. The manifest's own `role` field carries the
-    # distinction and 15-10 enforces it; this mapping only says the class exists.
+    # distinction, and :data:`SDK_ARTIFACT_ROLES` below is what makes the
+    # distinction machine-checkable rather than a docstring anyone may misread.
     SIGNAL_BATCH.class_id: SIGNAL_BATCH,
     PERSPECTIVE.class_id: PERSPECTIVE,
     PRODUCT_CLASS.class_id: PRODUCT_CLASS,
+    DEPLOYMENT_MANIFEST.class_id: DEPLOYMENT_MANIFEST,
 }
+
+#: The role an SDK-owned class **fixes**, for the classes where the SDK owns the
+#: answer rather than the adopter (D-IMPL-80).
+#:
+#: A class appears here only when declaring the other role would delete a
+#: whitepaper property, not merely be unusual. Today exactly one does:
+#: ``ccf.signal-batch`` is fixed to ``load``, because registering a batch would
+#: content-hash raw event data into Control Plane state, and by D-06's rationale
+#: the registered artifact set is dimension 2 of the five-dimension Decision
+#: Replay record (whitepaper §7.10.1). Re-authoring an events file would then
+#: change "what was in force" exactly as a policy-bundle bump does — which is
+#: not what an event stream is. Events are what the fabric *observed*; the
+#: Control Plane is what the fabric was *permitted to do*.
+#:
+#: Why a mapping and not a rule in the manifest module: the fact is a property
+#: of the *class*, so it belongs beside the class registry that already answers
+#: "what does the SDK own here". :class:`~ccf.deployment.manifest.ManifestEntry`
+#: reads it and refuses a contradicting entry at parse, before anything is
+#: registered.
+#:
+#: **Every class absent from this mapping is the adopter's call**, and that is
+#: the default. The SDK fixes a role only where it can say why.
+SDK_ARTIFACT_ROLES: dict[str, ArtifactRole] = {
+    SIGNAL_BATCH.class_id: "load",
+}
+
+
+def refuse_role_the_sdk_fixes(class_id: str, role: ArtifactRole) -> None:
+    """Raise if ``role`` contradicts the role the SDK fixes for ``class_id``.
+
+    The machine-checkable half of D-IMPL-80. The required ``role`` field on a
+    manifest entry stops the choice being made *silently*; this stops it being
+    made *wrongly* for the one class where the SDK knows the answer. Without it
+    an adopter could write ``role: register`` against ``ccf.signal-batch``, and
+    nothing — no contract, no lint, no test — would fire before raw event data
+    was content-hashed into replay dimension 2.
+
+    A class the SDK does not fix is not checked here at all: the adopter's
+    declaration stands, which is the default and the common case.
+
+    Raises:
+        ValueError: the entry declares a role the SDK fixes otherwise. Refused,
+            never corrected — silently rewriting the entry would leave the
+            manifest saying one thing and the deployment doing another, and the
+            manifest is the document the audit plane reads back.
+    """
+    fixed = SDK_ARTIFACT_ROLES.get(class_id)
+    if fixed is not None and role != fixed:
+        raise ValueError(
+            f"artifact class {class_id!r} is role {fixed!r} and the manifest"
+            f" declares {role!r}; the SDK fixes this class's role because the"
+            " other choice would put raw event data into Decision Replay"
+            " dimension 2 (D-IMPL-80) — correct the manifest entry"
+        )
 
 
 def resolve_artifact_class(class_id: str) -> ArtifactClass:

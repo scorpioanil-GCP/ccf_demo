@@ -59,7 +59,7 @@ import re
 from collections.abc import Mapping
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import Field, field_validator, model_validator
@@ -84,6 +84,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "DEBT_PROFILE",
+    "DEPLOYMENT_MANIFEST",
     "HALF_LIFE_TABLE",
     "OPERATOR_PARAMETERS_POLICY",
     "OPERATOR_PARAMETERS_SIMILARITY",
@@ -95,10 +96,13 @@ __all__ = [
     "SIGNAL_BATCH",
     "ArtifactClass",
     "ArtifactLoadError",
+    "ArtifactRole",
     "DebtProfile",
     "DeclaredArtifact",
+    "DeploymentManifest",
     "HalfLifeEntry",
     "HalfLifeTable",
+    "ManifestEntry",
     "OperatorParametersArtifact",
     "PerspectiveArtifact",
     "PolicyFilterParametersArtifact",
@@ -551,6 +555,174 @@ class ProductClassDeclaration(VersionedArtifact):
     required_operator_keys: tuple[str, ...] = Field(min_length=1)
 
 
+#: What a manifest entry declares about the artifact it names (D-IMPL-80).
+#:
+#: ``register`` puts the artifact into the Control Plane registry and into the
+#: pin set the load returns. ``load`` parses and validates it through the same
+#: seam and hands it back to the caller, but never registers and never pins it.
+ArtifactRole = Literal["register", "load"]
+
+#: Characters that make a path a *pattern* rather than a name.
+_GLOB_CHARACTERS = ("*", "?", "[")
+
+
+class ManifestEntry(CCFContract):
+    """One artifact a deployment manifest names (SDK-defined; CLAUDE.md §6.4).
+
+    Attributes:
+        path: Location of the artifact document, relative to the manifest file's
+            own directory. Enumerated, never matched — see
+            :meth:`_path_is_a_name_not_a_pattern`.
+        key: The Control Plane key this artifact is in force under, and the key
+            it is returned under on the boot result. Unique within a manifest.
+        class_id: The artifact class the document is validated against, resolved
+            through :func:`~ccf.deployment.classes.resolve_artifact_class`.
+        role: ``register`` or ``load`` — **required, with no default**
+            (D-IMPL-80, RESOLVED 2026-08-04, Dave).
+
+            ``register`` is what every artifact did before this ruling: into the
+            registry, into the pin set. ``load`` is parsed, validated, and
+            returned, but never registered and never pinned.
+
+            The distinction exists because registering an artifact
+            content-hashes it into Control Plane state, and by D-06's own
+            rationale the registered artifact set is dimension 2 of the
+            five-dimension Decision Replay record (whitepaper §7.10.1). For a
+            signal batch that would mean re-authoring an events file changes
+            "what was in force" exactly as a policy-bundle bump does — but
+            events are what the fabric *observed*, not what it was *permitted to
+            do*.
+
+            **Why no default.** Either default would have the SDK deciding a
+            replay-dimension-2 boundary on the adopter's behalf, which is the
+            objection :func:`ccf.boot.boot` already raises against every other
+            default (D-IMPL-38). An entry naming no ``role`` is refused by the
+            contract before anything is read, let alone registered.
+
+            For the one class where the SDK *does* know the answer, the choice
+            is additionally held to it by
+            :func:`~ccf.deployment.classes.refuse_role_the_sdk_fixes`, which
+            runs before any registration. That check lives beside the class
+            registry rather than here because it is a property of the class, and
+            because this module cannot import ``ccf.deployment`` without closing
+            an import cycle.
+    """
+
+    path: str
+    key: str
+    class_id: str
+    role: ArtifactRole
+
+    @field_validator("path")
+    @classmethod
+    def _path_is_a_name_not_a_pattern(cls, value: str) -> str:
+        if any(character in value for character in _GLOB_CHARACTERS):
+            raise ValueError(
+                f"{value!r} is a glob, and a manifest enumerates. A pattern"
+                " would make what was in force a function of directory contents"
+                " at boot time, recorded by no artifact. Name the file."
+            )
+        return value
+
+
+class DeploymentManifest(VersionedArtifact):
+    """The one document naming what a deployment puts in force (D-06).
+
+    SDK-defined mechanism (CLAUDE.md §6.4 and §10): the whitepaper fixes that
+    Control Plane artifacts are typed, versioned, and exactly pinned at decision
+    time (§7.8, §7.10); it does not specify the document that enumerates them.
+    This is that document, and it is itself a content-hashable artifact — so
+    "what was this deployment configured to put in force" is answerable by
+    reading one versioned thing.
+
+    **The backend is declared as a kind only (D-08).** There is no DSN field and
+    no database-path field, deliberately: a connection string is a deployment
+    *environment* value that
+    :func:`ccf.boot.boot` already documents as never persisted, and putting one
+    in a versioned, content-hashed artifact would persist it into the audit
+    plane. The manifest says which substrate; the environment supplies how to
+    reach it, and :func:`~ccf.deployment.manifest.load_and_boot` refuses loudly
+    if the two do not agree.
+
+    **Q3 — where** ``tenant_id`` **lives.** It is carried here, optionally, and
+    the caller supplies it when absent. D-03 makes ``ccf.resolution-spec``
+    closed-world over resolution rules only, so the value that examples read out
+    of an ontology document today has to live somewhere, and the manifest is
+    where the deployment's own identity already is. It is *optional* rather than
+    required because D-IMPL-05 makes tenancy a first-class runtime axis, and a
+    manifest-pinned tenant would stop one manifest serving a multi-tenant
+    deployment. Exactly one of the two sources must supply it: the entry point
+    refuses both-absent and refuses a conflicting pair, mirroring
+    ``_open_backend``'s refuse-to-infer posture rather than picking a winner.
+
+    Attributes:
+        artifacts: Every artifact in force, enumerated. ``min_length=1`` because
+            a manifest naming nothing is an authoring mistake rather than a
+            deployment that configures nothing.
+        backend: Which graph substrate this deployment runs on — the kind, not
+            the connection.
+        resolution_spec_key: Manifest key of the entity-resolution spec.
+        policy_bundle_key: Manifest key of the policy bundle in force.
+        tenant_id: The deployment's tenant, when the manifest names it.
+    """
+
+    artifacts: tuple[ManifestEntry, ...] = Field(min_length=1)
+    backend: Literal["sqlite", "postgres"]
+    resolution_spec_key: str
+    policy_bundle_key: str
+    tenant_id: str | None = None
+
+    @model_validator(mode="after")
+    def _keys_are_unique(self) -> "DeploymentManifest":
+        """Each key identifies exactly one artifact in force.
+
+        Two entries sharing a ``key`` make ``ResolvedPins.version_for(key)``
+        ambiguous and make the boot result's ``artifacts[key]`` order-dependent
+        — and both of those feed replay, so the ambiguity would not stay
+        cosmetic.
+
+        Duplicate *paths* under different keys are permitted, deliberately: one
+        document may legitimately be in force under two names, and nothing about
+        that is ambiguous. The asymmetry is a decision, not an oversight.
+        """
+        seen: set[str] = set()
+        for entry in self.artifacts:
+            if entry.key in seen:
+                raise ValueError(
+                    f"manifest key {entry.key!r} is declared twice; each key"
+                    " identifies one artifact in force, and a repeated key"
+                    " makes both its pin and its parsed artifact ambiguous"
+                )
+            seen.add(entry.key)
+        return self
+
+    @model_validator(mode="after")
+    def _boot_pins_name_registered_entries(self) -> "DeploymentManifest":
+        """The two keys ``boot()`` needs pins for must be pinnable.
+
+        :func:`ccf.boot.boot` requires a ``(key, version)`` pair for the
+        resolution spec and the policy bundle, and those versions come from the
+        pin set — which carries ``role: register`` entries only. A manifest
+        naming a key that is absent, or present under ``role: load``, therefore
+        describes a deployment that cannot boot. Refusing it here refuses it
+        before anything is registered, rather than after.
+        """
+        registered = {
+            entry.key for entry in self.artifacts if entry.role == "register"
+        }
+        for field, key in (
+            ("resolution_spec_key", self.resolution_spec_key),
+            ("policy_bundle_key", self.policy_bundle_key),
+        ):
+            if key not in registered:
+                raise ValueError(
+                    f"{field} names {key!r}, which is not declared as a"
+                    " 'register' artifact in this manifest; boot needs a pinned"
+                    " version for it and only registered entries are pinned"
+                )
+        return self
+
+
 #: The λ_c table class (whitepaper §7.7).
 HALF_LIFE_TABLE = ArtifactClass(class_id="ccf.half-life-table", contract=HalfLifeTable)
 #: The decision-class debt profile class (whitepaper §7.7 CAR).
@@ -599,6 +771,12 @@ PERSPECTIVE = ArtifactClass(class_id="ccf.perspective", contract=PerspectiveArti
 #: as D-IMPL-76 ruled for the policy bundle's admitted-version set.
 PRODUCT_CLASS = ArtifactClass(
     class_id="ccf.product-class", contract=ProductClassDeclaration
+)
+#: The deployment manifest class (SDK-defined; D-06, D-08, D-IMPL-80). Itself an
+#: artifact, so "what did this deployment put in force" is one versioned,
+#: content-hashable answer rather than a directory listing.
+DEPLOYMENT_MANIFEST = ArtifactClass(
+    class_id="ccf.deployment-manifest", contract=DeploymentManifest
 )
 
 

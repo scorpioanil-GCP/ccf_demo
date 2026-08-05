@@ -36,6 +36,7 @@ from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifact_base import ArtifactClass
 from ccf.controlplane.artifacts import (
     DEBT_PROFILE,
+    DEPLOYMENT_MANIFEST,
     HALF_LIFE_TABLE,
     OPERATOR_PARAMETERS_POLICY,
     OPERATOR_PARAMETERS_SIMILARITY,
@@ -240,6 +241,40 @@ CASES: tuple[_Case, ...] = (
             "required_operator_keys": ["fixture-operator"],
         },
         unknown_keys=("tenant_id", "max_ttl_version"),
+    ),
+    _Case(
+        artifact_class=DEPLOYMENT_MANIFEST,
+        # No DSN key and no database-path key, and the omission is the point
+        # (D-08): the manifest declares the backend *kind* only, so a connection
+        # string never lands in a versioned, content-hashed artifact. `role` is
+        # stated on every entry because D-IMPL-80 gives it no default.
+        document={
+            "semver": _SEMVER,
+            "backend": "sqlite",
+            "resolution_spec_key": "fixture-resolution-spec",
+            "policy_bundle_key": "fixture-policy-bundle",
+            "artifacts": [
+                {
+                    "path": "resolution-spec.yaml",
+                    "key": "fixture-resolution-spec",
+                    "class_id": "ccf.resolution-spec",
+                    "role": "register",
+                },
+                {
+                    "path": "policy-bundle.yaml",
+                    "key": "fixture-policy-bundle",
+                    "class_id": "fixture.policy-bundle",
+                    "role": "register",
+                },
+                {
+                    "path": "events.yaml",
+                    "key": "fixture-signal-batch",
+                    "class_id": "ccf.signal-batch",
+                    "role": "load",
+                },
+            ],
+        },
+        unknown_keys=("postgres_dsn", "database_path"),
     ),
 )
 

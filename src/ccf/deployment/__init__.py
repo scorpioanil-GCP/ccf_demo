@@ -16,7 +16,13 @@ Modules
 -------
 
 * :mod:`ccf.deployment.classes` — class-id → ``ArtifactClass`` resolution, with
-  deployment-authored schemas landing on the declared envelope by design.
+  deployment-authored schemas landing on the declared envelope by design, and
+  the roles the SDK fixes for the classes where it owns the answer (D-IMPL-80).
+* :mod:`ccf.deployment.pins` — the plain ``(key, version, class_id)`` record a
+  manifest load produces, with exactly one accessor and no binding-selection
+  helpers.
+* :mod:`ccf.deployment.manifest` — the load-validate-register-boot entry point.
+  It wires a deployment together; it does not run the deployment.
 
 CINV-03: "algorithmic" means no model call, not no I/O
 ------------------------------------------------------
@@ -75,8 +81,28 @@ Algorithmic package (CINV-03).
 
 from __future__ import annotations
 
-from ccf.deployment.classes import SDK_ARTIFACT_CLASSES, resolve_artifact_class
+from ccf.controlplane.artifacts import DeploymentManifest, ManifestEntry
+from ccf.deployment.classes import (
+    SDK_ARTIFACT_CLASSES,
+    SDK_ARTIFACT_ROLES,
+    refuse_role_the_sdk_fixes,
+    resolve_artifact_class,
+)
+from ccf.deployment.manifest import BootedFabric, load_and_boot
+from ccf.deployment.pins import ArtifactPin, ResolvedPins, UnpinnedArtifactError
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["SDK_ARTIFACT_CLASSES", "resolve_artifact_class"]
+__all__ = [
+    "SDK_ARTIFACT_CLASSES",
+    "SDK_ARTIFACT_ROLES",
+    "ArtifactPin",
+    "BootedFabric",
+    "DeploymentManifest",
+    "ManifestEntry",
+    "ResolvedPins",
+    "UnpinnedArtifactError",
+    "load_and_boot",
+    "refuse_role_the_sdk_fixes",
+    "resolve_artifact_class",
+]
