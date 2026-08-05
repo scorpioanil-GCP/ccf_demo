@@ -23,6 +23,10 @@ Modules
   helpers.
 * :mod:`ccf.deployment.manifest` — the load-validate-register-boot entry point.
   It wires a deployment together; it does not run the deployment.
+* :mod:`ccf.deployment.operators` — the two-phase, view-aware operator-registry
+  builder. The view is in the signature because the similarity index is built
+  from a corpus read at a boundary the deployment named, never lazily at first
+  invocation.
 
 CINV-03: "algorithmic" means no model call, not no I/O
 ------------------------------------------------------
@@ -89,6 +93,10 @@ from ccf.deployment.classes import (
     resolve_artifact_class,
 )
 from ccf.deployment.manifest import BootedFabric, load_and_boot
+from ccf.deployment.operators import (
+    SimilarityCorpusAttributeError,
+    build_operator_registry,
+)
 from ccf.deployment.pins import ArtifactPin, ResolvedPins, UnpinnedArtifactError
 
 __ccf_mode__ = "algorithmic"
@@ -101,7 +109,9 @@ __all__ = [
     "DeploymentManifest",
     "ManifestEntry",
     "ResolvedPins",
+    "SimilarityCorpusAttributeError",
     "UnpinnedArtifactError",
+    "build_operator_registry",
     "load_and_boot",
     "refuse_role_the_sdk_fixes",
     "resolve_artifact_class",
