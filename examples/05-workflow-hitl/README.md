@@ -34,60 +34,79 @@ make example-05
 ```
 
 Raw fallback: `PYTHONPATH=src:runtime python examples/05-workflow-hitl/run.py`.
-Exit code 0 means every assertion held; any failure exits nonzero.
+
+`run.py` is the **call spine** an adopter would write. It asserts nothing
+and prints nothing: exit 0 means the spine executed. What says it was
+*right* is `tests/examples/test_workflow_hitl_output.py`, where the
+example's assertions live so a test runner can fail a build on them
+(D-09). Run them with:
+
+```
+PYTHONPATH=src:runtime python -m pytest tests/examples/test_workflow_hitl_output.py
+```
 
 > **Expected-output changes are a reviewed event.** If you enrich the
-> artifacts, run `make example-05`, review the assertion output, then
-> deliberately edit the `expected:` block in `artifacts/hitl.yaml`
-> (`expected_gate` and the `drive:` values) to match what you reviewed —
-> regeneration is a reviewed event, landed in the same commit as the
-> enrichment, with the commit body summarizing what changed in the
-> output and why. No `make regen-*` targets exist, and none will be
-> added.
+> artifacts, run `make example-05`, then run the test module, review the
+> failures, and deliberately edit the `drive:` block in
+> `artifacts/hitl-drive.yaml` (and any other artifact whose declared
+> value moved) to match what you reviewed — regeneration is a reviewed
+> event, landed in the same commit as the enrichment, with the commit
+> body summarizing what changed and why. No `make regen-*` targets exist,
+> and none will be added.
 
 ## The story
 
-1. **The Control Plane closure registers everything.** `run.py` loads
-   the workflow's full artifact closure — the task and its steps (see
-   `artifacts/task.yaml`), the routing wrapper with transitions,
-   terminals, per-node exception refs, and the per-gate approval-policy
-   binding (see `artifacts/workflow.yaml`, keys `transitions`,
-   `exception_refs`, `gate_policies`), the agent and prompt
-   (`artifacts/agent.yaml`, `artifacts/prompt.yaml`), and the D-16 HITL
-   policy (see `artifacts/hitl.yaml`, key `hitl_policy` —
-   `signed_binding_required: true`).
-2. **The workflow suspends at the gate.** The engine executes
+1. **One call boots the fabric.** `artifacts/manifest.yaml` names every
+   artifact in force; `load_and_boot` parses all of them, registers the
+   `role: register` ones, and boots on the resulting pins. The five
+   documents the workflow's, task's and agent's versioned-URI refs
+   resolve against — the agent's policy regime and debt profile, the
+   task's skill, the exception handler, the approval policy — are
+   manifest entries, not a hand-written closure walking inline
+   `referenced_artifacts:` blocks at run time.
+2. **Six documents the driver registers itself, deliberately.** Four are
+   author-versioned SDK classes (`ccf.agent-definition`,
+   `ccf.prompt-artifact`, `ccf.task-definition`,
+   `ccf.workflow-definition`): they register through `register_versioned`,
+   whose D-05 bump check holds the author's `artifact_version` against
+   content identity, and `load_and_boot` registers through
+   `register_typed`, which does not run that check. Two more
+   (`ccf.hitl-policy`, `ccf.scope-mapping`) are SDK classes a manifest
+   cannot address at all. Folding any of the six into the manifest would
+   buy a shorter file by dropping governance.
+3. **The workflow suspends at the gate.** The engine executes
    `verify-loan-file` → `assess-disbursement`, then suspends at
    `disbursement-approval` with a persisted `WorkflowStateRecord`
    (CLAUDE.md §8.1: state machines that suspend on a HITL gate and
    resume later).
-3. **The hardened door refuses everything it should.** The example
+4. **The hardened door refuses everything it should.** The example
    drives `POST /hitl/actions` through
    `create_app(auth=BearerTokenAuth(...))`: no token → 401; the EXPIRED
    token from `artifacts/tokens.yaml` → 401; authenticated but unsigned
    → 403 `ERROR_SIGNED_BINDING_REQUIRED`; a tampered signature → 403
    `ERROR_SIGNED_BINDING_INVALID`; an authenticated token whose scope
-   the mapping in `artifacts/scope_mapping.yaml` does not name → 403
+   the mapping in `artifacts/scope-mapping.yaml` does not name → 403
    `tenant-unauthorized`, deny-by-default. Nothing refused ever reaches
    the transport authority path, and both the authorization allow and
    deny are audited with the exact mapping version in force.
-4. **The valid, signed approval resumes the workflow.** The audited
+5. **The valid, signed approval resumes the workflow.** The audited
    approver subject is the verified `TokenGrant.client_id` — derived,
    never claimed — and the workflow resumes to its declared terminal
-   (`disbursed`, from `artifacts/hitl.yaml` key `drive.resume_decision`).
-5. **The review before release.** The generated briefing is submitted to
+   (`disbursed`, from `artifacts/hitl-drive.yaml` key
+   `drive.resume_decision`).
+6. **The review before release.** The generated briefing is submitted to
    the ReviewQueue pinned by versioned URI with passage-level lineage
-   (see `artifacts/hitl.yaml`, key `review.item` — an item without
+   (see `artifacts/hitl-drive.yaml`, key `review.item` — an item without
    lineage is unconstructible). A second named human — the reviewer,
    whose subject equals the ACTIVE `reviewer` token's `client_id` —
    releases it under a signed binding that echoes the submission-time
    content hash (the TOCTOU guard). The release is audited and its
    pre-serialized block lands on replay dimension 2 byte-for-byte.
-6. **The exception path.** A second execution makes `verify-loan-file`
+7. **The exception path.** A second execution makes `verify-loan-file`
    fail; the engine routes to the handler declared in
-   `artifacts/workflow.yaml` under `exception_refs` — a first-class,
-   traced, audited transition, not error handling glued on.
-7. **Replay dimensions land verbatim.** Dimension 2 carries the human
+   `artifacts/workflow-definition.yaml` under `exception_refs` — a
+   first-class, traced, audited transition, not error handling glued on.
+8. **Replay dimensions land verbatim.** Dimension 2 carries the human
    actions byte-for-byte (approver, signed binding, content hash of what
    was seen; then the review block); dimension 5 carries the engine's
    step-sequence block; dimension 4's delegation chain names the
@@ -95,15 +114,38 @@ Exit code 0 means every assertion held; any failure exits nonzero.
 
 ## Artifact-by-artifact
 
-| Artifact | What it declares | Yours to edit vs mechanism |
+One artifact class, one document. Each `.yaml` carries a
+`# yaml-language-server: $schema=` header naming the schema that accepts
+it, so an editor validates it as you type.
+
+### Named by `manifest.yaml`
+
+| Artifact | Role | What it declares |
 | --- | --- | --- |
-| `artifacts/workflow.yaml` | Routing only: transitions, terminals, exception refs, gate policy bindings | `[ADAPT]`: tenant, step/terminal names, handler declarations. `[MECHANISM]`: `transitions`, `terminal_states`, `exception_refs`, `gate_policies`, `task_definition_ref` |
-| `artifacts/task.yaml` | The three steps (skill, agent, hitl-gate) and their pinned refs | `[ADAPT]`: step names, refs' domain vocabulary. `[MECHANISM]`: step `kind` values, `keys`, `referenced_artifacts` structure |
-| `artifacts/agent.yaml` | The declared agent: archetype binding, context contract, perspective, policy regime, debt profile, instruction bindings | `[ADAPT]`: all six axes' values. `[MECHANISM]`: `agent_definition` field names, `referenced_artifacts` structure |
-| `artifacts/prompt.yaml` | The versioned prompt template and its declared parameters | `[ADAPT]`: template text, parameters. `[MECHANISM]`: `prompt_artifact` field names |
-| `artifacts/hitl.yaml` | The D-16 policy, approver and reviewer identities, drive values, node outputs, review item + lineage, replay values | `[ADAPT]`: identities, instants, outputs, `review.*` content, `drive` values. `[MECHANISM]`: `hitl_policy`, `keys`, `drive`/`review`/`replay` key names |
-| `artifacts/tokens.yaml` | The recognised tokens and their lifecycle (active/expired) and scopes — all synthetic | `[ADAPT]`: token strings, client ids, scopes. `[MECHANISM]`: `label`, `status`, `scopes` key names |
-| `artifacts/scope_mapping.yaml` | Which scopes reach which tenants and door actions (deny-by-default) | `[ADAPT]`: scope names, tenant patterns. `[MECHANISM]`: mapping grammar keys |
+| `artifacts/manifest.yaml` | — | Every artifact in force, enumerated; the tenant; the backend kind |
+| `artifacts/resolution-spec.yaml` | `register` | Loans, borrowers, and the edge between them — the deployment's L2 vocabulary |
+| `artifacts/policy-bundle.yaml` | `register` | The FABRIC's policy bundle, stamped onto every claim at assembly |
+| `artifacts/agent-policy-regime.yaml` | `register` | The AGENT's axis-4 regime, at the key its versioned-URI ref resolves against |
+| `artifacts/agent-debt-profile.yaml` | `register` | The agent's axis-5 half-life/debt thresholds |
+| `artifacts/task-skill.yaml` | `register` | What the task's first step may invoke |
+| `artifacts/exception-handler.yaml` | `register` | Where a failing loan-file verification escalates |
+| `artifacts/approval-policy.yaml` | `register` | Who may approve at the gate, and the quorum |
+| `artifacts/events.yaml` | `load` | The L1 envelopes the loan under review is assembled from (SDK-fixed role) |
+| `artifacts/agent-registration.yaml` | `load` | Where the six driver-registered documents file, plus the signing key's name |
+| `artifacts/hitl-drive.yaml` | `load` | What this run's two humans do: identities, drive values, node outputs, the review item |
+| `artifacts/replay-values.yaml` | `load` | The product envelope, perspective and policy binding the record is shaped from |
+| `artifacts/tokens.yaml` | `load` | The recognised tokens, their lifecycle and scopes — all synthetic |
+
+### Registered by `run.py`, and why the manifest cannot name them
+
+| Artifact | Registered via | Why not the manifest |
+| --- | --- | --- |
+| `artifacts/agent-definition.yaml` | `register_versioned` | Author-versioned; the manifest path skips the D-05 bump check |
+| `artifacts/prompt-artifact.yaml` | `register_typed` | Author-versioned class, absent from `SDK_ARTIFACT_CLASSES` |
+| `artifacts/task-definition.yaml` | `register_versioned` | Author-versioned; the manifest path skips the D-05 bump check |
+| `artifacts/workflow-definition.yaml` | `register_versioned` | Author-versioned; the manifest path skips the D-05 bump check |
+| `artifacts/hitl-policy.yaml` | `register_typed` | Not manifest-addressable; an entry would resolve to the open envelope and the transport would find the wrong type |
+| `artifacts/scope-mapping.yaml` | `register_typed` | Not manifest-addressable; the authorizer reads the real contract back by key |
 
 ## Whitepaper / CLAUDE.md sections exercised
 
@@ -123,24 +165,26 @@ Exit code 0 means every assertion held; any failure exits nonzero.
 `artifacts/` is the specialization surface. To move this example to your
 domain, edit in this order:
 
-1. `artifacts/workflow.yaml` + `artifacts/task.yaml` — the step names,
-   transitions, terminal states, and exception routing (`exception_refs`)
-   of your own process; then update `drive.expected_gate`,
-   `drive.resume_decision`, and `drive.failing_step` in
-   `artifacts/hitl.yaml` to match.
-2. `artifacts/hitl.yaml` — the approver/reviewer identities and the
+1. `artifacts/workflow-definition.yaml` + `artifacts/task-definition.yaml`
+   — the step names, transitions, terminal states, and exception routing
+   (`exception_refs`) of your own process; then update
+   `drive.expected_gate`, `drive.resume_decision`, and
+   `drive.failing_step` in `artifacts/hitl-drive.yaml` to match. Bump
+   `artifact_version` on each definition you edit — the D-05 check
+   refuses changed content under an unchanged version.
+2. `artifacts/hitl-drive.yaml` — the approver/reviewer identities and the
    `review.item` (your generated output's pinned URI and its lineage
-   anchors). Flip `hitl_policy.signed_binding_required` to `false` and
-   re-run to watch behavior change with zero code change.
-3. `artifacts/tokens.yaml` + `artifacts/scope_mapping.yaml` — your token
+   anchors) — plus `artifacts/approval-policy.yaml` for who may approve.
+   Flip `signed_binding_required` in `artifacts/hitl-policy.yaml` to
+   `false` and re-run to watch behavior change with zero code change.
+3. `artifacts/tokens.yaml` + `artifacts/scope-mapping.yaml` — your token
    table and authorization statement. Add the `reporting` scope to the
-   mapping and re-run to watch the 403 leg fail — proving the refusal
-   comes from the artifact, not the code.
+   mapping and re-run the test module to watch the 403 leg fail — proving
+   the refusal comes from the artifact, not the code.
 
-On the next run expect: new gate/terminal names in the printed summary,
-your reviewer subject on the review line, and assertion failures pointing
-at any `drive:` value you forgot to update (the reviewed-regeneration
-workflow above).
+Rename an artifact and `artifacts/manifest.yaml` must move with it; the
+manifest enumerates and never globs, so a stale path is a loud failure
+before anything is registered rather than a silently missing artifact.
 
 ## What would fail
 
@@ -156,3 +200,4 @@ workflow above).
 | ExceptionEscalation as a recorded transition (D-IMPL-61) | The failing node does not route to its declared handler, or the transition is untraced/unaudited |
 | Tenant authorization at the door, deny-by-default (HARD-04; D-IMPL-68) | The unmapped-scope token reaches the queue, the refusal is not the typed `ERROR_TENANT_UNAUTHORIZED` 403, or the deny is missing from the audit log (or carries the wrong mapping version) |
 | ReviewQueue audit-by-construction (§8.2; §7.10.3) | The review release is absent from the audit log, its block is not byte-equal on replay dimension 2, the item constructs without lineage, or the reviewer's binding echoes a hash other than the submission-time hash (TOCTOU) |
+| Author-versioned governance (D-05) | A definition's content changes under an unchanged `artifact_version` and the registry admits it — which is exactly what a manifest entry for those four classes would cause |

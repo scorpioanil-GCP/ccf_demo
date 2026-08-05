@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The FABRIC's policy bundle in force (banking/lending domain, D-IMPL-52).
+#
+# A *version* of this bundle is resolved from the Control Plane and stamped onto
+# every claim at assembly, which is what makes "under which policy was this
+# observed" answerable from the graph rather than from a runbook.
+#
+# Distinct from `agent-policy-regime.yaml`, which governs the AGENT rather than
+# the fabric's assembly and admission. Conflating the two would make one bump
+# read as the other.
+#
+# A policy bundle's SCHEMA is the deployment's, not the SDK's (CLAUDE.md §11), so
+# this document uses the open `DeclaredArtifact` envelope: the SDK fixes
+# `semver`, `class_id` and canonical serializability, and everything under
+# `declaration:` is this deployment's own.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: sterling-mutual.policy-bundle
+
+declaration:
+  regime: lending-operations
+  jurisdiction: domestic-retail
+  permitted_classifications:
+    - internal

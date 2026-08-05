@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.agent-definition.json
+# Workflow-HITL agent definition — a declared, versioned Control Plane artifact
+# (CLAUDE.md §6.1/§6.2; D-IMPL-28). The workflow's agent node invokes this
+# definition by pinned versioned URI; no agent exists in example code (§6.1 —
+# "any agent found in library code is a defect"). Instruction bindings are
+# versioned-URI refs only (§6.4).
+#
+# **Not addressable by the manifest, deliberately.** `ccf.agent-definition` is
+# author-versioned: it registers through `register_versioned`, which holds the
+# author's `artifact_version` claim against content identity (the D-05 bump
+# check). `load_and_boot` registers through `register_typed`, which does not run
+# that check — so a manifest entry naming this class would silently drop the
+# governance the class exists to carry. `run.py` registers it itself, under the
+# key `agent-registration.yaml` names.
+#
+# The two documents this one used to carry inline under `referenced_artifacts:`
+# are now `agent-policy-regime.yaml` and `agent-debt-profile.yaml`, enumerated by
+# the manifest. One artifact class, one document.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `name`, `tenant`, and every axis VALUE is [ADAPT]; the keys
+# `schema_version`, `artifact_version`, `name`, `tenant`, `archetypes`,
+# `context_contract`, `perspective`, `policy_regime`, `halflife_debt_profile`,
+# `instruction_bindings` and `ref` are [MECHANISM].
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+name: disbursement-analytics
+tenant: sterling-mutual
+
+# axis 1 — ordered archetype list (D-IMPL-19)
+archetypes: [analytics_insights]
+
+# axis 2 — context contract
+context_contract:
+  consumes:
+    - product_class: sterling-mutual.loan-context
+      schema_version: "1.0.0"
+
+# axis 3 — perspective (Π role-conditioning)
+perspective:
+  role: credit-operations-analyst
+  selection_params:
+    book: retail-lending
+
+# axis 4 — policy regime (versioned-URI ref, never inline)
+policy_regime:
+  ref: "ccf-artifact://sterling-mutual/policy-bundle/lending-operations@1.0.0"
+
+# axis 5 — half-life and debt profile (versioned-URI ref)
+halflife_debt_profile:
+  ref: "ccf-artifact://sterling-mutual/debt-profile/disbursement-review@1.0.0"
+
+# axis 6 — instruction bindings: refs plus declared parameter names
+instruction_bindings:
+  - prompt: "ccf-artifact://sterling-mutual/prompt/disbursement-briefing@1.0.0"
+    parameters: [loan_ref, as_of]

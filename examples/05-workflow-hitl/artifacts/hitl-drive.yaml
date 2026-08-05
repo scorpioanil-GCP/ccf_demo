@@ -1,0 +1,106 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# What the human dimension of this run does (CLAUDE.md §8.2; D-IMPL-20/21; D-16;
+# banking/lending domain, D-IMPL-52).
+#
+# Two named humans act here. A disbursement officer approves at the workflow's
+# ApprovalGate; a credit review officer releases the generated briefing from the
+# ReviewQueue. Both principals are DERIVED from verified token grants
+# (D-IMPL-67), both sign under the D-16 policy in `hitl-policy.yaml`, and both
+# actions land on Decision Replay dimension 2 byte-for-byte — audit by
+# construction, never an opt-in hook.
+#
+# `role: load`. What one run's human actors DID is not a standing statement of
+# what the fabric was permitted to do; the POLICY that governs them is, and that
+# is `hitl-policy.yaml` and `approval-policy.yaml`, both registered.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: sterling-mutual.hitl-drive
+
+declaration:
+  # The injected clock's base instant — no wall clock anywhere in the driver.
+  clock_base: "2026-06-02T10:00:00+00:00"
+
+  # The approver whose identity the door DERIVES from the verified token grant
+  # (D-IMPL-67): subject_id deliberately equals the ACTIVE token's client_id in
+  # `tokens.yaml` — a submission claiming any other subject is a typed 403
+  # subject-conflict refusal before it touches the transport.
+  approver:
+    identity:
+      subject_id: disbursement-officer-31
+      identity_provider_ref: idp://sterling-mutual/dev-token-file
+    authentication:
+      method: bearer-token
+      assurance_level: dev
+      session_ref: session-do-31
+    action_time: "2026-06-02T10:15:00+00:00"
+
+  # Drive values for the two executions.
+  drive:
+    approval_execution_id: exec-disburse-1
+    escalation_execution_id: exec-disburse-2
+    approval_action: approve
+    resume_decision: disbursed
+    expected_gate: disbursement-approval
+    # The escalation drive: this step's binding raises during the second
+    # execution, and the engine must route to the declared exception ref.
+    failing_step: verify-loan-file
+    # What the workflow definition declares the failing step escalates to. Read
+    # here by the driver's summary and by the relocated assertions, so the
+    # expected handler is authored rather than transcribed from code.
+    expected_exception_handler: "ccf-artifact://sterling-mutual/exception-handler/loan-file-fetch-failed@1.0.0"
+
+  # What each node binding answers with — deployment content, mechanism-free.
+  node_outputs:
+    verify-loan-file:
+      file_status: complete
+      conditions_precedent: satisfied
+    assess-disbursement:
+      assessment: proceed
+      exposure_band: within-limit
+
+  # Nominal (non-breaching) debt factors for the agent-node handoff assessment
+  # (D-IMPL-65 composition-root wiring; INV-CH7-68).
+  debt_factors:
+    freshness: "1.0"
+    completeness: "1.0"
+    semantic_consistency: "1.0"
+
+  # ReviewQueue material (CLAUDE.md §8.2; whitepaper §7.10.3): the generated
+  # disbursement briefing is reviewed asynchronously before release. The item
+  # pins the reviewed output by versioned URI and carries the passage-level
+  # lineage the reviewer must see — an item without lineage is unconstructible.
+  review:
+    event:
+      event_key: sterling-mutual/exec-disburse-1/briefing-review
+      workflow_state_ref: sterling-mutual/exec-disburse-1
+    item:
+      output_ref: "ccf-artifact://sterling-mutual/ccf.context-product/disbursement-briefing@1.0.0"
+      lineage:
+        - source:
+            system_id: loan-origination
+          envelope_id: env-loan-file-4471
+          observed_at: "2026-06-02T08:30:00+00:00"
+          passage_anchor:
+            kind: document-page
+            locator: "loan-file/SM-LOAN-4471#p3"
+    reviewer:
+      # Which `tokens.yaml` entry this reviewer's identity is bound to; the
+      # relocated assertions check the entry is ACTIVE and the subject matches.
+      token_label: reviewer
+      identity:
+        subject_id: credit-review-officer-7
+        identity_provider_ref: idp://sterling-mutual/dev-token-file
+      authentication:
+        method: bearer-token
+        assurance_level: dev
+        session_ref: session-cro-7
+      action_time: "2026-06-02T10:25:00+00:00"
+    drive:
+      # `release` or `reject` — the driver interprets, never decides (§6.4).
+      action: release

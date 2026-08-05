@@ -42,21 +42,44 @@ which runtime executes it is resolved later at the adapter binding. The
 documents the fields:
 
 ```yaml
---8<-- "examples/05-workflow-hitl/artifacts/workflow.yaml"
+--8<-- "examples/05-workflow-hitl/artifacts/workflow-definition.yaml"
 ```
 
-The approval policy is a separate artifact, so who may approve what — and
-whether a signed binding is required at all — moves without touching the
-process shape:
+Who may approve at a gate is a *separate* artifact, so the approver role and the
+quorum move without touching the process shape — and the two changes are
+separately versioned and separately audited:
 
 ```yaml
---8<-- "examples/05-workflow-hitl/artifacts/hitl.yaml"
+--8<-- "examples/05-workflow-hitl/artifacts/approval-policy.yaml"
 ```
 
-## Step 2 — construct the workflow
+Whether a signed principal binding is required at all is a third, separate
+statement. Flip it and the transport's behaviour changes on the next
+submission, with no code edit:
 
-The driver reads those artifacts and hands them to the orchestration
-primitive. See the
+```yaml
+--8<-- "examples/05-workflow-hitl/artifacts/hitl-policy.yaml"
+```
+
+## Step 2 — boot the fabric and construct the workflow
+
+One call over the deployment manifest parses every artifact the manifest names,
+registers the ones it marks `role: register`, and boots the fabric on the
+resulting pins. What the manifest deliberately does *not* name is the four
+author-versioned definition classes: they register through the version-bump
+check that the manifest path does not run, so the driver registers them itself
+rather than trading that governance for a shorter file:
+
+```py
+--8<-- "examples/05-workflow-hitl/run.py:boot"
+```
+
+```py
+--8<-- "examples/05-workflow-hitl/run.py:register-definitions"
+```
+
+The engine is then constructed with its injected seams and the workflow comes
+from the factory. See the
 [orchestration and workflow Protocols](../reference/protocols/orchestration-and-workflow.md)
 for the surface, including the adapter seam for external engines when you
 outgrow the in-fabric one:
@@ -90,7 +113,10 @@ values:
 Then watch the refusals. An approval from an unauthorized principal, or one
 that fails its binding check, is refused as a typed value — the fail-closed
 path is exercised deliberately, because a gate that has never refused is not
-evidence of anything:
+evidence of anything. The spine drives all four and hands back the responses;
+the assertions that each one is the *right* refusal, and that none of them
+reached the authority path, live in
+`tests/examples/test_workflow_hitl_output.py`:
 
 ```py
 --8<-- "examples/05-workflow-hitl/run.py:hitl-refusals"
@@ -123,20 +149,42 @@ decision replays it against the approval that was actually given — see
 --8<-- "examples/05-workflow-hitl/run.py:hitl-replay"
 ```
 
+## Step 7 — review before release, and escalate on failure
+
+The other two HITL primitives the example exercises follow the same shape. A
+review queue holds generated content, with its passage-level lineage attached,
+until a second named human releases it; the release lands on dimension 2 exactly
+as the approval did:
+
+```py
+--8<-- "examples/05-workflow-hitl/run.py:review-queue"
+```
+
+An exception path is an ordinary transition, so a failing node routes to the
+handler its definition declares and the transition is traced and audited like
+any other:
+
+```py
+--8<-- "examples/05-workflow-hitl/run.py:exception-path"
+```
+
 ## What to change first
 
 Work in this order.
 
-First `artifacts/workflow.yaml` and `artifacts/task.yaml` — the step names,
-transitions, terminal states, and exception routing of your own process. Then
-update the drive block in `artifacts/hitl.yaml` so the expected gate, resume
-decision, and failing step match what you just declared.
+First `artifacts/workflow-definition.yaml` and `artifacts/task-definition.yaml`
+— the step names, transitions, terminal states, and exception routing of your
+own process. Then update the `drive` block in `artifacts/hitl-drive.yaml` so the
+expected gate, resume decision, and failing step match what you just declared,
+and point `artifacts/manifest.yaml` at any artifact you renamed.
 
-Second `artifacts/hitl.yaml` itself — your approver and reviewer identities,
-and the pinned item a reviewer sees. Flip `signed_binding_required` and re-run
-to watch behaviour change with no code edit at all.
+Second `artifacts/hitl-drive.yaml` itself — your approver and reviewer
+identities, and the pinned item a reviewer sees — plus
+`artifacts/approval-policy.yaml` for who may approve. Flip
+`signed_binding_required` in `artifacts/hitl-policy.yaml` and re-run to watch
+behaviour change with no code edit at all.
 
-Third `artifacts/tokens.yaml` and `artifacts/scope_mapping.yaml` — your token
+Third `artifacts/tokens.yaml` and `artifacts/scope-mapping.yaml` — your token
 table and authorization statement. Add a scope to the mapping and re-run to
 watch the refusal leg change, which proves the refusal comes from the
 artifact rather than from the driver.

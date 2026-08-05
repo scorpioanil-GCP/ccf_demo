@@ -15,5 +15,5 @@ is genuinely required.
 ## Worked example
 
 ```yaml
---8<-- "examples/05-workflow-hitl/artifacts/workflow.yaml"
+--8<-- "examples/05-workflow-hitl/artifacts/workflow-definition.yaml"
 ```
