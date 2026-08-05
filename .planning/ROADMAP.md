@@ -380,7 +380,7 @@ Plans:
 
 **Wave 7**
 
-- [ ] 15-10-PLAN.md — `ccf.deployment-manifest` + `load_and_boot` + the plain pin set (ERGO-10)
+- [x] 15-10-PLAN.md — `ccf.deployment-manifest` + `load_and_boot` + the plain pin set (ERGO-10)
 
 **Wave 8**
 
@@ -426,7 +426,7 @@ Plans:
 | 13.1. External-Consumer Examples (MCP Egress) | 4/4 | Complete   | 2026-08-02 |
 | 14. Documentation Suite | 10/10 | Complete   | 2026-08-03 (verified 5/5; G-01 deliberately deferred to 16) |
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
-| 15. SDK Ergonomics — The Integration Surface | 9/21 | In Progress|  |
+| 15. SDK Ergonomics — The Integration Surface | 10/21 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
