@@ -12,9 +12,24 @@ you author it as part of the Control Plane bundle the fabric boots under.
 
 ## Worked example
 
-A Control Plane bundle declaring the product class and its TTL bound alongside the operator
-parameters and policy bundle the same fabric boots under.
+The product class a deployment authors. Note what it does **not** declare:
+`max_ttl_version` is minted by *registering* the ceiling, so an artifact
+declaring it would be authoring a hash of something it does not contain — and
+Gate 3 would then be comparing a value against itself.
+
+`required_operator_keys` is the authored declared side of the lineage gate. The
+engine independently resolves what actually ran; a projection that returned the
+operator registry's own keys would collapse both sides of that comparison into
+one value.
 
 ```yaml
---8<-- "examples/00-quickstart/artifacts/controlplane.yaml"
+--8<-- "examples/00-quickstart/artifacts/product-class.yaml"
+```
+
+The TTL ceiling itself, and the product's own lifetime, are two separately
+authored numbers in the deployment's own governance document — which is exactly
+what leaves Gate 3 something to check:
+
+```yaml
+--8<-- "examples/00-quickstart/artifacts/product-governance.yaml"
 ```

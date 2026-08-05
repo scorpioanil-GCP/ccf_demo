@@ -8,10 +8,10 @@
 # what actually ran; the gate compares the two. A projection that returned the
 # operator registry's own keys would make that comparison a value against
 # itself and the gate would silently stop being a gate — which is exactly what
-# `run.py` did before this document existed. `min_length=1` is the whitepaper's
-# own posture: §7.6's empty-operator guard rejects an empty resolved set,
-# because "an empty set indicates a misconfigured projection rather than a
-# trivially-successful one".
+# `run.py` did before this document existed. At least one key is required, on
+# the whitepaper's own posture: §7.6's empty-operator guard treats a resolved
+# set of zero as a misconfiguration rather than as a trivial success, so a
+# declaration of zero could only ever produce a product Gate 1 refuses.
 #
 # `max_ttl_version` is deliberately ABSENT. That pin is minted by *registering*
 # the MaxTTL value and is a content hash of what was registered, so an artifact
