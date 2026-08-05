@@ -473,10 +473,14 @@ governance-sensitive the artifact, the *less* declarative Phase 15 made it.
   6. The new AST gates are restated as **tripwires** — they catch known patterns — rather than as structural enforcement on par with single-writer DI (codex and cursor, agreed concern)
   7. The public-surface manifest and the `--check` drift gate stay green; no replay dimension is hidden by anything this phase adds
 
-**Non-goals**: reopening the Phase 15 abstraction line (D-15A stands); D-IMPL-81 (pinning the
-manifest itself) unless Dave rules it in scope; the Phase 16 documentation rewrite; the
-remaining agreed concerns from the review that are not the two HIGH items —
-`BootedFabric.artifacts` role blurring and erosion pressure are recorded, not closed here.
+**Non-goals** (scope ruled by Dave, 2026-08-05, at planning: *the two HIGH items only*):
+reopening the Phase 15 abstraction line (D-15A stands); **D-IMPL-81** (pinning the manifest
+itself) — ruled out, it stays open debt against Phase 16 or later; **codex's per-gate
+independence matrix** (`Invariant | Declared source | Observed source | Test proving they can
+diverge`, with a divergence test for every gate) — ruled out, CR-2's mutation test covers
+Gate 2 only; the Phase 16 documentation rewrite; the remaining agreed concerns from the review
+that are not the two HIGH items — `BootedFabric.artifacts` role blurring and erosion pressure
+are recorded, not closed here.
 
 **Plans**: TBD (created by `/gsd:plan-phase 15.1`)
 
