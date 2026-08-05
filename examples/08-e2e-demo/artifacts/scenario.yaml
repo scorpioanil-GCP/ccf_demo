@@ -1,3 +1,4 @@
+# ccf-schema: deferred(15-21) not a CCF artifact class at all — this is `generator.py`'s input, describing the synthetic world that exists before any fabric does; it also carries YAML floats (noise amount bands), which the artifact loader refuses by design, so no envelope can accept it without changing the data and every pinned checksum with it
 # Demo scenario definition — the versioned artifact that carries EVERY domain
 # value the end-to-end demonstration needs (CLAUDE.md §6.4 No-Hardcoding Rule;
 # Phase 12 CONTEXT D-01..D-08). `generator.py` is a pure interpreter of this

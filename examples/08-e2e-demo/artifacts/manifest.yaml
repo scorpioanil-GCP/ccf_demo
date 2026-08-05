@@ -1,0 +1,149 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.deployment-manifest.json
+# The one document naming what this deployment puts in force (D-06, D-08,
+# D-IMPL-80; banking domain, D-IMPL-52).
+#
+# Every artifact is ENUMERATED, never globbed: the set of Control Plane
+# artifacts in force is dimension 2 of the five-dimension Decision Replay
+# record, and a pattern would make that set a function of directory contents at
+# boot time with no artifact recording that a dropped-in file changed what was
+# in force. `ManifestEntry` refuses a glob at parse.
+#
+# The BACKEND is declared as a kind only (D-08). There is no DSN and no database
+# path here, deliberately: a connection string is a deployment ENVIRONMENT
+# value, and putting one in a versioned, content-hashed artifact would persist
+# it into the audit plane.
+#
+# Each `key` is the Control Plane key its artifact is in force under AND the key
+# it comes back under on `BootedFabric.artifacts`. Short unnamespaced keys are
+# this deployment's own vocabulary and `run.py` names them as literals; the two
+# agent-referenced entries keep their full namespaced keys because those keys
+# are what the agent definition's versioned-URI refs resolve against, and a ref
+# and its key must be the same string.
+#
+# **What is NOT here, and why.** Four documents in this directory are outside
+# the manifest, each for a stated reason rather than by omission:
+#
+#   * `scenario.yaml` — the generator's input, not a fabric artifact. It
+#     describes the synthetic *world*, which exists before any fabric does.
+#   * `agent.yaml`, `skills.yaml`, `prompt.yaml` — `ccf.agent-definition`,
+#     `ccf.skill-catalog-entry`, `ccf.skill-grant` and `ccf.prompt-artifact` are
+#     SDK-owned classes that are not manifest-addressable (absent from
+#     `SDK_ARTIFACT_CLASSES`), so naming one here would resolve it to the open
+#     `DeclaredArtifact` envelope and silently drop the real contract's
+#     validation. `run.py` parses them against their own classes instead.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `tenant_id`, every `key`, every `path`, and the
+# non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
+# `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
+# `artifacts`, `path`, `key`, `class_id` and `role`, the `ccf.`-prefixed class
+# ids, and the `role` values are [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: meridian-bank
+backend: sqlite
+
+resolution_spec_key: resolution-spec
+policy_bundle_key: policy-bundle
+
+artifacts:
+  # --- role: register — into the registry, into the pin set, into replay
+  #     dimension 2. This is "what this fabric was permitted to do".
+  - path: resolution-spec.yaml
+    key: resolution-spec
+    class_id: ccf.resolution-spec
+    role: register
+
+  - path: policy-bundle.yaml
+    key: policy-bundle
+    class_id: meridian-bank.policy-bundle
+    role: register
+
+  - path: half-life-table.yaml
+    key: half-life-table
+    class_id: ccf.half-life-table
+    role: register
+
+  - path: debt-profile.yaml
+    key: debt-profile
+    class_id: ccf.debt-profile
+    role: register
+
+  - path: operator-parameters-traversal.yaml
+    key: traversal
+    class_id: ccf.operator-parameters.traversal
+    role: register
+
+  - path: operator-parameters-temporal.yaml
+    key: temporal
+    class_id: ccf.operator-parameters.temporal
+    role: register
+
+  - path: operator-parameters-policy.yaml
+    key: policy
+    class_id: ccf.operator-parameters.policy
+    role: register
+
+  - path: operator-parameters-similarity.yaml
+    key: similarity
+    class_id: ccf.operator-parameters.similarity
+    role: register
+
+  - path: perspective.yaml
+    key: perspective
+    class_id: ccf.perspective
+    role: register
+
+  - path: product-class.yaml
+    key: product-class
+    class_id: ccf.product-class
+    role: register
+
+  - path: product-governance.yaml
+    key: product-governance
+    class_id: meridian-bank.product-governance
+    role: register
+
+  # The L1 mapping. `register` because re-authoring it changes what the fabric
+  # admits into the graph — a standing statement of what the fabric was
+  # permitted to do. It carries no event data; contrast `ccf.signal-batch`,
+  # whose `load` role the SDK fixes for exactly that reason.
+  - path: ingest-spec.yaml
+    key: ingest-spec
+    class_id: meridian-bank.ingest-spec
+    role: register
+
+  # The agent's axis-4 and axis-5 declarations, under the keys its
+  # versioned-URI refs resolve against. `register`, because a policy regime and
+  # a debt profile are precisely "what this agent was permitted to do".
+  - path: agent-policy-regime.yaml
+    key: meridian-bank/policy-bundle/financial-crime-regime
+    class_id: policy-bundle
+    role: register
+
+  - path: agent-debt-profile.yaml
+    key: meridian-bank/debt-profile/ring-investigation
+    class_id: debt-profile
+    role: register
+
+  # --- role: load — parsed and validated through the same seam as everything
+  #     above, then handed back on `BootedFabric.artifacts`. Never registered,
+  #     never pinned, never in replay dimension 2.
+
+  # This run's decision instants. The deployment's own class, so the role is the
+  # deployment's call — and it is `load` because what instant one run asked
+  # about is not part of what the fabric was permitted to do.
+  - path: decision.yaml
+    key: decision
+    class_id: meridian-bank.decision-inputs
+    role: load
+
+  # What the deployment expects both passes to produce. An expectation is not a
+  # permission, so it is parsed and returned, never put in force.
+  - path: expected.yaml
+    key: expected
+    class_id: meridian-bank.expected-outcomes
+    role: load

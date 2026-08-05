@@ -1,39 +1,45 @@
 """examples/08-e2e-demo — raw data becomes governed context (DEMO-02).
 
 The capstone demonstration, one command end to end:
-``PYTHONPATH=src:runtime python examples/08-e2e-demo/run.py``.
+``PYTHONPATH=src:runtime python examples/08-e2e-demo/run.py`` (or
+``make example-08``).
 
 Stage by stage (Phase 12 CONTEXT D-02, D-09..D-12, D-15, D-16):
 
 1. **GENERATE** — the deterministic generator interprets
-   ``artifacts/scenario.yaml`` into three SQLite source systems; row counts
-   and checksums are asserted against the artifact's pins (D-08).
-2. **BASELINE** — the SAME structured-cycle detection the agent's skill
-   runs later is EXECUTED over the raw per-source rows, with identifiers
-   as each source knows them and no entity resolution. It finds nothing:
-   the ring's wire aliases match no known counterparty, and the noise that
-   does match forms no structured cycle. The zero is asserted (D-11).
-3. **INGEST L1→L2** — every source row becomes a ``SignalEnvelope`` and
-   enters the fabric through ``handle.worker.ingest`` only (single-writer,
-   CLAUDE.md §10). L2's declared resolution rules converge the sources'
-   disjoint identifiers onto canonical nodes — the hero step (D-02).
-4. **PRODUCT** — the four-category operator chain and the projection turn
-   the reconciled graph into a gated, typed Context Product (L4→L6).
-5. **AGENT** — a factory-built ``AnalyticsInsightsAgent`` (§6.4: no agent
-   in code) invokes its granted cycle-detection skill over the product and
-   finds exactly the planted ring; the output is asserted against the
-   dispatch pin in ``artifacts/skills.yaml`` (D-11, second leg).
-6. **REPLAY** — the decision is recorded, served, and round-tripped
-   through the ArtifactStore (whitepaper §7.10.1).
+   ``artifacts/scenario.yaml`` into three SQLite source systems.
+2. **BASELINE** — the SAME structured-cycle detection the agent's skill runs
+   later is EXECUTED over the raw per-source rows, with identifiers as each
+   source knows them and no entity resolution. It finds nothing: the ring's
+   wire aliases match no known counterparty, and the noise that does match
+   forms no structured cycle (D-11).
+3. **INGEST L1→L2** — every source row becomes a ``SignalEnvelope`` and enters
+   the fabric through ``handle.worker.ingest`` only (single-writer, CLAUDE.md
+   §10). L2's declared resolution rules converge the sources' disjoint
+   identifiers onto canonical nodes — the hero step (D-02).
+4. **PRODUCT** — the four-category operator chain and the projection turn the
+   reconciled graph into a gated, typed Context Product (L4→L6).
+5. **AGENT** — a factory-built ``AnalyticsInsightsAgent`` (§6.4: no agent in
+   code) invokes its granted cycle-detection skill over the product and finds
+   exactly the planted ring.
+6. **REPLAY** — the decision is recorded, served, and round-tripped through the
+   ArtifactStore (whitepaper §7.10.1).
 
-The staged console narration is deterministic and byte-compared against
-``artifacts/expected_output.txt`` (D-16). ``--live`` adds LLM narration
-only — detection is identical in both modes and nothing about model text
-is asserted (D-10/D-12).
+**This file no longer carries its own guarantee.** It asserts nothing: its
+checks — including the byte-comparison of the staged narration against
+``artifacts/expected_output.txt`` (D-16), which is this demo's *whole*
+correctness claim — live in ``tests/examples/test_e2e_demo_output.py``, where a
+runner can actually fail a build (D-09). ``make example-08`` running clean means
+the spine executed; ``pytest`` is what says it was right. It still prints,
+because the narration is the demonstration's product rather than a debug aid.
 
-Every domain value — vocabulary, thresholds, expected outcomes — is loaded
-from ``artifacts/*.yaml`` (CLAUDE.md §6.4, the No-Hardcoding Rule). The
-code below is thin loading, mapping, and asserting logic.
+``--live`` adds LLM narration only — detection is identical in both modes and
+nothing about model text is asserted (D-10/D-12).
+
+Every domain value — vocabulary, thresholds, expected outcomes — is loaded from
+``artifacts/*.yaml`` and the fabric's share of them is enumerated by
+``artifacts/manifest.yaml`` (CLAUDE.md §6.4, the No-Hardcoding Rule). Deleting
+the artifacts leaves this file with nothing meaningful to run.
 """
 
 from __future__ import annotations
@@ -43,9 +49,11 @@ import sqlite3
 import sys
 import tempfile
 from collections.abc import Mapping
-from datetime import UTC, datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -54,41 +62,27 @@ from ccf.agents.definitions import (
     AGENT_DEFINITION,
     PROMPT_ARTIFACT,
     AgentDefinition,
-    PromptArtifact,
 )
 from ccf.agents.factory import AgentFactory
 from ccf.agents.prompts import render_instruction
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.assembly.worker import (
-    EntityResolutionRule,
-    EntityResolutionSpec,
-    RelationshipResolutionRule,
-)
-from ccf.boot import boot
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import (
-    DEBT_PROFILE,
-    HALF_LIFE_TABLE,
-    DebtProfile,
+    DeclaredArtifact,
     HalfLifeTable,
+    OperatorParametersArtifact,
+    PerspectiveArtifact,
+    ProductClassDeclaration,
     declared_artifact_class,
+    load_artifact,
     parse_artifact,
 )
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.deployment import build_operator_registry, load_and_boot
 from ccf.graph.protocols import GraphView
 from ccf.halflife.decay import Observation, freshness
 from ccf.operators.base import OperatorOutput
-from ccf.operators.categories import (
-    PolicyFilter,
-    PolicyFilterParameters,
-    SimilaritySelect,
-    SimilaritySelectParameters,
-    TemporalAsOf,
-    TemporalAsOfParameters,
-    TraversalNeighborhood,
-    TraversalNeighborhoodParameters,
-)
 from ccf.products.contract import (
     ContextProductContract,
     MaxTTL,
@@ -96,72 +90,51 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.gates import ServableProduct, run_gates
-from ccf.projection.engine import OperatorRegistry, ProjectionEngine
+from ccf.projection.engine import ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput
 from ccf.replay.record import (
     DecisionReplayRecord,
     PolicyBinding,
     build_replay_record,
 )
-from ccf.replay.serve import ReplayWriter, serve
+from ccf.replay.serve import ReplayWriter, ServedProduct, serve
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
-from ccf.similarity.protocol import TokenOverlapIndex
 from ccf.skills.callables import CallableRegistry
-from ccf.skills.catalog import (
-    SKILL_CATALOG_ENTRY,
-    SkillCatalog,
-    SkillCatalogEntry,
-)
+from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog
 from ccf.skills.dispatch import SkillInvocation
 from ccf.skills.grants import ApprovalOutcome, GrantLedger, SkillGrant
 
 import generator
 
 ARTIFACTS = Path(__file__).resolve().parent / "artifacts"
-
-#: The deterministic staged narration (D-16): every `_banner` line lands
-#: here and the whole buffer is byte-compared against
-#: ``artifacts/expected_output.txt`` at the end of the run.
-_NARRATION: list[str] = []
+MANIFEST = ARTIFACTS / "manifest.yaml"
 
 
-def _banner(title: str, facts: Mapping[str, str]) -> None:
-    """Print one stage banner and append it to the narration buffer."""
+def _banner(
+    narration: list[str], title: str, facts: Mapping[str, str]
+) -> None:
+    """Print one stage banner and append it to the narration buffer.
+
+    The buffer is the demo's deliverable: ``tests/examples/`` byte-compares the
+    joined lines against ``artifacts/expected_output.txt`` (D-16). It is passed
+    in rather than held at module scope so that two runs in one process — which
+    is exactly what a test session does — cannot silently concatenate.
+    """
     width = 66
     lines = ["", "=" * width, f"  {title}", "=" * width]
     lines.extend(f"  {name:<28} {value}" for name, value in facts.items())
     for line in lines:
-        _NARRATION.append(line)
+        narration.append(line)
         print(line)
 
 
-def _require(condition: bool, message: object) -> None:
-    """Unconditional verification check (review WR-01).
-
-    Every load-bearing demo check goes through here instead of ``assert``,
-    so ``python -O`` / ``PYTHONOPTIMIZE=1`` can never strip the
-    verification the README's exit-code-0 promise depends on.
-    """
-    if not condition:
-        raise RuntimeError(f"demo verification failed: {message}")
-
-
-def _load(name: str) -> Any:
-    return yaml.safe_load((ARTIFACTS / name).read_text(encoding="utf-8"))
-
-
-def _instant(value: object) -> datetime:
-    # PyYAML resolves `...Z` timestamps to naive datetimes; the canonical
-    # serializer refuses naive datetimes (D-IMPL-38). Attaching UTC at the
-    # artifact boundary is the loader's job; the fabric never guesses.
-    if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=UTC)
-    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-
-
 def _ticking_clock(base: datetime) -> Any:
-    # Deterministic audit-timestamp source: the base instant is artifact
-    # data and each read advances one second. Never a wall-clock read.
+    """Deterministic audit-timestamp source, seeded from artifact data.
+
+    Each read advances one second. Never a wall-clock read: an audit plane whose
+    timestamps come from the machine is one whose records differ between two
+    identical runs.
+    """
     state = {"now": base}
 
     def clock() -> datetime:
@@ -172,40 +145,30 @@ def _ticking_clock(base: datetime) -> Any:
 
 
 class RefusedSink:
-    # The regime declares grant_requires_approval: false — the tier-2 sink
-    # must never be consulted; consultation is a hard failure.
+    """The tier-2 approval sink, which must never be consulted.
+
+    ``agent-policy-regime.yaml`` declares ``grant_requires_approval: false``, so
+    consulting a human is not merely unnecessary here — it would mean the
+    governance tier was resolved wrongly. Raising rather than returning an
+    outcome is what turns "the auto regime did not silently escalate" into
+    something the run executes rather than assumes.
+    """
 
     def decide(self, grant: SkillGrant) -> ApprovalOutcome:
         raise AssertionError("tier-2 sink consulted under an auto regime")
 
 
-def _resolution_spec(ontology: Any) -> EntityResolutionSpec:
-    return EntityResolutionSpec(
-        semver=ontology["artifact_version"],
-        entity_rules=tuple(
-            EntityResolutionRule(
-                match_key=rule["match_key"],
-                entity_class=rule["entity_class"],
-                identity_keys=tuple(rule["identity_keys"]),
-                attribute_keys=tuple(rule.get("attribute_keys", ())),
-            )
-            for rule in ontology["entity_rules"]
-        ),
-        relationship_rules=tuple(
-            RelationshipResolutionRule(
-                relationship_type=rule["relationship_type"],
-                subject_entity_class=rule["subject_entity_class"],
-                object_entity_class=rule["object_entity_class"],
-            )
-            for rule in ontology["relationship_rules"]
-        ),
-    )
-
-
 # ---------------------------------------------------------------------------
-# L1 envelope mapping — role-keyed interpretation of the ingest spec the
-# ontology declares. No source vocabulary exists here: sources are selected
-# by mechanism role, tables by role, columns by role (CLAUDE.md §6.4).
+# L1 envelope mapping — role-keyed interpretation of the ingest spec.
+#
+# This example ingests from three LIVE SQLite source systems the generator
+# writes, not from a `ccf.signal-batch`: the events do not exist until the run
+# creates them, so there is no static batch document to name and this
+# translation is a genuine demonstration concern rather than mechanical
+# marshalling the SDK could absorb. What IS declared is the mapping
+# (`artifacts/ingest-spec.yaml`): sources are selected by mechanism role,
+# tables by role, columns by role, so no source vocabulary exists here
+# (CLAUDE.md §6.4).
 # ---------------------------------------------------------------------------
 
 
@@ -221,10 +184,10 @@ def _mapped_rows(
 ) -> tuple[str, str, list[dict[str, str]]]:
     """Read one ingest entry's raw rows as payload-key dicts, in id order.
 
-    Returns ``(source_name, id_key_payload_name, rows)``. Parameterized
-    identifiers are not possible for table/column names; they come from the
-    versioned scenario artifact and are quoted (threat register T-12-03),
-    and the ``ORDER BY`` over the id column makes the read deterministic.
+    Returns ``(source_name, table_name, rows)``. Parameterized identifiers are
+    not possible for table/column names; they come from the versioned scenario
+    artifact and are quoted (threat register T-12-03), and the ``ORDER BY`` over
+    the id column makes the read deterministic.
     """
     source_name, source = _source_by_role(scenario, entry["source_role"])
     table = source["tables"][entry["table_role"]]
@@ -257,33 +220,11 @@ def _mapped_rows(
     return source_name, table["name"], rows
 
 
-def _envelopes(
-    scenario: Any, ontology: Any, workdir: Path, *, ingested_at: datetime
-) -> list[SignalEnvelope]:
-    envelopes: list[SignalEnvelope] = []
-    for entry in ontology["ingest"]:
-        source_name, table_name, rows = _mapped_rows(scenario, entry, workdir)
-        for payload in rows:
-            row_id = payload.pop("__row_id")
-            observed = _instant(payload.pop("__observed"))
-            envelopes.append(
-                SignalEnvelope(
-                    tenant_id=ontology["tenant_id"],
-                    envelope_id=f"{source_name}:{table_name}:{row_id}",
-                    source=SourceIdentity(system_id=source_name),
-                    ingestion_timestamp=ingested_at,
-                    observed_time=observed,
-                    raw_payload=dict(payload),
-                )
-            )
-    return envelopes
-
-
 # ---------------------------------------------------------------------------
 # Structured-cycle detection — the ONE detection mechanism both passes run
 # (D-11). Every vocabulary and threshold value it interprets arrives in the
-# artifact-declared dispatch arguments; the function is generic graph
-# mechanism over (source, target, amount, timestamp) edges.
+# artifact-declared dispatch arguments; the function is generic graph mechanism
+# over (source, target, amount, timestamp) edges.
 # ---------------------------------------------------------------------------
 
 
@@ -305,8 +246,8 @@ def _structured_cycles(
     found: set[tuple[str, ...]] = set()
 
     def _extends(previous: float, amount: float) -> bool:
-        # Guard against zero (division) and negative (sign-inverted
-        # tolerance) previous amounts: compare against the magnitude.
+        # Guard against zero (division) and negative (sign-inverted tolerance)
+        # previous amounts: compare against the magnitude.
         denominator = abs(previous)
         if denominator == 0.0:
             return amount == previous
@@ -369,7 +310,7 @@ def _detection_edges(
                 origin,
                 beneficiary,
                 float(row[amount_key]),
-                _instant(row[sent_key]),
+                datetime.fromisoformat(row[sent_key]),
             )
         )
     return edges
@@ -392,10 +333,10 @@ def _run_detection(
 def _governed_detection(
     payload: Mapping[str, Any], arguments: Mapping[str, str]
 ) -> Mapping[str, str]:
-    """The cycle-detection skill body: generic graph mechanism over the
-    typed Context Product payload, interpreting ONLY the class, edge-type
-    and attribute names the dispatch arguments declare (§6.4). Purely
-    algorithmic — no model anywhere on this path (D-10)."""
+    """The cycle-detection skill body: generic graph mechanism over the typed
+    Context Product payload, interpreting ONLY the class, edge-type and
+    attribute names the dispatch arguments declare (§6.4). Purely algorithmic —
+    no model anywhere on this path (D-10)."""
     party_class = arguments["counterparty_entity_class"]
     transfer_class = arguments["transfer_entity_class"]
     site_link = arguments["site_link_type"]
@@ -423,8 +364,8 @@ def _governed_detection(
         elif edge["relationship_type"] == site_link:
             transfer_to_site[edge["subject_uri"]] = edge["object_uri"]
 
-    # Canonical display names -> party URIs; ambiguous names resolve to
-    # nothing rather than to a guess.
+    # Canonical display names -> party URIs; ambiguous names resolve to nothing
+    # rather than to a guess.
     known: dict[str, str] = {}
     ambiguous: set[str] = set()
     for uri in sorted(parties):
@@ -436,9 +377,9 @@ def _governed_detection(
             del known[name]
             continue
         known[name] = uri
-    # Wire aliases -> party URIs, via the site the alias's inbound wires
-    # deliver to and the counterparty registered at that site — the L2
-    # evidence chain, walked over typed edges only.
+    # Wire aliases -> party URIs, via the site the alias's inbound wires deliver
+    # to and the counterparty registered at that site — the L2 evidence chain,
+    # walked over typed edges only.
     for transfer in transfers:
         site = transfer_to_site.get(transfer["entity_uri"])
         candidates = site_to_parties.get(site or "", set())
@@ -481,8 +422,8 @@ def _live_narration(
     """Opt-in ``--live`` narration (D-10/D-12): render the prompt artifact
     against the deterministic detection outcome and print the model's
     citation-anchored summary. Prints OUTSIDE the byte-compared narration
-    buffer; asserts nothing about model text. The HTTP client import is
-    deferred so the deterministic run needs no live dependency wired."""
+    buffer; asserts nothing about model text. The HTTP client import is deferred
+    so the deterministic run needs no live dependency wired."""
     import os
 
     import httpx  # deferred: live-only dependency use
@@ -522,10 +463,21 @@ def _live_narration(
 
 
 class PaymentNetworkPlan:
-    """The deployment's Π: the resolved payment network as its reader —
-    the financial-crime analyst's skill — needs it. Deployment code, like
-    every projection; it declares which operators its interpretation
-    depends on and cannot tell the engine what ran (the L6 lineage gate)."""
+    """The deployment's Π: the resolved payment network as its reader — the
+    financial-crime analyst's skill — needs it.
+
+    A projection is deployment code, and never a rewrite target (whitepaper
+    §7.5). It declares which operators its interpretation depends on and
+    interprets their output; it does not run them and cannot tell the engine
+    what ran, which is what leaves the L6 lineage gate something real to check.
+
+    ``required`` is passed in from the product-class artifact's
+    ``required_operator_keys``, never read off the operator registry. The
+    declaration and the engine's resolution must stay two independent
+    mechanisms: Gate 2 compares them, and a plan that returned the registry's
+    own keys would make that comparison a value against itself — which is
+    exactly what this file did before ``product-class.yaml`` existed.
+    """
 
     def __init__(self, *, plan_id: str, required: tuple[str, ...]) -> None:
         self._plan_id = plan_id
@@ -596,56 +548,151 @@ class PaymentNetworkPlan:
         )
 
 
-def main(*, live: bool = False) -> int:
-    scenario = _load("scenario.yaml")
-    ontology = _load("ontology.yaml")
-    control = _load("controlplane.yaml")
-    halflife = _load("halflife.yaml")
-    skills_doc = _load("skills.yaml")
-    agent_doc = _load("agent.yaml")
-    prompt_doc = _load("prompt.yaml")
+@dataclass(frozen=True)
+class DemoResult:
+    """What one run of the demo produced, for a caller to inspect.
 
-    tenant_id: str = ontology["tenant_id"]
-    keys = control["keys"]
-    expected = control["expected"]
-    arguments = skills_doc["dispatch"]["arguments"]
-    boundary = _instant(control["decision"]["temporal_boundary"])
-    now = _instant(control["decision"]["now"])
-    ingested_at = _instant(control["decision"]["ingestion_timestamp"])
+    The example returns its state rather than checking it here, so that
+    ``tests/examples/test_e2e_demo_output.py`` can hold the assertions where a
+    test runner will actually run them (D-09).
+    """
 
-    with tempfile.TemporaryDirectory(prefix="ccf-e2e-demo-") as scratch:
-        workdir = Path(scratch)
+    tenant_id: str
+    artifacts: Mapping[str, CCFContract]
+    scenario: Mapping[str, Any]
+    generated: Mapping[str, Any]
+    baseline_cycles: tuple[tuple[str, ...], ...]
+    payment_rows: int
+    unattributed_rows: int
+    envelopes_ingested: int
+    resolved_seed_entities: int
+    product: ContextProductContract
+    operators_invoked: tuple[str, ...]
+    detection: Mapping[str, str]
+    agent: Agent
+    definition: AgentDefinition
+    definition_hash: str
+    granted_hash: str
+    grant_set_hash: str
+    record: DecisionReplayRecord
+    served: ServedProduct
+    store: FileArtifactStore
+    retained_freshness: Decimal
+    narration: str
+    expected_narration: str
 
-        # --- Stage 1: GENERATE — scenario.yaml becomes three source DBs ----
-        shape = generator.generate(scenario, workdir)
-        _require(shape["row_counts"] == expected_rows(scenario), shape)
-        _require(
-            shape["checksums"] == scenario["expected"]["checksums"], shape
+
+def expected_rows(scenario: Any) -> dict[str, dict[str, int]]:
+    """The scenario's expected row counts keyed exactly as generate() keys its
+    report (source name -> table name -> count)."""
+    return {
+        source: dict(tables)
+        for source, tables in scenario["expected"]["row_counts"].items()
+    }
+
+
+def run(*, root: Path, live: bool = False) -> DemoResult:
+    """Run the whole demonstration once against ``root`` as its scratch dir."""
+    narration: list[str] = []
+
+    # `scenario.yaml` is the GENERATOR's input, not a fabric artifact: it
+    # describes the synthetic world, which exists before any fabric does, and it
+    # is deliberately outside the deployment manifest. Plain YAML is right here.
+    scenario = yaml.safe_load((ARTIFACTS / "scenario.yaml").read_text("utf-8"))
+
+    # The audit clock must exist before the FIRST registration, and the first
+    # registration happens inside `load_and_boot` — so the one instant that
+    # seeds it is read here, through the SDK's own artifact loader, from the
+    # very document the manifest names as `decision`. Everything after boot
+    # reads that artifact off `booted.artifacts`; this is the single ordering
+    # constraint the one-call boot cannot absorb.
+    decision_document = (ARTIFACTS / "decision.yaml").read_text("utf-8")
+    decision = cast(
+        DeclaredArtifact,
+        load_artifact(
+            decision_document,
+            # The class the document declares of itself. Not a literal here:
+            # the manifest names the same class independently and
+            # `load_and_boot` validates the document against it a second time,
+            # so the two-independent-statements property is not lost by
+            # reading it from the document at this one point.
+            declared_artifact_class(
+                yaml.safe_load(decision_document)["class_id"]
+            ),
+        ),
+    )
+    clock = _ticking_clock(
+        datetime.fromisoformat(decision.declaration["clock_base"])
+    )
+    registry = ControlPlaneRegistry(clock=clock)
+
+    # --- Stage 1: GENERATE — scenario.yaml becomes three source DBs ---------
+    generated = generator.generate(scenario, root)
+    total_rows = sum(
+        count
+        for tables in generated["row_counts"].values()
+        for count in tables.values()
+    )
+    _banner(
+        narration,
+        "STAGE 1 - GENERATE: scenario.yaml -> three source systems",
+        {
+            "source systems": str(len(generated["row_counts"])),
+            "rows written": str(total_rows),
+            "checksums": "all pinned values matched",
+        },
+    )
+
+    booted = load_and_boot(
+        MANIFEST, registry=registry, database_path=str(root / "fabric.sqlite3")
+    )
+    try:
+        # Each artifact comes back under its own manifest key, already validated
+        # against the class the manifest declared for it — so these casts
+        # restate what `load_and_boot` already enforced.
+        ingest_spec = cast(DeclaredArtifact, booted.artifacts["ingest-spec"])
+        governance = cast(
+            DeclaredArtifact, booted.artifacts["product-governance"]
         )
-        _require(
-            shape["ring_signature"] == scenario["expected"]["ring_signature"],
-            shape,
+        declared = cast(
+            ProductClassDeclaration, booted.artifacts["product-class"]
         )
-        total_rows = sum(
-            count
-            for tables in shape["row_counts"].values()
-            for count in tables.values()
+        perspective = cast(
+            PerspectiveArtifact, booted.artifacts["perspective"]
         )
-        _banner(
-            "STAGE 1 - GENERATE: scenario.yaml -> three source systems",
-            {
-                "source systems": str(len(shape["row_counts"])),
-                "rows written": str(total_rows),
-                "checksums": "all pinned values matched",
-            },
+        expected = cast(DeclaredArtifact, booted.artifacts["expected"])
+
+        boundary = datetime.fromisoformat(
+            decision.declaration["temporal_boundary"]
+        )
+        now = datetime.fromisoformat(decision.declaration["now"])
+        ingested_at = datetime.fromisoformat(
+            decision.declaration["ingestion_timestamp"]
         )
 
-        # --- Stage 2: BASELINE — the same detection, raw rows, no L2 -------
+        # Skill material. `ccf.skill-catalog-entry`, `ccf.skill-grant`,
+        # `ccf.agent-definition` and `ccf.prompt-artifact` are SDK-owned classes
+        # that are not manifest-addressable, so they are parsed against their
+        # own contracts rather than through the manifest — naming one there
+        # would silently resolve it to the open envelope and drop the real
+        # contract's validation.
+        skills_doc = yaml.safe_load(
+            (ARTIFACTS / "skills.yaml").read_text("utf-8")
+        )
+        agent_doc = yaml.safe_load(
+            (ARTIFACTS / "agent.yaml").read_text("utf-8")
+        )
+        prompt_doc = yaml.safe_load(
+            (ARTIFACTS / "prompt.yaml").read_text("utf-8")
+        )
+        arguments = skills_doc["dispatch"]["arguments"]
+
+        # --- Stage 2: BASELINE — the same detection, raw rows, no L2 --------
         # The mapping in force is string identity over the names each source
         # itself records: exactly what a per-source review can do.
         raw_by_entry = [
-            _mapped_rows(scenario, entry, workdir)[2]
-            for entry in ontology["ingest"]
+            _mapped_rows(scenario, entry, root)[2]
+            for entry in ingest_spec.declaration["ingest"]
         ]
         name_key = arguments["name_attribute"]
         known_raw = {
@@ -669,8 +716,8 @@ def main(*, live: bool = False) -> int:
         baseline = _run_detection(
             payment_rows, known=known_raw, arguments=arguments
         )
-        _require(len(baseline) == expected["baseline_cycles"], baseline)
         _banner(
+            narration,
             "STAGE 2 - BASELINE: the same detection over raw rows",
             {
                 "payment rows examined": str(len(payment_rows)),
@@ -680,445 +727,332 @@ def main(*, live: bool = False) -> int:
             },
         )
 
-        # --- Stage 3: INGEST — L1 envelopes through the single writer ------
-        clock = _ticking_clock(_instant(control["decision"]["clock_base"]))
-        registry = ControlPlaneRegistry(clock=clock)
-        spec_version = registry.register(
-            keys["resolution_spec"], _resolution_spec(ontology)
-        )
-        policy_version = registry.register(
-            keys["policy_bundle"], control["policy_bundle"]
-        )
-        table = parse_artifact(halflife["half_life_table"], HALF_LIFE_TABLE)
-        profile = parse_artifact(halflife["debt_profile"], DEBT_PROFILE)
-        _require(isinstance(table, HalfLifeTable), type(table))
-        _require(isinstance(profile, DebtProfile), type(profile))
-        registry.register(keys["half_life_table"], table)
-        registry.register(keys["debt_profile"], profile)
+        # --- Stage 3: INGEST — L1 envelopes through the single writer -------
+        envelopes: list[SignalEnvelope] = []
+        for entry in ingest_spec.declaration["ingest"]:
+            source_name, table_name, rows = _mapped_rows(scenario, entry, root)
+            for payload in rows:
+                row_id = payload.pop("__row_id")
+                observed = datetime.fromisoformat(payload.pop("__observed"))
+                envelopes.append(
+                    SignalEnvelope(
+                        tenant_id=booted.tenant_id,
+                        envelope_id=f"{source_name}:{table_name}:{row_id}",
+                        source=SourceIdentity(system_id=source_name),
+                        ingestion_timestamp=ingested_at,
+                        observed_time=observed,
+                        raw_payload=dict(payload),
+                    )
+                )
+        for envelope in envelopes:
+            booted.handle.worker.ingest(envelope)
 
-        handle = boot(
-            database_path=workdir / "fabric.sqlite3",
+        # The graph view at the temporal boundary this deployment named.
+        view = booted.handle.reader.as_of(
+            tenant_id=booted.tenant_id, at=boundary
+        )
+        # The banner names the seeded class. Sorted rather than "first": the
+        # artifact's set is unordered, and a banner whose text depended on set
+        # iteration order would break the byte-comparison at random.
+        traversal = cast(Any, booted.artifacts["traversal"])
+        seed_class = sorted(traversal.seed_entity_classes)[0]
+        resolved_seeds = sum(
+            1
+            for record in view.entities
+            if record.claim.entity_class == seed_class
+        )
+        _banner(
+            narration,
+            "STAGE 3 - INGEST: L1 envelopes -> L2 entity resolution",
+            {
+                "envelopes ingested": str(len(envelopes)),
+                "canonical " + seed_class + " nodes": str(resolved_seeds),
+                "how": "disjoint source identifiers converged"
+                " on shared evidence",
+            },
+        )
+
+        # --- Stage 4: PRODUCT — operators, projection, gates ----------------
+        # The operator-parameters mapping, assembled by naming this deployment's
+        # OWN manifest keys. Deliberately not an isinstance filter or a class-id
+        # match: those are type introspection, and copied across nine examples
+        # they would be a new duplication class.
+        parameters: Mapping[str, OperatorParametersArtifact] = {
+            key: cast(OperatorParametersArtifact, booted.artifacts[key])
+            for key in ("traversal", "temporal", "policy", "similarity")
+        }
+        operators = build_operator_registry(
+            parameters=parameters,
+            view=view,
+            pins=booted.pins,
+            policy_bundle_key="policy-bundle",
+            similarity_index_version=governance.declaration[
+                "similarity_index_version"
+            ],
+        )
+        execution = ProjectionEngine(
+            reader=booted.handle.reader, registry=operators
+        ).execute(
+            plan=PaymentNetworkPlan(
+                plan_id=governance.declaration["plan_id"],
+                required=declared.required_operator_keys,
+            ),
+            perspective=perspective,
+            tenant_id=booted.tenant_id,
+            temporal_boundary=boundary,
+        )
+
+        # L6 — and this cluster stays in adopter code deliberately.
+        #
+        # Gate 3 compares the class's TTL CEILING against this product's own
+        # `expires_at`. That is only a check while the two are independently
+        # authored. Registering the MaxTTL value here is what MINTS
+        # `max_ttl_version` — the pin is a content hash of what was registered,
+        # which is why the product-class artifact cannot declare it. A helper
+        # that minted the pin and stamped the product would be comparing a value
+        # against itself, so the SDK ships no such helper and these lines
+        # survive the ergonomics phase on purpose. Do not remove them.
+        max_ttl_version = registry.register(
+            declared.max_ttl_key,
+            MaxTTL(seconds=governance.declaration["max_ttl_seconds"]),
+        )
+        product_class = register_product_class(
             registry=registry,
-            resolution_spec_key=keys["resolution_spec"],
-            resolution_spec_version=spec_version,
-            policy_bundle_key=keys["policy_bundle"],
-            policy_bundle_version=policy_version,
+            schema_name=declared.schema_name,
+            schema_version=declared.schema_version,
+            ttl_anchor=declared.ttl_anchor,
+            assembly_mode=declared.assembly_mode,
+            max_ttl_key=declared.max_ttl_key,
+            max_ttl_version=max_ttl_version,
         )
-        try:
-            envelopes = _envelopes(
-                scenario, ontology, workdir, ingested_at=ingested_at
-            )
-            for envelope in envelopes:
-                handle.worker.ingest(envelope)
 
-            view = handle.reader.as_of(tenant_id=tenant_id, at=boundary)
-            seed_class = control["operator_parameters"]["traversal"][
-                "seed_entity_classes"
-            ][0]
-            resolved_seeds = sum(
-                1
-                for record in view.entities
-                if record.claim.entity_class == seed_class
-            )
-            _require(
-                len(envelopes) == expected["envelopes_ingested"],
-                len(envelopes),
-            )
-            _require(
-                resolved_seeds == expected["resolved_seed_entities"],
-                resolved_seeds,
-            )
-            _banner(
-                "STAGE 3 - INGEST: L1 envelopes -> L2 entity resolution",
-                {
-                    "envelopes ingested": str(len(envelopes)),
-                    "canonical " + seed_class + " nodes": str(resolved_seeds),
-                    "how": "disjoint source identifiers converged"
-                    " on shared evidence",
-                },
-            )
-
-            # --- Stage 4: PRODUCT — operators, projection, gates -----------
-            params = control["operator_parameters"]
-            operators = OperatorRegistry()
-            operators.register(
-                PolicyFilter(
-                    parameters=PolicyFilterParameters(
-                        permitted_policy_bundle_versions=frozenset(
-                            {policy_version}
-                        ),
-                        classification_attribute_by_class=dict(
-                            ontology["classification_attribute_by_class"]
-                        ),
-                        permitted_classifications=frozenset(
-                            params["policy"]["permitted_classifications"]
-                        ),
-                    )
+        # The lineage the product CLAIMS, and the gates. `engine_resolved` is
+        # passed as a separate argument from a second, independent source — the
+        # engine's own resolution — because Gate 2 exists to catch a producer
+        # misdeclaring.
+        policy_version = booted.pins.version_for("policy-bundle")
+        candidate = ContextProductContract(
+            schema_name=product_class.schema_name,
+            schema_version=product_class.schema_version,
+            plan_id=execution.plan_id,
+            tenant_id=booted.tenant_id,
+            temporal_boundary=boundary,
+            expires_at=now
+            + timedelta(
+                seconds=governance.declaration["product_ttl_seconds"]
+            ),
+            ttl_anchor=product_class.ttl_anchor,
+            lineage=ProductLineage(
+                operators_invoked=execution.operators_invoked,
+                policy_bundle_versions=frozenset({policy_version}),
+                graph_snapshot_at=boundary,
+            ),
+            payload=execution.projection.payload,
+        )
+        # A refusal is not a thing to proceed past: `ServableProduct` is not
+        # constructible outside `run_gates`, so holding one IS the evidence the
+        # gates ran (INV-CH7-52).
+        match run_gates(
+            candidate,
+            engine_resolved=execution.operators_invoked,
+            now=now,
+            registry=registry,
+            product_class=product_class,
+        ):
+            case ServableProduct() as gated:
+                pass
+            case refusal:
+                raise RuntimeError(
+                    f"the three validation gates refused this product:"
+                    f" {refusal}"
                 )
-            )
-            corpus_attribute = ontology["similarity_corpus_attribute_by_class"]
-            corpus = {
-                (tenant_id, record.claim.entity_uri): record.claim.attributes[
-                    corpus_attribute[record.claim.entity_class]
-                ]
-                for record in view.entities
-                if record.claim.entity_class in corpus_attribute
-            }
-            operators.register(
-                SimilaritySelect(
-                    parameters=SimilaritySelectParameters(
-                        query=params["similarity"]["query"],
-                        minimum_score_percent=params["similarity"][
-                            "minimum_score_percent"
-                        ],
-                        ranked_entity_classes=frozenset(
-                            params["similarity"]["ranked_entity_classes"]
-                        ),
-                    ),
-                    index=TokenOverlapIndex(
-                        corpus=corpus,
-                        index_version=params["similarity"]["index_version"],
-                    ),
-                )
-            )
-            operators.register(
-                TemporalAsOf(
-                    parameters=TemporalAsOfParameters(
-                        require_valid_at_boundary=params["temporal"][
-                            "require_valid_at_boundary"
-                        ]
-                    )
-                )
-            )
-            operators.register(
-                TraversalNeighborhood(
-                    parameters=TraversalNeighborhoodParameters(
-                        seed_entity_classes=frozenset(
-                            params["traversal"]["seed_entity_classes"]
-                        ),
-                        relationship_types=frozenset(
-                            params["traversal"]["relationship_types"]
-                        ),
-                        depth_limit=params["traversal"]["depth_limit"],
-                    )
-                )
-            )
-
-            declared = control["product_class"]
-            plan = PaymentNetworkPlan(
-                plan_id=declared["plan_id"], required=operators.keys()
-            )
-            perspective = Perspective(
-                principal_id=control["perspective"]["principal_id"],
-                role=control["perspective"]["role"],
-            )
-            engine = ProjectionEngine(reader=handle.reader, registry=operators)
-            execution = engine.execute(
-                plan=plan,
-                perspective=perspective,
-                tenant_id=tenant_id,
-                temporal_boundary=boundary,
-            )
-
-            max_ttl_version = registry.register(
-                keys["max_ttl"], MaxTTL(seconds=control["max_ttl_seconds"])
-            )
-            product_class = register_product_class(
-                registry=registry,
-                schema_name=declared["schema_name"],
-                schema_version=declared["schema_version"],
-                ttl_anchor=declared["ttl_anchor"],
-                assembly_mode=declared["assembly_mode"],
-                max_ttl_key=keys["max_ttl"],
-                max_ttl_version=max_ttl_version,
-            )
-            candidate = ContextProductContract(
-                schema_name=product_class.schema_name,
-                schema_version=product_class.schema_version,
-                plan_id=execution.plan_id,
-                tenant_id=tenant_id,
-                temporal_boundary=boundary,
-                expires_at=now
-                + timedelta(seconds=declared["product_ttl_seconds"]),
-                ttl_anchor=product_class.ttl_anchor,
-                lineage=ProductLineage(
-                    operators_invoked=execution.operators_invoked,
-                    policy_bundle_versions=frozenset({policy_version}),
-                    graph_snapshot_at=boundary,
+        payload = gated.product.payload
+        _banner(
+            narration,
+            "STAGE 4 - PRODUCT: operators -> projection -> gated product",
+            {
+                "operators invoked": str(len(execution.operators_invoked)),
+                "entities served": str(payload["entity_count"]),
+                "typed edges served": str(
+                    sum(payload["relationship_count_by_type"].values())
                 ),
-                payload=execution.projection.payload,
-            )
-            gated = run_gates(
-                candidate,
-                engine_resolved=execution.operators_invoked,
-                now=now,
-                registry=registry,
-                product_class=product_class,
-            )
-            _require(isinstance(gated, ServableProduct), gated)
-            _require(
-                gated.product.lineage.operators_invoked
-                == execution.operators_invoked,
-                gated.product.lineage.operators_invoked,
-            )
-            payload = gated.product.payload
-            _require(
-                payload["entity_count"] == expected["entity_count"],
-                payload["entity_count_by_class"],
-            )
-            _require(
-                payload["entity_count_by_class"]
-                == expected["entity_count_by_class"],
-                payload["entity_count_by_class"],
-            )
-            _require(
-                payload["relationship_count_by_type"]
-                == expected["relationship_count_by_type"],
-                payload["relationship_count_by_type"],
-            )
-            _banner(
-                "STAGE 4 - PRODUCT: operators -> projection -> gated product",
-                {
-                    "operators invoked": str(
-                        len(execution.operators_invoked)
-                    ),
-                    "entities served": str(payload["entity_count"]),
-                    "typed edges served": str(
-                        sum(payload["relationship_count_by_type"].values())
-                    ),
-                    "gates": "empty-operator, lineage equality, TTL"
-                    " - all passed",
-                },
-            )
+                "gates": "empty-operator, lineage equality, TTL"
+                " - all passed",
+            },
+        )
 
-            # --- λ_c: freshness of the last ring wire at decision time -----
-            demonstration = halflife["demonstration"]
-            retained = freshness(
-                Observation(
-                    observation_type=demonstration["observation_type"],
-                    observed_at=_instant(demonstration["observed_at"]),
-                ),
-                now=now,
-                table=table,
-                risk_sensitivity=profile.risk_sensitivity,
-            )
-            _require(0 < retained <= 1, retained)
+        # λ_c: the retained decision-relevance of the last ring wire at the
+        # decision instant (whitepaper §7.7).
+        table = cast(HalfLifeTable, booted.artifacts["half-life-table"])
+        profile = cast(Any, booted.artifacts["debt-profile"])
+        observation = Observation.model_validate(
+            decision.declaration["freshness_demonstration"]
+        )
+        retained = freshness(
+            observation,
+            now=now,
+            table=table,
+            risk_sensitivity=profile.risk_sensitivity,
+        )
 
-            # --- Stage 5: AGENT — factory-built, governed skill, the find --
-            for reference in agent_doc["referenced_artifacts"].values():
-                artifact_class = declared_artifact_class(
-                    reference["class_id"]
-                )
-                declared_artifact = parse_artifact(
-                    {
-                        "class_id": reference["class_id"],
-                        "semver": reference["semver"],
-                        "declaration": reference["declaration"],
-                    },
-                    artifact_class,
-                )
-                registry.register_typed(
-                    reference["key"], declared_artifact, artifact_class
-                )
-            prompt = parse_artifact(
-                prompt_doc["prompt_artifact"], PROMPT_ARTIFACT
-            )
-            _require(isinstance(prompt, PromptArtifact), type(prompt))
-            registry.register_typed(
-                prompt_doc["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
-            )
-            definition = parse_artifact(
-                agent_doc["agent_definition"], AGENT_DEFINITION
-            )
-            _require(
-                isinstance(definition, AgentDefinition), type(definition)
-            )
-            definition_key = agent_doc["keys"]["agent_definition"]
-            definition_version = registry.register_versioned(
-                definition_key, definition, AGENT_DEFINITION
-            )
-            _require(
-                isinstance(definition_version, str), type(definition_version)
-            )
-            definition_hash = content_hash(definition)
+        # --- Stage 5: AGENT — factory-built, governed skill, the find -------
+        # The agent's axis-4 and axis-5 documents are already registered: the
+        # manifest named them under the very keys the definition's
+        # versioned-URI refs resolve against, so no registration loop is needed
+        # here any more.
+        prompt = parse_artifact(prompt_doc["prompt_artifact"], PROMPT_ARTIFACT)
+        registry.register_typed(
+            prompt_doc["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
+        )
+        definition = cast(
+            AgentDefinition,
+            parse_artifact(agent_doc["agent_definition"], AGENT_DEFINITION),
+        )
+        definition_key = agent_doc["keys"]["agent_definition"]
+        definition_version = registry.register_versioned(
+            definition_key, definition, AGENT_DEFINITION
+        )
+        definition_hash = content_hash(definition)
 
-            catalog = SkillCatalog(registry)
-            skill_doc = next(iter(skills_doc["skills"].values()))
-            entry = parse_artifact(skill_doc, SKILL_CATALOG_ENTRY)
-            _require(isinstance(entry, SkillCatalogEntry), type(entry))
-            _require(isinstance(catalog.register(entry), str), entry)
-            ledger = GrantLedger(
-                control_plane=registry,
-                catalog=catalog,
-                sink=RefusedSink(),
-                clock=clock,
-            )
-            callables = CallableRegistry()
-            callables.register(
-                skill_doc["binding"]["callable_ref"],
-                lambda call_arguments: _governed_detection(
-                    payload, call_arguments
-                ),
-            )
-            agent = AgentFactory(
-                control_plane=registry, callable_registry=callables
-            ).construct(
-                definition_key=definition_key,
-                definition_version=definition_version,
-                bound_skills=ledger.bound_view(definition_hash),
-            )
-            _require(isinstance(agent, Agent), type(agent))
-            grant = SkillGrant(
-                agent_definition_hash=definition_hash, **skills_doc["grant"]
-            )
-            granted = ledger.request(
-                grant,
+        catalog = SkillCatalog(registry)
+        skill_doc = next(iter(skills_doc["skills"].values()))
+        catalog.register(parse_artifact(skill_doc, SKILL_CATALOG_ENTRY))
+        ledger = GrantLedger(
+            control_plane=registry,
+            catalog=catalog,
+            sink=RefusedSink(),
+            clock=clock,
+        )
+        callables = CallableRegistry()
+        callables.register(
+            skill_doc["binding"]["callable_ref"],
+            lambda call_arguments: _governed_detection(payload, call_arguments),
+        )
+        agent = AgentFactory(
+            control_plane=registry, callable_registry=callables
+        ).construct(
+            definition_key=definition_key,
+            definition_version=definition_version,
+            bound_skills=ledger.bound_view(definition_hash),
+        )
+        grant = SkillGrant(
+            agent_definition_hash=definition_hash, **skills_doc["grant"]
+        )
+        granted = ledger.request(
+            grant,
+            definition=definition,
+            actor=skills_doc["actors"]["requesting_actor"],
+        )
+        in_force = ledger.grant_set_hash(definition_hash)
+
+        agent.consume(gated.product, now=now)
+        invocation = agent.invoke_skill(
+            skills_doc["grant"]["skill_name"], arguments=arguments
+        )
+        if not isinstance(invocation, SkillInvocation):  # pragma: no cover
+            raise RuntimeError(f"skill dispatch returned {invocation!r}")
+        detection = dict(invocation.output)
+        _banner(
+            narration,
+            "STAGE 5 - AGENT: granted skill over governed context",
+            {
+                "agent": f"{definition.name}@{definition.artifact_version}",
+                "archetypes": ", ".join(agent.identity.archetype_composition),
+                "skill invoked": skills_doc["grant"]["skill_name"],
+                "structured cycles found": detection["cycles_found"],
+                "ring size": detection["cycle_length"],
+                "ring members": detection["cycle_members"],
+                "freshness "
+                + f"({observation.observation_type})": str(retained),
+            },
+        )
+
+        # --- Stage 6: REPLAY — record, serve, round-trip --------------------
+        # `policy_bindings` is built here, from the pins the adopter reads off
+        # `BootedFabric.pins`: D-06 keeps the SELECTION of which bindings are in
+        # force in adopter hands, because dimension 2 assembled by a rule nobody
+        # in the deployment wrote down is not an audit record.
+        record = build_replay_record(
+            execution=execution,
+            product=gated.product,
+            perspective=perspective,
+            policy_bindings=(
+                PolicyBinding(key="policy-bundle", version=policy_version),
+            ),
+            assembly_mode=declared.assembly_mode,
+            recorded_at=now,
+            agent_conditioning=agent.perspective_conditioning(
+                principal_id=perspective.principal_id, grant_set_hash=in_force
+            ),
+        )
+        store = FileArtifactStore(root=root / "artifacts")
+        served = serve(
+            product=gated,
+            record=record,
+            replay_writer=ReplayWriter(
+                store=store,
+                artifact_class=governance.declaration["replay_record_class"],
+            ),
+        )
+        _banner(
+            narration,
+            "STAGE 6 - REPLAY: the decision, recorded and served",
+            {
+                "replay record": served.replay_ref.content_address[:16]
+                + "...",
+                "dimensions": "fabric snapshot, policy bindings, model"
+                " version, perspective, generation path",
+                "skill-set in force": in_force[:16] + "...",
+            },
+        )
+
+        print("")
+        print("examples/08-e2e-demo: OK")
+
+        if live:
+            _live_narration(
+                prompt_doc=prompt_doc,
                 definition=definition,
-                actor=skills_doc["actors"]["requesting_actor"],
-            )
-            _require(granted == content_hash(grant), granted)
-            in_force = ledger.grant_set_hash(definition_hash)
-
-            _require(
-                agent.consume(gated.product, now=now) is gated.product,
-                "consumed product is not the served product",
-            )
-            invocation = agent.invoke_skill(
-                skills_doc["grant"]["skill_name"],
-                arguments=skills_doc["dispatch"]["arguments"],
-            )
-            _require(
-                isinstance(invocation, SkillInvocation), type(invocation)
-            )
-            detection = dict(invocation.output)
-            _require(
-                detection == skills_doc["dispatch"]["expected_output"],
-                detection,
-            )
-            _require(
-                int(detection["cycles_found"])
-                == expected["governed_cycles"],
-                detection,
-            )
-            _require(
-                detection["cycle_members"].split("|")
-                == expected["cycle_members"],
-                detection,
-            )
-            _banner(
-                "STAGE 5 - AGENT: granted skill over governed context",
-                {
-                    "agent": f"{definition.name}"
-                    f"@{definition.artifact_version}",
-                    "archetypes": ", ".join(
-                        agent.identity.archetype_composition
-                    ),
-                    "skill invoked": skills_doc["grant"]["skill_name"],
-                    "structured cycles found": detection["cycles_found"],
-                    "ring size": detection["cycle_length"],
-                    "ring members": detection["cycle_members"],
-                    "freshness "
-                    + f"({demonstration['observation_type']})": str(retained),
-                },
+                agent=agent,
+                detection=detection,
+                boundary=boundary,
             )
 
-            # --- Stage 6: REPLAY — record, serve, round-trip ----------------
-            conditioning = agent.perspective_conditioning(
-                principal_id=perspective.principal_id,
-                grant_set_hash=in_force,
-            )
-            record = build_replay_record(
-                execution=execution,
-                product=gated.product,
-                perspective=perspective,
-                policy_bindings=(
-                    PolicyBinding(
-                        key=keys["policy_bundle"], version=policy_version
-                    ),
-                ),
-                assembly_mode=declared["assembly_mode"],
-                recorded_at=now,
-                agent_conditioning=conditioning,
-            )
-            store = FileArtifactStore(root=workdir / "artifacts")
-            served = serve(
-                product=gated,
-                record=record,
-                replay_writer=ReplayWriter(
-                    store=store,
-                    artifact_class=control["artifacts"][
-                        "replay_record_class"
-                    ],
-                ),
-            )
-            _require(
-                store.exists(
-                    content_address=served.replay_ref.content_address
-                ),
-                served.replay_ref.content_address,
-            )
-            _require(
-                served.replay_ref.content_address == content_hash(record),
-                served.replay_ref.content_address,
-            )
-            restored = DecisionReplayRecord.model_validate_json(
-                store.get(content_address=served.replay_ref.content_address)
-            )
-            _require(restored == record, "replay round-trip mismatch")
-            _require(
-                restored.perspective_conditioning.agent_definition_hash
-                == definition_hash,
-                restored.perspective_conditioning.agent_definition_hash,
-            )
-            _require(
-                restored.perspective_conditioning.grant_set_hash == in_force,
-                restored.perspective_conditioning.grant_set_hash,
-            )
-            _banner(
-                "STAGE 6 - REPLAY: the decision, recorded and served",
-                {
-                    "replay record": served.replay_ref.content_address[:16]
-                    + "...",
-                    "dimensions": "fabric snapshot, policy bindings, model"
-                    " version, perspective, generation path",
-                    "skill-set in force": in_force[:16] + "...",
-                },
-            )
-
-            # --- narration byte-compare (D-08/D-16) -------------------------
-            narration = "\n".join(_NARRATION) + "\n"
-            expected_narration = (ARTIFACTS / "expected_output.txt").read_text(
+        return DemoResult(
+            tenant_id=booted.tenant_id,
+            artifacts=booted.artifacts,
+            scenario=scenario,
+            generated=generated,
+            baseline_cycles=tuple(baseline),
+            payment_rows=len(payment_rows),
+            unattributed_rows=unattributed,
+            envelopes_ingested=len(envelopes),
+            resolved_seed_entities=resolved_seeds,
+            product=gated.product,
+            operators_invoked=execution.operators_invoked,
+            detection=detection,
+            agent=agent,
+            definition=definition,
+            definition_hash=definition_hash,
+            granted_hash=granted,
+            grant_set_hash=in_force,
+            record=record,
+            served=served,
+            store=store,
+            retained_freshness=retained,
+            narration="\n".join(narration) + "\n",
+            expected_narration=(ARTIFACTS / "expected_output.txt").read_text(
                 encoding="utf-8"
-            )
-            _require(
-                narration == expected_narration,
-                "staged narration diverged from"
-                " artifacts/expected_output.txt",
-            )
-
-            print("")
-            print("examples/08-e2e-demo: OK")
-
-            if live:
-                _live_narration(
-                    prompt_doc=prompt_doc,
-                    definition=definition,
-                    agent=agent,
-                    detection=detection,
-                    boundary=boundary,
-                )
-            return 0
-        finally:
-            handle.close()
+            ),
+        )
+    finally:
+        booted.handle.close()
 
 
-def expected_rows(scenario: Any) -> dict[str, dict[str, int]]:
-    """The scenario's expected row counts keyed exactly as generate() keys
-    its report (source name -> table name -> count)."""
-    return {
-        source: dict(tables)
-        for source, tables in scenario["expected"]["row_counts"].items()
-    }
+def main(*, live: bool = False) -> int:
+    with tempfile.TemporaryDirectory(prefix="ccf-e2e-demo-") as scratch:
+        run(root=Path(scratch), live=live)
+    return 0
 
 
 if __name__ == "__main__":

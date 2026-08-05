@@ -1,3 +1,4 @@
+# ccf-schema: deferred(15-21) `ccf.skill-catalog-entry` and `ccf.skill-grant` are SDK-owned artifact classes with no committed docs/schemas/ files and no SDK_ARTIFACT_CLASSES entries, and this document carries both plus the dispatch; exporting those schemas is SDK surface work, not an example rewrite
 # E2E-demo skill material (CLAUDE.md §6.2 channel 2; D-IMPL-12/29; Phase 12
 # CONTEXT D-10/D-11). One catalog entry inside the agent's governance
 # envelope (agent.yaml permits `payment-network-read`), the grant that

@@ -81,12 +81,12 @@ The interpreter that turns this artifact into three SQLite databases:
 
 The run opens with two stages of banners (all console output is
 deterministic and byte-compared in CI against
-`artifacts/expected_output.txt` — the full expected transcript is in
-§8 below).
+`artifacts/expected_output.txt` by `tests/examples/test_e2e_demo_output.py`
+— the full expected transcript is in §8 below).
 
 **Stage 1 — GENERATE** interprets the scenario: 6,870 rows across the
 three databases, and every pinned checksum (per-database SHA-256, ring
-signature) is asserted before anything else happens.
+signature) is checked against the artifact's pins.
 
 **Stage 2 — BASELINE** is the honesty stage. The demo's headline claim —
 *an agent solves a problem it could not solve from the raw data alone* —
@@ -117,17 +117,23 @@ graph through the **single writer** — `handle.worker.ingest` is the only
 write path in the entire example (CLAUDE.md §10).
 
 How rows map to envelopes, and how envelopes resolve into canonical
-entities, is again entirely artifact-declared. The ontology below carries
-the deployment's whole vocabulary: entity classes, identity keys,
-relationship rules, and the `ingest` block that selects scenario sources
+entities, is again entirely artifact-declared, across two documents. The
+resolution spec carries the deployment's graph vocabulary — entity
+classes, identity keys, relationship rules:
+
+```yaml
+--8<-- "examples/08-e2e-demo/artifacts/resolution-spec.yaml"
+```
+
+The ingest spec carries the L1 mapping, which selects scenario sources
 and columns **by mechanism role**, never by name — which is why `run.py`
 contains no source vocabulary at all:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/ontology.yaml"
+--8<-- "examples/08-e2e-demo/artifacts/ingest-spec.yaml"
 ```
 
-Read the two load-bearing rules closely:
+Read the two load-bearing rules in the resolution spec closely:
 
 - `identity_keys: [party_tax_ref]` — the ledger account holder and the
   KYC entry mint the **same** canonical `counterparty` URI because both
@@ -166,16 +172,34 @@ typed edges served           3270
 gates                        empty-operator, lineage equality, TTL - all passed
 ```
 
-The fabric configuration — control plane bundle, policy bindings, and
-the per-observation-type half-life table that later shows up as a
-freshness number in Stage 5 — are artifacts too:
+The fabric configuration is artifacts too — one document per artifact
+class, with a single manifest naming every one of them and saying which
+are put *in force* and which are merely loaded. The manifest is the
+document to read first: it is the whole of what this deployment was
+permitted to do, enumerated rather than globbed, and it is what `run.py`
+hands to one `load_and_boot` call:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/controlplane.yaml"
+--8<-- "examples/08-e2e-demo/artifacts/manifest.yaml"
+```
+
+The policy bundle it puts in force, stamped onto every claim at assembly
+and carried into replay dimension 2:
+
+```yaml
+--8<-- "examples/08-e2e-demo/artifacts/policy-bundle.yaml"
+```
+
+And the per-observation-type half-life table that later shows up as a
+freshness number in Stage 5, with the debt profile whose risk
+sensitivity scales it:
+
+```yaml
+--8<-- "examples/08-e2e-demo/artifacts/half-life-table.yaml"
 ```
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/halflife.yaml"
+--8<-- "examples/08-e2e-demo/artifacts/debt-profile.yaml"
 ```
 
 ## 6. Stage 5: the agent and its governed skill find the ring
@@ -252,8 +276,11 @@ the same banners you saw quoted above:
 ```
 
 And the thin, generic driver that produced it — six labeled stages of
-loading, mapping, and asserting; deleting the artifacts would leave it
-nothing to run (§6.4):
+loading and mapping, opening with a single `load_and_boot` call over the
+manifest above; deleting the artifacts would leave it nothing to run
+(§6.4). It checks nothing itself: the driver returns its state and
+`tests/examples/test_e2e_demo_output.py` holds every assertion,
+including the byte-comparison, where a test runner can fail a build:
 
 ```python
 --8<-- "examples/08-e2e-demo/run.py"

@@ -1,36 +1,21 @@
+# ccf-schema: deferred(15-21) `ccf.agent-definition` is an SDK-owned artifact class with no committed docs/schemas/ file and no SDK_ARTIFACT_CLASSES entry, so no honest header exists yet; exporting that schema is SDK surface work, not an example rewrite
 # E2E-demo agent definition — a declared, versioned Control Plane artifact
 # (CLAUDE.md §6.1/§6.2; D-IMPL-28; Phase 12 CONTEXT D-09). Banking domain.
 #
 # All six specialization axes are here, as values; `/src` holds none of
 # them and run.py constructs the agent through the Agent Factory only
-# (§6.4). The axis-4 policy regime carries the D-IMPL-29 `skill_governance`
-# envelope: `payment-network-read` is the one scope agents under this
-# regime may bind, which is what admits the skills.yaml grant through the
-# tier-1 check. Instruction bindings are versioned-URI refs only.
+# (§6.4). Instruction bindings are versioned-URI refs only.
+#
+# The axis-4 and axis-5 documents this definition refs by URI used to be
+# inlined here under `referenced_artifacts`, which made this file three
+# artifact classes in one. They are now `agent-policy-regime.yaml` and
+# `agent-debt-profile.yaml`, registered by the deployment manifest under the
+# very keys the refs below name — so the ref and the registration are two
+# independent statements of one fact, and `run.py` no longer carries a loop
+# that registers artifacts out of another artifact's body.
 
 keys:
   agent_definition: meridian-bank/agents/payment-ring-analytics
-
-referenced_artifacts:
-  policy_regime:
-    key: meridian-bank/policy-bundle/financial-crime-regime
-    class_id: policy-bundle
-    semver: "1.0.0"
-    declaration:
-      regime: financial-crime-regime
-      permitted_classifications: [internal]
-      skill_governance:
-        permitted_scopes: [payment-network-read]
-        grant_requires_approval: false
-  halflife_debt_profile:
-    key: meridian-bank/debt-profile/ring-investigation
-    class_id: debt-profile
-    semver: "1.0.0"
-    declaration:
-      review_cycle: per-case
-      risk_sensitivity: "1.1"
-      forced_llm_threshold: "0.30"
-      fail_closed_threshold: "0.80"
 
 agent_definition:
   schema_version: "1.0.0"

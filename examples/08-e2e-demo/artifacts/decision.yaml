@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# This decision's inputs (banking domain, D-IMPL-52).
+#
+# Explicit inputs, never clock reads: the demo replays precisely because these
+# are data. `clock_base` seeds the deterministic ticking audit clock, so even
+# the Control Plane's audit timestamps are artifact-derived.
+#
+# **This document is `role: load` in the manifest, and that is a decision, not
+# an oversight.** Registering it would content-hash "what instant this run asked
+# about" into Control Plane state and therefore into replay dimension 2 — but
+# dimension 2 records what the fabric was PERMITTED TO DO, not what any one run
+# asked of it. Re-running at a different boundary would otherwise look like a
+# governance change.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM]. Every timestamp
+# states its zone — the loader refuses a zone-less one rather than guessing
+# (D-IMPL-38).
+
+semver: "1.0.0"
+class_id: meridian-bank.decision-inputs
+
+declaration:
+  ingestion_timestamp: 2026-06-30T12:00:00Z
+  temporal_boundary: 2026-07-01T00:00:00Z
+  now: 2026-07-01T00:00:05Z
+  clock_base: 2026-07-01T00:00:10Z
+
+  # The observation the demo evaluates for freshness at the decision instant —
+  # the last ring wire, dated from the scenario's fixed epoch. Its vocabulary
+  # belongs to the λ_c table, not the SDK.
+  freshness_demonstration:
+    observation_type: wire-transfer-record
+    observed_at: 2026-03-17T15:00:00Z

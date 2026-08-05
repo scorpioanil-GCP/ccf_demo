@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.debt-profile.json
+# E2E-demo D_c debt profile (whitepaper §7.7 CAR; banking domain, D-IMPL-52).
+#
+# The Freshness Budget multiplier and the two D_c bands the CAR predicate reads.
+# The SDK ships the routing predicate, never a calibration (INV-CH7-65;
+# CLAUDE.md §11).
+#
+# Values are QUOTED so they parse as text and are validated as decimals: the
+# canonical serializer refuses floats, and the artifact loader refuses a YAML
+# float rather than silently converting one.
+#
+# This is the FABRIC's debt profile. `agent-debt-profile.yaml` is the agent's
+# own axis-5 profile (CLAUDE.md §6.2) and is a separate declaration under a
+# separate key, deliberately: what staleness the fabric tolerates and what
+# staleness one agent tolerates are two statements, not one.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: every calibrated value is [ADAPT]; the profile keys
+# (`risk_sensitivity`, `forced_llm_threshold`, `fail_closed_threshold`) are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+risk_sensitivity: "1.1"
+forced_llm_threshold: "0.30"
+fail_closed_threshold: "0.80"

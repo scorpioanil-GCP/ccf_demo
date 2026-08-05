@@ -1,3 +1,4 @@
+# ccf-schema: deferred(15-21) `ccf.prompt-artifact` is an SDK-owned artifact class with no committed docs/schemas/ file and no SDK_ARTIFACT_CLASSES entry, and this document additionally carries the --live provider configuration; exporting that schema is SDK surface work, not an example rewrite
 # E2E-demo prompt artifact (CLAUDE.md §6.2 axis 6; §6.4; Phase 12 CONTEXT
 # D-12). The ONLY place prompt text exists in this example — a prompt
 # string literal in run.py would be the No-Hardcoding Rule firing, and

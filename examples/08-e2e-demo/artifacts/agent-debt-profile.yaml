@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The AGENT's half-life and debt profile — specialization axis 5 (CLAUDE.md
+# §6.2; banking domain, D-IMPL-52).
+#
+# Distinct from `debt-profile.yaml`, which is the fabric's `ccf.debt-profile`
+# and is read by the λ_c freshness computation. This one is the agent's own
+# declaration of what staleness it tolerates, reached by versioned-URI ref from
+# the agent definition. Two statements, two documents, two keys — collapsing
+# them would make "this agent is more conservative than the fabric default"
+# inexpressible.
+#
+# Decimal values are QUOTED: the canonical serializer refuses floats.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: debt-profile
+
+declaration:
+  review_cycle: per-case
+  risk_sensitivity: "1.1"
+  forced_llm_threshold: "0.30"
+  fail_closed_threshold: "0.80"
