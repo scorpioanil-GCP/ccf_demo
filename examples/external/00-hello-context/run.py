@@ -56,8 +56,9 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _EXAMPLE_ROOT = Path(__file__).resolve().parent
 _REPO_ROOT = _EXAMPLE_ROOT.parents[2]
@@ -82,9 +83,19 @@ from mcp.client.streamable_http import streamablehttp_client  # noqa: E402
 import serve as fabric  # noqa: E402  — the sibling fabric-side module
 
 from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
-from ccf.boot import boot  # noqa: E402
 from ccf.contracts.canonical import canonical_bytes  # noqa: E402
+from ccf.controlplane.artifacts import (  # noqa: E402
+    DeclaredArtifact,
+    OperatorParametersArtifact,
+    ProductClassDeclaration,
+    SignalBatch,
+)
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
+from ccf.deployment import (  # noqa: E402
+    BootedFabric,
+    build_operator_registry,
+    load_and_boot,
+)
 from ccf.products.contract import (  # noqa: E402
     ContextProductContract,
     ProductLineage,
@@ -93,7 +104,7 @@ from ccf.projection.engine import OperatorRegistry  # noqa: E402
 from ccf.replay.engine import replay, resolve_artifact  # noqa: E402
 from ccf.replay.record import DecisionReplayRecord  # noqa: E402
 
-from datetime import timedelta  # noqa: E402
+from datetime import datetime, timedelta  # noqa: E402
 
 ARTIFACTS = _EXAMPLE_ROOT / "artifacts"
 FIXTURES = _EXAMPLE_ROOT / "fixtures"
@@ -132,76 +143,71 @@ class HelloReplayEnvironment:
     """The deployment side of the replay seam (``ReplayEnvironment``).
 
     The projection, operators, and product envelope are rebuilt from the
-    SAME artifacts ``serve.py`` assembled from, and the engine VERIFIES
+    SAME artifacts ``serve.py`` assembled from — the ones
+    ``artifacts/manifest.yaml`` enumerates, parsed once by ``load_and_boot``
+    and handed back on ``BootedFabric.artifacts`` — and the engine VERIFIES
     every one of them against the record rather than trusting this class
     (example-06 pattern; whitepaper §7.10; D-IMPL-26/44).
     """
 
-    def __init__(
-        self,
-        *,
-        ontology: Any,
-        control: Any,
-        product_doc: Any,
-        reader: Any,
-        policy_version: str,
-    ) -> None:
-        self._ontology = ontology
-        self._control = control
-        self._product_doc = product_doc
-        self._reader = reader
-        self._policy_version = policy_version
-
-    def _operators(self) -> OperatorRegistry:
-        tenant_id = self._ontology["tenant_id"]
-        boundary = fabric._instant(
-            self._control["decision"]["temporal_boundary"]
-        )
-        corpus_attribute = self._ontology[
-            "similarity_corpus_attribute_by_class"
-        ]
-        view = self._reader.as_of(tenant_id=tenant_id, at=boundary)
-        corpus = {
-            (tenant_id, record.claim.entity_uri): record.claim.attributes[
-                corpus_attribute[record.claim.entity_class]
-            ]
-            for record in view.entities
-            if record.claim.entity_class in corpus_attribute
-        }
-        return fabric._operators(
-            ontology=self._ontology,
-            params=self._control["operator_parameters"],
-            policy_version=self._policy_version,
-            corpus=corpus,
+    def __init__(self, *, booted: BootedFabric) -> None:
+        self._booted = booted
+        self._governance = cast(
+            DeclaredArtifact, booted.artifacts["product-governance"]
+        ).declaration
+        self._decision = cast(
+            DeclaredArtifact, booted.artifacts["decision"]
+        ).declaration
+        self._declared = cast(
+            ProductClassDeclaration, booted.artifacts["product-class"]
         )
 
     def resolve_plan(self, *, plan_id: str) -> Any:
-        declared = self._product_doc["product_class"]
-        if plan_id != declared["plan_id"]:
+        if plan_id != self._governance["plan_id"]:
             raise LookupError(plan_id)
+        # `required` comes from the product-class artifact, never from the
+        # rebuilt registry's own keys: the replica must reproduce the
+        # DECLARED side of Gate 2 as it was authored, and reading it off the
+        # registry would make the replayed gate compare a value against
+        # itself exactly as the original would have.
         return fabric.CreditContextPlan(
-            plan_id=declared["plan_id"], required=self._operators().keys()
+            plan_id=plan_id, required=self._declared.required_operator_keys
         )
 
     def resolve_operators(
         self, *, operator_keys: tuple[str, ...]
     ) -> OperatorRegistry:
-        return self._operators()
+        boundary = datetime.fromisoformat(self._decision["temporal_boundary"])
+        view = self._booted.handle.reader.as_of(
+            tenant_id=self._booted.tenant_id, at=boundary
+        )
+        parameters: Mapping[str, OperatorParametersArtifact] = {
+            key: cast(OperatorParametersArtifact, self._booted.artifacts[key])
+            for key in fabric.OPERATOR_PARAMETER_KEYS
+        }
+        return build_operator_registry(
+            parameters=parameters,
+            view=view,
+            pins=self._booted.pins,
+            policy_bundle_key=fabric.POLICY_BUNDLE_KEY,
+            similarity_index_version=self._governance[
+                "similarity_index_version"
+            ],
+        )
 
     def rehydrate_product(
         self, *, record: DecisionReplayRecord, projection: Any
     ) -> ContextProductContract:
-        declared = self._product_doc["product_class"]
-        now = fabric._instant(self._control["decision"]["now"])
+        now = datetime.fromisoformat(self._decision["now"])
         return ContextProductContract(
-            schema_name=declared["schema_name"],
-            schema_version=declared["schema_version"],
+            schema_name=self._declared.schema_name,
+            schema_version=self._declared.schema_version,
             plan_id=projection.plan_id,
             tenant_id=record.tenant_id,
             temporal_boundary=record.context_fabric_snapshot.temporal_boundary,
             expires_at=now
-            + timedelta(seconds=declared["product_ttl_seconds"]),
-            ttl_anchor=declared["ttl_anchor"],
+            + timedelta(seconds=self._governance["product_ttl_seconds"]),
+            ttl_anchor=self._declared.ttl_anchor,
             lineage=ProductLineage(
                 operators_invoked=frozenset(
                     record.content_generation_path.operator_plan
@@ -439,11 +445,23 @@ def _assert_seven_heading_readme() -> None:
 
 
 def _assert_byte_equal_reproduction(
-    served_bytes: bytes, *, serve_request_label: str
+    served_bytes: bytes,
+    *,
+    serve_request_label: str,
+    booted: BootedFabric,
+    registry: ControlPlaneRegistry,
 ) -> None:
     """D-16/T-13.1-12: resolve the serve record from the store, replay it
     against a fabric rebuilt from the same artifacts, and require the
     reproduced product's canonical bytes to equal the served bytes.
+
+    ``booted`` is this process's own replica — booted from the SAME
+    ``artifacts/manifest.yaml`` ``serve.py`` booted from and ingested from the
+    same event batch. Content-derived Control Plane versions and
+    content-hashed entity URIs are what make the replica's state the recorded
+    state (D-IMPL-38); ``registry`` is the Control Plane those pins landed in,
+    and the engine resolves the record's bindings against it at their exact
+    recorded versions.
 
     ``serve_request_label`` names WHICH serve produced ``served_bytes``
     (``serve.get_context_request_label``). It is not decoration: this
@@ -455,13 +473,10 @@ def _assert_byte_equal_reproduction(
     (IN-04) — an invisible coupling that stays green today (one product,
     identical bytes) and breaks silently the moment the example grows a
     second product."""
-    ontology = fabric._load("ontology.yaml")
-    events = fabric._load("events.yaml")
-    control = fabric._load("controlplane.yaml")
-    product_doc = fabric._load("product.yaml")
-    tokens = fabric._load("tokens.yaml")
-    tenant_id: str = ontology["tenant_id"]
-    keys = control["keys"]
+    governance = cast(
+        DeclaredArtifact, booted.artifacts["product-governance"]
+    ).declaration
+    tokens = cast(DeclaredArtifact, booted.artifacts["tokens"]).declaration
 
     store = FileArtifactStore(root=_EXAMPLE_ROOT / ".store")
 
@@ -475,8 +490,8 @@ def _assert_byte_equal_reproduction(
         entry for entry in tokens["tokens"] if entry["status"] == "active"
     )
     versions = store.versions(
-        tenant_id=tenant_id,
-        artifact_class=control["artifacts"]["serve_request_class"],
+        tenant_id=booted.tenant_id,
+        artifact_class=governance["serve_request_class"],
         name=active["client_id"],
     )
     if not versions:
@@ -504,43 +519,13 @@ def _assert_byte_equal_reproduction(
     serve_request = matching[-1]
     record_address = store.resolve_uri(uri=serve_request.replay_uri)
 
-    # Rebuild the fabric from the same artifacts serve.py booted from —
-    # content-derived Control Plane versions and content-hashed entity URIs
-    # make the replica's state the recorded state (D-IMPL-38).
-    registry = ControlPlaneRegistry()
-    spec_version = registry.register(
-        keys["resolution_spec"], fabric._resolution_spec(ontology)
+    outcome = replay(
+        record_address=record_address,
+        store=store,
+        reader=booted.handle.reader,
+        control_plane=registry,
+        environment=HelloReplayEnvironment(booted=booted),
     )
-    policy_version = registry.register(
-        keys["policy_bundle"], control["policy_bundle"]
-    )
-    with tempfile.TemporaryDirectory(prefix="ccf-ext00-replay-") as scratch:
-        handle = boot(
-            database_path=Path(scratch) / "replica.sqlite3",
-            registry=registry,
-            resolution_spec_key=keys["resolution_spec"],
-            resolution_spec_version=spec_version,
-            policy_bundle_key=keys["policy_bundle"],
-            policy_bundle_version=policy_version,
-        )
-        try:
-            for envelope in fabric._envelopes(ontology, events):
-                handle.worker.ingest(envelope)
-            outcome = replay(
-                record_address=record_address,
-                store=store,
-                reader=handle.reader,
-                control_plane=registry,
-                environment=HelloReplayEnvironment(
-                    ontology=ontology,
-                    control=control,
-                    product_doc=product_doc,
-                    reader=handle.reader,
-                    policy_version=policy_version,
-                ),
-            )
-        finally:
-            handle.close()
     if canonical_bytes(outcome.product) != served_bytes:
         raise AssertionError(
             "the replayed product's canonical bytes differ from the bytes the "
@@ -569,189 +554,219 @@ def main() -> int:
     if unknown:
         raise AssertionError(f"unknown legs: {sorted(unknown)}")
 
-    ontology = fabric._load("ontology.yaml")
-    product_doc = fabric._load("product.yaml")
-    experience = fabric._load("experience.yaml")
-    tokens = fabric._load("tokens.yaml")
-    active = next(
-        entry for entry in tokens["tokens"] if entry["status"] == "active"
-    )
-    revoked = next(
-        entry for entry in tokens["tokens"] if entry["status"] == "revoked"
-    )
-
     serve_proc: subprocess.Popen[bytes] | None = None
     replay_proc: subprocess.Popen[bytes] | None = None
     with tempfile.TemporaryDirectory(prefix="ccf-ext00-run-") as scratch:
+        # This process's replica of the fabric, booted from the SAME manifest
+        # `serve.py` boots from. It supplies two things at once: the parsed
+        # artifact set every assertion below reads its expectations from, and
+        # the graph PASS 8 replays the recorded decision against. Its handle
+        # stays open for the whole run and is closed in the outer `finally`.
+        registry = ControlPlaneRegistry()
+        booted = load_and_boot(
+            fabric.MANIFEST,
+            registry=registry,
+            database_path=str(Path(scratch) / "replica.sqlite3"),
+        )
         try:
-            serve_proc, serve_port = _spawn("serve.py", Path(scratch))
-            url = f"http://127.0.0.1:{serve_port}/mcp"
-            replay_port: int | None = None
-            if not args.live:
-                # D-08: the Gemini API carries the model in the URL, not
-                # the body, so the replay server cannot read the expected
-                # model off the (body-only) recorded request. It is handed
-                # the SAME label the adk leg is given below, through this
-                # env seam — the `*_BASE_URL` pattern, one level up.
-                replay_proc, replay_port = _spawn(
-                    "replay_server.py",
-                    Path(scratch),
-                    env={
-                        **os.environ,
-                        "CCF_EXT00_GEMINI_MODEL": GEMINI_FIXTURE_LABEL,
-                    },
+            for envelope in cast(
+                SignalBatch, booted.artifacts["events"]
+            ).envelopes:
+                booted.handle.worker.ingest(envelope)
+
+            experience = cast(
+                DeclaredArtifact, booted.artifacts["experience"]
+            ).declaration
+            focus = cast(
+                DeclaredArtifact, booted.artifacts["focus"]
+            ).declaration
+            declared_class = cast(
+                ProductClassDeclaration, booted.artifacts["product-class"]
+            )
+            tokens = cast(
+                DeclaredArtifact, booted.artifacts["tokens"]
+            ).declaration
+            active = next(
+                entry for entry in tokens["tokens"] if entry["status"] == "active"
+            )
+            revoked = next(
+                entry for entry in tokens["tokens"] if entry["status"] == "revoked"
+            )
+
+            # The two child processes and every assertion that needs them
+            # alive. Terminated in `finally` with a kill fallback (T-13.1-14).
+            try:
+                serve_proc, serve_port = _spawn("serve.py", Path(scratch))
+                url = f"http://127.0.0.1:{serve_port}/mcp"
+                replay_port: int | None = None
+                if not args.live:
+                    # D-08: the Gemini API carries the model in the URL, not
+                    # the body, so the replay server cannot read the expected
+                    # model off the (body-only) recorded request. It is handed
+                    # the SAME label the adk leg is given below, through this
+                    # env seam — the `*_BASE_URL` pattern, one level up.
+                    replay_proc, replay_port = _spawn(
+                        "replay_server.py",
+                        Path(scratch),
+                        env={
+                            **os.environ,
+                            "CCF_EXT00_GEMINI_MODEL": GEMINI_FIXTURE_LABEL,
+                        },
+                    )
+
+                base_env = {
+                    **os.environ,
+                    "CCF_MCP_URL": url,
+                    "CCF_TOKEN": active["token"],
+                    # Entity refs in the served payload are content-hashed and
+                    # not client-discoverable, so the harness derives the
+                    # deployment values from the artifacts (plan-03 contract).
+                    "CCF_EXAMPLE_TENANT": booted.tenant_id,
+                    "CCF_EXAMPLE_ENTITY": focus["entity_ref"],
+                }
+                leg_env = _leg_environments(
+                    base_env=base_env,
+                    replay_port=replay_port,
+                    live=args.live,
+                    experience=experience,
                 )
 
-            base_env = {
-                **os.environ,
-                "CCF_MCP_URL": url,
-                "CCF_TOKEN": active["token"],
-                # Entity refs in the served payload are content-hashed and
-                # not client-discoverable, so the harness derives the
-                # deployment values from the artifacts (plan-03 contract).
-                "CCF_EXAMPLE_TENANT": ontology["tenant_id"],
-                "CCF_EXAMPLE_ENTITY": product_doc["focus"]["entity_ref"],
-            }
-            leg_env = _leg_environments(
-                base_env=base_env,
-                replay_port=replay_port,
-                live=args.live,
-                experience=experience,
-            )
+                outputs: dict[str, str] = {}
+                for leg in legs:
+                    outputs[leg] = _run_leg(f"client_{leg}.py", leg_env[leg])
+                print(f"PASS 1: client legs exit 0 ({', '.join(legs)})")
 
-            outputs: dict[str, str] = {}
-            for leg in legs:
-                outputs[leg] = _run_leg(f"client_{leg}.py", leg_env[leg])
-            print(f"PASS 1: client legs exit 0 ({', '.join(legs)})")
+                _assert_bad_token_refused(url, revoked["token"])
+                print("PASS 2: revoked token refused with 401 (D-12)")
 
-            _assert_bad_token_refused(url, revoked["token"])
-            print("PASS 2: revoked token refused with 401 (D-12)")
+                _assert_zero_ccf_imports()
+                print("PASS 3: zero CCF imports in client_*.py (D-06)")
 
-            _assert_zero_ccf_imports()
-            print("PASS 3: zero CCF imports in client_*.py (D-06)")
+                _assert_seven_heading_readme()
+                print(
+                    "PASS 4: README headings match the seven Phase-13 template "
+                    "names in order (D-17/D-08)"
+                )
 
-            _assert_seven_heading_readme()
-            print(
-                "PASS 4: README headings match the seven Phase-13 template "
-                "names in order (D-17/D-08)"
-            )
+                # The arguments the deployment's get_context tool takes. Entity
+                # refs in the served payload are content-hashed and not
+                # client-discoverable, so the harness derives them from the
+                # artifacts (plan-03 contract). Resolved HERE, above the D-15
+                # block, because the fallback below needs them too (WR-04).
+                get_context_arguments = {
+                    "tenant": booted.tenant_id,
+                    "entity": focus["entity_ref"],
+                }
 
-            # The arguments the deployment's get_context tool takes. Entity
-            # refs in the served payload are content-hashed and not
-            # client-discoverable, so the harness derives them from the
-            # artifacts (plan-03 contract). Resolved HERE, above the D-15
-            # block, because the fallback below needs them too (WR-04).
-            get_context_arguments = {
-                "tenant": ontology["tenant_id"],
-                "entity": product_doc["focus"]["entity_ref"],
-            }
+                # D-15: lineage and the five-dimension replay record were
+                # retrieved OVER MCP. The bare leg carries the demonstration;
+                # when it is deselected, a direct MCP read stands in.
+                if "bare" in outputs:
+                    evidence = outputs["bare"]
+                else:
+                    # WR-04: get_replay_record is per-client (WR-06) and refuses
+                    # a client that has served nothing. Every selected leg
+                    # happens to call get_context first, so this stand-in used
+                    # to work only by accident of leg ordering — and with the
+                    # legs deselected entirely (`--legs ""`) it failed with
+                    # "get_replay_record refused", a diagnostic that points at
+                    # the Experience surface rather than at the real cause.
+                    # Make the dependency explicit: this branch serves itself
+                    # the product whose record it is about to read.
+                    asyncio.run(
+                        _mcp_call_text(
+                            url,
+                            active["token"],
+                            experience["tools"]["get_context"]["name"],
+                            get_context_arguments,
+                        )
+                    )
+                    evidence = asyncio.run(
+                        _mcp_call_text(
+                            url,
+                            active["token"],
+                            experience["tools"]["get_lineage"]["name"],
+                            {},
+                        )
+                    ) + asyncio.run(
+                        _mcp_call_text(
+                            url,
+                            active["token"],
+                            experience["tools"]["get_replay_record"]["name"],
+                            {},
+                        )
+                    )
+                if "operators_invoked" not in evidence:
+                    raise AssertionError("no lineage retrieved over MCP")
+                if "content_generation_path" not in evidence:
+                    raise AssertionError("no replay record retrieved over MCP")
+                print("PASS 5: lineage + replay record retrieved over MCP (D-15)")
 
-            # D-15: lineage and the five-dimension replay record were
-            # retrieved OVER MCP. The bare leg carries the demonstration;
-            # when it is deselected, a direct MCP read stands in.
-            if "bare" in outputs:
-                evidence = outputs["bare"]
-            else:
-                # WR-04: get_replay_record is per-client (WR-06) and refuses
-                # a client that has served nothing. Every selected leg
-                # happens to call get_context first, so this stand-in used
-                # to work only by accident of leg ordering — and with the
-                # legs deselected entirely (`--legs ""`) it failed with
-                # "get_replay_record refused", a diagnostic that points at
-                # the Experience surface rather than at the real cause.
-                # Make the dependency explicit: this branch serves itself
-                # the product whose record it is about to read.
-                asyncio.run(
-                    _mcp_call_text(
+                # One authenticated session: the templated Experience resource,
+                # the get_context tool (this also captures the exact bytes the
+                # front door serves, for D-16), and tools/list.
+                resource_uri = fabric.experience_product_uri(
+                    tenant=booted.tenant_id,
+                    product_class=declared_class.schema_name,
+                    version=declared_class.schema_version,
+                )
+                # IN-04: name the serve whose bytes PASS 8 compares, so the D-16
+                # assertion selects that serve's record explicitly rather than
+                # depending on _mcp_probe's internal read order.
+                get_context_label = fabric.get_context_request_label(
+                    tenant=get_context_arguments["tenant"],
+                    entity=get_context_arguments["entity"],
+                )
+                resource_text, served_text, advertised = asyncio.run(
+                    _mcp_probe(
                         url,
                         active["token"],
+                        resource_uri,
                         experience["tools"]["get_context"]["name"],
                         get_context_arguments,
                     )
                 )
-                evidence = asyncio.run(
-                    _mcp_call_text(
-                        url,
-                        active["token"],
-                        experience["tools"]["get_lineage"]["name"],
-                        {},
+
+                # D-07: both serve paths — the templated resource
+                # (canonical_bytes in ccf_runtime.mcp.experience) and the
+                # get_context tool (the deployment's serve path) — must yield
+                # byte-identical product serializations.
+                if resource_text.encode("utf-8") != served_text.encode("utf-8"):
+                    raise AssertionError(
+                        "the Experience resource path and the get_context tool "
+                        "serve different bytes for the same product — dual "
+                        "serve-path serialization divergence (D-07)"
                     )
-                ) + asyncio.run(
-                    _mcp_call_text(
-                        url,
-                        active["token"],
-                        experience["tools"]["get_replay_record"]["name"],
-                        {},
+                print(
+                    "PASS 6: resource path and get_context serve identical "
+                    "bytes (D-07)"
+                )
+
+                # Allowlist visibility: tools/list advertises exactly the
+                # artifact-carried allowlist — nothing filtered, nothing extra.
+                allowlist = frozenset(experience["tool_allowlist"])
+                if advertised != allowlist:
+                    raise AssertionError(
+                        f"tools/list advertises {sorted(advertised)} but the "
+                        f"artifact allowlist declares {sorted(allowlist)} (D-05)"
                     )
+                print(
+                    "PASS 7: advertised tools equal the artifact allowlist "
+                    "(D-05)"
                 )
-            if "operators_invoked" not in evidence:
-                raise AssertionError("no lineage retrieved over MCP")
-            if "content_generation_path" not in evidence:
-                raise AssertionError("no replay record retrieved over MCP")
-            print("PASS 5: lineage + replay record retrieved over MCP (D-15)")
+            finally:
+                _terminate(serve_proc)
+                _terminate(replay_proc)
 
-            # One authenticated session: the templated Experience resource,
-            # the get_context tool (this also captures the exact bytes the
-            # front door serves, for D-16), and tools/list.
-            declared_class = product_doc["product_class"]
-            resource_uri = fabric.experience_product_uri(
-                tenant=ontology["tenant_id"],
-                product_class=declared_class["schema_name"],
-                version=declared_class["schema_version"],
+            _assert_byte_equal_reproduction(
+                served_text.encode("utf-8"),
+                serve_request_label=get_context_label,
+                booted=booted,
+                registry=registry,
             )
-            # IN-04: name the serve whose bytes PASS 8 compares, so the D-16
-            # assertion selects that serve's record explicitly rather than
-            # depending on _mcp_probe's internal read order.
-            get_context_label = fabric.get_context_request_label(
-                tenant=get_context_arguments["tenant"],
-                entity=get_context_arguments["entity"],
-            )
-            resource_text, served_text, advertised = asyncio.run(
-                _mcp_probe(
-                    url,
-                    active["token"],
-                    resource_uri,
-                    experience["tools"]["get_context"]["name"],
-                    get_context_arguments,
-                )
-            )
-
-            # D-07: both serve paths — the templated resource
-            # (canonical_bytes in ccf_runtime.mcp.experience) and the
-            # get_context tool (the deployment's serve path) — must yield
-            # byte-identical product serializations.
-            if resource_text.encode("utf-8") != served_text.encode("utf-8"):
-                raise AssertionError(
-                    "the Experience resource path and the get_context tool "
-                    "serve different bytes for the same product — dual "
-                    "serve-path serialization divergence (D-07)"
-                )
-            print(
-                "PASS 6: resource path and get_context serve identical "
-                "bytes (D-07)"
-            )
-
-            # Allowlist visibility: tools/list advertises exactly the
-            # artifact-carried allowlist — nothing filtered, nothing extra.
-            allowlist = frozenset(experience["tool_allowlist"])
-            if advertised != allowlist:
-                raise AssertionError(
-                    f"tools/list advertises {sorted(advertised)} but the "
-                    f"artifact allowlist declares {sorted(allowlist)} (D-05)"
-                )
-            print(
-                "PASS 7: advertised tools equal the artifact allowlist "
-                "(D-05)"
-            )
+            print("PASS 8: fabric-side byte-equal reproduction (D-16)")
         finally:
-            _terminate(serve_proc)
-            _terminate(replay_proc)
-
-        _assert_byte_equal_reproduction(
-            served_text.encode("utf-8"),
-            serve_request_label=get_context_label,
-        )
-        print("PASS 8: fabric-side byte-equal reproduction (D-16)")
+            booted.handle.close()
 
     docs_leg = " + docs-only .mcp.json leg" if not args.live else ""
     print(f"duration: {time.monotonic() - started:.1f}s")

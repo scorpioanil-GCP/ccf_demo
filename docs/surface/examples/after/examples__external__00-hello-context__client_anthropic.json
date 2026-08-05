@@ -1,0 +1,14 @@
+{
+  "asserts": 1,
+  "boot": 0,
+  "helpers": 0,
+  "imports": 7,
+  "mech": 0,
+  "opblk": 0,
+  "path": "examples/external/00-hello-context/client_anthropic.py",
+  "prints": 1,
+  "raw": 97,
+  "reg": 0,
+  "relocatable": 2,
+  "removable": 0
+}

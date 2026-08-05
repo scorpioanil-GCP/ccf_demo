@@ -1,0 +1,14 @@
+{
+  "asserts": 0,
+  "boot": 0,
+  "helpers": 0,
+  "imports": 9,
+  "mech": 0,
+  "opblk": 0,
+  "path": "examples/external/00-hello-context/client_adk.py",
+  "prints": 1,
+  "raw": 75,
+  "reg": 0,
+  "relocatable": 1,
+  "removable": 0
+}

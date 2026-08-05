@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# The single entity focus of the hello-world scenario (financial-services
+# domain, D-IMPL-52).
+#
+# The `get_context` tool resolves requests against this reference; anything
+# else is not servable and the front door refuses it. That makes this a scope
+# statement about what the fabric may serve rather than a per-run input, which
+# is why the manifest declares it `role: register`: re-authoring it changes
+# what this deployment was permitted to hand an external consumer, and that
+# should read back out of replay dimension 2 as such.
+#
+# `decision` names the decision the served context visibly changes — extend or
+# hold the borrower's revolving credit line. The two surviving signals
+# (liquidity coverage strengthened; covenant headroom widened) are what tip it
+# to `extend`; delete ev-103/ev-104 from `events.yaml` and `expected.yaml`
+# stops holding.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: first-meridian-bank.context-focus
+
+declaration:
+  entity_ref: "FMB-BRW-0007"
+  decision: "extend-credit-line"

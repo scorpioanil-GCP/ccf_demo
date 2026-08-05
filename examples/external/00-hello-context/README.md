@@ -32,6 +32,16 @@ record were retrieved over MCP; the templated resource and the
 advertises exactly the artifact allowlist; and the served bytes are
 reproduced **byte-equal** from the replay record alone, fabric-side.
 
+`tests/examples/test_ext00_serve_output.py` owns what the fabric
+*computed*: that the assembled product matches
+`artifacts/expected.yaml` — a document nothing in `serve.py` reads, so
+either side changing alone fails — that the lineage and the
+five-dimension replay record cross the authenticated wire to a client leg
+**byte-unchanged**, and that the zero-CCF-import assertion actually
+refuses when a leg is given a CCF import rather than merely passing. The
+example running clean proves the spine executes; that module proves it is
+right.
+
 ## Run it
 
 ```bash
@@ -39,9 +49,12 @@ make example-ext-00
 ```
 
 Raw fallback: `PYTHONPATH=src:runtime python examples/external/00-hello-context/run.py`.
-Exit code 0 means all six assertions above held — servers came up,
+Exit code 0 means all eight assertions above held — servers came up,
 every leg consumed the front door, the refusal path fired, and the
 reproduction was byte-equal.
+
+The correctness suite runs separately and needs no vendor key:
+`PYTHONPATH=src:runtime pytest tests/examples/test_ext00_serve_output.py`.
 
 Live variants (opt-in, never CI): `make example-ext-00-live-anthropic`
 and `make example-ext-00-live-adk` run the same client files against the
@@ -53,17 +66,28 @@ switch. Determinism in CI comes from `replay_server.py` replaying the
 versioned `fixtures/` verbatim at the transport level.
 
 > **Expected-output changes are a reviewed event.** If you enrich the
-> artifacts, run `make example-ext-00`, review the assertion output, then
-> deliberately edit the `expected:` block in `artifacts/product.yaml` to
-> match what you reviewed — regeneration is a reviewed event, landed in
-> the same commit as the enrichment, with the commit body summarizing
-> what changed in the output and why. The model-API fixtures under
-> `fixtures/` have their own reviewed regeneration procedure — see
+> artifacts, run the test module, review what changed, then deliberately
+> edit `artifacts/expected.yaml` to match what you reviewed —
+> regeneration is a reviewed event, landed in the same commit as the
+> enrichment, with the commit body summarizing what changed in the output
+> and why. The model-API fixtures under `fixtures/` have their own
+> reviewed regeneration procedure — see
 > [`fixtures/README.md`](fixtures/README.md).
 
 ## The story
 
-`serve.py` boots the whole fabric from `artifacts/`: one borrower, one
+`serve.py` boots the whole fabric from `artifacts/` in **one call** —
+`load_and_boot` reads `artifacts/manifest.yaml`, which enumerates every
+document this deployment puts in force, parses and validates each against
+the artifact class the manifest declares for it, registers the
+`role: register` ones and boots on the resulting pins. A second call,
+`build_operator_registry`, turns the four operator-parameter documents
+into the operator chain. Between them they replace what used to be a
+YAML loader, a timestamp helper, a resolution-spec marshaller, an
+envelope marshaller, a registration prologue and a 61-line inline
+operator block.
+
+What that fabric holds: one borrower, one
 revolving credit facility, four financial signals ingested through the
 L1–L6 layers (the fabric's six layers: L1 signal ingestion → L2 assembly,
 the only writer → L3 graph → L4 operators → L5 projection → L6 product
@@ -131,20 +155,36 @@ appear in Claude's tool list, discovered from the server exactly as the
 coded legs discover them. One deliberate note: `list_agents` returns an
 **empty directory** — this deployment exposes no agents on the front
 door (hello-world scope; the declaration lives in
-`artifacts/experience.yaml`, key `agent_exposure`), so agent invocation
+`artifacts/experience.yaml`, key `declaration.agent_exposure`), so agent
+invocation
 visibly refuses rather than silently not existing.
 
 ## Artifact-by-artifact
 
-| Artifact | What it declares | Yours to edit vs mechanism |
-| --- | --- | --- |
-| `artifacts/ontology.yaml` | Tenant id, entity classes and resolution rules, relationship types, similarity-corpus and classification attribute maps | `[ADAPT]` tenant id, classes, attribute names; `[MECHANISM]` rule field names the resolution spec interprets |
-| `artifacts/events.yaml` | The L1 signal envelopes — the borrower, facility, and four financial signals | `[ADAPT]` all payload vocabulary and timestamps; `[MECHANISM]` envelope field names |
-| `artifacts/controlplane.yaml` | Operator parameters, policy bundle, decision instants, TTLs, Control Plane keys, artifact class names | `[ADAPT]` parameter values, instants, TTLs; `[MECHANISM]` key names and `artifacts:` class keys |
-| `artifacts/product.yaml` | The one product class, its plan id, the entity focus, and the `expected:` self-check block | `[ADAPT]` schema name, plan id, focus, expected values; `[MECHANISM]` `product_class` / `focus` / `expected` field names |
-| `artifacts/experience.yaml` | Server name, auth issuer/resource/scope, tool names AND prose, empty agent exposure, live-mode model names | `[ADAPT]` all prose, URLs, scope and model names; `[MECHANISM]` `auth` / `tools` / `agent_exposure` / `live_mode` structure |
-| `artifacts/tokens.yaml` | The SYNTHETIC token table: one active analyst entry, one revoked entry backing the 401 assertion | `[ADAPT]` token values, client ids, scopes; `[MECHANISM]` `tokens` entry field names |
-| `fixtures/*.json` | Recorded two-turn model-API conversations making both LLM legs deterministic offline | `[ADAPT]` by reviewed regeneration only (`fixtures/README.md`); `[MECHANISM]` filename ordinals and path-suffix routing |
+One artifact class, one document — which is what makes an honest
+`# yaml-language-server: $schema=` header on the first line of each
+possible, and it is why a bundle carrying two classes had to be split:
+either header would mark the other class's keys as errors in your editor.
+Every document below carries one, pointing either at the SDK's committed
+schema for its class or at the committed `DeclaredArtifact` envelope for
+a class the SDK does not own.
+
+| Artifact | Role | What it declares | Yours to edit vs mechanism |
+| --- | --- | --- | --- |
+| `artifacts/manifest.yaml` | — | The tenant, the backend *kind*, and every other document by `path`, `key`, `class_id` and `role`. No DSN and no database path: a connection string is an environment value and must not be content-hashed into the audit plane | `[ADAPT]` tenant id, keys, paths, non-`ccf.` class ids; `[MECHANISM]` every field name and the `role` values |
+| `artifacts/resolution-spec.yaml` | register | Entity classes, identity and attribute keys, typed relationship rules. Closed-world over resolution rules only | `[ADAPT]` classes, match keys, attribute names; `[MECHANISM]` rule field names |
+| `artifacts/events.yaml` | load | The L1 signal envelopes — the borrower, facility, and four financial signals, in the SDK's own envelope vocabulary. `load` is FIXED by the SDK: registering raw events would put them in replay dimension 2 | `[ADAPT]` all payload vocabulary and timestamps; `[MECHANISM]` envelope field names |
+| `artifacts/policy-bundle.yaml` | register | The regime, jurisdiction and permitted classifications stamped onto every claim at assembly | `[ADAPT]` every declared value; `[MECHANISM]` `semver` / `class_id` / `declaration` |
+| `artifacts/operator-parameters-{traversal,temporal,policy,similarity}.yaml` | register | One document per operator category, each read by exactly one consumer — including the classification map (policy) and the corpus map (similarity) | `[ADAPT]` queries, thresholds, class names, depth; `[MECHANISM]` the field names each category's contract declares |
+| `artifacts/perspective.yaml` | register | The Π role-conditioning, verbatim into replay dimension 4 | `[ADAPT]` principal id and role; `[MECHANISM]` both key names |
+| `artifacts/product-class.yaml` | register | The one product class, its schema lane, TTL anchor, assembly mode, MAX_TTL key, and `required_operator_keys` — the authored declared side of the lineage gate | `[ADAPT]` schema name, lane, key, operator key names; `[MECHANISM]` field names and enum values |
+| `artifacts/product-governance.yaml` | register | The values the SDK declines to own: the TTL ceiling, the product TTL, the corpus version identity, the plan id, and the two ArtifactStore class names | `[ADAPT]` every declared value; `[MECHANISM]` envelope keys |
+| `artifacts/focus.yaml` | register | The one entity `get_context` will serve, and the decision the context informs. Registered because it scopes what the front door may hand out | `[ADAPT]` the entity ref and decision label; `[MECHANISM]` envelope keys |
+| `artifacts/decision.yaml` | load | This run's temporal boundary and `now`. Declared instants, never clock reads — which is what makes the byte-equal reproduction possible | `[ADAPT]` both instants; `[MECHANISM]` envelope keys |
+| `artifacts/expected.yaml` | load | What the deployment expects the served product to contain. Read by the test module and by nothing in the serving path | `[ADAPT]` every declared value; `[MECHANISM]` envelope keys |
+| `artifacts/experience.yaml` | register | Server name, auth issuer/resource/scope, tool names AND prose, the allowlist, empty agent exposure, live-mode model names | `[ADAPT]` all prose, URLs, scope and model names; `[MECHANISM]` `auth` / `tools` / `tool_allowlist` / `agent_exposure` / `live_mode` structure |
+| `artifacts/tokens.yaml` | load | The SYNTHETIC token table: one active analyst entry, one revoked entry backing the 401 assertion. `load`, never `register` — credential material must not reach the audit plane | `[ADAPT]` token values, client ids, scopes; `[MECHANISM]` entry field names |
+| `fixtures/*.json` | — | Recorded two-turn model-API conversations making both LLM legs deterministic offline | `[ADAPT]` by reviewed regeneration only (`fixtures/README.md`); `[MECHANISM]` filename ordinals and path-suffix routing |
 
 ## Whitepaper / CLAUDE.md sections exercised
 
@@ -166,15 +206,21 @@ visibly refuses rather than silently not existing.
 ## What to change first
 
 Move the example to your domain by editing, in order:
-`artifacts/ontology.yaml` (your `tenant_id`, entity classes, resolution
-and relationship rules), `artifacts/events.yaml` (your source events),
-`artifacts/controlplane.yaml` (operator parameters that do visible work
-on your data), and `artifacts/product.yaml` (your product class, focus
-entity, and — after a reviewed run — its `expected:` block). Then update
-the tool prose in `artifacts/experience.yaml` to describe your product.
-On the next `make example-ext-00` you should see the same six PASS lines
-over your vocabulary: the client legs need no changes at all, which is
-the point — they never knew the domain existed.
+`artifacts/manifest.yaml` (your `tenant_id`; the entry list changes only
+if you add or drop a document), `artifacts/resolution-spec.yaml` (your
+entity classes and relationship rules), `artifacts/events.yaml` (your
+source events), the four `artifacts/operator-parameters-*.yaml` documents
+(parameters that do visible work on your data),
+`artifacts/product-class.yaml` and `artifacts/product-governance.yaml`
+(your product class and its governance values), `artifacts/focus.yaml`
+(the entity you serve), and — after a reviewed run —
+`artifacts/expected.yaml`. Then update the tool prose in
+`artifacts/experience.yaml` to describe your product.
+
+On the next `make example-ext-00` you should see the same eight PASS
+lines over your vocabulary, and the test module should stay green once
+`expected.yaml` matches what you reviewed. The client legs need no
+changes at all, which is the point — they never knew the domain existed.
 
 ## What would fail
 
@@ -188,4 +234,7 @@ the point — they never knew the domain existed.
 | Allowlist is the whole advertised surface | `run.py` PASS 7: `tools/list` must equal `tool_allowlist` from `artifacts/experience.yaml` — a tool registered outside the artifact fails the run |
 | Replay record lands before bytes leave; byte-equal reproduction | `run.py` PASS 8: the record resolved from `.store/` at its exact content address must replay to the served bytes; any drift in artifacts, operators, or state raises a divergence |
 | No-Hardcoding Rule (CLAUDE.md §6.4) | `make lint`: prompt prose, tool descriptions, tokens, model names, or thresholds appearing in any `.py` here fail the CI lint |
-| Gate-admitted products only | `serve.py`'s self-check: the served payload must match `artifacts/product.yaml` `expected:` before the server ever announces `READY` |
+| Gate-admitted products only | `serve.py` narrows the gate result with `match`/`case ServableProduct()` and raises on a refusal. `ServableProduct` is not constructible outside `run_gates`, so nothing external can ever see an ungated product |
+| The fabric computed the declared answer | `test_ext00_serve_output.py`: the assembled payload — and the payload a client leg actually received over MCP — must match `artifacts/expected.yaml`, which nothing in the serving path reads |
+| Lineage and replay survive the wire | `test_ext00_serve_output.py`: the lineage block and the five-dimension record the bare leg reads back must be byte-identical to the ones the test process assembled for itself |
+| The zero-import guard still refuses | `test_ext00_serve_output.py`: the guard is run against copies of the legs with a CCF import injected, and must raise. A grep that matched nothing would otherwise stay green forever |

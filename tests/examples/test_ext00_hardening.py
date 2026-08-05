@@ -80,7 +80,10 @@ def _load_experience_tools() -> Any:
             encoding="utf-8"
         )
     )
-    return doc["tools"]
+    # Plan 15-20 reshaped this document onto the `DeclaredArtifact` envelope
+    # (one artifact class, one document), so the deployment's own values sit
+    # under `declaration:`. Only the read moved; the assertions below did not.
+    return doc["declaration"]["tools"]
 
 
 # --------------------------------------------------------------------------
@@ -123,7 +126,9 @@ def _load_experience_doc() -> Any:
             encoding="utf-8"
         )
     )
-    return doc
+    # As above: the envelope's `declaration:` block is where this deployment's
+    # `agent_exposure` and `tool_allowlist` now live (plan 15-20).
+    return doc["declaration"]
 
 
 def test_the_committed_agent_exposure_declares_no_agents() -> None:
