@@ -417,7 +417,7 @@ Plans:
 
 ### Phase 15.1: Ergonomics Gap Closure — Governance Enforced, Not Conventional (INSERTED)
 
-**Goal**: The two governance guarantees Phase 15 shipped as *convention* become guarantees the code *enforces* — a manifest cannot route an author-versioned artifact class around the D-05 bump check, and Gate 2 (lineage strict equality, INV-CH7-47) has two genuinely independent sides in every example, proven by a mutation test that fails when they diverge
+**Goal**: The two governance guarantees Phase 15 shipped as *convention* become guarantees the code *enforces* — a manifest cannot route an author-versioned artifact class around the D-05 bump check, and the operator set a deployment declares can no longer agree with the set it executes by construction, because the two now come from separately authored artifacts bound by a boot-time check that refuses when they disagree (design E2, D-IMPL-86)
 **Depends on**: Phase 15 (closed and gated; D-GATE-15 amended rather than revoked)
 **Blocks**: Phase 16 — the documentation rewrite must not describe a self-satisfying gate
 **Requirements**: ERGO-18, ERGO-19
@@ -467,13 +467,22 @@ governance-sensitive the artifact, the *less* declarative Phase 15 made it.
 
   1. A manifest that declares an author-versioned class (`ccf.workflow-definition`, `ccf.agent-definition`, `ccf.task-definition`) for typed registration is **refused at load**, with a test that asserts the refusal — not a test that the examples happen to avoid the pattern
   2. The registration mode is declared per entry in the manifest and dispatched by `load_and_boot`; the artifact author does not have to know which of two registration paths their class belongs to
-  3. Gate 2's declared side is rebuilt from an authored source independent of `execution.operators_invoked` in every example that runs the gate, so the two sides of lineage strict equality no longer share a provenance
-  4. A mutation test proves Gate 2 **fails** when the declared and resolved operator sets diverge — the check is demonstrated to be falsifiable, not merely present
+  3. `lineage.operators_invoked` is filled from the product-class declaration — never from `execution.operators_invoked` — in every example that runs Gate 2, and the projection's required operator set comes from its own Control Plane artifact rather than from the product-class artifact, so the declared and executed sets are separately authored (D-IMPL-86, design E2)
+  4. A boot-time binder **refuses** when `product_class.required_operator_keys != frozenset(plan.required_operators())`, and a test proves the refusal fires when the two artifacts are edited into disagreement — this is where authorable drift fails, and it is reachable by editing an artifact rather than only by writing a bug
+  4a. Gate 2 is documented for what it verifies — **assembly-path integrity**, the claim transcribed into the Contract equalling the engine's execution of the plan — and every site asserting that it compares two independently authored sets is corrected, including `src/ccf/products/gates.py:14-17` and `:244-250`, the `ProductClassDeclaration` docstring at `src/ccf/controlplane/artifacts.py:514-521`, and `docs/SURFACE-AUDIT.md` §3.1 item 1. D-IMPL-57's intra-fabric "the engine's resolution is an independent witness" premise is corrected with it: the engine is a faithful transcriber of the plan, which holds under every design considered
+  4b. A tripwire refuses any call site filling both of Gate 2's arguments from `execution`, closing the shape CR-2 found
   5. `docs/SURFACE-AUDIT.md` §4.1 is corrected: "eight instances" is an undercount, and the ninth (the Gate 2 call-site pattern) is entered with the same accounting discipline
   6. The new AST gates are restated as **tripwires** — they catch known patterns — rather than as structural enforcement on par with single-writer DI (codex and cursor, agreed concern)
   7. The public-surface manifest and the `--check` drift gate stay green; no replay dimension is hidden by anything this phase adds
 
-**Non-goals** (scope ruled by Dave, 2026-08-05, at planning: *the two HIGH items only*):
+**Scope amendment (Dave, 2026-08-05, D-IMPL-86):** the original "two HIGH items only" ruling
+is widened by design E2, which adds a projection-requirements artifact class and a boot-time
+binder — new mechanism, not defect closure. E2 also revises the gated 15-09 decision, so this
+phase runs as a Phase D mini-cycle under CLAUDE.md §3.1 with D-IMPL-86 as the ruling of record.
+Rationale: shipping the cheaper option first would have Phase 16 document an "assembly-path
+integrity" framing that a later phase then rewrites — Phase 14's G-01 defect repeated.
+
+**Non-goals** (everything else the two-HIGHs ruling excluded still stands):
 reopening the Phase 15 abstraction line (D-15A stands); **D-IMPL-81** (pinning the manifest
 itself) — ruled out, it stays open debt against Phase 16 or later; **codex's per-gate
 independence matrix** (`Invariant | Declared source | Observed source | Test proving they can
