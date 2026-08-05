@@ -3,14 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-05T13:25:37.793Z"
-last_activity: 2026-08-05 -- Phase 15 execution started
+last_updated: 2026-08-05T18:05:00.000Z
+last_activity: 2026-08-05 -- Phase 15 approved and gated (D-GATE-15); Phase 16 next
 progress:
   total_phases: 11
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 62
-  completed_plans: 59
-  percent: 82
+  completed_plans: 62
+  percent: 91
+stopped_at: Phase 15 complete and gated; Phase 16 (Documentation Rewrite) not started
 ---
 
 # STATE — CCF SDK
@@ -23,15 +24,15 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 15 — sdk-ergonomics-the-integration-surface
+**Current focus:** Phase 16 — Documentation Rewrite (not started)
 
 ## Current Position
 
-Phase: 15 (sdk-ergonomics-the-integration-surface) — EXECUTING
-Plan: 19 of 21 (wave 12 of 14)
-Status: Executing Phase 15 — waves 1-11 complete and merged
-Progress: [##################################----] 18/21 Phase 15 plans
-Last activity: 2026-08-05 -- Phase 15 execution started
+Phase: 15 COMPLETE and gated (D-GATE-15, 2026-08-05) — Phase 16 is next
+Plan: 21/21 complete
+Status: Phase 15 closed; Phase 16 (Documentation Rewrite) not started
+Progress: [######################################] 21/21 Phase 15 plans
+Last activity: 2026-08-05 -- D-GATE-15 logged, phase merged to main
 
 ## Performance Metrics
 
