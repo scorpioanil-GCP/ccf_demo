@@ -1,0 +1,130 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.deployment-manifest.json
+# The one document naming what this deployment puts in force (D-06, D-08,
+# D-IMPL-80; banking domain, D-IMPL-52).
+#
+# Every artifact is ENUMERATED, never globbed: the set of Control Plane
+# artifacts in force is dimension 2 of the five-dimension Decision Replay
+# record, and a pattern would make that set a function of directory contents at
+# boot time with no artifact recording that a dropped-in file changed what was
+# in force. `ManifestEntry` refuses a glob at parse.
+#
+# The BACKEND is declared as a kind only (D-08). There is no DSN and no
+# database path here, deliberately: a connection string is a deployment
+# ENVIRONMENT value, and putting one in a versioned, content-hashed artifact
+# would persist it into the audit plane. `load_and_boot` refuses loudly if the
+# declared kind and the supplied connection argument disagree.
+#
+# `tenant_id` lives here rather than in the resolution spec (plan 15-10, Q3):
+# D-03 makes `ccf.resolution-spec` closed-world over resolution rules only, and
+# the manifest is where this deployment's own identity already is.
+#
+# Each `key` is the Control Plane key its artifact is in force under AND the
+# key it comes back under on `BootedFabric.artifacts`. `run.py` names these
+# keys directly — they are this deployment's own vocabulary, so those lines are
+# configuration an adopter reads and edits, not type introspection.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `tenant_id`, every `key`, every `path`, and the
+# non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
+# `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
+# `artifacts`, `path`, `key`, `class_id` and `role`, the `ccf.`-prefixed class
+# ids, and the `role` values are [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: meridian-bank
+backend: sqlite
+
+resolution_spec_key: resolution-spec
+policy_bundle_key: policy-bundle
+
+artifacts:
+  # --- role: register — into the registry, into the pin set, into replay
+  #     dimension 2. This is "what this fabric was permitted to do".
+  - path: resolution-spec.yaml
+    key: resolution-spec
+    class_id: ccf.resolution-spec
+    role: register
+
+  - path: policy-bundle.yaml
+    key: policy-bundle
+    class_id: meridian-bank.policy-bundle
+    role: register
+
+  - path: half-life-table.yaml
+    key: half-life-table
+    class_id: ccf.half-life-table
+    role: register
+
+  - path: debt-profile.yaml
+    key: debt-profile
+    class_id: ccf.debt-profile
+    role: register
+
+  - path: operator-parameters-traversal.yaml
+    key: traversal
+    class_id: ccf.operator-parameters.traversal
+    role: register
+
+  - path: operator-parameters-temporal.yaml
+    key: temporal
+    class_id: ccf.operator-parameters.temporal
+    role: register
+
+  - path: operator-parameters-policy.yaml
+    key: policy
+    class_id: ccf.operator-parameters.policy
+    role: register
+
+  - path: operator-parameters-similarity.yaml
+    key: similarity
+    class_id: ccf.operator-parameters.similarity
+    role: register
+
+  - path: perspective.yaml
+    key: perspective
+    class_id: ccf.perspective
+    role: register
+
+  - path: product-class.yaml
+    key: product-class
+    class_id: ccf.product-class
+    role: register
+
+  - path: product-governance.yaml
+    key: product-governance
+    class_id: meridian-bank.product-governance
+    role: register
+
+  # --- role: load — parsed and validated through the same seam as everything
+  #     above, then handed back on `BootedFabric.artifacts`. Never registered,
+  #     never pinned, never in replay dimension 2.
+
+  # The events batch is `role: load` and the SDK FIXES it that way (D-IMPL-80,
+  # SDK_ARTIFACT_ROLES): registering a signal batch would content-hash raw
+  # event data into Control Plane state and therefore into Decision Replay
+  # dimension 2, so re-authoring this file would look like a change to what was
+  # in force — exactly as a policy-bundle bump does. It is not. Events are what
+  # the fabric OBSERVED; the Control Plane is what the fabric was PERMITTED TO
+  # DO. Writing `role: register` here is refused before anything is read.
+  - path: events.yaml
+    key: events
+    class_id: ccf.signal-batch
+    role: load
+
+  # This run's decision instants. The deployment's own class, so the role is
+  # the deployment's call — and it is `load` for the same reason: what instant
+  # one run asked about is not part of what the fabric was permitted to do.
+  - path: decision.yaml
+    key: decision
+    class_id: meridian-bank.decision-inputs
+    role: load
+
+  # What the deployment expects the product to contain. An expectation is not a
+  # permission, so it is parsed and returned, never put in force.
+  - path: expected.yaml
+    key: expected
+    class_id: meridian-bank.expected-product
+    role: load

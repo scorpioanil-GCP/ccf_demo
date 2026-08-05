@@ -46,6 +46,7 @@ from tools.check_schema_headers import (
 from tools.dump_schemas import (
     CLASS_ID_KEY,
     DRIFT_MESSAGE,
+    ENVELOPE_CLASS_ID,
     SCHEMAS_DIR,
     differences,
     emit,
@@ -179,6 +180,124 @@ def test_an_unannotated_document_fails(tmp_path: pathlib.Path) -> None:
     problems = check_document(document.resolve())
     assert problems, "an unannotated document passed the check"
     assert "explicitly deferred" in problems[0], problems
+
+
+# ---------------------------------------------------------------------------
+# The deployment-authored envelope (plan 15-13)
+# ---------------------------------------------------------------------------
+#
+# A class the SDK does not own has no class-specific committed schema, so its
+# documents point at the shared `DeclaredArtifact` envelope instead. Each test
+# below pins one way that indirection could have weakened the gate, and each
+# one fails for the reason it names.
+
+
+def _envelope_document(directory: pathlib.Path, body: str) -> pathlib.Path:
+    """Write a document headed with the committed envelope schema."""
+    target = SCHEMAS_DIR / f"{ENVELOPE_CLASS_ID}.json"
+    path = directory / "declared.yaml"
+    path.write_text(
+        f"{HEADER_PREFIX}{os.path.relpath(target, directory)}\n{body}",
+        encoding="utf-8",
+    )
+    return path.resolve()
+
+
+def test_the_envelope_schema_is_committed_and_annotated() -> None:
+    """Without it, a deployment-authored document has no honest header."""
+    document = json.loads(
+        (SCHEMAS_DIR / f"{ENVELOPE_CLASS_ID}.json").read_text(encoding="utf-8")
+    )
+    assert document[CLASS_ID_KEY] == ENVELOPE_CLASS_ID
+
+
+def test_the_envelope_is_not_an_owned_class() -> None:
+    """It is committed *without* becoming manifest-addressable.
+
+    Adding it to ``SDK_ARTIFACT_CLASSES`` would let a manifest name the
+    envelope as a class and would break the "an unknown class id *is* a
+    deployment-authored schema" design it exists to serve.
+    """
+    assert ENVELOPE_CLASS_ID not in SDK_ARTIFACT_CLASSES
+
+
+def test_a_deployment_authored_document_passes_on_the_envelope(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The path this indirection exists to open."""
+    document = _envelope_document(
+        tmp_path, "semver: '1.0.0'\nclass_id: acme.thing\ndeclaration:\n  a: 1\n"
+    )
+    assert check_document(document) == []
+
+
+def test_an_envelope_document_naming_no_class_fails(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The envelope is shared, so the document's own field is what identifies
+    it; without one, nothing states what kind of thing it is."""
+    document = _envelope_document(tmp_path, "semver: '1.0.0'\ndeclaration:\n  a: 1\n")
+    problems = check_document(document)
+    assert problems and "declares no `class_id`" in problems[0], problems
+
+
+def test_an_envelope_header_over_an_sdk_owned_class_fails(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The envelope must not become a way to opt out of the real schema.
+
+    Its ``declaration`` is open, so pointing an SDK-owned document at it would
+    silence every constraint that class actually declares.
+    """
+    document = _envelope_document(
+        tmp_path, "semver: '1.0.0'\nclass_id: ccf.perspective\ndeclaration:\n  a: 1\n"
+    )
+    problems = check_document(document)
+    assert problems and "which the SDK owns" in problems[0], problems
+
+
+def test_the_envelope_still_refuses_a_document_it_does_not_accept(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Open ``declaration`` does not mean an open document: the envelope's own
+    three keys are still closed-world."""
+    document = _envelope_document(
+        tmp_path,
+        "semver: '1.0.0'\nclass_id: acme.thing\ndeclaration:\n  a: 1\nstray: 2\n",
+    )
+    problems = check_document(document)
+    assert problems and "does not accept this document" in problems[0], problems
+
+
+def test_the_manifest_cross_check_reads_the_documents_own_class_id(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Two independent statements of one fact must still be compared.
+
+    For an envelope-headed document the header carries no class identity, so
+    the cross-check falls through to the document's ``class_id`` field. If it
+    did not, a manifest could name any class at all for a deployment-authored
+    document and nothing would fire.
+    """
+    _envelope_document(
+        tmp_path, "semver: '1.0.0'\nclass_id: acme.thing\ndeclaration:\n  a: 1\n"
+    )
+    (tmp_path / "manifest.yaml").write_text(
+        "semver: '1.0.0'\n"
+        "tenant_id: t\n"
+        "backend: sqlite\n"
+        "resolution_spec_key: declared\n"
+        "policy_bundle_key: declared\n"
+        "artifacts:\n"
+        "  - path: declared.yaml\n"
+        "    key: declared\n"
+        "    class_id: acme.something-else\n"
+        "    role: register\n",
+        encoding="utf-8",
+    )
+    problems = check_directory(tmp_path)
+    assert problems, "a manifest disagreeing with the document passed"
+    assert any("disagree" in problem for problem in problems), problems
 
 
 def test_a_deferral_marker_must_name_the_closing_plan(

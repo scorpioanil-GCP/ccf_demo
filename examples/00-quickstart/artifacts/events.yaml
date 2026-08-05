@@ -1,7 +1,4 @@
-# ccf-schema: deferred(15-13) multi-artifact bundle — no single SDK artifact
-# class accepts this document, so any $schema header would annotate every key
-# belonging to the other artifacts as an error. Plan 15-13 splits this file into
-# typed per-class documents with a manifest and writes the real header then.
+# yaml-language-server: $schema=../../../docs/schemas/ccf.signal-batch.json
 # Quickstart event stream — L1 signal envelopes (banking domain, D-IMPL-52).
 #
 # A handful of events, but not a flat happy path: the stream is built so the
@@ -20,24 +17,32 @@
 #     an internally-classified node two hops from the customer, so the
 #     bounded traversal has a real second hop to walk.
 #
+# The document adopts the SDK's OWN envelope vocabulary — `source: {system_id}`,
+# `raw_payload:` — rather than a flat shape the loader would have to translate.
+# A translation removed is one that cannot drift.
+#
 # Payload keys are the *source systems'* vocabulary, never the fabric's.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename
 #
-# In this file: everything under `payload:` and every source system id is
-# [ADAPT]; the envelope keys (`envelope_id`, `source_system_id`,
-# `ingestion_timestamp`, `observed_time`, `payload`) are [MECHANISM].
+# In this file: everything under `raw_payload:` and every source system id is
+# [ADAPT]; the envelope keys (`envelope_id`, `tenant_id`, `source`,
+# `system_id`, `ingestion_timestamp`, `observed_time`, `raw_payload`) are
+# [MECHANISM].
 
-schema_version: "1.0.0"
-artifact_version: "1.0.0"
+semver: "1.0.0"
+
+tenant_id: meridian-bank
 
 envelopes:
   - envelope_id: ev-100
-    source_system_id: core-banking
+    tenant_id: meridian-bank
+    source:
+      system_id: core-banking
     ingestion_timestamp: 2026-06-01T09:00:00Z
     observed_time: 2026-06-01T08:55:00Z
-    payload:
+    raw_payload:
       customer_ref: "MB-CUST-000088"
       customer_name: "Alpenrose Logistics GmbH"
       segment: "corporate"
@@ -49,20 +54,24 @@ envelopes:
       account_classification: "internal"
 
   - envelope_id: ev-101
-    source_system_id: crm
+    tenant_id: meridian-bank
+    source:
+      system_id: crm
     ingestion_timestamp: 2026-06-01T09:05:00Z
     observed_time: 2026-06-01T08:55:00Z
-    payload:
+    raw_payload:
       customer_ref: "MB-CUST-000088"
       customer_name: "Alpenrose Logistics GmbH"
       segment: "corporate"
       customer_classification: "internal"
 
   - envelope_id: ev-102
-    source_system_id: payments-hub
+    tenant_id: meridian-bank
+    source:
+      system_id: payments-hub
     ingestion_timestamp: 2026-06-01T09:10:00Z
     observed_time: 2026-06-01T09:05:00Z
-    payload:
+    raw_payload:
       customer_ref: "MB-CUST-000088"
       customer_name: "Alpenrose Logistics GmbH"
       segment: "corporate"
@@ -74,10 +83,12 @@ envelopes:
       account_classification: "internal"
 
   - envelope_id: ev-103
-    source_system_id: mandate-registry
+    tenant_id: meridian-bank
+    source:
+      system_id: mandate-registry
     ingestion_timestamp: 2026-06-01T09:15:00Z
     observed_time: 2026-06-01T09:12:00Z
-    payload:
+    raw_payload:
       mandate_id: "MND-0009"
       mandate_scheme: "sepa_b2b_direct_debit"
       mandate_classification: "restricted"
@@ -88,10 +99,12 @@ envelopes:
       account_classification: "internal"
 
   - envelope_id: ev-104
-    source_system_id: branch-directory
+    tenant_id: meridian-bank
+    source:
+      system_id: branch-directory
     ingestion_timestamp: 2026-06-01T09:20:00Z
     observed_time: 2026-06-01T09:18:00Z
-    payload:
+    raw_payload:
       branch_code: "MB-BR-016"
       branch_name: "Frankfurt Westend Corporate Center"
       branch_classification: "internal"

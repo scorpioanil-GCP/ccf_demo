@@ -45,42 +45,51 @@ Run: `make example-00`.
 
 A deployment's vocabulary — which entity kinds exist, which attributes
 identify them, which relationships connect them — is an artifact, not code.
-The quickstart's ontology is the smallest complete example of one. Read it as
-the template for your own domain: the identifier keys mint the canonical
-entity URI, so the same real-world thing arriving from two unrelated source
-systems converges on one node without either system knowing about the other.
+The quickstart's **entity-resolution spec** is the smallest complete example of
+one. Read it as the template for your own domain: the identifier keys mint the
+canonical entity URI, so the same real-world thing arriving from two unrelated
+source systems converges on one node without either system knowing about the
+other.
 
 ```yaml
---8<-- "examples/00-quickstart/artifacts/ontology.yaml"
+--8<-- "examples/00-quickstart/artifacts/resolution-spec.yaml"
 ```
 
-The driver's job is to translate that declaration into the typed resolution
-specification the assembly worker accepts. This is the whole of it — loading
-and shaping, with no vocabulary of its own:
+That document is one of fourteen. A **deployment manifest** names every one of
+them — its path, the Control Plane key it is in force under, the artifact class
+it is validated against, and its `role`. `role: register` puts an artifact into
+the Control Plane and into the pinned set that is dimension 2 of the Decision
+Replay record; `role: load` parses and validates it exactly the same way and
+hands it back, but never puts it in force. The event batch is `role: load`, and
+the SDK fixes it that way: registering raw events would make re-authoring an
+events file look like a change to what the fabric was *permitted* to do.
+
+```yaml
+--8<-- "examples/00-quickstart/artifacts/manifest.yaml"
+```
+
+Loading that manifest and booting the fabric is one call. Assembly is where the
+single-writer invariant lives — every artifact is pinned to a version before
+the fabric boots, and only the assembly worker ever writes to the graph:
 
 ```py
---8<-- "examples/00-quickstart/run.py:ontology"
+--8<-- "examples/00-quickstart/run.py:boot"
 ```
 
 Raw source records enter through L1 as signal envelopes. The envelope carries
 the tenant, the source identity, and both timestamps that matter — when the
-fabric saw it and when the world produced it:
+fabric saw it and when the world produced it. Because the batch came back
+already parsed, ingest is one loop over it:
 
 ```py
 --8<-- "examples/00-quickstart/run.py:ingest"
 ```
 
-Assembly is where the single-writer invariant lives. Every Control Plane
-artifact is registered under a key and pinned to a version first; only then
-does the fabric boot, and only the assembly worker ever writes to the graph:
-
-```py
---8<-- "examples/00-quickstart/run.py:assemble"
-```
-
 Reading is done by composable operators in four categories — traversal,
 temporal, policy, and similarity. Their parameters come from artifacts, which
-is what makes an operator plan reproducible later. See the
+is what makes an operator plan reproducible later. The mapping handed to the
+builder is assembled by naming the deployment's *own* manifest keys — that line
+is configuration you read and edit, not type introspection. See the
 [operator and projection Protocols](../reference/protocols/operators-and-projection.md)
 for the surface each one implements:
 
@@ -91,7 +100,10 @@ for the surface each one implements:
 A projection is the one piece of genuine deployment code in this picture: it
 declares which operators its interpretation depends on and interprets their
 output. It cannot tell the engine what ran — which is precisely what leaves
-the delivery gate something real to check:
+the delivery gate something real to check. Its declared operator set is read
+from the **product-class artifact**, never from the operator registry: the
+declaration and the engine's resolution have to stay two independent
+mechanisms, or the gate below compares a value against itself.
 
 ```py
 --8<-- "examples/00-quickstart/run.py:project"
@@ -100,7 +112,13 @@ the delivery gate something real to check:
 Three validation gates stand between a candidate and a servable product:
 the empty-operator guard, lineage strict equality, and the TTL bound. Lineage
 strict equality is the interesting one — what the product claims ran must be
-exactly what the engine resolved as having run. The
+exactly what the engine resolved as having run, which is why `engine_resolved`
+is a separate argument from a second, independent source.
+
+The TTL registration just above it stays in your code on purpose. Registering
+the ceiling is what *mints* the pin, so the ceiling and the product's own
+`expires_at` remain two independently authored numbers — and Gate 3 compares
+them. A helper that did both would be comparing a value against itself. The
 [Context Product Protocols](../reference/protocols/context-products.md) and
 [product registration](../reference/artifacts/product-registration.md) pages
 document the typed surface:
