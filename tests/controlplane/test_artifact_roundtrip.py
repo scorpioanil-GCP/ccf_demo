@@ -26,6 +26,7 @@ reaches :data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES` without one.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -40,8 +41,14 @@ from ccf.controlplane.artifacts import (
     OPERATOR_PARAMETERS_SIMILARITY,
     OPERATOR_PARAMETERS_TEMPORAL,
     OPERATOR_PARAMETERS_TRAVERSAL,
+    PERSPECTIVE,
+    PRODUCT_CLASS,
     RESOLUTION_SPEC,
+    SIGNAL_BATCH,
     ArtifactLoadError,
+    ProductClassDeclaration,
+    SignalBatch,
+    load_artifact,
     parse_artifact,
 )
 from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
@@ -57,6 +64,8 @@ from ccf.operators.params import (
     TemporalAsOfParameters,
     TraversalNeighborhoodParameters,
 )
+from ccf.projection.plan import Perspective
+from ccf.signal.envelope import SignalEnvelope
 from ccf.similarity.protocol import TokenOverlapIndex
 
 _SEMVER = "1.0.0"
@@ -184,6 +193,53 @@ CASES: tuple[_Case, ...] = (
             },
         },
         unknown_keys=("tenant_id",),
+    ),
+    _Case(
+        artifact_class=SIGNAL_BATCH,
+        # The document is in the SDK's *own* envelope vocabulary — nested
+        # `source: {system_id: ...}` and `raw_payload:` — because that is the
+        # whole claim of this class: the batch parses into real envelopes with no
+        # translation step for a second field vocabulary to drift from.
+        document={
+            "semver": _SEMVER,
+            "tenant_id": "fixture-tenant",
+            "envelopes": [
+                {
+                    "tenant_id": "fixture-tenant",
+                    "envelope_id": "fixture-envelope",
+                    "source": {"system_id": "fixture-system"},
+                    "ingestion_timestamp": "2026-01-01T00:00:00Z",
+                    "observed_time": "2025-12-31T23:00:00Z",
+                    "raw_payload": {"fixture_source_key": "fixture-source-value"},
+                }
+            ],
+        },
+        unknown_keys=("source_system_id", "payload"),
+    ),
+    _Case(
+        artifact_class=PERSPECTIVE,
+        document={
+            "semver": _SEMVER,
+            "principal_id": "fixture-principal",
+            "role": "fixture-role",
+        },
+        unknown_keys=("tenant_id",),
+    ),
+    _Case(
+        artifact_class=PRODUCT_CLASS,
+        # `max_ttl_version` is absent, and the omission is the point — the same
+        # shape as the policy fixture above. Registering the MaxTTL mints that
+        # pin, so an authored document has no value to state for it.
+        document={
+            "semver": _SEMVER,
+            "schema_name": "fixture-product",
+            "schema_version": "1.0.0",
+            "ttl_anchor": "from_decision",
+            "assembly_mode": "algorithmic",
+            "max_ttl_key": "fixture-max-ttl-key",
+            "required_operator_keys": ["fixture-operator"],
+        },
+        unknown_keys=("tenant_id", "max_ttl_version"),
     ),
 )
 
@@ -367,6 +423,129 @@ def test_the_policy_document_states_no_version_set() -> None:
             {**document, "permitted_policy_bundle_versions": ["anything"]},
             OPERATOR_PARAMETERS_POLICY,
         )
+
+
+# --- the signal batch: envelopes, one tenant, and aware timestamps ------------
+
+
+def test_a_batch_parses_straight_into_envelopes() -> None:
+    """No post-processing happens here, and that absence is the assertion.
+
+    Pydantic validates each mapping into a real
+    :class:`~ccf.signal.envelope.SignalEnvelope`, so the nested
+    ``source: {system_id: ...}`` and ``raw_payload:`` keys arrive as the SDK's own
+    contract, not as a document vocabulary something has to translate. The
+    translation this replaces was 116 lines across nine sites; a translation
+    relocated into ``/src`` would be the same defect with a better address.
+    """
+    parsed = parse_artifact(_document_for("ccf.signal-batch"), SIGNAL_BATCH)
+    assert isinstance(parsed, SignalBatch)
+    envelope = parsed.envelopes[0]
+    assert isinstance(envelope, SignalEnvelope)
+    assert envelope.source.system_id == "fixture-system"
+    assert envelope.raw_payload == {"fixture_source_key": "fixture-source-value"}
+
+
+def test_a_batch_timestamp_ending_in_z_parses_to_an_aware_utc_value() -> None:
+    """Closes the loop with plan 15-05: the ``_instant`` helpers are redundant.
+
+    Eleven examples each carried a helper that re-parsed ``...Z`` because PyYAML's
+    timestamp resolver hands back a *naive* datetime. ``_ArtifactLoader`` removes
+    that resolver, so the scalar reaches the contract as text and the field's own
+    ``datetime`` annotation parses the UTC designator the author actually wrote.
+    This is the test that makes those helpers redundant rather than merely
+    unfashionable — so it goes through :func:`load_artifact` (real YAML), because
+    routing around the loader would prove nothing about the defect it fixes.
+    """
+    text = (
+        f'semver: "{_SEMVER}"\n'
+        "tenant_id: fixture-tenant\n"
+        "envelopes:\n"
+        "  - tenant_id: fixture-tenant\n"
+        "    envelope_id: fixture-envelope\n"
+        "    source:\n"
+        "      system_id: fixture-system\n"
+        "    ingestion_timestamp: 2026-01-01T00:00:00Z\n"
+        "    raw_payload:\n"
+        "      fixture_source_key: fixture-source-value\n"
+    )
+    parsed = load_artifact(text, SIGNAL_BATCH)
+    assert isinstance(parsed, SignalBatch)
+    ingested = parsed.envelopes[0].ingestion_timestamp
+    assert ingested.utcoffset() == timedelta(0)
+
+
+def test_a_batch_whose_envelope_names_another_tenant_is_refused() -> None:
+    """Refused, never repaired (T-15-09-01).
+
+    Stamping the batch's ``tenant_id`` onto a disagreeing envelope would put a
+    value nobody authored into the fabric's observation record, and would make a
+    cross-tenant event look like a correctly-scoped one. The batch carries the
+    tenant so it is authored once, in the artifact that needs it — not so the
+    loader can overwrite what an envelope said.
+    """
+    document = _document_for("ccf.signal-batch")
+    envelope = dict(document["envelopes"][0])
+    envelope["tenant_id"] = "fixture-other-tenant"
+    with pytest.raises(ArtifactLoadError):
+        parse_artifact({**document, "envelopes": [envelope]}, SIGNAL_BATCH)
+
+
+def test_an_empty_batch_is_refused() -> None:
+    """An empty ``envelopes`` list is an authoring mistake, not an ingest of nothing."""
+    document = _document_for("ccf.signal-batch")
+    with pytest.raises(ArtifactLoadError):
+        parse_artifact({**document, "envelopes": []}, SIGNAL_BATCH)
+
+
+# --- the product class: what it declares, and what registration mints ---------
+
+
+def test_a_parsed_perspective_artifact_is_a_perspective() -> None:
+    """The parsed artifact goes where a ``Perspective`` goes, unwrapped.
+
+    Same claim as the operator-parameters classes above: subclassing the existing
+    contract means there is no second vocabulary to drift, and no adapter step
+    between reading the document and conditioning the projection.
+    """
+    parsed = parse_artifact(_document_for("ccf.perspective"), PERSPECTIVE)
+    assert isinstance(parsed, Perspective)
+    assert parsed.principal_id == "fixture-principal"
+    assert parsed.role == "fixture-role"
+
+
+def test_the_product_class_declares_no_max_ttl_version() -> None:
+    """The pin is minted by registering the MaxTTL, so no document can state it.
+
+    D-IMPL-76's shape. Declaring it would be authoring a hash of something the
+    document does not contain, and it would collapse Gate 3: the TTL ceiling and
+    a product's ``expires_at`` are only a real check on each other while they come
+    from independent places.
+    """
+    assert "max_ttl_version" not in ProductClassDeclaration.model_fields
+    document = _document_for("ccf.product-class")
+    assert "max_ttl_version" not in document
+    with pytest.raises(ArtifactLoadError):
+        parse_artifact({**document, "max_ttl_version": "1.0.0"}, PRODUCT_CLASS)
+
+
+def test_a_product_class_declaring_no_operators_is_refused() -> None:
+    """The whitepaper's empty-operator guard, enforced where the author can fix it.
+
+    §7.6 specifies the guard as the first of the three validation gates and says
+    why: "a projection must have resolved at least one operator to have
+    meaningfully read the graph, and an empty set indicates a misconfigured
+    projection rather than a trivially-successful one." A declaration of zero
+    operators could only ever produce a resolved set of zero, which Gate 1 refuses
+    at assembly time — so refusing it at parse is the same rule applied earlier,
+    not a stricter one the SDK invented.
+
+    A deployment that serves no product authors no document of this class. That is
+    a different thing from a product class declaring that it requires nothing.
+    """
+    document = _document_for("ccf.product-class")
+    with pytest.raises(ArtifactLoadError):
+        parse_artifact({**document, "required_operator_keys": []}, PRODUCT_CLASS)
 
 
 def test_every_sdk_artifact_class_has_a_round_trip_case() -> None:
