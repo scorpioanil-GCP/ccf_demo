@@ -376,7 +376,7 @@ Plans:
 
 **Wave 6**
 
-- [ ] 15-09-PLAN.md — Signal-batch, perspective, and product-class artifact classes (ERGO-09)
+- [x] 15-09-PLAN.md — Signal-batch, perspective, and product-class artifact classes (ERGO-09)
 
 **Wave 7**
 
@@ -426,7 +426,7 @@ Plans:
 | 13.1. External-Consumer Examples (MCP Egress) | 4/4 | Complete   | 2026-08-02 |
 | 14. Documentation Suite | 10/10 | Complete   | 2026-08-03 (verified 5/5; G-01 deliberately deferred to 16) |
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
-| 15. SDK Ergonomics — The Integration Surface | 8/21 | In Progress|  |
+| 15. SDK Ergonomics — The Integration Surface | 9/21 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
