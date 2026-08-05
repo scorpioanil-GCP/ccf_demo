@@ -384,8 +384,8 @@ Plans:
 
 **Wave 8**
 
-- [ ] 15-11-PLAN.md — `build_operator_registry`, two-phase and view-aware, pin set passed in (D-IMPL-76) (ERGO-11)
-- [ ] 15-12-PLAN.md — Committed JSON Schemas + `ccf schema export` through an HTTP route (D-IMPL-79) (ERGO-12)
+- [x] 15-11-PLAN.md — `build_operator_registry`, two-phase and view-aware, pin set passed in (D-IMPL-76) (ERGO-11)
+- [x] 15-12-PLAN.md — Committed JSON Schemas + `ccf schema export` through an HTTP route (D-IMPL-79) (ERGO-12)
 
 **Wave 9**
 
@@ -426,7 +426,7 @@ Plans:
 | 13.1. External-Consumer Examples (MCP Egress) | 4/4 | Complete   | 2026-08-02 |
 | 14. Documentation Suite | 10/10 | Complete   | 2026-08-03 (verified 5/5; G-01 deliberately deferred to 16) |
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
-| 15. SDK Ergonomics — The Integration Surface | 10/21 | In Progress|  |
+| 15. SDK Ergonomics — The Integration Surface | 12/21 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
