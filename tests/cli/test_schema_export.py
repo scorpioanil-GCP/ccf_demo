@@ -48,6 +48,7 @@ from tools.dump_schemas import (
     DRIFT_MESSAGE,
     ENVELOPE_CLASS_ID,
     SCHEMAS_DIR,
+    author_versioned_classes,
     differences,
     emit,
     serialize,
@@ -68,6 +69,47 @@ def test_every_sdk_artifact_class_has_a_committed_schema() -> None:
     )
     for class_id in SDK_ARTIFACT_CLASSES:
         assert (SCHEMAS_DIR / f"{class_id}.json").is_file(), class_id
+
+
+def test_every_author_versioned_class_has_a_committed_schema() -> None:
+    """The second committed set (plan 15-14), and its membership rule.
+
+    An agent definition, a prompt artifact and a skill catalog entry are
+    SDK-owned schemas an adopter authors by hand, so they need a ``$schema``
+    target — but a manifest must not carry them, because ``load_and_boot``
+    registers through ``register_typed`` and these classes need
+    ``register_versioned``'s D-05 bump check. Hence: committed, not
+    manifest-addressable.
+
+    The membership rule is checked rather than trusted. Every member declares
+    an ``artifact_version`` field (that IS what "author-versioned" means), and
+    no member is manifest-addressable — so the set cannot quietly acquire a
+    class that belongs in the other one.
+    """
+    author_versioned = author_versioned_classes()
+    assert author_versioned, "the author-versioned set is empty"
+    for class_id, artifact_class in author_versioned.items():
+        assert "artifact_version" in artifact_class.contract.model_fields, class_id
+        assert class_id not in SDK_ARTIFACT_CLASSES, class_id
+        assert (SCHEMAS_DIR / f"{class_id}.json").is_file(), class_id
+
+
+def test_an_envelope_header_over_an_author_versioned_class_fails(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The envelope must not become an escape hatch from these contracts either.
+
+    Without this, an agent definition could annotate itself as
+    deployment-authored — its ``class_id`` is absent from
+    ``SDK_ARTIFACT_CLASSES``, which used to be the whole test — and have every
+    constraint ``AgentDefinition`` declares go unchecked.
+    """
+    document = _envelope_document(
+        tmp_path,
+        "semver: '1.0.0'\nclass_id: ccf.agent-definition\ndeclaration:\n  a: 1\n",
+    )
+    problems = check_document(document)
+    assert problems and "which the SDK owns" in problems[0], problems
 
 
 def test_the_committed_schemas_match_what_the_classes_emit() -> None:

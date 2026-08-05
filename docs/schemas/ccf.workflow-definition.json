@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "WorkflowTransition": {
+      "additionalProperties": false,
+      "description": "One explicit state transition over declared node names (CLAUDE.md \u00a78.1).\n\nSDK-defined. Workflows are state machines with explicit states,\ntransitions, and terminal conditions; a transition is data the engine\ninterprets, never behavior.",
+      "properties": {
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "target"
+      ],
+      "title": "WorkflowTransition",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A declared, versioned workflow \u2014 a routing wrapper, never steps (D-12).\n\nSDK-defined (CLAUDE.md \u00a78.1; D-IMPL-17/28). The artifact the\n``WorkflowFactory`` interprets; nothing here is executable. The wrapper\nadds ONLY transitions, terminal conditions, per-node exception refs, and\nper-gate approval-policy bindings \u2014 the wrapped steps live in the\nreferenced TaskDefinition at a pinned version (D-IMPL-26).\n\nThe semantic checks this contract cannot perform locally \u2014 that every\ndeclared node names a step in the *resolved* TaskDefinition, that every\n``gate_policies`` key names a ``hitl-gate``-kind step, and that every\nexception ref resolves in the registry \u2014 are the ``WorkflowFactory``'s\nobligations (:mod:`ccf.workflow.factory`).",
+  "properties": {
+    "artifact_version": {
+      "title": "Artifact Version",
+      "type": "string"
+    },
+    "exception_refs": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "title": "Exception Refs",
+      "type": "object"
+    },
+    "gate_policies": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "title": "Gate Policies",
+      "type": "object"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "start": {
+      "title": "Start",
+      "type": "string"
+    },
+    "task_definition_ref": {
+      "title": "Task Definition Ref",
+      "type": "string"
+    },
+    "tenant": {
+      "title": "Tenant",
+      "type": "string"
+    },
+    "terminal_states": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Terminal States",
+      "type": "array"
+    },
+    "transitions": {
+      "items": {
+        "$ref": "#/$defs/WorkflowTransition"
+      },
+      "title": "Transitions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "artifact_version",
+    "name",
+    "tenant",
+    "task_definition_ref",
+    "start",
+    "transitions",
+    "terminal_states"
+  ],
+  "title": "WorkflowDefinition",
+  "type": "object",
+  "x-ccf-class-id": "ccf.workflow-definition"
+}

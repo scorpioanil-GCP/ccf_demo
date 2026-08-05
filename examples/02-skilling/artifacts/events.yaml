@@ -1,30 +1,38 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.signal-batch.json
 # Skilling-example event stream — L1 signal envelopes
 # (clinical-trials-operations domain, D-IMPL-52). Minimal but not flat:
 #
 #   * ct-301 asserts the SAME cohort as ct-300 from a DIFFERENT source with
-#     identical attributes -> one claim whose lineage accumulates by
-#     set-union (INV-CH7-17), not a second node.
-#   * ct-302 carries a RESTRICTED unblinded cohort, which the policy
-#     operator must substitute out along with its `enrolls_at` edge.
+#     identical attributes -> one claim whose lineage accumulates by set-union
+#     (INV-CH7-17), not a second node.
+#   * ct-302 carries a RESTRICTED unblinded cohort, which the policy operator
+#     must substitute out along with its `enrolls_at` edge.
+#
+# The document adopts the SDK's OWN envelope vocabulary — `source: {system_id}`,
+# `raw_payload:` — rather than a flat shape a loader would have to translate.
 #
 # Payload keys are the *source systems'* vocabulary, never the fabric's.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename
 #
-# [ADAPT]: every payload key and value, source system ids, timestamps.
-# [MECHANISM]: the envelope field names (`envelope_id`, `source_system_id`,
-# `ingestion_timestamp`, `observed_time`, `payload`).
+# In this file: everything under `raw_payload:`, source system ids and
+# timestamps are [ADAPT]; the envelope keys (`envelope_id`, `tenant_id`,
+# `source`, `system_id`, `ingestion_timestamp`, `observed_time`,
+# `raw_payload`) are [MECHANISM].
 
-schema_version: "1.0.0"
-artifact_version: "1.0.0"
+semver: "1.0.0"
+
+tenant_id: helix-trials
 
 envelopes:
   - envelope_id: ct-300
-    source_system_id: ctms
+    tenant_id: helix-trials
+    source:
+      system_id: ctms
     ingestion_timestamp: 2026-04-20T08:00:00Z
     observed_time: 2026-04-20T07:45:00Z
-    payload:
+    raw_payload:
       site_ref: "HX-SITE-014"
       site_name: "Aurora Research Clinic"
       country: "NL"
@@ -35,20 +43,24 @@ envelopes:
       cohort_classification: "internal"
 
   - envelope_id: ct-301
-    source_system_id: edc
+    tenant_id: helix-trials
+    source:
+      system_id: edc
     ingestion_timestamp: 2026-04-20T08:05:00Z
     observed_time: 2026-04-20T07:45:00Z
-    payload:
+    raw_payload:
       cohort_ref: "HX-COH-2201"
       protocol_arm: "arm-a"
       enrollment_status: "recruiting"
       cohort_classification: "internal"
 
   - envelope_id: ct-302
-    source_system_id: ctms
+    tenant_id: helix-trials
+    source:
+      system_id: ctms
     ingestion_timestamp: 2026-04-20T08:10:00Z
     observed_time: 2026-04-20T08:02:00Z
-    payload:
+    raw_payload:
       site_ref: "HX-SITE-014"
       site_name: "Aurora Research Clinic"
       country: "NL"

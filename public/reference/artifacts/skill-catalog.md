@@ -31,9 +31,10 @@ binding's own fields are validated against that choice.
 
 ## Worked example
 
-Two catalog entries: one whose declared requirements sit inside the agent's governance
-envelope, and one whose requirements exceed it so the compatibility check refuses the grant.
+One catalog entry, whose declared requirements sit inside the agent's governance envelope. Two
+more sit beside it in that example: one permitted but never granted, and one whose requirements
+exceed the envelope so the compatibility check refuses the grant. Every entry is one document.
 
 ```yaml
---8<-- "examples/02-skilling/artifacts/skills.yaml"
+--8<-- "examples/02-skilling/artifacts/skill-catalog-enrollment-metrics.yaml"
 ```

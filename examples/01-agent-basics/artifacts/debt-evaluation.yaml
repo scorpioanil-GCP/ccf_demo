@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The D_c evaluation this run performs (whitepaper §7.7 CAR; field-service
+# domain, D-IMPL-52).
+#
+# This is what makes the agent's axis-5 profile OBSERVABLE rather than merely
+# declared: `run.py` scores these dated observations against
+# `half-life-table.yaml` at the decision instant, combines them with the
+# declared completeness and consistency factors, and assesses the result under
+# the profile in `agent-debt-profile.yaml`. The work-order status is
+# deliberately aged — last observed 37 minutes before the decision against a
+# one-hour half-life inflated by the 1.2 risk sensitivity — so the computed
+# debt lands above the Forced-LLM band and below Fail-Closed.
+#
+# `expected_signal` is a REVIEWED outcome the deployment declares, not
+# something the code decides.
+#
+# **`role: load` in the manifest.** Observations and an expectation about them
+# are not statements of what the fabric may do.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id`, the observation-type names, the dates and every
+# calibrated value are [ADAPT]; the keys `semver`, `class_id`, `declaration`,
+# `observations`, `observation_type`, `observed_at`, `completeness`,
+# `semantic_consistency` and `expected_signal` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: cascadia-fieldworks.debt-evaluation
+
+declaration:
+  observations:
+    - observation_type: work-order-status
+      observed_at: 2026-05-11T07:23:00Z
+    - observation_type: technician-roster-entry
+      observed_at: 2026-05-11T06:50:00Z
+  completeness: "0.80"
+  semantic_consistency: "0.95"
+  # Reviewed outcome: which CAR routing state the assessment must land in.
+  expected_signal: forced_llm

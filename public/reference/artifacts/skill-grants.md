@@ -17,9 +17,10 @@ had rather than the skills it has now.
 
 ## Worked example
 
-The governance envelope in context — an agent definition whose policy regime axis names the one
-requirement scope agents under it may bind, and deliberately excludes another.
+The governance envelope in context — the policy-regime artifact an agent definition names on its
+axis-4 reference, declaring the one requirement scope agents under that regime may bind and
+deliberately excluding another.
 
 ```yaml
---8<-- "examples/02-skilling/artifacts/agent.yaml"
+--8<-- "examples/02-skilling/artifacts/agent-policy-regime.yaml"
 ```

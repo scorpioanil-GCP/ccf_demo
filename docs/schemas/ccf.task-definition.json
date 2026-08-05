@@ -1,0 +1,104 @@
+{
+  "$defs": {
+    "InstructionBinding": {
+      "additionalProperties": false,
+      "description": "Axis 6 \u2014 one prompt reference plus its declared parameters (D-13).\n\n``prompt`` is a versioned URI; the template text lives in the referenced\n:class:`PromptArtifact`, never here (No-Hardcoding Rule, \u00a76.4). This\ncontract deliberately has no field that could carry inline prompt text.\n``parameters`` are the names the binding declares it will supply, validated\nagainst the artifact's own declaration by\n:func:`ccf.agents.prompts.validate_instruction_binding`.",
+      "properties": {
+        "parameters": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Parameters",
+          "type": "array"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt",
+        "parameters"
+      ],
+      "title": "InstructionBinding",
+      "type": "object"
+    },
+    "TaskStep": {
+      "additionalProperties": false,
+      "description": "One ordered step declaration in a task definition (CLAUDE.md \u00a78.1; D-11).\n\nSDK-defined. ``skill`` and ``agent`` steps carry a pinned\n``ccf-artifact://`` reference to the capability or agent definition they\ninvoke \u2014 a ref, never the artifact, and never a moving target\n(D-IMPL-26). ``hitl-gate`` steps validate structurally and carry **no\nbehavior and no reference in I.2**: gate semantics are I.4's Workflow\nprimitive scope (D-11), and binding an approval policy before anything\ncan execute would be a claim the artifact cannot yet honor.",
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ref"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ],
+      "title": "TaskStep",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A declared, versioned task \u2014 schema + validation only (D-11; \u00a76.4/\u00a78.1).\n\nSDK-defined (CLAUDE.md \u00a76.4; D-IMPL-28). The artifact the Task Factory\ninterprets; nothing here is executable, and no execution engine exists in\nI.2 \u2014 the Workflow primitive that will interpret constructed tasks is\nI.4 scope (D-11). Steps are ordered and reference agent definitions and\nskills by pinned versioned URI, in the same refs-never-inline discipline\nas agent definitions.",
+  "properties": {
+    "artifact_version": {
+      "title": "Artifact Version",
+      "type": "string"
+    },
+    "instruction_bindings": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/InstructionBinding"
+      },
+      "title": "Instruction Bindings",
+      "type": "array"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/TaskStep"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "tenant": {
+      "title": "Tenant",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "artifact_version",
+    "name",
+    "tenant",
+    "steps"
+  ],
+  "title": "TaskDefinition",
+  "type": "object",
+  "x-ccf-class-id": "ccf.task-definition"
+}

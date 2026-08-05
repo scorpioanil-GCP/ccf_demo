@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The AGENT's axis-5 half-life and debt profile (CLAUDE.md §6.2 channel 1;
+# whitepaper §7.7 CAR; field-service domain, D-IMPL-52).
+#
+# What staleness this agent tolerates, and what D_c sends it to Forced-LLM or
+# Fail-Closed. The agent definition names it by versioned URI; the manifest
+# registers it under `cascadia-fieldworks/debt-profile/dispatch-window-review`,
+# the key that ref resolves to.
+#
+# The declaration's fields are exactly the SDK's `ccf.debt-profile` fields, so
+# `run.py` can read a typed `DebtProfile` out of it in one line and score the
+# observations in `debt-evaluation.yaml` against it. The document stays on the
+# open envelope rather than the SDK class because it is what the *agent's*
+# definition references, and a versioned-URI ref names a deployment key rather
+# than an SDK artifact class.
+#
+# Values are QUOTED so they parse as text and are validated as decimals: the
+# canonical serializer refuses floats, and the artifact loader refuses a YAML
+# float rather than silently converting one.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every calibrated value is [ADAPT]; the keys
+# `semver`, `class_id`, `declaration`, and the profile keys
+# (`risk_sensitivity`, `forced_llm_threshold`, `fail_closed_threshold`) are
+# [MECHANISM].
+
+semver: "1.0.0"
+class_id: debt-profile
+
+declaration:
+  semver: "1.0.0"
+  risk_sensitivity: "1.2"
+  forced_llm_threshold: "0.30"
+  fail_closed_threshold: "0.75"

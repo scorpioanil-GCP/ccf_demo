@@ -1,0 +1,14 @@
+{
+  "asserts": 0,
+  "boot": 0,
+  "helpers": 0,
+  "imports": 47,
+  "mech": 14,
+  "opblk": 0,
+  "path": "examples/01-agent-basics/run.py",
+  "prints": 0,
+  "raw": 481,
+  "reg": 14,
+  "relocatable": 0,
+  "removable": 14
+}

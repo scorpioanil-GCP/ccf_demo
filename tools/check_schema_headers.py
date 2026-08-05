@@ -57,6 +57,21 @@ id in the header of the file at its ``path``. The manifest and the header
 are two independent statements of the same fact, authored in two different
 files, and this is the assertion that they agree.
 
+Author-versioned classes
+------------------------
+
+Some SDK-owned classes — an agent definition, a prompt artifact, a skill
+catalog entry — are deliberately absent from
+:data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES` because a manifest must
+not register them (they carry D-IMPL-28 two-field versioning and need the
+``register_versioned`` bump check that ``load_and_boot`` does not run). They
+are still SDK-owned schemas an adopter authors by hand, so they get committed
+schemas and their documents carry ordinary ``$schema`` headers naming them.
+The set is :func:`tools.dump_schemas.author_versioned_classes`, and the
+envelope route below refuses a document declaring one of them, so an agent
+definition cannot escape its own contract by claiming to be
+deployment-authored.
+
 Deferred documents
 ------------------
 
@@ -172,9 +187,19 @@ def check_document(path: pathlib.Path) -> list[str]:
         declared_artifact_class,
         load_artifact,
     )
-    from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
+    from tools.dump_schemas import (
+        CLASS_ID_KEY,
+        ENVELOPE_CLASS_ID,
+        schema_owned_classes,
+        schema_path,
+    )
 
-    from tools.dump_schemas import CLASS_ID_KEY, ENVELOPE_CLASS_ID, schema_path
+    # Every class the SDK commits a schema for: the manifest-addressable ones
+    # plus the author-versioned ones a manifest deliberately cannot carry. The
+    # union is what a header may name, and — below — what the envelope route
+    # must refuse, so an agent definition cannot hide behind the open envelope
+    # and have its own contract go unchecked.
+    owned = schema_owned_classes()
 
     relative = _display(path)
     line = _first_line(path)
@@ -241,7 +266,7 @@ def check_document(path: pathlib.Path) -> list[str]:
                 " but declares no `class_id`, so nothing states which"
                 " deployment-authored class it is"
             ]
-        if declared in SDK_ARTIFACT_CLASSES:
+        if declared in owned:
             return [
                 f"{relative}: declares `class_id: {declared}`, which the SDK"
                 " owns; point the header at that class's own committed schema"
@@ -260,7 +285,7 @@ def check_document(path: pathlib.Path) -> list[str]:
             ]
         return []
 
-    artifact_class = SDK_ARTIFACT_CLASSES.get(class_id)
+    artifact_class = owned.get(class_id)
     if artifact_class is None:
         return [
             f"{relative}: `$schema={target}` describes {class_id!r}, which is"

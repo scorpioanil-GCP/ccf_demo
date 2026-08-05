@@ -1,0 +1,164 @@
+{
+  "$defs": {
+    "ConsumedProduct": {
+      "additionalProperties": false,
+      "description": "One Context Product schema an agent reads (axis 2; CLAUDE.md \u00a76.2).\n\n``schema_version`` pins the product class's own lane \u2014 a consumer that\nnames no version consumes whatever the producer ships next, which is a\ncontract drift replay cannot survive (whitepaper \u00a76.3).",
+      "properties": {
+        "product_class": {
+          "title": "Product Class",
+          "type": "string"
+        },
+        "schema_version": {
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "product_class",
+        "schema_version"
+      ],
+      "title": "ConsumedProduct",
+      "type": "object"
+    },
+    "ContextContract": {
+      "additionalProperties": false,
+      "description": "Axis 2 \u2014 which Context Product schemas the agent reads (CLAUDE.md \u00a76.2).\n\nEmission bindings (which projection an assembler emits to) extend this\ncontract when the ContextAssembly archetype's transport lands; the shape is\nadditive by design.",
+      "properties": {
+        "consumes": {
+          "items": {
+            "$ref": "#/$defs/ConsumedProduct"
+          },
+          "title": "Consumes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "consumes"
+      ],
+      "title": "ContextContract",
+      "type": "object"
+    },
+    "InstructionBinding": {
+      "additionalProperties": false,
+      "description": "Axis 6 \u2014 one prompt reference plus its declared parameters (D-13).\n\n``prompt`` is a versioned URI; the template text lives in the referenced\n:class:`PromptArtifact`, never here (No-Hardcoding Rule, \u00a76.4). This\ncontract deliberately has no field that could carry inline prompt text.\n``parameters`` are the names the binding declares it will supply, validated\nagainst the artifact's own declaration by\n:func:`ccf.agents.prompts.validate_instruction_binding`.",
+      "properties": {
+        "parameters": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Parameters",
+          "type": "array"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt",
+        "parameters"
+      ],
+      "title": "InstructionBinding",
+      "type": "object"
+    },
+    "PerspectiveBinding": {
+      "additionalProperties": false,
+      "description": "Axis 3 \u2014 the \u03a0 role-conditioning shaping the agent's view (\u00a76.2).\n\n``selection_params`` is deployment vocabulary; the SDK enumerates none of\nit. Values are strings because they participate in canonical serialization\nand therefore in content identity \u2014 a float here would make the agent's\nidentity platform-dependent.",
+      "properties": {
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "selection_params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Selection Params",
+          "type": "object"
+        }
+      },
+      "required": [
+        "role",
+        "selection_params"
+      ],
+      "title": "PerspectiveBinding",
+      "type": "object"
+    },
+    "VersionedRef": {
+      "additionalProperties": false,
+      "description": "A pinned ``ccf-artifact://`` reference (axes 4 and 5; D-IMPL-26).\n\nA ref, never the artifact: the policy bundle and the debt profile are\nControl Plane artifacts with their own lanes, and inlining either into a\ndefinition would give one document two version identities.",
+      "properties": {
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "title": "VersionedRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A declared, versioned agent \u2014 all six specialization axes (\u00a76.1/\u00a76.2).\n\nSDK-defined (CLAUDE.md \u00a76; D-IMPL-28). The artifact the Agent Factory\ninterprets and the only supported description of an agent; nothing here is\nexecutable. Changing any axis is a new agent version (channel 1);\ncapability changes travel through skilling (channel 2) and never touch\nthis contract.",
+  "properties": {
+    "archetypes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Archetypes",
+      "type": "array"
+    },
+    "artifact_version": {
+      "title": "Artifact Version",
+      "type": "string"
+    },
+    "context_contract": {
+      "$ref": "#/$defs/ContextContract"
+    },
+    "halflife_debt_profile": {
+      "$ref": "#/$defs/VersionedRef"
+    },
+    "instruction_bindings": {
+      "items": {
+        "$ref": "#/$defs/InstructionBinding"
+      },
+      "title": "Instruction Bindings",
+      "type": "array"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "perspective": {
+      "$ref": "#/$defs/PerspectiveBinding"
+    },
+    "policy_regime": {
+      "$ref": "#/$defs/VersionedRef"
+    },
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "tenant": {
+      "title": "Tenant",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "artifact_version",
+    "name",
+    "tenant",
+    "archetypes",
+    "context_contract",
+    "perspective",
+    "policy_regime",
+    "halflife_debt_profile",
+    "instruction_bindings"
+  ],
+  "title": "AgentDefinition",
+  "type": "object",
+  "x-ccf-class-id": "ccf.agent-definition"
+}

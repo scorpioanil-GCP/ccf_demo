@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.skill-catalog-entry.json
+# The skill this example grants, exercises and revokes (CLAUDE.md §6.2 channel
+# 2; D-IMPL-12/29; clinical-trials-operations domain, D-IMPL-52).
+#
+# Its declared requirements sit INSIDE the agent's governance envelope: the
+# regime permits `enrollment-read`, and the required context product is exactly
+# the class the agent's axis-2 contract consumes. That is what the tier-1
+# compatibility check compares — structurally, over opaque deployment
+# identifiers. The SDK ships no scope vocabulary (§6.4).
+#
+# A `local_callable` binding names a registry KEY (D-19), never a dotted import
+# path: the composition root in `run.py` binds the key to a deterministic
+# callable, so a catalog entry can never name code into existence.
+#
+# Author-versioned (`artifact_version`), registered through
+# `SkillCatalog.register` -> `register_versioned`, so it is absent from the
+# manifest — see `skilling-scenario.yaml`, which enumerates the catalog.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the skill name, tenant, description, argument names, scope
+# identifiers and product-class names are [ADAPT]; `schema_version`,
+# `artifact_version`, `skill_type`, `argument_schema`, `binding`,
+# `callable_ref`, `requirements`, `required_scopes` and
+# `required_context_products` are [MECHANISM].
+
+schema_version: "2.0.0"
+artifact_version: "1.0.0"
+name: enrollment-metrics
+tenant: helix-trials
+skill_type: local_callable
+description: >-
+  Compute enrollment-velocity metrics for a named cohort from the
+  trial-operations enrollment summary — screened/enrolled counts and
+  days-to-target at the current rate.
+argument_schema:
+  properties:
+    cohort_ref:
+      type: string
+      description: The enrollment cohort to compute metrics for.
+  required: [cohort_ref]
+binding:
+  callable_ref: enrollment-metrics
+requirements:
+  required_scopes: [enrollment-read]
+  required_context_products: [helix-trials.enrollment-summary]
