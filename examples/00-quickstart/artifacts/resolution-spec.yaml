@@ -1,16 +1,18 @@
-# ccf-schema: deferred(15-13) multi-artifact bundle — no single SDK artifact
-# class accepts this document, so any $schema header would annotate every key
-# belonging to the other artifacts as an error. Plan 15-13 splits this file into
-# typed per-class documents with a manifest and writes the real header then.
-# Quickstart ontology — the deployment's declared vocabulary (banking domain,
-# D-IMPL-52). Everything in this file is a *value*: entity classes,
-# relationship types, attribute names, identifiers. None of it exists in
-# `/src`, and none of it exists in `run.py` (CLAUDE.md §6.4 No-Hardcoding
-# Rule) — the driver is thin loading-and-asserting logic over this artifact.
+# yaml-language-server: $schema=../../../docs/schemas/ccf.resolution-spec.json
+# Quickstart entity-resolution spec — the deployment's declared vocabulary
+# (banking domain, D-IMPL-52). Everything here is a *value*: entity classes,
+# relationship types, attribute names. None of it exists in `/src`, and none of
+# it exists in `run.py` (CLAUDE.md §6.4, the No-Hardcoding Rule).
 #
-# Authored fresh for this example. It mirrors the *shape* the assembly worker
-# accepts (whitepaper §7.3: identity_keys mint the canonical entity URI,
-# INV-CH7-18), never the content of any test fixture.
+# This document is closed-world over resolution rules only (D-03). The two
+# attribute maps that used to live beside them now sit with the operator whose
+# construction reads them — `classification_attribute_by_class` in the policy
+# parameters document, `similarity_corpus_attribute_by_class` in the similarity
+# one — because one artifact serves one consumer. `tenant_id` moved onto the
+# manifest, which is where the deployment's own identity already is.
+#
+# It mirrors the *shape* the assembly worker accepts (whitepaper §7.3:
+# identity_keys mint the canonical entity URI, INV-CH7-18).
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename
@@ -18,14 +20,10 @@
 # In this file: every entity class name, match key, attribute name and
 # relationship type is [ADAPT]; the keys `entity_rules`, `match_key`,
 # `entity_class`, `identity_keys`, `attribute_keys`, `relationship_rules`,
-# `relationship_type`, `subject_entity_class`, `object_entity_class`,
-# `classification_attribute_by_class` and
-# `similarity_corpus_attribute_by_class` are [MECHANISM].
+# `relationship_type`, `subject_entity_class` and `object_entity_class` are
+# [MECHANISM].
 
-schema_version: "1.0.0"
-artifact_version: "1.0.0"
-
-tenant_id: meridian-bank
+semver: "1.0.0"
 
 # Source payload vocabulary -> E nodes. `match_key` selects a rule by
 # presence; `identity_keys` mint the canonical URI, so the same customer
@@ -77,16 +75,3 @@ relationship_rules:
   - relationship_type: domiciled_at
     subject_entity_class: account
     object_entity_class: branch
-
-# Which attribute carries each class's policy classification — per class,
-# because a mandate's sensitivity and a customer's are different fields.
-classification_attribute_by_class:
-  customer: customer_classification
-  account: account_classification
-  mandate: mandate_classification
-  branch: branch_classification
-
-# The attribute the similarity corpus is built from, per ranked class. The
-# SDK holds no corpus; the deployment says what text means "this account".
-similarity_corpus_attribute_by_class:
-  account: account_description

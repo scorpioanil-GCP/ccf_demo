@@ -33,6 +33,24 @@ can be wrong while looking right:
    dependency: the validator an adopter's fabric will use at boot is the
    validator the header is checked against.
 
+Deployment-authored classes
+---------------------------
+
+A policy bundle, or any other class the SDK does not own, resolves to the
+open ``DeclaredArtifact`` envelope and deliberately has no class-specific
+committed schema — the SDK never invents a schema for a namespace that is
+not its own. Such a document points its header at
+``docs/schemas/ccf.declared-artifact.json``, the committed schema of the
+envelope itself, and declares its own class in a ``class_id`` field.
+
+Both halves are checked, so nothing is weakened by the indirection: the
+envelope contract must accept the document, the document must name a
+class, and that class must **not** be one the SDK owns (which would mean
+the header should have named the real schema instead). The manifest
+cross-check then compares the entry's ``class_id`` against the
+*document's* field rather than the header, keeping two independent
+statements of one fact.
+
 And when the directory carries a ``ccf.deployment-manifest``, one further
 cross-check runs: every entry's declared ``class_id`` must equal the class
 id in the header of the file at its ``path``. The manifest and the header
@@ -126,12 +144,37 @@ def header_class_id(path: pathlib.Path) -> str | None:
     return class_id if isinstance(class_id, str) else None
 
 
+def _document_class_id(path: pathlib.Path) -> str | None:
+    """Return the ``class_id`` a ``DeclaredArtifact`` document declares of itself.
+
+    Deployment-authored documents carry their class identity as a *field*, not
+    in their ``$schema`` header — the header names the shared envelope. This is
+    what the manifest cross-check compares against for those documents, so the
+    two-independent-statements property survives the envelope indirection.
+    """
+    import yaml
+
+    try:
+        document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError:
+        return None
+    if not isinstance(document, dict):
+        return None
+    class_id = document.get("class_id")
+    return class_id if isinstance(class_id, str) else None
+
+
 def check_document(path: pathlib.Path) -> list[str]:
     """Return one problem line per way this document's header is wrong."""
-    from ccf.controlplane.artifacts import ArtifactLoadError, load_artifact
+    from ccf.controlplane.artifacts import (
+        ArtifactLoadError,
+        DeclaredArtifact,
+        declared_artifact_class,
+        load_artifact,
+    )
     from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
 
-    from tools.dump_schemas import CLASS_ID_KEY, schema_path
+    from tools.dump_schemas import CLASS_ID_KEY, ENVELOPE_CLASS_ID, schema_path
 
     relative = _display(path)
     line = _first_line(path)
@@ -179,6 +222,44 @@ def check_document(path: pathlib.Path) -> list[str]:
             " header at a committed docs/schemas/ file"
         ]
 
+    if class_id == ENVELOPE_CLASS_ID:
+        # A deployment-authored class. The header names the envelope the SDK
+        # owns; the document's own `class_id` field names the class the
+        # deployment owns. Both are checked — the envelope contract must accept
+        # the document, and it must declare a class id, or nothing states what
+        # kind of thing it is.
+        if resolved != schema_path(ENVELOPE_CLASS_ID).resolve():
+            return [
+                f"{relative}: `$schema={target}` is annotated"
+                f" {ENVELOPE_CLASS_ID!r} but is not that envelope's committed"
+                f" schema file ({_display(schema_path(ENVELOPE_CLASS_ID))})"
+            ]
+        declared = _document_class_id(path)
+        if declared is None:
+            return [
+                f"{relative}: annotated with the {ENVELOPE_CLASS_ID!r} envelope"
+                " but declares no `class_id`, so nothing states which"
+                " deployment-authored class it is"
+            ]
+        if declared in SDK_ARTIFACT_CLASSES:
+            return [
+                f"{relative}: declares `class_id: {declared}`, which the SDK"
+                " owns; point the header at that class's own committed schema"
+                " rather than at the open envelope"
+            ]
+        try:
+            load_artifact(
+                path.read_text(encoding="utf-8"),
+                declared_artifact_class(declared),
+            )
+        except ArtifactLoadError as rejected:
+            return [
+                f"{relative}: the {ENVELOPE_CLASS_ID!r} envelope"
+                f" ({DeclaredArtifact.__name__}) does not accept this document:"
+                f" {rejected}"
+            ]
+        return []
+
     artifact_class = SDK_ARTIFACT_CLASSES.get(class_id)
     if artifact_class is None:
         return [
@@ -224,6 +305,8 @@ def _manifest_problems(directory: pathlib.Path) -> list[str]:
         # test says what is wrong with it, in its own words.
         return []
 
+    from tools.dump_schemas import ENVELOPE_CLASS_ID
+
     problems: list[str] = []
     for entry in getattr(manifest, "artifacts", ()):
         entry_path = (directory / entry.path).resolve()
@@ -232,6 +315,13 @@ def _manifest_problems(directory: pathlib.Path) -> list[str]:
         annotated = header_class_id(entry_path)
         if annotated is None:
             continue
+        if annotated == ENVELOPE_CLASS_ID:
+            # The envelope is shared, so it carries no class identity of its
+            # own. The document's `class_id` field is the second independent
+            # statement here, and it is what the manifest must agree with.
+            annotated = _document_class_id(entry_path)
+            if annotated is None:
+                continue
         if annotated != entry.class_id:
             problems.append(
                 f"{_display(entry_path)}: the manifest declares"

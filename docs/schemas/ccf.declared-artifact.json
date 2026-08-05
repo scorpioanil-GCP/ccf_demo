@@ -1,0 +1,27 @@
+{
+  "additionalProperties": false,
+  "description": "An artifact whose *schema* is the deployment's, not the SDK's.\n\nPolicy bundles, ontology declarations, **deployment-authored** operator\nparameter sets: the whitepaper fixes that these are versioned Control Plane\nartifacts, not what fields they hold. This envelope supplies the parts that\nare mechanism \u2014 class identity, semver lane, canonical serializability \u2014 and\nleaves ``declaration`` open. Anything inside it must still be canonically\nserializable, so a float in a declaration fails at registration.\n\nThe qualifier on operator parameter sets is load-bearing. The four categories\nthe SDK ships \u2014 traversal, temporal, policy, similarity \u2014 have typed classes\n(:class:`OperatorParametersArtifact` and its subclasses), because the SDK\nalready owns those parameter contracts in :mod:`ccf.operators.params` and an\nopen envelope over a schema the SDK wrote would be refusing to validate what\nit can. The envelope's reason is unchanged for everything else: the SDK does\nnot get to invent a policy-bundle schema on a user's behalf.\n\nAttributes:\n    class_id: Which declared class this is an instance of.\n    declaration: The deployment's own content.",
+  "properties": {
+    "class_id": {
+      "title": "Class Id",
+      "type": "string"
+    },
+    "declaration": {
+      "additionalProperties": true,
+      "title": "Declaration",
+      "type": "object"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "class_id",
+    "declaration"
+  ],
+  "title": "DeclaredArtifact",
+  "type": "object",
+  "x-ccf-class-id": "ccf.declared-artifact"
+}

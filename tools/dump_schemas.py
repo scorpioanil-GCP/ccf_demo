@@ -82,6 +82,28 @@ SCHEMAS_DIR = REPO_ROOT / "docs" / "schemas"
 #: JSON Schema extension key carrying the CCF artifact class id.
 CLASS_ID_KEY = "x-ccf-class-id"
 
+#: The committed schema of the open ``DeclaredArtifact`` envelope.
+#:
+#: Deployment-authored artifact classes — a policy bundle, a deployment's own
+#: expectations document — resolve through
+#: :func:`~ccf.controlplane.artifacts.declared_artifact_class` and deliberately
+#: get **no** class-specific schema: the SDK never invents a schema for a
+#: namespace that is not its own. That left such documents with no honest
+#: ``$schema`` target at all, and therefore no way to pass
+#: ``tools/check_schema_headers.py`` other than a deferral marker that names no
+#: real closing plan (plan 15-13).
+#:
+#: What the SDK *does* own is the **envelope**: ``semver``, ``class_id``, and an
+#: open ``declaration``. Committing that one schema lets a deployment-authored
+#: document carry a header that is true — it annotates the three envelope keys
+#: the SDK validates and says nothing about the declaration's interior, which is
+#: precisely the boundary :class:`~ccf.controlplane.artifacts.DeclaredArtifact`
+#: draws. It is emitted here but is **not** a member of
+#: :data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES`, so no manifest can name
+#: it as a class and the "unknown id resolves to the envelope" design is
+#: untouched.
+ENVELOPE_CLASS_ID = "ccf.declared-artifact"
+
 
 def schema_path(class_id: str) -> pathlib.Path:
     """Return the committed path for ``class_id``.
@@ -101,7 +123,13 @@ def schema_path(class_id: str) -> pathlib.Path:
 
 
 def emit() -> dict[pathlib.Path, str]:
-    """Return the full committed tree as ``path -> serialized bytes``."""
+    """Return the full committed tree as ``path -> serialized bytes``.
+
+    One file per SDK-owned class, plus the :data:`ENVELOPE_CLASS_ID` schema of
+    the open ``DeclaredArtifact`` envelope — see that constant for why the
+    envelope is committed without being an owned class.
+    """
+    from ccf.controlplane.artifacts import DeclaredArtifact
     from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
 
     documents: dict[pathlib.Path, str] = {}
@@ -109,6 +137,10 @@ def emit() -> dict[pathlib.Path, str]:
         document: dict[str, Any] = artifact_class.contract.model_json_schema()
         document[CLASS_ID_KEY] = class_id
         documents[schema_path(class_id)] = serialize(document)
+
+    envelope: dict[str, Any] = DeclaredArtifact.model_json_schema()
+    envelope[CLASS_ID_KEY] = ENVELOPE_CLASS_ID
+    documents[schema_path(ENVELOPE_CLASS_ID)] = serialize(envelope)
     return documents
 
 
