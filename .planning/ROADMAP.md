@@ -393,9 +393,9 @@ Plans:
 
 **Wave 10**
 
-- [ ] 15-14-PLAN.md — Rewrite examples 01 agent-basics and 02 skilling (ERGO-13, ERGO-16, ERGO-12)
-- [ ] 15-15-PLAN.md — Rewrite examples 03 harness-portability and 07 artifact-store-mcp (ERGO-13, ERGO-16, ERGO-12)
-- [ ] 15-16-PLAN.md — Rewrite example 08 e2e-demo + the DEMO-03 narration review (ERGO-13, ERGO-16, ERGO-12)
+- [x] 15-14-PLAN.md — Rewrite examples 01 agent-basics and 02 skilling (ERGO-13, ERGO-16, ERGO-12)
+- [x] 15-15-PLAN.md — Rewrite examples 03 harness-portability and 07 artifact-store-mcp (ERGO-13, ERGO-16, ERGO-12)
+- [x] 15-16-PLAN.md — Rewrite example 08 e2e-demo + the DEMO-03 narration review (ERGO-13, ERGO-16, ERGO-12)
 
 **Wave 11**
 
@@ -426,7 +426,7 @@ Plans:
 | 13.1. External-Consumer Examples (MCP Egress) | 4/4 | Complete   | 2026-08-02 |
 | 14. Documentation Suite | 10/10 | Complete   | 2026-08-03 (verified 5/5; G-01 deliberately deferred to 16) |
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
-| 15. SDK Ergonomics — The Integration Surface | 13/21 | In Progress|  |
+| 15. SDK Ergonomics — The Integration Surface | 16/21 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
