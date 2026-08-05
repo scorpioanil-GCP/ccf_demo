@@ -35,17 +35,29 @@ or, directly:
 PYTHONPATH=src:runtime python examples/00-quickstart/run.py
 ```
 
-The driver is an asserted program: exit code 0 means every invariant in
-the "What would fail" table below held; any failure exits nonzero, and CI
-treats nonzero as red.
+`run.py` is the **call spine** and nothing else: it asserts nothing and
+prints nothing. Exit code 0 means the spine executed.
+
+Its assertions live in `tests/examples/test_quickstart_output.py`. The
+split is deliberate and it matters when you read `make ci`:
+
+```sh
+make examples                        # proves the spine RUNS
+pytest tests/examples/               # proves it is CORRECT
+```
+
+Both are part of `make ci`, so nothing is unguarded — but a green
+`make example-00` on its own is not a correctness result, and the
+invariants in the "What would fail" table below are checked by the test
+module, not by the example.
 
 > **Expected-output changes are a reviewed event.** If you enrich the
-> artifacts, run `make example-00`, review the assertion output, then
-> deliberately edit the `expected:` block in `artifacts/controlplane.yaml`
-> to match what you reviewed — regeneration is a reviewed event, landed in
-> the same commit as the enrichment, with the commit body summarizing what
-> changed in the output and why. No `make regen-*` targets exist, and none
-> will be added.
+> artifacts, run `pytest tests/examples/test_quickstart_output.py`, review
+> the failure, then deliberately edit `artifacts/expected.yaml` to match
+> what you reviewed — regeneration is a reviewed event, landed in the same
+> commit as the enrichment, with the commit body summarizing what changed
+> in the output and why. No `make regen-*` targets exist, and none will be
+> added.
 
 ## The story
 
@@ -53,8 +65,15 @@ A payments analyst at a fictional German bank needs decision context on a
 corporate customer. The artifacts declare everything the fabric needs; the
 code only interprets them.
 
-1. **Declare the vocabulary.** `artifacts/ontology.yaml` names four entity
-   classes — `customer`, `account`, `mandate`, `branch` — with the payload
+0. **Name what is in force.** `artifacts/manifest.yaml` enumerates every
+   other document — its path, its Control Plane key, its artifact class,
+   and its `role`. `role: register` puts an artifact into the Control
+   Plane and into the pinned set that is replay dimension 2; `role: load`
+   parses and validates it identically and hands it back, but never puts
+   it in force. Nothing is globbed: the set in force must not be a
+   function of what happens to be in a directory.
+1. **Declare the vocabulary.** `artifacts/resolution-spec.yaml` names four
+   entity classes — `customer`, `account`, `mandate`, `branch` — with the payload
    keys that mint each one's identity, and three typed relationships
    (`holds`, `authorizes`, `domiciled_at`). The same customer arriving
    from two source systems converges on one node because both mint the
@@ -70,24 +89,27 @@ code only interprets them.
    edge that would leak its existence by absence; `ev-104` adds the branch
    the surviving account is domiciled at, giving the depth-bounded
    traversal a genuine second hop.
-3. **Constrain the run.** `artifacts/controlplane.yaml` is the
-   **Control Plane** side of the split — the Control Plane declares what
-   the fabric may do (versioned config, policy, artifacts — also the audit
-   plane); the Data Plane executes within those constraints (whitepaper
-   §7.8). It pins the policy bundle, all four operator parameter sets (see
-   key `operator_parameters`), the product class and its TTL ceiling, the
-   perspective, and the decision instants — explicit data, never clock
-   reads, which is what makes the run replayable.
+3. **Constrain the run.** The **Control Plane** side of the split — the
+   Control Plane declares what the fabric may do (versioned config,
+   policy, artifacts — also the audit plane); the Data Plane executes
+   within those constraints (whitepaper §7.8). One document per class:
+   `policy-bundle.yaml`, the four `operator-parameters-*.yaml` sets,
+   `product-class.yaml`, `product-governance.yaml` (the TTL ceiling and
+   the product's own lifetime, two separately authored numbers so Gate 3
+   has something to compare), `perspective.yaml`, and `decision.yaml` for
+   the instants — explicit data, never clock reads, which is what makes
+   the run replayable.
 4. **Project and serve.** The one piece of deployment *code* is
    `QuickstartPlan` in `run.py` — the **Projection (Π)** — the
    role-conditioned transformation that turns graph state into the view a
    given consumer is entitled to see (whitepaper §7.5). The engine runs
    the operator chain, the projection interprets it, the three L6 gates
-   check the candidate, and the served view is asserted against the
-   `expected:` block the deployment authored:
+   check the candidate, and the served view is asserted — in
+   `tests/examples/test_quickstart_output.py` — against
+   `artifacts/expected.yaml`:
 
    ```yaml
-   expected:
+   declaration:
      entity_classes: [customer, account, branch]
      relationship_types: [holds, domiciled_at]
      entity_count: 3
@@ -95,6 +117,11 @@ code only interprets them.
 
    (The restricted mandate and the off-query deposit account are exactly
    what is *not* in that list.)
+
+   The projection's declared operator set comes from
+   `product-class.yaml`'s `required_operator_keys`, never from the
+   operator registry's own keys. That independence is what leaves the
+   lineage gate a real comparison rather than a value against itself.
 5. **Record before delivery.** A five-dimension **Decision Replay
    record** — the record (fabric snapshot, policy bindings, model version,
    perspective conditioning, generation path) that lets a decision be
@@ -105,7 +132,8 @@ code only interprets them.
    file-backed and MCP-backed reference implementations (CLAUDE.md §7.4 —
    SDK extension) — before the product is served, and read back to prove
    it round-trips.
-6. **Decay is configuration.** `artifacts/halflife.yaml` declares the
+6. **Decay is configuration.** `artifacts/half-life-table.yaml` and
+   `artifacts/debt-profile.yaml` declare the
    **Context Half-life (λ_c)** — a per-observation-type decay rate
    declaring how fast context goes stale — a Control Plane value, never
    code (whitepaper §7.7) — and the **Context Debt (D_c)** — the
@@ -120,12 +148,38 @@ that is the No-Hardcoding boundary doing its job.
 
 ## Artifact-by-artifact
 
-| Artifact | What it declares | Yours to edit vs mechanism |
-| --- | --- | --- |
-| `artifacts/ontology.yaml` | Entity classes, identity keys, relationship rules, classification and similarity-corpus attributes | `[ADAPT]`: class names, match keys, attribute names, relationship types. `[MECHANISM]`: `entity_rules`, `match_key`, `identity_keys`, `relationship_rules`, `classification_attribute_by_class`, `similarity_corpus_attribute_by_class` |
-| `artifacts/events.yaml` | The L1 signal stream, in the source systems' vocabulary | `[ADAPT]`: everything under `payload:`, source system ids. `[MECHANISM]`: `envelope_id`, `source_system_id`, `ingestion_timestamp`, `observed_time`, `payload` |
-| `artifacts/controlplane.yaml` | Policy bundle, operator parameters, product class, MAX_TTL, perspective, decision instants, `expected:` block | `[ADAPT]`: key names, bundle values, parameter values, schema name, expected values. `[MECHANISM]`: section names `keys`, `policy_bundle`, `operator_parameters`, `product_class`, `perspective`, `decision`, `expected` and their sub-keys |
-| `artifacts/halflife.yaml` | λ_c calibrations per observation type and the D_c debt profile | `[ADAPT]`: observation-type names and every calibrated value. `[MECHANISM]`: `half_life_seconds`, `decay_driver`, `supersession_event`, `risk_sensitivity`, `forced_llm_threshold`, `fail_closed_threshold` |
+**One artifact class, one document.** A file is not an artifact: each class
+has its own contract and its own version lane, so each gets its own
+closed-world document with a `$schema` header naming the class that
+validates it.
+
+| Artifact | Class | Role | What it declares |
+| --- | --- | --- | --- |
+| `manifest.yaml` | `ccf.deployment-manifest` | — | Every document below, by path, key, class and role; the tenant and the backend kind |
+| `resolution-spec.yaml` | `ccf.resolution-spec` | register | Entity classes, identity keys, relationship rules |
+| `policy-bundle.yaml` | *deployment-authored* | register | The policy regime in force |
+| `half-life-table.yaml` | `ccf.half-life-table` | register | λ_c per observation type |
+| `debt-profile.yaml` | `ccf.debt-profile` | register | The D_c bands and risk sensitivity |
+| `operator-parameters-traversal.yaml` | `ccf.operator-parameters.traversal` | register | Seed classes, edge types, depth bound |
+| `operator-parameters-temporal.yaml` | `ccf.operator-parameters.temporal` | register | Which bitemporal axis the boundary binds |
+| `operator-parameters-policy.yaml` | `ccf.operator-parameters.policy` | register | Classification attribute per class; permitted classifications |
+| `operator-parameters-similarity.yaml` | `ccf.operator-parameters.similarity` | register | Query, threshold, ranked classes, corpus attribute per class |
+| `perspective.yaml` | `ccf.perspective` | register | The Π role-conditioning |
+| `product-class.yaml` | `ccf.product-class` | register | Schema identity, TTL anchor, assembly mode, MAX_TTL key, `required_operator_keys` |
+| `product-governance.yaml` | *deployment-authored* | register | TTL ceiling, product lifetime, corpus index version, plan id, replay class |
+| `events.yaml` | `ccf.signal-batch` | **load** | The L1 signal stream. Role fixed by the SDK — registering raw events would put them in replay dimension 2 |
+| `decision.yaml` | *deployment-authored* | **load** | This run's instants and the freshness demonstration |
+| `expected.yaml` | *deployment-authored* | **load** | What the served product should contain |
+
+Each document carries `[ADAPT]` / `[MECHANISM]` annotations in its own
+header comment, naming exactly which of its keys are yours to rename and
+which the factory interprets.
+
+Documents of a class the SDK does not own use the open `DeclaredArtifact`
+envelope: the SDK fixes `semver`, `class_id` and canonical
+serializability, and everything under `declaration:` is yours. Their
+`$schema` header points at the envelope, because the SDK never invents a
+schema for a namespace that is not its own.
 
 ## Whitepaper / CLAUDE.md sections exercised
 
@@ -146,25 +200,31 @@ that is the No-Hardcoding boundary doing its job.
 `artifacts/` **is** the specialization surface. To move this example to
 your domain:
 
-1. `artifacts/ontology.yaml` — rename the entity classes under
+1. `artifacts/resolution-spec.yaml` — rename the entity classes under
    `entity_rules` (`customer`, `account`, `mandate`, `branch`) and their
    `match_key`/`identity_keys`/`attribute_keys` to your source systems'
-   vocabulary; rewrite `relationship_rules` for your edges; point
-   `classification_attribute_by_class` and
-   `similarity_corpus_attribute_by_class` at your attribute names.
-2. `artifacts/events.yaml` — replace the `payload:` blocks with your
+   vocabulary; rewrite `relationship_rules` for your edges.
+2. `artifacts/events.yaml` — replace the `raw_payload:` blocks with your
    systems' payloads, keeping the envelope keys.
-3. `artifacts/controlplane.yaml` — set your `policy_bundle`, retune every
-   set under `operator_parameters` (especially `similarity.query` and
-   `traversal.relationship_types`), rename `product_class.schema_name`,
-   and then — after one reviewed run — rewrite the `expected:` block.
-4. `artifacts/halflife.yaml` — replace the `entries:` rows with your
-   observation types and calibrations (decimals stay quoted).
+3. `artifacts/operator-parameters-*.yaml` — retune all four, especially
+   `similarity.query`, `traversal.relationship_types`, and the two
+   per-class attribute maps (`classification_attribute_by_class` and
+   `similarity_corpus_attribute_by_class`) which now live with the
+   operator that reads them.
+4. `artifacts/policy-bundle.yaml` and `artifacts/product-class.yaml` —
+   set your regime and rename `schema_name`. If your projection needs a
+   different operator set, change `required_operator_keys` here; do not
+   change it in `run.py`.
+5. `artifacts/half-life-table.yaml` — replace the `entries:` rows with
+   your observation types and calibrations (decimals stay quoted).
+6. `artifacts/manifest.yaml` — update `tenant_id` and any `class_id` you
+   renamed. Every document must be named here; nothing is discovered.
+7. `artifacts/expected.yaml` — last, after one reviewed run.
 
 On the next run expect: your entity classes in the served payload, your
-relationship types surviving traversal, and an assertion failure on
-`expected:` until you complete the reviewed-edit step above — that failure
-is the workflow, not a bug.
+relationship types surviving traversal, and a failing
+`pytest tests/examples/test_quickstart_output.py` until you complete step
+7 — that failure is the workflow, not a bug.
 
 ## What would fail
 
@@ -178,4 +238,8 @@ is the workflow, not a bug.
 | the three gates (INV-CH7-46/47/48) | an empty-operator, forged-lineage or over-TTL product would become servable |
 | lineage strict equality | the product's `operators_invoked` would diverge from what the engine resolved as having run |
 | replay before delivery (INV-CH7-79) | a product would be served with no five-dimension record in the store |
-| λ_c is configuration, never code (INV-CH7-58) | a half-life would exist somewhere other than `artifacts/halflife.yaml` |
+| λ_c is configuration, never code (INV-CH7-58) | a half-life would exist somewhere other than `artifacts/half-life-table.yaml` |
+| declared and resolved operator sets stay independent (INV-CH7-47) | the projection would read the operator registry's own keys, and the lineage gate would compare a value against itself |
+
+Every row above is checked by `tests/examples/test_quickstart_output.py`,
+not by `run.py`.
