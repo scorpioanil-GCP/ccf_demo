@@ -4,7 +4,7 @@
 # lane; e-commerce domain, D-IMPL-52).
 #
 # This is the SAME class the agent definition declares in its axis-2 context
-# contract (`agents/order_insights.yaml`), which is what makes each harness
+# contract (`agents/agent-definition.yaml`), which is what makes each harness
 # leg's consumption a contract admission rather than a coincidence.
 #
 # `required_operator_keys` is the AUTHORED declared side of the lineage

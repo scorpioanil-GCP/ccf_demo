@@ -60,7 +60,7 @@ runtime changes. The
 documents the schema:
 
 ```yaml
---8<-- "examples/03-harness-portability/artifacts/agents/order_insights.yaml"
+--8<-- "examples/03-harness-portability/artifacts/agents/agent-definition.yaml"
 ```
 
 Per-harness deployment values — session vocabulary, reported model

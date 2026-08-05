@@ -14,12 +14,15 @@
 # plane.
 #
 # **What this manifest deliberately does not name.** The agent's own Control
-# Plane documents — the ONE agent definition under `agents/` and the prompt
-# artifact it binds — are registered by `run.py` against their typed classes
-# (`ccf.agent-definition`, `ccf.prompt-artifact`). Those classes are not
-# manifest-addressable yet, so naming them here would silently downgrade them
-# to the open envelope and the agent factory would have nothing typed to
-# resolve. See the surface-change fragment for plan 15-15.
+# Plane documents — the ONE agent definition under `agents/`, the prompt
+# artifact it binds, and the two artifacts its axis-4/axis-5 refs resolve to —
+# are registered by `run.py` against their typed classes. `ccf.agent-definition`
+# and `ccf.prompt-artifact` are SDK-owned but deliberately absent from
+# `SDK_ARTIFACT_CLASSES`: they need `register_versioned`'s D-05 hash-verified
+# bump check, and `load_and_boot` registers through `register_typed`. Naming
+# them here would resolve them to the open envelope AND drop that check — two
+# losses for no gain. `agent-registration.yaml` below is enumerated so the set
+# of documents is still readable from one place.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename
@@ -119,4 +122,11 @@ artifacts:
   - path: expected.yaml
     key: expected
     class_id: atlas-commerce.expected-product
+    role: load
+
+  # Where the agent's four documents are filed in the Control Plane. A naming
+  # table, not a permission — so `load`, not `register`.
+  - path: agent-registration.yaml
+    key: agent-registration
+    class_id: atlas-commerce.agent-registration
     role: load

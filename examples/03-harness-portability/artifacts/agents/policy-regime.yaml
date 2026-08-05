@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# The AGENT's axis-4 policy regime (CLAUDE.md §6.2 channel 1, axis 4).
+#
+# Deliberately a different artifact from `../policy-bundle.yaml`, which is what
+# the *fabric* boots under. The fabric's bundle governs what enters the graph
+# and what a claim carries; this one is the envelope of what this agent is
+# permitted to do and which skills it may bind. Collapsing them would make an
+# agent's permissions a function of the fabric's, which is not what §6.2 says.
+#
+# It is its own document because `agent-definition.yaml` references it by
+# pinned versioned URI — a ref, never the artifact (`VersionedRef`). Inlining
+# it would give one document two version identities, and the ref's `@1.0.0`
+# would be pinning something with no lane of its own.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM]. `semver` must
+# equal the version the referencing ref pins.
+
+semver: "1.0.0"
+class_id: policy-bundle
+
+declaration:
+  regime: order-operations
+  permitted_classifications: [internal]

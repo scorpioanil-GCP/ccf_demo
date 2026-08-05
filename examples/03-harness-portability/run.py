@@ -1,7 +1,7 @@
 """examples/03-harness-portability — one agent, three harnesses (EXAM-04).
 
 The harness-neutrality proof (CLAUDE.md §7.3): ONE agent definition —
-``artifacts/agents/order_insights.yaml``, loaded once, producing one
+``artifacts/agents/agent-definition.yaml``, loaded once, producing one
 :class:`~ccf.agents.agent.Agent` object — is executed unmodified under all
 three D-IMPL-24 reference adapters, in two modes:
 
@@ -49,14 +49,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
-import yaml
-
 from ccf.agents.agent import Agent
 from ccf.agents.definitions import (
     AGENT_DEFINITION,
     PROMPT_ARTIFACT,
     AgentDefinition,
-    PromptArtifact,
 )
 from ccf.agents.factory import AgentFactory
 from ccf.agents.prompts import render_instruction
@@ -70,7 +67,6 @@ from ccf.controlplane.artifacts import (
     SignalBatch,
     declared_artifact_class,
     load_artifact,
-    parse_artifact,
 )
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import build_operator_registry, load_and_boot
@@ -97,15 +93,9 @@ EXAMPLE_DIR = Path(__file__).resolve().parent
 ARTIFACTS = EXAMPLE_DIR / "artifacts"
 MANIFEST = ARTIFACTS / "manifest.yaml"
 
-#: The agent's OWN Control Plane documents, registered below rather than
-#: enumerated in the manifest. ``ccf.agent-definition`` and
-#: ``ccf.prompt-artifact`` are not manifest-addressable yet (they live in
-#: ``ccf.agents.definitions``, outside ``SDK_ARTIFACT_CLASSES``), and naming
-#: them in the manifest would silently downgrade them to the open envelope —
-#: leaving the agent factory nothing typed to resolve. They are read here
-#: through the SDK's own typed loader, never through a hand-rolled parser.
-AGENT_DIR = ARTIFACTS / "agents"
-PROMPT_DOCUMENT = ARTIFACTS / "prompt.yaml"
+#: The opt-in live legs' provider and runner configuration. Not a manifest
+#: entry: the live legs are excluded from ``make ci``, so the CI leg has no
+#: business parsing configuration for a mode it never enters.
 LIVE_DOCUMENT = ARTIFACTS / "live.yaml"
 
 sys.path.insert(0, str(EXAMPLE_DIR))
@@ -191,63 +181,10 @@ class DecisionBundle:
     ]
 
 
-def _agent_document() -> tuple[Path, Any]:
-    """The ONE agent definition document, and the path it came from.
-
-    Exactly one is the point (D-01): three harness legs sharing one definition
-    is what "portable" means here. The count is asserted in the relocated test
-    module, which is where an assertion can fail a build.
-    """
-    candidates = sorted(AGENT_DIR.glob("*.yaml"))
-    document = yaml.safe_load(candidates[0].read_text(encoding="utf-8"))
-    return candidates[0], document
-
-
 @contextmanager
 def decision(*, root: Path) -> Iterator[DecisionBundle]:
     """Boot the full L1→L6 fabric from artifacts and yield the shared bundle."""
     registry = ControlPlaneRegistry()
-
-    # --- the agent's own Control Plane, registered before the fabric boots ---
-    # This is NOT marshalling: an agent is a declared, versioned Control Plane
-    # artifact (§6.1), and putting one in force is an adopter act with an audit
-    # consequence. It stays visible for the same reason the MaxTTL registration
-    # below does.
-    # --8<-- [start:harness-agent-controlplane]
-    prompt_doc = yaml.safe_load(PROMPT_DOCUMENT.read_text(encoding="utf-8"))
-    prompt = cast(
-        PromptArtifact,
-        parse_artifact(prompt_doc["prompt_artifact"], PROMPT_ARTIFACT),
-    )
-    registry.register_typed(
-        prompt_doc["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
-    )
-
-    _, agent_doc = _agent_document()
-    for reference in agent_doc["referenced_artifacts"].values():
-        artifact_class = declared_artifact_class(reference["class_id"])
-        registry.register_typed(
-            reference["key"],
-            parse_artifact(
-                {
-                    "class_id": reference["class_id"],
-                    "semver": reference["semver"],
-                    "declaration": reference["declaration"],
-                },
-                artifact_class,
-            ),
-            artifact_class,
-        )
-
-    definition = cast(
-        AgentDefinition,
-        parse_artifact(agent_doc["agent_definition"], AGENT_DEFINITION),
-    )
-    definition_key = agent_doc["keys"]["agent_definition"]
-    definition_version = registry.register_versioned(
-        definition_key, definition, AGENT_DEFINITION
-    )
-    # --8<-- [end:harness-agent-controlplane]
 
     # --8<-- [start:boot]
     # 1. One call replaces the registration prologue and the boot: the manifest
@@ -280,6 +217,58 @@ def decision(*, root: Path) -> Iterator[DecisionBundle]:
             decision_inputs.declaration["temporal_boundary"]
         )
         now = datetime.fromisoformat(decision_inputs.declaration["now"])
+
+        # --- the agent's own Control Plane, into the SAME registry ----------
+        # This is NOT marshalling: an agent is a declared, versioned Control
+        # Plane artifact (§6.1), and putting one in force is an adopter act
+        # with an audit consequence. It stays visible for the same reason the
+        # MaxTTL registration below does.
+        #
+        # `register_versioned` rather than `register_typed`, on both SDK-owned
+        # classes: it runs the D-05 hash-verified bump check, which is why
+        # `ccf.agent-definition` and `ccf.prompt-artifact` are deliberately not
+        # manifest-addressable — `load_and_boot`'s path would skip it.
+        # --8<-- [start:harness-agent-controlplane]
+        agent_registration = cast(
+            DeclaredArtifact, booted.artifacts["agent-registration"]
+        ).declaration
+
+        for reference in agent_registration["referenced"]:
+            artifact_class = declared_artifact_class(reference["class_id"])
+            registry.register_typed(
+                reference["key"],
+                load_artifact(
+                    (ARTIFACTS / reference["path"]).read_text(encoding="utf-8"),
+                    artifact_class,
+                ),
+                artifact_class,
+            )
+
+        prompt_entry = agent_registration["prompt_artifact"]
+        registry.register_versioned(
+            prompt_entry["key"],
+            load_artifact(
+                (ARTIFACTS / prompt_entry["path"]).read_text(encoding="utf-8"),
+                PROMPT_ARTIFACT,
+            ),
+            PROMPT_ARTIFACT,
+        )
+
+        definition_entry = agent_registration["agent_definition"]
+        definition = cast(
+            AgentDefinition,
+            load_artifact(
+                (ARTIFACTS / definition_entry["path"]).read_text(
+                    encoding="utf-8"
+                ),
+                AGENT_DEFINITION,
+            ),
+        )
+        definition_key = definition_entry["key"]
+        definition_version = registry.register_versioned(
+            definition_key, definition, AGENT_DEFINITION
+        )
+        # --8<-- [end:harness-agent-controlplane]
 
         # --8<-- [start:ingest]
         # 2. Ingest from the batch the manifest declared `role: load`.
@@ -483,35 +472,39 @@ def drive_deterministic(*, root: Path) -> PortabilityResult:
     # unconditionally).
     from legs.deterministic import LegRun, build_legs, drive_leg, install_no_model_guard
 
-    install_no_model_guard()
-    # The guard is only evidence if it fires. A guard that silently failed to
-    # install would leave every "no network" claim below unbacked, so the
-    # example refuses to proceed rather than reporting a property it did not
-    # establish.
-    try:
-        socket.create_connection(("127.0.0.1", 9))
-    except AssertionError:
-        pass
-    else:  # pragma: no cover - a broken guard is a broken example
-        raise RuntimeError("the no-model guard is not installed")
+    # The guard is scoped to the drive: it patches process-global names, and
+    # this function runs inside `pytest` as well as under `make example-03`, so
+    # an unscoped patch would refuse egress for every later test in the same
+    # process.
+    with install_no_model_guard():
+        # The guard is only evidence if it fires. A guard that silently failed
+        # to install would leave every "no network" claim below unbacked, so
+        # the example refuses to proceed rather than reporting a property it
+        # did not establish.
+        try:
+            socket.create_connection(("127.0.0.1", 9))
+        except AssertionError:
+            pass
+        else:  # pragma: no cover - a broken guard is a broken example
+            raise RuntimeError("the no-model guard is not installed")
 
-    with decision(root=root) as bundle:
-        # --8<-- [start:harness-legs]
-        # One agent, one product, three harnesses — the legs differ only in
-        # which adapter carries the product and reports the trace.
-        legs = build_legs(bundle.harnesses)
-        runs: tuple[LegRun, ...] = tuple(
-            drive_leg(
-                leg,
-                agent=bundle.agent,
-                product=bundle.consumed,
-                instructions=bundle.instructions,
-                build_record=bundle.build_record,
+        with decision(root=root) as bundle:
+            # --8<-- [start:harness-legs]
+            # One agent, one product, three harnesses — the legs differ only in
+            # which adapter carries the product and reports the trace.
+            legs = build_legs(bundle.harnesses)
+            runs: tuple[LegRun, ...] = tuple(
+                drive_leg(
+                    leg,
+                    agent=bundle.agent,
+                    product=bundle.consumed,
+                    instructions=bundle.instructions,
+                    build_record=bundle.build_record,
+                )
+                for leg in legs
             )
-            for leg in legs
-        )
-        # --8<-- [end:harness-legs]
-        return PortabilityResult(bundle=bundle, runs=runs)
+            # --8<-- [end:harness-legs]
+            return PortabilityResult(bundle=bundle, runs=runs)
 
 
 def _deterministic() -> int:

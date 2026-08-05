@@ -1,38 +1,50 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.signal-batch.json
 # Example 07 event stream — L1 signal envelopes (logistics domain, D-09).
 #
-# Small, but not a flat happy path: each layer of the fabric has something
-# real to do, so "the two stores served the same product" is a statement
-# about a product the fabric actually worked for.
+# Small, but not a flat happy path: each layer of the fabric has something real
+# to do, so "the two stores served the same product" is a statement about a
+# product the fabric actually worked for.
 #
 #   * ev-500 asserts shipment SHP-2201 and its rail route in one envelope
 #     -> an `assigned_to` edge from co-occurrence.
-#   * ev-501 asserts the SAME shipment from a DIFFERENT source with its
-#     origin depot -> one shipment claim whose lineage accumulates by
-#     set-union, plus an `originates_at` edge.
-#   * ev-502 introduces a sea route the similarity operator must rank out —
-#     so "similarity did something" is distinguishable from identity.
-#   * ev-503 carries a RESTRICTED bonded depot, which the policy operator
-#     must substitute out along with the edge that would otherwise leak its
+#   * ev-501 asserts the SAME shipment from a DIFFERENT source with its origin
+#     depot -> one shipment claim whose lineage accumulates by set-union, plus
+#     an `originates_at` edge.
+#   * ev-502 introduces a sea route the similarity operator must rank out — so
+#     "similarity did something" is distinguishable from identity.
+#   * ev-503 carries a RESTRICTED bonded depot, which the policy operator must
+#     substitute out along with the edge that would otherwise leak its
 #     existence by absence.
-#
 #   * ev-504 asserts a SECOND shipment on the same rail route from a third
-#     source system -> the traversal expansion carries two shipments, so
-#     the served product's shape depends on real multi-entity assembly.
+#     source system -> the traversal expansion carries two shipments, so the
+#     served product's shape depends on real multi-entity assembly.
+#
+# The document adopts the SDK's OWN envelope vocabulary — `source: {system_id}`,
+# `raw_payload:` — rather than a flat shape the loader would have to translate.
+# A translation removed is one that cannot drift.
 #
 # Payload keys are the *source systems'* vocabulary, never the fabric's.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: everything under `raw_payload:` and every source system id is
+# [ADAPT]; the envelope keys (`envelope_id`, `tenant_id`, `source`,
+# `system_id`, `ingestion_timestamp`, `observed_time`, `raw_payload`) are
+# [MECHANISM].
 
-schema_version: "1.0.0"
-artifact_version: "1.0.0"
+semver: "1.0.0"
+
+tenant_id: nordhaven-logistics
 
 envelopes:
   - envelope_id: ev-500
-    source_system_id: tms
+    tenant_id: nordhaven-logistics
+    source:
+      system_id: tms
     ingestion_timestamp: 2026-07-01T06:00:00Z
     observed_time: 2026-07-01T05:55:00Z
-    payload:
+    raw_payload:
       shipment_ref: "SHP-2201"
       shipment_status: "in_transit"
       cargo_description: "palletized machine parts"
@@ -43,10 +55,12 @@ envelopes:
       route_classification: "internal"
 
   - envelope_id: ev-501
-    source_system_id: depot-ops
+    tenant_id: nordhaven-logistics
+    source:
+      system_id: depot-ops
     ingestion_timestamp: 2026-07-01T06:05:00Z
     observed_time: 2026-07-01T05:55:00Z
-    payload:
+    raw_payload:
       shipment_ref: "SHP-2201"
       shipment_status: "in_transit"
       cargo_description: "palletized machine parts"
@@ -57,20 +71,24 @@ envelopes:
       depot_classification: "internal"
 
   - envelope_id: ev-502
-    source_system_id: tms
+    tenant_id: nordhaven-logistics
+    source:
+      system_id: tms
     ingestion_timestamp: 2026-07-01T06:10:00Z
     observed_time: 2026-07-01T06:05:00Z
-    payload:
+    raw_payload:
       route_code: "RT-SEA-09"
       route_description: "coastal sea barge slow bulk service"
       transport_mode: "sea"
       route_classification: "internal"
 
   - envelope_id: ev-503
-    source_system_id: customs
+    tenant_id: nordhaven-logistics
+    source:
+      system_id: customs
     ingestion_timestamp: 2026-07-01T06:15:00Z
     observed_time: 2026-07-01T06:12:00Z
-    payload:
+    raw_payload:
       shipment_ref: "SHP-2201"
       shipment_status: "in_transit"
       cargo_description: "palletized machine parts"
@@ -81,10 +99,12 @@ envelopes:
       depot_classification: "restricted"
 
   - envelope_id: ev-504
-    source_system_id: booking-desk
+    tenant_id: nordhaven-logistics
+    source:
+      system_id: booking-desk
     ingestion_timestamp: 2026-07-01T06:20:00Z
     observed_time: 2026-07-01T06:18:00Z
-    payload:
+    raw_payload:
       shipment_ref: "SHP-2202"
       shipment_status: "booked"
       cargo_description: "chilled produce containers"

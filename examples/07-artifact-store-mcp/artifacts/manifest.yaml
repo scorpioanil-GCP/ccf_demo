@@ -1,0 +1,117 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.deployment-manifest.json
+# The one document naming what this deployment puts in force (D-06, D-08,
+# D-IMPL-80; logistics domain, D-09).
+#
+# **This manifest is the "nothing else changes" claim, made structural.** The
+# example runs one workload twice, and BOTH runs load THIS file, unmodified.
+# Everything the fabric was permitted to do is enumerated here, so anything
+# that differed between the two runs would have to differ here — and nothing
+# does. The only thing that varies is which store config `run.py` binds at the
+# call site.
+#
+# Every artifact is ENUMERATED, never globbed: the set of Control Plane
+# artifacts in force is dimension 2 of the five-dimension Decision Replay
+# record, and a pattern would make that set a function of directory contents at
+# boot time. `ManifestEntry` refuses a glob at parse.
+#
+# The BACKEND is declared as a kind only (D-08) — a connection string is a
+# deployment ENVIRONMENT value, and putting one in a versioned,
+# content-hashed artifact would persist it into the audit plane. **The ARTIFACT
+# STORE is absent for exactly that reason**: which substrate persists this
+# deployment's artifacts is the same kind of environment choice, so it is a
+# call-site binding in `run.py` and lives in `store_file.yaml` /
+# `store_mcp.yaml`. A `store:` field here would put a substrate choice into
+# replay dimension 2 and would make the example's two runs differ in what was
+# in force.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `tenant_id`, every `key`, every `path`, and the
+# non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
+# `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
+# `artifacts`, `path`, `key`, `class_id` and `role`, the `ccf.`-prefixed class
+# ids, and the `role` values are [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: nordhaven-logistics
+backend: sqlite
+
+resolution_spec_key: resolution-spec
+policy_bundle_key: policy-bundle
+
+artifacts:
+  # --- role: register — into the registry, into the pin set, into replay
+  #     dimension 2. This is "what this fabric was permitted to do".
+  - path: resolution-spec.yaml
+    key: resolution-spec
+    class_id: ccf.resolution-spec
+    role: register
+
+  - path: policy-bundle.yaml
+    key: policy-bundle
+    class_id: nordhaven-logistics.policy-bundle
+    role: register
+
+  - path: operator-parameters-traversal.yaml
+    key: traversal
+    class_id: ccf.operator-parameters.traversal
+    role: register
+
+  - path: operator-parameters-temporal.yaml
+    key: temporal
+    class_id: ccf.operator-parameters.temporal
+    role: register
+
+  - path: operator-parameters-policy.yaml
+    key: policy
+    class_id: ccf.operator-parameters.policy
+    role: register
+
+  - path: operator-parameters-similarity.yaml
+    key: similarity
+    class_id: ccf.operator-parameters.similarity
+    role: register
+
+  - path: perspective.yaml
+    key: perspective
+    class_id: ccf.perspective
+    role: register
+
+  - path: product-class.yaml
+    key: product-class
+    class_id: ccf.product-class
+    role: register
+
+  - path: product-governance.yaml
+    key: product-governance
+    class_id: nordhaven-logistics.product-governance
+    role: register
+
+  # --- role: load — parsed and validated through the same seam as everything
+  #     above, then handed back on `BootedFabric.artifacts`. Never registered,
+  #     never pinned, never in replay dimension 2.
+
+  # The SDK FIXES this one to `load` (D-IMPL-80, SDK_ARTIFACT_ROLES):
+  # registering a signal batch would content-hash raw event data into Control
+  # Plane state. Events are what the fabric OBSERVED; the Control Plane is what
+  # the fabric was PERMITTED TO DO.
+  - path: events.yaml
+    key: events
+    class_id: ccf.signal-batch
+    role: load
+
+  # This run's instants. What one run asked about is not part of what the
+  # fabric was permitted to do.
+  - path: decision.yaml
+    key: decision
+    class_id: nordhaven-logistics.decision-inputs
+    role: load
+
+  # What the deployment expects the product to contain, and which artifact
+  # roles it files through the store seam. An expectation is not a permission.
+  - path: expected.yaml
+    key: expected
+    class_id: nordhaven-logistics.expected-product
+    role: load

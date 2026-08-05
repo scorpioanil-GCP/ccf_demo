@@ -155,15 +155,30 @@ def _declaration(result: Any, key: str) -> Any:
 
 
 def test_exactly_one_agent_definition_is_shared_by_every_leg() -> None:
-    """Pre-rewrite :225.
+    """Pre-rewrite :225, strengthened.
 
     "Portable" means *one* definition under many harnesses. Two definition
-    documents in the directory would let a leg quietly bind a different agent
-    and every equivalence assertion below would still pass — about the wrong
-    thing.
+    documents would let a leg quietly bind a different agent and every
+    equivalence assertion below would still pass — about the wrong thing.
+
+    The pre-rewrite check counted files in ``artifacts/agents/``, which stopped
+    meaning anything once that directory gained the agent's referenced
+    artifacts. This counts documents *that the agent-definition contract
+    accepts*, over the whole artifact tree — so it is about definitions rather
+    than about a directory listing, and a second definition dropped anywhere
+    under ``artifacts/`` fails it.
     """
-    documents = sorted((EXAMPLE_DIR / "artifacts" / "agents").glob("*.yaml"))
-    assert len(documents) == 1, documents
+    from ccf.agents.definitions import AGENT_DEFINITION
+    from ccf.controlplane.artifacts import ArtifactLoadError, load_artifact
+
+    definitions = []
+    for path in sorted((EXAMPLE_DIR / "artifacts").rglob("*.yaml")):
+        try:
+            load_artifact(path.read_text(encoding="utf-8"), AGENT_DEFINITION)
+        except ArtifactLoadError:
+            continue
+        definitions.append(path.name)
+    assert definitions == ["agent-definition.yaml"], definitions
 
 
 def test_the_agent_definition_names_no_harness(result: Any) -> None:
@@ -335,6 +350,24 @@ def test_every_record_carries_all_five_dimensions(result: Any) -> None:
     """Pre-rewrite :550 (whitepaper §7.10.1, INV-CH7-80)."""
     for run in result.runs:
         assert _dimension_count(run.record) == 5, run.harness_id
+
+
+def test_the_no_model_guard_does_not_outlive_the_drive(result: Any) -> None:
+    """The guard is scoped, and this is why it has to be.
+
+    ``install_no_model_guard`` patches ``socket.socket.connect`` and
+    ``socket.create_connection`` — process-global names. Under
+    ``make example-03`` that was harmless: the process existed to run one
+    drive. Under ``pytest`` it is not, because every later test in the session
+    shares the process, and an unrestored patch makes them fail somewhere
+    unrelated to the cause.
+
+    ``result`` is requested so the drive has already run when this executes.
+    """
+    import socket
+
+    assert socket.create_connection.__name__ != "refuse"
+    assert socket.socket.connect.__name__ != "refuse"
 
 
 # --- the relocation itself, as a standing guard ------------------------------

@@ -35,7 +35,8 @@ from __future__ import annotations
 import asyncio
 import json
 import socket
-from collections.abc import AsyncIterator, Callable, Mapping
+from collections.abc import AsyncIterator, Callable, Iterator, Mapping
+from contextlib import contextmanager
 from typing import Any, NamedTuple
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, ResultMessage, Transport
@@ -88,12 +89,21 @@ GOVERNED_MODEL_VERSION_FIELDS = ("assembly_mode", "model_version")
 # --8<-- [end:harness-governed-fields]
 
 
-def install_no_model_guard() -> None:
+@contextmanager
+def install_no_model_guard() -> Iterator[None]:
     """Fail the run if anything opens a socket (D-02, T-08-25).
 
     Deterministic mode provably makes no network call: the guard is
-    process-global, installed before any leg runs, and the driver asserts it
-    actually fires before trusting it.
+    process-global, installed before any leg runs, and the driver refuses to
+    proceed unless it actually fires.
+
+    **A context manager, and the scoping is not cosmetic.** The guard patches
+    two module-level names, and the drive now runs inside ``pytest`` as well as
+    under ``make example-03`` (D-09). An unscoped patch would survive the drive
+    and refuse egress for every *later* test in the same process — a failure
+    that reports itself somewhere unrelated to its cause, which is exactly the
+    kind of defect a guard is supposed to prevent rather than cause. The
+    originals are restored on the way out, including on failure.
     """
 
     def refuse(*args: Any, **kwargs: Any) -> Any:
@@ -102,8 +112,15 @@ def install_no_model_guard() -> None:
             " must run real harness machinery in-process with no model (D-02)"
         )
 
+    connect = socket.socket.connect
+    create_connection = socket.create_connection
     socket.socket.connect = refuse  # type: ignore[method-assign, assignment]
     socket.create_connection = refuse  # type: ignore[assignment]
+    try:
+        yield
+    finally:
+        socket.socket.connect = connect  # type: ignore[method-assign]
+        socket.create_connection = create_connection
 
 
 # --- generic carrier recovery (same probe idea as the conformance suite) ------

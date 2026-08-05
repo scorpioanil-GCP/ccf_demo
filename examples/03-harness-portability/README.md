@@ -3,7 +3,7 @@
 ## What this demonstrates
 
 The harness-neutrality proof (CLAUDE.md §7.3, mission success condition
-3): **one** agent definition — `artifacts/agents/order_insights.yaml`,
+3): **one** agent definition — `artifacts/agents/agent-definition.yaml`,
 loaded once, producing one `Agent` object — executed unmodified under
 all three D-IMPL-24 reference adapters (Claude Agent SDK, Google ADK,
 LangGraph). *Portability is demonstrated, not asserted.* An agent here
@@ -123,7 +123,10 @@ of having both modes.
 
 | Artifact | What it declares | Yours to edit vs mechanism |
 | --- | --- | --- |
-| `artifacts/agents/order_insights.yaml` | THE one agent definition all three legs share — six specialization axes, naming no harness | `[ADAPT]` tenant, names, roles, thresholds; `[MECHANISM]` the six axis field names, `referenced_artifacts` structure, `ref` URI scheme |
+| `artifacts/agents/agent-definition.yaml` | THE one agent definition all three legs share — six specialization axes, naming no harness | `[ADAPT]` tenant, names, roles, ref targets; `[MECHANISM]` the six axis field names, the two version fields, the `ccf-artifact://` URI scheme |
+| `artifacts/agents/policy-regime.yaml` | The AGENT's axis-4 policy regime — a different artifact from the fabric's `policy-bundle.yaml` | `[ADAPT]` `class_id` and everything under `declaration:`; `[MECHANISM]` `semver`, `class_id`, `declaration` |
+| `artifacts/agents/debt-profile.yaml` | The agent's axis-5 half-life and debt profile | `[ADAPT]` `class_id` and everything under `declaration:`; `[MECHANISM]` `semver`, `class_id`, `declaration` |
+| `artifacts/agent-registration.yaml` | Where the agent's four documents are filed in the Control Plane, and against which class — `role: load`, a naming table rather than a permission | `[ADAPT]` every key, path and class id; `[MECHANISM]` the entry field names |
 | `artifacts/manifest.yaml` | The one document naming every fabric artifact in force, its Control Plane key, its class, and its `role` (D-IMPL-80) | `[ADAPT]` keys, paths, deployment class ids; `[MECHANISM]` field names, `ccf.`-prefixed class ids, `role` values |
 | `artifacts/resolution-spec.yaml` | The deployment vocabulary: four entity classes, three typed edges | `[ADAPT]` classes, types, attribute names; `[MECHANISM]` rule-block field names |
 | `artifacts/policy-bundle.yaml` | The policy bundle the *fabric* boots under — distinct from the agent's axis-4 regime | `[ADAPT]` `class_id` and everything under `declaration:`; `[MECHANISM]` `semver`, `class_id`, `declaration` |
@@ -153,9 +156,9 @@ of having both modes.
 ## What to change first
 
 `artifacts/` is the specialization surface. Point
-`artifacts/agents/order_insights.yaml` (keys
-`agent_definition.context_contract.consumes[0].product_class` and
-`policy_regime.ref`) at your own product class and policy regime, swap
+`artifacts/agents/agent-definition.yaml` (keys
+`context_contract.consumes[0].product_class` and `policy_regime.ref`) at your
+own product class and policy regime, swap
 `artifacts/resolution-spec.yaml` and `artifacts/events.yaml` for your domain,
 put your deployment's model identifiers and session vocabulary in
 `artifacts/harnesses.yaml`, and your live providers, timeouts, and
