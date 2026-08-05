@@ -1,0 +1,55 @@
+{
+  "additionalProperties": false,
+  "description": "A decision class's D_c calibration (whitepaper \u00a77.7 CAR; INV-CH7-65).\n\nThree declared values, none with a default:\n\n* ``risk_sensitivity`` \u2014 the ``\u03bb_c \u00d7 Risk Sensitivity`` Freshness Budget\n  multiplier for this class.\n* ``forced_llm_threshold`` \u2014 D_c above which the assessment is routed to\n  Forced LLM: \"context is partial or stale; the LLM must be invoked with\n  explicit awareness of the debt.\"\n* ``fail_closed_threshold`` \u2014 D_c above which the class fails closed rather\n  than deciding at all. The whitepaper's conservative bias is architectural:\n  elevated debt \"biases urgency upward, not downward\", so this band exists\n  to escalate, never to smooth.\n\nThe fail-closed band must sit at or above the Forced-LLM band; a profile\nthat inverts them describes a class that fails closed *before* it escalates,\nwhich is not a stricter policy but an incoherent one.\n\nThresholds are :class:`~decimal.Decimal` in ``[0, 1]``, matching the D_c\ncodomain, and are refused as floats upstream by the loader.",
+  "properties": {
+    "fail_closed_threshold": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Fail Closed Threshold"
+    },
+    "forced_llm_threshold": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Forced Llm Threshold"
+    },
+    "risk_sensitivity": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "title": "Risk Sensitivity"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "risk_sensitivity",
+    "forced_llm_threshold",
+    "fail_closed_threshold"
+  ],
+  "title": "DebtProfile",
+  "type": "object",
+  "x-ccf-class-id": "ccf.debt-profile"
+}

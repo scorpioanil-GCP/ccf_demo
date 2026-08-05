@@ -1,0 +1,43 @@
+{
+  "additionalProperties": false,
+  "description": "The Similarity category's parameters as a versioned artifact (\u00a77.4).\n\nInherits :class:`~ccf.operators.params.SimilaritySelectParameters` verbatim \u2014\n``query``, ``minimum_score_percent``, ``ranked_entity_classes`` \u2014 so a parsed\nartifact is accepted directly by\n:class:`~ccf.operators.categories.SimilaritySelect`.\n\nIt declares **one artifact-only field beyond the operator's contract**, and\nthe asymmetry is deliberate rather than an oversight.\n\nAttributes:\n    similarity_corpus_attribute_by_class: ``entity_class -> attribute key``\n        naming the attribute whose text forms that class's corpus entry. It\n        governs :class:`~ccf.similarity.token_overlap.TokenOverlapIndex`\n        *construction* \u2014 the registry builder reads it before the operator\n        exists \u2014 and it is deliberately **absent** from\n        :class:`~ccf.operators.params.SimilaritySelectParameters`, because\n        putting a construction-time value on the per-invocation parameter set\n        would make the L4 invoke contract carry state no invocation reads.\n        No default: a class absent from this mapping contributes no corpus\n        entry, and guessing an attribute name is guessing what a deployment\n        meant by \"similar\".",
+  "properties": {
+    "minimum_score_percent": {
+      "title": "Minimum Score Percent",
+      "type": "integer"
+    },
+    "query": {
+      "title": "Query",
+      "type": "string"
+    },
+    "ranked_entity_classes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Ranked Entity Classes",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    },
+    "similarity_corpus_attribute_by_class": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Similarity Corpus Attribute By Class",
+      "type": "object"
+    }
+  },
+  "required": [
+    "query",
+    "minimum_score_percent",
+    "ranked_entity_classes",
+    "semver",
+    "similarity_corpus_attribute_by_class"
+  ],
+  "title": "SimilaritySelectParametersArtifact",
+  "type": "object",
+  "x-ccf-class-id": "ccf.operator-parameters.similarity"
+}

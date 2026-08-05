@@ -1,0 +1,39 @@
+{
+  "additionalProperties": false,
+  "description": "The Traversal category's parameters as a versioned artifact (\u00a77.4).\n\nInherits :class:`~ccf.operators.params.TraversalNeighborhoodParameters`\nverbatim, so a parsed artifact **is** a traversal parameter set and passes\nstraight to :class:`~ccf.operators.categories.TraversalNeighborhood` with no\nfield translation. There is no second vocabulary to drift: the artifact adds\na semver lane and nothing else.\n\nNo field gains a default here. ``depth_limit`` in particular stays required \u2014\nthe bound is the operator's entire correctness claim (INV-CH7-24), and a\ndefault bound is one nobody chose.",
+  "properties": {
+    "depth_limit": {
+      "title": "Depth Limit",
+      "type": "integer"
+    },
+    "relationship_types": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Relationship Types",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "seed_entity_classes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Seed Entity Classes",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    }
+  },
+  "required": [
+    "seed_entity_classes",
+    "relationship_types",
+    "depth_limit",
+    "semver"
+  ],
+  "title": "TraversalNeighborhoodParametersArtifact",
+  "type": "object",
+  "x-ccf-class-id": "ccf.operator-parameters.traversal"
+}

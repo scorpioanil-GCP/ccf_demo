@@ -1,3 +1,7 @@
+# ccf-schema: deferred(15-13) multi-artifact bundle — no single SDK artifact
+# class accepts this document, so any $schema header would annotate every key
+# belonging to the other artifacts as an error. Plan 15-13 splits this file into
+# typed per-class documents with a manifest and writes the real header then.
 # Quickstart ontology — the deployment's declared vocabulary (banking domain,
 # D-IMPL-52). Everything in this file is a *value*: entity classes,
 # relationship types, attribute names, identifiers. None of it exists in

@@ -1,0 +1,21 @@
+{
+  "additionalProperties": false,
+  "description": "The Temporal category's parameters as a versioned artifact (\u00a77.4).\n\nInherits :class:`~ccf.operators.params.TemporalAsOfParameters` verbatim, so a\nparsed artifact is accepted directly by\n:class:`~ccf.operators.categories.TemporalAsOf`.\n\n``require_valid_at_boundary`` keeps no default: which of the bitemporal\nmodel's two axes a decision needs is a decision-class property, so it is\ndeclared rather than assumed, and a flag nobody set is a flag nobody chose.",
+  "properties": {
+    "require_valid_at_boundary": {
+      "title": "Require Valid At Boundary",
+      "type": "boolean"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    }
+  },
+  "required": [
+    "require_valid_at_boundary",
+    "semver"
+  ],
+  "title": "TemporalAsOfParametersArtifact",
+  "type": "object",
+  "x-ccf-class-id": "ccf.operator-parameters.temporal"
+}

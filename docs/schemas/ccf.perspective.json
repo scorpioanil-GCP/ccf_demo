@@ -1,0 +1,26 @@
+{
+  "additionalProperties": false,
+  "description": "The \u03a0 role-conditioning tuple as a versioned artifact (\u00a77.5).\n\nInherits :class:`~ccf.projection.plan.Perspective` verbatim \u2014 the same shape\nplan 15-08 used for the operator-parameters classes \u2014 so a parsed artifact\n**is** a ``Perspective`` and passes straight into projection invocation with\nno field translation. ``principal_id`` and ``role`` keep the meanings \u00a77.5\ngives them (INV-CH7-43) and land verbatim in replay dimension 4, so a\ndecision is re-readable against the viewpoint that produced it.\n\nThe artifact adds a ``semver`` lane and nothing else. There is no second\nvocabulary here to drift from the projection contract, which is the entire\nreason for subclassing rather than declaring two fields that happen to match.",
+  "properties": {
+    "principal_id": {
+      "title": "Principal Id",
+      "type": "string"
+    },
+    "role": {
+      "title": "Role",
+      "type": "string"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    }
+  },
+  "required": [
+    "principal_id",
+    "role",
+    "semver"
+  ],
+  "title": "PerspectiveArtifact",
+  "type": "object",
+  "x-ccf-class-id": "ccf.perspective"
+}
