@@ -4,14 +4,14 @@ milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
 last_updated: 2026-08-05T18:05:00.000Z
-last_activity: 2026-08-05 -- Phase 15 approved and gated (D-GATE-15); Phase 16 next
+last_activity: 2026-08-05 -- post-gate cross-AI review found CR-1/CR-2; Phase 15.1 inserted
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 62
   completed_plans: 62
   percent: 91
-stopped_at: Phase 15 complete and gated; Phase 16 (Documentation Rewrite) not started
+stopped_at: Phase 15 gated with carried debt; Phase 15.1 inserted to close CR-1/CR-2 before Phase 16
 ---
 
 # STATE — CCF SDK
@@ -24,13 +24,13 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 16 — Documentation Rewrite (not started)
+**Current focus:** Phase 15.1 — Ergonomics Gap Closure (not started; blocks Phase 16)
 
 ## Current Position
 
-Phase: 15 COMPLETE and gated (D-GATE-15, 2026-08-05) — Phase 16 is next
+Phase: 15 COMPLETE and gated (D-GATE-15, 2026-08-05) with carried debt — Phase 15.1 is next
 Plan: 21/21 complete
-Status: Phase 15 closed; Phase 16 (Documentation Rewrite) not started
+Status: Phase 15 closed with two HIGH defects carried as debt (D-GATE-15 amendment); Phase 15.1 next
 Progress: [######################################] 21/21 Phase 15 plans
 Last activity: 2026-08-05 -- D-GATE-15 logged, phase merged to main
 
