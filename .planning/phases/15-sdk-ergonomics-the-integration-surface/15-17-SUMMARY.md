@@ -43,7 +43,8 @@ key-files:
     - examples/06-decision-replay/README.md
     - public/tutorial/adopters-guide.md
 decisions:
-  - the Gate 2 tautology existed at TWO sites in this example and both are fixed from one artifact
+  - the Gate 2 tautology existed at TWO sites in this example and both are fixed from one artifact — a correctness defect, not an ergonomics one
+  - the deferred(15-21) markers on ccf.hitl-policy and ccf.scope-mapping are closed by the ORCHESTRATOR between Waves 11 and 12, not by 15-21 (Dave, at checkpoint)
   - ccf.hitl-policy and ccf.scope-mapping take a named deferral marker, not an envelope wrapper, because the documents genuinely ARE those SDK classes
   - run() leaves the fabric handle open and its caller closes it — the replay leg reads through the reader
   - the suspended workflow state's hash is captured at suspension, not re-derived after the resume
@@ -58,6 +59,34 @@ The suite's most consequential file for replay is 163 mechanical lines lighter
 with every pin still selected on the page — and the Gate 2 tautology it carried
 at **two** sites, in the original decision and in its reproduction, is fixed from
 one authored artifact.
+
+---
+
+## The correctness defect this rewrite uncovered (cite this from the 15-21 audit)
+
+**Lineage strict equality (INV-CH7-47) was comparing a value against itself in
+this example twice over: in the original decision, and again in the reproduction
+that exists to prove that decision.**
+
+Pre-rewrite, `GridLoadPlan(required=...)` was fed from `operators.keys()` in the
+record phase (`run.py:668`) and from `self._registry().keys()` in
+`GridReplayEnvironment.resolve_plan` (`run.py:486`). Gate 2 exists to catch a
+producer misdeclaring what ran; with both ends sourced from the operator
+registry, it could not. And because the replay environment reconstructed the plan
+the same way, a forensic replay of this decision re-ran the same non-check — so
+the file whose entire subject is audit-by-construction was, at this one seam,
+auditing nothing.
+
+This is a **correctness defect, not an ergonomics one**, and it was invisible
+until `product-class.yaml` gave the declared side an authored source independent
+of the engine's resolution. It is direct evidence that this phase's artifact
+reshaping paid a correctness dividend beyond line counts: no measurement of
+`removable` lines would have surfaced it, and no test could have caught it while
+the only available "declaration" was the thing being declared about.
+
+Mutation probes B and C below demonstrate the regression is now caught — probe C
+in the precise shape 15-13 R6 warns is *not* detectable by editing the artifact
+alone.
 
 ---
 
@@ -174,6 +203,14 @@ added or removed.**
 
 **Untraceable leaves: none.**
 
+**Approved at the blocking checkpoint (Dave, via the orchestrator).** The
+orchestrator independently re-verified three claims before taking it to Dave and
+all three held: that `git diff af19108..HEAD -- src runtime tools` is empty, so
+both records came from the same SDK; that `pins` is never passed to
+`build_replay_record`; and that the audit clock is artifact-seeded and monotone,
+so the 7-tick shift is a counted consequence of more registrations rather than
+wall-clock flakiness.
+
 Two independent confirmations, worth more than the argument:
 
 1. **Exact substitution.** Putting the pre-rewrite policy version back into the
@@ -211,9 +248,22 @@ are SDK-owned classes with no committed schema: absent from
 documents genuinely ARE their SDK classes, and wrapping them would hide each
 class's own contract from the checker, which is the anti-pattern in reverse.
 `ccf.scope-mapping` additionally lives in `/runtime`, so emitting it cannot
-follow the `/src`-rooted route. Closing this needs a third emission bucket
-(SDK-owned, `register_typed`, not manifest-addressable); that is 15-21's call,
-not a concurrent wave's.
+follow the `/src`-rooted route. Closing this needs a third emission bucket:
+SDK-owned, registered through `register_typed`, not manifest-addressable.
+
+**Closure is assigned to the ORCHESTRATOR, between Waves 11 and 12 — not to
+15-21, and not to this plan** (Dave, at this plan's checkpoint). Two reasons were
+given: a concurrent wave inventing a third bucket risks the ordering collision
+15-14 and 15-15 already produced once, and 15-21 is a six-task checkpoint plan
+that already owns the surface regeneration and the Criterion 1 audit, which is
+exactly where deferred debt gets rushed.
+
+So the markers name `15-21` as the closing plan because that is the string the
+tooling requires and the wave the gate arms at — but **15-21's auditor should not
+go looking for this work, and should not assume it was dropped.** It is the
+orchestrator's, done after Wave 11 merges and before Wave 12 dispatches, the same
+way the missing `after/` writer was fixed before Wave 9. Both markers and both
+reasons stay exactly as committed.
 
 **2. The negative probes stay in the spine as preparation and move to the test as
 assertions.** The version-sensitivity probe's mutated copy is built and stored by
@@ -257,6 +307,16 @@ every include line in `adopters-guide.md` that names an example other than 06.
 `make measure-examples` was always run with `ONLY=examples/06-decision-replay`;
 `git status` confirms exactly one `after/` fragment changed and it slugifies from
 this example's tree.
+
+---
+
+## Tasks completed
+
+| Task | Commit | What |
+| --- | --- | --- |
+| 1 | `4dfe0ca` | Reshape 11 bundles into 28 typed per-class documents with a manifest; rewrite `run.py` to the call spine; fix the doubled Gate 2 tautology; re-point the guide's three snippet markers and correct the prose the rewrite falsified |
+| 2 | `980d465` | Relocate 69 assertions into 33 dimension-grouped tests; write the surface-change fragment |
+| 3 | this commit | Blocking checkpoint — **approved**. No fixture on disk was regenerated (none exists); the record-address movement was correlated leaf by leaf and every moved leaf traced. Both `deferred(15-21)` markers stay, with closure reassigned to the orchestrator |
 
 ---
 
