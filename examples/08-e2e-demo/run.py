@@ -76,7 +76,6 @@ from ccf.controlplane.artifacts import (
     ProductClassDeclaration,
     declared_artifact_class,
     load_artifact,
-    parse_artifact,
 )
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import build_operator_registry, load_and_boot
@@ -100,7 +99,11 @@ from ccf.replay.record import (
 from ccf.replay.serve import ReplayWriter, ServedProduct, serve
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from ccf.skills.callables import CallableRegistry
-from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog
+from ccf.skills.catalog import (
+    SKILL_CATALOG_ENTRY,
+    SkillCatalog,
+    SkillCatalogEntry,
+)
 from ccf.skills.dispatch import SkillInvocation
 from ccf.skills.grants import ApprovalOutcome, GrantLedger, SkillGrant
 
@@ -413,7 +416,7 @@ def _governed_detection(
 
 def _live_narration(
     *,
-    prompt_doc: Any,
+    live_config: Mapping[str, Any],
     definition: AgentDefinition,
     agent: Agent,
     detection: Mapping[str, str],
@@ -428,8 +431,8 @@ def _live_narration(
 
     import httpx  # deferred: live-only dependency use
 
-    provider = prompt_doc["live"]["providers"]["ollama"]
-    runner = prompt_doc["live"]["runner"]
+    provider = live_config["providers"]["ollama"]
+    runner = live_config["runner"]
     base_url = os.environ.get(
         "CCF_OLLAMA_BASE_URL", str(provider["default_base_url"])
     )
@@ -670,22 +673,16 @@ def run(*, root: Path, live: bool = False) -> DemoResult:
             decision.declaration["ingestion_timestamp"]
         )
 
-        # Skill material. `ccf.skill-catalog-entry`, `ccf.skill-grant`,
-        # `ccf.agent-definition` and `ccf.prompt-artifact` are SDK-owned classes
-        # that are not manifest-addressable, so they are parsed against their
-        # own contracts rather than through the manifest — naming one there
-        # would silently resolve it to the open envelope and drop the real
-        # contract's validation.
-        skills_doc = yaml.safe_load(
-            (ARTIFACTS / "skills.yaml").read_text("utf-8")
-        )
-        agent_doc = yaml.safe_load(
-            (ARTIFACTS / "agent.yaml").read_text("utf-8")
-        )
-        prompt_doc = yaml.safe_load(
-            (ARTIFACTS / "prompt.yaml").read_text("utf-8")
-        )
-        arguments = skills_doc["dispatch"]["arguments"]
+        # The grant request, the dispatch and the filing keys all come back off
+        # the manifest like everything else. The three AUTHOR-VERSIONED
+        # documents do not — see below.
+        skill_dispatch = cast(
+            DeclaredArtifact, booted.artifacts["skill-dispatch"]
+        ).declaration
+        registration = cast(
+            DeclaredArtifact, booted.artifacts["agent-registration"]
+        ).declaration
+        arguments = skill_dispatch["dispatch"]["arguments"]
 
         # --- Stage 2: BASELINE — the same detection, raw rows, no L2 --------
         # The mapping in force is string identity over the names each source
@@ -900,23 +897,48 @@ def run(*, root: Path, live: bool = False) -> DemoResult:
         # manifest named them under the very keys the definition's
         # versioned-URI refs resolve against, so no registration loop is needed
         # here any more.
-        prompt = parse_artifact(prompt_doc["prompt_artifact"], PROMPT_ARTIFACT)
+        #
+        # These three ARE loaded here rather than by the manifest, and the
+        # reason is governance rather than convenience. `ccf.agent-definition`,
+        # `ccf.prompt-artifact` and `ccf.skill-catalog-entry` are
+        # AUTHOR-VERSIONED: they carry the author's own `artifact_version`, and
+        # the definition registers through `register_versioned`, which holds
+        # that claim against the document's content identity (the D-05 bump
+        # check). `load_and_boot` registers through `register_typed`, which does
+        # not run it — so the SDK keeps these classes out of
+        # `SDK_ARTIFACT_CLASSES` and a manifest entry naming one would parse
+        # fine while silently dropping the governance the class exists to carry.
+        # They still validate against their real contracts here, and they still
+        # carry real `$schema` headers (plan 15-14's author-versioned set).
+        prompt = load_artifact(
+            (ARTIFACTS / "prompt-artifact.yaml").read_text("utf-8"),
+            PROMPT_ARTIFACT,
+        )
         registry.register_typed(
-            prompt_doc["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
+            registration["prompt_artifact_key"], prompt, PROMPT_ARTIFACT
         )
         definition = cast(
             AgentDefinition,
-            parse_artifact(agent_doc["agent_definition"], AGENT_DEFINITION),
+            load_artifact(
+                (ARTIFACTS / "agent-definition.yaml").read_text("utf-8"),
+                AGENT_DEFINITION,
+            ),
         )
-        definition_key = agent_doc["keys"]["agent_definition"]
+        definition_key = registration["agent_definition_key"]
         definition_version = registry.register_versioned(
             definition_key, definition, AGENT_DEFINITION
         )
         definition_hash = content_hash(definition)
 
         catalog = SkillCatalog(registry)
-        skill_doc = next(iter(skills_doc["skills"].values()))
-        catalog.register(parse_artifact(skill_doc, SKILL_CATALOG_ENTRY))
+        entry = cast(
+            SkillCatalogEntry,
+            load_artifact(
+                (ARTIFACTS / "skill-catalog-entry.yaml").read_text("utf-8"),
+                SKILL_CATALOG_ENTRY,
+            ),
+        )
+        catalog.register(entry)
         ledger = GrantLedger(
             control_plane=registry,
             catalog=catalog,
@@ -925,7 +947,7 @@ def run(*, root: Path, live: bool = False) -> DemoResult:
         )
         callables = CallableRegistry()
         callables.register(
-            skill_doc["binding"]["callable_ref"],
+            entry.binding.callable_ref,
             lambda call_arguments: _governed_detection(payload, call_arguments),
         )
         agent = AgentFactory(
@@ -936,18 +958,20 @@ def run(*, root: Path, live: bool = False) -> DemoResult:
             bound_skills=ledger.bound_view(definition_hash),
         )
         grant = SkillGrant(
-            agent_definition_hash=definition_hash, **skills_doc["grant"]
+            agent_definition_hash=definition_hash,
+            **skill_dispatch["grant_request"],
         )
         granted = ledger.request(
             grant,
             definition=definition,
-            actor=skills_doc["actors"]["requesting_actor"],
+            actor=skill_dispatch["requesting_actor"],
         )
         in_force = ledger.grant_set_hash(definition_hash)
 
         agent.consume(gated.product, now=now)
         invocation = agent.invoke_skill(
-            skills_doc["grant"]["skill_name"], arguments=arguments
+            skill_dispatch["grant_request"]["skill_name"],
+            arguments=arguments,
         )
         if not isinstance(invocation, SkillInvocation):  # pragma: no cover
             raise RuntimeError(f"skill dispatch returned {invocation!r}")
@@ -958,7 +982,9 @@ def run(*, root: Path, live: bool = False) -> DemoResult:
             {
                 "agent": f"{definition.name}@{definition.artifact_version}",
                 "archetypes": ", ".join(agent.identity.archetype_composition),
-                "skill invoked": skills_doc["grant"]["skill_name"],
+                "skill invoked": skill_dispatch["grant_request"][
+                    "skill_name"
+                ],
                 "structured cycles found": detection["cycles_found"],
                 "ring size": detection["cycle_length"],
                 "ring members": detection["cycle_members"],
@@ -1011,7 +1037,9 @@ def run(*, root: Path, live: bool = False) -> DemoResult:
 
         if live:
             _live_narration(
-                prompt_doc=prompt_doc,
+                live_config=cast(
+                    DeclaredArtifact, booted.artifacts["live-narration"]
+                ).declaration,
                 definition=definition,
                 agent=agent,
                 detection=detection,

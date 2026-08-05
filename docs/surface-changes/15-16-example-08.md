@@ -7,31 +7,41 @@ changed artifact document. An artifact-document format change is real and an
 adopter who copied this demo's artifacts must act on it, but it can never appear
 in the `__all__`-derived manifest diff.
 
-The three multi-artifact bundles the demo shipped (`ontology.yaml`,
-`controlplane.yaml`, `halflife.yaml`) plus the inlined `referenced_artifacts`
-block in `agent.yaml` are now fifteen typed, closed-world, `$schema`-annotated
-documents enumerated by one deployment manifest.
+The six multi-artifact bundles the demo shipped (`ontology.yaml`,
+`controlplane.yaml`, `halflife.yaml`, `agent.yaml`, `skills.yaml`,
+`prompt.yaml`) are now twenty-one typed, closed-world, `$schema`-annotated
+documents — eighteen of them enumerated by one deployment manifest, three
+author-versioned and registered by `run.py` itself.
 
-**Four documents in this directory are deliberately NOT annotated** and carry a
-`# ccf-schema: deferred(15-21) …` first line instead of a `$schema` header. Each
-names its own reason in the marker, and the reasons are structural rather than
-cosmetic:
+**Exactly one document in this directory is NOT annotated.** `scenario.yaml`
+carries a `# ccf-schema: deferred(15-21) …` first line, and that deferral is
+permanent rather than debt: it is not a CCF artifact class at all — it is
+`generator.py`'s input, describing the synthetic world that exists before any
+fabric does — and it carries YAML floats (the noise amount bands) that the
+artifact loader refuses by design. No envelope can accept it without changing
+the data and every pinned checksum with it.
 
-- `scenario.yaml` — not a CCF artifact class at all. It is `generator.py`'s
-  input, describing the synthetic world that exists before any fabric does, and
-  it carries YAML floats (the noise amount bands) that the artifact loader
-  refuses by design. No envelope can accept it without changing the data and
-  every pinned checksum with it.
-- `agent.yaml`, `skills.yaml`, `prompt.yaml` — `ccf.agent-definition`,
-  `ccf.skill-catalog-entry`, `ccf.skill-grant` and `ccf.prompt-artifact` are
-  **SDK-owned** classes with no committed `docs/schemas/` file and no
-  `SDK_ARTIFACT_CLASSES` entry. Pointing them at the open `DeclaredArtifact`
-  envelope would claim a deployment-authored class for an SDK-owned schema and
-  would silence the real contract's constraints — the exact failure mode
-  `check_schema_headers.py` refuses for other SDK classes. Exporting those
-  schemas is SDK surface work, not an example rewrite, so the honest answer is
-  an explicit, greppable, counted deferral rather than a header that looks right
-  and is not.
+**Every other document carries a real `$schema` header, including the three
+author-versioned ones.** `agent-definition.yaml`, `prompt-artifact.yaml` and
+`skill-catalog-entry.yaml` point at `docs/schemas/ccf.agent-definition.json`,
+`ccf.prompt-artifact.json` and `ccf.skill-catalog-entry.json` — plan 15-14's
+author-versioned schema set, committed *without* making those classes
+manifest-addressable. That distinction is the whole point and is worth stating
+plainly for adopters:
+
+> A class can have a committed schema and still be absent from
+> `SDK_ARTIFACT_CLASSES`. `ccf.agent-definition`, `ccf.prompt-artifact` and
+> `ccf.skill-catalog-entry` carry the author's own `artifact_version` and
+> register through `register_versioned`, which holds that claim against the
+> document's content identity — the D-05 bump check. `load_and_boot` registers
+> through `register_typed`, which does not run it. So naming one of these in a
+> manifest would parse perfectly and silently drop the governance the class
+> exists to carry. They are authored by hand and therefore get schemas; they are
+> not manifest-addressable and therefore stay out of the manifest.
+
+`ccf.skill-grant` has a committed schema too, and this example still does not
+use it as a header — see `skill-dispatch.yaml` below for why (the class requires
+a derived hash that no authored document can carry).
 
 ## examples/08-e2e-demo/artifacts/manifest.yaml
 
@@ -212,3 +222,64 @@ cosmetic:
 - After: byte-compared by `tests/examples/test_e2e_demo_output.py`; **one line regenerated** — the Stage 6 `replay record` content address
 - Why: the reshape changed the policy bundle's content (it now carries the envelope's `semver`/`class_id`/`declaration`) and its Control Plane key (`policy-bundle` rather than the long namespaced one). Both land in the replay record's dimension-2 binding, so the record's own content hash moves. No other line of the transcript changes, and the regeneration is a reviewed event under this plan's blocking checkpoint
 - Migration: none for adopters; if your own transcript pins a replay address, expect to regenerate it when any registered artifact's content or key changes
+
+
+## examples/08-e2e-demo/artifacts/agent-definition.yaml
+
+- Surface: examples/08-e2e-demo/artifacts/agent-definition.yaml
+- Public surface: false
+- Change type: reshaped
+- Before: the `agent_definition:` block inside `agent.yaml`, alongside a `keys:` block and two inlined `referenced_artifacts`
+- After: a `ccf.agent-definition` document whose **root is the artifact**, annotated with that class's committed schema
+- Why: the header checker validates the whole document against the class it names, so a file carrying both the artifact and its filing key cannot be annotated. The key moved to `agent-registration.yaml`
+- Migration: lift the definition to the document root and move the Control Plane key into a deployment-authored document
+
+## examples/08-e2e-demo/artifacts/prompt-artifact.yaml
+
+- Surface: examples/08-e2e-demo/artifacts/prompt-artifact.yaml
+- Public surface: false
+- Change type: reshaped
+- Before: the `prompt_artifact:` block inside `prompt.yaml`, alongside `keys:` and the `--live` provider configuration
+- After: a `ccf.prompt-artifact` document whose root is the artifact
+- Why: one class, one document. The template is what the model is asked; the endpoint and timeouts are which model is asked — never the same artifact
+- Migration: lift the prompt to the document root; move provider configuration to its own document
+
+## examples/08-e2e-demo/artifacts/skill-catalog-entry.yaml
+
+- Surface: examples/08-e2e-demo/artifacts/skill-catalog-entry.yaml
+- Public surface: false
+- Change type: reshaped
+- Before: the single entry under `skills:` inside `skills.yaml`, alongside the grant, the actors and the dispatch
+- After: a `ccf.skill-catalog-entry` document whose root is the artifact
+- Why: `skills.yaml` was three things in one file and could carry no honest header for any of them
+- Migration: lift the entry to the document root
+
+## examples/08-e2e-demo/artifacts/skill-dispatch.yaml
+
+- Surface: examples/08-e2e-demo/artifacts/skill-dispatch.yaml
+- Public surface: false
+- Change type: reshaped
+- Before: the `grant:`, `actors:` and `dispatch:` blocks inside `skills.yaml`
+- After: one deployment-authored `role: load` document in the `DeclaredArtifact` envelope, carrying `grant_request`, `requesting_actor` and `dispatch`
+- Why: **this is deliberately not a `ccf.skill-grant`, despite that class having a committed schema.** `SkillGrant` requires `agent_definition_hash`, which is derived identity computed by mechanism at request time — a hash is never an artifact value, so a standalone document of that class cannot be authored and a `ccf.skill-grant` header would be one its own class rejects. What *is* authorable is the grant request, and `run.py` completes it by supplying the hash
+- Migration: rename your `grant:` block to `grant_request:` inside a declared document, and leave the derived hash out
+
+## examples/08-e2e-demo/artifacts/agent-registration.yaml
+
+- Surface: examples/08-e2e-demo/artifacts/agent-registration.yaml
+- Public surface: false
+- Change type: reshaped
+- Before: the `keys:` blocks at the top of `agent.yaml` and `prompt.yaml`
+- After: one deployment-authored `role: load` document naming both Control Plane keys
+- Why: a key is where a document is *filed*, not part of what it says, and the author-versioned documents' roots had to become their artifacts. The skill catalog entry's key is deliberately absent — `SkillCatalog` derives it from the entry's own tenant and name, so authoring one would be a second, drifting statement of a value mechanism already owns
+- Migration: collect the keys your driver reads into a declared document
+
+## examples/08-e2e-demo/artifacts/live-narration.yaml
+
+- Surface: examples/08-e2e-demo/artifacts/live-narration.yaml
+- Public surface: false
+- Change type: reshaped
+- Before: the `live:` block inside `prompt.yaml`
+- After: one deployment-authored `role: load` document carrying the provider defaults and runner limits
+- Why: one class, one document; and an endpoint is deployment *environment*, which is why the environment variables still override these recorded defaults
+- Migration: lift the block into a declared document

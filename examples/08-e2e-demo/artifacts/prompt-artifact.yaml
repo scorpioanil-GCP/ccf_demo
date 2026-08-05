@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.prompt-artifact.json
+# E2E-demo prompt artifact (CLAUDE.md §6.2 axis 6; §6.4; Phase 12 CONTEXT D-12).
+#
+# The ONLY place prompt text exists in this example — a prompt string literal in
+# `run.py` would be the No-Hardcoding Rule firing, and CINV-01 lints
+# `/examples` for exactly that.
+#
+# This prompt is used ONLY under `--live` (narration-only, D-12): the LLM writes
+# a citation-anchored investigation summary from the typed Context Product.
+# Detection is deterministic and identical in both modes; nothing about the
+# model's text is ever asserted.
+#
+# Like `agent-definition.yaml`, this class is author-versioned and therefore
+# deliberately not manifest-addressable — see that file's header comment for
+# the D-05 reasoning. The document root IS the artifact; the Control Plane key
+# it registers under lives in `agent-registration.yaml`, and the `--live`
+# provider configuration in `live-narration.yaml`.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the name, tenant, parameter names and the template text are
+# [ADAPT]; the keys `schema_version`, `artifact_version`, `name`, `tenant`,
+# `declared_parameters` and `template` are [MECHANISM].
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+name: ring-investigation-summary
+tenant: meridian-bank
+declared_parameters: [cycle_members, as_of]
+template: |
+  A deterministic cycle-detection skill running over a governed,
+  typed Context Product has identified a circular payment pattern
+  among the following resolved counterparties as of {{ as_of }}:
+  {{ cycle_members }}. Write a short investigation summary for a
+  financial-crime analyst. Anchor every claim to one of the listed
+  counterparties by name; do not introduce facts beyond the list.

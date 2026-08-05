@@ -211,7 +211,7 @@ specialization (context contract, policy regime, instruction binding)
 fixed in a definition artifact:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/agent.yaml"
+--8<-- "examples/08-e2e-demo/artifacts/agent-definition.yaml"
 ```
 
 Capability arrives through the second channel — **skilling** (CLAUDE.md
@@ -221,10 +221,17 @@ envelope; and the dispatch arguments carry **every** graph-vocabulary
 name and threshold the callable interprets. The callable in `run.py` is
 generic walk-a-graph mechanism; the artifact tells it what a
 counterparty is, what a transfer is, which edges link them, and how
-tight the ring's structure must be:
+tight the ring's structure must be. The catalog entry declares the
+argument schema:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/skills.yaml"
+--8<-- "examples/08-e2e-demo/artifacts/skill-catalog-entry.yaml"
+```
+
+The grant that binds it, and the dispatch values the callable interprets:
+
+```yaml
+--8<-- "examples/08-e2e-demo/artifacts/skill-dispatch.yaml"
 ```
 
 Invoked over the typed Context Product — the same detection, the same
@@ -248,6 +255,15 @@ constraints the artifact declares — near-constant consecutive amounts,
 strictly increasing timestamps, a bounded span — applied to *resolved*
 parties. The parameters are values; move them in `skills.yaml` and watch
 the boundary move.
+
+Note which of these documents the deployment manifest names and which it
+does not. `ccf.agent-definition`, `ccf.prompt-artifact` and
+`ccf.skill-catalog-entry` are **author-versioned**: they register through
+`register_versioned`, which holds the author's declared `artifact_version`
+against the document's content identity. `load_and_boot` registers through
+`register_typed`, which does not run that check — so those three classes are
+deliberately not manifest-addressable and `run.py` registers them itself.
+They carry real `$schema` headers all the same.
 
 ## 7. Stage 6: replay, and why you can trust any of this
 
@@ -303,7 +319,7 @@ investigation summary. Detection itself is identical in both modes —
 the model narrates a result the fabric already proved:
 
 ```yaml
---8<-- "examples/08-e2e-demo/artifacts/prompt.yaml"
+--8<-- "examples/08-e2e-demo/artifacts/prompt-artifact.yaml"
 ```
 
 **Where to go next:** open `examples/08-e2e-demo/artifacts/scenario.yaml`

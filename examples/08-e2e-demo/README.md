@@ -70,9 +70,12 @@ README.
 | `artifacts/decision.yaml` | This run's instants and the freshness demonstration (`role: load`) | `[ADAPT]`: instants. `[MECHANISM]`: envelope keys |
 | `artifacts/expected.yaml` | Both pinned detection outcomes and the payload shape (`role: load`) | `[ADAPT]`: expectations. `[MECHANISM]`: envelope keys |
 | `artifacts/agent-policy-regime.yaml` / `agent-debt-profile.yaml` | The agent's axis-4 and axis-5 declarations, under the keys its refs name | `[ADAPT]`: values. `[MECHANISM]`: envelope keys |
-| `artifacts/agent.yaml` | The declared `AnalyticsInsightsAgent` (six specialization axes) | `[ADAPT]`: axis values. `[MECHANISM]`: definition field names |
-| `artifacts/skills.yaml` | The detection skill catalog entry and grant | `[ADAPT]`: skill vocabulary. `[MECHANISM]`: `skills`/`grant` structure |
-| `artifacts/prompt.yaml` | The versioned prompt template for `--live` | `[ADAPT]`: template, endpoint. `[MECHANISM]`: field names |
+| `artifacts/agent-definition.yaml` | The declared `AnalyticsInsightsAgent` (six specialization axes) | `[ADAPT]`: axis values. `[MECHANISM]`: definition field names |
+| `artifacts/skill-catalog-entry.yaml` | The detection skill and its declared argument schema | `[ADAPT]`: skill vocabulary. `[MECHANISM]`: entry field names |
+| `artifacts/skill-dispatch.yaml` | The grant request, the requesting actor, and the argument values the callable interprets | `[ADAPT]`: values. `[MECHANISM]`: envelope keys |
+| `artifacts/prompt-artifact.yaml` | The versioned prompt template for `--live` | `[ADAPT]`: template text. `[MECHANISM]`: field names |
+| `artifacts/live-narration.yaml` | `--live` provider endpoint, model and timeouts | `[ADAPT]`: values. `[MECHANISM]`: envelope keys |
+| `artifacts/agent-registration.yaml` | Which Control Plane keys the three author-versioned documents file under (`role: load`) | `[ADAPT]`: the keys. `[MECHANISM]`: envelope keys |
 | `artifacts/expected_output.txt` | The byte-compared golden narration | Regenerated only as a reviewed event (see Run it) |
 
 ## Whitepaper / CLAUDE.md sections exercised
@@ -105,6 +108,7 @@ event.
 | No-Hardcoding (CLAUDE.md §6.4) | A domain value, threshold, or detection parameter appearing in code instead of `artifacts/` |
 | Reviewed regeneration | `artifacts/expected_output.txt` differing from the staged narration — the byte-compare fails rather than silently regenerating |
 | One artifact class, one document | A `*.yaml` under `artifacts/` carrying two classes: no honest `$schema` header exists for it, and `make schema-headers DIR=examples/08-e2e-demo/artifacts` says so |
+| Author-versioned governance (D-05) | An agent definition, prompt artifact or skill catalog entry named by `manifest.yaml`: `load_and_boot` would register it through `register_typed`, silently skipping the hash-verified `artifact_version` bump check |
 
 The narrated, step-by-step walkthrough — how raw rows fold into context,
 stage by stage, with every code and artifact excerpt literal-included —

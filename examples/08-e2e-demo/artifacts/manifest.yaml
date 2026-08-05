@@ -25,12 +25,17 @@
 #
 #   * `scenario.yaml` — the generator's input, not a fabric artifact. It
 #     describes the synthetic *world*, which exists before any fabric does.
-#   * `agent.yaml`, `skills.yaml`, `prompt.yaml` — `ccf.agent-definition`,
-#     `ccf.skill-catalog-entry`, `ccf.skill-grant` and `ccf.prompt-artifact` are
-#     SDK-owned classes that are not manifest-addressable (absent from
-#     `SDK_ARTIFACT_CLASSES`), so naming one here would resolve it to the open
-#     `DeclaredArtifact` envelope and silently drop the real contract's
-#     validation. `run.py` parses them against their own classes instead.
+#   * `agent-definition.yaml`, `prompt-artifact.yaml`,
+#     `skill-catalog-entry.yaml` — `ccf.agent-definition`,
+#     `ccf.prompt-artifact` and `ccf.skill-catalog-entry` are **author-versioned**
+#     SDK-owned classes. They register through `register_versioned`, which holds
+#     the author's version claim against content identity (the D-05 bump check);
+#     `load_and_boot` registers through `register_typed`, which does not run
+#     that check. So they are deliberately absent from `SDK_ARTIFACT_CLASSES`,
+#     and a manifest entry naming one would silently drop the governance the
+#     class exists to carry. `run.py` registers them itself. They still carry
+#     real `$schema` headers — plan 15-14 committed their schemas without
+#     making them manifest-addressable.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename
@@ -146,4 +151,26 @@ artifacts:
   - path: expected.yaml
     key: expected
     class_id: meridian-bank.expected-outcomes
+    role: load
+
+  # Where the three author-versioned documents file in the Control Plane.
+  # Wiring the driver reads; the artifacts themselves are registered by
+  # `register_versioned` for the D-05 bump check, not from here.
+  - path: agent-registration.yaml
+    key: agent-registration
+    class_id: meridian-bank.agent-registration
+    role: load
+
+  # The grant request and the dispatch. `load`: the ledger audits the grant
+  # independently when it admits it, so registering the request would record the
+  # asking as well as the granting.
+  - path: skill-dispatch.yaml
+    key: skill-dispatch
+    class_id: meridian-bank.skill-dispatch
+    role: load
+
+  # `--live` provider configuration. Never consulted on the deterministic path.
+  - path: live-narration.yaml
+    key: live-narration
+    class_id: meridian-bank.live-narration
     role: load

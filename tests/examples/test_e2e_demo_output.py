@@ -103,7 +103,6 @@ import sys
 from typing import Any
 
 import pytest
-import yaml
 
 from ccf.agents.agent import Agent
 from ccf.agents.definitions import AgentDefinition
@@ -176,17 +175,14 @@ def _declaration(result: Any, key: str) -> Any:
     return artifact.declaration
 
 
-def _dispatch() -> Any:
-    """The skill dispatch block, off the same document ``run.py`` reads.
+def _dispatch(result: Any) -> Any:
+    """The skill dispatch block, read off the artifact the fabric parsed.
 
-    ``skills.yaml`` is outside the deployment manifest — ``ccf.skill-grant`` and
-    ``ccf.skill-catalog-entry`` are not manifest-addressable classes — so there
-    is no ``booted.artifacts`` entry to read it through, and this is a second
-    read of one file rather than a second source of one value.
+    ``skill-dispatch.yaml`` is a deployment-authored `role: load` document named
+    by the manifest, so it comes back on ``booted.artifacts`` and there is no
+    second read of the file to drift from.
     """
-    return yaml.safe_load(
-        (EXAMPLE_DIR / "artifacts" / "skills.yaml").read_text("utf-8")
-    )["dispatch"]
+    return _declaration(result, "skill-dispatch")["dispatch"]
 
 
 # --- the narration: this demo's actual correctness claim --------------------
@@ -405,7 +401,7 @@ def test_the_governed_pass_finds_exactly_the_planted_ring(
     baseline could not do.
     """
     expected = _declaration(result, "expected")
-    assert result.detection == _dispatch()["expected_output"]
+    assert result.detection == _dispatch(result)["expected_output"]
     assert (
         int(result.detection["cycles_found"]) == expected["governed_cycles"]
     )
