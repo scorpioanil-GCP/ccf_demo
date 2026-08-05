@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-05T13:16:25.209Z"
-last_activity: 2026-08-04 -- Phase 15 planning complete
+last_updated: "2026-08-05T13:25:37.793Z"
+last_activity: 2026-08-05 -- Phase 15 execution started
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 62
-  completed_plans: 41
-  percent: 66
+  completed_plans: 59
+  percent: 82
 ---
 
 # STATE — CCF SDK
@@ -23,15 +23,15 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 14 — documentation suite
+**Current focus:** Phase 15 — sdk-ergonomics-the-integration-surface
 
 ## Current Position
 
-Phase: 14
-Plan: Not started
-Status: Ready to execute
-Progress: [----------------------------------] 0/6 v0.2 phases
-Last activity: 2026-08-04 -- Phase 15 planning complete
+Phase: 15 (sdk-ergonomics-the-integration-surface) — EXECUTING
+Plan: 19 of 21 (wave 12 of 14)
+Status: Executing Phase 15 — waves 1-11 complete and merged
+Progress: [##################################----] 18/21 Phase 15 plans
+Last activity: 2026-08-05 -- Phase 15 execution started
 
 ## Performance Metrics
 
@@ -161,3 +161,20 @@ Next action: v0 is declared — milestone complete. Post-v0 backlog:
 Homecams-on-SDK rebuild, PyPI motion, perf baselines, replay-explorer /
 graph-export CLI ideas. Observe the first Actions runs on origin for the
 EXAM-09 observed-evidence record.
+
+---
+
+**2026-08-05 session resume.** Phase 15 (SDK Ergonomics) is executing at
+18/21 plans; waves 1–11 merged to `main` at `5fbb8e0`, handoff saved at
+`60a148b`, tree clean, no worktrees. Full checkpoint context — Dave's six
+in-execution rulings, the `_register_closure` evidence for 15-19, the two
+self-satisfying-assertion defects 15-21's audit must cite, and the
+worktree/`.venv` operational notes — lives in
+`.planning/phases/15-sdk-ergonomics-the-integration-surface/.continue-here.md`.
+Remaining: wave 12 = 15-19 (example 05 workflow-HITL, autonomous),
+wave 13 = 15-20 (external 00-hello-context, autonomous), wave 14 = 15-21
+(phase close + Criterion 1 audit, **checkpoint — not autonomous**).
+Gates green at handoff: 1908 passed/2 skipped, lint 0, typecheck 169 files,
+ten examples, docs-strict, schema-headers.
+
+Resume: `/gsd-execute-phase 15`
