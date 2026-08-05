@@ -289,6 +289,10 @@ class WorkflowHitlDemonstration:
     authz_refused_client_id: str
     scope_mapping_version: str
     refusals: Mapping[str, httpx.Response]
+    #: What the transport held after the four refusals and BEFORE the one
+    #: admission — the fail-closed evidence, captured at the only instant where
+    #: it means anything.
+    submissions_after_refusals: tuple[Any, ...]
     admitted: httpx.Response
     submission: Any
     signed: Any
@@ -299,6 +303,7 @@ class WorkflowHitlDemonstration:
     outcome: WorkflowCompleted
     terminal_state_record: WorkflowStateRecord
     hitl_actions_block: str
+    drained: Any
 
     # --- replay -----------------------------------------------------------
     record: DecisionReplayRecord
@@ -617,6 +622,11 @@ def run(*, root: Path) -> WorkflowHitlDemonstration:
             headers=bearer,
         ),
     }
+    # Captured HERE, before the one admission below: what the transport holds at
+    # this instant is the evidence that none of the four refusals crossed.
+    # Reading it after the admission — or after the review release — would count
+    # legitimate landings and prove nothing.
+    submissions_after_refusals = transport.submissions(tenant=tenant)
     # --8<-- [end:hitl-refusals]
 
     # --8<-- [start:hitl-admitted]
@@ -642,7 +652,7 @@ def run(*, root: Path) -> WorkflowHitlDemonstration:
         event=pending, submission=submission, approved=True
     )
     hitl_actions_block = canonical_bytes(action_record).decode("utf-8")
-    transport.dequeue(tenant=tenant)
+    drained = transport.dequeue(tenant=tenant)
 
     outcome = asyncio.run(
         engine.resume(
@@ -822,6 +832,7 @@ def run(*, root: Path) -> WorkflowHitlDemonstration:
         authz_refused_client_id=outsider["client_id"],
         scope_mapping_version=scope_mapping_version,
         refusals=refusals,
+        submissions_after_refusals=submissions_after_refusals,
         admitted=admitted,
         submission=submission,
         signed=signed,
@@ -830,6 +841,7 @@ def run(*, root: Path) -> WorkflowHitlDemonstration:
         outcome=outcome,
         terminal_state_record=terminal,
         hitl_actions_block=hitl_actions_block,
+        drained=drained,
         record=record,
         review_record=review_record,
         pending_review=pending_review,
