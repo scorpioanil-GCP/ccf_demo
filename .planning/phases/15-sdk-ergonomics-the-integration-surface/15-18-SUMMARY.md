@@ -43,7 +43,9 @@ key-files:
     - public/how-to/run-agents-cross-process.md
     - perf/suites/crossproc/conftest.py
 decisions:
-  - the consumer authors its own policy bundle, product class and TTL ceiling rather than reading the producer's — a shared document makes the entitlement check unfalsifiable
+  - the consumer authors its own policy bundle, product class and TTL ceiling rather than reading the producer's — a shared document makes the entitlement check unfalsifiable (Dave, checkpoint Ruling 2)
+  - the four domain-named Python identifier renames stay in commit two; the criterion's intent was no LOGIC change, and every .py hunk is a symmetric rename (Dave, checkpoint Ruling 1)
+  - the unfalsifiable-agreement defect family is systemic, not incidental — 15-17 found the same shape in example 06 the same wave, and 15-21's audit should cite both
   - the consumer's federation entity rule becomes a `ccf.resolution-spec` at standard nesting, deleting the bespoke `_consumer_resolution_spec` translation
   - `peering-trust.yaml` is a trust-policy REQUEST, not a `ccf.peering-trust-policy`, because that class requires per-run key material
   - the banking scenario is the whitepaper's own §8.3 Pattern 4 exemplar (syndicated lending covenant cross-reference), not an invented one
@@ -61,9 +63,8 @@ its A2A trust boundary came out of the rewrite *stronger* than it went in,
 because the entitlement check that used to compare two reads of one file now
 compares two independently authored documents.
 
-**Status: PAUSED AT THE PLAN'S BLOCKING CHECKPOINT (Task 3).** Both commits are
-made and every gate is green; the plan asks for human review of the two diffs
-and the consumer's admission path before proceeding.
+**Status: COMPLETE.** Task 3's blocking checkpoint was approved by Dave with two
+explicit rulings, recorded below.
 
 ---
 
@@ -73,6 +74,38 @@ and the consumer's admission path before proceeding.
 | --- | --- | --- |
 | 1 | `368d028` | Surface rewrite. Property-intelligence domain vocabulary unchanged — the diff contains no domain rename. |
 | 2 | `b464de8` | Re-domain to syndicated lending. No surface change — no new SDK call, no changed wiring, no altered assertion structure. |
+
+---
+
+## Checkpoint rulings (Task 3, Dave, 2026-08-04)
+
+Verified independently by the coordinator before the ruling:
+`git show 368d028 | grep -icE "covenant|syndicat|lending"` returns **0**;
+commit two's `.py` hunks are symmetric renames (`producer_child.py` +8/-8,
+`run.py` +4/-4, the test module +4/-4); the admission path is `gate.admit` →
+`match AdmittedProduct` → `worker.ingest_admitted`, unshortened; `src/ccf/
+deployment/` carries only docstring *mentions* of the `ccf.products.gates` ban
+and no import, so D-15A's lint is untripped; and
+`test_a_tampered_envelope_is_refused` explicitly rules out a test that would
+also pass on an untampered envelope.
+
+**Ruling 1 — the four identifier renames are accepted, and stay in commit two.**
+Dave was offered both alternatives (move them into commit one, or revert them)
+and chose to accept them where they are. The criterion's intent was *no logic
+change in commit two*, and that holds: every `.py` hunk is a symmetric rename.
+Leaving `SituationPlan` and `federated_entity_uris` in a syndicated-lending
+example would have made the re-domaining cosmetic, with the old domain still
+legible in exactly the code an adopter copies. The one asymmetric file,
+`perf/suites/crossproc/conftest.py` (+8/-6), is comment-only — a reuse rationale
+that still said "property-intelligence domain values" and would otherwise have
+become a lie. Judged a correct call, not scope creep.
+
+**Ruling 2 — the four extra consumer documents are accepted, and are the most
+valuable thing in this plan.** See the next section, which the coordinator
+directed me to state as a finding rather than as an unrequested addition.
+
+Also accepted without change: the Gate-2 tautology I wrote, caught with my own
+mutation probe, and fixed with the honest limit stated in the test docstring.
 
 ---
 
@@ -100,21 +133,36 @@ real `$schema` header — no `# no-schema:` escape hatch and no
 
 ---
 
-## What the rewrite changed about the A2A demonstration
+## THE FINDING — the A2A entitlement check was unfalsifiable, and the reshape fixed it
 
 The brief asked me to report if the streamlined surface made any load-bearing
-demonstration harder to see. It did not — but it did surface an existing
-weakness that the reshape fixed, and that is the finding worth reading.
+demonstration harder to see. It did not. It did the opposite: it surfaced a
+pre-existing defect in the example that exists to demonstrate A2A admission
+verification, and fixing it is the most valuable thing in this plan (Ruling 2).
 
-### The entitlement check used to be unfalsifiable
+### The defect
 
-Pre-rewrite, both processes read one `artifacts/controlplane.yaml`. `run.py`
-computed `producer_policy_version = content_hash(control["policy_bundle"])`,
-registered the *same mapping* as the consumer's own bundle, and asserted
-`policy_version == producer_policy_version`. That assertion compared two reads
-of one file. It could not fail, and dropping the policy bundle from both sides
-would have kept it green — the exact anti-pattern 15-15 found in a neighbouring
-example.
+Pre-rewrite, the consumer was "independently agreeing" with the producer **using
+the producer's own document**. Both processes read one
+`artifacts/controlplane.yaml`; `run.py` computed
+`producer_policy_version = content_hash(control["policy_bundle"])`, registered
+that same mapping as the consumer's own bundle, and asserted
+`policy_version == producer_policy_version`. That compared two reads of one
+file. It could not fail, and dropping the policy bundle from both sides would
+have kept it green.
+
+### The same defect family, one wave over
+
+Plan 15-17 found the same shape in `examples/06-decision-replay`: lineage strict
+equality comparing a value against itself, in both the original decision **and**
+in the reproduction meant to prove it. Two independent instances in one wave is
+systemic rather than incidental, and both share a cause worth naming: **neither
+was visible until typed artifacts gave the declared side an authored source.**
+While the declaration and the resolution came out of the same bundle read, no
+amount of reading the assertion could tell you it was comparing a value with
+itself. 15-21's audit should cite 15-17 and 15-18 together.
+
+### The fix
 
 The reshape gives producer and consumer **two manifests and two separate
 documents** with identical content:
@@ -219,7 +267,8 @@ field `federated_entity_uris` → `contribution_uris`. The plan's acceptance
 criterion says commit two touches "no `.py` logic line"; these are renames, not
 logic, and no logic line changed. Leaving "situation" in a banking example
 would itself be a re-domaining defect. The test module's only commit-two edits
-are the matching rename and one docstring noun. **Flagged for the checkpoint.**
+are the matching rename and one docstring noun. **Disclosed at the checkpoint
+and accepted — Ruling 1.**
 
 **3. A note added to the surface-change fragment in commit two.** Every
 `Before:` clause in `docs/surface-changes/15-18-example-04.md` quotes the
@@ -228,14 +277,15 @@ re-domaining. One paragraph explains that the `Before:` names are deliberately
 left as they were, because the fragment is a record of what an adopter migrates
 *from*. The re-domaining itself is not logged there, per the plan.
 
-**4. The consumer got five documents the plan did not name.** The plan asked
-only for the consumer's own `ccf.resolution-spec`. I also gave it its own
-policy bundle, product class, product governance and decision instant. The
-reason is the finding above: those four are exactly the values the admission
-check compares across the boundary, and sharing them would have left the check
-unfalsifiable. `consumer-decision.yaml` exists for a smaller reason worth
-stating — a consumer reading the producer's clock would take freshness from the
-party whose freshness it is checking.
+**4. The consumer got five documents the plan named only one of.** The plan
+asked for the consumer's own `ccf.resolution-spec`; it also has its own policy
+bundle, product class, product governance and decision instant. This is not an
+addition to scope — it is the fix for the defect described under THE FINDING
+above, and it is what Ruling 2 accepts. Those four are exactly the values the
+admission check compares across the trust boundary, and sharing them left the
+check unfalsifiable. `consumer-decision.yaml` exists for a smaller reason worth
+stating separately: a consumer reading the producer's clock would take freshness
+from the party whose freshness it is checking.
 
 **5. `producer-peering.yaml` split out of the consumer's trust document.** The
 pre-rewrite `a2a.yaml` held both sides' peering values and both processes read
