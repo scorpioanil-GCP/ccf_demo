@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The PRODUCER's federation identity and the route it emits to
+# (property-intelligence domain, D-08; D-IMPL-15).
+#
+# Who this peer is on the wire, which key id it signs under, which producing
+# agent it asserts in the protected header, and where it sends. The consumer
+# states its entitlement independently in `peering-trust.yaml`; these are two
+# statements of one federation relationship, and admission refuses when they
+# disagree. A single shared document would make the signature check pass for a
+# reason unrelated to trust.
+#
+# No key MATERIAL is here: keys are generated per run into a temp directory and
+# never committed. What is declared is which identifier the producer is entitled
+# to sign under, which is policy rather than secret. Every value is OBVIOUSLY
+# SYNTHETIC — fictional peer names and a hash-shaped label.
+#
+# **`role: register` in the manifest.** Which identity a fabric emits under is a
+# standing statement of what it was permitted to do.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: larkfield-estates.producer-peering
+
+declaration:
+  peer_id: larkfield-site-assembler
+  key_id: larkfield-site-assembler-key-1
+  producer_hash: "sha256:larkfield-site-situation-assembler"
+
+  # Where this peer emits, and the transport ceiling it will not exceed.
+  consumer_peer_id: larkfield-consumer-hub
+  receive_path: /ccf/peering/inbound
+  max_request_bytes: 262144

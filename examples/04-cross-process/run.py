@@ -1,48 +1,47 @@
 """examples/04-cross-process — assembler and consumer across processes (EXAM-05).
 
 An assembler agent (``ContextAssemblyAgent``) runs in one real OS subprocess
-(``producer_child.py``); this process is the consumer. One typed Context
-Product crosses the boundary over BOTH transports — MCP egress (whitepaper
-§8.3 Pattern 3; CLAUDE.md §7.1) and A2A federation (Pattern 4; CLAUDE.md
-§7.2) — with Control Plane admission verification demonstrated on the
-consumer side, including the refusal path.
+(``producer_child.py``); this process is the consumer. One typed Context Product
+crosses the boundary over BOTH transports — MCP egress (whitepaper §8.3
+Pattern 3; CLAUDE.md §7.1) and A2A federation (Pattern 4; CLAUDE.md §7.2) — with
+Control Plane admission verification demonstrated on the consumer side,
+including the refusal path.
 
-What this demonstrates, as assertions:
+What this spine demonstrates, checked in
+``tests/examples/test_cross_process_output.py``:
 
-* **Two processes, nothing shared but the wire.** The producer's fabric,
-  graph and key live in the child's heap; the consumer's live here. The
-  spawn uses the READY-handshake pattern — the child prints
-  ``READY {mcp_port} {a2a_port}`` once its servers report started, and the
-  blocking ``readline()`` below is the gate. No fixed ports, no sleeps.
-* **MCP egress (Pattern 3).** The product is read back as an MCP Resource
-  and its typed contract validates — and the bytes are the very bytes the
-  A2A signature verifies over, so the two front doors serve one product.
+* **Two processes, nothing shared but the wire.** The producer's fabric, graph
+  and key live in the child's heap; the consumer's live here. Two deployments,
+  two manifests, two Control Planes. The spawn uses the READY-handshake
+  pattern — the child prints ``READY {mcp_port} {a2a_port}`` once its servers
+  report started, and the blocking ``readline()`` below is the gate. No fixed
+  ports, no sleeps.
+* **MCP egress (Pattern 3).** The product is read back as an MCP Resource and
+  its typed contract validates — and the bytes are the very bytes the A2A
+  signature verifies over, so the two front doors serve one product.
 * **A2A admission (Pattern 4, D-IMPL-16).** The genuine signed product is
-  admitted only after signature verification against the peer's own
-  trust-policy entry and the Control Plane policy-binding checks. An
-  immutable ``AdmissionRecord`` is persisted at an exact content address
-  before anything is reported admitted, and the merged lineage is the
-  set-union of producer and consumer (CLAUDE.md §7.2: extends, never
-  replaces).
-* **Admission only through L2 (single-writer, CLAUDE.md §10).** The
-  admitted product reaches L3 through ``AssemblyWorker.ingest_admitted`` —
-  a door typed to accept only gate-produced ``AdmittedProduct`` values —
-  and the graph digest moves only then.
-* **The negative case.** A tampered envelope — a real signature spliced
-  onto different payload bytes, emitted over the real socket — is refused
-  as a value, the refusal is audited, and the consumer's L3 substrate is
-  byte-identical before and after.
+  admitted only after signature verification against the peer's own trust-policy
+  entry and the Control Plane policy-binding checks. An immutable
+  ``AdmissionRecord`` is persisted at an exact content address before anything is
+  reported admitted, and the merged lineage is the set-union of producer and
+  consumer (CLAUDE.md §7.2: extends, never replaces).
+* **Admission only through L2 (single-writer, CLAUDE.md §10).** The admitted
+  product reaches L3 through ``AssemblyWorker.ingest_admitted`` — a door typed to
+  accept only gate-produced ``AdmittedProduct`` values — and the graph digest
+  moves only then.
+* **The negative case.** A tampered envelope — a real signature spliced onto
+  different payload bytes, emitted over the real socket — is refused as a value,
+  the refusal is audited, and the consumer's L3 substrate is byte-identical
+  before and after.
 
 Every domain value — tenant, peer identities, ceilings, endpoint path,
 federation vocabulary, the consumer's own lineage — is loaded from
-``artifacts/*.yaml`` (property-intelligence domain, D-08, authored 100%
-fresh per D-07). Run it: ``make example-04``. Exit 0 means every assertion
-held; any failure prints the child's captured stderr and exits nonzero.
+``artifacts/*.yaml`` and enumerated by ``artifacts/consumer-manifest.yaml``.
+Run it: ``make example-04``.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import signal
 import socket
@@ -51,27 +50,25 @@ import sys
 import tempfile
 import threading
 import traceback
-from datetime import UTC, datetime
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 import httpx
 import uvicorn
-import yaml
 from joserfc.jwk import ECKey
 
 import producer_child as producer
 
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.assembly.worker import (
-    EntityResolutionRule,
-    EntityResolutionSpec,
-    FederatedIngestSpec,
-)
-from ccf.boot import boot
-from ccf.contracts.canonical import canonical_bytes, content_hash
+from ccf.assembly.worker import FederatedIngestSpec
+from ccf.contracts.base import CCFContract
+from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.deployment import load_and_boot
 from ccf.mcp.client import McpResourceClient, SyncMcpBridge
 from ccf.peering.admission import (
     ADMISSION_RECORD,
@@ -80,7 +77,6 @@ from ccf.peering.admission import (
     AdmittedProduct,
     InboundPayloadCeiling,
     PeeringAdmissionGate,
-    SignatureRefusal,
     payload_ceiling_key,
 )
 from ccf.peering.identity import DetachedJwsIdentityProvider, FileBackedKeySource
@@ -100,8 +96,9 @@ from ccf.products.contract import (
 from ccf.products.gates import GateRefusal
 from ccf_runtime.peering.typed_http import TypedHttpWire
 
-ARTIFACTS = Path(__file__).resolve().parent / "artifacts"
-CHILD = Path(__file__).resolve().parent / "producer_child.py"
+EXAMPLE_ROOT = Path(__file__).resolve().parent
+MANIFEST = EXAMPLE_ROOT / "artifacts" / "consumer-manifest.yaml"
+CHILD = EXAMPLE_ROOT / "producer_child.py"
 
 #: Deadline every synchronous MCP call is bounded by, and the grace given to
 #: a terminated child before escalating to SIGKILL. Process-lifecycle
@@ -110,45 +107,15 @@ CALL_TIMEOUT_SECONDS = 20.0
 TERMINATE_TIMEOUT_SECONDS = 10
 
 
-def _load(name: str) -> Any:
-    return yaml.safe_load((ARTIFACTS / name).read_text(encoding="utf-8"))
-
-
-def _instant(value: object) -> datetime:
-    if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=UTC)
-    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-
-
 def _write_key(directory: Path, key_id: str) -> ECKey:
     """Generate the producer's signing key for this run. Never committed."""
+    import json  # noqa: PLC0415
+
     key = ECKey.generate_key("P-256", parameters={"kid": key_id})
     (directory / f"{key_id}.jwk").write_text(
         json.dumps(key.as_dict(private=True)), encoding="utf-8"
     )
     return key
-
-
-def _consumer_resolution_spec(federation: Any) -> EntityResolutionSpec:
-    """The consumer's federation-ingress vocabulary, from the artifact.
-
-    The producer's entities arrive as claims about *another* fabric's graph,
-    so they resolve into their own declared entity class rather than merging
-    into any vocabulary of the consumer's own.
-    """
-    declared = federation["federation"]["entity_rule"]
-    return EntityResolutionSpec(
-        semver=federation["artifact_version"],
-        entity_rules=(
-            EntityResolutionRule(
-                match_key=declared["match_key"],
-                entity_class=declared["entity_class"],
-                identity_keys=tuple(declared["identity_keys"]),
-                attribute_keys=tuple(declared["attribute_keys"]),
-            ),
-        ),
-        relationship_rules=(),
-    )
 
 
 def _graph_digest(database_path: Path) -> str:
@@ -166,57 +133,99 @@ def _graph_digest(database_path: Path) -> str:
     return digest.hexdigest()
 
 
-def main() -> int:
-    ontology = _load("ontology.yaml")
-    control = _load("controlplane.yaml")
-    federation = _load("a2a.yaml")
+@dataclass(frozen=True)
+class CrossProcessResult:
+    """What one run of the spine produced, for a caller to inspect.
 
-    tenant_id: str = ontology["tenant_id"]
-    consumer_values = federation["consumer"]
-    producer_values = federation["producer"]
-    declared_class = control["product_class"]
-    now = _instant(control["decision"]["now"])
+    The example returns its state rather than checking it here, so that
+    ``tests/examples/test_cross_process_output.py`` can hold the assertions
+    where a test runner will actually run them (D-09). The A2A trust boundary
+    is the reason this list is long: the admission verdict, the record, the
+    merged lineage, the refusal and the two graph digests are each a separate
+    observable, and folding any pair together would let one stand in for the
+    other.
+    """
 
-    # The regime the consumer entitles the producer to claim: the content
-    # hash of the policy bundle both deployments declared (the Control Plane
-    # versions artifacts by content, so no literal has to be transcribed).
-    producer_policy_version = content_hash(control["policy_bundle"])
+    tenant_id: str
+    artifacts: Mapping[str, CCFContract]
+    consumer_policy_version: str
+    over_mcp: str
+    mcp_product: ContextProductContract
+    genuine: InboundProduct
+    tampered: InboundProduct
+    admitted: AdmittedProduct
+    consumer_lineage: ProductLineage
+    admission_record: AdmissionRecord
+    admission_record_address: str
+    admission_store: FileArtifactStore
+    audit_events: tuple[object, ...]
+    federated_entity_uris: tuple[str, ...]
+    digest_before_ingest: str
+    digest_after_ingest: str
+    digest_after_refusal: str
+    refusal: GateRefusal
 
-    with tempfile.TemporaryDirectory(prefix="ccf-example04-consumer-") as scratch:
-        root = Path(scratch)
+
+def run(*, root: Path) -> CrossProcessResult:
+    """Run the consumer, spawn the producer, exchange, admit, refuse."""
+    registry = ControlPlaneRegistry()
+
+    # --8<-- [start:boot]
+    # 1. One call replaces the registration prologue and the boot. This is the
+    #    CONSUMER's manifest: its own resolution spec, its own policy bundle,
+    #    its own admitted product class, its own peering entitlement. The
+    #    producer's artifact set is not in force here, which is precisely why
+    #    the A2A trust boundary exists.
+    database_path = root / "consumer.sqlite3"
+    booted = load_and_boot(
+        MANIFEST, registry=registry, database_path=str(database_path)
+    )
+    # --8<-- [end:boot]
+    try:
+        decision = cast(DeclaredArtifact, booted.artifacts["decision"])
+        governance = cast(DeclaredArtifact, booted.artifacts["product-governance"])
+        declared = cast(ProductClassDeclaration, booted.artifacts["product-class"])
+        peering = cast(DeclaredArtifact, booted.artifacts["peering-trust"]).declaration
+        lineage_declaration = cast(
+            DeclaredArtifact, booted.artifacts["consumer-lineage"]
+        ).declaration
+        ingest_declaration = cast(
+            DeclaredArtifact, booted.artifacts["federation-ingest"]
+        ).declaration
+
+        tenant_id = booted.tenant_id
+        now = datetime.fromisoformat(decision.declaration["now"])
+
         key_dir = root / "keys"
         key_dir.mkdir()
-        key = _write_key(key_dir, producer_values["key_id"])
+        key = _write_key(key_dir, peering["producer_key_id"])
 
-        # --- the consumer's Control Plane: trust is declared, then pinned ---
         # --8<-- [start:peer-trust-policy]
-        registry = ControlPlaneRegistry()
-        spec_version = registry.register(
-            control["keys"]["resolution_spec"],
-            _consumer_resolution_spec(federation),
-        )
-        policy_version = registry.register(
-            control["keys"]["policy_bundle"], control["policy_bundle"]
-        )
-        assert policy_version == producer_policy_version
+        # 2. Trust is declared, then pinned. The regime the consumer entitles
+        #    the producer to claim is the version of the consumer's OWN policy
+        #    bundle — a second, independent document from the producer's, so
+        #    the entitlement is falsifiable: if either side's bundle is edited
+        #    alone, the inbound product's asserted regime falls outside this
+        #    grant and admission refuses.
+        entitled_policy_version = booted.pins.version_for("policy-bundle")
         trust_version = registry.register_typed(
             trust_policy_key(tenant_id=tenant_id),
             PeeringTrustPolicy(
-                semver=consumer_values["semver"],
+                semver=peering["trust_policy_semver"],
                 tenant_id=tenant_id,
                 peers={
-                    producer_values["peer_id"]: PeerTrustGrant(
+                    peering["producer_peer_id"]: PeerTrustGrant(
+                        # The only value not authorable in the artifact: key
+                        # MATERIAL, generated per run and never committed.
                         signing_keys={
-                            producer_values["key_id"]: key.as_dict(private=False)
+                            peering["producer_key_id"]: key.as_dict(private=False)
                         },
                         permitted_producer_hashes=frozenset(
-                            {producer_values["producer_hash"]}
+                            {peering["producer_hash"]}
                         ),
-                        permitted_schema_names=frozenset(
-                            {declared_class["schema_name"]}
-                        ),
+                        permitted_schema_names=frozenset({declared.schema_name}),
                         permitted_policy_regimes=frozenset(
-                            {producer_policy_version}
+                            {entitled_policy_version}
                         ),
                     )
                 },
@@ -226,39 +235,36 @@ def main() -> int:
         ceiling_version = registry.register_typed(
             payload_ceiling_key(tenant_id=tenant_id),
             InboundPayloadCeiling(
-                semver=consumer_values["semver"],
-                max_payload_bytes=consumer_values[
-                    "inbound_payload_ceiling_bytes"
-                ],
+                semver=peering["trust_policy_semver"],
+                max_payload_bytes=peering["inbound_payload_ceiling_bytes"],
             ),
             INBOUND_PAYLOAD_CEILING,
         )
         # --8<-- [end:peer-trust-policy]
 
-        # --- the consuming fabric, and the one gate before L2 ---------------
-        database_path = root / "consumer.sqlite3"
-        handle = boot(
-            database_path=database_path,
-            registry=registry,
-            resolution_spec_key=control["keys"]["resolution_spec"],
-            resolution_spec_version=spec_version,
-            policy_bundle_key=control["keys"]["policy_bundle"],
-            policy_bundle_version=policy_version,
-        )
+        # 3. The consumer's own TTL ceiling and product-class registration.
+        #    Minted here, not by the manifest, for the same reason as in the
+        #    producer: the pin is a content hash of what was registered, so
+        #    Gate 3 has two independently authored values to compare.
         max_ttl_version = registry.register(
-            control["keys"]["max_ttl"],
-            MaxTTL(seconds=control["max_ttl_seconds"]),
+            declared.max_ttl_key,
+            MaxTTL(seconds=governance.declaration["max_ttl_seconds"]),
         )
         product_class = register_product_class(
             registry=registry,
-            schema_name=declared_class["schema_name"],
-            schema_version=declared_class["schema_version"],
-            ttl_anchor=declared_class["ttl_anchor"],
-            assembly_mode=declared_class["assembly_mode"],
-            max_ttl_key=control["keys"]["max_ttl"],
+            schema_name=declared.schema_name,
+            schema_version=declared.schema_version,
+            ttl_anchor=declared.ttl_anchor,
+            assembly_mode=declared.assembly_mode,
+            max_ttl_key=declared.max_ttl_key,
             max_ttl_version=max_ttl_version,
         )
+
         # --8<-- [start:peer-gate]
+        # 4. The gate is the one door an inbound product may pass through. It
+        #    holds the identity provider that verifies signatures, the Control
+        #    Plane it checks policy bindings against, the audit log every
+        #    verdict lands in, and the store that keeps admission records.
         admission_store = FileArtifactStore(root=root / "admission-records")
         gate = PeeringAdmissionGate(
             identity=DetachedJwsIdentityProvider(
@@ -270,17 +276,15 @@ def main() -> int:
             tenant_id=tenant_id,
             trust_policy_version=trust_version,
             payload_ceiling_version=ceiling_version,
-            product_classes={declared_class["schema_name"]: product_class},
+            product_classes={declared.schema_name: product_class},
         )
         consumer_lineage = ProductLineage(
-            operators_invoked=frozenset(
-                consumer_values["lineage"]["operators_invoked"]
-            ),
+            operators_invoked=frozenset(lineage_declaration["operators_invoked"]),
             policy_bundle_versions=frozenset(
-                consumer_values["lineage"]["policy_bundle_versions"]
+                lineage_declaration["policy_bundle_versions"]
             ),
-            graph_snapshot_at=_instant(
-                consumer_values["lineage"]["graph_snapshot_at"]
+            graph_snapshot_at=datetime.fromisoformat(
+                lineage_declaration["graph_snapshot_at"]
             ),
         )
         # --8<-- [end:peer-gate]
@@ -296,12 +300,12 @@ def main() -> int:
         try:
             with httpx.Client(timeout=30.0) as client:
                 wire = TypedHttpWire(
-                    local_peer_id=consumer_values["peer_id"],
+                    local_peer_id=peering["consumer_peer_id"],
                     endpoints=lambda *, peer: "",
                     http_client=client,
                     clock=lambda: now,
-                    receive_path=consumer_values["receive_path"],
-                    max_request_bytes=consumer_values["max_request_bytes"],
+                    receive_path=peering["receive_path"],
+                    max_request_bytes=peering["max_request_bytes"],
                 )
                 server = uvicorn.Server(
                     uvicorn.Config(wire.asgi_app(), log_level="error")
@@ -312,14 +316,12 @@ def main() -> int:
                 thread.start()
                 while not server.started:
                     if not thread.is_alive():
-                        raise AssertionError(
-                            "the consumer endpoint failed to start"
-                        )
+                        raise RuntimeError("the consumer endpoint failed to start")
 
-                # --- spawn the assembler subprocess, READY handshake --------
-                # Its own session/process group, so teardown can reap the
-                # whole group; stderr captured for diagnosis on failure.
                 # --8<-- [start:peer-spawn]
+                # 5. Spawn the assembler subprocess, READY handshake. Its own
+                #    session/process group, so teardown can reap the whole
+                #    group; stderr captured for diagnosis on failure.
                 with stderr_path.open("wb") as stderr_sink:
                     proc = subprocess.Popen(
                         [sys.executable, str(CHILD)],
@@ -330,17 +332,19 @@ def main() -> int:
                             **os.environ,
                             producer.CONSUMER_URL_VAR: (
                                 f"http://127.0.0.1:{consumer_port}"
-                                + consumer_values["receive_path"]
+                                + peering["receive_path"]
                             ),
                             producer.KEY_DIR_VAR: str(key_dir),
                         },
                     )
-                assert proc.stdout is not None
+                if proc.stdout is None:
+                    raise RuntimeError("the producer child has no stdout pipe")
                 announcement = proc.stdout.readline().decode().strip()
-                assert announcement.startswith("READY "), (
-                    f"producer child did not announce readiness: "
-                    f"{announcement!r}"
-                )
+                if not announcement.startswith("READY "):
+                    raise RuntimeError(
+                        f"producer child did not announce readiness:"
+                        f" {announcement!r}"
+                    )
                 _token, mcp_port, _a2a_port = announcement.split()
 
                 # The child emits before it announces, so both carriages —
@@ -350,19 +354,14 @@ def main() -> int:
                 server.should_exit = True
                 thread.join(timeout=TERMINATE_TIMEOUT_SECONDS)
 
-            assert len(received) == 2, [m.observed_peer for m in received]
-            assert all(
-                message.observed_peer.peer_id == producer_values["peer_id"]
-                for message in received
-            )
             genuine, tampered = received
 
-            # --- (1) MCP egress: typed contract validates over the wire -----
             # --8<-- [start:mcp-egress]
+            # 6. MCP egress: the typed contract validates over the wire.
             address = producer.ProductAddress(
                 tenant=tenant_id,
-                product_class=declared_class["schema_name"],
-                version=declared_class["schema_version"],
+                product_class=declared.schema_name,
+                version=declared.schema_version,
             )
             with SyncMcpBridge(
                 call_timeout_seconds=CALL_TIMEOUT_SECONDS
@@ -372,144 +371,112 @@ def main() -> int:
                 )
                 over_mcp = mcp_client.read_text(address.uri)
             mcp_product = ContextProductContract.model_validate_json(over_mcp)
-            assert mcp_product.tenant_id == tenant_id
-            assert mcp_product.schema_name == declared_class["schema_name"]
-            assert mcp_product.lineage.operators_invoked
-            # One product, two front doors: the MCP bytes are exactly the
-            # bytes the A2A signature was made over.
-            assert over_mcp.encode("utf-8") == genuine.signed.canonical_payload()
             # --8<-- [end:mcp-egress]
 
-            # --- (2) A2A admission: verified, recorded, then admitted -------
             # --8<-- [start:peer-admit]
-            admitted = gate.admit(
+            # 7. A2A admission: verified, recorded, then admitted. This call is
+            #    the whole trust boundary — signature verification against the
+            #    peer's own trust entry, the Control Plane policy-binding
+            #    checks, and only then the lineage merge. Nothing below it may
+            #    be reordered above it: an inbound product is not admissible to
+            #    L3 until the consuming Control Plane has validated its policy
+            #    bindings (CLAUDE.md §7.2, a structural commitment).
+            match gate.admit(
                 inbound=genuine, consumer_lineage=consumer_lineage, now=now
-            )
-            assert isinstance(admitted, AdmittedProduct), admitted
-            assert canonical_bytes(admitted.product) == (
-                genuine.signed.canonical_payload()
-            )
-
-            # Lineage continuity by set-union (CLAUDE.md §7.2): the merged L
-            # contains both sides, exactly.
-            producer_lineage = admitted.product.lineage
-            assert admitted.lineage.operators_invoked == (
-                producer_lineage.operators_invoked
-                | consumer_lineage.operators_invoked
-            )
-            assert admitted.lineage.policy_bundle_versions == (
-                producer_lineage.policy_bundle_versions
-                | consumer_lineage.policy_bundle_versions
-            )
-            assert producer_policy_version in (
-                admitted.lineage.policy_bundle_versions
-            )
-            assert admitted.lineage.graph_snapshot_at == (
-                producer_lineage.graph_snapshot_at
-            )
+            ):
+                case AdmittedProduct() as admitted:
+                    pass
+                case verdict:
+                    raise RuntimeError(
+                        f"the consuming Control Plane refused a product it was"
+                        f" configured to admit: {verdict}"
+                    )
             # --8<-- [end:peer-admit]
 
             # --8<-- [start:peer-admission-record]
-            # The immutable AdmissionRecord exists at an exact version: the
-            # audit verdict points at it by content address, the store holds
-            # it, and its content hashes back to that very address — no
-            # "latest", no overwrite path.
+            # 8. The immutable AdmissionRecord exists at an exact version: the
+            #    audit verdict points at it by content address, the store holds
+            #    it, and its content hashes back to that very address — no
+            #    "latest", no overwrite path.
+            audit_events = tuple(registry.audit_events())
             admitted_events = [
-                event
-                for event in registry.audit_events()
-                if event.action == "peering_admitted"
+                event for event in audit_events if event.action == "peering_admitted"
             ]
-            assert len(admitted_events) == 1
-            verdict = admitted_events[0]
-            assert verdict.artifact_class == ADMISSION_RECORD.class_id
-            record_address = verdict.version
-            assert admission_store.exists(content_address=record_address)
-            record = AdmissionRecord.model_validate_json(
+            if len(admitted_events) != 1:
+                raise RuntimeError(
+                    f"expected exactly one admission verdict, saw"
+                    f" {len(admitted_events)}"
+                )
+            record_address = admitted_events[0].version
+            admission_record = AdmissionRecord.model_validate_json(
                 admission_store.get(content_address=record_address)
             )
-            assert content_hash(record) == record_address
-            assert record.peer_id == producer_values["peer_id"]
-            assert record.merged_lineage == admitted.lineage
-            assert record.producer_lineage == producer_lineage
-            assert record.consumer_lineage == consumer_lineage
             # --8<-- [end:peer-admission-record]
 
-            # Admission only through L2 (single-writer): the graph moves
-            # only when the typed federated door ingests the admitted value.
             # --8<-- [start:peer-ingest]
-            before_ingest = _graph_digest(database_path)
-            declared_federation = federation["federation"]
-            envelopes = handle.worker.ingest_admitted(
+            # 9. Admission only through L2 (single-writer): the graph moves
+            #    only when the typed federated door ingests the admitted value.
+            digest_before_ingest = _graph_digest(database_path)
+            booted.handle.worker.ingest_admitted(
                 admitted,
                 spec=FederatedIngestSpec(
-                    source_system_id=declared_federation["system_id"],
-                    payload_records_key=declared_federation[
-                        "payload_records_key"
-                    ],
+                    source_system_id=ingest_declaration["system_id"],
+                    payload_records_key=ingest_declaration["payload_records_key"],
                     record_key_aliases=dict(
-                        declared_federation["record_key_aliases"]
+                        ingest_declaration["record_key_aliases"]
                     ),
                 ),
                 ingested_at=now,
             )
-            assert envelopes
-            assert _graph_digest(database_path) != before_ingest
-            view = handle.reader.as_of(tenant_id=tenant_id, at=now)
-            federated = [
-                record_.claim
-                for record_ in view.entities
-                if record_.claim.entity_class
-                == declared_federation["entity_rule"]["entity_class"]
-            ]
-            assert len(federated) == len(admitted.product.payload["entities"])
+            digest_after_ingest = _graph_digest(database_path)
+            view = booted.handle.reader.as_of(tenant_id=tenant_id, at=now)
+            federated_entity_uris = tuple(
+                record.claim.entity_uri
+                for record in view.entities
+                if record.claim.entity_class
+                == ingest_declaration["federated_entity_class"]
+            )
             # --8<-- [end:peer-ingest]
 
-            # --- (3) the negative case: tampering is refused, L3 untouched --
             # --8<-- [start:peer-refusal]
-            before_refusal = _graph_digest(database_path)
-            refusal = gate.admit(
+            # 10. The negative case: a real signature spliced onto different
+            #     payload bytes, sent over the real socket, is refused as a
+            #     typed VALUE rather than raised — and the consumer's substrate
+            #     is byte-identical before and after.
+            match gate.admit(
                 inbound=tampered, consumer_lineage=consumer_lineage, now=now
-            )
-            assert isinstance(refusal, GateRefusal), refusal
-            assert isinstance(refusal, SignatureRefusal), refusal
-            assert refusal.peer_id == producer_values["peer_id"]
-            assert _graph_digest(database_path) == before_refusal
-            refused_events = [
-                event
-                for event in registry.audit_events()
-                if event.action == "peering_admission_refused"
-            ]
-            assert refused_events
-            assert all(event.resolved is False for event in refused_events)
-            assert isinstance(tampered, InboundProduct)
+            ):
+                case GateRefusal() as refusal:
+                    pass
+                case admitted_tampered:
+                    raise RuntimeError(
+                        f"the consuming Control Plane ADMITTED a tampered"
+                        f" envelope: {admitted_tampered}"
+                    )
+            digest_after_refusal = _graph_digest(database_path)
             # --8<-- [end:peer-refusal]
 
-            print("examples/04-cross-process: OK")
-            print(f"  tenant                 {tenant_id}")
-            print(f"  producer peer          {producer_values['peer_id']}")
-            print(f"  product                {declared_class['schema_name']}")
-            print(f"  over MCP               {len(over_mcp)} canonical bytes")
-            print(
-                "  admission record       "
-                f"{record_address[:16]}… ({ADMISSION_RECORD.class_id})"
+            return CrossProcessResult(
+                tenant_id=tenant_id,
+                artifacts=booted.artifacts,
+                consumer_policy_version=entitled_policy_version,
+                over_mcp=over_mcp,
+                mcp_product=mcp_product,
+                genuine=genuine,
+                tampered=tampered,
+                admitted=admitted,
+                consumer_lineage=consumer_lineage,
+                admission_record=admission_record,
+                admission_record_address=record_address,
+                admission_store=admission_store,
+                audit_events=tuple(registry.audit_events()),
+                federated_entity_uris=federated_entity_uris,
+                digest_before_ingest=digest_before_ingest,
+                digest_after_ingest=digest_after_ingest,
+                digest_after_refusal=digest_after_refusal,
+                refusal=refusal,
             )
-            print(
-                "  merged lineage ops     "
-                f"{sorted(admitted.lineage.operators_invoked)}"
-            )
-            print(f"  tampered product       refused ({type(refusal).__name__})")
-            return 0
-        except BaseException:
-            if stderr_path.exists():
-                captured = stderr_path.read_text(encoding="utf-8")
-                if captured:
-                    print(
-                        "producer child stderr:\n" + captured, file=sys.stderr
-                    )
-            traceback.print_exc()
-            return 1
         finally:
-            handle.close()
             if proc is not None:
                 # Reap the whole process group: the child owns servers, and
                 # an orphaned server holds ports past this run's lifetime.
@@ -528,6 +495,24 @@ def main() -> int:
                     proc.wait()
                 if proc.stdout is not None:
                     proc.stdout.close()
+    finally:
+        booted.handle.close()
+
+
+def main() -> int:
+    with tempfile.TemporaryDirectory(prefix="ccf-example04-consumer-") as scratch:
+        root = Path(scratch)
+        try:
+            run(root=root)
+        except BaseException:
+            stderr_path = root / "producer-child.stderr"
+            if stderr_path.exists():
+                captured = stderr_path.read_text(encoding="utf-8")
+                if captured:
+                    print("producer child stderr:\n" + captured, file=sys.stderr)
+            traceback.print_exc()
+            return 1
+    return 0
 
 
 if __name__ == "__main__":

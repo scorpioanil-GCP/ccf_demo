@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The CONSUMER fabric's policy bundle, and the regime it entitles the producer
+# to claim (property-intelligence domain, D-08).
+#
+# **Why this is a second document and not a shared one.** Its content is
+# identical to `policy-bundle.yaml`, so the two register to the same content
+# address — and that agreement is what the consumer's trust policy grants the
+# producer under `permitted_policy_regimes`. Held in ONE file read by both
+# deployments the agreement would be unfalsifiable: an edit would move both ends
+# together and admission would keep passing for a reason unrelated to what it
+# claims to verify. Held in two, editing either side alone makes the inbound
+# product's asserted regime fall outside the consumer's entitlement and the
+# admission gate refuses. That refusal is the check.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: larkfield-estates.policy-bundle
+
+declaration:
+  regime: larkfield-situation-desk
+  jurisdiction: GB
+  permitted_classifications:
+    - internal

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The CONSUMER run's decision instant (property-intelligence domain).
+#
+# Its own document rather than the producer's: the consumer admits at an instant
+# it names, and a consumer reading the producer's clock would be taking freshness
+# from the party whose freshness it is checking.
+#
+# **`role: load` in the manifest.** A run's inputs are not permissions.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and the instant are [ADAPT]; the keys `semver`,
+# `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: larkfield-estates.decision-inputs
+
+declaration:
+  now: "2026-06-01T10:00:05Z"

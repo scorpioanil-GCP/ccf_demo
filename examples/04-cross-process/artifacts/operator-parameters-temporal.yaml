@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.temporal.json
+# Declared temporal-operator parameters (D-IMPL-38; property-intelligence
+# domain). Reconcile to the boundary on both temporal axes.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the boolean's value is [ADAPT]; the keys `semver` and
+# `require_valid_at_boundary` are [MECHANISM].
+
+semver: "1.0.0"
+
+require_valid_at_boundary: true

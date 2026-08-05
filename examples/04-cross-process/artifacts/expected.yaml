@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# What the PRODUCER's served product should contain, as declared by the
+# deployment that authored the events (property-intelligence domain).
+#
+# These are INDEPENDENT expectations: nothing in the pipeline derives them from
+# this file. They follow from the events, the resolution spec and the four
+# operators, so changing either side alone makes the assertion fail. The
+# restricted occupancy signal is absent and so is the `signals` edge that would
+# leak its existence by absence; the humidity sensor is absent because
+# similarity ranked it out.
+#
+# **`role: load` in the manifest.** An expectation is not a permission.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: larkfield-estates.expected-product
+
+declaration:
+  entity_classes:
+    - property
+    - sensor
+    - zone
+  relationship_types:
+    - contains
+    - monitored_by
+  entity_count: 4
+
+  # Axis 3 made visible: the role the served payload is conditioned to.
+  role: situation-analyst
+
+  # The classes the policy regime keeps out of the served view entirely.
+  excluded_entity_classes:
+    - occupancy_signal

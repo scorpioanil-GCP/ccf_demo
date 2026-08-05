@@ -112,15 +112,18 @@ def crossproc_endpoints() -> Iterator[CrossProcessEndpoints]:
     READY-handshake spawn, ≥``WARMUP_ROUND_TRIPS`` warm-ups per transport
     before yield, process-group terminate→wait→kill teardown (D-15).
     """
-    ontology = _load("ontology.yaml")
-    control = _load("controlplane.yaml")
-    federation = _load("a2a.yaml")
+    # Example 04's artifacts are typed, one-class-per-document (plan 15-18),
+    # so each value comes from the document that owns it rather than from a
+    # bundle. Plain `yaml.safe_load` is enough here: this fixture only needs a
+    # handful of strings to address the child's two surfaces, and nothing it
+    # reads is registered into any Control Plane.
+    manifest = _load("producer-manifest.yaml")
+    declared_class = _load("product-class.yaml")
+    producer_values = _load("producer-peering.yaml")["declaration"]
+    consumer_values = _load("peering-trust.yaml")["declaration"]
 
-    tenant_id: str = ontology["tenant_id"]
-    declared_class = control["product_class"]
-    consumer_values = federation["consumer"]
-    producer_values = federation["producer"]
-    now = _instant(control["decision"]["now"])
+    tenant_id: str = manifest["tenant_id"]
+    now = _instant(_load("decision.yaml")["declaration"]["now"])
 
     proc: subprocess.Popen[bytes] | None = None
     with tempfile.TemporaryDirectory(prefix="ccf-perf-crossproc-") as scratch:
@@ -208,7 +211,7 @@ def crossproc_endpoints() -> Iterator[CrossProcessEndpoints]:
                     },
                 )
                 wire = TypedHttpWire(
-                    local_peer_id=consumer_values["peer_id"],
+                    local_peer_id=consumer_values["consumer_peer_id"],
                     endpoints=lambda *, peer: (
                         f"http://127.0.0.1:{a2a_port}"
                         + consumer_values["receive_path"]
