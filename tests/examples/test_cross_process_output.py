@@ -157,12 +157,12 @@ def assembled(tmp_path_factory: pytest.TempPathFactory) -> Any:
     """The producer's assembly leg, run in-process.
 
     The producer's own assertions were about what its fabric assembled, which
-    is answerable without the subprocess: ``build_situation_product`` is the
+    is answerable without the subprocess: ``build_covenant_slice_product`` is the
     same function the child calls before it signs and serves.
     """
     module = _load("producer_child", "producer_child.py")
     root = tmp_path_factory.mktemp("cross-process-producer")
-    return module.build_situation_product(database_path=root / "producer.sqlite3")
+    return module.build_covenant_slice_product(database_path=root / "producer.sqlite3")
 
 
 def _declaration(result: Any, key: str) -> Any:
@@ -201,7 +201,7 @@ def test_the_producer_payload_matches_the_declared_expectation(
 
 
 def test_the_policy_regime_excluded_the_restricted_class(assembled: Any) -> None:
-    """The restricted occupancy signal is absent from the served view, and so is
+    """The restricted borrower disclosure is absent from the served view, and so is
     the edge that would have leaked its existence by absence."""
     expected = assembled.expected
     payload = assembled.servable.product.payload
@@ -407,7 +407,7 @@ def test_the_admitted_product_reached_l3_only_through_l2(consumer: Any) -> None:
     door, and every entity the peer asserted arrives in the consumer's own
     federation class rather than merged into its vocabulary."""
     assert consumer.digest_after_ingest != consumer.digest_before_ingest
-    assert len(consumer.federated_entity_uris) == len(
+    assert len(consumer.contribution_uris) == len(
         consumer.admitted.product.payload["entities"]
     )
 

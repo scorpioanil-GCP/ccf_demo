@@ -159,7 +159,7 @@ class CrossProcessResult:
     admission_record_address: str
     admission_store: FileArtifactStore
     audit_events: tuple[object, ...]
-    federated_entity_uris: tuple[str, ...]
+    contribution_uris: tuple[str, ...]
     digest_before_ingest: str
     digest_after_ingest: str
     digest_after_refusal: str
@@ -430,11 +430,11 @@ def run(*, root: Path) -> CrossProcessResult:
             )
             digest_after_ingest = _graph_digest(database_path)
             view = booted.handle.reader.as_of(tenant_id=tenant_id, at=now)
-            federated_entity_uris = tuple(
+            contribution_uris = tuple(
                 record.claim.entity_uri
                 for record in view.entities
                 if record.claim.entity_class
-                == ingest_declaration["federated_entity_class"]
+                == ingest_declaration["contribution_class"]
             )
             # --8<-- [end:peer-ingest]
 
@@ -470,7 +470,7 @@ def run(*, root: Path) -> CrossProcessResult:
                 admission_record_address=record_address,
                 admission_store=admission_store,
                 audit_events=tuple(registry.audit_events()),
-                federated_entity_uris=federated_entity_uris,
+                contribution_uris=contribution_uris,
                 digest_before_ingest=digest_before_ingest,
                 digest_after_ingest=digest_after_ingest,
                 digest_after_refusal=digest_after_refusal,

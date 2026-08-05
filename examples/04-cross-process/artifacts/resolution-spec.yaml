@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.resolution-spec.json
 # The PRODUCER deployment's entity- and relationship-resolution rules
-# (property-intelligence domain, D-08; authored fresh per D-07).
+# (syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #
 # One artifact class, one document (15-13 R1): this file is rules only. The
 # classification map moved to `operator-parameters-policy.yaml` and the
@@ -21,53 +21,53 @@
 semver: "1.0.0"
 
 # Source payload vocabulary -> E nodes. `match_key` selects a rule by presence;
-# `identity_keys` mint the canonical URI, so the same property arriving from two
+# `identity_keys` mint the canonical URI, so the same facility arriving from two
 # source systems converges on one node without either system knowing about the
 # other.
 entity_rules:
-  - match_key: property_ref
-    entity_class: property
-    identity_keys: [property_ref]
+  - match_key: facility_ref
+    entity_class: facility
+    identity_keys: [facility_ref]
     attribute_keys:
-      - property_name
-      - property_kind
-      - property_classification
+      - facility_name
+      - facility_kind
+      - facility_classification
 
-  - match_key: zone_ref
-    entity_class: zone
-    identity_keys: [zone_ref]
+  - match_key: covenant_ref
+    entity_class: covenant
+    identity_keys: [covenant_ref]
     attribute_keys:
-      - zone_label
-      - zone_purpose
-      - zone_classification
+      - covenant_label
+      - covenant_type
+      - covenant_classification
 
-  - match_key: sensor_ref
-    entity_class: sensor
-    identity_keys: [sensor_ref]
+  - match_key: certificate_ref
+    entity_class: compliance_certificate
+    identity_keys: [certificate_ref]
     attribute_keys:
-      - sensor_kind
-      - reading_summary
-      - sensor_classification
+      - certificate_kind
+      - certificate_summary
+      - certificate_classification
 
-  - match_key: occupancy_ref
-    entity_class: occupancy_signal
-    identity_keys: [occupancy_ref]
+  - match_key: disclosure_ref
+    entity_class: borrower_disclosure
+    identity_keys: [disclosure_ref]
     attribute_keys:
-      - occupancy_state
-      - occupancy_classification
+      - disclosure_state
+      - disclosure_classification
 
 # Typed first-class edges, emitted when one envelope resolves both endpoint
 # classes — co-occurrence in one source event is the evidence. Subjects are
-# chosen so the traversal walks forward from the property seed.
+# chosen so the traversal walks forward from the facility seed.
 relationship_rules:
   - relationship_type: contains
-    subject_entity_class: property
-    object_entity_class: zone
+    subject_entity_class: facility
+    object_entity_class: covenant
 
-  - relationship_type: monitored_by
-    subject_entity_class: zone
-    object_entity_class: sensor
+  - relationship_type: evidenced_by
+    subject_entity_class: covenant
+    object_entity_class: compliance_certificate
 
-  - relationship_type: signals
-    subject_entity_class: zone
-    object_entity_class: occupancy_signal
+  - relationship_type: discloses
+    subject_entity_class: covenant
+    object_entity_class: borrower_disclosure

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.resolution-spec.json
 # The CONSUMER deployment's federation-ingress vocabulary
-# (property-intelligence domain, D-08).
+# (syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #
 # The producer's entities arrive as claims about *another fabric's* graph, so
 # they resolve into their own declared entity class rather than merging into any
@@ -22,10 +22,10 @@
 semver: "1.0.0"
 
 entity_rules:
-  - match_key: federated_entity_uri
-    entity_class: federated_entity
-    identity_keys: [federated_entity_uri]
-    attribute_keys: [federated_entity_class]
+  - match_key: contribution_uri
+    entity_class: syndicate_contribution
+    identity_keys: [contribution_uri]
+    attribute_keys: [contribution_class]
 
 # No relationship rules: a federated claim carries entities, and the producer's
 # edges are the producer's assertion about its own graph, not the consumer's.

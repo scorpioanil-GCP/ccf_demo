@@ -26,7 +26,7 @@ What this child does, in order:
    ``READY {mcp_port} {a2a_port}`` only once both servers report started. The
    parent's blocking ``readline()`` is the gate — no sleeps.
 
-This file asserts nothing. :func:`build_situation_product` returns what it
+This file asserts nothing. :func:`build_covenant_slice_product` returns what it
 built, and the assertions about it live in
 ``tests/examples/test_cross_process_output.py`` where a runner can fail a build
 (D-09).
@@ -119,7 +119,7 @@ CONSUMER_URL_VAR = "CCF_EXAMPLE04_CONSUMER_URL"
 KEY_DIR_VAR = "CCF_EXAMPLE04_KEY_DIR"
 
 
-class SituationPlan:
+class CovenantSlicePlan:
     """The deployment's Π: what the reconciled subgraph means to its reader.
 
     A projection is deployment code — this is what a user writes. It declares
@@ -188,7 +188,7 @@ class ProductAddress(NamedTuple):
         )
 
 
-class AssembledSituation(NamedTuple):
+class AssembledCovenantSlice(NamedTuple):
     """The gated product, its egress address, its serving identity, its agent.
 
     Returned rather than asserted about, so
@@ -209,8 +209,8 @@ class AssembledSituation(NamedTuple):
     now: datetime
 
 
-def build_situation_product(*, database_path: Path) -> AssembledSituation:
-    """Run the producer slice end to end and gate the result.
+def build_covenant_slice_product(*, database_path: Path) -> AssembledCovenantSlice:
+    """Run the lead arranger's slice end to end and gate the result.
 
     The product is assembled, not fabricated: the whole L1->L6 path runs in
     this process, so the cross-process read on the other side is a read of
@@ -301,7 +301,7 @@ def build_situation_product(*, database_path: Path) -> AssembledSituation:
         execution = ProjectionEngine(
             reader=booted.handle.reader, registry=operators
         ).execute(
-            plan=SituationPlan(
+            plan=CovenantSlicePlan(
                 plan_id=governance.declaration["plan_id"],
                 required=declared.required_operator_keys,
             ),
@@ -377,7 +377,7 @@ def build_situation_product(*, database_path: Path) -> AssembledSituation:
     finally:
         booted.handle.close()
 
-    return AssembledSituation(
+    return AssembledCovenantSlice(
         servable=gated,
         address=ProductAddress(
             tenant=booted.tenant_id,
@@ -433,7 +433,7 @@ def main() -> None:
 
     with tempfile.TemporaryDirectory(prefix="ccf-example04-producer-") as scratch:
         workspace = Path(scratch)
-        assembled = build_situation_product(
+        assembled = build_covenant_slice_product(
             database_path=workspace / "producer.sqlite3"
         )
         product = assembled.servable.product

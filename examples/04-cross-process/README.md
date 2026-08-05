@@ -22,13 +22,29 @@ working refusal path for a tampered envelope.
 Together with `examples/05-workflow-hitl`, this example composes into
 the suite's full end-to-end deployment (CLAUDE.md §9).
 
-Domain rationale: multi-source property situational assembly is the
-archetypal cross-process assembler case. It deliberately mirrors the
-*shape* of the property-intelligence deployment that validated CCF's
-claims, with **zero of its code** — every artifact in this directory
-(`larkfield-estates`) was authored 100% fresh, and nothing was ported
-from any prior system. The SDK covering that ground with none of its
-code is the general-purposeness claim (CLAUDE.md §1) made demonstrable.
+Domain rationale: **syndicated lending covenant cross-reference** is the
+whitepaper's own canonical Pattern 4 exemplar (§8.3 Pattern 4, and the
+Mode 3 assembly that composes against it at §7.6). A syndicated
+facility's covenant package is partitioned across the parties to the
+syndicate — the lead arranger holds the structuring covenants, the
+administrative agent reconciles the borrower's periodic compliance
+certificates, and each participant holds only the slice its
+confidentiality envelope permits. No single party's fabric ingests the
+full covenant graph in trust-clean form, so the boundary the product
+crosses here is genuinely cross-organizational rather than merely
+cross-process. That is exactly the trust boundary Pattern 4 names, and
+it is why this is the example the suite re-domains to banking: the
+scenario is drawn from the whitepaper rather than invented.
+
+In this example the **producer is the lead arranger**
+(`harborline-syndications`, peer `harborline-lead-arranger`) assembling
+the covenant slice it is permitted to surface; the **consumer is a
+participant bank** (peer `hollis-participant-bank`) admitting that
+slice into its own fabric only after verifying the policy bindings it
+carries. Every identity, identifier and value is obviously synthetic.
+
+The rest of the suite keeps its horizontal domain mix (D-IMPL-52); only
+this example moves.
 
 ## Run it
 
@@ -88,11 +104,13 @@ The producer child (`producer_child.py`) boots its own fabric from
 `artifacts/producer-manifest.yaml` — its own SQLite file, its own
 Control Plane, its own heap — factory-constructs the assembler agent
 from `artifacts/agent-definition.yaml`,
-ingests the events in `artifacts/events.yaml` (a property asserted by
-two source systems converging on one node; two perimeter sensors the
-similarity operator must keep and one greenhouse sensor it must rank
-out; a restricted occupancy signal the policy operator must substitute
-out), and serves the gated four-entity product on two ephemeral-port
+ingests the events in `artifacts/events.yaml` (a facility asserted by
+two source systems converging on one node; two covenant-relevant
+compliance certificates the similarity operator must keep and one
+insurance-evidence filing it must rank out; a restricted borrower
+disclosure the policy operator must substitute out under the
+syndicate's confidentiality envelope), and serves the gated
+four-entity product on two ephemeral-port
 front doors. It prints `READY {mcp_port} {a2a_port}` only once both
 servers report started **and** both A2A emissions were accepted; the
 parent's blocking `readline()` is the gate — no fixed ports, no
@@ -129,7 +147,7 @@ The consumer then works through three movements:
    L3; the peer's say-so is not admission.
 
 The federated entities resolve into the consumer's own declared
-`federated_entity` class rather than merging into its vocabulary
+`syndicate_contribution` class rather than merging into its vocabulary
 (see `artifacts/consumer-resolution-spec.yaml` and
 `artifacts/federation-ingest.yaml`): a peer's claims are claims about
 *another fabric's graph*, and merging them would assert the consumer
@@ -153,7 +171,7 @@ declare their own `class_id`.
 | `product-class.yaml` | Schema name/version, TTL anchor, TTL key, and the declared `required_operator_keys` |
 | `product-governance.yaml` | TTL ceiling, product TTL, similarity index version, plan id |
 | `producer-peering.yaml` | Who this peer is on the wire and where it emits |
-| `events.yaml` | The L1 signal batch: lineage pair, two kept sensors, one ranked-out sensor, one restricted signal |
+| `events.yaml` | The L1 signal batch: lineage pair, two kept certificates, one ranked-out filing, one restricted borrower disclosure |
 | `decision.yaml`, `expected.yaml`, `agent-registration.yaml` | This run's instants, the declared expectation, and the two Control Plane keys — all `role: load` |
 | `agent-policy-regime.yaml`, `agent-debt-profile.yaml` | The agent's axis-4 and axis-5 targets, registered under the keys its refs resolve to |
 
@@ -178,7 +196,10 @@ and register through `register_versioned`, whose D-05 bump check
 
 - whitepaper §8.3 Pattern 3 — MCP integration (Context Product export)
 - whitepaper §8.3 Pattern 4 — A2A federation and trust-boundary
-  verification
+  verification, and its **syndicated lending covenant cross-reference**
+  Wholesale exemplar, which is this example's scenario
+- whitepaper §7.6 Mode 3 — the assembly mode that consumes Pattern 4's
+  federation surface across a structural trust-boundary partition
 - CLAUDE.md §7.1 — MCP as egress (SDK extension: bidirectional)
 - CLAUDE.md §7.2 — A2A first-class: admission before L3, lineage
   continuity by set-union (SDK extension)

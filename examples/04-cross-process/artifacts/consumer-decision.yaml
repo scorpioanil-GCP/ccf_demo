@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
-# The CONSUMER run's decision instant (property-intelligence domain).
+# The CONSUMER run's decision instant (syndicated-lending domain).
 #
 # Its own document rather than the producer's: the consumer admits at an instant
 # it names, and a consumer reading the producer's clock would be taking freshness
@@ -14,7 +14,7 @@
 # `class_id` and `declaration` are [MECHANISM].
 
 semver: "1.0.0"
-class_id: larkfield-estates.decision-inputs
+class_id: harborline-syndications.decision-inputs
 
 declaration:
   now: "2026-06-01T10:00:05Z"

@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
-# The CONSUMER's product-governance numbers (property-intelligence domain).
+# The CONSUMER's product-governance numbers (syndicated-lending domain).
 #
 # The consumer registers its own MAX_TTL ceiling for the class it admits,
 # because the ceiling a consumer enforces is the consumer's policy — a peer does
@@ -12,7 +12,7 @@
 # keys `semver`, `class_id` and `declaration` are [MECHANISM].
 
 semver: "1.0.0"
-class_id: larkfield-estates.product-governance
+class_id: harborline-syndications.product-governance
 
 declaration:
   max_ttl_seconds: 900

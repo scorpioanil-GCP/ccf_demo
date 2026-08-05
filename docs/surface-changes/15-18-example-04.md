@@ -7,6 +7,15 @@ changed artifact document. An artifact-document format change is real and an
 adopter who copied this example's artifacts must act on it, but it can never
 appear in the `__all__`-derived manifest diff.
 
+**A note on the vocabulary below.** Every `Before:` clause quotes the
+pre-rewrite documents, which carried a property-intelligence vocabulary
+(`larkfield-estates`, `SituationPlan`). A separate commit in this same plan
+re-domains the example to syndicated lending (`harborline-syndications`,
+`CovenantSlicePlan`) per D-10, so Phase 16 has a banking A2A/MCP worked
+instance. That re-domaining is not a surface change and is not logged here; the
+`Before:` names are left as they were so this fragment stays an accurate record
+of what an adopter is migrating *from*.
+
 The five multi-artifact bundles this example shipped (`ontology.yaml`,
 `controlplane.yaml`, `a2a.yaml`, `agent.yaml`, `prompt.yaml`) are now
 twenty-seven typed, closed-world, `$schema`-annotated documents.

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
 # The CONSUMER's own lineage at admission time (CLAUDE.md §7.2;
-# property-intelligence domain, D-08).
+# syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #
 # Inbound L EXTENDS the consumer's by set-union; it never replaces it. These
 # two operators are deliberately DISJOINT from the producer's four-operator
@@ -21,12 +21,12 @@
 # keys `semver`, `class_id` and `declaration` are [MECHANISM].
 
 semver: "1.0.0"
-class_id: larkfield-estates.consumer-lineage
+class_id: harborline-syndications.consumer-lineage
 
 declaration:
   operators_invoked:
     - temporal.as-of
-    - policy.consumer-desk-filter
+    - policy.participant-entitlement-filter
   policy_bundle_versions:
-    - larkfield-consumer-own-policy
+    - hollis-participant-own-policy
   graph_snapshot_at: "2026-06-01T10:00:00Z"

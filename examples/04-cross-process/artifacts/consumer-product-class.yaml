@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.product-class.json
 # The product class the CONSUMER will admit from its peer
-# (property-intelligence domain, D-08).
+# (syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #
 # The consumer's own statement, not the producer's. It must agree with
 # `product-class.yaml` for admission to succeed, and it is a separate document
@@ -20,12 +20,12 @@
 
 semver: "1.0.0"
 
-schema_name: larkfield-estates.property-situation
+schema_name: harborline-syndications.syndicated-covenant-context
 schema_version: "1.0.0"
 ttl_anchor: from_decision
 assembly_mode: algorithmic
 
-max_ttl_key: larkfield-estates/product/property-situation/max-ttl
+max_ttl_key: harborline-syndications/product/syndicated-covenant-context/max-ttl
 
 required_operator_keys:
   - traversal.typed-neighborhood

@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.traversal.json
-# Declared traversal-operator parameters (D-IMPL-38; property-intelligence
+# Declared traversal-operator parameters (D-IMPL-38; syndicated-lending
 # domain). Expand two hops from properties over these typed edges.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
@@ -12,8 +12,8 @@
 semver: "1.0.0"
 
 seed_entity_classes:
-  - property
+  - facility
 relationship_types:
   - contains
-  - monitored_by
+  - evidenced_by
 depth_limit: 2

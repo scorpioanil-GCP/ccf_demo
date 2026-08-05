@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.deployment-manifest.json
 # The PRODUCER deployment's manifest (D-06, D-08, D-IMPL-80;
-# property-intelligence domain, D-08).
+# syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #
 # This example runs TWO deployments in two OS processes, so it carries TWO
 # manifests. That is what D-06 means by the artifact set in force being
@@ -34,7 +34,7 @@
 
 semver: "1.0.0"
 
-tenant_id: larkfield-estates
+tenant_id: harborline-syndications
 backend: sqlite
 
 resolution_spec_key: resolution-spec
@@ -50,7 +50,7 @@ artifacts:
 
   - path: policy-bundle.yaml
     key: policy-bundle
-    class_id: larkfield-estates.policy-bundle
+    class_id: harborline-syndications.policy-bundle
     role: register
 
   - path: operator-parameters-traversal.yaml
@@ -85,7 +85,7 @@ artifacts:
 
   - path: product-governance.yaml
     key: product-governance
-    class_id: larkfield-estates.product-governance
+    class_id: harborline-syndications.product-governance
     role: register
 
   # Which identity this fabric emits under, and where. A standing statement of
@@ -93,7 +93,7 @@ artifacts:
   # its own `peering-trust.yaml`, deliberately as a second statement.
   - path: producer-peering.yaml
     key: producer-peering
-    class_id: larkfield-estates.producer-peering
+    class_id: harborline-syndications.producer-peering
     role: register
 
   # The agent's axis-4 and axis-5 targets. Their keys are LONG because a key
@@ -102,12 +102,12 @@ artifacts:
   # and the definition are two independent statements of one key, and the
   # factory refuses loudly if they disagree.
   - path: agent-policy-regime.yaml
-    key: larkfield-estates/policy-bundle/situation-desk-regime
+    key: harborline-syndications/policy-bundle/syndications-desk-regime
     class_id: policy-bundle
     role: register
 
   - path: agent-debt-profile.yaml
-    key: larkfield-estates/debt-profile/perimeter-watch
+    key: harborline-syndications/debt-profile/covenant-review
     class_id: debt-profile
     role: register
 
@@ -129,18 +129,18 @@ artifacts:
   # of what the fabric was permitted to do.
   - path: decision.yaml
     key: decision
-    class_id: larkfield-estates.decision-inputs
+    class_id: harborline-syndications.decision-inputs
     role: load
 
   # An expectation is not a permission.
   - path: expected.yaml
     key: expected
-    class_id: larkfield-estates.expected-product
+    class_id: harborline-syndications.expected-product
     role: load
 
   # A pointer to where the two author-versioned artifacts will be registered is
   # not itself a permission; the registration is.
   - path: agent-registration.yaml
     key: agent-registration
-    class_id: larkfield-estates.agent-registration
+    class_id: harborline-syndications.agent-registration
     role: load

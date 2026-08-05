@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
 # How an admitted federated product becomes L1 signal on the CONSUMER's side
-# (property-intelligence domain, D-08).
+# (syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #
 # The mapping from a peer's product payload onto the consumer's own ingress
 # vocabulary. The entity RULE it maps onto lives in
@@ -18,15 +18,15 @@
 # keys `semver`, `class_id` and `declaration` are [MECHANISM].
 
 semver: "1.0.0"
-class_id: larkfield-estates.federation-ingest
+class_id: harborline-syndications.federation-ingest
 
 declaration:
-  system_id: larkfield-peering-federation
+  system_id: syndicate-peering-federation
   payload_records_key: entities
   record_key_aliases:
-    entity_uri: federated_entity_uri
-    entity_class: federated_entity_class
+    entity_uri: contribution_uri
+    entity_class: contribution_class
   # The class the consumer's resolution spec mints federated claims into. Named
   # here as well so the ingest mapping and the resolution rule are two
   # independent statements of one class rather than one statement read twice.
-  federated_entity_class: federated_entity
+  contribution_class: syndicate_contribution

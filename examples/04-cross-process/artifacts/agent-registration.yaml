@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
 # Where the producer registers its two author-versioned artifacts
-# (property-intelligence domain, D-08).
+# (syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #
 # `agent-definition.yaml` and `prompt-artifact.yaml` are absent from
 # `producer-manifest.yaml` on purpose. Both carry D-IMPL-28 two-field
@@ -21,10 +21,10 @@
 # `class_id` and `declaration` are [MECHANISM].
 
 semver: "1.0.0"
-class_id: larkfield-estates.agent-registration
+class_id: harborline-syndications.agent-registration
 
 declaration:
-  agent_definition_key: larkfield-estates/agents/site-situation-assembler
-  prompt_artifact_key: larkfield-estates/prompt/situation-brief
-  policy_regime_key: larkfield-estates/policy-bundle/situation-desk-regime
-  halflife_debt_profile_key: larkfield-estates/debt-profile/perimeter-watch
+  agent_definition_key: harborline-syndications/agents/covenant-slice-assembler
+  prompt_artifact_key: harborline-syndications/prompt/covenant-brief
+  policy_regime_key: harborline-syndications/policy-bundle/syndications-desk-regime
+  halflife_debt_profile_key: harborline-syndications/debt-profile/covenant-review

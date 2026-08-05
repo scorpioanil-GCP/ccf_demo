@@ -15,7 +15,13 @@ survives the crossing: an admitted product still reaches the graph through the
 assembly worker and nowhere else.
 
 Everything below is literal-included from `examples/04-cross-process`, which
-runs two real OS processes in CI.
+runs two real OS processes in CI. Its scenario is the whitepaper's own
+canonical Pattern 4 exemplar — syndicated lending covenant cross-reference. A
+lead arranger's fabric assembles the covenant slice it is permitted to surface;
+a participant bank's fabric admits it. The covenant package is partitioned
+across the syndicate under confidentiality terms, so no single party's fabric
+holds the whole graph in trust-clean form, and the boundary the product crosses
+is cross-organizational rather than merely cross-process.
 
 ## Before you start
 

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.product-class.json
 # The PRODUCER's product class — what this fabric serves over MCP egress and
-# emits over A2A (property-intelligence domain, D-08).
+# emits over A2A (syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #
 # `required_operator_keys` is the AUTHORED, declared side of the empty-operator
 # gate. It is read off this artifact and handed to the projection plan; it is
@@ -25,12 +25,12 @@
 
 semver: "1.0.0"
 
-schema_name: larkfield-estates.property-situation
+schema_name: harborline-syndications.syndicated-covenant-context
 schema_version: "1.0.0"
 ttl_anchor: from_decision
 assembly_mode: algorithmic
 
-max_ttl_key: larkfield-estates/product/property-situation/max-ttl
+max_ttl_key: harborline-syndications/product/syndicated-covenant-context/max-ttl
 
 required_operator_keys:
   - traversal.typed-neighborhood

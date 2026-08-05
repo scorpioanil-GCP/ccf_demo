@@ -1,10 +1,10 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
 # The AGENT's axis-5 half-life and debt profile (CLAUDE.md §6.2 channel 1;
-# whitepaper §7.7 CAR; property-intelligence domain, D-08).
+# whitepaper §7.7 CAR; syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #
 # What staleness this assembler tolerates, and what D_c sends it to Forced-LLM
 # or Fail-Closed. The agent definition names it by versioned URI; the manifest
-# registers it under `larkfield-estates/debt-profile/perimeter-watch`, the key
+# registers it under `harborline-syndications/debt-profile/covenant-review`, the key
 # that ref resolves to.
 #
 # The document stays on the open envelope rather than the SDK's

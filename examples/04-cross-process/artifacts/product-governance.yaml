@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
-# The PRODUCER's product-governance numbers (property-intelligence domain).
+# The PRODUCER's product-governance numbers (syndicated-lending domain).
 #
 # The per-class TTL ceiling and this product's own TTL are two independently
 # authored values on purpose: Gate 3 compares the class's ceiling against the
@@ -17,10 +17,10 @@
 # keys `semver`, `class_id` and `declaration` are [MECHANISM].
 
 semver: "1.0.0"
-class_id: larkfield-estates.product-governance
+class_id: harborline-syndications.product-governance
 
 declaration:
   max_ttl_seconds: 900
   product_ttl_seconds: 300
-  similarity_index_version: "larkfield-sensor-corpus@2026-06-01"
-  plan_id: larkfield-estates.property-situation.plan
+  similarity_index_version: "harborline-covenant-corpus@2026-06-01"
+  plan_id: harborline-syndications.syndicated-covenant-context.plan

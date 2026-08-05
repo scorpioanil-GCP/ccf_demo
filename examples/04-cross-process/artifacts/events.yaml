@@ -1,23 +1,26 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.signal-batch.json
-# The PRODUCER's event stream — L1 signal envelopes (property-intelligence
-# domain, D-08; authored fresh per D-07 — nothing here is ported).
+# The LEAD ARRANGER's event stream — L1 signal envelopes (syndicated-lending
+# domain, whitepaper §8.3 Pattern 4).
 #
 # A handful of events, but not a flat happy path: the stream is built so the
 # producer's fabric has something real to do at each layer.
 #
-#   * ev-202 asserts the SAME property as ev-201 from a DIFFERENT source with
+#   * ev-202 asserts the SAME facility as ev-201 from a DIFFERENT source with
 #     identical attributes -> one claim whose lineage accumulates by set-union
 #     (INV-CH7-17), not a second node.
-#   * ev-204 introduces a second, permitted sensor that the similarity operator
-#     must rank out — so "similarity did something" is distinguishable from an
-#     identity function.
-#   * ev-206 adds a SECOND perimeter-relevant sensor (a camera confirming the
-#     same overnight motion) that similarity must KEEP, so the exchanged
-#     product carries two sensors and the cross-process admission story covers
-#     a multi-sensor payload.
-#   * ev-205 carries a RESTRICTED occupancy signal, which the policy operator
-#     must substitute out along with the edge that would otherwise leak its
-#     existence by absence.
+#   * ev-204 introduces a second, permitted compliance certificate — an
+#     insurance-evidence filing — that the similarity operator must rank out,
+#     so "similarity did something" is distinguishable from an identity
+#     function.
+#   * ev-206 adds a SECOND covenant-relevant certificate (an auditor
+#     confirmation of the same leverage breach) that similarity must KEEP, so
+#     the exchanged product carries two certificates and the cross-process
+#     admission story covers a multi-certificate payload.
+#   * ev-205 carries a RESTRICTED borrower disclosure — a material-adverse-
+#     change notice under confidentiality — which the policy operator must
+#     substitute out along with the edge that would otherwise leak its
+#     existence by absence. This is the confidentiality envelope the whitepaper
+#     names: each party may surface only the slice its agreement permits.
 #
 # The document adopts the SDK's OWN envelope vocabulary — `source: {system_id}`,
 # `raw_payload:` — rather than a flat shape a loader would have to translate. A
@@ -35,96 +38,96 @@
 
 semver: "1.0.0"
 
-tenant_id: larkfield-estates
+tenant_id: harborline-syndications
 
 envelopes:
   - envelope_id: ev-201
-    tenant_id: larkfield-estates
+    tenant_id: harborline-syndications
     source:
-      system_id: site-registry
+      system_id: facility-agent-system
     ingestion_timestamp: 2026-06-01T09:00:00Z
     observed_time: 2026-06-01T08:50:00Z
     raw_payload:
-      property_ref: "LFE-PROP-0114"
-      property_name: "Larkfield Gate House"
-      property_kind: "residential"
-      property_classification: "internal"
-      zone_ref: "LFE-ZONE-0114-GARDEN"
-      zone_label: "walled garden perimeter"
-      zone_purpose: "perimeter"
-      zone_classification: "internal"
+      facility_ref: "HSY-FAC-0114"
+      facility_name: "Harborline Term Loan B 2026"
+      facility_kind: "term_loan_b"
+      facility_classification: "internal"
+      covenant_ref: "HSY-COV-0114-LEVERAGE"
+      covenant_label: "leverage ratio covenant"
+      covenant_type: "financial"
+      covenant_classification: "internal"
 
   - envelope_id: ev-202
-    tenant_id: larkfield-estates
+    tenant_id: harborline-syndications
     source:
-      system_id: facilities-crm
+      system_id: loan-admin-crm
     ingestion_timestamp: 2026-06-01T09:05:00Z
     observed_time: 2026-06-01T08:50:00Z
     raw_payload:
-      property_ref: "LFE-PROP-0114"
-      property_name: "Larkfield Gate House"
-      property_kind: "residential"
-      property_classification: "internal"
+      facility_ref: "HSY-FAC-0114"
+      facility_name: "Harborline Term Loan B 2026"
+      facility_kind: "term_loan_b"
+      facility_classification: "internal"
 
   - envelope_id: ev-203
-    tenant_id: larkfield-estates
+    tenant_id: harborline-syndications
     source:
-      system_id: sensor-mesh
+      system_id: covenant-monitor
     ingestion_timestamp: 2026-06-01T09:10:00Z
     observed_time: 2026-06-01T09:08:00Z
     raw_payload:
-      zone_ref: "LFE-ZONE-0114-GARDEN"
-      zone_label: "walled garden perimeter"
-      zone_purpose: "perimeter"
-      zone_classification: "internal"
-      sensor_ref: "LFE-SNS-7731"
-      sensor_kind: "motion"
-      reading_summary: "garden perimeter motion overnight repeated"
-      sensor_classification: "internal"
+      covenant_ref: "HSY-COV-0114-LEVERAGE"
+      covenant_label: "leverage ratio covenant"
+      covenant_type: "financial"
+      covenant_classification: "internal"
+      certificate_ref: "HSY-CERT-7731"
+      certificate_kind: "quarterly_compliance"
+      certificate_summary: "leverage covenant headroom breach quarterly"
+      certificate_classification: "internal"
 
   - envelope_id: ev-204
-    tenant_id: larkfield-estates
+    tenant_id: harborline-syndications
     source:
-      system_id: sensor-mesh
+      system_id: covenant-monitor
     ingestion_timestamp: 2026-06-01T09:12:00Z
     observed_time: 2026-06-01T09:11:00Z
     raw_payload:
-      zone_ref: "LFE-ZONE-0114-GARDEN"
-      zone_label: "walled garden perimeter"
-      zone_purpose: "perimeter"
-      zone_classification: "internal"
-      sensor_ref: "LFE-SNS-8850"
-      sensor_kind: "humidity"
-      reading_summary: "greenhouse humidity stable daytime"
-      sensor_classification: "internal"
+      covenant_ref: "HSY-COV-0114-LEVERAGE"
+      covenant_label: "leverage ratio covenant"
+      covenant_type: "financial"
+      covenant_classification: "internal"
+      certificate_ref: "HSY-CERT-8850"
+      certificate_kind: "insurance_evidence"
+      certificate_summary: "insurance renewal annual filing"
+      certificate_classification: "internal"
 
   - envelope_id: ev-206
-    tenant_id: larkfield-estates
+    tenant_id: harborline-syndications
     source:
-      system_id: sensor-mesh
+      system_id: covenant-monitor
     ingestion_timestamp: 2026-06-01T09:13:00Z
     observed_time: 2026-06-01T09:12:30Z
     raw_payload:
-      zone_ref: "LFE-ZONE-0114-GARDEN"
-      zone_label: "walled garden perimeter"
-      zone_purpose: "perimeter"
-      zone_classification: "internal"
-      sensor_ref: "LFE-SNS-9102"
-      sensor_kind: "camera"
-      reading_summary: "garden perimeter motion overnight camera confirmation"
-      sensor_classification: "internal"
+      covenant_ref: "HSY-COV-0114-LEVERAGE"
+      covenant_label: "leverage ratio covenant"
+      covenant_type: "financial"
+      covenant_classification: "internal"
+      certificate_ref: "HSY-CERT-9102"
+      certificate_kind: "auditor_confirmation"
+      certificate_summary: "leverage covenant headroom breach quarterly confirmation"
+      certificate_classification: "internal"
 
   - envelope_id: ev-205
-    tenant_id: larkfield-estates
+    tenant_id: harborline-syndications
     source:
-      system_id: access-control
+      system_id: borrower-portal
     ingestion_timestamp: 2026-06-01T09:15:00Z
     observed_time: 2026-06-01T09:14:00Z
     raw_payload:
-      zone_ref: "LFE-ZONE-0114-GARDEN"
-      zone_label: "walled garden perimeter"
-      zone_purpose: "perimeter"
-      zone_classification: "internal"
-      occupancy_ref: "LFE-OCC-3302"
-      occupancy_state: "resident-away"
-      occupancy_classification: "restricted"
+      covenant_ref: "HSY-COV-0114-LEVERAGE"
+      covenant_label: "leverage ratio covenant"
+      covenant_type: "financial"
+      covenant_classification: "internal"
+      disclosure_ref: "HSY-DISC-3302"
+      disclosure_state: "material-adverse-change-notice"
+      disclosure_classification: "restricted"

@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
-# The PRODUCER run's decision instants (property-intelligence domain).
+# The PRODUCER run's decision instants (syndicated-lending domain).
 #
 # Explicit inputs, never clock reads: a fabric that read the wall clock could
 # not be replayed. Both processes declare the same instants in their own
@@ -20,7 +20,7 @@
 # `class_id` and `declaration` are [MECHANISM].
 
 semver: "1.0.0"
-class_id: larkfield-estates.decision-inputs
+class_id: harborline-syndications.decision-inputs
 
 declaration:
   temporal_boundary: "2026-06-01T10:00:00Z"

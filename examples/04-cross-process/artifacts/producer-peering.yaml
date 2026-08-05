@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
 # The PRODUCER's federation identity and the route it emits to
-# (property-intelligence domain, D-08; D-IMPL-15).
+# (syndicated-lending domain, whitepaper §8.3 Pattern 4; D-IMPL-15).
 #
 # Who this peer is on the wire, which key id it signs under, which producing
 # agent it asserts in the protected header, and where it sends. The consumer
@@ -24,14 +24,14 @@
 # keys `semver`, `class_id` and `declaration` are [MECHANISM].
 
 semver: "1.0.0"
-class_id: larkfield-estates.producer-peering
+class_id: harborline-syndications.producer-peering
 
 declaration:
-  peer_id: larkfield-site-assembler
-  key_id: larkfield-site-assembler-key-1
-  producer_hash: "sha256:larkfield-site-situation-assembler"
+  peer_id: harborline-lead-arranger
+  key_id: harborline-lead-arranger-key-1
+  producer_hash: "sha256:harborline-covenant-slice-assembler"
 
   # Where this peer emits, and the transport ceiling it will not exceed.
-  consumer_peer_id: larkfield-consumer-hub
+  consumer_peer_id: hollis-participant-bank
   receive_path: /ccf/peering/inbound
   max_request_bytes: 262144

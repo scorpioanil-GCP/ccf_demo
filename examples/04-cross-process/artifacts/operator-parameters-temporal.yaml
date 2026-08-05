@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.temporal.json
-# Declared temporal-operator parameters (D-IMPL-38; property-intelligence
+# Declared temporal-operator parameters (D-IMPL-38; syndicated-lending
 # domain). Reconcile to the boundary on both temporal axes.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain

@@ -24,8 +24,8 @@
 
 schema_version: "1.0.0"
 artifact_version: "1.0.0"
-name: site-situation-assembler
-tenant: larkfield-estates
+name: covenant-slice-assembler
+tenant: harborline-syndications
 
 # axis 1 — ordered archetype list (D-IMPL-19)
 archetypes: [context_assembly]
@@ -36,24 +36,24 @@ archetypes: [context_assembly]
 # process boundary (§6.3, ContextAssemblyAgent).
 context_contract:
   consumes:
-    - product_class: larkfield-estates.property-situation
+    - product_class: harborline-syndications.syndicated-covenant-context
       schema_version: "1.0.0"
 
 # axis 3 — perspective (Π role-conditioning)
 perspective:
-  role: situation-analyst
+  role: covenant-analyst
   selection_params:
-    estate: larkfield
+    syndicate: harborline
 
 # axis 4 — policy regime (versioned-URI ref, never inline)
 policy_regime:
-  ref: "ccf-artifact://larkfield-estates/policy-bundle/situation-desk-regime@1.0.0"
+  ref: "ccf-artifact://harborline-syndications/policy-bundle/syndications-desk-regime@1.0.0"
 
 # axis 5 — half-life and debt profile (versioned-URI ref)
 halflife_debt_profile:
-  ref: "ccf-artifact://larkfield-estates/debt-profile/perimeter-watch@1.0.0"
+  ref: "ccf-artifact://harborline-syndications/debt-profile/covenant-review@1.0.0"
 
 # axis 6 — instruction bindings: refs plus declared parameter names
 instruction_bindings:
-  - prompt: "ccf-artifact://larkfield-estates/prompt/situation-brief@1.0.0"
-    parameters: [property_ref, as_of]
+  - prompt: "ccf-artifact://harborline-syndications/prompt/covenant-brief@1.0.0"
+    parameters: [facility_ref, as_of]

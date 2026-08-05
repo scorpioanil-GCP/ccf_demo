@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
 # The CONSUMER's peering declarations — who it is on the wire, and which peer it
-# will admit from (property-intelligence domain, D-08; D-IMPL-15, D-23).
+# will admit from (syndicated-lending domain, whitepaper §8.3 Pattern 4; D-IMPL-15, D-23).
 #
 # **Why this is not a `ccf.peering-trust-policy` document.** That SDK class
 # requires each grant's `signing_keys` — key MATERIAL, generated per run into a
@@ -26,11 +26,11 @@
 # keys `semver`, `class_id` and `declaration` are [MECHANISM].
 
 semver: "1.0.0"
-class_id: larkfield-estates.peering-trust
+class_id: harborline-syndications.peering-trust
 
 declaration:
   # The consuming fabric's own federation identity and its trust-policy lane.
-  consumer_peer_id: larkfield-consumer-hub
+  consumer_peer_id: hollis-participant-bank
   trust_policy_semver: "1.0.0"
 
   # The authoritative Control Plane ceiling the admission gate applies, and
@@ -47,6 +47,6 @@ declaration:
   # and which producing agent it asserts in the protected header. The trust
   # entry is built from exactly these declarations (D-23: entitlements are per
   # peer, per entry).
-  producer_peer_id: larkfield-site-assembler
-  producer_key_id: larkfield-site-assembler-key-1
-  producer_hash: "sha256:larkfield-site-situation-assembler"
+  producer_peer_id: harborline-lead-arranger
+  producer_key_id: harborline-lead-arranger-key-1
+  producer_hash: "sha256:harborline-covenant-slice-assembler"

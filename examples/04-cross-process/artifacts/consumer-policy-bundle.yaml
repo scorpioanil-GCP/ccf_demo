@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
 # The CONSUMER fabric's policy bundle, and the regime it entitles the producer
-# to claim (property-intelligence domain, D-08).
+# to claim (syndicated-lending domain, whitepaper §8.3 Pattern 4).
 #
 # **Why this is a second document and not a shared one.** Its content is
 # identical to `policy-bundle.yaml`, so the two register to the same content
@@ -19,10 +19,10 @@
 # keys `semver`, `class_id` and `declaration` are [MECHANISM].
 
 semver: "1.0.0"
-class_id: larkfield-estates.policy-bundle
+class_id: harborline-syndications.policy-bundle
 
 declaration:
-  regime: larkfield-situation-desk
+  regime: harborline-syndications-desk
   jurisdiction: GB
   permitted_classifications:
     - internal
