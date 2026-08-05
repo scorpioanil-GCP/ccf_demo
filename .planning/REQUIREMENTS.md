@@ -46,23 +46,23 @@
 
 ### SDK Ergonomics (ERGO)
 
-- [ ] **ERGO-01**: A committed public-surface signature manifest + `make surface` regenerator + CI drift assertion, baselined at phase start before any surface change
-- [ ] **ERGO-02**: A standing gate-independence guard — `run_gates` keeps two independently sourced inputs, enforced by a perturbation regression test, an AST identifier guard over `src/ccf/deployment/`, and a no-allowlist lint ban on `ccf.deployment` importing `ccf.products.gates`
-- [ ] **ERGO-03**: The criterion-1 surface audit is an executable check recording per-example mechanical line counts before and after, reporting relocation and removal as separate figures
-- [ ] **ERGO-04**: `ccf.deployment` exists in `/src`, algorithmic-tagged, `mypy --strict`-clean, with a docstring recording the CINV-03 reading ("no model call, not no I/O") and the `run_gates` worked example
-- [ ] **ERGO-05**: A class-id → `ArtifactClass` lookup covering SDK-shipped classes with `declared_artifact_class` fallthrough, kept in sync with `artifacts.__all__` by test
-- [ ] **ERGO-06**: Timestamp-shaped scalars load as strings and parse via `datetime.fromisoformat`; PyYAML's resolver is suppressed in the artifact path; designator-less timestamps refused naming D-IMPL-38
-- [ ] **ERGO-07**: `ccf.resolution-spec` — a closed-world typed artifact class over entity and relationship rules, with `EntityResolutionSpec` gaining `semver` in place (D-IMPL-77) and its own regeneration checkpoint
-- [ ] **ERGO-08**: A typed `ArtifactClass` per SDK-shipped operator category contracted by the existing `*Parameters` models; `DeclaredArtifact` remains the documented path for deployment-authored operators; both `artifacts.py` docstring sites amended
-- [ ] **ERGO-09**: Typed artifact classes for the signal batch, perspective, and product-class declaration
-- [ ] **ERGO-10**: A `ccf.deployment-manifest` artifact class enumerating every artifact explicitly (path, key, class), and one call that loads, validates, registers, and boots — returning the `FabricHandle` plus a plain typed pin set; backend kind declared in the manifest, connection supplied by the caller
-- [ ] **ERGO-11**: A two-phase, view-aware operator-registry builder taking artifacts plus a `GraphView`, with the ordering constraint in the signature and the policy pin supplied by the adopter (D-IMPL-76)
-- [ ] **ERGO-12**: `ccf schema export` emits JSON Schema per artifact class via a new HTTP route (D-IMPL-79); schemas are committed, example artifacts carry `$schema` headers, and a CI freshness gate guards drift
-- [ ] **ERGO-13**: Examples 00–03, 07, 08 are rewritten to the streamlined surface and stay CI-green
-- [ ] **ERGO-14**: Examples 04 (both files, including D-10's re-domaining to banking as a separate commit), 05, and 06 are rewritten and stay CI-green
-- [ ] **ERGO-15**: `examples/external/00-hello-context/serve.py` is rewritten to the streamlined surface; the client legs keep zero CCF imports
-- [ ] **ERGO-16**: Every example's CI assertions and print summaries relocate to a parallel `tests/` module with no loss of assertion coverage, and the No-Hardcoding Rule reaches the relocated domain values (D-IMPL-78 — `tests` added to both `LINTED_TREES` and `RULE_TREE_SCOPE`)
-- [ ] **ERGO-17**: A curated surface-change log with rationale and migration guidance, written incrementally as per-plan fragments, covering additions, reshapes, removals **and behavior changes**, handed to Phase 16
+- [x] **ERGO-01**: A committed public-surface signature manifest + `make surface` regenerator + CI drift assertion, baselined at phase start before any surface change
+- [x] **ERGO-02**: A standing gate-independence guard — `run_gates` keeps two independently sourced inputs, enforced by a perturbation regression test, an AST identifier guard over `src/ccf/deployment/`, and a no-allowlist lint ban on `ccf.deployment` importing `ccf.products.gates`
+- [x] **ERGO-03**: The criterion-1 surface audit is an executable check recording per-example mechanical line counts before and after, reporting relocation and removal as separate figures
+- [x] **ERGO-04**: `ccf.deployment` exists in `/src`, algorithmic-tagged, `mypy --strict`-clean, with a docstring recording the CINV-03 reading ("no model call, not no I/O") and the `run_gates` worked example
+- [x] **ERGO-05**: A class-id → `ArtifactClass` lookup covering SDK-shipped classes with `declared_artifact_class` fallthrough, kept in sync with `artifacts.__all__` by test
+- [x] **ERGO-06**: Timestamp-shaped scalars load as strings and parse via `datetime.fromisoformat`; PyYAML's resolver is suppressed in the artifact path; designator-less timestamps refused naming D-IMPL-38
+- [x] **ERGO-07**: `ccf.resolution-spec` — a closed-world typed artifact class over entity and relationship rules, with `EntityResolutionSpec` gaining `semver` in place (D-IMPL-77) and its own regeneration checkpoint
+- [x] **ERGO-08**: A typed `ArtifactClass` per SDK-shipped operator category contracted by the existing `*Parameters` models; `DeclaredArtifact` remains the documented path for deployment-authored operators; both `artifacts.py` docstring sites amended
+- [x] **ERGO-09**: Typed artifact classes for the signal batch, perspective, and product-class declaration
+- [x] **ERGO-10**: A `ccf.deployment-manifest` artifact class enumerating every artifact explicitly (path, key, class), and one call that loads, validates, registers, and boots — returning the `FabricHandle` plus a plain typed pin set; backend kind declared in the manifest, connection supplied by the caller
+- [x] **ERGO-11**: A two-phase, view-aware operator-registry builder taking artifacts plus a `GraphView`, with the ordering constraint in the signature and the policy pin supplied by the adopter (D-IMPL-76)
+- [x] **ERGO-12**: `ccf schema export` emits JSON Schema per artifact class via a new HTTP route (D-IMPL-79); schemas are committed, example artifacts carry `$schema` headers, and a CI freshness gate guards drift
+- [x] **ERGO-13**: Examples 00–03, 07, 08 are rewritten to the streamlined surface and stay CI-green
+- [x] **ERGO-14**: Examples 04 (both files, including D-10's re-domaining to banking as a separate commit), 05, and 06 are rewritten and stay CI-green
+- [x] **ERGO-15**: `examples/external/00-hello-context/serve.py` is rewritten to the streamlined surface; the client legs keep zero CCF imports
+- [x] **ERGO-16**: Every example's CI assertions and print summaries relocate to a parallel `tests/` module with no loss of assertion coverage, and the No-Hardcoding Rule reaches the relocated domain values (D-IMPL-78 — `tests` added to both `LINTED_TREES` and `RULE_TREE_SCOPE`)
+- [x] **ERGO-17**: A curated surface-change log with rationale and migration guidance, written incrementally as per-plan fragments, covering additions, reshapes, removals **and behavior changes**, handed to Phase 16
 
 ## Future Requirements (deferred)
 
@@ -106,22 +106,28 @@
 | DOCS-04 | Phase 14 | Pending |
 | DOCS-05 | Phase 14 | Pending |
 | DOCS-06 | Phase 14 | Pending |
-| ERGO-01 | Phase 15 | Pending |
-| ERGO-02 | Phase 15 | Pending |
-| ERGO-03 | Phase 15 | Pending |
-| ERGO-04 | Phase 15 | Pending |
-| ERGO-05 | Phase 15 | Pending |
-| ERGO-06 | Phase 15 | Pending |
-| ERGO-07 | Phase 15 | Pending |
-| ERGO-08 | Phase 15 | Pending |
-| ERGO-09 | Phase 15 | Pending |
-| ERGO-10 | Phase 15 | Pending |
-| ERGO-11 | Phase 15 | Pending |
-| ERGO-12 | Phase 15 | Pending |
-| ERGO-13 | Phase 15 | Pending |
-| ERGO-14 | Phase 15 | Pending |
-| ERGO-15 | Phase 15 | Pending |
-| ERGO-16 | Phase 15 | Pending |
-| ERGO-17 | Phase 15 | Pending |
+| ERGO-01 | Phase 15 | Complete |
+| ERGO-02 | Phase 15 | Complete |
+| ERGO-03 | Phase 15 | Complete |
+| ERGO-04 | Phase 15 | Complete |
+| ERGO-05 | Phase 15 | Complete |
+| ERGO-06 | Phase 15 | Complete |
+| ERGO-07 | Phase 15 | Complete |
+| ERGO-08 | Phase 15 | Complete |
+| ERGO-09 | Phase 15 | Complete |
+| ERGO-10 | Phase 15 | Complete |
+| ERGO-11 | Phase 15 | Complete |
+| ERGO-12 | Phase 15 | Complete |
+| ERGO-13 | Phase 15 | Complete |
+| ERGO-14 | Phase 15 | Complete |
+| ERGO-15 | Phase 15 | Complete |
+| ERGO-16 | Phase 15 | Complete |
+| ERGO-17 | Phase 15 | Complete |
 
 Coverage: 40/40 v0.2 requirements mapped, each to exactly one phase.
+ERGO-01..ERGO-17 marked Complete at the Phase 15 close (plan 15-21); the
+evidence for each is `docs/SURFACE-AUDIT.md` and the per-plan SUMMARYs under
+`.planning/phases/15-sdk-ergonomics-the-integration-surface/`. Marking them
+Complete records that the phase's own gates are green — it is not the phase
+gate, which is Dave's approval and the `D-GATE-15` entry in `docs/DECISIONS.md`
+(CLAUDE.md §3.1).

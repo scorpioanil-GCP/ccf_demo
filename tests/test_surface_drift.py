@@ -57,6 +57,15 @@ import json
 import pathlib
 from typing import Any
 
+from tools.assemble_surface_changes import (
+    OUTPUT_PATH as _CURATED_LOG,
+)
+from tools.assemble_surface_changes import (
+    REGENERATION_COMMAND as _ASSEMBLE_COMMAND,
+)
+from tools.assemble_surface_changes import (
+    serialize as serialize_curated_log,
+)
 from tools.dump_surface import build_surface, diff_surfaces, serialize
 
 # Repo root from this file's own path, never ``Path.cwd()`` — pytest may be
@@ -196,6 +205,32 @@ def test_no_export_resolves_to_nothing() -> None:
         if entry["shape"] == "NoneType"
     ]
     assert not unresolved, unresolved
+
+
+def test_the_curated_log_is_assembled_from_the_current_fragments() -> None:
+    """D-15's curated half: a fragment added without reassembly is a red build.
+
+    The generated manifest and the curated log are two halves of one
+    guarantee, so the log needs a standing staleness gate of its own. Without
+    it, a plan could write a fragment, never run ``make surface-changes``, and
+    ship a migration note that silently omits its change — the one failure
+    ``docs/SURFACE-CHANGES.md`` cannot afford, because Phase 16 consumes it
+    directly.
+
+    Asserted on **bytes** against the exported ``serialize``, on the same
+    reasoning as the manifest above: the committed document is reviewed as a
+    diff, so its exact rendering is part of what is asserted, and importing
+    the assembler's own recipe means the file and this assertion cannot
+    disagree about what "the log" is.
+    """
+    assert _CURATED_LOG.is_file(), (
+        f"{_CURATED_LOG} is missing. Run `{_ASSEMBLE_COMMAND}`."
+    )
+    assert _CURATED_LOG.read_text(encoding="utf-8") == serialize_curated_log(), (
+        f"{_CURATED_LOG} differs from what the fragments under"
+        f" {_FRAGMENT_DIR} assemble to. Run `{_ASSEMBLE_COMMAND}` and commit"
+        " the result."
+    )
 
 
 def test_the_frozen_baseline_exists_and_is_non_vacuous() -> None:
