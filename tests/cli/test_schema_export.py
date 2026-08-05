@@ -190,3 +190,118 @@ def test_a_deferral_marker_must_name_the_closing_plan(
     problems = check_document(document.resolve())
     assert problems, "an ownerless deferral passed the check"
     assert "closing plan" in problems[0], problems
+
+
+# ---------------------------------------------------------------------------
+# The route and the ninth noun (D-IMPL-79)
+# ---------------------------------------------------------------------------
+
+
+def test_the_route_and_the_tool_spell_the_annotation_key_identically() -> None:
+    """``/runtime`` never imports the repo's build tooling, so the key is
+    spelled twice; this is what keeps the two spellings equal."""
+    from ccf_runtime.http_api.routes.schema import (
+        CLASS_ID_KEY as ROUTE_KEY,
+    )
+
+    assert ROUTE_KEY == CLASS_ID_KEY
+
+
+def test_the_route_serves_a_schema_for_every_owned_class(
+    deps: object, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Served from the live models — the committed tree is the baseline,
+    not the source."""
+    from cli.conftest import run_cli
+
+    for class_id in sorted(SDK_ARTIFACT_CLASSES):
+        code, out, _ = run_cli(
+            ["schema", "export", "--class-id", class_id],
+            capsys,
+            dependencies=deps,
+        )
+        assert code == 0, class_id
+        assert json.loads(out)[CLASS_ID_KEY] == class_id
+
+
+def test_the_served_schema_equals_the_committed_one(
+    deps: object, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The route and the committed baseline are the same document.
+
+    This is the assertion that makes ``docs/schemas/`` a *baseline* rather
+    than a second, independently drifting artifact.
+    """
+    from cli.conftest import run_cli
+
+    class_id = "ccf.perspective"
+    _, out, _ = run_cli(
+        ["schema", "export", "--class-id", class_id], capsys, dependencies=deps
+    )
+    committed = json.loads(
+        (SCHEMAS_DIR / f"{class_id}.json").read_text(encoding="utf-8")
+    )
+    assert json.loads(out) == committed
+
+
+def test_the_list_verb_names_every_owned_class(
+    deps: object, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from cli.conftest import run_cli
+
+    code, out, _ = run_cli(["schema", "export"], capsys, dependencies=deps)
+    assert code == 0
+    assert json.loads(out) == sorted(SDK_ARTIFACT_CLASSES)
+
+
+def test_an_unowned_class_id_is_a_typed_404(
+    deps: object, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The SDK never invents a schema for a namespace that is not its own."""
+    from cli.conftest import run_cli
+
+    code, out, _ = run_cli(
+        ["schema", "export", "--class-id", "acme.something"],
+        capsys,
+        dependencies=deps,
+    )
+    assert code == 1
+    assert "acme.something" in out
+
+
+def test_the_noun_returns_request_specs_and_main_has_no_branch() -> None:
+    """D-IMPL-79: the ninth noun is a ``RequestSpec`` like the other eight.
+
+    Asserted two ways, because the ruling is structural: every handler the
+    noun registers returns ``RequestSpec`` values, and ``main`` reaches
+    them through the single ``args.build(args)`` dispatch with no
+    noun-specific branch anywhere in it.
+    """
+    import inspect
+
+    from ccf_runtime.cli import main as cli_main
+    from ccf_runtime.cli.commands import RequestSpec, schema
+
+    parser = cli_main.build_parser()
+    args = parser.parse_args(["schema", "export", "--class-id", "x"])
+    specs = args.build(args)
+    assert isinstance(specs, tuple)
+    assert all(isinstance(spec, RequestSpec) for spec in specs)
+    assert specs[0].method == "GET"
+
+    assert schema.__all__ == ["register"]
+    assert all(
+        isinstance(spec, RequestSpec)
+        for spec in parser.parse_args(["schema", "export"]).build(
+            parser.parse_args(["schema", "export"])
+        )
+    )
+
+    source = inspect.getsource(cli_main.main)
+    assert source.count("args.build(args)") == 1
+    # Dispatch is uniform: main never reads which noun it is running, so a
+    # new noun is a registration and never a branch.
+    assert "args.noun" not in source
+    assert "args.verb" not in source
+    for noun in ('"schema"', "'schema'"):
+        assert noun not in source, noun

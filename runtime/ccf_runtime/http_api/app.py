@@ -3,7 +3,8 @@
 SDK-defined framing per CLAUDE.md §8.3 (the HTTP API as one of the three
 v0 Experience Layer front doors). The app mirrors the D-IMPL-22/23 ruled
 noun set exactly — ``agent``, ``skill``, ``workflow``, ``hitl``,
-``replay``, ``artifact``, ``product``, ``config`` — plus health and the
+``replay``, ``artifact``, ``product``, ``config``, ``schema`` — plus
+health and the
 generated OpenAPI document; the routes take and return the SDK's existing
 ``extra=forbid`` contracts directly, so ``app.openapi()`` *is* the contract
 schema, with serialization and routing added and no new semantics.
@@ -51,6 +52,7 @@ from ccf_runtime.http_api.routes import (
     hitl,
     product,
     replay,
+    schema,
     skill,
     workflow,
 )
@@ -281,6 +283,10 @@ def create_app(
     )
     app.include_router(
         config.build_router(deps), prefix="/config", dependencies=guarded
+    )
+
+    app.include_router(
+        schema.build_router(deps), prefix="/schema", dependencies=guarded
     )
 
     @app.get("/health", summary="Liveness (D-IMPL-23)")
