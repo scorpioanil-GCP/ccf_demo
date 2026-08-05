@@ -11,6 +11,7 @@ under each section so any figure can be reproduced.
 | 2 | Criterion 1 — the measured before/after of the adopter-facing surface, relocation and removal separately |
 | 3 | Criterion 4 — per shipped helper, "what does this hide from the replay record?" |
 | 4 | The two governance items the phase surfaced, and their disposition |
+| 5 | The `/gsd-review` report, its triage, and the advisory findings carried forward |
 
 ---
 
@@ -257,7 +258,35 @@ through `PASS 8:` appears in a real run; `examples/03-harness-portability`'s
 legs keep theirs for the same class of reason. The claims behind that narration
 were relocated even where the narration could not be.
 
-### 2.3 The day-1 integration
+### 2.3 The 152 lines that did not relocate — ERGO-16, line by line
+
+ERGO-16 reads "**every** example's CI assertions and print summaries relocate
+to a parallel `tests/` module". The measurement says 152 relocatable lines
+remain. Both statements are in this document, so the gap gets an accounting
+rather than a footnote — it was raised as a blocking finding at the phase-close
+review and it is the one item this plan cannot close on its own authority.
+
+Every remaining line, with the reason it stayed:
+
+| Category | Lines | Where | Why it did not move |
+| --- | ---: | --- | --- |
+| **Not an example driver** | 65 | `03-harness-portability/legs/{deterministic,live}.py` (34); `external/00-hello-context/client_{bare,anthropic,adk}.py` (8), `fixtures/{capture_proxy,diff_fixtures}.py` (14), `replay_server.py` (9) | None was a rewrite target and none is an example driver. The three client legs are **required** to stay untouched — ERGO-15 and EXAM-04 rest on their zero CCF imports, and 15-20 asserts an empty `git diff` on all three plus the fixtures and the replay server. |
+| **Excluded from `make ci` by design** | 54 | `03-harness-portability/run.py` | Every one is inside `_live`, the opt-in provider leg (D-11). Relocating them would move assertions somewhere **nothing runs them**. 15-15 enforced the property the criterion was protecting in the form that survives: `test_no_assertion_survives_on_the_path_ci_actually_runs` parses `run.py` and refuses any `assert` outside `_live`. |
+| **Pinned by an out-of-scope test** | 22 | `external/00-hello-context/run.py` | Eight of its ten `print` calls are the `PASS 1:`–`PASS 8:` lines, and `tests/examples/test_ext00_hardening.py` runs the file as a subprocess and asserts each one appears. That module was out of scope for 15-20 and its acceptance criteria required it unmodified. The *claims* behind the narration were relocated to `tests/examples/test_ext00_serve_output.py`; the console output could not be. |
+| **Process protocol, not narration** | 4 | `external/.../serve.py`, `04-cross-process/{producer_child,run}.py`, `07/mcp_store_child.py` | `READY <port>` handshakes (a parent's blocking `readline()` is the readiness gate) and one stderr passthrough on child failure. Neither is an assertion nor a summary. |
+| **The narration *is* the deliverable** | 6 | `08-e2e-demo/run.py` | DEMO-03's byte-compared staged transcript. Its sixteen `_require` checks *did* relocate; the measurement never counted them, because they were function calls rather than `assert` statements. |
+| **Total** | **152** | | |
+
+**What this means for ERGO-16, stated as the question rather than the answer.**
+Read as "every example *driver*'s assertions and print summaries relocate,
+except where relocation would move an assertion somewhere nothing runs it or
+break a test the plan was forbidden to touch", the requirement is met and the
+residual is exactly the set of principled exceptions above. Read as literally
+"every", it is not. **That reading is Dave's to rule on** — it is carried to
+the phase gate rather than resolved here (CLAUDE.md §3.1: an unsurfaced
+decision is a blocking finding, and the correct response is to surface it).
+
+### 2.4 The day-1 integration
 
 `examples/00-quickstart/run.py` — the file the phase opened against — is
 **451 → 350 raw lines**, with mechanical wiring **143 → 13** and every one of
@@ -289,7 +318,7 @@ verifies* stays in adopter code.
 | `ccf.deployment.build_operator_registry` | operator-parameters artifacts + `GraphView` → populated `OperatorRegistry` | **Nothing.** It constructs operators; it does not run them, and it does not answer "which operators does this product require". | The `view` is a **required keyword with no default** so the ordering constraint lives in the signature (D-07): the similarity corpus is read at a boundary the deployment named, never lazily at first invocation — INV-CH7-27 cannot name a corpus that is a function of invocation timing. The builder exposes **no "required keys" convenience**, deliberately, so passing the registry's own keys to both sides of Gate 2 is not made easier to write than to avoid. `tests/deployment/test_operator_builder.py` pins the required-keyword shape, the boundary read, and the refuse-never-repair corpus ruling. |
 | `ccf.deployment.ResolvedPins` | the `(key, version, class_id)` record a manifest load produces | **Nothing — and the design is a constraint on what it must never grow.** `version_for` is **lookup**, not selection: the caller already knows the key it wants. | A `pins.policy_bindings()` helper would shorten the adopter's `build_replay_record` call and, in doing so, move the *selection* of which bindings are in force out of the deployment and into the SDK — dimension 2 assembled by a rule nobody in the deployment wrote down. That is a governance move in an ergonomics costume. `tests/deployment/test_manifest.py::test_resolved_pins_has_exactly_one_public_method` pins the public method set exactly. |
 | `ccf.deployment.BootedFabric` | handle + pins + tenant + parsed artifacts | **Nothing, and D-IMPL-80 is why.** `role: load` entries are parsed and returned **but never registered and never pinned** — so a signal batch never content-hashes raw event data into Control Plane state, and therefore never enters Decision Replay dimension 2. `role` is **required with no default**, so the choice is never made silently: an entry omitting it is a parse failure, and `role: register` on `ccf.signal-batch` is refused outright. `artifacts` carries both roles because **role governs registration and pinning, never visibility** (D-IMPL-80 amendment). | `tests/deployment/test_manifest.py::test_a_manifest_entry_naming_no_role_is_refused`, `::test_the_sdk_refuses_a_register_role_on_the_signal_batch`, `::test_a_load_role_entry_is_returned_but_never_registered`, and `::test_the_pin_set_covers_every_register_role_entry_and_no_other`. |
-| The eleven artifact classes (`ccf.resolution-spec`, the four `ccf.operator-parameters.*`, `ccf.signal-batch`, `ccf.perspective`, `ccf.product-class`, `ccf.deployment-manifest`, and the two pre-existing) | YAML → validated typed object through `parse_artifact` | **Nothing.** They replace hand-written marshallers with the same seam that already served half-life tables and debt profiles — same float refusal, same zone-less-timestamp refusal, same resolver suppression. One document, one class. | `ProductClassDeclaration.required_operator_keys` is the case that matters: it gives the *declared* side of Gate 2 an **authored source independent of the engine's resolution**, which is what made the tautologies in §4 findable at all. `PolicyFilterParametersArtifact` deliberately declares **no** `permitted_policy_bundle_versions` (D-IMPL-76) — the adopter passes the pin set, keeping the admission set visible where every other pin is. |
+| The eleven artifact classes (`ccf.resolution-spec`, the four `ccf.operator-parameters.*`, `ccf.signal-batch`, `ccf.perspective`, `ccf.product-class`, `ccf.deployment-manifest`, and the two pre-existing) | YAML → validated typed object through `parse_artifact` | **Nothing.** They replace hand-written marshallers with the same seam that already served half-life tables and debt profiles — same float refusal, same zone-less-timestamp refusal, same resolver suppression. One document, one class. | `ProductClassDeclaration.required_operator_keys` is the case that matters: it gives the **projection plan's declaration** an authored source independent of the engine's resolution — which is what made the tautologies in §4 findable at all. Stated precisely, because the loose version is easy to repeat: Gate 2's own two arguments are `candidate.lineage.operators_invoked` and `engine_resolved`, and `required_operator_keys` is *upstream* of both. What the artifact buys is that the plan stops being a restatement of the engine's configuration, which is the independence everything downstream of it — the empty-operator guard, and every declared-vs-resolved check — silently depends on. `PolicyFilterParametersArtifact` deliberately declares **no** `permitted_policy_bundle_versions` (D-IMPL-76) — the adopter passes the pin set, keeping the admission set visible where every other pin is. |
 | `ccf.controlplane.artifacts.load_artifact` (behavior, D-02) | reads timestamp-shaped scalars as text | **Nothing — it stopped hiding something.** Previously PyYAML's resolver silently produced a *naive* `datetime`, which the registry then refused as non-canonicalizable, and eleven call sites hand-normalized it six different ways. Now the scalar arrives as `str`, a `datetime`-annotated contract field parses it aware, and a zone-less date-time is **refused at parse** naming D-IMPL-38 rather than read as naive. | `tests/controlplane/test_timestamps.py` pins all five properties, including that the shared `yaml.SafeLoader` is unmutated so YAML parsing elsewhere in the process is unaffected. |
 
 ### 3.1 The two places the line was deliberately not crossed
@@ -421,4 +450,94 @@ bundle read, no amount of reading the assertion could tell you it was comparing
 a value with itself. And no line-count measurement would have surfaced either —
 they are invisible to Criterion 1 and were found only because Criterion 2's
 reshaping forced the two sides apart.
+
+---
+
+## 5. The phase-close review, its triage, and what is carried forward
+
+CLAUDE.md §3.1 step 1: the self-review runs **before** anything is presented to
+Dave, and a review report is a precondition of requesting approval, never a
+substitute for it. `/gsd-review --phase "Phase 15" --all` was run against the
+deliverables in this document — the audit, the completeness test, the
+assembler, the three standing gates, and `src/ccf/deployment` — rather than
+against the plan text.
+
+`claude` was excluded for independence: this review ran inside Claude Code.
+
+| Reviewer | Verdict | Blocking | Advisory |
+| --- | --- | ---: | ---: |
+| codex (`gpt-5.1-codex-max`) | not ready to present | 2 | 2 |
+| cursor | ready to present | 0 | 6 |
+| gemini | ready to present | 0 | 2 |
+
+### 5.1 Blocking findings — both closed inside the phase
+
+**B-1 — the G-B guard was weaker than this document claimed (codex).**
+`tests/products/test_required_operators_guard.py` refused a `.keys()` read off
+a named receiver but not off a **local alias** of one: `ops = self._registry()`
+followed by `ops.keys()` passed, while the module docstring claimed the AST
+approach defeated rename-style bypasses. A guard presented as the structural
+closure of a fidelity invariant may not over-claim.
+
+*Closed.* The refused-receiver set is now computed to a **fixed point** over
+local assignments, `:=` bindings, and annotated assignments, so alias chains are
+followed rather than only the first hop; `_receiver_name` sees through a walrus
+and an `await`. Four new probes exercise the alias spellings, and the docstring
+now states what the approach does **not** buy: this is receiver aliasing, not
+dataflow — a registry arriving through a helper's return value or under a name
+the module does not recognise is out of reach. The claim is "every spelling the
+phase found, and the obvious evasions of them", not "impossible to write".
+
+**B-2 — ERGO-16 says "every"; the measurement says 152 remain (codex).**
+The requirement's checkbox and the delivered number disagreed with nothing in
+between. *Closed as far as an executor may close it:* §2.3 now accounts for
+**every one of the 152 lines** by category with its reason, and the reading of
+"every" is carried to the phase gate as a ruling item rather than resolved
+here. Two reviewers did not raise it; that does not make it wrong, and §3.1
+classes an unsurfaced decision as blocking.
+
+### 5.2 Advisory findings, acted on immediately
+
+Three were cheap and strengthened a gate, so they were fixed rather than
+carried:
+
+- **The schema-header gate used a floor, not a set (codex).** `>= 9` would let
+  a directory drop out of coverage silently while the count stayed above the
+  floor. It now asserts the **exact** ten-directory set by name.
+- **The baseline provenance check was described more strongly than it is
+  (codex).** It keys on commit-subject text, not a pinned hash, and returns
+  without asserting where git is absent or history is shallow. The docstring now
+  says so: corroboration for the digest, not an unfakeable provenance proof.
+- **"The declared side of Gate 2" was imprecise (cursor).** Gate 2's own two
+  arguments are `lineage.operators_invoked` and `engine_resolved`;
+  `required_operator_keys` is *upstream* of both. Corrected in §3 and in the
+  guard's docstring and failure message, before Phase 16 quotes either.
+
+### 5.3 Advisory findings carried forward
+
+| # | Finding | Disposition |
+| --- | --- | --- |
+| A-1 | 52 additions include package re-exports (`ccf.deployment.X` **and** `ccf.deployment.manifest.X`), so the migration note can read as 52 new concepts (cursor) | **Phase 16.** Permitted by D-15B and additive under D-14. Phase 16 should document `from ccf.deployment import …` as the single preferred day-1 import and treat submodule FQNs as implementation detail. |
+| A-2 | No fragment covers the surface toolchain itself — `tools/dump_surface.py`, `make surface`, baseline immutability (cursor) | **Phase 16.** Not a Criterion 6 miss: fragments record *changes*, and the toolchain is 15-01's own machinery, described in `docs/surface-changes/README.md`. A maintainer-facing "how the surface record works" page belongs in the documentation rewrite. |
+| A-3 | The published docs still describe the pre-15 surface (cursor) | **Phase 16, already scoped.** Phase 14's G-01 was deliberately deferred to 16 for exactly this reason, and the documentation rewrite is a stated Phase 15 non-goal. `make docs-strict` green means the site builds, not that it is current. |
+| A-4 | Several `tests/examples/test_*_output.py` checks compare `required_operator_keys` against `operators_invoked` and document that editing the artifact alone moves both ends (cursor) | **Carried as a standing caution.** The honesty is deliberate (15-13 R6). Phase 16 must not promote those as independence proofs; the independent statements are the *consumer-side* ones (15-18) and the artifact-vs-engine comparison. |
+| A-5 | Shared `public/` prose collisions across the rewrite waves — `docs-strict` catches an orphaned include, not a mis-pointed one (round-2 cross-AI, open since mid-execution) | **Closed by practice, carried as a gap.** Every rewrite plan opened each including section and read it against its new target, and 15-17, 15-18 and 15-16 each corrected prose the rewrite had falsified. No automated check exists for a mis-pointed include, and building one is Phase 16's concern since Phase 16 rewrites the prose anyway. |
+| A-6 | Stale plan text — execution corrected several plans and the PLAN.md files still carry the old guidance (round-2 cross-AI, open since mid-execution) | **Carried, deliberately.** Only 15-07's was amended in place (`0a4e433`). This plan hit three instances itself and recorded each in its summary rather than editing history. A PLAN.md is the record of what was *intended*; the SUMMARY is the record of what was *built*, and rewriting the former to match the latter would destroy the audit trail the discrepancies live in. **The correct fix is a convention, not an edit**: a phase's auditor reads SUMMARYs, and this document says so. |
+| A-7 | A future "strict mode" could make the operator registry a read-only proxy refusing `.keys()` during projection, moving the G-B check from static AST to runtime (gemini) | **Out of scope; a candidate `D-IMPL-NN` for a later Phase D mini-cycle.** It is new fabric behavior, which Phase 15's non-goals exclude. |
+| A-8 | D-IMPL-80's "role governs registration and pinning, never visibility" is subtle and needs explicit documentation (gemini) | **Phase 16.** `role: load` artifacts are reachable on `BootedFabric.artifacts` and absent from the replay pin set; the reference pages must say both. |
+
+### 5.4 Two open questions carried to the gate
+
+Neither is a defect; both are decisions this plan declines to make on Dave's
+behalf.
+
+1. **Does `docs/SURFACE-CHANGES.md` publish in v0.2's site, or wait for Phase
+   16?** Phase 14 established `public/` as the published tree with
+   default-deny-by-existence, and the precedent is to write in `docs/` and let
+   the documentation phase `git mv`. Followed here; the editorial call is open.
+2. **Should the deferred idea — recording the deployment-manifest content hash
+   on the replay record — become a `D-IMPL-NN` for a Phase D mini-cycle?** It
+   was surfaced during planning and deliberately left out of scope.
+
+Plus the ERGO-16 reading from §2.3.
 

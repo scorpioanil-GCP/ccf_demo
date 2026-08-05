@@ -74,11 +74,24 @@ from tools.check_schema_headers import (  # noqa: E402
     discover,
 )
 
-#: Ten artifact directories: examples 00–08 plus `examples/external/`. A glob
-#: that silently matched fewer is the quietest way this gate stops being one,
-#: so the floor is asserted rather than assumed. Nine is the plan's stated
-#: floor; the tree carries ten.
-MINIMUM_ARTIFACT_DIRECTORIES = 9
+#: Every artifact directory the suite carries, by name. A *floor* would let a
+#: directory drop out of coverage silently as long as the count stayed above it
+#: — raised at the Phase 15 close by cross-AI review, and closed here by naming
+#: the set instead. Adding or removing an example is then a deliberate edit to
+#: this list, which is the same discipline `PERMANENTLY_DEFERRED` below applies
+#: to the exemption set.
+EXPECTED_ARTIFACT_DIRECTORIES: tuple[str, ...] = (
+    "examples/00-quickstart/artifacts",
+    "examples/01-agent-basics/artifacts",
+    "examples/02-skilling/artifacts",
+    "examples/03-harness-portability/artifacts",
+    "examples/04-cross-process/artifacts",
+    "examples/05-workflow-hitl/artifacts",
+    "examples/06-decision-replay/artifacts",
+    "examples/07-artifact-store-mcp/artifacts",
+    "examples/08-e2e-demo/artifacts",
+    "examples/external/00-hello-context/artifacts",
+)
 
 #: The only documents permitted to carry a deferral marker at the phase close,
 #: with the ruling that permits each. See the module docstring.
@@ -95,12 +108,22 @@ def _artifact_documents() -> list[pathlib.Path]:
     return sorted(REPO_ROOT.glob("examples/**/artifacts/*.yaml"))
 
 
-def test_the_glob_covers_every_example_artifact_directory() -> None:
-    """Non-vacuity, in both dimensions: directories and documents."""
-    directories = discover(require_all=True)
-    assert len(directories) >= MINIMUM_ARTIFACT_DIRECTORIES, [
-        str(path.relative_to(REPO_ROOT)) for path in directories
-    ]
+def test_the_glob_covers_exactly_the_expected_artifact_directories() -> None:
+    """Coverage is a named set, not a floor.
+
+    A floor lets a directory drop out of coverage silently while the count
+    stays above it. Naming the set means an example gained or lost is a
+    deliberate edit here — and non-vacuity comes for free, since the named set
+    is non-empty.
+    """
+    discovered = sorted(
+        str(path.relative_to(REPO_ROOT)) for path in discover(require_all=True)
+    )
+    assert discovered == sorted(EXPECTED_ARTIFACT_DIRECTORIES), (
+        "the set of example artifact directories moved. Add or remove the"
+        " directory in EXPECTED_ARTIFACT_DIRECTORIES deliberately;"
+        f" discovered {discovered}"
+    )
     documents = _artifact_documents()
     assert len(documents) >= 100, len(documents)
 

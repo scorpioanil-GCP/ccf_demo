@@ -294,12 +294,19 @@ def test_the_frozen_baseline_is_byte_identical_to_what_15_01_committed() -> None
 
 
 def test_the_frozen_baseline_was_written_only_by_plan_15_01() -> None:
-    """The history says the same thing the digest does, independently.
+    """The history says the same thing the digest does, from a second source.
 
-    The digest pins the bytes; this pins the *provenance*, which a future
-    editor updating the digest constant would not also be able to fake. Skipped
-    rather than failed where git is unavailable — a source checkout without
-    history is a legitimate way to run the suite.
+    The digest pins the bytes; this pins the *provenance*, so an editor who
+    regenerated the baseline and updated the digest constant would still have
+    to produce a commit whose subject names 15-01.
+
+    **Stated honestly, because the strong version would be an over-claim**
+    (raised by cross-AI review at the phase close): this keys on commit-subject
+    text, not on a pinned commit hash, and it returns without asserting where
+    git is absent or the history is shallow. Those are legitimate ways to run
+    the suite, and a test that failed on them would be muted rather than fixed.
+    It is corroboration for the digest, not an independently unfakeable
+    provenance proof.
     """
     if shutil.which("git") is None:  # pragma: no cover - environment dependent
         return
