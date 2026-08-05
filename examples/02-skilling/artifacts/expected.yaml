@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# What the served product should contain, as declared by the deployment that
+# authored the events (clinical-trials-operations domain, D-IMPL-52).
+#
+# This document exists so that `tests/examples/test_skilling_output.py` has a
+# source for its domain expectations OTHER THAN ITSELF. A value the test module
+# authored would be the test agreeing with itself about what this deployment's
+# vocabulary says.
+#
+# **`role: load` in the manifest.** An expectation is not a permission.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: helix-trials.expected-product
+
+declaration:
+  # The restricted unblinded cohort is absent, and so is the `enrolls_at` edge
+  # that would have leaked its existence by absence.
+  entity_classes:
+    - enrollment_cohort
+    - trial_site
+  relationship_types:
+    - enrolls_at
+  entity_count: 2
+
+  # This fabric registers three operators, not four. The count is declared here
+  # so the test module's assertion has a source other than the registry it is
+  # asserting about.
+  operator_count: 3

@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The AGENT's axis-5 half-life and debt profile (CLAUDE.md §6.2; whitepaper
+# §7.7 CAR; clinical-trials-operations domain, D-IMPL-52).
+#
+# What staleness this agent tolerates. The agent definition names it by
+# versioned URI; the manifest registers it under
+# `helix-trials/debt-profile/enrollment-review`, the key that ref resolves to.
+# Example 01 is where the profile is scored and made to gate; here it is
+# present because axis 5 is part of the identity a skilled agent replays
+# against.
+#
+# Values are QUOTED so they parse as text and are validated as decimals: the
+# canonical serializer refuses floats.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every calibrated value is [ADAPT]; the keys
+# `semver`, `class_id`, `declaration`, `risk_sensitivity`,
+# `forced_llm_threshold` and `fail_closed_threshold` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: debt-profile
+
+declaration:
+  semver: "1.0.0"
+  risk_sensitivity: "1.0"
+  forced_llm_threshold: "0.40"
+  fail_closed_threshold: "0.80"

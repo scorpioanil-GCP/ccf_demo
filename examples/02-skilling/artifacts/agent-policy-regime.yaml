@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The AGENT's axis-4 policy regime — and the document this whole example turns
+# on (CLAUDE.md §6.2; D-IMPL-29; clinical-trials-operations domain, D-IMPL-52).
+#
+# The `skill_governance` envelope is what makes channel 2 *governed* rather
+# than merely dynamic: `permitted_scopes` names the ONE requirement scope agents
+# under this regime may bind (`enrollment-read`) and deliberately excludes
+# `protocol-write` — which is why the second grant in `run.py` is refused by the
+# tier-1 compatibility check, naming `protocol-write` as the excess.
+#
+# `grant_requires_approval: false` selects the automatic tier-1-only path, so
+# the tier-2 approval sink must never be consulted; `run.py` injects a sink that
+# raises if it is.
+#
+# The envelope's field names are mechanism schema; every scope identifier is
+# this deployment's statement, never the SDK's (§6.4) — the SDK ships no scope
+# vocabulary and compares requirement identifiers structurally.
+#
+# The manifest registers this under
+# `helix-trials/policy-bundle/trial-operations-regime`, which is exactly the key
+# the definition's axis-4 ref resolves to.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id`, the regime name, the classifications and every
+# scope identifier are [ADAPT]; the keys `semver`, `class_id`, `declaration`,
+# `skill_governance`, `permitted_scopes` and `grant_requires_approval` are
+# [MECHANISM].
+
+semver: "1.0.0"
+class_id: policy-bundle
+
+declaration:
+  regime: trial-operations-regime
+  permitted_classifications: [internal]
+  skill_governance:
+    permitted_scopes: [enrollment-read]
+    grant_requires_approval: false

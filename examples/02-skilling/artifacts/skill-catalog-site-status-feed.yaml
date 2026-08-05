@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.skill-catalog-entry.json
+# A registered, permitted, never-granted skill (CLAUDE.md §6.2/§7.3 seam 2;
+# clinical-trials-operations domain, D-IMPL-52).
+#
+# This entry exists to show that **the catalog is wider than any one agent's
+# bound set**: registration is discovery, a grant is capability. Its
+# requirements are inside the regime's envelope, so it *could* be granted — and
+# it is not, so it stays invisible from the agent's surface. A harness adapter
+# exposes exactly the currently-bound skill-set as tools, no more (§7.3), and
+# the test module asserts this skill is not among them.
+#
+# An `mcp` binding names a server and a resource, never a URL: where that server
+# lives is deployment environment, not artifact content.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the skill name, tenant, description, server and resource names,
+# argument names and scope identifiers are [ADAPT]; `schema_version`,
+# `artifact_version`, `skill_type`, `argument_schema`, `binding`, `server`,
+# `resource`, `requirements` and its two keys are [MECHANISM].
+
+schema_version: "2.0.0"
+artifact_version: "1.0.0"
+name: site-status-feed
+tenant: helix-trials
+skill_type: mcp
+description: >-
+  Read the current recruitment-status resource for a named trial site from the
+  site-operations MCP server — a registered, permitted capability this agent
+  has simply not been granted.
+argument_schema:
+  properties:
+    site_ref:
+      type: string
+      description: The trial site whose status resource to read.
+  required: [site_ref]
+binding:
+  server: site-operations-mcp
+  resource: helix-trials/site-status
+requirements:
+  required_scopes: [enrollment-read]
+  required_context_products: [helix-trials.enrollment-summary]

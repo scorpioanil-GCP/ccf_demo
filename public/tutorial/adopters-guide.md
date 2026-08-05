@@ -208,11 +208,12 @@ Run: `make example-02`.
 Skilling is the second, separate specialization channel. Capabilities attach
 and detach over an agent's life **without re-declaring the agent**: the
 definition artifact is byte-identical before and after the cycle below. Skills
-are catalog entries with declared requirements, which is what makes the
-governance check mechanical:
+are catalog entries — one artifact each — with declared requirements, which is
+what makes the governance check mechanical. This is the entry the cycle below
+grants; the same example registers two more it never binds:
 
 ```yaml
---8<-- "examples/02-skilling/artifacts/skills.yaml"
+--8<-- "examples/02-skilling/artifacts/skill-catalog-enrollment-metrics.yaml"
 ```
 
 Registration puts the entries in the Control Plane catalog and constructs the

@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.product-class.json
+# The product class this fabric serves (whitepaper §7.6; D-IMPL-31 for the TTL
+# anchor, INV-CH7-55 for the assembly mode, INV-CH7-49 for the per-class schema
+# lane; clinical-trials-operations domain, D-IMPL-52).
+#
+# This is the SAME class the agent's axis-2 context contract declares AND the
+# same class the permitted skill's `required_context_products` names — which is
+# what the tier-1 compatibility check compares.
+#
+# **`required_operator_keys` names THREE operators**, matching the three
+# operator-parameters documents the manifest enumerates. Which operators exist
+# is per-deployment policy: this fabric has no similarity ranking, so it
+# declares none and registers none. The whitepaper's empty-operator guard is
+# about a resolved set of ZERO; three is not zero, and a partial set is a
+# deployment's decision to make.
+#
+# `max_ttl_version` is deliberately ABSENT: that pin is minted by *registering*
+# the MaxTTL value, so an artifact declaring it would be authoring a hash of
+# something it does not contain.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the schema name, its lane, the MAX_TTL key and the operator key
+# names are [ADAPT]; the keys `schema_name`, `schema_version`, `ttl_anchor`,
+# `assembly_mode`, `max_ttl_key` and `required_operator_keys`, and the
+# `ttl_anchor`/`assembly_mode` enum values, are [MECHANISM].
+
+semver: "1.0.0"
+
+schema_name: helix-trials.enrollment-summary
+schema_version: "1.0.0"
+ttl_anchor: from_decision
+assembly_mode: algorithmic
+
+max_ttl_key: helix-trials/product/enrollment-summary/max-ttl
+
+required_operator_keys:
+  - traversal.typed-neighborhood
+  - temporal.as-of-boundary
+  - policy.principal-subgraph

@@ -43,7 +43,7 @@ policy regime either permits or does not. The
 the typed shape:
 
 ```yaml
---8<-- "examples/02-skilling/artifacts/skills.yaml"
+--8<-- "examples/02-skilling/artifacts/skill-catalog-enrollment-metrics.yaml"
 ```
 
 The driver registers what the artifact declared. Note that registration binds
