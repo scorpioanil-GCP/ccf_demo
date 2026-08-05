@@ -12,5 +12,5 @@ Core Agent Types pillar; you author one alongside each agent definition.
 ## Worked example
 
 ```yaml
---8<-- "examples/01-agent-basics/artifacts/prompt.yaml"
+--8<-- "examples/01-agent-basics/artifacts/prompt-artifact.yaml"
 ```

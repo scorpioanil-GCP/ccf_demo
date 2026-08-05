@@ -1,31 +1,45 @@
 """examples/01-agent-basics — archetype/agent separation, six axes (EXAM-02).
 
-Declare an agent from the ``AnalyticsInsightsAgent`` archetype via a
-definition artifact, construct it through the Agent Factory — the only
-supported construction path (CLAUDE.md §6.4) — and run it against a small
-field-service fabric's served Context Product, keyless and model-free
-(D-12) on SQLite and the file-backed ArtifactStore (D-13).
+Declare an agent from the ``AnalyticsInsightsAgent`` archetype via a definition
+artifact, construct it through the Agent Factory — the only supported
+construction path (CLAUDE.md §6.4) — and run it against a small field-service
+fabric's served Context Product, keyless and model-free (D-12) on SQLite and
+the file-backed ArtifactStore (D-13).
 
-What this demonstrates, as assertions:
+This file is the **call spine** an adopter would actually write, and nothing
+else. It asserts nothing and prints nothing: its assertions live in
+``tests/examples/test_agent_basics_output.py``, where they are run by ``pytest``
+and can fail a build (D-09). ``make example-01`` running clean means the spine
+executed.
 
-* **Archetype vs agent (§6.1).** The archetype (``analytics_insights``) is
-  SDK mechanism; the agent (``response-time-analytics``) is a declared,
-  versioned Control Plane artifact in ``artifacts/agent.yaml``. No agent
-  exists in code anywhere in this directory.
-* **All six specialization axes (§6.2 channel 1)** resolve from the
-  definition artifact: archetype binding, context contract, perspective,
-  policy regime ref, half-life/debt profile ref, instruction bindings.
+What the spine demonstrates, and where each demonstration is checked:
+
+* **Archetype vs agent (§6.1).** The archetype (``analytics_insights``) is SDK
+  mechanism; the agent (``response-time-analytics``) is a declared, versioned
+  Control Plane artifact in ``artifacts/agent-definition.yaml``. No agent exists
+  in code anywhere in this directory.
+* **All six specialization axes (§6.2 channel 1)** resolve from that artifact:
+  archetype binding, context contract, perspective, policy regime ref,
+  half-life/debt profile ref, instruction bindings.
 * **Factory-only construction.** ``AgentFactory.construct`` resolves every
-  referenced artifact through Control Plane resolution at pinned versions;
-  nothing here instantiates ``Agent`` directly.
+  referenced artifact through Control Plane resolution at pinned versions.
 * **Replay dimension 4 (D-06).** The agent's identity — definition content
-  hash, versioned URI, archetype composition — lands in the served
-  decision's replay record and survives a store round trip.
+  hash, versioned URI, archetype composition — lands in the served decision's
+  replay record and survives a store round trip.
+
+**Two registration paths, and the split is deliberate.** The fabric's artifacts
+come from ``artifacts/manifest.yaml`` through one ``load_and_boot`` call. The
+agent definition and the prompt artifact do not: they carry D-IMPL-28 two-field
+versioning and must register through ``register_versioned``, which holds the
+author's ``artifact_version`` claim against content identity (the D-05 bump
+check) — and ``load_and_boot`` registers through ``register_typed``, which does
+not. Routing them through the manifest would silently drop that check, so those
+two registrations stay here, reading their keys from
+``artifacts/agent-registration.yaml``.
 
 Every domain value is loaded from ``artifacts/*.yaml``; the deterministic
-analyst stub below is mechanism whose canned output content is artifact
-data (D-12). Run it: ``make example-01``. Exit 0 means every assertion
-held.
+analyst stub below is mechanism whose canned output content is artifact data
+(D-12). Run it: ``make example-01``.
 """
 
 from __future__ import annotations
@@ -33,52 +47,33 @@ from __future__ import annotations
 import sys
 import tempfile
 from collections.abc import Mapping
-from datetime import UTC, datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
-
-import yaml
+from typing import Any, cast
 
 from ccf.agents.agent import Agent, EmittedEffect
-from ccf.agents.definitions import (
-    AGENT_DEFINITION,
-    PROMPT_ARTIFACT,
-    AgentDefinition,
-    PromptArtifact,
-)
+from ccf.agents.definitions import AGENT_DEFINITION, PROMPT_ARTIFACT, AgentDefinition
 from ccf.agents.factory import AgentFactory
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.assembly.worker import (
-    EntityResolutionRule,
-    EntityResolutionSpec,
-    RelationshipResolutionRule,
-)
-from ccf.boot import boot
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
     DEBT_PROFILE,
-    HALF_LIFE_TABLE,
     DebtProfile,
+    DeclaredArtifact,
     HalfLifeTable,
-    declared_artifact_class,
+    PerspectiveArtifact,
+    ProductClassDeclaration,
+    SignalBatch,
+    load_artifact,
     parse_artifact,
 )
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.deployment import build_operator_registry, load_and_boot
 from ccf.graph.protocols import GraphView
-from ccf.halflife.debt import DebtFactors, FreshnessScorer, assess_debt
+from ccf.halflife.debt import DebtAssessment, DebtFactors, FreshnessScorer, assess_debt
 from ccf.halflife.decay import Observation
-from ccf.llm import LLMClientProtocol
 from ccf.operators.base import OperatorOutput
-from ccf.operators.categories import (
-    PolicyFilter,
-    PolicyFilterParameters,
-    SimilaritySelect,
-    SimilaritySelectParameters,
-    TemporalAsOf,
-    TemporalAsOfParameters,
-    TraversalNeighborhood,
-    TraversalNeighborhoodParameters,
-)
 from ccf.products.contract import (
     ContextProductContract,
     MaxTTL,
@@ -86,75 +81,39 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.gates import ServableProduct, run_gates
-from ccf.projection.engine import OperatorRegistry, ProjectionEngine
+from ccf.projection.engine import ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput
 from ccf.replay.record import (
     NO_GRANTS_SET_HASH,
+    PerspectiveConditioning,
     DecisionReplayRecord,
     PolicyBinding,
     build_replay_record,
 )
-from ccf.replay.serve import ReplayWriter, serve
-from ccf.signal.envelope import SignalEnvelope, SourceIdentity
-from ccf.similarity.protocol import TokenOverlapIndex
+from ccf.replay.serve import ReplayWriter, ServedProduct, serve
 
 ARTIFACTS = Path(__file__).resolve().parent / "artifacts"
+MANIFEST = ARTIFACTS / "manifest.yaml"
 
-
-def _load(name: str) -> Any:
-    return yaml.safe_load((ARTIFACTS / name).read_text(encoding="utf-8"))
-
-
-def _instant(value: object) -> datetime:
-    # PyYAML resolves `...Z` timestamps to naive datetimes; the canonical
-    # serializer refuses naive datetimes (D-IMPL-38). Attaching UTC at the
-    # artifact boundary is the loader's job; the fabric never guesses.
-    if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=UTC)
-    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-
-
-def _resolution_spec(ontology: Any) -> EntityResolutionSpec:
-    return EntityResolutionSpec(
-        semver=ontology["artifact_version"],
-        entity_rules=tuple(
-            EntityResolutionRule(
-                match_key=rule["match_key"],
-                entity_class=rule["entity_class"],
-                identity_keys=tuple(rule["identity_keys"]),
-                attribute_keys=tuple(rule.get("attribute_keys", ())),
-            )
-            for rule in ontology["entity_rules"]
-        ),
-        relationship_rules=tuple(
-            RelationshipResolutionRule(
-                relationship_type=rule["relationship_type"],
-                subject_entity_class=rule["subject_entity_class"],
-                object_entity_class=rule["object_entity_class"],
-            )
-            for rule in ontology["relationship_rules"]
-        ),
-    )
-
-
-def _envelopes(ontology: Any, events: Any) -> tuple[SignalEnvelope, ...]:
-    return tuple(
-        SignalEnvelope(
-            tenant_id=ontology["tenant_id"],
-            envelope_id=item["envelope_id"],
-            source=SourceIdentity(system_id=item["source_system_id"]),
-            ingestion_timestamp=_instant(item["ingestion_timestamp"]),
-            observed_time=_instant(item["observed_time"]),
-            raw_payload=dict(item["payload"]),
-        )
-        for item in events["envelopes"]
-    )
+#: The two author-versioned documents the manifest deliberately does not carry.
+#: See the module docstring: they need ``register_versioned``'s D-05 bump check.
+AGENT_DEFINITION_DOCUMENT = ARTIFACTS / "agent-definition.yaml"
+PROMPT_ARTIFACT_DOCUMENT = ARTIFACTS / "prompt-artifact.yaml"
 
 
 class FieldServicePlan:
-    # The deployment's Π — deployment code, like every projection. It
-    # declares which operators its interpretation depends on and interprets
-    # their output; it cannot tell the engine what ran (L6 lineage gate).
+    """The deployment's Π: what the reconciled subgraph means to its reader.
+
+    A projection is deployment code — this is what a user writes (whitepaper
+    §7.5). It declares which operators its interpretation depends on and
+    interprets their output; it cannot tell the engine what ran, which is what
+    leaves the L6 lineage gate something real to check.
+
+    ``required`` is passed in from the product-class artifact's
+    ``required_operator_keys``, never read off the operator registry: Gate 2
+    compares the declaration against the engine's resolution, and a plan
+    returning the registry's own keys would make that a value against itself.
+    """
 
     def __init__(self, *, plan_id: str, required: tuple[str, ...]) -> None:
         self._plan_id = plan_id
@@ -195,10 +154,11 @@ class FieldServicePlan:
 
 
 class ScriptedAnalyst:
-    # The injected deterministic LLM seam (D-12): a scripted
-    # `LLMClientProtocol` stub. The class is mechanism only — the model
-    # identifier and every output record are artifact data
-    # (artifacts/analysis_output.yaml), never string literals here.
+    """The injected deterministic LLM seam (D-12): a scripted client stub.
+
+    The class is mechanism only — the model identifier and every output record
+    are artifact data (``artifacts/analysis-output.yaml``), never literals here.
+    """
 
     def __init__(
         self, *, model_version: str, outputs: tuple[Mapping[str, Any], ...]
@@ -214,406 +174,307 @@ class ScriptedAnalyst:
         return self._outputs.pop(0)
 
 
-def main() -> int:
-    ontology = _load("ontology.yaml")
-    events = _load("events.yaml")
-    control = _load("controlplane.yaml")
-    prompt_doc = _load("prompt.yaml")
-    agent_doc = _load("agent.yaml")
-    analysis = _load("analysis_output.yaml")
-    halflife = _load("halflife.yaml")
+@dataclass(frozen=True)
+class AgentBasicsResult:
+    """What one run of the spine produced, for a caller to inspect.
 
-    tenant_id: str = ontology["tenant_id"]
-    keys = control["keys"]
-    boundary = _instant(control["decision"]["temporal_boundary"])
-    now = _instant(control["decision"]["now"])
+    The example returns its state rather than checking it here, so that
+    ``tests/examples/test_agent_basics_output.py`` can hold the assertions where
+    a test runner will actually run them.
+    """
 
-    with tempfile.TemporaryDirectory(prefix="ccf-agent-basics-") as scratch:
-        root = Path(scratch)
+    tenant_id: str
+    artifacts: Mapping[str, CCFContract]
+    registry: ControlPlaneRegistry
+    definition: AgentDefinition
+    definition_version: str
+    agent: Agent
+    product: ContextProductContract
+    consumed: ContextProductContract
+    operators_invoked: tuple[str, ...]
+    conditioning: PerspectiveConditioning
+    assessment: DebtAssessment
+    profile: DebtProfile
+    analyst: ScriptedAnalyst
+    effect: EmittedEffect
+    record: DecisionReplayRecord
+    served: ServedProduct
+    store: FileArtifactStore
 
-        # --- Control Plane: fabric artifacts + the agent's artifacts --------
-        registry = ControlPlaneRegistry()
-        spec_version = registry.register(
-            keys["resolution_spec"], _resolution_spec(ontology)
-        )
-        policy_version = registry.register(
-            keys["policy_bundle"], control["policy_bundle"]
-        )
+
+def run(*, root: Path) -> AgentBasicsResult:
+    """Run the fabric and the agent once against ``root`` as scratch space."""
+    registry = ControlPlaneRegistry()
+
+    # --8<-- [start:boot]
+    # 1. One call replaces the registration prologue and the boot: the manifest
+    #    names every fabric artifact in force, `load_and_boot` parses all of
+    #    them, registers the `role: register` ones, and boots on the pins.
+    booted = load_and_boot(
+        MANIFEST, registry=registry, database_path=str(root / "agent-basics.sqlite3")
+    )
+    # --8<-- [end:boot]
+    try:
+        events = cast(SignalBatch, booted.artifacts["events"])
+        decision = cast(DeclaredArtifact, booted.artifacts["decision"])
+        governance = cast(DeclaredArtifact, booted.artifacts["product-governance"])
+        declared = cast(ProductClassDeclaration, booted.artifacts["product-class"])
+        perspective = cast(PerspectiveArtifact, booted.artifacts["perspective"])
+        registration = cast(DeclaredArtifact, booted.artifacts["agent-registration"])
+
+        boundary = datetime.fromisoformat(decision.declaration["temporal_boundary"])
+        now = datetime.fromisoformat(decision.declaration["now"])
 
         # --8<-- [start:agent-artifacts]
-        # Axis-6 target: the prompt artifact, registered typed (D-13).
-        prompt = parse_artifact(prompt_doc["prompt_artifact"], PROMPT_ARTIFACT)
-        assert isinstance(prompt, PromptArtifact)
-        registry.register_typed(
-            prompt_doc["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
+        # 2. The two AUTHOR-VERSIONED artifacts, registered here rather than by
+        #    the manifest. `register_versioned` holds the author's
+        #    `artifact_version` claim against content identity — the D-05 bump
+        #    check — and `load_and_boot`'s `register_typed` path does not. A
+        #    manifest entry for either would drop that check silently.
+        prompt = load_artifact(
+            PROMPT_ARTIFACT_DOCUMENT.read_text(encoding="utf-8"), PROMPT_ARTIFACT
+        )
+        registry.register_versioned(
+            registration.declaration["prompt_artifact_key"], prompt, PROMPT_ARTIFACT
         )
 
-        # Axis-4/axis-5 targets: the declared artifacts the definition
-        # references by versioned URI, registered under their declared keys.
-        for reference in agent_doc["referenced_artifacts"].values():
-            artifact_class = declared_artifact_class(reference["class_id"])
-            declared = parse_artifact(
-                {
-                    "class_id": reference["class_id"],
-                    "semver": reference["semver"],
-                    "declaration": reference["declaration"],
-                },
-                artifact_class,
+        definition = AGENT_DEFINITION.validate(
+            load_artifact(
+                AGENT_DEFINITION_DOCUMENT.read_text(encoding="utf-8"),
+                AGENT_DEFINITION,
             )
-            registry.register_typed(reference["key"], declared, artifact_class)
-
-        # The agent definition itself: a versioned Control Plane artifact.
-        definition = parse_artifact(agent_doc["agent_definition"], AGENT_DEFINITION)
-        assert isinstance(definition, AgentDefinition)
-        definition_key = agent_doc["keys"]["agent_definition"]
-        definition_version = registry.register_versioned(
-            definition_key, definition, AGENT_DEFINITION
         )
-        assert isinstance(definition_version, str)
+        definition_key = registration.declaration["agent_definition_key"]
+        match registry.register_versioned(
+            definition_key, definition, AGENT_DEFINITION
+        ):
+            case str() as definition_version:
+                pass
+            case refusal:
+                raise RuntimeError(
+                    f"the Control Plane refused the agent definition: {refusal}"
+                )
         # --8<-- [end:agent-artifacts]
 
-        # --- boot the fabric (SQLite) and ingest via L1 ---------------------
-        handle = boot(
-            database_path=root / "agent-basics.sqlite3",
-            registry=registry,
-            resolution_spec_key=keys["resolution_spec"],
-            resolution_spec_version=spec_version,
-            policy_bundle_key=keys["policy_bundle"],
-            policy_bundle_version=policy_version,
+        # 3. Ingest from the batch the manifest declared `role: load`.
+        for envelope in events.envelopes:
+            booted.handle.worker.ingest(envelope)
+
+        # 4. The graph view at the temporal boundary this deployment named.
+        view = booted.handle.reader.as_of(tenant_id=booted.tenant_id, at=boundary)
+
+        # 5. The operator-parameters mapping, assembled by naming this
+        #    deployment's OWN manifest keys — configuration an adopter reads and
+        #    edits, deliberately not an isinstance filter or a class-id match.
+        parameters = {
+            key: cast(Any, booted.artifacts[key])
+            for key in ("traversal", "temporal", "policy", "similarity")
+        }
+        operators = build_operator_registry(
+            parameters=parameters,
+            view=view,
+            pins=booted.pins,
+            policy_bundle_key="policy-bundle",
+            similarity_index_version=governance.declaration[
+                "similarity_index_version"
+            ],
         )
-        try:
-            for envelope in _envelopes(ontology, events):
-                handle.worker.ingest(envelope)
 
-            # --- L4/L5: the four-category operator chain, from artifacts ----
-            params = control["operator_parameters"]
-            operators = OperatorRegistry()
-            operators.register(
-                PolicyFilter(
-                    parameters=PolicyFilterParameters(
-                        permitted_policy_bundle_versions=frozenset(
-                            {policy_version}
-                        ),
-                        classification_attribute_by_class=dict(
-                            ontology["classification_attribute_by_class"]
-                        ),
-                        permitted_classifications=frozenset(
-                            params["policy"]["permitted_classifications"]
-                        ),
-                    )
+        # 6. Project (L5). The plan's `required` comes from the product-class
+        #    artifact — never from the operator registry's own keys, which would
+        #    make Gate 2 compare a value against itself.
+        execution = ProjectionEngine(
+            reader=booted.handle.reader, registry=operators
+        ).execute(
+            plan=FieldServicePlan(
+                plan_id=governance.declaration["plan_id"],
+                required=declared.required_operator_keys,
+            ),
+            perspective=perspective,
+            tenant_id=booted.tenant_id,
+            temporal_boundary=boundary,
+        )
+
+        # 7. L6 — and this cluster stays in adopter code deliberately.
+        #
+        #    Gate 3 compares the class's TTL CEILING against this product's own
+        #    `expires_at`. That is only a check while the two are independently
+        #    authored. Registering the MaxTTL value here is what MINTS
+        #    `max_ttl_version` — the pin is a content hash of what was
+        #    registered, which is why the product-class artifact cannot declare
+        #    it. A helper that minted the pin and stamped the product would be
+        #    comparing a value against itself, so the SDK ships no such helper.
+        max_ttl_version = registry.register(
+            declared.max_ttl_key,
+            MaxTTL(seconds=governance.declaration["max_ttl_seconds"]),
+        )
+        product_class = register_product_class(
+            registry=registry,
+            schema_name=declared.schema_name,
+            schema_version=declared.schema_version,
+            ttl_anchor=declared.ttl_anchor,
+            assembly_mode=declared.assembly_mode,
+            max_ttl_key=declared.max_ttl_key,
+            max_ttl_version=max_ttl_version,
+        )
+
+        # 8. The lineage the product CLAIMS, and the gates. `engine_resolved` is
+        #    passed as a separate argument from a second, independent source —
+        #    the engine's own resolution — because Gate 2 exists to catch a
+        #    producer misdeclaring.
+        policy_version = booted.pins.version_for("policy-bundle")
+        candidate = ContextProductContract(
+            schema_name=product_class.schema_name,
+            schema_version=product_class.schema_version,
+            plan_id=execution.plan_id,
+            tenant_id=booted.tenant_id,
+            temporal_boundary=boundary,
+            expires_at=now
+            + timedelta(seconds=governance.declaration["product_ttl_seconds"]),
+            ttl_anchor=product_class.ttl_anchor,
+            lineage=ProductLineage(
+                operators_invoked=execution.operators_invoked,
+                policy_bundle_versions=frozenset({policy_version}),
+                graph_snapshot_at=boundary,
+            ),
+            payload=execution.projection.payload,
+        )
+        # A refusal is not a thing to proceed past: `ServableProduct` is not
+        # constructible outside `run_gates`, so holding one IS the evidence the
+        # gates ran (INV-CH7-52).
+        match run_gates(
+            candidate,
+            engine_resolved=execution.operators_invoked,
+            now=now,
+            registry=registry,
+            product_class=product_class,
+        ):
+            case ServableProduct() as gated:
+                pass
+            case refusal:
+                raise RuntimeError(
+                    f"the three validation gates refused this product: {refusal}"
                 )
-            )
-            corpus_attribute = ontology["similarity_corpus_attribute_by_class"]
-            view = handle.reader.as_of(tenant_id=tenant_id, at=boundary)
-            corpus = {
-                (tenant_id, record.claim.entity_uri): record.claim.attributes[
-                    corpus_attribute[record.claim.entity_class]
-                ]
-                for record in view.entities
-                if record.claim.entity_class in corpus_attribute
-            }
-            operators.register(
-                SimilaritySelect(
-                    parameters=SimilaritySelectParameters(
-                        query=params["similarity"]["query"],
-                        minimum_score_percent=params["similarity"][
-                            "minimum_score_percent"
-                        ],
-                        ranked_entity_classes=frozenset(
-                            params["similarity"]["ranked_entity_classes"]
-                        ),
-                    ),
-                    index=TokenOverlapIndex(
-                        corpus=corpus,
-                        index_version=params["similarity"]["index_version"],
-                    ),
-                )
-            )
-            operators.register(
-                TemporalAsOf(
-                    parameters=TemporalAsOfParameters(
-                        require_valid_at_boundary=params["temporal"][
-                            "require_valid_at_boundary"
-                        ]
-                    )
-                )
-            )
-            operators.register(
-                TraversalNeighborhood(
-                    parameters=TraversalNeighborhoodParameters(
-                        seed_entity_classes=frozenset(
-                            params["traversal"]["seed_entity_classes"]
-                        ),
-                        relationship_types=frozenset(
-                            params["traversal"]["relationship_types"]
-                        ),
-                        depth_limit=params["traversal"]["depth_limit"],
-                    )
-                )
-            )
 
-            declared_class = control["product_class"]
-            plan = FieldServicePlan(
-                plan_id=declared_class["plan_id"], required=operators.keys()
-            )
-            perspective = Perspective(
-                principal_id=control["perspective"]["principal_id"],
-                role=control["perspective"]["role"],
-            )
-            engine = ProjectionEngine(reader=handle.reader, registry=operators)
-            execution = engine.execute(
-                plan=plan,
-                perspective=perspective,
-                tenant_id=tenant_id,
-                temporal_boundary=boundary,
-            )
+        # --8<-- [start:agent-factory]
+        # 9. The Agent Factory: the only construction path (§6.4). It resolves
+        #    the definition and both referenced artifacts at pinned versions,
+        #    composes the declared archetypes, and validates axis 6 against the
+        #    prompt artifact it resolved.
+        agent = AgentFactory(control_plane=registry).construct(
+            definition_key=definition_key,
+            definition_version=definition_version,
+        )
+        # --8<-- [end:agent-factory]
 
-            # --- L6: gates, then a servable product -------------------------
-            max_ttl_version = registry.register(
-                keys["max_ttl"], MaxTTL(seconds=control["max_ttl_seconds"])
-            )
-            product_class = register_product_class(
-                registry=registry,
-                schema_name=declared_class["schema_name"],
-                schema_version=declared_class["schema_version"],
-                ttl_anchor=declared_class["ttl_anchor"],
-                assembly_mode=declared_class["assembly_mode"],
-                max_ttl_key=keys["max_ttl"],
-                max_ttl_version=max_ttl_version,
-            )
-            candidate = ContextProductContract(
-                schema_name=product_class.schema_name,
-                schema_version=product_class.schema_version,
-                plan_id=execution.plan_id,
-                tenant_id=tenant_id,
-                temporal_boundary=boundary,
-                expires_at=now
-                + timedelta(seconds=declared_class["product_ttl_seconds"]),
-                ttl_anchor=product_class.ttl_anchor,
-                lineage=ProductLineage(
-                    operators_invoked=execution.operators_invoked,
-                    policy_bundle_versions=frozenset({policy_version}),
-                    graph_snapshot_at=boundary,
-                ),
-                payload=execution.projection.payload,
-            )
-            gated = run_gates(
-                candidate,
-                engine_resolved=execution.operators_invoked,
-                now=now,
-                registry=registry,
-                product_class=product_class,
-            )
-            assert isinstance(gated, ServableProduct), gated
-            expected = control["expected"]
-            payload = gated.product.payload
-            assert payload["entity_count"] == expected["entity_count"], payload
-            assert sorted(
-                {entry["entity_class"] for entry in payload["entities"]}
-            ) == sorted(expected["entity_classes"]), payload
-            # axis 3 witness: the served payload's conditioning role is the
-            # definition's declared Π role — rebinding the perspective
-            # changes this served field.
-            assert (
-                payload["role"]
-                == expected["role"]
-                == definition.perspective.role
-            ), payload
-            # axis 4 witness: the regime-excluded entity class appears
-            # nowhere in the served view — exclusion is asserted by name.
-            assert not (
-                {entry["entity_class"] for entry in payload["entities"]}
-                & set(expected["excluded_entity_classes"])
-            ), payload
+        # --8<-- [start:specialization-axes]
+        # 10. Axis 2 — the context contract admits the served product; axis 3 —
+        #     the Π conditioning the definition declares, which is what lands in
+        #     replay dimension 4.
+        consumed = agent.consume(gated.product, now=now)
+        conditioning = agent.perspective_conditioning(
+            principal_id=perspective.principal_id,
+            grant_set_hash=NO_GRANTS_SET_HASH,
+        )
+        # --8<-- [end:specialization-axes]
 
-            # --8<-- [start:agent-factory]
-            # --- the Agent Factory: the only construction path (§6.4) -------
-            agent = AgentFactory(control_plane=registry).construct(
-                definition_key=definition_key,
-                definition_version=definition_version,
-            )
-            assert isinstance(agent, Agent)
-
-            # Archetype/agent separation (§6.1): identity derives from the
-            # definition artifact, never from anything in code.
-            assert agent.identity.definition_hash == content_hash(definition)
-            assert agent.identity.definition_uri == (
-                f"ccf-artifact://{definition.tenant}/"
-                f"{AGENT_DEFINITION.class_id}/{definition.name}"
-                f"@{definition.artifact_version}"
-            )
-            # --8<-- [end:agent-factory]
-
-            # --8<-- [start:specialization-axes]
-            # --- all six specialization axes resolve (§6.2 channel 1) -------
-            # axis 1 — archetype binding, in declaration order (D-IMPL-19)
-            declared_archetypes = tuple(
-                agent_doc["agent_definition"]["archetypes"]
-            )
-            assert agent.identity.archetype_composition == declared_archetypes
-            assert (
-                tuple(c.archetype_id for c in agent.components)
-                == declared_archetypes
-            )
-            # axis 2 — context contract: the served product is admitted
-            consumed = agent.consume(gated.product, now=now)
-            assert consumed is gated.product
-            # axis 2 witness: the consumed product's class is exactly the
-            # class the definition's context contract declares.
-            contract = agent_doc["agent_definition"]["context_contract"][
-                "consumes"
-            ][0]
-            assert gated.product.schema_name == contract["product_class"]
-            assert gated.product.schema_version == contract["schema_version"]
-            # axis 3 — perspective: the Π role from the definition
-            conditioning = agent.perspective_conditioning(
-                principal_id=perspective.principal_id,
-                grant_set_hash=NO_GRANTS_SET_HASH,
-            )
-            assert conditioning.role == definition.perspective.role
-            # axes 4 & 5 — policy regime and half-life/debt profile refs
-            # resolved through the Control Plane at pinned versions: the
-            # factory refuses an unresolvable ref, and each declared key is
-            # registered with at least one version.
-            for reference in agent_doc["referenced_artifacts"].values():
-                assert registry.versions(reference["key"]), reference["key"]
-            assert definition.policy_regime.ref.endswith(
-                "@" + agent_doc["referenced_artifacts"]["policy_regime"]["semver"]
-            )
-            assert definition.halflife_debt_profile.ref.endswith(
-                "@"
-                + agent_doc["referenced_artifacts"]["halflife_debt_profile"][
-                    "semver"
-                ]
-            )
-            # axis 6 — instruction bindings: the resolved prompt artifact
-            # travels with the agent; parameters match its declaration (D-13)
-            binding = definition.instruction_bindings[0]
-            resolved = agent.instruction_artifact(binding.prompt)
-            assert isinstance(resolved, PromptArtifact)
-            assert frozenset(resolved.declared_parameters) == frozenset(
-                binding.parameters
-            )
-            # --8<-- [end:specialization-axes]
-
-            # --- axis 5 made observable: the debt profile gates (§7.7) ------
-            # axis 5 witness: the definition's referenced debt profile is
-            # parsed typed from its declaration, minus deployment-only keys.
-            axis5 = agent_doc["referenced_artifacts"]["halflife_debt_profile"]
-            profile = parse_artifact(
-                {
-                    "semver": axis5["semver"],
-                    **{
-                        name: axis5["declaration"][name]
-                        for name in DebtProfile.model_fields
-                        if name in axis5["declaration"]
-                    },
-                },
-                DEBT_PROFILE,
-            )
-            assert isinstance(profile, DebtProfile)
-            table = parse_artifact(
-                halflife["half_life_table"], HALF_LIFE_TABLE
-            )
-            assert isinstance(table, HalfLifeTable)
-            evaluation = halflife["debt_evaluation"]
-            scorer = FreshnessScorer(
-                table=table, risk_sensitivity=profile.risk_sensitivity
-            )
-            factors = DebtFactors(
-                freshness=scorer.score(
+        # 11. Axis 5 made observable: score the declared observations against
+        #     the λ_c table at the decision instant and assess D_c under the
+        #     agent's OWN referenced debt profile — the CAR routing state
+        #     (whitepaper §7.7) is a property of the agent's axis-5 declaration,
+        #     not of this file.
+        axis5 = cast(
+            DeclaredArtifact,
+            booted.artifacts[registration.declaration["halflife_debt_profile_key"]],
+        )
+        profile = cast(
+            DebtProfile, parse_artifact(dict(axis5.declaration), DEBT_PROFILE)
+        )
+        evaluation = cast(
+            DeclaredArtifact, booted.artifacts["debt-evaluation"]
+        ).declaration
+        table = cast(HalfLifeTable, booted.artifacts["half-life-table"])
+        assessment = assess_debt(
+            DebtFactors(
+                freshness=FreshnessScorer(
+                    table=table, risk_sensitivity=profile.risk_sensitivity
+                ).score(
                     tuple(
-                        Observation(
-                            observation_type=item["observation_type"],
-                            observed_at=_instant(item["observed_at"]),
-                        )
+                        Observation.model_validate(item)
                         for item in evaluation["observations"]
                     ),
                     now=now,
                 ),
                 completeness=evaluation["completeness"],
                 semantic_consistency=evaluation["semantic_consistency"],
-            )
-            assessment = assess_debt(factors, profile=profile)
-            # axis 5 witness: the CAR routing state the assessed D_c lands
-            # in matches the reviewed expectation the artifacts declare.
-            assert (
-                assessment.signal.value == evaluation["expected_signal"]
-            ), assessment
-            assert assessment.debt > profile.forced_llm_threshold, assessment
-            assert assessment.debt <= profile.fail_closed_threshold, assessment
+            ),
+            profile=profile,
+        )
 
-            # --- run the agent's analytic step (D-12, keyless) --------------
-            analyst = ScriptedAnalyst(
-                model_version=analysis["model_version"],
-                outputs=tuple(analysis["outputs"]),
-            )
-            assert isinstance(analyst, LLMClientProtocol)
-            effect = agent.emit_effect(dict(analyst.next_output()))
-            assert isinstance(effect, EmittedEffect)
-            assert effect.agent_definition_hash == agent.identity.definition_hash
-            assert effect.payload == analysis["outputs"][0]
+        # 12. The agent's analytic step, over the deterministic seam (D-12).
+        analysis = cast(DeclaredArtifact, booted.artifacts["analysis-output"])
+        analyst = ScriptedAnalyst(
+            model_version=analysis.declaration["model_version"],
+            outputs=tuple(analysis.declaration["outputs"]),
+        )
+        effect = agent.emit_effect(dict(analyst.next_output()))
 
-            # --- replay: agent identity/version in dimension 4 (D-06) -------
-            record = build_replay_record(
-                execution=execution,
-                product=gated.product,
-                perspective=perspective,
-                policy_bindings=(
-                    PolicyBinding(
-                        key=keys["policy_bundle"], version=policy_version
-                    ),
-                ),
-                assembly_mode=declared_class["assembly_mode"],
-                recorded_at=now,
-                agent_conditioning=conditioning,
-            )
-            store = FileArtifactStore(root=root / "artifacts")
-            served = serve(
-                product=gated,
-                record=record,
-                replay_writer=ReplayWriter(
-                    store=store,
-                    artifact_class=control["artifacts"]["replay_record_class"],
-                ),
-            )
-            restored = DecisionReplayRecord.model_validate_json(
-                store.get(content_address=served.replay_ref.content_address)
-            )
-            assert restored == record
-            # --8<-- [start:agent-replay]
-            dimension_four = restored.perspective_conditioning
-            assert dimension_four.agent_definition_hash == content_hash(
-                definition
-            )
-            assert dimension_four.agent_definition_uri == (
-                agent.identity.definition_uri
-            )
-            assert dimension_four.agent_definition_uri.endswith(
-                "@" + definition.artifact_version
-            )
-            assert dimension_four.archetype_composition == declared_archetypes
-            assert dimension_four.grant_set_hash == NO_GRANTS_SET_HASH
-            assert dimension_four.delegation_chain == (
-                perspective.principal_id,
-            )
-            # --8<-- [end:agent-replay]
+        # --8<-- [start:agent-replay]
+        # 13. Replay before delivery. `agent_conditioning` is what carries the
+        #     agent's identity, version and archetype composition into
+        #     dimension 4 (D-06); `policy_bindings` is built here from the pins
+        #     the adopter reads off `BootedFabric.pins`, because dimension 2
+        #     assembled by a rule nobody wrote down is not an audit record.
+        record = build_replay_record(
+            execution=execution,
+            product=gated.product,
+            perspective=perspective,
+            policy_bindings=(
+                PolicyBinding(key="policy-bundle", version=policy_version),
+            ),
+            assembly_mode=declared.assembly_mode,
+            recorded_at=now,
+            agent_conditioning=conditioning,
+        )
+        # --8<-- [end:agent-replay]
 
-            print("examples/01-agent-basics: OK")
-            print(f"  tenant                 {tenant_id}")
-            print(f"  agent                  {definition.name}")
-            print(f"  agent version          {definition.artifact_version}")
-            print(f"  archetypes             {list(declared_archetypes)}")
-            print(f"  consumed product       {gated.product.schema_name}")
-            print(f"  context debt D_c       {assessment.debt}")
-            print(f"  debt signal (axis 5)   {assessment.signal.value}")
-            print(
-                "  dim-4 definition hash  "
-                f"{dimension_four.agent_definition_hash[:16]}…"
-            )
-            return 0
-        finally:
-            handle.close()
+        store = FileArtifactStore(root=root / "artifacts")
+        served = serve(
+            product=gated,
+            record=record,
+            replay_writer=ReplayWriter(
+                store=store,
+                artifact_class=governance.declaration["replay_record_class"],
+            ),
+        )
+
+        return AgentBasicsResult(
+            tenant_id=booted.tenant_id,
+            artifacts=booted.artifacts,
+            registry=registry,
+            definition=definition,
+            definition_version=definition_version,
+            agent=agent,
+            product=gated.product,
+            consumed=consumed,
+            operators_invoked=execution.operators_invoked,
+            conditioning=conditioning,
+            assessment=assessment,
+            profile=profile,
+            analyst=analyst,
+            effect=effect,
+            record=record,
+            served=served,
+            store=store,
+        )
+    finally:
+        booted.handle.close()
+
+
+def main() -> int:
+    with tempfile.TemporaryDirectory(prefix="ccf-agent-basics-") as scratch:
+        run(root=Path(scratch))
+    return 0
 
 
 if __name__ == "__main__":

@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# This decision's inputs (field-service domain, D-IMPL-52).
+#
+# Explicit inputs, never clock reads: the example is replayable precisely
+# because these are data.
+#
+# **This document is `role: load` in the manifest, and that is a decision, not
+# an oversight.** Registering it would content-hash "what instant this run
+# asked about" into Control Plane state and therefore into replay dimension 2 —
+# but dimension 2 records what the fabric was PERMITTED TO DO, not what any one
+# run asked of it. Compare `events.yaml`, which is `role: load` for the same
+# reason and additionally has that role FIXED by the SDK (D-IMPL-80).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM]. Every timestamp
+# states its zone — the loader refuses a zone-less one rather than guessing
+# (D-IMPL-38).
+
+semver: "1.0.0"
+class_id: cascadia-fieldworks.decision-inputs
+
+declaration:
+  temporal_boundary: 2026-05-11T08:00:00Z
+  now: 2026-05-11T08:00:03Z

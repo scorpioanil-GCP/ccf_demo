@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# What the served product should contain, as declared by the deployment that
+# authored the events (field-service domain, D-IMPL-52).
+#
+# This document exists so that `tests/examples/test_agent_basics_output.py` has
+# a source for its domain expectations OTHER THAN ITSELF. A value the test
+# module authored would be the test agreeing with itself about what this
+# deployment's vocabulary says; read from here, the assertion is against the
+# deployment's own declaration.
+#
+# **`role: load` in the manifest.** An expectation is not something the fabric
+# is permitted to do, so it has no business in Control Plane state or in replay
+# dimension 2.
+#
+# Only DOMAIN expectations live here. Values that are SDK mechanism are
+# asserted directly in the test module, because they are claims about the SDK
+# rather than about this domain.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: cascadia-fieldworks.expected-product
+
+declaration:
+  # The restricted site is absent and so is the `located_at` edge that would
+  # have leaked its existence by absence; the second work order is absent
+  # because similarity ranked it out.
+  entity_classes:
+    - technician
+    - work_order
+  relationship_types:
+    - assigned_to
+  entity_count: 2
+
+  # Axis 3 made visible: the role the served payload is conditioned to must be
+  # exactly the role the agent's definition declares. A rebound perspective
+  # changes this served field.
+  role: dispatch-analyst
+
+  # Axis 4 made visible: the entity class the policy regime keeps out of the
+  # served view entirely. The test asserts its absence by name.
+  excluded_entity_classes:
+    - site

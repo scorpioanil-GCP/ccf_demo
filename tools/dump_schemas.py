@@ -105,6 +105,67 @@ CLASS_ID_KEY = "x-ccf-class-id"
 ENVELOPE_CLASS_ID = "ccf.declared-artifact"
 
 
+def author_versioned_classes() -> dict[str, Any]:
+    """SDK-owned classes a manifest deliberately cannot address (plan 15-14).
+
+    These carry D-IMPL-28 two-field versioning (``schema_version`` +
+    ``artifact_version``) and register through
+    :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.register_versioned`,
+    which holds the author's version claim against content identity — the D-05
+    bump check. :func:`~ccf.deployment.manifest.load_and_boot` registers through
+    ``register_typed``, which does **not** run that check, so these classes are
+    deliberately absent from
+    :data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES`: a manifest entry
+    naming one would silently drop the governance the class exists to carry.
+
+    They are nonetheless **SDK-owned schemas**, and an adopter authors documents
+    of them by hand — an agent definition, a prompt artifact, a skill catalog
+    entry. So they get committed schemas here on exactly the reasoning that
+    admitted the envelope above: a schema an adopter cannot point a ``$schema``
+    header at is a schema that does not help them. What they do *not* get is
+    manifest addressability, and keeping the set here rather than in ``/src``
+    is what makes the two impossible to confuse.
+
+    The membership rule is checkable rather than editorial — every one of these
+    contracts declares an ``artifact_version`` field, and
+    ``tests/cli/test_schema_export.py`` holds the set to that rule so a new
+    author-versioned class cannot quietly go un-emitted.
+    """
+    from ccf.agents.definitions import (
+        AGENT_DEFINITION,
+        PROMPT_ARTIFACT,
+        TASK_DEFINITION,
+    )
+    from ccf.skills.catalog import SKILL_CATALOG_ENTRY
+    from ccf.skills.grants import SKILL_GRANT
+    from ccf.workflow.definitions import WORKFLOW_DEFINITION
+
+    return {
+        artifact_class.class_id: artifact_class
+        for artifact_class in (
+            AGENT_DEFINITION,
+            PROMPT_ARTIFACT,
+            TASK_DEFINITION,
+            SKILL_CATALOG_ENTRY,
+            SKILL_GRANT,
+            WORKFLOW_DEFINITION,
+        )
+    }
+
+
+def schema_owned_classes() -> dict[str, Any]:
+    """Every class with a committed schema, keyed by ``class_id``.
+
+    The union a ``$schema`` header may name: manifest-addressable classes plus
+    the author-versioned ones. The **envelope** is deliberately not here — it is
+    not a class any document *is*, it is the shape every deployment-authored
+    document shares, and the header checker routes it separately.
+    """
+    from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
+
+    return {**SDK_ARTIFACT_CLASSES, **author_versioned_classes()}
+
+
 def schema_path(class_id: str) -> pathlib.Path:
     """Return the committed path for ``class_id``.
 
@@ -125,15 +186,16 @@ def schema_path(class_id: str) -> pathlib.Path:
 def emit() -> dict[pathlib.Path, str]:
     """Return the full committed tree as ``path -> serialized bytes``.
 
-    One file per SDK-owned class, plus the :data:`ENVELOPE_CLASS_ID` schema of
-    the open ``DeclaredArtifact`` envelope — see that constant for why the
-    envelope is committed without being an owned class.
+    One file per SDK-owned class — manifest-addressable
+    (:data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES`) and author-versioned
+    (:func:`author_versioned_classes`) alike — plus the
+    :data:`ENVELOPE_CLASS_ID` schema of the open ``DeclaredArtifact`` envelope.
+    See those two for why each set is committed and why they are separate.
     """
     from ccf.controlplane.artifacts import DeclaredArtifact
-    from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
 
     documents: dict[pathlib.Path, str] = {}
-    for class_id, artifact_class in SDK_ARTIFACT_CLASSES.items():
+    for class_id, artifact_class in schema_owned_classes().items():
         document: dict[str, Any] = artifact_class.contract.model_json_schema()
         document[CLASS_ID_KEY] = class_id
         documents[schema_path(class_id)] = serialize(document)

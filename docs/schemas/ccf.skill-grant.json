@@ -1,0 +1,46 @@
+{
+  "additionalProperties": false,
+  "description": "One skill grant \u2014 a declared, versioned Control Plane artifact.\n\nCLAUDE.md \u00a76.2 channel 2; D-IMPL-12/29. A grant *references*, never\ncopies: the agent by definition content hash (D-IMPL-26 canonical\nidentity) and the catalog entry by pinned version \u2014 upgrading a skill is\na new entry version and a new grant, both audited. The grant's own\ncontent hash is its identity and the member the D-07 grant-set hash is\ncomputed over.\n\nTwo-field versioning per D-IMPL-28: ``schema_version`` is this class's\nlane; ``artifact_version`` is the author's content claim, hash-verified\nat registration (D-05).",
+  "properties": {
+    "agent_definition_hash": {
+      "title": "Agent Definition Hash",
+      "type": "string"
+    },
+    "artifact_version": {
+      "title": "Artifact Version",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "skill_name": {
+      "title": "Skill Name",
+      "type": "string"
+    },
+    "skill_version": {
+      "title": "Skill Version",
+      "type": "string"
+    },
+    "tenant": {
+      "title": "Tenant",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "artifact_version",
+    "name",
+    "tenant",
+    "agent_definition_hash",
+    "skill_name",
+    "skill_version"
+  ],
+  "title": "SkillGrant",
+  "type": "object",
+  "x-ccf-class-id": "ccf.skill-grant"
+}

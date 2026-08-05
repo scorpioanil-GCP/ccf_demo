@@ -1,0 +1,44 @@
+{
+  "additionalProperties": false,
+  "description": "A versioned prompt/instruction artifact (axis 6; \u00a76.4; D-13).\n\nSDK-defined (CLAUDE.md \u00a76.2 axis 6). The template source and its declared\nparameters travel together so parse-only validation\n(:func:`ccf.agents.prompts.validate_prompt_artifact`) can hold them to\nexact agreement at load time \u2014 before any factory construction, and\nwithout rendering anything.",
+  "properties": {
+    "artifact_version": {
+      "title": "Artifact Version",
+      "type": "string"
+    },
+    "declared_parameters": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Declared Parameters",
+      "type": "array"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "template": {
+      "title": "Template",
+      "type": "string"
+    },
+    "tenant": {
+      "title": "Tenant",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "artifact_version",
+    "name",
+    "tenant",
+    "template",
+    "declared_parameters"
+  ],
+  "title": "PromptArtifact",
+  "type": "object",
+  "x-ccf-class-id": "ccf.prompt-artifact"
+}

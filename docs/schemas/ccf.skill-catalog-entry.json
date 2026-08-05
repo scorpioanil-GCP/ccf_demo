@@ -1,0 +1,263 @@
+{
+  "$defs": {
+    "InstructionBinding": {
+      "additionalProperties": false,
+      "description": "Axis 6 \u2014 one prompt reference plus its declared parameters (D-13).\n\n``prompt`` is a versioned URI; the template text lives in the referenced\n:class:`PromptArtifact`, never here (No-Hardcoding Rule, \u00a76.4). This\ncontract deliberately has no field that could carry inline prompt text.\n``parameters`` are the names the binding declares it will supply, validated\nagainst the artifact's own declaration by\n:func:`ccf.agents.prompts.validate_instruction_binding`.",
+      "properties": {
+        "parameters": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Parameters",
+          "type": "array"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt",
+        "parameters"
+      ],
+      "title": "InstructionBinding",
+      "type": "object"
+    },
+    "LocalCallableBinding": {
+      "additionalProperties": false,
+      "description": "A ``local_callable`` skill's descriptor: a registry key.\n\nA *reference*, never an import. ``callable_ref`` names a key in the\ndeployment's :class:`~ccf.skills.callables.CallableRegistry`, populated by\nexplicit registration at the composition root; dispatch resolves it there\nand imports nothing, so an entry can only name a callable this deployment\nalready chose to offer, whatever artifact source the entry arrived from\n(D-19; IN-06 \u2014 this replaces the I.2 T-05-18 precondition, which MCP and\nPeering artifact sources invalidate).\n\nThe field's name and ``str`` type are unchanged by that ruling \u2014 only the\nmeaning of the string changed, from a dotted module path to a key \u2014 so no\nartifact schema version breaks.",
+      "properties": {
+        "callable_ref": {
+          "title": "Callable Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "callable_ref"
+      ],
+      "title": "LocalCallableBinding",
+      "type": "object"
+    },
+    "McpBinding": {
+      "additionalProperties": false,
+      "description": "An ``mcp`` skill's descriptor: which server and resource it names.\n\nOne of the four types, not the unified mechanism (D-IMPL-12). No MCP\nclient is constructed from this block in I.2.",
+      "properties": {
+        "resource": {
+          "title": "Resource",
+          "type": "string"
+        },
+        "server": {
+          "title": "Server",
+          "type": "string"
+        }
+      },
+      "required": [
+        "server",
+        "resource"
+      ],
+      "title": "McpBinding",
+      "type": "object"
+    },
+    "PeeringBinding": {
+      "additionalProperties": false,
+      "description": "A ``peering`` skill's descriptor: the remote peer-endpoint it names.\n\nThe token names what class of counterparty the skill reaches \u2014 a peer\nfabric holding its own Control Plane \u2014 never the transport that carries\nit (D-IMPL-59 part 1). ``endpoint`` was always a *logical peer-endpoint\nname* and never a URI, so the field was about a peer from the start.\n\nA descriptor, not a transport: Peering admission verification (CLAUDE.md\n\u00a77.2) applies when products actually cross the boundary, which no code\nin this wave does.",
+      "properties": {
+        "endpoint": {
+          "title": "Endpoint",
+          "type": "string"
+        }
+      },
+      "required": [
+        "endpoint"
+      ],
+      "title": "PeeringBinding",
+      "type": "object"
+    },
+    "ProcedureBinding": {
+      "additionalProperties": false,
+      "description": "A ``procedure`` skill's descriptor: a pinned instruction reference.\n\nSDK-defined (D-IMPL-56; CLAUDE.md \u00a76.2 channel 2, \u00a77.3 seam 1). The\ninstruction content travels by reference \u2014 an\n:class:`~ccf.agents.definitions.InstructionBinding` naming a versioned\nprompt artifact \u2014 and is consumed on seam 1 (context injection) **only**.\nA procedure never becomes a seam-2 tool: smuggling instruction text into\nthe tool surface would hand the harness authored prose the Control Plane\nnever versioned (T-07-05), so the binding deliberately has no field that\ncould carry inline text (No-Hardcoding Rule, CLAUDE.md \u00a76.4).",
+      "properties": {
+        "instruction": {
+          "$ref": "#/$defs/InstructionBinding"
+        }
+      },
+      "required": [
+        "instruction"
+      ],
+      "title": "ProcedureBinding",
+      "type": "object"
+    },
+    "SkillArgumentProperty": {
+      "additionalProperties": false,
+      "description": "One argument's typed spec on a catalog entry (D-IMPL-56).\n\nJSON-Schema-shaped by construction: ``type`` is a closed Literal over the\nJSON Schema primitive type names, and ``description`` is required with no\ndefault \u2014 the same D-16 forcing function as the entry description,\nbecause a property whose meaning an adapter would have to invent is the\nsame defect one schema level down. Nested property specs beyond one\nlevel are out of v0 scope by ruling.",
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "string",
+            "number",
+            "integer",
+            "boolean",
+            "array",
+            "object"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "description"
+      ],
+      "title": "SkillArgumentProperty",
+      "type": "object"
+    },
+    "SkillArgumentSchema": {
+      "additionalProperties": false,
+      "description": "The typed argument declaration on a catalog entry (D-IMPL-56).\n\nJSON-Schema-shaped and MCP-``inputSchema``-compatible, pre-specified:\n``properties`` maps argument names to typed specs, ``required`` is a\nsubset of the property names, and the rendered surface always pins\n``additionalProperties`` to ``false`` \u2014 structurally, mirroring this\ncontract's own ``extra=forbid`` closed world. One shared derivation\n(:mod:`ccf.skills.toolsurface`) renders it into every harness.",
+      "properties": {
+        "properties": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SkillArgumentProperty"
+          },
+          "title": "Properties",
+          "type": "object"
+        },
+        "required": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required",
+          "type": "array"
+        }
+      },
+      "required": [
+        "properties",
+        "required"
+      ],
+      "title": "SkillArgumentSchema",
+      "type": "object"
+    },
+    "SkillRequirements": {
+      "additionalProperties": false,
+      "description": "The typed requirements declaration on a catalog entry (D-IMPL-29).\n\nThe block the tier-1 policy-compatibility check (05-06) compares against\nan agent's policy regime and context contract \u2014 structurally, as\nsubset/equality over opaque identifiers. Both members are required with\nno default: an empty frozenset is the author's explicit statement that\nthe skill needs nothing of that kind, which is not the same statement as\nsilence (D-IMPL-38).\n\nAttributes:\n    required_scopes: Policy-regime identifiers this skill's dispatch will\n        require. Opaque to the SDK; declared by the deployment.\n    required_context_products: Context Product classes this skill reads.\n        Opaque to the SDK; held against the agent's context contract.",
+      "properties": {
+        "required_context_products": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Context Products",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "required_scopes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scopes",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "required_scopes",
+        "required_context_products"
+      ],
+      "title": "SkillRequirements",
+      "type": "object"
+    },
+    "ToolBinding": {
+      "additionalProperties": false,
+      "description": "A ``tool`` skill's descriptor: the command/entry it names.\n\nDescriptor fields only \u2014 the SDK stores what the deployment declared and\nships no execution surface for it here (D-08; dispatch is 05-06 scope).",
+      "properties": {
+        "command": {
+          "title": "Command",
+          "type": "string"
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "title": "ToolBinding",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One versioned skill catalog entry (D-IMPL-12; CLAUDE.md \u00a76.2 channel 2).\n\nSDK-defined. The artifact the grant machinery (05-06) binds against by\nversion \u2014 a grant references an entry, never copies it, so upgrading a\nskill is a new entry version and a new grant, both audited.\n\nTwo-field versioning per D-IMPL-28: ``schema_version`` is this class's\nlane; ``artifact_version`` is the author's content claim, hash-verified\nat registration (D-05).\n\n``description`` and ``argument_schema`` are required with no default and\nno sentinel (D-IMPL-56; D-16): the tool surface every harness renders is\na declared artifact property, produced by the one shared derivation in\n:mod:`ccf.skills.toolsurface` \u2014 never adapter-authored prose.",
+  "properties": {
+    "argument_schema": {
+      "$ref": "#/$defs/SkillArgumentSchema"
+    },
+    "artifact_version": {
+      "title": "Artifact Version",
+      "type": "string"
+    },
+    "binding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LocalCallableBinding"
+        },
+        {
+          "$ref": "#/$defs/ToolBinding"
+        },
+        {
+          "$ref": "#/$defs/McpBinding"
+        },
+        {
+          "$ref": "#/$defs/PeeringBinding"
+        },
+        {
+          "$ref": "#/$defs/ProcedureBinding"
+        }
+      ],
+      "title": "Binding"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "requirements": {
+      "$ref": "#/$defs/SkillRequirements"
+    },
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "skill_type": {
+      "enum": [
+        "local_callable",
+        "tool",
+        "mcp",
+        "peering",
+        "procedure"
+      ],
+      "title": "Skill Type",
+      "type": "string"
+    },
+    "tenant": {
+      "title": "Tenant",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "artifact_version",
+    "name",
+    "tenant",
+    "skill_type",
+    "description",
+    "argument_schema",
+    "binding",
+    "requirements"
+  ],
+  "title": "SkillCatalogEntry",
+  "type": "object",
+  "x-ccf-class-id": "ccf.skill-catalog-entry"
+}

@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The policy bundle the FABRIC boots under (field-service domain, D-IMPL-52).
+#
+# A *version* of this bundle is resolved from the Control Plane, stamped onto
+# every claim at assembly, and carried into the product's policy binding and
+# into replay dimension 2. The AGENT's axis-4 policy regime is a different
+# artifact — see `agent-policy-regime.yaml`.
+#
+# A policy bundle's SCHEMA is the deployment's, not the SDK's (CLAUDE.md §11),
+# so this document uses the open `DeclaredArtifact` envelope: the SDK fixes
+# `semver`, `class_id` and canonical serializability, and everything under
+# `declaration:` is this deployment's own.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: cascadia-fieldworks.policy-bundle
+
+declaration:
+  regime: cascadia-dispatch
+  jurisdiction: US-WA
+  permitted_classifications:
+    - internal

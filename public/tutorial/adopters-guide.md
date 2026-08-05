@@ -156,11 +156,16 @@ contract, perspective, policy regime, half-life and debt profile, and
 instruction bindings by reference — never inline prompt text):
 
 ```yaml
---8<-- "examples/01-agent-basics/artifacts/agent.yaml"
+--8<-- "examples/01-agent-basics/artifacts/agent-definition.yaml"
 ```
 
-Registering the definition and everything it references is a Control Plane
-operation, each artifact pinned at a version. The
+The artifacts the definition *references* — its policy regime and its debt
+profile — are named by the deployment manifest and registered by the same
+`load_and_boot` call that booted the fabric. The definition and the prompt
+artifact are not: both carry two-field versioning and register through
+`register_versioned`, which holds the author's `artifact_version` claim against
+content identity. That check is the reason those two registrations stay in
+adopter code. The
 [agent definition reference](../reference/artifacts/agent-definitions.md) and
 [prompt artifact reference](../reference/artifacts/prompt-artifacts.md)
 document the schemas:
@@ -177,11 +182,13 @@ the artifact rather than of anything written in code:
 --8<-- "examples/01-agent-basics/run.py:agent-factory"
 ```
 
-Each of the six axes resolves observably — the perspective conditions the
-served view, the policy regime excludes what it excludes, and the referenced
-artifacts resolve at pinned versions or construction refuses. The
-[agent Protocol surface](../reference/protocols/agents.md) names the
-methods used here:
+Each of the six axes resolves observably — the context contract admits the
+served product, the perspective conditions the view and the record, the policy
+regime excludes what it excludes, and the referenced artifacts resolve at
+pinned versions or construction refuses. Two of those axes are visible in the
+spine itself; `tests/examples/test_agent_basics_output.py` checks all six, one
+test per axis. The [agent Protocol surface](../reference/protocols/agents.md)
+names the methods used here:
 
 ```py
 --8<-- "examples/01-agent-basics/run.py:specialization-axes"
