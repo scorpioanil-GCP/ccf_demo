@@ -1,5 +1,6 @@
-# Hello-context event stream — L1 signal envelopes (financial-services
-# domain, D-07; authored fresh — nothing here is ported).
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.signal-batch.json
+# Hello-context event stream — L1 signal envelopes (financial-services domain,
+# D-IMPL-52; authored fresh — nothing here is ported).
 #
 # A handful of events, but not a flat happy path: the stream is built so the
 # fabric has something real to do at each layer.
@@ -18,24 +19,32 @@
 # served context informs: liquidity coverage strengthened and covenant
 # headroom widened -> extend the credit line rather than hold it.
 #
+# The document adopts the SDK's OWN envelope vocabulary — `source: {system_id}`,
+# `raw_payload:` — rather than a flat shape a loader would have to translate.
+# A translation removed is one that cannot drift.
+#
 # Payload keys are the *source systems'* vocabulary, never the fabric's.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename
 #
-# [ADAPT]: every payload key and value, source system ids, timestamps.
-# [MECHANISM]: the envelope field names (`envelope_id`, `source_system_id`,
-# `ingestion_timestamp`, `observed_time`, `payload`).
+# In this file: everything under `raw_payload:` and every source system id is
+# [ADAPT]; the envelope keys (`envelope_id`, `tenant_id`, `source`,
+# `system_id`, `ingestion_timestamp`, `observed_time`, `raw_payload`) are
+# [MECHANISM].
 
-schema_version: "1.0.0"
-artifact_version: "1.0.0"
+semver: "1.0.0"
+
+tenant_id: first-meridian-bank
 
 envelopes:
   - envelope_id: ev-101
-    source_system_id: loan-origination
+    tenant_id: first-meridian-bank
+    source:
+      system_id: loan-origination
     ingestion_timestamp: 2026-07-01T09:00:00Z
     observed_time: 2026-07-01T08:45:00Z
-    payload:
+    raw_payload:
       borrower_ref: "FMB-BRW-0007"
       borrower_name: "Acme Industrial Holdings"
       borrower_sector: "manufacturing"
@@ -46,20 +55,24 @@ envelopes:
       facility_classification: "internal"
 
   - envelope_id: ev-102
-    source_system_id: relationship-crm
+    tenant_id: first-meridian-bank
+    source:
+      system_id: relationship-crm
     ingestion_timestamp: 2026-07-01T09:05:00Z
     observed_time: 2026-07-01T08:45:00Z
-    payload:
+    raw_payload:
       borrower_ref: "FMB-BRW-0007"
       borrower_name: "Acme Industrial Holdings"
       borrower_sector: "manufacturing"
       borrower_classification: "internal"
 
   - envelope_id: ev-103
-    source_system_id: treasury-feed
+    tenant_id: first-meridian-bank
+    source:
+      system_id: treasury-feed
     ingestion_timestamp: 2026-07-01T09:10:00Z
     observed_time: 2026-07-01T09:00:00Z
-    payload:
+    raw_payload:
       facility_ref: "FMB-FAC-0007-RCF"
       facility_kind: "revolving-credit"
       facility_limit: "25000000"
@@ -70,10 +83,12 @@ envelopes:
       signal_classification: "internal"
 
   - envelope_id: ev-104
-    source_system_id: covenant-monitor
+    tenant_id: first-meridian-bank
+    source:
+      system_id: covenant-monitor
     ingestion_timestamp: 2026-07-01T09:15:00Z
     observed_time: 2026-07-01T09:05:00Z
-    payload:
+    raw_payload:
       facility_ref: "FMB-FAC-0007-RCF"
       facility_kind: "revolving-credit"
       facility_limit: "25000000"
@@ -84,10 +99,12 @@ envelopes:
       signal_classification: "internal"
 
   - envelope_id: ev-105
-    source_system_id: rating-archive
+    tenant_id: first-meridian-bank
+    source:
+      system_id: rating-archive
     ingestion_timestamp: 2026-07-01T09:20:00Z
     observed_time: 2024-11-15T10:00:00Z
-    payload:
+    raw_payload:
       facility_ref: "FMB-FAC-0007-RCF"
       facility_kind: "revolving-credit"
       facility_limit: "25000000"
@@ -98,10 +115,12 @@ envelopes:
       signal_classification: "internal"
 
   - envelope_id: ev-106
-    source_system_id: workout-desk
+    tenant_id: first-meridian-bank
+    source:
+      system_id: workout-desk
     ingestion_timestamp: 2026-07-01T09:25:00Z
     observed_time: 2026-07-01T09:10:00Z
-    payload:
+    raw_payload:
       facility_ref: "FMB-FAC-0007-RCF"
       facility_kind: "revolving-credit"
       facility_limit: "25000000"

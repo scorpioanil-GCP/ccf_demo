@@ -1,32 +1,41 @@
-# Hello-context token table (D-12: bearer auth on from day one, no
-# anonymous mode; D-26 verifier+settings precedent).
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# Hello-context token table (D-12: bearer auth on from day one, no anonymous
+# mode; D-26 verifier+settings precedent; financial-services domain,
+# D-IMPL-52).
 #
-# The example's in-server token source reads this table; no token value,
-# client identifier, scope, or lifecycle status exists in code (§6.4;
-# CINV-01). These are SYNTHETIC tokens for a runnable demonstration —
-# illustrative values, never production credentials. A real deployment
-# supplies its own TokenSourceProtocol implementation backed by its
-# identity infrastructure.
+# The example's in-server token source reads this table; no token value, client
+# identifier, scope, or lifecycle status exists in code (§6.4; CINV-01). These
+# are SYNTHETIC tokens for a runnable demonstration — illustrative values,
+# never production credentials. A real deployment supplies its own
+# TokenSourceProtocol implementation backed by its identity infrastructure.
 #
-# One ACTIVE external-analyst entry (the four client legs present it), and
-# one REVOKED entry that backs the bad-token 401 refusal assertion — every
-# refusal demonstrated from artifact data, never from a hardcoded bad-token
-# string.
+# One ACTIVE external-analyst entry (the client legs present it), and one
+# REVOKED entry that backs the bad-token 401 refusal assertion — every refusal
+# demonstrated from artifact data, never from a hardcoded bad-token string.
+#
+# `role: load`, and never otherwise: registering this would content-hash
+# credential material into the audit plane. Contrast `experience.yaml`, which
+# IS registered, because what a front door may advertise is exactly the kind of
+# standing statement replay dimension 2 records.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the token source — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
 
-schema_version: "1.0.0"
-artifact_version: "1.0.0"
+semver: "1.0.0"
+class_id: first-meridian-bank.token-table
 
-tokens:
-  - label: analyst
-    token: fmb-external-context-token-2026
-    client_id: external-analyst-07
-    scopes: ["context:read"]
-    status: active
-  - label: revoked
-    token: fmb-external-context-token-2025
-    client_id: external-analyst-07
-    scopes: ["context:read"]
-    status: revoked
+declaration:
+  tokens:
+    - label: analyst
+      token: fmb-external-context-token-2026
+      client_id: external-analyst-07
+      scopes: ["context:read"]
+      status: active
+    - label: revoked
+      token: fmb-external-context-token-2025
+      client_id: external-analyst-07
+      scopes: ["context:read"]
+      status: revoked

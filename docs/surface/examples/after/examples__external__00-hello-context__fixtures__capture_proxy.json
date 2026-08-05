@@ -1,0 +1,14 @@
+{
+  "asserts": 0,
+  "boot": 0,
+  "helpers": 0,
+  "imports": 17,
+  "mech": 0,
+  "opblk": 0,
+  "path": "examples/external/00-hello-context/fixtures/capture_proxy.py",
+  "prints": 7,
+  "raw": 415,
+  "reg": 0,
+  "relocatable": 7,
+  "removable": 0
+}

@@ -8,16 +8,20 @@ Client legs hold an MCP URL and a bearer token, nothing else.
 
 What this process does, in order:
 
-1. Boots a small financial-services fabric from ``artifacts/``: one
-   borrower, one revolving credit facility, a handful of financial signals.
-   Ingests through L1, runs the four-category operator chain, projects,
-   gates. Only a ``ServableProduct`` goes any further.
+1. Boots a small financial-services fabric from ``artifacts/manifest.yaml``:
+   one borrower, one revolving credit facility, a handful of financial
+   signals. One ``load_and_boot`` call replaces what used to be a
+   hand-written loader, a resolution-spec marshaller, a registration
+   prologue and a ``boot`` call; ``build_operator_registry`` replaces the
+   61-line inline operator block. Ingests through L1, runs the
+   four-category operator chain, projects, gates. Only a ``ServableProduct``
+   goes any further.
 2. Hosts the Experience-surface MCP server (``build_experience_server`` —
    the only surface with the D-12-required auth machinery; the raw egress
    server has no auth parameters, which is why this deployment composes
    the front door rather than the egress role). Bearer-token auth is on
-   from day one; the verifier reads ``artifacts/tokens.yaml`` and there is
-   no anonymous mode.
+   from day one; the verifier reads the token table the manifest loaded
+   and there is no anonymous mode.
 3. Composes — never registers — the three external-consumption tools
    the SDK promoted (D-IMPL-74): the provider closures for
    ``get_context`` (the mid-loop tool an external agent calls) and the
@@ -39,11 +43,19 @@ What this process does, in order:
 5. Binds port 0 on loopback and prints ``READY <port>`` once uvicorn
    reports started. The parent's blocking ``readline()`` is the gate.
 
+This file makes no domain claim about what it assembled.
+:func:`build_credit_context` returns what it built — including the parsed
+artifact set — and the assertions about it live in
+``tests/examples/test_ext00_serve_output.py``, where a runner can fail a
+build (D-09). The one ``print`` here is the READY handshake, which is
+process protocol rather than narration and cannot move.
+
 Every domain and deployment value — tenant, entity vocabulary, operator
 parameters, tool prose, token table, auth issuer — comes from
-``artifacts/*.yaml``. Delete the artifacts and this file has nothing to
-assemble or serve (CLAUDE.md §6.4). Nothing here modifies ``/src`` or
-``/runtime``; this is deployment composition over shipped mechanism.
+``artifacts/*.yaml``, enumerated by ``artifacts/manifest.yaml``. Delete the
+artifacts and this file has nothing to assemble or serve (CLAUDE.md §6.4).
+Nothing here modifies ``/src`` or ``/runtime``; this is deployment
+composition over shipped mechanism.
 """
 
 from __future__ import annotations
@@ -55,7 +67,7 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, cast
 
 _EXAMPLE_ROOT = Path(__file__).resolve().parent
 _REPO_ROOT = _EXAMPLE_ROOT.parents[2]
@@ -67,34 +79,25 @@ for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime"):
     if str(_root) not in sys.path:
         sys.path.insert(0, str(_root))
 
-import yaml  # noqa: E402
 from mcp.server.auth.middleware.auth_context import get_access_token  # noqa: E402
 from mcp.server.auth.settings import AuthSettings  # noqa: E402
 from pydantic import AnyHttpUrl  # noqa: E402
 
 from ccf.artifacts.file_store import FileArtifactStore  # noqa: E402
 from ccf.artifacts.protocol import ArtifactRef  # noqa: E402
-from ccf.assembly.worker import (  # noqa: E402
-    EntityResolutionRule,
-    EntityResolutionSpec,
-    RelationshipResolutionRule,
-)
-from ccf.boot import boot  # noqa: E402
 from ccf.contracts.base import CCFContract  # noqa: E402
 from ccf.contracts.canonical import canonical_bytes  # noqa: E402
+from ccf.controlplane.artifacts import (  # noqa: E402
+    DeclaredArtifact,
+    OperatorParametersArtifact,
+    PerspectiveArtifact,
+    ProductClassDeclaration,
+    SignalBatch,
+)
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
+from ccf.deployment import build_operator_registry, load_and_boot  # noqa: E402
 from ccf.graph.protocols import GraphView  # noqa: E402
 from ccf.operators.base import OperatorOutput  # noqa: E402
-from ccf.operators.categories import (  # noqa: E402
-    PolicyFilter,
-    PolicyFilterParameters,
-    SimilaritySelect,
-    SimilaritySelectParameters,
-    TemporalAsOf,
-    TemporalAsOfParameters,
-    TraversalNeighborhood,
-    TraversalNeighborhoodParameters,
-)
 from ccf.products.contract import (  # noqa: E402
     ContextProductContract,
     MaxTTL,
@@ -102,11 +105,7 @@ from ccf.products.contract import (  # noqa: E402
     register_product_class,
 )
 from ccf.products.gates import ServableProduct, run_gates  # noqa: E402
-from ccf.projection.engine import (  # noqa: E402
-    ExecutionResult,
-    OperatorRegistry,
-    ProjectionEngine,
-)
+from ccf.projection.engine import ProjectionEngine  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
 from ccf.replay.record import (  # noqa: E402
     DecisionReplayRecord,
@@ -114,8 +113,6 @@ from ccf.replay.record import (  # noqa: E402
     build_replay_record,
 )
 from ccf.replay.serve import ReplayWriter, serve  # noqa: E402
-from ccf.signal.envelope import SignalEnvelope, SourceIdentity  # noqa: E402
-from ccf.similarity.protocol import TokenOverlapIndex  # noqa: E402
 
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, TokenGrant  # noqa: E402
 from ccf_runtime.mcp.experience import (  # noqa: E402
@@ -129,6 +126,25 @@ from ccf_runtime.mcp.experience import (  # noqa: E402
 )
 
 ARTIFACTS = _EXAMPLE_ROOT / "artifacts"
+MANIFEST = ARTIFACTS / "manifest.yaml"
+
+#: The manifest keys whose artifacts configure the four operator categories.
+#: Named literals, deliberately: they are this deployment's own vocabulary and
+#: an adopter reads and edits them. An `isinstance` filter or a class-id match
+#: would be type introspection, and copied across the suite it would be a new
+#: duplication class of exactly the sort this surface exists to remove.
+OPERATOR_PARAMETER_KEYS: tuple[str, ...] = (
+    "traversal",
+    "temporal",
+    "policy",
+    "similarity",
+)
+
+#: The manifest key the policy bundle is in force under. `build_operator_registry`
+#: looks its pinned version up and completes the policy operator's parameter set
+#: from it (D-IMPL-76) — the deployment names which bundle it admits, the SDK
+#: only resolves the pin.
+POLICY_BUNDLE_KEY = "policy-bundle"
 
 #: Artifact key -> the SDK tool constant that key's provider is bound to
 #: in the `build_experience_server` call below. The artifact carries the
@@ -206,33 +222,21 @@ def get_context_request_label(*, tenant: str, entity: str) -> str:
     return f"get_context tenant={tenant} entity={entity}"
 
 
-def _load(name: str) -> Any:
-    return yaml.safe_load((ARTIFACTS / name).read_text(encoding="utf-8"))
-
-
-def _instant(value: object) -> datetime:
-    # PyYAML resolves `...Z` timestamps to naive datetimes; the canonical
-    # serializer refuses naive datetimes (D-IMPL-38). Attaching UTC at the
-    # artifact boundary is the loader's job; the fabric never guesses.
-    if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=UTC)
-    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-
-
 class ArtifactTokenSource:
     """TokenSourceProtocol over the token-table artifact (example-05 pattern).
 
     Only ACTIVE entries yield a grant; the revoked entry refuses exactly as
     an unknown token does (fail closed). Constant-time comparison, as the
-    shipped file source does.
+    shipped file source does. The entries arrive already parsed off
+    ``BootedFabric.artifacts``, so there is no second read of the file to
+    drift from the first.
     """
 
-    def __init__(self, *, path: Path) -> None:
-        self._path = path
+    def __init__(self, *, entries: Sequence[Mapping[str, Any]]) -> None:
+        self._entries = tuple(entries)
 
     def grant_for(self, *, token: str) -> TokenGrant | None:
-        table = yaml.safe_load(self._path.read_text(encoding="utf-8"))
-        for entry in table["tokens"]:
+        for entry in self._entries:
             if entry["status"] != "active":
                 continue
             if hmac.compare_digest(entry["token"], token):
@@ -265,6 +269,12 @@ class CreditContextPlan:
     which operators its interpretation depends on and interprets their
     output; it does not run them (which is what leaves the L6 lineage gate
     something real to check).
+
+    ``required`` is passed in from the product-class artifact's
+    ``required_operator_keys``, never read off the operator registry. The
+    declaration and the engine's resolution must stay two independent
+    mechanisms: Gate 2 compares them, and a plan that returned the registry's
+    own keys would make that comparison a value against itself.
     """
 
     def __init__(self, *, plan_id: str, required: tuple[str, ...]) -> None:
@@ -314,111 +324,20 @@ class ProductAddress(NamedTuple):
 
 
 class AssembledContext(NamedTuple):
-    """Everything a serve needs: the gated product and its replay inputs."""
+    """Everything a serve needs: the gated product, its replay inputs, and the
+    artifact set the deployment was assembled from.
+
+    ``artifacts`` is on here rather than re-read by every caller because
+    ``load_and_boot`` already parsed and validated every document; a second
+    read is a second answer that can drift from the first. It is also what
+    lets ``tests/examples/test_ext00_serve_output.py`` assert against the same
+    authored values this process ran on.
+    """
 
     servable: ServableProduct
     address: ProductAddress
     record: DecisionReplayRecord
-
-
-def _resolution_spec(ontology: Any) -> EntityResolutionSpec:
-    return EntityResolutionSpec(
-        semver=ontology["artifact_version"],
-        entity_rules=tuple(
-            EntityResolutionRule(
-                match_key=rule["match_key"],
-                entity_class=rule["entity_class"],
-                identity_keys=tuple(rule["identity_keys"]),
-                attribute_keys=tuple(rule.get("attribute_keys", ())),
-            )
-            for rule in ontology["entity_rules"]
-        ),
-        relationship_rules=tuple(
-            RelationshipResolutionRule(
-                relationship_type=rule["relationship_type"],
-                subject_entity_class=rule["subject_entity_class"],
-                object_entity_class=rule["object_entity_class"],
-            )
-            for rule in ontology["relationship_rules"]
-        ),
-    )
-
-
-def _envelopes(ontology: Any, events: Any) -> tuple[SignalEnvelope, ...]:
-    return tuple(
-        SignalEnvelope(
-            tenant_id=ontology["tenant_id"],
-            envelope_id=item["envelope_id"],
-            source=SourceIdentity(system_id=item["source_system_id"]),
-            ingestion_timestamp=_instant(item["ingestion_timestamp"]),
-            observed_time=_instant(item["observed_time"]),
-            raw_payload=dict(item["payload"]),
-        )
-        for item in events["envelopes"]
-    )
-
-
-def _operators(
-    *,
-    ontology: Any,
-    params: Any,
-    policy_version: str,
-    corpus: Mapping[tuple[str, str], str],
-) -> OperatorRegistry:
-    operators = OperatorRegistry()
-    operators.register(
-        PolicyFilter(
-            parameters=PolicyFilterParameters(
-                permitted_policy_bundle_versions=frozenset({policy_version}),
-                classification_attribute_by_class=dict(
-                    ontology["classification_attribute_by_class"]
-                ),
-                permitted_classifications=frozenset(
-                    params["policy"]["permitted_classifications"]
-                ),
-            )
-        )
-    )
-    operators.register(
-        SimilaritySelect(
-            parameters=SimilaritySelectParameters(
-                query=params["similarity"]["query"],
-                minimum_score_percent=params["similarity"][
-                    "minimum_score_percent"
-                ],
-                ranked_entity_classes=frozenset(
-                    params["similarity"]["ranked_entity_classes"]
-                ),
-            ),
-            index=TokenOverlapIndex(
-                corpus=dict(corpus),
-                index_version=params["similarity"]["index_version"],
-            ),
-        )
-    )
-    operators.register(
-        TemporalAsOf(
-            parameters=TemporalAsOfParameters(
-                require_valid_at_boundary=params["temporal"][
-                    "require_valid_at_boundary"
-                ]
-            )
-        )
-    )
-    operators.register(
-        TraversalNeighborhood(
-            parameters=TraversalNeighborhoodParameters(
-                seed_entity_classes=frozenset(
-                    params["traversal"]["seed_entity_classes"]
-                ),
-                relationship_types=frozenset(
-                    params["traversal"]["relationship_types"]
-                ),
-                depth_limit=params["traversal"]["depth_limit"],
-            )
-        )
-    )
-    return operators
+    artifacts: Mapping[str, CCFContract]
 
 
 def build_credit_context(*, database_path: Path) -> AssembledContext:
@@ -428,88 +347,107 @@ def build_credit_context(*, database_path: Path) -> AssembledContext:
     this process, so an external client's read is a read of *the fabric's*
     product rather than of a hand-built dict shaped like one.
     """
-    ontology = _load("ontology.yaml")
-    events = _load("events.yaml")
-    control = _load("controlplane.yaml")
-    product_doc = _load("product.yaml")
-
-    tenant_id: str = ontology["tenant_id"]
-    keys = control["keys"]
-    boundary = _instant(control["decision"]["temporal_boundary"])
-    now = _instant(control["decision"]["now"])
-
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(
-        keys["resolution_spec"], _resolution_spec(ontology)
-    )
-    policy_version = registry.register(
-        keys["policy_bundle"], control["policy_bundle"]
-    )
 
-    handle = boot(
-        database_path=database_path,
-        registry=registry,
-        resolution_spec_key=keys["resolution_spec"],
-        resolution_spec_version=spec_version,
-        policy_bundle_key=keys["policy_bundle"],
-        policy_bundle_version=policy_version,
+    # 1. One call replaces the registration prologue and the boot: the manifest
+    #    names every artifact in force, `load_and_boot` parses all of them,
+    #    registers the `role: register` ones, and boots on the resulting pins.
+    booted = load_and_boot(
+        MANIFEST, registry=registry, database_path=str(database_path)
     )
     try:
-        for envelope in _envelopes(ontology, events):
-            handle.worker.ingest(envelope)
+        # Each artifact comes back under its own manifest key, already validated
+        # against the class the manifest declared for it — so these casts restate
+        # what `load_and_boot` already enforced. A wrong `class_id` in the
+        # manifest fails at parse, before this line runs.
+        events = cast(SignalBatch, booted.artifacts["events"])
+        decision = cast(DeclaredArtifact, booted.artifacts["decision"])
+        governance = cast(DeclaredArtifact, booted.artifacts["product-governance"])
+        declared = cast(ProductClassDeclaration, booted.artifacts["product-class"])
+        perspective = cast(PerspectiveArtifact, booted.artifacts["perspective"])
 
-        corpus_attribute = ontology["similarity_corpus_attribute_by_class"]
-        view = handle.reader.as_of(tenant_id=tenant_id, at=boundary)
-        corpus = {
-            (tenant_id, record.claim.entity_uri): record.claim.attributes[
-                corpus_attribute[record.claim.entity_class]
-            ]
-            for record in view.entities
-            if record.claim.entity_class in corpus_attribute
+        boundary = datetime.fromisoformat(decision.declaration["temporal_boundary"])
+        now = datetime.fromisoformat(decision.declaration["now"])
+
+        # 2. Ingest from the batch the manifest declared `role: load`.
+        for envelope in events.envelopes:
+            booted.handle.worker.ingest(envelope)
+
+        # 3. The graph view at the temporal boundary this deployment named.
+        #    Which boundary a deployment reads its corpus at is a deployment
+        #    decision, so it stays an explicit line here.
+        view = booted.handle.reader.as_of(tenant_id=booted.tenant_id, at=boundary)
+
+        # 4/5. The four-category operator chain (L4), built from the artifacts
+        #      the manifest already parsed. The similarity index's corpus is
+        #      read out of `view` at the boundary above, which is why the
+        #      builder takes the view rather than lazily binding one.
+        parameters: Mapping[str, OperatorParametersArtifact] = {
+            key: cast(OperatorParametersArtifact, booted.artifacts[key])
+            for key in OPERATOR_PARAMETER_KEYS
         }
-        operators = _operators(
-            ontology=ontology,
-            params=control["operator_parameters"],
-            policy_version=policy_version,
-            corpus=corpus,
+        operators = build_operator_registry(
+            parameters=parameters,
+            view=view,
+            pins=booted.pins,
+            policy_bundle_key=POLICY_BUNDLE_KEY,
+            similarity_index_version=governance.declaration[
+                "similarity_index_version"
+            ],
         )
 
-        declared_class = product_doc["product_class"]
-        plan = CreditContextPlan(
-            plan_id=declared_class["plan_id"], required=operators.keys()
-        )
-        perspective = Perspective(
-            principal_id=control["perspective"]["principal_id"],
-            role=control["perspective"]["role"],
-        )
-        engine = ProjectionEngine(reader=handle.reader, registry=operators)
-        execution: ExecutionResult = engine.execute(
-            plan=plan,
+        # 6. Project (L5). The plan's `required` comes from the product-class
+        #    artifact — never from the operator registry's own keys, which
+        #    would make Gate 2 compare a value against itself.
+        execution = ProjectionEngine(
+            reader=booted.handle.reader, registry=operators
+        ).execute(
+            plan=CreditContextPlan(
+                plan_id=governance.declaration["plan_id"],
+                required=declared.required_operator_keys,
+            ),
             perspective=perspective,
-            tenant_id=tenant_id,
+            tenant_id=booted.tenant_id,
             temporal_boundary=boundary,
         )
 
+        # 7. L6 — and this cluster stays in deployment code deliberately.
+        #
+        #    Gate 3 compares the class's TTL CEILING against this product's own
+        #    `expires_at`. That is only a check while the two are independently
+        #    authored. Registering the MaxTTL value here is what MINTS
+        #    `max_ttl_version` — the pin is a content hash of what was
+        #    registered, which is why the product-class artifact cannot declare
+        #    it. A helper that minted the pin and stamped the product would be
+        #    comparing a value against itself, so the SDK ships no such helper
+        #    and these lines survive the ergonomics phase on purpose.
         max_ttl_version = registry.register(
-            keys["max_ttl"], MaxTTL(seconds=control["max_ttl_seconds"])
+            declared.max_ttl_key,
+            MaxTTL(seconds=governance.declaration["max_ttl_seconds"]),
         )
         product_class = register_product_class(
             registry=registry,
-            schema_name=declared_class["schema_name"],
-            schema_version=declared_class["schema_version"],
-            ttl_anchor=declared_class["ttl_anchor"],
-            assembly_mode=declared_class["assembly_mode"],
-            max_ttl_key=keys["max_ttl"],
+            schema_name=declared.schema_name,
+            schema_version=declared.schema_version,
+            ttl_anchor=declared.ttl_anchor,
+            assembly_mode=declared.assembly_mode,
+            max_ttl_key=declared.max_ttl_key,
             max_ttl_version=max_ttl_version,
         )
+
+        # 8. The lineage the product CLAIMS, and the gates. `engine_resolved`
+        #    is passed as a separate argument from a second, independent source
+        #    — the engine's own resolution — because Gate 2 exists to catch a
+        #    producer misdeclaring.
+        policy_version = booted.pins.version_for(POLICY_BUNDLE_KEY)
         candidate = ContextProductContract(
             schema_name=product_class.schema_name,
             schema_version=product_class.schema_version,
             plan_id=execution.plan_id,
-            tenant_id=tenant_id,
+            tenant_id=booted.tenant_id,
             temporal_boundary=boundary,
             expires_at=now
-            + timedelta(seconds=declared_class["product_ttl_seconds"]),
+            + timedelta(seconds=governance.declaration["product_ttl_seconds"]),
             ttl_anchor=product_class.ttl_anchor,
             lineage=ProductLineage(
                 operators_invoked=execution.operators_invoked,
@@ -518,68 +456,51 @@ def build_credit_context(*, database_path: Path) -> AssembledContext:
             ),
             payload=execution.projection.payload,
         )
-        gated = run_gates(
+        # A refusal is not a thing to proceed past, and a bare `assert` would
+        # vanish under `python -O`: `ServableProduct` is not constructible
+        # outside `run_gates`, so holding one IS the evidence the gates ran
+        # (INV-CH7-52). Nothing external ever sees an ungated product.
+        match run_gates(
             candidate,
             engine_resolved=execution.operators_invoked,
             now=now,
             registry=registry,
             product_class=product_class,
-        )
-        # Explicit raises, not asserts: `python -O` strips assert
-        # statements, and gate admission plus the pre-delivery self-check
-        # are guarantees this deployment makes, not development hints.
-        if not isinstance(gated, ServableProduct):
-            raise ExperienceProductNotServable(
-                f"the product did not pass the validation gates: {gated}"
-            )
-
-        # Fabric-side self-check: the served view matches what the
-        # deployment declared it expects — before anything external sees it.
-        expected = product_doc["expected"]
-        payload = gated.product.payload
-        actual_classes = sorted(
-            {entry["entity_class"] for entry in payload["entities"]}
-        )
-        for label, got, want in (
-            ("entity_count", payload["entity_count"], expected["entity_count"]),
-            (
-                "entity_classes",
-                actual_classes,
-                sorted(expected["entity_classes"]),
-            ),
-            (
-                "relationship_types",
-                payload["relationship_types"],
-                sorted(expected["relationship_types"]),
-            ),
         ):
-            if got != want:
+            case ServableProduct() as gated:
+                pass
+            case refusal:
                 raise ExperienceProductNotServable(
-                    f"assembled product {label} is {got!r}; "
-                    f"product.yaml expects {want!r}"
+                    f"the three validation gates refused this product: {refusal}"
                 )
 
+        # Replay before delivery. `policy_bindings` is built here, from the
+        # pins read off `BootedFabric.pins`: D-06 keeps the SELECTION of which
+        # bindings are in force in deployment hands, because dimension 2
+        # assembled by a rule nobody in the deployment wrote down is not an
+        # audit record.
         record = build_replay_record(
             execution=execution,
             product=gated.product,
             perspective=perspective,
             policy_bindings=(
-                PolicyBinding(key=keys["policy_bundle"], version=policy_version),
+                PolicyBinding(key=POLICY_BUNDLE_KEY, version=policy_version),
             ),
-            assembly_mode=declared_class["assembly_mode"],
+            assembly_mode=declared.assembly_mode,
             recorded_at=now,
         )
     finally:
-        handle.close()
+        booted.handle.close()
 
     return AssembledContext(
         servable=gated,
         address=ProductAddress(
-            tenant=tenant_id,
+            tenant=booted.tenant_id,
             product_class=product_class.schema_name,
             version=product_class.schema_version,
         ),
         record=record,
+        artifacts=booted.artifacts,
     )
 
 
@@ -588,21 +509,27 @@ def main() -> None:
     import anyio
     import uvicorn
 
-    control = _load("controlplane.yaml")
-    product_doc = _load("product.yaml")
-    experience = _load("experience.yaml")
-
-    store = FileArtifactStore(root=_EXAMPLE_ROOT / ".store")
-    writer = ReplayWriter(
-        store=store,
-        artifact_class=control["artifacts"]["replay_record_class"],
-    )
-    serve_request_class: str = control["artifacts"]["serve_request_class"]
-
     with tempfile.TemporaryDirectory(prefix="ccf-ext00-fabric-") as scratch:
         assembled = build_credit_context(
             database_path=Path(scratch) / "fabric.sqlite3"
         )
+        governance = cast(
+            DeclaredArtifact, assembled.artifacts["product-governance"]
+        ).declaration
+        experience = cast(
+            DeclaredArtifact, assembled.artifacts["experience"]
+        ).declaration
+        focus = cast(DeclaredArtifact, assembled.artifacts["focus"]).declaration
+        token_entries = cast(
+            DeclaredArtifact, assembled.artifacts["tokens"]
+        ).declaration["tokens"]
+
+        store = FileArtifactStore(root=_EXAMPLE_ROOT / ".store")
+        writer = ReplayWriter(
+            store=store, artifact_class=governance["replay_record_class"]
+        )
+        serve_request_class: str = governance["serve_request_class"]
+
         # Keyed by the VERIFIED client identity, not a single process-global
         # slot. A shared slot served whichever record was written last to
         # whichever caller asked next: client A's decision record was
@@ -660,8 +587,6 @@ def main() -> None:
                 )
             )
             return assembled.servable
-
-        focus = product_doc["focus"]
 
         def context_provider(*, tenant: str, entity: str) -> str:
             if (
@@ -723,7 +648,7 @@ def main() -> None:
                 "description"
             ],
             token_verifier=SourceBackedTokenVerifier(
-                source=ArtifactTokenSource(path=ARTIFACTS / "tokens.yaml")
+                source=ArtifactTokenSource(entries=token_entries)
             ),
             auth_settings=AuthSettings(
                 issuer_url=AnyHttpUrl(auth_values["issuer_url"]),
