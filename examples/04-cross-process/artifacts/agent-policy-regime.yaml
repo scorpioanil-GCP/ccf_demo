@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The AGENT's axis-4 policy regime (CLAUDE.md §6.2 channel 1;
+# syndicated-lending domain, whitepaper §8.3 Pattern 4).
+#
+# Distinct from `policy-bundle.yaml`, which is what the producer FABRIC boots
+# under. This is the regime in force for one agent: the envelope of what that
+# agent is entitled to see and which skills it may bind. The agent definition
+# names it by versioned URI and never inlines it (§6.4).
+#
+# `producer-manifest.yaml` registers this under
+# `harborline-syndications/policy-bundle/syndications-desk-regime`, which is exactly the
+# `{tenant}/{artifact_class}/{name}` the definition's ref resolves to. Two
+# independent statements of one key; the Agent Factory refuses at construction
+# if they disagree.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: policy-bundle
+
+declaration:
+  regime: harborline-syndications-desk
+  permitted_classifications: [internal]

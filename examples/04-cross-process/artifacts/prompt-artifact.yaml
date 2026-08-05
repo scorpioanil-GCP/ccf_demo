@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.prompt-artifact.json
+# The assembler's prompt artifact (CLAUDE.md §6.2 axis 6; D-IMPL-28; D-13).
+# Property-intelligence domain, D-08.
+#
+# The template text and its declared parameters live here, never in code — a
+# prompt string literal in either driver would be the No-Hardcoding Rule (§6.4)
+# firing, and CINV-01 lints `/examples` for exactly that. Validation is
+# parse-only: `declared_parameters` must exactly equal the set Jinja2 reports as
+# undeclared variables in `template`; nothing renders here.
+#
+# Author-versioned like the agent definition, and absent from the manifest for
+# the same reason — see `agent-registration.yaml`.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the artifact name, tenant, template text and parameter names
+# are [ADAPT]; the keys `schema_version`, `artifact_version`, `name`, `tenant`,
+# `declared_parameters` and `template` are [MECHANISM].
+
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
+name: covenant-brief
+tenant: harborline-syndications
+declared_parameters: [facility_ref, as_of]
+template: |
+  Summarize the covenant position on facility {{ facility_ref }} as of
+  {{ as_of }}: the financial covenants in force, the compliance certificates
+  evidencing them, and whether the assembled context is fresh enough to act on.

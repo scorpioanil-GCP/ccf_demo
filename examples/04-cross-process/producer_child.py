@@ -1,38 +1,40 @@
 """examples/04-cross-process — the assembler side, in its own OS process.
 
-Run by ``run.py`` as ``python examples/04-cross-process/producer_child.py``,
-or standalone with the same command. A separate process is the entire point:
-the producer's fabric, its graph file, its Control Plane registry and its
-private key live in this heap; the consumer's live in the parent's. "The
-consumer holds no write handle to the producer's graph" is therefore
-literally true here rather than argued.
+Run by ``run.py`` as ``python examples/04-cross-process/producer_child.py``, or
+standalone with the same command. A separate process is the entire point: the
+producer's fabric, its graph file, its Control Plane registry and its private
+key live in this heap; the consumer's live in the parent's. "The consumer holds
+no write handle to the producer's graph" is therefore literally true here rather
+than argued.
 
 What this child does, in order:
 
-1. Boots a property-intelligence fabric from ``artifacts/`` (fresh domain,
-   D-07/D-08 — nothing ported), ingests the event stream through L1, runs
-   the four-category operator chain, projects, and gates. Only a
-   ``ServableProduct`` goes any further.
-2. Constructs the ``site-situation-assembler`` agent through the Agent
-   Factory — the only supported construction path (CLAUDE.md §6.4) — from
-   its definition artifact, and validates the gated product against the
-   agent's context contract (§6.3: a ``ContextAssemblyAgent`` whose output
-   is itself a typed Context Product).
-3. Signs the product as this peer (detached JWS, D-IMPL-15) and, when the
-   parent supplied a consumer URL, emits TWO messages over A2A before
-   announcing: the genuine signed envelope, and a deliberately broken one
-   that splices the genuine signature onto a different payload — so a real
-   tampered envelope traverses a real socket for the parent's negative case.
-4. Serves the same product over MCP egress (whitepaper §8.3 Pattern 3) and
-   hosts this peer's own A2A endpoint, both on ephemeral loopback ports, and
-   prints ``READY {mcp_port} {a2a_port}`` only once both servers report
-   started. The parent's blocking ``readline()`` is the gate — no sleeps.
+1. Boots a fabric from ``artifacts/producer-manifest.yaml``, ingests the event
+   stream through L1, runs the four-category operator chain, projects, and
+   gates. Only a ``ServableProduct`` goes any further.
+2. Constructs the assembler agent through the Agent Factory — the only supported
+   construction path (CLAUDE.md §6.4) — from its definition artifact, and
+   validates the gated product against the agent's context contract (§6.3: a
+   ``ContextAssemblyAgent`` whose output is itself a typed Context Product).
+3. Signs the product as this peer (detached JWS, D-IMPL-15) and, when the parent
+   supplied a consumer URL, emits TWO messages over A2A before announcing: the
+   genuine signed envelope, and a deliberately broken one that splices the
+   genuine signature onto a different payload — so a real tampered envelope
+   traverses a real socket for the parent's negative case.
+4. Serves the same product over MCP egress (whitepaper §8.3 Pattern 3) and hosts
+   this peer's own A2A endpoint, both on ephemeral loopback ports, and prints
+   ``READY {mcp_port} {a2a_port}`` only once both servers report started. The
+   parent's blocking ``readline()`` is the gate — no sleeps.
 
-Every domain value — tenant, entity classes, operator parameters, peer
-identity, endpoint path, ceilings — comes from ``artifacts/*.yaml``. Delete
-the artifacts and this file has nothing to assemble, sign, or serve
-(CLAUDE.md §6.4). Zero porting from any prior property system (D-07):
-every name and value in those artifacts is invented for this example.
+This file asserts nothing. :func:`build_covenant_slice_product` returns what it
+built, and the assertions about it live in
+``tests/examples/test_cross_process_output.py`` where a runner can fail a build
+(D-09).
+
+Every domain value — tenant, entity classes, operator parameters, peer identity,
+endpoint path, ceilings — comes from ``artifacts/*.yaml``, enumerated by
+``artifacts/producer-manifest.yaml``. Delete the artifacts and this file has
+nothing to assemble, sign, or serve (CLAUDE.md §6.4).
 """
 
 from __future__ import annotations
@@ -43,9 +45,9 @@ import socket
 import sys
 import tempfile
 from collections.abc import Mapping
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import NamedTuple, cast
 
 _EXAMPLE_ROOT = Path(__file__).resolve().parent
 _REPO_ROOT = _EXAMPLE_ROOT.parents[1]
@@ -57,41 +59,25 @@ for _root in (_REPO_ROOT / "src", _REPO_ROOT / "runtime"):
     if str(_root) not in sys.path:
         sys.path.insert(0, str(_root))
 
-import httpx  # noqa: E402
-import yaml  # noqa: E402
-
 from ccf.agents.agent import Agent  # noqa: E402
 from ccf.agents.definitions import (  # noqa: E402
     AGENT_DEFINITION,
     PROMPT_ARTIFACT,
     AgentDefinition,
-    PromptArtifact,
 )
 from ccf.agents.factory import AgentFactory  # noqa: E402
-from ccf.assembly.worker import (  # noqa: E402
-    EntityResolutionRule,
-    EntityResolutionSpec,
-    RelationshipResolutionRule,
-)
-from ccf.boot import boot  # noqa: E402
-from ccf.contracts.canonical import content_hash  # noqa: E402
 from ccf.controlplane.artifacts import (  # noqa: E402
-    declared_artifact_class,
-    parse_artifact,
+    DeclaredArtifact,
+    OperatorParametersArtifact,
+    PerspectiveArtifact,
+    ProductClassDeclaration,
+    SignalBatch,
+    load_artifact,
 )
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
+from ccf.deployment import build_operator_registry, load_and_boot  # noqa: E402
 from ccf.graph.protocols import GraphView  # noqa: E402
 from ccf.operators.base import OperatorOutput  # noqa: E402
-from ccf.operators.categories import (  # noqa: E402
-    PolicyFilter,
-    PolicyFilterParameters,
-    SimilaritySelect,
-    SimilaritySelectParameters,
-    TemporalAsOf,
-    TemporalAsOfParameters,
-    TraversalNeighborhood,
-    TraversalNeighborhoodParameters,
-)
 from ccf.peering.admission import PRODUCER_ASSERTION_HEADER  # noqa: E402
 from ccf.peering.identity import (  # noqa: E402
     DetachedJwsIdentityProvider,
@@ -106,10 +92,8 @@ from ccf.products.contract import (  # noqa: E402
     register_product_class,
 )
 from ccf.products.gates import ServableProduct, run_gates  # noqa: E402
-from ccf.projection.engine import OperatorRegistry, ProjectionEngine  # noqa: E402
+from ccf.projection.engine import ProjectionEngine  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
-from ccf.signal.envelope import SignalEnvelope, SourceIdentity  # noqa: E402
-from ccf.similarity.protocol import TokenOverlapIndex  # noqa: E402
 
 from ccf_runtime.mcp.egress import (  # noqa: E402
     ProductNotServable,
@@ -119,6 +103,13 @@ from ccf_runtime.mcp.egress import (  # noqa: E402
 from ccf_runtime.peering.typed_http import TypedHttpWire  # noqa: E402
 
 ARTIFACTS = _EXAMPLE_ROOT / "artifacts"
+MANIFEST = ARTIFACTS / "producer-manifest.yaml"
+
+#: The two author-versioned documents the manifest deliberately does not name.
+#: See the module docstring in ``artifacts/agent-registration.yaml``: they need
+#: ``register_versioned``'s D-05 bump check, which ``load_and_boot`` does not do.
+AGENT_DEFINITION_DOCUMENT = ARTIFACTS / "agent-definition.yaml"
+PROMPT_ARTIFACT_DOCUMENT = ARTIFACTS / "prompt-artifact.yaml"
 
 #: Environment variables the parent sets before spawning. Shared vocabulary
 #: between this module and ``run.py`` so the two cannot disagree on a name.
@@ -128,63 +119,19 @@ CONSUMER_URL_VAR = "CCF_EXAMPLE04_CONSUMER_URL"
 KEY_DIR_VAR = "CCF_EXAMPLE04_KEY_DIR"
 
 
-def _load(name: str) -> Any:
-    return yaml.safe_load((ARTIFACTS / name).read_text(encoding="utf-8"))
-
-
-def _instant(value: object) -> datetime:
-    # PyYAML resolves `...Z` timestamps to naive datetimes; the canonical
-    # serializer refuses naive datetimes (D-IMPL-38). Attaching UTC at the
-    # artifact boundary is the loader's job; the fabric never guesses.
-    if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=UTC)
-    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-
-
-def _resolution_spec(ontology: Any) -> EntityResolutionSpec:
-    return EntityResolutionSpec(
-        semver=ontology["artifact_version"],
-        entity_rules=tuple(
-            EntityResolutionRule(
-                match_key=rule["match_key"],
-                entity_class=rule["entity_class"],
-                identity_keys=tuple(rule["identity_keys"]),
-                attribute_keys=tuple(rule.get("attribute_keys", ())),
-            )
-            for rule in ontology["entity_rules"]
-        ),
-        relationship_rules=tuple(
-            RelationshipResolutionRule(
-                relationship_type=rule["relationship_type"],
-                subject_entity_class=rule["subject_entity_class"],
-                object_entity_class=rule["object_entity_class"],
-            )
-            for rule in ontology["relationship_rules"]
-        ),
-    )
-
-
-def _envelopes(ontology: Any, events: Any) -> tuple[SignalEnvelope, ...]:
-    return tuple(
-        SignalEnvelope(
-            tenant_id=ontology["tenant_id"],
-            envelope_id=item["envelope_id"],
-            source=SourceIdentity(system_id=item["source_system_id"]),
-            ingestion_timestamp=_instant(item["ingestion_timestamp"]),
-            observed_time=_instant(item["observed_time"]),
-            raw_payload=dict(item["payload"]),
-        )
-        for item in events["envelopes"]
-    )
-
-
-class SituationPlan:
+class CovenantSlicePlan:
     """The deployment's Π: what the reconciled subgraph means to its reader.
 
     A projection is deployment code — this is what a user writes. It declares
-    which operators its interpretation depends on and interprets their
-    output; it does not run them and cannot tell the engine what ran (which
-    is what leaves the L6 lineage gate something real to check).
+    which operators its interpretation depends on and interprets their output;
+    it does not run them and cannot tell the engine what ran (which is what
+    leaves the L6 lineage gate something real to check).
+
+    ``required`` is passed in from the product-class artifact's
+    ``required_operator_keys``, never read off the operator registry. The
+    declaration and the engine's resolution must stay two independent
+    mechanisms: Gate 2 compares them, and a plan that returned the registry's
+    own keys would make that comparison a value against itself.
     """
 
     def __init__(self, *, plan_id: str, required: tuple[str, ...]) -> None:
@@ -241,16 +188,29 @@ class ProductAddress(NamedTuple):
         )
 
 
-class AssembledSituation(NamedTuple):
-    """The gated product, its egress address, and its serving identity."""
+class AssembledCovenantSlice(NamedTuple):
+    """The gated product, its egress address, its serving identity, its agent.
+
+    Returned rather than asserted about, so
+    ``tests/examples/test_cross_process_output.py`` can hold the producer-side
+    assertions where a test runner will actually run them (D-09).
+    """
 
     servable: ServableProduct
     address: ProductAddress
     server_name: str
+    agent: Agent
+    definition: AgentDefinition
+    definition_version: str
+    expected: Mapping[str, object]
+    peering: Mapping[str, str | int]
+    declared_operator_keys: tuple[str, ...]
+    operators_invoked: tuple[str, ...]
+    now: datetime
 
 
-def build_situation_product(*, database_path: Path) -> AssembledSituation:
-    """Run the property-intelligence slice end to end and gate the result.
+def build_covenant_slice_product(*, database_path: Path) -> AssembledCovenantSlice:
+    """Run the lead arranger's slice end to end and gate the result.
 
     The product is assembled, not fabricated: the whole L1->L6 path runs in
     this process, so the cross-process read on the other side is a read of
@@ -261,164 +221,129 @@ def build_situation_product(*, database_path: Path) -> AssembledSituation:
             by the caller so parent and child cannot collide on a file.
 
     Returns:
-        The gated product plus its egress address and server name.
+        The gated product plus its egress address, server name, and the
+        factory-constructed agent that validated it.
     """
-    ontology = _load("ontology.yaml")
-    events = _load("events.yaml")
-    control = _load("controlplane.yaml")
-    agent_doc = _load("agent.yaml")
-    prompt_doc = _load("prompt.yaml")
-
-    tenant_id: str = ontology["tenant_id"]
-    keys = control["keys"]
-    boundary = _instant(control["decision"]["temporal_boundary"])
-    now = _instant(control["decision"]["now"])
-
     registry = ControlPlaneRegistry()
-    spec_version = registry.register(
-        keys["resolution_spec"], _resolution_spec(ontology)
-    )
-    policy_version = registry.register(
-        keys["policy_bundle"], control["policy_bundle"]
-    )
 
-    # The assembler agent's own artifacts: prompt (axis 6), referenced
-    # policy-regime and debt-profile artifacts (axes 4/5), the definition.
-    prompt = parse_artifact(prompt_doc["prompt_artifact"], PROMPT_ARTIFACT)
-    assert isinstance(prompt, PromptArtifact)
-    registry.register_typed(
-        prompt_doc["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
-    )
-    for reference in agent_doc["referenced_artifacts"].values():
-        artifact_class = declared_artifact_class(reference["class_id"])
-        declared = parse_artifact(
-            {
-                "class_id": reference["class_id"],
-                "semver": reference["semver"],
-                "declaration": reference["declaration"],
-            },
-            artifact_class,
-        )
-        registry.register_typed(reference["key"], declared, artifact_class)
-    definition = parse_artifact(agent_doc["agent_definition"], AGENT_DEFINITION)
-    assert isinstance(definition, AgentDefinition)
-    definition_key = agent_doc["keys"]["agent_definition"]
-    definition_version = registry.register_versioned(
-        definition_key, definition, AGENT_DEFINITION
-    )
-
-    handle = boot(
-        database_path=database_path,
-        registry=registry,
-        resolution_spec_key=keys["resolution_spec"],
-        resolution_spec_version=spec_version,
-        policy_bundle_key=keys["policy_bundle"],
-        policy_bundle_version=policy_version,
+    # 1. One call replaces the registration prologue and the boot: the manifest
+    #    names every artifact in force, `load_and_boot` parses all of them,
+    #    registers the `role: register` ones, and boots on the resulting pins.
+    booted = load_and_boot(
+        MANIFEST, registry=registry, database_path=str(database_path)
     )
     try:
-        for envelope in _envelopes(ontology, events):
-            handle.worker.ingest(envelope)
+        events = cast(SignalBatch, booted.artifacts["events"])
+        decision = cast(DeclaredArtifact, booted.artifacts["decision"])
+        expected = cast(DeclaredArtifact, booted.artifacts["expected"])
+        governance = cast(DeclaredArtifact, booted.artifacts["product-governance"])
+        declared = cast(ProductClassDeclaration, booted.artifacts["product-class"])
+        perspective = cast(PerspectiveArtifact, booted.artifacts["perspective"])
+        registration = cast(DeclaredArtifact, booted.artifacts["agent-registration"])
+        peering = cast(DeclaredArtifact, booted.artifacts["producer-peering"])
 
-        params = control["operator_parameters"]
-        operators = OperatorRegistry()
-        operators.register(
-            PolicyFilter(
-                parameters=PolicyFilterParameters(
-                    permitted_policy_bundle_versions=frozenset({policy_version}),
-                    classification_attribute_by_class=dict(
-                        ontology["classification_attribute_by_class"]
-                    ),
-                    permitted_classifications=frozenset(
-                        params["policy"]["permitted_classifications"]
-                    ),
-                )
+        boundary = datetime.fromisoformat(decision.declaration["temporal_boundary"])
+        now = datetime.fromisoformat(decision.declaration["now"])
+
+        # 2. The two AUTHOR-VERSIONED artifacts, registered here rather than by
+        #    the manifest. `register_versioned` holds the author's
+        #    `artifact_version` claim against content identity — the D-05 bump
+        #    check — and `load_and_boot`'s `register_typed` path does not.
+        prompt = load_artifact(
+            PROMPT_ARTIFACT_DOCUMENT.read_text(encoding="utf-8"), PROMPT_ARTIFACT
+        )
+        registry.register_versioned(
+            registration.declaration["prompt_artifact_key"], prompt, PROMPT_ARTIFACT
+        )
+        definition = AGENT_DEFINITION.validate(
+            load_artifact(
+                AGENT_DEFINITION_DOCUMENT.read_text(encoding="utf-8"),
+                AGENT_DEFINITION,
             )
         )
-        corpus_attribute = ontology["similarity_corpus_attribute_by_class"]
-        view = handle.reader.as_of(tenant_id=tenant_id, at=boundary)
-        corpus = {
-            (tenant_id, record.claim.entity_uri): record.claim.attributes[
-                corpus_attribute[record.claim.entity_class]
-            ]
-            for record in view.entities
-            if record.claim.entity_class in corpus_attribute
+        definition_key = registration.declaration["agent_definition_key"]
+        match registry.register_versioned(
+            definition_key, definition, AGENT_DEFINITION
+        ):
+            case str() as definition_version:
+                pass
+            case refusal:
+                raise RuntimeError(
+                    f"the Control Plane refused the agent definition: {refusal}"
+                )
+
+        # 3. Ingest from the batch the manifest declared `role: load`.
+        for envelope in events.envelopes:
+            booted.handle.worker.ingest(envelope)
+
+        # 4. The graph view at the temporal boundary this deployment named.
+        view = booted.handle.reader.as_of(tenant_id=booted.tenant_id, at=boundary)
+
+        # 5. The operator-parameters mapping, assembled by naming this
+        #    deployment's OWN manifest keys — configuration an adopter reads and
+        #    edits, deliberately not an isinstance filter or a class-id match.
+        parameters: Mapping[str, OperatorParametersArtifact] = {
+            key: cast(OperatorParametersArtifact, booted.artifacts[key])
+            for key in ("traversal", "temporal", "policy", "similarity")
         }
-        operators.register(
-            SimilaritySelect(
-                parameters=SimilaritySelectParameters(
-                    query=params["similarity"]["query"],
-                    minimum_score_percent=params["similarity"][
-                        "minimum_score_percent"
-                    ],
-                    ranked_entity_classes=frozenset(
-                        params["similarity"]["ranked_entity_classes"]
-                    ),
-                ),
-                index=TokenOverlapIndex(
-                    corpus=corpus,
-                    index_version=params["similarity"]["index_version"],
-                ),
-            )
-        )
-        operators.register(
-            TemporalAsOf(
-                parameters=TemporalAsOfParameters(
-                    require_valid_at_boundary=params["temporal"][
-                        "require_valid_at_boundary"
-                    ]
-                )
-            )
-        )
-        operators.register(
-            TraversalNeighborhood(
-                parameters=TraversalNeighborhoodParameters(
-                    seed_entity_classes=frozenset(
-                        params["traversal"]["seed_entity_classes"]
-                    ),
-                    relationship_types=frozenset(
-                        params["traversal"]["relationship_types"]
-                    ),
-                    depth_limit=params["traversal"]["depth_limit"],
-                )
-            )
+        operators = build_operator_registry(
+            parameters=parameters,
+            view=view,
+            pins=booted.pins,
+            policy_bundle_key="policy-bundle",
+            similarity_index_version=governance.declaration[
+                "similarity_index_version"
+            ],
         )
 
-        declared_class = control["product_class"]
-        plan = SituationPlan(
-            plan_id=declared_class["plan_id"], required=operators.keys()
-        )
-        perspective = Perspective(
-            principal_id=control["perspective"]["principal_id"],
-            role=control["perspective"]["role"],
-        )
-        engine = ProjectionEngine(reader=handle.reader, registry=operators)
-        execution = engine.execute(
-            plan=plan,
+        # 6. Project (L5). The plan's `required` comes from the product-class
+        #    artifact — never from the operator registry's own keys.
+        execution = ProjectionEngine(
+            reader=booted.handle.reader, registry=operators
+        ).execute(
+            plan=CovenantSlicePlan(
+                plan_id=governance.declaration["plan_id"],
+                required=declared.required_operator_keys,
+            ),
             perspective=perspective,
-            tenant_id=tenant_id,
+            tenant_id=booted.tenant_id,
             temporal_boundary=boundary,
         )
 
+        # 7. L6 — and this cluster stays in adopter code deliberately. Gate 3
+        #    compares the class's TTL CEILING against this product's own
+        #    `expires_at`, and that is only a check while the two are
+        #    independently authored. Registering the MaxTTL here is what MINTS
+        #    `max_ttl_version`; a helper that minted the pin and stamped the
+        #    product would be comparing a value against itself.
         max_ttl_version = registry.register(
-            keys["max_ttl"], MaxTTL(seconds=control["max_ttl_seconds"])
+            declared.max_ttl_key,
+            MaxTTL(seconds=governance.declaration["max_ttl_seconds"]),
         )
         product_class = register_product_class(
             registry=registry,
-            schema_name=declared_class["schema_name"],
-            schema_version=declared_class["schema_version"],
-            ttl_anchor=declared_class["ttl_anchor"],
-            assembly_mode=declared_class["assembly_mode"],
-            max_ttl_key=keys["max_ttl"],
+            schema_name=declared.schema_name,
+            schema_version=declared.schema_version,
+            ttl_anchor=declared.ttl_anchor,
+            assembly_mode=declared.assembly_mode,
+            max_ttl_key=declared.max_ttl_key,
             max_ttl_version=max_ttl_version,
         )
+
+        # 8. The lineage the product CLAIMS, and the gates. `engine_resolved` is
+        #    passed as a separate argument from a second, independent source —
+        #    the engine's own resolution — because Gate 2 exists to catch a
+        #    producer misdeclaring. This policy version is also what the
+        #    consumer's trust policy holds this peer to at admission (§7.2).
+        policy_version = booted.pins.version_for("policy-bundle")
         candidate = ContextProductContract(
             schema_name=product_class.schema_name,
             schema_version=product_class.schema_version,
             plan_id=execution.plan_id,
-            tenant_id=tenant_id,
+            tenant_id=booted.tenant_id,
             temporal_boundary=boundary,
             expires_at=now
-            + timedelta(seconds=declared_class["product_ttl_seconds"]),
+            + timedelta(seconds=governance.declaration["product_ttl_seconds"]),
             ttl_anchor=product_class.ttl_anchor,
             lineage=ProductLineage(
                 operators_invoked=execution.operators_invoked,
@@ -427,49 +352,49 @@ def build_situation_product(*, database_path: Path) -> AssembledSituation:
             ),
             payload=execution.projection.payload,
         )
-        gated = run_gates(
+        match run_gates(
             candidate,
             engine_resolved=execution.operators_invoked,
             now=now,
             registry=registry,
             product_class=product_class,
-        )
-        assert isinstance(gated, ServableProduct), gated
+        ):
+            case ServableProduct() as gated:
+                pass
+            case refusal:
+                raise RuntimeError(
+                    f"the three validation gates refused this product: {refusal}"
+                )
 
-        # The served view matches what the deployment declared it expects.
-        expected = control["expected"]
-        payload = gated.product.payload
-        assert payload["entity_count"] == expected["entity_count"], payload
-        assert sorted(
-            {entry["entity_class"] for entry in payload["entities"]}
-        ) == sorted(expected["entity_classes"]), payload
-        assert payload["relationship_types"] == sorted(
-            expected["relationship_types"]
-        ), payload
-
-        # The assembler agent: factory-constructed from its definition
-        # artifact — the only supported path (§6.4) — and the gated product
-        # validates against its context contract before anything is served.
+        # 9. The assembler agent: factory-constructed from its definition
+        #    artifact — the only supported path (§6.4) — and the gated product
+        #    validates against its context contract before anything is served.
         agent = AgentFactory(control_plane=registry).construct(
             definition_key=definition_key,
             definition_version=definition_version,
         )
-        assert isinstance(agent, Agent)
-        assert agent.identity.definition_hash == content_hash(definition)
-        assert agent.consume(gated.product, now=now) is gated.product
+        agent.consume(gated.product, now=now)
     finally:
-        handle.close()
+        booted.handle.close()
 
-    return AssembledSituation(
+    return AssembledCovenantSlice(
         servable=gated,
         address=ProductAddress(
-            tenant=tenant_id,
+            tenant=booted.tenant_id,
             product_class=product_class.schema_name,
             version=product_class.schema_version,
         ),
         # Deployment identity, taken from the artifact that owns it rather
         # than written here — a server name in code is a domain value in code.
-        server_name=declared_class["plan_id"],
+        server_name=governance.declaration["plan_id"],
+        agent=agent,
+        definition=definition,
+        definition_version=definition_version,
+        expected=expected.declaration,
+        peering=peering.declaration,
+        declared_operator_keys=declared.required_operator_keys,
+        operators_invoked=execution.operators_invoked,
+        now=now,
     )
 
 
@@ -503,40 +428,38 @@ def _throwaway_key(directory: Path, key_id: str) -> None:
 def main() -> None:
     """Assemble, sign, emit (when a consumer is listening), serve, announce."""
     import anyio
+    import httpx
     import uvicorn
-
-    federation = _load("a2a.yaml")
-    control = _load("controlplane.yaml")
-    consumer_values = federation["consumer"]
-    producer_values = federation["producer"]
-    now = _instant(control["decision"]["now"])
-
-    consumer_url = os.environ.get(CONSUMER_URL_VAR)
 
     with tempfile.TemporaryDirectory(prefix="ccf-example04-producer-") as scratch:
         workspace = Path(scratch)
-        assembled = build_situation_product(
+        assembled = build_covenant_slice_product(
             database_path=workspace / "producer.sqlite3"
         )
         product = assembled.servable.product
+        now = assembled.now
+        # This peer's own federation identity, from its own Control Plane. The
+        # consumer's matching entitlement is a separate document on the
+        # consumer's side; nothing here reads it.
+        peering = assembled.peering
+        key_id = str(peering["key_id"])
 
         key_dir_value = os.environ.get(KEY_DIR_VAR)
         if key_dir_value is None:
             key_dir = workspace / "keys"
             key_dir.mkdir()
-            _throwaway_key(key_dir, producer_values["key_id"])
+            _throwaway_key(key_dir, key_id)
         else:
             key_dir = Path(key_dir_value)
 
         provider = DetachedJwsIdentityProvider(
             key_source=FileBackedKeySource(directory=key_dir)
         )
+        producer_hash = str(peering["producer_hash"])
         genuine = provider.sign(
             product=product,
-            key_id=producer_values["key_id"],
-            assertions={
-                PRODUCER_ASSERTION_HEADER: producer_values["producer_hash"]
-            },
+            key_id=key_id,
+            assertions={PRODUCER_ASSERTION_HEADER: producer_hash},
         )
         # A second, genuinely different product, signed the same way, purely
         # so its payload member exists to be spliced onto the genuine
@@ -545,20 +468,19 @@ def main() -> None:
             product=product.model_copy(
                 update={"payload": {**product.payload, "entity_count": -1}}
             ),
-            key_id=producer_values["key_id"],
-            assertions={
-                PRODUCER_ASSERTION_HEADER: producer_values["producer_hash"]
-            },
+            key_id=key_id,
+            assertions={PRODUCER_ASSERTION_HEADER: producer_hash},
         )
 
+        consumer_url = os.environ.get(CONSUMER_URL_VAR)
         with httpx.Client(timeout=30.0) as client:
             wire = TypedHttpWire(
-                local_peer_id=producer_values["peer_id"],
+                local_peer_id=str(peering["peer_id"]),
                 endpoints=lambda *, peer: consumer_url or "",
                 http_client=client,
                 clock=lambda: now,
-                receive_path=consumer_values["receive_path"],
-                max_request_bytes=consumer_values["max_request_bytes"],
+                receive_path=str(peering["receive_path"]),
+                max_request_bytes=int(peering["max_request_bytes"]),
             )
             if consumer_url is not None:
                 # Emit, then announce: READY is printed only after both
@@ -566,7 +488,7 @@ def main() -> None:
                 # is also the gate on the exchange having happened.
                 peer = PeerRef(
                     tenant_id=product.tenant_id,
-                    peer_id=consumer_values["peer_id"],
+                    peer_id=str(peering["consumer_peer_id"]),
                 )
                 wire.emit(peer=peer, signed=genuine)
                 wire.emit(peer=peer, signed=_tampered(genuine, other))

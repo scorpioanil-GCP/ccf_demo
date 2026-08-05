@@ -1,0 +1,146 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.deployment-manifest.json
+# The PRODUCER deployment's manifest (D-06, D-08, D-IMPL-80;
+# syndicated-lending domain, whitepaper §8.3 Pattern 4).
+#
+# This example runs TWO deployments in two OS processes, so it carries TWO
+# manifests. That is what D-06 means by the artifact set in force being
+# answerable from one document *per deployment*: the producing fabric and the
+# consuming fabric have separate Control Planes, separate graphs and separate
+# replay dimension 2. A single shared manifest would say that one artifact set
+# was in force for both, which is exactly the thing the A2A trust boundary
+# exists because it is not true.
+#
+# Every artifact is ENUMERATED, never globbed: the registered set is dimension 2
+# of the five-dimension Decision Replay record, and a pattern would make that
+# set a function of directory contents at boot time with no artifact recording
+# that a dropped-in file changed what was in force.
+#
+# **What this manifest deliberately does not carry.** `agent-definition.yaml`
+# and `prompt-artifact.yaml` are absent: both carry D-IMPL-28 two-field
+# versioning and register through `register_versioned`, which holds the author's
+# `artifact_version` claim against content identity (the D-05 bump check).
+# `load_and_boot` registers through `register_typed`, which does not, so a
+# manifest entry for either would silently drop that check. See
+# `agent-registration.yaml`.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `tenant_id`, every `key`, every `path`, and the
+# non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
+# `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
+# `artifacts`, `path`, `key`, `class_id` and `role`, the `ccf.`-prefixed class
+# ids, and the `role` values are [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: harborline-syndications
+backend: sqlite
+
+resolution_spec_key: resolution-spec
+policy_bundle_key: policy-bundle
+
+artifacts:
+  # --- role: register — into the registry, into the pin set, into replay
+  #     dimension 2. This is "what this fabric was permitted to do".
+  - path: resolution-spec.yaml
+    key: resolution-spec
+    class_id: ccf.resolution-spec
+    role: register
+
+  - path: policy-bundle.yaml
+    key: policy-bundle
+    class_id: harborline-syndications.policy-bundle
+    role: register
+
+  - path: operator-parameters-traversal.yaml
+    key: traversal
+    class_id: ccf.operator-parameters.traversal
+    role: register
+
+  - path: operator-parameters-temporal.yaml
+    key: temporal
+    class_id: ccf.operator-parameters.temporal
+    role: register
+
+  - path: operator-parameters-policy.yaml
+    key: policy
+    class_id: ccf.operator-parameters.policy
+    role: register
+
+  - path: operator-parameters-similarity.yaml
+    key: similarity
+    class_id: ccf.operator-parameters.similarity
+    role: register
+
+  - path: perspective.yaml
+    key: perspective
+    class_id: ccf.perspective
+    role: register
+
+  - path: product-class.yaml
+    key: product-class
+    class_id: ccf.product-class
+    role: register
+
+  - path: product-governance.yaml
+    key: product-governance
+    class_id: harborline-syndications.product-governance
+    role: register
+
+  # Which identity this fabric emits under, and where. A standing statement of
+  # what it was permitted to do — the consumer's matching entitlement lives in
+  # its own `peering-trust.yaml`, deliberately as a second statement.
+  - path: producer-peering.yaml
+    key: producer-peering
+    class_id: harborline-syndications.producer-peering
+    role: register
+
+  # The agent's axis-4 and axis-5 targets. Their keys are LONG because a key
+  # here is the Control Plane key, and the agent definition's versioned-URI
+  # refs resolve to exactly `{tenant}/{artifact_class}/{name}` — the manifest
+  # and the definition are two independent statements of one key, and the
+  # factory refuses loudly if they disagree.
+  - path: agent-policy-regime.yaml
+    key: harborline-syndications/policy-bundle/syndications-desk-regime
+    class_id: policy-bundle
+    role: register
+
+  - path: agent-debt-profile.yaml
+    key: harborline-syndications/debt-profile/covenant-review
+    class_id: debt-profile
+    role: register
+
+  # --- role: load — parsed and validated through the same seam as everything
+  #     above, then handed back on `BootedFabric.artifacts`. Never registered,
+  #     never pinned, never in replay dimension 2.
+
+  # The events batch is `role: load` and the SDK FIXES it that way (D-IMPL-80,
+  # SDK_ARTIFACT_ROLES): registering a signal batch would content-hash raw
+  # event data into Control Plane state and therefore into Decision Replay
+  # dimension 2. Events are what the fabric OBSERVED; the Control Plane is what
+  # the fabric was PERMITTED TO DO.
+  - path: events.yaml
+    key: events
+    class_id: ccf.signal-batch
+    role: load
+
+  # This run's decision instants. What instant one run asked about is not part
+  # of what the fabric was permitted to do.
+  - path: decision.yaml
+    key: decision
+    class_id: harborline-syndications.decision-inputs
+    role: load
+
+  # An expectation is not a permission.
+  - path: expected.yaml
+    key: expected
+    class_id: harborline-syndications.expected-product
+    role: load
+
+  # A pointer to where the two author-versioned artifacts will be registered is
+  # not itself a permission; the registration is.
+  - path: agent-registration.yaml
+    key: agent-registration
+    class_id: harborline-syndications.agent-registration
+    role: load

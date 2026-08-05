@@ -5,12 +5,14 @@ MCP egress server plus a real A2A/peering endpoint, both bound to ephemeral
 ports on 127.0.0.1 — in its own OS process, and yields warm clients so the
 benchmarks in this suite time *transport only*.
 
-Reuse rationale (this plan's recorded choice): example 04's child is the
-canonical server child — property-intelligence domain values authored fresh
-for that example (its D-07/D-08), all loaded from its own ``artifacts/*.yaml``.
-Reusing it drags no banking artifacts in and keeps the subprocess wiring in
-one place; a perf-local copy would be a second copy of exactly the lifecycle
-mechanics ``tests/crossproc/conftest.py`` warns against copying.
+Reuse rationale (Phase 11's recorded choice, still standing): example 04's
+child is the canonical server child, and every domain value it uses is loaded
+from its own ``artifacts/*.yaml``. Reusing it keeps the subprocess wiring in one
+place; a perf-local copy would be a second copy of exactly the lifecycle
+mechanics ``tests/crossproc/conftest.py`` warns against copying. Nothing timed
+here depends on the domain those artifacts carry — plan 15-18 re-domained the
+example to syndicated lending and this fixture needed only the new document
+names.
 
 Two disciplines are load-bearing (research Pitfall 5; D-15):
 
@@ -112,15 +114,18 @@ def crossproc_endpoints() -> Iterator[CrossProcessEndpoints]:
     READY-handshake spawn, ≥``WARMUP_ROUND_TRIPS`` warm-ups per transport
     before yield, process-group terminate→wait→kill teardown (D-15).
     """
-    ontology = _load("ontology.yaml")
-    control = _load("controlplane.yaml")
-    federation = _load("a2a.yaml")
+    # Example 04's artifacts are typed, one-class-per-document (plan 15-18),
+    # so each value comes from the document that owns it rather than from a
+    # bundle. Plain `yaml.safe_load` is enough here: this fixture only needs a
+    # handful of strings to address the child's two surfaces, and nothing it
+    # reads is registered into any Control Plane.
+    manifest = _load("producer-manifest.yaml")
+    declared_class = _load("product-class.yaml")
+    producer_values = _load("producer-peering.yaml")["declaration"]
+    consumer_values = _load("peering-trust.yaml")["declaration"]
 
-    tenant_id: str = ontology["tenant_id"]
-    declared_class = control["product_class"]
-    consumer_values = federation["consumer"]
-    producer_values = federation["producer"]
-    now = _instant(control["decision"]["now"])
+    tenant_id: str = manifest["tenant_id"]
+    now = _instant(_load("decision.yaml")["declaration"]["now"])
 
     proc: subprocess.Popen[bytes] | None = None
     with tempfile.TemporaryDirectory(prefix="ccf-perf-crossproc-") as scratch:
@@ -208,7 +213,7 @@ def crossproc_endpoints() -> Iterator[CrossProcessEndpoints]:
                     },
                 )
                 wire = TypedHttpWire(
-                    local_peer_id=consumer_values["peer_id"],
+                    local_peer_id=consumer_values["consumer_peer_id"],
                     endpoints=lambda *, peer: (
                         f"http://127.0.0.1:{a2a_port}"
                         + consumer_values["receive_path"]

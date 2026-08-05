@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The PRODUCER run's decision instants (syndicated-lending domain).
+#
+# Explicit inputs, never clock reads: a fabric that read the wall clock could
+# not be replayed. Both processes declare the same instants in their own
+# documents, which is what makes the exchange deterministic end to end.
+#
+# **`role: load` in the manifest.** What instant one run asked about is not part
+# of what the fabric was PERMITTED TO DO, so registering it would put a run's
+# inputs into Decision Replay dimension 2 (D-IMPL-80).
+#
+# Timestamps are QUOTED so they arrive as text: the artifact loader suppresses
+# PyYAML's timestamp resolver, and the canonical serializer refuses a naive
+# datetime (D-IMPL-38).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and the instants are [ADAPT]; the keys `semver`,
+# `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: harborline-syndications.decision-inputs
+
+declaration:
+  temporal_boundary: "2026-06-01T10:00:00Z"
+  now: "2026-06-01T10:00:05Z"

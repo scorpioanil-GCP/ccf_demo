@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.product-class.json
+# The PRODUCER's product class — what this fabric serves over MCP egress and
+# emits over A2A (syndicated-lending domain, whitepaper §8.3 Pattern 4).
+#
+# `required_operator_keys` is the AUTHORED, declared side of the empty-operator
+# gate. It is read off this artifact and handed to the projection plan; it is
+# never taken from the operator registry's own keys, because Gate 2 compares the
+# declaration against what the engine independently resolved and a plan
+# returning the registry's keys would make that comparison a value against
+# itself.
+#
+# `max_ttl_key` names WHERE the TTL ceiling is registered; the ceiling's own
+# VERSION is deliberately absent, because a pin is a content hash minted at
+# registration and an artifact cannot author one. `run.py`'s sibling in
+# `producer_child.py` mints it — which is what leaves Gate 3 two independently
+# authored values to compare.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `schema_name`, `schema_version`, `max_ttl_key` and the operator
+# key strings are [ADAPT]; the keys `semver`, `schema_name`, `schema_version`,
+# `ttl_anchor`, `assembly_mode`, `max_ttl_key`, `required_operator_keys` and the
+# `ttl_anchor`/`assembly_mode` values are [MECHANISM].
+
+semver: "1.0.0"
+
+schema_name: harborline-syndications.syndicated-covenant-context
+schema_version: "1.0.0"
+ttl_anchor: from_decision
+assembly_mode: algorithmic
+
+max_ttl_key: harborline-syndications/product/syndicated-covenant-context/max-ttl
+
+required_operator_keys:
+  - traversal.typed-neighborhood
+  - temporal.as-of-boundary
+  - policy.principal-subgraph
+  - similarity.corpus-select

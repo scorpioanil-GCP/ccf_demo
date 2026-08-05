@@ -22,13 +22,29 @@ working refusal path for a tampered envelope.
 Together with `examples/05-workflow-hitl`, this example composes into
 the suite's full end-to-end deployment (CLAUDE.md §9).
 
-Domain rationale: multi-source property situational assembly is the
-archetypal cross-process assembler case. It deliberately mirrors the
-*shape* of the property-intelligence deployment that validated CCF's
-claims, with **zero of its code** — every artifact in this directory
-(`larkfield-estates`) was authored 100% fresh, and nothing was ported
-from any prior system. The SDK covering that ground with none of its
-code is the general-purposeness claim (CLAUDE.md §1) made demonstrable.
+Domain rationale: **syndicated lending covenant cross-reference** is the
+whitepaper's own canonical Pattern 4 exemplar (§8.3 Pattern 4, and the
+Mode 3 assembly that composes against it at §7.6). A syndicated
+facility's covenant package is partitioned across the parties to the
+syndicate — the lead arranger holds the structuring covenants, the
+administrative agent reconciles the borrower's periodic compliance
+certificates, and each participant holds only the slice its
+confidentiality envelope permits. No single party's fabric ingests the
+full covenant graph in trust-clean form, so the boundary the product
+crosses here is genuinely cross-organizational rather than merely
+cross-process. That is exactly the trust boundary Pattern 4 names, and
+it is why this is the example the suite re-domains to banking: the
+scenario is drawn from the whitepaper rather than invented.
+
+In this example the **producer is the lead arranger**
+(`harborline-syndications`, peer `harborline-lead-arranger`) assembling
+the covenant slice it is permitted to surface; the **consumer is a
+participant bank** (peer `hollis-participant-bank`) admitting that
+slice into its own fabric only after verifying the policy bindings it
+carries. Every identity, identifier and value is obviously synthetic.
+
+The rest of the suite keeps its horizontal domain mix (D-IMPL-52); only
+this example moves.
 
 ## Run it
 
@@ -42,31 +58,59 @@ or, directly:
 PYTHONPATH=src:runtime python examples/04-cross-process/run.py
 ```
 
-Exit code 0 means every assertion held — including the negative
-admission case. Keyless and model-free: signing keys are generated per
-run into a temp directory and never committed; every identity and
-trust value in `artifacts/a2a.yaml` is obviously synthetic; no model is
-called anywhere.
+Exit code 0 means the spine ran, including the negative admission case.
+The assertions live in `tests/examples/test_cross_process_output.py`,
+under a runner that can fail a build (D-09):
+
+```sh
+PYTHONPATH=src:runtime python -m pytest tests/examples/test_cross_process_output.py
+```
+
+Keyless and model-free: signing keys are generated per run into a temp
+directory and never committed; every identity and trust value in
+`artifacts/producer-peering.yaml` and `artifacts/peering-trust.yaml` is
+obviously synthetic; no model is called anywhere.
 
 > **Expected-output changes are a reviewed event.** If you enrich the
-> artifacts, run `make example-04`, review the assertion output, then
-> deliberately edit the `expected:` block in
-> `artifacts/controlplane.yaml` to match what you reviewed —
-> regeneration is a reviewed event, landed in the same commit as the
-> enrichment, with the commit body summarizing what changed in the
-> output and why. No `make regen-*` targets exist, and none will be
-> added.
+> artifacts, run `make example-04`, review the test output, then
+> deliberately edit `artifacts/expected.yaml` to match what you
+> reviewed — regeneration is a reviewed event, landed in the same
+> commit as the enrichment, with the commit body summarizing what
+> changed in the output and why. No `make regen-*` targets exist, and
+> none will be added.
+
+## Two deployments, two manifests
+
+Producer and consumer are separate deployments with separate Control
+Planes, separate graphs, and separate replay dimension 2. Each boots
+from its own manifest — `artifacts/producer-manifest.yaml` and
+`artifacts/consumer-manifest.yaml` — which is what D-06 means by the
+artifact set in force being answerable from one document *per
+deployment*.
+
+Three of the consumer's documents are content-identical to a producer
+document and are still separate files: `consumer-policy-bundle.yaml`,
+`consumer-product-class.yaml`, and the ceiling in
+`consumer-product-governance.yaml`. That is deliberate. Each states, on
+the consumer's own authority, what it will admit; the agreement between
+the two sides is what admission checks, and an agreement stated once
+and read by both sides could not fail. Edit either alone and the
+inbound product's asserted regime falls outside the consumer's
+entitlement — admission refuses, which is the check working.
 
 ## The story
 
-The producer child (`producer_child.py`) boots its own fabric from the
-artifacts — its own SQLite file, its own Control Plane, its own heap —
-factory-constructs the assembler agent from `artifacts/agent.yaml`,
-ingests the events in `artifacts/events.yaml` (a property asserted by
-two source systems converging on one node; two perimeter sensors the
-similarity operator must keep and one greenhouse sensor it must rank
-out; a restricted occupancy signal the policy operator must substitute
-out), and serves the gated four-entity product on two ephemeral-port
+The producer child (`producer_child.py`) boots its own fabric from
+`artifacts/producer-manifest.yaml` — its own SQLite file, its own
+Control Plane, its own heap — factory-constructs the assembler agent
+from `artifacts/agent-definition.yaml`,
+ingests the events in `artifacts/events.yaml` (a facility asserted by
+two source systems converging on one node; two covenant-relevant
+compliance certificates the similarity operator must keep and one
+insurance-evidence filing it must rank out; a restricted borrower
+disclosure the policy operator must substitute out under the
+syndicate's confidentiality envelope), and serves the gated
+four-entity product on two ephemeral-port
 front doors. It prints `READY {mcp_port} {a2a_port}` only once both
 servers report started **and** both A2A emissions were accepted; the
 parent's blocking `readline()` is the gate — no fixed ports, no
@@ -81,18 +125,20 @@ The consumer then works through three movements:
 2. **A2A admission — the Pattern-4 teaching moment.** The genuine
    signed envelope is admitted only after signature verification
    against the peer's trust-policy entry (built from
-   `artifacts/a2a.yaml`, key `producer` — peer id, key id, permitted
+   `artifacts/peering-trust.yaml` — peer ids, key id, permitted
    producer hash, permitted schema names, permitted policy regimes)
-   and the Control Plane policy-binding checks. An immutable
-   `AdmissionRecord` is persisted at an exact content address before
-   anything is reported admitted. The merged lineage is asserted to be
-   exactly `producer ∪ consumer` on both operator and policy axes —
-   and both sides contribute operators the other lacks (see
-   `artifacts/a2a.yaml`, key `consumer.lineage.operators_invoked`), so
-   the printed union is evidence of set-union continuity, not of
-   replacement in either direction. Only then does the admitted value
-   pass through L2's typed federated door — the single writer — and
-   the graph digest moves.
+   and the Control Plane policy-binding checks. `gate.admit` returns a
+   refusal *value* rather than raising, so the spine matches on the
+   admitted case: a driver that ignored the result would proceed with
+   nothing admitted. An immutable `AdmissionRecord` is persisted at an
+   exact content address before anything is reported admitted. The
+   merged lineage is asserted to be exactly `producer ∪ consumer` on
+   both operator and policy axes — and both sides contribute operators
+   the other lacks (see `artifacts/consumer-lineage.yaml`), so the
+   union is evidence of set-union continuity, not of replacement in
+   either direction. Only then does the admitted value pass through
+   L2's typed federated door — the single writer — and the graph
+   digest moves.
 3. **The refusal path is real.** A tampered envelope — a genuine
    signature spliced onto different payload bytes, emitted over the
    real socket — is refused as a value (`SignatureRefusal` naming the
@@ -101,27 +147,59 @@ The consumer then works through three movements:
    L3; the peer's say-so is not admission.
 
 The federated entities resolve into the consumer's own declared
-`federated_entity` class rather than merging into its vocabulary
-(see `artifacts/a2a.yaml`, key `federation.entity_rule`): a peer's
-claims are claims about *another fabric's graph*, and merging them
-would assert the consumer had independently observed them.
+`syndicate_contribution` class rather than merging into its vocabulary
+(see `artifacts/consumer-resolution-spec.yaml` and
+`artifacts/federation-ingest.yaml`): a peer's claims are claims about
+*another fabric's graph*, and merging them would assert the consumer
+had independently observed them.
 
 ## Artifact-by-artifact
 
-| Artifact | What it declares | Yours to edit vs mechanism |
-| --- | --- | --- |
-| `artifacts/a2a.yaml` | The federation exchange: consumer identity, ceilings, endpoint path, consumer's own lineage; producer peer id / key id / producer hash; how admitted products become L1 signal | `[ADAPT]` peer ids, ceilings, path, lineage values, federation vocabulary; `[MECHANISM]` `consumer`/`producer`/`federation` field names |
-| `artifacts/agent.yaml` | The assembler agent definition — six specialization axes, `context_assembly` archetype | `[ADAPT]` tenant, names, thresholds; `[MECHANISM]` the six axis field names, `referenced_artifacts` structure |
-| `artifacts/controlplane.yaml` | Fabric bundle: keys, policy bundle, operator parameters (incl. the perimeter similarity query), product class, decision instants, the `expected:` block | `[ADAPT]` all values including `expected:`; `[MECHANISM]` every field name |
-| `artifacts/ontology.yaml` | The producer's vocabulary: four entity classes, three typed edges, classification and similarity-corpus maps | `[ADAPT]` classes, types, attribute names; `[MECHANISM]` rule-block field names |
-| `artifacts/events.yaml` | The L1 signal envelopes: lineage pair, two kept sensors, one ranked-out sensor, one restricted signal | `[ADAPT]` all payload content; `[MECHANISM]` envelope field names |
-| `artifacts/prompt.yaml` | The axis-6 prompt artifact — template and declared parameters | `[ADAPT]` template text, parameter names; `[MECHANISM]` `declared_parameters`, `template` |
+Every document below carries a `$schema` header naming the class that
+validates it. SDK-owned classes point at their own committed schema;
+deployment-authored ones point at the `DeclaredArtifact` envelope and
+declare their own `class_id`.
+
+**The producer's deployment** (`artifacts/producer-manifest.yaml`):
+
+| Artifact | What it declares |
+| --- | --- |
+| `resolution-spec.yaml` | Four entity classes and three typed edges — resolution rules only |
+| `policy-bundle.yaml` | The regime the fabric boots under and stamps onto every claim |
+| `operator-parameters-{traversal,temporal,policy,similarity}.yaml` | The four operator parameter sets, each with the maps its own operator reads |
+| `perspective.yaml` | The Π role-conditioning the product is served under |
+| `product-class.yaml` | Schema name/version, TTL anchor, TTL key, and the declared `required_operator_keys` |
+| `product-governance.yaml` | TTL ceiling, product TTL, similarity index version, plan id |
+| `producer-peering.yaml` | Who this peer is on the wire and where it emits |
+| `events.yaml` | The L1 signal batch: lineage pair, two kept certificates, one ranked-out filing, one restricted borrower disclosure |
+| `decision.yaml`, `expected.yaml`, `agent-registration.yaml` | This run's instants, the declared expectation, and the two Control Plane keys — all `role: load` |
+| `agent-policy-regime.yaml`, `agent-debt-profile.yaml` | The agent's axis-4 and axis-5 targets, registered under the keys its refs resolve to |
+
+Two producer documents are **absent from the manifest on purpose**:
+`agent-definition.yaml` and `prompt-artifact.yaml` are author-versioned
+and register through `register_versioned`, whose D-05 bump check
+`load_and_boot` does not run.
+
+**The consumer's deployment** (`artifacts/consumer-manifest.yaml`):
+
+| Artifact | What it declares |
+| --- | --- |
+| `consumer-resolution-spec.yaml` | The federation-ingress entity rule — a peer's entities land in their own class |
+| `consumer-policy-bundle.yaml` | The regime the consumer entitles the producer to claim |
+| `consumer-product-class.yaml` | The class the consumer will admit |
+| `consumer-product-governance.yaml` | The consumer's own TTL ceiling |
+| `peering-trust.yaml` | The trust-policy request: peer ids, key id, permitted producer hash, ceilings, receive path |
+| `federation-ingest.yaml` | How an admitted product's payload becomes L1 signal |
+| `consumer-decision.yaml`, `consumer-lineage.yaml` | The admission instant and the consumer's own lineage — both `role: load` |
 
 ## Whitepaper / CLAUDE.md sections exercised
 
 - whitepaper §8.3 Pattern 3 — MCP integration (Context Product export)
 - whitepaper §8.3 Pattern 4 — A2A federation and trust-boundary
-  verification
+  verification, and its **syndicated lending covenant cross-reference**
+  Wholesale exemplar, which is this example's scenario
+- whitepaper §7.6 Mode 3 — the assembly mode that consumes Pattern 4's
+  federation surface across a structural trust-boundary partition
 - CLAUDE.md §7.1 — MCP as egress (SDK extension: bidirectional)
 - CLAUDE.md §7.2 — A2A first-class: admission before L3, lineage
   continuity by set-union (SDK extension)
@@ -134,16 +212,18 @@ would assert the consumer had independently observed them.
 ## What to change first
 
 Everything domain-specific is in `artifacts/`. Start with
-`artifacts/a2a.yaml`: change `producer.peer_id`, `producer.key_id` and
-`producer.producer_hash` to your own peer's identity, and the
-`consumer` block's ceilings (`inbound_payload_ceiling_bytes`,
+`artifacts/producer-peering.yaml` and `artifacts/peering-trust.yaml`:
+change the peer ids, key id and producer hash to your own peer's
+identity, and the ceilings (`inbound_payload_ceiling_bytes`,
 `max_request_bytes`) and `receive_path` to your deployment's numbers
-and URL space. Then rename the tenant and swap the entity classes in
-`artifacts/ontology.yaml` and the payloads in `artifacts/events.yaml`.
-On the next run, expect the served product and the merged lineage to
-change — review the output and update `artifacts/controlplane.yaml`'s
-`expected:` block in the same commit. Neither driver changes, which is
-the point.
+and URL space. The two documents state one federation relationship from
+both sides — change them together, or admission will refuse. Then
+rename the tenant in both manifests and swap the entity classes in
+`artifacts/resolution-spec.yaml` and the payloads in
+`artifacts/events.yaml`. On the next run, expect the served product and
+the merged lineage to change — review the output and update
+`artifacts/expected.yaml` in the same commit. Neither driver changes,
+which is the point.
 
 ## What would fail
 
@@ -158,5 +238,6 @@ the point.
 | Lineage continuity by set-union (CLAUDE.md §7.2) | The merged lineage is asserted to be exactly `producer ∪ consumer` on both axes, with both sides contributing distinct members; replacement in either direction fails. |
 | Admission only through L2 (single-writer, CLAUDE.md §10) | The graph digest moves only when `ingest_admitted` — typed to accept only gate-produced `AdmittedProduct` values — runs. No other write path exists to demonstrate. |
 | The refusal path is real | A tampered envelope (a genuine signature spliced onto different payload bytes, over the real socket) is refused as a value, the refusal is audited, and the consumer's L3 substrate is byte-identical before and after. |
-| Factory-only agent construction (CLAUDE.md §6.4) | The assembler is constructed by the Agent Factory from `artifacts/agent.yaml`; no agent exists in code in this directory. |
+| Cross-deployment agreement is falsifiable | The consumer's policy bundle, product class and TTL ceiling are its own documents, not the producer's. Sharing one file would make the entitlement check pass for a reason unrelated to trust. |
+| Factory-only agent construction (CLAUDE.md §6.4) | The assembler is constructed by the Agent Factory from `artifacts/agent-definition.yaml`; no agent exists in code in this directory. |
 | No-Hardcoding (CLAUDE.md §6.4) | Every tenant, entity class, peer identity, ceiling, endpoint path and threshold lives in `artifacts/*.yaml`. Delete the artifacts and both drivers have nothing to run. |

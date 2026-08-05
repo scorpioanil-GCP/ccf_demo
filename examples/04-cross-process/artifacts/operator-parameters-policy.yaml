@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.policy.json
+# Declared policy-operator parameters (D-IMPL-38; syndicated-lending domain).
+#
+# `classification_attribute_by_class` lives here rather than in the resolution
+# spec (15-13 R1: a value goes to the artifact whose CONSUMER reads it). Per
+# class, because a borrower disclosure's sensitivity field and a covenant's are
+# different fields.
+#
+# `permitted_policy_bundle_versions` is deliberately ABSENT (D-IMPL-76): the
+# admitted version is a content hash minted at registration, so it cannot be
+# authored. `build_operator_registry` completes this artifact from the pin the
+# deployment named.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: entity classes, attribute names and classification labels are
+# [ADAPT]; the keys `semver`, `classification_attribute_by_class` and
+# `permitted_classifications` are [MECHANISM].
+
+semver: "1.0.0"
+
+classification_attribute_by_class:
+  facility: facility_classification
+  covenant: covenant_classification
+  compliance_certificate: certificate_classification
+  borrower_disclosure: disclosure_classification
+
+permitted_classifications:
+  - internal

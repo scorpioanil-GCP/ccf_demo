@@ -15,7 +15,13 @@ survives the crossing: an admitted product still reaches the graph through the
 assembly worker and nowhere else.
 
 Everything below is literal-included from `examples/04-cross-process`, which
-runs two real OS processes in CI.
+runs two real OS processes in CI. Its scenario is the whitepaper's own
+canonical Pattern 4 exemplar — syndicated lending covenant cross-reference. A
+lead arranger's fabric assembles the covenant slice it is permitted to surface;
+a participant bank's fabric admits it. The covenant package is partitioned
+across the syndicate under confidentiality terms, so no single party's fabric
+holds the whole graph in trust-clean form, and the boundary the product crosses
+is cross-organizational rather than merely cross-process.
 
 ## Before you start
 
@@ -30,6 +36,22 @@ Run the worked example with:
 make example-04
 ```
 
+## Step 0 — two deployments, two manifests
+
+Producer and consumer are separate deployments with separate Control Planes,
+separate graphs, and separate replay records. Each boots from its own manifest,
+and the consumer's names its own resolution spec, its own policy bundle, and its
+own view of what it will admit:
+
+```py
+--8<-- "examples/04-cross-process/run.py:boot"
+```
+
+Several of the consumer's documents are content-identical to a producer
+document and are still separate files. That is deliberate. The agreement between
+the two is what admission checks, and an agreement stated once and read by both
+sides could not fail.
+
 ## Step 1 — declare who you trust
 
 The consumer's Control Plane states, as a versioned artifact, exactly which
@@ -43,12 +65,16 @@ surface, and the
 covers versioning:
 
 ```yaml
---8<-- "examples/04-cross-process/artifacts/a2a.yaml"
+--8<-- "examples/04-cross-process/artifacts/peering-trust.yaml"
 ```
 
-The driver registers that declaration and pins it to a version. A payload
-ceiling is registered alongside it, because a trust boundary that will accept
-an arbitrarily large body is not a boundary:
+Note what is *not* in that document: key material. Signing keys are generated
+per run and never committed, so what an artifact can carry is the trust-policy
+request — which identifier the peer may sign under, which producing agent it may
+assert, which schema it may send, which regime it may claim. The driver
+completes it with the run's public key, registers it, and pins it to a version.
+A payload ceiling is registered alongside it, because a trust boundary that will
+accept an arbitrarily large body is not a boundary:
 
 ```py
 --8<-- "examples/04-cross-process/run.py:peer-trust-policy"
@@ -79,10 +105,11 @@ ports and no sleeps anywhere in the handshake:
 
 The first front door. The product is fetched as an MCP Resource and validated
 against the typed contract — see the
-[Context Product Protocols](../reference/protocols/context-products.md). The
-last assertion in this block is the one that ties the two transports
-together: the bytes MCP served are exactly the bytes the A2A signature was
-made over, so both doors serve one product rather than two renderings of one:
+[Context Product Protocols](../reference/protocols/context-products.md). What
+ties the two transports together is that the bytes MCP served are exactly the
+bytes the A2A signature was made over, so both doors serve one product rather
+than two renderings of one; the example's test module asserts that byte
+equality:
 
 ```py
 --8<-- "examples/04-cross-process/run.py:mcp-egress"
@@ -91,10 +118,13 @@ made over, so both doors serve one product rather than two renderings of one:
 ## Step 5 — admit over A2A
 
 Admission verifies the signature against the peer's own trust entry, then
-checks the policy bindings, and only then merges lineage. Merging is a
-set-union: the producer's operator plan, policy versions, and graph snapshot
-survive alongside the consumer's. Inbound lineage extends the consumer's; it
-never replaces it:
+checks the policy bindings, and only then merges lineage. Nothing reaches the
+graph before that call returns. It returns a refusal *value* rather than
+raising, so a driver that ignored the result would proceed with nothing
+admitted; matching on the admitted case is what makes the boundary
+unskippable. Merging is a set-union: the producer's operator plan, policy
+versions, and graph snapshot survive alongside the consumer's. Inbound lineage
+extends the consumer's; it never replaces it:
 
 ```py
 --8<-- "examples/04-cross-process/run.py:peer-admit"
@@ -102,8 +132,9 @@ never replaces it:
 
 Before anything is reported admitted, an immutable admission record is
 persisted at an exact content address, and the audit verdict points at it by
-that address. There is no "latest" and no overwrite path — see the
-[artifact store Protocols](../reference/protocols/artifact-store.md):
+that address. The driver reads the address back off the audit log and resolves
+the record through the store. There is no "latest" and no overwrite path — see
+the [artifact store Protocols](../reference/protocols/artifact-store.md):
 
 ```py
 --8<-- "examples/04-cross-process/run.py:peer-admission-record"
@@ -123,9 +154,10 @@ at that call:
 ## Step 7 — verify the negative path
 
 A real signature spliced onto different payload bytes, sent over the real
-socket, is refused as a typed value; the refusal is audited; and the
-consumer's storage is byte-identical before and after. A trust boundary you
-have not watched refuse something is a trust boundary you have not tested:
+socket, is refused as a typed value, and the consumer's storage is
+byte-identical before and after. The refusal is audited too, and the example's
+test module asserts the audit entry. A trust boundary you have not watched
+refuse something is a trust boundary you have not tested:
 
 ```py
 --8<-- "examples/04-cross-process/run.py:peer-refusal"
@@ -133,16 +165,19 @@ have not watched refuse something is a trust boundary you have not tested:
 
 ## What to change first
 
-Start in `artifacts/a2a.yaml`. Replace the producer's peer identity, key
-identifier, and producer hash with your peer's, and set the consumer block's
-inbound ceilings and receive path to your deployment's numbers and URL space.
-Then rename the tenant and swap the vocabulary in `artifacts/ontology.yaml`
-and the payloads in `artifacts/events.yaml`.
+Start in `artifacts/producer-peering.yaml` and `artifacts/peering-trust.yaml`.
+Replace the peer identities, key identifier, and producer hash with your own,
+and set the consumer's inbound ceilings and receive path to your deployment's
+numbers and URL space. The two documents state one federation relationship from
+both sides; change them together or admission will refuse, which is the check
+working.
+
+Then rename the tenant in both manifests and swap the vocabulary in
+`artifacts/resolution-spec.yaml` and the payloads in `artifacts/events.yaml`.
 
 On the next run, expect the served product and the merged lineage to change;
-review the output and update the expectation block in
-`artifacts/controlplane.yaml` in the same commit. Neither driver changes,
-which is the point.
+review the output and update `artifacts/expected.yaml` in the same commit.
+Neither driver changes, which is the point.
 
 If your deployment needs a different wire, the Context Product contract is
 the stable layer and the transport is replaceable — see the

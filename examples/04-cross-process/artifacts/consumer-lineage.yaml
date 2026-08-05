@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The CONSUMER's own lineage at admission time (CLAUDE.md §7.2;
+# syndicated-lending domain, whitepaper §8.3 Pattern 4).
+#
+# Inbound L EXTENDS the consumer's by set-union; it never replaces it. These
+# two operators are deliberately DISJOINT from the producer's four-operator
+# plan: the merged lineage the admission gate produces must be exactly
+# `producer ∪ consumer`, and the asserted union is only convincing evidence of
+# set-union rather than replacement when both sides contribute members the other
+# lacks. Overlapping sets would satisfy a union assertion under replacement too.
+#
+# **`role: load` in the manifest.** This is the consumer's statement about its
+# own state at one instant, not about what it was permitted to do.
+#
+# Timestamps are QUOTED so they arrive as text (D-IMPL-38).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: harborline-syndications.consumer-lineage
+
+declaration:
+  operators_invoked:
+    - temporal.as-of
+    - policy.participant-entitlement-filter
+  policy_bundle_versions:
+    - hollis-participant-own-policy
+  graph_snapshot_at: "2026-06-01T10:00:00Z"
