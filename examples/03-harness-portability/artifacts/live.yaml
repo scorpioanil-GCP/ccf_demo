@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
 # Live-mode provider and runner configuration for the portability drive
 # (plan 08-11; D-03/D-04). Everything here is a *deployment* value — endpoint
 # defaults, model identifiers, auth-token placeholders, timeout and budget
@@ -10,39 +11,54 @@
 #   CCF_LIVE_TIMEOUT_SECONDS  overrides runner.default_timeout_seconds
 #   ANTHROPIC_API_KEY         required for --provider anthropic (never stored)
 #
+# **Not a manifest entry, deliberately.** This document configures the opt-in
+# live legs, which are excluded from `make ci` (D-11/D-12). Naming it in the
+# manifest would make the CI leg parse and hand back configuration for a mode
+# it never enters; `run.py` loads it in `_live` and nowhere else.
+#
 # Note (RESEARCH Pitfall 2): whether an Ollama run is genuinely local depends
 # on the pulled model — Ollama serves `*-cloud` models by relaying to
 # ollama.com. Pick a locally pulled model here if live-leg locality matters.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
 
-providers:
-  ollama:
-    # Keyless local access (D-03): no API key is sent; the auth token below
-    # exists only because the Claude Agent SDK's CLI requires *an* auth
-    # source to be set — Ollama ignores its value.
-    default_base_url: "http://localhost:11434"
-    default_model: "qwen3-vl:8b"
-    auth_token: "ollama-local"
-  anthropic:
-    # Key-gated (D-03): the key comes from ANTHROPIC_API_KEY in the
-    # environment, is never written to an artifact, and its absence is a
-    # refusal, not a fallback.
-    base_url: "https://api.anthropic.com"
-    version_header: "2023-06-01"
-    model: "claude-sonnet-4-5"
+semver: "1.0.0"
+class_id: atlas-commerce.live-runner
 
-runner:
-  # Per-call HTTP/provider timeout (seconds); CCF_LIVE_TIMEOUT_SECONDS wins.
-  default_timeout_seconds: 120
-  # Overall wall-clock budget for the whole live run, after which the runner
-  # exits 2 with a diagnostic instead of hanging on a slow provider.
-  budget_seconds: 900
-  # Bound the Claude Agent SDK session so a tool-happy model cannot loop.
-  max_turns: 4
-  # Generation cap handed to the provider (Ollama num_predict / Anthropic
-  # max_tokens) so a live leg's cost and latency stay bounded.
-  max_tokens: 512
-  # The user turn each live session is driven with. A prompt is an artifact
-  # value, never a code literal (§6.4).
-  drive_turn: >-
-    Using only the injected context product, reply with one short sentence
-    stating how many entities it contains.
+declaration:
+  providers:
+    ollama:
+      # Keyless local access (D-03): no API key is sent; the auth token below
+      # exists only because the Claude Agent SDK's CLI requires *an* auth
+      # source to be set — Ollama ignores its value.
+      default_base_url: "http://localhost:11434"
+      default_model: "qwen3-vl:8b"
+      auth_token: "ollama-local"
+    anthropic:
+      # Key-gated (D-03): the key comes from ANTHROPIC_API_KEY in the
+      # environment, is never written to an artifact, and its absence is a
+      # refusal, not a fallback.
+      base_url: "https://api.anthropic.com"
+      version_header: "2023-06-01"
+      model: "claude-sonnet-4-5"
+
+  runner:
+    # Per-call HTTP/provider timeout (seconds); CCF_LIVE_TIMEOUT_SECONDS wins.
+    default_timeout_seconds: 120
+    # Overall wall-clock budget for the whole live run, after which the runner
+    # exits 2 with a diagnostic instead of hanging on a slow provider.
+    budget_seconds: 900
+    # Bound the Claude Agent SDK session so a tool-happy model cannot loop.
+    max_turns: 4
+    # Generation cap handed to the provider (Ollama num_predict / Anthropic
+    # max_tokens) so a live leg's cost and latency stay bounded.
+    max_tokens: 512
+    # The user turn each live session is driven with. A prompt is an artifact
+    # value, never a code literal (§6.4).
+    drive_turn: >-
+      Using only the injected context product, reply with one short sentence
+      stating how many entities it contains.

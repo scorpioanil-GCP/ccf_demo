@@ -1,0 +1,14 @@
+{
+  "asserts": 11,
+  "boot": 0,
+  "helpers": 0,
+  "imports": 26,
+  "mech": 0,
+  "opblk": 0,
+  "path": "examples/03-harness-portability/legs/deterministic.py",
+  "prints": 0,
+  "raw": 510,
+  "reg": 0,
+  "relocatable": 11,
+  "removable": 0
+}

@@ -1,0 +1,14 @@
+{
+  "asserts": 14,
+  "boot": 0,
+  "helpers": 0,
+  "imports": 66,
+  "mech": 23,
+  "opblk": 0,
+  "path": "examples/03-harness-portability/run.py",
+  "prints": 40,
+  "raw": 682,
+  "reg": 23,
+  "relocatable": 54,
+  "removable": 23
+}

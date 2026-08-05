@@ -1,3 +1,4 @@
+# ccf-schema: deferred(15-14) `ccf.agent-definition` has no committed schema
 # Harness-portability agent definition — THE one agent definition all three
 # harness legs share byte-identically (CLAUDE.md §6.1/§6.5; EXAM-04, D-01).
 # A declared, versioned Control Plane artifact (D-IMPL-28), e-commerce

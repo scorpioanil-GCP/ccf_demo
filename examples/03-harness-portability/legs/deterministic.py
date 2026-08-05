@@ -70,9 +70,11 @@ __all__ = [
     "install_no_model_guard",
 ]
 
+# --8<-- [start:harness-governed-fields]
 #: Top-level record fields D-18 governs — every dimension except the one that
 #: carries the harness block. Compared for exact byte equality across the
-#: three harnesses.
+#: three harnesses by
+#: ``tests/examples/test_harness_portability_output.py``.
 GOVERNED_DIMENSIONS = (
     "context_fabric_snapshot",
     "policy_bindings",
@@ -83,6 +85,7 @@ GOVERNED_DIMENSIONS = (
 #: Dimension 3's own governed fields; ``harness_trace`` is excluded and
 #: asserted to differ per harness instead (D-18).
 GOVERNED_MODEL_VERSION_FIELDS = ("assembly_mode", "model_version")
+# --8<-- [end:harness-governed-fields]
 
 
 def install_no_model_guard() -> None:

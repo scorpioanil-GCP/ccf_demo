@@ -1,4 +1,15 @@
+# ccf-schema: deferred(15-14) `ccf.prompt-artifact` has no committed schema
 # Harness-portability prompt artifact (CLAUDE.md §6.2 axis 6; D-IMPL-28).
+#
+# **Why deferred rather than annotated.** `PROMPT_ARTIFACT` lives in
+# `ccf.agents.definitions`, not in `ccf.controlplane.artifacts`, so it is
+# absent from `SDK_ARTIFACT_CLASSES` and `tools/dump_schemas.py` emits no
+# `docs/schemas/ccf.prompt-artifact.json` for it to point at. The two honest
+# alternatives are both worse: pointing at the open `DeclaredArtifact`
+# envelope would claim a `ccf.`-namespaced class the SDK owns is
+# deployment-authored, and moving this file out of the gate's glob would hide
+# it. Plan 15-14 owns the agent-artifact reference surface and is where the
+# class joins the exported set.
 #
 # The template text and its declared parameters live here, never in code — a
 # prompt string literal in `run.py` or `legs/` would be the No-Hardcoding

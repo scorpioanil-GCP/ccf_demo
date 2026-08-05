@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.deployment-manifest.json
+# The one document naming what this deployment puts in force (D-06, D-08,
+# D-IMPL-80; e-commerce domain, D-IMPL-52).
+#
+# Every artifact is ENUMERATED, never globbed: the set of Control Plane
+# artifacts in force is dimension 2 of the five-dimension Decision Replay
+# record, and a pattern would make that set a function of directory contents at
+# boot time with no artifact recording that a dropped-in file changed what was
+# in force. `ManifestEntry` refuses a glob at parse.
+#
+# The BACKEND is declared as a kind only (D-08). No DSN and no database path
+# live here: a connection string is a deployment ENVIRONMENT value, and putting
+# one in a versioned, content-hashed artifact would persist it into the audit
+# plane.
+#
+# **What this manifest deliberately does not name.** The agent's own Control
+# Plane documents — the ONE agent definition under `agents/` and the prompt
+# artifact it binds — are registered by `run.py` against their typed classes
+# (`ccf.agent-definition`, `ccf.prompt-artifact`). Those classes are not
+# manifest-addressable yet, so naming them here would silently downgrade them
+# to the open envelope and the agent factory would have nothing typed to
+# resolve. See the surface-change fragment for plan 15-15.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `tenant_id`, every `key`, every `path`, and the
+# non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
+# `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
+# `artifacts`, `path`, `key`, `class_id` and `role`, the `ccf.`-prefixed class
+# ids, and the `role` values are [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: atlas-commerce
+backend: sqlite
+
+resolution_spec_key: resolution-spec
+policy_bundle_key: policy-bundle
+
+artifacts:
+  # --- role: register — into the registry, into the pin set, into replay
+  #     dimension 2. This is "what this fabric was permitted to do".
+  - path: resolution-spec.yaml
+    key: resolution-spec
+    class_id: ccf.resolution-spec
+    role: register
+
+  - path: policy-bundle.yaml
+    key: policy-bundle
+    class_id: atlas-commerce.policy-bundle
+    role: register
+
+  - path: operator-parameters-traversal.yaml
+    key: traversal
+    class_id: ccf.operator-parameters.traversal
+    role: register
+
+  - path: operator-parameters-temporal.yaml
+    key: temporal
+    class_id: ccf.operator-parameters.temporal
+    role: register
+
+  - path: operator-parameters-policy.yaml
+    key: policy
+    class_id: ccf.operator-parameters.policy
+    role: register
+
+  - path: operator-parameters-similarity.yaml
+    key: similarity
+    class_id: ccf.operator-parameters.similarity
+    role: register
+
+  - path: perspective.yaml
+    key: perspective
+    class_id: ccf.perspective
+    role: register
+
+  - path: product-class.yaml
+    key: product-class
+    class_id: ccf.product-class
+    role: register
+
+  - path: product-governance.yaml
+    key: product-governance
+    class_id: atlas-commerce.product-governance
+    role: register
+
+  # --- role: load — parsed and validated through the same seam as everything
+  #     above, then handed back on `BootedFabric.artifacts`. Never registered,
+  #     never pinned, never in replay dimension 2.
+
+  # The SDK FIXES this one to `load` (D-IMPL-80, SDK_ARTIFACT_ROLES):
+  # registering a signal batch would content-hash raw event data into Control
+  # Plane state. Events are what the fabric OBSERVED; the Control Plane is what
+  # the fabric was PERMITTED TO DO.
+  - path: events.yaml
+    key: events
+    class_id: ccf.signal-batch
+    role: load
+
+  # This run's instants and its instruction parameter values. What one run
+  # asked about is not part of what the fabric was permitted to do.
+  - path: decision.yaml
+    key: decision
+    class_id: atlas-commerce.decision-inputs
+    role: load
+
+  # How each harness is stood up OUTSIDE the fabric. Not a fabric permission,
+  # so not in dimension 2 — which harness ran is recorded per leg on the
+  # `HarnessTrace` instead, deliberately isolated from the governed fields.
+  - path: harnesses.yaml
+    key: harnesses
+    class_id: atlas-commerce.harness-bindings
+    role: load
+
+  # What the deployment expects the product to contain. An expectation is not a
+  # permission, so it is parsed and returned, never put in force.
+  - path: expected.yaml
+    key: expected
+    class_id: atlas-commerce.expected-product
+    role: load
