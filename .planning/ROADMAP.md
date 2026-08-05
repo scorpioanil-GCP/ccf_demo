@@ -415,6 +415,71 @@ Plans:
 
 - [x] 15-21-PLAN.md — Phase close: curated surface-change log, the single manifest regeneration and criterion-1 audit, the tree-wide `$schema` and D-14 gates, `/gsd-review` and presentation to Dave (ERGO-01, ERGO-03, ERGO-12, ERGO-17)
 
+### Phase 15.1: Ergonomics Gap Closure — Governance Enforced, Not Conventional (INSERTED)
+
+**Goal**: The two governance guarantees Phase 15 shipped as *convention* become guarantees the code *enforces* — a manifest cannot route an author-versioned artifact class around the D-05 bump check, and Gate 2 (lineage strict equality, INV-CH7-47) has two genuinely independent sides in every example, proven by a mutation test that fails when they diverge
+**Depends on**: Phase 15 (closed and gated; D-GATE-15 amended rather than revoked)
+**Blocks**: Phase 16 — the documentation rewrite must not describe a self-satisfying gate
+**Requirements**: ERGO-18, ERGO-19
+**Requirements note**: ERGO-18/19 are minted during this phase's first plan, per the Phase 15/16 precedent recorded in §Coverage. ERGO-01..17 stay Complete — this phase closes defects in what they delivered, it does not reopen them.
+**Origin**: Post-gate cross-AI design review commissioned by Dave after D-GATE-15, on
+discomfort with the shipped state (`15-REVIEWS-round3.md`, 2026-08-05). Four independent
+systems — gemini, codex, cursor, ollama — reviewed the *shipped code*, not the plans, against
+"is this a sound design approach, and should this phase have shipped at all?" All four: sound,
+yes. Risk LOW (gemini), MEDIUM (codex, cursor). Two HIGH defects, each verified against source
+by the orchestrator rather than accepted on report.
+
+**The two confirmed defects:**
+
+  - **CR-1 — author-versioned classes can bypass the D-05 bump check via the manifest.**
+    `SDK_ARTIFACT_ROLES` fixes exactly one class, `ccf.signal-batch`.
+    `refuse_role_the_sdk_fixes` accepts `role: register` for `ccf.workflow-definition`,
+    `ccf.agent-definition` and `ccf.task-definition`, all of which then route through
+    `register_typed` — which runs no hash-verified bump check. The 15-19 split ruling is a
+    convention the shipped examples follow, not an enforced invariant:
+    `test_the_author_versioned_definitions_kept_their_bump_check` proves the examples do it
+    right; nothing proves the manifest refuses the wrong thing. Raised independently by codex
+    and cursor; gemini raised the same split as its only HIGH. Codex stated the falsifiable
+    test: "If adopters can put workflow/task/agent definitions in the manifest with
+    `role: register` and thereby use `register_typed`, the design is unsound."
+  - **CR-2 — Gate 2 is self-satisfying in every example, a NINTH instance of the phase's own
+    signature finding.** Verified across 9 files: each constructs
+    `ProductLineage(operators_invoked=execution.operators_invoked, ...)` and then calls
+    `run_gates(candidate, engine_resolved=execution.operators_invoked)` — the same value on
+    both sides of lineage strict equality. Files: `00-quickstart`, `01-agent-basics`,
+    `02-skilling`, `03-harness-portability`, `04-cross-process/producer_child`,
+    `06-decision-replay`, `07-artifact-store-mcp`, `08-e2e-demo`,
+    `external/00-hello-context/serve`. The phase closed the *upstream* `required_operators()`
+    collapse and numbered around this one; `test_gate_independence.py` admits callers outside
+    `ccf.deployment` may pass the same value twice. Raised by cursor alone.
+
+**The fix all three substantive reviewers converged on, independently**: a per-entry
+registration mode in the manifest — `registration: typed | versioned` — that `load_and_boot`
+dispatches on, routing author-versioned classes to `register_versioned` and **refusing** any
+manifest that registers them through `register_typed`. Everything stays in the manifest; one
+mental model; governance enforced rather than conventional. Gemini's variant:
+`version_policy: strict_bump`. Codex adds "tests proving workflow/task/agent definitions
+cannot bypass bump checks through the manifest." Cursor: "same ergonomics win without the
+split." Both codex and cursor called the shipped split **backwards** — the more
+governance-sensitive the artifact, the *less* declarative Phase 15 made it.
+
+**Success Criteria** (what must be TRUE):
+
+  1. A manifest that declares an author-versioned class (`ccf.workflow-definition`, `ccf.agent-definition`, `ccf.task-definition`) for typed registration is **refused at load**, with a test that asserts the refusal — not a test that the examples happen to avoid the pattern
+  2. The registration mode is declared per entry in the manifest and dispatched by `load_and_boot`; the artifact author does not have to know which of two registration paths their class belongs to
+  3. Gate 2's declared side is rebuilt from an authored source independent of `execution.operators_invoked` in every example that runs the gate, so the two sides of lineage strict equality no longer share a provenance
+  4. A mutation test proves Gate 2 **fails** when the declared and resolved operator sets diverge — the check is demonstrated to be falsifiable, not merely present
+  5. `docs/SURFACE-AUDIT.md` §4.1 is corrected: "eight instances" is an undercount, and the ninth (the Gate 2 call-site pattern) is entered with the same accounting discipline
+  6. The new AST gates are restated as **tripwires** — they catch known patterns — rather than as structural enforcement on par with single-writer DI (codex and cursor, agreed concern)
+  7. The public-surface manifest and the `--check` drift gate stay green; no replay dimension is hidden by anything this phase adds
+
+**Non-goals**: reopening the Phase 15 abstraction line (D-15A stands); D-IMPL-81 (pinning the
+manifest itself) unless Dave rules it in scope; the Phase 16 documentation rewrite; the
+remaining agreed concerns from the review that are not the two HIGH items —
+`BootedFabric.artifacts` role blurring and erosion pressure are recorded, not closed here.
+
+**Plans**: TBD (created by `/gsd:plan-phase 15.1`)
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -427,7 +492,8 @@ Plans:
 | 13.1. External-Consumer Examples (MCP Egress) | 4/4 | Complete   | 2026-08-02 |
 | 14. Documentation Suite | 10/10 | Complete   | 2026-08-03 (verified 5/5; G-01 deliberately deferred to 16) |
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
-| 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 |
+| 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 (gated with carried debt; CR-1/CR-2 close in 15.1) |
+| 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 0/? | Pending   | — |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
