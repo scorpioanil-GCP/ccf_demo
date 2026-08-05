@@ -404,7 +404,7 @@ Plans:
 
 **Wave 12**
 
-- [ ] 15-19-PLAN.md — Rewrite example 05 workflow-hitl (ERGO-14, ERGO-16, ERGO-12)
+- [x] 15-19-PLAN.md — Rewrite example 05 workflow-hitl (ERGO-14, ERGO-16, ERGO-12)
 
 **Wave 13**
 
@@ -426,7 +426,7 @@ Plans:
 | 13.1. External-Consumer Examples (MCP Egress) | 4/4 | Complete   | 2026-08-02 |
 | 14. Documentation Suite | 10/10 | Complete   | 2026-08-03 (verified 5/5; G-01 deliberately deferred to 16) |
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
-| 15. SDK Ergonomics — The Integration Surface | 18/21 | In Progress|  |
+| 15. SDK Ergonomics — The Integration Surface | 19/21 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
