@@ -1,28 +1,38 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.prompt-artifact.json
 # Harness-portability prompt artifact (CLAUDE.md §6.2 axis 6; D-IMPL-28).
 #
 # The template text and its declared parameters live here, never in code — a
-# prompt string literal in `run.py` or `legs/` would be the No-Hardcoding
-# Rule (§6.4) firing, and CINV-01 lints `/examples` for exactly that.
-# Rendered exactly once by the fabric; every harness leg receives the same
-# rendered string (T-06-64).
+# prompt string literal in `run.py` or `legs/` would be the No-Hardcoding Rule
+# (§6.4) firing, and CINV-01 lints `/examples` for exactly that. Rendered
+# exactly once by the fabric; every harness leg receives the same rendered
+# string (T-06-64).
+#
+# **One class, one document.** This file is now the `ccf.prompt-artifact` at
+# its root, so it can carry an honest `$schema` header; the Control Plane key
+# it is registered under moved to `agent-registration.yaml`, which is where all
+# four of the agent's keys now live.
+#
+# **Not a manifest entry, deliberately.** `ccf.prompt-artifact` is SDK-owned
+# but is absent from `SDK_ARTIFACT_CLASSES`, because it needs
+# `register_versioned`'s D-05 hash-verified bump check and `load_and_boot`
+# registers through `register_typed`. Naming it in the manifest would resolve
+# it to the open envelope and drop that check; `run.py` registers it against
+# its real typed class instead.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename
 #
-# [ADAPT]: the template text, parameter names, tenant, artifact name.
-# [MECHANISM]: `declared_parameters`, `template`, version field names, the
-# `keys` block.
+# In this file: the template text, parameter names, tenant and artifact name
+# are [ADAPT]; `schema_version`, `artifact_version`, `name`, `tenant`,
+# `declared_parameters` and `template` are [MECHANISM].
 
-keys:
-  prompt_artifact: atlas-commerce/prompt/order-experience-briefing
+schema_version: "1.0.0"
+artifact_version: "1.0.0"
 
-prompt_artifact:
-  schema_version: "1.0.0"
-  artifact_version: "1.0.0"
-  name: order-experience-briefing
-  tenant: atlas-commerce
-  declared_parameters: [order_ref, as_of]
-  template: |
-    Brief the order-experience analyst on order {{ order_ref }} as of
-    {{ as_of }}: current status, who placed it, and whether the delayed
-    shipment warrants an expedited refund escalation.
+name: order-experience-briefing
+tenant: atlas-commerce
+declared_parameters: [order_ref, as_of]
+template: |
+  Brief the order-experience analyst on order {{ order_ref }} as of
+  {{ as_of }}: current status, who placed it, and whether the delayed
+  shipment warrants an expedited refund escalation.

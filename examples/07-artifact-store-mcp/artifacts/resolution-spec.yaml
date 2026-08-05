@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.resolution-spec.json
+# Example 07 entity-resolution spec — the deployment's declared vocabulary
+# (logistics domain, D-09: the store swap is the point, the domain is scenery).
+# Everything in this file is a *value*: entity classes, relationship types,
+# attribute names. None of it exists in `/src`, and none of it exists in
+# `run.py` (CLAUDE.md §6.4, the No-Hardcoding Rule).
+#
+# This document is closed-world over resolution rules only (D-03). The two
+# attribute maps that used to sit beside them in `ontology.yaml` now live with
+# the operator whose construction reads them — one artifact, one consumer.
+# `tenant_id` moved onto the manifest, which is where the deployment's own
+# identity already is.
+#
+# It mirrors the *shape* the assembly worker accepts (whitepaper §7.3:
+# identity_keys mint the canonical entity URI, INV-CH7-18).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: every entity class name, match key, attribute name and
+# relationship type is [ADAPT]; the keys `entity_rules`, `match_key`,
+# `entity_class`, `identity_keys`, `attribute_keys`, `relationship_rules`,
+# `relationship_type`, `subject_entity_class` and `object_entity_class` are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+# Source payload vocabulary -> E nodes. `match_key` selects a rule by presence;
+# `identity_keys` mint the canonical URI, so the same shipment arriving from
+# two source systems converges on one node.
+entity_rules:
+  - match_key: shipment_ref
+    entity_class: shipment
+    identity_keys: [shipment_ref]
+    attribute_keys:
+      - shipment_status
+      - cargo_description
+      - shipment_classification
+
+  - match_key: route_code
+    entity_class: route
+    identity_keys: [route_code]
+    attribute_keys:
+      - route_description
+      - transport_mode
+      - route_classification
+
+  - match_key: depot_code
+    entity_class: depot
+    identity_keys: [depot_code]
+    attribute_keys:
+      - depot_name
+      - region
+      - depot_classification
+
+# Typed first-class edges, emitted when one envelope resolves both endpoint
+# classes — co-occurrence in one source event is the evidence.
+relationship_rules:
+  - relationship_type: assigned_to
+    subject_entity_class: shipment
+    object_entity_class: route
+
+  - relationship_type: originates_at
+    subject_entity_class: shipment
+    object_entity_class: depot

@@ -60,7 +60,7 @@ runtime changes. The
 documents the schema:
 
 ```yaml
---8<-- "examples/03-harness-portability/artifacts/agents/order_insights.yaml"
+--8<-- "examples/03-harness-portability/artifacts/agents/agent-definition.yaml"
 ```
 
 Per-harness deployment values — session vocabulary, reported model
@@ -94,10 +94,10 @@ goes red naming the field:
 
 ## Step 4 — drive every leg with the same inputs
 
-Each leg runs the harness's genuine loop machinery. The assertion that
-follows is seam 1 in evidence: the Context Product recovered from each
-harness's native carrier is byte-identical across all legs, and identical to
-what the fabric admitted:
+Each leg runs the harness's genuine loop machinery over the same agent, the
+same product, and the same rendered instructions. Everything a leg is judged on
+is recovered from *that leg's own* carrier, so the values being compared in the
+next step are three independently produced values rather than one shared one:
 
 ```py
 --8<-- "examples/03-harness-portability/run.py:harness-legs"
@@ -105,24 +105,36 @@ what the fabric admitted:
 
 ## Step 5 — assert equivalence on what CCF governs
 
-Seam 3 first: every effect went through governed emission, so there is one
-emission address whichever harness drove it. Then the governed replay fields
-are compared field by field. Harness attribution deliberately stays *out* of
-the governed set and differs per leg — the point is that what CCF governs is
-identical while the harnesses stay distinguishable:
+The equivalence assertions are executed by `pytest`, in
+`tests/examples/test_harness_portability_output.py`, not by the driver — a
+printed summary nobody reads was never a guarantee. Two of them carry the
+claim:
+
+- **Consumption.** The Context Product recovered from each harness's native
+  carrier is byte-identical across all legs, and identical to what the fabric
+  admitted. That is seam 1 in evidence.
+- **Replay.** The governed replay fields are compared field by field, and the
+  divergence message names the field and both harnesses.
+
+Seam 3 rides along: every effect went through governed emission, so there is
+one emission address whichever harness drove it. Harness attribution
+deliberately stays *out* of the governed set and is asserted to differ per leg —
+the point is that what CCF governs is identical while the harnesses stay
+distinguishable. This is the set the comparison covers:
 
 ```py
---8<-- "examples/03-harness-portability/run.py:harness-governed-fields"
+--8<-- "examples/03-harness-portability/legs/deterministic.py:harness-governed-fields"
 ```
 
 ## What to change first
 
 Point the agent definition at your own product schema and policy regime, swap
-`artifacts/ontology.yaml` and `artifacts/events.yaml` for your domain, and put
-your deployment's model identifiers and session vocabulary in
-`artifacts/harnesses.yaml`. On the next run expect the served payload to
-change; review it and update the expectation block in
-`artifacts/controlplane.yaml` in the same commit.
+`artifacts/resolution-spec.yaml` and `artifacts/events.yaml` for your domain,
+and put your deployment's model identifiers and session vocabulary in
+`artifacts/harnesses.yaml`. Every document in force is enumerated by
+`artifacts/manifest.yaml`, so a new artifact is not in force until it is named
+there. On the next run expect the served payload to change; review it and
+update `artifacts/expected.yaml` in the same commit.
 
 The driver and the leg modules are mechanism and should not need editing. If
 you are adding a *new* harness rather than adapting an existing one, implement

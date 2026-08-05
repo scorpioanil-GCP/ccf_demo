@@ -1,0 +1,14 @@
+{
+  "asserts": 0,
+  "boot": 0,
+  "helpers": 0,
+  "imports": 5,
+  "mech": 0,
+  "opblk": 0,
+  "path": "examples/03-harness-portability/legs/ollama_client.py",
+  "prints": 0,
+  "raw": 147,
+  "reg": 0,
+  "relocatable": 0,
+  "removable": 0
+}

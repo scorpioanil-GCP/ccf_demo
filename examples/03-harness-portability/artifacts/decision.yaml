@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# This decision's inputs (e-commerce domain, D-IMPL-52).
+#
+# Explicit inputs, never clock reads: the three harness legs drive the SAME
+# governed decision precisely because these are data. A clock read here would
+# make the three legs' replay records differ in dimension 1 for a reason that
+# has nothing to do with the harness — and the equivalence assertion would be
+# testing the wall clock.
+#
+# **This document is `role: load` in the manifest, and that is a decision, not
+# an oversight.** Registering it would content-hash "what instant this run
+# asked about" into Control Plane state and therefore into replay dimension 2 —
+# but dimension 2 records what the fabric was PERMITTED TO DO, not what any one
+# run asked of it.
+#
+# `instruction_parameters` are the values bound into the agent's axis-6
+# instruction binding, rendered exactly once by the fabric and handed to every
+# leg identically (T-06-64). They belong to this run, not to the Control Plane.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM]. Every timestamp
+# states its zone — the loader refuses a zone-less one rather than guessing
+# (D-IMPL-38).
+
+semver: "1.0.0"
+class_id: atlas-commerce.decision-inputs
+
+declaration:
+  temporal_boundary: 2026-06-02T10:00:00Z
+  now: 2026-06-02T10:00:03Z
+
+  instruction_parameters:
+    order_ref: "ORD-5521"

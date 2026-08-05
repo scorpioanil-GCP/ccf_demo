@@ -58,7 +58,7 @@ STORE_CONFIG = _EXAMPLE_ROOT / "artifacts" / "store_mcp.yaml"
 def load_auth_values() -> dict[str, Any]:
     """The deployment's auth block, from the store-config artifact."""
     declared = yaml.safe_load(STORE_CONFIG.read_text(encoding="utf-8"))
-    auth: dict[str, Any] = declared["store"]["auth"]
+    auth: dict[str, Any] = declared["declaration"]["auth"]
     return auth
 
 

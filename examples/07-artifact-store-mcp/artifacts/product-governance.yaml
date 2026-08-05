@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The remaining governance values this deployment puts in force, in one
+# deployment-authored document (logistics domain, D-09).
+#
+# Every value here is one the SDK deliberately declines to own:
+#
+#   * `max_ttl_seconds` — the per-class TTL ceiling (INV-CH7-48, D-IMPL-39).
+#     MAX_TTL has no SDK default. `run.py` registers this number as a typed
+#     `MaxTTL` to MINT the pin `register_product_class` needs; the number and
+#     the pin are therefore two things, which is what leaves Gate 3 something
+#     real to compare against `product_ttl_seconds` below.
+#   * `product_ttl_seconds` — how long an individual product stays servable. A
+#     SEPARATELY authored number from the ceiling, on purpose.
+#   * `similarity_index_version` — the version identity this deployment assigns
+#     to the corpus state at its named boundary (INV-CH7-27, D-IMPL-38).
+#   * `plan_id` — the projection's identity, carried into replay dimension 5.
+#
+# The `*_artifact_*` values below are the deployment vocabulary the stores are
+# TOLD, never assume. Three §7.4 artifact classes flow through the store seam:
+# the decision replay record, the Context Product at rest, and the Control
+# Plane policy bundle that governed the decision. Both store-backed runs read
+# these same values from this same document, which is what makes "the same
+# artifacts landed at the same versioned URIs" a statement about the two
+# STORES rather than about two configurations.
+#
+# **What is deliberately NOT here: the artifact store itself.** Which substrate
+# persists these artifacts is a deployment ENVIRONMENT choice, exactly as a
+# database DSN is (D-08), so it stays a call-site binding in `run.py` and lives
+# in `store_file.yaml` / `store_mcp.yaml`. Naming a store in a registered,
+# content-hashed artifact would move a substrate choice into replay dimension 2
+# and would make the example's two runs differ in what was in force —
+# destroying the very claim the example exists to make.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: nordhaven-logistics.product-governance
+
+declaration:
+  max_ttl_seconds: 600
+  product_ttl_seconds: 300
+  similarity_index_version: "nordhaven-route-corpus@2026-07-01"
+  plan_id: nordhaven-logistics.shipment-context-summary.plan
+
+  replay_record_class: decision-replay-record
+  product_artifact_class: context-product
+  product_artifact_name: shipment-context-summary
+  policy_bundle_artifact_class: control-plane-bundle
+  policy_bundle_artifact_name: dispatch-desk-policy-bundle

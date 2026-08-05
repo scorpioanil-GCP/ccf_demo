@@ -3,7 +3,7 @@
 ## What this demonstrates
 
 The harness-neutrality proof (CLAUDE.md §7.3, mission success condition
-3): **one** agent definition — `artifacts/agents/order_insights.yaml`,
+3): **one** agent definition — `artifacts/agents/agent-definition.yaml`,
 loaded once, producing one `Agent` object — executed unmodified under
 all three D-IMPL-24 reference adapters (Claude Agent SDK, Google ADK,
 LangGraph). *Portability is demonstrated, not asserted.* An agent here
@@ -34,8 +34,14 @@ or, directly:
 PYTHONPATH=src:runtime python examples/03-harness-portability/run.py --mode deterministic
 ```
 
-Exit code 0 means every assertion held across all three harness legs.
-Exit 2 is a refusal with a diagnostic — never a silent skip.
+Exit code 0 means the deterministic spine ran across all three harness
+legs. Its **assertions** — including the two-harness equivalence assertion
+this example exists for — live in
+`tests/examples/test_harness_portability_output.py` and are run by `pytest`
+(D-09), because `make examples` proves a spine runs and a test runner proves
+it is correct. The live legs keep their assertions in `run.py`: they are
+excluded from `make ci` by design, so a runner that could fail them does not
+exist. Exit 2 is a refusal with a diagnostic — never a silent skip.
 
 Two **opt-in live legs** exist and are *never run in CI*:
 
@@ -52,9 +58,9 @@ note: Ollama serves `*-cloud` models by relaying to ollama.com — check
 `ollama list` if locality matters.
 
 > **Expected-output changes are a reviewed event.** If you enrich the
-> artifacts, run `make example-03`, review the assertion output, then
-> deliberately edit the `expected:` block in
-> `artifacts/controlplane.yaml` to match what you reviewed —
+> artifacts, run `pytest tests/examples/test_harness_portability_output.py`,
+> review what it reports, then deliberately edit
+> `artifacts/expected.yaml` to match what you reviewed —
 > regeneration is a reviewed event, landed in the same commit as the
 > enrichment, with the commit body summarizing what changed in the
 > output and why. No `make regen-*` targets exist, and none will be
@@ -67,18 +73,19 @@ note: Ollama serves `*-cloud` models by relaying to ollama.com — check
 Real harness loop machinery over scripted/no-model transports: a real
 `ClaudeSDKClient` session over a custom `Transport`, a real ADK
 `Runner`, a real compiled LangGraph graph. A process-global socket
-guard fails the run on any network attempt — and `run.py` asserts the
-guard actually fires before trusting it.
+guard fails the run on any network attempt — and `run.py` refuses to
+proceed unless the guard actually fires, so the "no network" claim is
+established rather than assumed.
 
-The fabric boots from artifacts, ingests the events in
+The fabric boots from `artifacts/manifest.yaml` in one `load_and_boot`
+call, ingests the events in
 `artifacts/events.yaml` — a customer asserted by two source systems
 (one node, lineage by set-union), a second order the similarity
 operator must rank out, a restricted age-gated catalog item the policy
 operator must substitute out, and a stalled shipment attached to the
 delayed order via the `shipped_via` edge — and serves one gated
 product: three entity classes (`customer`, `order`, `shipment`), two
-surviving relationship types, per the `expected:` block in
-`artifacts/controlplane.yaml`.
+surviving relationship types, per `artifacts/expected.yaml`.
 
 **Equivalence is byte-level.** The Context Product recovered out of
 each harness-native carrier is byte-identical across the three legs and
@@ -116,9 +123,19 @@ of having both modes.
 
 | Artifact | What it declares | Yours to edit vs mechanism |
 | --- | --- | --- |
-| `artifacts/agents/order_insights.yaml` | THE one agent definition all three legs share — six specialization axes, naming no harness | `[ADAPT]` tenant, names, roles, thresholds; `[MECHANISM]` the six axis field names, `referenced_artifacts` structure, `ref` URI scheme |
-| `artifacts/controlplane.yaml` | Fabric bundle: keys, policy bundle, operator parameters (incl. the similarity query and the traversal edge set), product class, decision instants, the `expected:` block | `[ADAPT]` all values including `expected:`; `[MECHANISM]` every field name |
-| `artifacts/ontology.yaml` | The deployment vocabulary: four entity classes, three typed edges, classification and similarity-corpus attribute maps | `[ADAPT]` classes, types, attribute names; `[MECHANISM]` rule-block field names |
+| `artifacts/agents/agent-definition.yaml` | THE one agent definition all three legs share — six specialization axes, naming no harness | `[ADAPT]` tenant, names, roles, ref targets; `[MECHANISM]` the six axis field names, the two version fields, the `ccf-artifact://` URI scheme |
+| `artifacts/agents/policy-regime.yaml` | The AGENT's axis-4 policy regime — a different artifact from the fabric's `policy-bundle.yaml` | `[ADAPT]` `class_id` and everything under `declaration:`; `[MECHANISM]` `semver`, `class_id`, `declaration` |
+| `artifacts/agents/debt-profile.yaml` | The agent's axis-5 half-life and debt profile | `[ADAPT]` `class_id` and everything under `declaration:`; `[MECHANISM]` `semver`, `class_id`, `declaration` |
+| `artifacts/agent-registration.yaml` | Where the agent's four documents are filed in the Control Plane, and against which class — `role: load`, a naming table rather than a permission | `[ADAPT]` every key, path and class id; `[MECHANISM]` the entry field names |
+| `artifacts/manifest.yaml` | The one document naming every fabric artifact in force, its Control Plane key, its class, and its `role` (D-IMPL-80) | `[ADAPT]` keys, paths, deployment class ids; `[MECHANISM]` field names, `ccf.`-prefixed class ids, `role` values |
+| `artifacts/resolution-spec.yaml` | The deployment vocabulary: four entity classes, three typed edges | `[ADAPT]` classes, types, attribute names; `[MECHANISM]` rule-block field names |
+| `artifacts/policy-bundle.yaml` | The policy bundle the *fabric* boots under — distinct from the agent's axis-4 regime | `[ADAPT]` `class_id` and everything under `declaration:`; `[MECHANISM]` `semver`, `class_id`, `declaration` |
+| `artifacts/operator-parameters-{traversal,temporal,policy,similarity}.yaml` | One document per operator category, each carrying the attribute map its own operator reads | `[ADAPT]` queries, thresholds, class and attribute names; `[MECHANISM]` field names |
+| `artifacts/perspective.yaml` | The Π role-conditioning the product is served under | `[ADAPT]` principal id, role; `[MECHANISM]` `principal_id`, `role` |
+| `artifacts/product-class.yaml` | The served class, its TTL anchor, its MAX_TTL key, and `required_operator_keys` — the authored declared side of Gate 2 | `[ADAPT]` names and operator keys; `[MECHANISM]` field names and enum values |
+| `artifacts/product-governance.yaml` | The governance numbers the SDK declines to own: the TTL ceiling, the product TTL, the corpus version identity, the plan id | `[ADAPT]` every value; `[MECHANISM]` `semver`, `class_id`, `declaration` |
+| `artifacts/decision.yaml` | This run's instants and the axis-6 instruction parameter values — `role: load`, never in replay dimension 2 | `[ADAPT]` every value; `[MECHANISM]` `semver`, `class_id`, `declaration` |
+| `artifacts/expected.yaml` | What the served product should contain, and how many harness legs this deployment stands up | `[ADAPT]` every value; `[MECHANISM]` `semver`, `class_id`, `declaration` |
 | `artifacts/events.yaml` | The L1 signal envelopes: lineage pair, rank-out order, restricted item, stalled shipment | `[ADAPT]` all payload content; `[MECHANISM]` envelope field names |
 | `artifacts/prompt.yaml` | The axis-6 prompt artifact — template and declared parameters, rendered once by the fabric | `[ADAPT]` template text, parameter names; `[MECHANISM]` `declared_parameters`, `template` |
 | `artifacts/harnesses.yaml` | Per-harness deployment values (session vocabulary, reported models) for the deterministic legs | `[ADAPT]` model ids, session values; `[MECHANISM]` the per-harness block names the legs read |
@@ -139,17 +156,17 @@ of having both modes.
 ## What to change first
 
 `artifacts/` is the specialization surface. Point
-`artifacts/agents/order_insights.yaml` (keys
-`agent_definition.context_contract.consumes[0].product_class` and
-`policy_regime.ref`) at your own product class and policy regime, swap
-`artifacts/ontology.yaml` and `artifacts/events.yaml` for your domain,
+`artifacts/agents/agent-definition.yaml` (keys
+`context_contract.consumes[0].product_class` and `policy_regime.ref`) at your
+own product class and policy regime, swap
+`artifacts/resolution-spec.yaml` and `artifacts/events.yaml` for your domain,
 put your deployment's model identifiers and session vocabulary in
 `artifacts/harnesses.yaml`, and your live providers, timeouts, and
-budget in `artifacts/live.yaml`. On the next run, expect the served
-payload to change — review it and update
-`artifacts/controlplane.yaml`'s `expected:` block in the same commit.
-The code in `run.py` and `legs/` is mechanism and should not need
-editing.
+budget in `artifacts/live.yaml`. Every document in force is enumerated by
+`artifacts/manifest.yaml`, so a new artifact is not in force until it is
+named there. On the next run, expect the served payload to change — review
+it and update `artifacts/expected.yaml` in the same commit. The code in
+`run.py` and `legs/` is mechanism and should not need editing.
 
 ## What would fail
 

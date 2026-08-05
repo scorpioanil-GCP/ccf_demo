@@ -83,19 +83,40 @@ name differing. One workload, called twice — that is the structural form of
 --8<-- "examples/07-artifact-store-mcp/run.py:store-swap"
 ```
 
-## Step 5 — assert the substrate was invisible
-
-Three assertions, in increasing strength. The served product's canonical
-bytes match across the two runs. The same artifact kinds landed under the
-same versioned URIs at the same content addresses. And every URI the
-MCP run recorded resolves against a *fresh* client back to its exact address,
-with the exact bytes behind it — never a "latest" lookup, which is what makes
-replay determinism survive the swap. See
-[replay anatomy](../concepts/replay-anatomy.md):
+Two properties make that structural rather than merely stated, and both are
+worth copying into your own deployment. The workload takes exactly *one*
+per-run parameter, so there is nothing else that could vary between the calls.
+And both runs boot from the same manifest:
 
 ```py
---8<-- "examples/07-artifact-store-mcp/run.py:store-equivalence"
+--8<-- "examples/07-artifact-store-mcp/run.py:boot"
 ```
+
+The store is deliberately **not** a manifest field. Which substrate persists
+your artifacts is a deployment environment choice, the same kind of thing as a
+database connection string — and a substrate named in a registered,
+content-hashed artifact would land in replay dimension 2, making the two runs
+genuinely differ in what was in force.
+
+## Step 5 — assert the substrate was invisible
+
+The assertions run under `pytest`, in
+`tests/examples/test_artifact_store_output.py`. Three of them, in increasing
+strength:
+
+- The served product's canonical bytes match across the two runs.
+- The same artifact kinds landed under the same versioned URIs at the same
+  content addresses — checked against the role set the deployment declares, so
+  a run that quietly stopped persisting one of them fails rather than agreeing
+  with itself about nothing.
+- Every URI the MCP run recorded resolves against a *fresh* client back to its
+  exact address, with the exact bytes behind it — never a "latest" lookup,
+  which is what makes replay determinism survive the swap. See
+  [replay anatomy](../concepts/replay-anatomy.md).
+
+Two further tests read the example's own source and refuse a second per-run
+parameter or a store named in the manifest, so the "nothing else changes"
+property cannot be lost to a later edit without a red build.
 
 ## What to change first
 
@@ -107,10 +128,12 @@ not from the tree, per
 changes. On the next run expect the same URIs printed with your server behind
 them, and the same byte-identical product.
 
-Second, `artifacts/ontology.yaml` and `artifacts/events.yaml` for your own
-vocabulary and signal stream, then update the expectation block in
-`artifacts/controlplane.yaml` to match what you reviewed. The artifact kinds
-and names your deployment files things under also live in that artifact.
+Second, `artifacts/resolution-spec.yaml` and `artifacts/events.yaml` for your
+own vocabulary and signal stream, then update `artifacts/expected.yaml` to
+match what you reviewed. The artifact kinds and names your deployment files
+things under live in `artifacts/product-governance.yaml`. Every document in
+force is enumerated by `artifacts/manifest.yaml`, so a new artifact is not in
+force until it is named there.
 
 Hot graph state and versioned artifacts may sit on different substrates — the
 live graph stays on the graph storage Protocol

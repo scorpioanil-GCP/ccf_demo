@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The policy bundle in force (logistics domain, D-09).
+#
+# A *version* of this bundle is resolved from the Control Plane, stamped onto
+# every claim at assembly, and carried into the product's policy binding and
+# into replay dimension 2. It is also one of the three §7.4 artifact classes
+# this example persists through the store seam, so the pluggability proof
+# covers a Control Plane bundle and not just decision outputs.
+#
+# A policy bundle's SCHEMA is the deployment's, not the SDK's — the SDK never
+# invents a policy-bundle schema on a user's behalf (CLAUDE.md §11). So this
+# document uses the open `DeclaredArtifact` envelope: the SDK fixes `semver`,
+# `class_id` and canonical serializability, and everything under `declaration:`
+# is this deployment's own.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: nordhaven-logistics.policy-bundle
+
+declaration:
+  regime: nordhaven-dispatch
+  jurisdiction: "NO"
+  permitted_classifications:
+    - internal
