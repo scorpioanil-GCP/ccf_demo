@@ -612,7 +612,8 @@
         "kind": "contract",
         "shape": {
           "entity_rules": "tuple[ccf.assembly.worker.EntityResolutionRule, ...]",
-          "relationship_rules": "tuple[ccf.assembly.worker.RelationshipResolutionRule, ...]"
+          "relationship_rules": "tuple[ccf.assembly.worker.RelationshipResolutionRule, ...]",
+          "semver": "<class 'str'>"
         }
       },
       "EntityResolutionStrategy": {
@@ -817,14 +818,60 @@
       }
     }
   },
+  "ccf.controlplane.artifact_base": {
+    "__all__": [
+      "ArtifactClass",
+      "VersionedArtifact",
+      "validate_semver"
+    ],
+    "exports": {
+      "ArtifactClass": {
+        "kind": "class",
+        "shape": "(class_id: 'str', contract: 'type[CCFContract]') -> None"
+      },
+      "VersionedArtifact": {
+        "kind": "contract",
+        "shape": {
+          "semver": "<class 'str'>"
+        }
+      },
+      "validate_semver": {
+        "kind": "function",
+        "shape": "(value: 'str') -> 'str'"
+      }
+    }
+  },
   "ccf.controlplane.artifacts": {
     "__all__": [
       "ArtifactClass",
       "ArtifactLoadError",
+      "ArtifactRole",
+      "DEBT_PROFILE",
+      "DEPLOYMENT_MANIFEST",
       "DebtProfile",
       "DeclaredArtifact",
+      "DeploymentManifest",
+      "HALF_LIFE_TABLE",
       "HalfLifeEntry",
       "HalfLifeTable",
+      "ManifestEntry",
+      "OPERATOR_PARAMETERS_POLICY",
+      "OPERATOR_PARAMETERS_SIMILARITY",
+      "OPERATOR_PARAMETERS_TEMPORAL",
+      "OPERATOR_PARAMETERS_TRAVERSAL",
+      "OperatorParametersArtifact",
+      "PERSPECTIVE",
+      "PRODUCT_CLASS",
+      "PerspectiveArtifact",
+      "PolicyFilterParametersArtifact",
+      "ProductClassDeclaration",
+      "RESOLUTION_SPEC",
+      "SIGNAL_BATCH",
+      "SignalBatch",
+      "SimilaritySelectParametersArtifact",
+      "TemporalAsOfParametersArtifact",
+      "TraversalNeighborhoodParametersArtifact",
+      "VersionedArtifact",
       "declared_artifact_class",
       "load_artifact",
       "parse_artifact",
@@ -838,6 +885,18 @@
       "ArtifactLoadError": {
         "kind": "class",
         "shape": "type"
+      },
+      "ArtifactRole": {
+        "kind": "function",
+        "shape": "(*args, **kwargs)"
+      },
+      "DEBT_PROFILE": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "DEPLOYMENT_MANIFEST": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
       },
       "DebtProfile": {
         "kind": "contract",
@@ -856,6 +915,21 @@
           "semver": "<class 'str'>"
         }
       },
+      "DeploymentManifest": {
+        "kind": "contract",
+        "shape": {
+          "artifacts": "tuple[ccf.controlplane.artifacts.ManifestEntry, ...]",
+          "backend": "typing.Literal['sqlite', 'postgres']",
+          "policy_bundle_key": "<class 'str'>",
+          "resolution_spec_key": "<class 'str'>",
+          "semver": "<class 'str'>",
+          "tenant_id": "str | None"
+        }
+      },
+      "HALF_LIFE_TABLE": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
       "HalfLifeEntry": {
         "kind": "contract",
         "shape": {
@@ -868,6 +942,121 @@
         "kind": "contract",
         "shape": {
           "entries": "collections.abc.Mapping[str, ccf.controlplane.artifacts.HalfLifeEntry]",
+          "semver": "<class 'str'>"
+        }
+      },
+      "ManifestEntry": {
+        "kind": "contract",
+        "shape": {
+          "class_id": "<class 'str'>",
+          "key": "<class 'str'>",
+          "path": "<class 'str'>",
+          "role": "typing.Literal['register', 'load']"
+        }
+      },
+      "OPERATOR_PARAMETERS_POLICY": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "OPERATOR_PARAMETERS_SIMILARITY": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "OPERATOR_PARAMETERS_TEMPORAL": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "OPERATOR_PARAMETERS_TRAVERSAL": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "OperatorParametersArtifact": {
+        "kind": "contract",
+        "shape": {
+          "semver": "<class 'str'>"
+        }
+      },
+      "PERSPECTIVE": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "PRODUCT_CLASS": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "PerspectiveArtifact": {
+        "kind": "contract",
+        "shape": {
+          "principal_id": "<class 'str'>",
+          "role": "<class 'str'>",
+          "semver": "<class 'str'>"
+        }
+      },
+      "PolicyFilterParametersArtifact": {
+        "kind": "contract",
+        "shape": {
+          "classification_attribute_by_class": "collections.abc.Mapping[str, str]",
+          "permitted_classifications": "frozenset[str]",
+          "semver": "<class 'str'>"
+        }
+      },
+      "ProductClassDeclaration": {
+        "kind": "contract",
+        "shape": {
+          "assembly_mode": "typing.Literal['algorithmic', 'llm_packaged', 'swarm_assembled']",
+          "max_ttl_key": "<class 'str'>",
+          "required_operator_keys": "tuple[str, ...]",
+          "schema_name": "<class 'str'>",
+          "schema_version": "<class 'str'>",
+          "semver": "<class 'str'>",
+          "ttl_anchor": "typing.Literal['from_decision', 'from_entity_freshness']"
+        }
+      },
+      "RESOLUTION_SPEC": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "SIGNAL_BATCH": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "SignalBatch": {
+        "kind": "contract",
+        "shape": {
+          "envelopes": "tuple[ccf.signal.envelope.SignalEnvelope, ...]",
+          "semver": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "SimilaritySelectParametersArtifact": {
+        "kind": "contract",
+        "shape": {
+          "minimum_score_percent": "<class 'int'>",
+          "query": "<class 'str'>",
+          "ranked_entity_classes": "frozenset[str]",
+          "semver": "<class 'str'>",
+          "similarity_corpus_attribute_by_class": "collections.abc.Mapping[str, str]"
+        }
+      },
+      "TemporalAsOfParametersArtifact": {
+        "kind": "contract",
+        "shape": {
+          "require_valid_at_boundary": "<class 'bool'>",
+          "semver": "<class 'str'>"
+        }
+      },
+      "TraversalNeighborhoodParametersArtifact": {
+        "kind": "contract",
+        "shape": {
+          "depth_limit": "<class 'int'>",
+          "relationship_types": "frozenset[str]",
+          "seed_entity_classes": "frozenset[str]",
+          "semver": "<class 'str'>"
+        }
+      },
+      "VersionedArtifact": {
+        "kind": "contract",
+        "shape": {
           "semver": "<class 'str'>"
         }
       },
@@ -1055,6 +1244,180 @@
       "StateWriteToken": {
         "kind": "class",
         "shape": "(token: 'object') -> 'None'"
+      }
+    }
+  },
+  "ccf.deployment": {
+    "__all__": [
+      "ArtifactPin",
+      "BootedFabric",
+      "DeploymentManifest",
+      "ManifestEntry",
+      "ResolvedPins",
+      "SDK_ARTIFACT_CLASSES",
+      "SDK_ARTIFACT_ROLES",
+      "SimilarityCorpusAttributeError",
+      "UnpinnedArtifactError",
+      "build_operator_registry",
+      "load_and_boot",
+      "refuse_role_the_sdk_fixes",
+      "resolve_artifact_class"
+    ],
+    "exports": {
+      "ArtifactPin": {
+        "kind": "contract",
+        "shape": {
+          "class_id": "<class 'str'>",
+          "key": "<class 'str'>",
+          "version": "<class 'str'>"
+        }
+      },
+      "BootedFabric": {
+        "kind": "class",
+        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]') -> None"
+      },
+      "DeploymentManifest": {
+        "kind": "contract",
+        "shape": {
+          "artifacts": "tuple[ccf.controlplane.artifacts.ManifestEntry, ...]",
+          "backend": "typing.Literal['sqlite', 'postgres']",
+          "policy_bundle_key": "<class 'str'>",
+          "resolution_spec_key": "<class 'str'>",
+          "semver": "<class 'str'>",
+          "tenant_id": "str | None"
+        }
+      },
+      "ManifestEntry": {
+        "kind": "contract",
+        "shape": {
+          "class_id": "<class 'str'>",
+          "key": "<class 'str'>",
+          "path": "<class 'str'>",
+          "role": "typing.Literal['register', 'load']"
+        }
+      },
+      "ResolvedPins": {
+        "kind": "contract",
+        "shape": {
+          "entries": "tuple[ccf.deployment.pins.ArtifactPin, ...]"
+        }
+      },
+      "SDK_ARTIFACT_CLASSES": {
+        "kind": "constant",
+        "shape": "dict"
+      },
+      "SDK_ARTIFACT_ROLES": {
+        "kind": "constant",
+        "shape": "dict"
+      },
+      "SimilarityCorpusAttributeError": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "UnpinnedArtifactError": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "build_operator_registry": {
+        "kind": "function",
+        "shape": "(*, parameters: 'Mapping[str, OperatorParametersArtifact]', view: 'GraphView', pins: 'ResolvedPins', policy_bundle_key: 'str', similarity_index_version: 'str | None' = None) -> 'OperatorRegistry'"
+      },
+      "load_and_boot": {
+        "kind": "function",
+        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', database_path: 'str | None' = None, postgres_dsn: 'str | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
+      },
+      "refuse_role_the_sdk_fixes": {
+        "kind": "function",
+        "shape": "(class_id: 'str', role: 'ArtifactRole') -> 'None'"
+      },
+      "resolve_artifact_class": {
+        "kind": "function",
+        "shape": "(class_id: 'str') -> 'ArtifactClass'"
+      }
+    }
+  },
+  "ccf.deployment.classes": {
+    "__all__": [
+      "SDK_ARTIFACT_CLASSES",
+      "SDK_ARTIFACT_ROLES",
+      "refuse_role_the_sdk_fixes",
+      "resolve_artifact_class"
+    ],
+    "exports": {
+      "SDK_ARTIFACT_CLASSES": {
+        "kind": "constant",
+        "shape": "dict"
+      },
+      "SDK_ARTIFACT_ROLES": {
+        "kind": "constant",
+        "shape": "dict"
+      },
+      "refuse_role_the_sdk_fixes": {
+        "kind": "function",
+        "shape": "(class_id: 'str', role: 'ArtifactRole') -> 'None'"
+      },
+      "resolve_artifact_class": {
+        "kind": "function",
+        "shape": "(class_id: 'str') -> 'ArtifactClass'"
+      }
+    }
+  },
+  "ccf.deployment.manifest": {
+    "__all__": [
+      "BootedFabric",
+      "load_and_boot"
+    ],
+    "exports": {
+      "BootedFabric": {
+        "kind": "class",
+        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]') -> None"
+      },
+      "load_and_boot": {
+        "kind": "function",
+        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', database_path: 'str | None' = None, postgres_dsn: 'str | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
+      }
+    }
+  },
+  "ccf.deployment.operators": {
+    "__all__": [
+      "SimilarityCorpusAttributeError",
+      "build_operator_registry"
+    ],
+    "exports": {
+      "SimilarityCorpusAttributeError": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "build_operator_registry": {
+        "kind": "function",
+        "shape": "(*, parameters: 'Mapping[str, OperatorParametersArtifact]', view: 'GraphView', pins: 'ResolvedPins', policy_bundle_key: 'str', similarity_index_version: 'str | None' = None) -> 'OperatorRegistry'"
+      }
+    }
+  },
+  "ccf.deployment.pins": {
+    "__all__": [
+      "ArtifactPin",
+      "ResolvedPins",
+      "UnpinnedArtifactError"
+    ],
+    "exports": {
+      "ArtifactPin": {
+        "kind": "contract",
+        "shape": {
+          "class_id": "<class 'str'>",
+          "key": "<class 'str'>",
+          "version": "<class 'str'>"
+        }
+      },
+      "ResolvedPins": {
+        "kind": "contract",
+        "shape": {
+          "entries": "tuple[ccf.deployment.pins.ArtifactPin, ...]"
+        }
+      },
+      "UnpinnedArtifactError": {
+        "kind": "class",
+        "shape": "type"
       }
     }
   },
@@ -4879,6 +5242,17 @@
       }
     }
   },
+  "ccf_runtime.cli.commands.schema": {
+    "__all__": [
+      "register"
+    ],
+    "exports": {
+      "register": {
+        "kind": "function",
+        "shape": "(subparsers: \"'argparse._SubParsersAction[argparse.ArgumentParser]'\") -> 'None'"
+      }
+    }
+  },
   "ccf_runtime.cli.commands.skill": {
     "__all__": [
       "register"
@@ -5148,6 +5522,17 @@
     }
   },
   "ccf_runtime.http_api.routes.replay": {
+    "__all__": [
+      "build_router"
+    ],
+    "exports": {
+      "build_router": {
+        "kind": "function",
+        "shape": "(deps: 'ApiDependencies') -> 'APIRouter'"
+      }
+    }
+  },
+  "ccf_runtime.http_api.routes.schema": {
     "__all__": [
       "build_router"
     ],
