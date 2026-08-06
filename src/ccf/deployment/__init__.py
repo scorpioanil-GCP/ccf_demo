@@ -15,6 +15,10 @@ already written.
 Modules
 -------
 
+* :mod:`ccf.deployment.binder` — the refusal that binds the product class's
+  authored operator claim to the projection plan's own requirements (design E2,
+  D-IMPL-86 as corrected 2026-08-05). It compares two authored documents; it
+  does not run, and cannot feed, a validation gate.
 * :mod:`ccf.deployment.classes` — class-id → ``ArtifactClass`` resolution, with
   deployment-authored schemas landing on the declared envelope by design, the
   ``ccf.`` prefix reserved so no envelope may wear an SDK class name
@@ -88,6 +92,7 @@ Algorithmic package (CINV-03).
 from __future__ import annotations
 
 from ccf.controlplane.artifacts import DeploymentManifest, ManifestEntry
+from ccf.deployment.binder import refuse_operator_set_divergence
 from ccf.deployment.classes import (
     SDK_ARTIFACT_CLASSES,
     SDK_ARTIFACT_ROLES,
@@ -118,6 +123,7 @@ __all__ = [
     "UnpinnedArtifactError",
     "build_operator_registry",
     "load_and_boot",
+    "refuse_operator_set_divergence",
     "refuse_registration_the_sdk_fixes",
     "refuse_role_the_sdk_fixes",
     "resolve_artifact_class",
