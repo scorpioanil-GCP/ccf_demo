@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**279 entries**, of which **65** name a public Python surface.
+**281 entries**, of which **67** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-87 entries — 59 public Python surface, 28 not public Python API.
+89 entries — 61 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -1287,6 +1287,62 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none
 
 *Recorded by `15.1-03-namespace-reservation.md`.*
+
+#### ccf.deployment.binder.refuse_operator_set_divergence
+
+- Surface: ccf.deployment.binder.refuse_operator_set_divergence
+- Public surface: true
+- Change type: added
+- Before: absent, and there was nothing for it to compare. The operator set a deployment
+  declared and the set its projection executed traced to **one** artifact through five pure
+  transforms, so nothing a deployment could author made them diverge — the divergence this
+  function refuses was not reachable by editing a document, only by writing a bug
+- After: `refuse_operator_set_divergence(*, declared: ProductClassDeclaration, plan:
+  ProjectionPlan) -> None`. Raises `ValueError` naming the plan id, both operator sets, their
+  symmetric difference and D-IMPL-86 when
+  `frozenset(declared.required_operator_keys) != frozenset(plan.required_operators())`. Two
+  separately authored Control Plane artifacts, bound by a refusal placed **between plan
+  construction and `ProjectionEngine.execute`**. Refuse-never-repair: the binder does not
+  choose which document is right, because only the deployment's author knows. It returns
+  `None` and there is deliberately no variant that returns the set — a binder that handed the
+  declared set back would put the SDK in the position of supplying one of Gate 2's two
+  arguments, which is the D-15A line `cinv02-deployment-gates` holds
+- Why: D-IMPL-86 design E2 element (3), as corrected 2026-08-05. **Drift must be authorable**
+  — Dave's ruling of record. Without this comparison the two documents are kept in sync by
+  hand with no mechanism binding them, which was the standing objection to introducing a
+  second artifact at all; the refusal is that mechanism. The placement is the correction's,
+  not element (3)'s: `load_and_boot` takes no `plan` parameter and has no `ProjectionPlan` in
+  scope at any preflight, so a comparison naming `plan.required_operators()` cannot run at
+  boot
+- Migration: a deployment adopting the `ccf.projection-requirements` artifact builds its plan
+  from that document and calls `refuse_operator_set_divergence(declared=…, plan=…)` between
+  constructing the plan and calling `ProjectionEngine.execute`. **The SDK does not enforce
+  that call outside its own `examples/` tree.** An adopter who omits it gets no error, no
+  warning and no degraded output — the function returns `None`, so nothing observable at
+  runtime proves it was ever made, and the AST coverage check that enforces the call
+  (`tests/products/test_gate_two_call_shape.py`, plan 15.1-08) is scoped to `examples/` only.
+  This residual is named by `D-IMPL-86 (correction, 2026-08-05)`, is carried to Phase 16, and
+  is surfaced at Phase 15.1's gate for Dave to rule on. Nothing existing breaks: no current
+  deployment authored a projection-requirements document, so no current deployment can
+  diverge
+
+*Recorded by `15.1-04-operator-set-binder.md`.*
+
+#### ccf.deployment.refuse_operator_set_divergence
+
+- Surface: ccf.deployment.refuse_operator_set_divergence
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the package-level re-export of
+  `ccf.deployment.binder.refuse_operator_set_divergence`, added to `ccf.deployment.__all__`
+  beside `refuse_registration_the_sdk_fixes` and `refuse_role_the_sdk_fixes`
+- Why: the package `__all__` is the import path adopters and examples actually use, and the
+  package's two other refusals are already exported there; a third reachable only at the
+  submodule would be a gratuitous asymmetry in the surface adopters read
+- Migration: none
+
+*Recorded by `15.1-04-operator-set-binder.md`.*
 
 ### Not public Python API
 
