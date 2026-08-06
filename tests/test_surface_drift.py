@@ -2,7 +2,7 @@
 
 The committed manifest ``docs/surface/v0.2-surface.json`` must equal what
 ``tools/dump_surface.py`` emits right now, *or* every module whose entry moved
-must be claimed by a ``docs/surface-changes/15-*.md`` fragment. This module
+must be claimed by a ``docs/surface-changes/15*-*.md`` fragment. This module
 lives in ``tests/`` rather than in a bespoke CI job because ``tests/`` is the
 already-always-on ``test`` job — so a surface change fails CI on the same
 commit that causes it, with no new CI wiring (the reasoning transferred
@@ -89,6 +89,7 @@ _DRIFT_MESSAGE = (
     " it. Either run `make surface` and commit the result (phase start /"
     " phase close only — the live manifest has a single owner at each end of"
     " Phase 15), or write a docs/surface-changes/15-NN-<slug>.md fragment"
+    " (docs/surface-changes/15.1-NN-<slug>.md in Phase 15.1)"
     " naming what changed and why. A removed export or a Pydantic version"
     " bump legitimately changes the public surface — that diff is reviewable"
     " and desirable, not a test bug."
@@ -96,12 +97,29 @@ _DRIFT_MESSAGE = (
 
 
 def _fragment_text() -> str:
-    """Every ``15-*.md`` fragment concatenated — claims are read as a union."""
+    """Every ``15*-*.md`` fragment concatenated — claims are read as a union.
+
+    The pattern is ``15*-*.md`` rather than ``15-*.md`` so it matches both
+    ``15-NN-`` and ``15.1-NN-`` names. Phase 15.1 is a gap-closure cycle against
+    Phase 15's own deliverables and its fragments are *its* audit trail, so they
+    carry its number; filing them as ``15-22-…`` would file 15.1's work under
+    Phase 15 permanently. This widens what the gate **reads**, never what it
+    **permits** — the ``15`` prefix is still required, and every claim is still
+    matched by literal substring exactly as before. ``15.1-RESEARCH.md``
+    recommended *against* this option ("touches two gate modules for a naming
+    convenience; not recommended") and preferred regenerating the live manifest
+    per plan; it was taken anyway because the alternative trades a two-module
+    edit for a permanently wrong audit trail, and because keeping
+    ``docs/surface/v0.2-surface.json`` under a single owner (plan 15.1-10 at
+    phase close) already requires per-plan fragments to carry the drift in the
+    meantime. It is the regeneration posture, not the naming convenience, that
+    reverses research's recommendation.
+    """
     if not _FRAGMENT_DIR.is_dir():
         return ""
     return "\n".join(
         path.read_text(encoding="utf-8")
-        for path in sorted(_FRAGMENT_DIR.glob("15-*.md"))
+        for path in sorted(_FRAGMENT_DIR.glob("15*-*.md"))
     )
 
 

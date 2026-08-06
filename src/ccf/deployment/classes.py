@@ -54,6 +54,7 @@ from ccf.controlplane.artifacts import (
     OPERATOR_PARAMETERS_TRAVERSAL,
     PERSPECTIVE,
     PRODUCT_CLASS,
+    PROJECTION_REQUIREMENTS,
     RESOLUTION_SPEC,
     SIGNAL_BATCH,
     ArtifactClass,
@@ -91,6 +92,12 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     SIGNAL_BATCH.class_id: SIGNAL_BATCH,
     PERSPECTIVE.class_id: PERSPECTIVE,
     PRODUCT_CLASS.class_id: PRODUCT_CLASS,
+    # Design E2's second authored operator set (D-IMPL-86). Manifest-addressable
+    # for the same reason every class here is: a class the SDK ships that a
+    # manifest cannot name is a class no adopter can register — and this one has
+    # to be registerable, because the binder's authored input is one of the two
+    # documents it compares.
+    PROJECTION_REQUIREMENTS.class_id: PROJECTION_REQUIREMENTS,
     DEPLOYMENT_MANIFEST.class_id: DEPLOYMENT_MANIFEST,
 }
 

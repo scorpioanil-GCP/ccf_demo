@@ -92,6 +92,7 @@ __all__ = [
     "OPERATOR_PARAMETERS_TRAVERSAL",
     "PERSPECTIVE",
     "PRODUCT_CLASS",
+    "PROJECTION_REQUIREMENTS",
     "RESOLUTION_SPEC",
     "SIGNAL_BATCH",
     "ArtifactClass",
@@ -107,6 +108,7 @@ __all__ = [
     "PerspectiveArtifact",
     "PolicyFilterParametersArtifact",
     "ProductClassDeclaration",
+    "ProjectionRequirements",
     "SignalBatch",
     "SimilaritySelectParametersArtifact",
     "TemporalAsOfParametersArtifact",
@@ -555,6 +557,89 @@ class ProductClassDeclaration(VersionedArtifact):
     required_operator_keys: tuple[str, ...] = Field(min_length=1)
 
 
+class ProjectionRequirements(VersionedArtifact):
+    """The operator set a projection plan reads its requirements from (design E2).
+
+    SDK-defined; the ruling of record is ``docs/DECISIONS.md`` **D-IMPL-86**
+    (Dave, 2026-08-05) and its **correction of 2026-08-05**. CLAUDE.md §11
+    requires an SDK extension to cite this project's own decision record rather
+    than the whitepaper, because the whitepaper under-determines the question:
+    §7.5 is silent on the *provenance* of a plan's operator set and affirmatively
+    blesses data-holder plans.
+
+    **What this class is for.** Under design E2 a projection reads the operator
+    keys it depends on from **this** artifact, while
+    :attr:`ProductClassDeclaration.required_operator_keys` remains the Control
+    Plane **claim** — the value that fills ``lineage.operators_invoked`` and
+    never ``execution``. Two documents, separately authored, one per side.
+
+    **Why two documents rather than one.** With a single document the two sides
+    of Gate 2 (lineage strict equality, INV-CH7-47) are not merely equal in
+    practice, they are *identical by construction*:
+    ``execution.operators_invoked`` is ``frozenset(declared.required_operator_keys)``
+    through five pure transforms with no branch — the declaration feeds
+    ``plan.required``; ``plan.required_operators()`` returns it;
+    :func:`~ccf.operators.planner.build_operator_plan` resolves each key
+    self-keyed, so ``resolve(k).key == k``;
+    :class:`~ccf.projection.engine.ProjectionEngine` writes
+    ``outputs[operator.key]``; and it returns
+    ``operators_invoked=frozenset(outputs)``. Nothing a deployment could author
+    would make the two sides diverge. That identity is the finding that reopened
+    the question after the first remedy was recorded, and naming it is the whole
+    justification for this class's existence.
+
+    **Where drift actually fails.** Not here, and not in the contract: in the
+    binder, :mod:`ccf.deployment.binder`, a refusal placed **between plan
+    construction and** :meth:`~ccf.projection.engine.ProjectionEngine.execute`,
+    which refuses when
+    ``frozenset(product_class.required_operator_keys) != frozenset(plan.required_operators())``.
+    This class is one half of that comparison's authored input; the product-class
+    declaration is the other. The placement is the one D-IMPL-86's **correction
+    of 2026-08-05** fixes — D-IMPL-86 element (3) as originally written named a
+    placement that cannot exist, because
+    :func:`~ccf.deployment.manifest.load_and_boot` has no
+    :class:`~ccf.projection.plan.ProjectionPlan` in scope at any of its
+    preflights; a plan is adopter code constructed *after* that call returns.
+    Cite the correction, never element (3), anywhere this placement is described.
+
+    **The residual, in the ruling's own terms.** A deployment that reads one
+    artifact into the other still collapses the binder, so dual authorship
+    remains convention-assisted **at the authoring boundary** even though the
+    check itself is structural. The correction names a second residual of the
+    same family: because the binder is invoked by adopter code, nothing outside
+    this project's own ``examples/`` tree holds a deployment to calling it.
+
+    **Why an artifact rather than operator keys in a projection class body.**
+    Under the rejected design the compliant state (an author typed the keys) and
+    the violating state (an author transcribed them out of the product-class
+    artifact) are *textually identical*, so no AST gate can tell them apart —
+    the shortcut is undetectable in principle rather than merely unhandled. Code
+    constants would also put the CLAUDE.md §6.4 classification of operator keys
+    in dispute. E2 satisfies the No-Hardcoding Rule by construction rather than
+    by argument: under it there are no operator-key code constants at all.
+
+    Attributes:
+        plan_id: Identity of the :class:`~ccf.projection.plan.ProjectionPlan`
+            these requirements govern, matching its
+            :attr:`~ccf.projection.plan.ProjectionPlan.plan_id`. It exists so
+            the document states *which* projection it is for, rather than being
+            a naked operator list whose subject is recoverable only from the
+            manifest key it happened to be filed under.
+        required_operator_keys: Registry keys of the operators the projection's
+            interpretation depends on — what its
+            :meth:`~ccf.projection.plan.ProjectionPlan.required_operators`
+            returns. Order is not significant; the engine imposes the dependency
+            order (INV-CH7-28). ``min_length=1`` is the whitepaper's
+            empty-operator guard, for the reason
+            :class:`ProductClassDeclaration` states in full — it is not restated
+            here, because one argument stated twice is one argument that can
+            drift.
+    """
+
+    plan_id: str
+    required_operator_keys: tuple[str, ...] = Field(min_length=1)
+
+
 #: What a manifest entry declares about the artifact it names (D-IMPL-80).
 #:
 #: ``register`` puts the artifact into the Control Plane registry and into the
@@ -771,6 +856,14 @@ PERSPECTIVE = ArtifactClass(class_id="ccf.perspective", contract=PerspectiveArti
 #: as D-IMPL-76 ruled for the policy bundle's admitted-version set.
 PRODUCT_CLASS = ArtifactClass(
     class_id="ccf.product-class", contract=ProductClassDeclaration
+)
+#: The projection's own declared operator set (SDK-defined; D-IMPL-86, design
+#: E2). Distinct from :data:`PRODUCT_CLASS` on purpose: the product class carries
+#: the Control Plane *claim* that fills the lineage, this carries what the
+#: projection is *planned from*, and the binder compares the two. See
+#: :class:`ProjectionRequirements` for why one document could not have worked.
+PROJECTION_REQUIREMENTS = ArtifactClass(
+    class_id="ccf.projection-requirements", contract=ProjectionRequirements
 )
 #: The deployment manifest class (SDK-defined; D-06, D-08, D-IMPL-80). Itself an
 #: artifact, so "what did this deployment put in force" is one versioned,

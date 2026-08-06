@@ -162,6 +162,25 @@ class ControlPlaneProtocol(Protocol):
     privileged one — the audit and typed-registration obligations are on the
     surface precisely so a remote plane cannot conform while quietly dropping
     them.
+
+    **:meth:`register_versioned` is on this surface by D-IMPL-82** (Dave,
+    2026-08-05, Phase 15.1 planning). The D-05 hash-verified bump check is a
+    governance obligation, not an implementation detail of the in-process
+    registry: it is what holds an author's ``artifact_version`` claim against
+    content identity. The docstring's own argument above decides the question —
+    the obligations sit on the surface precisely so a remote plane cannot
+    conform while quietly dropping them, and a remote Control Plane that cannot
+    run the bump check is exactly such a plane. Consequence accepted on the
+    record: this is a public Protocol change and a FABR-07 remote-plane
+    implementation obligation — every Control Plane implementation, not only
+    this package's, must now supply it. Rejected: a narrow second
+    ``VersionedRegistrationProtocol`` required only when a manifest declares
+    ``versioned``, which preserves the same posture at the cost of a
+    two-Protocol mental model in the phase whose subject is one mental model;
+    and narrowing :func:`~ccf.deployment.manifest.load_and_boot` to the concrete
+    :class:`ControlPlaneRegistry`, which breaks the Protocol-over-inheritance
+    posture CLAUDE.md §11 mandates and forecloses remote control planes for
+    manifest boot.
     """
 
     def register(self, key: str, artifact: object) -> str:
@@ -172,6 +191,18 @@ class ControlPlaneProtocol(Protocol):
         self, key: str, artifact: object, artifact_class: ArtifactClass
     ) -> str:
         """Append ``artifact`` after validating it against ``artifact_class``."""
+        ...
+
+    def register_versioned(
+        self,
+        key: str,
+        artifact: object,
+        artifact_class: ArtifactClass,
+        *,
+        actor: str | None = None,
+        reissuable: bool = False,
+    ) -> str | RegistrationRefusal:
+        """Register an author-versioned artifact under the D-05 bump check."""
         ...
 
     def resolve(self, key: str, version: str) -> object:

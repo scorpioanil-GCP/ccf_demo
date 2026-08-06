@@ -44,6 +44,7 @@ from ccf.controlplane.artifacts import (
     OPERATOR_PARAMETERS_TRAVERSAL,
     PERSPECTIVE,
     PRODUCT_CLASS,
+    PROJECTION_REQUIREMENTS,
     RESOLUTION_SPEC,
     SIGNAL_BATCH,
     ArtifactLoadError,
@@ -241,6 +242,19 @@ CASES: tuple[_Case, ...] = (
             "required_operator_keys": ["fixture-operator"],
         },
         unknown_keys=("tenant_id", "max_ttl_version"),
+    ),
+    _Case(
+        artifact_class=PROJECTION_REQUIREMENTS,
+        # Deliberately *not* the product-class fixture's operator key. These are
+        # two separately authored documents under design E2 (D-IMPL-86), and a
+        # fixture that made them agree by copy would teach the shape this class
+        # exists to make authorable.
+        document={
+            "semver": _SEMVER,
+            "plan_id": "fixture-plan",
+            "required_operator_keys": ["fixture-plan-operator"],
+        },
+        unknown_keys=("tenant_id", "schema_name"),
     ),
     _Case(
         artifact_class=DEPLOYMENT_MANIFEST,
@@ -581,6 +595,28 @@ def test_a_product_class_declaring_no_operators_is_refused() -> None:
     document = _document_for("ccf.product-class")
     with pytest.raises(ArtifactLoadError):
         parse_artifact({**document, "required_operator_keys": []}, PRODUCT_CLASS)
+
+
+def test_a_projection_requirements_declaring_no_operators_is_refused() -> None:
+    """The same empty-operator guard, on the second authored side, watched to fire.
+
+    ``ProjectionRequirements`` carries ``min_length=1`` for exactly the whitepaper
+    §7.6 reason ``ProductClassDeclaration`` does — a projection that resolved no
+    operator has not meaningfully read the graph — so it gets the same standing
+    negative case rather than an argument that it obviously works.
+
+    Why a *declared* constraint needs a committed negative case at all: this
+    phase's own signature finding is that a check nobody has watched fire may be
+    matching nothing. A ``Field(min_length=1)`` that a Pydantic version change, a
+    field rename, or a copy-paste of the wrong annotation quietly stopped
+    enforcing would look identical from the source. The only way to know the
+    guard is live is to hand it the document it exists to refuse.
+    """
+    document = _document_for("ccf.projection-requirements")
+    with pytest.raises(ArtifactLoadError):
+        parse_artifact(
+            {**document, "required_operator_keys": []}, PROJECTION_REQUIREMENTS
+        )
 
 
 def test_every_sdk_artifact_class_has_a_round_trip_case() -> None:

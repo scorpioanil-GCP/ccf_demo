@@ -1,0 +1,30 @@
+{
+  "additionalProperties": false,
+  "description": "The operator set a projection plan reads its requirements from (design E2).\n\nSDK-defined; the ruling of record is ``docs/DECISIONS.md`` **D-IMPL-86**\n(Dave, 2026-08-05) and its **correction of 2026-08-05**. CLAUDE.md \u00a711\nrequires an SDK extension to cite this project's own decision record rather\nthan the whitepaper, because the whitepaper under-determines the question:\n\u00a77.5 is silent on the *provenance* of a plan's operator set and affirmatively\nblesses data-holder plans.\n\n**What this class is for.** Under design E2 a projection reads the operator\nkeys it depends on from **this** artifact, while\n:attr:`ProductClassDeclaration.required_operator_keys` remains the Control\nPlane **claim** \u2014 the value that fills ``lineage.operators_invoked`` and\nnever ``execution``. Two documents, separately authored, one per side.\n\n**Why two documents rather than one.** With a single document the two sides\nof Gate 2 (lineage strict equality, INV-CH7-47) are not merely equal in\npractice, they are *identical by construction*:\n``execution.operators_invoked`` is ``frozenset(declared.required_operator_keys)``\nthrough five pure transforms with no branch \u2014 the declaration feeds\n``plan.required``; ``plan.required_operators()`` returns it;\n:func:`~ccf.operators.planner.build_operator_plan` resolves each key\nself-keyed, so ``resolve(k).key == k``;\n:class:`~ccf.projection.engine.ProjectionEngine` writes\n``outputs[operator.key]``; and it returns\n``operators_invoked=frozenset(outputs)``. Nothing a deployment could author\nwould make the two sides diverge. That identity is the finding that reopened\nthe question after the first remedy was recorded, and naming it is the whole\njustification for this class's existence.\n\n**Where drift actually fails.** Not here, and not in the contract: in the\nbinder, :mod:`ccf.deployment.binder`, a refusal placed **between plan\nconstruction and** :meth:`~ccf.projection.engine.ProjectionEngine.execute`,\nwhich refuses when\n``frozenset(product_class.required_operator_keys) != frozenset(plan.required_operators())``.\nThis class is one half of that comparison's authored input; the product-class\ndeclaration is the other. The placement is the one D-IMPL-86's **correction\nof 2026-08-05** fixes \u2014 D-IMPL-86 element (3) as originally written named a\nplacement that cannot exist, because\n:func:`~ccf.deployment.manifest.load_and_boot` has no\n:class:`~ccf.projection.plan.ProjectionPlan` in scope at any of its\npreflights; a plan is adopter code constructed *after* that call returns.\nCite the correction, never element (3), anywhere this placement is described.\n\n**The residual, in the ruling's own terms.** A deployment that reads one\nartifact into the other still collapses the binder, so dual authorship\nremains convention-assisted **at the authoring boundary** even though the\ncheck itself is structural. The correction names a second residual of the\nsame family: because the binder is invoked by adopter code, nothing outside\nthis project's own ``examples/`` tree holds a deployment to calling it.\n\n**Why an artifact rather than operator keys in a projection class body.**\nUnder the rejected design the compliant state (an author typed the keys) and\nthe violating state (an author transcribed them out of the product-class\nartifact) are *textually identical*, so no AST gate can tell them apart \u2014\nthe shortcut is undetectable in principle rather than merely unhandled. Code\nconstants would also put the CLAUDE.md \u00a76.4 classification of operator keys\nin dispute. E2 satisfies the No-Hardcoding Rule by construction rather than\nby argument: under it there are no operator-key code constants at all.\n\nAttributes:\n    plan_id: Identity of the :class:`~ccf.projection.plan.ProjectionPlan`\n        these requirements govern, matching its\n        :attr:`~ccf.projection.plan.ProjectionPlan.plan_id`. It exists so\n        the document states *which* projection it is for, rather than being\n        a naked operator list whose subject is recoverable only from the\n        manifest key it happened to be filed under.\n    required_operator_keys: Registry keys of the operators the projection's\n        interpretation depends on \u2014 what its\n        :meth:`~ccf.projection.plan.ProjectionPlan.required_operators`\n        returns. Order is not significant; the engine imposes the dependency\n        order (INV-CH7-28). ``min_length=1`` is the whitepaper's\n        empty-operator guard, for the reason\n        :class:`ProductClassDeclaration` states in full \u2014 it is not restated\n        here, because one argument stated twice is one argument that can\n        drift.",
+  "properties": {
+    "plan_id": {
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "required_operator_keys": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Required Operator Keys",
+      "type": "array"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "plan_id",
+    "required_operator_keys"
+  ],
+  "title": "ProjectionRequirements",
+  "type": "object",
+  "x-ccf-class-id": "ccf.projection-requirements"
+}
