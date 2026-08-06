@@ -233,15 +233,22 @@ def test_the_gated_product_validates_against_the_agent_contract(
 def test_every_declared_operator_actually_ran(assembled: Any) -> None:
     """A PROPAGATION check, and its limits are worth stating plainly.
 
-    ``declared_operator_keys`` comes off ``product-class.yaml``;
+    ``declared_operator_keys`` comes off ``product-class.yaml`` — the Control
+    Plane claim, and the same value that fills the product's
+    ``lineage.operators_invoked`` and travels to the consumer.
     ``operators_invoked`` is what the engine observed itself running, planned
-    from that same declaration. Editing the artifact alone moves both ends and
-    is **not** detected — say so rather than implying independence there is
-    none of. What this catches is the wiring regression: re-introducing
+    from ``projection-requirements.yaml`` — a **second, separately authored
+    document** since design E2 (D-IMPL-86 and its correction of 2026-08-05).
+    Editing either artifact alone therefore no longer moves both ends; what
+    fails on that edit is ``refuse_operator_set_divergence``, called in
+    ``producer_child.py`` between plan construction and
+    ``ProjectionEngine.execute``, and this assertion is the downstream witness
+    that the two bound documents are what the run actually executed. What it
+    still catches on its own is the wiring regression: re-introducing
     ``required=operators.keys()`` together with a dropped key from the
-    artifact. Verified by mutation; comparing ``operators_invoked`` against the
-    product's own ``lineage.operators_invoked`` instead would catch neither,
-    because they are the same value.
+    artifacts. Verified by mutation; comparing ``operators_invoked`` against
+    the product's own ``lineage.operators_invoked`` instead would catch
+    neither, because that lineage now carries the claim by construction.
     """
     assert set(assembled.operators_invoked) == set(assembled.declared_operator_keys)
 
