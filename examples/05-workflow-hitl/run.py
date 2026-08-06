@@ -24,18 +24,23 @@ that recording, because there is no opt-in — which is exactly the point.
 What stays in adopter hands, and why
 ------------------------------------
 
-**Four SDK classes the manifest deliberately cannot address.**
-``ccf.agent-definition``, ``ccf.prompt-artifact``, ``ccf.task-definition`` and
-``ccf.workflow-definition`` are author-versioned: they register through
+**Four SDK classes this example keeps at the call site, and two the manifest
+genuinely cannot address.** ``ccf.agent-definition``, ``ccf.prompt-artifact``,
+``ccf.task-definition`` and ``ccf.workflow-definition`` are author-versioned:
+they register through
 :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.register_versioned`, which
 holds the author's ``artifact_version`` claim against content identity (the D-05
-bump check). :func:`~ccf.deployment.manifest.load_and_boot` registers through
-``register_typed``, which does not run that check — so folding them into the
-manifest would silently drop the governance those classes exist to carry. Two
-more, ``ccf.hitl-policy`` and ``ccf.scope-mapping``, are SDK-owned but absent
-from ``SDK_ARTIFACT_CLASSES``: a manifest entry naming one resolves to the open
-``DeclaredArtifact`` envelope, and the transport and the authorizer read their
-real contracts back off the Control Plane by key. All six are registered here.
+bump check). A manifest *may* name them, as ``registration: versioned``, and
+:func:`~ccf.deployment.manifest.load_and_boot` then registers them through that
+same path; declaring ``typed`` for one is refused at preflight (D-IMPL-85),
+because ``register_typed`` runs no bump check. They stay here so the four
+``register_versioned`` calls remain visible as the thing being taught. Two more,
+``ccf.hitl-policy`` and ``ccf.scope-mapping``, are SDK-owned but in neither SDK
+mapping, and the ``ccf.`` prefix is reserved — so a manifest entry naming either
+is refused at load (D-IMPL-84), which is what keeps the transport and the
+authorizer, both of which read their real contracts back off the Control Plane
+by key, from being handed the open ``DeclaredArtifact`` envelope. All six are
+registered here.
 
 **The projection stage is fixture-shaped.** The fabric is real — it boots,
 ingests, and the graph view below is read from it at the declared boundary — but

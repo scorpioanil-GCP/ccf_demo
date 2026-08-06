@@ -8,11 +8,14 @@
 # zero code change — which is the point of it being an artifact rather than a
 # constructor argument.
 #
-# **Not addressable by the manifest.** `ccf.hitl-policy` is an SDK-owned class
-# that is absent from `SDK_ARTIFACT_CLASSES`, so a manifest entry naming it would
-# resolve to the open `DeclaredArtifact` envelope — and the transport, which
-# reads its real contract back off the Control Plane by key, would find the wrong
-# type there. `run.py` registers it itself.
+# **Not addressable by the manifest, and this one really is not.**
+# `ccf.hitl-policy` is an SDK-owned class absent from BOTH
+# `SDK_ARTIFACT_CLASSES` and `SDK_VERSIONED_ARTIFACT_CLASSES`, and the `ccf.`
+# prefix is reserved — so a manifest entry naming it is REFUSED at load
+# (D-IMPL-84). It used to resolve to the open `DeclaredArtifact` envelope, which
+# is what the refusal replaced: the transport reads its real contract back off
+# the Control Plane by key and would have found the wrong type there, silently.
+# `run.py` registers it itself.
 #
 # `role: register` in spirit and in fact: a HITL policy is the standing statement
 # of what a human was permitted to do. The RUN's human actions are separate, and

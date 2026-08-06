@@ -41,11 +41,14 @@
 #     bump check is visible at the call site. They still carry real `$schema`
 #     headers — plan 15-14 committed their schemas.
 #   * `hitl-policy.yaml`, `scope-mapping.yaml` — `ccf.hitl-policy` and
-#     `ccf.scope-mapping` are SDK-owned classes that are not manifest-
-#     addressable either, so a manifest entry naming one would resolve to the
-#     open `DeclaredArtifact` envelope and the transport and the authorizer,
-#     which read their real contracts back off the Control Plane by key, would
-#     find the wrong type there. `run.py` registers both itself.
+#     `ccf.scope-mapping` are SDK-owned classes that genuinely are NOT
+#     manifest-addressable: they appear in neither `SDK_ARTIFACT_CLASSES` nor
+#     `SDK_VERSIONED_ARTIFACT_CLASSES`, and the `ccf.` prefix is RESERVED
+#     (D-IMPL-84), so a manifest entry naming one is REFUSED at load rather
+#     than resolved to the open `DeclaredArtifact` envelope. The refusal is the
+#     improvement: the envelope would have handed the transport and the
+#     authorizer — which read their real contracts back off the Control Plane
+#     by key — the wrong type, silently. `run.py` registers both itself.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename

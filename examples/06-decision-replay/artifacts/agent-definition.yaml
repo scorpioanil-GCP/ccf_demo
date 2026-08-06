@@ -6,14 +6,16 @@
 # `run.py` constructs the agent through the Agent Factory only (§6.4).
 # Instruction bindings are versioned-URI refs, never inline text.
 #
-# **This document is not in the deployment manifest, and that is deliberate.**
-# `ccf.agent-definition` registers through `register_versioned`, which holds the
-# author's version claim against content identity — the D-05 bump check.
-# `load_and_boot` registers through `register_typed`, which does not run that
-# check, so the class is absent from `SDK_ARTIFACT_CLASSES` and a manifest entry
-# naming it would silently drop the governance the class exists to carry. It is
-# an SDK-owned schema all the same, which is why the header above resolves
-# (plan 15-14's author-versioned schema set).
+# **This document is outside the deployment manifest by this example's choice,
+# not by necessity.** `ccf.agent-definition` is author-versioned: it registers
+# through `register_versioned`, which holds the author's version claim against
+# content identity — the D-05 bump check. A manifest CAN name it, as
+# `registration: versioned`, and `load_and_boot` then registers it through that
+# same path; declaring `typed` for it is refused at preflight (D-IMPL-85),
+# because `register_typed` runs no bump check and the author's claim would go
+# unheld. It stays in `run.py` so the bump check is visible at the call site.
+# It is an SDK-owned schema, which is why the header above resolves (plan
+# 15-14's author-versioned schema set).
 #
 # The document root IS the artifact: this file's Control Plane key lives in
 # `agent-registration.yaml`, because a document that carried both its own
