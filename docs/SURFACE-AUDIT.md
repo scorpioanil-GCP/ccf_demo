@@ -204,7 +204,7 @@ saved" headline would conflate a helper that removed work with a file that
 moved lines, and D-12 names that conflation as the risk.
 
 `examples/external/00-hello-context/run.py` is why the rule is not pedantry: its
-raw line count **rose** 766 → 781 while its mechanical figure fell 36 → 0. What
+raw line count **rose** 766 → 790 while its mechanical figure fell 36 → 0. What
 disappeared there was a hand-built operator registry and a
 registration-prologue-plus-`boot`; what arrived was a nesting level and four
 typed reads. A combined figure would have reported that plan as a regression.
@@ -215,35 +215,50 @@ mechanical, 112 → 0 relocated).
 
 | File | mech before | mech after | reloc before | reloc after | raw before | raw after |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `examples/00-quickstart/run.py` | 143 | 13 | 40 | 0 | 451 | 350 |
-| `examples/01-agent-basics/run.py` | 159 | 14 | 85 | 0 | 619 | 481 |
-| `examples/02-skilling/run.py` | 118 | 13 | 68 | 0 | 571 | 544 |
+| `examples/00-quickstart/run.py` | 143 | 13 | 40 | 0 | 451 | 396 |
+| `examples/01-agent-basics/run.py` | 159 | 14 | 85 | 0 | 619 | 529 |
+| `examples/02-skilling/run.py` | 118 | 13 | 68 | 0 | 571 | 607 |
 | `examples/03-harness-portability/legs/__init__.py` | 0 | 0 | 0 | 0 | 1 | 1 |
 | `examples/03-harness-portability/legs/deterministic.py` | 0 | 0 | 11 | 11 | 507 | 527 |
 | `examples/03-harness-portability/legs/live.py` | 0 | 0 | 23 | 23 | 641 | 641 |
 | `examples/03-harness-portability/legs/ollama_client.py` | 0 | 0 | 0 | 0 | 147 | 147 |
-| `examples/03-harness-portability/run.py` | 145 | 13 | 98 | 54 | 720 | 675 |
-| `examples/04-cross-process/producer_child.py` | 143 | 13 | 14 | 1 | 630 | 553 |
+| `examples/03-harness-portability/run.py` | 145 | 13 | 98 | 54 | 720 | 711 |
+| `examples/04-cross-process/producer_child.py` | 143 | 13 | 14 | 1 | 630 | 595 |
 | `examples/04-cross-process/run.py` | 53 | 13 | 68 | 1 | 533 | 519 |
 | `examples/05-workflow-hitl/run.py` | 28 | 4 | 112 | 0 | 858 | 866 |
-| `examples/06-decision-replay/run.py` | 175 | 12 | 130 | 0 | 1320 | 1105 |
+| `examples/06-decision-replay/run.py` | 175 | 12 | 130 | 0 | 1320 | 1160 |
 | `examples/07-artifact-store-mcp/mcp_store_child.py` | 0 | 0 | 1 | 1 | 135 | 135 |
-| `examples/07-artifact-store-mcp/run.py` | 132 | 13 | 27 | 1 | 587 | 596 |
+| `examples/07-artifact-store-mcp/run.py` | 132 | 13 | 27 | 1 | 587 | 636 |
 | `examples/08-e2e-demo/generator.py` | 0 | 0 | 0 | 0 | 431 | 431 |
-| `examples/08-e2e-demo/run.py` | 161 | 13 | 6 | 6 | 1141 | 1104 |
+| `examples/08-e2e-demo/run.py` | 161 | 13 | 6 | 6 | 1141 | 1146 |
 | `examples/external/00-hello-context/client_adk.py` | 0 | 0 | 1 | 1 | 75 | 75 |
 | `examples/external/00-hello-context/client_anthropic.py` | 0 | 0 | 2 | 2 | 97 | 97 |
 | `examples/external/00-hello-context/client_bare.py` | 0 | 0 | 5 | 5 | 77 | 77 |
 | `examples/external/00-hello-context/fixtures/capture_proxy.py` | 0 | 0 | 7 | 7 | 415 | 415 |
 | `examples/external/00-hello-context/fixtures/diff_fixtures.py` | 0 | 0 | 7 | 7 | 93 | 93 |
 | `examples/external/00-hello-context/replay_server.py` | 0 | 0 | 9 | 9 | 400 | 400 |
-| `examples/external/00-hello-context/run.py` | 36 | 0 | 22 | 22 | 766 | 781 |
-| `examples/external/00-hello-context/serve.py` | 132 | 13 | 1 | 1 | 773 | 699 |
-| **Tree total** | **1425** | **134** | **737** | **152** | **11988** | **11312** |
+| `examples/external/00-hello-context/run.py` | 36 | 0 | 22 | 22 | 766 | 790 |
+| `examples/external/00-hello-context/serve.py` | 132 | 13 | 1 | 1 | 773 | 741 |
+| **Tree total** | **1425** | **134** | **737** | **152** | **11988** | **11735** |
 
 **Mechanical wiring removed: 1291 lines** (1425 → 134, a 90.6% reduction).
 **Assertions and prints relocated: 585 lines** (737 → 152). These two numbers
 are reported side by side and are not added together.
+
+**Re-measured 2026-08-05 after Phase 15.1 (plan 15.1-09), and the raw column
+moved the wrong way.** Design E2 (D-IMPL-86) added a second authored artifact
+per deployment, a hoisted plan local, a binder call, and the comment blocks
+explaining all three. Re-measuring every `after/` fragment: **`mech`, `reg` and
+`removable` did not move at all** — 1425 → 134 and 737 → 152 are unchanged — but
+`raw` rose at nine of the ten drivers, tree-wide **11312 → 11735**, including
++46 at `00-quickstart`, +48 at `01-agent-basics` and +63 at `02-skilling`. The
+table above now carries the re-measured figures rather than the pre-15.1 ones.
+Stated plainly rather than netted away: **E2 cost an adopter lines, and none of
+what it cost was the mechanical boilerplate Criterion 1 set out to remove.** It
+bought a check that can fail; it did not buy brevity, and this section is the
+wrong place to imply otherwise. That is also exactly why D-12 forbids a single
+combined figure — a "lines saved" headline here would have hidden a real
+ergonomic cost behind an unrelated real win.
 
 The 134 mechanical lines that remain are almost entirely the **13-line
 registration cluster** each rewritten driver still carries: the author-versioned
@@ -289,7 +304,9 @@ decision is a blocking finding, and the correct response is to surface it).
 ### 2.4 The day-1 integration
 
 `examples/00-quickstart/run.py` — the file the phase opened against — is
-**451 → 350 raw lines**, with mechanical wiring **143 → 13** and every one of
+**451 → 396 raw lines** (350 at the Phase 15 gate, before Phase 15.1's E2 work
+added the projection-requirements read, the hoisted plan and the binder call),
+with mechanical wiring **143 → 13** and every one of
 its 40 assertion/print lines relocated to `tests/`. Both halves of the ROADMAP's
 opening complaint are answered: the ~85 assertion/print lines that "no adopter
 writes" are out of the published snippets, and the ~105 lines of YAML→typed
@@ -297,7 +314,9 @@ marshalling are absorbed into `parse_artifact`-reachable artifact classes.
 
 **The import-line collapse is the secondary win, and it is measurable.** The
 quickstart carried **54 import lines across 27 distinct SDK names** before the
-rewrite and carries **36** after. Tree-wide, import lines fell **974 → 820**. An
+rewrite and carries **41** after (36 at the Phase 15 gate; E2 added the
+requirements read and the binder import). Tree-wide, import lines fell
+**974 → 867**. An
 adopter's first impression of an SDK is how many of its names they must know to
 write anything at all, and that number went down while capability did not.
 
