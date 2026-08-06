@@ -71,11 +71,16 @@ from ccf.controlplane.artifacts import (  # noqa: E402
     OperatorParametersArtifact,
     PerspectiveArtifact,
     ProductClassDeclaration,
+    ProjectionRequirements,
     SignalBatch,
     load_artifact,
 )
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
-from ccf.deployment import build_operator_registry, load_and_boot  # noqa: E402
+from ccf.deployment import (  # noqa: E402
+    build_operator_registry,
+    load_and_boot,
+    refuse_operator_set_divergence,
+)
 from ccf.graph.protocols import GraphView  # noqa: E402
 from ccf.operators.base import OperatorOutput  # noqa: E402
 from ccf.peering.admission import PRODUCER_ASSERTION_HEADER  # noqa: E402
@@ -127,11 +132,19 @@ class CovenantSlicePlan:
     it does not run them and cannot tell the engine what ran (which is what
     leaves the L6 lineage gate something real to check).
 
-    ``required`` is passed in from the product-class artifact's
-    ``required_operator_keys``, never read off the operator registry. The
-    declaration and the engine's resolution must stay two independent
-    mechanisms: Gate 2 compares them, and a plan that returned the registry's
-    own keys would make that comparison a value against itself.
+    ``required`` is passed in from ``projection-requirements.yaml`` — **this
+    plan's own authored document**, not the product class's (design E2,
+    D-IMPL-86 and its correction of 2026-08-05). The product class declares the
+    Control Plane *claim*, which is what travels to the consumer; this document
+    declares what the plan requires. Two authored documents, and
+    ``refuse_operator_set_divergence`` in
+    :func:`build_covenant_slice_product` refuses when they disagree — which is
+    where drift an author could write actually fails.
+
+    Neither is ever read off the operator registry: a plan returning the
+    registry's own keys would make the plan agree with whatever happened to be
+    registered, which is a different collapse from the one E2 closes and still
+    worth refusing to write.
     """
 
     def __init__(self, *, plan_id: str, required: tuple[str, ...]) -> None:
@@ -238,6 +251,12 @@ def build_covenant_slice_product(*, database_path: Path) -> AssembledCovenantSli
         expected = cast(DeclaredArtifact, booted.artifacts["expected"])
         governance = cast(DeclaredArtifact, booted.artifacts["product-governance"])
         declared = cast(ProductClassDeclaration, booted.artifacts["product-class"])
+        # E2's other authored operator set: what the PLAN requires, as opposed
+        # to what the product class CLAIMS and sends over the wire. Two manifest
+        # keys, two documents.
+        requirements = cast(
+            ProjectionRequirements, booted.artifacts["projection-requirements"]
+        )
         perspective = cast(PerspectiveArtifact, booted.artifacts["perspective"])
         registration = cast(DeclaredArtifact, booted.artifacts["agent-registration"])
         peering = cast(DeclaredArtifact, booted.artifacts["producer-peering"])
@@ -296,15 +315,31 @@ def build_covenant_slice_product(*, database_path: Path) -> AssembledCovenantSli
             ],
         )
 
-        # 6. Project (L5). The plan's `required` comes from the product-class
-        #    artifact — never from the operator registry's own keys.
+        # 6. Project (L5). The plan reads its identity AND its operator set from
+        #    `projection-requirements.yaml` — its own authored document, never
+        #    the product class's declaration and never the operator registry's
+        #    keys.
+        #
+        #    The plan is bound to a name so the binder has somewhere to stand:
+        #    `refuse_operator_set_divergence` belongs BETWEEN plan construction
+        #    and `execute`, and constructing the plan inline as the `plan=`
+        #    argument leaves no statement between the two (D-IMPL-86's
+        #    correction of 2026-08-05). It refuses when the product class's
+        #    claim and the plan's requirements disagree — before anything is
+        #    assembled, signed or emitted, so the consumer never receives a
+        #    claim this producer's own plan contradicts. It refuses rather than
+        #    repairing: only the author of the two documents knows which one
+        #    they meant. This is where authorable drift fails; Gate 2 below is a
+        #    different check (see step 8).
+        plan = CovenantSlicePlan(
+            plan_id=requirements.plan_id,
+            required=requirements.required_operator_keys,
+        )
+        refuse_operator_set_divergence(declared=declared, plan=plan)
         execution = ProjectionEngine(
             reader=booted.handle.reader, registry=operators
         ).execute(
-            plan=CovenantSlicePlan(
-                plan_id=governance.declaration["plan_id"],
-                required=declared.required_operator_keys,
-            ),
+            plan=plan,
             perspective=perspective,
             tenant_id=booted.tenant_id,
             temporal_boundary=boundary,
@@ -330,10 +365,17 @@ def build_covenant_slice_product(*, database_path: Path) -> AssembledCovenantSli
             max_ttl_version=max_ttl_version,
         )
 
-        # 8. The lineage the product CLAIMS, and the gates. `engine_resolved` is
-        #    passed as a separate argument from a second, independent source —
-        #    the engine's own resolution — because Gate 2 exists to catch a
-        #    producer misdeclaring. This policy version is also what the
+        # 8. The lineage the product CLAIMS, and the gates.
+        #
+        #    `operators_invoked` is filled from the PRODUCT CLASS's declaration
+        #    — the Control Plane claim, and the same value that travels to the
+        #    consumer as `declared_operator_keys` — never from `execution`. What
+        #    Gate 2 then verifies is ASSEMBLY-PATH INTEGRITY: that the product
+        #    served was assembled by the path this deployment claimed. The
+        #    engine is a faithful transcriber of the plan rather than an
+        #    independent witness of it, so this is not two independent sources
+        #    meeting; drift an author could write has already failed upstream,
+        #    at the binder in step 6. This policy version is also what the
         #    consumer's trust policy holds this peer to at admission (§7.2).
         policy_version = booted.pins.version_for("policy-bundle")
         candidate = ContextProductContract(
@@ -346,7 +388,7 @@ def build_covenant_slice_product(*, database_path: Path) -> AssembledCovenantSli
             + timedelta(seconds=governance.declaration["product_ttl_seconds"]),
             ttl_anchor=product_class.ttl_anchor,
             lineage=ProductLineage(
-                operators_invoked=execution.operators_invoked,
+                operators_invoked=frozenset(declared.required_operator_keys),
                 policy_bundle_versions=frozenset({policy_version}),
                 graph_snapshot_at=boundary,
             ),

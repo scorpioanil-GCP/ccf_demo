@@ -240,12 +240,19 @@ def test_lineage_strict_equality_holds(result: Any) -> None:
 def test_every_declared_operator_actually_ran(result: Any) -> None:
     """The set the product class DECLARED is the set the engine RESOLVED.
 
-    Honest about what this proves: ``operators_invoked`` is planned from the
-    plan's ``required_operators()``, which is the artifact's
-    ``required_operator_keys`` — so editing the artifact alone moves both ends
-    and is not detected. What this DOES catch is the ``operators.keys()``
-    shortcut being re-introduced while the artifact declares a different set,
-    which is the regression that made Gate 2 tautological before the rewrite.
+    Honest about what this proves, updated for design E2 (D-IMPL-86 and its
+    correction of 2026-08-05): ``operators_invoked`` is planned from the plan's
+    ``required_operators()``, which is now ``projection-requirements.yaml``'s
+    ``required_operator_keys`` rather than the product class's — so the two
+    ends are no longer the same authored value, and editing *either* document
+    alone now moves only one of them. What makes that edit fail is
+    ``refuse_operator_set_divergence``, called in ``run.py`` between plan
+    construction and ``ProjectionEngine.execute``; this assertion is the
+    downstream witness that the run got as far as executing the plan the two
+    bound documents describe. What it still DOES catch on its own is the
+    ``operators.keys()`` shortcut being re-introduced while the artifacts
+    declare a different set, which is the regression that made Gate 2
+    tautological before the rewrite.
     """
     declared = result.over_file.artifacts["product-class"]
     assert isinstance(declared, ProductClassDeclaration)
