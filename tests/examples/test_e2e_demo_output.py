@@ -57,6 +57,11 @@ pre-rewrite ``run.py`` line                    relocated to
 :1093 narration byte-comparison                :func:`test_the_staged_narration_matches_the_committed_transcript`
 ============================================  ==========================
 
+One assertion here is **not** a relocation and names no pre-rewrite line:
+:func:`test_the_author_versioned_documents_kept_their_bump_check` was added by
+the post-gate review (WR-F5), because the demo's Stage 5 comment made a claim
+about the D-05 registration path that nothing in this module checked.
+
 **Every domain expectation is read from an artifact, never inlined.** A value
 this module authored would be the test agreeing with itself about what the
 deployment's vocabulary says.
@@ -111,7 +116,11 @@ from typing import Any
 import pytest
 
 from ccf.agents.agent import Agent
-from ccf.agents.definitions import AgentDefinition
+from ccf.agents.definitions import (
+    AGENT_DEFINITION,
+    PROMPT_ARTIFACT,
+    AgentDefinition,
+)
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import (
     DebtProfile,
@@ -119,7 +128,10 @@ from ccf.controlplane.artifacts import (
     HalfLifeTable,
     ProductClassDeclaration,
 )
+from ccf.deployment.classes import SDK_VERSIONED_ARTIFACT_CLASSES
 from ccf.replay.record import DecisionReplayRecord
+from ccf.skills.catalog import SKILL_CATALOG_ENTRY
+from ccf.skills.grants import SKILL_GRANT
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE_DIR = REPO_ROOT / "examples" / "08-e2e-demo"
@@ -413,6 +425,96 @@ def test_the_grant_was_admitted_under_the_auto_regime(result: Any) -> None:
     """
     assert result.granted_hash != ""
     assert result.grant_set_hash != ""
+
+
+def test_the_author_versioned_documents_kept_their_bump_check(
+    result: Any,
+) -> None:
+    """Every author-versioned class this run registered took the D-05 path.
+
+    ``register_versioned`` holds an author's ``artifact_version`` claim against
+    the document's content identity; ``register_typed`` runs no such check. A
+    document that took the typed path is admissible into Decision Replay
+    dimension 2 under a version its content no longer matches, with nothing
+    recording that the governance the class exists to carry was skipped.
+
+    **Why this test exists here rather than only at example 05.** The post-gate
+    CR-02 fix moved three sites onto ``register_versioned`` and widened the
+    guard at one of them. This example was one of the two unguarded sites, so
+    reverting :file:`run.py`'s prompt-artifact registration to ``register_typed``
+    left the whole suite green — which is CR-02's own root cause (*the site that
+    lost its check was the site the check did not look at*) surviving inside its
+    remediation (post-gate review WR-F5).
+
+    **It is keyed on the artifact CLASS, not on a list of keys.** A key list has
+    the same hole by construction: a registration added tomorrow under a key
+    nobody added to the list is invisible to it. Every ``register_typed`` event
+    carries the class it registered, so the negative half below covers
+    registrations this module has never heard of.
+
+    Three assertions, each saying something the others do not:
+
+    1. no author-versioned class went through ``register_typed`` — the
+       guarantee, and the half that fires on a reversion;
+    2. the classes that DID go through ``register_versioned`` are exactly the
+       four this docstring names — the count against the sentence, which fires
+       if a registration is deleted or moved rather than re-routed;
+    3. the two keys :file:`artifacts/agent-registration.yaml` files by name are
+       among them — so (2) cannot be satisfied by some *other* document of the
+       same class.
+
+    **Four classes, three documents**, and the difference is worth stating
+    because the README and ``run.py`` both say *three*: the demo authors
+    :file:`artifacts/agent-definition.yaml`,
+    :file:`artifacts/prompt-artifact.yaml` and
+    :file:`artifacts/skill-catalog-entry.yaml`, and the ``ccf.skill-grant`` the
+    ledger admits is a fourth author-versioned artifact that no document in
+    :file:`artifacts/` declares. It is asserted here all the same — a refactor
+    that moved the ledger onto the typed path would be exactly as invisible as
+    the prompt-artifact site was.
+    """
+    events = result.audit.events()
+    typed = {
+        (event.artifact_class, event.key)
+        for event in events
+        if event.action == "register_typed"
+    }
+    versioned = {
+        (event.artifact_class, event.key)
+        for event in events
+        if event.action == "register_versioned"
+    }
+
+    # (1) The guarantee. Not "this example avoids the pattern" — no artifact of
+    #     an author-versioned class, named here or not, reached the typed path.
+    author_versioned_typed = {
+        (class_id, key)
+        for class_id, key in typed
+        if class_id in SDK_VERSIONED_ARTIFACT_CLASSES
+    }
+    assert not author_versioned_typed, (
+        "an author-versioned artifact was registered through `register_typed`,"
+        " which runs no D-05 bump check: "
+        f"{sorted(author_versioned_typed)}"
+    )
+
+    # (2) The count against the sentence.
+    assert {class_id for class_id, _ in versioned} == {
+        AGENT_DEFINITION.class_id,
+        PROMPT_ARTIFACT.class_id,
+        SKILL_CATALOG_ENTRY.class_id,
+        SKILL_GRANT.class_id,
+    }
+
+    # (3) And they are THIS deployment's documents, filed under the keys its
+    #     own registration artifact names.
+    registration = _declaration(result, "agent-registration")
+    named = {
+        registration["agent_definition_key"],
+        registration["prompt_artifact_key"],
+    }
+    registered = {key for _, key in versioned}
+    assert named <= registered, named - registered
 
 
 def test_the_agent_consumed_the_product_it_was_served(result: Any) -> None:

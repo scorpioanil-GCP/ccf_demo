@@ -28,6 +28,12 @@ Dimension                                Covered by
                                          :func:`test_dimension_5_carries_the_workflow_step_sequence`
 ======================================  ==================================
 
+The table maps dimensions onto tests, not tests onto dimensions: the module
+also holds the gate, agent, HITL and override assertions listed further down,
+and — since the post-gate review —
+:func:`test_the_author_versioned_documents_kept_their_bump_check`, which is a
+Control Plane guarantee rather than a replay dimension.
+
 Where each relocated assertion came from
 -----------------------------------------
 
@@ -133,6 +139,11 @@ from typing import Any
 
 import pytest
 
+from ccf.agents.definitions import (
+    AGENT_DEFINITION,
+    PROMPT_ARTIFACT,
+    TASK_DEFINITION,
+)
 from ccf.artifacts.protocol import (
     LATEST_VERSION_TOKEN,
     MovingTargetRefused,
@@ -140,6 +151,7 @@ from ccf.artifacts.protocol import (
 )
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
+from ccf.deployment.classes import SDK_VERSIONED_ARTIFACT_CLASSES
 from ccf.hitl.approval_gate import HitlActionRecord
 from ccf.hitl.identity_binding import verify_principal_binding
 from ccf.hitl.override import OverrideActionRecord
@@ -150,7 +162,9 @@ from ccf.replay.engine import (
     resolve_artifact_at_uri,
 )
 from ccf.replay.record import DecisionReplayRecord
-from ccf.skills.grants import grant_set_hash
+from ccf.skills.catalog import SKILL_CATALOG_ENTRY
+from ccf.skills.grants import SKILL_GRANT, grant_set_hash
+from ccf.workflow.definitions import WORKFLOW_DEFINITION
 from ccf_runtime.http_api.errors import ERROR_TENANT_UNAUTHORIZED
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -557,6 +571,101 @@ def test_the_skill_produced_the_declared_output(result: Any) -> None:
     `skill-dispatch.yaml`."""
     dispatch = _declaration(result, "skill-dispatch")
     assert result.skill_output == dispatch["dispatch"]["expected_output"]
+
+
+# --- the author-versioned registration path --------------------------------
+
+
+def test_the_author_versioned_documents_kept_their_bump_check(
+    result: Any,
+) -> None:
+    """Every author-versioned class this run registered took the D-05 path.
+
+    ``register_versioned`` holds an author's ``artifact_version`` claim against
+    the document's content identity; ``register_typed`` runs no such check. A
+    document that took the typed path is admissible into Decision Replay
+    dimension 2 under a version its content no longer matches, with nothing
+    recording that the governance the class exists to carry was skipped.
+
+    **Why this test exists here rather than only at example 05.** The post-gate
+    CR-02 fix moved three sites onto ``register_versioned`` and widened the
+    guard at one of them. This example was one of the two unguarded sites, so
+    reverting :file:`run.py`'s prompt-artifact registration to ``register_typed``
+    left the whole suite green — which is CR-02's own root cause (*the site that
+    lost its check was the site the check did not look at*) surviving inside its
+    remediation (post-gate review WR-F5).
+
+    **It is keyed on the artifact CLASS, not on a list of keys**, and that is
+    the point. A key list has the same hole by construction: a registration
+    added tomorrow under a key nobody added to the list is invisible to it.
+    Every ``register_typed`` event carries the class it registered, so the
+    negative half below covers registrations this module has never heard of.
+
+    Three assertions, each saying something the others do not:
+
+    1. no author-versioned class went through ``register_typed`` — the
+       guarantee, and the half that fires on a reversion;
+    2. the classes that DID go through ``register_versioned`` are exactly the
+       six this docstring names — the count against the sentence, which fires
+       if a registration is deleted or moved rather than re-routed;
+    3. the four keys :file:`artifacts/agent-registration.yaml` files by name are
+       among them — so (2) cannot be satisfied by some *other* document of the
+       same class.
+
+    This example registers every member of
+    :data:`~ccf.deployment.classes.SDK_VERSIONED_ARTIFACT_CLASSES`: the four
+    definition documents in :file:`artifacts/`, the skill catalog entry (keyed
+    by :func:`~ccf.skills.catalog.skill_catalog_key`), and the grant the ledger
+    admits. The last two travel through SDK mechanism rather than a call in
+    :file:`run.py`, and are asserted here all the same — a future refactor that
+    moved either onto the typed path would be exactly as invisible.
+    """
+    events = result.audit.events()
+    typed = {
+        (event.artifact_class, event.key)
+        for event in events
+        if event.action == "register_typed"
+    }
+    versioned = {
+        (event.artifact_class, event.key)
+        for event in events
+        if event.action == "register_versioned"
+    }
+
+    # (1) The guarantee. Not "this example avoids the pattern" — no artifact of
+    #     an author-versioned class, named here or not, reached the typed path.
+    author_versioned_typed = {
+        (class_id, key)
+        for class_id, key in typed
+        if class_id in SDK_VERSIONED_ARTIFACT_CLASSES
+    }
+    assert not author_versioned_typed, (
+        "an author-versioned artifact was registered through `register_typed`,"
+        " which runs no D-05 bump check: "
+        f"{sorted(author_versioned_typed)}"
+    )
+
+    # (2) The count against the sentence.
+    assert {class_id for class_id, _ in versioned} == {
+        AGENT_DEFINITION.class_id,
+        PROMPT_ARTIFACT.class_id,
+        TASK_DEFINITION.class_id,
+        WORKFLOW_DEFINITION.class_id,
+        SKILL_CATALOG_ENTRY.class_id,
+        SKILL_GRANT.class_id,
+    }
+
+    # (3) And they are THIS deployment's documents, filed under the keys its
+    #     own registration artifact names.
+    registration = _declaration(result, "agent-registration")
+    named = {
+        registration["agent_definition_key"],
+        registration["prompt_artifact_key"],
+        registration["task_definition_key"],
+        registration["workflow_definition_key"],
+    }
+    registered = {key for _, key in versioned}
+    assert named <= registered, named - registered
 
 
 # --- the workflow and the hardened HITL door -------------------------------
