@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-06T00:31:51.137Z"
-last_activity: 2026-08-06 -- Phase 15.1 planning complete
+last_updated: "2026-08-06T01:20:06.734Z"
+last_activity: 2026-08-06 -- Phase 15.1 execution started
 progress:
   total_phases: 12
   completed_phases: 10
@@ -23,15 +23,15 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 15.1 — Ergonomics Gap Closure (not started; blocks Phase 16)
+**Current focus:** Phase 15.1 — ergonomics-gap-closure
 
 ## Current Position
 
-Phase: 15 COMPLETE and gated (D-GATE-15, 2026-08-05) with carried debt — Phase 15.1 is next
-Plan: 21/21 complete
-Status: Ready to execute
+Phase: 15.1 (ergonomics-gap-closure) — EXECUTING
+Plan: 1 of 10
+Status: Executing Phase 15.1
 Progress: [######################################] 21/21 Phase 15 plans
-Last activity: 2026-08-06 -- Phase 15.1 planning complete
+Last activity: 2026-08-06 -- Phase 15.1 execution started
 
 ## Performance Metrics
 
