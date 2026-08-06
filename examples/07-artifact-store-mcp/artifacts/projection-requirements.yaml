@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.projection-requirements.json
+# The operator set THIS DEPLOYMENT'S PROJECTION requires (design E2;
+# docs/DECISIONS.md D-IMPL-86 and its correction of 2026-08-05; logistics
+# domain, D-09).
+#
+# **One document, both store legs.** Like every other entry in `manifest.yaml`,
+# this is deployment configuration, and BOTH runs of the workload load that one
+# manifest unmodified. A second copy for the MCP-backed leg would be a second
+# statement of what was in force and would break the example's whole claim —
+# that nothing but the store binding differs between the two runs.
+#
+# **Why this is a second document rather than a duplicate to factor out.** It
+# names the same four operator keys `product-class.yaml` names, and that is the
+# design rather than a redundancy. The two state two different facts:
+#
+#   * `product-class.yaml`'s `required_operator_keys` is the Control Plane
+#     CLAIM — the value that fills the served product's
+#     `lineage.operators_invoked`, i.e. what the product SAYS ran.
+#   * this document's `required_operator_keys` is what the PLAN requires — the
+#     value `ShipmentPlan.required_operators()` returns, which is what the
+#     engine plans and therefore what actually runs.
+#
+# With one document those were the same value reaching both sides of Gate 2
+# (lineage strict equality, INV-CH7-47) through pure transforms, so the gate
+# could not fail on anything an author could write.
+#
+# **What holds the two documents together.** `refuse_operator_set_divergence`
+# (`ccf.deployment.binder`), called in `run.py` between constructing the plan
+# and `ProjectionEngine.execute`. Edit one key in either document and both runs
+# refuse, naming both sets and their difference. It REFUSES rather than
+# repairing: only the author knows which of the two they meant.
+#
+# Order is not significant on either side — the binder compares sets, and the
+# engine imposes the dependency order (INV-CH7-28).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the `plan_id` value and the operator key names are [ADAPT]; the
+# keys `semver`, `plan_id` and `required_operator_keys` are [MECHANISM].
+
+semver: "1.0.0"
+
+# Which projection these requirements govern. It matches the plan's own
+# `plan_id`, because the plan reads it from here.
+plan_id: nordhaven-logistics.shipment-context-summary.plan
+
+required_operator_keys:
+  - traversal.typed-neighborhood
+  - temporal.as-of-boundary
+  - policy.principal-subgraph
+  - similarity.corpus-select

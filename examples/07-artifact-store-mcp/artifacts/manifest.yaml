@@ -93,6 +93,17 @@ artifacts:
     role: register
     registration: typed
 
+  # Design E2's second authored operator set (D-IMPL-86). Registered, not
+  # merely loaded: what the projection was required to run is part of what this
+  # fabric was permitted to do, so it belongs in replay dimension 2 beside the
+  # product class whose claim the binder holds it to. Like every entry here it
+  # is read by BOTH store legs, from this one file.
+  - path: projection-requirements.yaml
+    key: projection-requirements
+    class_id: ccf.projection-requirements
+    role: register
+    registration: typed
+
   - path: product-governance.yaml
     key: product-governance
     class_id: nordhaven-logistics.product-governance
