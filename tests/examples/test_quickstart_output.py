@@ -152,7 +152,19 @@ def test_the_product_passed_all_three_gates(result: Any) -> None:
 
 def test_lineage_strict_equality_holds(result: Any) -> None:
     """Pre-rewrite :358. What the product claims ran is exactly what the engine
-    resolved as having run (INV-CH7-47)."""
+    resolved as having run (INV-CH7-47).
+
+    Since design E2 (D-IMPL-86) this is no longer a value compared against
+    itself. The claim comes from ``product-class.yaml``; the executed set traces
+    to ``projection-requirements.yaml``, a separately authored document, through
+    the plan the engine ran. Two documents, and the assertion is the one that
+    fires if the driver ever goes back to filling lineage from ``execution``.
+
+    What it still does **not** prove: that the two documents were authored
+    independently. A deployment that reads one artifact into the other collapses
+    the binder upstream and this check with it — the residual D-IMPL-86 names
+    and accepts.
+    """
     assert result.product.lineage.operators_invoked == result.operators_invoked
 
 
@@ -161,9 +173,19 @@ def test_every_declared_operator_actually_ran(result: Any) -> None:
 
     The count alone was never the interesting fact. This asserts the stronger
     property the count was standing in for: the set the product class DECLARED
-    it requires is exactly the set the engine RESOLVED. Those are two
-    independently authored things — the artifact and the engine's own
-    observation — which is what makes this able to fail.
+    it requires is exactly the set the engine RESOLVED.
+
+    Before design E2 (D-IMPL-86) those two were the same value arriving by two
+    paths — the declaration fed the plan, the plan fed the operator plan, and
+    the engine returned ``frozenset(outputs)`` — so this could not fail. It can
+    now: the executed set traces to ``projection-requirements.yaml`` and the
+    declared set to ``product-class.yaml``, two documents an author can edit
+    apart, held together by ``refuse_operator_set_divergence``.
+
+    Still not proven here: that the two were authored rather than copied. A
+    deployment that reads one document into the other collapses the binder, and
+    this assertion goes back to comparing one value against itself with nothing
+    in the output to show for it.
     """
     declared = result.artifacts["product-class"]
     assert isinstance(declared, ProductClassDeclaration)
