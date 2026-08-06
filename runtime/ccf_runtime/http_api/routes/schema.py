@@ -1,7 +1,22 @@
 """The ``schema`` noun — JSON Schema per SDK artifact class (ERGO-12).
 
 SDK-defined (CLAUDE.md §8.3). Two read-only endpoints: the list of class
-ids the SDK owns the schema of, and one class's JSON Schema document.
+ids this route serves the schema of, and one class's JSON Schema document.
+
+**Exactly which classes, stated precisely.** The route serves
+:data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES` — the classes a manifest
+may name for **typed** registration. Since plan 15.1-03 that is no longer the
+same set as "every SDK-owned class a manifest may name": the SDK also owns
+:data:`~ccf.deployment.classes.SDK_VERSIONED_ARTIFACT_CLASSES`, the six
+author-versioned classes a manifest may name for ``registration: versioned``,
+and this route answers 404 for those even though ``docs/schemas/`` holds their
+committed schemas.
+
+That gap is recorded rather than closed here. Widening the served set is a
+runtime surface change nobody has ruled on, and the honest reading of the
+route's contract — "schemas the SDK owns" versus "classes a manifest may name
+for typed registration" — is the open question, not the symptom. See
+``.planning/phases/15.1-ergonomics-gap-closure/deferred-items.md``.
 
 **Emitted from the live models, never read off disk.** The committed
 ``docs/schemas/`` tree is the *drift baseline* an adopter's editor points
@@ -20,7 +35,7 @@ route costs one module; adding a privileged CLI path costs the invariant.
 
 The route enumerates no domain vocabulary: the class ids come from
 :data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES`, the SDK's own
-hand-maintained registry of what it owns (CINV-01).
+hand-maintained registry of what it owns for typed registration (CINV-01).
 
 Algorithmic module (CINV-03).
 """

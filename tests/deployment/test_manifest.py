@@ -22,6 +22,10 @@ Whitepaper §7.8 (the Control Plane declares what the fabric may do) and §7.10
    **and from the audit log**, and flipping it to ``register`` flips all three.
 10. Duplicate keys are refused; duplicate paths under distinct keys are not.
 11. A malformed document registers nothing.
+12. An author-versioned class declared ``registration: typed`` is refused, an
+    envelope-shaped squat on any ``ccf.``-prefixed class id is refused, and the
+    ``versioned`` path both dispatches and turns a D-05 bump refusal into a
+    loud failure that pins nothing (D-IMPL-84, D-IMPL-85).
 
 **What they do not enforce.** They do not enforce that a manifest names the
 *right* artifacts for a deployment — which artifacts a deployment needs is the
@@ -563,3 +567,329 @@ def test_the_pin_set_covers_every_register_role_entry_and_no_other(
         assert booted.pins.version_for(POLICY_BUNDLE_KEY)
     finally:
         booted.handle.close()
+
+
+# --- (12) D-IMPL-84 / D-IMPL-85 — the refusals CR-1 needs ---------------------
+#
+# Five tests. Every one of them was confirmed to FAIL with plan 15.1-03's source
+# change reverted and to pass with it — the confirmation is recorded in
+# `.planning/phases/15.1-ergonomics-gap-closure/15.1-03-SUMMARY.md`, because a
+# refusal nobody has watched fire is a refusal that might be matching nothing
+# (the discipline `tests/products/test_required_operators_guard.py:250-300`
+# states).
+
+
+#: A minimal valid ``ccf.prompt-artifact`` — an SDK-owned, AUTHOR-VERSIONED
+#: class, so its contract declares a string ``artifact_version`` and
+#: ``register_versioned``'s D-05 bump check has something to hold content
+#: identity against. Fixture values only; no SDK code reads one (CINV-01).
+def _prompt_artifact(*, version: str = "1.0.0", body: str = "fixture body") -> dict[str, Any]:
+    return {
+        "schema_version": "1.0.0",
+        "artifact_version": version,
+        "name": "fixture-prompt",
+        "tenant": TENANT,
+        "template": body,
+        "declared_parameters": [],
+    }
+
+
+#: A document that is a perfectly valid ``DeclaredArtifact`` — ``semver``,
+#: ``class_id``, ``declaration`` and nothing else. This is the squat's payload:
+#: before D-IMPL-84 it satisfied the open envelope that any unrecognized
+#: ``ccf.``-prefixed id resolved to.
+def _envelope_squat(class_id: str) -> dict[str, Any]:
+    return {
+        "semver": "1.0.0",
+        "class_id": class_id,
+        "declaration": {"anything": "at all"},
+    }
+
+
+def _with_extra_entry(
+    deployment: Deployment,
+    *,
+    name: str,
+    filename: str,
+    key: str,
+    class_id: str,
+    registration: str,
+    document: dict[str, Any],
+) -> pathlib.Path:
+    """Write ``document`` beside the fixture set and name it from a new manifest.
+
+    One helper rather than five copies of the same six lines — the *variation*
+    between these tests is the class id and the registration mode, and a helper
+    that leaves those in the caller keeps the variation legible at each call
+    site.
+    """
+    write_artifact(deployment.root, filename, document)
+    body = manifest_document()
+    body["artifacts"] = [
+        *body["artifacts"],
+        {
+            "path": filename,
+            "key": key,
+            "class_id": class_id,
+            "role": "register",
+            "registration": registration,
+        },
+    ]
+    return deployment.variant_manifest(name, body)
+
+
+def test_an_author_versioned_class_declared_typed_registration_is_refused(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """CR-1's core, asserted as a refusal rather than as the examples' good behavior.
+
+    ``tests/examples/test_workflow_hitl_output.py::test_the_author_versioned_definitions_kept_their_bump_check``
+    proves example 05 registers its four author-versioned documents through
+    ``register_versioned``. That is a test **that the example does it right**,
+    and it cannot fail for a manifest the example does not contain — which is
+    exactly the shape ROADMAP Criterion 1 asks for the other side of. This is
+    that other side: a manifest that *does* contain the pattern.
+
+    ``ccf.prompt-artifact`` declares a string ``artifact_version``, so
+    ``register_typed`` would register it with **no D-05 bump check** — the
+    author's version claim never held against content identity. The refusal
+    fires in preflight, before the document is read.
+
+    **Fails before plan 15.1-03's source change, passes after.** Before it,
+    ``ccf.prompt-artifact`` was in neither SDK mapping, so this manifest entry
+    resolved the open envelope and failed at *parse* on the real document's
+    shape — a different error for a different reason. The assertion on the
+    message is what distinguishes the two.
+    """
+    path = _with_extra_entry(
+        deployment,
+        name="versioned-class-typed.yaml",
+        filename="prompt-artifact.yaml",
+        key="fixture/prompt-artifact",
+        class_id="ccf.prompt-artifact",
+        registration="typed",
+        document=_prompt_artifact(),
+    )
+    registry = ControlPlaneRegistry()
+
+    with pytest.raises(ValueError) as raised:
+        _boot(deployment, tmp_path, registry=registry, manifest=path)
+    message = str(raised.value)
+    assert "ccf.prompt-artifact" in message
+    # The registration MODE, named — not merely "something failed". A refusal
+    # that does not say which of the two paths was wrong sends the adopter to
+    # read the source.
+    assert "'typed'" in message
+    assert "D-IMPL-85" in message
+    assert registry.audit_events() == ()
+
+
+def test_an_envelope_squat_on_an_sdk_class_id_is_refused(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """The reachable form of CR-1 (D-IMPL-84), and the review's description was
+    inaccurate as to mechanism.
+
+    CR-1 as reviewed says a manifest routes a *real* author-versioned document
+    around the bump check. Phase 15.1 research executed that and it fails
+    loudly — 13 validation errors, because the open envelope's ``extra=forbid``
+    rejects the real document's shape. What *was* reachable is this: a document
+    that **is** a valid ``DeclaredArtifact`` and merely *claims*
+    ``class_id: ccf.hitl-policy``. Before D-IMPL-84 it booted, registered,
+    pinned, bound the Control Plane key to the SDK class id, and entered
+    Decision Replay dimension 2 with arbitrary content and no bump check — and
+    the registry's class-binding check compares ``class_id`` strings, which
+    match, so a later *correct* ``register_versioned`` on the same key was
+    admitted on top of it.
+
+    ``ccf.hitl-policy`` is used deliberately: it is an SDK-owned class that is
+    not manifest-addressable at all, so nothing but the namespace reservation
+    stands between the squat and the registry.
+
+    **Fails before the source change, passes after** — before it, this booted.
+    """
+    path = _with_extra_entry(
+        deployment,
+        name="envelope-squat.yaml",
+        filename="squat.yaml",
+        key="fixture/squatted-key",
+        class_id="ccf.hitl-policy",
+        registration="typed",
+        document=_envelope_squat("ccf.hitl-policy"),
+    )
+    registry = ControlPlaneRegistry()
+
+    with pytest.raises(ValueError) as raised:
+        _boot(deployment, tmp_path, registry=registry, manifest=path)
+    assert "D-IMPL-84" in str(raised.value)
+    assert registry.audit_events() == ()
+    assert registry.versions("fixture/squatted-key") == ()
+
+
+@pytest.mark.parametrize(
+    ("class_id", "decision_id"),
+    [
+        # Verified squattable before this plan (15.1-RESEARCH.md, §CR-1
+        # Verification, "Generality"). The SDK owns no contract for the first
+        # two spellings, so the NAMESPACE RESERVATION is what refuses them.
+        ("ccf.hitl-policy", "D-IMPL-84"),
+        ("ccf.made-up-class", "D-IMPL-84"),
+        # The third is refused a stop earlier, by the class-property check: the
+        # SDK does now own a contract for it, so it is in
+        # SDK_VERSIONED_ARTIFACT_CLASSES and `registration: typed` contradicts
+        # the contract. Both mechanisms close the same squat; which one fires
+        # depends only on whether the SDK ships a contract for the id, and
+        # neither leaves the open envelope reachable under a `ccf.` name.
+        ("ccf.skill-grant", "D-IMPL-85"),
+    ],
+)
+def test_the_ccf_namespace_reservation_is_wide_not_a_four_id_list(
+    deployment: Deployment,
+    tmp_path: pathlib.Path,
+    class_id: str,
+    decision_id: str,
+) -> None:
+    """D-IMPL-84 is namespace-wide by Dave's explicit choice over a four-id list.
+
+    A list of the four author-versioned ids would close roughly a third of the
+    hole: the squat was verified reachable for ``ccf.hitl-policy``,
+    ``ccf.skill-grant`` and a **wholly invented** ``ccf.made-up-class``, none of
+    which a four-id list names. This test is what makes the width a standing
+    fact rather than a docstring — ``ccf.made-up-class`` in particular can only
+    be refused by a rule about the *prefix*, because there is nothing else about
+    it to recognize.
+
+    **Every row fails before the source change and passes after** — each of the
+    three booted, registered and pinned before it.
+    """
+    path = _with_extra_entry(
+        deployment,
+        name=f"reservation-{class_id.replace('.', '-')}.yaml",
+        filename=f"squat-{class_id.replace('.', '-')}.yaml",
+        key="fixture/squatted-key",
+        class_id=class_id,
+        registration="typed",
+        document=_envelope_squat(class_id),
+    )
+    registry = ControlPlaneRegistry()
+
+    with pytest.raises(ValueError) as raised:
+        _boot(deployment, tmp_path, registry=registry, manifest=path)
+    assert decision_id in str(raised.value)
+    assert registry.audit_events() == ()
+
+
+def test_the_versioned_dispatch_runs_the_bump_check(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """The admit direction: a real author-versioned document, through the manifest.
+
+    Without this the four tests above would all pass against a loader that
+    refused *everything* — the failure mode T-15.1-03-06 names. Evidence comes
+    from the Control Plane's **own audit record**, which is where
+    ``register_versioned`` writes ``action="register_versioned"``, plus the mode
+    recorded on the returned pin (D-IMPL-83).
+
+    **Fails before the source change, passes after**: before it,
+    ``ccf.prompt-artifact`` resolved the open envelope, and ``register_versioned``
+    on a ``DeclaredArtifact`` raises ``TypeError`` — the envelope declares no
+    ``artifact_version``, so the bump check had nothing to verify.
+    """
+    key = "fixture/prompt-artifact"
+    path = _with_extra_entry(
+        deployment,
+        name="versioned-dispatch.yaml",
+        filename="prompt-artifact.yaml",
+        key=key,
+        class_id="ccf.prompt-artifact",
+        registration="versioned",
+        document=_prompt_artifact(),
+    )
+    registry = ControlPlaneRegistry()
+
+    booted = _boot(deployment, tmp_path, registry=registry, manifest=path)
+    try:
+        actions = {
+            event.action
+            for event in registry.audit_events()
+            if event.key == key
+        }
+        assert actions == {"register_versioned"}
+        assert "register_typed" not in actions
+        pin = next(entry for entry in booted.pins.entries if entry.key == key)
+        assert pin.registration == "versioned"
+        assert isinstance(pin.version, str)
+    finally:
+        booted.handle.close()
+
+
+def test_an_unbumped_change_refusal_mid_load_is_loud_and_pins_nothing(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """A returned ``RegistrationRefusal`` must never become an ``ArtifactPin`` version.
+
+    ``register_versioned`` **returns** its D-05 refusals rather than raising them
+    (the GateRefusal discipline), so a bare assignment in ``load_and_boot``
+    would put a ``RefuseUnbumpedChange`` *object* into ``ArtifactPin.version``
+    and record a refusal as a pin — a refusal entering Decision Replay dimension
+    2 as though it were a binding.
+
+    The second boot shares the first's registry, because the bump history lives
+    there: changed content under an unbumped ``artifact_version`` is the
+    two-boot shape, not a one-boot one.
+
+    **Fails before the source change, passes after**: before it there was no
+    manifest path to ``register_versioned`` for this class at all, so nothing
+    reached the bump check and the second boot succeeded.
+    """
+    key = "fixture/prompt-artifact"
+    registry = ControlPlaneRegistry()
+    first = _boot(
+        deployment,
+        tmp_path,
+        registry=registry,
+        name="first.sqlite3",
+        manifest=_with_extra_entry(
+            deployment,
+            name="bump-first.yaml",
+            filename="prompt-first.yaml",
+            key=key,
+            class_id="ccf.prompt-artifact",
+            registration="versioned",
+            document=_prompt_artifact(body="the first body"),
+        ),
+    )
+    try:
+        assert isinstance(first.pins.version_for(key), str)
+    finally:
+        first.handle.close()
+
+    # Same declared artifact_version, different content. D-05's second outcome.
+    second = _with_extra_entry(
+        deployment,
+        name="bump-second.yaml",
+        filename="prompt-second.yaml",
+        key=key,
+        class_id="ccf.prompt-artifact",
+        registration="versioned",
+        document=_prompt_artifact(body="a materially different body"),
+    )
+
+    with pytest.raises(ValueError) as raised:
+        _boot(
+            deployment,
+            tmp_path,
+            registry=registry,
+            name="second.sqlite3",
+            manifest=second,
+        )
+    message = str(raised.value)
+    assert key in message
+    assert "RefuseUnbumpedChange" in message
+
+    # The load raised, so no pin set was returned at all — which is the strongest
+    # form of "no pin carries a refusal". Asserted against the pins the FIRST
+    # load did return, so the check is not vacuous: every version there is a
+    # string, and a `RegistrationRefusal` could never satisfy that.
+    assert all(isinstance(pin.version, str) for pin in first.pins.entries)
+    assert first.pins.entries

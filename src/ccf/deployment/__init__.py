@@ -16,8 +16,10 @@ Modules
 -------
 
 * :mod:`ccf.deployment.classes` — class-id → ``ArtifactClass`` resolution, with
-  deployment-authored schemas landing on the declared envelope by design, and
-  the roles the SDK fixes for the classes where it owns the answer (D-IMPL-80).
+  deployment-authored schemas landing on the declared envelope by design, the
+  ``ccf.`` prefix reserved so no envelope may wear an SDK class name
+  (D-IMPL-84), and the roles and registration paths the SDK fixes for the
+  classes where it owns the answer (D-IMPL-80, D-IMPL-85).
 * :mod:`ccf.deployment.pins` — the plain ``(key, version, class_id)`` record a
   manifest load produces, with exactly one accessor and no binding-selection
   helpers.
@@ -89,6 +91,8 @@ from ccf.controlplane.artifacts import DeploymentManifest, ManifestEntry
 from ccf.deployment.classes import (
     SDK_ARTIFACT_CLASSES,
     SDK_ARTIFACT_ROLES,
+    SDK_VERSIONED_ARTIFACT_CLASSES,
+    refuse_registration_the_sdk_fixes,
     refuse_role_the_sdk_fixes,
     resolve_artifact_class,
 )
@@ -104,6 +108,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "SDK_ARTIFACT_CLASSES",
     "SDK_ARTIFACT_ROLES",
+    "SDK_VERSIONED_ARTIFACT_CLASSES",
     "ArtifactPin",
     "BootedFabric",
     "DeploymentManifest",
@@ -113,6 +118,7 @@ __all__ = [
     "UnpinnedArtifactError",
     "build_operator_registry",
     "load_and_boot",
+    "refuse_registration_the_sdk_fixes",
     "refuse_role_the_sdk_fixes",
     "resolve_artifact_class",
 ]
