@@ -9,8 +9,10 @@ that a test has something valid to parse. No SDK code may read a value from one.
 
 **The fixture manifest is also the reference authoring pattern.** It marks the
 signal batch ``role: load`` and everything else ``role: register``, per
-D-IMPL-80, because that split is the shape the examples copy. A fixture that got
-it wrong would teach the wrong thing twice.
+D-IMPL-80, and it states ``registration`` on **every** entry, per D-IMPL-85 —
+both fields are required with no default, and the fixture shows them as
+explicitly as an example manifest does. A fixture that got either wrong would
+teach the wrong thing twice.
 """
 
 from __future__ import annotations
@@ -36,15 +38,16 @@ PERSPECTIVE_KEY = "fixture/perspective"
 PRODUCT_CLASS_KEY = "fixture/product-class"
 SIGNAL_BATCH_KEY = "fixture/signal-batch"
 
-#: ``key -> (filename, class_id, role, document)`` for the complete artifact set.
-#: Declaration order is manifest order, and the tests depend on it: the
-#: parse-then-register test needs to know which entry is the fourth.
-ARTIFACT_SET: tuple[tuple[str, str, str, str, dict[str, Any]], ...] = (
+#: ``key -> (filename, class_id, role, registration, document)`` for the complete
+#: artifact set. Declaration order is manifest order, and the tests depend on it:
+#: the parse-then-register test needs to know which entry is the fourth.
+ARTIFACT_SET: tuple[tuple[str, str, str, str, str, dict[str, Any]], ...] = (
     (
         RESOLUTION_SPEC_KEY,
         "resolution-spec.yaml",
         "ccf.resolution-spec",
         "register",
+        "typed",
         {
             "semver": "1.0.0",
             "entity_rules": [
@@ -62,6 +65,7 @@ ARTIFACT_SET: tuple[tuple[str, str, str, str, dict[str, Any]], ...] = (
         "policy-bundle.yaml",
         "fixture.policy-bundle",
         "register",
+        "typed",
         {
             "semver": "1.0.0",
             "class_id": "fixture.policy-bundle",
@@ -73,6 +77,7 @@ ARTIFACT_SET: tuple[tuple[str, str, str, str, dict[str, Any]], ...] = (
         "half-life.yaml",
         "ccf.half-life-table",
         "register",
+        "typed",
         {
             "semver": "1.0.0",
             "entries": {
@@ -89,6 +94,7 @@ ARTIFACT_SET: tuple[tuple[str, str, str, str, dict[str, Any]], ...] = (
         "operator-traversal.yaml",
         "ccf.operator-parameters.traversal",
         "register",
+        "typed",
         {
             "semver": "1.0.0",
             "seed_entity_classes": ["account"],
@@ -101,6 +107,7 @@ ARTIFACT_SET: tuple[tuple[str, str, str, str, dict[str, Any]], ...] = (
         "operator-temporal.yaml",
         "ccf.operator-parameters.temporal",
         "register",
+        "typed",
         {"semver": "1.0.0", "require_valid_at_boundary": True},
     ),
     (
@@ -108,6 +115,7 @@ ARTIFACT_SET: tuple[tuple[str, str, str, str, dict[str, Any]], ...] = (
         "operator-policy.yaml",
         "ccf.operator-parameters.policy",
         "register",
+        "typed",
         {
             "semver": "1.0.0",
             "classification_attribute_by_class": {"account": "classification"},
@@ -119,6 +127,7 @@ ARTIFACT_SET: tuple[tuple[str, str, str, str, dict[str, Any]], ...] = (
         "operator-similarity.yaml",
         "ccf.operator-parameters.similarity",
         "register",
+        "typed",
         {
             "semver": "1.0.0",
             "query": "fixture query",
@@ -132,6 +141,7 @@ ARTIFACT_SET: tuple[tuple[str, str, str, str, dict[str, Any]], ...] = (
         "perspective.yaml",
         "ccf.perspective",
         "register",
+        "typed",
         {
             "semver": "1.0.0",
             "principal_id": "principal-fixture",
@@ -143,6 +153,7 @@ ARTIFACT_SET: tuple[tuple[str, str, str, str, dict[str, Any]], ...] = (
         "product-class.yaml",
         "ccf.product-class",
         "register",
+        "typed",
         {
             "semver": "1.0.0",
             "schema_name": "fixture.manifest-product",
@@ -159,6 +170,10 @@ ARTIFACT_SET: tuple[tuple[str, str, str, str, dict[str, Any]], ...] = (
         "ccf.signal-batch",
         # D-IMPL-80: parsed and returned, never registered and never pinned.
         "load",
+        # D-IMPL-85 gives `registration` no default either, so a `load` entry
+        # states the path it would have travelled even though it never travels
+        # one. The field is required of every entry, not of registered ones.
+        "typed",
         {
             "semver": "1.0.0",
             "tenant_id": TENANT,
@@ -264,8 +279,14 @@ def manifest_document(**overrides: Any) -> dict[str, Any]:
         "resolution_spec_key": RESOLUTION_SPEC_KEY,
         "policy_bundle_key": POLICY_BUNDLE_KEY,
         "artifacts": [
-            {"path": filename, "key": key, "class_id": class_id, "role": role}
-            for key, filename, class_id, role, _ in ARTIFACT_SET
+            {
+                "path": filename,
+                "key": key,
+                "class_id": class_id,
+                "role": role,
+                "registration": registration,
+            }
+            for key, filename, class_id, role, registration, _ in ARTIFACT_SET
         ],
     }
     document.update(overrides)
@@ -283,7 +304,7 @@ def deployment(tmp_path: pathlib.Path) -> Deployment:
     """
     root = tmp_path / "deployment"
     root.mkdir()
-    for _key, filename, _class_id, _role, document in ARTIFACT_SET:
+    for _key, filename, _class_id, _role, _registration, document in ARTIFACT_SET:
         write_artifact(root, filename, document)
     body = manifest_document()
     return Deployment(

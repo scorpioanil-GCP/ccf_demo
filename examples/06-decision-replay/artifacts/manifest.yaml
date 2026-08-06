@@ -52,8 +52,9 @@
 # In this file: `tenant_id`, every `key`, every `path`, and the
 # non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
 # `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
-# `artifacts`, `path`, `key`, `class_id` and `role`, the `ccf.`-prefixed class
-# ids, and the `role` values are [MECHANISM].
+# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
+# `ccf.`-prefixed class ids, and the `role` and `registration` values are
+# [MECHANISM].
 
 semver: "1.0.0"
 
@@ -70,46 +71,55 @@ artifacts:
     key: resolution-spec
     class_id: ccf.resolution-spec
     role: register
+    registration: typed
 
   - path: policy-bundle.yaml
     key: policy-bundle
     class_id: boreal-grid.policy-bundle
     role: register
+    registration: typed
 
   - path: operator-parameters-traversal.yaml
     key: traversal
     class_id: ccf.operator-parameters.traversal
     role: register
+    registration: typed
 
   - path: operator-parameters-temporal.yaml
     key: temporal
     class_id: ccf.operator-parameters.temporal
     role: register
+    registration: typed
 
   - path: operator-parameters-policy.yaml
     key: policy
     class_id: ccf.operator-parameters.policy
     role: register
+    registration: typed
 
   - path: operator-parameters-similarity.yaml
     key: similarity
     class_id: ccf.operator-parameters.similarity
     role: register
+    registration: typed
 
   - path: perspective.yaml
     key: perspective
     class_id: ccf.perspective
     role: register
+    registration: typed
 
   - path: product-class.yaml
     key: product-class
     class_id: ccf.product-class
     role: register
+    registration: typed
 
   - path: product-governance.yaml
     key: product-governance
     class_id: boreal-grid.product-governance
     role: register
+    registration: typed
 
   # The agent's axis-4 and axis-5 declarations, under the keys its versioned-URI
   # refs resolve against. `register`, because a policy regime and a debt profile
@@ -118,11 +128,13 @@ artifacts:
     key: boreal-grid/policy-bundle/grid-operations-regime
     class_id: policy-bundle
     role: register
+    registration: typed
 
   - path: agent-debt-profile.yaml
     key: boreal-grid/debt-profile/load-shed-review
     class_id: debt-profile
     role: register
+    registration: typed
 
   # What the task's first step may invoke, and who may approve at the gate.
   # `register`: both are standing statements of what the fabric may do, and the
@@ -131,11 +143,13 @@ artifacts:
     key: boreal-grid/skill/collect-feeder-telemetry
     class_id: skill
     role: register
+    registration: typed
 
   - path: approval-policy.yaml
     key: boreal-grid/approval-policy/shift-supervisor
     class_id: approval-policy
     role: register
+    registration: typed
 
   # --- role: load — parsed and validated through the same seam as everything
   #     above, then handed back on `BootedFabric.artifacts`. Never registered,
@@ -147,6 +161,7 @@ artifacts:
     key: events
     class_id: ccf.signal-batch
     role: load
+    registration: typed
 
   # This run's decision instants. The deployment's own class, so the role is the
   # deployment's call — and it is `load` because what instant one run asked
@@ -155,6 +170,7 @@ artifacts:
     key: decision
     class_id: boreal-grid.decision-inputs
     role: load
+    registration: typed
 
   # What the deployment expects the product to contain. An expectation is not a
   # permission, so it is parsed and returned, never put in force.
@@ -162,6 +178,7 @@ artifacts:
     key: expected
     class_id: boreal-grid.expected-product
     role: load
+    registration: typed
 
   # Where the seven driver-registered documents file in the Control Plane.
   # Wiring the driver reads; the artifacts themselves are registered by
@@ -170,6 +187,7 @@ artifacts:
     key: agent-registration
     class_id: boreal-grid.agent-registration
     role: load
+    registration: typed
 
   # The grant request and the dispatch. `load`: the ledger audits the grant
   # independently when it admits it, so registering the request would record the
@@ -178,6 +196,7 @@ artifacts:
     key: skill-dispatch
     class_id: boreal-grid.skill-dispatch
     role: load
+    registration: typed
 
   # What this run's human actors do. The POLICY governing them is registered
   # (`hitl-policy.yaml`, `approval-policy.yaml`); one run's actions are not.
@@ -185,6 +204,7 @@ artifacts:
     key: hitl-drive
     class_id: boreal-grid.hitl-drive
     role: load
+    registration: typed
 
   # Synthetic credential material. `load`, and never otherwise: registering it
   # would content-hash tokens into the audit plane.
@@ -192,6 +212,7 @@ artifacts:
     key: tokens
     class_id: boreal-grid.token-table
     role: load
+    registration: typed
 
   # The two negative probes. `load`: a probe is not a permission — putting it in
   # force would say the fabric was permitted to resolve an unregistered version,
@@ -200,3 +221,4 @@ artifacts:
     key: replay-probes
     class_id: boreal-grid.replay-probes
     role: load
+    registration: typed

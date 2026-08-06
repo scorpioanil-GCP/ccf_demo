@@ -49,7 +49,7 @@ from ccf.controlplane.artifacts import (
     DeploymentManifest,
     load_artifact,
 )
-from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.controlplane.registry import ControlPlaneProtocol, RegistrationRefusal
 from ccf.deployment.classes import refuse_role_the_sdk_fixes, resolve_artifact_class
 from ccf.deployment.pins import ArtifactPin, ResolvedPins
 
@@ -197,10 +197,16 @@ def load_and_boot(
     2. **Preflights** the tenant, the D-IMPL-80 role of every entry, and the
        declared backend against the supplied connection argument — all before
        any document is read and before anything is registered.
-    3. Parses **every** entry, then registers the ``role: register`` ones. Two
-       phases, deliberately: a malformed document at entry seven would otherwise
-       leave entries one through six registered, which is partial Control Plane
-       state produced by a deployment that never booted.
+    3. Parses **every** entry, then registers the ``role: register`` ones
+       **through the path each entry's** ``registration`` **declares** —
+       :meth:`register_typed
+       <ccf.controlplane.registry.ControlPlaneRegistry.register_typed>` or
+       :meth:`register_versioned
+       <ccf.controlplane.registry.ControlPlaneRegistry.register_versioned>` with
+       its D-05 bump check (D-IMPL-85). Two phases, deliberately: a malformed
+       document at entry seven would otherwise leave entries one through six
+       registered, which is partial Control Plane state produced by a deployment
+       that never booted.
     4. Calls :func:`ccf.boot.boot` with the pins it just collected.
 
     What this call does **not** do — the abstraction line, stated on the surface
@@ -258,8 +264,21 @@ def load_and_boot(
     Raises:
         ValueError: the tenant is absent from both sources or conflicts between
             them; the declared backend's connection argument is missing or the
-            wrong one was supplied; or an entry declares a role the SDK fixes
-            otherwise (D-IMPL-80).
+            wrong one was supplied; an entry declares a role the SDK fixes
+            otherwise (D-IMPL-80); or a ``registration: versioned`` entry was
+            refused by the D-05 hash-verified bump check. That last one is a
+            **returned** refusal from :meth:`register_versioned
+            <ccf.controlplane.registry.ControlPlaneRegistry.register_versioned>`
+            turned into a loud failure here, naming the key, the class and the
+            refusal type: a refusal is never swallowed, never downgraded to a
+            warning, and never retried down the ``typed`` path.
+        TypeError: a ``registration: versioned`` entry names a class whose
+            documents declare no string ``artifact_version``, so the bump check
+            has nothing to verify. This is what an adopter sees when they declare
+            ``versioned`` for a class that is not author-versioned; for the
+            classes the SDK knows the answer for,
+            :func:`~ccf.deployment.classes.refuse_registration_the_sdk_fixes`
+            refuses in preflight, before anything is read.
         ccf.controlplane.artifacts.ArtifactLoadError: the manifest or any
             artifact document is not valid YAML, or does not satisfy its
             declared class contract.
@@ -296,12 +315,47 @@ def load_and_boot(
             # Plane state and therefore into Decision Replay dimension 2.
             continue
         artifact_class = resolve_artifact_class(entry.class_id)
-        version = registry.register_typed(
-            entry.key, parsed[entry.key], artifact_class
-        )
+        if entry.registration == "versioned":
+            # `register_versioned` RETURNS its D-05 refusals rather than raising
+            # them (the GateRefusal discipline), so a bare assignment here would
+            # put a `RefuseUnbumpedChange` object into `ArtifactPin.version` and
+            # record a refusal as a pin. The narrowing below is what stops that,
+            # and mypy --strict is the second layer.
+            #
+            # There is deliberately no fallback to `register_typed`: a manifest
+            # that declared `versioned` asked for the bump check, and quietly
+            # taking the other path when it refuses is the bypass this field
+            # exists to close, returning in a new costume.
+            #
+            # The other failure mode on this branch is a `TypeError` raised
+            # inside `register_versioned` when the document declares no string
+            # `artifact_version`. It surfaces unhandled, and that is what an
+            # adopter sees when they declare `versioned` for a class that is not
+            # author-versioned. For the SDK-owned instances of that mistake,
+            # `refuse_registration_the_sdk_fixes` refuses in preflight, before
+            # any document is read.
+            outcome = registry.register_versioned(
+                entry.key, parsed[entry.key], artifact_class
+            )
+            if isinstance(outcome, RegistrationRefusal):
+                raise ValueError(
+                    f"manifest key {entry.key!r} (class {entry.class_id!r})"
+                    " declares registration 'versioned', and the D-05"
+                    " hash-verified bump check refused it:"
+                    f" {type(outcome).__name__}. Nothing was registered under"
+                    " this key, and no pin is recorded for a refusal"
+                )
+            version = outcome
+        else:
+            version = registry.register_typed(
+                entry.key, parsed[entry.key], artifact_class
+            )
         pinned.append(
             ArtifactPin(
-                key=entry.key, version=version, class_id=entry.class_id
+                key=entry.key,
+                version=version,
+                class_id=entry.class_id,
+                registration=entry.registration,
             )
         )
 

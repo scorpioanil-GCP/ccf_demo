@@ -26,8 +26,9 @@
 # In this file: `tenant_id`, every `key`, every `path`, and the
 # non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
 # `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
-# `artifacts`, `path`, `key`, `class_id` and `role`, the `ccf.`-prefixed class
-# ids, and the `role` values are [MECHANISM].
+# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
+# `ccf.`-prefixed class ids, and the `role` and `registration` values are
+# [MECHANISM].
 
 semver: "1.0.0"
 
@@ -44,42 +45,50 @@ artifacts:
     key: resolution-spec
     class_id: ccf.resolution-spec
     role: register
+    registration: typed
 
   - path: policy-bundle.yaml
     key: policy-bundle
     class_id: helix-trials.policy-bundle
     role: register
+    registration: typed
 
   # Three categories, and no fourth. See the note at the top.
   - path: operator-parameters-traversal.yaml
     key: traversal
     class_id: ccf.operator-parameters.traversal
     role: register
+    registration: typed
 
   - path: operator-parameters-temporal.yaml
     key: temporal
     class_id: ccf.operator-parameters.temporal
     role: register
+    registration: typed
 
   - path: operator-parameters-policy.yaml
     key: policy
     class_id: ccf.operator-parameters.policy
     role: register
+    registration: typed
 
   - path: perspective.yaml
     key: perspective
     class_id: ccf.perspective
     role: register
+    registration: typed
 
   - path: product-class.yaml
     key: product-class
     class_id: ccf.product-class
     role: register
+    registration: typed
 
   - path: product-governance.yaml
     key: product-governance
     class_id: helix-trials.product-governance
     role: register
+    registration: typed
 
   # The agent's axis-4 regime — which carries the D-IMPL-29 `skill_governance`
   # envelope this whole example turns on — and its axis-5 profile. Their keys
@@ -88,11 +97,13 @@ artifacts:
     key: helix-trials/policy-bundle/trial-operations-regime
     class_id: policy-bundle
     role: register
+    registration: typed
 
   - path: agent-debt-profile.yaml
     key: helix-trials/debt-profile/enrollment-review
     class_id: debt-profile
     role: register
+    registration: typed
 
   # --- role: load — parsed and validated through the same seam, then handed
   #     back on `BootedFabric.artifacts`. Never registered, never pinned, never
@@ -104,6 +115,7 @@ artifacts:
     key: events
     class_id: ccf.signal-batch
     role: load
+    registration: typed
 
   # `decision.yaml` is deliberately NOT here either, and for a different reason
   # than the author-versioned documents. This deployment injects its clock into
@@ -116,11 +128,13 @@ artifacts:
     key: expected
     class_id: helix-trials.expected-product
     role: load
+    registration: typed
 
   - path: agent-registration.yaml
     key: agent-registration
     class_id: helix-trials.agent-registration
     role: load
+    registration: typed
 
   # The channel-2 scenario: which catalog documents to register, which grants
   # to request, the dispatch arguments, and the reviewed refusal outcome. A
@@ -131,3 +145,4 @@ artifacts:
     key: skilling-scenario
     class_id: helix-trials.skilling-scenario
     role: load
+    registration: typed

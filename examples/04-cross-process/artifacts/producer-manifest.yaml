@@ -29,8 +29,9 @@
 # In this file: `tenant_id`, every `key`, every `path`, and the
 # non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
 # `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
-# `artifacts`, `path`, `key`, `class_id` and `role`, the `ccf.`-prefixed class
-# ids, and the `role` values are [MECHANISM].
+# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
+# `ccf.`-prefixed class ids, and the `role` and `registration` values are
+# [MECHANISM].
 
 semver: "1.0.0"
 
@@ -47,46 +48,55 @@ artifacts:
     key: resolution-spec
     class_id: ccf.resolution-spec
     role: register
+    registration: typed
 
   - path: policy-bundle.yaml
     key: policy-bundle
     class_id: harborline-syndications.policy-bundle
     role: register
+    registration: typed
 
   - path: operator-parameters-traversal.yaml
     key: traversal
     class_id: ccf.operator-parameters.traversal
     role: register
+    registration: typed
 
   - path: operator-parameters-temporal.yaml
     key: temporal
     class_id: ccf.operator-parameters.temporal
     role: register
+    registration: typed
 
   - path: operator-parameters-policy.yaml
     key: policy
     class_id: ccf.operator-parameters.policy
     role: register
+    registration: typed
 
   - path: operator-parameters-similarity.yaml
     key: similarity
     class_id: ccf.operator-parameters.similarity
     role: register
+    registration: typed
 
   - path: perspective.yaml
     key: perspective
     class_id: ccf.perspective
     role: register
+    registration: typed
 
   - path: product-class.yaml
     key: product-class
     class_id: ccf.product-class
     role: register
+    registration: typed
 
   - path: product-governance.yaml
     key: product-governance
     class_id: harborline-syndications.product-governance
     role: register
+    registration: typed
 
   # Which identity this fabric emits under, and where. A standing statement of
   # what it was permitted to do — the consumer's matching entitlement lives in
@@ -95,6 +105,7 @@ artifacts:
     key: producer-peering
     class_id: harborline-syndications.producer-peering
     role: register
+    registration: typed
 
   # The agent's axis-4 and axis-5 targets. Their keys are LONG because a key
   # here is the Control Plane key, and the agent definition's versioned-URI
@@ -105,11 +116,13 @@ artifacts:
     key: harborline-syndications/policy-bundle/syndications-desk-regime
     class_id: policy-bundle
     role: register
+    registration: typed
 
   - path: agent-debt-profile.yaml
     key: harborline-syndications/debt-profile/covenant-review
     class_id: debt-profile
     role: register
+    registration: typed
 
   # --- role: load — parsed and validated through the same seam as everything
   #     above, then handed back on `BootedFabric.artifacts`. Never registered,
@@ -124,6 +137,7 @@ artifacts:
     key: events
     class_id: ccf.signal-batch
     role: load
+    registration: typed
 
   # This run's decision instants. What instant one run asked about is not part
   # of what the fabric was permitted to do.
@@ -131,12 +145,14 @@ artifacts:
     key: decision
     class_id: harborline-syndications.decision-inputs
     role: load
+    registration: typed
 
   # An expectation is not a permission.
   - path: expected.yaml
     key: expected
     class_id: harborline-syndications.expected-product
     role: load
+    registration: typed
 
   # A pointer to where the two author-versioned artifacts will be registered is
   # not itself a permission; the registration is.
@@ -144,3 +160,4 @@ artifacts:
     key: agent-registration
     class_id: harborline-syndications.agent-registration
     role: load
+    registration: typed

@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**271 entries**, of which **57** name a public Python surface.
+**274 entries**, of which **60** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-82 entries — 54 public Python surface, 28 not public Python API.
+83 entries — 55 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -1172,6 +1172,28 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.1-01-projection-requirements-and-protocol.md`.*
 
+#### ccf.controlplane.artifacts.RegistrationMode
+
+- Surface: ccf.controlplane.artifacts.RegistrationMode
+- Public surface: true
+- Change type: added
+- Before: absent — the two registration paths were reachable as two method names on the
+  Control Plane and by nothing a document could state
+- After: `RegistrationMode = Literal["typed", "versioned"]`, declared beside
+  `ArtifactRole` and exported from `ccf.controlplane.artifacts.__all__`
+- Why: Phase 15.1's criterion 2 is that an artifact author does not have to know which
+  of two registration paths their class belongs to. That is only true if the manifest
+  *states* the mode, and stating it needs a name for the thing being stated. The two
+  values are the two paths and no more: `typed` is `register_typed` — class binding,
+  contract validation, content hash, audit; `versioned` is `register_versioned`, which
+  does all of that plus the D-05 bump check against the author's declared
+  `artifact_version`
+- Migration: none on its own. It is the type of the new `ManifestEntry.registration` and
+  `ArtifactPin.registration` fields below; an adopter reads it, and writes one of its
+  two string values in YAML
+
+*Recorded by `15.1-02-registration-mode.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -1605,7 +1627,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-184 entries — 1 public Python surface, 183 not public Python API.
+186 entries — 3 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -1640,6 +1662,60 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   (CLAUDE.md §6.4)
 
 *Recorded by `15-07-resolution-spec.md`.*
+
+#### ccf.controlplane.artifacts.ManifestEntry
+
+- Surface: ccf.controlplane.artifacts.ManifestEntry
+- Public surface: true
+- Change type: reshaped
+- Before: `path`, `key`, `class_id`, `role` — four required fields, and nothing said
+  which registration path the entry travelled. `load_and_boot` called `register_typed`
+  for every `role: register` entry unconditionally
+- After: a fifth required field, `registration: RegistrationMode`, with **no default**
+- Why: D-IMPL-85 (Dave, 2026-08-05). Either default would have the SDK deciding the
+  *governance path* by silence for every entry that omitted it — a deployment would
+  inherit or lose the D-05 bump check with no document saying so, which is exactly the
+  convention-mistaken-for-enforcement failure this phase exists to close (T-15.1-02-01).
+  The argument is a sibling of `role`'s, not a copy of it: `role`'s no-default reasoning
+  is about a replay-dimension-2 *boundary*, and this one is about which governance
+  obligations *run*. Rejected: optional-defaulting-to-`typed`, which is the cheap
+  migration and the silent choice at once. The cost was accepted and measured with the
+  ruling — 163 entries across 11 manifests plus the deployment test fixtures, one
+  mechanical wave, and no external adopters to carry it (private repo, pre-1.0)
+- Migration: **every manifest entry must now declare `registration`.** The mechanical
+  edit is one line per entry, directly under `role`:
+
+*Recorded by `15.1-02-registration-mode.md`.*
+
+#### ccf.deployment.pins.ArtifactPin
+
+- Surface: ccf.deployment.pins.ArtifactPin
+- Public surface: true
+- Change type: reshaped
+- Before: `key`, `version`, `class_id` — the pin recorded what was in force and under
+  which contract, and said nothing about how it got there
+- After: a fourth required field, `registration: RegistrationMode`, carrying the mode
+  the entry actually travelled
+- Why: D-IMPL-83 (Dave, 2026-08-05). Bump evidence had to be reachable from the returned
+  pins, and `ResolvedPins` is under an explicit no-growth constraint pinned by
+  `tests/deployment/test_manifest.py::test_resolved_pins_has_exactly_one_public_method`.
+  The reading adopted: that constraint forbids **methods that select**, not **fields
+  that record** — `class_id` is already a recorded fact of the same kind — so the mode
+  lands as a field and `ResolvedPins` gains no accessor. The audit log remains the
+  **primary** evidence: `register_versioned` already audits every outcome with
+  `action="register_versioned"` and `resolved=True|False`, which is how
+  `test_the_author_versioned_definitions_kept_their_bump_check` reads it today. This
+  field is the convenience for a reader holding the pins and no audit log. Rejected:
+  audit-log-only, which leaves the evidence unreachable from the returned pins; and a
+  `ResolvedPins` accessor, which contradicts the no-growth constraint directly
+- Migration: **the pin set's content hash changes** — the field is additive to a
+  `CCFContract`, so anything that recorded a pin-set hash before this plan records a
+  different one after it. Determinism is unaffected:
+  `test_two_loads_of_one_manifest_produce_an_identical_pin_set` still passes because
+  both loads change identically. Code constructing an `ArtifactPin` directly must supply
+  the field; code reading `version_for` is untouched
+
+*Recorded by `15.1-02-registration-mode.md`.*
 
 ### Not public Python API
 

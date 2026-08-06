@@ -30,8 +30,9 @@
 # In this file: `tenant_id`, every `key`, every `path`, and the
 # non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
 # `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
-# `artifacts`, `path`, `key`, `class_id` and `role`, the `ccf.`-prefixed class
-# ids, and the `role` values are [MECHANISM].
+# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
+# `ccf.`-prefixed class ids, and the `role` and `registration` values are
+# [MECHANISM].
 
 semver: "1.0.0"
 
@@ -48,46 +49,55 @@ artifacts:
     key: resolution-spec
     class_id: ccf.resolution-spec
     role: register
+    registration: typed
 
   - path: policy-bundle.yaml
     key: policy-bundle
     class_id: atlas-commerce.policy-bundle
     role: register
+    registration: typed
 
   - path: operator-parameters-traversal.yaml
     key: traversal
     class_id: ccf.operator-parameters.traversal
     role: register
+    registration: typed
 
   - path: operator-parameters-temporal.yaml
     key: temporal
     class_id: ccf.operator-parameters.temporal
     role: register
+    registration: typed
 
   - path: operator-parameters-policy.yaml
     key: policy
     class_id: ccf.operator-parameters.policy
     role: register
+    registration: typed
 
   - path: operator-parameters-similarity.yaml
     key: similarity
     class_id: ccf.operator-parameters.similarity
     role: register
+    registration: typed
 
   - path: perspective.yaml
     key: perspective
     class_id: ccf.perspective
     role: register
+    registration: typed
 
   - path: product-class.yaml
     key: product-class
     class_id: ccf.product-class
     role: register
+    registration: typed
 
   - path: product-governance.yaml
     key: product-governance
     class_id: atlas-commerce.product-governance
     role: register
+    registration: typed
 
   # --- role: load — parsed and validated through the same seam as everything
   #     above, then handed back on `BootedFabric.artifacts`. Never registered,
@@ -101,6 +111,7 @@ artifacts:
     key: events
     class_id: ccf.signal-batch
     role: load
+    registration: typed
 
   # This run's instants and its instruction parameter values. What one run
   # asked about is not part of what the fabric was permitted to do.
@@ -108,6 +119,7 @@ artifacts:
     key: decision
     class_id: atlas-commerce.decision-inputs
     role: load
+    registration: typed
 
   # How each harness is stood up OUTSIDE the fabric. Not a fabric permission,
   # so not in dimension 2 — which harness ran is recorded per leg on the
@@ -116,6 +128,7 @@ artifacts:
     key: harnesses
     class_id: atlas-commerce.harness-bindings
     role: load
+    registration: typed
 
   # What the deployment expects the product to contain. An expectation is not a
   # permission, so it is parsed and returned, never put in force.
@@ -123,6 +136,7 @@ artifacts:
     key: expected
     class_id: atlas-commerce.expected-product
     role: load
+    registration: typed
 
   # Where the agent's four documents are filed in the Control Plane. A naming
   # table, not a permission — so `load`, not `register`.
@@ -130,3 +144,4 @@ artifacts:
     key: agent-registration
     class_id: atlas-commerce.agent-registration
     role: load
+    registration: typed
