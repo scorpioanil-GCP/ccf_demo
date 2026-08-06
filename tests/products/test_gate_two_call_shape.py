@@ -51,16 +51,16 @@ caught rather than evaded by one statement. Set conversions (``frozenset``,
 ``tuple``, ``sorted``, and ``typing.cast``) are transparent, so wrapping one
 side does not hide it.
 
-**Following is line-aware, and that is a correctness property rather than a
-refinement.** A name is resolved to the assignment in force *at the line that
-reads it* (:func:`_binding_before`), so a body that reuses an ordinary local
-name for two different values has two sources and not one. Its predecessor kept
-one binding per name and was **red on correct code** for that reason (WR-F2).
-The same model is what lets a binding this module cannot read through still be
-a *source*: ``plan = QuickstartPlan(...)`` at line 231 is the token ``plan@231``
-(:func:`_opaque`), so two reads of one construction share a source and two
-constructions do not — which is object identity, and is what property (2) below
-needs.
+**Following is position-aware, and that is a correctness property rather than a
+refinement.** A name is resolved to the binding in force *at the position that
+reads it* — ``(line, column)``, not a line — so a body that reuses an ordinary
+local name for two different values has two sources and not one. Its first
+predecessor kept one binding per name and was **red on correct code** for that
+reason (WR-F2). The same model is what lets a binding this module cannot read
+through still be a *source*: ``plan = QuickstartPlan(...)`` ending at line 231
+column 84 is the token ``plan@231:84`` (:func:`_opaque`), so two reads of one
+construction share a source and two constructions do not — which is object
+identity, and is what property (2) below needs.
 
 **Every binding form Python has is read, and the ones it cannot read through are
 recorded as unreadable rather than skipped** (:func:`_binding_records`). That
@@ -69,12 +69,39 @@ leaves the previous one in force, so the checks go on describing an object the
 name no longer holds — and answer **affirmatively**. A tuple unpack, a ``for``
 target, a ``with … as``, an ``except … as``, an augmented assignment, a ``match``
 capture, an import and a nested ``def``/``class`` each bound nothing under the
-predecessor, and each of them is a legal spelling of "this name is something else
-now". A comprehension's target binds too, and is scoped to the comprehension's
-own lines, because in Python 3 it does not leak.
+first predecessor, and each of them is a legal spelling of "this name is
+something else now".
+
+**Reading every form is not enough on its own, and the second predecessor is
+the proof** (R4-CR-01). It recorded all of them and then consumed them with a
+strictly-below *line* comparison, so a compound statement's suite written on its
+own header line — ``for plan in alts: run(plan=plan)`` — read the name at a line
+its own binding was not yet "before", and the **previous** binding answered.
+Nine of the eleven spellings that round certified as rejected were admitted in
+that spelling, silently, with every assertion in the module green. The consumer
+is therefore position-ordered too, and each binding is anchored where it
+actually takes effect: past its value expression, past a ``for``'s iterable,
+past a ``with`` item's context expression (:func:`_binding_records`). A
+comprehension's target binds as well, scoped to the comprehension's own
+**lexical span** — its ``(line, column)`` extent, not its line range — because
+in Python 3 it does not leak and because a line range over-covers every
+expression sharing its first or last line (R4-WR-01).
+
+**How this module names its findings.** ``CR-``/``WR-``/``IN-`` tags without a
+prefix belong to the review round that raised them, and the rounds reuse
+numbers; tags prefixed ``R4-`` are the fourth review's
+(``15.1-REVIEW-FIXES-3.md``), which would otherwise collide with the first
+review's ``WR-F5``/``WR-F6`` and with ``IN-F1``.
 
 What tripwire (1) cannot catch — the structural limit, not a caution
 ---------------------------------------------------------------------
+
+**This list is the known set, not a proof of completeness.** Four review rounds
+have each added to it, every time by finding a shape the module was silent on
+while its own docstring read as an enumeration. Read it as "these are the ones
+that have been found", and note that two entries below (the loop-carried
+rebinding, the two positional approximations) were added only after they were
+measured — the phrasing before was a closed list that did not name them.
 
 * A value arriving through **a helper's return value**. ``derive(execution)``
   roots at the helper, and this module deliberately stops there rather than
@@ -114,6 +141,33 @@ What tripwire (1) cannot catch — the structural limit, not a caution
   Where ``ops`` is a **mutable** set, ``|=`` mutates in place and the object the
   lineage already holds changes with it; that body is admitted, and no AST walk
   can tell the mutable case from the rebinding one.
+* **A rebinding that executes before it is written — a loop-carried one — is
+  invisible** (R4-WR-03). The binding model answers "which binding is textually
+  last before this position", which is the right answer only for straight-line
+  code. In::
+
+      ops = frozenset(declared.required_operator_keys)
+      product = ProductLineage(operators_invoked=ops)
+      for item in batches:
+          out = run_gates(candidate, engine_resolved=ops)
+          ops = recompute(item)
+
+  the ``ops`` the gate reads on the second and every later iteration is line
+  5's, and this module reads line 5's binding as never in force at line 4. The
+  binder-side spelling of the same shape — a plan rebuilt at the bottom of a
+  loop whose ``execute`` is at the top — is admitted for the same reason and is
+  measured in :func:`test_a_loop_carried_rebinding_is_out_of_reach_and_says_so`.
+  Closing it needs **control-flow** ordering, not lexical ordering, which is a
+  different kind of analysis from the one this module is; it is named here
+  rather than implied away, and it is not a residual the position model
+  introduced — it is the property a one-pass textual walk has.
+* **Source order is taken for evaluation order, and twice it is not.** Ordering
+  ``(line, column)`` is exact for the statements and the top-level argument
+  expressions this module compares. It is *not* exact inside a comprehension,
+  whose outermost iterable is evaluated before the element expression written to
+  its left, nor for a ``lambda``, whose body runs when it is called rather than
+  where it sits. Neither has produced a wrong verdict on any body measured, and
+  neither is modelled.
 * And the limit that makes all of the above secondary: **D-IMPL-86 established
   that no AST gate can distinguish an authored literal from a transcribed
   one.** An author who types the engine's operator set out by hand into the
@@ -166,12 +220,22 @@ What tripwire (2) still cannot see
 -----------------------------------
 
 Named rather than implied away, and each one distinct from the authorship
-residual below:
+residual below. **This list is the known set and not a completeness claim** —
+same discipline as tripwire (1)'s above, and for the same reason: every round of
+this phase has found one more, and the reader who most needs this section is the
+one looking for what is missing from it.
 
 * **Reachability.** A binder call inside a never-taken ``if``, an ``except``
   handler or a ``# pragma: no cover`` branch is named, is ordered before the
-  engine, and never runs. Ordering is readable from line numbers and is
+  engine, and never runs. Ordering is readable from source positions and is
   checked; reachability is not readable from an AST walk and is not.
+* **A loop-carried rebinding** (R4-WR-03), which is tripwire (1)'s entry of the
+  same name at this seam: a plan rebuilt at the *bottom* of a loop body whose
+  ``execute`` is at the top runs, from the second iteration on, a plan no binder
+  was handed — and the ordering here is textual, so the rebinding reads as never
+  in force. Measured and left open in
+  :func:`test_a_loop_carried_rebinding_is_out_of_reach_and_says_so`; it needs
+  control-flow ordering, which this module does not have.
 * **A plan expression with no identifier path.** ``execute(plan=build(spec))``
   roots at a helper, so property (2) cannot say which plan ran — the same limit
   tripwire (1) has, in the same place.
@@ -212,6 +276,24 @@ residual below:
   *execution* is separately robust: ``ProjectionEngine.execute`` declares
   ``plan`` keyword-only, so any body that runs a projection through the SDK's
   engine passes ``plan=`` whatever its plan class is called.
+* **A body under a tree this module does not scan.** ``BINDER_SCANNED_TREES``
+  is ``examples/`` alone, which the scope note below states as the honest
+  bound; and nothing holds an adopter's deployment to calling the binder at all
+  (D-IMPL-86 correction, 2026-08-05 — Phase 16's).
+
+Two shapes that WERE on this list and are not any more, so a reader comparing
+revisions can see which way each moved:
+
+* **A compound statement's suite on its own header line, and a rebinding
+  separated by a semicolon.** These were never *on* the list — they were
+  admitted while the module certified them closed (R4-CR-01). Both are now
+  rejected, measured in
+  :func:`test_a_rebinding_on_the_statements_own_line_is_seen`, and the reason
+  they are recorded here rather than dropped in silence is that the round before
+  this one asserted their closure without measuring the one-line form.
+* **A walrus around an inline plan construction** (R4-WR-02), which routed past
+  property (2)'s hoist branch. Now unwrapped; measured in
+  :func:`test_a_walrus_does_not_route_around_the_hoist_branch`.
 
 The authorship residual is **not** closed by any of this
 ---------------------------------------------------------
@@ -421,10 +503,33 @@ def _scope_nodes(scope: ast.AST) -> Iterator[ast.AST]:
 
 
 def _scopes(tree: ast.Module) -> list[ast.AST]:
-    """Every lexical body in a module: the module itself, and each function."""
+    """Every lexical body in a module: the module, each function, each class, each lambda.
+
+    **Classes and lambdas are here because :func:`_scope_nodes` refuses to
+    descend into them** (R4-IN-01). That refusal is right — a ``run_gates`` call in
+    one method must not pair with a ``ProductLineage`` construction in another —
+    but it means a body this function does not *list* is scanned by nothing at
+    all. A plan constructed in a class body or a lambda was then not "scanned
+    and unresolvable", which the limits list covers; it was invisible, and
+    ``MINIMUM_PROJECTING_BODIES`` could not see it either, because the body never
+    entered the count. Measured 2026-08-06 before widening: **zero** class
+    bodies and **zero** lambda bodies under ``examples/`` construct or run a
+    projection, and **zero** under ``src/``/``runtime/``/``examples/`` call
+    ``run_gates``, so no floor and no verdict moves — the widening closes a claim
+    rather than changing an answer.
+
+    One imprecision, stated: a ``lambda``'s *default* argument expressions are
+    evaluated in the enclosing body, not in the lambda, and they are counted
+    here as the lambda's because ``ast.iter_child_nodes`` puts them under
+    ``args``. That misattributes which body they belong to; it cannot hide them,
+    which is the direction that matters.
+    """
     bodies: list[ast.AST] = [tree]
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+        if isinstance(
+            node,
+            ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda,
+        ):
             bodies.append(node)
     return bodies
 
@@ -432,11 +537,70 @@ def _scopes(tree: ast.Module) -> list[ast.AST]:
 def _scope_label(scope: ast.AST) -> str:
     if isinstance(scope, ast.FunctionDef | ast.AsyncFunctionDef):
         return f"{scope.name}()"
+    if isinstance(scope, ast.ClassDef):
+        return f"class {scope.name}"
+    if isinstance(scope, ast.Lambda):
+        return "<lambda>"
     return "<module>"
 
 
 def _scope_line(scope: ast.AST) -> int:
     return getattr(scope, "lineno", 1)
+
+
+# --- source positions ---------------------------------------------------------
+
+
+def _at(node: ast.AST) -> tuple[int, int]:
+    """Where ``node`` starts, as ``(line, column)``.
+
+    **A line number is not a position, and the difference is a whole class of
+    defect.** Two statements separated by a semicolon share a line; a compound
+    statement and the suite written on its own header line share a line; a
+    comprehension and an expression beside it share a line. A model that orders
+    bindings and reads by line alone answers all three wrong — in the first two
+    by leaving the *previous* binding in force (R4-CR-01, the affirmative answer),
+    and in the third by putting a binding in force outside its own scope (R4-WR-01,
+    red on correct code). Ordering ``(line, column)`` tuples separates all three,
+    because for the statements and top-level expressions this module compares,
+    left-to-right source order **is** evaluation order.
+
+    Where it is not: a comprehension evaluates its outermost iterable before its
+    element expression, though the element is written first; a ``lambda`` body
+    runs at call time, not where it sits. Both are named in the module
+    docstring's limits list rather than modelled.
+    """
+    return (getattr(node, "lineno", 0), getattr(node, "col_offset", 0))
+
+
+def _after(node: ast.AST) -> tuple[int, int]:
+    """The position immediately past ``node``'s last character.
+
+    What a binding's *effective* position is built from, and the reason it is
+    not simply the statement's start: Python evaluates the value before it binds
+    the target. ``plan = build(plan)`` reads the **old** ``plan``, and so does
+
+    .. code-block:: python
+
+        plan = FixturePlan(
+            plan_id=pid,
+            required=plan.required_operator_keys,   # the OLD plan
+        )
+
+    Anchoring the binding past the value expression is what gets both right,
+    the multi-line spelling included — where a start-anchored line model put the
+    new binding in force on lines 2 and 3 of its own right-hand side.
+
+    Falls back to the start position for a node carrying no end, which no node
+    this module asks about does under the Python versions the project supports;
+    the fallback exists so a future node shape degrades to the old answer rather
+    than to an exception.
+    """
+    line = getattr(node, "end_lineno", None)
+    column = getattr(node, "end_col_offset", None)
+    if line is None or column is None:
+        return _at(node)
+    return (line, column)
 
 
 # --- identifier paths ---------------------------------------------------------
@@ -452,6 +616,27 @@ def _is_transparent(node: ast.Call) -> bool:
             or (node.func.id == TRANSPARENT_CAST and len(node.args) > 1)
         )
     )
+
+
+def _unwrap(node: ast.expr) -> ast.expr:
+    """``(name := expr)`` seen as ``expr``, which is the value it evaluates to.
+
+    A walrus binds *and* evaluates: ``(plan := FixturePlan(...))`` is the plan it
+    just constructed, and every question this module asks of an argument
+    expression — is this a plan construction, which document is its ``required=``
+    built from — is a question about that construction.
+
+    Without this, wrapping a construction in a walrus routed it past property
+    (2)'s hoist branch entirely (R4-WR-02): ``plan_node`` was an ``ast.NamedExpr``
+    rather than an ``ast.Call``, so the branch did not fire, ``_binding_path``
+    then returned ``None`` for the same node, and the execution took the
+    ``execution.plan is None`` quiet exit — while ``_plan_sources`` had already
+    recorded the construction's source and held it. The module knew and said
+    nothing, which is the shape of every finding this phase has produced.
+    """
+    while isinstance(node, ast.NamedExpr):
+        node = node.value
+    return node
 
 
 def _path(node: ast.expr) -> tuple[str, ...] | None:
@@ -569,21 +754,26 @@ def _bound_names(target: ast.expr) -> list[str]:
     return []
 
 
-def _opaque(name: str, lineno: int) -> str:
+def _opaque(name: str, position: tuple[int, int]) -> str:
     """A source token for a name whose binding this module cannot read through.
 
     ``plan = QuickstartPlan(...)`` binds ``plan`` to a value no identifier path
     describes. The binding is still a *source*, and it is the source of every
     read of ``plan`` until the next assignment to it — so the token carries the
-    line of the binding, which makes two assignments to one name two sources
-    and one assignment one source. That is precisely the object identity
+    **position** of the binding, which makes two assignments to one name two
+    sources and one assignment one source. That is precisely the object identity
     property (2) needs, and it is why the token is a path element rather than a
     separate model.
 
-    Spelled ``name@lineno`` — ``plan@231`` — so a failure message names the
-    assignment it means rather than only the identifier.
+    Spelled ``name@line:column`` — ``plan@231:11`` — so a failure message names
+    the assignment it means rather than only the identifier. The column is not
+    decoration: keyed on the line alone, ``plan = A(); bind(plan=plan);
+    plan = B(); run(plan=plan)`` written on one physical line gives both
+    constructions the token ``plan@4``, so property (2) matches the second
+    execution against the first call's binder and reports the unbound plan as
+    bound — CR-01's inversion moved into the token space.
     """
-    return f"{name}@{lineno}"
+    return f"{name}@{position[0]}:{position[1]}"
 
 
 def _binding_path(value: ast.expr) -> tuple[str, ...] | None:
@@ -611,25 +801,43 @@ def _binding_path(value: ast.expr) -> tuple[str, ...] | None:
 class _Binding(NamedTuple):
     """One binding of one local name, by any of the forms Python has.
 
+    ``position`` is ``(line, column)`` and it is where the binding **takes
+    effect**, which is not where its statement starts. Python evaluates before
+    it binds, so an assignment's binding is anchored past its value expression
+    and a ``for``'s past its iterable — see :func:`_after` and
+    :func:`_binding_records` for the form-by-form table. Recording the
+    statement's start instead is what made a read inside a multi-line right-hand
+    side resolve to the binding that right-hand side is still computing.
+
     ``path`` is where the bound value reads, or ``None`` when this module cannot
     read through it. **``None`` means present-but-unreadable, never absent** —
     that distinction is the whole of CR-01. A binding that is recorded as
     unreadable makes the downstream checks say "I cannot tell" (loudly, via
-    :func:`_opaque`'s per-line token); a binding that is not recorded at all
+    :func:`_opaque`'s per-position token); a binding that is not recorded at all
     leaves the *previous* binding in force and makes them answer affirmatively
     about a value that is no longer there.
 
     ``until`` is set only for a **comprehension target**, whose binding does not
-    escape the comprehension in Python 3. It is the last line of the
-    comprehension expression, and it is what keeps ``[f(p) for p in ps]`` from
-    rebinding ``p`` for the rest of the body. Every ``until``-carrying binding is
+    escape the comprehension in Python 3. It is the position immediately past
+    the comprehension expression, so ``position``/``until`` is the
+    comprehension's **lexical span** and containment in it is exactly Python's
+    scope rule. It was a pair of *line numbers* for one round, which over-covered
+    every expression sharing the comprehension's first or last line: R4-WR-01
+    measured a correct ``return ([str(plan) for plan in alts],
+    engine.execute(plan=plan))`` reported red, and a genuine tripwire-(1)
+    collapse on such a line reported quiet. Every ``until``-carrying binding is
     constructed with ``path=None``, which is what keeps :func:`_resolve_at`
     terminating — see :func:`_binding_before`.
     """
 
-    lineno: int
+    position: tuple[int, int]
     path: tuple[str, ...] | None
-    until: int | None = None
+    until: tuple[int, int] | None = None
+
+    @property
+    def lineno(self) -> int:
+        """The line ``position`` falls on — for failure messages and floors."""
+        return self.position[0]
 
 
 def _binding_records(node: ast.AST) -> Iterator[tuple[str, _Binding]]:
@@ -648,36 +856,52 @@ def _binding_records(node: ast.AST) -> Iterator[tuple[str, _Binding]]:
     is one I cannot describe" — which property (2) reports — and "the plan the
     engine runs is the one the binder was handed", which is what the gap said.
 
-    What binds, and what it binds to:
+    What binds, what it binds to, and **where the binding takes effect**. The
+    third column is not bookkeeping: Python evaluates before it binds, so a
+    binding anchored at its statement's start is in force over source that runs
+    before it exists, and a binding anchored at its statement's *line* is not in
+    force over a suite written on that same line — which is the affirmative
+    stale answer CR-01 is about, one layer down (R4-CR-01).
 
-    * ``a = expr`` / ``a = b = expr`` — the value's path, if it has one.
+    * ``a = expr`` / ``a = b = expr`` — the value's path, if it has one. In force
+      past ``expr``, so ``a = f(a)`` and a multi-line right-hand side that reads
+      ``a`` both see the previous binding.
     * ``a: T = expr`` — the same. A bare ``a: T`` binds nothing and is skipped,
       which is what Python does.
     * ``(a := expr)`` — the same.
     * ``a, b = …`` / ``[a, b] = …`` / ``a, *rest = …`` — every name, unreadable:
       each is bound to an *element*, and which element is not a question an
-      identifier path answers.
+      identifier path answers. In force past the value.
     * ``a += expr`` — unreadable. The new value derives from the old and from the
       right-hand side, and is neither; see the limits list in the module
-      docstring for what that costs.
-    * ``for a in …`` / ``async for a in …`` — unreadable, at the ``for`` line, so
-      every read in the loop body resolves to it.
-    * ``with … as a`` / ``async with … as a`` — unreadable, at the **statement's**
-      line: ``ast.withitem`` carries no ``lineno``, and a binding recorded at
-      line 0 sorts before every other and is therefore never in force, which is
-      how this spelling stayed admitted under the review's own draft remedy.
-    * ``except E as a`` — unreadable. Python unbinds the name at the end of the
+      docstring for what that costs. In force past the right-hand side.
+    * ``for a in …`` / ``async for a in …`` — unreadable, in force **past the
+      iterable**. Past the iterable and not at the ``for`` keyword, because
+      ``for plan in transform(plan):`` reads the previous ``plan`` in its own
+      header; past the *iterable* and not at the suite, because
+      ``for plan in alts: run(plan)`` is one line and the suite reads the new one.
+    * ``with … as a`` / ``async with … as a`` — unreadable, in force past that
+      item's context expression, for the same two reasons. ``ast.withitem``
+      carries no position of its own, which is why the context expression rather
+      than the item is what the position is taken from.
+    * ``except E as a`` — unreadable, in force past ``E`` (or from the handler's
+      own start when there is none). Python unbinds the name at the end of the
       handler; an opaque token is closer to that than the pre-``try`` value.
-    * ``import x`` / ``from m import y as a`` — unreadable. A module object has
-      no identifier path, and ``import *`` binds names this cannot enumerate.
-    * ``def a`` / ``async def a`` / ``class a`` — unreadable; both bind a name in
-      the enclosing body.
-    * ``case [a]`` / ``case *a,`` / ``case {**a}`` — unreadable, at the pattern's
-      line.
+    * ``import x`` / ``from m import y as a`` — unreadable, in force past the
+      whole statement, which is what makes ``from m import plan; run(plan)``
+      resolve to the import. A module object has no identifier path, and
+      ``import *`` binds names this cannot enumerate.
+    * ``def a`` / ``async def a`` / ``class a`` — unreadable, in force past the
+      whole statement; both bind a name in the enclosing body.
+    * ``case [a]`` / ``case *a,`` / ``case {**a}`` — unreadable, in force from the
+      pattern's own position, which precedes both the guard and the case body —
+      the only places the capture is readable.
     * a comprehension's ``for a in …`` — unreadable **and scoped** to the
-      comprehension's own lines (``until``), because in Python 3 the target does
-      not leak. Recording it unscoped would be red on the correct body
-      ``plan = P(); bind(plan); [g(p) for plan in ps]; run(plan)``.
+      comprehension's own **lexical span** (``until``), because in Python 3 the
+      target does not leak. Recording it unscoped would be red on the correct
+      body ``plan = P(); bind(plan); [g(p) for plan in ps]; run(plan)``;
+      recording the span as a pair of *line numbers* was red on the correct body
+      ``return ([g(p) for plan in ps], run(plan))`` (R4-WR-01).
 
     Not bound here, and each named in the module docstring's limits: an
     attribute or subscript target (binds a member, not a local name);
@@ -685,52 +909,62 @@ def _binding_records(node: ast.AST) -> Iterator[tuple[str, _Binding]]:
     ``del`` (unbinds — a subsequent read is a ``NameError``, so a body relying on
     it is broken before this module sees it).
     """
-    line = getattr(node, "lineno", 0)
     if isinstance(node, ast.Assign):
+        position = _after(node.value)
         for target in node.targets:
             if isinstance(target, ast.Name):
-                yield (target.id, _Binding(line, _binding_path(node.value)))
+                yield (target.id, _Binding(position, _binding_path(node.value)))
                 continue
             for name in _bound_names(target):
-                yield (name, _Binding(line, None))
+                yield (name, _Binding(position, None))
     elif isinstance(node, ast.AnnAssign):
         if node.value is not None and isinstance(node.target, ast.Name):
-            yield (node.target.id, _Binding(line, _binding_path(node.value)))
+            yield (
+                node.target.id,
+                _Binding(_after(node.value), _binding_path(node.value)),
+            )
     elif isinstance(node, ast.NamedExpr):
-        yield (node.target.id, _Binding(line, _binding_path(node.value)))
+        yield (
+            node.target.id, _Binding(_after(node.value), _binding_path(node.value))
+        )
     elif isinstance(node, ast.AugAssign):
         for name in _bound_names(node.target):
-            yield (name, _Binding(line, None))
+            yield (name, _Binding(_after(node.value), None))
     elif isinstance(node, ast.For | ast.AsyncFor):
         for name in _bound_names(node.target):
-            yield (name, _Binding(line, None))
+            yield (name, _Binding(_after(node.iter), None))
     elif isinstance(node, ast.With | ast.AsyncWith):
         for item in node.items:
             if item.optional_vars is None:
                 continue
             for name in _bound_names(item.optional_vars):
-                yield (name, _Binding(line, None))
+                yield (name, _Binding(_after(item.context_expr), None))
     elif isinstance(node, ast.ExceptHandler):
         if node.name is not None:
-            yield (node.name, _Binding(line, None))
+            position = _at(node) if node.type is None else _after(node.type)
+            yield (node.name, _Binding(position, None))
     elif isinstance(node, ast.Import | ast.ImportFrom):
+        position = _after(node)
         for alias in node.names:
             if alias.name == "*":
                 continue
-            yield (alias.asname or alias.name.split(".")[0], _Binding(line, None))
+            yield (
+                alias.asname or alias.name.split(".")[0], _Binding(position, None)
+            )
     elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
-        yield (node.name, _Binding(line, None))
+        yield (node.name, _Binding(_after(node), None))
     elif isinstance(node, ast.MatchAs | ast.MatchStar):
         if node.name is not None:
-            yield (node.name, _Binding(line, None))
+            yield (node.name, _Binding(_at(node), None))
     elif isinstance(node, ast.MatchMapping):
         if node.rest is not None:
-            yield (node.rest, _Binding(line, None))
+            yield (node.rest, _Binding(_at(node), None))
     elif isinstance(node, ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp):
-        until = getattr(node, "end_lineno", None) or line
+        span = _at(node)
+        until = _after(node)
         for generator in node.generators:
             for name in _bound_names(generator.target):
-                yield (name, _Binding(line, None, until))
+                yield (name, _Binding(span, None, until))
 
 
 def _bindings(scope: ast.AST) -> dict[str, tuple[_Binding, ...]]:
@@ -756,15 +990,19 @@ def _bindings(scope: ast.AST) -> dict[str, tuple[_Binding, ...]]:
     unreadable one for exactly that reason, and :func:`_binding_records` is where
     the enumeration now lives.
 
-    A list per name, sorted by line, answers the question the checks actually
-    ask — *what was this name bound to at the point of use* — and
-    :func:`_binding_before` is where that question is put.
+    A list per name, sorted by **position**, answers the question the checks
+    actually ask — *what was this name bound to at the point of use* — and
+    :func:`_binding_before` is where that question is put. Sorted by position
+    and not by line, because two bindings of one name can share a line
+    (``plan = A(); plan = B()``) and a line-keyed order picks between them
+    arbitrarily.
 
     Traversal order is not relied on; the result is sorted explicitly, so this
     is independent of both ``_scope_nodes``'s stack order and dict iteration
-    order. The sort key puts a comprehension's scoped binding **after** an
-    unscoped one on the same line, so that a read inside the comprehension
-    resolves to the comprehension's own target.
+    order. The sort key breaks a position tie in favour of a comprehension's
+    scoped binding, so the ordering is total and deterministic; Python forbids
+    the shape that would make the tie load-bearing (an assignment expression may
+    not rebind the comprehension target it sits inside).
     """
     found: dict[str, list[_Binding]] = {}
     for node in _scope_nodes(scope):
@@ -772,67 +1010,99 @@ def _bindings(scope: ast.AST) -> dict[str, tuple[_Binding, ...]]:
             found.setdefault(name, []).append(binding)
     return {
         name: tuple(
-            sorted(entries, key=lambda binding: (binding.lineno, binding.until is not None))
+            sorted(
+                entries,
+                key=lambda binding: (binding.position, binding.until is not None),
+            )
         )
         for name, entries in found.items()
     }
 
 
 def _binding_before(
-    name: str, line: int, bindings: dict[str, tuple[_Binding, ...]]
+    name: str, position: tuple[int, int], bindings: dict[str, tuple[_Binding, ...]]
 ) -> _Binding | None:
-    """The binding of ``name`` in force at ``line``: the last one above it.
+    """The binding of ``name`` in force at ``position``: the last one before it.
 
-    Strictly above, so ``x = x.y`` reads the *previous* ``x`` rather than
-    itself. The cost of comparing lines rather than positions is that several
-    statements separated by semicolons on one physical line resolve
-    conservatively — none of them is "before" the others — which under-resolves
-    rather than mis-resolves, and no file in the scanned trees is written that
-    way.
+    Strictly before, so ``x = x.y`` reads the *previous* ``x`` rather than
+    itself — and, because a binding is anchored past its own value expression
+    (:func:`_after`), so does every read inside that value expression however
+    many lines it spans.
 
-    **A comprehension target is the one exception, and it is in force on its own
-    line rather than strictly below it.** ``[run(plan=p) for p in ps]`` binds and
-    reads ``p`` in one expression, so "strictly above" would resolve that read to
-    whatever ``p`` was *before* the comprehension — the stale-binding answer
-    CR-01 is about. A ``until``-carrying binding is therefore in force for
-    ``lineno <= line <= until`` and for no other line, which is precisely the
-    scope Python gives it.
+    **Positions and not lines.** Comparing ``(line, column)`` is what makes the
+    answer track Python for the three shapes that share a line: statements
+    separated by ``;``, a compound statement whose suite is written on its own
+    header line, and a comprehension beside another expression. A strictly-below
+    *line* comparison answered all three by leaving the **previous** binding in
+    force — so ``plan = P(); bind(plan=plan); plan = Q(); run(plan=plan)`` and
+    ``for plan in alts: run(plan=plan)`` each resolved the run to the *bound*
+    plan and reported the body compliant, affirmatively, on nine spellings the
+    round before had certified closed (R4-CR-01).
+
+    **A comprehension target is the one exception, and it is scoped rather than
+    ordered.** ``[run(plan=p) for p in ps]`` binds and reads ``p`` in one
+    expression, so "strictly before" would resolve that read to whatever ``p``
+    was before the comprehension — the stale-binding answer CR-01 is about. An
+    ``until``-carrying binding is therefore in force for reads **lexically
+    inside** the comprehension, ``position <= read < until``, and for no other
+    read. Lexical containment and not a line range: a line range over-covers
+    every expression sharing the comprehension's first or last line, which was
+    red on the correct body ``return ([str(plan) for plan in alts],
+    engine.execute(plan=plan))`` and quiet on a genuine tripwire-(1) collapse
+    written the same way (R4-WR-01).
 
     Every ``until``-carrying binding is built with ``path=None``
-    (:func:`_binding_records` constructs them nowhere else), so the ``<=`` cannot
-    hand :func:`_resolve_at` a binding it would follow to the same line and loop
-    on. Termination is asserted rather than argued, over a comprehension that
-    shadows the name it reads, in
+    (:func:`_binding_records` constructs them nowhere else), so the containment
+    branch cannot hand :func:`_resolve_at` a binding it would follow to the same
+    position and loop on. Termination is asserted rather than argued, over a
+    comprehension that shadows the name it reads, in
     :func:`test_alias_resolution_terminates_on_a_cyclic_assignment_chain`.
+
+    **WITHDRAWN, 2026-08-06 (R4-CR-01).** This docstring previously said that
+    the cost of comparing lines rather than positions was that statements
+    sharing a line "resolve conservatively — none of them is 'before' the
+    others — **which under-resolves rather than mis-resolves**", adding that no
+    file in the scanned trees was written that way. Both halves were wrong in
+    the direction that matters. It did not under-resolve: it resolved to the
+    **previous** binding, affirmatively, which is mis-resolution and is the
+    exact failure :func:`_binding_records` was written to remove. And "no file is
+    written that way" is an observation about today's tree, not a mechanism —
+    nothing in ``make lint`` or in CI refuses a one-line compound suite. The
+    sentence is recorded here rather than deleted because a reader comparing
+    revisions is entitled to see which claim was retired and why.
     """
     latest: _Binding | None = None
     for binding in bindings.get(name, ()):
         if binding.until is None:
-            if binding.lineno < line:
+            if binding.position < position:
                 latest = binding
-        elif binding.lineno <= line <= binding.until:
+        elif binding.position <= position < binding.until:
             latest = binding
     return latest
 
 
 def _resolve_at(
     path: tuple[str, ...] | None,
-    line: int,
+    position: tuple[int, int],
     bindings: dict[str, tuple[_Binding, ...]],
 ) -> tuple[str, ...] | None:
-    """Where the value read by ``path`` at ``line`` comes from.
+    """Where the value read by ``path`` at ``position`` comes from.
 
     ``a = execution.operators_invoked`` then ``b = a`` resolves a read of ``b``
     to ``("execution", "operators_invoked")``, so a chain of assignments is
     followed rather than only its first hop — the bypass cross-AI review raised
     against the sibling guard at the Phase 15 close. Each hop resolves the head
-    **as of the line that bound it**, not as of the point of use, which is what
-    makes the answer the one Python would give.
+    **as of the position that bound it**, not as of the point of use, which is
+    what makes the answer the one Python would give.
 
-    **Termination is by construction.** Every hop replaces ``line`` with the
-    line of a binding strictly above it, and :func:`_binding_before` only ever
-    looks strictly above, so the line at which the walk is asking strictly
-    decreases and the walk is bounded by the number of bindings in the body.
+    **Termination is by construction.** Every hop replaces ``position`` with the
+    position of a binding strictly before it, and :func:`_binding_before` only
+    ever looks strictly before, so the position at which the walk is asking
+    strictly decreases in the tuple order and the walk is bounded by the number
+    of bindings in the body. The one branch that answers at a position it is
+    already at — a comprehension's scoped target — is unreadable by
+    construction and returns immediately.
+
     The three-name rotation ``def f(b, c): a = b; b = c; c = a`` — legal,
     executable Python that hung the predecessor of this function with no output
     — terminates here in one hop per name and, better than terminating,
@@ -840,18 +1110,25 @@ def _resolve_at(
     the parameter ``b``, which is what the code does.
     :func:`test_alias_resolution_terminates_on_a_cyclic_assignment_chain` holds
     both properties under a wall-clock bound.
+
+    **What this cannot see is execution order that is not source order**, and
+    the case that matters is a loop: a rebinding written *below* a read in the
+    same loop body is in force on every iteration after the first, and this
+    walk reads it as never in force (R4-WR-03). Named in the module docstring's
+    limits list; closing it needs control flow, which an AST walk over one body
+    is not.
     """
     if path is None:
         return None
     while True:
         head, *rest = path
-        binding = _binding_before(head, line, bindings)
+        binding = _binding_before(head, position, bindings)
         if binding is None:
             return path
         if binding.path is None:
-            return (_opaque(head, binding.lineno), *rest)
+            return (_opaque(head, binding.position), *rest)
         path = (*binding.path, *rest)
-        line = binding.lineno
+        position = binding.position
 
 
 def _shares_a_source(
@@ -903,7 +1180,7 @@ def _gate_collapses(scope: ast.AST, path: pathlib.Path) -> list[str]:
                 gate_sides.append(
                     (
                         node.lineno,
-                        _resolve_at(_path(argument), argument.lineno, bindings),
+                        _resolve_at(_path(argument), _at(argument), bindings),
                     )
                 )
         elif callee == LINEAGE_CONSTRUCTOR:
@@ -912,7 +1189,7 @@ def _gate_collapses(scope: ast.AST, path: pathlib.Path) -> list[str]:
                 lineage_sides.append(
                     (
                         node.lineno,
-                        _resolve_at(_path(argument), argument.lineno, bindings),
+                        _resolve_at(_path(argument), _at(argument), bindings),
                     )
                 )
 
@@ -1252,7 +1529,16 @@ def _is_plan_construction(
     (9), ``basic_debt`` (5) and ``JSONSchema`` (1). One of the fifty-three is
     inside ``examples/`` — ``03-harness-portability/run.py``'s own ``main()`` —
     which the rekey would turn into a projecting body obliged to call the binder.
+
+    **A walrus is unwrapped first** (:func:`_unwrap`). ``(plan := FooPlan(...))``
+    *is* the construction it evaluates to, and answering ``False`` for it routed
+    the shape past property (2)'s hoist branch and past
+    :func:`_handed_plan_source`'s inline branch at once — R4-WR-02, and the reason
+    the ledger's "a plan constructed inline as ``execute``'s ``plan=``" row was
+    true only of the spelling without the walrus.
     """
+    if isinstance(node, ast.NamedExpr):
+        node = _unwrap(node)
     if not isinstance(node, ast.Call):
         return False
     callee = _callee(node)
@@ -1295,13 +1581,50 @@ def _names_the_binder(scope: ast.AST) -> bool:
     return False
 
 
-class _BinderCall(NamedTuple):
-    """One ``refuse_operator_set_divergence`` call, with both sides resolved."""
+def _bound_object(
+    argument: ast.expr, bindings: dict[str, tuple[_Binding, ...]]
+) -> tuple[str, ...] | None:
+    """Which **object** a ``plan=`` argument names, as a source token.
 
-    lineno: int
+    Ordinarily :func:`_binding_path` resolved at the read's position, which is
+    the question "which object is this name". A walrus is the one spelling where
+    the expression both *is* an object and *binds* one, and the two answers must
+    agree: ``binder(plan=(plan := FooPlan(...)))`` hands the binder the object
+    the walrus just bound, so the token is that binding's own — the same token
+    :func:`_plan_sources` keys the construction under, taken from the same
+    ``_Binding`` so the two cannot drift.
+
+    Resolving it to ``None`` instead was red on correct code: the binder was
+    handed the very object the engine went on to run, and property (2) reported
+    the execution as unbound because the two sides had no token in common. That
+    is the direction R4-WR-02's *other* half runs in — the walrus made the module
+    silent at the execution seam and wrong at the binder seam, from one omission.
+    """
+    if isinstance(argument, ast.NamedExpr):
+        binding = dict(_binding_records(argument)).get(argument.target.id)
+        if binding is not None:
+            return (_opaque(argument.target.id, binding.position),)
+    return _resolve_at(_binding_path(argument), _at(argument), bindings)
+
+
+class _BinderCall(NamedTuple):
+    """One ``refuse_operator_set_divergence`` call, with both sides resolved.
+
+    ``position`` is ``(line, column)`` because property (3) — the binder
+    precedes the engine — is an *ordering* question, and a line number cannot
+    order ``plan = P(); bind(plan=plan); run(plan=plan)``, which is correct code
+    a line-ordered comparison reported red at two properties at once.
+    """
+
+    position: tuple[int, int]
     declared: tuple[str, ...] | None
     handed: tuple[str, ...] | None
     plan_node: ast.expr | None
+
+    @property
+    def lineno(self) -> int:
+        """The line ``position`` falls on — for failure messages."""
+        return self.position[0]
 
 
 def _plan_sources(
@@ -1312,7 +1635,7 @@ def _plan_sources(
     """Each plan construction, and where the ``required=`` it was built from reads.
 
     ``plan = QuickstartPlan(plan_id=…, required=requirements.required_operator_keys)``
-    at line 231 binds the source token ``plan@231`` to
+    ending at line 231 column 84 binds the source token ``plan@231:84`` to
     ``("requirements", "required_operator_keys")``. That mapping is the whole
     basis of the tautology check: the binder is handed ``plan``, and this says
     which of the two authored documents ``plan`` was built from.
@@ -1324,22 +1647,34 @@ def _plan_sources(
     matching on names, reported the second execution as bound by the first
     call's binder, which never saw that object. :func:`_opaque` gives each
     construction its own token and :func:`_resolve_at` resolves a use to the
-    construction in force at that line, so the two are two.
+    construction in force at that position, so the two are two.
+
+    **The token is taken from the same record the resolver reads.** Each
+    construction's key is built from :func:`_binding_records`'s own ``_Binding``
+    for that target rather than from the statement's line, so the key here and
+    the key :func:`_resolve_at` synthesises cannot drift apart — which they
+    would the moment a binding's effective position stopped being its
+    statement's start, as :func:`_after` makes it.
     """
     sources: dict[tuple[str, ...], tuple[str, ...] | None] = {}
     for node in _scope_nodes(scope):
         targets, value = _assignment(node)
         if value is None or not _is_plan_construction(value, plan_classes):
             continue
-        assert isinstance(value, ast.Call)
-        required = _keyword(value, PLAN_REQUIRED_KEYWORD)
+        construction = _unwrap(value)
+        assert isinstance(construction, ast.Call)
+        required = _keyword(construction, PLAN_REQUIRED_KEYWORD)
         source = (
             None
             if required is None
-            else _resolve_at(_path(required), required.lineno, bindings)
+            else _resolve_at(_path(required), _at(required), bindings)
         )
+        records = dict(_binding_records(node))
         for target in targets:
-            sources.setdefault((_opaque(target, getattr(node, "lineno", 0)),), source)
+            binding = records.get(target)
+            if binding is None:
+                continue
+            sources.setdefault((_opaque(target, binding.position),), source)
     return sources
 
 
@@ -1354,24 +1689,20 @@ def _binder_calls(
         plan_arg = _keyword(node, BINDER_PLAN_KEYWORD)
         calls.append(
             _BinderCall(
-                lineno=node.lineno,
+                position=_at(node),
                 declared=(
                     None
                     if declared_arg is None
                     else _resolve_at(
-                        _path(declared_arg), declared_arg.lineno, bindings
+                        _path(declared_arg), _at(declared_arg), bindings
                     )
                 ),
-                # `_binding_path`, not `_path`: `plan=` names an OBJECT, and the
+                # `_bound_object`, not `_path`: `plan=` names an OBJECT, and the
                 # question property (2) asks is which one. A call spelled here
                 # is a fresh object no binder can have been handed, and the
                 # inline branches below say so rather than resolving it.
                 handed=(
-                    None
-                    if plan_arg is None
-                    else _resolve_at(
-                        _binding_path(plan_arg), plan_arg.lineno, bindings
-                    )
+                    None if plan_arg is None else _bound_object(plan_arg, bindings)
                 ),
                 plan_node=plan_arg,
             )
@@ -1380,11 +1711,21 @@ def _binder_calls(
 
 
 class _Execution(NamedTuple):
-    """One ``ProjectionEngine(...).execute(plan=…)`` and the plan it runs."""
+    """One ``ProjectionEngine(...).execute(plan=…)`` and the plan it runs.
 
-    lineno: int
+    ``position`` for the same reason :class:`_BinderCall` carries one: property
+    (2) asks whether a binder call precedes *this* execution, and on one
+    physical line only a column can answer.
+    """
+
+    position: tuple[int, int]
     plan: tuple[str, ...] | None
     plan_node: ast.expr | None
+
+    @property
+    def lineno(self) -> int:
+        """The line ``position`` falls on — for failure messages."""
+        return self.position[0]
 
 
 def _executions(
@@ -1398,13 +1739,9 @@ def _executions(
         argument = _keyword(node, ENGINE_PLAN_KEYWORD)
         found.append(
             _Execution(
-                lineno=node.lineno,
+                position=_at(node),
                 plan=(
-                    None
-                    if argument is None
-                    else _resolve_at(
-                        _binding_path(argument), argument.lineno, bindings
-                    )
+                    None if argument is None else _bound_object(argument, bindings)
                 ),
                 plan_node=argument,
             )
@@ -1423,12 +1760,15 @@ def _handed_plan_source(
         call.plan_node, plan_classes
     ):
         # `binder(declared=…, plan=FooPlan(required=…))` — inline, read directly.
-        assert isinstance(call.plan_node, ast.Call)
-        required = _keyword(call.plan_node, PLAN_REQUIRED_KEYWORD)
+        # `_unwrap` because `plan=(p := FooPlan(required=…))` is the same call
+        # with a walrus around it (R4-WR-02).
+        construction = _unwrap(call.plan_node)
+        assert isinstance(construction, ast.Call)
+        required = _keyword(construction, PLAN_REQUIRED_KEYWORD)
         return (
             None
             if required is None
-            else _resolve_at(_path(required), required.lineno, bindings)
+            else _resolve_at(_path(required), _at(required), bindings)
         )
     if call.handed is None:
         return None
@@ -1458,6 +1798,18 @@ def _binder_collapses(
        :meth:`~ccf.projection.engine.ProjectionEngine.execute`; a call after
        ``execute`` runs when a product has already been assembled from a set
        the deployment's own claim may contradict.
+
+    **What "precedes" means here, and what it does not.** Properties (2) and (3)
+    compare source **positions** — ``(line, column)`` — which is evaluation
+    order for statements and for the top-level argument expressions this module
+    reads, and which is why the whole compliant body written on one physical
+    line is admitted where a line comparison reported it red at both properties
+    at once. It is *not* execution order: a binder call inside a never-taken
+    branch precedes the engine and never runs (reachability, named in the module
+    docstring), and a loop makes lines run out of source order in both
+    directions (R4-WR-03, likewise named). Neither is readable from a
+    single-pass AST walk over one body, and this function does not claim to see
+    them.
 
     **This does not close the authorship residual (R-3), and must not be read
     as doing so.** R-3 is the *authoring* boundary — an author copying one YAML
@@ -1508,13 +1860,16 @@ def _binder_collapses(
             " (design E2, D-IMPL-86)."
         )
 
-    # (3) ordering, for the case (2) cannot read
-    first_execution = min(
-        (execution.lineno for execution in executions), default=None
+    # (3) ordering, for the case (2) cannot read. Positions and not lines: a
+    # `plan = P(); bind(plan=plan); run(plan=plan)` written on one physical line
+    # is correct code that a line comparison reported red here and at (2).
+    first_position = min(
+        (execution.position for execution in executions), default=None
     )
-    if first_execution is not None and not any(
-        call.lineno < first_execution for call in calls
+    if first_position is not None and not any(
+        call.position < first_position for call in calls
     ):
+        first_execution = first_position[0]
         problems.append(
             f"{where}:{first_execution}: a projection is executed here with no"
             f" `{BINDER_CALL}` call before it. The binder belongs BETWEEN plan"
@@ -1547,7 +1902,7 @@ def _binder_collapses(
         if execution.plan is None:
             continue  # an unreadable plan expression — a stated limit, not a pass
         if any(
-            call.handed == execution.plan and call.lineno < execution.lineno
+            call.handed == execution.plan and call.position < execution.position
             for call in calls
         ):
             continue
@@ -1631,12 +1986,14 @@ def test_every_projecting_example_body_names_the_binder(
     keeping the two apart is deliberate: CR-03 was the finding that this
     assertion had been *read* as the second one, which it never was.
 
-    What is still not asserted, stated exactly: **reachability**. A binder call
-    inside a never-taken ``if``, an ``except`` handler, or a
-    ``# pragma: no cover`` branch is named, is ordered before the engine, and
-    never runs. Ordering is checkable from line numbers and is now checked;
-    reachability is genuinely out of an AST walk's reach and is left named
-    rather than implied away.
+    What is still not asserted, stated exactly: **reachability**, and **execution
+    order inside a loop**. A binder call inside a never-taken ``if``, an
+    ``except`` handler, or a ``# pragma: no cover`` branch is named, is ordered
+    before the engine, and never runs; and a plan rebuilt at the bottom of a
+    loop body is in force at the top of it from the second iteration on
+    (R4-WR-03). Source ordering is checkable from positions and is now checked;
+    neither of those two is readable from an AST walk over one body, and both
+    are left named rather than implied away.
     """
     assert _names_the_binder(scope), (
         f"{path.relative_to(REPO_ROOT)}:{_scope_line(scope)}:"
@@ -2017,6 +2374,19 @@ def test_every_binding_form_binds_and_the_unreadable_ones_say_so() -> None:
     Both directions are asserted: the forms that bind, and the two that do not
     (a bare annotation, and a target that is an attribute or a subscript rather
     than a local name).
+
+    **Binding is necessary and is not sufficient**, which is R4-CR-01 in one
+    sentence: the round that added this enumeration left the *consumer*
+    line-granular, so nine of these forms bound correctly and were then read at
+    a position their own binding was not "before". What this test does not
+    assert, and cannot, is that each binding is in force where Python puts it —
+    that is a property of :func:`_binding_before` and it is asserted at the
+    shipped checks, in
+    :func:`test_a_rebinding_on_the_statements_own_line_is_seen` and
+    :func:`test_a_plan_local_rebound_by_any_binding_form_is_seen`. The
+    position assertion below is the narrow half of it: a binding whose position
+    degrades to the body's own start sorts before every read in that body and is
+    therefore never in force at all.
     """
     binds_unreadably = {
         "tuple unpack": "def f(x):\n    a, b = x.k, None\n",
@@ -2050,10 +2420,15 @@ def test_every_binding_form_binds_and_the_unreadable_ones_say_so() -> None:
         bindings = _bindings(function)
         assert "a" in bindings, f"{label} bound nothing: {source}"
         assert all(binding.path is None for binding in bindings["a"]), label
-        assert all(binding.lineno > 0 for binding in bindings["a"]), (
-            f"{label} recorded a binding at line 0, which sorts before every"
-            " other and is therefore never in force — the trap `ast.withitem`"
-            " sets, since it carries no `lineno` of its own"
+        assert all(
+            binding.position > _at(function) for binding in bindings["a"]
+        ), (
+            f"{label} recorded a binding at or before the body's own start,"
+            " which sorts before every read in it and is therefore never in"
+            " force — the trap `ast.withitem` sets, since it carries no"
+            " position of its own and a missing one degrades to (0, 0). The"
+            " position is taken from the item's CONTEXT EXPRESSION, which has"
+            f" one. Observed: {bindings['a']}"
         )
 
     binds_readably = {
@@ -2155,6 +2530,15 @@ def test_a_plan_local_rebound_by_any_binding_form_is_seen() -> None:
             + "    labels = [str(plan) for plan in alts]\n"
             + f"    return (labels, {run})\n"
         ),
+        # the same, with the comprehension and the execute on ONE line. This is
+        # R4-WR-01's reproduction verbatim, and it is the shape that separates
+        # a lexical span from a line range: the `plan` the engine runs is the
+        # OUTER one, the comprehension's target does not leak, and the body is
+        # correct. A line-ranged `until` put the comprehension's target in force
+        # for every read on the line it spanned and reported this red.
+        "comprehension does not leak, one line": (
+            head + f"    return ([str(plan) for plan in alts], {run})\n"
+        ),
         "rebound and bound again": (
             head + f"    first = {run}\n    plan = {plan}\n    {bind}\n"
             f"    second = {run}\n    return (first, second)\n"
@@ -2166,6 +2550,418 @@ def test_a_plan_local_rebound_by_any_binding_form_is_seen() -> None:
         assert not _binder_collapses(function, REPO_ROOT / "probe.py"), (
             f"{label} is red on correct code: {source}"
         )
+
+
+def test_a_rebinding_on_the_statements_own_line_is_seen() -> None:
+    """R4-CR-01: the nine spellings the round before recorded and then discarded.
+
+    :func:`_binding_records` read every binding *form*; ``_binding_before``
+    consumed them with a strictly-below **line** comparison. A compound
+    statement's binding is at the statement, so a suite written on that same
+    line read the name at a line the binding was not yet "before" — and the
+    **previous** binding answered, affirmatively, about an object the name no
+    longer held. That is CR-01's own inversion one layer down, and it was
+    reached by ordinary Python: ``for plan in alts: out = engine.execute(
+    plan=plan)`` runs every plan in ``alts`` and the binder saw none of them.
+
+    The three semicolon rows are the same failure without a compound statement.
+    They are here because the fourth review measured them as **not** closed by
+    the remedy it proposed (inclusive-from-the-statement's-own-line) and said
+    so; a position-ordered consumer closes them, which is why the remedy
+    adopted is the one that orders ``(line, column)`` rather than the one that
+    was proposed.
+
+    Every row satisfies the coverage half — that is the finding, for the third
+    time in this phase. The quiet rows below are the two directions this must
+    not have bought: correct code written on one line, and a compound
+    statement's **header** reading the name it is about to rebind.
+    """
+    plan = f"Fixture{PLAN_CLASS_SUFFIX}(plan_id=pid, {PLAN_REQUIRED_KEYWORD}=keys)"
+    from_declared = (
+        f"Fixture{PLAN_CLASS_SUFFIX}(plan_id=pid,"
+        f" {PLAN_REQUIRED_KEYWORD}={BINDER_DECLARED_KEYWORD}.required_operator_keys)"
+    )
+    bind = f"{BINDER_CALL}({BINDER_DECLARED_KEYWORD}=declared, {ENGINE_PLAN_KEYWORD}=plan)"
+    run = f"ProjectionEngine(reader=r).execute({ENGINE_PLAN_KEYWORD}=plan)"
+    head = (
+        "def serve(pid, keys, r, declared, alts, cm):\n"
+        f"    plan = {plan}\n"
+        f"    {bind}\n"
+    )
+    ahead = "async " + head
+
+    rebound = {
+        "for, one-line suite": head
+        + f"    for plan in alts: out = {run}\n    return out\n",
+        "async for, one-line suite": ahead
+        + f"    async for plan in alts: out = {run}\n    return out\n",
+        "with as, one-line suite": head
+        + f"    with cm as plan: out = {run}\n    return out\n",
+        "async with as, one-line suite": ahead
+        + f"    async with cm as plan: out = {run}\n    return out\n",
+        "except as, one-line suite": head
+        + "    try:\n        pass\n    except ValueError as plan: out = "
+        + run
+        + "\n    return out\n",
+        "match capture, one-line suite": head
+        + f"    match alts:\n        case [plan]: out = {run}\n    return out\n",
+        "semicolon assign": head
+        + f"    plan = {from_declared}; out = {run}\n    return out\n",
+        "semicolon tuple": head
+        + f"    plan, spare = {from_declared}, None; out = {run}\n    return out\n",
+        "semicolon import": head
+        + f"    from elsewhere import plan; out = {run}\n    return out\n",
+    }
+    for label, source in rebound.items():
+        function = ast.parse(source).body[0]
+        assert isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef)
+        assert _names_the_binder(function), label
+        assert _binder_collapses(function, REPO_ROOT / "probe.py"), (
+            f"{label} is silent: {source}"
+        )
+
+    quiet = {
+        # the whole compliant body on one physical line. A line-ordered property
+        # (3) reported this red — `call.lineno < first_execution` is false when
+        # the two share a line — and property (2) reported it red beside it. Two
+        # false positives on correct code, from the same comparison.
+        "the compliant body, one line": (
+            "def serve(pid, keys, r, declared):\n"
+            f"    plan = {plan}; {bind}; out = {run}\n"
+            "    return out\n"
+        ),
+        # a `for` header that READS the plan it is about to rebind. Python
+        # evaluates the iterable before it binds the target, so this read is the
+        # PREVIOUS plan — which is why the binding is anchored past the iterable
+        # rather than at the `for` keyword. The remedy the fourth review
+        # proposed got this one wrong and said so; this one does not.
+        "a for header reading the name it rebinds": (
+            "def serve(pid, keys, r, declared, transform):\n"
+            f"    plan = {plan}\n"
+            f"    {bind}\n"
+            f"    out = {run}\n"
+            "    for plan in transform(plan):\n"
+            "        pass\n"
+            "    return out\n"
+        ),
+        # the same for `with`, whose context expression is evaluated first
+        "a with header reading the name it rebinds": (
+            "def serve(pid, keys, r, declared, make):\n"
+            f"    plan = {plan}\n"
+            f"    {bind}\n"
+            f"    out = {run}\n"
+            "    with make(plan) as plan:\n"
+            "        pass\n"
+            "    return out\n"
+        ),
+        # a multi-line right-hand side that reads the name it binds. Anchoring
+        # the binding at the STATEMENT put it in force over lines 3 and 4 of its
+        # own value expression, so `required=plan...` resolved to the plan the
+        # value was still computing.
+        "a multi-line value reading the name it binds": (
+            "def serve(pid, r, declared, requirements, plan):\n"
+            f"    plan = Fixture{PLAN_CLASS_SUFFIX}(\n"
+            "        plan_id=pid,\n"
+            f"        {PLAN_REQUIRED_KEYWORD}=requirements.required_operator_keys,\n"
+            "    )\n"
+            f"    {bind}\n"
+            f"    return {run}\n"
+        ),
+    }
+    for label, source in quiet.items():
+        function = ast.parse(source).body[0]
+        assert isinstance(function, ast.FunctionDef)
+        assert not _binder_collapses(function, REPO_ROOT / "probe.py"), (
+            f"{label} is RED on correct code: {source}"
+        )
+
+    # …and the ordering property still bites on one line, in the other
+    # direction: the binder written AFTER the engine on the same line is the
+    # shape property (3) exists for, and a position comparison is what lets it
+    # say so without also refusing the compliant one-liner above.
+    out_of_order = (
+        "def serve(pid, keys, r, declared):\n"
+        f"    plan = {plan}; out = {run}; {bind}\n"
+        "    return out\n"
+    )
+    function = ast.parse(out_of_order).body[0]
+    assert isinstance(function, ast.FunctionDef)
+    assert _binder_collapses(function, REPO_ROOT / "probe.py"), out_of_order
+
+
+def test_a_comprehension_binds_only_inside_its_own_lexical_span() -> None:
+    """R4-WR-01: the target is scoped to the expression, not to the lines it spans.
+
+    A comprehension target does not leak in Python 3, and the round before this
+    one modelled that with the comprehension's first and last **line numbers**.
+    Any other expression sharing one of those lines then had its reads
+    attributed to the comprehension's target. Both directions were measured, and
+    both are held here:
+
+    * **red on correct code** — the reviewer's own body, which the predecessor
+      at ``6cf00d3`` returned zero problems on. The ``plan`` the engine runs is
+      the outer one; the body is correct and was reported unbound.
+    * **quiet on a genuine collapse** — a comprehension binding ``ops`` on the
+      gate call's own line resolved the gate's read to the comprehension's
+      opaque token, so tripwire (1) compared two different sources and said
+      nothing about a body whose two sides are the same value.
+
+    The last two rows are the properties this must not have cost: a read
+    genuinely *inside* the comprehension still resolves to the comprehension's
+    own target, and an ordinary rebinding written after the comprehension is
+    still a rebinding.
+    """
+    plan = f"Fixture{PLAN_CLASS_SUFFIX}(plan_id=pid, {PLAN_REQUIRED_KEYWORD}=keys)"
+    bind = f"{BINDER_CALL}({BINDER_DECLARED_KEYWORD}=declared, {ENGINE_PLAN_KEYWORD}=plan)"
+    run = f"ProjectionEngine(reader=r).execute({ENGINE_PLAN_KEYWORD}=plan)"
+    head = (
+        "def serve(pid, keys, r, declared, alts):\n"
+        f"    plan = {plan}\n"
+        f"    {bind}\n"
+    )
+
+    correct = {
+        # R4-WR-01's reproduction, verbatim
+        "list comprehension beside the execute": head
+        + f"    return ([str(plan) for plan in alts], {run})\n",
+        # not confined to one-liners: any outer read landing on a line the
+        # comprehension spans triggered it
+        "comprehension spanning the execute's line": head
+        + "    return combine([x\n"
+        + f"        for plan in alts], {run})\n",
+        # a generator expression measures identically
+        "generator expression beside the execute": head
+        + f"    return (tuple(str(plan) for plan in alts), {run})\n",
+        # and a set and a dict comprehension, for the two node types the
+        # enumeration in `_binding_records` covers but no probe reached
+        "set comprehension beside the execute": head
+        + f"    return ({{str(plan) for plan in alts}}, {run})\n",
+        "dict comprehension beside the execute": head
+        + f"    return ({{plan: 1 for plan in alts}}, {run})\n",
+    }
+    for label, source in correct.items():
+        function = ast.parse(source).body[0]
+        assert isinstance(function, ast.FunctionDef)
+        assert not _binder_collapses(function, REPO_ROOT / "probe.py"), (
+            f"{label} is RED on correct code: {source}"
+        )
+
+    # the tripwire (1) mirror: both sides read `ops`, and a comprehension on the
+    # gate call's own line shadowed the name into silence
+    collapse = (
+        "def serve(candidate, declared, xs):\n"
+        f"    ops = frozenset({BINDER_DECLARED_KEYWORD}.required_operator_keys)\n"
+        f"    product = {LINEAGE_CONSTRUCTOR}({LINEAGE_DECLARED_KEYWORD}=ops)\n"
+        "    return ([f(ops) for ops in xs],"
+        f" {GATE_CALL}(candidate, {GATE_RESOLVED_KEYWORD}=ops))\n"
+    )
+    function = ast.parse(collapse).body[0]
+    assert isinstance(function, ast.FunctionDef)
+    assert _gate_collapses(function, REPO_ROOT / "probe.py"), collapse
+
+    # a read genuinely INSIDE the comprehension is still the comprehension's own
+    # target, so the execute spelled inside one is still unbound
+    inside = head + f"    return [{run} for plan in alts]\n"
+    function = ast.parse(inside).body[0]
+    assert isinstance(function, ast.FunctionDef)
+    assert _binder_collapses(function, REPO_ROOT / "probe.py"), inside
+
+    # and a genuine rebinding after the comprehension is still a rebinding: the
+    # comprehension is not a licence for what follows it
+    after = (
+        head
+        + "    labels = [str(plan) for plan in alts]\n"
+        + f"    plan = Fixture{PLAN_CLASS_SUFFIX}(plan_id=pid,"
+        f" {PLAN_REQUIRED_KEYWORD}={BINDER_DECLARED_KEYWORD}.required_operator_keys)\n"
+        + f"    return (labels, {run})\n"
+    )
+    function = ast.parse(after).body[0]
+    assert isinstance(function, ast.FunctionDef)
+    assert _binder_collapses(function, REPO_ROOT / "probe.py"), after
+
+
+def test_a_walrus_does_not_route_around_the_hoist_branch() -> None:
+    """R4-WR-02: ``(plan := FooPlan(...))`` is the construction it evaluates to.
+
+    Property (2)'s hoist branch fires on ``_is_plan_construction(plan_node)``.
+    A walrus made ``plan_node`` an ``ast.NamedExpr`` rather than an ``ast.Call``,
+    so the branch did not fire; ``_binding_path`` then yielded ``None`` for the
+    same node and the execution took the ``execution.plan is None`` quiet exit.
+    The module had already recorded the construction's source and was holding it
+    — so this was never the "no identifier path" limit the docstring claimed, it
+    was a path the module had and did not consult.
+
+    Both sides of the binder seam are asserted, because the same unwrapping
+    decides both: the *execution* side takes the hoist branch, and the *binder*
+    side becomes readable, which is what lets property (1) speak about it at
+    all.
+    """
+    inline = (
+        f"Fixture{PLAN_CLASS_SUFFIX}(plan_id=pid,"
+        f" {PLAN_REQUIRED_KEYWORD}={BINDER_DECLARED_KEYWORD}.required_operator_keys)"
+    )
+    compliant = (
+        f"Fixture{PLAN_CLASS_SUFFIX}(plan_id=pid,"
+        f" {PLAN_REQUIRED_KEYWORD}=requirements.required_operator_keys)"
+    )
+    head = (
+        "def serve(pid, r, declared, requirements):\n"
+        f"    plan = {compliant}\n"
+        f"    {BINDER_CALL}({BINDER_DECLARED_KEYWORD}=declared,"
+        f" {ENGINE_PLAN_KEYWORD}=plan)\n"
+    )
+
+    # the execution side: the plan comes into being inside the call that
+    # consumes it, walrus or no walrus
+    walrus = head + (
+        "    return ProjectionEngine(reader=r).execute("
+        f"{ENGINE_PLAN_KEYWORD}=(plan := {inline}))\n"
+    )
+    without = head + (
+        f"    return ProjectionEngine(reader=r).execute({ENGINE_PLAN_KEYWORD}={inline})\n"
+    )
+    for label, source in (("walrus", walrus), ("no walrus", without)):
+        function = ast.parse(source).body[0]
+        assert isinstance(function, ast.FunctionDef)
+        assert _names_the_binder(function), label
+        assert _binder_collapses(function, REPO_ROOT / "probe.py"), (
+            f"{label} is silent: {source}"
+        )
+
+    # the binder side: a walrus-wrapped plan is READABLE, so the per-call
+    # readable-source assertion is satisfied and property (1) can speak
+    handed = (
+        "def serve(pid, r, declared):\n"
+        f"    {BINDER_CALL}({BINDER_DECLARED_KEYWORD}=declared,"
+        f" {ENGINE_PLAN_KEYWORD}=(plan := {inline}))\n"
+        f"    return ProjectionEngine(reader=r).execute({ENGINE_PLAN_KEYWORD}=plan)\n"
+    )
+    function = ast.parse(handed).body[0]
+    assert isinstance(function, ast.FunctionDef)
+    bindings = _bindings(function)
+    sources = _plan_sources(function, bindings)
+    calls = _binder_calls(function, bindings)
+    assert len(calls) == 1, handed
+    assert _handed_plan_source(calls[0], sources, bindings) is not None, handed
+    assert _binder_collapses(function, REPO_ROOT / "probe.py"), handed
+
+    # …and the compliant walrus spelling stays quiet: the plan is hoisted into a
+    # local by the walrus itself, bound, and then run
+    quiet = (
+        "def serve(pid, r, declared, requirements):\n"
+        f"    {BINDER_CALL}({BINDER_DECLARED_KEYWORD}=declared,"
+        f" {ENGINE_PLAN_KEYWORD}=(plan := {compliant}))\n"
+        f"    return ProjectionEngine(reader=r).execute({ENGINE_PLAN_KEYWORD}=plan)\n"
+    )
+    function = ast.parse(quiet).body[0]
+    assert isinstance(function, ast.FunctionDef)
+    assert not _binder_collapses(function, REPO_ROOT / "probe.py"), quiet
+
+
+def test_a_loop_carried_rebinding_is_out_of_reach_and_says_so() -> None:
+    """R4-WR-03: the limit, asserted as a limit rather than asserted away.
+
+    A loop makes lines execute out of textual order. A plan rebuilt at the
+    bottom of a loop body is in force at the top of that body on every iteration
+    after the first, and a walk that answers "which binding is textually last
+    before this position" reads it as never in force. The body below runs, from
+    its second iteration on, a plan built from the binder's own ``declared=``
+    that no binder was handed — and this module is **silent** on it.
+
+    Asserting the silence is the point. A limit named in a docstring and not
+    held by a test is a sentence that can quietly stop being true in either
+    direction: if a later change closes this, the assertion fails and the limits
+    list gets corrected in the same commit; if a later change makes it worse,
+    nothing here moves and that is honest too. The companion assertion is the
+    straight-line spelling, which **is** caught — so this is a statement about
+    control flow and not about the check having gone quiet.
+
+    Closing it needs control-flow ordering rather than lexical ordering, which
+    is a different analysis from the one this module is. It is carried, not
+    fixed.
+    """
+    compliant = (
+        f"Fixture{PLAN_CLASS_SUFFIX}(plan_id=pid,"
+        f" {PLAN_REQUIRED_KEYWORD}=requirements.required_operator_keys)"
+    )
+    inline = (
+        f"Fixture{PLAN_CLASS_SUFFIX}(plan_id=pid,"
+        f" {PLAN_REQUIRED_KEYWORD}={BINDER_DECLARED_KEYWORD}.required_operator_keys)"
+    )
+    run = f"ProjectionEngine(reader=r).execute({ENGINE_PLAN_KEYWORD}=plan)"
+    head = (
+        "def serve(pid, r, declared, requirements, alts):\n"
+        f"    plan = {compliant}\n"
+        f"    {BINDER_CALL}({BINDER_DECLARED_KEYWORD}=declared,"
+        f" {ENGINE_PLAN_KEYWORD}=plan)\n"
+    )
+
+    loop_carried = {
+        "for": head
+        + "    for item in alts:\n"
+        + f"        out = {run}\n"
+        + f"        plan = {inline}\n"
+        + "    return out\n",
+        "while": head
+        + "    while alts:\n"
+        + f"        out = {run}\n"
+        + f"        plan = {inline}\n"
+        + "    return out\n",
+    }
+    for label, source in loop_carried.items():
+        function = ast.parse(source).body[0]
+        assert isinstance(function, ast.FunctionDef)
+        assert not _binder_collapses(function, REPO_ROOT / "probe.py"), (
+            f"{label} is no longer silent — R4-WR-03 has been closed, and the"
+            " limits lists in this module's docstring and the phase SUMMARY"
+            f" must be corrected in the same commit: {source}"
+        )
+
+    # the straight-line spelling of the identical rebinding IS caught, which is
+    # what makes the silence above a control-flow statement rather than a hole
+    straight_line = (
+        head + f"    out = {run}\n    plan = {inline}\n    second = {run}\n"
+        "    return (out, second)\n"
+    )
+    function = ast.parse(straight_line).body[0]
+    assert isinstance(function, ast.FunctionDef)
+    assert _binder_collapses(function, REPO_ROOT / "probe.py"), straight_line
+
+
+def test_a_class_body_and_a_lambda_are_lexical_bodies() -> None:
+    """R4-IN-01: ``_scopes``'s enumeration matches what ``_scope_nodes`` refuses.
+
+    ``_scope_nodes`` deliberately stops at a ``ClassDef`` and a ``Lambda``, so a
+    body ``_scopes`` does not list is scanned by **nothing**. A plan constructed
+    in a class body was not "scanned and unresolvable" — a limit the docstring
+    covers — it was invisible, and ``MINIMUM_PROJECTING_BODIES`` could not see
+    it either, because the body never entered the count.
+
+    Both halves are asserted: the bodies are enumerated, and the constructions
+    inside them are reached. Measured before the widening: **zero** class bodies
+    and **zero** lambda bodies under ``examples/`` construct or run a
+    projection, and **zero** under the gate-scanned trees call ``run_gates``, so
+    no floor and no verdict moved.
+    """
+    module = ast.parse(
+        "class Deployment:\n"
+        f"    plan = Fixture{PLAN_CLASS_SUFFIX}({PLAN_ID_KEYWORD}='p',"
+        f" {PLAN_REQUIRED_KEYWORD}=declared.required_operator_keys)\n"
+        "\n"
+        f"make = lambda pid: Fixture{PLAN_CLASS_SUFFIX}({PLAN_ID_KEYWORD}=pid,"
+        f" {PLAN_REQUIRED_KEYWORD}=declared.required_operator_keys)\n"
+    )
+    labels = {_scope_label(scope) for scope in _scopes(module)}
+    assert "class Deployment" in labels, labels
+    assert "<lambda>" in labels, labels
+
+    reached = {
+        _scope_label(scope)
+        for scope in _scopes(module)
+        for node in _scope_nodes(scope)
+        if _is_plan_construction(node) or _is_plan_execution(node)
+    }
+    assert reached == {"class Deployment", "<lambda>"}, reached
 
 
 def test_a_rebinding_is_two_sources_for_the_gate_tripwire_too() -> None:
@@ -2440,12 +3236,19 @@ def test_alias_resolution_terminates_on_a_cyclic_assignment_chain() -> None:
     The second terminated but answered conservatively — each rotating name to
     itself, three sources where the code has two — and could only do that
     because it had no notion of *when* a name was bound. :func:`_resolve_at`
-    resolves each hop as of the line that bound it, so the walk strictly ascends
-    the body and terminates by construction, and the answer it terminates on is
-    the one Python gives: at the bottom of the rotation ``a`` and ``c`` both hold
-    the parameter ``b``, and ``b`` holds the parameter ``c``. The assertion below
-    is therefore *stronger* than its predecessor's inequality, not weaker: it
-    pins the semantics rather than the fallback.
+    resolves each hop as of the **position** that bound it, so the walk strictly
+    ascends the body in the ``(line, column)`` order and terminates by
+    construction, and the answer it terminates on is the one Python gives: at
+    the bottom of the rotation ``a`` and ``c`` both hold the parameter ``b``, and
+    ``b`` holds the parameter ``c``. The assertion below is therefore *stronger*
+    than its predecessor's inequality, not weaker: it pins the semantics rather
+    than the fallback.
+
+    The comprehension probes at the end are where termination is least obvious,
+    because containment is the one branch that can answer at a position the walk
+    is already at. They also hold the lexical-span property itself: a read inside
+    the comprehension, and a read on the same line but outside it, must get
+    different answers.
     """
     rotation = ast.parse(
         "def f(b, c):\n"
@@ -2460,7 +3263,7 @@ def test_alias_resolution_terminates_on_a_cyclic_assignment_chain() -> None:
         bindings = _bindings(rotation)
         # line 5 is the `return`, so every name is read at the bottom of the body
         resolved = {
-            name: _resolve_at((name,), 5, bindings) for name in ("a", "b", "c")
+            name: _resolve_at((name,), (5, 0), bindings) for name in ("a", "b", "c")
         }
 
     assert resolved == {"a": ("b",), "b": ("c",), "c": ("b",)}
@@ -2477,7 +3280,7 @@ def test_alias_resolution_terminates_on_a_cyclic_assignment_chain() -> None:
     assert isinstance(growing, ast.FunctionDef)
     with _within(5.0):
         grown = _bindings(growing)
-        assert _resolve_at(("a",), 5, grown) == ("b", "k")
+        assert _resolve_at(("a",), (5, 0), grown) == ("b", "k")
 
     # A two-name cycle and a self-assignment were already survivable; they stay
     # so, and are asserted rather than assumed.
@@ -2488,14 +3291,14 @@ def test_alias_resolution_terminates_on_a_cyclic_assignment_chain() -> None:
         function = ast.parse(source).body[0]
         assert isinstance(function, ast.FunctionDef)
         with _within(5.0):
-            assert _resolve_at((name,), 99, _bindings(function)) is not None
+            assert _resolve_at((name,), (99, 0), _bindings(function)) is not None
 
-    # A comprehension binding is in force ON its own line rather than strictly
-    # below it (:func:`_binding_before`), which is the one place the walk could
-    # ask about a line it is already at. It terminates because every such
-    # binding is unreadable and :func:`_resolve_at` stops at an unreadable one —
-    # asserted here rather than argued, over a comprehension that shadows the
-    # name it reads and one that shadows a name bound above it.
+    # A comprehension binding is in force for reads LEXICALLY INSIDE it
+    # (:func:`_binding_before`), which is the one place the walk could ask about
+    # a position it is already at. It terminates because every such binding is
+    # unreadable and :func:`_resolve_at` stops at an unreadable one — asserted
+    # here rather than argued, over a comprehension that shadows the name it
+    # reads and one that shadows a name bound above it.
     shadowing = ast.parse(
         "def f(xs, y):\n"
         "    a = y.k\n"
@@ -2505,13 +3308,32 @@ def test_alias_resolution_terminates_on_a_cyclic_assignment_chain() -> None:
     assert isinstance(shadowing, ast.FunctionDef)
     with _within(5.0):
         shadow_bindings = _bindings(shadowing)
-        inside = _resolve_at(("a",), 3, shadow_bindings)
-        after = _resolve_at(("a",), 4, shadow_bindings)
+        # (3, 9) is the element expression `a`, inside the `[` at column 8
+        inside = _resolve_at(("a",), (3, 9), shadow_bindings)
+        after = _resolve_at(("a",), (4, 11), shadow_bindings)
     # inside the comprehension the name is the comprehension's own target, which
     # this module cannot read through; after it, the binding above is back in
     # force, because a comprehension target does not leak in Python 3
-    assert inside == (_opaque("a", 3),)
+    assert inside == (_opaque("a", (3, 8)),)
     assert after == ("y", "k")
+
+    # …and the same comprehension, read from a position on its own line but
+    # OUTSIDE its span, resolves to the binding above it. A line-ranged `until`
+    # answered this with the comprehension's target and was red on correct code
+    # (R4-WR-01); lexical containment is what makes the two different questions.
+    beside = ast.parse(
+        "def f(xs, y):\n"
+        "    a = y.k\n"
+        "    b = ([a for a in xs], a)\n"
+    ).body[0]
+    assert isinstance(beside, ast.FunctionDef)
+    with _within(5.0):
+        beside_bindings = _bindings(beside)
+        # (3, 10) is inside the comprehension; (3, 25) is the `a` beside it
+        assert _resolve_at(("a",), (3, 10), beside_bindings) == (
+            _opaque("a", (3, 9)),
+        )
+        assert _resolve_at(("a",), (3, 25), beside_bindings) == ("y", "k")
 
 
 def test_the_wall_clock_bound_is_itself_live() -> None:

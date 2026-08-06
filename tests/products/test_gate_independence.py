@@ -49,13 +49,21 @@ own example suite, and ``tests/products/test_gate_two_call_shape.py``
 (Phase 15.1, D-IMPL-86 element (5)) is the tripwire for it: one lexical body at
 a time, it refuses a ``run_gates`` call whose ``engine_resolved`` and a
 ``ProductLineage`` whose ``operators_invoked`` resolve to the same identifier
-path, following each local name to the binding in force *at the line that reads
-it* — not to a fixed point, which is what its predecessor did and what hung on a
-three-name rotation. What it still cannot see is a
-value arriving through a helper's return value, a container, or dynamic
-attribute access — and, D-IMPL-86's structural limit, an authored literal is
-textually identical to a transcribed one. The sentence above is amended in
-reach, not withdrawn.
+path, following each local name to the binding in force *at the source position
+that reads it* — ``(line, column)`` and not a line, because two statements
+separated by a semicolon and a compound statement's one-line suite each share a
+line with the binding they are supposed to be after; and not to a fixed point,
+which is what the first predecessor did and what hung on a three-name rotation.
+
+What it still cannot see is **kept in that module and not restated here**, on
+purpose: its two limits lists (tripwire (1)'s and tripwire (2)'s) are the
+maintained ones, they are explicitly non-exhaustive, and a second copy here
+would be a copy that drifts. Three from them are worth naming at this seam
+because they bound *this* module's sentence too — a value arriving through a
+helper's return value, a container, or dynamic attribute access; a rebinding
+carried around a loop, which executes before it is written; and D-IMPL-86's
+structural limit, that an authored literal is textually identical to a
+transcribed one. The sentence above is amended in reach, not withdrawn.
 
 The lint rule ``cinv02-deployment-gates`` in ``tools/lints/harness_imports.py``
 is this module's paired mechanism, not its duplicate: the lint refuses the
