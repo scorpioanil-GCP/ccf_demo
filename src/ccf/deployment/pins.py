@@ -1,4 +1,4 @@
-"""The pin record a manifest load produces: ``(key, version, class_id)``, and no more.
+"""The pin record a manifest load produces: ``(key, version, class_id, registration)``.
 
 SDK-defined mechanism (CLAUDE.md §6.4 and §10). The whitepaper fixes that a
 decision resolves the configuration in force when it was made (§7.10) and that
@@ -36,6 +36,7 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 from ccf.contracts.base import CCFContract
+from ccf.controlplane.artifacts import RegistrationMode
 
 __ccf_mode__ = "algorithmic"
 
@@ -70,11 +71,33 @@ class ArtifactPin(CCFContract):
         class_id: The artifact class the document was validated against,
             carried so a reader of the pin set can say *what kind of thing* was
             in force without re-resolving it.
+        registration: Which registration path the entry actually travelled —
+            ``typed`` or ``versioned`` (D-IMPL-83, RESOLVED 2026-08-05, Dave).
+
+            A **recorded fact**, exactly like ``class_id``: this module's
+            no-growth constraint forbids *methods that select*, not *fields that
+            record*, which is why the mode lands here and :class:`ResolvedPins`
+            gains no accessor for it.
+
+            The audit log remains the **primary** evidence.
+            :meth:`register_versioned
+            <ccf.controlplane.registry.ControlPlaneRegistry.register_versioned>`
+            already audits every outcome with ``action="register_versioned"`` and
+            ``resolved=True|False`` — which is how
+            ``test_the_author_versioned_definitions_kept_their_bump_check`` reads
+            it — and this field is the convenience for a reader who has the
+            returned pins in hand and no audit log.
+
+            Consequence accepted with the ruling: the field is additive to a
+            :class:`~ccf.contracts.base.CCFContract`, so the pin set's content
+            hash changes. ``test_two_loads_of_one_manifest_produce_an_identical_pin_set``
+            still holds, because both loads change identically.
     """
 
     key: str
     version: str
     class_id: str
+    registration: RegistrationMode
 
 
 class ResolvedPins(CCFContract):

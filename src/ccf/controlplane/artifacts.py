@@ -109,6 +109,7 @@ __all__ = [
     "PolicyFilterParametersArtifact",
     "ProductClassDeclaration",
     "ProjectionRequirements",
+    "RegistrationMode",
     "SignalBatch",
     "SimilaritySelectParametersArtifact",
     "TemporalAsOfParametersArtifact",
@@ -647,6 +648,19 @@ class ProjectionRequirements(VersionedArtifact):
 #: seam and hands it back to the caller, but never registers and never pins it.
 ArtifactRole = Literal["register", "load"]
 
+#: Which of the Control Plane's two registration paths an entry travels
+#: (D-IMPL-85).
+#:
+#: ``typed`` routes the artifact through :meth:`register_typed
+#: <ccf.controlplane.registry.ControlPlaneRegistry.register_typed>` — class
+#: binding, contract validation, content hash, audit.
+#:
+#: ``versioned`` routes it through :meth:`register_versioned
+#: <ccf.controlplane.registry.ControlPlaneRegistry.register_versioned>`, which
+#: does all of that **plus** the D-05 hash-verified bump check against the
+#: author's declared ``artifact_version``.
+RegistrationMode = Literal["typed", "versioned"]
+
 #: Characters that make a path a *pattern* rather than a name.
 _GLOB_CHARACTERS = ("*", "?", "[")
 
@@ -691,12 +705,40 @@ class ManifestEntry(CCFContract):
             registry rather than here because it is a property of the class, and
             because this module cannot import ``ccf.deployment`` without closing
             an import cycle.
+        registration: ``typed`` or ``versioned`` — **required, with no default**
+            (D-IMPL-85, RESOLVED 2026-08-05, Dave).
+
+            It names which of the Control Plane's two registration paths the
+            entry travels: :meth:`register_typed
+            <ccf.controlplane.registry.ControlPlaneRegistry.register_typed>`, or
+            :meth:`register_versioned
+            <ccf.controlplane.registry.ControlPlaneRegistry.register_versioned>`
+            with its D-05 hash-verified bump check.
+
+            **Why no default.** Not the reason ``role`` gives — a different one.
+            Either default would have the SDK deciding the *governance path* by
+            silence for every entry that omitted it, which is precisely the
+            convention-mistaken-for-enforcement failure this phase exists to
+            close: a deployment would inherit or lose the bump check without any
+            document saying so. And the criterion this field serves — that an
+            artifact author need not know which of two paths their class belongs
+            to — is only true if the manifest **states** the mode rather than
+            inheriting one. An entry naming no ``registration`` is refused by the
+            contract before anything is read.
+
+            For the classes where the SDK *does* know the answer, the choice is
+            additionally held to it by
+            :func:`~ccf.deployment.classes.refuse_registration_the_sdk_fixes`,
+            which runs before any registration. That check lives beside the class
+            registry rather than here for the same import-cycle reason ``role``
+            records above.
     """
 
     path: str
     key: str
     class_id: str
     role: ArtifactRole
+    registration: RegistrationMode
 
     @field_validator("path")
     @classmethod

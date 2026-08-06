@@ -248,6 +248,7 @@ def test_the_admitted_policy_versions_come_from_the_passed_pins(
                         key=POLICY_BUNDLE_KEY,
                         version=version,
                         class_id="fixture.policy-bundle",
+                        registration="typed",
                     ),
                 )
             ),
