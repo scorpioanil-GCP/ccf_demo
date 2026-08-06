@@ -64,12 +64,17 @@ from ccf.controlplane.artifacts import (
     HalfLifeTable,
     PerspectiveArtifact,
     ProductClassDeclaration,
+    ProjectionRequirements,
     SignalBatch,
     load_artifact,
     parse_artifact,
 )
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment import build_operator_registry, load_and_boot
+from ccf.deployment import (
+    build_operator_registry,
+    load_and_boot,
+    refuse_operator_set_divergence,
+)
 from ccf.graph.protocols import GraphView
 from ccf.halflife.debt import DebtAssessment, DebtFactors, FreshnessScorer, assess_debt
 from ccf.halflife.decay import Observation
@@ -109,10 +114,18 @@ class FieldServicePlan:
     interprets their output; it cannot tell the engine what ran, which is what
     leaves the L6 lineage gate something real to check.
 
-    ``required`` is passed in from the product-class artifact's
-    ``required_operator_keys``, never read off the operator registry: Gate 2
-    compares the declaration against the engine's resolution, and a plan
-    returning the registry's own keys would make that a value against itself.
+    ``required`` is passed in from ``artifacts/projection-requirements.yaml``
+    — this projection's OWN authored operator set — and is never read off the
+    operator registry, which would make the plan's requirements a restatement
+    of whatever happens to be registered.
+
+    The product class's ``required_operator_keys`` is a different statement
+    about a different thing: the CLAIM the product carries into
+    ``lineage.operators_invoked``. Two documents, one per side, held together
+    by the operator-set binder in :mod:`ccf.deployment`, which ``run`` below
+    calls between constructing this plan and executing it — so a disagreement
+    between the two is a refusal rather than an identity nobody can see
+    (design E2, D-IMPL-86).
     """
 
     def __init__(self, *, plan_id: str, required: tuple[str, ...]) -> None:
@@ -219,6 +232,12 @@ def run(*, root: Path) -> AgentBasicsResult:
         decision = cast(DeclaredArtifact, booted.artifacts["decision"])
         governance = cast(DeclaredArtifact, booted.artifacts["product-governance"])
         declared = cast(ProductClassDeclaration, booted.artifacts["product-class"])
+        # The projection's own operator set, authored separately from the claim
+        # `declared` carries. Design E2 keeps these two documents apart on
+        # purpose; the binder below is what keeps them in agreement.
+        requirements = cast(
+            ProjectionRequirements, booted.artifacts["projection-requirements"]
+        )
         perspective = cast(PerspectiveArtifact, booted.artifacts["perspective"])
         registration = cast(DeclaredArtifact, booted.artifacts["agent-registration"])
 
@@ -280,16 +299,25 @@ def run(*, root: Path) -> AgentBasicsResult:
             ],
         )
 
-        # 6. Project (L5). The plan's `required` comes from the product-class
-        #    artifact — never from the operator registry's own keys, which would
-        #    make Gate 2 compare a value against itself.
+        # 6. Project (L5). The plan's `required` comes from the projection's own
+        #    `projection-requirements.yaml` — never from the operator registry's
+        #    keys. The product class's `required_operator_keys` is the separate
+        #    document, and the binder call between the two lines below is where a
+        #    disagreement between them fails: before anything is assembled, by
+        #    refusal rather than repair (design E2, D-IMPL-86).
+        #
+        #    The plan is a named local rather than an argument expression for
+        #    exactly that reason — the binder has to be handed the same object
+        #    the engine will run.
+        plan = FieldServicePlan(
+            plan_id=requirements.plan_id,
+            required=requirements.required_operator_keys,
+        )
+        refuse_operator_set_divergence(declared=declared, plan=plan)
         execution = ProjectionEngine(
             reader=booted.handle.reader, registry=operators
         ).execute(
-            plan=FieldServicePlan(
-                plan_id=governance.declaration["plan_id"],
-                required=declared.required_operator_keys,
-            ),
+            plan=plan,
             perspective=perspective,
             tenant_id=booted.tenant_id,
             temporal_boundary=boundary,
@@ -318,10 +346,23 @@ def run(*, root: Path) -> AgentBasicsResult:
             max_ttl_version=max_ttl_version,
         )
 
-        # 8. The lineage the product CLAIMS, and the gates. `engine_resolved` is
-        #    passed as a separate argument from a second, independent source —
-        #    the engine's own resolution — because Gate 2 exists to catch a
-        #    producer misdeclaring.
+        # 8. The lineage the product CLAIMS, and the gates.
+        #
+        #    `operators_invoked` is filled from the product-class DECLARATION —
+        #    the Control Plane's statement of what this product was computed by
+        #    — and never from `execution`. That is design E2's first element
+        #    (D-IMPL-86): a claim copied out of the execution record is not a
+        #    claim, it is a transcript.
+        #
+        #    `engine_resolved` stays the engine's own value, and what Gate 2
+        #    then verifies is ASSEMBLY-PATH INTEGRITY: the claim transcribed
+        #    into this Contract equals the engine's execution of the plan. The
+        #    engine is a faithful TRANSCRIBER of the plan rather than an
+        #    independent witness of it — it builds `operators_invoked` and
+        #    `steps` in one loop over the same operator plan, so there is no
+        #    return path where invoked ≠ planned. Gate 2 therefore does not
+        #    catch a producer misdeclaring; authorable drift fails upstream, at
+        #    the binder call in step 6.
         policy_version = booted.pins.version_for("policy-bundle")
         candidate = ContextProductContract(
             schema_name=product_class.schema_name,
@@ -333,7 +374,7 @@ def run(*, root: Path) -> AgentBasicsResult:
             + timedelta(seconds=governance.declaration["product_ttl_seconds"]),
             ttl_anchor=product_class.ttl_anchor,
             lineage=ProductLineage(
-                operators_invoked=execution.operators_invoked,
+                operators_invoked=frozenset(declared.required_operator_keys),
                 policy_bundle_versions=frozenset({policy_version}),
                 graph_snapshot_at=boundary,
             ),
@@ -448,6 +489,13 @@ def run(*, root: Path) -> AgentBasicsResult:
             ),
         )
 
+        # The ENGINE's transcription of the plan, carried out beside the served
+        # product. It is deliberately not the same value as
+        # `product.lineage.operators_invoked` any more: that is the product's
+        # claim, from the product-class declaration. Returning both is what lets
+        # `tests/examples/test_agent_basics_output.py` compare two things.
+        engine_transcription = execution.operators_invoked
+
         return AgentBasicsResult(
             tenant_id=booted.tenant_id,
             artifacts=booted.artifacts,
@@ -457,7 +505,7 @@ def run(*, root: Path) -> AgentBasicsResult:
             agent=agent,
             product=gated.product,
             consumed=consumed,
-            operators_invoked=execution.operators_invoked,
+            operators_invoked=engine_transcription,
             conditioning=conditioning,
             assessment=assessment,
             profile=profile,

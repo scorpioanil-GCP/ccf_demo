@@ -16,8 +16,13 @@
 #     builder does not mint one: a version derived from the parameters
 #     artifact's pin would be identical across two different boundaries, which
 #     is precisely the corpus identity the determinism contract distinguishes.
-#   * `plan_id` — the projection's identity, carried into replay dimension 5.
 #   * `replay_record_class` — the artifact class the replay writer stores under.
+#
+# **`plan_id` is deliberately no longer here.** It moved to
+# `projection-requirements.yaml` when design E2 (D-IMPL-86) split the
+# projection's own requirements from the product's claim: the plan's identity
+# belongs in the document that states the plan's operator set, and a value
+# authored in two places is a value that can drift between them.
 #
 # Fifteen minutes and ten minutes are values this deployment chose, not
 # recommendations.
@@ -35,5 +40,4 @@ declaration:
   max_ttl_seconds: 900
   product_ttl_seconds: 600
   similarity_index_version: "cascadia-workorder-corpus@2026-05-11"
-  plan_id: cascadia-fieldworks.work-order-context.plan
   replay_record_class: decision-replay-record

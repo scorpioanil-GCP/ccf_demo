@@ -93,12 +93,27 @@ checks (the classification 15-13 established):
   artifact edit.
 
 :func:`test_every_declared_operator_actually_ran` is squarely in the second
-category and its narrowness is worth naming: ``operators_invoked`` is
-``frozenset(outputs)``, planned from ``plan.required_operators()``, which is
-itself ``required_operator_keys``. Editing ``product-class.yaml`` alone moves
-both ends. What it *does* catch is the ``operators.keys()`` shortcut coming back
+category and its narrowness was worth naming: ``operators_invoked`` is
+``frozenset(outputs)``, planned from ``plan.required_operators()``, which was
+itself ``required_operator_keys``. Editing ``product-class.yaml`` alone moved
+both ends. What it *did* catch is the ``operators.keys()`` shortcut coming back
 — which is the regression that matters here, because that shortcut is what this
 file used to do.
+
+That caution was right, and design E2 (D-IMPL-86) closes the half of it that
+could be closed. The two ends now trace to **two documents**: the executed set
+to ``projection-requirements.yaml`` by way of the plan, the declared set to
+``product-class.yaml`` by way of the product's lineage claim. Editing either
+one alone no longer moves both — it makes them disagree, and
+``refuse_operator_set_divergence`` refuses before the engine runs. So the
+assertion is a correctness guarantee about the driver's wiring as well as a
+propagation check.
+
+The half that does not close, and is not claimed to: nothing here proves the
+two documents were *authored* independently. A deployment that reads one into
+the other collapses the binder and this assertion with it — the residual
+D-IMPL-86 names and accepts, because no check can tell an authored literal from
+a transcribed one.
 
 The example is not a package, so it is loaded by file path with
 ``importlib.util``.
@@ -184,7 +199,13 @@ def test_the_product_passed_all_three_gates(result: Any) -> None:
 
 def test_lineage_strict_equality_holds(result: Any) -> None:
     """**New.** What the product claims ran is exactly what the engine resolved
-    (INV-CH7-47). The pre-rewrite file had no such check."""
+    (INV-CH7-47). The pre-rewrite file had no such check.
+
+    Since design E2 the claim comes from ``product-class.yaml`` and the resolved
+    set traces to ``projection-requirements.yaml``, so this compares two
+    documents rather than one value against itself — see the module docstring
+    for what that does and does not buy.
+    """
     assert result.product.lineage.operators_invoked == result.operators_invoked
 
 
@@ -194,6 +215,10 @@ def test_every_declared_operator_actually_ran(result: Any) -> None:
     The set the product class DECLARED it requires is the set the engine
     RESOLVED. This example uses all four canonical categories; the three-operator
     case is example 02's.
+
+    Narrower, but no longer tautological: under design E2 the two sets are
+    authored in two documents and the binder is what holds them together. The
+    residual is authorship, not wiring.
     """
     declared = result.artifacts["product-class"]
     assert isinstance(declared, ProductClassDeclaration)

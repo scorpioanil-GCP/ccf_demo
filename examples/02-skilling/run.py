@@ -29,8 +29,15 @@ What the spine demonstrates (CLAUDE.md §6.2):
 **Three operators, not four.** This fabric registers a traversal, a temporal
 and a policy operator and no similarity operator. That is expressed only by
 which artifacts ``artifacts/manifest.yaml`` names: the ``parameters`` mapping
-handed to ``build_operator_registry`` has three entries, and the product class
-declares the same three keys. No flag, no ``None``, no disabled operator.
+handed to ``build_operator_registry`` has three entries. No flag, no ``None``,
+no disabled operator.
+
+Two further documents each declare those same three keys, separately, and
+which three they name has to agree (design E2, D-IMPL-86):
+``artifacts/projection-requirements.yaml`` is the PROJECTION's requirement and
+is what ``TrialOpsPlan`` is built from; ``artifacts/product-class.yaml`` is the
+product's CLAIM and is what fills ``lineage.operators_invoked``. ``run``
+refuses before it projects if the two disagree.
 
 Every domain value — scopes, catalog entries, grants, expected outputs — is
 loaded from ``artifacts/*.yaml`` (§6.4). Run it: ``make example-02``.
@@ -56,13 +63,18 @@ from ccf.controlplane.artifacts import (
     DeclaredArtifact,
     PerspectiveArtifact,
     ProductClassDeclaration,
+    ProjectionRequirements,
     SignalBatch,
     declared_artifact_class,
     load_artifact,
 )
 from ccf.controlplane.audit import AuditLog
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment import build_operator_registry, load_and_boot
+from ccf.deployment import (
+    build_operator_registry,
+    load_and_boot,
+    refuse_operator_set_divergence,
+)
 from ccf.graph.protocols import GraphView
 from ccf.operators.base import OperatorOutput
 from ccf.products.contract import (
@@ -106,10 +118,19 @@ AGENT_DEFINITION_DOCUMENT = ARTIFACTS / "agent-definition.yaml"
 class TrialOpsPlan:
     """The deployment's Π: what the reconciled subgraph means to its reader.
 
-    ``required`` is passed in from the product-class artifact's
-    ``required_operator_keys`` — three keys here, matching the three operators
-    this deployment registers — never read off the operator registry, which
-    would make Gate 2 compare a value against itself.
+    ``required`` is passed in from ``artifacts/projection-requirements.yaml``
+    — this projection's OWN authored operator set, three keys here, matching
+    the three operators this deployment registers — and never read off the
+    operator registry, which would make the plan's requirements a restatement
+    of whatever happens to be registered.
+
+    The product class's ``required_operator_keys`` names the same three keys
+    and is a different statement about a different thing: the CLAIM the product
+    carries into ``lineage.operators_invoked``. Two documents, one per side,
+    held together by the operator-set binder in :mod:`ccf.deployment`, which
+    ``run`` below calls between constructing this plan and executing it — so a
+    disagreement between the two is a refusal rather than an identity nobody
+    can see (design E2, D-IMPL-86).
     """
 
     def __init__(self, *, plan_id: str, required: tuple[str, ...]) -> None:
@@ -243,6 +264,12 @@ def run(*, root: Path) -> SkillingResult:
         events = cast(SignalBatch, booted.artifacts["events"])
         governance = cast(DeclaredArtifact, booted.artifacts["product-governance"])
         declared = cast(ProductClassDeclaration, booted.artifacts["product-class"])
+        # The projection's own operator set, authored separately from the claim
+        # `declared` carries. Design E2 keeps these two documents apart on
+        # purpose; the binder below is what keeps them in agreement.
+        requirements = cast(
+            ProjectionRequirements, booted.artifacts["projection-requirements"]
+        )
         perspective = cast(PerspectiveArtifact, booted.artifacts["perspective"])
         registration = cast(DeclaredArtifact, booted.artifacts["agent-registration"])
         scenario = cast(
@@ -289,13 +316,26 @@ def run(*, root: Path) -> SkillingResult:
             policy_bundle_key="policy-bundle",
         )
 
+        # The plan's three keys come from the projection's own
+        # `projection-requirements.yaml` — never from the operator registry's
+        # keys. The product class's `required_operator_keys` is the separate
+        # document naming the same three, and the binder call between the two
+        # lines below is where a disagreement between them fails: before
+        # anything is assembled, by refusal rather than repair (design E2,
+        # D-IMPL-86).
+        #
+        # The plan is a named local rather than an argument expression for
+        # exactly that reason — the binder has to be handed the same object the
+        # engine will run.
+        plan = TrialOpsPlan(
+            plan_id=requirements.plan_id,
+            required=requirements.required_operator_keys,
+        )
+        refuse_operator_set_divergence(declared=declared, plan=plan)
         execution = ProjectionEngine(
             reader=booted.handle.reader, registry=operators
         ).execute(
-            plan=TrialOpsPlan(
-                plan_id=governance.declaration["plan_id"],
-                required=declared.required_operator_keys,
-            ),
+            plan=plan,
             perspective=perspective,
             tenant_id=booted.tenant_id,
             temporal_boundary=boundary,
@@ -317,6 +357,22 @@ def run(*, root: Path) -> SkillingResult:
             max_ttl_key=declared.max_ttl_key,
             max_ttl_version=max_ttl_version,
         )
+        # The lineage the product CLAIMS, and the gates.
+        #
+        # `operators_invoked` is filled from the product-class DECLARATION — the
+        # Control Plane's statement of what this product was computed by — and
+        # never from `execution`. That is design E2's first element (D-IMPL-86):
+        # a claim copied out of the execution record is not a claim, it is a
+        # transcript.
+        #
+        # `engine_resolved` stays the engine's own value, and what Gate 2 then
+        # verifies is ASSEMBLY-PATH INTEGRITY: the claim transcribed into this
+        # Contract equals the engine's execution of the plan. The engine is a
+        # faithful TRANSCRIBER of the plan rather than an independent witness of
+        # it — it builds `operators_invoked` and `steps` in one loop over the
+        # same operator plan, so there is no return path where invoked ≠
+        # planned. Gate 2 therefore does not catch a producer misdeclaring;
+        # authorable drift fails upstream, at the binder call above.
         policy_version = booted.pins.version_for("policy-bundle")
         candidate = ContextProductContract(
             schema_name=product_class.schema_name,
@@ -328,7 +384,7 @@ def run(*, root: Path) -> SkillingResult:
             + timedelta(seconds=governance.declaration["product_ttl_seconds"]),
             ttl_anchor=product_class.ttl_anchor,
             lineage=ProductLineage(
-                operators_invoked=execution.operators_invoked,
+                operators_invoked=frozenset(declared.required_operator_keys),
                 policy_bundle_versions=frozenset({policy_version}),
                 graph_snapshot_at=boundary,
             ),
@@ -495,6 +551,13 @@ def run(*, root: Path) -> SkillingResult:
         grant_set_hash_after_revocation = ledger.grant_set_hash(definition_hash)
         # --8<-- [end:skill-revoke]
 
+        # The ENGINE's transcription of the plan, carried out beside the served
+        # product. It is deliberately not the same value as
+        # `product.lineage.operators_invoked` any more: that is the product's
+        # claim, from the product-class declaration. Returning both is what lets
+        # `tests/examples/test_skilling_output.py` compare two things.
+        engine_transcription = execution.operators_invoked
+
         return SkillingResult(
             tenant_id=booted.tenant_id,
             artifacts=booted.artifacts,
@@ -513,7 +576,7 @@ def run(*, root: Path) -> SkillingResult:
             product=gated.product,
             consumed=consumed,
             operator_keys=operators.keys(),
-            operators_invoked=execution.operators_invoked,
+            operators_invoked=engine_transcription,
             permitted_grant=permitted,
             permitted_grant_outcome=permitted_grant_outcome,
             permitted_state_after_grant=permitted_state_after_grant,
