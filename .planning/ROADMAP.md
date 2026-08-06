@@ -476,7 +476,7 @@ governance-sensitive the artifact, the *less* declarative Phase 15 made it.
   9. The public-surface manifest and the `--check` drift gate stay green; no replay dimension is hidden by anything this phase adds
 
 **Scope amendment (Dave, 2026-08-05, D-IMPL-86):** the original "two HIGH items only" ruling
-is widened by design E2, which adds a projection-requirements artifact class and a boot-time
+is widened by design E2, which adds a projection-requirements artifact class and a
 binder — new mechanism, not defect closure. E2 also revises the gated 15-09 decision, so this
 phase runs as a Phase D mini-cycle under CLAUDE.md §3.1 with D-IMPL-86 as the ruling of record.
 Rationale: shipping the cheaper option first would have Phase 16 document an "assembly-path
@@ -497,7 +497,7 @@ Plans:
 - [ ] 15.1-01-PLAN.md — mint ERGO-18/19, widen `ControlPlaneProtocol` with `register_versioned` (D-IMPL-82), add the `ccf.projection-requirements` artifact class (E2), widen the surface-change fragment glob
 - [ ] 15.1-02-PLAN.md — `registration: typed | versioned` required-no-default on `ManifestEntry` (D-IMPL-85), dispatch in `load_and_boot`, `ArtifactPin.registration` (D-IMPL-83), 163-entry migration
 - [ ] 15.1-03-PLAN.md — `SDK_VERSIONED_ARTIFACT_CLASSES`, the registration refusal, the `ccf.`-namespace reservation (D-IMPL-84), and the four refusal tests
-- [ ] 15.1-04-PLAN.md — the boot binder `refuse_operator_set_divergence` (E2 element 3) and its divergence/agreement pair
+- [ ] 15.1-04-PLAN.md — the binder `refuse_operator_set_divergence` (E2 element 3) and its divergence/agreement pair
 - [ ] 15.1-05-PLAN.md — examples 00, 01, 02 onto E2: lineage from the product-class claim, plan from the projection-requirements artifact, binder call
 - [ ] 15.1-06-PLAN.md — examples 03, 04-producer, 07 onto E2
 - [ ] 15.1-07-PLAN.md — examples 06, 08, external/00 onto E2; the two correct replay legs and `test_ext00_hardening.py` left untouched
