@@ -8,6 +8,11 @@ Whitepaper §7.8 (the Control Plane declares what the fabric may do) and §7.10
 
 1. Two loads of one manifest produce a byte-identical pin set.
 2. A glob-shaped path is refused at parse.
+2b. A path that **leaves the manifest's own directory** is refused — absolute,
+   ``..``-bearing, escaping only after normalization, or a plain name that is a
+   symlink out — while a subdirectory and a link resolving back inside are
+   admitted (CR-01). ``load_and_boot``'s ``manifest_path`` docstring promised
+   this before anything enforced it.
 3. Dropping an unlisted file into the artifacts directory does not change the
    pin set — D-06's actual claim, and the reason globs are refused.
 4. A declared ``postgres`` backend with no DSN fails loudly, and **no SQLite
@@ -127,6 +132,212 @@ def test_a_glob_shaped_path_is_refused_at_parse(
         _boot(deployment, tmp_path, manifest=path)
     assert "glob" in str(raised.value)
     assert "enumerates" in str(raised.value)
+
+
+# --- (2b) paths stay inside the deployment (CR-01) ----------------------------
+#
+# Every test in this section names a manifest that CONTAINS the pattern. None of
+# them asserts that the examples avoid it: an assertion scoped to documents that
+# were already correct cannot fail for a document that is not, which is the
+# distinction ERGO-18 is worded around and the reason this phase exists.
+
+#: What the outside document says, so a test can assert the value never reaches
+#: the caller and never reaches an error message. A fixture value; no SDK code
+#: reads one (CINV-01).
+OUTSIDE_MARKER = "outside-the-deployment-marker"
+
+#: A valid ``ccf.half-life-table`` document, so nothing in these tests can pass
+#: for the accidental reason that the outside file failed to parse. If the
+#: refusal did not fire, the boot would *succeed* and hand this back on
+#: ``BootedFabric.artifacts``.
+OUTSIDE_DOCUMENT: dict[str, Any] = {
+    "semver": "1.0.0",
+    "entries": {
+        OUTSIDE_MARKER: {
+            "half_life_seconds": 3600,
+            "decay_driver": OUTSIDE_MARKER,
+            "supersession_event": OUTSIDE_MARKER,
+        }
+    },
+}
+
+#: Index of the half-life entry in ``ARTIFACT_SET`` — the entry these tests
+#: re-point. Chosen because the outside document above satisfies its declared
+#: class, so the escape is what fails, not the parse.
+HALF_LIFE_ENTRY = 2
+
+
+def _escaping_manifest(
+    deployment: Deployment, *, name: str, path_value: str
+) -> pathlib.Path:
+    """A manifest identical to the fixture but for one entry's ``path``."""
+    body = manifest_document()
+    body["artifacts"][HALF_LIFE_ENTRY] = dict(
+        body["artifacts"][HALF_LIFE_ENTRY], path=path_value
+    )
+    return deployment.variant_manifest(name, body)
+
+
+@pytest.fixture()
+def outside_document(tmp_path: pathlib.Path) -> pathlib.Path:
+    """A valid artifact document written *beside* the deployment, not in it.
+
+    ``tmp_path`` is the parent of the ``deployment`` root the ``deployment``
+    fixture builds, so this file is exactly one directory above the manifest —
+    the shortest possible escape, and the one a real ``../`` reaches.
+    """
+    return write_artifact(tmp_path, "outside.yaml", OUTSIDE_DOCUMENT)
+
+
+def test_an_absolute_path_is_refused_at_parse(
+    deployment: Deployment, tmp_path: pathlib.Path, outside_document: pathlib.Path
+) -> None:
+    """CR-01, first half. ``pathlib`` discards the root when the other side is
+    absolute, so ``root / "/etc/passwd"`` **is** ``/etc/passwd``.
+
+    Refused at the contract, before any I/O, so the file is never opened — as
+    opposed to opened, parsed, and handed back. The registry is asserted empty
+    because an absolute path on a ``role: register`` entry would content-hash
+    whatever it found into Decision Replay dimension 2.
+
+    **Watched to fail with the source change reverted:** the boot succeeded and
+    ``booted.artifacts[HALF_LIFE_KEY].entries`` carried the outside marker.
+    """
+    path = _escaping_manifest(
+        deployment, name="absolute.yaml", path_value=str(outside_document)
+    )
+    registry = ControlPlaneRegistry()
+
+    with pytest.raises(ArtifactLoadError) as raised:
+        _boot(deployment, tmp_path, registry=registry, manifest=path)
+    message = str(raised.value)
+    assert "leaves the manifest's own directory" in message
+    assert "Name a path relative to the manifest" in message
+    # The refusal must not become the disclosure path it closes.
+    assert OUTSIDE_MARKER not in message
+    assert registry.audit_events() == ()
+
+
+@pytest.mark.parametrize(
+    ("name", "path_value"),
+    [
+        ("parent-segment.yaml", "../outside.yaml"),
+        ("normalized-escape.yaml", "nested/../../outside.yaml"),
+        ("leading-dot-escape.yaml", "./../outside.yaml"),
+    ],
+)
+def test_a_parent_segment_escape_is_refused_at_parse(
+    deployment: Deployment,
+    tmp_path: pathlib.Path,
+    outside_document: pathlib.Path,
+    name: str,
+    path_value: str,
+) -> None:
+    """CR-01, second half — including the case that escapes only once normalized.
+
+    ``nested/../../outside.yaml`` starts inside the deployment and is outside it
+    by the time the filesystem is asked, which is why the refusal tests for a
+    ``..`` **segment** rather than for a leading ``../``.
+
+    **Watched to fail with the source change reverted:** all three booted and
+    handed the outside document back on ``BootedFabric.artifacts``, with
+    ``entries`` carrying ``OUTSIDE_MARKER``.
+    """
+    # `nested/../../outside.yaml` only escapes if `nested` exists, because the
+    # C library walks the literal path rather than the normalized one. Created
+    # here so the behaviour this test stands against is a successful read of the
+    # outside file — measured — and not an incidental FileNotFoundError, which
+    # would make the test pass pre-fix for a reason that has nothing to do with
+    # containment.
+    (deployment.root / "nested").mkdir(exist_ok=True)
+    path = _escaping_manifest(deployment, name=name, path_value=path_value)
+    registry = ControlPlaneRegistry()
+
+    with pytest.raises(ArtifactLoadError) as raised:
+        _boot(deployment, tmp_path, registry=registry, manifest=path)
+    message = str(raised.value)
+    assert "leaves the manifest's own directory" in message
+    assert OUTSIDE_MARKER not in message
+    assert registry.audit_events() == ()
+
+
+def test_a_symlink_out_of_the_deployment_is_refused_at_the_read(
+    deployment: Deployment, tmp_path: pathlib.Path, outside_document: pathlib.Path
+) -> None:
+    """The case no string inspection can see, and the reason there are two checks.
+
+    ``linked.yaml`` is a plain relative name: it passes the contract's refusal
+    on every reading of the string. What leaves the deployment is the link, and
+    only resolving against the real root finds it. A purely lexical fix would
+    ship with this hole still open.
+
+    **Watched to fail with the source change reverted:** the boot succeeded and
+    the outside document came back on ``BootedFabric.artifacts``.
+    """
+    link = deployment.root / "linked.yaml"
+    link.symlink_to(outside_document)
+    path = _escaping_manifest(
+        deployment, name="symlinked.yaml", path_value="linked.yaml"
+    )
+    registry = ControlPlaneRegistry()
+
+    with pytest.raises(ValueError) as raised:
+        _boot(deployment, tmp_path, registry=registry, manifest=path)
+    message = str(raised.value)
+    assert "symlink" in message
+    assert "outside" in message
+    # The refusal names the resolved *path* so an operator can find it, and
+    # never the file's contents.
+    assert OUTSIDE_MARKER not in message
+    assert registry.audit_events() == ()
+
+
+def test_a_symlink_inside_the_deployment_is_admitted(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """The refusal is containment, not a blanket ban on links.
+
+    A link whose target is inside the deployment resolves under the root, so
+    the artifact set is still the deployment's own tree and nothing is refused.
+    Without this, the previous test would also pass for a check that simply
+    rejected every symlink — a strictly different and wrong rule.
+    """
+    real = deployment.root / "half-life.yaml"
+    link = deployment.root / "half-life-link.yaml"
+    link.symlink_to(real)
+    path = _escaping_manifest(
+        deployment, name="inside-link.yaml", path_value="half-life-link.yaml"
+    )
+
+    booted = _boot(deployment, tmp_path, manifest=path)
+    try:
+        assert booted.pins.version_for(RESOLUTION_SPEC_KEY)
+    finally:
+        booted.handle.close()
+
+
+def test_a_subdirectory_relative_path_is_admitted(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """Containment is not flatness. A manifest may organize its own tree.
+
+    Several examples file artifacts under a subdirectory
+    (``agents/agent-definition.yaml``). A refusal written as "no separators"
+    would have broken them, so the rule is stated as *inside the manifest's
+    directory* and this holds it there.
+    """
+    nested = deployment.root / "nested"
+    nested.mkdir()
+    write_artifact(nested, "half-life.yaml", OUTSIDE_DOCUMENT)
+    path = _escaping_manifest(
+        deployment, name="nested.yaml", path_value="nested/half-life.yaml"
+    )
+
+    booted = _boot(deployment, tmp_path, manifest=path)
+    try:
+        assert booted.pins.version_for(RESOLUTION_SPEC_KEY)
+    finally:
+        booted.handle.close()
 
 
 # --- (3) directory contents do not change what is in force --------------------

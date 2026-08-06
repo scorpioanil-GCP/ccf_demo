@@ -59,6 +59,7 @@ import re
 from collections.abc import Mapping
 from datetime import datetime
 from decimal import Decimal
+from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Literal
 
 import yaml
@@ -682,14 +683,74 @@ RegistrationMode = Literal["typed", "versioned"]
 #: Characters that make a path a *pattern* rather than a name.
 _GLOB_CHARACTERS = ("*", "?", "[")
 
+#: Both path flavours, so one document is admissible on every platform or on
+#: none.
+#:
+#: A manifest is a content-hashed Control Plane artifact, and "is this
+#: deployment admissible" must not be a property of the machine that parsed it.
+#: The two flavours disagree about what *absolute* means: ``/etc/passwd`` is
+#: absolute to :class:`~pathlib.PurePosixPath` and merely rooted to
+#: :class:`~pathlib.PureWindowsPath`, which wants a drive; ``C:\secrets`` is
+#: the reverse, and ``..\..\x.yaml`` is a single ordinary filename to POSIX
+#: and two parent segments to Windows. Asking both and refusing if *either*
+#: reads the value as leaving the directory is what makes the refusal
+#: platform-invariant.
+_PATH_FLAVOURS = (PurePosixPath, PureWindowsPath)
+
+
+def _leaves_its_own_directory(value: str) -> bool:
+    """True when ``value`` names something outside the directory it sits in.
+
+    Three shapes, each asked of both flavours in :data:`_PATH_FLAVOURS`:
+    absolute (``pathlib`` discards the directory a relative path was joined to
+    when the other side is absolute, so ``root / "/etc/passwd"`` *is*
+    ``/etc/passwd``), rooted-or-drive-qualified (``\\etc`` and ``C:etc`` are
+    neither absolute nor contained), and any ``..`` segment (``a/../../b``
+    normalizes out of the directory even though it starts inside it).
+
+    This is a **syntactic** question about the declaration, decidable from the
+    string alone and therefore answerable at the contract boundary where it
+    belongs (CLAUDE.md §11 — validation is at the boundary, never deferred). It
+    is deliberately not the whole answer: a path that is a plain name can still
+    resolve outside through a symlink, which no string inspection can see.
+    :func:`~ccf.deployment.manifest.load_and_boot` closes that at the read,
+    against the resolved root.
+    """
+    for flavour in _PATH_FLAVOURS:
+        candidate = flavour(value)
+        if candidate.is_absolute():
+            return True
+        if candidate.root or candidate.drive:
+            return True
+        if ".." in candidate.parts:
+            return True
+    return False
+
 
 class ManifestEntry(CCFContract):
     """One artifact a deployment manifest names (SDK-defined; CLAUDE.md §6.4).
 
     Attributes:
         path: Location of the artifact document, relative to the manifest file's
-            own directory. Enumerated, never matched — see
-            :meth:`_path_is_a_name_not_a_pattern`.
+            own directory.
+
+            Two properties, each held by its own validator so each refusal says
+            one thing. **Enumerated, never matched** — see
+            :meth:`_path_is_a_name_not_a_pattern`. **Beside the manifest, never
+            outside it** — see :meth:`_path_stays_beside_the_manifest`, which
+            refuses an absolute path and any ``..`` segment.
+
+            The second is the contract half of a two-part refusal, and the
+            halves decide different questions. *Is this a well-formed
+            declaration?* is decidable from the string, so it is answered here,
+            before any I/O, for every consumer of this contract rather than
+            only for the one entry point that reads documents. *Does this
+            actually open a file inside the deployment?* is decidable only
+            against a resolved root — a plain name can still be a symlink out —
+            so :func:`~ccf.deployment.manifest.load_and_boot` answers it again
+            at the read. Neither subsumes the other, and the pair is what makes
+            that function's ``manifest_path`` promise true rather than
+            documented.
         key: The Control Plane key this artifact is in force under, and the key
             it is returned under on the boot result. Unique within a manifest.
         class_id: The artifact class the document is validated against, resolved
@@ -750,6 +811,19 @@ class ManifestEntry(CCFContract):
             which runs before any registration. That check lives beside the class
             registry rather than here for the same import-cycle reason ``role``
             records above.
+
+            **That check is class-wide, not role-scoped, and that is
+            deliberate.** It runs over every entry including ``role: load``
+            ones, which are parsed and returned but never registered — so a
+            ``load`` entry naming an author-versioned class must still declare
+            ``versioned``, describing a path it will not travel. This is the
+            same shape as the field's own no-default rule: a check with an
+            exemption is a default wearing a different name, and a
+            role-conditional one would make the refusal surface depend on a
+            second field, so an entry could be admitted under ``load``,
+            re-marked ``register`` in a one-word edit, and only then discover
+            that its registration mode was wrong. The description a ``load``
+            entry states is the description it would be held to.
     """
 
     path: str
@@ -766,6 +840,21 @@ class ManifestEntry(CCFContract):
                 f"{value!r} is a glob, and a manifest enumerates. A pattern"
                 " would make what was in force a function of directory contents"
                 " at boot time, recorded by no artifact. Name the file."
+            )
+        return value
+
+    @field_validator("path")
+    @classmethod
+    def _path_stays_beside_the_manifest(cls, value: str) -> str:
+        if _leaves_its_own_directory(value):
+            raise ValueError(
+                f"{value!r} leaves the manifest's own directory, and a manifest"
+                " names files beside itself. An absolute path or a `..` segment"
+                " makes the artifact set a function of the filesystem outside"
+                " the deployment: a `role: register` entry would content-hash"
+                " whatever it found into Decision Replay dimension 2, and a"
+                " file that failed to parse would carry its contents back in"
+                " the load error. Name a path relative to the manifest."
             )
         return value
 
