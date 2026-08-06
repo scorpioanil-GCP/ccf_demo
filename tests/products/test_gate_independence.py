@@ -49,7 +49,9 @@ own example suite, and ``tests/products/test_gate_two_call_shape.py``
 (Phase 15.1, D-IMPL-86 element (5)) is the tripwire for it: one lexical body at
 a time, it refuses a ``run_gates`` call whose ``engine_resolved`` and a
 ``ProductLineage`` whose ``operators_invoked`` resolve to the same identifier
-path, following local aliases to a fixed point. What it still cannot see is a
+path, following each local name to the binding in force *at the line that reads
+it* — not to a fixed point, which is what its predecessor did and what hung on a
+three-name rotation. What it still cannot see is a
 value arriving through a helper's return value, a container, or dynamic
 attribute access — and, D-IMPL-86's structural limit, an authored literal is
 textually identical to a transcribed one. The sentence above is amended in
