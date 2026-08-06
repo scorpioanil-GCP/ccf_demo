@@ -186,14 +186,38 @@ def test_the_registry_holds_exactly_three_operators(result: Any) -> None:
 
 def test_lineage_strict_equality_holds(result: Any) -> None:
     """**New.** What the product claims ran is exactly what the engine resolved
-    (INV-CH7-47). The pre-rewrite file had no such check."""
+    (INV-CH7-47). The pre-rewrite file had no such check.
+
+    Since design E2 (D-IMPL-86) the two sides trace to two documents: the claim
+    to ``product-class.yaml`` through the product's lineage, the resolved set to
+    ``projection-requirements.yaml`` through the plan the engine ran. So this is
+    no longer one value compared against itself, and it is what fires if the
+    driver ever goes back to filling lineage from ``execution``.
+
+    What it still does not prove: that the two documents were authored rather
+    than one copied from the other. That collapses the binder upstream and this
+    check with it — the residual D-IMPL-86 names and accepts.
+    """
     assert result.product.lineage.operators_invoked == result.operators_invoked
 
 
 def test_every_declared_operator_actually_ran(result: Any) -> None:
-    """**New**, and a propagation check: the declared side of Gate 2 and the
-    engine's resolution move together when the artifact is edited, so what this
-    catches is the ``operators.keys()`` shortcut coming back."""
+    """**New**, and no longer only a propagation check.
+
+    It was one: the declared side of Gate 2 and the engine's resolution moved
+    together when ``product-class.yaml`` was edited, because both traced to that
+    one document, so what it caught was the ``operators.keys()`` shortcut coming
+    back. Design E2 (D-IMPL-86) splits the two — the declared set is authored in
+    ``product-class.yaml``, the executed set in
+    ``projection-requirements.yaml`` — so editing either alone now makes them
+    disagree rather than move together, and
+    ``refuse_operator_set_divergence`` refuses before the engine runs. Both
+    documents name three keys here; this asserts they name the same three.
+
+    The residual is authorship, not wiring: a deployment that reads one document
+    into the other hands the binder one value twice, and this comparison goes
+    back to being a value against itself with nothing in the output to show it.
+    """
     declared = result.artifacts["product-class"]
     assert isinstance(declared, ProductClassDeclaration)
     assert set(declared.required_operator_keys) == set(result.operators_invoked)

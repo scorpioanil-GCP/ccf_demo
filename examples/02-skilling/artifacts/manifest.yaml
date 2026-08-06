@@ -7,9 +7,13 @@
 # per-deployment policy expressed by the artifact set: there is no similarity
 # document, so the mapping handed to `build_operator_registry` has three
 # entries and the registry holds three operators. No flag is passed, no `None`
-# is passed, and no disabled operator is registered. `product-class.yaml`
-# declares the same three keys as `required_operator_keys`, which is the
-# authored side Gate 2 compares against.
+# is passed, and no disabled operator is registered. TWO further documents each
+# declare the same three keys, separately (design E2, D-IMPL-86):
+# `product-class.yaml` as the product's CLAIM — what fills
+# `lineage.operators_invoked` — and `projection-requirements.yaml` as the
+# PROJECTION's own requirement, which is what the plan is built from. `run.py`
+# binds them with a refusal before it projects, so a fourth key appearing in
+# one document and not the other stops the run.
 #
 # **What this manifest deliberately does not carry.** The agent definition and
 # the three skill catalog entries are absent. All four carry D-IMPL-28 two-field
@@ -81,6 +85,22 @@ artifacts:
   - path: product-class.yaml
     key: product-class
     class_id: ccf.product-class
+    role: register
+    registration: typed
+
+  # Design E2's second authored operator set (D-IMPL-86), and the second of the
+  # two documents that must name the same three keys. `role: register`, not
+  # `load`, and the reason is the same one that puts `product-class.yaml` two
+  # entries above: this document governs WHAT THE PROJECTION DOES, which is
+  # Control Plane configuration — what this fabric is permitted to do — rather
+  # than an observation of one run. So it belongs in the pin set and in the
+  # Decision Replay dimension 2 set, beside the product-class document it is
+  # bound to. A deployment that changed which operators its projection depends
+  # on and left no trace in dimension 2 would have changed what the fabric was
+  # permitted to do with no artifact recording it.
+  - path: projection-requirements.yaml
+    key: projection-requirements
+    class_id: ccf.projection-requirements
     role: register
     registration: typed
 
