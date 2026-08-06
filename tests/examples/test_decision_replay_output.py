@@ -224,7 +224,25 @@ def test_the_product_passed_all_three_gates(result: Any) -> None:
 
 def test_lineage_strict_equality_holds(result: Any) -> None:
     """What the product claims ran is exactly what the engine resolved
-    (INV-CH7-47)."""
+    (Gate 2, INV-CH7-47).
+
+    **What the two sides now are.** The left is the Control Plane CLAIM — the
+    product class's ``required_operator_keys``, transcribed into the Contract's
+    lineage. The right is the engine's report of executing the plan, which the
+    plan built from ``artifacts/projection-requirements.yaml``. Before Phase
+    15.1 both sides were ``execution.operators_invoked`` and this assertion
+    compared one object against itself.
+
+    **What it still does not show.** The engine is a faithful transcriber of the
+    plan, not an independent witness of it: it builds ``operators_invoked`` and
+    its steps in one loop over the same operator plan. So what this verifies is
+    ASSEMBLY-PATH INTEGRITY — that the product served was assembled by the path
+    the deployment claimed — and not that the claim was right. Authorable drift
+    between the two documents fails upstream, at
+    ``refuse_operator_set_divergence``, before the engine ever runs. A
+    deployment that read one of those two artifacts into the other would
+    collapse that binder, and this assertion would not see it.
+    """
     assert result.product.lineage.operators_invoked == result.operators_invoked
 
 
@@ -233,12 +251,22 @@ def test_every_declared_operator_actually_ran(result: Any) -> None:
     engine RESOLVED.
 
     **What this does and does not prove.** ``operators_invoked`` is planned from
-    ``plan.required_operators()``, which this deployment feeds from
-    ``product-class.yaml`` — so editing that artifact alone moves both ends and
-    is NOT detected. What IS detected is re-introducing the
-    ``operators.keys()`` shortcut in either the record phase or the replay
-    environment *together with* a dropped key in the artifact. That is the
-    regression this guards, and it is the right one (plan 15-13, R6).
+    ``plan.required_operators()``, which since Phase 15.1 this deployment feeds
+    from ``projection-requirements.yaml`` — a document separate from the
+    ``product-class.yaml`` this assertion's left side reads. So editing either
+    artifact alone no longer moves both ends silently: it makes the two
+    documents disagree, and ``refuse_operator_set_divergence`` refuses the run
+    before the engine executes. This assertion is therefore reachable only when
+    the two documents already agree, which is why it is not the phase's drift
+    check and is not claimed as one.
+
+    What it still guards is the ``operators.keys()`` shortcut in either the
+    record phase or the replay environment — a plan that answered from the
+    operator registry rather than from its artifact would make both this and
+    Gate 2 compare a value against itself (plan 15-13, R6). And the residual is
+    unchanged in kind: a deployment that transcribed one of the two artifacts
+    out of the other collapses the binder, so dual authorship stays
+    convention-assisted at the authoring boundary (D-IMPL-86).
     """
     declared = result.artifacts["product-class"]
     assert isinstance(declared, ProductClassDeclaration)

@@ -74,18 +74,24 @@ checks:
   the four operators — so changing either side alone makes the assertion fail.
   These are the correctness guarantees, and the two detection outcomes (baseline
   zero, governed one) are the demo's headline claim among them.
-* **Propagation checks.** The product's schema name, its required operator set
-  and the perspective role are each read from an artifact by ``run.py`` *and* by
-  this module, so the artifact is a single source and editing it moves both ends
-  together. These fail on a **wiring** fault, not on an artifact edit.
+* **Propagation checks.** The product's schema name and the perspective role are
+  each read from an artifact by ``run.py`` *and* by this module, so the artifact
+  is a single source and editing it moves both ends together. These fail on a
+  **wiring** fault, not on an artifact edit.
   :func:`test_every_declared_operator_actually_ran` is the sharpest example and
-  the easiest to over-claim: ``execution.operators_invoked`` is planned from
-  ``plan.required_operators()``, which is itself ``required_operator_keys``, so
-  editing ``product-class.yaml`` alone moves both ends and is **not** detected.
-  What the assertion does catch — verified by mutation — is re-introducing the
-  ``operators.keys()`` shortcut while the artifact declares a different set.
-  That is the regression worth guarding, and it is narrower than the assertion
-  looks.
+  the easiest to over-claim. Since Phase 15.1 the operator set is TWO documents,
+  not one: ``execution.operators_invoked`` is planned from
+  ``plan.required_operators()``, which reads
+  ``projection-requirements.yaml``, while this module's left side reads
+  ``product-class.yaml``. Editing either alone no longer moves both ends
+  silently — it makes the two documents disagree and
+  ``refuse_operator_set_divergence`` refuses the run before the engine executes,
+  so the assertion is reachable only once they already agree. What it still
+  catches — verified by mutation — is re-introducing the ``operators.keys()``
+  shortcut while the artifacts declare a different set. That is the regression
+  worth guarding, and it is narrower than the assertion looks. The residual is
+  unchanged in kind: a deployment that transcribed one of the two artifacts out
+  of the other collapses the binder (D-IMPL-86).
 * **SDK mechanism claims.** That the replay reference is the record's own
   content hash, that a grant hash is ``content_hash(grant)`` — asserted
   directly, because they are claims about the SDK rather than about this
@@ -272,7 +278,25 @@ def test_the_product_passed_all_three_gates(result: Any) -> None:
 
 def test_lineage_strict_equality_holds(result: Any) -> None:
     """Pre-rewrite :859. What the product claims ran is exactly what the engine
-    resolved as having run (INV-CH7-47)."""
+    resolved as having run (Gate 2, INV-CH7-47).
+
+    **What the two sides now are.** The left is the Control Plane CLAIM — the
+    product class's ``required_operator_keys``, transcribed into the Contract's
+    lineage. The right is the engine's report of executing the plan, which the
+    plan built from ``projection-requirements.yaml``. Before Phase 15.1 both
+    sides were ``execution.operators_invoked`` and this assertion compared one
+    object against itself.
+
+    **What it still does not show.** The engine is a faithful transcriber of the
+    plan, not an independent witness of it: it builds ``operators_invoked`` and
+    its steps in one loop over the same operator plan. So what this verifies is
+    ASSEMBLY-PATH INTEGRITY — that the product served was assembled by the path
+    the deployment claimed — and not that the claim was right. Authorable drift
+    between the two documents fails upstream, at
+    ``refuse_operator_set_divergence``, before the engine ever runs. A
+    deployment that read one of those two artifacts into the other would
+    collapse that binder, and this assertion would not see it.
+    """
     assert result.product.lineage.operators_invoked == result.operators_invoked
 
 
@@ -280,10 +304,17 @@ def test_every_declared_operator_actually_ran(result: Any) -> None:
     """A propagation check, and a narrower one than it looks.
 
     The set the product class DECLARES it requires against the set the engine
-    RESOLVED. See the module docstring: both ends move together when the
-    artifact alone is edited, so what this catches is the ``operators.keys()``
-    shortcut coming back — the regression that made Gate 2 a tautology in this
-    file before ``product-class.yaml`` existed.
+    RESOLVED. Since Phase 15.1 those trace to two separately authored documents
+    — ``product-class.yaml`` and ``projection-requirements.yaml`` — so editing
+    either alone makes them disagree and ``refuse_operator_set_divergence``
+    refuses the run before the engine executes. This assertion is therefore
+    reachable only once the two agree, and it is not the phase's drift check.
+
+    What it still catches is the ``operators.keys()`` shortcut coming back — the
+    regression that made Gate 2 a tautology in this file before
+    ``product-class.yaml`` existed. See the module docstring for the residual
+    that survives: a deployment that transcribes one artifact out of the other
+    collapses the binder (D-IMPL-86).
     """
     declared = result.artifacts["product-class"]
     assert isinstance(declared, ProductClassDeclaration)

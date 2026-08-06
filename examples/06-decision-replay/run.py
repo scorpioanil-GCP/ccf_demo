@@ -67,13 +67,18 @@ from ccf.controlplane.artifacts import (
     OperatorParametersArtifact,
     PerspectiveArtifact,
     ProductClassDeclaration,
+    ProjectionRequirements,
     SignalBatch,
     declared_artifact_class,
     load_artifact,
 )
 from ccf.controlplane.audit import AuditLog
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment import build_operator_registry, load_and_boot
+from ccf.deployment import (
+    build_operator_registry,
+    load_and_boot,
+    refuse_operator_set_divergence,
+)
 from ccf.deployment.pins import ResolvedPins
 from ccf.graph.protocols import GraphReader, GraphView
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
@@ -159,14 +164,24 @@ class GridLoadPlan:
     A projection is deployment code — this is what a user writes, and it is never
     a rewrite target (whitepaper §7.5).
 
-    ``required`` is passed in from the product-class artifact's
-    ``required_operator_keys``, never read off the operator registry. The
-    declaration and the engine's resolution must stay two independent
-    mechanisms: Gate 2 compares them, and a plan that returned the registry's own
-    keys would make that comparison a value against itself. That matters twice
-    over here — the replay environment reconstructs this plan, so a registry-fed
-    ``required`` would have made the gate tautological in the reproduction as
-    well as in the original.
+    ``required`` is passed in from ``artifacts/projection-requirements.yaml``
+    (``ccf.projection-requirements``) — the projection's OWN document, not the
+    product class's and not the operator registry's keys. Under design E2
+    (``docs/DECISIONS.md`` D-IMPL-86 and its correction of 2026-08-05) the two
+    operator sets a deployment authors are separate documents:
+    ``product-class.yaml``'s ``required_operator_keys`` is the Control Plane
+    **claim** that fills the product's lineage, and this one is what the plan
+    requires. ``refuse_operator_set_divergence`` binds them, between plan
+    construction and ``ProjectionEngine.execute``, and that is where **authorable
+    drift** fails.
+
+    Feeding ``required`` from the product-class declaration instead would not be
+    a second source at all: the declaration would reach the engine's
+    ``operators_invoked`` through five pure transforms with no branch, so the
+    two would be identical by construction and nothing an author could write
+    would separate them. That matters twice over here — the replay environment
+    reconstructs this plan, so both sites read the requirements artifact and both
+    call the binder.
     """
 
     def __init__(self, *, plan_id: str, required: tuple[str, ...]) -> None:
@@ -300,12 +315,20 @@ class GridReplayEnvironment:
     operator's admitted-bundle set is completed from them (D-IMPL-76): a replay
     that rebuilt the operator chain from a *different* admission set would
     reproduce a product the original fabric was never permitted to serve.
+
+    It holds BOTH of design E2's authored operator-set documents for the same
+    reason it holds the pins. The requirements artifact is what ``resolve_plan``
+    plans from; the product-class declaration is the claim the plan is bound to
+    by ``refuse_operator_set_divergence``. A reproduction that carried only one
+    of the two could rebuild a plan the original deployment's governance
+    contradicts and never notice.
     """
 
     def __init__(
         self,
         *,
         declared: ProductClassDeclaration,
+        requirements: ProjectionRequirements,
         governance: Mapping[str, Any],
         parameters: Mapping[str, OperatorParametersArtifact],
         pins: ResolvedPins,
@@ -316,6 +339,7 @@ class GridReplayEnvironment:
         now: datetime,
     ) -> None:
         self._declared = declared
+        self._requirements = requirements
         self._governance = governance
         self._parameters = parameters
         self._pins = pins
@@ -328,13 +352,19 @@ class GridReplayEnvironment:
     def resolve_plan(self, *, plan_id: str) -> Any:
         if plan_id != self._governance["plan_id"]:
             raise LookupError(plan_id)
-        # From the ARTIFACT, exactly as the record phase did — not from
-        # `resolve_operators`'s registry, which would make Gate 2 compare the
-        # reproduction's own resolution against itself.
-        return GridLoadPlan(
+        # From the PROJECTION's own artifact, exactly as the record phase did —
+        # not from `resolve_operators`'s registry, and not from the product
+        # class, which under design E2 is the CLAIM rather than the plan's input.
+        # The binder runs here too: a reproduction that planned from a
+        # requirements document the product class contradicts would rebuild a
+        # product the original deployment's own governance disowns, and this is
+        # the last point before the engine at which that is still catchable.
+        plan = GridLoadPlan(
             plan_id=self._governance["plan_id"],
-            required=self._declared.required_operator_keys,
+            required=self._requirements.required_operator_keys,
         )
+        refuse_operator_set_divergence(declared=self._declared, plan=plan)
+        return plan
 
     def resolve_operators(self, *, operator_keys: tuple[str, ...]) -> OperatorRegistry:
         return build_operator_registry(
@@ -481,6 +511,9 @@ def run(*, root: Path) -> ReplayDemonstration:
         DeclaredArtifact, booted.artifacts["product-governance"]
     ).declaration
     declared = cast(ProductClassDeclaration, booted.artifacts["product-class"])
+    requirements = cast(
+        ProjectionRequirements, booted.artifacts["projection-requirements"]
+    )
     perspective = cast(PerspectiveArtifact, booted.artifacts["perspective"])
     registration = cast(
         DeclaredArtifact, booted.artifacts["agent-registration"]
@@ -520,15 +553,26 @@ def run(*, root: Path) -> ReplayDemonstration:
         similarity_index_version=governance["similarity_index_version"],
     )
 
-    # 6. Project (L5). The plan's `required` comes from the product-class
-    #    artifact — never from the operator registry's own keys.
+    # 6. Project (L5). The plan's `required` comes from the projection's OWN
+    #    artifact — never from the operator registry's keys, and never from the
+    #    product class, which is the claim rather than the plan's input.
+    #
+    #    The plan is a named local so the binder has a statement to occupy: the
+    #    refusal belongs BETWEEN plan construction and `execute` (D-IMPL-86's
+    #    correction of 2026-08-05), and a plan built inline as `execute`'s own
+    #    argument leaves no such line. It is where the deployment's two authored
+    #    operator sets are held to each other; edit either document alone and
+    #    this run stops before a product is assembled from a set the deployment's
+    #    own claim contradicts.
+    plan = GridLoadPlan(
+        plan_id=governance["plan_id"],
+        required=requirements.required_operator_keys,
+    )
+    refuse_operator_set_divergence(declared=declared, plan=plan)
     execution = ProjectionEngine(
         reader=booted.handle.reader, registry=operators
     ).execute(
-        plan=GridLoadPlan(
-            plan_id=governance["plan_id"],
-            required=declared.required_operator_keys,
-        ),
+        plan=plan,
         perspective=perspective,
         tenant_id=booted.tenant_id,
         temporal_boundary=boundary,
@@ -556,10 +600,20 @@ def run(*, root: Path) -> ReplayDemonstration:
         max_ttl_version=max_ttl_version,
     )
 
-    # 8. The lineage the product CLAIMS, and the gates. `engine_resolved` is
-    #    passed as a separate argument from a second, independent source — the
-    #    engine's own resolution — because Gate 2 exists to catch a producer
-    #    misdeclaring.
+    # 8. The lineage the product CLAIMS, and the gates.
+    #
+    #    The claim is the product class's `required_operator_keys` — the Control
+    #    Plane's authored statement of what this product's assembly depends on.
+    #    It is never `execution.operators_invoked`: filling the claim from the
+    #    engine's own report would make Gate 2 compare a value against itself.
+    #
+    #    What Gate 2 then verifies is ASSEMBLY-PATH INTEGRITY: that the product
+    #    served was assembled by the path the deployment claimed. The engine is a
+    #    faithful transcriber of the plan rather than an independent witness of
+    #    it — it builds its invoked set and its steps in one loop over the same
+    #    operator plan — so the gate catches an assembly that departed from the
+    #    plan, not a claim that was wrong to begin with. Authorable drift fails
+    #    upstream, at `refuse_operator_set_divergence` in step 6.
     policy_version = booted.pins.version_for("policy-bundle")
     candidate = ContextProductContract(
         schema_name=product_class.schema_name,
@@ -570,7 +624,7 @@ def run(*, root: Path) -> ReplayDemonstration:
         expires_at=now + timedelta(seconds=governance["product_ttl_seconds"]),
         ttl_anchor=product_class.ttl_anchor,
         lineage=ProductLineage(
-            operators_invoked=execution.operators_invoked,
+            operators_invoked=frozenset(declared.required_operator_keys),
             policy_bundle_versions=frozenset({policy_version}),
             graph_snapshot_at=boundary,
         ),
@@ -945,6 +999,7 @@ def run(*, root: Path) -> ReplayDemonstration:
 
     environment = GridReplayEnvironment(
         declared=declared,
+        requirements=requirements,
         governance=governance,
         parameters=parameters,
         pins=booted.pins,

@@ -92,10 +92,15 @@ from ccf.controlplane.artifacts import (  # noqa: E402
     OperatorParametersArtifact,
     PerspectiveArtifact,
     ProductClassDeclaration,
+    ProjectionRequirements,
     SignalBatch,
 )
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
-from ccf.deployment import build_operator_registry, load_and_boot  # noqa: E402
+from ccf.deployment import (  # noqa: E402
+    build_operator_registry,
+    load_and_boot,
+    refuse_operator_set_divergence,
+)
 from ccf.graph.protocols import GraphView  # noqa: E402
 from ccf.operators.base import OperatorOutput  # noqa: E402
 from ccf.products.contract import (  # noqa: E402
@@ -270,11 +275,24 @@ class CreditContextPlan:
     output; it does not run them (which is what leaves the L6 lineage gate
     something real to check).
 
-    ``required`` is passed in from the product-class artifact's
-    ``required_operator_keys``, never read off the operator registry. The
-    declaration and the engine's resolution must stay two independent
-    mechanisms: Gate 2 compares them, and a plan that returned the registry's
-    own keys would make that comparison a value against itself.
+    ``required`` is passed in from ``artifacts/projection-requirements.yaml``
+    (``ccf.projection-requirements``) — the projection's OWN document, not the
+    product class's and not the operator registry's keys. Under design E2
+    (``docs/DECISIONS.md`` D-IMPL-86 and its correction of 2026-08-05) the two
+    operator sets a deployment authors are separate documents:
+    ``product-class.yaml``'s ``required_operator_keys`` is the Control Plane
+    **claim** that fills the product's lineage, and this one is what the plan
+    requires. ``refuse_operator_set_divergence`` binds them, between plan
+    construction and ``ProjectionEngine.execute``, and that is where
+    **authorable drift** fails.
+
+    Feeding ``required`` from the product-class declaration instead would not be
+    a second source at all: the declaration would reach the engine's
+    ``operators_invoked`` through five pure transforms with no branch, so the
+    two would be identical by construction and nothing an author could write
+    would separate them. Both of this example's plan sites read the requirements
+    artifact and both call the binder — this one and
+    ``run.py``'s ``HelloReplayEnvironment.resolve_plan``.
     """
 
     def __init__(self, *, plan_id: str, required: tuple[str, ...]) -> None:
@@ -364,6 +382,9 @@ def build_credit_context(*, database_path: Path) -> AssembledContext:
         decision = cast(DeclaredArtifact, booted.artifacts["decision"])
         governance = cast(DeclaredArtifact, booted.artifacts["product-governance"])
         declared = cast(ProductClassDeclaration, booted.artifacts["product-class"])
+        requirements = cast(
+            ProjectionRequirements, booted.artifacts["projection-requirements"]
+        )
         perspective = cast(PerspectiveArtifact, booted.artifacts["perspective"])
 
         boundary = datetime.fromisoformat(decision.declaration["temporal_boundary"])
@@ -396,16 +417,25 @@ def build_credit_context(*, database_path: Path) -> AssembledContext:
             ],
         )
 
-        # 6. Project (L5). The plan's `required` comes from the product-class
-        #    artifact — never from the operator registry's own keys, which
-        #    would make Gate 2 compare a value against itself.
+        # 6. Project (L5). The plan's `required` comes from the projection's OWN
+        #    artifact — never from the operator registry's keys, and never from
+        #    the product class, which is the claim rather than the plan's input.
+        #
+        #    The plan is a named local so the binder has a statement to occupy:
+        #    the refusal belongs BETWEEN plan construction and `execute`
+        #    (D-IMPL-86's correction of 2026-08-05), and a plan built inline as
+        #    `execute`'s own argument leaves no such line. Edit either authored
+        #    document alone and this front door refuses to compose, before a
+        #    product is assembled from a set the deployment's claim contradicts.
+        plan = CreditContextPlan(
+            plan_id=governance.declaration["plan_id"],
+            required=requirements.required_operator_keys,
+        )
+        refuse_operator_set_divergence(declared=declared, plan=plan)
         execution = ProjectionEngine(
             reader=booted.handle.reader, registry=operators
         ).execute(
-            plan=CreditContextPlan(
-                plan_id=governance.declaration["plan_id"],
-                required=declared.required_operator_keys,
-            ),
+            plan=plan,
             perspective=perspective,
             tenant_id=booted.tenant_id,
             temporal_boundary=boundary,
@@ -435,10 +465,22 @@ def build_credit_context(*, database_path: Path) -> AssembledContext:
             max_ttl_version=max_ttl_version,
         )
 
-        # 8. The lineage the product CLAIMS, and the gates. `engine_resolved`
-        #    is passed as a separate argument from a second, independent source
-        #    — the engine's own resolution — because Gate 2 exists to catch a
-        #    producer misdeclaring.
+        # 8. The lineage the product CLAIMS, and the gates.
+        #
+        #    The claim is the product class's `required_operator_keys` — the
+        #    Control Plane's authored statement of what this product's assembly
+        #    depends on. It is never `execution.operators_invoked`: filling the
+        #    claim from the engine's own report would make Gate 2 compare a
+        #    value against itself.
+        #
+        #    What Gate 2 then verifies is ASSEMBLY-PATH INTEGRITY: that the
+        #    product served was assembled by the path the deployment claimed.
+        #    The engine is a faithful transcriber of the plan rather than an
+        #    independent witness of it — it builds its invoked set and its steps
+        #    in one loop over the same operator plan — so the gate catches an
+        #    assembly that departed from the plan, not a claim that was wrong to
+        #    begin with. Authorable drift fails upstream, at
+        #    `refuse_operator_set_divergence` in step 6.
         policy_version = booted.pins.version_for(POLICY_BUNDLE_KEY)
         candidate = ContextProductContract(
             schema_name=product_class.schema_name,
@@ -450,7 +492,7 @@ def build_credit_context(*, database_path: Path) -> AssembledContext:
             + timedelta(seconds=governance.declaration["product_ttl_seconds"]),
             ttl_anchor=product_class.ttl_anchor,
             lineage=ProductLineage(
-                operators_invoked=execution.operators_invoked,
+                operators_invoked=frozenset(declared.required_operator_keys),
                 policy_bundle_versions=frozenset({policy_version}),
                 graph_snapshot_at=boundary,
             ),
