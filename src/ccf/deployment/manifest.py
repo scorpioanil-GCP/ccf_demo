@@ -50,7 +50,11 @@ from ccf.controlplane.artifacts import (
     load_artifact,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol, RegistrationRefusal
-from ccf.deployment.classes import refuse_role_the_sdk_fixes, resolve_artifact_class
+from ccf.deployment.classes import (
+    refuse_registration_the_sdk_fixes,
+    refuse_role_the_sdk_fixes,
+    resolve_artifact_class,
+)
 from ccf.deployment.pins import ArtifactPin, ResolvedPins
 
 __ccf_mode__ = "algorithmic"
@@ -194,9 +198,10 @@ def load_and_boot(
        PyYAML's plain safe loader, because the artifact loader is what
        suppresses the
        timestamp resolver (D-02) and refuses floats and zone-less timestamps.
-    2. **Preflights** the tenant, the D-IMPL-80 role of every entry, and the
-       declared backend against the supplied connection argument — all before
-       any document is read and before anything is registered.
+    2. **Preflights** the tenant, the D-IMPL-80 role and the D-IMPL-85
+       registration path of every entry, and the declared backend against the
+       supplied connection argument — all before any document is read and
+       before anything is registered.
     3. Parses **every** entry, then registers the ``role: register`` ones
        **through the path each entry's** ``registration`` **declares** —
        :meth:`register_typed
@@ -265,7 +270,14 @@ def load_and_boot(
         ValueError: the tenant is absent from both sources or conflicts between
             them; the declared backend's connection argument is missing or the
             wrong one was supplied; an entry declares a role the SDK fixes
-            otherwise (D-IMPL-80); or a ``registration: versioned`` entry was
+            otherwise (D-IMPL-80); an entry declares a registration path its
+            class's own contract contradicts (D-IMPL-85 — an author-versioned
+            class declared ``typed``, or a typed-only class declared
+            ``versioned``); an entry names a ``ccf.``-prefixed class id the SDK
+            does not ship, which is refused rather than resolved to the open
+            envelope because the envelope would let arbitrary content register
+            and pin under an SDK class name (D-IMPL-84); or a
+            ``registration: versioned`` entry was
             refused by the D-05 hash-verified bump check. That last one is a
             **returned** refusal from :meth:`register_versioned
             <ccf.controlplane.registry.ControlPlaneRegistry.register_versioned>`
@@ -293,6 +305,11 @@ def load_and_boot(
     resolved_tenant = _resolve_tenant(manifest, tenant_id)
     for entry in manifest.artifacts:
         refuse_role_the_sdk_fixes(entry.class_id, entry.role)
+        # Ordering is the point and it must stay here. This runs **before any
+        # document is read** and before anything is registered, so a manifest
+        # that would have routed an author-versioned class around the D-05 bump
+        # check — or squatted an SDK class id — never reaches the parse phase.
+        refuse_registration_the_sdk_fixes(entry.class_id, entry.registration)
     _preflight_backend(
         manifest, database_path=database_path, postgres_dsn=postgres_dsn
     )

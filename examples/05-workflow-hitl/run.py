@@ -399,15 +399,18 @@ def run(*, root: Path) -> WorkflowHitlDemonstration:
         booted.handle.worker.ingest(envelope)
 
     # --8<-- [start:register-definitions]
-    # 3. The six SDK classes the manifest deliberately cannot address (D-05).
+    # 3. Six SDK classes registered here rather than through the manifest (D-05).
     #    Four are AUTHOR-VERSIONED: `register_versioned` holds the author's
-    #    `artifact_version` claim against content identity, and `load_and_boot`'s
-    #    `register_typed` does not run that check — so a manifest entry naming one
-    #    would silently drop the governance the class exists to carry. Two more
-    #    are SDK classes a manifest cannot address at all, because an
-    #    unknown-to-the-manifest class id resolves to the open envelope and the
-    #    transport and the authorizer read their real contracts back off the
-    #    Control Plane by key.
+    #    `artifact_version` claim against content identity. A manifest CAN name
+    #    them now — as `registration: versioned`, which `load_and_boot` dispatches
+    #    down this same call (D-IMPL-85) — and declaring `typed` for one of them
+    #    is refused at preflight rather than silently skipping the bump check.
+    #    They stay here so the four-outcome D-05 table is visible as the thing
+    #    being taught. Two more are SDK classes deliberately not
+    #    manifest-addressable, because the transport and the authorizer read
+    #    their real contracts back off the Control Plane by key; naming either in
+    #    a manifest is now a refusal under the reserved `ccf.` prefix (D-IMPL-84)
+    #    rather than an open-envelope resolution the adopter had to know to avoid.
     registry.register_typed(
         keys["prompt_artifact_key"],
         load_artifact(
