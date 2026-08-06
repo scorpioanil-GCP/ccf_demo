@@ -64,6 +64,8 @@
 - [x] **ERGO-16**: Every example's CI assertions and print summaries relocate to a parallel `tests/` module with no loss of assertion coverage, and the No-Hardcoding Rule reaches the relocated domain values (D-IMPL-78 — `tests` added to both `LINTED_TREES` and `RULE_TREE_SCOPE`)
   - **Ruled at D-GATE-15 (Dave, 2026-08-05): "every" takes the qualified reading, and the requirement is met as written** — "every example *driver*'s assertions and print summaries relocate, **except** where relocation would move an assertion somewhere nothing runs it, or would break a test the plan was forbidden to touch." Raised as blocking finding B-2 at the phase-close review (codex) because the requirement's checkbox and the delivered measurement disagreed with nothing in between. The 152 residual relocatable lines are exactly the principled exception set, accounted for line by line in `docs/SURFACE-AUDIT.md` §2.3: 65 in files that are not example drivers (incl. the three client legs whose zero CCF imports ERGO-15/EXAM-04 rest on, asserted byte-unchanged), 54 inside example 03's opt-in `_live` leg that `make ci` excludes by D-11, 22 pinned by `tests/examples/test_ext00_hardening.py`'s `PASS 1:`–`PASS 8:` subprocess assertions in a module 15-20 was forbidden to modify, 4 `READY <port>` process-protocol handshakes, and 6 in `08-e2e-demo` where DEMO-03's byte-compared transcript *is* the deliverable. **No exception entry is required**; §2.3 is the accounting of record. Rejected: the literal reading, which would have marked ERGO-16 unmet and required a recorded departure, and the literal-and-close-the-gap reading, which would have reopened two out-of-scope modules.
 - [x] **ERGO-17**: A curated surface-change log with rationale and migration guidance, written incrementally as per-plan fragments, covering additions, reshapes, removals **and behavior changes**, handed to Phase 16
+- [ ] **ERGO-18**: A deployment manifest declares each entry's registration mode (`registration: typed | versioned`), `load_and_boot` dispatches on it, and a manifest that routes an author-versioned SDK class through typed registration — or squats a `ccf.`-prefixed class id with an open envelope — is refused at load, proven by tests that assert the refusal fires rather than that the examples avoid the pattern (CR-1; D-IMPL-82/83/84/85)
+- [ ] **ERGO-19**: The operator set a deployment declares and the set its projection executes come from two separately authored Control Plane artifacts bound by a binder placed between plan construction and `ProjectionEngine.execute` that refuses when they disagree; Gate 2 is documented as the assembly-path-integrity check it is (CR-2; **D-IMPL-86 and its 2026-08-05 correction**, design E2)
 
 ## Future Requirements (deferred)
 
@@ -124,8 +126,15 @@
 | ERGO-15 | Phase 15 | Complete |
 | ERGO-16 | Phase 15 | Complete |
 | ERGO-17 | Phase 15 | Complete |
+| ERGO-18 | Phase 15.1 | Pending |
+| ERGO-19 | Phase 15.1 | Pending |
 
-Coverage: 40/40 v0.2 requirements mapped, each to exactly one phase.
+Coverage: 42/42 v0.2 requirements mapped, each to exactly one phase.
+ERGO-18 and ERGO-19 were minted during Phase 15.1 planning under the Phase 15/16
+precedent already stated in `.planning/ROADMAP.md` §Coverage — an inserted phase
+mints its own requirement IDs at planning rather than borrowing a predecessor's —
+and ERGO-01..17 stay Complete because Phase 15.1 closes defects in what they
+delivered rather than reopening them.
 ERGO-01..ERGO-17 marked Complete at the Phase 15 close (plan 15-21); the
 evidence for each is `docs/SURFACE-AUDIT.md` and the per-plan SUMMARYs under
 `.planning/phases/15-sdk-ergonomics-the-integration-surface/`. Marking them
