@@ -18,6 +18,14 @@ recording that a dropped-in file changed what was in force** — so
 :class:`~ccf.controlplane.artifacts.ManifestEntry` refuses a pattern at parse
 and the manifest names every file.
 
+The same argument runs one step further. A path that *leaves* the manifest's
+directory makes the set a function of the filesystem outside the deployment,
+which is strictly worse than a glob: the dropped-in file does not even have to
+be dropped in. So the paths a manifest names are enumerated **and** contained —
+the contract refuses an absolute path or a ``..`` segment from the string, and
+:func:`_document_inside_the_deployment` refuses whatever a symlink would have
+reached. What is in force is the deployment's own tree.
+
 The boundary this module must not cross
 ---------------------------------------
 
@@ -47,6 +55,7 @@ from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
     DEPLOYMENT_MANIFEST,
     DeploymentManifest,
+    ManifestEntry,
     load_artifact,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol, RegistrationRefusal
@@ -135,6 +144,64 @@ def _resolve_tenant(manifest: DeploymentManifest, supplied: str | None) -> str:
     return resolved
 
 
+def _document_inside_the_deployment(root: Path, entry: ManifestEntry) -> Path:
+    """Resolve ``entry.path`` under ``root``, or refuse it for leaving.
+
+    The read half of the two-part path refusal
+    :attr:`~ccf.controlplane.artifacts.ManifestEntry.path` describes.
+    :meth:`~ccf.controlplane.artifacts.ManifestEntry._path_stays_beside_the_manifest`
+    has already refused absolute paths and ``..`` segments at parse; what
+    survives to here is a plain relative name, and a plain relative name can
+    still be a **symlink pointing out of the deployment**. No inspection of the
+    string can see that, so it is asked of the filesystem: both sides are
+    ``resolve()``\\ d — which normalizes *and* follows links — and the result
+    must lie under the manifest's own directory.
+
+    The two checks are not one check written twice. The contract answers *is
+    this a well-formed declaration*, from the string, for every consumer of
+    :class:`~ccf.controlplane.artifacts.ManifestEntry`. This answers *does this
+    open a file inside the deployment*, against a root only the caller knows.
+    Deleting either leaves a real hole: without the contract check an adopter
+    constructing a manifest by hand gets no refusal at all; without this one a
+    symlink defeats the contract check completely.
+
+    **Refused, never followed and never rewritten.** The posture is
+    :func:`~ccf.deployment.classes.refuse_registration_the_sdk_fixes`'s: a
+    governance mechanism refuses rather than repairs, because silently
+    substituting a corrected path would leave the manifest saying one thing and
+    the deployment doing another, and the manifest is the document the audit
+    plane reads back. A deployment that genuinely needs a document from
+    elsewhere copies it in — where it is versioned with the rest of the
+    artifact set — rather than linking to a file the manifest's content hash
+    cannot see.
+
+    A symlink whose target is *inside* the deployment is admitted, deliberately:
+    it resolves under the root, so the artifact set is still the deployment's
+    own tree.
+
+    Raises:
+        ValueError: the entry resolves outside ``root``. The message names the
+            resolved path, because a refusal an operator cannot locate is a
+            refusal they will route around; it never names the file's
+            **contents**, which is the disclosure this whole check exists to
+            stop.
+    """
+    anchor = root.resolve()
+    resolved = (anchor / entry.path).resolve()
+    if not resolved.is_relative_to(anchor):
+        raise ValueError(
+            f"manifest key {entry.key!r} names path {entry.path!r}, which"
+            f" resolves to {resolved} — outside {anchor}, the manifest's own"
+            " directory. The path is a plain name, so what leaves the"
+            " deployment is a symlink along it. A manifest names files beside"
+            " itself: what is in force is the deployment's own tree, not"
+            " whatever that tree points at, and a `role: register` entry would"
+            " content-hash the far end into Decision Replay dimension 2. Copy"
+            " the document into the deployment, or name one already there."
+        )
+    return resolved
+
+
 def _preflight_backend(
     manifest: DeploymentManifest,
     *,
@@ -199,7 +266,8 @@ def load_and_boot(
        suppresses the
        timestamp resolver (D-02) and refuses floats and zone-less timestamps.
     2. **Preflights** the tenant, the D-IMPL-80 role and the D-IMPL-85
-       registration path of every entry, and the declared backend against the
+       registration path of every entry, **that every entry's document actually
+       lies inside the deployment**, and the declared backend against the
        supplied connection argument — all before any document is read and
        before anything is registered.
     3. Parses **every** entry, then registers the ``role: register`` ones
@@ -255,7 +323,22 @@ def load_and_boot(
         manifest_path: The manifest document. Every entry's ``path`` resolves
             relative to **this file's own directory**, never the process's
             working directory — a deployment's artifact set must not depend on
-            where a script was launched from.
+            where a script was launched from — and **cannot leave it**.
+
+            The second clause is enforced, not merely stated, and by two
+            checks rather than one because one cannot cover both cases.
+            :class:`~ccf.controlplane.artifacts.ManifestEntry` refuses an
+            absolute path or a ``..`` segment at parse, from the string alone;
+            :func:`_document_inside_the_deployment` resolves each entry against
+            this file's directory and refuses anything landing outside it,
+            which is what closes a plain name that is a symlink out. A
+            manifest is trusted no further than D-IMPL-84 already trusts it —
+            the whole ``ccf.`` namespace is reserved precisely because a
+            manifest can be authored to squat an SDK class id — and a document
+            trusted that little does not get to name ``/``-rooted paths. An
+            entry that escaped would put arbitrary file contents on
+            ``BootedFabric.artifacts`` and, on ``role: register``,
+            content-hash them into Decision Replay dimension 2.
         registry: The Control Plane to register into. A caller argument, never
             constructed here: a registry built behind the adopter's back would
             split the audit sequence in two, and the Control Plane is the audit
@@ -269,8 +352,11 @@ def load_and_boot(
     Raises:
         ValueError: the tenant is absent from both sources or conflicts between
             them; the declared backend's connection argument is missing or the
-            wrong one was supplied; an entry declares a role the SDK fixes
-            otherwise (D-IMPL-80); an entry declares a registration path its
+            wrong one was supplied; an entry's ``path`` resolves outside the
+            manifest's own directory — refused in preflight, before any
+            document is opened, and never followed; an entry declares a role
+            the SDK fixes otherwise (D-IMPL-80); an entry declares a
+            registration path its
             class's own contract contradicts (D-IMPL-85 — an author-versioned
             class declared ``typed``, or a typed-only class declared
             ``versioned``); an entry names a ``ccf.``-prefixed class id the SDK
@@ -303,6 +389,8 @@ def load_and_boot(
     assert isinstance(manifest, DeploymentManifest)  # DEPLOYMENT_MANIFEST's contract
 
     resolved_tenant = _resolve_tenant(manifest, tenant_id)
+    root = manifest_file.parent
+    document_paths: dict[str, Path] = {}
     for entry in manifest.artifacts:
         refuse_role_the_sdk_fixes(entry.class_id, entry.role)
         # Ordering is the point and it must stay here. This runs **before any
@@ -310,17 +398,23 @@ def load_and_boot(
         # that would have routed an author-versioned class around the D-05 bump
         # check — or squatted an SDK class id — never reaches the parse phase.
         refuse_registration_the_sdk_fixes(entry.class_id, entry.registration)
+        # Same ordering, same reason, one entry stronger: an entry that escapes
+        # the deployment is refused before **any** document is opened, so a
+        # manifest whose seventh entry symlinks out never reads its first six
+        # either. The keys are unique by contract (`_keys_are_unique`), so this
+        # mapping is total over the entries and phase one resolves nothing a
+        # second time.
+        document_paths[entry.key] = _document_inside_the_deployment(root, entry)
     _preflight_backend(
         manifest, database_path=database_path, postgres_dsn=postgres_dsn
     )
 
     # Phase one: parse everything. Nothing is registered until every document in
     # the manifest has been read and validated.
-    root = manifest_file.parent
     parsed: dict[str, CCFContract] = {}
     for entry in manifest.artifacts:
         artifact_class = resolve_artifact_class(entry.class_id)
-        document = (root / entry.path).read_text(encoding="utf-8")
+        document = document_paths[entry.key].read_text(encoding="utf-8")
         parsed[entry.key] = load_artifact(document, artifact_class)
 
     # Phase two: register the ones the manifest marks `role: register`.

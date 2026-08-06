@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**281 entries**, of which **67** name a public Python surface.
+**285 entries**, of which **71** name a public Python surface.
 
 ## Added
 
@@ -4144,7 +4144,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-6 entries — 3 public Python surface, 3 not public Python API.
+10 entries — 7 public Python surface, 3 not public Python API.
 
 ### Public Python surface
 
@@ -4253,6 +4253,101 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   previously documented as something the adopter had to know to avoid
 
 *Recorded by `15.1-03-namespace-reservation.md`.*
+
+#### ccf.controlplane.artifacts.ManifestEntry
+
+- Surface: ccf.controlplane.artifacts.ManifestEntry
+- Public surface: true
+- Change type: behavior
+- Before: one validator on `path`, rejecting only the glob characters `*`, `?` and `[`.
+  An absolute path and a `..` segment both validated, so a manifest could name any file
+  on the host
+- After: a second validator, `_path_stays_beside_the_manifest`, refusing an absolute
+  path, a rooted or drive-qualified path, and any `..` segment — asked of both
+  `PurePosixPath` and `PureWindowsPath`, so one content-hashed document is admissible on
+  every platform or on none. No field is added, removed or retyped
+- Why: CR-01. `ManifestEntry.path`'s stated contract is "relative to the manifest file's
+  own directory" and the contract did not hold it. D-IMPL-84 had already established in
+  this same phase that a manifest is *not* assumed benign — the whole `ccf.` namespace is
+  reserved precisely because a manifest can be authored to squat an SDK class id — and a
+  document trusted that little does not also get to name `/`-rooted paths. The check is
+  syntactic and therefore belongs at the boundary (CLAUDE.md §11: validation is at the
+  boundary, never deferred); it is deliberately not the whole answer, because a plain
+  name can still be a symlink out, which is what the `load_and_boot` entry below covers
+- Migration: **a manifest naming a path outside its own directory now fails to parse**,
+  with an `ArtifactLoadError` naming the offending path. No manifest in this repository
+  was affected — every entry across the eleven example manifests and the deployment
+  fixtures is already a plain relative name, and subdirectory-relative paths such as
+  `agents/agent-definition.yaml` are unaffected because the rule is *inside the
+  manifest's directory*, not *flat*. An adopter whose manifest reached outside must move
+  or copy the document into the deployment, where it is versioned with the rest of the
+  artifact set
+
+*Recorded by `15.1-11-manifest-path-containment.md`.*
+
+#### ccf.deployment.ManifestEntry
+
+- Surface: ccf.deployment.ManifestEntry
+- Public surface: true
+- Change type: behavior
+- Before: the `ccf.deployment` re-export of the contract above, with the same
+  glob-only validation
+- After: the same re-export, carrying the added containment refusal
+- Why: the package re-export is a distinct fully-qualified name and the phase-close
+  cross-check matches at that granularity, so the behavior change is recorded against
+  both paths an adopter can import. There is no separate mechanism here — it is the same
+  class object
+- Migration: identical to `ccf.controlplane.artifacts.ManifestEntry` above; the import
+  path an adopter used does not change what is refused
+
+*Recorded by `15.1-11-manifest-path-containment.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: `document = (root / entry.path).read_text(...)`, with nothing between the
+  manifest's declaration and the open. Any YAML-parseable file on the host landed on
+  `BootedFabric.artifacts`, and on `role: register` was content-hashed into Control Plane
+  state and therefore into Decision Replay dimension 2; on a non-parseable file the
+  `ArtifactLoadError` carried the file's contents back to the caller
+- After: each entry's document is resolved against the manifest's own directory in
+  **preflight** — before any document is opened and before anything is registered — and
+  an entry resolving outside it raises `ValueError` naming the key, the declared path and
+  the resolved path. `resolve()` follows symlinks, so a plain name that links out is
+  refused; a link resolving back inside is admitted. The refusal names the resolved path
+  so an operator can locate it and never the file's contents, which is the disclosure the
+  check exists to stop
+- Why: CR-01, and the reason this half exists separately from the contract half is
+  measured rather than assumed — with only the contract validator in place, a symlinked
+  plain name still booted and returned a file from outside the deployment
+  (`tests/deployment/test_manifest.py::test_a_symlink_out_of_the_deployment_is_refused_at_the_read`).
+  The preflight placement follows the ordering `_preflight_backend` already establishes
+  in this function: a manifest whose seventh entry escapes must not have read its first
+  six, and must certainly not have registered them
+- Migration: **a manifest whose entry resolves outside its own directory now raises
+  `ValueError` instead of booting.** Nothing else changes: the signature, the return
+  type, the pin set and its content hash are all untouched, and every manifest already
+  naming files beside itself behaves identically. A deployment relying on a symlink out
+  of its own tree replaces the link with the document
+
+*Recorded by `15.1-11-manifest-path-containment.md`.*
+
+#### ccf.deployment.load_and_boot
+
+- Surface: ccf.deployment.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: the `ccf.deployment` re-export of the function above, with no containment check
+- After: the same re-export, carrying the preflight containment refusal
+- Why: the package re-export is a distinct fully-qualified name and is the import path
+  the examples and the deployment tests actually use (`from ccf.deployment import
+  load_and_boot`), so it is the one most adopters will read. Recorded against both for
+  the same name-granularity reason as `ManifestEntry` above
+- Migration: identical to `ccf.deployment.manifest.load_and_boot` above
+
+*Recorded by `15.1-11-manifest-path-containment.md`.*
 
 ### Not public Python API
 
