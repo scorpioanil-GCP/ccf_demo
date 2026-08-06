@@ -261,7 +261,9 @@ CASES: tuple[_Case, ...] = (
         # No DSN key and no database-path key, and the omission is the point
         # (D-08): the manifest declares the backend *kind* only, so a connection
         # string never lands in a versioned, content-hashed artifact. `role` is
-        # stated on every entry because D-IMPL-80 gives it no default.
+        # stated on every entry because D-IMPL-80 gives it no default, and
+        # `registration` is stated on every entry because D-IMPL-85 gives that
+        # one no default either.
         document={
             "semver": _SEMVER,
             "backend": "sqlite",
@@ -273,18 +275,21 @@ CASES: tuple[_Case, ...] = (
                     "key": "fixture-resolution-spec",
                     "class_id": "ccf.resolution-spec",
                     "role": "register",
+                    "registration": "typed",
                 },
                 {
                     "path": "policy-bundle.yaml",
                     "key": "fixture-policy-bundle",
                     "class_id": "fixture.policy-bundle",
                     "role": "register",
+                    "registration": "typed",
                 },
                 {
                     "path": "events.yaml",
                     "key": "fixture-signal-batch",
                     "class_id": "ccf.signal-batch",
                     "role": "load",
+                    "registration": "typed",
                 },
             ],
         },

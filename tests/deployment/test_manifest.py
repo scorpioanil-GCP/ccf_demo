@@ -206,7 +206,7 @@ def test_the_backend_preflight_runs_before_anything_is_registered(
     with pytest.raises(ValueError):
         load_and_boot(path, registry=registry)
 
-    for key, _filename, _class_id, _role, _document in ARTIFACT_SET:
+    for key, _filename, _class_id, _role, _registration, _document in ARTIFACT_SET:
         assert registry.versions(key) == ()
     assert registry.audit_events() == ()
 
@@ -333,7 +333,7 @@ def test_resolved_pins_has_exactly_one_public_method() -> None:
     )
 
 
-# --- (8) role is required -----------------------------------------------------
+# --- (8) role and registration are required -----------------------------------
 
 
 def test_a_manifest_entry_naming_no_role_is_refused(
@@ -354,6 +354,30 @@ def test_a_manifest_entry_naming_no_role_is_refused(
     with pytest.raises(ArtifactLoadError) as raised:
         _boot(deployment, tmp_path, manifest=path)
     assert "role" in str(raised.value)
+
+
+def test_a_manifest_entry_naming_no_registration_is_refused(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """D-IMPL-85. Either default would have the SDK choosing the governance path
+    by silence — inheriting or losing the D-05 bump check with no document
+    saying so.
+
+    Modelled line for line on
+    :func:`test_a_manifest_entry_naming_no_role_is_refused` above, which is the
+    precedent this copies: the requiredness of a no-default field is a standing
+    guarantee, so something in the suite has to fail if a later plan adds a
+    default "to make the migration easier".
+    """
+    body = manifest_document()
+    entry = dict(body["artifacts"][0])
+    del entry["registration"]
+    body["artifacts"][0] = entry
+    path = deployment.variant_manifest("registrationless.yaml", body)
+
+    with pytest.raises(ArtifactLoadError) as raised:
+        _boot(deployment, tmp_path, manifest=path)
+    assert "registration" in str(raised.value)
 
 
 def test_the_sdk_refuses_a_register_role_on_the_signal_batch(
@@ -503,14 +527,16 @@ def test_a_malformed_document_at_the_fourth_entry_registers_nothing(
     versions and the audit log shows both attempts; a Control Plane that
     silently un-registers is worse than one that records a retry.
     """
-    fourth_key, fourth_file, _class_id, _role, _document = ARTIFACT_SET[FOURTH]
+    fourth_key, fourth_file, _class_id, _role, _registration, _document = ARTIFACT_SET[
+        FOURTH
+    ]
     write_artifact(deployment.root, fourth_file, {"semver": "1.0.0"})
     registry = ControlPlaneRegistry()
 
     with pytest.raises(ArtifactLoadError):
         _boot(deployment, tmp_path, registry=registry)
 
-    for key, _f, _c, _r, _d in ARTIFACT_SET[:FOURTH]:
+    for key, _f, _c, _r, _g, _d in ARTIFACT_SET[:FOURTH]:
         assert registry.versions(key) == ()
     assert registry.versions(fourth_key) == ()
     assert registry.audit_events() == ()
@@ -527,10 +553,12 @@ def test_the_pin_set_covers_every_register_role_entry_and_no_other(
     try:
         pinned = {pin.key for pin in booted.pins.entries}
         expected = {
-            key for key, _f, _c, role, _d in ARTIFACT_SET if role == "register"
+            key for key, _f, _c, role, _g, _d in ARTIFACT_SET if role == "register"
         }
         assert pinned == expected
-        assert set(booted.artifacts) == {key for key, _f, _c, _r, _d in ARTIFACT_SET}
+        assert set(booted.artifacts) == {
+            key for key, _f, _c, _r, _g, _d in ARTIFACT_SET
+        }
         assert booted.pins.version_for(RESOLUTION_SPEC_KEY)
         assert booted.pins.version_for(POLICY_BUNDLE_KEY)
     finally:

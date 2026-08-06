@@ -53,8 +53,9 @@
 # In this file: `tenant_id`, every `key`, every `path`, and the
 # non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
 # `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
-# `artifacts`, `path`, `key`, `class_id` and `role`, the `ccf.`-prefixed class
-# ids, and the `role` values are [MECHANISM].
+# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
+# `ccf.`-prefixed class ids, and the `role` and `registration` values are
+# [MECHANISM].
 
 semver: "1.0.0"
 
@@ -71,11 +72,13 @@ artifacts:
     key: resolution-spec
     class_id: ccf.resolution-spec
     role: register
+    registration: typed
 
   - path: policy-bundle.yaml
     key: policy-bundle
     class_id: sterling-mutual.policy-bundle
     role: register
+    registration: typed
 
   # The agent's axis-4 and axis-5 declarations, under the keys its versioned-URI
   # refs resolve against. `register`, because a policy regime and a debt profile
@@ -84,17 +87,20 @@ artifacts:
     key: sterling-mutual/policy-bundle/lending-operations
     class_id: policy-bundle
     role: register
+    registration: typed
 
   - path: agent-debt-profile.yaml
     key: sterling-mutual/debt-profile/disbursement-review
     class_id: debt-profile
     role: register
+    registration: typed
 
   # What the task's first step may invoke.
   - path: task-skill.yaml
     key: sterling-mutual/skill/verify-loan-file
     class_id: skill
     role: register
+    registration: typed
 
   # Where a failing node escalates, and who may approve at the gate. Both are
   # standing statements of what the fabric may do, and the keys are what the
@@ -103,11 +109,13 @@ artifacts:
     key: sterling-mutual/exception-handler/loan-file-fetch-failed
     class_id: exception-handler
     role: register
+    registration: typed
 
   - path: approval-policy.yaml
     key: sterling-mutual/approval-policy/disbursement-officer
     class_id: approval-policy
     role: register
+    registration: typed
 
   # --- role: load — parsed and validated through the same seam as everything
   #     above, then handed back on `BootedFabric.artifacts`. Never registered,
@@ -119,6 +127,7 @@ artifacts:
     key: events
     class_id: ccf.signal-batch
     role: load
+    registration: typed
 
   # Where the six driver-registered documents file in the Control Plane, plus the
   # approver signing key's name. Wiring the driver reads; the artifacts
@@ -127,6 +136,7 @@ artifacts:
     key: agent-registration
     class_id: sterling-mutual.agent-registration
     role: load
+    registration: typed
 
   # What this run's human actors do. The POLICY governing them is registered
   # (`hitl-policy.yaml`, `approval-policy.yaml`); one run's actions are not.
@@ -134,6 +144,7 @@ artifacts:
     key: hitl-drive
     class_id: sterling-mutual.hitl-drive
     role: load
+    registration: typed
 
   # What this run's replay record is shaped from. An envelope for one record is
   # not a statement of what was permitted.
@@ -141,6 +152,7 @@ artifacts:
     key: replay-values
     class_id: sterling-mutual.replay-values
     role: load
+    registration: typed
 
   # Synthetic credential material. `load`, and never otherwise: registering it
   # would content-hash tokens into the audit plane.
@@ -148,3 +160,4 @@ artifacts:
     key: tokens
     class_id: sterling-mutual.token-table
     role: load
+    registration: typed

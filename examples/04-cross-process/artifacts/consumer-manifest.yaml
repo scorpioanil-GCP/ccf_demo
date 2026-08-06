@@ -21,8 +21,9 @@
 # In this file: `tenant_id`, every `key`, every `path`, and the
 # non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
 # `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
-# `artifacts`, `path`, `key`, `class_id` and `role`, the `ccf.`-prefixed class
-# ids, and the `role` values are [MECHANISM].
+# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
+# `ccf.`-prefixed class ids, and the `role` and `registration` values are
+# [MECHANISM].
 
 semver: "1.0.0"
 
@@ -39,21 +40,25 @@ artifacts:
     key: resolution-spec
     class_id: ccf.resolution-spec
     role: register
+    registration: typed
 
   - path: consumer-policy-bundle.yaml
     key: policy-bundle
     class_id: harborline-syndications.policy-bundle
     role: register
+    registration: typed
 
   - path: consumer-product-class.yaml
     key: product-class
     class_id: ccf.product-class
     role: register
+    registration: typed
 
   - path: consumer-product-governance.yaml
     key: product-governance
     class_id: harborline-syndications.product-governance
     role: register
+    registration: typed
 
   # Who this fabric admits from, and what shape of peer claim it turns into
   # signal. Both are standing statements of what it was permitted to do.
@@ -61,11 +66,13 @@ artifacts:
     key: peering-trust
     class_id: harborline-syndications.peering-trust
     role: register
+    registration: typed
 
   - path: federation-ingest.yaml
     key: federation-ingest
     class_id: harborline-syndications.federation-ingest
     role: register
+    registration: typed
 
   # --- role: load — parsed and validated through the same seam as everything
   #     above, then handed back on `BootedFabric.artifacts`. Never registered,
@@ -76,6 +83,7 @@ artifacts:
     key: decision
     class_id: harborline-syndications.decision-inputs
     role: load
+    registration: typed
 
   # The consumer's own lineage at admission — a statement about its state at one
   # instant, not about what it may do.
@@ -83,3 +91,4 @@ artifacts:
     key: consumer-lineage
     class_id: harborline-syndications.consumer-lineage
     role: load
+    registration: typed

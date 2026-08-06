@@ -43,8 +43,9 @@
 # In this file: `tenant_id`, every `key`, every `path`, and the
 # non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
 # `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
-# `artifacts`, `path`, `key`, `class_id` and `role`, the `ccf.`-prefixed class
-# ids, and the `role` values are [MECHANISM].
+# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
+# `ccf.`-prefixed class ids, and the `role` and `registration` values are
+# [MECHANISM].
 
 semver: "1.0.0"
 
@@ -61,56 +62,67 @@ artifacts:
     key: resolution-spec
     class_id: ccf.resolution-spec
     role: register
+    registration: typed
 
   - path: policy-bundle.yaml
     key: policy-bundle
     class_id: meridian-bank.policy-bundle
     role: register
+    registration: typed
 
   - path: half-life-table.yaml
     key: half-life-table
     class_id: ccf.half-life-table
     role: register
+    registration: typed
 
   - path: debt-profile.yaml
     key: debt-profile
     class_id: ccf.debt-profile
     role: register
+    registration: typed
 
   - path: operator-parameters-traversal.yaml
     key: traversal
     class_id: ccf.operator-parameters.traversal
     role: register
+    registration: typed
 
   - path: operator-parameters-temporal.yaml
     key: temporal
     class_id: ccf.operator-parameters.temporal
     role: register
+    registration: typed
 
   - path: operator-parameters-policy.yaml
     key: policy
     class_id: ccf.operator-parameters.policy
     role: register
+    registration: typed
 
   - path: operator-parameters-similarity.yaml
     key: similarity
     class_id: ccf.operator-parameters.similarity
     role: register
+    registration: typed
 
   - path: perspective.yaml
     key: perspective
     class_id: ccf.perspective
     role: register
+    registration: typed
 
   - path: product-class.yaml
     key: product-class
     class_id: ccf.product-class
     role: register
+    registration: typed
 
   - path: product-governance.yaml
     key: product-governance
     class_id: meridian-bank.product-governance
     role: register
+    registration: typed
 
   # The L1 mapping. `register` because re-authoring it changes what the fabric
   # admits into the graph — a standing statement of what the fabric was
@@ -120,6 +132,7 @@ artifacts:
     key: ingest-spec
     class_id: meridian-bank.ingest-spec
     role: register
+    registration: typed
 
   # The agent's axis-4 and axis-5 declarations, under the keys its
   # versioned-URI refs resolve against. `register`, because a policy regime and
@@ -128,11 +141,13 @@ artifacts:
     key: meridian-bank/policy-bundle/financial-crime-regime
     class_id: policy-bundle
     role: register
+    registration: typed
 
   - path: agent-debt-profile.yaml
     key: meridian-bank/debt-profile/ring-investigation
     class_id: debt-profile
     role: register
+    registration: typed
 
   # --- role: load — parsed and validated through the same seam as everything
   #     above, then handed back on `BootedFabric.artifacts`. Never registered,
@@ -145,6 +160,7 @@ artifacts:
     key: decision
     class_id: meridian-bank.decision-inputs
     role: load
+    registration: typed
 
   # What the deployment expects both passes to produce. An expectation is not a
   # permission, so it is parsed and returned, never put in force.
@@ -152,6 +168,7 @@ artifacts:
     key: expected
     class_id: meridian-bank.expected-outcomes
     role: load
+    registration: typed
 
   # Where the three author-versioned documents file in the Control Plane.
   # Wiring the driver reads; the artifacts themselves are registered by
@@ -160,6 +177,7 @@ artifacts:
     key: agent-registration
     class_id: meridian-bank.agent-registration
     role: load
+    registration: typed
 
   # The grant request and the dispatch. `load`: the ledger audits the grant
   # independently when it admits it, so registering the request would record the
@@ -168,9 +186,11 @@ artifacts:
     key: skill-dispatch
     class_id: meridian-bank.skill-dispatch
     role: load
+    registration: typed
 
   # `--live` provider configuration. Never consulted on the deterministic path.
   - path: live-narration.yaml
     key: live-narration
     class_id: meridian-bank.live-narration
     role: load
+    registration: typed

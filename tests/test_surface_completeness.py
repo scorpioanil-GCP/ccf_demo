@@ -196,6 +196,21 @@ def test_every_public_log_entry_has_a_matching_diff_line() -> None:
     that class exists precisely because a signature diff cannot see D-02's
     change. Any other public entry with no diff line is a defect, not a
     tolerance.
+
+    **One direction pair is reconciled rather than failed: `reshaped` claimed
+    for a name the frozen baseline shows as `added`.** The baseline is frozen at
+    *Phase 15 start* and never rewritten, so a name Phase 15 introduced can only
+    ever appear in the ``added`` partition of this diff — including after a later
+    cycle reshapes it. Phase 15.1 is that later cycle, and under the unreconciled
+    rule its fragments could not classify a field addition to a Phase-15 class
+    honestly: ``reshaped`` is unrepresentable and ``added`` would require a
+    ``Before: absent`` the plan did not cause. The reconciliation is narrow and
+    it weakens nothing, because assertion 2 above still holds the other
+    direction: every ``added`` name must still be claimed by *some* public entry
+    carrying ``added``, so a plan that genuinely adds a name and claims only
+    ``reshaped`` still fails, there. What is admitted here is only the case where
+    the name **is** in the diff and the direction is pinned by an immutable
+    before-side older than the name itself.
     """
     difference = _diff()
     failures: list[str] = []
@@ -206,6 +221,8 @@ def test_every_public_log_entry_has_a_matching_diff_line() -> None:
         if change_type in _DIFF_EXEMPT_CHANGE_TYPES:
             continue
         name = str(entry["Surface"])
+        if change_type == "reshaped" and name in difference["added"]:
+            continue
         if name not in difference[change_type]:
             elsewhere = [
                 other

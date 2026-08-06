@@ -334,7 +334,8 @@ def test_the_manifest_cross_check_reads_the_documents_own_class_id(
         "  - path: declared.yaml\n"
         "    key: declared\n"
         "    class_id: acme.something-else\n"
-        "    role: register\n",
+        "    role: register\n"
+        "    registration: typed\n",
         encoding="utf-8",
     )
     problems = check_directory(tmp_path)
