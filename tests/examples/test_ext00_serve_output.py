@@ -242,16 +242,32 @@ def test_the_replay_record_names_the_decision_it_recorded(
 def test_the_lineage_declares_exactly_the_operators_the_class_requires(
     assembled: Any,
 ) -> None:
-    """Propagation check, and narrower than it looks — say so rather than
-    imply independence this does not have.
+    """A TRANSCRIPTION check since Phase 15.1 — say what it is rather than
+    imply independence it does not have.
 
-    ``operators_invoked`` is what the engine observed itself running, planned
-    from ``plan.required_operators()``, which ``serve.py`` reads off
-    ``product-class.yaml``. Both ends therefore move together when that
-    artifact is edited, and this assertion cannot catch such an edit. What it
-    DOES catch is the regression it exists for: a plan whose ``required``
-    goes back to being the operator registry's own keys while the artifact
-    declares a different set — the Gate 2 tautology this rewrite removed.
+    Under design E2 (``docs/DECISIONS.md`` D-IMPL-86 and its correction of
+    2026-08-05) the product's ``lineage.operators_invoked`` is filled from
+    ``product-class.yaml``'s ``required_operator_keys`` — the Control Plane
+    CLAIM — and never from ``execution``. So both sides of this assertion now
+    trace to that one artifact, and what it verifies is that ``serve.py``
+    carried the claim into the Contract without altering it. That is narrow, and
+    it is deliberately not dressed up as more.
+
+    **Where the independence actually lives, and it is not here.** The plan's
+    operator set comes from a SECOND authored document,
+    ``projection-requirements.yaml``, and ``refuse_operator_set_divergence``
+    holds the two to each other between plan construction and
+    ``ProjectionEngine.execute``. The ``assembled`` fixture existing at all is
+    the evidence that binder admitted — edit either artifact alone and
+    ``serve.py`` refuses to compose, so this module never reaches its
+    assertions. Downstream, Gate 2 compares the transcribed claim against the
+    engine's report of executing the plan, which is ASSEMBLY-PATH INTEGRITY: the
+    engine is a faithful transcriber of the plan rather than an independent
+    witness of it.
+
+    The residual is unchanged in kind: a deployment that transcribed one of the
+    two artifacts out of the other would collapse the binder, and neither this
+    assertion nor Gate 2 would see it.
     """
     declared = assembled.artifacts["product-class"]
     assert isinstance(declared, ProductClassDeclaration)

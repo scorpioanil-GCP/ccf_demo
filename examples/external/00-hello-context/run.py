@@ -88,6 +88,7 @@ from ccf.controlplane.artifacts import (  # noqa: E402
     DeclaredArtifact,
     OperatorParametersArtifact,
     ProductClassDeclaration,
+    ProjectionRequirements,
     SignalBatch,
 )
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
@@ -95,6 +96,7 @@ from ccf.deployment import (  # noqa: E402
     BootedFabric,
     build_operator_registry,
     load_and_boot,
+    refuse_operator_set_divergence,
 )
 from ccf.products.contract import (  # noqa: E402
     ContextProductContract,
@@ -161,18 +163,25 @@ class HelloReplayEnvironment:
         self._declared = cast(
             ProductClassDeclaration, booted.artifacts["product-class"]
         )
+        self._requirements = cast(
+            ProjectionRequirements, booted.artifacts["projection-requirements"]
+        )
 
     def resolve_plan(self, *, plan_id: str) -> Any:
         if plan_id != self._governance["plan_id"]:
             raise LookupError(plan_id)
-        # `required` comes from the product-class artifact, never from the
-        # rebuilt registry's own keys: the replica must reproduce the
-        # DECLARED side of Gate 2 as it was authored, and reading it off the
-        # registry would make the replayed gate compare a value against
-        # itself exactly as the original would have.
-        return fabric.CreditContextPlan(
-            plan_id=plan_id, required=self._declared.required_operator_keys
+        # `required` comes from the PROJECTION's own artifact, never from the
+        # rebuilt registry's own keys and never from the product class, which
+        # under design E2 is the CLAIM rather than the plan's input. The binder
+        # runs here too: a reproduction that planned from a requirements
+        # document the product class contradicts would rebuild a product the
+        # original deployment's governance disowns, and this is the last point
+        # before the engine at which that is still catchable.
+        plan = fabric.CreditContextPlan(
+            plan_id=plan_id, required=self._requirements.required_operator_keys
         )
+        refuse_operator_set_divergence(declared=self._declared, plan=plan)
+        return plan
 
     def resolve_operators(
         self, *, operator_keys: tuple[str, ...]
