@@ -271,15 +271,88 @@ this phase asked Dave to accept.
   `docs/SURFACE-AUDIT.md` §6.4 item 4, and here. Phase 16 must describe the
   binder without claiming it makes dual authorship structural.
 
-## The superseded D-IMPL-85 / D-IMPL-84 claims survive in examples 01–04
+## The superseded D-IMPL-85 / D-IMPL-84 claims survive in examples 01–04, `tests/` and `tools/`
 
 - **Source review documents:** `15.1-REVIEW-FIXES.md` **WR-F6** (the finding that
   opened it), `15.1-REVIEW-FIXES-2.md` **WR-03** (the enumeration offered in place
   of finishing the sweep was itself a subset), `15.1-REVIEW-FIXES-3.md` **IN-02**
   (three precision points), and `15.1-REVIEW-FIXES-4.md`'s verification note
   confirming the corrected enumeration reads true against the files. **OPEN — the
-  sweep is still incomplete for `examples/01`–`04` and `docs/surface-changes/`,
-  and both the fifth review and the re-approval leave it open.**
+  sweep is still incomplete for `examples/01`–`04`, `docs/surface-changes/` and
+  `tools/`, and both the fifth review and the re-approval leave it open.**
+
+- **SCOPE CORRECTED — 2026-08-06, plan 15.1-19 (verification finding W-4).** The
+  scope sentence above previously named **two** trees, `examples/01`–`04` and
+  `docs/surface-changes/`. That was a subset — **the fourth under-count of this
+  same sweep in this phase, and the first located in the record of what
+  remains.** The claim also survived in **`tests/`** and in **`tools/`**, neither
+  of which any round swept: plan 15.1-15's scope was examples 05/06/08 plus two
+  example test modules, plan 15.1-16's was `tests/products/` plus this register,
+  and its re-run covered `examples/01..04` and `docs/`. So `tests/cli/`,
+  `tests/examples/` and all of `tools/` were never in any round's scope, and this
+  entry inherited that gap without saying so. Both trees are enumerated below by
+  **measurement** — the seven phrasings re-run over `tests/ tools/ src/ runtime/`
+  on 2026-08-06, every hit opened and read individually to separate the false
+  from the true.
+
+  **In `tests/` — two modules, five sites. ALL FIXED by plan 15.1-19; listed so
+  the record shows what was there, not as outstanding work:**
+  - `tests/examples/test_workflow_hitl_output.py`
+    `::test_the_author_versioned_definitions_kept_their_bump_check` — the
+    docstring's *"The reason is mechanical: the manifest path registers through
+    `register_typed`"* **and** the **failure message** *"folding it in silently
+    drops the D-05 bump check"*. The failure message is the same shape the
+    phase-close review reclassified advisory→**blocking** for
+    `test_required_operators_guard.py` (D-GATE-15.1, F-1/F-2/F-3): what an author
+    reads at the moment the assertion fires. Corrected to the true reason — the
+    four are outside the manifest by this example's **teaching choice**, which is
+    what `examples/05-workflow-hitl/artifacts/manifest.yaml` already says.
+    Assertion unchanged.
+  - `tests/cli/test_schema_export.py` — **three** sites, where the verification
+    report named one:
+    - `::test_a_schema_grants_no_manifest_addressability` docstring (the site
+      W-3 named)
+    - `::test_every_author_versioned_class_has_a_committed_schema` docstring —
+      *"a manifest must not carry them, because `load_and_boot` registers
+      through `register_typed`"* **(found by this plan's re-run; named by
+      neither the register nor the verification report)**
+    - the same docstring's *"no member is manifest-addressable"* — false as
+      written; the members **are** addressable, via
+      `SDK_VERSIONED_ARTIFACT_CLASSES`. The assertion is `not in
+      SDK_ARTIFACT_CLASSES`, i.e. not *typed*-registerable, which is a
+      different statement **(found by this plan's re-run)**
+
+  **In `tools/` — two modules, four sites. NOT FIXED; these are the live
+  remainder of this entry and they inherit to Phase 16.** Not fixed because
+  `tools/dump_schemas.py` and `tools/check_schema_headers.py` were last touched
+  in **Phase 15** (`5fbb8e0`), so they fall outside plan 15.1-19's scope, which
+  is files this phase touched. Verified by `git log` rather than assumed:
+  - `tools/dump_schemas.py:111` — `author_versioned_classes`'s summary line,
+    *"SDK-owned classes a manifest deliberately cannot address"*. False: a
+    manifest may name all six as `registration: versioned`.
+  - `tools/dump_schemas.py:118-121` — *"`register_typed`, which does **not** run
+    that check, so these classes are deliberately absent from
+    `SDK_ARTIFACT_CLASSES`: a manifest entry naming one would silently drop the
+    governance the class exists to carry."* This is the **canonical statement**
+    of the superseded claim in the tree — the docstring the two `tests/cli/`
+    sites were written against.
+  - `tools/check_schema_headers.py:64-67` — *"deliberately absent from
+    `SDK_ARTIFACT_CLASSES` because a manifest must not register them … the
+    `register_versioned` bump check that `load_and_boot` does not run"*. The
+    final clause is now flatly false: `load_and_boot` runs it on the
+    `registration: versioned` branch.
+  - `tools/check_schema_headers.py:197-198` — *"the author-versioned ones a
+    manifest deliberately cannot carry"*.
+
+  **Is this list now exhaustive? Not provably.** What can be said precisely: the
+  seven phrasings were re-run over `tests/ tools/ src/ runtime/` and every hit
+  was read. That is measurement over four trees with a fixed phrase list, and the
+  phrase list is exactly what has under-counted four times before — twice by
+  missing a second vocabulary, once by inverted word order. Two of the five
+  `tests/` sites above were found only because the *surrounding* docstring was
+  read rather than the matched line. A follow-up should read
+  `tools/dump_schemas.py`'s and `tools/check_schema_headers.py`'s module
+  docstrings **whole**, not grep them.
 - **Found during:** plan 15.1-15 (post-gate review WR-F6), while finishing the
   sweep 15.1-12 recorded as complete
 - **ENUMERATION CORRECTED — 2026-08-06, plan 15.1-16 (post-gate review WR-03).**
@@ -426,10 +499,13 @@ this phase asked Dave to accept.
   `tests/products/` plus this register. Editing examples 01–04 in either
   worktree risks colliding with concurrent work and exceeds what was asked.
 - **Where it belongs:** one follow-up that corrects examples 01–04 to the same
-  wording examples 05/06/08 now carry, and rules on the `docs/surface-changes/`
+  wording examples 05/06/08 now carry, **corrects the four `tools/` sites added
+  2026-08-06 by plan 15.1-19**, and rules on the `docs/surface-changes/`
   historical records. **The input is the seven phrasings** — the six in
   `15.1-15-SUMMARY.md` plus the seventh above — and the enumeration in this
-  entry. Note in particular that `examples/01-agent-basics/README.md` and
+  entry. Start with `tools/dump_schemas.py:118-121`: it is the canonical
+  statement of the claim, and the `tests/cli/` sites plan 15.1-19 corrected were
+  written against it, so any site still echoing it is echoing that docstring. Note in particular that `examples/01-agent-basics/README.md` and
   `examples/02-skilling`'s manifest spell it *"drop it silently"*, which a
   search for *"silently drop"* does not find, and that
   `examples/01-agent-basics/run.py:252` spells it *"drop that check silently"*,
@@ -665,3 +741,98 @@ this phase asked Dave to accept.
 - **Where it belongs:** Phase 16, or a small hardening plan of their own. IN-F1
   and IN-F4 are two-line changes plus docstrings; IN-F2 is a docstring clause
   unless Dave rules the hardlink case in scope.
+
+## Cross-file `file.py:NNN` citations go stale silently, and nothing in CI holds them (W-1 / W-5)
+
+- **Source review document:** `15.1-VERIFICATION.md` findings **W-1** and **W-5**,
+  plus two further sites this plan's own sweep found. **PARTIALLY OPEN — the
+  seven known instances are corrected; the class is untooled and recurs.**
+- **Found during:** phase verification (2026-08-06), then extended by plan
+  15.1-19's sweep of every `file:line` citation in the phase-touched trees
+- **What:** a docstring citing another file as `path/to/file.py:NNN` is a claim
+  with a short shelf life. Nothing — no lint, no test, no CI gate — holds such a
+  citation to pointing at what it names, so a plan that edits a cited file
+  silently falsifies every docstring citing it. **This phase moved cited lines
+  three times and swept the citers zero times.**
+- **The seven instances, all corrected by plan 15.1-19:**
+  - `src/ccf/deployment/binder.py` — *"the signature spans lines 181-188 in the
+    tree as it now stands"* for `load_and_boot`, which spans `manifest.py:248-255`;
+    181-188 is inside `_document_inside_the_deployment`. **The only one in shipped
+    `src/` phrased in the present tense** (W-1).
+  - `src/ccf/deployment/__init__.py` — cited
+    `src/ccf/controlplane/artifacts.py:47` for the `__ccf_mode__` tag, which is at
+    `:84`. **A second false citation in shipped `src/`; the verification report
+    states binder.py was the only one, and that was itself an under-count.**
+    (Found by plan 15.1-19.)
+  - `tests/products/test_gate_two_call_shape.py`, `tests/deployment/test_binder.py`,
+    `tests/deployment/test_class_lookup.py` — all three cited
+    `test_gate_independence.py:184-187` (the `_candidate` helper's signature) for a
+    discipline sentence at `:213-215` (W-5).
+  - `tests/examples/test_gate_two_divergence.py` — cited
+    `test_gate_independence.py:179` (an `assembly_mode=` keyword argument) for a
+    perturbation at `:208-232` (W-5).
+  - `tests/products/test_gate_two_call_shape.py` — cited
+    `test_required_operators_guard.py:260-262` (about which *spellings* are
+    exercised) for the probe-assembly discipline at `:264-267`. (Found by plan
+    15.1-19; not in W-5.)
+- **A citation was falsified by the act of fixing another one.** Plan 15.1-19's
+  two-line docstring addition to `binder.py` moved the binder's comparison from
+  `:156-159` to `:158-161`, staling three live citations inside
+  `test_gate_two_call_shape.py` in the same commit that fixed five others. This is
+  the strongest available argument that the class is structural rather than a
+  lapse of care: the defect reproduced under an author actively looking for it.
+- **Mitigation applied, short of tooling:** every corrected citation now names a
+  **symbol or a pytest node id** (`module.py::test_name`,
+  ``refuse_operator_set_divergence``'s comparison) instead of a line number. This
+  is not a new convention — `tests/products/test_required_operators_guard.py:147`
+  already cited a sibling test by name. Symbol citations break loudly under rename
+  (grep finds zero hits) rather than silently under insertion.
+- **What is still open:** whether a citation-checking tripwire is worth building.
+  It is mechanically feasible for the `module.py::test_name` form (resolve the node
+  id, assert it exists) and *not* feasible for prose line ranges, which is a further
+  argument for the symbol form. **Dave's scope call, deferred to Phase 16**, and
+  the verification report puts it as human-verification item 3.
+- **Where it belongs:** Phase 16. If tooling is declined, the standing rule should
+  be: a plan that edits a file must grep the tree for citations *of* that file
+  before it commits.
+
+## All 172 `registration:` values in the tree are `typed`; the `versioned` branch ships undemonstrated (I-1)
+
+- **Source review document:** `15.1-VERIFICATION.md` finding **I-1** (info).
+  **OPEN as a demonstrability gap — explicitly NOT a criterion failure.**
+- **Found during:** phase verification (2026-08-06)
+- **What:** every one of the 172 `registration:` values across every manifest in
+  the tree is `typed`. **Zero declare `versioned`**, so `load_and_boot`'s versioned
+  branch is exercised only by
+  `tests/deployment/test_manifest.py::test_the_versioned_dispatch_runs_the_bump_check`
+  and by no shipped example. Examples 05, 06 and 08 still register their
+  author-versioned documents through hand-written `registry.register_versioned`
+  calls — the two-mental-models split the converged CR-1 fix was framed as removing
+  ("Everything stays in the manifest; one mental model").
+- **Ruled on 2026-08-06 by plan 15.1-19, deliberately and with the reasoning
+  recorded, because the verification report asked for an explicit decision:**
+  **the examples are left exactly as they are.** Three reasons, in order of weight:
+  1. **ROADMAP criterion 2 does not require it.** The criterion is that the mode is
+     declared per entry and dispatched by `load_and_boot` — verified, and proven by
+     a test that asserts the refusal fires rather than that examples avoid the
+     pattern. An example adopting the path would be additional evidence for an
+     already-verified criterion, not the closing of a gap in it.
+  2. **Changing example behavior is new scope on an approved phase.** The gate is
+     re-approved; moving four documents out of `run.py` and into
+     `05/artifacts/manifest.yaml` is a behavior change to a shipped example, made
+     after approval, to improve a demonstration rather than to fix a defect.
+  3. **Example 05's own teaching choice argues against it, on the merits.** Its
+     manifest states the reason: keeping the four `register_versioned` calls
+     visible in `run.py` **is** the lesson, because the D-05 four-outcome table is
+     what that example teaches and a manifest line hides it. The example that would
+     most naturally demonstrate the declared path is the one with the strongest
+     reason not to.
+- **What was corrected instead:** the *rationale* in
+  `tests/examples/test_workflow_hitl_output.py`, which asserted the four are
+  outside the manifest by **necessity** ("the manifest path registers through
+  `register_typed`"). That was false, and it made the residual look closed when it
+  is a choice. It now says the reason is pedagogical and that the manifest path is
+  available — so the residual is visible where a reader meets it.
+- **Where it belongs:** Phase 16, as a demonstrability question, not a defect. The
+  cheapest honest close is a **new** small example, or one manifest entry in an
+  example with no competing teaching obligation — **not** an edit to 05.

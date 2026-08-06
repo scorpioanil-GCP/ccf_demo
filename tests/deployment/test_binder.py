@@ -9,11 +9,11 @@ Constructing the models directly would prove the comparison works on two objects
 and say nothing about whether an author could ever make them disagree.
 
 **The first two cases are a mandatory pair**, in the shape
-``tests/products/test_gate_independence.py:184-187`` established: "a gate that
-always refuses passes the first, a gate that always admits passes the second,
-and only the pair says the comparison is live." A binder that always refused
-would pass case 2 and fail case 1; a binder that always admitted would do the
-reverse. Neither half is redundant.
+``tests/products/test_gate_independence.py::test_perturbing_engine_resolved_is_refused_and_the_declared_set_is_not``
+established: "a gate that always refuses passes the first, a gate that always
+admits passes the second, and only the pair says the comparison is live." A
+binder that always refused would pass case 2 and fail case 1; a binder that
+always admitted would do the reverse. Neither half is redundant.
 
 Every value below is fixture vocabulary — test-side names, never SDK values
 (CINV-01).

@@ -786,7 +786,8 @@ def test_the_pin_set_covers_every_register_role_entry_and_no_other(
 # change reverted and to pass with it — the confirmation is recorded in
 # `.planning/phases/15.1-ergonomics-gap-closure/15.1-03-SUMMARY.md`, because a
 # refusal nobody has watched fire is a refusal that might be matching nothing
-# (the discipline `tests/products/test_required_operators_guard.py:250-300`
+# (the discipline
+# `tests/products/test_required_operators_guard.py::test_the_guard_detects_the_shortcut_it_exists_to_refuse`
 # states).
 
 

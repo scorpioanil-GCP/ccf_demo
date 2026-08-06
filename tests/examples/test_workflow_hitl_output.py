@@ -740,20 +740,44 @@ def test_the_author_versioned_definitions_kept_their_bump_check(
 ) -> None:
     """The plan 15-19 ruling, made testable rather than only documented.
 
-    `_register_closure` was absorbed into the manifest for the five documents
-    that *could* travel that way, and deliberately not for the four
-    author-versioned definition classes. The reason is mechanical: the manifest
-    path registers through ``register_typed``, which does not run the D-05 bump
-    check that holds an author's ``artifact_version`` against content identity.
+    `_register_closure` was absorbed into the manifest for five documents and
+    deliberately not for the four author-versioned definition classes. The
+    reason is **pedagogical, not mechanical**, and the difference is load-bearing
+    here: a manifest *can* name all four, as ``registration: versioned``, and
+    :func:`~ccf.deployment.manifest.load_and_boot` then registers them through
+    ``register_versioned`` with its D-05 bump check (D-IMPL-85). This example
+    keeps them in ``run.py`` so the four ``register_versioned`` calls stay
+    visible as the thing being taught — the same reason
+    ``artifacts/manifest.yaml`` states for the same choice.
+
+    **This paragraph used to say the reason was mechanical** — that the manifest
+    path "registers through ``register_typed``, which does not run the D-05 bump
+    check". That was true when it was written and plans 15.1-02/15.1-03 made it
+    false: the manifest path now dispatches on ``entry.registration``, and
+    :func:`~ccf.deployment.classes.refuse_registration_the_sdk_fixes` refuses
+    ``registration: typed`` for every member of
+    :data:`~ccf.deployment.classes.SDK_VERSIONED_ARTIFACT_CLASSES` at preflight,
+    before any document is read. Folding one of these into the manifest can no
+    longer silently drop the bump check — it is either checked or refused loudly.
 
     The four are ``ccf.prompt-artifact``, ``ccf.agent-definition``,
     ``ccf.task-definition`` and ``ccf.workflow-definition`` — every member of
     :data:`~ccf.deployment.classes.SDK_VERSIONED_ARTIFACT_CLASSES` this example
     registers. So the check is: those four keys appear in the audit log under
-    ``register_versioned`` and NOT under ``register_typed``. A future edit that
-    "tidied" them into the manifest would flip the action recorded here, and
-    this fails — which is the whole point of writing the ruling down as a test
-    instead of as a comment.
+    ``register_versioned`` and NOT under ``register_typed``, and none of them
+    appears in the manifest's pin set. What each half catches is now different,
+    and is stated separately because the mechanism moved underneath them:
+
+    * the **audit-log halves** catch the bump check being lost at the *registry*
+      seam — a ``run.py`` edit swapping one of the four to ``register_typed``.
+      No manifest preflight sees that call, so this is the half that still
+      guards D-05 directly.
+    * the **pin-set half** catches this example changing shape — the four moving
+      into ``artifacts/manifest.yaml``. Since 15.1-02/15.1-03 that move is a
+      governed path, not a silent one, so this assertion is **not** protecting
+      the bump check. It holds the example to the teaching choice its own
+      manifest records, and whoever makes that move should update this test and
+      that comment together rather than discover it here.
 
     **This assertion used to name three.** ``prompt_artifact_key`` was absent
     from the set while the docstring above said four, and ``run.py`` registered
@@ -788,8 +812,16 @@ def test_the_author_versioned_definitions_kept_their_bump_check(
     assert "resolution-spec" in typed
     manifest_keys = {entry.key for entry in result.booted.pins.entries}
     assert not (author_versioned & manifest_keys), (
-        "an author-versioned definition appeared in the manifest's pin set;"
-        " folding it in silently drops the D-05 bump check"
+        "an author-versioned definition appeared in the manifest's pin set."
+        " This does NOT mean the D-05 bump check was dropped: a manifest entry"
+        " declaring `registration: versioned` runs it, and `registration: typed`"
+        " for these classes is refused at preflight before any document is read"
+        " (D-IMPL-85). What it means is that example 05 changed shape — it keeps"
+        " these four in `run.py` so the four `register_versioned` calls stay"
+        " visible as the thing being taught, which is the reason"
+        " `examples/05-workflow-hitl/artifacts/manifest.yaml` gives for leaving"
+        " them out. If that move was deliberate, this test and that manifest"
+        " comment need correcting together; if it was not, revert it"
     )
 
 

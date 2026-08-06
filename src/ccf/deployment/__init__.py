@@ -49,8 +49,8 @@ about the filesystem. The invariant is Algorithmic ⇄ Semantic Alternation —
 LLMs never see raw signal (whitepaper §7.6.6) — and file I/O is orthogonal to
 it. Two precedents in the tree carry the tag while doing I/O:
 
-* ``src/ccf/boot.py:55`` carries the tag while opening SQLite files.
-* ``src/ccf/controlplane/artifacts.py:47`` carries the tag while importing
+* ``src/ccf/boot.py`` carries the tag while opening SQLite files.
+* ``src/ccf/controlplane/artifacts.py`` carries the tag while importing
   ``yaml`` to parse artifact documents.
 
 The abstraction line: D-15A and the ``run_gates`` worked example

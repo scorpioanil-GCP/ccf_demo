@@ -311,10 +311,11 @@ def test_refuse_registration_the_sdk_fixes_refuses_and_admits(
 ) -> None:
     """Both directions, and **neither half is optional**.
 
-    ``tests/products/test_gate_independence.py:184-187`` states the discipline
-    in these words: "a gate that always refuses passes the first, a gate that
-    always admits passes the second, and only the pair says the comparison is
-    live". The same applies exactly here. Two rows expect a refusal and two
+    ``tests/products/test_gate_independence.py::test_perturbing_engine_resolved_is_refused_and_the_declared_set_is_not``
+    states the discipline in these words: "a gate that always refuses passes the
+    first, a gate that always admits passes the second, and only the pair says
+    the comparison is live". The same applies exactly here. Two rows expect a
+    refusal and two
     expect admission; a function that raised unconditionally would pass the
     first two and a no-op would pass the last two, so **do not delete either
     half as redundant** — deleting either one leaves a check that cannot
