@@ -779,7 +779,7 @@ def test_the_ccf_namespace_reservation_is_wide_not_a_four_id_list(
     assert registry.audit_events() == ()
 
 
-def test_versioned_registration_dispatches_and_runs_the_bump_check(
+def test_the_versioned_dispatch_runs_the_bump_check(
     deployment: Deployment, tmp_path: pathlib.Path
 ) -> None:
     """The admit direction: a real author-versioned document, through the manifest.
@@ -823,7 +823,7 @@ def test_versioned_registration_dispatches_and_runs_the_bump_check(
         booted.handle.close()
 
 
-def test_a_bump_check_refusal_mid_load_is_loud_and_pins_nothing(
+def test_an_unbumped_change_refusal_mid_load_is_loud_and_pins_nothing(
     deployment: Deployment, tmp_path: pathlib.Path
 ) -> None:
     """A returned ``RegistrationRefusal`` must never become an ``ArtifactPin`` version.
