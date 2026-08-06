@@ -506,22 +506,40 @@ class ProductClassDeclaration(VersionedArtifact):
     remains a separately authored number. Gate 3 checks one against the other,
     which is only a check while the two come from independent places.
 
-    **Why the operator set is declared here.**
-    ``required_operator_keys`` is what a projection's
-    :meth:`~ccf.projection.plan.ProjectionPlan.required_operators` returns. It
-    lives on the product class rather than on a projection artifact because the
-    product class is already the artifact that declares what the product *is*,
-    and the operator set an interpretation requires is a property of the product,
-    not of the code computing it.
+    **Why the operator set is declared here.** It lives on the product class
+    because the product class is already the artifact that declares what the
+    product *is*, and the operator set an interpretation requires is a property
+    of the product, not of the code computing it.
 
-    The property this field exists to protect is that the projection's
-    **declaration** and the engine's **resolution** stay two independent
-    mechanisms. The lineage strict-equality gate (Gate 2, INV-CH7-47) compares
-    them; a projection that returns the operator registry's own keys makes that
-    comparison a value against itself, and the gate silently stops being a gate.
-    Giving the declaration an authored source is what makes the independence
-    real. Plan 15-21 adds a standing AST guard against the registry-reading
-    shortcut tree-wide.
+    **What this field is, under design E2.** It is the Control Plane **claim**
+    — the value a deployment transcribes into ``lineage.operators_invoked``,
+    and never into ``execution``. The operator set the *projection* reads is a
+    second, separately authored document, :class:`ProjectionRequirements`
+    (``ccf.projection-requirements``), and the two are held together by
+    :func:`ccf.deployment.binder.refuse_operator_set_divergence`, called
+    between plan construction and
+    :meth:`~ccf.projection.engine.ProjectionEngine.execute`. That binder is
+    where **authorable** drift fails: a one-key edit to either document
+    produces a refusal, and it refuses rather than repairs, because only the
+    author knows which of the two they meant. Gate 2 (lineage strict equality,
+    INV-CH7-47) sits downstream of both, and what it verifies is
+    **assembly-path integrity** — the claim as transcribed into the Contract
+    against the engine's execution of the plan — not whether the claim was
+    right in the first place.
+
+    This passage previously asserted that the projection's declaration and the
+    engine's resolution were mutually independent. They never were, under any
+    design considered: :meth:`~ccf.projection.engine.ProjectionEngine.execute`
+    builds ``operators_invoked`` and ``steps`` in one loop over the same
+    operator plan, so the engine is a faithful transcriber of the plan rather
+    than an independent witness of it. The ruling of record is
+    ``docs/DECISIONS.md`` **D-IMPL-86** (Dave, 2026-08-05) together with its
+    **correction of 2026-08-05** for where the binder call belongs; CLAUDE.md
+    §11 requires an SDK extension to cite this project's own decision record
+    rather than the whitepaper. The standing AST guard
+    (``tests/products/test_required_operators_guard.py``) still refuses a
+    projection that reads the operator registry's own keys — a tripwire over a
+    convention list of receivers, not a wall.
 
     ``min_length=1`` on the operator keys is the whitepaper's own posture, not an
     ergonomics choice: §7.6 specifies the empty-operator guard as the first of

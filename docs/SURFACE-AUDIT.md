@@ -204,7 +204,7 @@ saved" headline would conflate a helper that removed work with a file that
 moved lines, and D-12 names that conflation as the risk.
 
 `examples/external/00-hello-context/run.py` is why the rule is not pedantry: its
-raw line count **rose** 766 → 781 while its mechanical figure fell 36 → 0. What
+raw line count **rose** 766 → 790 while its mechanical figure fell 36 → 0. What
 disappeared there was a hand-built operator registry and a
 registration-prologue-plus-`boot`; what arrived was a nesting level and four
 typed reads. A combined figure would have reported that plan as a regression.
@@ -215,35 +215,50 @@ mechanical, 112 → 0 relocated).
 
 | File | mech before | mech after | reloc before | reloc after | raw before | raw after |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `examples/00-quickstart/run.py` | 143 | 13 | 40 | 0 | 451 | 350 |
-| `examples/01-agent-basics/run.py` | 159 | 14 | 85 | 0 | 619 | 481 |
-| `examples/02-skilling/run.py` | 118 | 13 | 68 | 0 | 571 | 544 |
+| `examples/00-quickstart/run.py` | 143 | 13 | 40 | 0 | 451 | 396 |
+| `examples/01-agent-basics/run.py` | 159 | 14 | 85 | 0 | 619 | 529 |
+| `examples/02-skilling/run.py` | 118 | 13 | 68 | 0 | 571 | 607 |
 | `examples/03-harness-portability/legs/__init__.py` | 0 | 0 | 0 | 0 | 1 | 1 |
 | `examples/03-harness-portability/legs/deterministic.py` | 0 | 0 | 11 | 11 | 507 | 527 |
 | `examples/03-harness-portability/legs/live.py` | 0 | 0 | 23 | 23 | 641 | 641 |
 | `examples/03-harness-portability/legs/ollama_client.py` | 0 | 0 | 0 | 0 | 147 | 147 |
-| `examples/03-harness-portability/run.py` | 145 | 13 | 98 | 54 | 720 | 675 |
-| `examples/04-cross-process/producer_child.py` | 143 | 13 | 14 | 1 | 630 | 553 |
+| `examples/03-harness-portability/run.py` | 145 | 13 | 98 | 54 | 720 | 711 |
+| `examples/04-cross-process/producer_child.py` | 143 | 13 | 14 | 1 | 630 | 595 |
 | `examples/04-cross-process/run.py` | 53 | 13 | 68 | 1 | 533 | 519 |
 | `examples/05-workflow-hitl/run.py` | 28 | 4 | 112 | 0 | 858 | 866 |
-| `examples/06-decision-replay/run.py` | 175 | 12 | 130 | 0 | 1320 | 1105 |
+| `examples/06-decision-replay/run.py` | 175 | 12 | 130 | 0 | 1320 | 1160 |
 | `examples/07-artifact-store-mcp/mcp_store_child.py` | 0 | 0 | 1 | 1 | 135 | 135 |
-| `examples/07-artifact-store-mcp/run.py` | 132 | 13 | 27 | 1 | 587 | 596 |
+| `examples/07-artifact-store-mcp/run.py` | 132 | 13 | 27 | 1 | 587 | 636 |
 | `examples/08-e2e-demo/generator.py` | 0 | 0 | 0 | 0 | 431 | 431 |
-| `examples/08-e2e-demo/run.py` | 161 | 13 | 6 | 6 | 1141 | 1104 |
+| `examples/08-e2e-demo/run.py` | 161 | 13 | 6 | 6 | 1141 | 1146 |
 | `examples/external/00-hello-context/client_adk.py` | 0 | 0 | 1 | 1 | 75 | 75 |
 | `examples/external/00-hello-context/client_anthropic.py` | 0 | 0 | 2 | 2 | 97 | 97 |
 | `examples/external/00-hello-context/client_bare.py` | 0 | 0 | 5 | 5 | 77 | 77 |
 | `examples/external/00-hello-context/fixtures/capture_proxy.py` | 0 | 0 | 7 | 7 | 415 | 415 |
 | `examples/external/00-hello-context/fixtures/diff_fixtures.py` | 0 | 0 | 7 | 7 | 93 | 93 |
 | `examples/external/00-hello-context/replay_server.py` | 0 | 0 | 9 | 9 | 400 | 400 |
-| `examples/external/00-hello-context/run.py` | 36 | 0 | 22 | 22 | 766 | 781 |
-| `examples/external/00-hello-context/serve.py` | 132 | 13 | 1 | 1 | 773 | 699 |
-| **Tree total** | **1425** | **134** | **737** | **152** | **11988** | **11312** |
+| `examples/external/00-hello-context/run.py` | 36 | 0 | 22 | 22 | 766 | 790 |
+| `examples/external/00-hello-context/serve.py` | 132 | 13 | 1 | 1 | 773 | 741 |
+| **Tree total** | **1425** | **134** | **737** | **152** | **11988** | **11735** |
 
 **Mechanical wiring removed: 1291 lines** (1425 → 134, a 90.6% reduction).
 **Assertions and prints relocated: 585 lines** (737 → 152). These two numbers
 are reported side by side and are not added together.
+
+**Re-measured 2026-08-05 after Phase 15.1 (plan 15.1-09), and the raw column
+moved the wrong way.** Design E2 (D-IMPL-86) added a second authored artifact
+per deployment, a hoisted plan local, a binder call, and the comment blocks
+explaining all three. Re-measuring every `after/` fragment: **`mech`, `reg` and
+`removable` did not move at all** — 1425 → 134 and 737 → 152 are unchanged — but
+`raw` rose at nine of the ten drivers, tree-wide **11312 → 11735**, including
++46 at `00-quickstart`, +48 at `01-agent-basics` and +63 at `02-skilling`. The
+table above now carries the re-measured figures rather than the pre-15.1 ones.
+Stated plainly rather than netted away: **E2 cost an adopter lines, and none of
+what it cost was the mechanical boilerplate Criterion 1 set out to remove.** It
+bought a check that can fail; it did not buy brevity, and this section is the
+wrong place to imply otherwise. That is also exactly why D-12 forbids a single
+combined figure — a "lines saved" headline here would have hidden a real
+ergonomic cost behind an unrelated real win.
 
 The 134 mechanical lines that remain are almost entirely the **13-line
 registration cluster** each rewritten driver still carries: the author-versioned
@@ -289,7 +304,9 @@ decision is a blocking finding, and the correct response is to surface it).
 ### 2.4 The day-1 integration
 
 `examples/00-quickstart/run.py` — the file the phase opened against — is
-**451 → 350 raw lines**, with mechanical wiring **143 → 13** and every one of
+**451 → 396 raw lines** (350 at the Phase 15 gate, before Phase 15.1's E2 work
+added the projection-requirements read, the hoisted plan and the binder call),
+with mechanical wiring **143 → 13** and every one of
 its 40 assertion/print lines relocated to `tests/`. Both halves of the ROADMAP's
 opening complaint are answered: the ~85 assertion/print lines that "no adopter
 writes" are out of the published snippets, and the ~105 lines of YAML→typed
@@ -297,7 +314,9 @@ marshalling are absorbed into `parse_artifact`-reachable artifact classes.
 
 **The import-line collapse is the secondary win, and it is measurable.** The
 quickstart carried **54 import lines across 27 distinct SDK names** before the
-rewrite and carries **36** after. Tree-wide, import lines fell **974 → 820**. An
+rewrite and carries **41** after (36 at the Phase 15 gate; E2 added the
+requirements read and the binder import). Tree-wide, import lines fell
+**974 → 867**. An
 adopter's first impression of an SDK is how many of its names they must know to
 write anything at all, and that number went down while capability did not.
 
@@ -326,17 +345,40 @@ verifies* stays in adopter code.
 Both were reachable ergonomic wins the phase declined, and each has a standing
 assertion rather than a comment:
 
-1. **`run_gates` still takes two independently sourced inputs in adopter code.**
-   `candidate.lineage.operators_invoked` is what the producer *declares*;
-   `engine_resolved` is what the projection engine *observed itself running*.
-   Lineage strict equality (whitepaper §7.6, INV-CH7-47) is a real check only
-   because those arrive from two sources. A helper computing both from one input
-   would leave the gate green and the invariant gone with no failing test to say
-   so. Enforced by the `cinv02-deployment-gates` lint rule — which **takes no
-   allowlist** — by `tests/products/test_gate_independence.py` (a perturbation
-   regression test plus an AST identifier guard over `src/ccf/deployment/`), and
-   by `tests/lints/test_deployment_gates_ban.py`, the opposite-direction guard
+1. **`run_gates` is still called from adopter code, with both of its arguments
+   assembled there.** What the phase declined was a wiring helper that ran the
+   gate on the adopter's behalf; gate execution, and the assembly of both
+   arguments, stay where the deployment can see them. Enforced by the
+   `cinv02-deployment-gates` lint rule — which **takes no allowlist** — by
+   `tests/products/test_gate_independence.py` (a perturbation regression test
+   plus an AST identifier guard over `src/ccf/deployment/`), and by
+   `tests/lints/test_deployment_gates_ban.py`, the opposite-direction guard
    proving the ban did not widen beyond its one importer.
+
+   **What this item used to claim, and what was not true as shipped.** It
+   asserted that the two inputs to `run_gates` were independently sourced in
+   adopter code — `candidate.lineage.operators_invoked` being what the producer
+   *declares*, `engine_resolved` being what the projection engine *observed
+   itself running*. That is CR-2 stated as a property, and the code did not have
+   it: at all **nine** call sites both arguments were filled from
+   `execution.operators_invoked` — the same **object**, not merely the same
+   value (D-GATE-15 second amendment, correction (2)). The keeping-a-helper-out
+   half was true and remains true. The two-sources half was not. That is
+   recorded here rather than quietly restated, because §3.1 is this audit's
+   statement of where the abstraction line was drawn, and a reader has to learn
+   that one of its two claims did not hold.
+
+   **What Phase 15.1 did about it (D-IMPL-86, design E2).** The projection's
+   required operator set became its own authored artifact
+   (`ccf.projection-requirements`), separate from the product class's claim.
+   `ccf.deployment.binder.refuse_operator_set_divergence` compares the two, and
+   is called **between plan construction and `ProjectionEngine.execute`** — not
+   at boot, a placement D-IMPL-86's correction of 2026-08-05 withdrew as
+   impossible, since `load_and_boot` has no `ProjectionPlan` in scope at any of
+   its preflights. And Gate 2 is documented for what it verifies —
+   **assembly-path integrity** — rather than for an independence it never had.
+   Authorable drift now fails at the binder; Gate 2 holds a served product to
+   the assembly path the deployment claimed.
 
 2. **The pin set has no bindings helper.** See the `ResolvedPins` row above.
    `version_for` is the one accessor this type may ever grow, and
@@ -384,38 +426,62 @@ conservative side of a permitted choice**, at a cost of one adopter line.
 
 ### G-B — `required_operators()` returning `operators.keys()`
 
-**Closed structurally, in two layers.** The earlier framing — that G-B "remains
-a pattern-level risk" — no longer holds and must not be carried forward.
+**Closed at the instances; watched by a tripwire at the pattern.** The framing
+this heading previously carried — "closed structurally, in two layers", and that
+the earlier "remains a pattern-level risk" reading "no longer holds and must not
+be carried forward" — is **withdrawn**. It had the correction backwards: it
+explicitly forbade the weaker framing that is in fact the accurate one. The
+pattern-level risk is real for any receiver the guard's convention list does not
+name.
 
 **Layer 1, the instances.** Every projection in the suite now declares its keys
 from `ProductClassDeclaration.required_operator_keys`, authored in the
 product-class artifact. 15-09 defines the field; 15-13 fixes the quickstart
 origin; 15-14 through 15-20 carry it through the rest of the suite.
 
-**Layer 2, the pattern.** `tests/products/test_required_operators_guard.py` is a
-standing AST guard over `src/`, `runtime/` and `examples/`: any
-`required_operators` implementation reading the operator registry's own keys is
-a red build, matched on AST identifiers rather than source text so a rename and
-a comment both fail to defeat it. Layer 1 closed the instances; layer 2 is what
-makes G-B closed rather than merely cleaned up.
+**Layer 2, the pattern — a tripwire, not a wall.**
+`tests/products/test_required_operators_guard.py` is a standing AST guard over
+`src/`, `runtime/` and `examples/`: any `required_operators` implementation
+reading the operator registry's own keys is a red build. Matching on AST
+identifiers rather than source text means a *comment* cannot defeat it, and
+receiver aliasing is followed to a fixed point. It is **not** dataflow analysis,
+and a **rename of the receiver does defeat it**: the refused receivers are a
+convention list (`operators`, `registry`, `_registry`, plus the enclosing
+function's own parameter names), so a projection that named its registry
+something else entirely passes. The claim the module supports is its own —
+"every spelling the phase found, and the obvious evasions of them", not
+"impossible to write" — and this audit had been contradicting the guard it was
+describing. Layer 1 closed the instances; layer 2 catches a recurrence in the
+shapes it knows.
+
+D-IMPL-86 makes this a **structural limit rather than a caution** (D-GATE-15
+second amendment, point (3)): **no AST gate can distinguish an authored literal
+from a transcribed one**, because the compliant state and the violating state
+are textually identical. A tripwire is the most an AST check can be here — which
+is why design E2 put the load-bearing refusal in a binder over two authored
+documents rather than in a guard over source.
 
 ### 4.1 What G-B was actually protecting — the phase's strongest finding
 
-The phase found **eight instances of "a check that passes for a reason unrelated
+The phase found **nine instances of "a check that passes for a reason unrelated
 to what it claims to verify."** Two are outright correctness defects, found
 independently in the same wave by plans that never communicated. The full ledger
-is below; each row cites the SUMMARY that recorded it.
+is below; each row cites the SUMMARY that recorded it. Row 9 was found **after**
+the phase gate, by the cross-AI review of 2026-08-05, and is entered here rather
+than deferred to a later document — see the **Recorded discrepancy** note below,
+which is amended rather than replaced so the count's own history survives.
 
 | # | Plan | The check | Why it passed for the wrong reason |
 | --- | --- | --- | --- |
 | 1 | 15-06 | the class-lookup anti-drift test | scanning `__all__` finds **zero** `ArtifactClass` instances — the two shipped constants are not in it — so the test that exists to keep the hand-maintained mapping honest would have passed while proving nothing. Recorded as `[Rule 1 - Vacuous assertion]`. |
 | 2 | 15-13 | Gate 2 in `examples/00-quickstart` | `QuickstartPlan(required=operators.keys())` — the declared side read from the engine's own registry. The origin instance, and the one 15-13's R6 turned into a rule for every later rewrite. |
 | 3 | 15-14 | Gate 2 in examples 01 and 02 | neither pre-rewrite file had a Gate 2 check *at all*, because both built their plan from `operators.keys()`. The four new assertions are marked **New** rather than relocated, so the no-loss audit stays honest in both directions. |
-| 4 | 15-15 | example 07's "nothing else changed" claim | "nothing else changed" is exactly the shape of claim that passes because a test never looked. Now defended structurally from the AST *and* observationally from two runs, with the role-set checked against a declared `persisted_artifact_roles` so two empty sets cannot agree vacuously. |
+| 4 | 15-15 | example 07's "nothing else changed" claim | "nothing else changed" is exactly the shape of claim that passes because a test never looked. Now watched by an AST **tripwire** *and* defended observationally from two runs, with the role-set checked against a declared `persisted_artifact_roles` so two empty sets cannot agree vacuously. The observational half is the load-bearing one: the AST half catches the shapes it names and no others. |
 | 5 | 15-16 | Gate 2 in `examples/08-e2e-demo` | fixed at the instance, and the module docstring now states plainly that editing the artifact alone moves both ends and is **not** detected — the over-claim this phase had made repeatedly. |
 | 6 | 15-17 | **lineage strict equality in `examples/06-decision-replay`** | **A correctness defect.** `GridLoadPlan(required=...)` was fed from `operators.keys()` in the record phase *and* from `self._registry().keys()` in `GridReplayEnvironment.resolve_plan` — so Gate 2 compared a value against itself in the original decision **and again in the forensic replay that exists to prove that decision**. The file whose entire subject is audit-by-construction was, at that seam, auditing nothing. |
 | 7 | 15-18 | **the A2A entitlement assertion in `examples/04-cross-process`** | **A correctness defect.** Both processes read one `artifacts/controlplane.yaml`; the consumer computed the producer's policy version from it, registered that same mapping as its own bundle, and asserted the two were equal. That compared **two reads of the producer's own file**, in the example that exists to demonstrate Control Plane admission verification. It could not fail; dropping the policy bundle from both sides would have kept it green. |
 | 8 | 15-19 | the fail-closed evidence in `examples/05-workflow-hitl` | `transport.submissions(tenant=...) == ()` is meaningful only **between** the four refusals and the first legitimate admission. Relocated naively to read after the run, it counts legitimate landings and goes green for a transport that admitted every refusal too, as long as the count happens to match. Recorded by 15-19 as the **eighth** instance. |
+| 9 | 15.1-09 | Gate 2's two arguments at every `run_gates` call site in the examples suite | Across **nine** files, `ProductLineage(operators_invoked=execution.operators_invoked)` was compared against `engine_resolved=execution.operators_invoked` — the same **object**, not merely the same value (D-GATE-15 second amendment, correction (2)). Deliberately **not** bolded as an outright correctness defect: the products these examples served were in fact correct and no wrong answer was ever produced, so the "two are outright correctness defects" clause above stays true. What was absent was the **proof** — the gate could not have failed for any edit an author could make. Closed by design E2 (D-IMPL-86): a second authored artifact, a binder between plan construction and `ProjectionEngine.execute`, and Gate 2 restated as assembly-path integrity. |
 
 **Two further second-site occurrences are documented but deliberately not
 numbered**, because each is a second site of an already-counted defect rather
@@ -436,12 +502,31 @@ than a new discovery:
   that **a rewrite fixing the tautology only where the plan text names it leaves
   the replay path carrying it.**
 
+**Amended 2026-08-05 (plan 15.1-09): row 9 does not contradict 15-20.** 15-20's
+explicit declining of a ninth remains true *as 15-20 meant it* — the tautology
+in `examples/external/00-hello-context`'s replay path was a second site of an
+already-counted defect, and it is still listed immediately above as one. Row 9
+is a different shape: not a second site of one file's finding, but the
+**record-leg call site itself, tree-wide across all nine drivers**. A per-file
+reading found no ninth; a cross-file reading of the same call shape found one.
+
 **Recorded discrepancy.** The phase's handoff note (`.continue-here.md`) put the
 count at seven and the executor brief put it at eight, attributing new instances
 to both 15-19 and 15-20. Counted from the SUMMARYs themselves, the correct
 figure is **eight numbered instances**: 15-19's SUMMARY numbers its fail-closed
 finding as the eighth, and 15-20's SUMMARY explicitly declines a ninth. The
 ledger above is the count this audit stands behind.
+
+**Amended 2026-08-05 (plan 15.1-09).** The sentence immediately above — "The
+ledger above is the count this audit stands behind" — was true of the eight-row
+ledger it was written against, and is now falsified. The post-gate cross-AI
+review of 2026-08-05 (cursor) found a ninth: the Gate 2 call-site collapse, now
+entered as row 9. **The audit's eight was an undercount**, and D-GATE-15's first
+amendment recorded the consequence. This note is appended rather than replacing
+the paragraph above it, because deleting the record of the earlier count dispute
+would be exactly the audit-trail destruction §5.3 row A-6 argues against — the
+history of this count is part of what the section is for, and a ledger that has
+been wrong twice about its own size is worth showing as such.
 
 **Why this is the phase's strongest argument beyond ergonomics.** Neither
 correctness defect was visible until **typed artifacts gave the declared side an

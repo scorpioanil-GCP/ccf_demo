@@ -17,10 +17,15 @@ The product class a deployment authors. Note what it does **not** declare:
 declaring it would be authoring a hash of something it does not contain — and
 Gate 3 would then be comparing a value against itself.
 
-`required_operator_keys` is the authored declared side of the lineage gate. The
-engine independently resolves what actually ran; a projection that returned the
-operator registry's own keys would collapse both sides of that comparison into
-one value.
+`required_operator_keys` is the Control Plane **claim** — the authored declared
+side of the lineage gate, and the value that fills `lineage.operators_invoked`.
+It is not the set the projection reads: that is a separate document,
+`ccf.projection-requirements`. `ccf.deployment.refuse_operator_set_divergence`
+compares the two and refuses a disagreement before the engine runs, and that is
+where drift an author could introduce actually fails. Gate 2 sits downstream of
+both and verifies assembly-path integrity — the engine transcribes the plan
+faithfully rather than witnessing it independently, so it cannot catch a
+misdeclaration (`D-IMPL-86`).
 
 ```yaml
 --8<-- "examples/00-quickstart/artifacts/product-class.yaml"

@@ -4,11 +4,18 @@
 # lane; banking domain, D-IMPL-52).
 #
 # `required_operator_keys` is the AUTHORED declared side of the lineage
-# strict-equality gate (Gate 2, INV-CH7-47). The engine independently RESOLVES
-# what actually ran; the gate compares the two. A projection that returned the
-# operator registry's own keys would make that comparison a value against itself
-# and the gate would silently stop being a gate — which is exactly what `run.py`
-# did before this document existed. At least one key is required, on the
+# strict-equality gate (Gate 2, INV-CH7-47) — the Control Plane CLAIM that
+# fills `lineage.operators_invoked`. It is NOT the set the projection reads:
+# that is the separate `projection-requirements.yaml`, and
+# `refuse_operator_set_divergence` compares the two and refuses a disagreement
+# before the engine runs. THAT is where drift an author could introduce fails.
+# Gate 2 itself verifies ASSEMBLY-PATH INTEGRITY: the engine transcribes the
+# plan faithfully rather than witnessing it independently — it builds its
+# invoked set and its steps in one loop over the same operator plan — so it
+# cannot catch a misdeclaration (D-IMPL-86). A projection that returned the
+# operator registry's own keys would collapse the plan into the engine's own
+# configuration — which is exactly what `run.py` did before this document
+# existed. At least one key is required, on the
 # whitepaper's own posture: §7.6's empty-operator guard treats a resolved set of
 # zero as a misconfiguration rather than as a trivial success.
 #

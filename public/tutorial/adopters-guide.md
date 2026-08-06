@@ -99,11 +99,15 @@ for the surface each one implements:
 
 A projection is the one piece of genuine deployment code in this picture: it
 declares which operators its interpretation depends on and interprets their
-output. It cannot tell the engine what ran — which is precisely what leaves
-the delivery gate something real to check. Its declared operator set is read
-from the **product-class artifact**, never from the operator registry: the
-declaration and the engine's resolution have to stay two independent
-mechanisms, or the gate below compares a value against itself.
+output. It cannot tell the engine what ran. Its operator set is read from its
+**own `projection-requirements` artifact** — never from the operator registry,
+and never from the product class. The product class's `required_operator_keys`
+is a *second*, separately authored document stating that set as the Control
+Plane's claim, and the `refuse_operator_set_divergence` call on the line
+between plan construction and `execute` refuses a disagreement between the two.
+That refusal is where **authorable** drift fails: a one-key edit to either
+document stops the deployment before anything is assembled (design E2,
+`D-IMPL-86`).
 
 ```py
 --8<-- "examples/00-quickstart/run.py:project"
@@ -111,9 +115,15 @@ mechanisms, or the gate below compares a value against itself.
 
 Three validation gates stand between a candidate and a servable product:
 the empty-operator guard, lineage strict equality, and the TTL bound. Lineage
-strict equality is the interesting one — what the product claims ran must be
-exactly what the engine resolved as having run, which is why `engine_resolved`
-is a separate argument from a second, independent source.
+strict equality is the interesting one, and it is worth being precise about
+what it establishes. The product's claim is filled from the product-class
+declaration; `engine_resolved` is the engine's own execution record. Comparing
+them establishes **assembly-path integrity** — the product served was assembled
+by the path the deployment claimed. It is not an independent check on the claim
+itself: the engine builds its invoked set and its execution steps in one loop
+over the same operator plan, so it transcribes that plan faithfully rather than
+witnessing it independently. Drift an author could introduce is caught earlier,
+at the binder above (`D-IMPL-86`).
 
 The TTL registration just above it stays in your code on purpose. Registering
 the ceiling is what *mints* the pin, so the ceiling and the product's own
