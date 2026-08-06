@@ -491,7 +491,21 @@ Gate 2 only; the Phase 16 documentation rewrite; the remaining agreed concerns f
 that are not the two HIGH items — `BootedFabric.artifacts` role blurring and erosion pressure
 are recorded, not closed here.
 
-**Plans**: TBD (created by `/gsd:plan-phase 15.1`)
+**Plans**: 10 plans in 7 waves
+
+Plans:
+- [ ] 15.1-01-PLAN.md — mint ERGO-18/19, widen `ControlPlaneProtocol` with `register_versioned` (D-IMPL-82), add the `ccf.projection-requirements` artifact class (E2), widen the surface-change fragment glob
+- [ ] 15.1-02-PLAN.md — `registration: typed | versioned` required-no-default on `ManifestEntry` (D-IMPL-85), dispatch in `load_and_boot`, `ArtifactPin.registration` (D-IMPL-83), 163-entry migration
+- [ ] 15.1-03-PLAN.md — `SDK_VERSIONED_ARTIFACT_CLASSES`, the registration refusal, the `ccf.`-namespace reservation (D-IMPL-84), and the four refusal tests
+- [ ] 15.1-04-PLAN.md — the boot binder `refuse_operator_set_divergence` (E2 element 3) and its divergence/agreement pair
+- [ ] 15.1-05-PLAN.md — examples 00, 01, 02 onto E2: lineage from the product-class claim, plan from the projection-requirements artifact, binder call
+- [ ] 15.1-06-PLAN.md — examples 03, 04-producer, 07 onto E2
+- [ ] 15.1-07-PLAN.md — examples 06, 08, external/00 onto E2; the two correct replay legs and `test_ext00_hardening.py` left untouched
+- [ ] 15.1-08-PLAN.md — the Gate 2 call-shape tripwire (E2 element 5), the binder-call coverage check, and example-scale divergence coverage
+- [ ] 15.1-09-PLAN.md — documentation corrections: `gates.py` both sites, `ProductClassDeclaration`, `SURFACE-AUDIT` §3.1 and §4.1 (nine), tripwire restatement, D-IMPL-57's premise
+- [ ] 15.1-10-PLAN.md — phase close: surface regeneration, criterion evidence, `/gsd-review` + triage, present to Dave (checkpoint)
+
+**Waves**: 1 → 01; 2 → 02; 3 → 03; 4 → 04; 5 → 05, 06, 07 (parallel); 6 → 08, 09 (parallel); 7 → 10 (checkpoint)
 
 ## Progress
 
@@ -506,7 +520,7 @@ are recorded, not closed here.
 | 14. Documentation Suite | 10/10 | Complete   | 2026-08-03 (verified 5/5; G-01 deliberately deferred to 16) |
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
 | 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 (gated with carried debt; CR-1/CR-2 close in 15.1) |
-| 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 0/? | Pending   | — |
+| 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 0/10 | Pending   | — |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
