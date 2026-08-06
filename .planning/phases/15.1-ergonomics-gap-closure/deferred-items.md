@@ -239,7 +239,26 @@ this phase asked Dave to accept.
        **(added 2026-08-06)**
      - `examples/04-cross-process/artifacts/producer-manifest.yaml:23`
      - `examples/04-cross-process/artifacts/agent-registration.yaml:10`
-     - `examples/04-cross-process/producer_child.py:113-115` and `:268-270`
+     - `examples/04-cross-process/producer_child.py:113-115` — *"which
+       `load_and_boot` does not do"*, unqualified, and therefore false
+     - ~~`examples/04-cross-process/producer_child.py:268-270`~~ **REMOVED
+       2026-08-06, plan 15.1-17 (fourth review, IN-02.1): as written it is
+       TRUE.** It says *"`load_and_boot`'s `register_typed` path does not"* —
+       scoped to `register_typed`, which is exactly the wording
+       `15.1-15-SUMMARY.md:266-268` sets aside as a true statement that must
+       not be edited to match the pattern. Verified against the file
+       2026-08-06. Moved to the checked-and-left set below, so the follow-up
+       does not "fix" a correct sentence into a wrong one
+     - `examples/01-agent-basics/run.py:103-104` — **added 2026-08-06, plan
+       15.1-17 (IN-02.2), and added as a NAVIGATION site rather than a false
+       one.** *"the manifest deliberately does not carry … See the module
+       docstring"* is true as written and is the **seventh phrasing** below; it
+       forwards to `run.py:36`, which is listed above and is false. Its exact
+       analogue `04-cross-process/producer_child.py:113-115` appeared in both
+       the site list and the seventh-phrasing sentence while this one appeared
+       in neither, and the asymmetry is what a follow-up working from this list
+       trips over. Nothing is lost by leaving the line itself alone; it is
+       listed so the forward is followed
 
   2. **D-IMPL-84.** *"Naming them here would resolve them to the open
      envelope."* False on two counts. For an author-versioned class,
@@ -295,11 +314,34 @@ this phase asked Dave to accept.
   about registration governance. **A sweep must not edit these to match the
   pattern.**
 
+  **EXTENDED — 2026-08-06, plan 15.1-17 (fourth review, IN-02.1 and IN-02.3).**
+  The set above was scoped to `docs/` plus one example file, so six further
+  true lines a sweep could wrongly "fix" were unlisted. Each was read against
+  the file on 2026-08-06 rather than carried over from the review:
+
+  - `examples/04-cross-process/producer_child.py:268-270` — moved here from the
+    false-claim list; scoped to `register_typed`, and true.
+  - `examples/01-agent-basics/artifacts/policy-bundle.yaml:10`
+  - `examples/01-agent-basics/artifacts/agent-debt-profile.yaml:13`
+  - `examples/02-skilling/artifacts/policy-bundle.yaml:12`
+  - `examples/03-harness-portability/artifacts/policy-bundle.yaml:12`
+  - `examples/04-cross-process/artifacts/agent-debt-profile.yaml:10`
+
+  The five artifact lines each say that a **deployment-authored** class takes
+  the open `DeclaredArtifact` envelope, which is what D-IMPL-84 still says and
+  is unaffected by its supersession — that supersession is about SDK
+  author-versioned classes and the reserved-prefix refusal. They read close
+  enough to the superseded phrasing to attract a mechanical sweep, which is the
+  whole reason this set exists.
+
 - **A seventh phrasing, which the six-phrasing list in `15.1-15-SUMMARY.md` does
   not contain:** *"the manifest deliberately does not name"* /
   *"Not a manifest entry, deliberately"* / *"absent from `SDK_ARTIFACT_CLASSES`"*
   / *"`load_and_boot` … does not"*. It is how
   `examples/04-cross-process/producer_child.py:113-115`,
+  `examples/01-agent-basics/run.py:103-104` **(added 2026-08-06, plan 15.1-17 —
+  IN-02.2; the exact analogue of the `producer_child.py` line beside it, and
+  absent here as well as from the site list)**,
   `examples/03-harness-portability/artifacts/manifest.yaml:16` and both example-03
   forwarded-to documents spell it, and none of the six finds it. Add it to the
   input list before the follow-up starts.
@@ -317,3 +359,46 @@ this phase asked Dave to accept.
   search for *"silently drop"* does not find, and that
   `examples/01-agent-basics/run.py:252` spells it *"drop that check silently"*,
   which neither finds.
+
+## A loop-carried rebinding is out of the Gate-2 tripwires' reach (R4-WR-03)
+
+- **Found during:** the fourth post-gate review (`15.1-REVIEW-FIXES-3.md`,
+  WR-03), re-measured at plan 15.1-17 before and after that plan's change
+- **What:** both tripwires in `tests/products/test_gate_two_call_shape.py`
+  resolve a name to *the binding textually last before the position that reads
+  it*. That is the right answer for straight-line code and the wrong one for a
+  loop, which makes lines execute out of source order. Measured 2026-08-06,
+  driving the shipped `_binder_collapses`:
+
+  ```python
+  plan = FixturePlan(plan_id=pid, required=requirements.required_operator_keys)
+  refuse_operator_set_divergence(declared=declared, plan=plan)
+  for item in alts:
+      out = ProjectionEngine(reader=r).execute(plan=plan)
+      plan = FixturePlan(plan_id=pid, required=declared.required_operator_keys)
+  ```
+
+  → **0 problems**. From the second iteration on the engine runs the plan built
+  from the binder's own `declared=`, which no binder was handed — CR-03
+  variants 1 and 2 at once. The `while` spelling measures identically, and the
+  tripwire-(1) form (a lineage read at the top of a loop whose `ops` is rebound
+  at the bottom) has the same shape.
+- **Why it was not fixed at 15.1-17:** closing it needs **control-flow**
+  ordering rather than lexical ordering — a fixed point over a loop body, which
+  is a different analysis from the single-pass AST walk this module is, and one
+  whose termination argument would have to be rebuilt from scratch (two
+  predecessors of `_resolve_at` failed exactly there, one of them by hanging
+  `pytest` with no output). 15.1-17's scope was the certification defect and the
+  comprehension regression; inventing a dataflow analysis inside it would have
+  been the scope creep this phase has been penalised for.
+- **What 15.1-17 did instead:** named it in **both** limits lists in the module
+  docstring, in the threat table of `15.1-16-SUMMARY.md`, and asserted it *as a
+  limit* in `test_a_loop_carried_rebinding_is_out_of_reach_and_says_so` — which
+  fails if a later change closes it, so the docstrings and this entry get
+  corrected in the same commit rather than quietly becoming false. The
+  straight-line spelling of the identical rebinding is asserted **caught** in
+  the same test, so the silence is a statement about control flow and not about
+  the check having gone quiet.
+- **Where it belongs:** Phase 16, beside R-3 and the D-IMPL-86 adopter-scope
+  residual, which is where the binder's own module docstring already carries the
+  question of what an AST gate can and cannot hold.
