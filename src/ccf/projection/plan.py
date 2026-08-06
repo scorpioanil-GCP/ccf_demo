@@ -11,11 +11,24 @@ system.
 
 **``required_operators()`` is a declaration, not a request.** The plan names
 which operators its interpretation depends on; the engine resolves and orders
-them (INV-CH7-28) and records what it actually ran. The declared set and the
-engine-resolved set are then compared by the lineage strict-equality gate
-(INV-CH7-47) — which is only a meaningful check because the two are produced
-independently. A plan that could reach into the engine and assert what ran
-would turn that gate into a tautology.
+them (INV-CH7-28) and records what it ran. Under design E2 that name set comes
+from the plan's own Control Plane artifact,
+:class:`~ccf.controlplane.artifacts.ProjectionRequirements`, and the product
+class's ``required_operator_keys`` is a second, separately authored document;
+a disagreement between the two fails at
+:func:`~ccf.deployment.binder.refuse_operator_set_divergence` before the engine
+runs, which is where **authorable** drift is caught. What the lineage
+strict-equality gate (INV-CH7-47) compares downstream is the transcribed claim
+against the engine's execution record — **assembly-path integrity** — because
+the engine is a faithful transcriber of the plan rather than an independent
+witness of it: it builds its invoked set and its steps in one loop over the
+same operator plan. This paragraph previously said the two sets were "produced
+independently"; the ruling of record correcting that is ``docs/DECISIONS.md``
+**D-IMPL-86** (Dave, 2026-08-05), and CLAUDE.md §11 requires an SDK extension
+to cite this project's own decision record rather than the whitepaper. What
+holds without qualification: a plan that could reach into the engine and assert
+what ran would turn that gate into a tautology, which is why nothing on this
+Protocol offers it.
 
 **Perspective is an input to invocation, not a state of the plan.** The tuple
 ``(perspective, context_product_class, selection_params)`` deterministically

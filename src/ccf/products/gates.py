@@ -11,10 +11,27 @@ The sequence is fixed and it is an order, not a set:
    asking about the quality of a provenance claim, and there is no claim here
    to assess.
 2. **lineage strict equality** — the declared operator set must *equal* the
-   engine-resolved set. Strict equality catches forgery (declaring what did
-   not run) and omission (hiding what did) with one comparison, and the two
-   sets are produced independently — one by the producer, one by the engine
-   that ran them — which is what makes the comparison worth making.
+   engine-resolved set. What one comparison establishes is **assembly-path
+   integrity**: the declared side is the claim the producer transcribed into
+   the Contract, the resolved side is the engine's record of executing the
+   plan, and the gate holds a served product to the path the deployment said
+   assembled it. It is not a check on whether that claim was right to begin
+   with. The engine is a faithful *transcriber* of the plan rather than an
+   independent witness of it —
+   :meth:`~ccf.projection.engine.ProjectionEngine.execute` builds
+   ``operators_invoked`` and ``steps`` in one loop over the same operator
+   plan, so it has no return path where invoked ≠ planned (``D-IMPL-86``,
+   Dave, 2026-08-05; CLAUDE.md §11 requires an SDK extension to cite this
+   project's own decision record rather than the whitepaper). The
+   forgery-and-omission reading therefore holds only in the form that
+   mechanism supports: what fails here is a declaration that does not match
+   the assembly path — something reshaped, re-serialized, or transcribed
+   wrongly between the plan and the Contract — and **not** a producer
+   misdeclaring its own requirements. That drift is authorable, and it fails
+   *upstream* at
+   :func:`~ccf.deployment.binder.refuse_operator_set_divergence`, which
+   compares two separately authored Control Plane artifacts before there is
+   a product to gate (design E2).
 3. **TTL bounds** — ``now < expires_at <= now + MAX_TTL``, with MAX_TTL
    resolved from the Control Plane at gate time (D-IMPL-39). The lower bound
    is strict: a product expiring exactly now is expired. The upper bound is
@@ -241,13 +258,32 @@ def run_federated_gates(
     **Products admitted through a Peering are attributable; locally assembled
     products are verifiable.** That is Dave's ``D-IMPL-57`` ruling of
     2026-07-27 (reading (a)) stated as a pairing: INV-CH7-47 is *verifiable
-    within a fabric, attributable across one*. Inside one fabric the projection
-    engine's own record of what ran is an independent witness, so
-    :func:`run_gates` can compare a declaration against it. Across a Peering
-    the consumer ran no engine — the operators executed in another fabric, in
-    another process — and no independent witness exists on this side. Passing
-    the declaration in as its own witness would make the comparison trivially
-    true, which is why this sequence does not run that gate at all.
+    within a fabric, attributable across one*. Inside one fabric
+    :func:`run_gates` has something to compare a declaration against because
+    the consumer's **own** engine executed the plan and recorded what it ran —
+    a faithful transcription of that plan, not an independent witness of it
+    (see this module's docstring). That buys assembly-path integrity and no
+    more. Across a Peering the consumer ran no engine at all — the operators
+    executed in another fabric, in another process — so there is not even a
+    transcription on this side: the only operator set in hand is the
+    declaration itself, and passing it in as its own witness would make the
+    comparison trivially true. That is why this sequence does not run that
+    gate at all, and the omission is **better** supported under the corrected
+    reading than under the original one — the local path's justification was
+    never independence, and what the federated path lacks is the
+    transcription, not a witness.
+
+    **Premise corrected, ruling undisturbed (``D-IMPL-86``, 2026-08-05).**
+    This passage previously read "inside one fabric the projection engine's
+    own record of what ran is an independent witness". It is not, under any
+    design considered: ``operators_invoked`` and ``steps`` are built in one
+    loop over the same operator plan. What that correction reaches is
+    ``D-IMPL-57``'s **intra-fabric premise**, which was an assumed premise for
+    the federated ruling rather than something adjudicated. The federated
+    ruling stated above stands exactly as Dave made it and is not reopened
+    here. Where **authorable** drift fails instead is
+    :func:`~ccf.deployment.binder.refuse_operator_set_divergence`, upstream of
+    every gate in either sequence.
 
     The contract is stated at **Peering level rather than A2A level**:
     ``D-IMPL-59`` makes A2A one Peering transport rather than the concept, so
