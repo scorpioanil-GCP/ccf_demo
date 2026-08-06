@@ -651,6 +651,42 @@ below are **Phase 15.1's** success criteria, quoted from `.planning/ROADMAP.md`'
 Phase 15.1 criterion number collides with a Phase 15 one — Criterion 1 most
 sharply — the row says which it means.
 
+> **DATED NOTE — 2026-08-06. This section was written for the gate of 2026-08-05,
+> which was withdrawn. Read it with that history in view.** Everything in §§6.1–6.6
+> below is a record of what plan 15.1-10 observed against the merged tree on
+> **2026-08-05**, and it remains accurate *as of that date*. It is **not** the
+> record of how Phase 15.1 closed. What happened after it was written:
+>
+> 1. The `/gsd:execute-phase` workflow runs its `code_review_gate` step **after**
+>    the phase gate, so `gsd-code-reviewer` first ran against the phase's 45
+>    changed Python files once the approval was already logged. It returned
+>    **3 Critical, 7 Warning, 5 Info** (`15.1-REVIEW.md`).
+> 2. Dave **withdrew** the approval on 2026-08-06 rather than carry the findings
+>    forward (`D-GATE-15.1 (withdrawal, 2026-08-06)` in `docs/DECISIONS.md`).
+> 3. **Five review rounds** followed — Criticals **3 → 1 → 1 → 1 → 0** across
+>    `15.1-REVIEW.md`, `15.1-REVIEW-FIXES.md`, `-2.md`, `-3.md`, `-4.md` — closed
+>    by remediation plans **15.1-11 … 15.1-17**.
+> 4. Dave **re-approved on 2026-08-06** on the round-5 verdict of 0 Critical /
+>    2 Warning / 4 Info (`D-GATE-15.1 (re-approved, 2026-08-06)`).
+>
+> **Two consequences for a reader of §§6.1–6.6.** *(a)* The verification matrix in
+> §6.2 is superseded — its `make test` figure of 2059 predates seven remediation
+> plans; the matrix of record is the one in the re-approval entry, observed
+> 2026-08-06. Several file:line citations in §6.1 have likewise moved (the CR-01
+> containment fix shifted `ManifestEntry`'s fields and `load_and_boot`'s dispatch
+> by roughly 100 lines). *(b)* §6.4's five carried items are **not** the full
+> carried set any more. Five further residuals were added by the review rounds —
+> **R5-WR-01**, **R5-WR-02**, **R4-WR-03**, the two standing tripwire limits, and
+> **IN-F1/IN-F2/IN-F4**. The one file that carries the complete set, each with its
+> source review document, is
+> `.planning/phases/15.1-ergonomics-gap-closure/deferred-items.md`. Phase 16 should
+> read that file, not this section, for what it inherits.
+>
+> Nothing below is edited, because a dated record of what was observed on a date is
+> what a later reader consults; rewriting it to match a later tree destroys the
+> audit trail (§5.3 row A-6), and this section's own §6.3 is an argument for that
+> discipline.
+
 ### 6.1 The nine criteria and what establishes each
 
 | # | The criterion (Phase 15.1, quoted) | What establishes it |

@@ -9,6 +9,38 @@ not five separate written rulings on the five items the presentation put to him.
 The three residuals below marked **carried forward** are therefore **open, accepted
 at approval, and not closed by it**. They inherit to Phase 16.
 
+> ### STATUS SUPERSEDED — 2026-08-06. Read this before any "2026-08-05" line below.
+>
+> **The 2026-08-05 approval was WITHDRAWN on 2026-08-06** (`D-GATE-15.1
+> (withdrawal, 2026-08-06)` in `docs/DECISIONS.md`) when the code review that the
+> `/gsd:execute-phase` workflow runs *after* the phase gate returned **3 verified
+> Critical** findings the gate presentation could not have contained. Five review
+> rounds followed — Criticals **3 → 1 → 1 → 1 → 0** across `15.1-REVIEW.md`,
+> `15.1-REVIEW-FIXES.md`, `-2.md`, `-3.md`, `-4.md` — closed by remediation plans
+> 15.1-11 … 15.1-17.
+>
+> **The phase was re-approved on 2026-08-06** (`D-GATE-15.1 (re-approved,
+> 2026-08-06)`), on the round-5 verdict of **0 Critical, 2 Warning, 4 Info**, with
+> Dave choosing *"Approve now — WR-01/WR-02 as residuals"*. ERGO-18 and ERGO-19
+> are Complete; **R5-WR-01 and R5-WR-02 are accepted as recorded OPEN residuals,
+> not closed**; Phase 16 is unblocked.
+>
+> **Every "Gate disposition (D-GATE-15.1, 2026-08-05)" line below is re-affirmed
+> unchanged by the re-approval** — R-2, R-3 and R-4 remain open, carried, and
+> unclosed, in exactly the terms they were carried in. The dates are left as
+> written rather than rewritten, so both gates survive in the record. The
+> `.planning/ROADMAP.md` §Coverage item marked **CLOSED at the gate** is closed by
+> the *work* that corrected the sentence, not by the withdrawn approval, and stays
+> closed.
+>
+> **The residual set this file must carry is larger than it was on 2026-08-05.**
+> Five entries are appended below the six that were here: the fifth review's two
+> Warnings (R5-WR-01, R5-WR-02), the two module limits carried without an entry of
+> their own (augmented-assignment unreadability; attribute and subscript targets),
+> and the three `src/` boundary-validation Infos the remediation rounds
+> deliberately deferred (IN-F1 / IN-F2 / IN-F4). Every entry in this file now
+> names the review document it came from.
+
 Items 1 and 2 were recorded in `docs/SURFACE-AUDIT.md` §6.4 item 1 and §6.5
 respectively and were put to Dave at the gate. Items 3 and 4 were found by plan
 15.1-10 at phase close. Items 5 and 6 — D-IMPL-86's **placement** and
@@ -22,6 +54,11 @@ this phase asked Dave to accept.
 
 ## The HTTP schema route still serves only the typed-registerable classes
 
+- **Source review document:** `15.1-REVIEWS.md` §5 item **R-4** (the phase-close
+  cross-AI review round), from a finding raised by plan 15.1-03 itself. Not
+  re-reported by any of the five post-gate code-review rounds, each of which
+  explicitly excludes it from scope (`15.1-REVIEW-FIXES-3.md:561`,
+  `15.1-REVIEW-FIXES-4.md:502`). **OPEN.**
 - **Gate disposition (D-GATE-15.1, 2026-08-05):** surfaced as ruling item **R-4**
   and **carried forward — open, not closed.** The approval covers the phase as
   presented; it does not answer the route's contract question, which this phase
@@ -68,6 +105,23 @@ this phase asked Dave to accept.
 
 ## Example 05 registers an author-versioned class through `register_typed`
 
+- **Source review documents:** `15.1-REVIEWS.md` finding **F-7** (advisory, at
+  the phase-close review), then `15.1-REVIEW.md` **CR-02** (post-gate code
+  review, **Critical**), which found the same defect at **three** sites rather
+  than one and found the guarding test claiming four keys while asserting over
+  three.
+- **CLOSED 2026-08-06 by plan 15.1-11** (verified against the tree at the
+  re-approval, not taken from the SUMMARY): all three sites now take
+  `register_versioned` — `examples/05-workflow-hitl/run.py:416`,
+  `examples/06-decision-replay/run.py:666`, `examples/08-e2e-demo/run.py:970` —
+  each handling the returned `RegistrationRefusal`, and
+  `tests/examples/test_workflow_hitl_output.py::test_the_author_versioned_definitions_kept_their_bump_check`
+  now asserts over **four** keys including `prompt_artifact_key`. Closure
+  confirmed by `15.1-REVIEW-FIXES.md` ("CR-02 is closed at the code level … the
+  corrected test was *strengthened*, not relaxed"). **The wider question the
+  entry raises stays OPEN** — the SDK refuses the wrong registration path at the
+  *manifest* seam and not at the *registry* seam, and whether that asymmetry is
+  intended is still worth Dave's word. That half inherits to Phase 16.
 - **Found during:** plan 15.1-03, task 2
 - **What:** `examples/05-workflow-hitl/run.py` registers `prompt-artifact.yaml`
   with `registry.register_typed(...)` even though `ccf.prompt-artifact` declares
@@ -117,6 +171,11 @@ this phase asked Dave to accept.
 
 ## Three Phase 15.1 acceptance criteria are wrong as written
 
+- **Source document:** not a review finding — found by plan 15.1-10 at phase
+  close and written up in `docs/SURFACE-AUDIT.md` §6.3. Recorded in the withdrawn
+  `D-GATE-15.1` entry and re-recorded in the re-approval, so the corrections
+  survive the withdrawal. **OPEN as guidance to Phase 16** — none of the three
+  may be inherited as a check.
 - **Found during:** plan 15.1-10, phase close
 - **What:** three literal checks in this phase's own plan text cannot be
   satisfied without gaming, and one of them would *undo* the phase's fix if it
@@ -154,6 +213,10 @@ this phase asked Dave to accept.
 
 ## D-IMPL-86's *placement* residual — the binder is adopter-invoked
 
+- **Source review document:** `15.1-REVIEWS.md` finding **F-4** (cursor,
+  confirmed **blocking**), escalated to gate ruling item **R-2**. Re-affirmed as
+  out of scope and not re-reported by all five post-gate rounds
+  (`15.1-REVIEW-FIXES-3.md:561`, `15.1-REVIEW-FIXES-4.md:502`). **OPEN.**
 - **Gate disposition (D-GATE-15.1, 2026-08-05):** surfaced as ruling item **R-2**
   and **carried forward — open, not closed, not resolved.** It is cursor's
   confirmed **blocking** review finding (F-4), escalated rather than fixed because
@@ -185,6 +248,11 @@ this phase asked Dave to accept.
 
 ## D-IMPL-86's *authorship* residual — transcription collapses the check
 
+- **Source review document:** `15.1-REVIEWS.md` finding **F-5** (advisory),
+  escalated to gate ruling item **R-3**; re-confirmed as distinct-and-open by
+  `15.1-REVIEW-FIXES-3.md` ("Nothing in the new docstrings implies R-3 is
+  closed") and by `15.1-REVIEW-FIXES-4.md`'s "**R-3 is kept distinct**"
+  verification note. **OPEN.**
 - **Gate disposition (D-GATE-15.1, 2026-08-05):** surfaced as ruling item **R-3**
   and **carried forward — open, not closed.** Distinct from R-2, never to be
   merged with it. Inherits to Phase 16.
@@ -205,6 +273,13 @@ this phase asked Dave to accept.
 
 ## The superseded D-IMPL-85 / D-IMPL-84 claims survive in examples 01–04
 
+- **Source review documents:** `15.1-REVIEW-FIXES.md` **WR-F6** (the finding that
+  opened it), `15.1-REVIEW-FIXES-2.md` **WR-03** (the enumeration offered in place
+  of finishing the sweep was itself a subset), `15.1-REVIEW-FIXES-3.md` **IN-02**
+  (three precision points), and `15.1-REVIEW-FIXES-4.md`'s verification note
+  confirming the corrected enumeration reads true against the files. **OPEN — the
+  sweep is still incomplete for `examples/01`–`04` and `docs/surface-changes/`,
+  and both the fifth review and the re-approval leave it open.**
 - **Found during:** plan 15.1-15 (post-gate review WR-F6), while finishing the
   sweep 15.1-12 recorded as complete
 - **ENUMERATION CORRECTED — 2026-08-06, plan 15.1-16 (post-gate review WR-03).**
@@ -362,6 +437,11 @@ this phase asked Dave to accept.
 
 ## A loop-carried rebinding is out of the Gate-2 tripwires' reach (R4-WR-03)
 
+- **Source review document:** `15.1-REVIEW-FIXES-3.md` **WR-03** (round 4).
+  Deliberately not re-reported in round 5 per the brief
+  (`15.1-REVIEW-FIXES-4.md:502`), and round 5 relies on it being open — WR-01 is
+  classified Warning rather than Critical precisely because its trigger is
+  *strictly less reachable* than this one. **OPEN.**
 - **Found during:** the fourth post-gate review (`15.1-REVIEW-FIXES-3.md`,
   WR-03), re-measured at plan 15.1-17 before and after that plan's change
 - **What:** both tripwires in `tests/products/test_gate_two_call_shape.py`
@@ -402,3 +482,186 @@ this phase asked Dave to accept.
 - **Where it belongs:** Phase 16, beside R-3 and the D-IMPL-86 adopter-scope
   residual, which is where the binder's own module docstring already carries the
   question of what an AST gate can and cannot hold.
+
+## `_Binding.until` covers the comprehension's outermost iterable, which Python evaluates in the enclosing scope (R5-WR-01)
+
+- **Source review document:** `15.1-REVIEW-FIXES-4.md` **WR-01** (the fifth and
+  final round, 0 Critical / 2 Warning / 4 Info). **OPEN — accepted as a residual
+  at the re-approval (D-GATE-15.1, 2026-08-06), explicitly not closed by it.**
+- **What.** Python's comprehension scope **excludes the outermost iterable**: it
+  is evaluated in the enclosing scope and passed in as an argument. `_Binding.until`
+  is `_after(node)` over the whole comprehension node, and `_at(node)` is its `[`,
+  so the outermost iterable sits *inside* the recorded span and `_binding_before`
+  attributes its reads to the comprehension's own target. The docstring at
+  `tests/products/test_gate_two_call_shape.py:823-824` says containment in that
+  span "is exactly Python's scope rule". **It is not**, and `:1042-1052`'s "in
+  force for reads *lexically inside* the comprehension … and for no other read"
+  is wrong in the same direction.
+- **Measured bidirectionally, with renamed-target controls, against `6cf00d3`.**
+  Both consequences were produced by driving the *shipped* helpers, not argued:
+  - **(a) A genuine Gate-2 collapse goes silent.** `[x for ops in
+    run_gates(candidate, engine_resolved=ops)]`, where both sides read the same
+    prior `ops` — CR-2's shape exactly — measures `6cf00d3` **REJECT** →
+    `aedf81b` **ADMIT** → now **ADMIT**. Control (target renamed to `y`, nothing
+    else changed): REJECT on all three.
+  - **(b) Correct code is reported red.** `[row for plan in
+    wrap(ProjectionEngine(reader=r).execute(plan=plan))]`, where the engine runs
+    the **outer** plan the binder was handed, measures `6cf00d3` **ADMIT** →
+    `aedf81b` **REJECT** → now **REJECT**. Control: ADMIT on all three. The
+    multi-line spelling measures the same, so it is not a one-liner artifact.
+  - It is therefore a **regression against `6cf00d3` in both directions** — the
+    same shape and the same predecessor comparison as the R4-WR-01 that round 4
+    fixed.
+- **Why the reviewer classified it Warning and not Critical, recorded because it
+  is why the phase closes with it open.** WR-01's trigger requires a
+  comprehension whose target *shadows the very name read in its own outermost
+  iterable*, with the gate or engine call inside that iterable. That is
+  **strictly less reachable** than R4-WR-03 (the loop-carried rebinding), which
+  this phase deliberately leaves open with Dave's knowledge. In the reviewer's
+  own words: *"A finding cannot be Critical while a more reachable sibling is an
+  accepted open item; calling it one would be inconsistent, not rigorous."* The
+  classification was reasoned to on that ground and not to make the phase
+  closable.
+- **Why it was not fixed:** the round-5 review names two candidate fixes — a
+  structural one (anchor the first generator's target at
+  `_after(node.generators[0].iter)`, leaving later generators' targets at
+  `_at(node)` since their iterables *are* in comprehension scope) and a
+  minimum-honest one (withdraw the two over-claiming sentences, add the entry to
+  both limits lists with the two measured bodies, add a threat row, correct
+  `15.1-17-SUMMARY.md:204-205` and `:401`) — and **certifies neither**, having
+  measured neither as a patch. Given this phase's history of proposed remedies
+  that recreate the defect one layer down, applying an unmeasured remedy at the
+  gate would have been the same mistake a sixth time.
+- **What is owed whichever way it goes:** the sentence at `:823-824` cannot stay
+  as written. A check that claims an exactness it does not have is the one defect
+  shape this phase produced in all five rounds. The remedy belongs to whoever can
+  measure it against the outermost-iterable **walrus** case, which the reviewer
+  explicitly did not.
+- **No body in the tree uses either shape** — 0 problems on both tripwires, 9 / 11
+  / 11 / 11 readable / 0 unreadable under both `aedf81b` and HEAD — so `make ci`
+  being green does not contradict any of the above. A gap cannot fail itself.
+- **Where it belongs:** Phase 16, beside R4-WR-03, R-2 and R-3.
+
+## `15.1-17-SUMMARY.md:229`'s before-column did not measure — and the claim-discipline lesson behind it (R5-WR-02)
+
+- **Source review document:** `15.1-REVIEW-FIXES-4.md` **WR-02** (round 5).
+  **Accepted as a recorded OPEN residual at the re-approval (D-GATE-15.1,
+  2026-08-06) — not closed by it.**
+- **The error itself is CORRECTED, in place and marked, 2026-08-06** as part of
+  the re-approval task: `15.1-17-SUMMARY.md:229`'s before-column read **ADMIT**
+  where `aedf81b` measures **REJECT** — via property (2), for the wrong reason
+  (`handed` resolved to `None`, so the execution read as unbound). The verdict
+  did not change between predecessor and HEAD; the **diagnosis** did, moving from
+  *"the engine runs a plan no binder was handed"* to *"the binder's two sides are
+  one document"*. Rows 1 and 3 of the same table reproduce exactly. A marked
+  `CORRECTION` block now sits under the table and `:432`'s success-criterion row
+  is re-scoped in place.
+- **What stays open is not the cell — it is the discipline finding.** `:432`
+  claimed *"Every number in this SUMMARY is one I ran."* One number in it was
+  reasoned to rather than run, inside a round whose entire §6 exists to correct
+  records that asserted more than the code did, and whose §7 pattern note reads:
+  *"A limit that is named in a docstring and not held by a test is a sentence
+  that can silently stop being true."* The same applies to a figure in a table
+  that was not measured. **Nothing structural prevents the next such claim** — no
+  gate holds a SUMMARY's tables to being scripted output, and inventing one is
+  not this phase's work.
+- **Where it belongs:** Phase 16, as a writing rule rather than a code change —
+  a record that claims every figure was measured must either be scripted output
+  or must scope the claim to what was.
+
+## The augmented-assignment unreadability (`ops |= x`) is accepted and unclosable by an AST walk
+
+- **Source review documents:** raised across the binding-model rounds and carried
+  as a *stated module limit* rather than a fix —
+  `15.1-REVIEW-FIXES-2.md` **CR-01** (which closed the *rebinding* half),
+  `15.1-16-SUMMARY.md`'s threat table, `15.1-17-SUMMARY.md:412`, and excluded
+  from re-report by both later rounds (`15.1-REVIEW-FIXES-3.md:561`,
+  `15.1-REVIEW-FIXES-4.md:502`). **OPEN, and open by decision.**
+- **What:** `ops |= x` records an **unreadable** binding, so a body that mutates
+  the lineage's own set *in place* and hands it to the gate is **ADMITTED**. The
+  augmented-assignment *rebinding* spelling is REJECTED (`15.1-16-SUMMARY.md:181`);
+  what survives is the **mutable-set** case.
+- **Why it is not closable by the mechanism family in use:** no AST walk can tell
+  the mutable case from the rebinding one, and recording the pre-`|=` path
+  instead would emit a message that is **untrue**. Recorded rather than repaired
+  is the correct disposition, and the module's limits list says so.
+- **Where it belongs:** with R4-WR-03 and R5-WR-01 in Phase 16's account of what
+  the Gate-2 tripwires can and cannot hold. It is a stated limit, not a silent one.
+
+## Attribute and subscript targets are unfollowed — never misfollowed, except from a nested body
+
+- **Source review documents:** stated as a module limit at
+  `tests/products/test_gate_two_call_shape.py:128-135`; the exception found by
+  `15.1-REVIEW-FIXES-4.md` **IN-02** (round 5). Excluded from re-report by rounds
+  4 and 5 as a standing item (`15.1-REVIEW-FIXES-3.md:561`,
+  `15.1-REVIEW-FIXES-4.md:502`). **OPEN.**
+- **What:** a write to an attribute or a subscript (`self._ops = …`, `d['a'] = …`)
+  is not followed. A read of such a path resolves to the literal path, so the
+  write is **unfollowed, never misfollowed** — the conservative direction, and
+  the limits list states it.
+- **The exception round 5 measured.** The bullet extends the same "likewise …
+  unfollowed, never misfollowed" framing to `global` / `nonlocal`, and that
+  extension is **inaccurate when the redirected assignment lives in a nested
+  body**: the assignment is recorded in the body that contains it, so the
+  enclosing body's stale binding stays in force and answers affirmatively — the
+  CR-01 inversion. Measured: a `nonlocal plan; plan = alt` inside a nested `def`,
+  between a compliant binder call and an `execute`, is **ADMIT** on both
+  `aedf81b` and HEAD; the `global` spelling measures identically. Round 3's note
+  that "the nested body is itself a projecting body" holds only when the nested
+  body *constructs* a plan, which this one does not. The same reservation applies
+  to `from m import *`, which `_binding_records:949` skips and which at module
+  level can displace a binding and leave the previous one answering.
+- **Why it was not fixed:** both shapes are contrived, and the remedy is one
+  clause of docstring in the same register as the R4-WR-03 paragraph beneath it —
+  a wording debt, not a mechanism debt. It was not written in round 5 because no
+  file was modified during that review.
+- **Where it belongs:** Phase 16, with the other limits-list corrections R5-WR-01
+  also owes.
+
+## Three `src/` boundary-validation Infos, deliberately deferred (IN-F1 / IN-F2 / IN-F4)
+
+- **Source review document:** `15.1-REVIEW-FIXES.md` **IN-F1**, **IN-F2**,
+  **IN-F4** (round 2, the CR-01/CR-02 fix review). Explicitly excluded from
+  re-report by rounds 4 and 5 as "`src/`, deliberately deferred"
+  (`15.1-REVIEW-FIXES-3.md:561`, `15.1-REVIEW-FIXES-4.md:502`). **All three
+  OPEN.**
+- **IN-F1 — `path: ""` and `path: "."` pass both containment checks.**
+  `PurePosixPath("").parts` and `PurePosixPath(".").parts` are both `()`, so
+  neither is absolute, rooted, drive-qualified or `..`-bearing, and
+  `(anchor / "").resolve()` is `anchor`, which `is_relative_to(anchor)`. Both are
+  ADMITTED at preflight and fail at the read with `IsADirectoryError`, which is
+  **not among `load_and_boot`'s documented `Raises:`** — and CLAUDE.md §11 puts
+  validation at the boundary. Not a security issue: the read fails and nothing is
+  registered. Closable in two lines
+  (`Annotated[str, StringConstraints(min_length=1)]` on
+  `src/ccf/controlplane/artifacts.py`'s `path` field, plus a `resolved.is_file()`
+  check in `_document_inside_the_deployment`).
+- **IN-F2 — a hardlink inside the deployment to a file outside it is admitted.**
+  `Path.resolve()` follows symlinks and cannot see hardlinks; measured against a
+  real deployment directory, an outside file's contents were read. The
+  precondition is write access inside the deployment tree, which is also enough
+  to copy the file, so the practical gain is narrow — hence Info. What is owed is
+  a clause in `_document_inside_the_deployment`'s docstring, which currently says
+  *"what is in force is the deployment's own tree, not whatever that tree points
+  at"* — a hardlink is **neither**, and the sentence reads as if it were covered.
+- **IN-F4 — the two-flavour rule refuses the legal POSIX filename `a:b.yaml`.**
+  `PureWindowsPath("a:b.yaml").drive` is `'a:'`, so a one-character stem followed
+  by a colon reads as drive-qualified on Linux and is refused. This is a **direct
+  and accepted consequence** of the platform-invariance decision, which the
+  reviewer agreed with; the defect is only that the cost is stated nowhere. One
+  clause in `_leaves_its_own_directory`'s docstring makes it a recorded trade
+  rather than a surprise.
+- **Also recorded, and deliberately not carried as an item:** **IN-F3** (TOCTOU
+  between preflight resolution and the phase-one read) — the reviewer *could not
+  construct a case that does not already presuppose write access inside the
+  deployment tree*, at which point the attacker can write the content directly.
+  If it is ever judged in scope the mitigation is `os.open(..., O_NOFOLLOW)` on
+  the final component, not a wider check.
+- **Why none was fixed:** all three are `src/` changes to the boundary-validation
+  surface, and every round after round 2 was scoped to the tripwire modules with
+  **no `src/` change at all** — a property each of those reviews verified and
+  relied on. Widening scope to `src/` inside a remediation round would have been
+  the scope creep this phase has been penalised for.
+- **Where it belongs:** Phase 16, or a small hardening plan of their own. IN-F1
+  and IN-F4 are two-line changes plus docstrings; IN-F2 is a docstring clause
+  unless Dave rules the hardlink case in scope.
