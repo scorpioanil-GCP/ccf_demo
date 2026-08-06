@@ -417,7 +417,7 @@ Plans:
 
 ### Phase 15.1: Ergonomics Gap Closure — Governance Enforced, Not Conventional (INSERTED)
 
-**Goal**: The two governance guarantees Phase 15 shipped as *convention* become guarantees the code *enforces* — a manifest cannot route an author-versioned artifact class around the D-05 bump check, and the operator set a deployment declares can no longer agree with the set it executes by construction, because the two now come from separately authored artifacts bound by a boot-time check that refuses when they disagree (design E2, D-IMPL-86)
+**Goal**: The two governance guarantees Phase 15 shipped as *convention* become guarantees the code *enforces* — a manifest cannot route an author-versioned artifact class around the D-05 bump check, and the operator set a deployment declares can no longer agree with the set it executes by construction, because the two now come from separately authored artifacts bound by a check — placed between plan construction and `ProjectionEngine.execute`, per the D-IMPL-86 correction of 2026-08-05 — that refuses when they disagree (design E2, D-IMPL-86)
 **Depends on**: Phase 15 (closed and gated; D-GATE-15 amended rather than revoked)
 **Blocks**: Phase 16 — the documentation rewrite must not describe a self-satisfying gate
 **Requirements**: ERGO-18, ERGO-19
