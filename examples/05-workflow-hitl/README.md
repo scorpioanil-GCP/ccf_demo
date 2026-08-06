@@ -67,13 +67,14 @@ PYTHONPATH=src:runtime python -m pytest tests/examples/test_workflow_hitl_output
 2. **Six documents the driver registers itself, deliberately.** Four are
    author-versioned SDK classes (`ccf.agent-definition`,
    `ccf.prompt-artifact`, `ccf.task-definition`,
-   `ccf.workflow-definition`): they register through `register_versioned`,
-   whose D-05 bump check holds the author's `artifact_version` against
-   content identity, and `load_and_boot` registers through
-   `register_typed`, which does not run that check. Two more
-   (`ccf.hitl-policy`, `ccf.scope-mapping`) are SDK classes a manifest
-   cannot address at all. Folding any of the six into the manifest would
-   buy a shorter file by dropping governance.
+   `ccf.workflow-definition`): every one of them registers through
+   `register_versioned`, whose D-05 bump check holds the author's
+   `artifact_version` against content identity. `register_typed` does not
+   run that check, so none of the four takes it. A manifest may name them
+   as `registration: versioned`, and declaring `typed` for one is refused
+   at preflight (D-IMPL-85); they stay at the call site so the bump check
+   is visible as the thing being taught. Two more (`ccf.hitl-policy`,
+   `ccf.scope-mapping`) are SDK classes a manifest cannot address at all.
 3. **The workflow suspends at the gate.** The engine executes
    `verify-loan-file` → `assess-disbursement`, then suspends at
    `disbursement-approval` with a persisted `WorkflowStateRecord`
@@ -136,14 +137,14 @@ it, so an editor validates it as you type.
 | `artifacts/replay-values.yaml` | `load` | The product envelope, perspective and policy binding the record is shaped from |
 | `artifacts/tokens.yaml` | `load` | The recognised tokens, their lifecycle and scopes — all synthetic |
 
-### Registered by `run.py`, and why the manifest cannot name them
+### Registered by `run.py`, and why
 
 | Artifact | Registered via | Why not the manifest |
 | --- | --- | --- |
-| `artifacts/agent-definition.yaml` | `register_versioned` | Author-versioned; the manifest path skips the D-05 bump check |
-| `artifacts/prompt-artifact.yaml` | `register_typed` | Author-versioned class, absent from `SDK_ARTIFACT_CLASSES` |
-| `artifacts/task-definition.yaml` | `register_versioned` | Author-versioned; the manifest path skips the D-05 bump check |
-| `artifacts/workflow-definition.yaml` | `register_versioned` | Author-versioned; the manifest path skips the D-05 bump check |
+| `artifacts/agent-definition.yaml` | `register_versioned` | Author-versioned; kept at the call site so the D-05 bump check is visible. A manifest entry would have to declare `registration: versioned` |
+| `artifacts/prompt-artifact.yaml` | `register_versioned` | Author-versioned; kept at the call site so the D-05 bump check is visible. A manifest entry would have to declare `registration: versioned` |
+| `artifacts/task-definition.yaml` | `register_versioned` | Author-versioned; kept at the call site so the D-05 bump check is visible. A manifest entry would have to declare `registration: versioned` |
+| `artifacts/workflow-definition.yaml` | `register_versioned` | Author-versioned; kept at the call site so the D-05 bump check is visible. A manifest entry would have to declare `registration: versioned` |
 | `artifacts/hitl-policy.yaml` | `register_typed` | Not manifest-addressable; an entry would resolve to the open envelope and the transport would find the wrong type |
 | `artifacts/scope-mapping.yaml` | `register_typed` | Not manifest-addressable; the authorizer reads the real contract back by key |
 

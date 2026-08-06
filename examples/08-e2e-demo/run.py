@@ -944,21 +944,27 @@ def run(*, root: Path, live: bool = False) -> DemoResult:
         # reason is governance rather than convenience. `ccf.agent-definition`,
         # `ccf.prompt-artifact` and `ccf.skill-catalog-entry` are
         # AUTHOR-VERSIONED: they carry the author's own `artifact_version`, and
-        # the definition registers through `register_versioned`, which holds
+        # EVERY ONE of them registers through `register_versioned`, which holds
         # that claim against the document's content identity (the D-05 bump
-        # check). `load_and_boot` registers through `register_typed`, which does
-        # not run it — so the SDK keeps these classes out of
-        # `SDK_ARTIFACT_CLASSES` and a manifest entry naming one would parse
-        # fine while silently dropping the governance the class exists to carry.
+        # check). `register_typed` does not run that check, so routing one of
+        # these through it would drop exactly the governance the class exists to
+        # carry — which is why none of them does, prompt artifact included.
+        # A manifest CAN name them, as `registration: versioned`; declaring
+        # `typed` for one is refused at preflight (D-IMPL-85). They stay here so
+        # the bump check is visible at the call site as the thing being taught.
         # They still validate against their real contracts here, and they still
         # carry real `$schema` headers (plan 15-14's author-versioned set).
         prompt = load_artifact(
             (ARTIFACTS / "prompt-artifact.yaml").read_text("utf-8"),
             PROMPT_ARTIFACT,
         )
-        registry.register_typed(
+        prompt_version = registry.register_versioned(
             registration["prompt_artifact_key"], prompt, PROMPT_ARTIFACT
         )
+        if not isinstance(prompt_version, str):  # pragma: no cover
+            raise RuntimeError(
+                f"the prompt artifact was refused: {prompt_version!r}"
+            )
         definition = cast(
             AgentDefinition,
             load_artifact(

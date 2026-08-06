@@ -11,10 +11,12 @@
 # model's text is ever asserted.
 #
 # Like `agent-definition.yaml`, this class is author-versioned and therefore
-# deliberately not manifest-addressable — see that file's header comment for
-# the D-05 reasoning. The document root IS the artifact; the Control Plane key
-# it registers under lives in `agent-registration.yaml`, and the `--live`
-# provider configuration in `live-narration.yaml`.
+# registers through `register_versioned` and its D-05 bump check, which
+# `register_typed` does not run — see that file's header comment for the
+# reasoning, and `manifest.yaml`'s for why the driver keeps the call at the call
+# site. The document root IS the artifact; the Control Plane key it registers
+# under lives in `agent-registration.yaml`, and the `--live` provider
+# configuration in `live-narration.yaml`.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename

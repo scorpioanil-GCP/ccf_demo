@@ -5,11 +5,13 @@
 # prompt string literal in `run.py` would be the No-Hardcoding Rule (§6.4)
 # firing, and CINV-01 lints `/examples` for exactly that.
 #
-# **Not addressable by the manifest**, for the same reason as the agent
-# definition: `ccf.prompt-artifact` is author-versioned and registers through the
-# D-05 bump check, which `load_and_boot` does not run. `run.py` registers it under
-# the key `agent-registration.yaml` names — the key the agent definition's axis-6
-# ref resolves against.
+# **Registered by the driver, for the same reason as the agent definition:**
+# `ccf.prompt-artifact` is author-versioned, so it registers through
+# `register_versioned` and its D-05 bump check, which `register_typed` does not
+# run. A manifest may name it as `registration: versioned`; declaring `typed`
+# for it is refused at preflight (D-IMPL-85). `run.py` registers it under the key
+# `agent-registration.yaml` names — the key the agent definition's axis-6 ref
+# resolves against.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename
