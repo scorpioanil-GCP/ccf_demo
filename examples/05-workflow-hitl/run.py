@@ -402,15 +402,12 @@ def run(*, root: Path) -> WorkflowHitlDemonstration:
     # 3. Six SDK classes registered here rather than through the manifest (D-05).
     #    Four are AUTHOR-VERSIONED: `register_versioned` holds the author's
     #    `artifact_version` claim against content identity. A manifest CAN name
-    #    them now — as `registration: versioned`, which `load_and_boot` dispatches
-    #    down this same call (D-IMPL-85) — and declaring `typed` for one of them
-    #    is refused at preflight rather than silently skipping the bump check.
-    #    They stay here so the four-outcome D-05 table is visible as the thing
-    #    being taught. Two more are SDK classes deliberately not
-    #    manifest-addressable, because the transport and the authorizer read
-    #    their real contracts back off the Control Plane by key; naming either in
-    #    a manifest is now a refusal under the reserved `ccf.` prefix (D-IMPL-84)
-    #    rather than an open-envelope resolution the adopter had to know to avoid.
+    #    them now, as `registration: versioned`, and declaring `typed` for one is
+    #    refused at preflight (D-IMPL-85); they stay here so the four-outcome D-05
+    #    table is visible as the thing being taught. Two more are SDK classes
+    #    deliberately not manifest-addressable — the transport and the authorizer
+    #    read their real contracts back off the Control Plane by key — and naming
+    #    either in a manifest is now a refusal (reserved `ccf.` prefix, D-IMPL-84).
     registry.register_typed(
         keys["prompt_artifact_key"],
         load_artifact(

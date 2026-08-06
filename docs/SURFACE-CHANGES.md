@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**274 entries**, of which **60** name a public Python surface.
+**279 entries**, of which **65** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-83 entries — 55 public Python surface, 28 not public Python API.
+87 entries — 59 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -1193,6 +1193,100 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   two string values in YAML
 
 *Recorded by `15.1-02-registration-mode.md`.*
+
+#### ccf.deployment.classes.SDK_VERSIONED_ARTIFACT_CLASSES
+
+- Surface: ccf.deployment.classes.SDK_VERSIONED_ARTIFACT_CLASSES
+- Public surface: true
+- Change type: added
+- Before: absent — the six SDK-owned classes whose contracts declare a string
+  `artifact_version` (`ccf.agent-definition`, `ccf.prompt-artifact`,
+  `ccf.task-definition`, `ccf.workflow-definition`, `ccf.skill-catalog-entry`,
+  `ccf.skill-grant`) were in no lookup mapping at all, so a manifest naming one
+  resolved the open `DeclaredArtifact` envelope
+- After: `dict[str, ArtifactClass]` holding exactly those six, disjoint from
+  `SDK_ARTIFACT_CLASSES` by construction, consulted by `resolve_artifact_class` after it
+  and before the envelope
+- Why: `registration: versioned` (15.1-02) gave a manifest entry a way to *ask* for the
+  D-05 bump check, and nothing gave `resolve_artifact_class` a way to hand
+  `register_versioned` an artifact that actually carries an `artifact_version`. Without
+  this mapping the `versioned` path could only ever reach the envelope, and
+  `register_versioned` raises `TypeError` on an envelope. Kept separate from
+  `SDK_ARTIFACT_CLASSES` on purpose — that mapping is a runtime contract three surfaces
+  read, and "typed-registerable" and "versioned-registerable" are genuinely different
+  questions. `tests/deployment/test_class_lookup.py` computes the author-versioned set by
+  walking the SDK's exported `ArtifactClass` constants and asserts membership in both
+  directions, so the mapping cannot fall behind and cannot acquire a stowaway
+- Migration: none required. A deployment that wants the bump check on one of the six may
+  now name it in the manifest with `registration: versioned` instead of writing the
+  `registry.register_versioned(...)` call by hand; existing hand-written calls are
+  untouched and remain correct
+
+*Recorded by `15.1-03-namespace-reservation.md`.*
+
+#### ccf.deployment.SDK_VERSIONED_ARTIFACT_CLASSES
+
+- Surface: ccf.deployment.SDK_VERSIONED_ARTIFACT_CLASSES
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the package-level re-export of
+  `ccf.deployment.classes.SDK_VERSIONED_ARTIFACT_CLASSES`, added to
+  `ccf.deployment.__all__` beside `SDK_ARTIFACT_CLASSES` and `SDK_ARTIFACT_ROLES`
+- Why: the package `__all__` is the import path adopters and tests actually use —
+  `from ccf.deployment import SDK_ARTIFACT_CLASSES` is the existing idiom, and a new
+  mapping reachable only at the submodule would be a second, inconsistent spelling
+- Migration: none
+
+*Recorded by `15.1-03-namespace-reservation.md`.*
+
+#### ccf.deployment.classes.refuse_registration_the_sdk_fixes
+
+- Surface: ccf.deployment.classes.refuse_registration_the_sdk_fixes
+- Public surface: true
+- Change type: added
+- Before: absent — referenced by name in 15.1-02's docstrings as forthcoming. A manifest
+  could declare either registration mode for any class, and the only feedback was a
+  `TypeError` raised from inside `register_versioned` *after* every document had been
+  parsed, or silence in the `typed` direction
+- After: `refuse_registration_the_sdk_fixes(class_id: str, registration: RegistrationMode)
+  -> None`, shaped exactly like `refuse_role_the_sdk_fixes`. Raises `ValueError` naming
+  D-IMPL-85 in two cases and only two: an author-versioned class declared `typed` (the
+  D-05 bump check would not run) and a typed-only SDK class declared `versioned` (the
+  bump check would have nothing to verify). Called from `load_and_boot`'s preflight loop,
+  **before any document is read**
+- Why: D-IMPL-85 made `registration` a required no-default field so the choice is never
+  made *silently*; this is the half that stops it being made *wrongly* for the classes
+  where the answer is a property of the contract rather than of the deployment — the same
+  split `role` and `refuse_role_the_sdk_fixes` already carry (D-IMPL-80). A class in
+  neither mapping is not checked at all, and that is the default: the SDK fixes a
+  registration path only where it can say why. Refused, never corrected — silently
+  rewriting the entry would leave the manifest saying one thing and the deployment doing
+  another, and the manifest is the document the audit plane reads back
+- Migration: a manifest entry naming one of the six author-versioned classes must declare
+  `registration: versioned`, and an entry naming any class in `SDK_ARTIFACT_CLASSES` must
+  declare `registration: typed`. No manifest in this repository was affected — no example
+  or fixture manifest named a `ccf.`-prefixed class outside `SDK_ARTIFACT_CLASSES`. The
+  refusal fires in preflight, so a wrong declaration costs a startup error rather than
+  partial Control Plane state
+
+*Recorded by `15.1-03-namespace-reservation.md`.*
+
+#### ccf.deployment.refuse_registration_the_sdk_fixes
+
+- Surface: ccf.deployment.refuse_registration_the_sdk_fixes
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the package-level re-export of
+  `ccf.deployment.classes.refuse_registration_the_sdk_fixes`, added to
+  `ccf.deployment.__all__` beside `refuse_role_the_sdk_fixes`
+- Why: same reason as the mapping above — `refuse_role_the_sdk_fixes` is already exported
+  at the package level, and its sibling refusal being reachable only at the submodule
+  would be a gratuitous asymmetry in the surface adopters read
+- Migration: none
+
+*Recorded by `15.1-03-namespace-reservation.md`.*
 
 ### Not public Python API
 
@@ -3994,7 +4088,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-5 entries — 2 public Python surface, 3 not public Python API.
+6 entries — 3 public Python surface, 3 not public Python API.
 
 ### Public Python surface
 
@@ -4065,6 +4159,44 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   as conforming, and `isinstance(x, ControlPlaneProtocol)` returns `False` for it
 
 *Recorded by `15.1-01-projection-requirements-and-protocol.md`.*
+
+#### ccf.deployment.classes.resolve_artifact_class
+
+- Surface: ccf.deployment.classes.resolve_artifact_class
+- Public surface: true
+- Change type: behavior
+- Before: `resolve_artifact_class(class_id)` returned the SDK constant for an id in
+  `SDK_ARTIFACT_CLASSES` and the open `DeclaredArtifact` envelope for **every** other id,
+  including every `ccf.`-prefixed one. The module docstring justified that with "refusing
+  it would be the SDK claiming ownership of a namespace that is not its own"
+- After: the name and the signature are unchanged and no manifest in the tree resolves
+  differently. Two behavior changes: the six author-versioned ids now resolve to their
+  **real contracts** instead of the envelope, and a `ccf.`-prefixed id in neither SDK
+  mapping now raises `ValueError` naming D-IMPL-84 instead of resolving to the envelope.
+  The docstring's namespace sentence is rewritten: the SDK claims exactly the `ccf.`
+  prefix and nothing else, and the rejected four-id alternative is recorded with the
+  reason
+- Why: D-IMPL-84. The envelope path was reachable *under an SDK class name*, which is
+  what made the squat work — arbitrary content content-hashed into Control Plane state,
+  pinned into `ResolvedPins` and therefore into Decision Replay dimension 2, bound to
+  `ccf.workflow-definition` with no `artifact_version` at all. The reservation is one
+  prefix wide and no wider: every adopter namespace stays on the envelope path unchanged,
+  and `tests/deployment/test_class_lookup.py` asserts that half too, so an implementation
+  that refused *every* unrecognized id would fail
+- Migration: **a deployment naming a `ccf.`-prefixed class id it does not own must rename
+  it into its own namespace.** Concretely: a manifest entry whose `class_id` starts with
+  `ccf.` and is neither in `SDK_ARTIFACT_CLASSES` nor in
+  `SDK_VERSIONED_ARTIFACT_CLASSES` now fails at load with a message naming D-IMPL-84 and
+  saying what to do. Two cases land there and both are the same instruction: an id that
+  was a typo for a real SDK class (correct the spelling), and a deployment-authored class
+  that borrowed the SDK's prefix (rename it — `acme.workflow-definition`, not
+  `ccf.workflow-definition`). Nothing in this repository required the edit. Note also
+  that `ccf.hitl-policy` and `ccf.scope-mapping` — SDK classes registered by adopter code
+  against their real contracts, never through a manifest — are refused here rather than
+  enveloped, which is a strict improvement on the hazard `examples/05-workflow-hitl`
+  previously documented as something the adopter had to know to avoid
+
+*Recorded by `15.1-03-namespace-reservation.md`.*
 
 ### Not public Python API
 
