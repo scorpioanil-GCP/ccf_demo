@@ -3,15 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: 2026-08-05T18:05:00.000Z
-last_activity: 2026-08-05 -- post-gate cross-AI review found CR-1/CR-2; Phase 15.1 inserted
+last_updated: "2026-08-06T00:31:51.137Z"
+last_activity: 2026-08-06 -- Phase 15.1 planning complete
 progress:
-  total_phases: 11
+  total_phases: 12
   completed_phases: 10
-  total_plans: 62
+  total_plans: 72
   completed_plans: 62
-  percent: 91
-stopped_at: Phase 15 gated with carried debt; Phase 15.1 inserted to close CR-1/CR-2 before Phase 16
+  percent: 83
 ---
 
 # STATE — CCF SDK
@@ -30,9 +29,9 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 Phase: 15 COMPLETE and gated (D-GATE-15, 2026-08-05) with carried debt — Phase 15.1 is next
 Plan: 21/21 complete
-Status: Phase 15 closed with two HIGH defects carried as debt (D-GATE-15 amendment); Phase 15.1 next
+Status: Ready to execute
 Progress: [######################################] 21/21 Phase 15 plans
-Last activity: 2026-08-05 -- D-GATE-15 logged, phase merged to main
+Last activity: 2026-08-06 -- Phase 15.1 planning complete
 
 ## Performance Metrics
 
