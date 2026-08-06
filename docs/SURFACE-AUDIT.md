@@ -733,6 +733,19 @@ The register §5.4 established, continued for this phase. **Items 4 and 5 are tw
 distinct residuals of the same family, not one residual stated twice.** Merging
 them would understate what this phase asks Dave to accept.
 
+**Disposition at the gate (`D-GATE-15.1`, Dave, 2026-08-05).** All five items are
+**carried forward — accepted at approval, and not closed by it.** Dave's verbatim
+reply to the gate presentation was **"Approved"**: one approval of the phase as
+presented, **not five separate written rulings** on the five items the presentation
+enumerated. Items 1, 4 and 5 were put to him as ruling items R-4, R-3 and R-2
+respectively, and each remains open and inherits to Phase 16; items 2 (D-IMPL-81)
+and 3 (`BootedFabric.artifacts`) were already carried debt and stay so. The one
+item the approval does **ratify** is not in this register — it is R-5, plan
+15.1-02's Criterion-6 gate edit to `tests/test_surface_completeness.py` assertion
+3, which was presented explicitly as an executor-made gate edit needing human
+ratification (`15.1-REVIEWS.md` §6). Nothing here should be read as resolved. A
+reader arriving at this register after the gate is reading five open items.
+
 1. **The HTTP `/schema` route's contract.** The route, the `ccf schema export`
    CLI verb and `tools/dump_schemas.py` all enumerate `SDK_ARTIFACT_CLASSES` — 12
    typed-registerable classes — and answer **404** for the six author-versioned

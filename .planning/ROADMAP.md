@@ -525,12 +525,23 @@ Plans:
 
 ## Coverage
 
-All 21 v0.2 requirements mapped, each to exactly one phase:
+All **42** v0.2 requirements mapped, each to exactly one phase — the figure
+`.planning/REQUIREMENTS.md`'s traceability table carries, counted from it rather
+than remembered. It arrives in two halves.
+
+The **21 defined at milestone definition** (2026-08-01), which is what this
+sentence used to count before inserted phases minted more and the number was left
+behind (corrected 2026-08-05 at the Phase 15.1 close, flagged by plan 15.1-01):
 HARD-01..03 → 9; HARD-04..05 → 10; PERF-01..04 → 11;
 DEMO-01..03 → 12; EXAM-01..03 → 13; DOCS-01..06 → 14.
 
-Phases 15 and 16 were inserted 2026-08-03 and mint their own requirements at planning
-(ERGO-01..NN → 15; DOCS-07..NN → 16). They extend v0.2 rather than opening a new milestone:
+The **21 minted since**, by inserted phases at their own planning:
+EXAM-04 → 13.1; EXAM-05 → 13.2; ERGO-01..17 → 15; ERGO-18..19 → 15.1.
+(Phases 13.3 and 14.1 minted none — 13.3 closed review residuals against existing
+requirements, and 14.1 was superseded by 16 before planning.)
+
+Phase 16 mints its own (DOCS-07..NN) at planning and is not yet counted above.
+Phases 15 and 16 were inserted 2026-08-03. They extend v0.2 rather than opening a new milestone:
 Phase 15 fixes the surface the v0.2 documentation describes, and Phase 16 rewrites that
 documentation against it, so the milestone's "adopter-grade documentation suite" goal is not
 actually met until both land. v0.3 (Assembly Modes) is unchanged and still follows.
