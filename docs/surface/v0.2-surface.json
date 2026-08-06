@@ -862,10 +862,13 @@
       "OperatorParametersArtifact",
       "PERSPECTIVE",
       "PRODUCT_CLASS",
+      "PROJECTION_REQUIREMENTS",
       "PerspectiveArtifact",
       "PolicyFilterParametersArtifact",
       "ProductClassDeclaration",
+      "ProjectionRequirements",
       "RESOLUTION_SPEC",
+      "RegistrationMode",
       "SIGNAL_BATCH",
       "SignalBatch",
       "SimilaritySelectParametersArtifact",
@@ -951,6 +954,7 @@
           "class_id": "<class 'str'>",
           "key": "<class 'str'>",
           "path": "<class 'str'>",
+          "registration": "typing.Literal['typed', 'versioned']",
           "role": "typing.Literal['register', 'load']"
         }
       },
@@ -984,6 +988,10 @@
         "kind": "constant",
         "shape": "ArtifactClass"
       },
+      "PROJECTION_REQUIREMENTS": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
       "PerspectiveArtifact": {
         "kind": "contract",
         "shape": {
@@ -1012,9 +1020,21 @@
           "ttl_anchor": "typing.Literal['from_decision', 'from_entity_freshness']"
         }
       },
+      "ProjectionRequirements": {
+        "kind": "contract",
+        "shape": {
+          "plan_id": "<class 'str'>",
+          "required_operator_keys": "tuple[str, ...]",
+          "semver": "<class 'str'>"
+        }
+      },
       "RESOLUTION_SPEC": {
         "kind": "constant",
         "shape": "ArtifactClass"
+      },
+      "RegistrationMode": {
+        "kind": "function",
+        "shape": "(*args, **kwargs)"
       },
       "SIGNAL_BATCH": {
         "kind": "constant",
@@ -1256,10 +1276,13 @@
       "ResolvedPins",
       "SDK_ARTIFACT_CLASSES",
       "SDK_ARTIFACT_ROLES",
+      "SDK_VERSIONED_ARTIFACT_CLASSES",
       "SimilarityCorpusAttributeError",
       "UnpinnedArtifactError",
       "build_operator_registry",
       "load_and_boot",
+      "refuse_operator_set_divergence",
+      "refuse_registration_the_sdk_fixes",
       "refuse_role_the_sdk_fixes",
       "resolve_artifact_class"
     ],
@@ -1269,6 +1292,7 @@
         "shape": {
           "class_id": "<class 'str'>",
           "key": "<class 'str'>",
+          "registration": "typing.Literal['typed', 'versioned']",
           "version": "<class 'str'>"
         }
       },
@@ -1293,6 +1317,7 @@
           "class_id": "<class 'str'>",
           "key": "<class 'str'>",
           "path": "<class 'str'>",
+          "registration": "typing.Literal['typed', 'versioned']",
           "role": "typing.Literal['register', 'load']"
         }
       },
@@ -1307,6 +1332,10 @@
         "shape": "dict"
       },
       "SDK_ARTIFACT_ROLES": {
+        "kind": "constant",
+        "shape": "dict"
+      },
+      "SDK_VERSIONED_ARTIFACT_CLASSES": {
         "kind": "constant",
         "shape": "dict"
       },
@@ -1326,6 +1355,14 @@
         "kind": "function",
         "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', database_path: 'str | None' = None, postgres_dsn: 'str | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
       },
+      "refuse_operator_set_divergence": {
+        "kind": "function",
+        "shape": "(*, declared: 'ProductClassDeclaration', plan: 'ProjectionPlan') -> 'None'"
+      },
+      "refuse_registration_the_sdk_fixes": {
+        "kind": "function",
+        "shape": "(class_id: 'str', registration: 'RegistrationMode') -> 'None'"
+      },
       "refuse_role_the_sdk_fixes": {
         "kind": "function",
         "shape": "(class_id: 'str', role: 'ArtifactRole') -> 'None'"
@@ -1336,10 +1373,23 @@
       }
     }
   },
+  "ccf.deployment.binder": {
+    "__all__": [
+      "refuse_operator_set_divergence"
+    ],
+    "exports": {
+      "refuse_operator_set_divergence": {
+        "kind": "function",
+        "shape": "(*, declared: 'ProductClassDeclaration', plan: 'ProjectionPlan') -> 'None'"
+      }
+    }
+  },
   "ccf.deployment.classes": {
     "__all__": [
       "SDK_ARTIFACT_CLASSES",
       "SDK_ARTIFACT_ROLES",
+      "SDK_VERSIONED_ARTIFACT_CLASSES",
+      "refuse_registration_the_sdk_fixes",
       "refuse_role_the_sdk_fixes",
       "resolve_artifact_class"
     ],
@@ -1351,6 +1401,14 @@
       "SDK_ARTIFACT_ROLES": {
         "kind": "constant",
         "shape": "dict"
+      },
+      "SDK_VERSIONED_ARTIFACT_CLASSES": {
+        "kind": "constant",
+        "shape": "dict"
+      },
+      "refuse_registration_the_sdk_fixes": {
+        "kind": "function",
+        "shape": "(class_id: 'str', registration: 'RegistrationMode') -> 'None'"
       },
       "refuse_role_the_sdk_fixes": {
         "kind": "function",
@@ -1406,6 +1464,7 @@
         "shape": {
           "class_id": "<class 'str'>",
           "key": "<class 'str'>",
+          "registration": "typing.Literal['typed', 'versioned']",
           "version": "<class 'str'>"
         }
       },

@@ -12,6 +12,15 @@ under each section so any figure can be reproduced.
 | 3 | Criterion 4 — per shipped helper, "what does this hide from the replay record?" |
 | 4 | The two governance items the phase surfaced, and their disposition |
 | 5 | The `/gsd-review` report, its triage, and the advisory findings carried forward |
+| 6 | **Phase 15.1** — the gap-closure criterion-by-criterion evidence, the items carried to that phase's gate, and what the phase-close review found |
+
+**Two phases, two documents in one file.** Sections 1–5 answer **Phase 15**'s
+success criteria. Section 6 answers **Phase 15.1**'s, which are a different and
+independently numbered list. The collision that matters: *Phase 15 Criterion 1*
+is the measured adopter-facing surface (§2), while *Phase 15.1 Criterion 1* is
+the manifest registration refusal (§6). A row citing "Criterion 1" means
+whichever list its own section belongs to, and §6.1 says so again at the point
+of use.
 
 ---
 
@@ -625,4 +634,205 @@ behalf.
    was surfaced during planning and deliberately left out of scope.
 
 Plus the ERGO-16 reading from §2.3.
+
+---
+
+## 6. Phase 15.1 gap closure: criterion-by-criterion evidence
+
+Phase 15.1 closed the two HIGH defects a post-gate cross-AI review found against
+Phase 15 (CR-1, CR-2), plus the mechanism Dave ruled in at **D-IMPL-86** to close
+the second properly. Because design E2 revises the gated 15-09 decision, the
+phase ran as a **Phase D mini-cycle under CLAUDE.md §3.1**, with D-IMPL-86 and its
+correction of 2026-08-05 as the ruling of record.
+
+**Read the numbering warning at the top of this document first.** The nine rows
+below are **Phase 15.1's** success criteria, quoted from `.planning/ROADMAP.md`'s
+`### Phase 15.1:` section. They are *not* Phase 15's, which §§1–5 answer. Where a
+Phase 15.1 criterion number collides with a Phase 15 one — Criterion 1 most
+sharply — the row says which it means.
+
+### 6.1 The nine criteria and what establishes each
+
+| # | The criterion (Phase 15.1, quoted) | What establishes it |
+| --- | --- | --- |
+| 1 | "A manifest that declares an author-versioned class (`ccf.workflow-definition`, `ccf.agent-definition`, `ccf.task-definition`) for typed registration is **refused at load**, with a test that asserts the refusal — not a test that the examples happen to avoid the pattern" — *this is Phase 15.1's Criterion 1, not §2's adopter-surface measurement* | `refuse_registration_the_sdk_fixes` (`src/ccf/deployment/classes.py`), called in `load_and_boot`'s preflight at `src/ccf/deployment/manifest.py:312` — before `_preflight_backend` and before any document is read. Tests: `tests/deployment/test_manifest.py::test_an_author_versioned_class_declared_typed_registration_is_refused`, `::test_an_envelope_squat_on_an_sdk_class_id_is_refused`, and `::test_the_ccf_namespace_reservation_is_wide_not_a_four_id_list` (×3 ids). Command: `pytest tests/deployment/test_manifest.py -k "squat or typed_registration"` → **2 passed, 28 deselected**. Every one of the seven collected members was **watched to fail** with the source reverted, and the failure *reasons* recorded (15.1-03-SUMMARY) — three raised `DID NOT RAISE ValueError`, i.e. the squat booted, registered and pinned, which is the executed reproduction of CR-1. The refusal was also watched to **admit**: the four-row matrix in `tests/deployment/test_class_lookup.py` failed exactly its admit rows under forced always-refuse and exactly its refuse rows under forced no-op. |
+| 2 | "The registration mode is declared per entry in the manifest and dispatched by `load_and_boot`; the artifact author does not have to know which of two registration paths their class belongs to" | `RegistrationMode = Literal["typed","versioned"]` and `ManifestEntry.registration` — **required, no default** (D-IMPL-85) — in `src/ccf/controlplane/artifacts.py`; `load_and_boot`'s phase two branches on `entry.registration`, with an `isinstance` narrowing that turns a returned `RegistrationRefusal` into a loud raise and **no fallback to `register_typed`**. `docs/schemas/ccf.deployment-manifest.json` carries `registration` in `$defs.ManifestEntry.required`. **163 entries across 11 documents** migrated, count taken by parsing rather than by memory. Test: `::test_a_manifest_entry_naming_no_registration_is_refused`, watched to fail with a default present and pass without one — which is what separates it from passing on the sibling `role` refusal firing first. |
+| 3 | "`lineage.operators_invoked` is filled from the product-class declaration — never from `execution.operators_invoked` — in every example that runs Gate 2, and the projection's required operator set comes from its own Control Plane artifact rather than from the product-class artifact, so the declared and executed sets are separately authored" | **Both halves, separately.** *Half one — the tree-wide grep.* `grep -rn "ProductLineage(" -A 2 examples/` shows **thirteen** lineage constructions and **not one** reads `execution`: nine read `frozenset(declared.required_operator_keys)` (the nine CR-2 sites — 00:301, 01:377, 02:387, 03:397, 04/producer_child:391, 06:627, 07:412, 08:885, external/00/serve:495), two read `record.content_generation_path.operator_plan` (the replay legs at 06:391 and external/00/run:221), one reads the consumer's own lineage artifact (04/run:282), and one the HITL example's operator key (05:688). *Half two — the projection reads its own artifact.* **Nine** `artifacts/projection-requirements.yaml` documents exist (00, 01, 02, 03, 04, 06, 07, 08, external/00), each `$schema`-headed at `ccf.projection-requirements`, each named by a manifest entry, and each supplying the plan's `required=` rather than the product class. Structural enforcement rather than grep: `tests/products/test_gate_two_call_shape.py` — 9 gate call sites scanned, **zero violations**. |
+| 4 | "A binder **refuses** when `product_class.required_operator_keys != frozenset(plan.required_operators())`, placed … between plan construction and `ProjectionEngine.execute`, **not** inside `load_and_boot` … and a test proves the refusal fires when the two artifacts are edited into disagreement … The residual the placement creates … is named in the deliverables and surfaced at the gate, not left in a docstring" | **Both halves of the amended criterion.** *The refusal.* `refuse_operator_set_divergence(*, declared, plan) -> None` in `src/ccf/deployment/binder.py`, comparing as **sets**, refusing and never repairing. `tests/deployment/test_binder.py` — 5 tests, every case reaching the binder through documents parsed by `load_artifact` (`grep -c "ProductClassDeclaration("` and `"ProjectionRequirements("` are both **0**), including a superset, a subset, and a plan that ignores its own artifact. Both halves watched: forced always-admit failed exactly the four refuse cases, forced always-refuse failed exactly the admit case. At **example** scale the refusal was watched to fire from a one-key edit at all nine sites, from *either* document (15.1-05/06/07 SUMMARYs) — at example 04 it fires upstream of signing and emission, so a consumer can never receive a claim the producer's own plan contradicts. Placement cited at **both** interval bounds, which is what surfaced the finding that the interval was *empty* before the plan was hoisted to a local. *The residual.* Named in four parts in the binder's module docstring, in the `Migration` field of `docs/surface-changes/15.1-04-operator-set-binder.md`, in §6.2 item 5 below, and put to Dave at the gate as a **separate ruling** from the authorship residual. |
+| 5 | "Gate 2 is documented for what it verifies — **assembly-path integrity** … and every site asserting that it compares two independently authored sets is corrected, including `src/ccf/products/gates.py:14-17` and `:244-250`, the `ProductClassDeclaration` docstring …, and `docs/SURFACE-AUDIT.md` §3.1 item 1. D-IMPL-57's intra-fabric … premise is corrected with it" | All four named sites corrected, plus five the criterion did not name. `src/ccf/products/gates.py` (module docstring gate-2 sequence `:14-24`, and `run_federated_gates` `:258-286`); `ProductClassDeclaration` at `src/ccf/controlplane/artifacts.py:526`; **§3.1 item 1 of this document** (lines 358-381 — the claim is quoted, then stated as not-true-as-shipped, then E2's answer). Unnamed but found and corrected: `src/ccf/projection/plan.py:21-23`, which carried the same over-claim; `public/tutorial/adopters-guide.md` and `public/reference/artifacts/product-registration.md`, the two adopter-facing pages; **eight** `product-class.yaml` comment blocks (not the two the widening named); and `docs/schemas/ccf.product-class.json`, a *generated* file that embeds the class docstring verbatim as `description`. D-IMPL-57 corrected by an **appended dated note** — `git diff --numstat docs/DECISIONS.md`: 2 insertions, **0 deletions**, so the original entry is byte-unchanged and the ruling is not reopened. **Four further sites were found at the phase-close review and corrected there** — see §6.6, and note the reason they were missed: the phase swept for one *spelling* of the over-claim and there were two. Final sweep: no site in `src/`, `runtime/`, `tests/`, `examples/` or `public/` asserts the corrected-away property in either vocabulary; the surviving occurrences are all negations or a quoted-then-answered superseded claim. |
+| 6 | "A tripwire refuses any call site filling both of Gate 2's arguments from `execution`, closing the shape CR-2 found" | `tests/products/test_gate_two_call_shape.py` (D-IMPL-86 element 5), scanning `src`, `runtime`, `examples` at **lexical-body** granularity, resolving identifier *paths* (not bare roots) with alias tracking to a fixed point, and treating `frozenset`/`set`/`tuple`/`list`/`sorted`/`cast` as transparent. Five malicious probes caught, three benign probes correctly not caught, and a cross-body negative test proving the scan is not an `ast.walk` from the class node. Watched to fire: reverting `examples/00-quickstart/run.py:301` to `execution.operators_invoked` failed the tripwire with a message naming both lines. A companion binder-coverage tripwire holds **all eleven** projecting bodies under `examples/` to naming the binder — floors of 9 gate call sites and 11 projecting bodies, each proven non-vacuous by raising it and watching the module fail. |
+| 7 | "`docs/SURFACE-AUDIT.md` §4.1 is corrected: 'eight instances' is an undercount, and the ninth (the Gate 2 call-site pattern) is entered with the same accounting discipline" | **§4.1 of this document.** Headline reads nine; row 9 is entered with its plan, its check and its reason. It is **deliberately not bolded** as an outright correctness defect, with the reason stated in the row — the products served were correct; what was absent was the proof — which keeps the "two are outright correctness defects" clause true. Both the "Recorded discrepancy" paragraph and the second-sites block are **amended, never deleted** (verified: zero deletions in those passages), including a note reconciling row 9 against 15-20's explicit declining of a ninth: a per-file reading found none, a cross-file reading of the same call shape found one. |
+| 8 | "The new AST gates are restated as **tripwires** … rather than as structural enforcement on par with single-writer DI, strengthened by D-IMPL-86's finding that no AST gate can distinguish an authored literal from a transcribed one" | The `Closed structurally, in two layers` heading in §4 is **withdrawn with its reasoning stated** ("it had the correction backwards — it explicitly forbade the weaker framing that is in fact the accurate one"); layer 2 is restated as a tripwire a *receiver rename* defeats, which is what the guard's own docstring at `tests/products/test_required_operators_guard.py:47-58` always said and this audit had been contradicting. `grep -c "tripwire" docs/SURFACE-AUDIT.md` → **4** (was 0). The genuine walls stay walls: `git diff --exit-code` against the phase base for `tools/lints/` and `tests/deployment/test_direct_construction.py` exits **0** — the import lints were not restated. |
+| 9 | "The public-surface manifest and the `--check` drift gate stay green; no replay dimension is hidden by anything this phase adds" | *Manifest and gate.* `docs/surface/v0.2-surface.json` regenerated once by this plan (the single-owner rule); `tools/dump_surface.py --check` and `tools/assemble_surface_changes.py --check` both exit **0**, so the documented-drift gate is at plain bytes-equality with nothing unclaimed. `git diff --exit-code docs/surface/v0.2-surface-baseline.json` exits 0 — the digest-pinned frozen baseline was **not** touched. *No replay dimension hidden.* Stated explicitly because the criterion asks for it: the projection-requirements artifact is `role: register` at **all nine** sites (verified per file), so it is registered and pinned and therefore **enters** Decision Replay dimension 2 rather than being hidden from it — the same argument `product-class.yaml` already carried. And `ArtifactPin.registration` (**D-IMPL-83**) adds a **recorded fact without adding a selector**: it is a field on the pin, and `ResolvedPins` still exposes exactly one public method, `version_for`, held there by `tests/deployment/test_manifest.py::test_resolved_pins_has_exactly_one_public_method`. A `registration_for` accessor would have moved *selection* into the SDK; recording the mode does not. The audit log remains primary evidence; the pin-set content hash changing is an accepted, documented consequence. |
+
+### 6.2 The verification matrix, as observed
+
+Every command below was run by this plan against the merged tree and its exit
+status read. A gate not run is a gate this document cannot report. **The figures
+are from the re-run after the phase-close review's three blocking findings were
+closed** (§6.6), not from the pre-review run; both runs were green and reported
+identical numbers.
+
+| Gate | Command | Observed |
+| --- | --- | --- |
+| Lints (CINV-01/02/03, orchestration split, No-Hardcoding) | `python -m tools.lints --all` | **exit 0** |
+| Typecheck | `make typecheck` | **exit 0** — `no issues found in 170 source files` |
+| Full suite | `make test` | **2059 passed, 2 skipped**, 105 warnings, 319.77s |
+| Ten examples | `make examples` | **exit 0** — all ten invoked and passed (00–08 + `external/00`; `make` stops on first failure) |
+| Docs | `make docs-strict` | **exit 0** — pre-build scan, `mkdocs build --strict`, site scan |
+| Composite | `make ci` | **exit 0** |
+| Committed schemas | `make schemas` then `git diff --exit-code docs/schemas/` | wrote 24 schemas; diff **exit 0** |
+| Example artifact `$schema` headers | `make schema-headers` | **exit 0** — checked 10 artifact directories |
+| Public-surface drift | `tools/dump_surface.py --check` | **exit 0** |
+| Curated log assembly | `tools/assemble_surface_changes.py --check` | **exit 0** |
+| Frozen baseline immutability | `git diff --exit-code docs/surface/v0.2-surface-baseline.json` | **exit 0** |
+
+Excluded by design and deliberately not "fixed" here: example 03's `--mode live`
+leg, `ext-00`'s live legs, example 08's `--live`, and the perf battery
+(D-10/D-11/D-IMPL-70).
+
+### 6.3 Three criteria this phase found to be wrong as written
+
+Recorded rather than satisfied, because a criterion met by changing the code to
+suit a bad check is the defect this phase was convened to close.
+
+1. **`grep -rn "operators_invoked=execution.operators_invoked" examples/` must
+   NOT be empty.** Plan 15.1-10's own verification step 6 asks for no output.
+   Three executors concluded independently, from disjoint files, that zeroing it
+   would *undo* the phase: every surviving occurrence is a **result-carrier
+   dataclass field** handing the *engine's* resolution to the paired test module,
+   which is exactly what turns
+   `assert result.product.lineage.operators_invoked == result.operators_invoked`
+   from a tautology into a two-source comparison. **The count observed at phase
+   close is 5**, not the 8 those executors predicted — examples 00, 01 and 02
+   route the same value through a named local (`engine_transcription`), so the
+   *literal* string is absent while the *property* is identical. The 8 was
+   carried from 15.1-07 to 15.1-08 to the phase-close brief without being
+   re-measured against the post-15.1-05 tree. The substantive check is
+   `grep -n "ProductLineage(" -A 2 examples/`, and the structural one is the
+   tripwire in row 6 above.
+2. **`grep -c "independent witness" src/ccf/products/gates.py` cannot reach 0
+   honestly.** It is **3**, and all three are negations or the quoted superseded
+   claim answered on the next line. The decisive evidence that this is a
+   line-wrapping artifact and not a semantic check: `src/ccf/deployment/binder.py`
+   contains the *identical negated sentence* and greps to **0** only because the
+   phrase wraps across a line break. A grep measures token absence; the property
+   is claim absence, and the two diverge **in both directions**.
+3. **`docs/SURFACE-CHANGES.md` is not ordered `15-02…15-20` then
+   `15.1-01…15.1-09`.** The assembler groups by change type first (Added /
+   Reshaped / Removed / Behavior), then by public / not-public, so fragment order
+   applies **within** each group. Verified mechanically: all **six** groups are
+   monotonic under the `(major, minor, plan)` key, with every 15.1 fragment
+   sorting after every Phase 15 one. Also, only **four** 15.1 fragments exist
+   (01–04) — plans 15.1-05 through 15.1-09 added no public Python name, so they
+   correctly wrote none.
+
+### 6.4 Carried to the gate — five items, recorded rather than closed
+
+The register §5.4 established, continued for this phase. **Items 4 and 5 are two
+distinct residuals of the same family, not one residual stated twice.** Merging
+them would understate what this phase asks Dave to accept.
+
+1. **The HTTP `/schema` route's contract.** The route, the `ccf schema export`
+   CLI verb and `tools/dump_schemas.py` all enumerate `SDK_ARTIFACT_CLASSES` — 12
+   typed-registerable classes — and answer **404** for the six author-versioned
+   ones (`ccf.agent-definition`, `ccf.prompt-artifact`, `ccf.task-definition`,
+   `ccf.workflow-definition`, `ccf.skill-catalog-entry`, `ccf.skill-grant`),
+   *all six of which have committed schemas in `docs/schemas/`* (verified). Phase
+   15 deferred this on the grounds that the route "documents what a *manifest*
+   may name"; after 15.1-03 that framing is no longer accurate — a manifest **may**
+   name all six, as `registration: versioned`. The route's real contract has
+   narrowed to "the classes a manifest may name for **typed** registration". The
+   docstring now says so precisely; the ruling is still owed. Recorded in
+   `.planning/phases/15.1-ergonomics-gap-closure/deferred-items.md`.
+2. **D-IMPL-81 — pinning the deployment manifest itself.** Ruled out of Phase
+   15.1's scope by the two-HIGH-items ruling and unaffected by the E2 widening.
+   Still **open debt** against Phase 16 or later.
+3. **`BootedFabric.artifacts` role blurring.** `role: load` entries are reachable
+   on `artifacts` and absent from the replay pin set, because role governs
+   registration and pinning, never visibility (D-IMPL-80 amendment). Both halves
+   need saying together in the reference pages; §5.3 row A-8 routes it to Phase 16.
+4. **D-IMPL-86's *authorship* residual.** A deployment that reads one artifact
+   into the other still collapses the binder, so dual authorship remains
+   **convention-assisted at the authoring boundary** even though the check itself
+   is structural. D-IMPL-86 accepts this in its own "Consequences accepted"
+   paragraph, and D-IMPL-86 strengthens *why* it cannot be closed by a gate: no
+   AST gate can distinguish an authored literal from a transcribed one. Recorded
+   in the binder's module docstring and here rather than softened.
+5. **D-IMPL-86's *placement* residual — a second, distinct residual.** Stated in
+   the four parts the binder's module docstring carries, from the
+   `D-IMPL-86 (correction, 2026-08-05)` entry:
+   1. The binder sits **between plan construction and `ProjectionEngine.execute`**,
+      in adopter code, because `load_and_boot` has no `ProjectionPlan` in scope at
+      any of its preflights (`src/ccf/deployment/manifest.py:177` as the correction
+      cites it; the signature now spans `:181-188`, the fact unchanged and only the
+      line number moved). The SDK therefore never invokes it.
+   2. It **returns `None`**, so nothing observable at runtime proves it was called
+      — no product field, no pin, no audit event. A deployment that omits it
+      produces byte-identical output.
+   3. **Nothing outside the SDK's own `examples/` tree holds a deployment to
+      calling it at all.** An adopter who omits the call gets no error, no
+      warning, and no degraded output.
+   4. The AST coverage check that enforces the call
+      (`tests/products/test_gate_two_call_shape.py`) is **scoped to `examples/`
+      only** — a check on the SDK's own teaching material, not on adopters.
+
+   It is **carried to Phase 16** and surfaced at this gate for Dave's ruling,
+   because it is the same shape as the defect this phase was convened to close: a
+   governance guarantee that holds by convention outside the tree the SDK controls.
+
+### 6.5 Two further items this phase surfaced, for the record
+
+Neither is a criterion and neither is a residual of the mechanism; both are
+things a later reader would otherwise have to rediscover.
+
+- **Correcting a docstring silently changes a shipped schema.** `make schemas`
+  embeds each class docstring verbatim as the JSON Schema `description`, so
+  `docs/schemas/ccf.product-class.json` — the ERGO-12 authoring baseline an
+  adopter's editor reads — carried the false "two independent mechanisms" claim
+  until it was regenerated. It was found by a red `tests/cli/test_schema_export.py`,
+  not by inspection. Any future docstring correction to a contract class is also a
+  committed-schema change, and the drift assertion in the always-on `test` job is
+  what makes that visible rather than silent.
+- **The SDK refuses a wrong registration path at the *manifest* seam and not at
+  the *registry* seam.** `examples/05-workflow-hitl/run.py` registers the
+  author-versioned `ccf.prompt-artifact` through `register_typed`, which is legal
+  under the code as built — `refuse_registration_the_sdk_fixes` guards the manifest
+  path by design, and a direct `registry.register_typed` call is the adopter's own.
+  Whether that asymmetry is intended is a design question, not a defect, and it is
+  recorded in `deferred-items.md` rather than resolved here.
+
+### 6.6 What the phase-close review found, and the sweep defect behind it
+
+The full round, its triage and every finding's source verification live in
+`.planning/phases/15.1-ergonomics-gap-closure/15.1-REVIEWS.md`. Two things belong
+in the audit of record.
+
+**Four more sites asserted the corrected-away claim, and Criterion 5 was not
+actually met until they were fixed.** Cursor found one; re-sweeping on its
+vocabulary found three more.
+
+| Site | What it asserted |
+| --- | --- |
+| `src/ccf/deployment/__init__.py` | "Lineage strict equality … is a real check precisely because those two values arrive from two independent sources" — in `/src`, in the package docstring of the package the binder lives in |
+| `tests/products/test_required_operators_guard.py` | the guard's **failure message** told an author the declaration and resolution "must remain two independent mechanisms" and to "Declare the keys from the `ccf.product-class` artifact … instead" — which after E2 is the one thing that collapses the pair the binder compares |
+| `tests/products/test_gate_independence.py` | module title and rationale, both asserting the two inputs "arrive from two independent sources" — in a module plan 15.1-08 amended without correcting the claim above its own addition |
+| `tests/lints/test_deployment_gates_ban.py` | the same sentence, as the lint rule's stated justification |
+
+All four are corrected to the assembly-path reading, with the transcriber
+mechanism named and authorable drift pointed at the binder. **No assertion,
+refusal condition, scan constant or lint rule was touched** — only the claims
+about why they exist.
+
+**The defect worth naming is the sweep, not the sites.** Plan 15.1-09 swept for
+the phrase **"independent witness"** — the *engine-as-witness* spelling — and
+corrected nine sites. These four use a second spelling of the same over-claim:
+**"two independent sources"**, the *two-inputs-to-the-gate* spelling. One false
+property, two vocabularies; a search keyed to one found one. This is §6.3 item 2's
+lesson recurring inside the very phase that recorded it — **a token search is not
+a claim search** — and it is the reason Criterion 5's evidence row now names the
+sweep rather than a grep count.
+
+For Phase 16: correcting a claim means sweeping for the *claim*, in every phrasing
+the tree has used for it. The two phrasings known so far are recorded above.
 
