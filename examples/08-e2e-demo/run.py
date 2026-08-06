@@ -78,6 +78,7 @@ from ccf.controlplane.artifacts import (
     declared_artifact_class,
     load_artifact,
 )
+from ccf.controlplane.audit import AuditLog
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import (
     build_operator_registry,
@@ -577,6 +578,14 @@ class DemoResult:
 
     tenant_id: str
     artifacts: Mapping[str, CCFContract]
+    # The Control Plane's own log, returned for the same reason every other
+    # field here is: a claim this driver makes about the fabric should be
+    # checkable by the test module rather than trusted. The specific claim it
+    # carries is the one in Stage 5's comment — that every author-versioned
+    # document registers through `register_versioned` — which is a statement
+    # about the PATH taken, and the audit log is the only place the path is
+    # recorded (post-gate review WR-F5).
+    audit: AuditLog
     scenario: Mapping[str, Any]
     generated: Mapping[str, Any]
     baseline_cycles: tuple[tuple[str, ...], ...]
@@ -1097,6 +1106,7 @@ def run(*, root: Path, live: bool = False) -> DemoResult:
         return DemoResult(
             tenant_id=booted.tenant_id,
             artifacts=booted.artifacts,
+            audit=registry.audit_log,
             scenario=scenario,
             generated=generated,
             baseline_cycles=tuple(baseline),

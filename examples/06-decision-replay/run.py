@@ -650,11 +650,12 @@ def run(*, root: Path) -> ReplayDemonstration:
     # `load_and_boot`'s `register_typed` does not. A manifest CAN name them, as
     # `registration: versioned`; declaring `typed` for one is refused at
     # preflight (D-IMPL-85). They stay here so the bump check is visible at the
-    # call site. Two more are SDK classes the manifest cannot address at all,
-    # because an unknown-to-the-manifest class id resolves to the open envelope
-    # and the transport and the authorizer read their real contracts back off
-    # the Control Plane by key. Each still validates against its own contract
-    # here.
+    # call site. Two more are SDK classes a manifest cannot address at all: they
+    # are in neither SDK mapping and the `ccf.` prefix is reserved, so an entry
+    # naming either is REFUSED at load (D-IMPL-84) rather than resolved to the
+    # open envelope — which is what protects the transport and the authorizer,
+    # both of which read their real contracts back off the Control Plane by key.
+    # Each still validates against its own contract here.
     prompt = cast(
         PromptArtifact,
         load_artifact(

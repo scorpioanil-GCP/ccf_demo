@@ -5,13 +5,14 @@
 # "any agent found in library code is a defect"). Instruction bindings are
 # versioned-URI refs only (§6.4).
 #
-# **Not addressable by the manifest, deliberately.** `ccf.agent-definition` is
-# author-versioned: it registers through `register_versioned`, which holds the
-# author's `artifact_version` claim against content identity (the D-05 bump
-# check). `load_and_boot` registers through `register_typed`, which does not run
-# that check — so a manifest entry naming this class would silently drop the
-# governance the class exists to carry. `run.py` registers it itself, under the
-# key `agent-registration.yaml` names.
+# **Registered by the driver, deliberately — and by choice, not by necessity.**
+# `ccf.agent-definition` is author-versioned: it registers through
+# `register_versioned`, which holds the author's `artifact_version` claim against
+# content identity (the D-05 bump check). A manifest CAN name it, as
+# `registration: versioned`; declaring `typed` for it is refused at preflight
+# (D-IMPL-85), because `register_typed` runs no bump check. `run.py` registers it
+# itself, under the key `agent-registration.yaml` names, so the four
+# `register_versioned` calls stay visible as the thing being taught.
 #
 # The two documents this one used to carry inline under `referenced_artifacts:`
 # are now `agent-policy-regime.yaml` and `agent-debt-profile.yaml`, enumerated by

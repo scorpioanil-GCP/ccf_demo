@@ -8,9 +8,12 @@
 # whole point of the example's hardened-HITL dimension — a human action that
 # cannot be reproduced from the record is not an audit record.
 #
-# Registered by `run.py` rather than by the manifest, because the manifest
-# resolves an unknown class id to the open `DeclaredArtifact` envelope and the
-# transport reads a real `HitlPolicy` back off the Control Plane by key.
+# Registered by `run.py` rather than by the manifest, because `ccf.hitl-policy`
+# is in neither of the SDK's manifest-addressable mappings and the `ccf.` prefix
+# is reserved (D-IMPL-84) — a manifest entry naming it is REFUSED at load. What
+# the refusal protects is real: the transport reads a real `HitlPolicy` back off
+# the Control Plane by key, and the open `DeclaredArtifact` envelope this used
+# to resolve to would have given it the wrong type without saying so.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename

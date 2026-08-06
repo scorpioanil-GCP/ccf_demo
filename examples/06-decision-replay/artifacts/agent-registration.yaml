@@ -2,14 +2,17 @@
 # Where the documents `run.py` registers itself file in the Control Plane
 # (energy/grid-ops domain, D-IMPL-52).
 #
-# Six documents in this directory are registered by the driver rather than by
-# the manifest. Five are AUTHOR-VERSIONED SDK classes whose document root must
-# BE the artifact, so that each can carry an honest `$schema` header and be
-# validated against its own contract; two more are SDK classes the manifest
-# cannot address at all (see their own headers). Either way that leaves nowhere
-# in those files for the Control Plane key they register under — a key is where
-# a document is FILED, not part of what it says. This document is that filing
-# information, and nothing else.
+# Seven documents in this directory are registered by the driver rather than by
+# the manifest — `manifest.yaml` enumerates the same seven and says why for
+# each. Five are AUTHOR-VERSIONED SDK classes, which a manifest COULD name as
+# `registration: versioned` and which this example keeps at the call site so the
+# D-05 bump check is visible there; two more are SDK classes a manifest cannot
+# address at all (D-IMPL-84 refuses an entry naming either). Every one of the
+# seven has a document root that must BE the artifact, so that each can carry an
+# honest `$schema` header and be validated against its own contract — which
+# leaves nowhere in those files for the Control Plane key they register under.
+# A key is where a document is FILED, not part of what it says. This document is
+# that filing information, and nothing else.
 #
 # It is `role: load`: which key an artifact files under is wiring the driver
 # reads, and putting it in force would content-hash the deployment's filing

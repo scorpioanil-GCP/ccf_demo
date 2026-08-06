@@ -5,15 +5,16 @@
 # path, and the per-gate approval-policy binding. Every routing value lives here,
 # never in code (§6.4; CINV-01).
 #
-# **Not addressable by the manifest, and this is the ruling plan 15-19 was asked
-# to make.** `ccf.workflow-definition` is author-versioned: it registers through
+# **Registered by the driver, and this is the ruling plan 15-19 was asked to
+# make.** `ccf.workflow-definition` is author-versioned: it registers through
 # `register_versioned`, which holds the author's `artifact_version` claim against
-# content identity (the D-05 bump check). `load_and_boot` registers through
-# `register_typed`, which does not run that check. A manifest entry naming this
-# class would therefore *silently drop* the governance the class exists to carry
-# — a workflow's routing could be re-authored under an unchanged version and
-# nothing would refuse it. `run.py` registers it itself, under the key
-# `agent-registration.yaml` names.
+# content identity (the D-05 bump check). `register_typed` does not run that
+# check — a workflow's routing could be re-authored under an unchanged version
+# and nothing would refuse it — which is why a manifest entry declaring
+# `registration: typed` for this class is refused at preflight (D-IMPL-85).
+# A manifest may name it as `registration: versioned`; `run.py` registers it
+# itself, under the key `agent-registration.yaml` names, so the bump check is
+# visible at the call site.
 #
 # The two documents this one used to carry inline under `referenced_artifacts:`
 # are now `exception-handler.yaml` and `approval-policy.yaml`, enumerated by the

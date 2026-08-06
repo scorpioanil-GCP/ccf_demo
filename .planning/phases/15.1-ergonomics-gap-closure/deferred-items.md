@@ -202,3 +202,46 @@ this phase asked Dave to accept.
 - **Where it belongs:** recorded in the binder's module docstring, in
   `docs/SURFACE-AUDIT.md` §6.4 item 4, and here. Phase 16 must describe the
   binder without claiming it makes dual authorship structural.
+
+## The superseded D-IMPL-85 / D-IMPL-84 claims survive in examples 01–04
+
+- **Found during:** plan 15.1-15 (post-gate review WR-F6), while finishing the
+  sweep 15.1-12 recorded as complete
+- **What:** two claims the SDK has superseded are still asserted in example
+  directories outside this plan's scope:
+  1. **D-IMPL-85.** *"A manifest entry naming an author-versioned class would
+     silently drop the governance."* False since 15.1-02: a manifest **may**
+     name all six author-versioned classes as `registration: versioned`, and
+     `refuse_registration_the_sdk_fixes` refuses `typed` for them at preflight.
+     Surviving at `examples/01-agent-basics/run.py:36`,
+     `01/README.md:127-128`, `01/artifacts/manifest.yaml:18`,
+     `01/artifacts/agent-registration.yaml:10`,
+     `examples/02-skilling/artifacts/manifest.yaml:23-25`,
+     `examples/03-harness-portability/artifacts/manifest.yaml:21-25` and
+     `run.py:247`, `examples/04-cross-process/artifacts/producer-manifest.yaml:23`,
+     `04/artifacts/agent-registration.yaml:10`, and
+     `04/producer_child.py:113-115` and `:268-270`.
+  2. **D-IMPL-84.** *"Naming them here would resolve them to the open
+     envelope."* False on two counts. For an author-versioned class,
+     `resolve_artifact_class` returns the **real** class (verified against the
+     function). For `ccf.hitl-policy` / `ccf.scope-mapping`, the reserved-prefix
+     rule **refuses** the entry at load rather than enveloping it. Surviving at
+     `examples/03-harness-portability/artifacts/manifest.yaml:23`, which asserts
+     both halves in one sentence.
+  Also, historically in `docs/surface-changes/15-14-examples-01-02.md:209`,
+  `15-15-examples-03-07.md:31-33`, `15-16-example-08.md:29-40`,
+  `15-17-example-06.md:38` and the two mirrored lines in
+  `docs/SURFACE-CHANGES.md` (:1605, :3806). Those are dated per-plan records of
+  what a plan did at the time, so whether they are *corrected* or *annotated*
+  is a judgment, not a mechanical fix.
+- **Why it was not fixed here:** plan 15.1-15's scope is `examples/05`, `06`,
+  `08` and the two example test modules. Editing examples 01–04 in the same
+  worktree risks colliding with concurrent work and exceeds what was asked.
+- **Where it belongs:** one follow-up that corrects examples 01–04 to the same
+  wording examples 05/06/08 now carry, and rules on the
+  `docs/surface-changes/` historical records. **The phrasing list in
+  `15.1-15-SUMMARY.md` is the input** — a token search for one spelling is what
+  left this open twice already, and note in particular that
+  `examples/01-agent-basics/README.md` and `examples/02-skilling`'s manifest
+  spell it *"drop it silently"*, which a search for *"silently drop"* does not
+  find.

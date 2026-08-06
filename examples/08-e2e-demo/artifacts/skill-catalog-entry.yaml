@@ -11,8 +11,11 @@
 # threshold it interprets arrives through these declared arguments (§6.4). The
 # values themselves are in `skill-dispatch.yaml`.
 #
-# Author-versioned and therefore deliberately not manifest-addressable — see
-# `agent-definition.yaml`'s header for the D-05 reasoning.
+# Author-versioned, and kept at the call site rather than in the manifest: a
+# manifest may name it as `registration: versioned`, and declaring `typed` for
+# it is refused at preflight (D-IMPL-85) — see `agent-definition.yaml`'s header
+# for the D-05 reasoning. `SkillCatalog.register` is the call, and it takes the
+# versioned path unconditionally.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename

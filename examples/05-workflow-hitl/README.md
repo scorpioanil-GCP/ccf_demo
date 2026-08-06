@@ -145,8 +145,8 @@ it, so an editor validates it as you type.
 | `artifacts/prompt-artifact.yaml` | `register_versioned` | Author-versioned; kept at the call site so the D-05 bump check is visible. A manifest entry would have to declare `registration: versioned` |
 | `artifacts/task-definition.yaml` | `register_versioned` | Author-versioned; kept at the call site so the D-05 bump check is visible. A manifest entry would have to declare `registration: versioned` |
 | `artifacts/workflow-definition.yaml` | `register_versioned` | Author-versioned; kept at the call site so the D-05 bump check is visible. A manifest entry would have to declare `registration: versioned` |
-| `artifacts/hitl-policy.yaml` | `register_typed` | Not manifest-addressable; an entry would resolve to the open envelope and the transport would find the wrong type |
-| `artifacts/scope-mapping.yaml` | `register_typed` | Not manifest-addressable; the authorizer reads the real contract back by key |
+| `artifacts/hitl-policy.yaml` | `register_typed` | Not manifest-addressable; an entry naming it is refused at load (D-IMPL-84), where it used to resolve to the open envelope and hand the transport the wrong type |
+| `artifacts/scope-mapping.yaml` | `register_typed` | Not manifest-addressable; same refusal, and the authorizer reads the real contract back by key |
 
 ## Whitepaper / CLAUDE.md sections exercised
 
@@ -201,4 +201,4 @@ before anything is registered rather than a silently missing artifact.
 | ExceptionEscalation as a recorded transition (D-IMPL-61) | The failing node does not route to its declared handler, or the transition is untraced/unaudited |
 | Tenant authorization at the door, deny-by-default (HARD-04; D-IMPL-68) | The unmapped-scope token reaches the queue, the refusal is not the typed `ERROR_TENANT_UNAUTHORIZED` 403, or the deny is missing from the audit log (or carries the wrong mapping version) |
 | ReviewQueue audit-by-construction (§8.2; §7.10.3) | The review release is absent from the audit log, its block is not byte-equal on replay dimension 2, the item constructs without lineage, or the reviewer's binding echoes a hash other than the submission-time hash (TOCTOU) |
-| Author-versioned governance (D-05) | A definition's content changes under an unchanged `artifact_version` and the registry admits it — which is exactly what a manifest entry for those four classes would cause |
+| Author-versioned governance (D-05) | A definition's content changes under an unchanged `artifact_version` and the registry admits it — which is what a `registration: typed` entry for those four classes would cause, and is why one is refused at preflight (D-IMPL-85) |

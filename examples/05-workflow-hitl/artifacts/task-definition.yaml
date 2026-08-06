@@ -11,11 +11,13 @@
 # versioned URIs (D-IMPL-26); the hitl-gate step carries no ref by schema — its
 # approval-policy binding lives on the workflow wrapper.
 #
-# **Not addressable by the manifest**: `ccf.task-definition` is author-versioned
-# and registers through `register_versioned`'s D-05 bump check, which
-# `load_and_boot`'s `register_typed` does not run. `run.py` registers it under the
-# key `agent-registration.yaml` names — the key the workflow definition's
-# `task_definition_ref` resolves against.
+# **Registered by the driver, by choice**: `ccf.task-definition` is
+# author-versioned and registers through `register_versioned`'s D-05 bump check,
+# which `register_typed` does not run. A manifest CAN name it, as
+# `registration: versioned`; declaring `typed` for it is refused at preflight
+# (D-IMPL-85). `run.py` registers it under the key `agent-registration.yaml`
+# names — the key the workflow definition's `task_definition_ref` resolves
+# against.
 #
 # The skill this task's first step invokes is now `task-skill.yaml`, enumerated
 # by the manifest, rather than an inline `referenced_artifacts:` block here.

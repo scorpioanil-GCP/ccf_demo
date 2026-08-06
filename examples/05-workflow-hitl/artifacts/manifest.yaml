@@ -59,8 +59,10 @@
 #     itself. Naming either here is now a refusal (D-IMPL-84), where it was
 #     previously an envelope resolution the adopter had to know to avoid.
 #
-# All six still carry real `$schema` headers — plan 15-14 committed their schemas
-# without making them manifest-addressable.
+# All six still carry real `$schema` headers — plan 15-14 committed their
+# schemas. It committed them without making any class manifest-addressable; the
+# four author-versioned ones became addressable later and separately, as
+# `registration: versioned` (D-IMPL-85). The other two did not, and will not.
 #
 # What the manifest DID absorb: the five documents that used to sit inline in
 # `agent.yaml`, `task.yaml` and `workflow.yaml` under `referenced_artifacts:`,

@@ -7,10 +7,11 @@
 # The engine's step sequence for this workflow lands verbatim in replay
 # dimension 5, so re-authoring the transitions moves the recorded trace.
 #
-# Author-versioned and therefore deliberately not manifest-addressable — see
-# `agent-definition.yaml`'s header for the D-05 reasoning. The document root IS
-# the artifact; the Control Plane key it registers under lives in
-# `agent-registration.yaml`.
+# Author-versioned, and kept at the call site rather than in the manifest: a
+# manifest may name it as `registration: versioned`, and declaring `typed` for
+# it is refused at preflight (D-IMPL-85) — see `agent-definition.yaml`'s header
+# for the D-05 reasoning. The document root IS the artifact; the Control Plane
+# key it registers under lives in `agent-registration.yaml`.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename

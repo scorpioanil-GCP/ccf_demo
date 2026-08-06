@@ -4,11 +4,12 @@
 #
 # `role: load`. These are WIRING the driver reads, not artifacts in force: the
 # six documents themselves are registered by `register_versioned` /
-# `register_typed` in `run.py`, because their classes are not manifest-
-# addressable (see each document's own header for why). Registering this index
-# alongside them would content-hash a lookup table into replay dimension 2 and
-# say the fabric was "permitted" to know where things live, which is not a
-# permission.
+# `register_typed` in `run.py` — the four author-versioned ones by this
+# example's choice, so the bump check is visible at the call site, and the two
+# SDK classes the manifest cannot address because it cannot (see each document's
+# own header for which is which). Registering this index alongside them would
+# content-hash a lookup table into replay dimension 2 and say the fabric was
+# "permitted" to know where things live, which is not a permission.
 #
 # Each key here is also the string a versioned-URI ref resolves against —
 # `{tenant}/{artifact_class}/{name}` for the ref-resolved ones (DESIGN.md §3.5).
