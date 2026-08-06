@@ -36,6 +36,18 @@ dynamic attribute access — ``getattr(module, "run_" + "gates")`` — is outsid
 what an AST identifier walk can see. Those are the strengths these assertions
 reach; the I.2 retrospective flagged overclaiming in exactly this test class.
 
+**The adopter-code gap named above is now covered, partly.** CR-2 found the
+caller passing the same value twice at all nine gate call sites in the SDK's
+own example suite, and ``tests/products/test_gate_two_call_shape.py``
+(Phase 15.1, D-IMPL-86 element (5)) is the tripwire for it: one lexical body at
+a time, it refuses a ``run_gates`` call whose ``engine_resolved`` and a
+``ProductLineage`` whose ``operators_invoked`` resolve to the same identifier
+path, following local aliases to a fixed point. What it still cannot see is a
+value arriving through a helper's return value, a container, or dynamic
+attribute access — and, D-IMPL-86's structural limit, an authored literal is
+textually identical to a transcribed one. The sentence above is amended in
+reach, not withdrawn.
+
 The lint rule ``cinv02-deployment-gates`` in ``tools/lints/harness_imports.py``
 is this module's paired mechanism, not its duplicate: the lint refuses the
 *import*, these tests refuse the *shape*.
