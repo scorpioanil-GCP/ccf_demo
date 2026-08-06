@@ -207,41 +207,113 @@ this phase asked Dave to accept.
 
 - **Found during:** plan 15.1-15 (post-gate review WR-F6), while finishing the
   sweep 15.1-12 recorded as complete
+- **ENUMERATION CORRECTED — 2026-08-06, plan 15.1-16 (post-gate review WR-03).**
+  The list first written here was **itself a subset**, which is the third time
+  in this phase that a sweep of this claim has under-counted. It is now the
+  output of re-running the phrasings over `examples/01..04` and `docs/` rather
+  than a transcription, and the review's own list of what was missing was a
+  subset too — it named seven sites; the re-run returns **nine additions**, the
+  two it did not name being in `docs/surface-changes/15-19-example-05.md`.
+  Everything below carries a measured file and line.
 - **What:** two claims the SDK has superseded are still asserted in example
-  directories outside this plan's scope:
+  directories and in the per-plan surface records:
+
   1. **D-IMPL-85.** *"A manifest entry naming an author-versioned class would
      silently drop the governance."* False since 15.1-02: a manifest **may**
      name all six author-versioned classes as `registration: versioned`, and
      `refuse_registration_the_sdk_fixes` refuses `typed` for them at preflight.
-     Surviving at `examples/01-agent-basics/run.py:36`,
-     `01/README.md:127-128`, `01/artifacts/manifest.yaml:18`,
-     `01/artifacts/agent-registration.yaml:10`,
-     `examples/02-skilling/artifacts/manifest.yaml:23-25`,
-     `examples/03-harness-portability/artifacts/manifest.yaml:21-25` and
-     `run.py:247`, `examples/04-cross-process/artifacts/producer-manifest.yaml:23`,
-     `04/artifacts/agent-registration.yaml:10`, and
-     `04/producer_child.py:113-115` and `:268-270`.
+     Surviving in `examples/` at:
+     - `examples/01-agent-basics/run.py:36`
+     - `examples/01-agent-basics/run.py:249-252` — *"A manifest entry for either
+       would drop that check silently."* **(added 2026-08-06; the register
+       carried `run.py:36` only)**
+     - `examples/01-agent-basics/README.md:126-128`
+     - `examples/01-agent-basics/artifacts/manifest.yaml:18`
+     - `examples/01-agent-basics/artifacts/agent-registration.yaml:10`
+     - `examples/02-skilling/artifacts/manifest.yaml:23-25`
+     - `examples/03-harness-portability/run.py:247`
+     - `examples/03-harness-portability/artifacts/manifest.yaml:21-25`
+     - `examples/03-harness-portability/artifacts/prompt.yaml:15-20`
+       **(added 2026-08-06)**
+     - `examples/03-harness-portability/artifacts/agents/agent-definition.yaml:21-25`
+       **(added 2026-08-06)**
+     - `examples/04-cross-process/artifacts/producer-manifest.yaml:23`
+     - `examples/04-cross-process/artifacts/agent-registration.yaml:10`
+     - `examples/04-cross-process/producer_child.py:113-115` and `:268-270`
+
   2. **D-IMPL-84.** *"Naming them here would resolve them to the open
      envelope."* False on two counts. For an author-versioned class,
      `resolve_artifact_class` returns the **real** class (verified against the
      function). For `ccf.hitl-policy` / `ccf.scope-mapping`, the reserved-prefix
-     rule **refuses** the entry at load rather than enveloping it. Surviving at
-     `examples/03-harness-portability/artifacts/manifest.yaml:23`, which asserts
-     both halves in one sentence.
-  Also, historically in `docs/surface-changes/15-14-examples-01-02.md:209`,
-  `15-15-examples-03-07.md:31-33`, `15-16-example-08.md:29-40`,
-  `15-17-example-06.md:38` and the two mirrored lines in
-  `docs/SURFACE-CHANGES.md` (:1605, :3806). Those are dated per-plan records of
-  what a plan did at the time, so whether they are *corrected* or *annotated*
-  is a judgment, not a mechanical fix.
+     rule **refuses** the entry at load rather than enveloping it. Surviving in
+     `examples/` at **three** sites, not one — the register previously said
+     *"Surviving at `03/artifacts/manifest.yaml:23`"*, singular, and that was
+     wrong:
+     - `examples/03-harness-portability/artifacts/manifest.yaml:23`
+     - `examples/03-harness-portability/artifacts/prompt.yaml:18-20`
+       **(added 2026-08-06)**
+     - `examples/03-harness-portability/artifacts/agents/agent-definition.yaml:24-25`
+       **(added 2026-08-06)**
+
+     The two additions matter more than the count suggests: they are the
+     **forwarded-to** documents for that directory — the construction WR-F6 was
+     written about — and each asserts *both* claims in one sentence.
+
+- **In `docs/`, per-plan records** (dated records of what a plan did at the
+  time, so whether they are *corrected* or *annotated* is a judgment, not a
+  mechanical fix). Claim family in brackets:
+  - `docs/surface-changes/15-14-examples-01-02.md:209` [85]
+  - `docs/surface-changes/15-15-examples-03-07.md:31-33` [85]
+  - `docs/surface-changes/15-16-example-08.md:29-40` [85]
+  - `docs/surface-changes/15-17-example-06.md:38` [85]
+  - `docs/surface-changes/15-17-example-06.md:255` [84] **(added 2026-08-06)**
+  - `docs/surface-changes/15-18-example-04.md:293` [85] **(added 2026-08-06)**
+  - `docs/surface-changes/15-19-example-05.md:22` and `:35-36` [85]
+    **(added 2026-08-06 — named by neither the register nor the review)**
+  - `docs/surface-changes/15-19-example-05.md:44-46` [84]
+    **(added 2026-08-06 — named by neither the register nor the review)**
+  - `docs/surface-changes/15-19-example-05.md:237` [84] **(added 2026-08-06)**
+
+- **In `docs/SURFACE-CHANGES.md`, the assembled mirror** — four lines, where the
+  register named two. Only bullet-shaped fragment lines are mirrored, which is
+  why the prose sites above have no counterpart here:
+  - `:1605` [85] — mirrors `15-14-examples-01-02.md:209`
+  - `:3207` [84] — mirrors `15-17-example-06.md:255` **(added 2026-08-06)**
+  - `:3626` [85] — mirrors `15-18-example-04.md:293` **(added 2026-08-06)**
+  - `:3806` [84] — mirrors `15-19-example-05.md:237`
+
+- **Checked and left, because they are TRUE.** A deployment-authored class id
+  *does* resolve to the open `DeclaredArtifact` envelope, and every line saying
+  so is correct: `docs/surface-changes/15-06-class-lookup.md:37`,
+  `15-08-operator-parameters.md:182`, `15.1-03-namespace-reservation.md:46`
+  and `:129`, `15-13-example-00.md:138`, `:168` and `:179`,
+  `15-16-example-08.md:172`, `15-18-example-04.md:102` and `:323`, plus their
+  mirrors at `docs/SURFACE-CHANGES.md:53`, `:1206`, `:1556`, `:1944`, `:2113`,
+  `:2833`, `:3397`, `:3662`, `:4225`, `:4361` and `:4372`. Also true and
+  unrelated: `examples/03-harness-portability/artifacts/live.yaml:14-17`, whose
+  *"Not a manifest entry, deliberately"* is about the opt-in live legs, not
+  about registration governance. **A sweep must not edit these to match the
+  pattern.**
+
+- **A seventh phrasing, which the six-phrasing list in `15.1-15-SUMMARY.md` does
+  not contain:** *"the manifest deliberately does not name"* /
+  *"Not a manifest entry, deliberately"* / *"absent from `SDK_ARTIFACT_CLASSES`"*
+  / *"`load_and_boot` … does not"*. It is how
+  `examples/04-cross-process/producer_child.py:113-115`,
+  `examples/03-harness-portability/artifacts/manifest.yaml:16` and both example-03
+  forwarded-to documents spell it, and none of the six finds it. Add it to the
+  input list before the follow-up starts.
+
 - **Why it was not fixed here:** plan 15.1-15's scope is `examples/05`, `06`,
-  `08` and the two example test modules. Editing examples 01–04 in the same
+  `08` and the two example test modules; plan 15.1-16's scope is
+  `tests/products/` plus this register. Editing examples 01–04 in either
   worktree risks colliding with concurrent work and exceeds what was asked.
 - **Where it belongs:** one follow-up that corrects examples 01–04 to the same
-  wording examples 05/06/08 now carry, and rules on the
-  `docs/surface-changes/` historical records. **The phrasing list in
-  `15.1-15-SUMMARY.md` is the input** — a token search for one spelling is what
-  left this open twice already, and note in particular that
-  `examples/01-agent-basics/README.md` and `examples/02-skilling`'s manifest
-  spell it *"drop it silently"*, which a search for *"silently drop"* does not
-  find.
+  wording examples 05/06/08 now carry, and rules on the `docs/surface-changes/`
+  historical records. **The input is the seven phrasings** — the six in
+  `15.1-15-SUMMARY.md` plus the seventh above — and the enumeration in this
+  entry. Note in particular that `examples/01-agent-basics/README.md` and
+  `examples/02-skilling`'s manifest spell it *"drop it silently"*, which a
+  search for *"silently drop"* does not find, and that
+  `examples/01-agent-basics/run.py:252` spells it *"drop that check silently"*,
+  which neither finds.
