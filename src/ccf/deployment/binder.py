@@ -84,11 +84,13 @@ of the very defect this phase closes:
 * **Where the call must sit.** Between plan construction and
   :meth:`~ccf.projection.engine.ProjectionEngine.execute`, in adopter code.
   :func:`~ccf.deployment.manifest.load_and_boot` cannot host it: its signature
-  (``src/ccf/deployment/manifest.py:177`` as the correction cites it; the
-  signature spans lines 181-188 in the tree as it now stands) takes no ``plan``
-  parameter and has no :class:`~ccf.projection.plan.ProjectionPlan` in scope at
-  any of its preflights. A plan is adopter code constructed *after* that call
-  returns.
+  takes no ``plan`` parameter and has no
+  :class:`~ccf.projection.plan.ProjectionPlan` in scope at any of its
+  preflights. A plan is adopter code constructed *after* that call returns.
+  (The correction cites that signature as
+  ``src/ccf/deployment/manifest.py:177``, which is where it stood in the tree
+  the correction was written against; the definition has moved since. The
+  durable reference is the symbol, not the line.)
 * **The function returns ``None``.** There is therefore no return value a
   caller must consume, and nothing observable at runtime — no product field, no
   pin, no audit event — that proves the call was ever made. A deployment that

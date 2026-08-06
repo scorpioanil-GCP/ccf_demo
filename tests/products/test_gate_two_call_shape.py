@@ -196,7 +196,8 @@ asked. A body can name the binder and route around it completely::
     return ProjectionEngine(reader=r).execute(plan=plan)
 
 ``plan.required_operators()`` is now ``declared.required_operator_keys``, so
-``claimed == required`` holds unconditionally at ``binder.py:156-159``. The
+``claimed == required`` holds unconditionally at
+``refuse_operator_set_divergence``'s comparison. The
 binder is green, it *cannot* fail, and the ``ccf.projection-requirements``
 artifact has been routed around entirely — CR-2's shape moved one seam
 upstream. So the call's arguments are read as well as its name, for three
@@ -1264,14 +1265,16 @@ def test_no_call_site_fills_both_gate_arguments_from_one_source(
 def test_the_tripwire_detects_the_shape_it_exists_to_refuse() -> None:
     """The tripwire is watched to fire, and watched to stay quiet.
 
-    Both halves, for the reason ``test_gate_independence.py:184-187`` gives: a
-    check that always fires and a check that never fires each pass one half,
-    and only the pair says the comparison is live.
+    Both halves, for the reason
+    ``test_gate_independence.py::test_perturbing_engine_resolved_is_refused_and_the_declared_set_is_not``
+    gives: a check that always fires and a check that never fires each pass one
+    half, and only the pair says the comparison is live.
 
     The probe bodies are **assembled** at runtime rather than written out, so
     this module's own source is not what a scan trips over — the discipline
-    ``test_required_operators_guard.py:260-262`` and
-    ``tests/examples/test_surface_audit.py`` both use. The check itself matches
+    ``test_required_operators_guard.py::test_the_guard_detects_the_shortcut_it_exists_to_refuse``
+    and ``tests/examples/test_surface_audit.py`` both use. The check itself
+    matches
     ``ast`` nodes, never text, so the assembly is belt-and-braces rather than
     load-bearing.
     """
@@ -1788,7 +1791,8 @@ def _binder_collapses(
     1. **The binder's two arguments are two documents.** A plan built as
        ``required=declared.required_operator_keys`` and then handed to the
        binder alongside that same ``declared`` makes ``claimed == required``
-       hold unconditionally at ``binder.py:156-159``. The binder is green, it
+       hold unconditionally at ``refuse_operator_set_divergence``'s
+       comparison. The binder is green, it
        *cannot* fail, and ``ccf.projection-requirements`` has been routed
        around. This is CR-2's shape moved one seam upstream.
     2. **The plan bound is the plan run.** A binder handed one plan while the
@@ -2206,7 +2210,8 @@ def test_the_binder_argument_checks_reject_a_binder_that_cannot_fail() -> None:
     names the binder. That is the point. Before this check they were admitted
     outright, and the first of them is the one CR-03 leads with — a plan built
     from the claim it is about to be compared against, so ``claimed ==
-    required`` holds unconditionally at ``binder.py:156-159``.
+    required`` holds unconditionally at
+    ``refuse_operator_set_divergence``'s comparison.
 
     The ``benign`` bodies are the shapes this phase already established as
     correct, and a naive tightening breaks two of them: the replay

@@ -76,15 +76,24 @@ def test_every_author_versioned_class_has_a_committed_schema() -> None:
 
     An agent definition, a prompt artifact and a skill catalog entry are
     SDK-owned schemas an adopter authors by hand, so they need a ``$schema``
-    target — but a manifest must not carry them, because ``load_and_boot``
-    registers through ``register_typed`` and these classes need
-    ``register_versioned``'s D-05 bump check. Hence: committed, not
-    manifest-addressable.
+    target. They are committed, and they are kept out of
+    ``SDK_ARTIFACT_CLASSES`` — which means *typed*-registerable, not
+    *manifest*-addressable. A manifest **may** name all of them, as
+    ``registration: versioned``; ``resolve_artifact_class`` consults
+    ``SDK_VERSIONED_ARTIFACT_CLASSES`` before the envelope for exactly that
+    reason. Hence: committed, and typed-registerable nowhere.
+
+    **This paragraph used to say** a manifest "must not carry them, because
+    ``load_and_boot`` registers through ``register_typed``". That was true when
+    it was written and plans 15.1-02/15.1-03 made it false: ``load_and_boot``
+    now dispatches on ``entry.registration`` and runs ``register_versioned``
+    with its D-05 bump check on that branch.
 
     The membership rule is checked rather than trusted. Every member declares
     an ``artifact_version`` field (that IS what "author-versioned" means), and
-    no member is manifest-addressable — so the set cannot quietly acquire a
-    class that belongs in the other one.
+    no member appears in ``SDK_ARTIFACT_CLASSES`` — the two mappings are
+    disjoint by construction, so the set cannot quietly acquire a class that
+    belongs in the other one.
     """
     author_versioned = author_versioned_classes()
     assert author_versioned, "the author-versioned set is empty"
@@ -525,16 +534,39 @@ def test_the_discovery_is_not_vacuous() -> None:
 def test_a_schema_grants_no_manifest_addressability() -> None:
     """The line the third bucket must not blur.
 
-    Emitting a schema is authoring help. Manifest addressability is governance:
-    a manifest entry naming an author-versioned class would silently drop the
-    D-05 bump check, which is why those classes are kept out of
-    SDK_ARTIFACT_CLASSES despite having schemas. The same must hold here.
+    Emitting a schema is authoring help; membership of ``SDK_ARTIFACT_CLASSES``
+    is governance. The two buckets walked below are kept out of that mapping
+    for **different** reasons, and neither is "a schema would drop the bump
+    check":
+
+    * **Author-versioned classes** *are* manifest-addressable — through
+      ``SDK_VERSIONED_ARTIFACT_CLASSES``, which ``resolve_artifact_class``
+      consults before the envelope. They are kept out of
+      ``SDK_ARTIFACT_CLASSES`` because that mapping means *typed*-registerable
+      and the two are disjoint by construction. Putting one here would route it
+      through ``register_typed``, which runs no D-05 bump check — and
+      ``refuse_registration_the_sdk_fixes`` refuses that declaration at
+      preflight (D-IMPL-85).
+    * **Unaddressable classes** (``ccf.hitl-policy``, ``ccf.scope-mapping`` and
+      the three the discovery found) are not manifest-addressable at all; the
+      code that needs them registers them itself.
+
+    **This docstring used to say** a manifest entry naming an author-versioned
+    class "would silently drop the D-05 bump check, which is why those classes
+    are kept out of SDK_ARTIFACT_CLASSES". That was true when it was written and
+    plans 15.1-02/15.1-03 made it false. The assertion below is unchanged; only
+    its stated reason was wrong.
     """
     from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
     from tools.dump_schemas import author_versioned_classes, unaddressable_classes
 
     for class_id in {**author_versioned_classes(), **unaddressable_classes()}:
         assert class_id not in SDK_ARTIFACT_CLASSES, (
-            f"{class_id} gained manifest addressability by being given a"
-            " schema; a schema is authoring help, never governance"
+            f"{class_id} entered `SDK_ARTIFACT_CLASSES` — the"
+            " *typed*-registerable mapping — after being given a schema. A"
+            " schema is authoring help, never governance. An author-versioned"
+            " class belongs in `SDK_VERSIONED_ARTIFACT_CLASSES` instead: the two"
+            " mappings are disjoint by construction, and typed registration runs"
+            " no D-05 bump check. A deliberately unaddressable class belongs in"
+            " neither"
         )

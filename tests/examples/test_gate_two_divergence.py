@@ -40,9 +40,10 @@ What is perturbed, and why that side
 
 The **declared** side — the product's ``lineage.operators_invoked`` — because
 that is the side design E2 changed and the side an artifact edit moves.
-``tests/products/test_gate_independence.py:179`` already perturbs the other one
-at unit scale; perturbing ``engine_resolved`` again here would re-prove a
-property that module owns and would say nothing about the deployment.
+``tests/products/test_gate_independence.py::test_perturbing_engine_resolved_is_refused_and_the_declared_set_is_not``
+already perturbs the other one at unit scale; perturbing ``engine_resolved``
+again here would re-prove a property that module owns and would say nothing
+about the deployment.
 
 Both halves, and the docstring says why: a gate that always refuses passes the
 divergence assertion, a gate that always admits passes the agreement assertion,
