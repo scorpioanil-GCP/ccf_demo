@@ -1,4 +1,4 @@
-"""D-15A — the two inputs to ``run_gates`` stay independently sourced.
+"""D-15A — the two inputs to ``run_gates`` stay separately assembled.
 
 Whitepaper §7.6 / INV-CH7-47 (lineage strict equality); CLAUDE.md §6.4 and §10
 for the SDK-defined ``ccf.deployment`` package this guards. Written *before* the
@@ -6,12 +6,19 @@ first ergonomics helper exists, so it is a standing constraint on what may be
 written rather than a retrofit around what already was.
 
 The risk it exists for: :func:`ccf.products.gates.run_gates` compares the
-product's declared ``lineage.operators_invoked`` against the projection engine's
-``engine_resolved``. The comparison is a real check only because those two
-values arrive from two independent sources. A convenience helper that derived
-both from one input would make the gate compare a value against itself — still
-green, permanently uninformative, and a whitepaper invariant deleted with no
-failing test to say so.
+product's declared ``lineage.operators_invoked`` — the Control Plane claim, as
+transcribed into the Contract — against the projection engine's
+``engine_resolved``. What that comparison verifies is **assembly-path
+integrity**, not independent witness: the engine builds ``operators_invoked``
+and ``steps`` in one loop over the same operator plan, so it is a faithful
+transcriber of the plan (``D-IMPL-86``; the ``D-IMPL-57`` correction of
+2026-08-05). The comparison is a check only while the two arguments are
+*separately assembled by the deployment*. A convenience helper that derived
+both from one input would leave nothing to compare at all — not even a
+transcription — so the gate would compare a value against itself: still green,
+permanently uninformative, and a whitepaper invariant deleted with no failing
+test to say so. **Authorable** drift is refused upstream instead, by
+:func:`ccf.deployment.binder.refuse_operator_set_divergence`.
 
 **What these tests enforce, exactly.**
 

@@ -1,12 +1,19 @@
 """``cinv02-deployment-gates`` — ccf.deployment may not import ccf.products.gates.
 
 D-15A. :func:`ccf.products.gates.run_gates` compares the product's declared
-lineage against the projection engine's resolved operator set, and that
-comparison is a real check only because the two values arrive from two
-independent sources. A wiring helper that ran the gate is one step from deriving
-both from one input, at which point the gate compares a value against itself:
-green, tautological, and a whitepaper invariant (§7.6, INV-CH7-47) gone with
-nothing failing to say so. Gate execution stays in adopter code.
+lineage — the Control Plane claim, transcribed into the Contract — against the
+projection engine's resolved operator set. That comparison verifies
+**assembly-path integrity** rather than independent witness: the engine builds
+its invoked set and its steps in one loop over the same operator plan, so it is
+a faithful transcriber of the plan (``D-IMPL-86``; the ``D-IMPL-57`` correction
+of 2026-08-05). It is a check only while the two arguments are separately
+assembled by the deployment. A wiring helper that ran the gate is one step from
+deriving both from one input, at which point there is nothing left to compare —
+not even a transcription — and the gate compares a value against itself: green,
+tautological, and a whitepaper invariant (§7.6, INV-CH7-47) gone with nothing
+failing to say so. Gate execution stays in adopter code. **Authorable** drift is
+refused upstream, at
+:func:`ccf.deployment.binder.refuse_operator_set_divergence`.
 
 All three tests drive the same ``tools.lints.__main__.run`` entrypoint CI uses,
 against synthetic tmp trees, so they prove the rule as executed rather than as

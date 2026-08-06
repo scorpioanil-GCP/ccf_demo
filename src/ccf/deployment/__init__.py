@@ -66,14 +66,28 @@ product's own lineage claim::
     run_gates(candidate, engine_resolved=..., now=..., registry=...,
               product_class=...)
 
-``candidate.lineage.operators_invoked`` is what the producer *declares*;
-``engine_resolved`` is what the projection engine *observed itself running*.
-Lineage strict equality (whitepaper §7.6, INV-CH7-47) is a real check precisely
-because those two values arrive from two independent sources. A helper that
-computed both from one input — one plan, one execution record, one convenience
-argument — would make the gate compare a value against itself. It would still
-pass. It would be tautological, and the invariant would be gone with no failing
-test to say so.
+``candidate.lineage.operators_invoked`` is the producer's Control Plane
+*claim*, transcribed into the Contract from the ``ccf.product-class``
+declaration; ``engine_resolved`` is what the projection engine reports from
+executing the plan. Lineage strict equality (whitepaper §7.6, INV-CH7-47)
+therefore verifies **assembly-path integrity** — that a served product matches
+the assembly path the deployment said produced it. It is *not* an independent
+witness of whether the claim was right to begin with: the engine builds
+``operators_invoked`` and ``steps`` in one loop over the same operator plan
+(``ccf.projection.engine``), so it has no return path where invoked ≠ planned.
+It is a faithful transcriber (``D-IMPL-86`` and the ``D-IMPL-57`` correction of
+2026-08-05).
+
+That is precisely why the abstraction line below is drawn where it is, and the
+corrected premise makes the case *stronger* rather than weaker. A helper that
+computed both arguments from one input would leave the gate with nothing at all
+to compare — not even a transcription — so it would be tautological, still
+green, and a whitepaper invariant would be gone with no failing test to say so.
+Where **authorable** drift fails instead is upstream, at
+:func:`~ccf.deployment.binder.refuse_operator_set_divergence`, which compares
+the product-class claim against the projection's own
+``ccf.projection-requirements`` artifact. The two must not be blurred; blurring
+them is what produced CR-2.
 
 So this package draws its line here, operationally and without exception:
 
