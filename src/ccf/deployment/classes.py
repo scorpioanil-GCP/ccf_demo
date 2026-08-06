@@ -17,13 +17,15 @@ Two paths, and the split is the D-01 line
 -----------------------------------------
 
 * A class-id the SDK **owns** resolves to the SDK's own constant, from
-  :data:`SDK_ARTIFACT_CLASSES` — a hand-maintained mapping, reviewed with the
-  code (the shape of ``tools/lints/__main__.py::CHECKERS``). It is written out by
-  name rather than scanned out of ``globals()`` so that a new SDK artifact class
-  becomes a deliberate two-line addition rather than something that appears by
-  import accident. ``tests/deployment/test_class_lookup.py`` holds the mapping to
-  the module's actual exports, so it cannot fall behind.
-* A class-id the SDK **does not own** resolves through
+  :data:`SDK_ARTIFACT_CLASSES` or :data:`SDK_VERSIONED_ARTIFACT_CLASSES` — two
+  hand-maintained mappings, reviewed with the code (the shape of
+  ``tools/lints/__main__.py::CHECKERS``). They are written out by name rather
+  than scanned out of ``globals()`` so that a new SDK artifact class becomes a
+  deliberate two-line addition rather than something that appears by import
+  accident. ``tests/deployment/test_class_lookup.py`` holds both mappings to the
+  SDK's actual exports, so neither can fall behind.
+* A class-id the SDK **does not own**, *and that does not claim the SDK's
+  namespace*, resolves through
   :func:`~ccf.controlplane.artifacts.declared_artifact_class` to the
   :class:`~ccf.controlplane.artifacts.DeclaredArtifact` envelope. This is not a
   fallback for failure — it is the design. The SDK owns the schema of what it
@@ -32,9 +34,45 @@ Two paths, and the split is the D-01 line
   identity, semver lane, and canonical serializability while leaving the
   declaration itself to its author.
 
-Ordering matters for the same reason: SDK ids resolve from the reviewed constant
-**first**, so a manifest cannot shadow an SDK class by naming it and receiving
-the permissive envelope instead of the real contract.
+Ordering matters for the same reason: SDK ids resolve from the reviewed
+constants **first**, so a manifest cannot shadow an SDK class by naming it and
+receiving the permissive envelope instead of the real contract.
+
+The ``ccf.`` prefix is the SDK's, and it is reserved (D-IMPL-84)
+----------------------------------------------------------------
+
+An earlier revision of this module said that refusing an id it did not
+recognize "would be the SDK claiming ownership of a namespace that is not its
+own". That reading was too wide, and D-IMPL-84 narrows it: the SDK claims
+**exactly one prefix**, ``ccf.``, and nothing else. Every other namespace stays
+the adopter's, on the envelope path, unchanged.
+
+The reservation exists because the envelope path was reachable *under an SDK
+class name*. A document that is a valid
+:class:`~ccf.controlplane.artifacts.DeclaredArtifact` — ``semver``,
+``class_id``, ``declaration`` — and that claims ``class_id:
+ccf.workflow-definition`` used to boot: it resolved to the open envelope,
+registered, pinned, bound the Control Plane key to the SDK class id, and entered
+Decision Replay dimension 2 with arbitrary content and no bump check. The
+class-binding check in :mod:`ccf.controlplane.registry` compares ``class_id``
+*strings*, which match, so a later correct
+:meth:`~ccf.controlplane.registry.ControlPlaneRegistry.register_versioned` on
+the same key was admitted on top of the squat.
+
+**Why namespace-wide and not a list of the four author-versioned ids.** Dave
+ruled the wider refusal over the narrower list because the squat was verified
+reachable for ``ccf.hitl-policy`` (an SDK class this module does not map),
+``ccf.skill-grant``, and a wholly invented ``ccf.made-up-class``. A four-id list
+would close roughly a third of the hole and leave the identical shape reachable
+under every other spelling — a refusal that does not close the shape does not
+close the defect.
+
+So a ``ccf.``-prefixed id in neither mapping is refused rather than enveloped.
+Two kinds of id land there and both are refusals for the same reason: an SDK
+class that is not manifest-addressable (``ccf.hitl-policy``,
+``ccf.scope-mapping`` — registered by adopter code against their real contracts,
+never through a manifest), and an id the SDK does not own at all. In both cases
+the envelope would be the wrong contract wearing the SDK's name.
 
 The module holds no key name, no path, and no domain value — it maps SDK-owned
 identifiers to SDK-owned contracts (CINV-01).
@@ -44,6 +82,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+from ccf.agents.definitions import AGENT_DEFINITION, PROMPT_ARTIFACT, TASK_DEFINITION
 from ccf.controlplane.artifacts import (
     DEBT_PROFILE,
     DEPLOYMENT_MANIFEST,
@@ -59,17 +98,30 @@ from ccf.controlplane.artifacts import (
     SIGNAL_BATCH,
     ArtifactClass,
     ArtifactRole,
+    RegistrationMode,
     declared_artifact_class,
 )
+from ccf.skills.catalog import SKILL_CATALOG_ENTRY
+from ccf.skills.grants import SKILL_GRANT
+from ccf.workflow.definitions import WORKFLOW_DEFINITION
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "SDK_ARTIFACT_CLASSES",
     "SDK_ARTIFACT_ROLES",
+    "SDK_VERSIONED_ARTIFACT_CLASSES",
+    "refuse_registration_the_sdk_fixes",
     "refuse_role_the_sdk_fixes",
     "resolve_artifact_class",
 ]
+
+#: The prefix the SDK owns (D-IMPL-84). Private and stated once, so the
+#: reservation and its refusal message cannot drift apart. Deliberately not in
+#: ``__all__``: the reservation is a *behavior* of
+#: :func:`resolve_artifact_class`, and exporting the string would invite an
+#: adopter to branch on it instead of letting the refusal fire.
+_CCF_NAMESPACE = "ccf."
 
 #: Every artifact class whose schema the SDK owns, keyed by ``class_id``.
 #:
@@ -99,6 +151,38 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     # documents it compares.
     PROJECTION_REQUIREMENTS.class_id: PROJECTION_REQUIREMENTS,
     DEPLOYMENT_MANIFEST.class_id: DEPLOYMENT_MANIFEST,
+}
+
+#: Every SDK-owned artifact class whose contract declares an ``artifact_version``
+#: field — the classes :meth:`~ccf.controlplane.registry.ControlPlaneRegistry
+#: .register_versioned` exists for — keyed by ``class_id``.
+#:
+#: **A separate mapping, and the split is the point.**
+#: :data:`SDK_ARTIFACT_CLASSES` means *typed-registerable*: the classes a
+#: manifest may name for :meth:`register_typed
+#: <ccf.controlplane.registry.ControlPlaneRegistry.register_typed>`, which is
+#: also the set the HTTP ``/schema`` route, the ``ccf schema export`` CLI verb
+#: and ``tools/dump_schemas.py`` enumerate. This mapping means
+#: *versioned-registerable*: the classes a manifest may name for
+#: :meth:`register_versioned
+#: <ccf.controlplane.registry.ControlPlaneRegistry.register_versioned>` and its
+#: D-05 hash-verified bump check. The two are **disjoint by construction** — a
+#: contract either declares a string ``artifact_version`` or it does not, and
+#: :func:`refuse_registration_the_sdk_fixes` below is what makes that fact
+#: machine-checkable rather than a docstring anyone may misread. Merging them
+#: would silently widen a runtime contract nobody has ruled on.
+#:
+#: Held to the SDK's own exports by ``tests/deployment/test_class_lookup.py``,
+#: which computes the author-versioned set by walking the exported
+#: ``ArtifactClass`` constants rather than repeating this list — so the mapping
+#: cannot fall behind the way :data:`SDK_ARTIFACT_CLASSES` could not.
+SDK_VERSIONED_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
+    AGENT_DEFINITION.class_id: AGENT_DEFINITION,
+    PROMPT_ARTIFACT.class_id: PROMPT_ARTIFACT,
+    TASK_DEFINITION.class_id: TASK_DEFINITION,
+    WORKFLOW_DEFINITION.class_id: WORKFLOW_DEFINITION,
+    SKILL_CATALOG_ENTRY.class_id: SKILL_CATALOG_ENTRY,
+    SKILL_GRANT.class_id: SKILL_GRANT,
 }
 
 #: The role an SDK-owned class **fixes**, for the classes where the SDK owns the
@@ -156,20 +240,80 @@ def refuse_role_the_sdk_fixes(class_id: str, role: ArtifactRole) -> None:
         )
 
 
+def refuse_registration_the_sdk_fixes(
+    class_id: str, registration: RegistrationMode
+) -> None:
+    """Raise if ``registration`` contradicts the path ``class_id``'s contract fixes.
+
+    The class-property half of D-IMPL-85, shaped exactly like
+    :func:`refuse_role_the_sdk_fixes` above and for the same reason: the
+    required ``registration`` field on a manifest entry stops the choice being
+    made *silently*, and this stops it being made *wrongly* for the classes
+    where the SDK knows the answer — because the answer is a property of the
+    contract, not of the deployment.
+
+    Two refusals, and each names what the wrong declaration would cost:
+
+    * an author-versioned class (:data:`SDK_VERSIONED_ARTIFACT_CLASSES`)
+      declared ``typed`` — this is CR-1's core. ``register_typed`` runs no bump
+      check, so the author's ``artifact_version`` claim would never be held
+      against content identity and a changed document could re-enter Decision
+      Replay dimension 2 under an unbumped version, with nothing recording that
+      the governance the class exists to carry was skipped.
+    * a typed-only class (:data:`SDK_ARTIFACT_CLASSES`) declared ``versioned`` —
+      :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.register_versioned`
+      would raise ``TypeError`` from inside the registry, because the contract
+      declares no string ``artifact_version`` for the bump check to verify. The
+      failure is loud either way; a refusal at preflight, before any document is
+      read and before anything is registered, is the better of the two.
+
+    A class in **neither** mapping is a deployment-authored class and is not
+    checked here at all: the adopter's declaration stands, exactly as
+    :func:`refuse_role_the_sdk_fixes` leaves the default with the adopter.
+
+    Raises:
+        ValueError: the entry declares a registration path the class's own
+            contract contradicts. Refused, never corrected — silently rewriting
+            the entry would leave the manifest saying one thing and the
+            deployment doing another, and the manifest is the document the audit
+            plane reads back.
+    """
+    if class_id in SDK_VERSIONED_ARTIFACT_CLASSES and registration == "typed":
+        raise ValueError(
+            f"artifact class {class_id!r} is author-versioned and the manifest"
+            " declares registration 'typed', which runs no D-05 bump check"
+            " (D-IMPL-85) — declare 'versioned'"
+        )
+    if class_id in SDK_ARTIFACT_CLASSES and registration == "versioned":
+        raise ValueError(
+            f"artifact class {class_id!r} declares no artifact_version and the"
+            " manifest declares registration 'versioned', so the D-05 bump check"
+            " has nothing to verify (D-IMPL-85) — declare 'typed'"
+        )
+
+
 def resolve_artifact_class(class_id: str) -> ArtifactClass:
     """Return the :class:`ArtifactClass` a manifest's ``class`` string names.
 
-    SDK-owned ids resolve to the SDK's own constant; every other id resolves to
-    the :class:`~ccf.controlplane.artifacts.DeclaredArtifact` envelope. An
-    unknown id is therefore *not* an error — it is a deployment-authored schema,
-    and refusing it would be the SDK claiming ownership of a namespace that is
-    not its own.
+    SDK-owned ids resolve to the SDK's own constant — from
+    :data:`SDK_ARTIFACT_CLASSES` first, then
+    :data:`SDK_VERSIONED_ARTIFACT_CLASSES`, both before the envelope, so a
+    manifest cannot shadow either into the permissive path. An id in an
+    adopter's own namespace resolves to the
+    :class:`~ccf.controlplane.artifacts.DeclaredArtifact` envelope: not an
+    error, but a deployment-authored schema, and the SDK never invents one for
+    what it does not ship.
+
+    A ``ccf.``-prefixed id in neither mapping is **refused** (D-IMPL-84). See
+    the module docstring for the squat this closes and for why the reservation
+    is namespace-wide rather than a list of the author-versioned ids.
 
     Raises:
         ValueError: ``class_id`` is empty or whitespace-only. Refused rather
             than defaulted: an unnamed class is a manifest the audit plane
             cannot read back, and only the manifest's author knows what it
-            should have said.
+            should have said. Or ``class_id`` claims the SDK's reserved
+            ``ccf.`` prefix without being a class the SDK ships (D-IMPL-84).
     """
     if not class_id.strip():
         raise ValueError(
@@ -180,4 +324,17 @@ def resolve_artifact_class(class_id: str) -> ArtifactClass:
     sdk_class = SDK_ARTIFACT_CLASSES.get(class_id)
     if sdk_class is not None:
         return sdk_class
+    versioned_class = SDK_VERSIONED_ARTIFACT_CLASSES.get(class_id)
+    if versioned_class is not None:
+        return versioned_class
+    if class_id.startswith(_CCF_NAMESPACE):
+        raise ValueError(
+            f"artifact class id {class_id!r} claims the SDK's reserved"
+            f" {_CCF_NAMESPACE!r} prefix but is not a class the SDK ships"
+            " (D-IMPL-84); the open DeclaredArtifact envelope is refused here"
+            " because a document that satisfies it would register, pin and"
+            " enter Decision Replay dimension 2 under an SDK class name with"
+            " arbitrary content — choose a class id in your own namespace, or"
+            " correct the spelling of the SDK class you meant"
+        )
     return declared_artifact_class(class_id)
