@@ -45,11 +45,22 @@ at a prefix of it). Paths, not bare roots — ``self._declared`` and
 ``self._resolved`` share a root and are two different values, and a check that
 collapsed them to ``self`` would be red on correct code.
 
-Local aliases are followed to a fixed point over assignment, annotated
-assignment and the walrus, so ``resolved = execution.operators_invoked`` used on
-both sides is caught rather than evaded by one statement. Set conversions
-(``frozenset``, ``tuple``, ``sorted``, and ``typing.cast``) are transparent, so
-wrapping one side does not hide it.
+Local aliases are followed through assignment, annotated assignment and the
+walrus, so ``resolved = execution.operators_invoked`` used on both sides is
+caught rather than evaded by one statement. Set conversions (``frozenset``,
+``tuple``, ``sorted``, and ``typing.cast``) are transparent, so wrapping one
+side does not hide it.
+
+**Following is line-aware, and that is a correctness property rather than a
+refinement.** A name is resolved to the assignment in force *at the line that
+reads it* (:func:`_binding_before`), so a body that reuses an ordinary local
+name for two different values has two sources and not one. Its predecessor kept
+one binding per name and was **red on correct code** for that reason (WR-F2).
+The same model is what lets a binding this module cannot read through still be
+a *source*: ``plan = QuickstartPlan(...)`` at line 231 is the token ``plan@231``
+(:func:`_opaque`), so two reads of one construction share a source and two
+constructions do not — which is object identity, and is what property (2) below
+needs.
 
 What tripwire (1) cannot catch — the structural limit, not a caution
 ---------------------------------------------------------------------
@@ -57,16 +68,20 @@ What tripwire (1) cannot catch — the structural limit, not a caution
 * A value arriving through **a helper's return value**. ``derive(execution)``
   roots at the helper, and this module deliberately stops there rather than
   guessing what the helper returns.
-* A value arriving through **a method's return value**. ``execution.resolved()``
-  stops at the call for the same reason, and it is worth stating why the
-  tempting shortcut is wrong rather than merely unimplemented: reading a method
-  call off its receiver makes *any* method call on an object share a source
-  with *any* attribute read of it, so ``self.declared_claim()`` paired with
-  ``self._resolved`` is reported as a collapse and the check is **red on
-  correct code**. That is the very ``self`` collapse the paths-not-roots rule
-  above exists to prevent, re-entering through the call node. A method is a
-  member of its receiver exactly as an attribute is, and which member it
-  returns is not something an AST walk knows.
+* A value arriving through **two different methods that happen to return the
+  same object**. A method call resolves to its receiver's path extended by the
+  method name and a call marker — ``execution.resolved()`` is
+  ``("execution", "resolved", "()")`` — so ``a.keys()`` and ``a.key_set()`` are
+  two paths and are two sources, whatever they return. What that spelling
+  *does* read is the member, which is the whole of WR-F4: the identical call on
+  both sides of Gate 2 is one path and is caught, while
+  ``self.declared_claim()`` and ``self._resolved`` differ in their **second**
+  element and are two, so a correct body stays quiet. Collapsing a call to its
+  bare *receiver* — the shape WR-02 removed — is what was red on correct code,
+  because it made *any* method call on an object share a source with *any*
+  attribute read of it. Keeping the member name is what lets the true positive
+  back in without the false one; dropping the call entirely, which is what the
+  WR-02 fix did, admitted ``execution.resolved()`` on both sides.
 * A value arriving through **a container** — ``results["ops"]`` — or through
   **dynamic attribute access** — ``getattr(execution, "operators_" + "invoked")``.
   Neither has an identifier path an AST walk can read.
@@ -133,17 +148,37 @@ residual below:
 * **A plan expression with no identifier path.** ``execute(plan=build(spec))``
   roots at a helper, so property (2) cannot say which plan ran — the same limit
   tripwire (1) has, in the same place.
+* **A ``required=`` expression with no identifier path.** Property (1) compares
+  two resolved paths, so ``required=[*claim]``, ``required=claim[:]``,
+  ``required=derive(claim)`` and ``required=claim.as_keys()`` each resolve to
+  ``None`` and the property reports nothing. This is property (1)'s *only*
+  input, so it is the residual that matters most for it, and it was previously
+  unstated. ``MINIMUM_RESOLVED_BINDER_SITES`` holds the *existing* sites
+  readable and does not stop a new one arriving unreadable — which is why
+  :func:`test_every_bound_body_has_a_readable_plan_source` asserts the property
+  per body as well, where a count cannot.
+* **``engine.execute(**kwargs)``.** :func:`_is_plan_execution` needs a keyword
+  literally named ``plan``; ``**`` gives ``keyword.arg is None``, so a body that
+  only executes — constructing no plan — is not a projecting body under that
+  spelling.
 * **A plan crossing a body boundary.** A plan constructed and bound in one
   method and executed in another is two bodies, and one body means one body.
-* **A plan class not named ``*Plan`` that is never executed in its own body.**
-  Plan *construction* is recognised by the class-name suffix, which is a
-  convention. Plan *execution* is not: ``ProjectionEngine.execute`` declares
+* **A plan class this module can neither see nor recognise.** Plan
+  *construction* is recognised three ways, and the two that carry the check are
+  **name-independent**: the callee names a class defined in the scanned trees
+  whose body defines both ``required_operators()`` and ``invoke()`` — which is
+  ``ProjectionPlan``'s own structural test, taken verbatim from its docstring
+  — or the call passes both ``plan_id=`` and ``required=``, the constructor
+  shape every plan in the suite has and the two keywords the check actually
+  reads. The ``*Plan`` class-name suffix survives only as a third net; see
+  :func:`_is_plan_construction` for why it is kept and why it is no longer what
+  the check rests on. What genuinely survives is a plan class defined
+  **outside** ``src/``, ``runtime/`` and ``examples/``, constructed without
+  either conventional keyword and not named ``*Plan``; and a plan produced by a
+  factory, where there is no class name at the call site at all. Plan
+  *execution* is separately robust: ``ProjectionEngine.execute`` declares
   ``plan`` keyword-only, so any body that runs a projection through the SDK's
-  engine passes ``plan=`` whatever its plan class is called and is detected
-  regardless. The surviving hole is therefore narrow — a non-``Plan``-suffixed
-  class constructed and *returned* rather than executed, the ``resolve_plan``
-  shape — and it is stated here rather than papered over with a second
-  convention.
+  engine passes ``plan=`` whatever its plan class is called.
 
 The authorship residual is **not** closed by any of this
 ---------------------------------------------------------
@@ -237,12 +272,30 @@ BINDER_CALL = "refuse_operator_set_divergence"
 BINDER_DECLARED_KEYWORD = "declared"
 BINDER_PLAN_KEYWORD = "plan"
 
-#: A projection plan construction, by the two properties every implementation
-#: of :class:`ccf.projection.plan.ProjectionPlan` in the suite shares: a class
-#: name ending in ``Plan``, and a ``required`` keyword carrying the operator
-#: set it declares.
-PLAN_CLASS_SUFFIX = "Plan"
+#: What :class:`ccf.projection.plan.ProjectionPlan` is structural **about**,
+#: quoted from its own docstring: *"Any type exposing ``required_operators()``
+#: and ``invoke()`` is a projection. There is no base class to inherit and no
+#: registry decorator to remember."* A class whose body defines both is a
+#: projection by the SDK's own definition of the word, whatever it is called —
+#: which is why the primary recognition of a plan construction keys on this and
+#: not on a name (CR-F1).
+PLAN_PROTOCOL_MEMBERS: frozenset[str] = frozenset({"required_operators", "invoke"})
+
+#: The constructor keywords every plan in the suite is built with. ``plan_id``
+#: is the one identifier ``ProjectionPlan`` names as a member; ``required``
+#: carries the operator set the plan declares and is the value property (1)
+#: reads. Together they are the second name-independent recognition, and they
+#: were measured across ``src/``, ``runtime/``, ``examples/`` and ``tests/``:
+#: fourteen calls pass both, and all fourteen are plan constructions.
+#: ``required`` **alone** is not discriminating — sixty-seven calls pass it,
+#: fifty-six of which are ``argparse`` and other unrelated APIs, one of them in
+#: ``examples/`` itself, so keying on it alone would be red on correct code.
+PLAN_ID_KEYWORD = "plan_id"
 PLAN_REQUIRED_KEYWORD = "required"
+
+#: The pre-CR-F1 rule, kept only as a third net — see
+#: :func:`_is_plan_construction`.
+PLAN_CLASS_SUFFIX = "Plan"
 
 #: The engine call, and the keyword that makes it a *projection* execution
 #: rather than a workflow or a database one — ``engine.execute(workflow, ...)``
@@ -259,6 +312,12 @@ TRANSPARENT_CONVERSIONS: frozenset[str] = frozenset(
     {"frozenset", "set", "tuple", "list", "sorted"}
 )
 TRANSPARENT_CAST = "cast"
+
+#: The last element of a path that ends in a method call, so that
+#: ``execution.resolved`` (the member) and ``execution.resolved()`` (what it
+#: returned) are not silently the same path. It contains characters no
+#: identifier can, so it can never collide with a real member name.
+CALL_MARKER = "()"
 
 #: The suite carries one gate call site per example that serves a product. A
 #: scan that silently matched zero call sites is the quietest way a tripwire
@@ -350,6 +409,18 @@ def _scope_line(scope: ast.AST) -> int:
 # --- identifier paths ---------------------------------------------------------
 
 
+def _is_transparent(node: ast.Call) -> bool:
+    """A call that is a no-op over the value it wraps."""
+    return (
+        isinstance(node.func, ast.Name)
+        and bool(node.args)
+        and (
+            node.func.id in TRANSPARENT_CONVERSIONS
+            or (node.func.id == TRANSPARENT_CAST and len(node.args) > 1)
+        )
+    )
+
+
 def _path(node: ast.expr) -> tuple[str, ...] | None:
     """The dotted identifier path an expression reads, if it has one.
 
@@ -358,10 +429,30 @@ def _path(node: ast.expr) -> tuple[str, ...] | None:
     ``("declared", "required_operator_keys")``, because a set conversion is
     transparent to its argument; ``self._declared`` yields
     ``("self", "_declared")``, which is what keeps two attributes of one object
-    distinguishable. Anything whose source an AST walk cannot read — a helper's
-    return value, **a method's return value**, a subscript, a dynamic attribute
-    access — yields ``None``, and the docstring names each of those as a limit
-    rather than pretending otherwise.
+    distinguishable.
+
+    A **method call** yields its receiver's path extended by the method name and
+    :data:`CALL_MARKER`: ``execution.resolved()`` is
+    ``("execution", "resolved", "()")``. Both halves of that spelling are
+    load-bearing and were each found the hard way (WR-02, then WR-F4):
+
+    * Keeping the **member name** is what stops the collapse WR-02 removed.
+      Reading ``obj.method()`` as bare ``("obj",)`` makes *any* method call on
+      an object share a source with *any* attribute read of it, so
+      ``self.declared_claim()`` paired with ``self._resolved`` was reported as a
+      collapse and the check was **red on correct code**. With the member in the
+      path the two differ in their second element, and
+      :func:`_shares_a_source`'s prefix rule keeps them apart.
+    * Keeping **any** path at all is what stops the false *negative* WR-02's fix
+      introduced. Returning ``None`` here admitted ``execution.resolved()`` on
+      both sides of Gate 2 — one expression, one value, compared against itself.
+
+    What is still out of reach: a helper's return value (``derive(execution)``
+    roots at the helper and stops), what a method *returns* rather than which
+    method it is (``a.keys()`` and ``a.key_set()`` are two paths whatever they
+    return), a subscript, and a dynamic attribute access. Each yields ``None``
+    and the module docstring names it as a limit rather than pretending
+    otherwise.
     """
     if isinstance(node, ast.Name):
         return (node.id,)
@@ -373,24 +464,29 @@ def _path(node: ast.expr) -> tuple[str, ...] | None:
     if isinstance(node, ast.Await):
         return _path(node.value)
     if isinstance(node, ast.Call):
-        if isinstance(node.func, ast.Name) and node.args:
-            if node.func.id in TRANSPARENT_CONVERSIONS:
-                return _path(node.args[0])
-            if node.func.id == TRANSPARENT_CAST and len(node.args) > 1:
-                # `cast(T, value)` is a no-op at runtime; the value is arg 2.
-                return _path(node.args[1])
-        # A METHOD's return value is out of reach, exactly as a helper's is.
-        # Reading `obj.method()` off its receiver as `("obj",)` looks like it
-        # sees through the call and does not: it makes *any* method call on an
-        # object share a source with *any* attribute read of it, so
-        # `self.declared_claim()` paired with `self._resolved` reports a
-        # collapse that is not there. That is the `self` collapse the design
-        # rule three paragraphs up exists to avoid, reintroduced through the
-        # call node. A method is a member of its receiver in exactly the way an
-        # attribute is; this module cannot know whether it returns a sibling
-        # member or something unrelated, and it stops rather than guessing.
+        if _is_transparent(node):
+            index = 1 if _callee(node) == TRANSPARENT_CAST else 0
+            return _path(node.args[index])
+        if isinstance(node.func, ast.Attribute):
+            base = _path(node.func.value)
+            return None if base is None else (*base, node.func.attr, CALL_MARKER)
+        # A free function's return value is out of reach: `derive(x)` roots at
+        # `derive`, and nothing in an AST walk says what it does with `x`.
         return None
     return None
+
+
+def _render(path: tuple[str, ...]) -> str:
+    """A resolved path spelled the way a reader would write it."""
+    text = ""
+    for element in path:
+        if element == CALL_MARKER:
+            text += CALL_MARKER
+        elif text:
+            text = f"{text}.{element}"
+        else:
+            text = element
+    return text
 
 
 def _assignment(node: ast.AST) -> tuple[list[str], ast.expr | None]:
@@ -404,73 +500,145 @@ def _assignment(node: ast.AST) -> tuple[list[str], ast.expr | None]:
     return ([], None)
 
 
-def _aliases(scope: ast.AST) -> dict[str, tuple[str, ...]]:
-    """Local aliases in one body, resolved to a fixed point.
+def _opaque(name: str, lineno: int) -> str:
+    """A source token for a name whose binding this module cannot read through.
 
-    ``a = execution.operators_invoked`` then ``b = a`` binds both ``a`` and
-    ``b`` to ``("execution", "operators_invoked")``, so a chain of assignments
-    is followed rather than only its first hop. Cross-AI review at the Phase 15
-    close raised exactly this bypass against the sibling guard; it is closed the
-    same way here, and
-    :func:`test_the_tripwire_detects_the_shape_it_exists_to_refuse` exercises it.
+    ``plan = QuickstartPlan(...)`` binds ``plan`` to a value no identifier path
+    describes. The binding is still a *source*, and it is the source of every
+    read of ``plan`` until the next assignment to it — so the token carries the
+    line of the binding, which makes two assignments to one name two sources
+    and one assignment one source. That is precisely the object identity
+    property (2) needs, and it is why the token is a path element rather than a
+    separate model.
 
-    **Termination is by construction, not by convergence.** Each name is
-    resolved independently by walking its own chain while carrying the set of
-    heads already substituted; a head that reappears ends that walk. Every
-    iteration adds one element to a set bounded by ``bindings``, so the walk is
-    bounded by ``len(bindings) + 1`` steps for every name.
-
-    The predecessor of this function grew a shared binding map until nothing
-    changed, and **did not terminate on a three-name rotation** —
-    ``def f(b, c): a = b; b = c; c = a`` — where the substitution oscillates
-    forever and ``grew`` is never ``False``. That rotation is legal, executable
-    Python, so *refusing* it would be red on correct code; it is resolved
-    conservatively instead, each name to itself, which is distinct per name and
-    so cannot manufacture a shared source. Because this scan runs over every
-    ``.py`` file under ``src/``, ``runtime/`` and ``examples/``, the old shape
-    meant one contributor's rotation chain hung ``pytest`` with no output.
-    :func:`test_alias_resolution_terminates_on_a_cyclic_assignment_chain` holds
-    the property under a wall-clock bound, so a regression fails rather than
-    hangs.
-
-    Resolving from the raw first-assignment map rather than mutating it in
-    place also makes the result independent of dict iteration order.
+    Spelled ``name@lineno`` — ``plan@231`` — so a failure message names the
+    assignment it means rather than only the identifier.
     """
-    bindings: dict[str, tuple[str, ...]] = {}
+    return f"{name}@{lineno}"
+
+
+def _binding_path(value: ast.expr) -> tuple[str, ...] | None:
+    """What a name bound to ``value`` should be *followed* to, if anything.
+
+    Not the same question as :func:`_path`, and the difference is deliberate. A
+    call **evaluates to a new value each time it runs**, so a name bound to one
+    is bound to that evaluation and to nothing else: two constructions of one
+    plan class are two objects, and following both to the same class path would
+    make property (2) believe the binder bound the plan the engine ran when it
+    bound the other one. Transparent conversions are the exception, because
+    ``frozenset(x)`` is a view of ``x`` rather than an independent value.
+
+    :func:`_path` still reads a method call as a path, and must: two *reads* of
+    ``execution.resolved()`` in one body are the same expression and Gate 2
+    comparing them is comparing a value against itself (WR-F4). The asymmetry is
+    that following an alias asks "which object is this name", while reading an
+    argument asks "what does this expression read".
+    """
+    if isinstance(value, ast.Call) and not _is_transparent(value):
+        return None
+    return _path(value)
+
+
+class _Binding(NamedTuple):
+    """One assignment to one local name."""
+
+    lineno: int
+    path: tuple[str, ...] | None
+
+
+def _bindings(scope: ast.AST) -> dict[str, tuple[_Binding, ...]]:
+    """Every assignment to every local name in one body, in source order.
+
+    **Order-aware, and every binding kept.** Its predecessor recorded one entry
+    per name with ``setdefault`` over a traversal that yields statements in
+    *reverse* source order, so it kept the **last** textual assignment and
+    applied it to every use of that name anywhere in the body while its
+    docstring called it "the raw first-assignment map". It was neither. WR-F2
+    measured both consequences: tripwire (1) red on a correct body that reuses
+    an ordinary local name, and property (2) blind to a plan local rebound
+    between the bind and the execute.
+
+    A list per name, sorted by line, answers the question the checks actually
+    ask — *what was this name bound to at the point of use* — and
+    :func:`_binding_before` is where that question is put. Bindings whose value
+    has no identifier path are recorded too, with ``path=None``: an unreadable
+    binding is still a binding, and forgetting it is what let a rebound name
+    keep resolving to its previous value.
+
+    Traversal order is not relied on; the result is sorted explicitly, so this
+    is independent of both ``_scope_nodes``'s stack order and dict iteration
+    order.
+    """
+    found: dict[str, list[_Binding]] = {}
     for node in _scope_nodes(scope):
         targets, value = _assignment(node)
         if value is None:
             continue
-        path = _path(value)
-        if path is None:
-            continue
+        line = getattr(node, "lineno", 0)
         for target in targets:
-            bindings.setdefault(target, path)
-
-    resolved: dict[str, tuple[str, ...]] = {}
-    for name, path in bindings.items():
-        substituted = {name}
-        head = path[0]
-        while head in bindings and head not in substituted:
-            substituted.add(head)
-            path = (*bindings[head], *path[1:])
-            head = path[0]
-        resolved[name] = path
-    return resolved
+            found.setdefault(target, []).append(_Binding(line, _binding_path(value)))
+    return {
+        name: tuple(sorted(entries, key=lambda binding: binding.lineno))
+        for name, entries in found.items()
+    }
 
 
-def _resolve(
-    path: tuple[str, ...] | None, aliases: dict[str, tuple[str, ...]]
+def _binding_before(
+    name: str, line: int, bindings: dict[str, tuple[_Binding, ...]]
+) -> _Binding | None:
+    """The assignment to ``name`` in force at ``line``: the last one above it.
+
+    Strictly above, so ``x = x.y`` reads the *previous* ``x`` rather than
+    itself. The cost of comparing lines rather than positions is that several
+    statements separated by semicolons on one physical line resolve
+    conservatively — none of them is "before" the others — which under-resolves
+    rather than mis-resolves, and no file in the scanned trees is written that
+    way.
+    """
+    latest: _Binding | None = None
+    for binding in bindings.get(name, ()):
+        if binding.lineno < line:
+            latest = binding
+    return latest
+
+
+def _resolve_at(
+    path: tuple[str, ...] | None,
+    line: int,
+    bindings: dict[str, tuple[_Binding, ...]],
 ) -> tuple[str, ...] | None:
+    """Where the value read by ``path`` at ``line`` comes from.
+
+    ``a = execution.operators_invoked`` then ``b = a`` resolves a read of ``b``
+    to ``("execution", "operators_invoked")``, so a chain of assignments is
+    followed rather than only its first hop — the bypass cross-AI review raised
+    against the sibling guard at the Phase 15 close. Each hop resolves the head
+    **as of the line that bound it**, not as of the point of use, which is what
+    makes the answer the one Python would give.
+
+    **Termination is by construction.** Every hop replaces ``line`` with the
+    line of a binding strictly above it, and :func:`_binding_before` only ever
+    looks strictly above, so the line at which the walk is asking strictly
+    decreases and the walk is bounded by the number of bindings in the body.
+    The three-name rotation ``def f(b, c): a = b; b = c; c = a`` — legal,
+    executable Python that hung the predecessor of this function with no output
+    — terminates here in one hop per name and, better than terminating,
+    resolves *correctly*: at the bottom of that body ``a`` and ``c`` both hold
+    the parameter ``b``, which is what the code does.
+    :func:`test_alias_resolution_terminates_on_a_cyclic_assignment_chain` holds
+    both properties under a wall-clock bound.
+    """
     if path is None:
         return None
-    head, *rest = path
-    if head not in aliases:
-        return path
-    substituted = aliases[head]
-    if head in substituted:  # pragma: no cover - defensive against `x = x.y`
-        return path
-    return (*substituted, *rest)
+    while True:
+        head, *rest = path
+        binding = _binding_before(head, line, bindings)
+        if binding is None:
+            return path
+        if binding.path is None:
+            return (_opaque(head, binding.lineno), *rest)
+        path = (*binding.path, *rest)
+        line = binding.lineno
 
 
 def _shares_a_source(
@@ -508,7 +676,7 @@ def _callee(call: ast.Call) -> str | None:
 
 def _gate_collapses(scope: ast.AST, path: pathlib.Path) -> list[str]:
     """Every same-source pairing of Gate 2's two arguments in one body."""
-    aliases = _aliases(scope)
+    bindings = _bindings(scope)
     gate_sides: list[tuple[int, tuple[str, ...] | None]] = []
     lineage_sides: list[tuple[int, tuple[str, ...] | None]] = []
 
@@ -520,13 +688,19 @@ def _gate_collapses(scope: ast.AST, path: pathlib.Path) -> list[str]:
             argument = _keyword(node, GATE_RESOLVED_KEYWORD)
             if argument is not None:
                 gate_sides.append(
-                    (node.lineno, _resolve(_path(argument), aliases))
+                    (
+                        node.lineno,
+                        _resolve_at(_path(argument), argument.lineno, bindings),
+                    )
                 )
         elif callee == LINEAGE_CONSTRUCTOR:
             argument = _keyword(node, LINEAGE_DECLARED_KEYWORD)
             if argument is not None:
                 lineage_sides.append(
-                    (node.lineno, _resolve(_path(argument), aliases))
+                    (
+                        node.lineno,
+                        _resolve_at(_path(argument), argument.lineno, bindings),
+                    )
                 )
 
     problems: list[str] = []
@@ -539,7 +713,7 @@ def _gate_collapses(scope: ast.AST, path: pathlib.Path) -> list[str]:
                 f"{path.relative_to(REPO_ROOT)}:{gate_line}:"
                 f" `{GATE_CALL}(..., {GATE_RESOLVED_KEYWORD}=...)` and the"
                 f" `{LINEAGE_CONSTRUCTOR}(...)` at line {lineage_line} both"
-                f" read `{'.'.join(declared)}`."
+                f" read `{_render(declared)}`."
                 " Gate 2 (lineage strict equality, whitepaper §7.6,"
                 " INV-CH7-47) then compares a value against itself: it cannot"
                 " fail, it stays green, and the invariant is gone with nothing"
@@ -639,6 +813,27 @@ def test_the_tripwire_detects_the_shape_it_exists_to_refuse() -> None:
         "def serve(execution, candidate):\n"
         f"    product = {lineage}cast(frozenset, {engine}))\n"
         f"    return {gate}{engine})\n",
+        # WR-F4 — the identical METHOD call on both sides. One expression, one
+        # value, and Gate 2 comparing it against itself. WR-02 was right that
+        # collapsing a call to its bare receiver was red on correct code, and
+        # its fix — dropping the call to `None` — admitted this. Both are
+        # avoidable: the path keeps the member name, so this is caught and the
+        # two benign method probes below stay quiet.
+        "def serve(execution, candidate):\n"
+        f"    product = {lineage}execution.resolved())\n"
+        f"    return {gate}execution.resolved())\n",
+        # the same, one alias hop apart — the binding is the source, so both
+        # reads of it are one source
+        "def serve(execution, candidate):\n"
+        "    ops = execution.resolved()\n"
+        f"    product = {lineage}ops)\n"
+        f"    return {gate}ops)\n",
+        # and where the value is out of reach entirely, the BINDING is still
+        # the source: two reads of one unreadable local are one value
+        "def serve(execution, candidate):\n"
+        "    ops = derive(execution)\n"
+        f"    product = {lineage}ops)\n"
+        f"    return {gate}ops)\n",
     )
     for source in caught:
         function = ast.parse(source).body[0]
@@ -675,6 +870,31 @@ def test_the_tripwire_detects_the_shape_it_exists_to_refuse() -> None:
         f"    product = {lineage}"
         "frozenset(record.content_generation_path.operator_plan))\n"
         f"    return {gate}{engine})\n",
+        # WR-F2 — reusing a local name for two different values is ordinary
+        # Python, and the two values are two sources. This is the compliant
+        # design-E2 body: the lineage from the product-class declaration, the
+        # gate's side from the engine. Recording one binding per NAME, over a
+        # traversal that yields statements in reverse, made both sides resolve
+        # to the second assignment and reported this correct body as a collapse.
+        "def serve(execution, candidate, declared):\n"
+        f"    ops = frozenset(declared.required_operator_keys)\n"
+        f"    product = {lineage}ops)\n"
+        f"    ops = {engine}\n"
+        f"    return {gate}ops)\n",
+        # the same for two unreadable bindings: `derive(execution)` and
+        # `derive(candidate)` are two evaluations and two values, and the line
+        # of the binding is what tells them apart
+        "def serve(execution, candidate):\n"
+        "    ops = derive(execution)\n"
+        f"    product = {lineage}ops)\n"
+        "    ops = derive(candidate)\n"
+        f"    return {gate}ops)\n",
+        # two DIFFERENT methods on one receiver are two members and two
+        # sources, exactly as two attributes are — the path keeps the member
+        # name, so restoring the method-call reading does not restore WR-02
+        "def serve(self, candidate):\n"
+        f"    product = {lineage}self.declared_claim())\n"
+        f"    return {gate}self.resolved_ops())\n",
     )
     for source in benign:
         function = ast.parse(source).body[0]
@@ -710,16 +930,105 @@ def test_the_tripwire_does_not_pair_across_two_bodies() -> None:
 # --- tripwire (2): every projecting body names the binder ---------------------
 
 
-def _is_plan_construction(node: ast.AST) -> bool:
-    """A projection plan being built: ``<Something>Plan(..., required=...)``."""
+def _plan_classes_in(tree: ast.Module) -> frozenset[str]:
+    """Classes in one module that satisfy ``ProjectionPlan`` structurally.
+
+    ``src/ccf/projection/plan.py``'s own words: *"Any type exposing
+    ``required_operators()`` and ``invoke()`` is a projection."* This reads
+    exactly that, off the class body, and asks nothing about the name.
+    """
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        members = {
+            member.name
+            for member in node.body
+            if isinstance(member, ast.FunctionDef | ast.AsyncFunctionDef)
+        }
+        if PLAN_PROTOCOL_MEMBERS <= members:
+            found.add(node.name)
+    return frozenset(found)
+
+
+_TREE_PLAN_CLASSES: frozenset[str] | None = None
+
+
+def _plan_classes() -> frozenset[str]:
+    """Every structurally-conforming plan class name in the scanned trees."""
+    global _TREE_PLAN_CLASSES  # noqa: PLW0603 - a one-shot scan of the tree
+    if _TREE_PLAN_CLASSES is None:
+        found: set[str] = set()
+        for path in _python_sources(SCANNED_TREES):
+            tree = _parse(path)
+            if tree is not None:
+                found |= _plan_classes_in(tree)
+        _TREE_PLAN_CLASSES = frozenset(found)
+    return _TREE_PLAN_CLASSES
+
+
+def _is_plan_construction(
+    node: ast.AST, plan_classes: frozenset[str] | None = None
+) -> bool:
+    """A projection plan being built — recognised without reading its name.
+
+    **This is the CR-F1 fix, and the ordering of the branches is the finding.**
+    The predecessor required the class name to end in ``Plan``. But
+    ``ProjectionPlan`` is a :class:`typing.Protocol` whose docstring commits to
+    the opposite — *"Structural, not nominal … There is no base class to inherit
+    and no registry decorator to remember"* — so renaming one identifier made
+    property (1), the entire substance of the CR-03 fix, silently vacuous while
+    coverage, properties (2) and (3) and all three floors stayed green. A check
+    that keys on a naming convention against a type the SDK is deliberately
+    structural about is a check that can be renamed away.
+
+    Three branches. The first two are name-independent and are what the check
+    now rests on:
+
+    1. **The callee names a class that satisfies the Protocol structurally** —
+       its body defines both :data:`PLAN_PROTOCOL_MEMBERS`. This is the SDK's
+       own definition of "is a projection", applied to the class the call
+       constructs. Renaming ``QuickstartPlan`` to ``CreditProjection`` renames
+       its ``class`` statement too, so this branch follows the rename.
+    2. **The call passes both ``plan_id=`` and ``required=``** — the constructor
+       shape every plan in the suite has, and the two keywords the checks
+       actually read. This catches a plan class whose *definition* is out of
+       reach: imported from a package, or from a tree this module does not scan.
+
+    3. The ``*Plan`` suffix together with ``required=`` is the pre-CR-F1 rule.
+       It is kept, and it earns its keep on exactly one case: a plan class
+       defined outside the scanned trees *and* constructed without ``plan_id=``.
+       Dropping it would narrow the check, and narrowing is not what this fix
+       is for. It is no longer load-bearing — measured over ``src/``,
+       ``runtime/``, ``examples/`` and ``tests/``, every one of its fourteen
+       matches is also matched by branch 1 and by branch 2 — and it must not be
+       read as one, which is why it is listed last and named a net.
+
+    **The false-positive cost was measured rather than assumed**, because a
+    check red on correct code is the defect this cycle keeps producing. Branch 1
+    matches thirty-five calls tree-wide and every one constructs a class
+    implementing the Protocol — under ``ProjectionPlan``'s own structural
+    commitment such a class *is* a projection, so the branch has no false
+    positive it is possible to state. Branch 2 matches fourteen and all fourteen
+    are plan constructions. Inside ``examples/``, the tree this tripwire scans,
+    all three branches select the identical eleven bodies the suffix rule
+    selected, so nothing became red that was green. The reviewer's proposed
+    rekey — ``required=`` **alone** — was measured too and rejected: it matches
+    sixty-seven calls, fifty-six of them ``argparse`` and unrelated APIs,
+    including ``examples/03-harness-portability/run.py``'s own ``main()``, which
+    it would turn into a projecting body obliged to call the binder.
+    """
     if not isinstance(node, ast.Call):
         return False
     callee = _callee(node)
-    if callee is None or not callee.endswith(PLAN_CLASS_SUFFIX):
+    if callee is None:
         return False
-    return any(
-        keyword.arg == PLAN_REQUIRED_KEYWORD for keyword in node.keywords
-    )
+    if callee in (_plan_classes() if plan_classes is None else plan_classes):
+        return True
+    keywords = {keyword.arg for keyword in node.keywords}
+    if {PLAN_ID_KEYWORD, PLAN_REQUIRED_KEYWORD} <= keywords:
+        return True
+    return callee.endswith(PLAN_CLASS_SUFFIX) and PLAN_REQUIRED_KEYWORD in keywords
 
 
 def _is_plan_execution(node: ast.AST) -> bool:
@@ -761,31 +1070,46 @@ class _BinderCall(NamedTuple):
 
 
 def _plan_sources(
-    scope: ast.AST, aliases: dict[str, tuple[str, ...]]
+    scope: ast.AST,
+    bindings: dict[str, tuple[_Binding, ...]],
+    plan_classes: frozenset[str] | None = None,
 ) -> dict[tuple[str, ...], tuple[str, ...] | None]:
-    """Each local bound to a plan construction, and where its ``required=`` reads.
+    """Each plan construction, and where the ``required=`` it was built from reads.
 
     ``plan = QuickstartPlan(plan_id=…, required=requirements.required_operator_keys)``
-    binds ``("plan",)`` to ``("requirements", "required_operator_keys")``. That
-    mapping is the whole basis of the tautology check: the binder is handed
-    ``plan``, and this says which of the two authored documents ``plan`` was
-    built from.
+    at line 231 binds the source token ``plan@231`` to
+    ``("requirements", "required_operator_keys")``. That mapping is the whole
+    basis of the tautology check: the binder is handed ``plan``, and this says
+    which of the two authored documents ``plan`` was built from.
+
+    **Keyed by the binding, not by the name** (WR-F2). Its predecessor keyed on
+    the name alone with ``setdefault`` over a reverse-order traversal, so a body
+    that constructs one plan, binds it, executes it, and then rebinds ``plan``
+    to a second construction had *one* entry for the two — and property (2),
+    matching on names, reported the second execution as bound by the first
+    call's binder, which never saw that object. :func:`_opaque` gives each
+    construction its own token and :func:`_resolve_at` resolves a use to the
+    construction in force at that line, so the two are two.
     """
     sources: dict[tuple[str, ...], tuple[str, ...] | None] = {}
     for node in _scope_nodes(scope):
         targets, value = _assignment(node)
-        if value is None or not _is_plan_construction(value):
+        if value is None or not _is_plan_construction(value, plan_classes):
             continue
         assert isinstance(value, ast.Call)
         required = _keyword(value, PLAN_REQUIRED_KEYWORD)
-        source = None if required is None else _resolve(_path(required), aliases)
+        source = (
+            None
+            if required is None
+            else _resolve_at(_path(required), required.lineno, bindings)
+        )
         for target in targets:
-            sources.setdefault((target,), source)
+            sources.setdefault((_opaque(target, getattr(node, "lineno", 0)),), source)
     return sources
 
 
 def _binder_calls(
-    scope: ast.AST, aliases: dict[str, tuple[str, ...]]
+    scope: ast.AST, bindings: dict[str, tuple[_Binding, ...]]
 ) -> list[_BinderCall]:
     calls: list[_BinderCall] = []
     for node in _scope_nodes(scope):
@@ -799,10 +1123,20 @@ def _binder_calls(
                 declared=(
                     None
                     if declared_arg is None
-                    else _resolve(_path(declared_arg), aliases)
+                    else _resolve_at(
+                        _path(declared_arg), declared_arg.lineno, bindings
+                    )
                 ),
+                # `_binding_path`, not `_path`: `plan=` names an OBJECT, and the
+                # question property (2) asks is which one. A call spelled here
+                # is a fresh object no binder can have been handed, and the
+                # inline branches below say so rather than resolving it.
                 handed=(
-                    None if plan_arg is None else _resolve(_path(plan_arg), aliases)
+                    None
+                    if plan_arg is None
+                    else _resolve_at(
+                        _binding_path(plan_arg), plan_arg.lineno, bindings
+                    )
                 ),
                 plan_node=plan_arg,
             )
@@ -819,7 +1153,7 @@ class _Execution(NamedTuple):
 
 
 def _executions(
-    scope: ast.AST, aliases: dict[str, tuple[str, ...]]
+    scope: ast.AST, bindings: dict[str, tuple[_Binding, ...]]
 ) -> list[_Execution]:
     found: list[_Execution] = []
     for node in _scope_nodes(scope):
@@ -831,7 +1165,11 @@ def _executions(
             _Execution(
                 lineno=node.lineno,
                 plan=(
-                    None if argument is None else _resolve(_path(argument), aliases)
+                    None
+                    if argument is None
+                    else _resolve_at(
+                        _binding_path(argument), argument.lineno, bindings
+                    )
                 ),
                 plan_node=argument,
             )
@@ -842,20 +1180,31 @@ def _executions(
 def _handed_plan_source(
     call: _BinderCall,
     sources: dict[tuple[str, ...], tuple[str, ...] | None],
-    aliases: dict[str, tuple[str, ...]],
+    bindings: dict[str, tuple[_Binding, ...]],
+    plan_classes: frozenset[str] | None = None,
 ) -> tuple[str, ...] | None:
     """Where the ``required=`` of the plan handed to ``call`` reads, if readable."""
-    if call.plan_node is not None and _is_plan_construction(call.plan_node):
+    if call.plan_node is not None and _is_plan_construction(
+        call.plan_node, plan_classes
+    ):
         # `binder(declared=…, plan=FooPlan(required=…))` — inline, read directly.
         assert isinstance(call.plan_node, ast.Call)
         required = _keyword(call.plan_node, PLAN_REQUIRED_KEYWORD)
-        return None if required is None else _resolve(_path(required), aliases)
+        return (
+            None
+            if required is None
+            else _resolve_at(_path(required), required.lineno, bindings)
+        )
     if call.handed is None:
         return None
     return sources.get(call.handed)
 
 
-def _binder_collapses(scope: ast.AST, path: pathlib.Path) -> list[str]:
+def _binder_collapses(
+    scope: ast.AST,
+    path: pathlib.Path,
+    plan_classes: frozenset[str] | None = None,
+) -> list[str]:
     """The binder is *doing something* in this body, not merely spelled in it.
 
     Three properties, each of which a body naming the binder can violate while
@@ -884,24 +1233,24 @@ def _binder_collapses(scope: ast.AST, path: pathlib.Path) -> list[str]:
     module already resolves, so it is detectable and now detected. The two
     remain separate findings and R-3 remains open.
     """
-    aliases = _aliases(scope)
-    sources = _plan_sources(scope, aliases)
-    calls = _binder_calls(scope, aliases)
-    executions = _executions(scope, aliases)
+    bindings = _bindings(scope)
+    sources = _plan_sources(scope, bindings, plan_classes)
+    calls = _binder_calls(scope, bindings)
+    executions = _executions(scope, bindings)
     where = path.relative_to(REPO_ROOT)
     problems: list[str] = []
 
     # (1) the binder's two sides must be two documents
     for call in calls:
-        required = _handed_plan_source(call, sources, aliases)
+        required = _handed_plan_source(call, sources, bindings, plan_classes)
         if not _shares_a_source(call.declared, required):
             continue
         assert call.declared is not None and required is not None
         problems.append(
             f"{where}:{call.lineno}: the plan handed to `{BINDER_CALL}` reads"
-            f" its `{PLAN_REQUIRED_KEYWORD}=` from `{'.'.join(required)}`, which"
+            f" its `{PLAN_REQUIRED_KEYWORD}=` from `{_render(required)}`, which"
             f" is the same source as `{BINDER_DECLARED_KEYWORD}="
-            f"{'.'.join(call.declared)}`. The binder then compares a value"
+            f"{_render(call.declared)}`. The binder then compares a value"
             " against itself: it cannot fail, it stays green, and the"
             " `ccf.projection-requirements` artifact has been routed around"
             " entirely. This is CR-2's shape at the binder seam. Build the"
@@ -930,7 +1279,7 @@ def _binder_collapses(scope: ast.AST, path: pathlib.Path) -> list[str]:
     # (2) the plan bound is the plan run
     for execution in executions:
         if execution.plan_node is not None and _is_plan_construction(
-            execution.plan_node
+            execution.plan_node, plan_classes
         ):
             # The plan comes into being INSIDE the call expression that
             # consumes it, so it is not an object any binder could have been
@@ -956,7 +1305,7 @@ def _binder_collapses(scope: ast.AST, path: pathlib.Path) -> list[str]:
             continue
         problems.append(
             f"{where}:{execution.lineno}: `ProjectionEngine.execute` runs"
-            f" `{'.'.join(execution.plan)}`, which no `{BINDER_CALL}` call in"
+            f" `{_render(execution.plan)}`, which no `{BINDER_CALL}` call in"
             " this body was handed beforehand. Naming the binder over some"
             " OTHER plan leaves the plan that actually assembles the product"
             f" unbound. Hand `{BINDER_CALL}` the same object"
@@ -1128,29 +1477,79 @@ def _resolved_binder_sites() -> list[str]:
     """
     readable: list[str] = []
     for path, scope in _projecting_scopes():
-        aliases = _aliases(scope)
-        sources = _plan_sources(scope, aliases)
-        for call in _binder_calls(scope, aliases):
-            if _handed_plan_source(call, sources, aliases) is None:
+        bindings = _bindings(scope)
+        sources = _plan_sources(scope, bindings)
+        for call in _binder_calls(scope, bindings):
+            if _handed_plan_source(call, sources, bindings) is None:
                 continue
             readable.append(f"{path.relative_to(REPO_ROOT)}:{call.lineno}")
     return readable
 
 
 def test_the_binder_argument_scan_is_not_vacuous() -> None:
-    """The argument checks are handed something to compare, at every site.
+    """The argument checks are handed something to compare — a count over the tree.
 
     The two coverage floors say bodies were *found*. This one says the checks
-    that read the binder's arguments can actually see, at each of those sites,
-    which document the handed plan was built from. A check that matched every
-    body and could resolve none of their plans would report zero problems
-    forever — CR-03's failure mode restated one layer in.
+    that read the binder's arguments were handed something to compare. A check
+    that matched every body and could resolve none of their plans would report
+    zero problems forever — CR-03's failure mode restated one layer in.
+
+    **This assertion is a total, and a total is not a per-site property** — the
+    distinction WR-F3 drew, and the reason its companion below exists. The two
+    counts coincide today at eleven bodies and eleven readable sites, so any body
+    that gains a readable site while another loses one leaves this green. Keep
+    both: this one catches a site disappearing from the tree, and
+    :func:`test_every_bound_body_has_a_readable_plan_source` catches a body
+    whose own plan the checks cannot read. Neither statement implies the other.
     """
     found = _resolved_binder_sites()
     assert len(found) >= MINIMUM_RESOLVED_BINDER_SITES, (
         f"{len(found)} binder call sites with a readable plan source,"
         f" {MINIMUM_RESOLVED_BINDER_SITES} expected."
         f" {FLOOR_REMOVAL_INSTRUCTION} Found: {found}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("path", "scope"),
+    _projecting_scopes(),
+    ids=lambda value: (
+        str(value.relative_to(REPO_ROOT)) if isinstance(value, pathlib.Path) else ""
+    ),
+)
+def test_every_bound_body_has_a_readable_plan_source(
+    path: pathlib.Path, scope: ast.AST
+) -> None:
+    """WR-F3: the per-site property the aggregate floor cannot express.
+
+    A body can name the binder, be ordered correctly, run the plan it bound —
+    and hand the binder a plan whose ``required=`` this module cannot read, at
+    which point property (1) runs and says nothing. The aggregate floor above
+    does not see that: the new body contributes zero readable sites while the
+    existing eleven still contribute eleven, and ``11 >= 11`` holds. Both CR-F1
+    and WR-F1 exploit exactly that arithmetic.
+
+    A body with no binder call at all is
+    :func:`test_every_projecting_example_body_names_the_binder`'s failure, not
+    this one's; reporting it twice would tell one story in two voices.
+    """
+    bindings = _bindings(scope)
+    sources = _plan_sources(scope, bindings)
+    calls = _binder_calls(scope, bindings)
+    if not calls:
+        return
+    assert any(
+        _handed_plan_source(call, sources, bindings) is not None for call in calls
+    ), (
+        f"{path.relative_to(REPO_ROOT)}:{_scope_line(scope)}:"
+        f" {_scope_label(scope)} calls `{BINDER_CALL}`, and every call in it was"
+        f" handed a plan whose `{PLAN_REQUIRED_KEYWORD}=` this module cannot"
+        " read — a helper's return value, a subscript, a comprehension or a"
+        " dynamic attribute. The argument check then ran over this body and"
+        " could say nothing, which is `CR-03`'s failure mode one layer in."
+        f" Build the plan in this body from a named local —"
+        f" `{PLAN_REQUIRED_KEYWORD}=requirements.required_operator_keys` — so"
+        " the two documents are two readable paths."
     )
 
 
@@ -1248,6 +1647,32 @@ def test_the_binder_argument_checks_reject_a_binder_that_cannot_fail() -> None:
         f" {ENGINE_PLAN_KEYWORD}=spare)\n"
         "    return ProjectionEngine(reader=r).execute("
         f"{ENGINE_PLAN_KEYWORD}={plan_of(from_artifact)})\n",
+        # CR-F1 — the identical collapse, spelled with a plan class the
+        # Protocol does not require to be named `*Plan`. `ProjectionPlan` is
+        # structural by commitment ("no base class to inherit and no registry
+        # decorator to remember"), so a rename is a legal spelling of a
+        # projection and cannot be a way out of the check written to close
+        # CR-03. Before the rekey every assertion in this module passed on this
+        # body while the binder compared a value against itself.
+        "def serve(pid, r, declared):\n"
+        f"    projection = CreditProjection({PLAN_ID_KEYWORD}=pid,"
+        f" {PLAN_REQUIRED_KEYWORD}={inline_claim})\n"
+        f"    {BINDER_CALL}({BINDER_DECLARED_KEYWORD}=declared,"
+        f" {ENGINE_PLAN_KEYWORD}=projection)\n"
+        "    return ProjectionEngine(reader=r).execute("
+        f"{ENGINE_PLAN_KEYWORD}=projection)\n",
+        # the CR-03 variant 2 shape at one NAME rather than two (WR-F2): the
+        # plan local is rebound between the bind and the second execution, so
+        # the binder never saw the object that execution runs. A plan map keyed
+        # on the name alone had one entry for the two constructions and
+        # admitted this.
+        "def serve(pid, r, declared, requirements):\n"
+        f"    plan = {plan_of(from_artifact)}\n"
+        f"    {bind}\n"
+        f"    first = {execute}\n"
+        f"    plan = {plan_of('whatever_i_like(declared)')}\n"
+        f"    second = {execute}\n"
+        "    return (first, second)\n",
     )
     for source in caught:
         function = ast.parse(source).body[0]
@@ -1282,6 +1707,26 @@ def test_the_binder_argument_checks_reject_a_binder_that_cannot_fail() -> None:
         f" {ENGINE_PLAN_KEYWORD}=b)\n"
         "    return (first, ProjectionEngine(reader=r).execute("
         f"{ENGINE_PLAN_KEYWORD}=b))\n",
+        # the same local rebound, done RIGHT: each construction gets its own
+        # binder call before its own execution. The rebinding is not the
+        # defect — an unbound second object is — so this must stay quiet.
+        "def serve(pid, r, declared, requirements):\n"
+        f"    plan = {plan_of(from_artifact)}\n"
+        f"    {bind}\n"
+        f"    first = {execute}\n"
+        f"    plan = {plan_of(from_artifact)}\n"
+        f"    {bind}\n"
+        f"    second = {execute}\n"
+        "    return (first, second)\n",
+        # the CR-F1 spelling of the COMPLIANT shape: a plan class named
+        # anything, built from the projection's own artifact
+        "def serve(pid, r, declared, requirements):\n"
+        f"    projection = CreditProjection({PLAN_ID_KEYWORD}=pid,"
+        f" {PLAN_REQUIRED_KEYWORD}={from_artifact})\n"
+        f"    {BINDER_CALL}({BINDER_DECLARED_KEYWORD}=declared,"
+        f" {ENGINE_PLAN_KEYWORD}=projection)\n"
+        "    return ProjectionEngine(reader=r).execute("
+        f"{ENGINE_PLAN_KEYWORD}=projection)\n",
         # a workflow execution is not a projection and carries no binder
         "def drive(engine, workflow, execution_id):\n"
         "    return engine.execute(workflow, execution_id=execution_id)\n",
@@ -1290,6 +1735,100 @@ def test_the_binder_argument_checks_reject_a_binder_that_cannot_fail() -> None:
         function = ast.parse(source).body[0]
         assert isinstance(function, ast.FunctionDef)
         assert not _binder_collapses(function, REPO_ROOT / "probe.py"), source
+
+
+def test_a_plan_class_is_recognised_by_the_protocol_and_not_by_its_name() -> None:
+    """CR-F1, at the branch that carries it — structural, like the Protocol.
+
+    The rename probe in
+    :func:`test_the_binder_argument_checks_reject_a_binder_that_cannot_fail`
+    is caught by the ``plan_id=``/``required=`` keyword shape. That shape is a
+    constructor convention, so on its own it would be the identical defect one
+    step sideways: rename the *keyword* and the check goes quiet again.
+
+    This holds the branch that answers the question the way
+    ``ProjectionPlan`` answers it. The class below is named nothing like a
+    plan, is constructed with a keyword the suite does not use, and exposes
+    ``required_operators()`` and ``invoke()`` — which is the SDK's whole
+    definition of "is a projection". Both halves are asserted: recognised with
+    the module's class index, and *not* recognised without it, so the branch is
+    demonstrably the one doing the work rather than a spare wheel.
+    """
+    module = ast.parse(
+        "class CreditProjection:\n"
+        "    def required_operators(self):\n"
+        "        return self._required\n"
+        "    def invoke(self, **kwargs):\n"
+        "        return None\n"
+        "\n"
+        "def serve(pid, r, declared):\n"
+        f"    projection = CreditProjection(identity=pid,"
+        f" {PLAN_REQUIRED_KEYWORD}={BINDER_DECLARED_KEYWORD}"
+        ".required_operator_keys)\n"
+        f"    {BINDER_CALL}({BINDER_DECLARED_KEYWORD}=declared,"
+        f" {ENGINE_PLAN_KEYWORD}=projection)\n"
+        "    return ProjectionEngine(reader=r).execute("
+        f"{ENGINE_PLAN_KEYWORD}=projection)\n"
+    )
+    classes = _plan_classes_in(module)
+    assert "CreditProjection" in classes
+
+    serve = module.body[1]
+    assert isinstance(serve, ast.FunctionDef)
+    constructions = [
+        node
+        for node in _scope_nodes(serve)
+        if isinstance(node, ast.Call) and _callee(node) == "CreditProjection"
+    ]
+    assert len(constructions) == 1
+    assert not _is_plan_construction(constructions[0], frozenset())
+    assert _is_plan_construction(constructions[0], classes)
+
+    assert _binder_collapses(serve, REPO_ROOT / "probe.py", classes)
+    assert not _binder_collapses(serve, REPO_ROOT / "probe.py", frozenset())
+
+
+def test_the_plan_recognition_refuses_an_unrelated_required_keyword() -> None:
+    """The rekey is discriminating, and ``examples/`` is what proves it.
+
+    The reviewed fix for CR-F1 proposed keying the plan-source map on the
+    ``required=`` keyword alone. Measured across ``src/``, ``runtime/``,
+    ``examples/`` and ``tests/`` that keyword appears on sixty-seven calls and
+    fifty-six of them are ``argparse`` and other unrelated APIs — one of them
+    inside ``examples/``, the tree this tripwire scans, where it would turn a
+    command-line parser into a projecting body obliged to call the binder. A
+    check red on correct code is the defect this whole cycle keeps producing,
+    so the rekey requires ``plan_id=`` alongside it or a class the Protocol
+    recognises.
+
+    Asserted against the tree rather than only against a probe, because a probe
+    proves the rule and the tree proves the rule was needed. If the last such
+    call ever leaves ``examples/``, this fails loudly and can be retired
+    deliberately — which is the right way round.
+    """
+    unrelated: list[str] = []
+    for path in _python_sources(BINDER_SCANNED_TREES):
+        tree = _parse(path)
+        if tree is None:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if not any(
+                keyword.arg == PLAN_REQUIRED_KEYWORD for keyword in node.keywords
+            ):
+                continue
+            if _is_plan_construction(node):
+                continue
+            unrelated.append(f"{path.relative_to(REPO_ROOT)}:{node.lineno}")
+
+    assert unrelated, (
+        f"no call under {BINDER_SCANNED_TREES} passes"
+        f" `{PLAN_REQUIRED_KEYWORD}=` without being a plan construction, so"
+        " this test no longer demonstrates that the keyword alone is not"
+        " discriminating. Re-measure before concluding the rule can be"
+        f" relaxed: `{PLAN_ID_KEYWORD}=` is what makes the pair specific."
+    )
 
 
 # --- termination ---------------------------------------------------------------
@@ -1324,20 +1863,32 @@ def _within(seconds: float) -> Iterator[None]:
     not hasattr(signal, "SIGALRM"), reason="wall-clock bound needs POSIX SIGALRM"
 )
 def test_alias_resolution_terminates_on_a_cyclic_assignment_chain() -> None:
-    """``_aliases`` returns on a rotation instead of spinning forever.
+    """Resolution returns on a rotation instead of spinning forever.
 
     A three-name rotation is legal, executable Python — ``a`` takes ``b``'s
     value, ``b`` takes ``c``'s, ``c`` takes the old ``a`` — so the answer to it
     has to be a *result*, not a refusal; refusing would be red on correct code,
     which is the defect this module was separately found to have elsewhere.
 
-    The predecessor of :func:`_aliases` grew a shared binding map to a fixed
-    point and never reached one here: ``a`` settled at ``(c,)``, ``c`` at
-    ``(a,)``, and ``b`` alternated between the two forever. Since the scan runs
-    over every ``.py`` file under ``src/``, ``runtime/`` and ``examples/``, one
-    contributor writing that shape hung ``pytest`` with no output and no
-    timeout to break it. The bound below is what makes a regression *fail*
-    rather than hang.
+    Two predecessors failed here in two different ways, and this test holds the
+    property against both.
+
+    The first grew a shared binding map to a fixed point and never reached one:
+    ``a`` settled at ``(c,)``, ``c`` at ``(a,)``, and ``b`` alternated between
+    the two forever. Since the scan runs over every ``.py`` file under ``src/``,
+    ``runtime/`` and ``examples/``, one contributor writing that shape hung
+    ``pytest`` with no output and no timeout to break it. The bound below is what
+    makes a regression *fail* rather than hang.
+
+    The second terminated but answered conservatively — each rotating name to
+    itself, three sources where the code has two — and could only do that
+    because it had no notion of *when* a name was bound. :func:`_resolve_at`
+    resolves each hop as of the line that bound it, so the walk strictly ascends
+    the body and terminates by construction, and the answer it terminates on is
+    the one Python gives: at the bottom of the rotation ``a`` and ``c`` both hold
+    the parameter ``b``, and ``b`` holds the parameter ``c``. The assertion below
+    is therefore *stronger* than its predecessor's inequality, not weaker: it
+    pins the semantics rather than the fallback.
     """
     rotation = ast.parse(
         "def f(b, c):\n"
@@ -1349,12 +1900,13 @@ def test_alias_resolution_terminates_on_a_cyclic_assignment_chain() -> None:
     assert isinstance(rotation, ast.FunctionDef)
 
     with _within(5.0):
-        resolved = _aliases(rotation)
+        bindings = _bindings(rotation)
+        # line 5 is the `return`, so every name is read at the bottom of the body
+        resolved = {
+            name: _resolve_at((name,), 5, bindings) for name in ("a", "b", "c")
+        }
 
-    # Each rotating name resolves to itself: terminating, and — the part that
-    # matters for tripwire (1) — still three distinct sources, so a cycle
-    # cannot manufacture a shared one.
-    assert resolved["a"] != resolved["b"] != resolved["c"]
+    assert resolved == {"a": ("b",), "b": ("c",), "c": ("b",)}
 
     # The same shape with an attribute in the chain grew the path one element
     # per pass as well as never converging, so memory grew without bound.
@@ -1367,18 +1919,19 @@ def test_alias_resolution_terminates_on_a_cyclic_assignment_chain() -> None:
     ).body[0]
     assert isinstance(growing, ast.FunctionDef)
     with _within(5.0):
-        _aliases(growing)
+        grown = _bindings(growing)
+        assert _resolve_at(("a",), 5, grown) == ("b", "k")
 
     # A two-name cycle and a self-assignment were already survivable; they stay
     # so, and are asserted rather than assumed.
-    for source in (
-        "def f(b):\n    a = b\n    b = a\n",
-        "def f(a):\n    a = a.k\n",
+    for source, name in (
+        ("def f(b):\n    a = b\n    b = a\n", "a"),
+        ("def f(a):\n    a = a.k\n", "a"),
     ):
         function = ast.parse(source).body[0]
         assert isinstance(function, ast.FunctionDef)
         with _within(5.0):
-            _aliases(function)
+            assert _resolve_at((name,), 99, _bindings(function)) is not None
 
 
 def test_the_wall_clock_bound_is_itself_live() -> None:
