@@ -93,6 +93,21 @@ artifacts:
     role: register
     registration: typed
 
+  # Design E2's second authored operator set (D-IMPL-86). `role: register`, not
+  # `load`, and the reason is the same one that puts `product-class.yaml` two
+  # entries above: this document governs WHAT THE PROJECTION DOES, which is
+  # Control Plane configuration — what this fabric is permitted to do — rather
+  # than an observation of one run. So it belongs in the pin set and in the
+  # Decision Replay dimension 2 set, beside the product-class document it is
+  # bound to. A deployment that changed which operators its projection depends
+  # on and left no trace in dimension 2 would have changed what the fabric was
+  # permitted to do with no artifact recording it.
+  - path: projection-requirements.yaml
+    key: projection-requirements
+    class_id: ccf.projection-requirements
+    role: register
+    registration: typed
+
   - path: product-governance.yaml
     key: product-governance
     class_id: cascadia-fieldworks.product-governance
