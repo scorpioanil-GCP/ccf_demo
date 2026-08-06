@@ -242,7 +242,7 @@ def test_the_scan_is_not_vacuous() -> None:
 def test_no_required_operators_reads_the_registrys_own_keys(
     path: pathlib.Path, function: ast.FunctionDef | ast.AsyncFunctionDef
 ) -> None:
-    """G-B, closed structurally rather than instance by instance."""
+    """G-B at the pattern: a tripwire over the receivers this module names."""
     problems = _violations(function, path)
     assert not problems, "\n".join(problems)
 
