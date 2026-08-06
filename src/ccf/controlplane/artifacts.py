@@ -811,6 +811,19 @@ class ManifestEntry(CCFContract):
             which runs before any registration. That check lives beside the class
             registry rather than here for the same import-cycle reason ``role``
             records above.
+
+            **That check is class-wide, not role-scoped, and that is
+            deliberate.** It runs over every entry including ``role: load``
+            ones, which are parsed and returned but never registered — so a
+            ``load`` entry naming an author-versioned class must still declare
+            ``versioned``, describing a path it will not travel. This is the
+            same shape as the field's own no-default rule: a check with an
+            exemption is a default wearing a different name, and a
+            role-conditional one would make the refusal surface depend on a
+            second field, so an entry could be admitted under ``load``,
+            re-marked ``register`` in a one-word edit, and only then discover
+            that its registration mode was wrong. The description a ``load``
+            entry states is the description it would be held to.
     """
 
     path: str

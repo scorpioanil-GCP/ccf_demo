@@ -397,6 +397,13 @@ def load_and_boot(
         # document is read** and before anything is registered, so a manifest
         # that would have routed an author-versioned class around the D-05 bump
         # check — or squatted an SDK class id — never reaches the parse phase.
+        #
+        # This is applied to EVERY entry, `role: load` included, and it is not
+        # an oversight that a `load` entry is held to a registration path it
+        # never travels. See `ManifestEntry.registration` for why the check is
+        # class-wide rather than role-scoped; do not make it conditional on
+        # `entry.role` without reading that first, because doing so changes the
+        # refusal surface rather than tidying it.
         refuse_registration_the_sdk_fixes(entry.class_id, entry.registration)
         # Same ordering, same reason, one entry stronger: an entry that escapes
         # the deployment is refused before **any** document is opened, so a
