@@ -115,6 +115,20 @@ artifacts:
     role: register
     registration: typed
 
+  # The OTHER half of design E2's bound pair. `product-class.yaml` above
+  # carries the Control Plane claim that fills the product's lineage; this
+  # document carries what the projection actually requires, and it is what
+  # both of `run.py`'s plan sites read. Two separately authored documents,
+  # bound by `refuse_operator_set_divergence` between plan construction and
+  # `ProjectionEngine.execute` (D-IMPL-86 and its 2026-08-05 correction).
+  # `register`, because the operator set a projection depends on is part of
+  # what this fabric was permitted to do and belongs in replay dimension 2.
+  - path: projection-requirements.yaml
+    key: projection-requirements
+    class_id: ccf.projection-requirements
+    role: register
+    registration: typed
+
   - path: product-governance.yaml
     key: product-governance
     class_id: boreal-grid.product-governance
