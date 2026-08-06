@@ -28,14 +28,15 @@
 #   * `agent-definition.yaml`, `prompt-artifact.yaml`,
 #     `skill-catalog-entry.yaml` — `ccf.agent-definition`,
 #     `ccf.prompt-artifact` and `ccf.skill-catalog-entry` are **author-versioned**
-#     SDK-owned classes. They register through `register_versioned`, which holds
-#     the author's version claim against content identity (the D-05 bump check);
-#     `load_and_boot` registers through `register_typed`, which does not run
-#     that check. So they are deliberately absent from `SDK_ARTIFACT_CLASSES`,
-#     and a manifest entry naming one would silently drop the governance the
-#     class exists to carry. `run.py` registers them itself. They still carry
-#     real `$schema` headers — plan 15-14 committed their schemas without
-#     making them manifest-addressable.
+#     SDK-owned classes. Every one of them registers through
+#     `register_versioned`, which holds the author's version claim against
+#     content identity (the D-05 bump check); `register_typed` does not run that
+#     check. So they are deliberately absent from `SDK_ARTIFACT_CLASSES`. A
+#     manifest CAN name them, as `registration: versioned`; declaring `typed`
+#     for one is refused at preflight (D-IMPL-85), because that entry would
+#     parse fine while dropping the governance the class exists to carry. They
+#     stay in `run.py` so the bump check is visible at the call site. They still
+#     carry real `$schema` headers — plan 15-14 committed their schemas.
 #
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename

@@ -190,13 +190,30 @@ def test_lineage_strict_equality_holds(result: Any) -> None:
 
     Since design E2 (D-IMPL-86) the two sides trace to two documents: the claim
     to ``product-class.yaml`` through the product's lineage, the resolved set to
-    ``projection-requirements.yaml`` through the plan the engine ran. So this is
-    no longer one value compared against itself, and it is what fires if the
-    driver ever goes back to filling lineage from ``execution``.
+    ``projection-requirements.yaml`` through the plan the engine ran.
 
-    What it still does not prove: that the two documents were authored rather
-    than one copied from the other. That collapses the binder upstream and this
-    check with it — the residual D-IMPL-86 names and accepts.
+    **A propagation check, and worth being exact about which one.** ``run_gates``
+    has already compared these two values — that IS Gate 2 — and a
+    ``ServableProduct`` is not constructible without it. What this adds is that
+    the property survived onto the objects ``run()`` actually returns: it fails
+    if the driver serves a product other than the one it gated, or reports a
+    transcription other than the one it gated against.
+
+    **What it does not catch, stated rather than implied.** It does not fire if
+    the driver goes back to filling lineage from ``execution`` (post-gate review
+    WR-03). Under that reversion both sides become
+    ``execution.operators_invoked`` and this holds trivially. No other
+    output-level assertion would see it either:
+    ``refuse_operator_set_divergence`` forces the declared set, the plan's
+    required set and the engine's invoked set equal before the engine runs, so
+    by the time there is a product there is only one value to compare against
+    itself. That reversion is guarded at the source level, over the driver's
+    call shape (``tests/products/test_gate_two_call_shape.py``), because the
+    output cannot show it.
+
+    Nor does this prove the two documents were authored rather than one copied
+    from the other. That collapses the binder upstream and this check with it —
+    the residual D-IMPL-86 names and accepts.
     """
     assert result.product.lineage.operators_invoked == result.operators_invoked
 

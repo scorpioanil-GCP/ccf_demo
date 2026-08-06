@@ -408,7 +408,7 @@ def run(*, root: Path) -> WorkflowHitlDemonstration:
     #    deliberately not manifest-addressable — the transport and the authorizer
     #    read their real contracts back off the Control Plane by key — and naming
     #    either in a manifest is now a refusal (reserved `ccf.` prefix, D-IMPL-84).
-    registry.register_typed(
+    prompt_version = registry.register_versioned(
         keys["prompt_artifact_key"],
         load_artifact(
             (ARTIFACTS / "prompt-artifact.yaml").read_text(encoding="utf-8"),
@@ -416,6 +416,8 @@ def run(*, root: Path) -> WorkflowHitlDemonstration:
         ),
         PROMPT_ARTIFACT,
     )
+    if not isinstance(prompt_version, str):  # pragma: no cover
+        raise RuntimeError(f"the prompt artifact was refused: {prompt_version!r}")
     registry.register_versioned(
         keys["agent_definition_key"],
         load_artifact(

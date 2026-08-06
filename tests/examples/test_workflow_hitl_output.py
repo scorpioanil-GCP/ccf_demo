@@ -746,14 +746,26 @@ def test_the_author_versioned_definitions_kept_their_bump_check(
     path registers through ``register_typed``, which does not run the D-05 bump
     check that holds an author's ``artifact_version`` against content identity.
 
-    So the check is: those four keys appear in the audit log under
+    The four are ``ccf.prompt-artifact``, ``ccf.agent-definition``,
+    ``ccf.task-definition`` and ``ccf.workflow-definition`` — every member of
+    :data:`~ccf.deployment.classes.SDK_VERSIONED_ARTIFACT_CLASSES` this example
+    registers. So the check is: those four keys appear in the audit log under
     ``register_versioned`` and NOT under ``register_typed``. A future edit that
     "tidied" them into the manifest would flip the action recorded here, and
     this fails — which is the whole point of writing the ruling down as a test
     instead of as a comment.
+
+    **This assertion used to name three.** ``prompt_artifact_key`` was absent
+    from the set while the docstring above said four, and ``run.py`` registered
+    that one key through ``register_typed`` — so the one site that had lost its
+    bump check was the one site this check did not look at, and it passed
+    (post-gate review CR-02). Counting the set against the sentence that
+    describes it is not pedantry here: a check that claims more than it verifies
+    is the exact defect this phase exists to remove.
     """
     keys = _declaration(result, "agent-registration")
     author_versioned = {
+        keys["prompt_artifact_key"],
         keys["agent_definition_key"],
         keys["task_definition_key"],
         keys["workflow_definition_key"],

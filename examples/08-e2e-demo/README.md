@@ -108,7 +108,7 @@ event.
 | No-Hardcoding (CLAUDE.md §6.4) | A domain value, threshold, or detection parameter appearing in code instead of `artifacts/` |
 | Reviewed regeneration | `artifacts/expected_output.txt` differing from the staged narration — the byte-compare fails rather than silently regenerating |
 | One artifact class, one document | A `*.yaml` under `artifacts/` carrying two classes: no honest `$schema` header exists for it, and `make schema-headers DIR=examples/08-e2e-demo/artifacts` says so |
-| Author-versioned governance (D-05) | An agent definition, prompt artifact or skill catalog entry named by `manifest.yaml`: `load_and_boot` would register it through `register_typed`, silently skipping the hash-verified `artifact_version` bump check |
+| Author-versioned governance (D-05) | An agent definition, prompt artifact or skill catalog entry taking `register_typed` anywhere: that path runs no hash-verified `artifact_version` bump check. All three take `register_versioned`; a `manifest.yaml` entry declaring `registration: typed` for one is refused at preflight (D-IMPL-85) |
 
 The narrated, step-by-step walkthrough — how raw rows fold into context,
 stage by stage, with every code and artifact excerpt literal-included —

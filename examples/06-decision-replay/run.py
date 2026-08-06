@@ -644,13 +644,17 @@ def run(*, root: Path) -> ReplayDemonstration:
                 f"the three validation gates refused this product: {refusal}"
             )
 
-    # --- the SDK classes the manifest deliberately cannot address -------------
-    # Five are AUTHOR-VERSIONED (`register_versioned` runs the D-05 bump check
-    # that `load_and_boot`'s `register_typed` does not); two more are SDK classes
-    # the manifest cannot address at all, because an unknown-to-the-manifest
-    # class id resolves to the open envelope and the transport and the authorizer
-    # read their real contracts back off the Control Plane by key. Each still
-    # validates against its own contract here.
+    # --- the SDK classes registered here rather than by the manifest ----------
+    # Five are AUTHOR-VERSIONED, and every one of them — prompt artifact
+    # included — takes `register_versioned`, which runs the D-05 bump check that
+    # `load_and_boot`'s `register_typed` does not. A manifest CAN name them, as
+    # `registration: versioned`; declaring `typed` for one is refused at
+    # preflight (D-IMPL-85). They stay here so the bump check is visible at the
+    # call site. Two more are SDK classes the manifest cannot address at all,
+    # because an unknown-to-the-manifest class id resolves to the open envelope
+    # and the transport and the authorizer read their real contracts back off
+    # the Control Plane by key. Each still validates against its own contract
+    # here.
     prompt = cast(
         PromptArtifact,
         load_artifact(
@@ -658,9 +662,11 @@ def run(*, root: Path) -> ReplayDemonstration:
             PROMPT_ARTIFACT,
         ),
     )
-    registry.register_typed(
+    prompt_version = registry.register_versioned(
         registration["prompt_artifact_key"], prompt, PROMPT_ARTIFACT
     )
+    if not isinstance(prompt_version, str):  # pragma: no cover
+        raise RuntimeError(f"the prompt artifact was refused: {prompt_version!r}")
     definition = cast(
         AgentDefinition,
         load_artifact(
