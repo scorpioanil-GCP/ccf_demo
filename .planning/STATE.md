@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
-status: executing
-last_updated: "2026-08-07T14:59:04.757Z"
-last_activity: 2026-08-07 -- Phase 15.2 execution started
+status: blocked
+last_updated: "2026-08-07T15:15:00.000Z"
+last_activity: 2026-08-07 -- Phase 15.2 HALTED at 15.2-01 Task 0 gate (D-IMPL-87)
 progress:
   total_phases: 14
   completed_phases: 11
@@ -27,11 +27,14 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 15.2 (substrate-adapters-and-query-pushdown) — EXECUTING
-Plan: 1 of 13
-Status: Executing Phase 15.2
-Progress: [██████████] 100%
-Last activity: 2026-08-07 -- Phase 15.2 execution started
+Phase: 15.2 (substrate-adapters-and-query-pushdown) — HALTED (D-IMPL-87)
+Plan: 0 of 13 complete — execution stopped at 15.2-01 Task 0 blocking gate
+Status: Awaiting Phase D mini-cycle — design multi-segment pushdown semantics
+  before replanning. Dave rejected the prefix-rule amendment to locked D-01
+  (2026-08-07); no plan work is committed. Next: design mini-cycle (CLAUDE.md
+  §3.1) → Dave's ruling logged → /gsd:plan-phase 15.2 redraws all 13 plans.
+Progress: [----------] 0%
+Last activity: 2026-08-07 -- Phase 15.2 halted at 15.2-01 checkpoint (D-IMPL-87)
 
 ## Performance Metrics
 
