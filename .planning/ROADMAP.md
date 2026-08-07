@@ -29,7 +29,7 @@ and the upgraded examples.
 - [x] **Phase 13: Examples Suite Upgrade** - v0.1 examples 00–07 upgraded with detailed narrated READMEs and richer scenarios/artifacts exercising more SDK surface, CI stays green (completed 2026-08-02)
 - [x] **Phase 13.1: External-Consumer Examples (MCP Egress)** (INSERTED) - Independent agents built in their own harness (Anthropic SDK, ADK, bare MCP client) consume CCF context via MCP egress with zero CCF imports client-side — CCF as a black box; demonstrates §7.1 MCP-as-egress as the primary adoption path (completed 2026-08-02)
 - [x] **Phase 14: Documentation Suite** - mkdocs site with generated Protocol/API reference, adopter's guide, schema reference, security notes, PERFORMANCE.md, narrated demo walkthrough — `make docs --strict` in always-on CI (10/10 plans executed and verified 5/5; **closed as-shipped 2026-08-03**. The G-01 framing defect stands deliberately: the docs describe an integration surface Phase 15 will replace, so the fix lands in Phase 16 against the new surface rather than twice against the old one. The published site carries no provisional banner — this note is roadmap-internal, per Dave, 2026-08-03)
-- [ ] ~~**Phase 14.1: Documentation — The Deterministic Path & The Adoption Argument** (INSERTED)~~ — **SUPERSEDED by Phase 16**, 2026-08-03, before any plan was written. Every success criterion is absorbed there
+- [x] ~~**Phase 14.1: Documentation — The Deterministic Path & The Adoption Argument** (INSERTED)~~ — **SUPERSEDED by Phase 16**, 2026-08-03, before any plan was written. Every success criterion is absorbed there. *(Checkbox marked resolved 2026-08-07 — not because the phase was executed, but because an unchecked box made `roadmap.analyze` return `next_phase: "14.1"`, routing auto-advance into a phase that was deliberately never planned. The strikethrough and this note are the record of what actually happened; the progress table below reads "Superseded by 16".)*
 - [x] **Phase 15: SDK Ergonomics — The Integration Surface** (INSERTED) - Loaders, artifact classes, factories, and wiring helpers so the day-1 integration is a fraction of today's ~450-line example; abstraction line held at marshalling-and-wiring so no governance decision leaves adopter code and no replay dimension is hidden (completed 2026-08-05)
 - [x] **Phase 15.1: Ergonomics Gap Closure — Governance Enforced, Not Conventional** (INSERTED) - Closes the two HIGH defects found by post-gate cross-AI review (D-GATE-15 amendment, 2026-08-05): CR-1, author-versioned classes can bypass the D-05 bump check through the manifest, closed by a per-entry `registration: typed | versioned` mode that `load_and_boot` dispatches on and **refuses** when an author-versioned class asks for `typed`; CR-2, Gate 2 (INV-CH7-47) is self-satisfying in all nine examples because lineage and `engine_resolved` are filled from the same `execution.operators_invoked` — and the remedy the review prescribed is itself circular, since `execution.operators_invoked ≡ frozenset(declared.required_operator_keys)` through five pure transforms. Closed instead by **design E2** (D-IMPL-86, Dave, 2026-08-05): the projection's required operator set becomes its own Control Plane artifact, a binder refuses when it diverges from the product-class declaration, and Gate 2 is documented for what it actually verifies — assembly-path integrity. Also corrects `SURFACE-AUDIT.md` §4.1, whose "eight instances" is an undercount, and restates the new AST gates as tripwires rather than structural enforcement (URGENT — Phase 16 must not document a self-satisfying gate) (completed 2026-08-06)
 - [ ] **Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument** - One document, two sections (deterministic + external MCP consumption; CCF-agent assembly + MCP/A2A consumption), banking scenarios from the whitepaper, re-cut snippet markers so a reader can see which code is CCF and which is theirs
@@ -506,6 +506,43 @@ Plans:
 - [x] 15.1-10-PLAN.md — phase close: surface regeneration, criterion evidence, `/gsd-review` + triage, present to Dave (checkpoint)
 
 **Waves**: 1 → 01; 2 → 02; 3 → 03; 4 → 04; 5 → 05, 06, 07 (parallel); 6 → 08, 09 (parallel); 7 → 10 (checkpoint)
+
+### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
+
+**Status**: planned, not yet discussed. This section exists so the phase is
+*visible* — without a `### Phase` heading the roadmap parser cannot see a phase at
+all, which is why `roadmap.analyze` returned `next_phase: "14.1"` (the superseded
+entry) and then `None`. Added 2026-08-07. **Nothing below is authored here**: every
+line is carried from material already recorded elsewhere in this roadmap. The goal,
+success criteria and requirement IDs (DOCS-07..NN) are `/gsd:discuss-phase 16`'s
+and `/gsd:plan-phase 16`'s to write.
+
+**Goal** (verbatim from the milestone entry above): one document, two sections
+(deterministic + external MCP consumption; CCF-agent assembly + MCP/A2A
+consumption), banking scenarios from the whitepaper, re-cut snippet markers so a
+reader can see which code is CCF and which is theirs.
+
+**What it inherits, already on the record:**
+
+- **Phase 14.1 whole** — superseded 2026-08-03 before any plan was written; every
+  success criterion in that entry is absorbed here, plus the structure Dave
+  specified in that discussion.
+- **Phase 14's G-01 framing defect**, deferred deliberately: the shipped docs
+  describe an integration surface Phase 15 replaced, so the fix lands here against
+  the new surface rather than twice against the old one.
+- **A hard constraint from Phase 15.1, recorded URGENT**: Phase 16 must not
+  document a self-satisfying gate. Gate 2 (INV-CH7-47) is **assembly-path
+  integrity** — the claim transcribed into the Contract equalling the engine's
+  execution of the plan — not a comparison of two independently authored sets.
+- **Eleven open residuals** carried at D-GATE-15.1 (re-approved 2026-08-06).
+  `.planning/phases/15.1-ergonomics-gap-closure/deferred-items.md` is the
+  authoritative inheritance list — **not** `docs/SURFACE-AUDIT.md` §6.4, which
+  predates the last four remediation rounds.
+- **Two process findings** from the 15.1 close: the code-review gate runs *after*
+  the phase gate (which cost that phase a withdrawn approval), and `make ci` does
+  not reach `tools/` though CI does — three suites there fail pre-existing.
+
+**Requirements**: mints its own DOCS-07..NN at planning; not counted in Coverage below.
 
 ## Progress
 
