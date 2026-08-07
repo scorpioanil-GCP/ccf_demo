@@ -260,10 +260,12 @@ Note which of these documents the deployment manifest names and which it
 does not. `ccf.agent-definition`, `ccf.prompt-artifact` and
 `ccf.skill-catalog-entry` are **author-versioned**: they register through
 `register_versioned`, which holds the author's declared `artifact_version`
-against the document's content identity. `load_and_boot` registers through
-`register_typed`, which does not run that check — so those three classes are
-deliberately not manifest-addressable and `run.py` registers them itself.
-They carry real `$schema` headers all the same.
+against the document's content identity. A manifest **can** name all three —
+as `registration: versioned`, the mode `load_and_boot` dispatches on, which
+runs that same check; declaring `registration: typed` for one is refused at
+preflight instead. They are outside this manifest by the demo's own choice,
+not by necessity: `run.py` registers them so the bump check stays visible at
+the call site. They carry real `$schema` headers all the same.
 
 ## 7. Stage 6: replay, and why you can trust any of this
 

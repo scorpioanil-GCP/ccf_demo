@@ -172,10 +172,13 @@ instruction bindings by reference — never inline prompt text):
 The artifacts the definition *references* — its policy regime and its debt
 profile — are named by the deployment manifest and registered by the same
 `load_and_boot` call that booted the fabric. The definition and the prompt
-artifact are not: both carry two-field versioning and register through
-`register_versioned`, which holds the author's `artifact_version` claim against
-content identity. That check is the reason those two registrations stay in
-adopter code. The
+artifact are not, and that is this example's choice rather than a constraint:
+both carry two-field versioning and register through `register_versioned`,
+which holds the author's `artifact_version` claim against content identity, and
+a manifest entry may ask for exactly that path by declaring `registration:
+versioned` — what it may not do is declare `typed`, which is refused at
+preflight. Keeping the two calls in adopter code keeps that check visible at
+the call site. The
 [agent definition reference](../reference/artifacts/agent-definitions.md) and
 [prompt artifact reference](../reference/artifacts/prompt-artifacts.md)
 document the schemas:
@@ -283,12 +286,15 @@ for the schema:
 --8<-- "examples/05-workflow-hitl/artifacts/workflow-definition.yaml"
 ```
 
-A workflow definition is one of the four **author-versioned** classes a
-deployment manifest deliberately cannot name. Registering it runs a bump check
-that holds the author's `artifact_version` against the document's content
-identity — so re-authoring routing under an unchanged version is refused. The
-manifest's registration path does not run that check, so the driver registers
-these four itself rather than trading the governance for a shorter file:
+A workflow definition is one of the six **author-versioned** SDK classes.
+Registering it runs a bump check that holds the author's `artifact_version`
+against the document's content identity — so re-authoring routing under an
+unchanged version is refused. A deployment manifest **may** name it, as
+`registration: versioned`, and `load_and_boot` then registers it through that
+same checked path; what a manifest may not do is declare `registration: typed`
+for such a class, which is refused at preflight. This example's driver
+registers its four itself so those calls stay visible as the thing being
+taught:
 
 ```py
 --8<-- "examples/05-workflow-hitl/run.py:register-definitions"

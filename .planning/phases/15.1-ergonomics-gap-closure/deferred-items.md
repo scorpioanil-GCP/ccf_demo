@@ -271,15 +271,47 @@ this phase asked Dave to accept.
   `docs/SURFACE-AUDIT.md` §6.4 item 4, and here. Phase 16 must describe the
   binder without claiming it makes dual authorship structural.
 
-## The superseded D-IMPL-85 / D-IMPL-84 claims survive in examples 01–04, `tests/` and `tools/`
+## The superseded D-IMPL-85 / D-IMPL-84 claims: what remains after the measured sweep of 2026-08-06 (plan 15.1-20)
 
 - **Source review documents:** `15.1-REVIEW-FIXES.md` **WR-F6** (the finding that
   opened it), `15.1-REVIEW-FIXES-2.md` **WR-03** (the enumeration offered in place
   of finishing the sweep was itself a subset), `15.1-REVIEW-FIXES-3.md` **IN-02**
-  (three precision points), and `15.1-REVIEW-FIXES-4.md`'s verification note
-  confirming the corrected enumeration reads true against the files. **OPEN — the
-  sweep is still incomplete for `examples/01`–`04`, `docs/surface-changes/` and
-  `tools/`, and both the fifth review and the re-approval leave it open.**
+  (three precision points), `15.1-REVIEW-FIXES-4.md`'s verification note
+  confirming the corrected enumeration reads true against the files, and
+  `15.1-VERIFICATION.md` findings **W-4 / N-2 / N-3**. **OPEN — the sweep is
+  still incomplete for `examples/01`–`04` and for `docs/surface-changes/` +
+  `docs/SURFACE-CHANGES.md`. `public/` and `tools/` are CLOSED as of plan
+  15.1-20.**
+
+- **SCOPE MEASURED, NOT INHERITED — 2026-08-06, plan 15.1-20.** Read this
+  paragraph before working from any list below it.
+
+  **How the scope was decided.** Every top-level tracked directory was
+  enumerated from `git ls-files` — `.github`, `.planning`, `docs`, `examples`,
+  `perf`, `public`, `references`, `runtime`, `src`, `tests`, `tools`, and the
+  repo-root files — and every one was swept. None was assumed clean and none was
+  inherited from a prior round. `perf/` and `references/` return zero hits on
+  every phrasing; the rest are reported below.
+
+  **How the sweep was run, and why the method matters more than the phrase
+  list.** Every prior round grepped **lines**. A wrapped Markdown sentence is
+  invisible to that, and it is a mechanical reason the count kept coming back
+  low: `public/how-to/compose-a-workflow-with-hitl.md` spells the claim as
+  *"What the manifest deliberately does **not**\nname is the four
+  author-versioned definition classes"*, and no line-scoped grep of any phrase
+  in the seven-phrasing list finds it. This sweep joined each file into one
+  whitespace-normalized string, matched there, and mapped the offset back to a
+  line. **The phrase list was not the binding constraint; the line boundary
+  was.**
+
+  **Result of the tree-wide sweep** (paragraph-scoped, ten claim-specific
+  phrasings, hits per tree):
+  `.planning` 142 · `examples` 51 · `docs` 48 · `tests` 16 · `tools` 11 ·
+  `src` 10 · `runtime` 1 · `public` 0 (after this plan's four corrections) ·
+  `.github` 0 · `perf` 0 · `references` 0 · root 0.
+  A hit is a candidate, not a defect: `src/`, `runtime/` and `tests/` were read
+  and every hit there is either an unrelated true statement or one of the
+  quoted-then-corrected withdrawn claims plan 15.1-19 wrote.
 
 - **SCOPE CORRECTED — 2026-08-06, plan 15.1-19 (verification finding W-4).** The
   scope sentence above previously named **two** trees, `examples/01`–`04` and
@@ -322,37 +354,120 @@ this phase asked Dave to accept.
       SDK_ARTIFACT_CLASSES`, i.e. not *typed*-registerable, which is a
       different statement **(found by this plan's re-run)**
 
-  **In `tools/` — two modules, four sites. NOT FIXED; these are the live
-  remainder of this entry and they inherit to Phase 16.** Not fixed because
-  `tools/dump_schemas.py` and `tools/check_schema_headers.py` were last touched
-  in **Phase 15** (`5fbb8e0`), so they fall outside plan 15.1-19's scope, which
-  is files this phase touched. Verified by `git log` rather than assumed:
-  - `tools/dump_schemas.py:111` — `author_versioned_classes`'s summary line,
-    *"SDK-owned classes a manifest deliberately cannot address"*. False: a
-    manifest may name all six as `registration: versioned`.
-  - `tools/dump_schemas.py:118-121` — *"`register_typed`, which does **not** run
-    that check, so these classes are deliberately absent from
-    `SDK_ARTIFACT_CLASSES`: a manifest entry naming one would silently drop the
-    governance the class exists to carry."* This is the **canonical statement**
-    of the superseded claim in the tree — the docstring the two `tests/cli/`
-    sites were written against.
-  - `tools/check_schema_headers.py:64-67` — *"deliberately absent from
-    `SDK_ARTIFACT_CLASSES` because a manifest must not register them … the
-    `register_versioned` bump check that `load_and_boot` does not run"*. The
-    final clause is now flatly false: `load_and_boot` runs it on the
-    `registration: versioned` branch.
-  - `tools/check_schema_headers.py:197-198` — *"the author-versioned ones a
-    manifest deliberately cannot carry"*.
+  **In `tools/` — two modules. ALL FIXED by plan 15.1-20 (2026-08-06); listed
+  so the record shows what was there.** The register previously enumerated
+  **four** sites here and called them the live remainder; the docstrings were
+  read whole, as this entry instructed, and there were **seven**:
+  - `tools/dump_schemas.py` `author_versioned_classes` summary line — *"SDK-owned
+    classes a manifest deliberately cannot address"*. False: a manifest may name
+    all six as `registration: versioned`. Now *"The **author-versioned** SDK-owned
+    classes"*.
+  - the same docstring's *"`register_typed`, which does **not** run that check,
+    so these classes are deliberately absent from `SDK_ARTIFACT_CLASSES`: a
+    manifest entry naming one would silently drop the governance the class exists
+    to carry."* The **canonical statement** of the superseded claim in the tree —
+    the docstring the two `tests/cli/` sites were written against. Corrected in
+    place with the withdrawn wording quoted and marked, the pattern plan 15.1-19
+    established.
+  - the same docstring's *"What they do not get is manifest addressability"*
+    (verification **N-3**; enumerated by no prior round).
+  - `tools/dump_schemas.py` `schema_owned_classes` — *"manifest-addressable
+    classes, the author-versioned ones, and the unaddressable remainder"*, which
+    is the N-3 conflation at **vocabulary** level: it uses "manifest-addressable"
+    as a synonym for `SDK_ARTIFACT_CLASSES` membership. Now typed-registerable /
+    versioned-registerable, the vocabulary `ccf.deployment.classes` already uses.
+  - `tools/dump_schemas.py` `emit` — the same conflation, same fix.
+  - `tools/check_schema_headers.py`'s module docstring — *"a manifest must not
+    register them … the `register_versioned` bump check that `load_and_boot` does
+    not run"*. Both clauses false; corrected with the withdrawn wording marked.
+  - `tools/check_schema_headers.py`'s in-body comment — *"the author-versioned
+    ones a manifest deliberately cannot carry"*.
 
-  **Is this list now exhaustive? Not provably.** What can be said precisely: the
-  seven phrasings were re-run over `tests/ tools/ src/ runtime/` and every hit
-  was read. That is measurement over four trees with a fixed phrase list, and the
-  phrase list is exactly what has under-counted four times before — twice by
-  missing a second vocabulary, once by inverted word order. Two of the five
-  `tests/` sites above were found only because the *surrounding* docstring was
-  read rather than the matched line. A follow-up should read
-  `tools/dump_schemas.py`'s and `tools/check_schema_headers.py`'s module
-  docstrings **whole**, not grep them.
+  Left standing in `tools/dump_schemas.py` because they are **TRUE**:
+  `unaddressable_classes`'s *"none is manifest-addressable"* and the
+  *"an SDK contract question about manifest addressability"* that follows it —
+  those five classes are in neither SDK mapping and a `ccf.`-prefixed id in
+  neither is refused (D-IMPL-84). A sweep must not edit them.
+
+  **In `public/` — three pages, four sites. ALL FIXED by plan 15.1-20
+  (2026-08-06).** This tree was named by **no round of this sweep** and appears
+  nowhere in this entry before today; it is `docs_dir` for mkdocs, so these were
+  the pages an adopter reads first. Verification finding **N-2**:
+  - `public/tutorial/demo-walkthrough.md` — *"`load_and_boot` registers through
+    `register_typed`, which does not run that check — so those three classes are
+    deliberately not manifest-addressable"*. The canonical claim verbatim, in
+    published documentation.
+  - `public/tutorial/adopters-guide.md` — *"one of the four author-versioned
+    classes a deployment manifest deliberately cannot name … The manifest's
+    registration path does not run that check"*. Also corrected "four" to the six
+    the SDK actually ships, since `SDK_VERSIONED_ARTIFACT_CLASSES` has six
+    members and example 05 registers four of them.
+  - `public/tutorial/adopters-guide.md`, the agent-basics section — *"That check
+    is the reason those two registrations stay in adopter code."* The **I-1
+    rationale defect verbatim** — a choice stated as a necessity — in
+    adopter-facing prose.
+  - `public/how-to/compose-a-workflow-with-hitl.md` — *"they register through the
+    version-bump check that the manifest path does not run"*. **The site no
+    line-scoped grep finds** (see the method note above).
+
+  Left standing in `public/` because they are **TRUE and unrelated**:
+  `charter.md`'s *"deliberately not made non-blocking"*,
+  `concepts/pillars/experience.md`'s *"deliberately not signal ingestion"*, and
+  `how-to/swap-the-artifact-store.md`'s *"The store is deliberately not a
+  manifest field"*.
+
+  **In `examples/01`–`04` — STILL OPEN, and the enumeration below this entry is
+  a subset.** Measured 2026-08-06 by plan 15.1-20; not fixed, because correcting
+  eight example directories is beyond a plan scoped to the guard plus `public/`
+  and `tools/`. **Two sites appear in no prior list at all**, both the same
+  sentence in the same kind of file:
+  - `examples/01-agent-basics/artifacts/agent-definition.yaml` — *"`load_and_boot`
+    registers through `register_typed`, which does not."*
+  - `examples/04-cross-process/artifacts/agent-definition.yaml` — the same
+    sentence, one clause longer.
+
+  And several listed spans **start earlier than the register says**: the false
+  paragraph in `examples/01-agent-basics/artifacts/manifest.yaml` opens at
+  *"What this manifest deliberately does not carry"*, several lines above the
+  line the list names, and the same is true of
+  `examples/02-skilling/artifacts/manifest.yaml` and
+  `examples/04-cross-process/artifacts/producer-manifest.yaml`. A follow-up
+  correcting only the named lines leaves the paragraph's opening claim standing.
+  **That is the sixth under-count of this same enumeration.**
+
+  **In `docs/surface-changes/` and `docs/SURFACE-CHANGES.md` — STILL OPEN, and
+  NOT classified here.** The paragraph-scoped sweep returns 38 candidate sites
+  across those two surfaces. Five of the ones this entry does *not* already name
+  were opened (`15-14-examples-01-02.md:49`, `15-17-example-06.md:15`,
+  `15-19-example-05.md:14`, `docs/SURFACE-CHANGES.md:369`,
+  `15-08-operator-parameters.md:128`) and **all five are true statements** — so
+  the extra hits are the sweep's wider phrasings, not necessarily extra defects.
+  Per-site classification of the remaining candidates was **not** done, and this
+  entry does not claim it was. These are dated per-plan records; whether they are
+  corrected or annotated is the judgment this entry has always said it is.
+
+  **A borderline sentence family, checked and deliberately left.** *"A class the
+  SDK ships that a manifest cannot address is a class no adopter can register"*
+  appears at `src/ccf/deployment/classes.py` (twice, on
+  `SDK_ARTIFACT_CLASSES` and on the `PROJECTION_REQUIREMENTS` entry),
+  `tests/deployment/test_class_lookup.py`, `docs/surface-changes/15-08-operator-
+  parameters.md` and its `docs/SURFACE-CHANGES.md` mirror. Read as the rationale
+  for *that mapping's* completeness rule it is true; read as a universal it is
+  now false, because an author-versioned class is outside that mapping and is
+  still registerable. No finding has named it, and rewriting `src/` prose no
+  finding named is how a sweep turns a correct sentence into a wrong one — the
+  hazard this entry's "checked and left" set exists for. **Recorded for a ruling,
+  not fixed.**
+
+  **Is this list exhaustive? No — it is a LOWER BOUND, and this is the sixth
+  round to say so.** What can be said precisely, and nothing beyond it: ten
+  claim-specific phrasings were run **paragraph-scoped** over **every** tracked
+  tree; `public/`, `tools/`, `src/`, `runtime/` and `tests/` had every hit opened
+  and read; `examples/` had every hit opened and read; `docs/` and `.planning/`
+  did not. The phrase list remains the residual risk — it has under-counted four
+  times before, twice by missing a second vocabulary and once by inverted word
+  order — and no phrase list can find a paraphrase. The one thing that is *not*
+  still a risk is the line boundary, which this round removed.
 - **Found during:** plan 15.1-15 (post-gate review WR-F6), while finishing the
   sweep 15.1-12 recorded as complete
 - **ENUMERATION CORRECTED — 2026-08-06, plan 15.1-16 (post-gate review WR-03).**
@@ -498,18 +613,37 @@ this phase asked Dave to accept.
   `08` and the two example test modules; plan 15.1-16's scope is
   `tests/products/` plus this register. Editing examples 01–04 in either
   worktree risks colliding with concurrent work and exceeds what was asked.
-- **Where it belongs:** one follow-up that corrects examples 01–04 to the same
-  wording examples 05/06/08 now carry, **corrects the four `tools/` sites added
-  2026-08-06 by plan 15.1-19**, and rules on the `docs/surface-changes/`
-  historical records. **The input is the seven phrasings** — the six in
-  `15.1-15-SUMMARY.md` plus the seventh above — and the enumeration in this
-  entry. Start with `tools/dump_schemas.py:118-121`: it is the canonical
-  statement of the claim, and the `tests/cli/` sites plan 15.1-19 corrected were
-  written against it, so any site still echoing it is echoing that docstring. Note in particular that `examples/01-agent-basics/README.md` and
-  `examples/02-skilling`'s manifest spell it *"drop it silently"*, which a
-  search for *"silently drop"* does not find, and that
-  `examples/01-agent-basics/run.py:252` spells it *"drop that check silently"*,
-  which neither finds.
+- **Where it belongs — REWRITTEN 2026-08-06, plan 15.1-20, after `public/` and
+  `tools/` were closed.** What is left is **one follow-up over `examples/01`–`04`
+  plus a ruling on the `docs/surface-changes/` dated records**, and nothing else
+  this entry knows of.
+
+  **Run the sweep paragraph-scoped, not line-scoped.** That single change is what
+  found the `public/how-to/` site four rounds of line-scoped grepping could not
+  see, and it costs nothing: join the file into one whitespace-normalized string,
+  match there, map the offset back to a line. The seven phrasings are still the
+  input — the six in `15.1-15-SUMMARY.md` plus the seventh above — and note that
+  `examples/01-agent-basics/README.md` and `examples/02-skilling`'s manifest
+  spell it *"drop it silently"*, which a search for *"silently drop"* does not
+  find, and that `examples/01-agent-basics/run.py` spells it *"drop that check
+  silently"*, which neither finds.
+
+  **The canonical statement is no longer in `tools/`.** It was
+  `tools/dump_schemas.py::author_versioned_classes`, and plan 15.1-20 corrected
+  it, so a site still echoing it is now echoing nothing that is still in the
+  tree. The corrected wording to converge on is what
+  `examples/05-workflow-hitl/artifacts/manifest.yaml`,
+  `examples/08-e2e-demo/artifacts/manifest.yaml` and the three corrected
+  `public/` pages now carry: *a manifest **may** name an author-versioned class,
+  as `registration: versioned`, and `load_and_boot` dispatches that entry to
+  `register_versioned` with its bump check; what is refused, at preflight, is
+  `registration: typed` for such a class. The four (or three, or two) stay in
+  adopter code by the example's choice, so the check is visible at the call
+  site.*
+
+  **Correct whole paragraphs, not the enumerated lines.** Several spans in this
+  entry start above the line they name (see the measured note in the scope
+  section). Read each document's header comment whole.
 
 ## A loop-carried rebinding is out of the Gate-2 tripwires' reach (R4-WR-03)
 
@@ -746,8 +880,12 @@ this phase asked Dave to accept.
 ## Cross-file `file.py:NNN` citations go stale silently, and nothing in CI holds them (W-1 / W-5)
 
 - **Source review document:** `15.1-VERIFICATION.md` findings **W-1** and **W-5**,
-  plus two further sites this plan's own sweep found. **PARTIALLY OPEN — the
-  seven known instances are corrected; the class is untooled and recurs.**
+  extended by **N-1** and **N-4**. **STATUS 2026-08-06: TOOLED and green — the
+  class now has a CI gate (`tools/lints/citations.py`), and every instance the
+  gate reaches is corrected. It is not CLOSED: the gate reaches anchored and
+  symbol citations, and the tree carries 97 unanchored ones it cannot hold. See
+  the coverage figures below rather than reading the green gate as the whole
+  answer.**
 - **Found during:** phase verification (2026-08-06), then extended by plan
   15.1-19's sweep of every `file:line` citation in the phase-touched trees
 - **What:** a docstring citing another file as `path/to/file.py:NNN` is a claim
@@ -788,14 +926,81 @@ this phase asked Dave to accept.
   is not a new convention — `tests/products/test_required_operators_guard.py:147`
   already cited a sibling test by name. Symbol citations break loudly under rename
   (grep finds zero hits) rather than silently under insertion.
-- **What is still open:** whether a citation-checking tripwire is worth building.
-  It is mechanically feasible for the `module.py::test_name` form (resolve the node
-  id, assert it exists) and *not* feasible for prose line ranges, which is a further
-  argument for the symbol form. **Dave's scope call, deferred to Phase 16**, and
-  the verification report puts it as human-verification item 3.
-- **Where it belongs:** Phase 16. If tooling is declined, the standing rule should
-  be: a plan that edits a file must grep the tree for citations *of* that file
-  before it commits.
+- **A FOURTH reproduction, and it is what closed this entry.** Verification
+  finding **N-1**: plan 15.1-19 applied its own lesson to `tests/` and caught the
+  three citations it staled there; it staled **five more** it did not catch,
+  because its sweep scope was the phase-touched trees and the live citers are in
+  `docs/` and `.planning/` — two of them in **this file**, in the R5-WR-01 entry
+  it was writing at the time.
+
+- **TOOLED — 2026-08-06, plan 15.1-20. `tools/lints/citations.py`, wired into
+  `python -m tools.lints --all`, so into `make lint`, `make ci-core`, `make ci`
+  and the CI lint job.** The prediction in the paragraph above — feasible for the
+  `::` form, "not feasible for prose line ranges" — was half right and the half
+  it got wrong is the useful half:
+  - `cite03-node-id` does what was predicted: a `file.py::symbol` citation must
+    resolve to a `def`, `class` or module-level binding of that name.
+  - `cite01-resolves` checks that a line citation's file exists and that the
+    cited lines are inside it. Cheap, and it cannot be wrong about a file it
+    resolved.
+  - `cite02-anchor` is the one that was thought infeasible. A line citation with
+    a backticked **anchor** immediately before it — separated by nothing but
+    whitespace, opening punctuation and at most a locator word — must lie inside
+    what the anchor names. That covers most citations that carry a claim, because
+    a citation that means something is nearly always written next to the symbol
+    it is about.
+  - Historical citations pass: a citation whose own **sentence** carries a
+    historicity marker or a git object id is exempt. Sentence-scoped rather than
+    line-scoped, because one `.planning/REQUIREMENTS.md` paragraph opens by
+    saying an earlier record's numbers have moved and then makes six
+    present-tense citations of its own.
+  - A fourth rule was prototyped and **rejected on measurement**: checking a
+    quoted claim against the cited lines matched 7 sites tree-wide and failed 3,
+    all 3 false positives (two from an abridged RST role, one from `#` comment
+    prefixes inside the cited range). Recorded in the module docstring.
+
+- **What the guard found on its first run, before anything was fixed** — three
+  findings, all true positives, each opened and confirmed:
+  `src/ccf/peering/admission.py` (verification **N-4**, a pre-existing stale
+  citation in shipped `src/`), `.planning/REQUIREMENTS.md` (verification **N-1**),
+  and `docs/surface-changes/15-06-class-lookup.md`, a node id naming a test that
+  **exists nowhere in the tree** and that no prior round had named. All three are
+  corrected; the gate is green.
+
+- **What the guard still does NOT reach, stated so a green gate is not read as
+  more than it is.** Measured by `python -m tools.lints --citations --report` on
+  the tree as this plan leaves it: **163 citations matched** across 786 scanned
+  files (258 further files exempt as dated records), **37 checked and passing**,
+  **2 explicitly historical**, **0 findings**, and **124 unchecked** — 95 of them
+  because they carry no anchor, 14 because the anchor resolves to nothing or to
+  two things, 6 ambiguous paths, 9 unresolvable paths. The unanchored population
+  is the
+  bare-site-list shape this very file uses (`- \`examples/01-agent-basics/run.py:36\``),
+  which has nothing to bind to. The guard also cannot see semantics, ambiguous
+  bare filenames, extensionless targets (`Makefile:NNN`), bare `:NNN`
+  continuations, or — most importantly — **a false claim carrying no citation at
+  all**, which is the entire other half of this phase's defect set.
+
+- **`docs/DECISIONS.md` is deliberately out of the gate's scope**, with the
+  reason measured rather than assumed: gated, it produces **11 findings across
+  nine dated entries**, one of them the entry explicitly marked "preserved
+  **unedited**". A file whose record discipline forbids correcting a citation
+  cannot be gated on citation freshness, and correcting 2 of 11 would leave a
+  reader to infer the other 9 are current. A reader note in that file's
+  **preamble** — not in any dated entry — now records the snapshot convention for
+  all 63 of its citations. Phase documents under `.planning/phases/` are exempt
+  on the same test; `deferred-items.md` is explicitly pulled back **in**, because
+  it is the live hand-off contract.
+
+- **Where it belongs:** the class is closed as far as a pointer-checker reaches.
+  What is left for Phase 16 is authorial, and the guard makes it cheap to act on:
+  run `python -m tools.lints --citations --report` and work the unanchored count
+  down by converting bare line citations to `::` symbol form. The standing rule
+  the earlier draft of this entry proposed is now enforced rather than proposed —
+  but it is enforced only for anchored and symbol citations, so the rule still
+  applies to the rest: **a plan that edits a file should sweep the tree for
+  citations *of* that file before it commits, and `docs/` and `.planning/` are
+  trees, not exceptions.**
 
 ## All 172 `registration:` values in the tree are `typed`; the `versioned` branch ships undemonstrated (I-1)
 
@@ -837,3 +1042,35 @@ this phase asked Dave to accept.
 - **Where it belongs:** Phase 16, as a demonstrability question, not a defect. The
   cheapest honest close is a **new** small example, or one manifest entry in an
   example with no competing teaching obligation — **not** an edit to 05.
+
+## Three gate-checker tests fail, and `make ci` does not run them (found 2026-08-06, plan 15.1-20)
+
+- **Found during:** plan 15.1-20, running `pytest tools/lints/tests
+  tools/publish_scan_tests tools/docs_tests -q` — the three suites the CI **lint**
+  and **docs** jobs run as their own steps. Out of that plan's scope and **not
+  fixed**; recorded here per the scope-boundary rule.
+- **What:** three failures, none of them reachable by `make ci`, because `make ci`
+  composes `lint typecheck test examples docs-strict` and `[tool.pytest]
+  testpaths` is `["tests"]` — so these three suites are run by
+  `.github/workflows/ci.yml` and by nothing a developer runs locally.
+  - `tools/publish_scan_tests/test_docstring_leaks.py::test_no_docstring_reproduces_whitepaper_body_text`
+    — `ProductClassDeclaration`'s docstring in
+    `src/ccf/controlplane/artifacts.py` trips the whitepaper-shingle scan with
+    **20 shingle hits**.
+  - `tools/docs_tests/test_snippet_gate.py::test_the_unmodified_source_builds_clean`
+    and `::test_a_deleted_section_marker_fails_the_strict_build` — both expect an
+    `[start:ontology]` snippet marker in `examples/00-quickstart/run.py`, which no
+    longer carries one. The fixture reports it plainly: *"fixture drifted from its
+    source"*.
+- **Not caused by this plan, verified rather than assumed:** `git diff --name-only`
+  against the phase base shows plan 15.1-20 touches neither
+  `src/ccf/controlplane/artifacts.py` nor `examples/00-quickstart/run.py`.
+- **Why it matters beyond the three:** the interesting part is the *gap*, not the
+  failures. `make ci` is documented as "the full local reproduction of the
+  always-on pipeline (D-10)", and for these three suites it is not — CI can be red
+  on a step no local command runs. That is the same shape as every other finding
+  in this phase: a claim (`make ci` ≡ the pipeline) that the mechanism does not
+  support.
+- **Where it belongs:** Phase 16. Two separable items — fix the three, and decide
+  whether `make ci` should compose the gate-checker suites so the claim it makes
+  becomes true.

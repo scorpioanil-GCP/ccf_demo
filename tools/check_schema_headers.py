@@ -61,11 +61,20 @@ Author-versioned classes
 ------------------------
 
 Some SDK-owned classes — an agent definition, a prompt artifact, a skill
-catalog entry — are deliberately absent from
-:data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES` because a manifest must
-not register them (they carry D-IMPL-28 two-field versioning and need the
-``register_versioned`` bump check that ``load_and_boot`` does not run). They
-are still SDK-owned schemas an adopter authors by hand, so they get committed
+catalog entry — are absent from
+:data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES` because they carry
+D-IMPL-28 two-field versioning and need the ``register_versioned`` bump
+check, so they belong to the **versioned-registerable** mapping instead.
+A manifest reaches them by declaring ``registration: versioned``, on which
+``load_and_boot`` runs that same check; ``registration: typed`` for one of
+them is refused at preflight.
+
+**CORRECTED 2026-08-06 (D-IMPL-85; plan 15.1-20).** This paragraph used to
+say a manifest "must not register them" and that the bump check is one
+"``load_and_boot`` does not run". Both are false as of plans
+15.1-02/15.1-03.
+
+They are SDK-owned schemas an adopter authors by hand, so they get committed
 schemas and their documents carry ordinary ``$schema`` headers naming them.
 The set is :func:`tools.dump_schemas.author_versioned_classes`, and the
 envelope route below refuses a document declaring one of them, so an agent
@@ -194,8 +203,10 @@ def check_document(path: pathlib.Path) -> list[str]:
         schema_path,
     )
 
-    # Every class the SDK commits a schema for: the manifest-addressable ones
-    # plus the author-versioned ones a manifest deliberately cannot carry. The
+    # Every class the SDK commits a schema for: the typed-registerable ones,
+    # the author-versioned (versioned-registerable) ones, and the remainder a
+    # manifest cannot name at all. The first two are both manifest-addressable,
+    # by different `registration` modes. The
     # union is what a header may name, and — below — what the envelope route
     # must refuse, so an agent definition cannot hide behind the open envelope
     # and have its own contract go unchecked.

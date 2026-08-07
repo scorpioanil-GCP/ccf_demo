@@ -108,25 +108,38 @@ ENVELOPE_CLASS_ID = "ccf.declared-artifact"
 
 
 def author_versioned_classes() -> dict[str, Any]:
-    """SDK-owned classes a manifest deliberately cannot address (plan 15-14).
+    """The **author-versioned** SDK-owned classes (plan 15-14).
 
     These carry D-IMPL-28 two-field versioning (``schema_version`` +
     ``artifact_version``) and register through
     :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.register_versioned`,
     which holds the author's version claim against content identity — the D-05
-    bump check. :func:`~ccf.deployment.manifest.load_and_boot` registers through
-    ``register_typed``, which does **not** run that check, so these classes are
-    deliberately absent from
-    :data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES`: a manifest entry
-    naming one would silently drop the governance the class exists to carry.
+    bump check. They are absent from
+    :data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES` because that mapping is
+    the **typed-registerable** set and these are not typed-registerable — not
+    because a manifest cannot reach them.
 
-    They are nonetheless **SDK-owned schemas**, and an adopter authors documents
-    of them by hand — an agent definition, a prompt artifact, a skill catalog
-    entry. So they get committed schemas here on exactly the reasoning that
-    admitted the envelope above: a schema an adopter cannot point a ``$schema``
-    header at is a schema that does not help them. What they do *not* get is
-    manifest addressability, and keeping the set here rather than in ``/src``
-    is what makes the two impossible to confuse.
+    **CORRECTED 2026-08-06 (D-IMPL-85; plan 15.1-20).** This docstring used to
+    say a manifest "deliberately cannot address" them and that
+    :func:`~ccf.deployment.manifest.load_and_boot` "registers through
+    ``register_typed``, which does not run that check", so a manifest entry
+    "would silently drop the governance". All three clauses are false as of
+    plans 15.1-02/15.1-03, and this was the **canonical statement** of the
+    superseded claim in the tree — the two ``tests/cli/test_schema_export.py``
+    docstrings corrected in plan 15.1-19 were written against it. What is true:
+    a manifest may name every class in this set, as ``registration: versioned``,
+    and ``load_and_boot`` dispatches that entry to ``register_versioned`` with
+    its bump check; what it refuses, at preflight and before any document is
+    read, is ``registration: typed`` for one of them
+    (:func:`~ccf.deployment.classes.refuse_registration_the_sdk_fixes`).
+
+    They are **SDK-owned schemas**, and an adopter authors documents of them by
+    hand — an agent definition, a prompt artifact, a skill catalog entry. So
+    they get committed schemas here on exactly the reasoning that admitted the
+    envelope above: a schema an adopter cannot point a ``$schema`` header at is
+    a schema that does not help them. Keeping the set here rather than in
+    ``/src`` keeps it out of the typed-registerable mapping, which is the
+    distinction that matters and the one it is easiest to blur.
 
     The membership rule is checkable rather than editorial — every one of these
     contracts declares an ``artifact_version`` field, and
@@ -241,8 +254,10 @@ def _artifact_bearing_modules() -> list[str]:
 def schema_owned_classes() -> dict[str, Any]:
     """Every class with a committed schema, keyed by ``class_id``.
 
-    The union a ``$schema`` header may name: manifest-addressable classes, the
-    author-versioned ones, and the unaddressable remainder. The **envelope** is
+    The union a ``$schema`` header may name: the typed-registerable classes,
+    the author-versioned (versioned-registerable) ones, and the remainder a
+    manifest cannot name at all. The first two are both manifest-addressable,
+    by different ``registration`` modes. The **envelope** is
     deliberately not here — it is not a class any document *is*, it is the shape
     every deployment-authored document shares, and the header checker routes it
     separately.
@@ -276,7 +291,7 @@ def schema_path(class_id: str) -> pathlib.Path:
 def emit() -> dict[pathlib.Path, str]:
     """Return the full committed tree as ``path -> serialized bytes``.
 
-    One file per SDK-owned class — manifest-addressable
+    One file per SDK-owned class — typed-registerable
     (:data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES`) and author-versioned
     (:func:`author_versioned_classes`) alike — plus the
     :data:`ENVELOPE_CLASS_ID` schema of the open ``DeclaredArtifact`` envelope.
