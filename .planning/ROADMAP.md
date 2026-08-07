@@ -581,9 +581,47 @@ floor; Mongo has an in-house triangulation point per CLAUDE.md §2.1); whether a
 substrate conformance suite is a deliverable; and whether existing operators change
 shape or only what they are handed.
 
-**Requirements**: mints its own at planning; not counted in Coverage below.
+**Requirements**: SUBQ-01..SUBQ-11 — minted at planning, 2026-08-07 (REQUIREMENTS.md
+rows land in plan 15.2-01); not counted in Coverage below.
 
-**Plans**: not yet planned — run `/gsd:discuss-phase 15.2`.
+**Plans**: 12 plans in 8 waves
+
+Plans:
+**Wave 1**
+
+- [ ] 15.2-01-PLAN.md — Query-semantics prose (`GQ-NN` clauses, D-05 artifact 1) + SUBQ-01..11 requirement minting
+- [ ] 15.2-02-PLAN.md — Substrate-neutral write seam: typed `_GraphTxn` operations in `ccf.graph._writer` (entailed by D-05/D-06 + INV-CH7-10)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 15.2-03-PLAN.md — `GraphQuery`/`TraversalSpec`/`QueryFragment`/`SourceAttestation` frozen contracts + hash-pin tests
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 15.2-04-PLAN.md — `ccf.graph.fallback` + `GraphReader.query()`/`attestation` widened atomically everywhere + `as_of()` derivation (D-07) + property suite on the fallback
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 15.2-05-PLAN.md — Memory backend (KV floor) + boot/manifest wiring + differential suite + query corpus
+- [ ] 15.2-06-PLAN.md — `read_intent()` + engine-owned segmentation + replay query-sequence pin + pushability matrix
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 15.2-07-PLAN.md — SQLite/Postgres native pushdown (recursive CTE, hop admissibility in the recursive term)
+- [ ] 15.2-08-PLAN.md — Attestation minima on product classes + engine pre-read refusal + replay attestation pin
+- [ ] 15.2-09-PLAN.md — `ProductSource`: tier-2 Context-Product-as-source over the admission gate
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [ ] 15.2-10-PLAN.md — Neo4j adapter (Cypher pushdown) + `neo4j` extra + container-gated CI leg
+
+**Wave 7** *(blocked on Wave 6)*
+
+- [ ] 15.2-11-PLAN.md — Mongo adapter ($match first, staged $graphLookup) + `mongo` extra + container-gated CI leg
+
+**Wave 8** *(blocked on Wave 7 — checkpoint)*
+
+- [ ] 15.2-12-PLAN.md — Phase close: single surface regeneration, full gates + three container legs, one perf run, present to Dave
 
 ### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
 
@@ -636,7 +674,7 @@ reader can see which code is CCF and which is theirs.
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
 | 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 (gated with carried debt; CR-1/CR-2 close in 15.1) |
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
-| 15.2. Substrate Adapters and Query Pushdown | 0/? | Planned   | — |
+| 15.2. Substrate Adapters and Query Pushdown | 0/12 | Planned   | — |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
