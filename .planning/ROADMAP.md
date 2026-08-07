@@ -584,45 +584,49 @@ shape or only what they are handed.
 **Requirements**: SUBQ-01..SUBQ-11 — minted at planning, 2026-08-07 (REQUIREMENTS.md
 rows land in plan 15.2-01); not counted in Coverage below.
 
-**Plans**: 13 plans in 8 waves *(15.2-04b added 2026-08-07 per cross-AI review consensus concern 3 — substrate-agnostic materialization template)*
+**Plans**: 14 plans in 9 waves *(redrawn 2026-08-07 against the D-IMPL-87 resolution — the prior 13-plan set is void and archived in `void-plans-pre-D-IMPL-87/`; multi-segment pushdown with `allowed_entities` under the uniform rule, CP-valued survivor cap, hash+ArtifactStore replay pin, prose-lane versioning)*
 
 Plans:
 **Wave 1**
 
-- [ ] 15.2-01-PLAN.md — Query-semantics prose (`GQ-NN` clauses, D-05 artifact 1) + SUBQ-01..11 requirement minting
+- [ ] 15.2-01-PLAN.md — Query-semantics prose v1 (`GQ-NN` clauses incl. uniform rule, induced subgraph, size cap, fixed point; semver lane per D-12) + SUBQ-01..11 requirement minting (amended texts)
 - [ ] 15.2-02-PLAN.md — Substrate-neutral write seam: typed `_GraphTxn` operations in `ccf.graph._writer` (entailed by D-05/D-06 + INV-CH7-10)
-- [ ] 15.2-04b-PLAN.md — Substrate-neutral read materialization core extracted from `BaseGraphReader` (rows → records → canonical order → freeze; the read-side twin of 15.2-02)
+- [ ] 15.2-03-PLAN.md — Substrate-neutral read materialization core extracted from `BaseGraphReader` (rows → records → canonical order → freeze; the read-side twin of 15.2-02)
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 15.2-03-PLAN.md — `GraphQuery`/`TraversalSpec`/`QueryFragment`/`SourceAttestation` frozen contracts + hash-pin tests
+- [ ] 15.2-04-PLAN.md — `GraphQuery` (with `allowed_entities`)/`TraversalSpec`/`QueryFragment`/`SourceAttestation` frozen contracts + hash-pin tests incl. allowed_entities distinctness
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 15.2-04-PLAN.md — `ccf.graph.fallback` + `GraphReader.query()`/`attestation` widened atomically everywhere + `as_of()` derivation (D-07) + property suite on the fallback
+- [ ] 15.2-05-PLAN.md — `ccf.graph.fallback` (incl. allowed_entities set-intersection) + `GraphReader.query()`/`attestation` widened atomically everywhere + `as_of()` derivation (D-07) + property suite on the fallback incl. resurrection closure
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 15.2-05-PLAN.md — Memory backend (KV floor) + boot/manifest wiring + differential suite + query corpus
-- [ ] 15.2-06-PLAN.md — `read_intent()` + engine-owned segmentation + replay query-sequence pin + pushability matrix
+- [ ] 15.2-06-PLAN.md — Memory backend (KV floor) + boot/manifest wiring + differential suite + query corpus incl. allowed_entities/resurrection strategies
+- [ ] 15.2-07-PLAN.md — `read_intent()` + engine-owned multi-segment segmentation (uniform rule, survivors → seeds + allowed_entities) + D-10 cap mechanism + per-plan equivalence with Gate 2 pinned + pushability matrix
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 15.2-07-PLAN.md — SQLite/Postgres native pushdown (recursive CTE, hop admissibility in the recursive term)
-- [ ] 15.2-08-PLAN.md — Attestation minima on product classes + engine pre-read refusal + replay attestation pin
-- [ ] 15.2-09-PLAN.md — `ProductSource`: tier-2 Context-Product-as-source over the admission gate
+- [ ] 15.2-08-PLAN.md — Replay pins per D-11: dim-5 hash tuple + query bytes in the ArtifactStore (`ccf.graph-query`) + D-10 cap value on the deployment manifest with dim-2 pin + replay recompute-and-compare
+- [ ] 15.2-09-PLAN.md — SQLite/Postgres native pushdown (recursive CTE, hop admissibility + allowed_entities membership in the recursive term)
+- [ ] 15.2-10-PLAN.md — `ProductSource`: tier-2 Context-Product-as-source over the admission gate
 
 **Wave 6** *(blocked on Wave 5)*
 
-- [ ] 15.2-10-PLAN.md — Neo4j adapter (Cypher pushdown) + `neo4j` extra + container-gated CI leg
+- [ ] 15.2-11-PLAN.md — Attestation accepted modes on product classes + pre-execute refusal + gate-path enforcement + dim-1 replay pin + combined three-field record-compatibility matrix
 
 **Wave 7** *(blocked on Wave 6)*
 
-- [ ] 15.2-11-PLAN.md — Mongo adapter ($match first, staged $graphLookup) + `mongo` extra + container-gated CI leg
+- [ ] 15.2-12-PLAN.md — Neo4j adapter (Cypher pushdown incl. parameterized allowed_entities) + `neo4j` extra + container-gated CI leg
 
-**Wave 8** *(blocked on Wave 7 — checkpoint)*
+**Wave 8** *(blocked on Wave 7)*
 
-- [ ] 15.2-12-PLAN.md — Phase close: single surface regeneration, full gates + three container legs, one perf run, present to Dave
+- [ ] 15.2-13-PLAN.md — Mongo adapter ($match + $in first, staged $graphLookup) + `mongo` extra + container-gated CI leg
+
+**Wave 9** *(blocked on Wave 8 — checkpoint)*
+
+- [ ] 15.2-14-PLAN.md — Phase close: single surface regeneration, full gates + three container legs, one perf run, §3.1 review, present to Dave with D-IMPL-87 re-ratification evidence
 
 ### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
 
