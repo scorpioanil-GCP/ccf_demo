@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-07T13:31:12.997Z"
-last_activity: 2026-08-07 -- Phase 15.2 planning complete
+last_updated: "2026-08-07T14:59:04.757Z"
+last_activity: 2026-08-07 -- Phase 15.2 execution started
 progress:
   total_phases: 14
   completed_phases: 11
@@ -23,15 +23,15 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Milestone complete
+**Current focus:** Phase 15.2 — substrate-adapters-and-query-pushdown
 
 ## Current Position
 
-Phase: 15.1
-Plan: Not started
-Status: Ready to execute
+Phase: 15.2 (substrate-adapters-and-query-pushdown) — EXECUTING
+Plan: 1 of 13
+Status: Executing Phase 15.2
 Progress: [██████████] 100%
-Last activity: 2026-08-07 -- Phase 15.2 planning complete
+Last activity: 2026-08-07 -- Phase 15.2 execution started
 
 ## Performance Metrics
 
