@@ -32,6 +32,7 @@ and the upgraded examples.
 - [x] ~~**Phase 14.1: Documentation — The Deterministic Path & The Adoption Argument** (INSERTED)~~ — **SUPERSEDED by Phase 16**, 2026-08-03, before any plan was written. Every success criterion is absorbed there. *(Checkbox marked resolved 2026-08-07 — not because the phase was executed, but because an unchecked box made `roadmap.analyze` return `next_phase: "14.1"`, routing auto-advance into a phase that was deliberately never planned. The strikethrough and this note are the record of what actually happened; the progress table below reads "Superseded by 16".)*
 - [x] **Phase 15: SDK Ergonomics — The Integration Surface** (INSERTED) - Loaders, artifact classes, factories, and wiring helpers so the day-1 integration is a fraction of today's ~450-line example; abstraction line held at marshalling-and-wiring so no governance decision leaves adopter code and no replay dimension is hidden (completed 2026-08-05)
 - [x] **Phase 15.1: Ergonomics Gap Closure — Governance Enforced, Not Conventional** (INSERTED) - Closes the two HIGH defects found by post-gate cross-AI review (D-GATE-15 amendment, 2026-08-05): CR-1, author-versioned classes can bypass the D-05 bump check through the manifest, closed by a per-entry `registration: typed | versioned` mode that `load_and_boot` dispatches on and **refuses** when an author-versioned class asks for `typed`; CR-2, Gate 2 (INV-CH7-47) is self-satisfying in all nine examples because lineage and `engine_resolved` are filled from the same `execution.operators_invoked` — and the remedy the review prescribed is itself circular, since `execution.operators_invoked ≡ frozenset(declared.required_operator_keys)` through five pure transforms. Closed instead by **design E2** (D-IMPL-86, Dave, 2026-08-05): the projection's required operator set becomes its own Control Plane artifact, a binder refuses when it diverges from the product-class declaration, and Gate 2 is documented for what it actually verifies — assembly-path integrity. Also corrects `SURFACE-AUDIT.md` §4.1, whose "eight instances" is an undercount, and restates the new AST gates as tripwires rather than structural enforcement (URGENT — Phase 16 must not document a self-satisfying gate) (completed 2026-08-06)
+- [ ] **Phase 15.2: Substrate Adapters and Query Pushdown** (INSERTED) - The fabric asks a substrate a question instead of loading its graph. `GraphReader.as_of()` today returns every entity and relationship for a tenant per read, which does not scale to a financial-services graph and lets a graph-native engine conform without ever being used as one. Introduces the read seam operators express intent against and the adapters that answer it — SQL, Cypher, Gremlin, aggregation pipelines, or client-side scan, each inside its own adapter. **Tier 1** storage adapters and **tier 2** Context-Product-as-a-source (in-process, MCP, or A2A — the §6.6 recursive-enrichment case, whose admission governance already exists in `ccf.peering.admission`) are in scope; **tier 3** raw external sources are deferred but must not require a refactor to add (Dave, 2026-08-07). Must preserve operator purity, as-of correctness (INV-CH7-14), single-writer (INV-CH7-10), and cross-substrate replay determinism
 - [ ] **Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument** - One document, two sections (deterministic + external MCP consumption; CCF-agent assembly + MCP/A2A consumption), banking scenarios from the whitepaper, re-cut snippet markers so a reader can see which code is CCF and which is theirs
 
 ## Phase Details
@@ -507,6 +508,83 @@ Plans:
 
 **Waves**: 1 → 01; 2 → 02; 3 → 03; 4 → 04; 5 → 05, 06, 07 (parallel); 6 → 08, 09 (parallel); 7 → 10 (checkpoint)
 
+### Phase 15.2: Substrate Adapters and Query Pushdown (INSERTED)
+
+**Status**: inserted 2026-08-07 from a design conversation with Dave; not yet
+discussed or planned. The goal and constraints below are Dave's, recorded at
+insertion; success criteria and requirement IDs are `/gsd:discuss-phase 15.2`'s
+to write.
+
+**Goal**: The fabric asks a substrate a *question* instead of loading its graph.
+Today `GraphReader.as_of()` returns a fully materialized `GraphView` — every
+entity and relationship for a tenant, per read — so a substrate can conform but
+can never answer. That does not scale to a financial-services graph, and it
+forecloses graph-native engines: a Neo4j or Neptune adapter would translate
+"give me everything" rather than push traversal into an engine built for it.
+This phase introduces the read seam operators express intent against, and
+adapters that answer it — SQL in the Postgres adapter, Cypher in Neo4j, Gremlin
+in Neptune, aggregation pipelines in Mongo, client-side scan where there is no
+query engine at all.
+
+**Depends on**: Phase 15.1 (the binder and registration seams it must not disturb)
+**Blocks**: Phase 16 — do not document a read surface this phase will reshape
+
+**Scope: two tiers now, a third designed for.**
+
+- **Tier 1 — storage adapters.** Substrates answering queries over graph state.
+  No lineage of their own; L2 supplies it, as today.
+- **Tier 2 — a Context Product as a source.** In-process, over MCP, or over A2A,
+  from this fabric or another — the recursive enrichment §6.6 names and the
+  composition `ContextAssemblyAgent` exists for. The governance already exists in
+  `src/ccf/peering/admission.py` (`union_lineage`, `SignatureRefusal`,
+  `ContractRefusal`, `PolicyBindingRefusal`, `LineageContinuityRefusal`,
+  `AdmissionBypassError`). What is missing is that admission is an *ingress path
+  to L3*; nothing lets an operator treat an upstream product as a queryable
+  source at read time.
+- **Tier 3 — raw external sources** (REST, lake, vector store) are **out of scope
+  for this phase and will be added later.** The design must accommodate them
+  without a major refactor (Dave, 2026-08-07).
+
+**Design constraints — the tier-3 no-refactor commitment, made testable:**
+
+  1. **Provenance is an explicit per-adapter obligation in the interface, never an
+     assumption.** Tier 1 carries none, tier 2 arrives with it, tier 3 will have
+     none. An interface that assumes any of the three breaks on the others. Each
+     adapter declares what it can attest to; the fabric refuses what does not meet
+     the product's requirements.
+  2. **Admission is a seam every non-graph source passes through** — wired for
+     tier 2 now, reusable by tier 3 — not a tier-2-shaped special case that tier 3
+     must route around.
+  3. **Canonical ordering and serialization belong to the interface, not the
+     adapters**, so replay determinism is inherited rather than re-implemented,
+     and two conformant substrates cannot produce two different Context Products
+     from the same data.
+
+**Invariants this phase must preserve** (they are why the materialized view exists
+and why this is a design phase rather than a Protocol addition):
+
+  - **Operator purity.** An operator is a pure function over graph state
+    (whitepaper §7.4). A lazy result that can change under it is not a value it can
+    be pure over — whatever the seam returns must be a frozen, deterministic value.
+  - **As-of correctness (INV-CH7-14).** Every adapter must answer "the state you
+    held at T": claims observed later absent, claims superseded later still
+    current. Not every substrate does temporal natively; those adapters must
+    implement it.
+  - **Single-writer (INV-CH7-10)** and **policy binding at assembly time
+    (INV-CH7-03)** hold unchanged. No adapter acquires a write handle.
+  - **Replay portability.** The same question against the same data yields the same
+    bytes on any conformant substrate.
+
+**Open questions for discuss-phase:** which substrate(s) beyond Postgres/SQLite
+prove the seam (Neo4j as the strongest pushdown test; a KV store as the adversarial
+floor; Mongo has an in-house triangulation point per CLAUDE.md §2.1); whether a
+substrate conformance suite is a deliverable; and whether existing operators change
+shape or only what they are handed.
+
+**Requirements**: mints its own at planning; not counted in Coverage below.
+
+**Plans**: not yet planned — run `/gsd:discuss-phase 15.2`.
+
 ### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
 
 **Status**: planned, not yet discussed. This section exists so the phase is
@@ -558,6 +636,7 @@ reader can see which code is CCF and which is theirs.
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
 | 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 (gated with carried debt; CR-1/CR-2 close in 15.1) |
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
+| 15.2. Substrate Adapters and Query Pushdown | 0/? | Planned   | — |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage

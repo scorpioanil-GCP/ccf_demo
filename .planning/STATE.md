@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: in_progress
-last_updated: "2026-08-07T01:09:02.620Z"
+last_updated: "2026-08-07T05:34:45.283Z"
 last_activity: 2026-08-07
 progress:
-  total_phases: 13
+  total_phases: 14
   completed_phases: 11
   total_plans: 72
   completed_plans: 82
-  percent: 85
+  percent: 79
 ---
 
 # STATE — CCF SDK
@@ -74,6 +74,7 @@ Last activity: 2026-08-07
 - Phase 13.1 inserted after Phase 13: External-Consumer Examples (MCP Egress): independent-harness agents consume CCF via MCP, zero client-side CCF imports — primary adoption path, demonstrated not asserted (Dave, 2026-08-02) (URGENT)
 - Phase 13.2 inserted after Phase 13: external-example-hardening — post-execution cross-AI review re-checks for 13.1 (fixtures vs live SDK traffic, LLM tool-surface narrowing, byte-path probe, clean-runner install, .mcp.json verification) (URGENT)
 - Phase 13.3 inserted after Phase 13: Review-Residual Hardening (URGENT)
+- Phase 15.2 inserted after Phase 15.1: Substrate adapters and query pushdown; tiers 1+2 in scope, tier 3 designed-for
 
 ### Decisions
 
