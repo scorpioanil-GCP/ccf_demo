@@ -12,14 +12,43 @@ module while the actual write path lived somewhere unguarded. So the rule is
 structural rather than stylistic — **a new backend adds a writer class here, it
 does not add a writer module elsewhere.** :class:`SqliteGraphWriter` and
 :class:`PostgresGraphWriter` are that rule honoured: both are here, and both
-are the same algorithm.
+are the same algorithm. The same force applies one seam down: **a new backend
+adds a :class:`_GraphTxn` class here, never elsewhere** — the typed operation
+seam is part of the write path, and write code outside this module is write
+code outside the guard.
 
 **One algorithm, two dialects.** :class:`BaseGraphWriter` holds the whole write
 semantic — content identity, lineage set-union, chain restitching, tenant-scope
-refusal — and a backend contributes only its SQL and its transaction handling.
-Two hand-written copies of the supersession restitch would be two chances to
-get late-arriving observations wrong, and the conformance suite could only tell
-us *that* they disagreed, not which one was right.
+refusal — and a backend contributes only its transaction handling and, for SQL
+backends, its statements. Two hand-written copies of the supersession restitch
+would be two chances to get late-arriving observations wrong, and the
+conformance suite could only tell us *that* they disagreed, not which one was
+right.
+
+**Why the write seam is typed operations, not SQL text (Phase 15.2).**
+:class:`BaseGraphWriter` drives :class:`_GraphTxn` — nine typed graph-write
+operations — rather than executing SQL statement constants directly. The
+resolution is entailed, not discretionary: D-05/D-06 lock that every substrate
+adapter runs under conformance suites whose writes go through booted L2
+("nothing constructs a writer"), and neither a dict store nor Neo4j nor Mongo
+can execute SQL text. The alternative — interpreting the nine SQL constants
+per backend — was considered and rejected: five ad-hoc SQL interpreters would
+each be a private re-implementation of this module's semantics, which is the
+exact drift the shared base exists to prevent. SQL backends satisfy the seam
+through one shared adapter (:class:`_SqlGraphTxn`) that drives the dialect
+``ClassVar`` statements unchanged; non-SQL backends implement the nine
+operations natively.
+
+**Remote-substrate constraint (D-IMPL-88).** The :class:`_GraphTxn` contract
+MUST remain implementable by a remote substrate whose commit is a single
+batched transaction (no held session). Concretely: no operation's contract
+requires observing intra-transaction *committed* state, and every mutating
+operation's rowcount is resolvable before commit — an adapter may read the
+committed state once, buffer its operations, answer reads and rowcounts from
+(committed state + its own buffer), and submit the buffer as one batch at
+commit. INV-CH7-10 single-writer is what makes read-before-buffer sound: no
+concurrent writer exists that could invalidate the pre-commit read between
+buffering and commit.
 
 The four layers, for the reader who arrives here first (DESIGN.md §2A.5.3):
 
@@ -203,12 +232,14 @@ class _Store(Protocol):
 
 
 class _Txn(Protocol):
-    """One open write transaction, in whichever dialect.
+    """One open SQL write transaction, in whichever dialect.
 
-    ``execute`` returns the number of rows the statement actually changed —
-    zero for an ignored duplicate. That number is the whole of how the writer
-    distinguishes a new claim from a re-arrival, so it is part of the contract
-    a backend implements rather than an incidental driver detail.
+    The SQL-text seam under :class:`_SqlGraphTxn` — only the shared SQL adapter
+    drives it; :class:`BaseGraphWriter` speaks :class:`_GraphTxn`. ``execute``
+    returns the number of rows the statement actually changed — zero for an
+    ignored duplicate. That number is the whole of how the writer distinguishes
+    a new claim from a re-arrival, so it is part of the contract a backend
+    implements rather than an incidental driver detail.
     """
 
     def execute(self, sql: str, params: tuple[object, ...]) -> int: ...
@@ -216,11 +247,180 @@ class _Txn(Protocol):
     def query(self, sql: str, params: tuple[object, ...]) -> Sequence[Row]: ...
 
 
+class _GraphTxn(Protocol):
+    """One open graph-write transaction: nine typed operations, no SQL.
+
+    The write seam :class:`BaseGraphWriter` drives. SQL backends satisfy it
+    through :class:`_SqlGraphTxn`; a dict-backed, Cypher-backed, or
+    aggregation-backed transaction implements the nine operations natively.
+    Implementations live in this module only (CINV-02 — see the module
+    docstring).
+
+    Two contract rules hold for every operation, and both exist so the seam
+    stays implementable by a remote substrate whose commit is a single batched
+    transaction with no held session (D-IMPL-88, module docstring):
+
+    * **Mutating operations return rows actually changed, resolvable before
+      commit.** Zero means an ignored duplicate — that number is the whole of
+      how the writer distinguishes a new claim from a re-arrival. A batched
+      adapter resolves it from (committed state read before buffering + its
+      own buffer); INV-CH7-10 single-writer guarantees the pre-commit read
+      cannot be invalidated concurrently.
+    * **Reads see this transaction's own buffered operations, never another
+      transaction's uncommitted state.** ``select_*_chain`` must include
+      claims appended earlier in the *same* transaction; it never requires
+      observing intra-transaction committed state.
+    """
+
+    def upsert_entity_node(
+        self,
+        *,
+        tenant_id: str,
+        entity_uri: str,
+        entity_class: str,
+        observed_at: str,
+    ) -> int:
+        """Record one observation of the node, widening its observed window.
+
+        ``first_observed_at`` only ever moves earlier and ``last_observed_at``
+        only ever moves later; nothing is deleted. Returns rows changed
+        (resolvable before commit); the writer does not condition on it.
+        """
+        ...
+
+    def insert_entity_claim(
+        self,
+        *,
+        tenant_id: str,
+        entity_uri: str,
+        claim_id: str,
+        claim_json: str,
+        observed_at: str,
+        policy_bundle_version: str,
+    ) -> int:
+        """Append a claim, ignoring an exact re-arrival.
+
+        Returns 1 for a new claim and 0 for a re-arrival of one already held
+        under ``(tenant_id, entity_uri, claim_id)`` — resolvable before
+        commit, and the writer's idempotency branch depends on it.
+        """
+        ...
+
+    def select_entity_chain(
+        self, *, tenant_id: str, entity_uri: str
+    ) -> Sequence[Row]:
+        """The node's whole claim chain, oldest first.
+
+        Rows expose ``claim_id`` and ``observed_at``; ordering is by
+        ``observed_at``, ties broken by arrival order. Includes claims
+        appended earlier in this same transaction (own buffer, not another
+        transaction's committed state).
+        """
+        ...
+
+    def update_entity_supersession(
+        self,
+        *,
+        tenant_id: str,
+        entity_uri: str,
+        claim_id: str,
+        superseded_by: str | None,
+        superseded_at: str | None,
+    ) -> int:
+        """Set (or clear, with ``None``) one claim's supersession edge.
+
+        The only mutation ever applied to an existing claim (INV-CH7-04).
+        Returns rows changed, resolvable before commit.
+        """
+        ...
+
+    def upsert_relationship_node(
+        self,
+        *,
+        tenant_id: str,
+        relationship_key: str,
+        relationship_type: str,
+        subject_uri: str,
+        object_uri: str,
+        observed_at: str,
+    ) -> int:
+        """As :meth:`upsert_entity_node`, for the R axis."""
+        ...
+
+    def insert_relationship_claim(
+        self,
+        *,
+        tenant_id: str,
+        relationship_key: str,
+        claim_id: str,
+        claim_json: str,
+        observed_at: str,
+        policy_bundle_version: str,
+    ) -> int:
+        """As :meth:`insert_entity_claim`, keyed on the relationship key."""
+        ...
+
+    def select_relationship_chain(
+        self, *, tenant_id: str, relationship_key: str
+    ) -> Sequence[Row]:
+        """As :meth:`select_entity_chain`, for the R axis."""
+        ...
+
+    def update_relationship_supersession(
+        self,
+        *,
+        tenant_id: str,
+        relationship_key: str,
+        claim_id: str,
+        superseded_by: str | None,
+        superseded_at: str | None,
+    ) -> int:
+        """As :meth:`update_entity_supersession`, for the R axis."""
+        ...
+
+    def insert_lineage(
+        self,
+        *,
+        tenant_id: str,
+        claim_kind: str,
+        node_key: str,
+        claim_id: str,
+        lineage_id: str,
+        entry_json: str,
+    ) -> int:
+        """Append one lineage entry, ignoring one already recorded.
+
+        Returns 1 for a new entry and 0 for a collision on the full entry
+        identity ``(tenant_id, claim_kind, node_key, claim_id, lineage_id)``
+        — resolvable before commit. Ignore-on-conflict here *is* the L-axis
+        set-union (INV-CH7-17).
+        """
+        ...
+
+
+class _SetSupersession(Protocol):
+    """Apply one supersession edge during a chain restitch.
+
+    Binds the node coordinates (tenant, key) so :meth:`BaseGraphWriter.
+    _restitch_chain` stays one implementation over both axes.
+    """
+
+    def __call__(
+        self,
+        *,
+        claim_id: str,
+        superseded_by: str | None,
+        superseded_at: str | None,
+    ) -> int: ...
+
+
 class BaseGraphWriter:
-    """The single ``GraphWriter`` over one graph — semantics, minus the dialect.
+    """The single ``GraphWriter`` over one graph — semantics, minus the substrate.
 
     Whitepaper §7.3; DESIGN.md §2A.5.3/§2A.5.4 step 4. Structurally conforms to
-    :class:`ccf.graph.protocols.GraphWriter`.
+    :class:`ccf.graph.protocols.GraphWriter`. Drives :class:`_GraphTxn` typed
+    operations only — no SQL text leaves this class, which is what lets a
+    non-SQL backend subclass it without interpreting SQL.
 
     Args:
         store: The backend whose graph this writer mutates.
@@ -232,6 +432,9 @@ class BaseGraphWriter:
         SingleWriterViolation: ``token`` is not a real token, was already
             spent, or authorizes a different graph than ``store``.
     """
+
+    # The SQL dialect surface. Consumed only by :class:`_SqlGraphTxn`; nothing
+    # in this class reads these, and a non-SQL backend leaves them unset.
 
     #: Node-identity upsert. Widens the observed-time window; never deletes.
     UPSERT_ENTITY_NODE: ClassVar[str]
@@ -269,7 +472,7 @@ class BaseGraphWriter:
                 "the composition root"
             )
 
-    def _transaction(self) -> AbstractContextManager[_Txn]:
+    def _transaction(self) -> AbstractContextManager[_GraphTxn]:
         """Open one all-or-nothing write transaction."""
         raise NotImplementedError
 
@@ -286,7 +489,7 @@ class BaseGraphWriter:
 
     def _write_lineage(
         self,
-        txn: _Txn,
+        txn: _GraphTxn,
         *,
         tenant_id: str,
         kind: str,
@@ -304,48 +507,45 @@ class BaseGraphWriter:
         """
         added = 0
         for entry in entries:
-            added += txn.execute(
-                self.INSERT_LINEAGE,
-                (
-                    tenant_id,
-                    kind,
-                    node_key,
-                    claim_id,
-                    content_hash(entry),
-                    json.dumps(entry.model_dump(mode="json"), sort_keys=True),
-                ),
+            added += txn.insert_lineage(
+                tenant_id=tenant_id,
+                claim_kind=kind,
+                node_key=node_key,
+                claim_id=claim_id,
+                lineage_id=content_hash(entry),
+                entry_json=json.dumps(entry.model_dump(mode="json"), sort_keys=True),
             )
         return added
 
     @staticmethod
     def _restitch_chain(
-        txn: _Txn,
+        chain: Sequence[Row],
         *,
-        select_sql: str,
-        update_sql: str,
-        tenant_id: str,
-        node_key: str,
+        set_supersession: _SetSupersession,
         new_claim_id: str,
     ) -> str | None:
         """Recompute the supersession chain for one node by observed-time.
 
+        ``chain`` is the node's whole claim chain as ``select_*_chain``
+        returns it — including the claim appended earlier in this transaction.
         Rewriting the whole chain rather than only linking the newest claim is
-        what makes late-arriving observations behave: a claim observed *before*
-        the current one slots into history already superseded, instead of
-        wrongly displacing state the fabric learned later. The operation is
-        idempotent, so a replayed write leaves the chain untouched.
+        what makes late-arriving observations behave: a claim observed
+        *before* the current one slots into history already superseded,
+        instead of wrongly displacing state the fabric learned later. The
+        operation is idempotent, so a replayed write leaves the chain
+        untouched.
 
         Returns the ``claim_id`` this write superseded, if any.
         """
-        chain = txn.query(select_sql, (tenant_id, node_key))
         superseded: str | None = None
         for position, row in enumerate(chain):
             is_last = position == len(chain) - 1
             successor = None if is_last else chain[position + 1]["claim_id"]
             successor_at = None if is_last else chain[position + 1]["observed_at"]
-            txn.execute(
-                update_sql,
-                (successor, successor_at, tenant_id, node_key, row["claim_id"]),
+            set_supersession(
+                claim_id=row["claim_id"],
+                superseded_by=successor,
+                superseded_at=successor_at,
             )
             if row["claim_id"] == new_claim_id and position > 0:
                 superseded = chain[position - 1]["claim_id"]
@@ -376,27 +576,20 @@ class BaseGraphWriter:
             claim.model_dump(mode="json", exclude={"lineage"}), sort_keys=True
         )
         with self._transaction() as txn:
-            txn.execute(
-                self.UPSERT_ENTITY_NODE,
-                (
-                    tenant_id,
-                    claim.entity_uri,
-                    claim.entity_class,
-                    observed_at,
-                    observed_at,
-                ),
+            txn.upsert_entity_node(
+                tenant_id=tenant_id,
+                entity_uri=claim.entity_uri,
+                entity_class=claim.entity_class,
+                observed_at=observed_at,
             )
             created = (
-                txn.execute(
-                    self.INSERT_ENTITY_CLAIM,
-                    (
-                        tenant_id,
-                        claim.entity_uri,
-                        claim_id,
-                        payload,
-                        observed_at,
-                        policy_bundle_version,
-                    ),
+                txn.insert_entity_claim(
+                    tenant_id=tenant_id,
+                    entity_uri=claim.entity_uri,
+                    claim_id=claim_id,
+                    claim_json=payload,
+                    observed_at=observed_at,
+                    policy_bundle_version=policy_bundle_version,
                 )
                 == 1
             )
@@ -408,13 +601,27 @@ class BaseGraphWriter:
                 claim_id=claim_id,
                 entries=claim.lineage,
             )
+
+            def _set_supersession(
+                *,
+                claim_id: str,
+                superseded_by: str | None,
+                superseded_at: str | None,
+            ) -> int:
+                return txn.update_entity_supersession(
+                    tenant_id=tenant_id,
+                    entity_uri=claim.entity_uri,
+                    claim_id=claim_id,
+                    superseded_by=superseded_by,
+                    superseded_at=superseded_at,
+                )
+
             superseded = (
                 self._restitch_chain(
-                    txn,
-                    select_sql=self.SELECT_ENTITY_CHAIN,
-                    update_sql=self.UPDATE_ENTITY_SUPERSESSION,
-                    tenant_id=tenant_id,
-                    node_key=claim.entity_uri,
+                    txn.select_entity_chain(
+                        tenant_id=tenant_id, entity_uri=claim.entity_uri
+                    ),
+                    set_supersession=_set_supersession,
                     new_claim_id=claim_id,
                 )
                 if created
@@ -445,29 +652,22 @@ class BaseGraphWriter:
             claim.model_dump(mode="json", exclude={"lineage"}), sort_keys=True
         )
         with self._transaction() as txn:
-            txn.execute(
-                self.UPSERT_RELATIONSHIP_NODE,
-                (
-                    tenant_id,
-                    key,
-                    claim.relationship_type,
-                    claim.subject_uri,
-                    claim.object_uri,
-                    observed_at,
-                    observed_at,
-                ),
+            txn.upsert_relationship_node(
+                tenant_id=tenant_id,
+                relationship_key=key,
+                relationship_type=claim.relationship_type,
+                subject_uri=claim.subject_uri,
+                object_uri=claim.object_uri,
+                observed_at=observed_at,
             )
             created = (
-                txn.execute(
-                    self.INSERT_RELATIONSHIP_CLAIM,
-                    (
-                        tenant_id,
-                        key,
-                        claim_id,
-                        payload,
-                        observed_at,
-                        policy_bundle_version,
-                    ),
+                txn.insert_relationship_claim(
+                    tenant_id=tenant_id,
+                    relationship_key=key,
+                    claim_id=claim_id,
+                    claim_json=payload,
+                    observed_at=observed_at,
+                    policy_bundle_version=policy_bundle_version,
                 )
                 == 1
             )
@@ -479,13 +679,27 @@ class BaseGraphWriter:
                 claim_id=claim_id,
                 entries=claim.lineage,
             )
+
+            def _set_supersession(
+                *,
+                claim_id: str,
+                superseded_by: str | None,
+                superseded_at: str | None,
+            ) -> int:
+                return txn.update_relationship_supersession(
+                    tenant_id=tenant_id,
+                    relationship_key=key,
+                    claim_id=claim_id,
+                    superseded_by=superseded_by,
+                    superseded_at=superseded_at,
+                )
+
             superseded = (
                 self._restitch_chain(
-                    txn,
-                    select_sql=self.SELECT_RELATIONSHIP_CHAIN,
-                    update_sql=self.UPDATE_RELATIONSHIP_SUPERSESSION,
-                    tenant_id=tenant_id,
-                    node_key=key,
+                    txn.select_relationship_chain(
+                        tenant_id=tenant_id, relationship_key=key
+                    ),
+                    set_supersession=_set_supersession,
                     new_claim_id=claim_id,
                 )
                 if created
@@ -497,6 +711,161 @@ class BaseGraphWriter:
             claim_created=created,
             lineage_added=lineage_added,
             superseded_claim_id=superseded,
+        )
+
+
+class _SqlGraphTxn:
+    """The nine :class:`_GraphTxn` operations over one SQL dialect.
+
+    The one place typed operations meet SQL text: each operation executes the
+    concrete writer's dialect ``ClassVar`` statement through the underlying
+    :class:`_Txn`. Both SQL backends share this adapter unchanged — the
+    dialect difference lives entirely in the statements, exactly as before the
+    typed seam existed. Rowcounts pass through from ``_Txn.execute``, whose
+    contract (zero = ignored duplicate) is the same contract
+    :class:`_GraphTxn` states.
+    """
+
+    def __init__(self, *, txn: _Txn, statements: type[BaseGraphWriter]) -> None:
+        self._txn = txn
+        self._statements = statements
+
+    def upsert_entity_node(
+        self,
+        *,
+        tenant_id: str,
+        entity_uri: str,
+        entity_class: str,
+        observed_at: str,
+    ) -> int:
+        return self._txn.execute(
+            self._statements.UPSERT_ENTITY_NODE,
+            (tenant_id, entity_uri, entity_class, observed_at, observed_at),
+        )
+
+    def insert_entity_claim(
+        self,
+        *,
+        tenant_id: str,
+        entity_uri: str,
+        claim_id: str,
+        claim_json: str,
+        observed_at: str,
+        policy_bundle_version: str,
+    ) -> int:
+        return self._txn.execute(
+            self._statements.INSERT_ENTITY_CLAIM,
+            (
+                tenant_id,
+                entity_uri,
+                claim_id,
+                claim_json,
+                observed_at,
+                policy_bundle_version,
+            ),
+        )
+
+    def select_entity_chain(
+        self, *, tenant_id: str, entity_uri: str
+    ) -> Sequence[Row]:
+        return self._txn.query(
+            self._statements.SELECT_ENTITY_CHAIN, (tenant_id, entity_uri)
+        )
+
+    def update_entity_supersession(
+        self,
+        *,
+        tenant_id: str,
+        entity_uri: str,
+        claim_id: str,
+        superseded_by: str | None,
+        superseded_at: str | None,
+    ) -> int:
+        return self._txn.execute(
+            self._statements.UPDATE_ENTITY_SUPERSESSION,
+            (superseded_by, superseded_at, tenant_id, entity_uri, claim_id),
+        )
+
+    def upsert_relationship_node(
+        self,
+        *,
+        tenant_id: str,
+        relationship_key: str,
+        relationship_type: str,
+        subject_uri: str,
+        object_uri: str,
+        observed_at: str,
+    ) -> int:
+        return self._txn.execute(
+            self._statements.UPSERT_RELATIONSHIP_NODE,
+            (
+                tenant_id,
+                relationship_key,
+                relationship_type,
+                subject_uri,
+                object_uri,
+                observed_at,
+                observed_at,
+            ),
+        )
+
+    def insert_relationship_claim(
+        self,
+        *,
+        tenant_id: str,
+        relationship_key: str,
+        claim_id: str,
+        claim_json: str,
+        observed_at: str,
+        policy_bundle_version: str,
+    ) -> int:
+        return self._txn.execute(
+            self._statements.INSERT_RELATIONSHIP_CLAIM,
+            (
+                tenant_id,
+                relationship_key,
+                claim_id,
+                claim_json,
+                observed_at,
+                policy_bundle_version,
+            ),
+        )
+
+    def select_relationship_chain(
+        self, *, tenant_id: str, relationship_key: str
+    ) -> Sequence[Row]:
+        return self._txn.query(
+            self._statements.SELECT_RELATIONSHIP_CHAIN,
+            (tenant_id, relationship_key),
+        )
+
+    def update_relationship_supersession(
+        self,
+        *,
+        tenant_id: str,
+        relationship_key: str,
+        claim_id: str,
+        superseded_by: str | None,
+        superseded_at: str | None,
+    ) -> int:
+        return self._txn.execute(
+            self._statements.UPDATE_RELATIONSHIP_SUPERSESSION,
+            (superseded_by, superseded_at, tenant_id, relationship_key, claim_id),
+        )
+
+    def insert_lineage(
+        self,
+        *,
+        tenant_id: str,
+        claim_kind: str,
+        node_key: str,
+        claim_id: str,
+        lineage_id: str,
+        entry_json: str,
+    ) -> int:
+        return self._txn.execute(
+            self._statements.INSERT_LINEAGE,
+            (tenant_id, claim_kind, node_key, claim_id, lineage_id, entry_json),
         )
 
 
@@ -584,11 +953,11 @@ class SqliteGraphWriter(BaseGraphWriter):
         self._store = store
 
     @contextmanager
-    def _transaction(self) -> Iterator[_Txn]:
+    def _transaction(self) -> Iterator[_GraphTxn]:
         self._check_open()
         connection = self._store.connection
         with connection:
-            yield _SqliteTxn(connection)
+            yield _SqlGraphTxn(txn=_SqliteTxn(connection), statements=type(self))
 
 
 class _PostgresTxn:
@@ -684,8 +1053,8 @@ class PostgresGraphWriter(BaseGraphWriter):
         self._store = store
 
     @contextmanager
-    def _transaction(self) -> Iterator[_Txn]:
+    def _transaction(self) -> Iterator[_GraphTxn]:
         self._check_open()
         connection = self._store.connection
         with connection.transaction(), connection.cursor() as cursor:
-            yield _PostgresTxn(cursor)
+            yield _SqlGraphTxn(txn=_PostgresTxn(cursor), statements=type(self))
