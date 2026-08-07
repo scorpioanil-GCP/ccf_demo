@@ -590,9 +590,9 @@ rows land in plan 15.2-01); not counted in Coverage below.
 Plans:
 **Wave 1**
 
-- [ ] 15.2-01-PLAN.md — Query-semantics prose v1 (`GQ-NN` clauses incl. uniform rule, induced subgraph, size cap, fixed point; semver lane per D-12) + SUBQ-01..11 requirement minting (amended texts)
-- [ ] 15.2-02-PLAN.md — Substrate-neutral write seam: typed `_GraphTxn` operations in `ccf.graph._writer` (entailed by D-05/D-06 + INV-CH7-10)
-- [ ] 15.2-03-PLAN.md — Substrate-neutral read materialization core extracted from `BaseGraphReader` (rows → records → canonical order → freeze; the read-side twin of 15.2-02)
+- [x] 15.2-01-PLAN.md — Query-semantics prose v1 (`GQ-NN` clauses incl. uniform rule, induced subgraph, size cap, fixed point; semver lane per D-12) + SUBQ-01..11 requirement minting (amended texts)
+- [x] 15.2-02-PLAN.md — Substrate-neutral write seam: typed `_GraphTxn` operations in `ccf.graph._writer` (entailed by D-05/D-06 + INV-CH7-10)
+- [x] 15.2-03-PLAN.md — Substrate-neutral read materialization core extracted from `BaseGraphReader` (rows → records → canonical order → freeze; the read-side twin of 15.2-02)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -740,7 +740,7 @@ reader can see which code is CCF and which is theirs.
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
 | 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 (gated with carried debt; CR-1/CR-2 close in 15.1) |
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
-| 15.2. Substrate Adapters and Query Pushdown | 0/14 | Planned   | — |
+| 15.2. Substrate Adapters and Query Pushdown | 3/14 | In Progress|  |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 0/? | Planned   | — |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-07T18:50:01.239Z"
-last_activity: 2026-08-07 -- Phase 15.2 planning complete
+last_updated: "2026-08-07T21:39:37.954Z"
+last_activity: 2026-08-07 -- Phase 15.2 execution started
 progress:
-  total_phases: 14
+  total_phases: 15
   completed_phases: 11
   total_plans: 86
   completed_plans: 82
-  percent: 79
+  percent: 73
 ---
 
 # STATE — CCF SDK
@@ -27,16 +27,16 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 15.2 (substrate-adapters-and-query-pushdown) — REPLAN PENDING
-Plan: 0 of 13 — prior 13 plans void per D-IMPL-87 resolution
-Status: Ready to execute
+Phase: 15.2 (substrate-adapters-and-query-pushdown) — EXECUTING
+Plan: 1 of 14
+Status: Executing Phase 15.2
   allowed_entities in GraphQuery, uniform constraint rule, CP-valued size
   cap, hash+ArtifactStore replay pin, prose-lane versioning. CONTEXT.md
   amended (D-01/D-02 revised, D-10..D-12 added). Next: /gsd:plan-phase 15.2
   redraws all 13 plans against the amended context; §3.1 review at the gate
   re-ratifies D-IMPL-87.
 Progress: [----------] 0%
-Last activity: 2026-08-07 -- Phase 15.2 planning complete
+Last activity: 2026-08-07 -- Phase 15.2 execution started
 
 ## Performance Metrics
 
