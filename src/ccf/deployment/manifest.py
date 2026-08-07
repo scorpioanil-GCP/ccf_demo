@@ -223,26 +223,36 @@ def _preflight_backend(
     and still pass every test — the reason ``_open_backend`` refuses to infer,
     inherited here rather than re-decided.
 
+    A declared ``memory`` backend (Phase 15.2 D-06) needs no connection
+    argument — there is nothing to connect to — so for it the check runs the
+    other way only: supplying ``database_path`` or ``postgres_dsn`` alongside
+    a ``memory`` declaration is refused as a contradiction, exactly as
+    supplying the other backend's argument is.
+
     Raises:
-        ValueError: the declared backend's connection argument is missing, or an
-            argument for the other backend was supplied instead.
+        ValueError: the declared backend's connection argument is missing, or
+            an argument the declared backend does not take was supplied.
     """
-    supplied = {"sqlite": database_path, "postgres": postgres_dsn}
-    argument = {"sqlite": "database_path", "postgres": "postgres_dsn"}
+    supplied = {"database_path": database_path, "postgres_dsn": postgres_dsn}
+    required = {
+        "sqlite": "database_path",
+        "postgres": "postgres_dsn",
+        "memory": None,
+    }[manifest.backend]
     declared = manifest.backend
-    other = "postgres" if declared == "sqlite" else "sqlite"
-    if supplied[declared] is None:
+    if required is not None and supplied[required] is None:
         raise ValueError(
             f"the manifest declares backend {declared!r} and no"
-            f" {argument[declared]} was supplied; the fabric does not guess a"
+            f" {required} was supplied; the fabric does not guess a"
             " substrate and does not fall back"
         )
-    if supplied[other] is not None:
-        raise ValueError(
-            f"the manifest declares backend {declared!r} but"
-            f" {argument[other]} was also supplied; supply only the argument"
-            " the manifest's declared backend needs"
-        )
+    for argument, value in supplied.items():
+        if argument != required and value is not None:
+            raise ValueError(
+                f"the manifest declares backend {declared!r} but"
+                f" {argument} was also supplied; supply only the argument"
+                " the manifest's declared backend needs"
+            )
 
 
 def load_and_boot(
@@ -481,6 +491,7 @@ def load_and_boot(
     handle = boot(
         database_path=database_path,
         postgres_dsn=postgres_dsn,
+        memory=manifest.backend == "memory",
         registry=registry,
         resolution_spec_key=manifest.resolution_spec_key,
         resolution_spec_version=pins.version_for(manifest.resolution_spec_key),
