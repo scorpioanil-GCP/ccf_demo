@@ -29,7 +29,15 @@ import pytest
 from hypothesis import given
 
 from ccf.contracts.canonical import canonical_bytes
-from ccf.graph.protocols import EntityRecord, GraphReader, GraphView, RelationshipRecord
+from ccf.graph.fallback import answer
+from ccf.graph.protocols import (
+    EntityRecord,
+    GraphQuery,
+    GraphReader,
+    GraphView,
+    RelationshipRecord,
+    SourceAttestation,
+)
 from ccf.operators.base import Operator
 from ccf.operators.planner import build_operator_plan, compose
 from ccf.projection.engine import ProjectionEngine
@@ -63,6 +71,30 @@ class FixedViewReader:
 
     def as_of(self, *, tenant_id: str, at: datetime) -> GraphView:
         return self._view
+
+    def query(self, q: GraphQuery) -> GraphView:
+        """Answer with the fallback semantics over the fixed view's records."""
+        entities, relationships = answer(
+            self._view.entities, self._view.relationships, query=q
+        )
+        return GraphView(
+            tenant_id=q.tenant_id,
+            as_of=q.as_of,
+            entities=tuple(
+                sorted(entities, key=lambda record: record.claim.entity_uri)
+            ),
+            relationships=tuple(
+                sorted(relationships, key=lambda record: record.relationship_key)
+            ),
+        )
+
+    @property
+    def attestation(self) -> SourceAttestation:
+        return SourceAttestation(
+            policy_binding="assembly-stamped",
+            lineage="graph-supplied",
+            peer=None,
+        )
 
     def entity_history(
         self, *, tenant_id: str, entity_uri: str

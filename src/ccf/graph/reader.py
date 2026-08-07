@@ -40,7 +40,14 @@ from typing import Any, ClassVar, Protocol
 
 from ccf.contracts.canonical import canonical_timestamp
 from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
-from ccf.graph.protocols import EntityRecord, GraphView, RelationshipRecord
+from ccf.graph import fallback
+from ccf.graph.protocols import (
+    EntityRecord,
+    GraphQuery,
+    GraphView,
+    RelationshipRecord,
+    SourceAttestation,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -200,6 +207,35 @@ def _relationship_records(
     return tuple(records)
 
 
+def _ordered_view(
+    *,
+    tenant_id: str,
+    as_of: datetime,
+    entities: Sequence[EntityRecord],
+    relationships: Sequence[RelationshipRecord],
+) -> GraphView:
+    """Freeze records into the deterministically ordered ``GraphView``.
+
+    Ordering belongs to the interface, never to an answerer (`GQ-22` at
+    docs/GRAPH_QUERY_SEMANTICS.md:461) — entities by ``entity_uri``,
+    relationships by ``relationship_key``, stable sort. This helper is the
+    one place the ordering convention exists: :func:`materialize_view`
+    freezes materialized rows through it, and
+    :meth:`BaseGraphReader.query` freezes the fallback's answer through it,
+    so two answerers' identical record sets can never hash differently.
+    """
+    return GraphView(
+        tenant_id=tenant_id,
+        as_of=as_of,
+        entities=tuple(
+            sorted(entities, key=lambda record: record.claim.entity_uri)
+        ),
+        relationships=tuple(
+            sorted(relationships, key=lambda record: record.relationship_key)
+        ),
+    )
+
+
 def materialize_view(
     *,
     entity_rows: Sequence[Row],
@@ -243,15 +279,11 @@ def materialize_view(
     relationships = _relationship_records(
         relationship_rows, lineage_rows_for=lineage_rows_for, boundary=as_of
     )
-    return GraphView(
+    return _ordered_view(
         tenant_id=tenant_id,
         as_of=as_of,
-        entities=tuple(
-            sorted(entities, key=lambda record: record.claim.entity_uri)
-        ),
-        relationships=tuple(
-            sorted(relationships, key=lambda record: record.relationship_key)
-        ),
+        entities=entities,
+        relationships=relationships,
     )
 
 
@@ -282,6 +314,12 @@ class BaseGraphReader:
     #: Relationship claims current at an observed-time boundary.
     SELECT_RELATIONSHIPS_AS_OF: ClassVar[str]
 
+    # Telemetry counters. Class-level zeros so no subclass ``__init__``
+    # cooperation is required; ``+=`` writes an instance attribute, so the
+    # counts are per-reader-instance from the first answer on.
+    _translated_answers: int = 0
+    _fallback_answers: int = 0
+
     def _query(self, sql: str, params: tuple[object, ...]) -> Sequence[Row]:
         """Run one parameterized read and return its rows."""
         raise NotImplementedError
@@ -302,22 +340,144 @@ class BaseGraphReader:
 
         return rows_for
 
-    def as_of(self, *, tenant_id: str, at: datetime) -> GraphView:
-        """Return the state ``tenant_id``'s graph held at observed-time ``at``."""
-        boundary = canonical_timestamp(at)
+    def _translate_query(
+        self, q: GraphQuery
+    ) -> tuple[Sequence[Row], Sequence[Row]] | None:
+        """The substrate-translation hook — whole query or ``None``.
+
+        The contract is `GQ-32` at docs/GRAPH_QUERY_SEMANTICS.md:583,
+        verbatim: a translation answers the **whole query or does not
+        answer at all**. A non-``None`` return is the pair
+        ``(entity_rows, relationship_rows)`` constituting the complete
+        answer's row set — every predicate family applied, hop
+        admissibility applied, ``allowed_entities`` membership applied.
+        ``None`` means the baseline acquisition runs and the fallback
+        enforces the whole query. There is no protocol by which a
+        translation reports "I applied the policy family but not the
+        traverse family" — no partial-family bookkeeping exists, because
+        such bookkeeping is precisely the per-substrate divergence surface
+        the semantics document exists to close. The hook has exactly two
+        outcomes; the default is ``None``.
+
+        Under a declined translation the baseline acquisition MUST apply
+        tenant + as-of narrowing, MAY additionally narrow by predicates
+        entailed by the query's policy/temporal families and by
+        ``allowed_entities`` membership — safe narrowing per `GQ-33` at
+        docs/GRAPH_QUERY_SEMANTICS.md:594, sound because the fallback
+        re-enforces the whole query over whatever arrives — and MUST NOT
+        narrow by the traverse family: reachability is a whole-graph
+        property, and a row-level proxy for it starves the walk of the
+        state it must expand over.
+        """
+        del q  # the base holds no native translation; adapters may.
+        return None
+
+    def query(self, q: GraphQuery) -> GraphView:
+        """Answer ``q`` — translated where the substrate can, degraded where not.
+
+        The template method of the read seam (D-04): ask
+        :meth:`_translate_query` for a whole-query answer; when it
+        declines, acquire the tenant- and as-of-narrowed rows through the
+        two existing ``SELECT_*_AS_OF`` statements, materialize them
+        through the substrate-neutral core (:func:`materialize_view` —
+        the only place canonical record bytes are produced), and apply
+        :func:`ccf.graph.fallback.answer` for the query's predicate
+        families and ``allowed_entities``. Either way the answer freezes
+        through the interface's ordering (`GQ-22` at
+        docs/GRAPH_QUERY_SEMANTICS.md:461).
+
+        An empty answer is an answer, never an error (`GQ-23` at
+        docs/GRAPH_QUERY_SEMANTICS.md:474). Tenant scope arrives inside
+        the frozen value; ``q.as_of`` arrives as data — this method reads
+        no clock.
+        """
+        translated = self._translate_query(q)
+        lineage_rows_for = self._lineage_rows_for(q.tenant_id)
+        if translated is not None:
+            entity_rows, relationship_rows = translated
+            self._translated_answers += 1
+            return materialize_view(
+                entity_rows=entity_rows,
+                relationship_rows=relationship_rows,
+                tenant_id=q.tenant_id,
+                as_of=q.as_of,
+                lineage_rows_for=lineage_rows_for,
+            )
+        boundary = canonical_timestamp(q.as_of)
         entity_rows = self._query(
-            self.SELECT_ENTITIES_AS_OF, (tenant_id, boundary, boundary)
+            self.SELECT_ENTITIES_AS_OF, (q.tenant_id, boundary, boundary)
         )
         relationship_rows = self._query(
-            self.SELECT_RELATIONSHIPS_AS_OF, (tenant_id, boundary, boundary)
+            self.SELECT_RELATIONSHIPS_AS_OF, (q.tenant_id, boundary, boundary)
         )
-        return materialize_view(
+        materialized = materialize_view(
             entity_rows=entity_rows,
             relationship_rows=relationship_rows,
-            tenant_id=tenant_id,
-            as_of=at,
-            lineage_rows_for=self._lineage_rows_for(tenant_id),
+            tenant_id=q.tenant_id,
+            as_of=q.as_of,
+            lineage_rows_for=lineage_rows_for,
         )
+        entities, relationships = fallback.answer(
+            materialized.entities, materialized.relationships, query=q
+        )
+        self._fallback_answers += 1
+        return _ordered_view(
+            tenant_id=q.tenant_id,
+            as_of=q.as_of,
+            entities=entities,
+            relationships=relationships,
+        )
+
+    def as_of(self, *, tenant_id: str, at: datetime) -> GraphView:
+        """Return the state ``tenant_id``'s graph held at observed-time ``at``.
+
+        The D-07 derivation: ``as_of`` is **defined** as the degenerate
+        everything-question — `GQ-21` at
+        docs/GRAPH_QUERY_SEMANTICS.md:446. Identical records, identical
+        ordering, identical canonical bytes; every existing call site
+        remains valid unchanged.
+        """
+        return self.query(GraphQuery(tenant_id=tenant_id, as_of=at))
+
+    @property
+    def attestation(self) -> SourceAttestation:
+        """Tier 1 — the live graph's well-known attestation value (D-09).
+
+        SDK-defined per CLAUDE.md §11: policy bindings were stamped by the
+        fabric's own L2 at assembly time and lineage is the graph's own
+        accumulated L, with no federation peer involved.
+        """
+        return SourceAttestation(
+            policy_binding="assembly-stamped",
+            lineage="graph-supplied",
+            peer=None,
+        )
+
+    @property
+    def translated_answers(self) -> int:
+        """How many ``query()`` answers the substrate translation produced.
+
+        Deliberately outside the replay record: what was natively
+        translated versus scanned is telemetry, and performance is never a
+        replay input (D-04; `GQ-34` at docs/GRAPH_QUERY_SEMANTICS.md:609).
+        Reset semantics: counters are per-reader-instance and monotonic
+        for the instance's lifetime, never reset; per-execution
+        attribution is the deployment's subtraction to make. Exposed as an
+        observable counter for tests and operators, the
+        ``IntermediateCache.hits`` precedent — an effect that cannot be
+        observed cannot be shown to be sound.
+        """
+        return self._translated_answers
+
+    @property
+    def fallback_answers(self) -> int:
+        """How many ``query()`` answers the internal degrade path produced.
+
+        Same discipline as :attr:`translated_answers`: telemetry outside
+        the replay record (D-04), per-reader-instance, monotonic for the
+        instance's lifetime, never reset.
+        """
+        return self._fallback_answers
 
     def entity_history(
         self, *, tenant_id: str, entity_uri: str

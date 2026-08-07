@@ -35,7 +35,7 @@ import pytest
 import yaml
 
 from ccf.contracts.canonical import content_hash
-from ccf.graph.protocols import GraphView
+from ccf.graph.protocols import GraphQuery, GraphView, SourceAttestation
 from ccf.operators.base import (
     OperatorCategory,
     OperatorOutput,
@@ -134,6 +134,17 @@ class _EmptyReader:
 
     def as_of(self, *, tenant_id: str, at: datetime) -> GraphView:
         return GraphView(tenant_id=tenant_id, as_of=at)
+
+    def query(self, q: GraphQuery) -> GraphView:
+        return GraphView(tenant_id=q.tenant_id, as_of=q.as_of)
+
+    @property
+    def attestation(self) -> SourceAttestation:
+        return SourceAttestation(
+            policy_binding="assembly-stamped",
+            lineage="graph-supplied",
+            peer=None,
+        )
 
 
 class _RecordingAcquirer:

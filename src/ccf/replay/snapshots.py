@@ -35,7 +35,14 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from ccf.graph.protocols import EntityRecord, GraphReader, GraphView, RelationshipRecord
+from ccf.graph.protocols import (
+    EntityRecord,
+    GraphQuery,
+    GraphReader,
+    GraphView,
+    RelationshipRecord,
+    SourceAttestation,
+)
 from ccf.projection.engine import ExecutionResult
 from ccf.replay.record import ContextFabricSnapshot
 
@@ -85,6 +92,16 @@ class SnapshotReader:
         return self._snapshot
 
     def _check(self, *, tenant_id: str, at: datetime | None = None) -> None:
+        """Refuse any scope outside the pinned ``(tenant, boundary)`` pair.
+
+        Raising here — rather than answering the empty view a *source*
+        answers on a tenant mismatch — is the deliberate contrast the
+        tenant-mismatch clause states (`GQ-27` at
+        docs/GRAPH_QUERY_SEMANTICS.md:529): a source answers questions; a
+        pin enforces one. A replay reading outside its pin is a broken
+        replay, and a quiet answer would be a confident answer to a
+        question nobody asked.
+        """
         if tenant_id != self._snapshot.tenant_id:
             raise SnapshotScopeViolation(
                 f"replay is pinned to tenant {self._snapshot.tenant_id!r}; "
@@ -106,6 +123,35 @@ class SnapshotReader:
         """
         self._check(tenant_id=tenant_id, at=at)
         return self._reader.as_of(tenant_id=tenant_id, at=at)
+
+    def query(self, q: GraphQuery) -> GraphView:
+        """Answer ``q`` within the pinned snapshot scope; refuse anything else.
+
+        The scope check runs over the query's own fields — ``q.tenant_id``
+        must equal the pinned tenant and ``q.as_of`` the pinned temporal
+        boundary — before any delegation, so a replayed execution cannot
+        read outside the snapshot however its queries are phrased. The
+        raise-on-mismatch here versus the empty view a source answers is
+        deliberate and both behaviors are normative (`GQ-27` at
+        docs/GRAPH_QUERY_SEMANTICS.md:529 — see :meth:`_check`).
+
+        Raises:
+            SnapshotScopeViolation: ``q.tenant_id`` or ``q.as_of`` is
+                outside the snapshot.
+        """
+        self._check(tenant_id=q.tenant_id, at=q.as_of)
+        return self._reader.query(q)
+
+    @property
+    def attestation(self) -> SourceAttestation:
+        """The wrapped reader's attestation, unchanged.
+
+        A snapshot pin narrows *scope*, not provenance: the records a
+        pinned read answers acquired their policy binding and lineage
+        exactly as the live reader's answers did, so the reported modes
+        are the wrapped reader's own.
+        """
+        return self._reader.attestation
 
     def entity_history(
         self, *, tenant_id: str, entity_uri: str

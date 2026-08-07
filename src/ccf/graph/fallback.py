@@ -170,9 +170,19 @@ def _endpoint_closure(
     (INV-CH7-40): a view retaining an edge to a node the principal may not
     see leaks by absence. Under ``allowed_entities`` this *is* the
     induced-subgraph rule — the surviving universe is already restricted
-    to the set, so closure against it closes against the set. The clause's
-    endpoint-closure half holds for every answer: an answer is a valid
-    graph for its principal, not a row bag.
+    to the set, so closure against it closes against the set: an answer is
+    a valid graph for its principal, not a row bag.
+
+    Scope: closure applies to **constrained** answers — any predicate
+    family present, or ``allowed_entities`` non-``None`` — because its
+    rationale is exclusion: an edge to a node the answer *removed* leaks
+    that node's existence. The degenerate everything-question excludes
+    nothing; its answer is the tenant's full as-of view (`GQ-05` at
+    docs/GRAPH_QUERY_SEMANTICS.md:122), in which a persisted first-class
+    edge whose endpoint carries no entity claim (INV-CH7-20 — edges are
+    never derived joins) is state, not a leak — and `GQ-21` at
+    docs/GRAPH_QUERY_SEMANTICS.md:446 pins that answer byte-identical to
+    the pre-seam ``as_of()``, which never pruned it.
     """
     surviving = {record.claim.entity_uri for record in entities}
     return tuple(
@@ -287,19 +297,24 @@ def answer(
        docs/GRAPH_QUERY_SEMANTICS.md:185);
     3. policy admissibility when the policy family is present (`GQ-08` at
        docs/GRAPH_QUERY_SEMANTICS.md:163);
-    4. edges are endpoint-closed against the surviving universe (`GQ-16`
-       at docs/GRAPH_QUERY_SEMANTICS.md:316) *before* any walk, so an
+    4. on a constrained answer — any family present, or
+       ``allowed_entities`` non-``None`` — edges are endpoint-closed
+       against the surviving universe (`GQ-16` at
+       docs/GRAPH_QUERY_SEMANTICS.md:316) *before* any walk, so an
        excluded or out-of-set node is structurally absent from the walk's
-       state (`GQ-13` at docs/GRAPH_QUERY_SEMANTICS.md:261);
+       state (`GQ-13` at docs/GRAPH_QUERY_SEMANTICS.md:261); see
+       :func:`_endpoint_closure` for why the degenerate answer is exempt;
     5. the traverse family, when present, is the bounded typed undirected
        expansion of `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201.
 
     The degenerate query — no families, no seeds, ``allowed_entities``
-    ``None`` — returns all as-of-surviving records: the
-    everything-question of `GQ-05` at docs/GRAPH_QUERY_SEMANTICS.md:122,
-    which is the definition of ``as_of()`` (`GQ-21` at
-    docs/GRAPH_QUERY_SEMANTICS.md:446). An empty answer is an answer,
-    never an error (`GQ-23` at docs/GRAPH_QUERY_SEMANTICS.md:474).
+    ``None`` — returns **all** as-of-surviving records, dangling
+    first-class edges included: the everything-question of `GQ-05` at
+    docs/GRAPH_QUERY_SEMANTICS.md:122, which is the definition of
+    ``as_of()`` (`GQ-21` at docs/GRAPH_QUERY_SEMANTICS.md:446) and
+    therefore byte-identical to the pre-seam ``as_of()`` answer. An empty
+    answer is an answer, never an error (`GQ-23` at
+    docs/GRAPH_QUERY_SEMANTICS.md:474).
 
     Returns the surviving records unordered and unfrozen: ordering and
     canonical serialization belong to the interface (`GQ-22` at
@@ -366,8 +381,16 @@ def answer(
             if _admissible_relationship(edge, query=query)
         )
 
-    # 4. Endpoint closure before any walk (GQ-16, GQ-13 prune-before-walk).
-    surviving_edges = _endpoint_closure(surviving_entities, surviving_edges)
+    # 4. Endpoint closure on constrained answers, before any walk
+    #    (GQ-16, GQ-13 prune-before-walk; degenerate exemption per GQ-05/GQ-21).
+    constrained = (
+        query.allowed_entities is not None
+        or query.permitted_policy_bundle_versions is not None
+        or query.require_valid_at_boundary is not None
+        or query.traverse is not None
+    )
+    if constrained:
+        surviving_edges = _endpoint_closure(surviving_entities, surviving_edges)
 
     # 5. The traverse family, when present (GQ-10/GQ-11).
     if query.traverse is not None:
