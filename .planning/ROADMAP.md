@@ -584,13 +584,14 @@ shape or only what they are handed.
 **Requirements**: SUBQ-01..SUBQ-11 — minted at planning, 2026-08-07 (REQUIREMENTS.md
 rows land in plan 15.2-01); not counted in Coverage below.
 
-**Plans**: 12 plans in 8 waves
+**Plans**: 13 plans in 8 waves *(15.2-04b added 2026-08-07 per cross-AI review consensus concern 3 — substrate-agnostic materialization template)*
 
 Plans:
 **Wave 1**
 
 - [ ] 15.2-01-PLAN.md — Query-semantics prose (`GQ-NN` clauses, D-05 artifact 1) + SUBQ-01..11 requirement minting
 - [ ] 15.2-02-PLAN.md — Substrate-neutral write seam: typed `_GraphTxn` operations in `ccf.graph._writer` (entailed by D-05/D-06 + INV-CH7-10)
+- [ ] 15.2-04b-PLAN.md — Substrate-neutral read materialization core extracted from `BaseGraphReader` (rows → records → canonical order → freeze; the read-side twin of 15.2-02)
 
 **Wave 2** *(blocked on Wave 1)*
 
