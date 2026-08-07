@@ -486,6 +486,46 @@ class GraphReader(Protocol):
 
         An empty graph yields an empty view, never an error: "nothing is known"
         is a legitimate answer that operators compose over.
+
+        Defined as the degenerate query — `GQ-21` at
+        docs/GRAPH_QUERY_SEMANTICS.md:446 (D-07): identical records,
+        identical ordering, identical canonical bytes to
+        ``query(GraphQuery(tenant_id=tenant_id, as_of=at))``.
+        """
+        ...
+
+    def query(self, q: GraphQuery) -> GraphView:
+        """Answer ``q`` with the frozen as-of view its clauses define.
+
+        Tenant scope arrives *inside* the frozen value, so the D-IMPL-05
+        keyword-only rule is satisfied by the contract rather than the
+        argument list (`GQ-01` at docs/GRAPH_QUERY_SEMANTICS.md:48), and
+        ``as_of`` arrives as data — no answerer may read a clock. A
+        conformant answerer answers any well-formed query, degrading
+        internally to scan-and-filter where it holds no native translation
+        (`GQ-29` at docs/GRAPH_QUERY_SEMANTICS.md:554, D-04) — there is no
+        capability negotiation and no refusal path on this seam.
+
+        An empty answer is a legitimate value, never an error: "nothing is
+        known", "everything was excluded", and "the walk started nowhere"
+        all answer with the empty view, and operators compose over it
+        exactly as over any other view (`GQ-23` at
+        docs/GRAPH_QUERY_SEMANTICS.md:474).
+        """
+        ...
+
+    @property
+    def attestation(self) -> SourceAttestation:
+        """Per-dimension provenance modes of this source — SDK-defined.
+
+        An SDK extension beyond the whitepaper, labeled per CLAUDE.md §11:
+        how a source's answers acquired their policy binding and lineage
+        (the D-09 mode vocabulary of :class:`SourceAttestation`). The live
+        graph reports tier 1 — ``"assembly-stamped"`` /
+        ``"graph-supplied"`` / ``peer=None``; a mounted admitted product
+        reports tier 2; an unattested source tier 3. Frozen and
+        canonically serializable, so the attestation in force pins into
+        replay with zero new mechanism.
         """
         ...
 

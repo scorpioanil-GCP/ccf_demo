@@ -34,7 +34,7 @@ import pytest
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.graph.protocols import GraphView
+from ccf.graph.protocols import GraphQuery, GraphView
 from ccf.operators.base import OperatorOutput
 from ccf.operators.categories import (
     TemporalAsOf,
@@ -521,6 +521,33 @@ def test_the_snapshot_reader_refuses_a_read_outside_the_snapshot(
         reader.as_of(tenant_id=TENANT, at=T_JULY)
     with pytest.raises(SnapshotScopeViolation):
         reader.as_of(tenant_id="tenant-other", at=BOUNDARY)
+
+
+def test_the_snapshot_reader_scope_checks_query_before_delegating(
+    deployment: _Deployment,
+) -> None:
+    """``query()`` enforces the pin over the query's own fields.
+
+    The scope check runs on ``q.tenant_id`` / ``q.as_of`` before any
+    delegation, so a replayed execution cannot read outside the snapshot
+    however its questions are phrased. Raising here — versus the empty view
+    a *source* answers on a tenant mismatch — is the deliberate contrast of
+    the tenant-mismatch clause (`GQ-27` at
+    docs/GRAPH_QUERY_SEMANTICS.md:529): a source answers questions; a pin
+    enforces one.
+    """
+    _address, record = _serve(deployment)
+    reader = SnapshotReader(
+        reader=deployment.handle.reader, snapshot=record.context_fabric_snapshot
+    )
+    view = reader.query(GraphQuery(tenant_id=TENANT, as_of=BOUNDARY))
+    assert view.as_of == BOUNDARY
+    assert view.tenant_id == TENANT
+
+    with pytest.raises(SnapshotScopeViolation):
+        reader.query(GraphQuery(tenant_id=TENANT, as_of=T_JULY))
+    with pytest.raises(SnapshotScopeViolation):
+        reader.query(GraphQuery(tenant_id="tenant-other", as_of=BOUNDARY))
 
 
 def test_the_snapshot_holds_no_physical_copy_of_the_graph(

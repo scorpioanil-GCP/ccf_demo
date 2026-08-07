@@ -72,12 +72,12 @@
 ### Substrate Query (SUBQ)
 
 - [ ] **SUBQ-01**: The normative query-semantics prose (`docs/GRAPH_QUERY_SEMANTICS.md`) exists with stable backticked GQ-NN clause anchors and a semver lane from day one (v1 including `allowed_entities` per D-12), deciding every named edge semantic — including the uniform rule and the induced-subgraph rule — with no implementation-defined escape hatches (D-05 artifact 1, D-12)
-- [ ] **SUBQ-02**: The frozen `GraphQuery` contract family — including `allowed_entities: frozenset | None`, sentinel-defaulted (D-02 extended) — and the `GraphReader.query()` seam ship with canonical ordering and serialization owned by the interface, never the adapter, and `content_hash(GraphQuery)` as the per-round-trip replay pin
-- [ ] **SUBQ-03**: `ccf.graph.fallback` is the reference implementation of the prose — including `allowed_entities` set-intersection semantics — with docstrings citing GQ clauses in the lint-verified anchored form, and adapters always answer with no capability negotiation (D-04, D-05 artifact 2)
+- [x] **SUBQ-02**: The frozen `GraphQuery` contract family — including `allowed_entities: frozenset | None`, sentinel-defaulted (D-02 extended) — and the `GraphReader.query()` seam ship with canonical ordering and serialization owned by the interface, never the adapter, and `content_hash(GraphQuery)` as the per-round-trip replay pin
+- [x] **SUBQ-03**: `ccf.graph.fallback` is the reference implementation of the prose — including `allowed_entities` set-intersection semantics — with docstrings citing GQ clauses in the lint-verified anchored form, and adapters always answer with no capability negotiation (D-04, D-05 artifact 2)
 - [ ] **SUBQ-04**: The two conformance suites ship — differential byte-identity against the fallback over a generated corpus that includes `allowed_entities`-bearing shapes, plus property assertions (INV-CH7-14/-23/-24/-26, each mapped to the property that actually asserts it) running on the fallback itself, so the oracle is audited by something it does not define (D-05 artifact 3)
 - [ ] **SUBQ-05**: The `Operator` Protocol gains the optional `read_intent()` pushability declaration, with the `apply(full_view) == pushed(intent)` equivalence proven per shipped operator, the pushability matrix pinned by test, and `SimilaritySelect` not pushable (D-03)
 - [ ] **SUBQ-06**: Engine-owned multi-segment segmentation per the D-IMPL-87 resolution — one query per pushable segment, post-in-process segments carrying survivors as seeds + `allowed_entities` under the uniform rule, a survivor-set size-cap mechanism whose value is Control Plane configuration defaulting to `None` (D-10), per-plan equivalence proven on Similarity-bearing plans, the executed query-hash sequence pinned into the replay record from execution with full canonical query bytes in the ArtifactStore keyed by hash (D-11), and `SnapshotReader.query()` scope-checked for replay (D-01 amended)
-- [ ] **SUBQ-07**: `as_of()` is derived from `query()` as the degenerate everything-question, with zero churn across all 15 existing call sites (D-07)
+- [x] **SUBQ-07**: `as_of()` is derived from `query()` as the degenerate everything-question, with zero churn across all 15 existing call sites (D-07)
 - [ ] **SUBQ-08**: Five adapters — sqlite, postgres, memory, neo4j, mongo — answer `GraphQuery` including native `allowed_entities` translation under both suites, with memory always-on in `make ci` and neo4j/mongo extras-gated behind container-gated CI legs (D-06); Mongo conformance via the sanctioned D-04 degrade posture (`$match` narrowing + fallback traversal, plan 15.2-13 stage 1) satisfies this requirement — `$graphLookup` promotion is a budgeted enhancement recorded for ratification, not part of the requirement
 - [ ] **SUBQ-09**: `ProductSource` mounts only an `AdmittedProduct`, refuses a payload without graph-shaped state at mount with a typed refusal, passes the same differential suite, and nothing enters L3 (D-08)
 - [ ] **SUBQ-10**: The `SourceAttestation` contract ships with per-dimension modes, product-class accepted modes (D-09's "minima", realized as unordered accepted-mode sets — no strength ordering exists between modes), an engine refusal naming the failing dimension, and the attestation in force pinned into replay (D-09)
@@ -145,12 +145,12 @@
 | ERGO-18 | Phase 15.1 | Complete |
 | ERGO-19 | Phase 15.1 | Complete |
 | SUBQ-01 | Phase 15.2 | Pending |
-| SUBQ-02 | Phase 15.2 | Pending |
-| SUBQ-03 | Phase 15.2 | Pending |
+| SUBQ-02 | Phase 15.2 | Complete |
+| SUBQ-03 | Phase 15.2 | Complete |
 | SUBQ-04 | Phase 15.2 | Pending |
 | SUBQ-05 | Phase 15.2 | Pending |
 | SUBQ-06 | Phase 15.2 | Pending |
-| SUBQ-07 | Phase 15.2 | Pending |
+| SUBQ-07 | Phase 15.2 | Complete |
 | SUBQ-08 | Phase 15.2 | Pending |
 | SUBQ-09 | Phase 15.2 | Pending |
 | SUBQ-10 | Phase 15.2 | Pending |

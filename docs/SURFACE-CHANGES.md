@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**289 entries**, of which **75** name a public Python surface.
+**294 entries**, of which **80** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-93 entries — 65 public Python surface, 28 not public Python API.
+94 entries — 66 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -1441,6 +1441,36 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   refusal arrive in later plans
 
 *Recorded by `15.2-04-graph-query-contracts.md`.*
+
+#### ccf.graph.fallback
+
+- Surface: ccf.graph.fallback.answer
+- Public surface: true
+- Change type: added
+- Before: absent — the query semantics existed as prose
+  (`docs/GRAPH_QUERY_SEMANTICS.md`) with no executable reference, and every
+  adapter would have grown its own scan-and-filter
+- After: `answer(entities, relationships, *, query)` — pure functions over
+  materialized records implementing the prose clause-for-clause: the as-of
+  survival predicate re-applied over retained temporal fields (`GQ-12` —
+  INV-CH7-14 independently enforceable at this tier), the validity window
+  (`GQ-09`), policy admissibility (`GQ-08`), the D-IMPL-87
+  `allowed_entities` set intersection applied before any family evaluates
+  (`GQ-15`, empty set answers the empty view per `GQ-04`), endpoint closure
+  on constrained answers (`GQ-16`), and the bounded typed undirected BFS
+  with seed inclusion and prune-before-walk hop admissibility (`GQ-10`,
+  `GQ-11`, `GQ-13`). No ordering, no freezing — the interface owns both
+  (`GQ-22`)
+- Why: D-05 artifact 2 — the one BFS every adapter degrades to, audited by
+  the property suite (`tests/conformance/test_substrate_properties.py`)
+  against INV-CH7-14/-23/-24/-26 so the oracle is answerable to commitments
+  it did not author; D-04's always-answer posture is only honest if the
+  degrade path exists once, centrally
+- Migration: new surface — none. Adapter authors call `answer()` for
+  whatever their substrate did not translate natively; they never
+  re-implement its semantics
+
+*Recorded by `15.2-05-query-seam-open.md`.*
 
 ### Not public Python API
 
@@ -4242,7 +4272,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-10 entries — 7 public Python surface, 3 not public Python API.
+14 entries — 11 public Python surface, 3 not public Python API.
 
 ### Public Python surface
 
@@ -4446,6 +4476,99 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: identical to `ccf.deployment.manifest.load_and_boot` above
 
 *Recorded by `15.1-11-manifest-path-containment.md`.*
+
+#### ccf.graph.protocols.GraphReader.query
+
+- Surface: ccf.graph.protocols.GraphReader.query
+- Public surface: true
+- Change type: behavior
+- Before: absent — the only question the read seam could carry was
+  `as_of(tenant_id, at)`; a predicate-bearing question had no wire into any
+  reader
+- After: `query(self, q: GraphQuery) -> GraphView` on the Protocol and on
+  every conformer in the tree. Tenant scope arrives inside the frozen value
+  (D-IMPL-05 satisfied by the contract, `GQ-01`); a conformant answerer
+  answers any well-formed query, degrading internally to scan-and-filter
+  where it holds no native translation (`GQ-29`, D-04); an empty answer is
+  an answer, never an error (`GQ-23`)
+- Why: D-04 rules that adapters always answer — no capability negotiation,
+  no typed pushdown-refusal path — so the seam must exist on the Protocol
+  before any pushdown translation does, and sqlite/postgres must answer any
+  GraphQuery (including `allowed_entities`-bearing ones) from this plan on
+- Migration: external `GraphReader` implementers must implement `query()`
+  (and `attestation`, below). The reference degrade path is available to
+  them: materialize records, then apply `ccf.graph.fallback.answer` for the
+  query's predicate families and `allowed_entities`, then order per `GQ-22`.
+  `as_of()` MAY be derived as
+  `self.query(GraphQuery(tenant_id=tenant_id, as_of=at))` (D-07, `GQ-21`)
+
+*Recorded by `15.2-05-query-seam-open.md`.*
+
+#### ccf.graph.protocols.GraphReader.attestation
+
+- Surface: ccf.graph.protocols.GraphReader.attestation
+- Public surface: true
+- Change type: behavior
+- Before: absent — a reader had no typed way to state how its answers
+  acquired policy binding and lineage
+- After: a property returning `SourceAttestation` (SDK-defined per CLAUDE.md
+  §11). The live graph reports tier 1 (`assembly-stamped` /
+  `graph-supplied` / `peer=None`); `SnapshotReader` delegates to the wrapped
+  reader — a pin narrows scope, not provenance
+- Why: the D-09 ruling makes the three trust tiers three well-known values
+  of one schema; the seam-level property is what lets the engine read the
+  attestation in force and pin it into replay with zero new mechanism
+- Migration: external implementers return their source's modes; a live-graph
+  wrapper returns the tier-1 value
+
+*Recorded by `15.2-05-query-seam-open.md`.*
+
+#### ccf.graph.reader.BaseGraphReader
+
+- Surface: ccf.graph.reader.BaseGraphReader
+- Public surface: true
+- Change type: behavior
+- Before: `as_of()` acquired rows via the two `SELECT_*_AS_OF` statements
+  and materialized them; no predicate-bearing question existed
+- After: `query(q)` is the template method — the `_translate_query(q)` hook
+  answers the whole query or returns `None` (`GQ-32`; safe narrowing under a
+  declined translation per `GQ-33`; no partial-family bookkeeping exists);
+  the baseline path acquires tenant+as-of rows, materializes through the
+  15.2-03 substrate-neutral core, applies `ccf.graph.fallback.answer`, and
+  freezes through the interface-owned ordering. `as_of()` is now
+  `self.query(GraphQuery(tenant_id=tenant_id, as_of=at))` — the D-07
+  derivation, byte-identical, zero call-site churn. `attestation` reports
+  tier 1. `translated_answers` / `fallback_answers` are per-instance
+  monotonic telemetry counters, deliberately outside the replay record
+  (D-04 — performance is never a replay input)
+- Why: adapters supply dialect and rows; everything above the rows —
+  materialization, semantics, ordering — must exist once, or the
+  differential suite would be comparing accidents
+- Migration: SQL backend subclasses (sqlite, postgres) inherit everything;
+  no subclass change. A subclass MAY override `_translate_query` to earn
+  native pushdown, under the whole-query-or-None contract
+
+*Recorded by `15.2-05-query-seam-open.md`.*
+
+#### ccf.replay.snapshots.SnapshotReader
+
+- Surface: ccf.replay.snapshots.SnapshotReader.query
+- Public surface: true
+- Change type: behavior
+- Before: the pinned reader scope-checked `as_of` / history reads only; a
+  `GraphQuery` had no path into replay
+- After: `query(q)` scope-checks `q.tenant_id` / `q.as_of` against the
+  pinned snapshot before delegating to the wrapped reader's `query()`,
+  raising `SnapshotScopeViolation` on mismatch — the deliberate
+  raise-vs-empty-view contrast of `GQ-27`: a source answers questions; a
+  pin enforces one. `attestation` delegates to the wrapped reader. The
+  `as_of` delegation path is byte-identical to before
+- Why: replayed executions will phrase reads as queries from plan 15.2-08
+  on; a replay that could query outside its pin would silently import the
+  future into a record of the past
+- Migration: none — existing replay callers are unchanged
+
+*Recorded by `15.2-05-query-seam-open.md`.*
 
 ### Not public Python API
 
