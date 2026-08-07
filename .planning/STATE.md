@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
-status: blocked
-last_updated: "2026-08-07T15:15:00.000Z"
-last_activity: 2026-08-07 -- Phase 15.2 HALTED at 15.2-01 Task 0 gate (D-IMPL-87)
+status: Awaiting Phase D mini-cycle — design multi-segment pushdown semantics
+last_updated: "2026-08-07T17:53:52.103Z"
+last_activity: 2026-08-07 -- Phase 15.2 halted at 15.2-01 checkpoint (D-IMPL-87)
 progress:
   total_phases: 14
   completed_phases: 11
