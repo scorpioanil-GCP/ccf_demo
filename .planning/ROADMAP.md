@@ -596,7 +596,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 15.2-04-PLAN.md — `GraphQuery` (with `allowed_entities`)/`TraversalSpec`/`QueryFragment`/`SourceAttestation` frozen contracts + hash-pin tests incl. allowed_entities distinctness
+- [x] 15.2-04-PLAN.md — `GraphQuery` (with `allowed_entities`)/`TraversalSpec`/`QueryFragment`/`SourceAttestation` frozen contracts + hash-pin tests incl. allowed_entities distinctness
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -740,7 +740,7 @@ reader can see which code is CCF and which is theirs.
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
 | 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 (gated with carried debt; CR-1/CR-2 close in 15.1) |
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
-| 15.2. Substrate Adapters and Query Pushdown | 3/14 | In Progress|  |
+| 15.2. Substrate Adapters and Query Pushdown | 4/14 | In Progress|  |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 0/? | Planned   | — |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
