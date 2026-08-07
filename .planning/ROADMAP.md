@@ -33,6 +33,7 @@ and the upgraded examples.
 - [x] **Phase 15: SDK Ergonomics — The Integration Surface** (INSERTED) - Loaders, artifact classes, factories, and wiring helpers so the day-1 integration is a fraction of today's ~450-line example; abstraction line held at marshalling-and-wiring so no governance decision leaves adopter code and no replay dimension is hidden (completed 2026-08-05)
 - [x] **Phase 15.1: Ergonomics Gap Closure — Governance Enforced, Not Conventional** (INSERTED) - Closes the two HIGH defects found by post-gate cross-AI review (D-GATE-15 amendment, 2026-08-05): CR-1, author-versioned classes can bypass the D-05 bump check through the manifest, closed by a per-entry `registration: typed | versioned` mode that `load_and_boot` dispatches on and **refuses** when an author-versioned class asks for `typed`; CR-2, Gate 2 (INV-CH7-47) is self-satisfying in all nine examples because lineage and `engine_resolved` are filled from the same `execution.operators_invoked` — and the remedy the review prescribed is itself circular, since `execution.operators_invoked ≡ frozenset(declared.required_operator_keys)` through five pure transforms. Closed instead by **design E2** (D-IMPL-86, Dave, 2026-08-05): the projection's required operator set becomes its own Control Plane artifact, a binder refuses when it diverges from the product-class declaration, and Gate 2 is documented for what it actually verifies — assembly-path integrity. Also corrects `SURFACE-AUDIT.md` §4.1, whose "eight instances" is an undercount, and restates the new AST gates as tripwires rather than structural enforcement (URGENT — Phase 16 must not document a self-satisfying gate) (completed 2026-08-06)
 - [ ] **Phase 15.2: Substrate Adapters and Query Pushdown** (INSERTED) - The fabric asks a substrate a question instead of loading its graph. `GraphReader.as_of()` today returns every entity and relationship for a tenant per read, which does not scale to a financial-services graph and lets a graph-native engine conform without ever being used as one. Introduces the read seam operators express intent against and the adapters that answer it — SQL, Cypher, Gremlin, aggregation pipelines, or client-side scan, each inside its own adapter. **Tier 1** storage adapters and **tier 2** Context-Product-as-a-source (in-process, MCP, or A2A — the §6.6 recursive-enrichment case, whose admission governance already exists in `ccf.peering.admission`) are in scope; **tier 3** raw external sources are deferred but must not require a refactor to add (Dave, 2026-08-07). Must preserve operator purity, as-of correctness (INV-CH7-14), single-writer (INV-CH7-10), and cross-substrate replay determinism
+- [ ] **Phase 15.3: Fluree Adapter (Tier-1 Substrate)** (INSERTED) - A Fluree v4 storage adapter behind the Phase 15.2 read/write seams — the substrate-consolidation option for deployments (notably a financial institution developing its KG on Fluree) that want CCF's Context Graph co-located on Fluree they already operate. openCypher-over-wire translation per the 15.2-12 template; httpx wire client, zero new packages; temporal fields encoded as properties (Fluree's native time travel is transaction-time and MUST NOT implement as-of, per D-IMPL-88); an adapter going green against the unchanged 15.2 conformance/differential suites is the 15.2 no-refactor claim demonstrated on a real substrate. Ruled by D-IMPL-88 (Dave, 2026-08-07); CCF stays substrate-neutral — the bank's KG itself is approached as an external *source* (MCP ingress now; tier 3 later), never CCF's foundation
 - [ ] **Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument** - One document, two sections (deterministic + external MCP consumption; CCF-agent assembly + MCP/A2A consumption), banking scenarios from the whitepaper, re-cut snippet markers so a reader can see which code is CCF and which is theirs
 
 ## Phase Details
@@ -628,6 +629,66 @@ Plans:
 
 - [ ] 15.2-14-PLAN.md — Phase close: single surface regeneration, full gates + three container legs, one perf run, §3.1 review, present to Dave with D-IMPL-87 re-ratification evidence
 
+### Phase 15.3: Fluree Adapter (Tier-1 Substrate) (INSERTED)
+
+**Status**: inserted 2026-08-07 by D-IMPL-88 (Dave); not yet discussed or
+planned. The goal and constraints below are Dave's ruling plus the feasibility
+research (`.planning/research/FLUREE-ADAPTER.md`), recorded at insertion;
+success criteria and requirement IDs are `/gsd:discuss-phase 15.3`'s to write.
+
+**Goal**: CCF's Context Graph runs on Fluree v4 through the Phase 15.2 seams —
+a tier-1 storage adapter answering `GraphQuery` with pushed openCypher and
+satisfying the `_GraphTxn` write seam with batched HTTP commits — with zero
+changes to the SDK core, the query vocabulary, or the conformance suites. A
+post-gate adapter going green against the unchanged 15.2 suites (suite diff:
+one fixture parameter) is the 15.2 no-refactor claim demonstrated on a real
+substrate.
+
+**Depends on**: Phase 15.2 (the read/write seams, the differential + property
+suites and corpus, the container-leg and extras/boot/manifest precedents, and
+the 15.2-02 remote-batched-substrate hedge D-IMPL-88 applied)
+
+**Posture (D-IMPL-88):** CCF stays substrate-neutral. Fluree is an adapter
+(this phase) and a source (MCP ingress today; tier 3 when it lands) — never a
+foundation. The bank's KG is a system of record CCF assembles *from*, not
+CCF's graph.
+
+**Constraints recorded at insertion (research-derived; discuss-phase ratifies):**
+
+- **Target the v4 line** (BSL 1.1 → Apache 2.0; Additional Use Grant clean for
+  CI containers and wire-only adapters). **Precondition:** confirm the
+  institution runs v4, not legacy v2-AGPL — a v2 shop changes the deliverable
+  entirely (D-IMPL-88 precondition (a)).
+- **Translation template is 15.2-12 (Neo4j):** v4 speaks openCypher — bounded
+  var-length paths, hop predicates, `UNWIND`/param for `allowed_entities`.
+  SPARQL cannot express bounded depth; Cypher is the traversal target.
+- **Temporal fields are properties, filtered like SQL/Neo4j/Mongo.** Fluree's
+  native time travel (`t`) is transaction time and MUST NOT implement as-of
+  (INV-CH7-14 filters on observed/superseded claim data; divergent on late
+  arrivals and supersession — non-conformant against the differential corpus
+  by construction).
+- **No new Python dependency:** httpx wire client (already a core pin).
+  `fluree-py` is not on PyPI (unregistered, squattable — supply-chain hazard;
+  do not install); `aioflureedb` targets the dead v2 API.
+- **Write posture:** buffered batch recommended — `_FlureeTxn` accumulates
+  typed operations, commits as one atomic `POST /update`; per-op rowcounts by
+  read-before-buffer, sound under INV-CH7-10 single-writer. Bolt explicit
+  transactions rejected (Raft/peer deployments refuse BEGIN); per-op
+  autocommit rejected (abandons atomicity). Discuss-phase ratifies
+  (D-IMPL-88 precondition (b)).
+- **Known pitfalls carried from research:** JSON-LD datatype coercion (fixed
+  minimal `@context`, no ledger default context); read-after-write (thread
+  last commit `t` via `Fluree-Min-T`); one CCF-owned ledger with `tenant_id`
+  as predicate (SQL multi-tenant posture); exact image pin (breaking changes
+  have shipped inside a minor); container-gated CI leg per the 15.2 pattern.
+
+**Effort shape (research estimate):** one plan-pair of 15.2-12/13's size —
+two to three tasks, one wave. Read side cheaper than Neo4j (no package, no
+extra, no lazy-import machinery); write side harder (~1.5–2× `_Neo4jTxn` for
+the buffered-batch path).
+
+**Requirements**: TBD at discuss/planning.
+
 ### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
 
 **Status**: planned, not yet discussed. This section exists so the phase is
@@ -680,6 +741,7 @@ reader can see which code is CCF and which is theirs.
 | 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 (gated with carried debt; CR-1/CR-2 close in 15.1) |
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
 | 15.2. Substrate Adapters and Query Pushdown | 0/14 | Planned   | — |
+| 15.3. Fluree Adapter (Tier-1 Substrate) | 0/? | Planned   | — |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
