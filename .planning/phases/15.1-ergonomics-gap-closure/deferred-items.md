@@ -568,11 +568,12 @@ this phase asked Dave to accept.
   is evaluated in the enclosing scope and passed in as an argument. `_Binding.until`
   is `_after(node)` over the whole comprehension node, and `_at(node)` is its `[`,
   so the outermost iterable sits *inside* the recorded span and `_binding_before`
-  attributes its reads to the comprehension's own target. The docstring at
-  `tests/products/test_gate_two_call_shape.py:823-824` says containment in that
-  span "is exactly Python's scope rule". **It is not**, and `:1042-1052`'s "in
-  force for reads *lexically inside* the comprehension … and for no other read"
-  is wrong in the same direction.
+  attributes its reads to the comprehension's own target. The class docstring of
+  `tests/products/test_gate_two_call_shape.py::_Binding` says containment in that
+  span "is exactly Python's scope rule". **It is not**, and
+  `tests/products/test_gate_two_call_shape.py::_binding_before`'s "in force for
+  reads *lexically inside* the comprehension … and for no other read" is wrong
+  in the same direction.
 - **Measured bidirectionally, with renamed-target controls, against `6cf00d3`.**
   Both consequences were produced by driving the *shipped* helpers, not argued:
   - **(a) A genuine Gate-2 collapse goes silent.** `[x for ops in

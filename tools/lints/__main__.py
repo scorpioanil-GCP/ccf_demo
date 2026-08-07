@@ -6,15 +6,25 @@ applies the D-08 allowlist to CINV-01 findings, prints what survives, and
 exits nonzero if anything does. Not every rule runs over every tree — see
 `RULE_TREE_SCOPE`.
 
+Most checkers are **per-file AST** checkers, invoked once per Python module.
+One — `citations` — is a **whole-tree text** checker: a citation is a claim
+about a *second* file, so it cannot be decided from one module's AST, and it
+lives in prose (Markdown, YAML comments, docstrings) as much as in code. It is
+registered in `WHOLE_TREE_CHECKERS`, carries its own tree scope, and reports
+in the same `path:line rule message` format, so the gate signal stays one exit
+code.
+
 Exit code is the only gate signal. There is deliberately no report-only,
 warning-only, or `--exit-zero` mode: D-07 requires the lints to block from the
 first fabric commit, and a non-blocking mode is how an invariant quietly stops
-being one.
+being one. `--report` prints *additional* coverage detail alongside the
+findings; it does not change the exit code and cannot suppress a finding.
 
 Usage::
 
     python -m tools.lints --all
     python -m tools.lints --harness-imports --algorithmic
+    python -m tools.lints --citations --report
 """
 
 from __future__ import annotations
@@ -26,6 +36,7 @@ from typing import Callable, Iterator, Sequence
 
 from tools.lints import (
     algorithmic,
+    citations,
     harness_imports,
     no_hardcoding,
     orchestration_imports,
@@ -77,12 +88,24 @@ SKIP_DIRS: frozenset[str] = frozenset(
 )
 
 Checker = Callable[[pathlib.Path, str], list[str]]
+TreeChecker = Callable[[pathlib.Path], list[str]]
 
 CHECKERS: dict[str, Checker] = {
     "no-hardcoding": no_hardcoding.check,
     "harness-imports": harness_imports.check,
     "algorithmic": algorithmic.check,
     "orchestration-imports": orchestration_imports.check,
+}
+
+#: Checkers that take the repo root rather than one module. `citations` is
+#: here because a cross-file citation is a claim about a file other than the
+#: one it appears in, and because it reads prose — Markdown and YAML as well
+#: as Python — so neither `LINTED_TREES` nor the per-file walk above fits it.
+#: Its own tree scope and its own exemptions are config surfaces inside
+#: `tools/lints/citations.py`, on the same principle as `RULE_TREE_SCOPE`:
+#: what a check does not cover is stated, not left to path accident.
+WHOLE_TREE_CHECKERS: dict[str, TreeChecker] = {
+    "citations": citations.check_tree,
 }
 
 
@@ -114,6 +137,7 @@ def run(
     """Run `rules` over every linted tree under `base`; return the findings."""
     active = allowlist if allowlist is not None else no_hardcoding.load_allowlist()
     findings: list[str] = []
+    per_file = [rule for rule in rules if rule in CHECKERS]
 
     for tree in LINTED_TREES:
         root = base / tree
@@ -121,13 +145,17 @@ def run(
             continue
         for path in iter_python_files(root):
             module_name = module_name_for(path, root)
-            for rule in rules:
+            for rule in per_file:
                 if tree not in RULE_TREE_SCOPE.get(rule, LINTED_TREES):
                     continue
                 found = CHECKERS[rule](path, module_name)
                 if rule == "no-hardcoding":
                     found = no_hardcoding.apply_allowlist(found, active)
                 findings.extend(found)
+
+    for rule in rules:
+        if rule in WHOLE_TREE_CHECKERS:
+            findings.extend(WHOLE_TREE_CHECKERS[rule](base))
 
     return findings
 
@@ -170,6 +198,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="D-06 orchestration/adapters split (D-IMPL-60)",
     )
     parser.add_argument(
+        "--citations",
+        dest="selected",
+        action="append_const",
+        const="citations",
+        help="cross-file citation drift (tools/lints/citations.py)",
+    )
+    parser.add_argument(
+        "--report",
+        action="store_true",
+        help=(
+            "also print what the citation scan could NOT check. Additive"
+            " only: it never changes the exit code or hides a finding."
+        ),
+    )
+    parser.add_argument(
         "--base",
         type=pathlib.Path,
         default=pathlib.Path.cwd(),
@@ -178,9 +221,30 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def citation_coverage(base: pathlib.Path) -> list[str]:
+    """Human-readable coverage lines for the citation scan (``--report``)."""
+    scan = citations.scan_tree(base)
+    return [
+        f"citations: {scan.total} matched in {scan.scanned_files} files"
+        f" ({scan.exempt_files} files exempt as dated records)",
+        f"  checked and passing:   {scan.checked}",
+        f"  findings:              {len(scan.findings)}",
+        f"  explicitly historical: {scan.historical}",
+        f"  UNCHECKED — no anchor: {scan.no_anchor}",
+        f"  UNCHECKED — anchor not resolvable: {scan.unusable_anchor}",
+        f"  UNCHECKED — path ambiguous:        {scan.ambiguous_path}",
+        f"  UNCHECKED — path unresolvable:     {scan.unresolved_path}",
+    ]
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    rules = list(CHECKERS) if args.all or not args.selected else args.selected
+    every = list(CHECKERS) + list(WHOLE_TREE_CHECKERS)
+    rules = every if args.all or not args.selected else args.selected
+
+    if args.report and "citations" in rules:
+        for line in citation_coverage(args.base):
+            print(line)
 
     findings = run(args.base, rules)
     for finding in findings:

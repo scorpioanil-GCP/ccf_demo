@@ -1,21 +1,29 @@
-"""CCF invariant lints — CINV-01/02/03 (SDK-defined; CLAUDE.md §6.4, §7.3, §11).
+"""CCF invariant lints — CINV-01/02/03 and friends (SDK-defined; CLAUDE.md §6.4, §7.3, §11).
 
-Three stdlib-`ast` checkers, hand-rolled per D-06 (no plugin framework), run as
-one blocking CI gate per D-07 (`python -m tools.lints --all`):
+Stdlib-only checkers, hand-rolled per D-06 (no plugin framework), run as one
+blocking CI gate per D-07 (`python -m tools.lints --all`):
 
-* ``no_hardcoding``    — CINV-01, the No-Hardcoding Rule (CLAUDE.md §6.4)
-* ``harness_imports``  — CINV-02, zero harness imports in core (CLAUDE.md §7.3)
-* ``algorithmic``      — CINV-03, Algorithmic - Semantic Alternation (§11)
+* ``no_hardcoding``          — CINV-01, the No-Hardcoding Rule (CLAUDE.md §6.4)
+* ``harness_imports``        — CINV-02, zero harness imports in core (§7.3)
+* ``algorithmic``            — CINV-03, Algorithmic - Semantic Alternation (§11)
+* ``orchestration_imports``  — D-06, the orchestration/adapters split
+* ``citations``              — cross-file citation drift (SDK-defined)
 
-Every checker exposes the same pair of entrypoints and the same finding format,
-so the runner can treat them uniformly::
+The first four are **per-file AST** checkers and expose the same pair of
+entrypoints, so the runner can treat them uniformly::
 
     check_source(source: str, path: Path, module_name: str) -> list[str]
     check(path: Path, module_name: str) -> list[str]
 
-A finding is the string ``"{path}:{lineno} {rule} {message}"``. The rule token
-is always the second whitespace-separated field; the runner and the allowlist
-both key off it.
+``citations`` is the one **whole-tree text** checker — a citation is a claim
+about a *second* file and lives in prose as much as in code, so it takes the
+repo root instead::
+
+    check_tree(base: Path) -> list[str]
+
+All five agree on the finding format: ``"{path}:{lineno} {rule} {message}"``.
+The rule token is always the second whitespace-separated field; the runner and
+the allowlist both key off it.
 """
 
 from __future__ import annotations

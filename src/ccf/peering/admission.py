@@ -460,9 +460,9 @@ class AdmissionRecord(CCFContract):
 #: uniformly over every Peering (``D-IMPL-59`` part 4), so one record class serves
 #: every Peering and a second transport files nothing new. The ``class_id`` value
 #: itself is exactly what D-IMPL-58's amendment ruled and is unchanged here.
-#: Dot-namespaced and
-#: kebab-cased, matching the established family exactly (``ccf.half-life-table``,
-#: ``ccf.debt-profile``, ``src/ccf/controlplane/artifacts.py:268,270``).
+#: Dot-namespaced and kebab-cased, matching the established family exactly —
+#: ``ccf.half-life-table`` at ``src/ccf/controlplane/artifacts.py::HALF_LIFE_TABLE``
+#: and ``ccf.debt-profile`` at ``src/ccf/controlplane/artifacts.py::DEBT_PROFILE``.
 #: D-IMPL-58's amendment of 2026-07-27 records why this is asserted in a test
 #: rather than left to review: the entry originally carried the non-conforming
 #: literal ``admission_record``, and an error in the decision log propagates with
