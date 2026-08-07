@@ -93,6 +93,6 @@ phase close, and eleven concurrent worktrees each regenerating a whole-tree file
 would each pass `--check` pre-merge and leave the tree stale after the second
 merge. `tools/dump_surface.py --report` was run instead and reports exactly the
 four names claimed above, zero removed and zero reshaped;
-`tests/deployment/test_class_lookup.py::test_this_plans_fragment_claims_exactly_what_it_added`
+`tests/deployment/test_class_lookup.py::test_the_phases_fragments_claim_exactly_what_was_added`
 asserts that correspondence in both directions at this plan's own wave rather
 than deferring it to 15-21.

@@ -65,10 +65,12 @@ submission, with no code edit:
 
 One call over the deployment manifest parses every artifact the manifest names,
 registers the ones it marks `role: register`, and boots the fabric on the
-resulting pins. What the manifest deliberately does *not* name is the four
-author-versioned definition classes: they register through the version-bump
-check that the manifest path does not run, so the driver registers them itself
-rather than trading that governance for a shorter file:
+resulting pins. The four author-versioned definition classes are outside *this*
+manifest by the example's choice, not by necessity: a manifest may name them as
+`registration: versioned`, and `load_and_boot` then registers them through
+`register_versioned` with its bump check — what it refuses, at preflight, is
+`registration: typed` for such a class. The driver keeps the four calls so that
+check stays visible at the call site:
 
 ```py
 --8<-- "examples/05-workflow-hitl/run.py:boot"

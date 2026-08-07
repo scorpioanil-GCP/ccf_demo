@@ -2,6 +2,8 @@
 
 **Canonical authority:** `CLAUDE.md` (revision 4). CLAUDE.md wins on any disagreement. Whitepaper citations reference `docs/CCF_Whitepaper_1-2.md` sections, never the PDF (locked D-01).
 
+**Reading the `file.py:NNN` citations in this log (reader note, recorded 2026-08-06; states an existing convention, rules nothing new).** Every entry below is dated, and this log is corrected by *appending* a new dated entry rather than by editing an old one — the D-GATE-15 second amendment, the D-IMPL-86 correction and the three D-GATE-15.1 entries all follow that discipline, and one of them is explicitly marked "preserved **unedited**". A line citation inside a dated entry is therefore **a snapshot of the tree at that entry's date, not a maintained pointer**, and the tree has moved under many of them. `ccf.deployment.binder`'s module docstring already leans on exactly this reading, correctly, for the `load_and_boot` citation in the D-IMPL-86 correction. Measured 2026-08-06 by running the `citations` lint over this file with its exemption bypassed: **63 citations, of which 11 would be flagged** — spread across nine entries, one of them the preserved-unedited one. That measurement is why the lint scopes this file out (`HISTORICAL_RECORDS` in `tools/lints/citations.py`) rather than why the entries were rewritten: rewriting them would falsify the record, and rewriting two of eleven would leave a reader to infer the other nine are current. Cite a symbol — `path/to/file.py::name` — in anything that is maintained.
+
 ## Open Decisions (D-IMPL)
 
 **D-IMPL-01 through D-IMPL-29** are scaffolded in CLAUDE.md §12, which remains their canonical home — they are referenced here, not duplicated. Status notes:

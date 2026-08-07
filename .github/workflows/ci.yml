@@ -31,10 +31,10 @@ jobs:
       # so they are themselves tested in CI. `pytest tests` in the test job does
       # not cover them (testpaths is the shipped suite); run them here, before
       # the gate they implement.
-      - name: Lint checker unit tests (CINV-01/02/03)
+      - name: Lint checker unit tests (CINV-01/02/03 + citations)
         run: pytest tools/lints/tests -q
 
-      - name: CCF invariant lints (No-Hardcoding, harness imports, @algorithmic)
+      - name: CCF invariant lints (No-Hardcoding, harness imports, @algorithmic, citations)
         run: python -m tools.lints --all
 
       # No explicit paths: `[tool.mypy] files` is the single source of truth for what
