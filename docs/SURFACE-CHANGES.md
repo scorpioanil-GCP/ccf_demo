@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**285 entries**, of which **71** name a public Python surface.
+**289 entries**, of which **75** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-89 entries — 61 public Python surface, 28 not public Python API.
+93 entries — 65 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -1343,6 +1343,104 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none
 
 *Recorded by `15.1-04-operator-set-binder.md`.*
+
+#### ccf.graph.protocols.GraphQuery
+
+- Surface: ccf.graph.protocols.GraphQuery
+- Public surface: true
+- Change type: added
+- Before: absent — the only question the read seam could carry was
+  `as_of(tenant_id, at)`, so nothing below an operator could be asked a
+  predicate and pushdown had no vocabulary to travel in
+- After: a frozen `CCFContract` with required `tenant_id` and `as_of`, the
+  three optional predicate families (policy mirroring `PolicyFilterParameters`
+  field-for-field, temporal carrying `require_valid_at_boundary`, traverse as
+  `TraversalSpec | None`), explicit `seeds`, and
+  `allowed_entities: frozenset[str] | None = None` — the D-IMPL-87 survivor
+  set, sentinel-defaulted so the common no-Similarity case is untouched.
+  Construction refuses a partially-specified policy family (`GQ-02`) and
+  `seeds` without a traverse family (`GQ-03`)
+- Why: the question must be a value (D-02): `content_hash(q)` is replay's
+  per-round-trip pin, so the query has to be frozen, canonically hashable,
+  and closed under `extra=forbid`. `allowed_entities` implements the
+  D-IMPL-87 resolution's uniform rule — every pushed segment after an
+  in-process segment carries the surviving entity set, closing the
+  entity-resurrection defect — and it is part of the question's identity, so
+  a capped execution and a pushed execution can never share a pin. Per D-12
+  the contract carries no version field: the vocabulary is versioned through
+  the `docs/GRAPH_QUERY_SEMANTICS.md` semver lane only
+- Migration: new surface — none. `as_of()` call sites are unaffected; plan
+  15.2-05 derives `as_of()` from the degenerate query (D-07) with no caller
+  change
+
+*Recorded by `15.2-04-graph-query-contracts.md`.*
+
+#### ccf.graph.protocols.TraversalSpec
+
+- Surface: ccf.graph.protocols.TraversalSpec
+- Public surface: true
+- Change type: added
+- Before: absent — traversal bounds existed only as the operator-tier
+  `TraversalNeighborhoodParameters`, which the graph tier cannot import
+  (`ccf.operators` imports `ccf.graph`, not the reverse)
+- After: a frozen `CCFContract` mirroring `TraversalNeighborhoodParameters`
+  field-for-field — `seed_entity_classes: frozenset[str]`,
+  `relationship_types: frozenset[str]`, `depth_limit: int` — all required, no
+  defaults (D-IMPL-38 discipline)
+- Why: the traverse family of `GQ-02` needs a graph-tier rendering so a
+  pushed traversal and an in-process traversal are parameterized by the same
+  three facts; a mirror rather than a reuse keeps the dependency pointing one
+  way
+- Migration: new surface — none
+
+*Recorded by `15.2-04-graph-query-contracts.md`.*
+
+#### ccf.graph.protocols.QueryFragment
+
+- Surface: ccf.graph.protocols.QueryFragment
+- Public surface: true
+- Change type: added
+- Before: absent — an operator had no typed way to contribute its predicate
+  family to a segment's query
+- After: a frozen `CCFContract` carrying at most one of the three predicate
+  families (refused at construction otherwise, per `GQ-06`) and structurally
+  nothing else: no `seeds` field, no `allowed_entities` field
+- Why: the union rule (`GQ-06`) needs a typed unit — fragments union
+  field-wise into one `GraphQuery`, at most one fragment per family, and a
+  same-family conflict is a broken plan refused at compilation. The absent
+  `allowed_entities` field is the T-15.2-26 mitigation by construction: the
+  survivor set is engine-authored segment-boundary data, so no operator's
+  declared intent can widen or replace the constraint
+- Migration: new surface — none. Operators gain `read_intent()` returning
+  this type in a later plan; nothing existing produces or consumes fragments
+  yet
+
+*Recorded by `15.2-04-graph-query-contracts.md`.*
+
+#### ccf.graph.protocols.SourceAttestation
+
+- Surface: ccf.graph.protocols.SourceAttestation
+- Public surface: true
+- Change type: added
+- Before: absent — a graph-state source had no typed way to state how its
+  answers acquired policy binding and lineage, so admitting a lower-trust
+  source class would have forced a schema refactor
+- After: a frozen `CCFContract` (SDK-defined, CLAUDE.md §11) with
+  `policy_binding: Literal["assembly-stamped", "admission-verified", "none"]`,
+  `lineage: Literal["graph-supplied", "product-carried", "none"]`, and
+  `peer: PeerRef | None` — the D-09 modes verbatim
+- Why: D-09 rules the three trust tiers to be three well-known values of one
+  schema, and tier 3 (`none`/`none`/`None`) must be expressible today — the
+  no-refactor commitment met by construction and pinned by test. Temporal
+  correctness is deliberately not a dimension: the as-of cut is a conformance
+  obligation every answerer owes (D-04), so there is no mode to report.
+  Canonically serializable, so the attestation in force pins into replay with
+  zero new mechanism
+- Migration: new surface — none. `GraphReader` gains an `attestation`
+  property in plan 15.2-05; per-dimension product-class minima and the engine
+  refusal arrive in later plans
+
+*Recorded by `15.2-04-graph-query-contracts.md`.*
 
 ### Not public Python API
 

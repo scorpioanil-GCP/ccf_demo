@@ -29,27 +29,63 @@ Physical layout — table decomposition, indexing, partitioning — is
 backend-internal (the whitepaper's "~10 collections" is reference grounding,
 not a normative count).
 
+**The query vocabulary (Phase 15.2).** :class:`GraphQuery`,
+:class:`TraversalSpec`, :class:`QueryFragment`, and :class:`SourceAttestation`
+render the normative vocabulary of ``docs/GRAPH_QUERY_SEMANTICS.md``
+(semantics version 1.0.0) as frozen values. The prose decides; these
+contracts carry it — a dispute about what a query means is resolved by
+quoting the clause, never by reading an adapter.
+
 Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
+
+from pydantic import model_validator
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.claims import EntityClaim, RelationshipClaim
+from ccf.peering.protocol import PeerRef
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "EntityRecord",
+    "GraphQuery",
     "GraphReader",
     "GraphView",
     "GraphWriter",
+    "QueryFragment",
     "RelationshipRecord",
+    "SourceAttestation",
+    "TraversalSpec",
     "UpsertResult",
 ]
+
+
+def _policy_family_is_partial(
+    versions: frozenset[str] | None,
+    attribute_by_class: Mapping[str, str] | None,
+    classifications: frozenset[str] | None,
+) -> bool:
+    """True when some but not all policy-family fields are present.
+
+    A family, when present, carries **all** of its fields; a
+    partially-specified family is not a legal value and the contract refuses
+    it at construction (``GQ-02`` at docs/GRAPH_QUERY_SEMANTICS.md:64).
+    Shared by :class:`GraphQuery` and :class:`QueryFragment`, which carry the
+    same three policy-family fields.
+    """
+    present = (
+        versions is not None,
+        attribute_by_class is not None,
+        classifications is not None,
+    )
+    return any(present) and not all(present)
 
 
 class EntityRecord(CCFContract):
@@ -149,6 +185,290 @@ class UpsertResult(CCFContract):
     claim_created: bool
     lineage_added: int
     superseded_claim_id: str | None = None
+
+
+class TraversalSpec(CCFContract):
+    """The traverse family of a :class:`GraphQuery` — where a walk may go.
+
+    Whitepaper §7.4 (Traversal as a canonical operator category, INV-CH7-24);
+    ``GQ-02`` at docs/GRAPH_QUERY_SEMANTICS.md:64. Mirrors
+    ``src/ccf/operators/params.py::TraversalNeighborhoodParameters``
+    field-for-field, so a pushed traversal and an in-process traversal are
+    parameterized by the same three facts. A mirror rather than a reuse,
+    deliberately: the operator-parameter contracts live in the operator tier
+    and ``ccf.operators`` imports *this* module — the mirror keeps the
+    dependency pointing one way.
+
+    All three fields are required with no defaults, the D-IMPL-38 discipline
+    of the mirrored contract: a default is a value nobody chose.
+
+    Attributes:
+        seed_entity_classes: Walk starting points, in ontology vocabulary —
+            entities of these classes seed the walk (``GQ-11`` at
+            docs/GRAPH_QUERY_SEMANTICS.md:222).
+        relationship_types: Which typed edges the walk may cross. Edges of
+            other types are not crossable and are absent from the answer
+            even when both endpoints are reached (``GQ-10`` at
+            docs/GRAPH_QUERY_SEMANTICS.md:201).
+        depth_limit: Maximum hops from a walk starting point. ``0`` is a
+            legal, meaningful bound — the starting points only, not an error
+            and not "unlimited" (``GQ-10``).
+    """
+
+    seed_entity_classes: frozenset[str]
+    relationship_types: frozenset[str]
+    depth_limit: int
+
+
+class GraphQuery(CCFContract):
+    """One question against graph state, as a frozen value.
+
+    Whitepaper §7.3 (the Context Graph as queryable persisted state) and
+    §7.4 (operators as the intent the query renders); the normative
+    vocabulary is ``GQ-01`` at docs/GRAPH_QUERY_SEMANTICS.md:48 — this
+    contract renders the prose clause-for-clause and decides nothing of its
+    own.
+
+    **The question is a value.** Because the query is frozen,
+    ``content_hash(q)`` (``src/ccf/contracts/canonical.py::content_hash``)
+    is well-defined and serves as replay's per-round-trip pin (D-02;
+    ``GQ-20`` at docs/GRAPH_QUERY_SEMANTICS.md:391). Tenant scope arrives
+    *inside* the frozen value, so the D-IMPL-05 keyword-only rule is
+    satisfied by the contract rather than the argument list, and ``as_of``
+    arrives as data — no answerer, and no code below the caller of the
+    seam, may read a clock (whitepaper §7.10 determinism).
+
+    **No version field, by decision (D-12).** The vocabulary is versioned
+    through the ``docs/GRAPH_QUERY_SEMANTICS.md`` semver lane only: it
+    evolves by additive sentinel-defaulted fields under the existing
+    frozen/``extra=forbid`` discipline — ``allowed_entities`` is itself the
+    first such field — and the differential conformance suite is the
+    compatibility check. A version discriminator inside the value would
+    make two identical questions hash differently across vocabulary
+    revisions.
+
+    Construction refusals, straight from the prose:
+
+    * a partially-specified policy family is refused — a family, when
+      present, carries all of its fields (``GQ-02`` at
+      docs/GRAPH_QUERY_SEMANTICS.md:64);
+    * ``seeds`` without a traverse family is refused — there is no walk for
+      the seeds to start, and a constraint-shaped field must not constrain
+      nothing (``GQ-03`` at docs/GRAPH_QUERY_SEMANTICS.md:87).
+
+    The degenerate query — only ``tenant_id`` and ``as_of`` — is the
+    everything-question, not an error: its answer is the tenant's full
+    as-of view, and it is the definition of ``as_of()`` (``GQ-05`` at
+    docs/GRAPH_QUERY_SEMANTICS.md:122; ``GQ-21`` at
+    docs/GRAPH_QUERY_SEMANTICS.md:446).
+
+    Attributes:
+        tenant_id: Every question is tenant-scoped; there is no untenanted
+            path through the fabric (D-IMPL-05).
+        as_of: The observed-time boundary of the answer, applied to every
+            answer whether or not any predicate family is present
+            (``GQ-07`` at docs/GRAPH_QUERY_SEMANTICS.md:148).
+        permitted_policy_bundle_versions: Policy family — mirrors
+            ``src/ccf/operators/params.py::PolicyFilterParameters``. Which
+            Control Plane policy-bundle versions the principal is admitted
+            to read state stamped under (``GQ-08`` at
+            docs/GRAPH_QUERY_SEMANTICS.md:163).
+        classification_attribute_by_class: Policy family — ``entity_class
+            -> attribute key`` carrying that class's classification. A
+            class with no declared classification attribute is
+            inadmissible (``GQ-08``).
+        permitted_classifications: Policy family — the classification
+            values the principal may see; an entity carrying no value for
+            its class's classification attribute is inadmissible
+            (``GQ-08``).
+        require_valid_at_boundary: Temporal family — mirrors
+            ``src/ccf/operators/params.py::TemporalAsOfParameters``. When
+            true, a record additionally survives only if its valid
+            interval covers the boundary (``GQ-09`` at
+            docs/GRAPH_QUERY_SEMANTICS.md:186). ``None`` means the family
+            is absent: no constraint beyond the always-applied as-of cut.
+        traverse: Traverse family — the bounded typed undirected expansion
+            of ``GQ-10``, or ``None`` when the query walks nothing.
+        seeds: Explicit entity-URI walk starting points, with exactly one
+            meaning everywhere: walk starting points (``GQ-03`` at
+            docs/GRAPH_QUERY_SEMANTICS.md:87). Authored by the caller of
+            the seam — in the segmented execution path, the engine — and
+            never part of any operator's fragment. Refused without a
+            traverse family.
+        allowed_entities: The survivor set of the multi-segment design —
+            ``D-IMPL-87`` at docs/DECISIONS.md:290 — engine-authored
+            segment-boundary data, never an operator's contribution
+            (``GQ-04`` at docs/GRAPH_QUERY_SEMANTICS.md:98). Its three
+            values are three different facts. ``None`` is the positive
+            assertion "no survivor constraint": it holds on first segments
+            and on every segment of a fully-pushable plan, so the common
+            no-Similarity case is untouched by this field's existence. The
+            empty frozenset is a legal value whose answer is the empty
+            view — "the survivor set is empty" and "there is no
+            survivor-set constraint" are different questions. A non-empty
+            set applies the uniform rule (``GQ-15`` at
+            docs/GRAPH_QUERY_SEMANTICS.md:300): every operator family
+            computes within the set, traversal may not cross outside it,
+            relationships require both endpoints in-set (``GQ-16`` at
+            docs/GRAPH_QUERY_SEMANTICS.md:316), and seeds keep exactly one
+            meaning — walk starting points.
+    """
+
+    tenant_id: str
+    as_of: datetime
+    permitted_policy_bundle_versions: frozenset[str] | None = None
+    classification_attribute_by_class: Mapping[str, str] | None = None
+    permitted_classifications: frozenset[str] | None = None
+    require_valid_at_boundary: bool | None = None
+    traverse: TraversalSpec | None = None
+    seeds: frozenset[str] | None = None
+    allowed_entities: frozenset[str] | None = None
+
+    @model_validator(mode="after")
+    def _policy_family_is_whole(self) -> GraphQuery:
+        if _policy_family_is_partial(
+            self.permitted_policy_bundle_versions,
+            self.classification_attribute_by_class,
+            self.permitted_classifications,
+        ):
+            raise ValueError(
+                "a policy family carries all of its fields or none of them;"
+                " a partially-specified family is not a legal value"
+                " (`GQ-02` in docs/GRAPH_QUERY_SEMANTICS.md)"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _seeds_start_a_walk(self) -> GraphQuery:
+        if self.seeds is not None and self.traverse is None:
+            raise ValueError(
+                "seeds without a traverse family are not well-formed: there"
+                " is no walk for the seeds to start"
+                " (`GQ-03` in docs/GRAPH_QUERY_SEMANTICS.md)"
+            )
+        return self
+
+
+class QueryFragment(CCFContract):
+    """One operator's contribution to a segment's query.
+
+    Whitepaper §7.4 (operators as declared, replayable intent); ``GQ-06`` at
+    docs/GRAPH_QUERY_SEMANTICS.md:132. A fragment carries at most one of the
+    three predicate families of ``GQ-02`` — and nothing else: never seeds,
+    never ``allowed_entities``. The survivor set is engine-authored
+    segment-boundary data (``GQ-04`` at docs/GRAPH_QUERY_SEMANTICS.md:98); a
+    fragment structurally cannot carry it, so no operator's declared intent
+    can widen or replace the constraint — the entity-resurrection defect is
+    closed by the field's absence, not by review.
+
+    **The union rule** (``GQ-06``). Fragments within a segment union
+    field-wise into one :class:`GraphQuery`, with at most one fragment per
+    family: two fragments claiming the same family is a broken plan and is
+    refused at plan compilation — never merged, because a merge rule would
+    silently decide which operator's parameters win, and a
+    decided-by-accident parameter set cannot be replayed against an intent.
+
+    Attributes:
+        permitted_policy_bundle_versions: Policy family, as on
+            :class:`GraphQuery`; present only when this fragment is the
+            policy contribution.
+        classification_attribute_by_class: Policy family, as on
+            :class:`GraphQuery`.
+        permitted_classifications: Policy family, as on :class:`GraphQuery`.
+        require_valid_at_boundary: Temporal family, as on
+            :class:`GraphQuery`; present only when this fragment is the
+            temporal contribution.
+        traverse: Traverse family; present only when this fragment is the
+            traversal contribution.
+    """
+
+    permitted_policy_bundle_versions: frozenset[str] | None = None
+    classification_attribute_by_class: Mapping[str, str] | None = None
+    permitted_classifications: frozenset[str] | None = None
+    require_valid_at_boundary: bool | None = None
+    traverse: TraversalSpec | None = None
+
+    @model_validator(mode="after")
+    def _policy_family_is_whole(self) -> QueryFragment:
+        if _policy_family_is_partial(
+            self.permitted_policy_bundle_versions,
+            self.classification_attribute_by_class,
+            self.permitted_classifications,
+        ):
+            raise ValueError(
+                "a policy family carries all of its fields or none of them;"
+                " a partially-specified family is not a legal value"
+                " (`GQ-02` in docs/GRAPH_QUERY_SEMANTICS.md)"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _at_most_one_family(self) -> QueryFragment:
+        families_present = sum(
+            (
+                self.permitted_policy_bundle_versions is not None
+                or self.classification_attribute_by_class is not None
+                or self.permitted_classifications is not None,
+                self.require_valid_at_boundary is not None,
+                self.traverse is not None,
+            )
+        )
+        if families_present > 1:
+            raise ValueError(
+                "a fragment is one operator's contribution: at most one of"
+                " the three predicate families"
+                " (`GQ-06` in docs/GRAPH_QUERY_SEMANTICS.md)"
+            )
+        return self
+
+
+class SourceAttestation(CCFContract):
+    """Per-dimension provenance modes of one graph-state source — SDK-defined.
+
+    An SDK extension beyond the whitepaper, labeled per CLAUDE.md §11: the
+    whitepaper commits to lineage (§7.3) and replay (§7.10); the mode
+    vocabulary by which a *source* attests how its answers acquired policy
+    binding and lineage is SDK mechanism, per the Phase 15.2 D-09 ruling
+    (``.planning/phases/15.2-substrate-adapters-and-query-pushdown/15.2-CONTEXT.md``).
+
+    **The three tiers are three well-known values of one schema**, not three
+    schemas:
+
+    * tier 1, the live graph — ``policy_binding="assembly-stamped"``,
+      ``lineage="graph-supplied"``, ``peer=None``;
+    * tier 2, a mounted admitted product — the modes
+      ``"admission-verified"`` / ``"product-carried"`` with ``peer`` naming
+      the admitting federation peer;
+    * tier 3, an unattested source — ``"none"`` / ``"none"`` / ``None``,
+      expressible **today**. That is the no-refactor commitment met by
+      construction: admitting a lower-trust source class later changes no
+      schema, only which value a reader reports.
+
+    **Temporal correctness is deliberately not an attestation dimension.**
+    The as-of cut is a conformance obligation every answerer owes on every
+    answer (D-09 scoping note; ``GQ-07`` at
+    docs/GRAPH_QUERY_SEMANTICS.md:148) — a source cannot opt out of it, so
+    there is no mode to report.
+
+    Frozen and canonically serializable, so the attestation in force pins
+    into replay with zero new mechanism.
+
+    Attributes:
+        policy_binding: How answered records acquired their policy binding —
+            stamped at assembly by the fabric's own L2, verified at the
+            peering admission gate, or not attested at all.
+        lineage: Where lineage on answered records comes from — the graph's
+            own accumulated L, carried inside a mounted product's payload,
+            or not attested at all.
+        peer: The federation peer whose admission produced the mounted
+            records, for tier-2 sources; ``None`` where no peer is
+            involved. Required rather than defaulted: "no peer" is an
+            assertion the constructor makes, not a value nobody chose.
+    """
+
+    policy_binding: Literal["assembly-stamped", "admission-verified", "none"]
+    lineage: Literal["graph-supplied", "product-carried", "none"]
+    peer: PeerRef | None
 
 
 @runtime_checkable
