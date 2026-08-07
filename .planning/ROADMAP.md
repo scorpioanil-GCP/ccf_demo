@@ -600,7 +600,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 15.2-05-PLAN.md — `ccf.graph.fallback` (incl. allowed_entities set-intersection) + `GraphReader.query()`/`attestation` widened atomically everywhere + `as_of()` derivation (D-07) + property suite on the fallback incl. resurrection closure
+- [x] 15.2-05-PLAN.md — `ccf.graph.fallback` (incl. allowed_entities set-intersection) + `GraphReader.query()`/`attestation` widened atomically everywhere + `as_of()` derivation (D-07) + property suite on the fallback incl. resurrection closure
 
 **Wave 4** *(blocked on Wave 3)*
 
@@ -740,7 +740,7 @@ reader can see which code is CCF and which is theirs.
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
 | 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 (gated with carried debt; CR-1/CR-2 close in 15.1) |
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
-| 15.2. Substrate Adapters and Query Pushdown | 4/14 | In Progress|  |
+| 15.2. Substrate Adapters and Query Pushdown | 5/14 | In Progress|  |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 0/? | Planned   | — |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
