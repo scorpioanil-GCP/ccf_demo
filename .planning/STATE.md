@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
-status: Awaiting Phase D mini-cycle — design multi-segment pushdown semantics
-last_updated: "2026-08-07T17:53:52.103Z"
+status: Mini-cycle design captured (D-IMPL-87 resolution) — ready to replan
+last_updated: "2026-08-07T17:54:06.804Z"
 last_activity: 2026-08-07 -- Phase 15.2 halted at 15.2-01 checkpoint (D-IMPL-87)
 progress:
   total_phases: 14
@@ -27,14 +27,16 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 15.2 (substrate-adapters-and-query-pushdown) — HALTED (D-IMPL-87)
-Plan: 0 of 13 complete — execution stopped at 15.2-01 Task 0 blocking gate
-Status: Awaiting Phase D mini-cycle — design multi-segment pushdown semantics
-  before replanning. Dave rejected the prefix-rule amendment to locked D-01
-  (2026-08-07); no plan work is committed. Next: design mini-cycle (CLAUDE.md
-  §3.1) → Dave's ruling logged → /gsd:plan-phase 15.2 redraws all 13 plans.
+Phase: 15.2 (substrate-adapters-and-query-pushdown) — REPLAN PENDING
+Plan: 0 of 13 — prior 13 plans void per D-IMPL-87 resolution
+Status: Mini-cycle design captured (D-IMPL-87 resolution, 2026-08-07):
+  allowed_entities in GraphQuery, uniform constraint rule, CP-valued size
+  cap, hash+ArtifactStore replay pin, prose-lane versioning. CONTEXT.md
+  amended (D-01/D-02 revised, D-10..D-12 added). Next: /gsd:plan-phase 15.2
+  redraws all 13 plans against the amended context; §3.1 review at the gate
+  re-ratifies D-IMPL-87.
 Progress: [----------] 0%
-Last activity: 2026-08-07 -- Phase 15.2 halted at 15.2-01 checkpoint (D-IMPL-87)
+Last activity: 2026-08-07 -- D-IMPL-87 resolution captured; replan next
 
 ## Performance Metrics
 
