@@ -32,7 +32,13 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from ccf.graph.protocols import EntityRecord, GraphView, RelationshipRecord
+from ccf.graph.protocols import (
+    EntityRecord,
+    GraphView,
+    QueryFragment,
+    RelationshipRecord,
+    TraversalSpec,
+)
 from ccf.operators.base import (
     Operator,
     OperatorCategory,
@@ -106,6 +112,27 @@ class PolicyFilter:
     def parameters(self) -> PolicyFilterParameters:
         return self._parameters
 
+    def read_intent(self) -> QueryFragment:
+        """The policy family this operator's ``apply()`` renders (D-03).
+
+        Computed from ``self.parameters`` alone — no view, no data, no clock:
+        a direct field-for-field projection of
+        :class:`~ccf.operators.params.PolicyFilterParameters` onto the policy
+        family of `GQ-02` at docs/GRAPH_QUERY_SEMANTICS.md:64, whose pushed
+        admissibility semantics (`GQ-08` at
+        docs/GRAPH_QUERY_SEMANTICS.md:163) mirror :meth:`_admits` exactly.
+        """
+        params = self._parameters
+        return QueryFragment(
+            permitted_policy_bundle_versions=(
+                params.permitted_policy_bundle_versions
+            ),
+            classification_attribute_by_class=(
+                params.classification_attribute_by_class
+            ),
+            permitted_classifications=params.permitted_classifications,
+        )
+
     def _admits(self, record: EntityRecord) -> bool:
         params = self._parameters
         if record.policy_bundle_version not in params.permitted_policy_bundle_versions:
@@ -170,6 +197,23 @@ class SimilaritySelect:
     @property
     def parameters(self) -> SimilaritySelectParameters:
         return self._parameters
+
+    def read_intent(self) -> None:
+        """``None``, full stop — Similarity is never pushable (D-03).
+
+        The reason is structural, not circumstantial: :meth:`apply` consults
+        the injected :class:`~ccf.similarity.protocol.SimilarityIndexProtocol`
+        (the D-IMPL-03 seam), a ranking substrate the graph substrate does not
+        hold — so no `GQ-02` at docs/GRAPH_QUERY_SEMANTICS.md:64 predicate
+        family exists for it and there is deliberately no Similarity family
+        in the query vocabulary. Substrates with native vector search are the
+        Phase 15.2 Deferred-Ideas ruling (15.2-CONTEXT.md — "Similarity
+        pushdown ... deliberately excluded"; revisiting is its own design
+        conversation), so a drive-by "optimization" here is a decision
+        reversal, and the pushability-matrix pin in
+        ``tests/conformance/test_substrate_properties.py`` fails it by name.
+        """
+        return None
 
     def apply(
         self,
@@ -237,6 +281,21 @@ class TemporalAsOf:
     @property
     def parameters(self) -> TemporalAsOfParameters:
         return self._parameters
+
+    def read_intent(self) -> QueryFragment:
+        """The temporal family this operator's ``apply()`` renders (D-03).
+
+        Computed from ``self.parameters`` alone — no view, no data, no clock:
+        the fragment carries ``require_valid_at_boundary`` (`GQ-09` at
+        docs/GRAPH_QUERY_SEMANTICS.md:185, mirroring cut 3 of
+        :meth:`_survives`); the as-of cut itself — cuts 1 and 2 — is not part
+        of the family, because it rides the mandatory ``GraphQuery.as_of``
+        and applies to every answer (`GQ-07` at
+        docs/GRAPH_QUERY_SEMANTICS.md:148).
+        """
+        return QueryFragment(
+            require_valid_at_boundary=self._parameters.require_valid_at_boundary
+        )
 
     def _survives(
         self,
@@ -313,6 +372,29 @@ class TraversalNeighborhood:
     @property
     def parameters(self) -> TraversalNeighborhoodParameters:
         return self._parameters
+
+    def read_intent(self) -> QueryFragment:
+        """The traverse family this operator's ``apply()`` renders (D-03).
+
+        Computed from ``self.parameters`` alone — no view, no data, no clock:
+        a field-for-field projection of
+        :class:`~ccf.operators.params.TraversalNeighborhoodParameters` onto
+        :class:`~ccf.graph.protocols.TraversalSpec` (`GQ-02` at
+        docs/GRAPH_QUERY_SEMANTICS.md:64), whose pushed walk semantics
+        (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201) mirror :meth:`apply`
+        exactly. The fragment names no walk starting points beyond the seed
+        classes: explicit ``seeds`` and ``allowed_entities`` are
+        engine-authored segment-boundary data an operator's intent can never
+        carry (`GQ-06` at docs/GRAPH_QUERY_SEMANTICS.md:132).
+        """
+        params = self._parameters
+        return QueryFragment(
+            traverse=TraversalSpec(
+                seed_entity_classes=params.seed_entity_classes,
+                relationship_types=params.relationship_types,
+                depth_limit=params.depth_limit,
+            )
+        )
 
     def apply(
         self,

@@ -54,6 +54,16 @@ asserts it — do not weaken a row without moving its claim elsewhere):
   even to pass through, `GQ-15` at docs/GRAPH_QUERY_SEMANTICS.md:300), and
   ``test_empty_set_answers_the_empty_view_and_none_is_unconstrained``
   (`GQ-04` at docs/GRAPH_QUERY_SEMANTICS.md:98).
+* **D-03 (operators declare pushability)** — the read-intent section at the
+  bottom of this file: ``test_pushability_matrix_is_three_pushable_one_not``
+  (the Pitfall-9 pin: exactly three shipped operators return a fragment and
+  ``SimilaritySelect.read_intent()`` is ``None``),
+  ``test_pushed_intent_answers_what_apply_computes`` (the named
+  intent/apply-divergence hazard as a standing per-operator property), and
+  ``test_the_segment_answer_is_a_fixed_point_of_its_own_operator``
+  (`GQ-19` at docs/GRAPH_QUERY_SEMANTICS.md:356 executable at the operator
+  tier, with and without ``allowed_entities`` — the property the engine's
+  per-segment re-application rests on).
 
 Strategy discipline inherited from ``tests/properties/strategies.py``: the
 shapes come from the ontology fixtures, the values from the fixture YAML —
@@ -76,10 +86,23 @@ from ccf.graph.protocols import (
     EntityRecord,
     GraphQuery,
     GraphView,
+    QueryFragment,
     RelationshipRecord,
     TraversalSpec,
 )
 from ccf.graph.reader import Row, materialize_view
+from ccf.operators.base import (
+    Operator,
+    OperatorCategory,
+    OperatorOutput,
+    OperatorParameters,
+    OperatorProvenance,
+    mint_provenance,
+    read_intent_of,
+)
+from ccf.operators.categories import SimilaritySelect
+from ccf.operators.planner import build_operator_plan
+from ccf.operators.registry import OperatorRegistry
 from ccf.signal.envelope import SourceIdentity
 
 from tests.properties.strategies import (
@@ -94,6 +117,7 @@ from tests.properties.strategies import (
     _entity_record,
     _relationship_record,
     banking_graph_states,
+    shipped_operators,
 )
 
 pytestmark = pytest.mark.conformance
@@ -672,4 +696,255 @@ def test_empty_set_answers_the_empty_view_and_none_is_unconstrained(
     )
     assert canonical_bytes(_frozen(*unconstrained_none)) == canonical_bytes(
         _frozen(*degenerate)
+    )
+
+
+# --- D-03: read_intent — the matrix pin, equivalence, and the fixed point ---
+
+
+def _pushable_shipped() -> tuple[Operator, ...]:
+    """The shipped operators that declare a fragment, in canonical order."""
+    return tuple(
+        registration.operator
+        for registration in shipped_operators().registrations()
+        if read_intent_of(registration.operator) is not None
+    )
+
+
+def _fragment_query(
+    fragment: QueryFragment, *, allowed: frozenset[str] | None = None
+) -> GraphQuery:
+    """Render one fragment as its segment query — the test's own compilation.
+
+    Deliberately independent of ``ccf.projection.segmentation`` (the
+    production compiler): the property audits what a fragment *means*, so its
+    rendering must not be the code under audit. Field-wise copy per `GQ-06`
+    at docs/GRAPH_QUERY_SEMANTICS.md:132; ``allowed`` is the engine-authored
+    survivor set of `GQ-04` at docs/GRAPH_QUERY_SEMANTICS.md:98.
+    """
+    fields: dict[str, object] = {"tenant_id": TENANT, "as_of": BOUNDARY}
+    if fragment.permitted_policy_bundle_versions is not None:
+        fields["permitted_policy_bundle_versions"] = (
+            fragment.permitted_policy_bundle_versions
+        )
+        fields["classification_attribute_by_class"] = (
+            fragment.classification_attribute_by_class
+        )
+        fields["permitted_classifications"] = fragment.permitted_classifications
+    if fragment.require_valid_at_boundary is not None:
+        fields["require_valid_at_boundary"] = fragment.require_valid_at_boundary
+    if fragment.traverse is not None:
+        fields["traverse"] = fragment.traverse
+    if allowed is not None:
+        fields["allowed_entities"] = allowed
+    return GraphQuery(**fields)  # type: ignore[arg-type]
+
+
+def _answer_form(view: GraphView) -> GraphView:
+    """The everything-answer in answer form — endpoint-closed (`GQ-16`).
+
+    Every view an operator receives mid-plan is an *answer*: a pushed
+    segment's answer is endpoint-closed because it is constrained (`GQ-16` at
+    docs/GRAPH_QUERY_SEMANTICS.md:316), and every in-process operator's
+    output is closed by ``_substitute`` (INV-CH7-40). The one unclosed view
+    in the system — the raw degenerate everything-answer, exempt for
+    pre-seam byte-compatibility (`GQ-05` at
+    docs/GRAPH_QUERY_SEMANTICS.md:122) — is never an operator's input after
+    the first segment compiles at least one family. So the per-operator
+    equivalence feeds ``apply()`` the answer *form*: the everything-answer
+    under a vacuous ``allowed_entities`` covering the whole drawable pool,
+    which restricts nothing and closes edges through the production path.
+    """
+    return _frozen(
+        *answer(
+            view.entities,
+            view.relationships,
+            query=GraphQuery(
+                tenant_id=TENANT,
+                as_of=BOUNDARY,
+                allowed_entities=frozenset(ALL_URIS),
+            ),
+        )
+    )
+
+
+def test_pushability_matrix_is_three_pushable_one_not() -> None:
+    """The D-03 matrix pin (RESEARCH Pitfall 9): 3 pushable, 1 not, by name.
+
+    Exactly three shipped operators return a fragment; SimilaritySelect
+    returns ``None``, full stop — it consults an injected
+    ``SimilarityIndexProtocol`` the substrate does not hold, and making it
+    pushable is a Deferred-Ideas decision reversal, not an optimization. A
+    drive-by change to any of the four answers fails this named test.
+    """
+    registry = shipped_operators()
+    intent_by_category = {
+        registration.category: read_intent_of(registration.operator)
+        for registration in registry.registrations()
+    }
+    assert intent_by_category["policy"] is not None
+    assert intent_by_category["temporal"] is not None
+    assert intent_by_category["traversal"] is not None
+    assert intent_by_category["similarity"] is None
+    assert (
+        sum(1 for intent in intent_by_category.values() if intent is not None)
+        == 3
+    )
+
+    (similarity_registration,) = registry.by_category("similarity")
+    similarity = similarity_registration.operator
+    assert isinstance(similarity, SimilaritySelect)
+    assert similarity.read_intent() is None
+
+    # The three fragments carry exactly the family their operator applies.
+    policy_fragment = intent_by_category["policy"]
+    assert policy_fragment is not None
+    assert policy_fragment.permitted_policy_bundle_versions is not None
+    temporal_fragment = intent_by_category["temporal"]
+    assert temporal_fragment is not None
+    assert temporal_fragment.require_valid_at_boundary is not None
+    traversal_fragment = intent_by_category["traversal"]
+    assert traversal_fragment is not None
+    assert traversal_fragment.traverse is not None
+
+
+@given(view=banking_graph_states())
+def test_pushed_intent_answers_what_apply_computes(view: GraphView) -> None:
+    """The D-03 equivalence: ``apply(full_view) == pushed(intent)``, per operator.
+
+    The named hazard of the read-intent seam — ``read_intent()`` and
+    ``apply()`` diverging returns silently different rows — as a standing
+    property: over corpus-generated states, applying the operator in-process
+    over the full answer-form view produces byte-for-byte the fallback's
+    answer to the fragment-derived query over the same records. Weaker
+    pushed predicates are the access-control regression this guards
+    (T-15.2-04).
+    """
+    full_view = _answer_form(view)
+    for operator in _pushable_shipped():
+        fragment = read_intent_of(operator)
+        assert fragment is not None
+        applied = operator.apply(
+            view=full_view,
+            tenant_id=TENANT,
+            temporal_boundary=BOUNDARY,
+            upstream=(),
+        ).view
+        pushed = _frozen(
+            *answer(
+                view.entities,
+                view.relationships,
+                query=_fragment_query(fragment),
+            )
+        )
+        assert canonical_bytes(applied) == canonical_bytes(pushed), (
+            f"{operator.key}: declared intent and applied behavior diverge"
+        )
+
+
+@given(
+    view=banking_graph_states(),
+    allowed=st.none() | st.frozensets(st.sampled_from(ALL_URIS)),
+)
+def test_the_segment_answer_is_a_fixed_point_of_its_own_operator(
+    view: GraphView, allowed: frozenset[str] | None
+) -> None:
+    """`GQ-19` at docs/GRAPH_QUERY_SEMANTICS.md:356, at the operator tier.
+
+    The answer to a fragment-derived query is a fixed point of the operator
+    that declared the fragment: re-applying it to its own answer returns the
+    answer, bit for bit — INCLUDING under an engine-authored
+    ``allowed_entities`` constraint (`GQ-15` at
+    docs/GRAPH_QUERY_SEMANTICS.md:300), because membership is preserved
+    under subsetting. This is the property the engine's per-segment
+    re-application rests on (T-15.2-24), tested where a failure is cheapest
+    to localize.
+    """
+    for operator in _pushable_shipped():
+        fragment = read_intent_of(operator)
+        assert fragment is not None
+        answered = _frozen(
+            *answer(
+                view.entities,
+                view.relationships,
+                query=_fragment_query(fragment, allowed=allowed),
+            )
+        )
+        reapplied = operator.apply(
+            view=answered,
+            tenant_id=TENANT,
+            temporal_boundary=BOUNDARY,
+            upstream=(),
+        ).view
+        assert canonical_bytes(reapplied) == canonical_bytes(answered), (
+            f"{operator.key}: the segment answer is not a fixed point"
+        )
+
+
+class _OpaqueOperator:
+    """A third-party operator that never heard of pushdown (D-03).
+
+    Satisfies the ``Operator`` Protocol exactly as it stood before
+    ``read_intent`` existed: no ``read_intent`` method at all. Identity over
+    the view, provenance minted through the production helper.
+    """
+
+    key = "custom.opaque"
+    category: OperatorCategory = "temporal"
+
+    @property
+    def parameters(self) -> OperatorParameters:
+        return OperatorParameters()
+
+    def apply(
+        self,
+        *,
+        view: GraphView,
+        tenant_id: str,
+        temporal_boundary: object,
+        upstream: tuple[OperatorProvenance, ...],
+    ) -> OperatorOutput:
+        return OperatorOutput(
+            view=view, provenance=mint_provenance(self, upstream=upstream)
+        )
+
+
+def test_an_operator_without_read_intent_still_registers_and_executes() -> None:
+    """The capability is optional: a pre-D-03 operator is untouched.
+
+    It registers, resolves through the planner, and executes — and
+    ``read_intent_of`` answers ``None`` for it rather than raising, which is
+    what keeps the segment split total over plans containing third-party
+    operators.
+    """
+    registry = OperatorRegistry()
+    registry.register(_OpaqueOperator())
+    plan = build_operator_plan(
+        registry=registry, required_operators=(_OpaqueOperator.key,)
+    )
+    (operator,) = plan.operators
+    assert read_intent_of(operator) is None
+
+    empty = GraphView(tenant_id=TENANT, as_of=BOUNDARY)
+    output = operator.apply(
+        view=empty, tenant_id=TENANT, temporal_boundary=BOUNDARY, upstream=()
+    )
+    assert output.view == empty
+    assert output.provenance.operator_key == _OpaqueOperator.key
+
+
+def test_an_operator_with_read_intent_is_seen_by_read_intent_of() -> None:
+    """The capability is honored: a declared fragment reaches the seam."""
+    declared_require = CONTROL["operator_parameters"]["temporal"][
+        "require_valid_at_boundary"
+    ]
+
+    class _DeclaredOperator(_OpaqueOperator):
+        key = "custom.declared"
+
+        def read_intent(self) -> QueryFragment:
+            return QueryFragment(require_valid_at_boundary=declared_require)
+
+    assert read_intent_of(_DeclaredOperator()) == QueryFragment(
+        require_valid_at_boundary=declared_require
     )
