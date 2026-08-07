@@ -14,6 +14,17 @@ a divergence. So the SQL is per dialect and everything *above* the rows is
 shared: a backend supplies five statements and a way to run them, and gets the
 whole ``GraphReader`` surface.
 
+**The shape of the sharing.** Adapters answer rows; the core —
+:func:`materialize_view` — materializes, orders, freezes (locked roadmap
+constraint 3: ordering and serialization belong to the interface, never to an
+adapter). Any source whose rows satisfy :class:`Row` (a plain ``dict`` does)
+feeds the core the same way the SQL layer below does: two row sets plus a
+lineage supplier. A non-SQL backend therefore CANNOT re-implement
+lineage-at-boundary or supersession-as-of, because those rules live only here
+and no row source reaches a ``GraphView`` around them — which is exactly the
+per-adapter materialization fork this shape exists to prevent
+(15.2-RESEARCH.md Pitfall 5).
+
 There is no way to write from here, by construction — see
 ``ccf.graph.backends.sqlite`` for why that absence is load-bearing.
 
@@ -23,7 +34,7 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from typing import Any, ClassVar, Protocol
 
@@ -43,11 +54,19 @@ RELATIONSHIP_KIND = "relationship"
 class Row(Protocol):
     """A column-addressable result row.
 
-    ``sqlite3.Row`` and psycopg's ``dict_row`` both satisfy this; nothing in
-    the shared read path needs to know which it has.
+    ``sqlite3.Row``, psycopg's ``dict_row``, and a plain ``dict`` all satisfy
+    this; nothing in the shared read path needs to know which it has.
     """
 
     def __getitem__(self, key: str, /) -> Any: ...
+
+
+#: Supplies one claim's lineage rows, keyed on ``(kind, node_key, claim_id)``.
+#: Tenant scope is the supplier's own concern: the SQL client closes over the
+#: tenant it is reading for; a dict-backed source indexes however it likes.
+#: The supplier only *acquires* rows — the lineage-at-boundary rendering of
+#: what it returns happens in the core and nowhere else.
+_LineageRowsFor = Callable[[str, str, str], Sequence[Row]]
 
 
 def parse_timestamp(value: str | None) -> datetime | None:
@@ -66,6 +85,176 @@ def parse_timestamp(value: str | None) -> datetime | None:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+def _lineage_at_boundary(
+    rows: Sequence[Row], *, boundary: datetime | None
+) -> frozenset[LineageEntry]:
+    """Render a claim's lineage as it stood at ``boundary``.
+
+    L accumulates by set-union over a claim's life (INV-CH7-17), so a claim
+    current in March can pick up corroborating evidence in July. Under
+    INV-CH7-14 that evidence must not appear in a March view: an entry the
+    fabric had not received yet is future information exactly as a
+    later-superseding claim is. ``boundary`` of ``None`` means a history
+    read, where the whole accumulated set is the answer.
+
+    This is the lineage-at-boundary rule, and this function is the only place
+    it exists. Row *acquisition* is deliberately the caller's problem — a
+    substrate hands rows in, so no substrate can bury a divergent copy of the
+    boundary filter inside its own lineage query (15.2-RESEARCH.md Pitfall 5).
+    """
+    entries = (
+        LineageEntry.model_validate(json.loads(row["entry_json"])) for row in rows
+    )
+    if boundary is None:
+        return frozenset(entries)
+    return frozenset(entry for entry in entries if entry.observed_at <= boundary)
+
+
+def _supersession_as_of(
+    row: Row, *, boundary: datetime | None
+) -> tuple[str | None, datetime | None]:
+    """Render the supersession edge as it stood at ``boundary``.
+
+    INV-CH7-14 is explicit that an as-of read re-renders the state the
+    fabric held at ``at``, and that *claims superseded later are still
+    current*. The row filter already keeps such a claim in the view; this
+    keeps its supersession edge out of it. Without this, a claim read as of
+    March would carry a pointer to the claim that replaced it in July —
+    future information, leaking through the one field the temporal filter
+    does not cover, and enough to change the content hash of a view that is
+    supposed to be identical to the one the decision saw.
+
+    ``boundary`` is ``None`` for history reads, where the whole supersession
+    chain is the answer being asked for.
+    """
+    superseded_at = parse_timestamp(row["superseded_at"])
+    if (
+        boundary is not None
+        and superseded_at is not None
+        and superseded_at > boundary
+    ):
+        return None, None
+    return row["superseded_by"], superseded_at
+
+
+def _entity_records(
+    rows: Sequence[Row],
+    *,
+    lineage_rows_for: _LineageRowsFor,
+    boundary: datetime | None = None,
+) -> tuple[EntityRecord, ...]:
+    """Build entity records from rows, rendering both boundary rules."""
+    records: list[EntityRecord] = []
+    for row in rows:
+        payload: dict[str, Any] = json.loads(row["claim_json"])
+        payload["lineage"] = [
+            entry.model_dump(mode="json")
+            for entry in _lineage_at_boundary(
+                lineage_rows_for(ENTITY_KIND, row["entity_uri"], row["claim_id"]),
+                boundary=boundary,
+            )
+        ]
+        superseded_by, superseded_at = _supersession_as_of(row, boundary=boundary)
+        records.append(
+            EntityRecord(
+                claim_id=row["claim_id"],
+                claim=EntityClaim.model_validate(payload),
+                policy_bundle_version=row["policy_bundle_version"],
+                superseded_by=superseded_by,
+                superseded_at=superseded_at,
+            )
+        )
+    return tuple(records)
+
+
+def _relationship_records(
+    rows: Sequence[Row],
+    *,
+    lineage_rows_for: _LineageRowsFor,
+    boundary: datetime | None = None,
+) -> tuple[RelationshipRecord, ...]:
+    """Build relationship records from rows, rendering both boundary rules."""
+    records: list[RelationshipRecord] = []
+    for row in rows:
+        payload: dict[str, Any] = json.loads(row["claim_json"])
+        payload["lineage"] = [
+            entry.model_dump(mode="json")
+            for entry in _lineage_at_boundary(
+                lineage_rows_for(
+                    RELATIONSHIP_KIND, row["relationship_key"], row["claim_id"]
+                ),
+                boundary=boundary,
+            )
+        ]
+        superseded_by, superseded_at = _supersession_as_of(row, boundary=boundary)
+        records.append(
+            RelationshipRecord(
+                relationship_key=row["relationship_key"],
+                claim_id=row["claim_id"],
+                claim=RelationshipClaim.model_validate(payload),
+                policy_bundle_version=row["policy_bundle_version"],
+                superseded_by=superseded_by,
+                superseded_at=superseded_at,
+            )
+        )
+    return tuple(records)
+
+
+def materialize_view(
+    *,
+    entity_rows: Sequence[Row],
+    relationship_rows: Sequence[Row],
+    tenant_id: str,
+    as_of: datetime,
+    lineage_rows_for: _LineageRowsFor,
+) -> GraphView:
+    """Materialize an as-of ``GraphView`` from any Row-Protocol source.
+
+    The substrate-neutral core of the read path: rows in, ordered frozen
+    records out. ``entity_rows`` and ``relationship_rows`` are the claims
+    current at ``as_of`` under the row filter the *source* applied — the one
+    "as of" place a substrate can express natively. The other two places are
+    rendered here and only here: the lineage set via the lineage-at-boundary
+    rule (:func:`_lineage_at_boundary`) and the supersession edge via the
+    supersession-as-of rule (:func:`_supersession_as_of`), so no row source
+    can fork them (15.2-RESEARCH.md Pitfall 5).
+
+    Ordering is applied here, never trusted from the source (locked roadmap
+    constraint 3): entities by ``entity_uri``, relationships by
+    ``relationship_key`` — the :class:`ccf.graph.protocols.GraphView`
+    determinism contract. A source that answers rows in arbitrary order
+    materializes the same canonical bytes as one that answers them sorted.
+    The sort is stable, so a source that pre-sorts (the backends' as-of
+    ``ORDER BY``) renders byte-identically to what it rendered before this
+    core existed.
+
+    ``lineage_rows_for`` supplies one claim's lineage rows given
+    ``(kind, node_key, claim_id)``: the SQL client passes a closure over its
+    lineage statement; a dict-backed source passes an index lookup.
+
+    Graph-tier internal API: deliberately not exported via ``__all__`` and
+    absent from the public-surface manifest. Its callers are graph-tier
+    adapters inside ``ccf.graph``; the public read surface remains
+    :class:`ccf.graph.protocols.GraphReader`.
+    """
+    entities = _entity_records(
+        entity_rows, lineage_rows_for=lineage_rows_for, boundary=as_of
+    )
+    relationships = _relationship_records(
+        relationship_rows, lineage_rows_for=lineage_rows_for, boundary=as_of
+    )
+    return GraphView(
+        tenant_id=tenant_id,
+        as_of=as_of,
+        entities=tuple(
+            sorted(entities, key=lambda record: record.claim.entity_uri)
+        ),
+        relationships=tuple(
+            sorted(relationships, key=lambda record: record.relationship_key)
+        ),
+    )
+
+
 class BaseGraphReader:
     """The shared ``GraphReader`` implementation over any SQL backend.
 
@@ -76,7 +265,10 @@ class BaseGraphReader:
     A concrete backend supplies the five statements below in its own dialect
     and implements :meth:`_query`. Everything else — lineage set-union
     rendering, the supersession-as-of rule, record construction, view ordering
-    — is inherited, so the semantics cannot drift between substrates.
+    — lives in the module-level materialization core this class is one client
+    of, so the semantics cannot drift between substrates: the SQL layer
+    acquires rows and hands them to :func:`materialize_view` with a lineage
+    supplier closed over :attr:`SELECT_LINEAGE`.
     """
 
     #: Lineage entries for one claim, keyed on (tenant, kind, node, claim).
@@ -94,129 +286,21 @@ class BaseGraphReader:
         """Run one parameterized read and return its rows."""
         raise NotImplementedError
 
-    def _lineage(
-        self,
-        *,
-        tenant_id: str,
-        kind: str,
-        node_key: str,
-        claim_id: str,
-        boundary: datetime | None = None,
-    ) -> frozenset[LineageEntry]:
-        """Return the claim's lineage as it stood at ``boundary``.
+    def _lineage_rows_for(self, tenant_id: str) -> _LineageRowsFor:
+        """A lineage supplier closing over this reader's dialect and tenant.
 
-        L accumulates by set-union over a claim's life (INV-CH7-17), so a claim
-        current in March can pick up corroborating evidence in July. Under
-        INV-CH7-14 that evidence must not appear in a March view: an entry the
-        fabric had not received yet is future information exactly as a
-        later-superseding claim is. ``boundary`` of ``None`` means a history
-        read, where the whole accumulated set is the answer.
+        The one place SQL acquisition of lineage rows lives. What comes back
+        is *rows*, not lineage: the boundary rendering of those rows happens
+        in :func:`_lineage_at_boundary`, which this closure feeds and cannot
+        reimplement.
         """
-        rows = self._query(
-            self.SELECT_LINEAGE, (tenant_id, kind, node_key, claim_id)
-        )
-        entries = (
-            LineageEntry.model_validate(json.loads(row["entry_json"])) for row in rows
-        )
-        if boundary is None:
-            return frozenset(entries)
-        return frozenset(entry for entry in entries if entry.observed_at <= boundary)
 
-    @staticmethod
-    def _supersession_as_of(
-        row: Row, *, boundary: datetime | None
-    ) -> tuple[str | None, datetime | None]:
-        """Render the supersession edge as it stood at ``boundary``.
-
-        INV-CH7-14 is explicit that an as-of read re-renders the state the
-        fabric held at ``at``, and that *claims superseded later are still
-        current*. The row filter already keeps such a claim in the view; this
-        keeps its supersession edge out of it. Without this, a claim read as of
-        March would carry a pointer to the claim that replaced it in July —
-        future information, leaking through the one field the temporal filter
-        does not cover, and enough to change the content hash of a view that is
-        supposed to be identical to the one the decision saw.
-
-        ``boundary`` is ``None`` for history reads, where the whole supersession
-        chain is the answer being asked for.
-        """
-        superseded_at = parse_timestamp(row["superseded_at"])
-        if (
-            boundary is not None
-            and superseded_at is not None
-            and superseded_at > boundary
-        ):
-            return None, None
-        return row["superseded_by"], superseded_at
-
-    def _entity_records(
-        self,
-        rows: Sequence[Row],
-        *,
-        tenant_id: str,
-        boundary: datetime | None = None,
-    ) -> tuple[EntityRecord, ...]:
-        records: list[EntityRecord] = []
-        for row in rows:
-            payload: dict[str, Any] = json.loads(row["claim_json"])
-            payload["lineage"] = [
-                entry.model_dump(mode="json")
-                for entry in self._lineage(
-                    tenant_id=tenant_id,
-                    kind=ENTITY_KIND,
-                    node_key=row["entity_uri"],
-                    claim_id=row["claim_id"],
-                    boundary=boundary,
-                )
-            ]
-            superseded_by, superseded_at = self._supersession_as_of(
-                row, boundary=boundary
+        def rows_for(kind: str, node_key: str, claim_id: str) -> Sequence[Row]:
+            return self._query(
+                self.SELECT_LINEAGE, (tenant_id, kind, node_key, claim_id)
             )
-            records.append(
-                EntityRecord(
-                    claim_id=row["claim_id"],
-                    claim=EntityClaim.model_validate(payload),
-                    policy_bundle_version=row["policy_bundle_version"],
-                    superseded_by=superseded_by,
-                    superseded_at=superseded_at,
-                )
-            )
-        return tuple(records)
 
-    def _relationship_records(
-        self,
-        rows: Sequence[Row],
-        *,
-        tenant_id: str,
-        boundary: datetime | None = None,
-    ) -> tuple[RelationshipRecord, ...]:
-        records: list[RelationshipRecord] = []
-        for row in rows:
-            payload: dict[str, Any] = json.loads(row["claim_json"])
-            payload["lineage"] = [
-                entry.model_dump(mode="json")
-                for entry in self._lineage(
-                    tenant_id=tenant_id,
-                    kind=RELATIONSHIP_KIND,
-                    node_key=row["relationship_key"],
-                    claim_id=row["claim_id"],
-                    boundary=boundary,
-                )
-            ]
-            superseded_by, superseded_at = self._supersession_as_of(
-                row, boundary=boundary
-            )
-            records.append(
-                RelationshipRecord(
-                    relationship_key=row["relationship_key"],
-                    claim_id=row["claim_id"],
-                    claim=RelationshipClaim.model_validate(payload),
-                    policy_bundle_version=row["policy_bundle_version"],
-                    superseded_by=superseded_by,
-                    superseded_at=superseded_at,
-                )
-            )
-        return tuple(records)
+        return rows_for
 
     def as_of(self, *, tenant_id: str, at: datetime) -> GraphView:
         """Return the state ``tenant_id``'s graph held at observed-time ``at``."""
@@ -227,15 +311,12 @@ class BaseGraphReader:
         relationship_rows = self._query(
             self.SELECT_RELATIONSHIPS_AS_OF, (tenant_id, boundary, boundary)
         )
-        return GraphView(
+        return materialize_view(
+            entity_rows=entity_rows,
+            relationship_rows=relationship_rows,
             tenant_id=tenant_id,
             as_of=at,
-            entities=self._entity_records(
-                entity_rows, tenant_id=tenant_id, boundary=at
-            ),
-            relationships=self._relationship_records(
-                relationship_rows, tenant_id=tenant_id, boundary=at
-            ),
+            lineage_rows_for=self._lineage_rows_for(tenant_id),
         )
 
     def entity_history(
@@ -243,7 +324,9 @@ class BaseGraphReader:
     ) -> tuple[EntityRecord, ...]:
         """Return every claim ever made about ``entity_uri``, oldest first."""
         rows = self._query(self.SELECT_ENTITY_HISTORY, (tenant_id, entity_uri))
-        return self._entity_records(rows, tenant_id=tenant_id)
+        return _entity_records(
+            rows, lineage_rows_for=self._lineage_rows_for(tenant_id)
+        )
 
     def relationship_history(
         self, *, tenant_id: str, relationship_key: str
@@ -252,4 +335,6 @@ class BaseGraphReader:
         rows = self._query(
             self.SELECT_RELATIONSHIP_HISTORY, (tenant_id, relationship_key)
         )
-        return self._relationship_records(rows, tenant_id=tenant_id)
+        return _relationship_records(
+            rows, lineage_rows_for=self._lineage_rows_for(tenant_id)
+        )
