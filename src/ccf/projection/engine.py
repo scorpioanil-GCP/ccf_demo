@@ -3,13 +3,27 @@
 Whitepaper §7.4–§7.5; DESIGN.md §2B.1 (planner) and §2B.2 (two-stage
 execution).
 
-**Stage 1 — what is true.** The engine performs the fabric's single as-of read
-and hands the plan's declared operator keys to
-:func:`ccf.operators.planner.build_operator_plan`, which resolves them against
-the registry and imposes the canonical dependency order. The engine then runs
-that sequence through a per-execution
-:class:`~ccf.operators.planner.IntermediateCache`, threading each intermediate
-into the next and accumulating the provenance chain. This stage is
+**Stage 1 — what is true.** The engine hands the plan's declared operator keys
+to :func:`ccf.operators.planner.build_operator_plan`, which resolves them
+against the registry and imposes the canonical dependency order — then splits
+that sequence at its non-pushable boundaries
+(:func:`ccf.projection.segmentation.segment_plan`) and issues **one
+``reader.query()`` per pushable segment** (`GQ-14` at
+docs/GRAPH_QUERY_SEMANTICS.md:289; the `D-IMPL-87` at docs/DECISIONS.md:290
+resolution). Each pushed segment's operators are then **re-applied** over the
+segment's answer through the per-execution
+:class:`~ccf.operators.planner.IntermediateCache` — sound because the answer
+is a fixed point of its own operators (`GQ-19` at
+docs/GRAPH_QUERY_SEMANTICS.md:356), and required because every provenance
+fact the engine records is execution-derived, never plan-side prediction.
+In-process segments run over the current view exactly as before, and the
+entity URIs they leave behind become the next pushed segment's
+``allowed_entities`` under the uniform rule (`GQ-15` at
+docs/GRAPH_QUERY_SEMANTICS.md:300, `GQ-17` at
+docs/GRAPH_QUERY_SEMANTICS.md:330). When a survivor set exceeds the
+Control-Plane-valued cap (D-10; ``survivor_cap``, default ``None`` = no cap),
+the segment runs in-process instead of pushing — semantically identical and
+free, per `GQ-18` at docs/GRAPH_QUERY_SEMANTICS.md:342. This stage is
 principal-agnostic, which is exactly why memoizing it is sound (D-IMPL-36, I.1
 scope: per-execution only).
 
@@ -41,9 +55,14 @@ from datetime import datetime
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
-from ccf.graph.protocols import GraphReader, GraphView
+from ccf.graph.protocols import GraphQuery, GraphReader, GraphView
 from ccf.operators.base import OperatorOutput, OperatorProvenance
 from ccf.operators.planner import IntermediateCache, build_operator_plan
+from ccf.projection.segmentation import (
+    PushableSegment,
+    compile_segment_query,
+    segment_plan,
+)
 from ccf.operators.registry import (
     DuplicateOperatorKey,
     OperatorRegistry,
@@ -111,6 +130,15 @@ class ExecutionResult(CCFContract):
             rather than re-acquiring** (INV-CH7-31), because a remote resource
             that moved between the decision and the replay would otherwise make
             the replay a new decision wearing the old one's identifier.
+        executed_queries: The ``GraphQuery`` values the segmented loop issued,
+            **in execution order** — appended at each ``reader.query()`` call
+            site, never predicted from the plan, so the sequence records what
+            ran (`GQ-20` at docs/GRAPH_QUERY_SEMANTICS.md:391). A cap firing
+            is visible here as an absent entry (`GQ-18` at
+            docs/GRAPH_QUERY_SEMANTICS.md:342). Sentinel-defaulted to the
+            empty tuple; plan 15.2-08 threads the per-round-trip
+            ``content_hash`` pins from this field into the Decision Replay
+            record (D-11) — this contract adds no record field itself.
     """
 
     plan_id: str
@@ -120,6 +148,7 @@ class ExecutionResult(CCFContract):
     projection: ProjectionOutput
     view: GraphView
     acquisitions: tuple[AcquiredContent, ...] = ()
+    executed_queries: tuple[GraphQuery, ...] = ()
 
     def touched_entities(self) -> tuple[str, ...]:
         """Entity URIs the execution actually touched, sorted."""
@@ -155,6 +184,17 @@ class ProjectionEngine:
             structural rather than convenient: **a replay constructs the engine
             without one** and re-feeds the recorded acquisitions, so an engine
             that could always reach the network would make replay a live call.
+        survivor_cap: The survivor-set size cap of `GQ-18` at
+            docs/GRAPH_QUERY_SEMANTICS.md:342 (D-10). **Mechanism only** —
+            the value is Control Plane configuration, and the default is
+            ``None`` = no cap, the SDK's posture: a threshold constant in
+            ``/src`` would be a domain value (CLAUDE.md §11). When a
+            post-in-process segment's survivor count exceeds the cap, the
+            engine runs that segment's operators in-process over the
+            surviving view instead of pushing — always sound, no extra
+            substrate read, and visible in the executed query sequence.
+            Plan 15.2-08 wires the deployment-manifest field and pins the
+            value in force into replay dimension 2.
     """
 
     def __init__(
@@ -163,10 +203,48 @@ class ProjectionEngine:
         reader: GraphReader,
         registry: OperatorRegistry,
         acquirer: ContentAcquirer | None = None,
+        survivor_cap: int | None = None,
     ) -> None:
         self._reader = reader
         self._registry = registry
         self._acquirer = acquirer
+        self._survivor_cap = survivor_cap
+        self._last_survivor_set_sizes: tuple[int, ...] = ()
+
+    @property
+    def last_survivor_set_sizes(self) -> tuple[int, ...]:
+        """Survivor-set sizes at each in-process → pushable boundary — telemetry.
+
+        The D-10 locked sub-clause ("pushed-vs-scanned telemetry additionally
+        reports set sizes"), implemented at the engine because the survivor
+        set exists only here: a capped segment issues no query, so a
+        reader-level counter could never observe it. One entry per
+        in-process → pushable segment boundary of the **most recent**
+        :meth:`execute`, in execution order, recorded whether the following
+        segment pushed or the cap ran it in-process — the size is the same
+        number either way; which happened is visible in the query count of
+        ``ExecutionResult.executed_queries``. Empty before the first
+        ``execute()`` and for plans with no such boundary (no-Similarity and
+        fully-pushable plans).
+
+        Three deliberate postures:
+
+        * **Per-execution, reset at each ``execute()`` start** — a contrast
+          with the monotonic per-instance
+          :attr:`ccf.graph.reader.BaseGraphReader.translated_answers` /
+          :attr:`ccf.graph.reader.BaseGraphReader.fallback_answers`
+          counters: those attribute answers over a reader's lifetime; this
+          reports one execution's boundaries, replaced (never appended to)
+          by the next.
+        * **Outside the replay record** — performance is never a replay
+          input (D-04, `GQ-34` at docs/GRAPH_QUERY_SEMANTICS.md:609); the
+          plan 15.2-08 no-telemetry pin covers this field too.
+        * **Report-only** — no threshold logic and no comparison against
+          ``survivor_cap`` lives here (mechanism, not values, CLAUDE.md
+          §11); the cap decision happens only at the segment decision point
+          inside :meth:`execute`.
+        """
+        return self._last_survivor_set_sizes
 
     def _resolve_content(
         self,
@@ -233,16 +311,34 @@ class ProjectionEngine:
         """Execute ``plan`` for ``perspective`` as of ``temporal_boundary``.
 
         ``temporal_boundary`` is supplied by the caller and threaded into every
-        operator. Nothing in this path reads a clock (04-RESEARCH.md
-        anti-patterns): a replay feeds the boundary the original decision used
-        and gets the original answer.
+        operator and into every issued query's ``as_of``. Nothing in this path
+        reads a clock (04-RESEARCH.md anti-patterns): a replay feeds the
+        boundary the original decision used and gets the original answer.
+
+        **The segmented loop** (`GQ-14` at docs/GRAPH_QUERY_SEMANTICS.md:289).
+        The plan splits into the pushed/in-process alternation and the engine
+        issues one ``reader.query()`` per pushed segment, appending each query
+        to the executed sequence **at the call site** — execution order, what
+        ran, never what the plan predicted (`GQ-20` at
+        docs/GRAPH_QUERY_SEMANTICS.md:391). A pushed segment's operators are
+        re-applied over the segment's answer to derive execution-side
+        provenance; the re-application is guaranteed to reproduce the answer
+        because the answer is a fixed point of its own operators (`GQ-19` at
+        docs/GRAPH_QUERY_SEMANTICS.md:356). After each in-process segment the
+        surviving entity URIs become the next pushed segment's
+        ``allowed_entities`` (`GQ-17` at docs/GRAPH_QUERY_SEMANTICS.md:330);
+        when the survivor count exceeds ``survivor_cap`` (D-10, Control
+        Plane-valued), that segment runs in-process over the surviving view
+        instead — no query issued, byte-identical by `GQ-18` at
+        docs/GRAPH_QUERY_SEMANTICS.md:342.
 
         **Stage order is load-bearing.** Acquisition runs *after* the operator
         plan and *before* Π. Policy is an operator, so by the time anything is
         fetched the view has already been constrained for this principal, and
         nothing is acquired on behalf of a principal Policy excluded — the
         INV-CH7-26 ordering argument applied to acquisition. Running the fetch
-        first would be cheaper and would be exactly wrong.
+        first would be cheaper and would be exactly wrong. Segmentation is
+        internal to the operator stage and does not reorder around it.
 
         Args:
             recorded_acquisitions: Content a prior execution recorded. Supplied
@@ -259,33 +355,87 @@ class ProjectionEngine:
             ContentUnsatisfied: a declared request came back unsatisfied, or a
                 re-fed item does not match its recorded content address.
         """
-        view = self._reader.as_of(tenant_id=tenant_id, at=temporal_boundary)
         operator_plan = build_operator_plan(
             registry=self._registry, required_operators=plan.required_operators()
         )
+        segmented = segment_plan(operator_plan.operators)
+        operators_by_key = {
+            operator.key: operator for operator in operator_plan.operators
+        }
         cache = IntermediateCache()
         outputs: dict[str, OperatorOutput] = {}
         steps: list[ExecutionStep] = []
         chain: tuple[OperatorProvenance, ...] = ()
+        executed_queries: list[GraphQuery] = []
+        survivor_sizes: list[int] = []
+        self._last_survivor_set_sizes = ()
+        survivors: frozenset[str] | None = None
+        view: GraphView | None = None
 
-        for operator in operator_plan.operators:
-            output = cache.run(
-                operator,
-                view=view,
-                tenant_id=tenant_id,
-                temporal_boundary=temporal_boundary,
-                upstream=chain,
-            )
-            view = output.view
-            outputs[operator.key] = output
-            chain = (output.provenance,)
-            steps.append(
-                ExecutionStep(
-                    operator_key=operator.key,
-                    category=operator.category,
-                    parameter_hash=output.provenance.parameter_hash,
+        def run_operators(
+            operator_keys: tuple[str, ...], current: GraphView
+        ) -> GraphView:
+            """Run one segment's operators over ``current``, recording what ran."""
+            nonlocal chain
+            for key in operator_keys:
+                operator = operators_by_key[key]
+                output = cache.run(
+                    operator,
+                    view=current,
+                    tenant_id=tenant_id,
+                    temporal_boundary=temporal_boundary,
+                    upstream=chain,
                 )
-            )
+                current = output.view
+                outputs[operator.key] = output
+                chain = (output.provenance,)
+                steps.append(
+                    ExecutionStep(
+                        operator_key=operator.key,
+                        category=operator.category,
+                        parameter_hash=output.provenance.parameter_hash,
+                    )
+                )
+            return current
+
+        for segment in segmented.segments:
+            if isinstance(segment, PushableSegment):
+                if survivors is not None:
+                    # The D-10 set-size report: one entry per in-process →
+                    # pushable boundary, whether or not the cap fires below.
+                    survivor_sizes.append(len(survivors))
+                    self._last_survivor_set_sizes = tuple(survivor_sizes)
+                if (
+                    survivors is not None
+                    and self._survivor_cap is not None
+                    and len(survivors) > self._survivor_cap
+                ):
+                    # GQ-18: above cap the segment runs in-process over the
+                    # surviving view — no query issued, nothing appended; the
+                    # executed sequence shows what ran.
+                    assert view is not None  # noqa: S101 - survivors imply a prior view
+                    view = run_operators(segment.operator_keys, view)
+                else:
+                    query = compile_segment_query(
+                        segment,
+                        tenant_id=tenant_id,
+                        as_of=temporal_boundary,
+                        seeds=None,
+                        allowed_entities=survivors,
+                    )
+                    view = self._reader.query(query)
+                    # Appended at the call site: execution order, never
+                    # plan-side prediction (GQ-20).
+                    executed_queries.append(query)
+                    view = run_operators(segment.operator_keys, view)
+            else:
+                assert view is not None  # noqa: S101 - segments open with a pushable segment
+                view = run_operators(segment.operator_keys, view)
+                survivors = frozenset(
+                    record.claim.entity_uri for record in view.entities
+                )
+
+        assert view is not None  # noqa: S101 - the opening segment always produced a view
 
         acquisitions: tuple[AcquiredContent, ...] = ()
         if isinstance(plan, ContentAcquiringPlan):
@@ -319,4 +469,5 @@ class ProjectionEngine:
             projection=projection,
             view=view,
             acquisitions=acquisitions,
+            executed_queries=tuple(executed_queries),
         )

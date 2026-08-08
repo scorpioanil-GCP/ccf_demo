@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**299 entries**, of which **84** name a public Python surface.
+**313 entries**, of which **98** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-96 entries — 68 public Python surface, 28 not public Python API.
+104 entries — 76 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -1517,6 +1517,131 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.2-06-memory-backend.md`.*
 
+#### ccf.operators.base.read_intent_of
+
+- Surface: ccf.operators.base.read_intent_of
+- Public surface: true
+- Change type: added
+- Before: absent — nothing could ask an operator whether its `apply()` has a
+  substrate rendering
+- After: `read_intent_of(operator) -> QueryFragment | None` — the one
+  sanctioned probe for the optional pushability capability; `None` for any
+  operator that does not implement it
+- Why: D-03 rules that operators declare pushability from `self.parameters`
+  alone; centralizing the probe keeps the segment split one function of the
+  plan (`GQ-14`), never a caller-by-caller `hasattr` convention
+- Migration: new surface — none; custom operators may optionally implement
+  `read_intent()`
+
+*Recorded by `15.2-07-read-intent-segmentation.md`.*
+
+#### ccf.operators.base.PushableOperator
+
+- Surface: ccf.operators.base.PushableOperator
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `runtime_checkable` Protocol declaring
+  `read_intent() -> QueryFragment | None`, separate from `Operator` so
+  pre-D-03 operators still satisfy the operator contract unchanged
+- Why: the capability is optional by design (D-03); a new required member on
+  `Operator` would break every existing third-party operator
+- Migration: new surface — none; implement it to make a custom operator
+  pushable without any SDK change
+
+*Recorded by `15.2-07-read-intent-segmentation.md`.*
+
+#### ccf.projection.segmentation.segment_plan
+
+- Surface: ccf.projection.segmentation.segment_plan
+- Public surface: true
+- Change type: added
+- Before: absent — no plan-splitting mechanism existed; the engine performed
+  a single everything-read
+- After: `segment_plan(operators) -> SegmentedPlan` — pure (no reader, no
+  clock, no I/O): maximal runs of fragment-declaring operators form pushable
+  segments, `None`-intent runs form in-process segments, and every
+  alternation opens with a pushable segment (the implicit degenerate
+  everything-question when nothing pushable leads, `GQ-05`)
+- Why: the D-IMPL-87 resolution — the split is a function of the plan, never
+  the substrate (`GQ-14`), so round-trip count and provenance are identical
+  on every adapter
+- Migration: new surface — none
+
+*Recorded by `15.2-07-read-intent-segmentation.md`.*
+
+#### ccf.projection.segmentation.compile_segment_query
+
+- Surface: ccf.projection.segmentation.compile_segment_query
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `compile_segment_query(segment, *, tenant_id, as_of, seeds,
+  allowed_entities) -> GraphQuery` — field-wise fragment union (`GQ-06`)
+  onto the mandatory fields plus the engine-authored segment-boundary data
+  (`GQ-04`, `GQ-17`)
+- Why: one compilation site keeps the union rule and the
+  survivors-as-`allowed_entities` threading un-forkable
+- Migration: new surface — none
+
+*Recorded by `15.2-07-read-intent-segmentation.md`.*
+
+#### ccf.projection.segmentation.PushableSegment
+
+- Surface: ccf.projection.segmentation.PushableSegment
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: frozen value — one maximal pushable run: `operator_keys` +
+  positionally aligned `fragments`
+- Why: the segmentation's declarative face; the engine re-applies exactly
+  these operators over the segment's answer (`GQ-19`)
+- Migration: new surface — none
+
+*Recorded by `15.2-07-read-intent-segmentation.md`.*
+
+#### ccf.projection.segmentation.InProcessSegment
+
+- Surface: ccf.projection.segmentation.InProcessSegment
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: frozen value — one maximal `None`-intent run; the view it leaves
+  behind defines the survivors of `GQ-17`
+- Why: as above
+- Migration: new surface — none
+
+*Recorded by `15.2-07-read-intent-segmentation.md`.*
+
+#### ccf.projection.segmentation.SegmentedPlan
+
+- Surface: ccf.projection.segmentation.SegmentedPlan
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: frozen value holding the ordered alternation; invariant: opens
+  pushable, strictly alternates
+- Why: as above
+- Migration: new surface — none
+
+*Recorded by `15.2-07-read-intent-segmentation.md`.*
+
+#### ccf.projection.segmentation.FragmentFamilyConflict
+
+- Surface: ccf.projection.segmentation.FragmentFamilyConflict
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ValueError` raised at plan compilation when two fragments in one
+  segment claim the same predicate family (`GQ-06` — refused, never merged)
+- Why: a merge rule would silently decide which operator's parameters win,
+  and a decided-by-accident parameter set cannot be replayed against an
+  intent; an exception because a colliding plan is a broken deployment, not
+  an expected outcome
+- Migration: new surface — none
+
+*Recorded by `15.2-07-read-intent-segmentation.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -1950,7 +2075,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-188 entries — 5 public Python surface, 183 not public Python API.
+190 entries — 7 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -2087,6 +2212,49 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   connection argument
 
 *Recorded by `15.2-06-memory-backend.md`.*
+
+#### ccf.projection.engine.ProjectionEngine
+
+- Surface: ccf.projection.engine.ProjectionEngine
+- Public surface: true
+- Change type: reshaped
+- Before: constructor `(reader, registry, acquirer)`; `execute()` performed
+  one `reader.as_of()` everything-read and ran all operators in-process
+- After: constructor gains keyword-only `survivor_cap: int | None = None`
+  (D-10 — mechanism only; the value is Control Plane configuration, wired in
+  plan 15.2-08) and a `last_survivor_set_sizes: tuple[int, ...]` telemetry
+  property (per-execution, reset at `execute()` start, deliberately outside
+  the replay record, report-only). `execute()` — public signature unchanged
+  — now splits the plan and issues one `reader.query()` per pushable
+  segment, re-applying each pushed segment's operators over its answer
+  (`GQ-19`) and threading survivors as `allowed_entities` (`GQ-15`)
+- Why: the D-IMPL-87 resolution's execution design: per-segment questions
+  instead of the everything-read, with the resurrection defect closed at
+  the seam and the cap decision Control-Plane-valued (D-10)
+- Migration: none — every product, provenance chain, and gate outcome is
+  byte-identical to the pre-segmentation path (pinned for both plan shapes
+  in `tests/projection/test_segmentation.py`); constructing with the
+  default `survivor_cap=None` preserves the no-cap posture
+
+*Recorded by `15.2-07-read-intent-segmentation.md`.*
+
+#### ccf.projection.engine.ExecutionResult
+
+- Surface: ccf.projection.engine.ExecutionResult
+- Public surface: true
+- Change type: reshaped
+- Before: no record of the substrate questions an execution asked
+- After: gains sentinel-defaulted `executed_queries: tuple[GraphQuery, ...]
+  = ()` — the issued queries in execution order, appended at each
+  `reader.query()` call site (`GQ-20`); a cap firing is visible as an
+  absent entry
+- Why: plan 15.2-08 threads the per-round-trip `content_hash` pins from
+  this field into the Decision Replay record (D-11) without reshaping the
+  loop; the engine records what ran, never what the plan predicted
+- Migration: none — the field defaults to the empty tuple; existing
+  consumers of `ExecutionResult` are unchanged
+
+*Recorded by `15.2-07-read-intent-segmentation.md`.*
 
 ### Not public Python API
 
@@ -4365,7 +4533,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-15 entries — 11 public Python surface, 4 not public Python API.
+19 entries — 15 public Python surface, 4 not public Python API.
 
 ### Public Python surface
 
@@ -4662,6 +4830,66 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none — existing replay callers are unchanged
 
 *Recorded by `15.2-05-query-seam-open.md`.*
+
+#### ccf.operators.categories.PolicyFilter.read_intent
+
+- Surface: ccf.operators.categories.PolicyFilter.read_intent
+- Public surface: true
+- Change type: behavior
+- Before: absent — the policy operator had no declared substrate rendering
+- After: returns the policy-family `QueryFragment`
+  (`permitted_policy_bundle_versions`, `classification_attribute_by_class`,
+  `permitted_classifications`), a field-for-field projection of its
+  parameter contract (`GQ-02`/`GQ-08`)
+- Why: D-03 — the pushed admissibility predicate must mirror `_admits`
+  exactly; the per-operator equivalence property in
+  `tests/conformance/test_substrate_properties.py` pins the mirror
+- Migration: none — `apply()` is byte-identical
+
+*Recorded by `15.2-07-read-intent-segmentation.md`.*
+
+#### ccf.operators.categories.TemporalAsOf.read_intent
+
+- Surface: ccf.operators.categories.TemporalAsOf.read_intent
+- Public surface: true
+- Change type: behavior
+- Before: absent
+- After: returns the temporal-family `QueryFragment`
+  (`require_valid_at_boundary`); the as-of cut itself rides the mandatory
+  `GraphQuery.as_of` (`GQ-07`/`GQ-09`)
+- Why: D-03, as above
+- Migration: none — `apply()` is byte-identical
+
+*Recorded by `15.2-07-read-intent-segmentation.md`.*
+
+#### ccf.operators.categories.TraversalNeighborhood.read_intent
+
+- Surface: ccf.operators.categories.TraversalNeighborhood.read_intent
+- Public surface: true
+- Change type: behavior
+- Before: absent
+- After: returns a traverse-family `QueryFragment` carrying a
+  `TraversalSpec` built from `seed_entity_classes` / `relationship_types` /
+  `depth_limit` (`GQ-10`); never seeds, never `allowed_entities` (`GQ-06`)
+- Why: D-03, as above
+- Migration: none — `apply()` is byte-identical
+
+*Recorded by `15.2-07-read-intent-segmentation.md`.*
+
+#### ccf.operators.categories.SimilaritySelect.read_intent
+
+- Surface: ccf.operators.categories.SimilaritySelect.read_intent
+- Public surface: true
+- Change type: behavior
+- Before: absent
+- After: returns `None`, full stop — Similarity consults an injected
+  `SimilarityIndexProtocol` the substrate does not hold and is never
+  pushable (D-03; the Phase 15.2 Deferred-Ideas ruling)
+- Why: making Similarity pushable is a decision reversal, not an
+  optimization; the pushability-matrix pin fails a drive-by change by name
+- Migration: none
+
+*Recorded by `15.2-07-read-intent-segmentation.md`.*
 
 ### Not public Python API
 

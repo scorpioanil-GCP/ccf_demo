@@ -41,7 +41,7 @@ from typing import Literal, Protocol, runtime_checkable
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
-from ccf.graph.protocols import GraphView
+from ccf.graph.protocols import GraphView, QueryFragment
 
 __ccf_mode__ = "algorithmic"
 
@@ -52,7 +52,9 @@ __all__ = [
     "OperatorOutput",
     "OperatorParameters",
     "OperatorProvenance",
+    "PushableOperator",
     "mint_provenance",
+    "read_intent_of",
 ]
 
 OperatorCategory = Literal["policy", "similarity", "temporal", "traversal"]
@@ -154,6 +156,56 @@ class Operator(Protocol):
         it is frozen).
         """
         ...
+
+
+@runtime_checkable
+class PushableOperator(Protocol):
+    """The optional pushability capability of an operator (D-03) — SDK-defined.
+
+    An SDK extension beyond the whitepaper, labeled per CLAUDE.md §11: the
+    whitepaper commits to operators as typed, pure computations (§7.4); the
+    convention by which an operator *declares* the substrate question its
+    ``apply()`` renders is Phase 15.2 mechanism — the `D-IMPL-87` at
+    docs/DECISIONS.md:290 resolution's operator seam.
+
+    This is deliberately a *separate* Protocol rather than a new member of
+    :class:`Operator`: an existing third-party operator that never heard of
+    pushdown still satisfies :class:`Operator` unchanged, still registers, and
+    still executes — it simply contributes no fragment, and the engine
+    materializes for its segment instead. :func:`read_intent_of` is the one
+    sanctioned way to ask, so no caller ever hand-rolls the ``hasattr`` probe.
+    """
+
+    def read_intent(self) -> QueryFragment | None:
+        """The fragment this operator's ``apply()`` renders, or ``None``.
+
+        Must be computed from ``self.parameters`` alone — no view, no data, no
+        clock (D-03): pushability is a property of the *declared intent*, so
+        the segment structure stays a pure function of the plan (`GQ-14` at
+        docs/GRAPH_QUERY_SEMANTICS.md:289). ``None`` means not pushable — a
+        positive statement, never a failure. A fragment carries at most one
+        predicate family and never seeds or ``allowed_entities`` (`GQ-06` at
+        docs/GRAPH_QUERY_SEMANTICS.md:132). The named hazard of this seam —
+        ``read_intent()`` and ``apply()`` diverging — is pinned by the
+        per-operator equivalence property in
+        ``tests/conformance/test_substrate_properties.py``.
+        """
+        ...
+
+
+def read_intent_of(operator: Operator) -> QueryFragment | None:
+    """Return ``operator``'s declared read intent, or ``None`` (D-03).
+
+    The one place the optional-capability probe lives: an operator that
+    implements :class:`PushableOperator` answers for itself; one that does not
+    is not pushable, which is an answer, not an error. Centralized for the
+    same reason :func:`mint_provenance` is — two probes could disagree about
+    what "declares pushability" means, and the segment split (`GQ-14` at
+    docs/GRAPH_QUERY_SEMANTICS.md:289) must be one function of the plan.
+    """
+    if isinstance(operator, PushableOperator):
+        return operator.read_intent()
+    return None
 
 
 def mint_provenance(
