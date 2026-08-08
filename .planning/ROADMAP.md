@@ -631,10 +631,13 @@ Plans:
 
 ### Phase 15.3: Fluree Adapter (Tier-1 Substrate) (INSERTED)
 
-**Status**: inserted 2026-08-07 by D-IMPL-88 (Dave); not yet discussed or
-planned. The goal and constraints below are Dave's ruling plus the feasibility
-research (`.planning/research/FLUREE-ADAPTER.md`), recorded at insertion;
-success criteria and requirement IDs are `/gsd:discuss-phase 15.3`'s to write.
+**Status**: inserted 2026-08-07 by D-IMPL-88 (Dave); **discussed 2026-08-08**
+(12 locked decisions D-01..D-12, ratifying D-IMPL-88 precondition (b)) and
+**planned 2026-08-08** (five plans, five waves). The goal and the constraints
+below are Dave's ruling plus the feasibility research
+(`.planning/research/FLUREE-ADAPTER.md`), recorded at insertion; the success
+criteria and requirement IDs below were written at planning against
+`15.3-CONTEXT.md`, `15.3-RESEARCH.md` and `D-IMPL-92`.
 
 **Goal**: CCF's Context Graph runs on Fluree v4 through the Phase 15.2 seams —
 a tier-1 storage adapter answering `GraphQuery` with pushed openCypher and
@@ -682,12 +685,71 @@ CCF's graph.
   as predicate (SQL multi-tenant posture); exact image pin (breaking changes
   have shipped inside a minor); container-gated CI leg per the 15.2 pattern.
 
-**Effort shape (research estimate):** one plan-pair of 15.2-12/13's size —
-two to three tasks, one wave. Read side cheaper than Neo4j (no package, no
-extra, no lazy-import machinery); write side harder (~1.5–2× `_Neo4jTxn` for
-the buffered-batch path).
+**Effort shape (revised at planning, 2026-08-08).** The insertion-time estimate
+(one plan-pair, two to three tasks, one wave) was revised **upward on the
+stage-2 side** by the phase research and held on the read side. Packaging is
+near zero (httpx is a core pin; one pytest marker; no extra, no mypy override,
+no lazy import). The store envelope is comparable to Neo4j's. `_FlureeTxn` is
+~1.5–2× `_Neo4jTxn`. **Stage-1 read translation is NOT nearly verbatim** — the
+policy family cannot use dynamic property access and the 1 MB query-body cap
+needs a byte-budget decline. **Stage 2 is the hardest single piece in the
+phase**: three Fluree-specific structural breaks require an adapter-internal
+physical-model change (edge-as-node interposition), and the openCypher
+front-end is six weeks old at the pin. Five plans, five waves, strictly
+sequential.
 
-**Requirements**: TBD at discuss/planning.
+**Success Criteria** (what must be TRUE):
+
+  1. The four probes that fail *silently* — F-A1 container round trip, F-A4
+     ground-batch semantics, F-A5 zero datatype coercion, F-A6 dynamic property
+     access — run against the pinned `fluree/server:4.1.4` **before any code
+     depends on them**, and the two that fail *loudly* (F-A2, F-A3) run before
+     any stage-2 promotion code
+  2. A fabric boots against Fluree v4 with no extra installed, writes through L2
+     as one buffered ground JSON-LD POST, and reports **12 passed** on the
+     unchanged `tests/conformance/test_graphstore.py` under `-m fluree`
+  3. The `fluree` param answers the **unchanged** differential corpus
+     byte-identically against the audited fallback oracle, and the push is
+     proven by discriminating `translated_answers`/`fallback_answers` telemetry
+     that has been watched to fail — not by byte-identity a degrade would also
+     satisfy
+  4. Stage 2 either promotes at byte-identity over the full corpus with the
+     depth 0/1/2/3 doubling asserted first, **or** ships stage 1 with a
+     maintained `DI-15.3-NN` entry — both satisfy SUBQ-12 under its stage hedge
+  5. `make gate-15.3` implements `D-IMPL-92` as corrected, has been watched to
+     exit non-zero on three distinct violations, and the gate package is
+     committed with the phase — including its own stated limits
+  6. The `fluree` leg is a fourth **always-on, blocking** service leg in
+     `ci.yml` pinned to `4.1.4` exactly, with a scheduled `live-legs.yml` drift
+     job against the floating `4.1`, and `docs/GRAPH_QUERY_SEMANTICS.md`,
+     `perf/baselines/` and `perf/thresholds.toml` byte-untouched across the
+     whole phase
+
+**Requirements**: SUBQ-12, SUBQ-13, SUBQ-14
+
+**Plans:** 5 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 15.3-01-PLAN.md — Probes F-A1/F-A4/F-A5/F-A6 before any dependent code, the `fluree` marker/fixture/`leg-fluree` plumbing, and the F-A4(a) ruling gate (checkpoint)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 15.3-02-PLAN.md — `FlureeGraphStore` envelope, `_FlureeTxn`/`FlureeGraphWriter` buffered-batch write path, Tier-B registration, and the six write semantics green
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 15.3-03-PLAN.md — Stage-1 non-traverse pushdown, the differential param, the fourth always-on CI leg, and the falsification-tested pushdown telemetry
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 15.3-04-PLAN.md — F-A2/F-A3, the interposed bounded undirected walk with depth 0/1/2/3 asserted, and promotion at byte-identity or a recorded stage-1 degrade
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 15.3-05-PLAN.md — `make gate-15.3` implementing D-IMPL-92 (checkpoint), the scheduled drift detector, and the committed gate package
 
 ### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
 
