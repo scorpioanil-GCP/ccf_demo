@@ -121,6 +121,7 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Sequence
 from http import HTTPStatus
 from types import TracebackType
@@ -314,6 +315,54 @@ MAX_QUERY_BODY_BYTES = 900_000
 #: ceiling is still answered by the fallback (D-04); the ceiling bounds Cypher
 #: text, never the query vocabulary.
 MAX_DEPTH_CEILING = 100
+
+
+#: The charset an artifact-authored attribute name must satisfy before it may
+#: become a Fluree **predicate**. See :func:`attribute_predicate`.
+_ATTRIBUTE_NAME = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def attribute_predicate(attribute: str) -> str | None:
+    """The ONE site where an artifact-authored attribute name becomes an IRI.
+
+    The Fluree twin of
+    :func:`ccf.graph.backends.mongo.attribute_field_path` (threat T-15.2-01),
+    and the reason this adapter needs one at all despite the module docstring's
+    "no artifact-authored string ever occupies an IRI position" rule.
+
+    ``EntityClaim.attributes`` is typed ``Mapping[str, str]`` and documented as
+    *"an opaque, deployment-defined attribute map — the SDK never enumerates
+    its keys"*, so an attribute **name** is arbitrary artifact-authored text.
+    Everywhere else in this adapter such text travels as a *value*, where it is
+    inert. Here it cannot: a projected attribute is addressed by its
+    **predicate**, and the strict compact-IRI guard applies to predicate
+    positions. A name containing ``:`` reads as a compact IRI whose prefix is
+    undefined and Fluree **rejects the whole transaction at parse time** — so
+    an ungated projection would refuse admission of a perfectly legal CCF
+    claim, and would do it to the entire buffered batch rather than to the one
+    attribute.
+
+    A name is therefore admitted only when it matches ``^[A-Za-z0-9_-]+$``,
+    which excludes ``:`` and ``.`` by construction rather than by a blocklist,
+    and the answer is the prefixed predicate. A name outside the charset
+    returns ``None`` and is simply not projected. **Nothing is lost and no
+    predicate is weakened:**
+
+    * ``claim_json`` still carries the attribute verbatim, and the fallback
+      reads it from there (D-04 — the answer is identical, the path differs);
+    * the policy family does not depend on this projection at all. Probe F-A6
+      established that ``c[$key]`` dynamic property access fails *silently* on
+      this engine, so the classification cut is pushed as membership over the
+      multi-valued :data:`P_POLICY_KEY` instead — and a policy key is a
+      **literal value** encoding ``(class, attribute, value)``, which is safe
+      for every attribute name including the ones refused here.
+
+    So unlike the Mongo rule, refusing a name here costs no pushdown on the
+    predicate family that actually matters.
+    """
+    if _ATTRIBUTE_NAME.fullmatch(attribute) is None:
+        return None
+    return ATTRIBUTE_PROPERTY_PREFIX + attribute
 
 
 class FlureeTransactionTooLarge(RuntimeError):
