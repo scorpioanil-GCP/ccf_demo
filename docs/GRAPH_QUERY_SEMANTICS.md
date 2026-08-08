@@ -1,6 +1,6 @@
 # Graph Query Semantics
 
-**Semantics version: 1.0.0** — the query vocabulary is versioned through this
+**Semantics version: 1.0.1** — the query vocabulary is versioned through this
 document only (D-12): the `GraphQuery` contract carries **no version field**
 and evolves by additive sentinel-defaulted fields under the existing
 frozen/`extra=forbid` discipline; the differential conformance suite is the
@@ -322,10 +322,10 @@ substitution rule (`src/ccf/operators/categories.py::_substitute`,
 INV-CH7-40) rendered at the query tier: a view retaining an edge to a
 node the principal may not see leaks by absence.
 
-The endpoint-closure half of this clause holds for **every** answer,
-with or without `allowed_entities`: an answer view never contains a
-relationship whose endpoint entity is absent from the same answer. An
-answer is a valid graph for its principal, not a row bag.
+The endpoint-closure half of this clause holds for every **constrained**
+answer — any family present, or `allowed_entities` non-`None`: such a view
+never contains a relationship whose endpoint entity is absent from it. The
+degenerate answer is exempt (amendment 1.0.1, stated under `GQ-35`).
 
 ### `GQ-17` — Segment-boundary mechanics
 
@@ -630,3 +630,45 @@ document is the record of what each version means. Clause anchors are
 stable across amendments; numbers are never reused. Adapter failure
 messages MUST cite the clause anchor violated, so a dispute begins from
 the sentence it is about.
+
+**Amendment history.** New entries append here rather than rewriting the
+clause they amend out of existence, and an amendment is written so it does
+not move the clause headings above it — the anchored citations across
+`/src` and `/tests` carry line numbers, and a renumbering edit would make
+the citation guard report a hundred false moves and hide a real one.
+
+- **1.0.1** — *plan 15.2-14, the phase-close audit.* `GQ-16`'s
+  endpoint-closure half is scoped to **constrained** answers; the
+  degenerate answer is exempt.
+
+  *What it means.* Closure's rationale is exclusion: an edge to a node the
+  answer *removed* discloses that node's existence by absence. The
+  degenerate everything-question of `GQ-05` removes nothing, and its answer
+  is the tenant's full as-of view — in which a persisted first-class edge
+  whose endpoint carries no entity claim is **state, not a leak**, because
+  relationships are first-class in the Context Graph and never derived
+  joins (INV-CH7-20). A constrained answer is a valid graph for its
+  principal, not a row bag; the degenerate answer is the graph itself.
+
+  *Why it was needed.* The 1.0.0 wording said closure held for "every"
+  answer, which contradicted `GQ-05` and `GQ-21` on exactly one shape — a
+  dangling first-class edge in the degenerate answer, an edge `as_of()`
+  never pruned and which `GQ-21` pins byte-identical. Plan 15.2-05 found
+  the contradiction while implementing the reference, resolved it the only
+  way consistent with `GQ-21`, and recorded the wording tension as
+  DI-15.2-01. Until this amendment that one edge semantic was decided by
+  `ccf.graph.fallback::_endpoint_closure`'s docstring rather than by this
+  document — the single implementation-defined escape hatch in v1, which
+  the reading order at the top of this document does not permit. It is
+  closed here, in the document that is supposed to hold it.
+
+  *Clarifying, not behavioral.* Nothing in the tree changes: this states
+  what the reference has enforced since 15.2-05 and what every adapter has
+  been held to differentially ever since. Conformance is not weakened —
+  `tests/conformance/query_corpus.py` generates the dangling-edge shape as
+  both a degenerate and a constrained question against every registered
+  param, so an adapter scoping closure differently from this clause fails
+  `GQ-31` byte-identity.
+
+- **1.0.0** — *plan 15.2-01.* Initial vocabulary: the 35 clauses, including
+  `allowed_entities` and the D-IMPL-87 segmentation clauses.

@@ -33,6 +33,15 @@ The deliberately generated shapes, and the defects they exist to catch:
   nor drop the edge.
 * **Absent seeds, empty answers, degenerate and single-family questions** —
   the edge semantics the prose decides (`GQ-03`, `GQ-23`).
+* **Offset-authored validity windows** (D-IMPL-90, resolved 2026-08-08) —
+  claims whose ``valid_from``/``valid_to`` are authored in a non-UTC offset
+  rather than the ``Z`` form. The contract tier accepts any aware datetime,
+  so the *same instant* has more than one legal authoring rendering, and
+  the pushed `GQ-09` validity predicate compares canonical UTC **text**: a
+  second on-disk rendering made the SQL backends drop a record the fallback
+  kept. The corpus generates the offset authoring so `GQ-31` byte-identity
+  is asserted over it on every backend, rather than being true only of the
+  ``Z``-form claims every in-repo fixture happened to produce.
 
 Strategy discipline inherited from ``tests/properties/strategies.py``: the
 shapes come from the ontology fixtures, the values from the fixture YAML —
@@ -45,7 +54,7 @@ here exactly as in the property suites.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from hypothesis import strategies as st
 
@@ -99,6 +108,27 @@ def _lineage(*, envelope_id: str, observed_at: datetime) -> frozenset[LineageEnt
     )
 
 
+#: The non-UTC authoring offsets the D-IMPL-90 shapes are expressed in.
+#: Not domain values — renderings of the *same instant*, which is exactly the
+#: fact under test: the answer must not depend on how a source spelled it.
+AUTHORING_OFFSETS: tuple[timezone, ...] = tuple(
+    timezone(timedelta(hours=hours)) for hours in (-8, -5, 5, 11)
+)
+
+
+def _authored(value: datetime | None, offset: timezone | None) -> datetime | None:
+    """Re-express ``value`` — the same instant — in ``offset``.
+
+    ``astimezone`` moves the *rendering*, never the instant, so a claim built
+    this way is the same claim: it carries the identical ``content_hash``
+    (``canonical_bytes`` normalizes to UTC) and the identical answer bytes.
+    Only the bytes a backend persists differ, which is where D-IMPL-90 lived.
+    """
+    if value is None or offset is None:
+        return value
+    return value.astimezone(offset)
+
+
 def entity_claim(
     *,
     entity_uri: str,
@@ -106,17 +136,24 @@ def entity_claim(
     classification: str,
     observed_at: datetime,
     valid_to: datetime | None = None,
+    authoring_offset: timezone | None = None,
     tenant_id: str = TENANT,
 ) -> EntityClaim:
-    """One entity claim as a source would deliver it, fixture-shaped."""
+    """One entity claim as a source would deliver it, fixture-shaped.
+
+    ``authoring_offset`` re-expresses the validity window in a non-UTC offset
+    (D-IMPL-90). ``observed_at`` stays as given: it is persisted through
+    :func:`ccf.contracts.canonical.canonical_timestamp` in its own column,
+    never through the claim payload, so it was never part of the divergence.
+    """
     return EntityClaim(
         tenant_id=tenant_id,
         entity_uri=entity_uri,
         entity_class=entity_class,
         attributes={CLASSIFICATION_ATTRIBUTE[entity_class]: classification},
         observed_at=observed_at,
-        valid_from=observed_at,
-        valid_to=valid_to,
+        valid_from=_authored(observed_at, authoring_offset) or observed_at,
+        valid_to=_authored(valid_to, authoring_offset),
         lineage=_lineage(
             envelope_id=f"{entity_uri}@{observed_at.isoformat()}",
             observed_at=observed_at,
@@ -131,6 +168,7 @@ def relationship_claim(
     object_uri: str,
     observed_at: datetime,
     valid_to: datetime | None = None,
+    authoring_offset: timezone | None = None,
     tenant_id: str = TENANT,
 ) -> RelationshipClaim:
     """One typed edge claim as a source would deliver it, fixture-shaped."""
@@ -141,8 +179,8 @@ def relationship_claim(
         object_uri=object_uri,
         attributes={},
         observed_at=observed_at,
-        valid_from=observed_at,
-        valid_to=valid_to,
+        valid_from=_authored(observed_at, authoring_offset) or observed_at,
+        valid_to=_authored(valid_to, authoring_offset),
         lineage=_lineage(
             envelope_id=f"{relationship_type}:{subject_uri}->{object_uri}"
             f"@{observed_at.isoformat()}",
@@ -152,7 +190,11 @@ def relationship_claim(
 
 
 def chain_claims(
-    *, mid_classification: str, index: int = 0, observed_at: datetime = EARLY
+    *,
+    mid_classification: str,
+    index: int = 0,
+    observed_at: datetime = EARLY,
+    authoring_offset: timezone | None = None,
 ) -> tuple[tuple[EntityClaim, ...], tuple[RelationshipClaim, ...]]:
     """The seed - intermediate - target chain, as admissible-through-L2 claims.
 
@@ -161,6 +203,10 @@ def chain_claims(
     mixed-direction shape (the second edge points target-to-mid), chosen
     ``index`` selecting distinct pool URIs so one fabric can hold an
     excluded chain and its admissible control side by side.
+
+    ``authoring_offset`` re-expresses every claim's validity window in a
+    non-UTC offset (D-IMPL-90) without moving any instant — so the chain is
+    literally the same chain, spelled differently by its source.
     """
     seed_uri = ENTITY_POOL[SEED_CLASS][index]
     mid_uri = ENTITY_POOL[MID_CLASS][index]
@@ -171,18 +217,21 @@ def chain_claims(
             entity_class=SEED_CLASS,
             classification=PERMITTED_CLASSIFICATION,
             observed_at=observed_at,
+            authoring_offset=authoring_offset,
         ),
         entity_claim(
             entity_uri=mid_uri,
             entity_class=MID_CLASS,
             classification=mid_classification,
             observed_at=observed_at,
+            authoring_offset=authoring_offset,
         ),
         entity_claim(
             entity_uri=target_uri,
             entity_class=TARGET_CLASS,
             classification=PERMITTED_CLASSIFICATION,
             observed_at=observed_at,
+            authoring_offset=authoring_offset,
         ),
     )
     relationships = (
@@ -191,12 +240,14 @@ def chain_claims(
             subject_uri=seed_uri,
             object_uri=mid_uri,
             observed_at=observed_at,
+            authoring_offset=authoring_offset,
         ),
         relationship_claim(
             relationship_type=_RULE_B[0],
             subject_uri=target_uri,
             object_uri=mid_uri,
             observed_at=observed_at,
+            authoring_offset=authoring_offset,
         ),
     )
     return entities, relationships
@@ -594,6 +645,84 @@ def degenerate_and_family_cases(draw: st.DrawFn) -> CorpusCase:
     )
 
 
+@st.composite
+def offset_authored_validity_cases(draw: st.DrawFn) -> CorpusCase:
+    """D-IMPL-90: the same instants, authored in a non-UTC offset.
+
+    The contract tier accepts any aware datetime, so one instant has many
+    legal authoring renderings — and until D-IMPL-90 the fabric persisted
+    whichever one the source used, while the pushed `GQ-09` validity
+    predicate (docs/GRAPH_QUERY_SEMANTICS.md:185) compares canonical UTC
+    **text**. Both SQL dialects therefore rendered a non-``Z`` claim as NULL
+    and dropped it from a ``require_valid_at_boundary`` answer the fallback
+    kept: a reachable counterexample to `GQ-31`
+    (docs/GRAPH_QUERY_SEMANTICS.md:573) that the UTC-only corpus could not
+    reach, because nothing in the SDK, the fixtures or the examples authors
+    an offset.
+
+    So the corpus authors one. The chain's validity window is re-expressed
+    in a drawn offset — same instants, same ``content_hash``, same expected
+    answer — and the questions put weight on **both** sides of the validity
+    cut: an open-ended window, a closed one whose ``valid_to`` falls before
+    the boundary (the record must be excluded, by both paths), and the
+    ``valid_to``-after-boundary case (kept, by both paths). Byte-identity to
+    the fallback over these shapes is what makes the resolution a property
+    of the fabric rather than a note in a decision log.
+    """
+    offset = draw(st.sampled_from(AUTHORING_OFFSETS))
+    observed_at = draw(st.sampled_from((EARLY, ON_BOUNDARY)))
+    # `None` (open interval), a window closing after the boundary, and one
+    # closing before it — the three shapes the pushed cut branches on.
+    valid_to = draw(st.sampled_from((None, LATE, EARLY)))
+    entities, relationships = chain_claims(
+        mid_classification=PERMITTED_CLASSIFICATION,
+        observed_at=observed_at,
+        authoring_offset=offset,
+    )
+    if valid_to is not None:
+        entities = tuple(
+            entity_claim(
+                entity_uri=claim.entity_uri,
+                entity_class=claim.entity_class,
+                classification=PERMITTED_CLASSIFICATION,
+                observed_at=observed_at,
+                valid_to=valid_to,
+                authoring_offset=offset,
+            )
+            for claim in entities
+        )
+    seed_uri, _, _ = chain_uris()
+    specs = (
+        # The single-family validity question — where the divergence lived.
+        QuerySpec(as_of=ON_BOUNDARY, require_valid_at_boundary=True),
+        QuerySpec(as_of=LATE, require_valid_at_boundary=True),
+        QuerySpec(as_of=EARLY, require_valid_at_boundary=True),
+        # The validity cut combined with every other family, so a backend
+        # cannot pass by never reaching the predicate.
+        QuerySpec(as_of=ON_BOUNDARY, require_valid_at_boundary=True, policy=True),
+        QuerySpec(
+            as_of=ON_BOUNDARY,
+            require_valid_at_boundary=True,
+            traverse=CHAIN_TRAVERSE,
+            seeds=frozenset({seed_uri}),
+        ),
+        QuerySpec(
+            as_of=ON_BOUNDARY,
+            require_valid_at_boundary=True,
+            allowed=ALLOWED_UNIVERSE,
+        ),
+        # The degenerate control: validity is not asked, so an offset claim
+        # must be answered whatever the predicate would have said.
+        QuerySpec(as_of=ON_BOUNDARY),
+    )
+    return CorpusCase(
+        name="offset-authored-validity",
+        entities=entities,
+        relationships=relationships,
+        query_specs=specs,
+    )
+
+
 def corpus_cases() -> st.SearchStrategy[CorpusCase]:
     """The whole corpus: one drawn case from the named shape families."""
     return st.one_of(
@@ -603,4 +732,5 @@ def corpus_cases() -> st.SearchStrategy[CorpusCase]:
         self_loop_cases(),
         allowed_entities_cases(),
         degenerate_and_family_cases(),
+        offset_authored_validity_cases(),
     )

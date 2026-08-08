@@ -3,7 +3,7 @@
 Whitepaper §7.3 (the Context Graph as queryable persisted state) and §7.4
 (the operator categories whose semantics a pushed query renders). The
 normative vocabulary is ``docs/GRAPH_QUERY_SEMANTICS.md`` (semantics version
-1.0.0): the prose decides; this module implements it clause-for-clause; the
+1.0.1): the prose decides; this module implements it clause-for-clause; the
 adapters agree with it under the differential suite (`GQ-31` at
 docs/GRAPH_QUERY_SEMANTICS.md:573); and the property suite audits this module
 against the named invariants — so the oracle is answerable to something it
@@ -174,8 +174,15 @@ def _endpoint_closure(
     a valid graph for its principal, not a row bag.
 
     Scope: closure applies to **constrained** answers — any predicate
-    family present, or ``allowed_entities`` non-``None`` — because its
-    rationale is exclusion: an edge to a node the answer *removed* leaks
+    family present, or ``allowed_entities`` non-``None``. That scoping is
+    the prose's, not this module's, as of semantics 1.0.1 (`GQ-35` at
+    docs/GRAPH_QUERY_SEMANTICS.md:621, amendment history): the v1.0.0
+    wording said "every answer", 15.2-05 found it contradicted `GQ-05`
+    and `GQ-21` on the dangling-edge shape and resolved it here, and the
+    15.2-14 phase-close audit moved the ruling into the document that is
+    supposed to hold it. The reasoning below is why, restated so a reader
+    of this function does not have to leave it — its rationale is
+    exclusion: an edge to a node the answer *removed* leaks
     that node's existence. The degenerate everything-question excludes
     nothing; its answer is the tenant's full as-of view (`GQ-05` at
     docs/GRAPH_QUERY_SEMANTICS.md:122), in which a persisted first-class

@@ -4,7 +4,33 @@ Maintained file: citations here are held true of the current tree by the
 citation gate (`MAINTAINED_RECORDS` in `tools/lints/citations.py`). Amend in
 place; inheriting plans and Phase 16 read this as authoritative.
 
-## DI-15.2-01 — GQ-16 endpoint-closure wording needs a clarifying amendment
+## DI-15.2-01 — GQ-16 endpoint-closure wording needs a clarifying amendment — **CLOSED at 15.2-14**
+
+**Closed 2026-08-08 by plan 15.2-14 (the phase-close audit).** The `GQ-35`-lane
+amendment was written: `GQ-16`'s endpoint-closure half now reads "every
+**constrained** answer" with the degenerate exemption stated normatively, the
+semantics lane moved 1.0.0 → 1.0.1, and the amendment history under `GQ-35`
+records what changed, why it was needed, and that it is clarifying rather than
+behavioral. `ccf.graph.fallback::_endpoint_closure` now cites the prose for the
+scoping instead of arguing for it, and the module docstring names 1.0.1.
+
+**Why it was fixed rather than carried.** SUBQ-01 requires the prose to decide
+every named edge semantic "with no implementation-defined escape hatches". Until
+the amendment, this one shape was decided by the reference implementation's
+docstring — the escape hatch, in the requirement's own words — so SUBQ-01 could
+not be flipped truthfully with it open. Nothing in the tree changed: `make ci`
+is green with zero test-body edits, and the differential corpus continues to
+enforce the shape on every param.
+
+**Amendment discipline note for future amenders:** the amendment was written to
+be *line-number-neutral*. The `GQ-16` replacement paragraph is the same four
+lines it replaced and the history was appended after `GQ-35`, because the
+anchored cite02 citations across `/src` and `/tests` carry line numbers into
+this document — a first, naive draft that inserted lines near the top produced
+**124 citation-guard findings** in one edit. That discipline is now stated in
+the amendment-history preamble of the document itself.
+
+*Original entry, preserved unedited:*
 
 **Found during:** plan 15.2-05 (the seam opening).
 
@@ -41,7 +67,32 @@ constrained questions over an edge whose endpoints carry no entity claim),
 so the divergence is exercised differentially on every registered param.
 The `GQ-35`-lane prose amendment itself remains open.
 
-## DI-15.2-02 — memory backend not yet a param of the graphstore six-semantics suite
+## DI-15.2-02 — memory backend not yet a param of the graphstore six-semantics suite — **CLOSED at 15.2-14**
+
+**Closed 2026-08-08 by plan 15.2-14 (the phase-close audit — the fallback owner
+this entry named).** `tests/conformance/test_graphstore.py`'s `graph_backend`
+fixture now parametrizes over **all five backends**: `sqlite` and `memory`
+always-on, `postgres`/`neo4j`/`mongo` each carrying its container mark. The
+entry predicted "no test body should need changes" and that held exactly — the
+fixture body and the param list are the whole diff.
+
+Closed wider than the entry asked. It named `memory` only, because neo4j and
+mongo did not exist when it was written; both landed since (plans 15.2-12/-13)
+carrying the same indirect-coverage gap, so all three were added rather than
+leaving two-thirds of the gap open under a closed entry.
+
+**Evidence:** six D-IMPL-34 semantics × 5 backends —
+`-m "not postgres and not neo4j and not mongo"` 24 passed;
+`-m postgres` 12 passed (PostgreSQL 16.14); `-m neo4j` 12 passed (Neo4j Kernel
+5.26.29 community); `-m mongo` 12 passed (MongoDB 7.0.39).
+
+**Why it mattered at this gate:** SUBQ-11 claims the typed write seam preserves
+single-writer "for all five backends". Before this change the suite that *owns*
+those write semantics asserted them against two of the five, and the other three
+were covered only by neighbouring suites. The claim is now asserted by the suite
+that makes it, not inferred.
+
+*Original entry, preserved unedited:*
 
 **Found during:** plan 15.2-06 (the memory backend + differential suite).
 
@@ -86,3 +137,137 @@ serializer's existing ``astimezone(UTC)`` discipline), or a corpus case
 authoring an offset-bearing claim plus a documented fallback-alignment
 rule. Until routed, the fail-closed posture is documented in both
 ``_utc_fixed_width`` docstrings.
+
+**15.2-14 routing (2026-08-08): ESCALATED to Dave, deliberately not decided
+by the executor.** The audit routed the other two deferred items itself
+(DI-15.2-01 by amending the prose it was about, DI-15.2-02 by adding the
+fixture params it asked for) and stops here, because the two options are not
+equivalent in kind:
+
+- **Option (a) — contract-tier UTC normalization at claim construction.**
+  Closes the corner for every adapter at once and is the tidiest answer to
+  "why do two renderings of the same instant exist at all". But normalizing a
+  claim's datetime at construction changes that claim's canonical bytes, and
+  canonical bytes are the content identity the graph's idempotent upsert, the
+  lineage set-union, and every replay content-address depend on. An
+  offset-authored claim would hash differently before and after the change:
+  that is a **replay-compatibility decision**, and the D-IMPL-89 byte-fidelity
+  ruling this phase just built on exists precisely because re-deriving a
+  historical address from a changed rendering breaks verification. Not an
+  executor's call.
+- **Option (b) — a corpus case plus a documented alignment rule.** Cheap,
+  contained, and makes the divergence exercised rather than latent. But it
+  documents a known fallback/adapter disagreement as acceptable, which is a
+  deliberate softening of `GQ-31` byte-identity — the phase's central
+  conformance claim. Also not an executor's call to make silently.
+
+**Risk posture while open (this is why carrying it is safe):** the divergence
+direction is **exclusion**, never inclusion. A non-``Z``-rendered claim is
+dropped from a pushed ``require_valid_at_boundary`` answer where the fallback
+would have kept it. No principal sees anything they should not; the
+T-15.2-03/-26 information-disclosure posture is strictly preserved. The corner
+also requires an offset-authored claim datetime, which nothing in the SDK, the
+examples, or the fixtures produces — every in-repo path renders ``Z``.
+
+**ESCALATED as `D-IMPL-90` (OPEN) in `docs/DECISIONS.md`, 2026-08-08.** The
+§3.1 cross-AI self-review returned this corner as a **BLOCKING** finding —
+correctly, and on a sharper reading than the one above: `GQ-31` is
+byte-identity, not "no over-disclosure", so a known-diverging shape is a
+counterexample to the phase's central conformance clause regardless of which
+direction it errs in.
+
+**The audit measured the corner rather than restating it, and the measurement
+changes the analysis.** Probe on one `EntityClaim` with
+`valid_from = 2026-03-01T08:00:00+05:00`:
+
+| Lane | Rendering | Normalized? |
+|---|---|---|
+| `model_dump(mode="json")` — what `_writer.py` persists into `claim_json` | `2026-03-01T08:00:00+05:00` | **no** |
+| `canonical_bytes(claim)` — what `content_hash` and every answer use | `2026-03-01T03:00:00.000000Z` | **yes** |
+
+**Option (a) does NOT move content hashes.** Both this entry's original text
+and the reviewer assumed it would. Claim identity is
+`content_hash(_entity_content_key(claim))`, which passes the `datetime` value
+through `canonical_bytes` — already UTC-normalized. The identity lane and the
+payload lane are independent, and only the payload lane keeps the offset. That
+removes the objection that made (a) look like a replay-compatibility break,
+and it is why the escalation carries a recommendation rather than a shrug.
+
+Full option/consequence record, and the reason this is an entry rather than a
+fix, are in the `D-IMPL-90` entry. Named for Dave in `15.2-14-SUMMARY.md`
+under "Questions for Dave" as the gating decision of the D-GATE-15.2 package.
+
+**CLOSED 2026-08-08 — Dave ruled option (a).** `D-IMPL-90 (resolution,
+2026-08-08)` in `docs/DECISIONS.md`. The writer renders `claim_json` through
+the canonical serializer (`ccf.graph._writer::_claim_payload`), so one instant
+has one rendering everywhere in the fabric. Verified as a single-variable A/B
+on one tree across **three backends × two authoring forms × two renderers
+(12 arms)**: the claim-identity digest is `f7f27f52063700d5…` in **all twelve**
+— the identity lane does not move under any combination — and the answer-bytes
+digest for UTC-authored content is `79ede0b085eaa82c…` under both renderers on
+memory, sqlite and postgres alike. The only thing that moves is the defect: for
+offset-authored content the legacy renderer answers `9e794faade451d52…` with an
+**empty** `require_valid_at_boundary` answer on sqlite *and* postgres, and the
+canonical renderer restores it to `79ede0b085eaa82c…` — byte-identical to the
+UTC-authored answer. The corner is now **exercised, not documented**: the
+differential corpus generates offset-authored validity windows
+(`offset_authored_validity_cases`) and
+`test_offset_authored_validity_answers_identically_on_each_reader` is the
+named per-param regression — both confirmed to fail under the legacy renderer
+on sqlite and postgres, and each of the three container legs grew by exactly
++1 param when it landed (postgres 24→25, neo4j 19→20, mongo 21→22). No adapter
+changed. This deferred item requires no further routing.
+
+---
+
+## DI-15.2-04 — a by-hand `pytest` inside a GSD execution worktree silently tests the MAIN checkout, not the worktree
+
+**Raised:** 2026-08-08, plan 15.2-14 re-verification. **Routing: process /
+tooling hygiene, NOT a phase-15.2 defect. Carried forward — no code change
+made at the gate.**
+
+**What happened.** The `D-IMPL-90` fix looked like it held on sqlite, memory
+and mongo but failed on postgres. It did not. The worktree's `.venv` is a
+symlink to the main checkout's venv, and `ccf` is installed there as a
+setuptools **editable** package whose `__editable___ccf_0_1_0_finder.py`
+carries a hard-coded `MAPPING = {'ccf': '/home/parkave/ccf_code/src/ccf', …}`
+and installs itself on `sys.meta_path`. A bare `pytest` from inside the
+worktree therefore imports the **main checkout's** source — the fix under test
+was not even loaded (`hasattr(module, '_claim_payload')` → `False`). Mongo
+passed anyway because its adapter is genuinely immune to the payload
+rendering; sqlite/memory were not exercised by the marker-selected leg; only
+postgres was, so only postgres appeared to fail. Every conclusion drawn from
+those runs was wrong in the same direction, and the apparent finding pointed
+straight at the two-dialect SQL rework Dave had just rejected.
+
+**Why `make ci` was never affected.** The Makefile has exported
+`PYTHONPATH=src:runtime` since Phase I.5 (08-RESEARCH.md Pitfall 7, and the
+header comment says exactly why: "so src-layout packages resolve without
+relying on the editable install being fresh"). Relative paths resolve against
+the worktree, and `sys.path` beats an appended meta-path finder. The hazard is
+confined to commands run **outside** the Makefile — which is precisely how the
+three container legs are invoked, since they are marker-selected and have no
+`make` target.
+
+**The options, for whoever picks this up.**
+
+1. **Add `pythonpath = ["src", "runtime"]` to `[tool.pytest.ini_options]`.**
+   Resolves against pytest's rootdir, so it is correct in *any* checkout,
+   worktree included. Caveat: it does **not** propagate to the `crossproc`
+   suites' spawned subprocesses, which inherit the environment, not pytest's
+   `sys.path` — so it is a partial fix, and a partial fix that *looks*
+   complete is its own hazard.
+2. **Give the three container legs `make` targets** (`make leg-postgres`,
+   `leg-neo4j`, `leg-mongo`) carrying `$(ENV)` and the `CCF_REQUIRE_*` /
+   `CCF_TEST_*` variables. This puts them under the same discipline as every
+   other command in the repo, and CLAUDE.md's D-10 rule already says every
+   target CI runs a developer runs the same way. **Recommended** — it fixes
+   the actual exposure rather than a symptom, and it makes the legs
+   reproducible from one documented command.
+3. **Do nothing and rely on discipline.** Rejected in this note: five
+   sessions were spent on this phase, and this artifact cost part of one.
+
+**Not fixed here because** it is repo-wide test-harness configuration, changed
+at a phase-close gate, with a CI-behaviour implication that cannot be verified
+from this worktree. Surfaced rather than papered over (CLAUDE.md §11), and
+named for Dave in `15.2-14-SUMMARY.md` §6 so the choice is his.

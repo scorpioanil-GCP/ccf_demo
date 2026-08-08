@@ -58,6 +58,7 @@ Two disciplines inherited from ``tests/conformance/test_graphstore.py``:
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -76,6 +77,7 @@ from ccf.graph.protocols import (
 from ccf.peering.admission import AdmittedProduct
 
 from tests.conformance.query_corpus import (
+    AUTHORING_OFFSETS,
     EARLY,
     LATE,
     ON_BOUNDARY,
@@ -612,6 +614,81 @@ def test_resurrection_closure_holds_directly_on_each_reader(
         mid_uri,
         target_uri,
     }
+
+
+def test_offset_authored_validity_answers_identically_on_each_reader(
+    substrate_fabric: "FabricHandle | MountedProductHandle",
+) -> None:
+    """D-IMPL-90 directly per param: authoring rendering is not observable.
+
+    The named regression for the resolved `GQ-31` counterexample. A source
+    authors the chain's validity window in a non-UTC offset — the same
+    instants, spelled differently — and the ``require_valid_at_boundary``
+    answer must still be byte-identical to the fallback-derived expected
+    view. Before the writer rendered ``claim_json`` through the canonical
+    serializer, both SQL dialects read the non-``Z`` text as NULL and
+    dropped every one of these records while the fallback kept them.
+
+    Two guards make the assertion mean what it says:
+
+    * a **non-empty control** — the chain must actually be answered, so the
+      test cannot pass by the predicate excluding everything on both paths;
+    * an **identity twin** — re-admitting the same claims authored in UTC is
+      a no-op (``claim_created`` false), which is the direct evidence that
+      the identity lane was already normalized and this fix moved no
+      ``content_hash``.
+    """
+    offset = AUTHORING_OFFSETS[0]
+    entities, relationships = chain_claims(
+        mid_classification=PERMITTED_CLASSIFICATION,
+        observed_at=EARLY,
+        authoring_offset=offset,
+    )
+    for claim in entities:
+        assert claim.valid_from.utcoffset() != timedelta(0), (
+            "the case must actually be offset-authored, or it proves nothing"
+        )
+        substrate_fabric.worker.admit_entity_claim(tenant_id=TENANT, claim=claim)
+    for edge in relationships:
+        substrate_fabric.worker.admit_relationship_claim(
+            tenant_id=TENANT, claim=edge
+        )
+
+    # The identity twin, written before any read (the tier-2 leg mounts on
+    # first read): the same claims authored in UTC are the SAME claims, so
+    # the payload change moved no content hash. The first write's offset
+    # payload is what stays on disk — which is the point.
+    utc_entities, _ = chain_claims(
+        mid_classification=PERMITTED_CLASSIFICATION, observed_at=EARLY
+    )
+    for claim in utc_entities:
+        result = substrate_fabric.worker.admit_entity_claim(
+            tenant_id=TENANT, claim=claim
+        )
+        assert not result.claim_created, (
+            "a UTC re-authoring of the same instant minted a second claim; "
+            "claim identity is supposed to be offset-independent"
+        )
+
+    q = GraphQuery(
+        tenant_id=TENANT, as_of=ON_BOUNDARY, require_valid_at_boundary=True
+    )
+    answered = substrate_fabric.reader.query(q)
+    full = substrate_fabric.reader.as_of(tenant_id=TENANT, at=q.as_of)
+    expected_entities, expected_relationships = answer(
+        full.entities, full.relationships, query=q
+    )
+    expected = _frozen_at(
+        expected_entities,
+        expected_relationships,
+        tenant_id=TENANT,
+        as_of=q.as_of,
+    )
+    assert canonical_bytes(answered) == canonical_bytes(expected)
+    # The control: the offset-authored chain is answered, not excluded.
+    assert {record.claim.entity_uri for record in answered.entities} == set(
+        chain_uris()
+    )
 
 
 def test_repeat_query_answers_are_deterministic_on_each_reader(
