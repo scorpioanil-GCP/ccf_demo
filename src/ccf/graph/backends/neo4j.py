@@ -87,12 +87,15 @@ from types import TracebackType
 from typing import Any, ClassVar
 from urllib.parse import urlsplit
 
+from ccf.contracts.canonical import canonical_timestamp
+from ccf.graph.protocols import GraphQuery
 from ccf.graph.reader import BaseGraphReader, Row
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "DEFAULT_PARTITION",
+    "MAX_DEPTH_CEILING",
     "Neo4jGraphReader",
     "Neo4jGraphStore",
 ]
@@ -270,6 +273,217 @@ class Neo4jGraphStore:
         self.close()
 
 
+# --- GraphQuery translation (plan 15.2-12) -----------------------------------
+#
+# The Cypher half of the pushdown story: three statements — survivors, edges,
+# walk — run inside one read transaction, each composed exclusively of
+# code-authored fragments with every value travelling as a named driver
+# parameter. The hook contract is all-or-nothing (`GQ-32` at
+# docs/GRAPH_QUERY_SEMANTICS.md:583); the surviving rows feed
+# ccf.graph.reader.materialize_view exactly as the five fixed statements do,
+# so lineage-at-boundary and supersession-as-of stay rendered in the one
+# shared place (INV-CH7-14). Artifact-authored identifiers — relationship
+# type names, classification attribute keys — bind as parameters, never as
+# statement text: the type constraint uses the parameterized
+# `r.relationship_type IN $types` property form rather than a Cypher type
+# pattern, and attribute lookup uses dynamic property access `c[$key]` over
+# the write-time projections (threat T-15.2-01).
+
+#: Mechanism safety bound on the ONE value this adapter inlines into query
+#: text: the validated traversal-depth literal (Cypher variable-length
+#: bounds cannot be parameters — research assumption A2, re-verified against
+#: the live server at execution: both `-[*0..$depth]-` and a quantified
+#: `{0,$depth}` are rejected with a syntax error; only literal integers
+#: parse). The contrast with the Control Plane's thresholds is deliberate
+#: and worth stating: the admission payload ceiling is Control Plane
+#: configuration because it is deployment-tunable policy; this constant
+#: bounds injected Cypher text and is not — it is a property of the
+#: adapter's injection surface, not of any domain (CINV-01). A
+#: ``depth_limit`` above the ceiling is still answered: the translation
+#: declines and the memory-bounded fallback answers (D-04 — there is no
+#: "I can't"; `GQ-29` at docs/GRAPH_QUERY_SEMANTICS.md:554). The ceiling
+#: bounds Cypher text, never the query vocabulary.
+MAX_DEPTH_CEILING = 100
+
+_SURVIVORS_MATCH = (
+    "MATCH (c:CcfEntityClaim {partition: $partition, tenant_id: $tenant})\n"
+    "WHERE c.observed_at <= $boundary\n"
+    "  AND (c.superseded_at IS NULL OR c.superseded_at > $boundary)\n"
+)
+
+#: The validity-window cut (`GQ-09` at docs/GRAPH_QUERY_SEMANTICS.md:185,
+#: INV-CH7-25) over the write-time canonical re-renderings, so the pushed
+#: comparison is fixed-width text against the canonical boundary (`GQ-24`
+#: at docs/GRAPH_QUERY_SEMANTICS.md:482). An absent projection compares
+#: NULL, and NULL fails every comparison — fail-closed, never
+#: over-disclosing (threats T-15.2-03/T-15.2-26).
+_ENTITY_VALIDITY = (
+    "  AND c.valid_from_cmp <= $boundary\n"
+    "  AND (c.valid_to_cmp IS NULL OR c.valid_to_cmp > $boundary)\n"
+)
+
+#: Policy admissibility, all three cuts of `GQ-08` at
+#: docs/GRAPH_QUERY_SEMANTICS.md:163 (INV-CH7-26): a permitted bundle
+#: version; a class with a declared classification attribute (a class with
+#: none is inadmissible — `any` over the declared classes); and a permitted
+#: value of that attribute. ``$attribute_by_class`` maps entity classes to
+#: *prefixed property keys* computed in Python, read back via dynamic
+#: property access — an absent property answers NULL, NULL is never IN a
+#: permitted set, so "carries no value" is inadmissible exactly as the
+#: fallback computes it. The attribute name is ARTIFACT-AUTHORED data and
+#: binds as map-parameter content, never statement text (threat T-15.2-01).
+_ENTITY_POLICY = (
+    "  AND c.policy_bundle_version IN $policy_versions\n"
+    "  AND any(ec IN keys($attribute_by_class)\n"
+    "          WHERE c.entity_class = ec\n"
+    "            AND c[$attribute_by_class[ec]] IN $classifications)\n"
+)
+
+#: The uniform rule's set membership on entity selection (`GQ-15` at
+#: docs/GRAPH_QUERY_SEMANTICS.md:300): every family computes within the
+#: set, restricted before anything else evaluates. The set travels as a
+#: driver list parameter (`GQ-30` at docs/GRAPH_QUERY_SEMANTICS.md:563) —
+#: no member is ever rendered into query text.
+_ENTITY_ALLOWED = "  AND c.entity_uri IN $allowed\n"
+
+_SURVIVORS_RETURN = (
+    "RETURN c.entity_uri AS entity_uri, c.claim_id AS claim_id,\n"
+    "       c.claim_json AS claim_json,\n"
+    "       c.policy_bundle_version AS policy_bundle_version,\n"
+    "       c.superseded_by AS superseded_by,\n"
+    "       c.superseded_at AS superseded_at,\n"
+    "       c.entity_class AS entity_class\n"
+    "ORDER BY c.entity_uri"
+)
+
+_EDGES_MATCH = (
+    "MATCH (rc:CcfRelationshipClaim {partition: $partition,"
+    " tenant_id: $tenant})\n"
+    "WHERE rc.observed_at <= $boundary\n"
+    "  AND (rc.superseded_at IS NULL OR rc.superseded_at > $boundary)\n"
+)
+
+_EDGE_VALIDITY = (
+    "  AND rc.valid_from_cmp <= $boundary\n"
+    "  AND (rc.valid_to_cmp IS NULL OR rc.valid_to_cmp > $boundary)\n"
+)
+
+#: A relationship is admissible under the policy family iff its bundle
+#: version is permitted (`GQ-08`) — no classification cut of its own;
+#: endpoint survival governs its exposure below.
+_EDGE_POLICY = "  AND rc.policy_bundle_version IN $policy_versions\n"
+
+#: The induced-subgraph rule (`GQ-16` at docs/GRAPH_QUERY_SEMANTICS.md:316):
+#: both endpoints members of the allowed set, stated natively on the claim's
+#: own projected endpoint columns.
+_EDGE_ALLOWED = (
+    "  AND rc.subject_uri IN $allowed\n"
+    "  AND rc.object_uri IN $allowed\n"
+)
+
+#: Typed crossability doubles as answer membership: edges of other types
+#: are absent even between reached endpoints (`GQ-10` at
+#: docs/GRAPH_QUERY_SEMANTICS.md:201). The type list is artifact-authored —
+#: it travels as a parameter against the projected property, never as a
+#: Cypher relationship-type pattern.
+_EDGE_TYPES = "  AND rc.relationship_type IN $types\n"
+
+#: Endpoint closure against the surviving universe (`GQ-16`, INV-CH7-40):
+#: an answer view never retains an edge to a node its principal may not
+#: see. The degenerate everything-question skips this — a dangling
+#: first-class edge is state, not a leak, in the unconstrained answer
+#: (`GQ-05` at docs/GRAPH_QUERY_SEMANTICS.md:122).
+_EDGE_CLOSURE = (
+    "  AND rc.subject_uri IN $survivors\n"
+    "  AND rc.object_uri IN $survivors\n"
+)
+
+_EDGES_RETURN = (
+    "RETURN rc.relationship_key AS relationship_key,\n"
+    "       rc.claim_id AS claim_id, rc.claim_json AS claim_json,\n"
+    "       rc.policy_bundle_version AS policy_bundle_version,\n"
+    "       rc.superseded_by AS superseded_by,\n"
+    "       rc.superseded_at AS superseded_at,\n"
+    "       rc.subject_uri AS subject_uri, rc.object_uri AS object_uri\n"
+    "ORDER BY rc.relationship_key"
+)
+
+_WALK_MATCH_PREFIX = (
+    "MATCH p = (seed:CcfEntity {partition: $partition, tenant_id: $tenant})"
+)
+_WALK_MATCH_SUFFIX = "(x:CcfEntity)\n"
+
+#: Hop admissibility as a path predicate (`GQ-13` at
+#: docs/GRAPH_QUERY_SEMANTICS.md:261, INV-CH7-40): every node on every path
+#: must be a member of the materialized survivor set — the entities that
+#: passed the segment's as-of, validity, policy, and set-membership cuts —
+#: so a path through an excluded node does not exist. Prune before walking,
+#: exactly the fallback's shape (threats T-15.2-03/T-15.2-26).
+_WALK_NODES_ALL = (
+    "WHERE seed.entity_uri IN $starts\n"
+    "  AND all(n IN nodes(p) WHERE n.partition = $partition\n"
+    "          AND n.tenant_id = $tenant\n"
+    "          AND n.entity_uri IN $survivors"
+)
+
+#: The uniform rule stated explicitly inside the path predicate (`GQ-15`):
+#: the survivor list already implies membership (survivors are restricted
+#: to the set before the walk), but the closure is explicit in the term
+#: that expands the walk — the D-IMPL-87 resurrection defect closed in the
+#: Cypher itself, with the allowed set as a driver list parameter.
+_WALK_NODES_ALLOWED = " AND n.entity_uri IN $allowed"
+
+#: Crossability as a path predicate: only the materialized crossable edges
+#: — surviving, permitted-type, endpoint-closed, in-set — extend a path,
+#: and the artifact-authored type list rides as ``$types`` (`GQ-10`;
+#: threat T-15.2-01).
+_WALK_EDGES_ALL = (
+    ")\n"
+    "  AND all(r IN relationships(p) WHERE r.partition = $partition\n"
+    "          AND r.tenant_id = $tenant\n"
+    "          AND r.relationship_key IN $crossable\n"
+    "          AND r.relationship_type IN $types)\n"
+)
+
+_WALK_RETURN = "RETURN DISTINCT x.entity_uri AS entity_uri"
+
+
+def _reach_pattern(depth: int) -> str:
+    """The variable-length reach pattern — the ONE string-formatting site.
+
+    Cypher variable-length bounds cannot be driver parameters (research
+    assumption A2, re-verified against the live server at plan 15.2-12
+    execution — both classic and quantified forms reject a parameter), so
+    the depth is inlined as a literal. This is the single named, documented
+    exception to the everything-is-a-parameter rule (15.2-RESEARCH.md
+    Pitfall 7; threat T-15.2-01), and it admits exactly one value shape: a
+    genuine ``int`` (``bool`` refused), at least 1 (depth 0 never reaches
+    this function — the walk is skipped and the starting points are the
+    answer), and at most :data:`MAX_DEPTH_CEILING` (over-ceiling queries
+    never reach this function either — the translation declines and the
+    fallback answers under D-04). Replay is unaffected: the pinned value is
+    ``content_hash(GraphQuery)``, never the rendered Cypher (`GQ-20` at
+    docs/GRAPH_QUERY_SEMANTICS.md:391).
+
+    Raises:
+        ValueError: the caller broke the validation contract above — an
+            internal invariant violation, never a query-vocabulary refusal.
+    """
+    if (
+        not isinstance(depth, int)
+        or isinstance(depth, bool)
+        or depth < 1
+        or depth > MAX_DEPTH_CEILING
+    ):
+        raise ValueError(
+            f"traversal depth literal must be an int in [1, "
+            f"{MAX_DEPTH_CEILING}]; got {depth!r} — callers gate depth 0 and "
+            "the over-ceiling decline before rendering (15.2-RESEARCH.md "
+            "Pitfall 7)"
+        )
+    return f"-[:CCF_EDGE*1..{depth}]-"
+
+
 class Neo4jGraphReader(BaseGraphReader):
     """``GraphReader`` over a Neo4j driver — dialect and rows only.
 
@@ -280,7 +494,18 @@ class Neo4jGraphReader(BaseGraphReader):
     — lineage-at-boundary, supersession-as-of, record construction, view
     ordering — is inherited from :class:`ccf.graph.reader.BaseGraphReader`
     and the substrate-neutral materialization core, so the semantics cannot
-    fork here (15.2-RESEARCH.md Pitfall 5). Under a declined translation the
+    fork here (15.2-RESEARCH.md Pitfall 5).
+
+    The reader holds the Cypher ``GraphQuery`` translation:
+    :meth:`_translate_query` answers whole queries natively — as-of,
+    validity, and policy predicates over the write-time projections,
+    ``allowed_entities`` membership as a driver list parameter, and
+    bounded undirected traversal as a variable-length ``MATCH`` with hop
+    admissibility enforced by path predicates — and the CI neo4j leg
+    holds the translated answers byte-identical to the fallback (`GQ-31`
+    at docs/GRAPH_QUERY_SEMANTICS.md:573). The one declined shape is an
+    over-ceiling ``depth_limit`` (:data:`MAX_DEPTH_CEILING`), answered by
+    the fallback instead (D-04): under a declined translation the
     baseline acquisition applies tenant + as-of narrowing only and the
     fallback enforces the whole query (`GQ-33` at
     docs/GRAPH_QUERY_SEMANTICS.md:594).
@@ -356,3 +581,176 @@ class Neo4jGraphReader(BaseGraphReader):
         with self._store.session() as session:
             result = session.run(sql, bound)
             return [dict(record) for record in result]
+
+    def _translate_query(
+        self, q: GraphQuery
+    ) -> tuple[Sequence[Row], Sequence[Row]] | None:
+        """Answer the whole query natively in Cypher (plan 15.2-12).
+
+        The hook contract is all-or-nothing (`GQ-32` at
+        docs/GRAPH_QUERY_SEMANTICS.md:583): the return is the complete
+        answer's row pair — every predicate family applied, hop
+        admissibility applied, ``allowed_entities`` membership applied.
+        Three statements run inside one read transaction:
+
+        1. **survivors** — the surviving entity claims: the as-of cut
+           (`GQ-07` at docs/GRAPH_QUERY_SEMANTICS.md:148, INV-CH7-14) as
+           canonical-text comparison, the validity window (`GQ-09`) over
+           the write-time re-renderings, policy admissibility (`GQ-08`)
+           via parameterized dynamic property access, and the uniform
+           rule's set membership (`GQ-15`) as a driver list parameter;
+        2. **edges** — the surviving relationship claims that may appear
+           in the answer, and on a traverse query the walk's whole
+           expansion surface: permitted types (as a parameter over the
+           projected property, never a Cypher type pattern), the induced
+           subgraph under ``allowed_entities`` (`GQ-16`), and endpoint
+           closure against the materialized survivors on every
+           constrained answer;
+        3. **walk** (traverse only, ``depth_limit >= 1``) — the bounded
+           typed undirected expansion (`GQ-10`, INV-CH7-24) as a Cypher
+           variable-length ``MATCH``, hop admissibility enforced by
+           ``all(…)`` path predicates over every node and edge (`GQ-13`)
+           with the allowed set stated explicitly as a driver list
+           parameter. Walk starting points are computed within survivors
+           (`GQ-11`) — seed classes select within the set, explicit seeds
+           intersect with it — and the reached set filters both row sets,
+           mirroring the SQL adapters' outer walk-membership SELECTs.
+
+        The single value ever inlined into statement text is the
+        validated depth literal (:func:`_reach_pattern` — the Pitfall-7
+        exception). Two shapes short-circuit without a round trip: the
+        empty ``allowed_entities`` set IS the empty answer (`GQ-04` at
+        docs/GRAPH_QUERY_SEMANTICS.md:98), and an over-ceiling
+        ``depth_limit`` declines to the fallback — still answered, per
+        D-04 (`GQ-29`): the ceiling bounds Cypher text, never the
+        vocabulary.
+        """
+        if q.allowed_entities is not None and not q.allowed_entities:
+            # The empty survivor set IS the answer (`GQ-04`): the empty
+            # view, answered without a substrate round trip. An empty
+            # answer is an answer, never an error (`GQ-23` at
+            # docs/GRAPH_QUERY_SEMANTICS.md:474).
+            return (), ()
+        if (
+            q.traverse is not None
+            and q.traverse.depth_limit > MAX_DEPTH_CEILING
+        ):
+            # Decline → the fallback answers (D-04). Deliberately BEFORE
+            # any session is opened: the decline is a pure function of the
+            # query value.
+            return None
+
+        boundary = canonical_timestamp(q.as_of)
+        policy_versions = q.permitted_policy_bundle_versions
+        attribute_by_class = q.classification_attribute_by_class
+        constrained = (
+            q.allowed_entities is not None
+            or policy_versions is not None
+            or q.require_valid_at_boundary is not None
+            or q.traverse is not None
+        )
+        require_validity = q.require_valid_at_boundary is True
+
+        params: dict[str, object] = {
+            "tenant": q.tenant_id,
+            "boundary": boundary,
+        }
+        survivor_text = [_SURVIVORS_MATCH]
+        edge_text = [_EDGES_MATCH]
+        if require_validity:
+            survivor_text.append(_ENTITY_VALIDITY)
+            edge_text.append(_EDGE_VALIDITY)
+        if policy_versions is not None:
+            assert attribute_by_class is not None  # noqa: S101 - GQ-02 whole family
+            assert q.permitted_classifications is not None  # noqa: S101
+            survivor_text.append(_ENTITY_POLICY)
+            edge_text.append(_EDGE_POLICY)
+            params["policy_versions"] = sorted(policy_versions)
+            # Prefixed property keys computed HERE, in Python: the
+            # artifact-authored attribute name is data inside a map
+            # parameter, resolved by dynamic property access on the server.
+            params["attribute_by_class"] = {
+                entity_class: ATTRIBUTE_PROPERTY_PREFIX + attribute
+                for entity_class, attribute in attribute_by_class.items()
+            }
+            params["classifications"] = sorted(q.permitted_classifications)
+        if q.allowed_entities is not None:
+            survivor_text.append(_ENTITY_ALLOWED)
+            edge_text.append(_EDGE_ALLOWED)
+            params["allowed"] = sorted(q.allowed_entities)
+        if q.traverse is not None:
+            edge_text.append(_EDGE_TYPES)
+            params["types"] = sorted(q.traverse.relationship_types)
+        if constrained:
+            edge_text.append(_EDGE_CLOSURE)
+        survivor_text.append(_SURVIVORS_RETURN)
+        edge_text.append(_EDGES_RETURN)
+
+        def answer_whole_query(
+            tx: Any,
+        ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+            entity_rows: list[dict[str, Any]] = [
+                dict(record)
+                for record in tx.run("".join(survivor_text), params)
+            ]
+            params["survivors"] = [row["entity_uri"] for row in entity_rows]
+            relationship_rows: list[dict[str, Any]] = [
+                dict(record) for record in tx.run("".join(edge_text), params)
+            ]
+            if q.traverse is None:
+                return entity_rows, relationship_rows
+            # Walk-start selection within survivors (`GQ-11` at
+            # docs/GRAPH_QUERY_SEMANTICS.md:221): seed classes select
+            # within the surviving universe; explicit seeds intersect with
+            # it — a URI naming nothing in scope contributes no start.
+            survivor_uris = {row["entity_uri"] for row in entity_rows}
+            starts = {
+                row["entity_uri"]
+                for row in entity_rows
+                if row["entity_class"] in q.traverse.seed_entity_classes
+            }
+            if q.seeds is not None:
+                starts |= set(q.seeds) & survivor_uris
+            reached = set(starts)
+            if starts and q.traverse.depth_limit >= 1:
+                # depth_limit=0 skips MATCH entirely: the walk starting
+                # points only — a legal bound, not an error (`GQ-10` at
+                # docs/GRAPH_QUERY_SEMANTICS.md:201).
+                walk_text = [
+                    _WALK_MATCH_PREFIX,
+                    _reach_pattern(q.traverse.depth_limit),
+                    _WALK_MATCH_SUFFIX,
+                    _WALK_NODES_ALL,
+                ]
+                if q.allowed_entities is not None:
+                    walk_text.append(_WALK_NODES_ALLOWED)
+                walk_text.append(_WALK_EDGES_ALL)
+                walk_text.append(_WALK_RETURN)
+                params["starts"] = sorted(starts)
+                params["crossable"] = sorted(
+                    {row["relationship_key"] for row in relationship_rows}
+                )
+                reached |= {
+                    record["entity_uri"]
+                    for record in tx.run("".join(walk_text), params)
+                }
+            # The reached set filters both row sets — the Cypher analogue
+            # of the SQL adapters' `IN (SELECT uri FROM walk)` outer
+            # SELECTs; the walk itself ran in the engine.
+            entity_rows = [
+                row for row in entity_rows if row["entity_uri"] in reached
+            ]
+            relationship_rows = [
+                row
+                for row in relationship_rows
+                if row["subject_uri"] in reached
+                and row["object_uri"] in reached
+            ]
+            return entity_rows, relationship_rows
+
+        params["partition"] = self._store.partition
+        with self._store.session() as session:
+            entity_rows, relationship_rows = session.execute_read(
+                answer_whole_query
+            )
+            return entity_rows, relationship_rows

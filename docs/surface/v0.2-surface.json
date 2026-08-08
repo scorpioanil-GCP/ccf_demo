@@ -1503,6 +1503,7 @@
   "ccf.graph.backends.neo4j": {
     "__all__": [
       "DEFAULT_PARTITION",
+      "MAX_DEPTH_CEILING",
       "Neo4jGraphReader",
       "Neo4jGraphStore"
     ],
@@ -1510,6 +1511,10 @@
       "DEFAULT_PARTITION": {
         "kind": "constant",
         "shape": "str"
+      },
+      "MAX_DEPTH_CEILING": {
+        "kind": "constant",
+        "shape": "int"
       },
       "Neo4jGraphReader": {
         "kind": "class",

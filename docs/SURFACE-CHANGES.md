@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**348 entries**, of which **132** name a public Python surface.
+**349 entries**, of which **133** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-119 entries — 91 public Python surface, 28 not public Python API.
+120 entries — 92 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -1927,6 +1927,29 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Why: partitions are what make "a fresh graph per boot" true on a
   Community-edition server with one database; the default names the
   single-fabric case
+- Migration: new surface — none
+
+*Recorded by `15.2-12-neo4j-backend.md`.*
+
+#### ccf.graph.backends.neo4j.MAX_DEPTH_CEILING
+
+- Surface: ccf.graph.backends.neo4j.MAX_DEPTH_CEILING
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `100` — the mechanism safety bound on the ONE value the adapter
+  inlines into Cypher text: the validated traversal-depth literal
+  (quantifier bounds cannot be driver parameters — research assumption A2,
+  re-verified live at execution). Deliberately NOT Control Plane
+  configuration, and the contrast is documented on the constant: the
+  admission payload ceiling is deployment-tunable policy; this bounds an
+  injection surface of the adapter's own query text (CINV-01). An
+  over-ceiling `depth_limit` is still answered — the translation declines
+  and the memory-bounded fallback answers (D-04, `GQ-29`): the ceiling
+  bounds Cypher text, never the query vocabulary
+- Why: threat T-15.2-01/T-15.2-21 — the depth literal is the concentrated
+  injection surface and the unbounded-pattern DoS vector; a named,
+  documented, tested bound is the mitigation
 - Migration: new surface — none
 
 *Recorded by `15.2-12-neo4j-backend.md`.*

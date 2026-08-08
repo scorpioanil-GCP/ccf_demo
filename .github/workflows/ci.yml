@@ -66,6 +66,21 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
+      # Plan 15.2-12: the neo4j differential leg's server. The image pins the
+      # 5-community line — the exact pairing the driver pin was verified
+      # against (research assumption A1: neo4j==6.2.0 <-> server 5.26.x over
+      # Bolt); re-verify A1 before moving either side.
+      neo4j:
+        image: neo4j:5-community
+        env:
+          NEO4J_AUTH: neo4j/ccf_test_password
+        ports:
+          - 7687:7687
+        options: >-
+          --health-cmd "cypher-shell -u neo4j -p ccf_test_password 'RETURN 1'"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 15
 
     env:
       # Consumed by the D-16 parametrized Protocol conformance suite.
@@ -75,6 +90,11 @@ jobs:
       # skipping every one of them (D-10 requires the same suite on the real
       # substrate, not the option of it).
       CCF_REQUIRE_POSTGRES: "1"
+      # Consumed by the neo4j leg of the substrate differential suite
+      # (plan 15.2-12). Same rule as Postgres: in CI a skipped neo4j leg is a
+      # failure, not a minimal environment.
+      CCF_TEST_NEO4J_URI: neo4j://neo4j:ccf_test_password@localhost:7687
+      CCF_REQUIRE_NEO4J: "1"
       # Same rule, applied to the three harness adapters (06-16). `[dev]`
       # composes `[harnesses]`, so all three SDKs are installed in CI and a
       # skipped harness leg means the extra broke, not that the environment is
@@ -91,11 +111,15 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Install package with dev extras
-        run: python -m pip install -e ".[dev]"
+      # The neo4j extra joins dev here because this job RUNS the neo4j leg
+      # against the service container above; the lint job stays dev-only (the
+      # extra is absent there, closed by the pyproject mypy override — the
+      # chromadb posture).
+      - name: Install package with dev extras + the neo4j leg's driver
+        run: python -m pip install -e ".[dev,neo4j]"
 
       - name: Quick suite (no external substrates)
-        run: pytest tests -q -m "not postgres and not chroma" -rs
+        run: pytest tests -q -m "not postgres and not chroma and not neo4j" -rs
 
       # The harness legs, asserted rather than assumed. `-rs` prints any skip;
       # `CCF_REQUIRE_HARNESSES` above turns one into a failure, so this step
@@ -112,9 +136,16 @@ jobs:
       - name: Postgres leg (service container)
         run: pytest tests -q -m postgres -rs
 
+      # The substrate differential suite against a real graph-native engine
+      # (plan 15.2-12): Cypher traversal held byte-identical to the audited
+      # fallback, `allowed_entities` shapes included. `-rs` surfaces any
+      # skip; CCF_REQUIRE_NEO4J above turns one into a failure.
+      - name: Neo4j leg (service container)
+        run: pytest tests -q -m neo4j -rs
+
       # Coverage is informational only — D-17 sets no numeric gate.
       - name: Coverage (informational)
-        run: pytest tests -q -m "not postgres and not chroma" --cov=ccf --cov-report=term
+        run: pytest tests -q -m "not postgres and not chroma and not neo4j" --cov=ccf --cov-report=term
 
   # The v0 examples suite is the adoption contract (CLAUDE.md §9): a broken
   # example is a broken build. Always-on per D-10 — the same `make examples`
