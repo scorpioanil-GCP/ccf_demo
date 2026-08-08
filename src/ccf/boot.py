@@ -44,10 +44,12 @@ from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph._writer import (
     BaseGraphWriter,
     BootToken,
+    MemoryGraphWriter,
     PostgresGraphWriter,
     SqliteGraphWriter,
     mint_boot_token,
 )
+from ccf.graph.backends.memory import MemoryGraphStore
 from ccf.graph.backends.postgres import DEFAULT_SCHEMA, PostgresGraphStore
 from ccf.graph.backends.sqlite import SqliteGraphStore
 from ccf.graph.protocols import GraphReader
@@ -117,6 +119,7 @@ def _open_backend(
     database_path: Path | str | None,
     postgres_dsn: str | None,
     postgres_schema: str,
+    memory: bool,
 ) -> tuple[_Backend, Callable[[BootToken], BaseGraphWriter]]:
     """Select and open the graph backend named by explicit configuration.
 
@@ -124,15 +127,24 @@ def _open_backend(
     string: a fabric that guessed its own substrate could silently boot against
     a development SQLite file in production and would still pass every test.
     SQLite remains the *default* (D-IMPL-02) precisely because it is the
-    development backend; Postgres is chosen by saying so.
+    development backend; Postgres is chosen by saying so — and so is the
+    in-memory backend (Phase 15.2 D-06): ``memory=True`` is an explicit
+    statement, never a fallback a missing connection argument degrades to.
 
     Raises:
-        ValueError: neither backend was named, or both were.
+        ValueError: not exactly one backend was named.
     """
-    if (database_path is None) == (postgres_dsn is None):
+    selected = (database_path is not None) + (postgres_dsn is not None) + memory
+    if selected != 1:
         raise ValueError(
-            "boot requires exactly one of database_path (SQLite) or "
-            "postgres_dsn (Postgres); the fabric does not infer its substrate"
+            "boot requires exactly one of database_path (SQLite), "
+            "postgres_dsn (Postgres), or memory=True (in-memory); the fabric "
+            "does not infer its substrate"
+        )
+    if memory:
+        memory_store = MemoryGraphStore()
+        return memory_store, lambda token: MemoryGraphWriter(
+            store=memory_store, token=token
         )
     if postgres_dsn is not None:
         pg_store = PostgresGraphStore(dsn=postgres_dsn, schema=postgres_schema)
@@ -151,6 +163,7 @@ def boot(
     database_path: Path | str | None = None,
     postgres_dsn: str | None = None,
     postgres_schema: str = DEFAULT_SCHEMA,
+    memory: bool = False,
     registry: ControlPlaneProtocol,
     resolution_spec_key: str,
     resolution_spec_version: str,
@@ -165,13 +178,18 @@ def boot(
     (D-IMPL-38, whitepaper §7.10).
 
     Args:
-        database_path: SQLite file to attach to. Mutually exclusive with
-            ``postgres_dsn``; exactly one must be given.
+        database_path: SQLite file to attach to. Exactly one of this,
+            ``postgres_dsn``, and ``memory=True`` must be given.
         postgres_dsn: libpq connection string for the Postgres backend. Comes
             from the deployment's environment; it is never persisted and never
             reproduced in the graph identity the single-writer check uses.
         postgres_schema: Postgres schema the fabric's tables live in. Two
             schemas on one database are two graphs.
+        memory: Boot against a fresh in-memory graph (Phase 15.2 D-06) — zero
+            external dependencies, no connection argument, no persistence
+            beyond the handle's life. Every ``memory=True`` boot is its own
+            graph with its own synthetic identity: two memory fabrics are two
+            fabrics, never a shared substrate.
         registry: Control Plane the resolution spec and policy bundle come from.
         resolution_spec_key: Key of the :class:`EntityResolutionSpec` artifact.
         resolution_spec_version: Pinned version of that artifact.
@@ -179,8 +197,8 @@ def boot(
         policy_bundle_version: Pinned version of that bundle.
 
     Raises:
-        ValueError: neither or both of ``database_path`` / ``postgres_dsn``
-            were given.
+        ValueError: not exactly one of ``database_path`` / ``postgres_dsn`` /
+            ``memory=True`` was given.
         ccf.graph._writer.SingleWriterViolation: a live writer already exists
             for this graph.
         ccf.controlplane.registry.ControlPlaneMissing: a pinned key or version
@@ -192,6 +210,7 @@ def boot(
         database_path=database_path,
         postgres_dsn=postgres_dsn,
         postgres_schema=postgres_schema,
+        memory=memory,
     )
     try:
         token = mint_boot_token(graph_identity=store.graph_identity)

@@ -453,6 +453,47 @@ def test_supplying_the_other_backends_argument_is_refused(
     assert registry.audit_events() == ()
 
 
+def test_memory_declared_boots_with_no_connection_argument(
+    deployment: Deployment,
+) -> None:
+    """A ``memory`` manifest needs no connection value at all (15.2-06, D-06).
+
+    The whole point of the kind-only D-08 posture, completed: for the
+    zero-dependency backend the environment supplies nothing, and the
+    deployment boots through the same one call.
+    """
+    path = deployment.variant_manifest(
+        "memory.yaml", manifest_document(backend="memory")
+    )
+    registry = ControlPlaneRegistry()
+
+    booted = load_and_boot(path, registry=registry)
+    with booted.handle:
+        assert booted.pins.entries  # registration ran; the fabric is real
+
+
+def test_memory_declared_with_a_connection_argument_is_refused(
+    deployment: Deployment, tmp_path: pathlib.Path
+) -> None:
+    """``memory`` plus a connection argument is the same contradiction as ever.
+
+    Refused in preflight, before anything is registered — the registry is
+    exactly as the call found it.
+    """
+    path = deployment.variant_manifest(
+        "memory-with-path.yaml", manifest_document(backend="memory")
+    )
+    registry = ControlPlaneRegistry()
+    with pytest.raises(ValueError) as raised:
+        load_and_boot(
+            path,
+            registry=registry,
+            database_path=str(tmp_path / "graph.sqlite3"),
+        )
+    assert "database_path" in str(raised.value)
+    assert registry.audit_events() == ()
+
+
 # --- (5) tenant resolution ----------------------------------------------------
 
 

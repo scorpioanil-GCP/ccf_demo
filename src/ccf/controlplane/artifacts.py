@@ -876,7 +876,9 @@ class DeploymentManifest(VersionedArtifact):
     in a versioned, content-hashed artifact would persist it into the audit
     plane. The manifest says which substrate; the environment supplies how to
     reach it, and :func:`~ccf.deployment.manifest.load_and_boot` refuses loudly
-    if the two do not agree.
+    if the two do not agree. A ``memory`` backend (Phase 15.2 D-06) needs no
+    connection value at all — the environment supplies nothing, and supplying
+    a connection argument anyway is refused as the contradiction it is.
 
     **Q3 — where** ``tenant_id`` **lives.** It is carried here, optionally, and
     the caller supplies it when absent. D-03 makes ``ccf.resolution-spec``
@@ -894,14 +896,17 @@ class DeploymentManifest(VersionedArtifact):
             a manifest naming nothing is an authoring mistake rather than a
             deployment that configures nothing.
         backend: Which graph substrate this deployment runs on — the kind, not
-            the connection.
+            the connection. ``memory`` (Phase 15.2 D-06) declares the
+            zero-dependency in-memory backend and needs no connection field:
+            there is nothing to connect to, so no environment argument exists
+            for it either.
         resolution_spec_key: Manifest key of the entity-resolution spec.
         policy_bundle_key: Manifest key of the policy bundle in force.
         tenant_id: The deployment's tenant, when the manifest names it.
     """
 
     artifacts: tuple[ManifestEntry, ...] = Field(min_length=1)
-    backend: Literal["sqlite", "postgres"]
+    backend: Literal["sqlite", "postgres", "memory"]
     resolution_spec_key: str
     policy_bundle_key: str
     tenant_id: str | None = None

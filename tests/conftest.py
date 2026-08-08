@@ -234,6 +234,11 @@ def fabric_boot(
                 "database_path": database_path
                 or tmp_path / f"fabric-{counter['n']}.sqlite3"
             }
+        elif backend == "memory":
+            # Phase 15.2 D-06: the zero-dependency in-memory backend. Every
+            # boot is its own graph (per-instance synthetic identity), so
+            # isolation needs no temp file and no schema.
+            location = {"memory": True}
         else:
             raise NotImplementedError(backend)
         handle = boot(

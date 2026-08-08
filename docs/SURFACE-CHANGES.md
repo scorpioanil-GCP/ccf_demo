@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**294 entries**, of which **80** name a public Python surface.
+**299 entries**, of which **84** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-94 entries — 66 public Python surface, 28 not public Python API.
+96 entries — 68 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -1472,6 +1472,51 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.2-05-query-seam-open.md`.*
 
+#### ccf.graph.backends.memory.MemoryGraphStore
+
+- Surface: ccf.graph.backends.memory.MemoryGraphStore
+- Public surface: true
+- Change type: added
+- Before: absent — the fabric's cheapest substrate was a SQLite temp file;
+  no fabric could boot with zero filesystem or server dependencies
+- After: `MemoryGraphStore()` — per-tenant dict tables mirroring the
+  relational shape field-for-field, canonical RFC3339 text timestamps, and a
+  synthetic per-instance `memory://` `graph_identity` so the single-writer
+  boot check keys on instance identity (two writers over one instance are
+  the violation; two instances are two fabrics). Offers `reader`,
+  `close()`, and context management — the same envelope as the SQLite store
+- Why: the Phase 15.2 D-06 ruling — a zero-dependency floor that is
+  always-on in `make ci` and doubles as the teaching example of an adapter
+  with no query engine
+- Migration: new surface — none. `boot(memory=True)` constructs the store;
+  direct construction is only for wiring the reader into read-only harnesses
+
+*Recorded by `15.2-06-memory-backend.md`.*
+
+#### ccf.graph.backends.memory.MemoryGraphReader
+
+- Surface: ccf.graph.backends.memory.MemoryGraphReader
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `GraphReader` conformer with no query engine and no native
+  translation, by design: it acquires as-of rows from the dicts (the row
+  filter over canonical text — lexicographic is chronological), materializes
+  them through the substrate-neutral core
+  (`ccf.graph.reader.materialize_view`), answers every query through
+  `ccf.graph.fallback.answer` (`allowed_entities` handled there by
+  set-intersection — no memory-specific code), and freezes through the
+  interface-owned ordering (`GQ-22`). `as_of()` is the D-07 degenerate-query
+  derivation; `attestation` reports tier 1
+- Why: D-06 names this the teaching example — the shape every adapter's
+  degrade path already has (`GQ-29`, D-04), and the proof that
+  lineage-at-boundary, supersession-as-of, ordering, and traversal exist
+  exactly once in the tree (15.2-RESEARCH.md Pitfall 5)
+- Migration: new surface — none. Adapter authors copy this shape for their
+  own degrade paths
+
+*Recorded by `15.2-06-memory-backend.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -1905,7 +1950,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-186 entries — 3 public Python surface, 183 not public Python API.
+188 entries — 5 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -1994,6 +2039,54 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   the field; code reading `version_for` is untouched
 
 *Recorded by `15.1-02-registration-mode.md`.*
+
+#### ccf.boot.boot
+
+- Surface: ccf.boot.boot
+- Public surface: true
+- Change type: reshaped
+- Before: `boot(*, database_path=None, postgres_dsn=None, postgres_schema=…,
+  registry, …)` — exactly one of `database_path` / `postgres_dsn` selected
+  the substrate
+- After: a `memory: bool = False` keyword joins the selector set; the
+  exclusivity check now reads exactly one of {`database_path`,
+  `postgres_dsn`, `memory=True`}, refused in the same
+  the-fabric-does-not-infer-its-substrate ValueError style. The memory
+  branch constructs `MemoryGraphStore` and a `MemoryGraphWriter`, so every
+  `memory=True` boot is its own graph
+- Why: explicit selection, never inference (the `_open_backend` posture) —
+  the memory backend must be a statement, not a fallback a missing
+  connection argument degrades to
+- Migration: none for existing callers — the new keyword defaults to
+  `False` and both existing selectors are untouched
+
+*Recorded by `15.2-06-memory-backend.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentManifest
+
+- Surface: ccf.controlplane.artifacts.DeploymentManifest
+- Public surface: true
+- Change type: reshaped
+- Before: `backend: Literal["sqlite", "postgres"]` — every deployment
+  manifest had to name a substrate the environment supplies a connection
+  value for
+- After: `backend: Literal["sqlite", "postgres", "memory"]`. A `memory`
+  manifest needs no connection field and no environment argument — the D-08
+  kind-only posture completed for a substrate with nothing to connect to.
+  `load_and_boot` maps `backend: memory` to `boot(memory=True)`, and its
+  preflight refuses a `memory` declaration accompanied by `database_path`
+  or `postgres_dsn` exactly as it refuses the wrong backend's argument. The
+  re-export `ccf.deployment.DeploymentManifest` reshapes identically. The
+  committed `docs/schemas/ccf.deployment-manifest.json` regenerated
+  (ERGO-12)
+- Why: D-06 — a fabric that boots from a manifest must be able to name the
+  always-on floor; SUBQ-08's memory leg runs through the same one call every
+  other deployment uses
+- Migration: none for existing manifests — both existing kinds are
+  untouched; new manifests may declare `backend: memory` and supply no
+  connection argument
+
+*Recorded by `15.2-06-memory-backend.md`.*
 
 ### Not public Python API
 
@@ -4272,7 +4365,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-14 entries — 11 public Python surface, 3 not public Python API.
+15 entries — 11 public Python surface, 4 not public Python API.
 
 ### Public Python surface
 
@@ -4607,3 +4700,28 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: n/a
 
 *Recorded by `15-20-external.md`.*
+
+#### ccf.graph._writer.MemoryGraphWriter
+
+- Surface: ccf.graph._writer.MemoryGraphWriter
+- Public surface: false
+- Change type: behavior
+- Before: the typed write seam (`_GraphTxn`, plan 15.2-02) had only SQL
+  implementations — `_SqlGraphTxn` driving dialect statements for SQLite
+  and Postgres
+- After: `_MemoryTxn` implements the nine typed operations natively over
+  the store's per-tenant dicts — the first non-SQL proof of the seam —
+  honouring the rowcount contract (0 for an ignored duplicate claim id, the
+  writer's idempotency signal) and all-or-nothing transactions via lazy
+  per-tenant snapshot with in-place rollback. `MemoryGraphWriter` inherits
+  the whole `BaseGraphWriter` algorithm with no SQL ClassVars. Both live in
+  `ccf.graph._writer` only (CINV-02 — write code outside that module is
+  write code outside the guard)
+- Why: D-05/D-06 lock that conformance writes go through booted L2, and a
+  dict store cannot execute SQL text; the typed seam exists precisely so
+  this class could be written without interpreting SQL constants
+- Migration: none — the module is import-restricted to `ccf.assembly` /
+  `ccf.boot`; deployments reach the writer only through
+  `boot(memory=True)`
+
+*Recorded by `15.2-06-memory-backend.md`.*
