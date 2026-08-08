@@ -31,10 +31,19 @@ The pipeline, in order, with each step's failure mode named:
    a seam. It is a *verified* seam: what the environment supplies is checked
    against the record, never trusted.
 4. **Re-execute** against a :class:`~ccf.replay.snapshots.SnapshotReader` pinned
-   to the recorded tenant and boundary, then check that the executed step
-   sequence — operator keys, categories, and parameter hashes, in order —
-   equals the recorded one. Drifted parameters surface as
-   :class:`ReplayDivergence` here rather than as a quietly different answer.
+   to the recorded tenant and boundary — under the recorded dimension-2
+   ``survivor_cap`` (D-10), so a capped decision re-executes the way it ran —
+   then check that the executed step sequence — operator keys, categories, and
+   parameter hashes, in order — equals the recorded one, and that the
+   re-executed query-pin sequence — one ``content_hash`` per issued
+   ``GraphQuery``, in order — equals the recorded dimension-5
+   ``graph_query_sequence`` (D-11). Drifted parameters and a drifted question
+   sequence both surface as :class:`ReplayDivergence` here rather than as a
+   quietly different answer. A record carrying the pre-seam
+   :data:`~ccf.replay.record.NO_GRAPH_QUERIES` sentinel asserts it predates
+   the query seam, and the pin comparison stands down — that is the
+   compatibility promise, not a hole: the snapshot and product checks below
+   still hold it to the same answer.
 5. **Check the snapshot id** derived from the re-execution against the recorded
    one. Both are content-derived, so agreement is a statement about state.
 6. **Re-hydrate the product** and check its content address against the
@@ -69,7 +78,7 @@ from ccf.graph.protocols import GraphReader
 from ccf.products.contract import ContextProductContract
 from ccf.projection.engine import OperatorRegistry, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput, ProjectionPlan
-from ccf.replay.record import DecisionReplayRecord
+from ccf.replay.record import NO_GRAPH_QUERIES, DecisionReplayRecord
 from ccf.replay.snapshots import SnapshotReader, snapshot_of_execution
 
 __ccf_mode__ = "algorithmic"
@@ -378,7 +387,13 @@ def replay(
 
     snapshot = record.context_fabric_snapshot
     execution = ProjectionEngine(
-        reader=SnapshotReader(reader=reader, snapshot=snapshot), registry=operators
+        reader=SnapshotReader(reader=reader, snapshot=snapshot),
+        registry=operators,
+        # The recorded dimension-2 cap, not the deployment's current one
+        # (D-10): the pushed/in-process split depends on this value, so a
+        # replay under a different cap would issue a different question
+        # sequence — a re-computation wearing the decision's identifier.
+        survivor_cap=record.policy_bindings.survivor_cap,
     ).execute(
         plan=plan,
         perspective=Perspective(
@@ -397,6 +412,24 @@ def replay(
             "differing parameter hash means the operators are no longer the "
             "ones that ran"
         )
+
+    if path.graph_query_sequence != NO_GRAPH_QUERIES:
+        # D-11: recompute the per-round-trip pins from the re-execution and
+        # compare, in order. A record carrying the pre-seam sentinel asserts
+        # it predates the query seam and is exempt — that is the sentinel's
+        # compatibility promise (D-IMPL-89), and the snapshot and product
+        # checks below still bind such a record to the same answer.
+        replayed_pins = tuple(
+            content_hash(query) for query in execution.executed_queries
+        )
+        if replayed_pins != path.graph_query_sequence:
+            raise ReplayDivergence(
+                "the re-executed query sequence differs from the recorded "
+                f"pins (recorded {list(path.graph_query_sequence)!r}, "
+                f"replayed {list(replayed_pins)!r}); the questions asked of "
+                "the substrate are no longer the questions the decision "
+                "asked (D-11, `GQ-20`)"
+            )
 
     reproduced_snapshot = snapshot_of_execution(
         execution=execution,

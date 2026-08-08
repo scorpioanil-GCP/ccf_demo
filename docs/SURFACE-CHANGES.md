@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**324 entries**, of which **109** name a public Python surface.
+**325 entries**, of which **110** name a public Python surface.
 
 ## Added
 
@@ -4695,7 +4695,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-21 entries — 17 public Python surface, 4 not public Python API.
+22 entries — 18 public Python surface, 4 not public Python API.
 
 ### Public Python surface
 
@@ -5066,6 +5066,28 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Why: execution facts already travel to the builder on `ExecutionResult`;
   a new parameter would have been a second channel for the same facts
 - Migration: none — executions built without the fields yield both sentinels
+
+*Recorded by `15.2-08-replay-query-pins.md`.*
+
+#### ccf.replay.engine.replay
+
+- Surface: ccf.replay.engine.replay
+- Public surface: true
+- Change type: behavior
+- Before: re-execution ran with no survivor cap and compared the step
+  sequence, the snapshot id, and the product address
+- After: re-execution runs under the **recorded** dimension-2
+  `survivor_cap`, and after the step-sequence check the re-executed query
+  pins — one `content_hash` per issued `GraphQuery`, in order — are compared
+  against the recorded `graph_query_sequence`; a mismatch is
+  `ReplayDivergence`. A record carrying the pre-seam `NO_GRAPH_QUERIES`
+  sentinel asserts it predates the query seam and the pin comparison stands
+  down — the snapshot and product checks still bind it to the same answer
+- Why: D-11 — replay recomputes each question and compares hashes, so a
+  doctored pin tuple or a drifted question sequence is caught non-determinism;
+  D-10 — the split depends on the cap, so re-executing under the deployment's
+  *current* cap would be a re-computation wearing the decision's identifier
+- Migration: none — pre-phase records replay exactly as before
 
 *Recorded by `15.2-08-replay-query-pins.md`.*
 
