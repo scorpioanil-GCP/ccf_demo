@@ -196,3 +196,78 @@ and it is why the escalation carries a recommendation rather than a shrug.
 Full option/consequence record, and the reason this is an entry rather than a
 fix, are in the `D-IMPL-90` entry. Named for Dave in `15.2-14-SUMMARY.md`
 under "Questions for Dave" as the gating decision of the D-GATE-15.2 package.
+
+**CLOSED 2026-08-08 — Dave ruled option (a).** `D-IMPL-90 (resolution,
+2026-08-08)` in `docs/DECISIONS.md`. The writer renders `claim_json` through
+the canonical serializer (`ccf.graph._writer::_claim_payload`), so one instant
+has one rendering everywhere in the fabric. Verified as a single-variable A/B
+on one tree across **three backends × two authoring forms × two renderers
+(12 arms)**: the claim-identity digest is `f7f27f52063700d5…` in **all twelve**
+— the identity lane does not move under any combination — and the answer-bytes
+digest for UTC-authored content is `79ede0b085eaa82c…` under both renderers on
+memory, sqlite and postgres alike. The only thing that moves is the defect: for
+offset-authored content the legacy renderer answers `9e794faade451d52…` with an
+**empty** `require_valid_at_boundary` answer on sqlite *and* postgres, and the
+canonical renderer restores it to `79ede0b085eaa82c…` — byte-identical to the
+UTC-authored answer. The corner is now **exercised, not documented**: the
+differential corpus generates offset-authored validity windows
+(`offset_authored_validity_cases`) and
+`test_offset_authored_validity_answers_identically_on_each_reader` is the
+named per-param regression — both confirmed to fail under the legacy renderer
+on sqlite and postgres, and each of the three container legs grew by exactly
++1 param when it landed (postgres 24→25, neo4j 19→20, mongo 21→22). No adapter
+changed. This deferred item requires no further routing.
+
+---
+
+## DI-15.2-04 — a by-hand `pytest` inside a GSD execution worktree silently tests the MAIN checkout, not the worktree
+
+**Raised:** 2026-08-08, plan 15.2-14 re-verification. **Routing: process /
+tooling hygiene, NOT a phase-15.2 defect. Carried forward — no code change
+made at the gate.**
+
+**What happened.** The `D-IMPL-90` fix looked like it held on sqlite, memory
+and mongo but failed on postgres. It did not. The worktree's `.venv` is a
+symlink to the main checkout's venv, and `ccf` is installed there as a
+setuptools **editable** package whose `__editable___ccf_0_1_0_finder.py`
+carries a hard-coded `MAPPING = {'ccf': '/home/parkave/ccf_code/src/ccf', …}`
+and installs itself on `sys.meta_path`. A bare `pytest` from inside the
+worktree therefore imports the **main checkout's** source — the fix under test
+was not even loaded (`hasattr(module, '_claim_payload')` → `False`). Mongo
+passed anyway because its adapter is genuinely immune to the payload
+rendering; sqlite/memory were not exercised by the marker-selected leg; only
+postgres was, so only postgres appeared to fail. Every conclusion drawn from
+those runs was wrong in the same direction, and the apparent finding pointed
+straight at the two-dialect SQL rework Dave had just rejected.
+
+**Why `make ci` was never affected.** The Makefile has exported
+`PYTHONPATH=src:runtime` since Phase I.5 (08-RESEARCH.md Pitfall 7, and the
+header comment says exactly why: "so src-layout packages resolve without
+relying on the editable install being fresh"). Relative paths resolve against
+the worktree, and `sys.path` beats an appended meta-path finder. The hazard is
+confined to commands run **outside** the Makefile — which is precisely how the
+three container legs are invoked, since they are marker-selected and have no
+`make` target.
+
+**The options, for whoever picks this up.**
+
+1. **Add `pythonpath = ["src", "runtime"]` to `[tool.pytest.ini_options]`.**
+   Resolves against pytest's rootdir, so it is correct in *any* checkout,
+   worktree included. Caveat: it does **not** propagate to the `crossproc`
+   suites' spawned subprocesses, which inherit the environment, not pytest's
+   `sys.path` — so it is a partial fix, and a partial fix that *looks*
+   complete is its own hazard.
+2. **Give the three container legs `make` targets** (`make leg-postgres`,
+   `leg-neo4j`, `leg-mongo`) carrying `$(ENV)` and the `CCF_REQUIRE_*` /
+   `CCF_TEST_*` variables. This puts them under the same discipline as every
+   other command in the repo, and CLAUDE.md's D-10 rule already says every
+   target CI runs a developer runs the same way. **Recommended** — it fixes
+   the actual exposure rather than a symptom, and it makes the legs
+   reproducible from one documented command.
+3. **Do nothing and rely on discipline.** Rejected in this note: five
+   sessions were spent on this phase, and this artifact cost part of one.
+
+**Not fixed here because** it is repo-wide test-harness configuration, changed
+at a phase-close gate, with a CI-behaviour implication that cannot be verified
+from this worktree. Surfaced rather than papered over (CLAUDE.md §11), and
+named for Dave in `15.2-14-SUMMARY.md` §6 so the choice is his.
