@@ -169,5 +169,30 @@ T-15.2-03/-26 information-disclosure posture is strictly preserved. The corner
 also requires an offset-authored claim datetime, which nothing in the SDK, the
 examples, or the fixtures produces — every in-repo path renders ``Z``.
 
-**Named question for the D-GATE-15.2 package.** Recorded in
-`15.2-14-SUMMARY.md` under "Questions for Dave".
+**ESCALATED as `D-IMPL-90` (OPEN) in `docs/DECISIONS.md`, 2026-08-08.** The
+§3.1 cross-AI self-review returned this corner as a **BLOCKING** finding —
+correctly, and on a sharper reading than the one above: `GQ-31` is
+byte-identity, not "no over-disclosure", so a known-diverging shape is a
+counterexample to the phase's central conformance clause regardless of which
+direction it errs in.
+
+**The audit measured the corner rather than restating it, and the measurement
+changes the analysis.** Probe on one `EntityClaim` with
+`valid_from = 2026-03-01T08:00:00+05:00`:
+
+| Lane | Rendering | Normalized? |
+|---|---|---|
+| `model_dump(mode="json")` — what `_writer.py` persists into `claim_json` | `2026-03-01T08:00:00+05:00` | **no** |
+| `canonical_bytes(claim)` — what `content_hash` and every answer use | `2026-03-01T03:00:00.000000Z` | **yes** |
+
+**Option (a) does NOT move content hashes.** Both this entry's original text
+and the reviewer assumed it would. Claim identity is
+`content_hash(_entity_content_key(claim))`, which passes the `datetime` value
+through `canonical_bytes` — already UTC-normalized. The identity lane and the
+payload lane are independent, and only the payload lane keeps the offset. That
+removes the objection that made (a) look like a replay-compatibility break,
+and it is why the escalation carries a recommendation rather than a shrug.
+
+Full option/consequence record, and the reason this is an entry rather than a
+fix, are in the `D-IMPL-90` entry. Named for Dave in `15.2-14-SUMMARY.md`
+under "Questions for Dave" as the gating decision of the D-GATE-15.2 package.

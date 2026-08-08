@@ -11,7 +11,25 @@ L2, differential byte-identity, the translated Cypher — runs under the
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
+
+from ccf.contracts.canonical import canonical_bytes
+from tests.conformance.query_corpus import (
+    ON_BOUNDARY,
+    RELATIONSHIP_TYPES,
+    SEED_CLASSES,
+    TENANT,
+    chain_claims,
+    chain_uris,
+)
+from tests.conformance.test_substrate_properties import PERMITTED_CLASSIFICATION
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from ccf.boot import FabricHandle
 
 
 def test_module_imports_without_the_driver() -> None:
@@ -182,3 +200,95 @@ def test_boot_refuses_neo4j_plus_another_backend() -> None:
             policy_bundle_key="never",
             policy_bundle_version="never",
         )
+
+
+@pytest.mark.neo4j
+def test_cypher_traversal_is_pushed_not_silently_degraded(
+    fabric_boot: "Callable[..., FabricHandle]",
+) -> None:
+    """The Cypher walk ran in the engine — telemetry, not byte-identity alone.
+
+    Added by plan 15.2-14 on a BLOCKING finding from the §3.1 phase-close
+    self-review. **Byte-identity to the fallback is a conformance bar, not a
+    pushdown bar.** D-04 makes the degraded posture byte-identical *by design*
+    (`GQ-34` at docs/GRAPH_QUERY_SEMANTICS.md:609), so a `_translate_query`
+    that always returned ``None`` would pass the entire differential corpus —
+    which was, until this test, the whole of the neo4j leg's evidence. The SQL
+    backends prove the push with ``_pushed()``
+    (``tests/graph/test_sql_pushdown.py``) and Mongo with
+    ``translated_answers == len(queries)``
+    (``tests/graph/test_mongo_backend.py``); Neo4j asserted neither, so the
+    phase's strongest-pushdown-substrate claim rested on evidence that could
+    not distinguish a working Cypher translation from an absent one.
+
+    The four shapes are the ones a variable-length ``MATCH`` can get wrong,
+    mirroring the Mongo trap-shape test so a regression names *which*
+    correction broke:
+
+    * **depth 0** — starts only, no hop (`GQ-10`);
+    * **depth 1** — one hop;
+    * **depth 2 over a mixed-direction chain** — CCF traversal is undirected,
+      so the second edge pointing target→mid must still be crossable;
+    * **the resurrection shape** — the same depth-2 question with the
+      intermediate outside ``allowed_entities``. A walk that crossed it would
+      re-reach the target the set excludes (`GQ-15` at
+      docs/GRAPH_QUERY_SEMANTICS.md:300; threat T-15.2-26). This is the one
+      that most needs the telemetry: a degrade answers it correctly too.
+
+    ``memory`` is the differential control — the always-on KV floor, which
+    has no native translation at all — so the reached sets and the canonical
+    bytes are held identical while only the neo4j leg is asserted pushed.
+    """
+    from ccf.graph.protocols import GraphQuery, TraversalSpec
+
+    seed_uri, mid_uri, target_uri = chain_uris()
+    entities, relationships = chain_claims(
+        mid_classification=PERMITTED_CLASSIFICATION
+    )
+
+    def walk_at(depth: int) -> TraversalSpec:
+        return TraversalSpec(
+            seed_entity_classes=SEED_CLASSES,
+            relationship_types=RELATIONSHIP_TYPES,
+            depth_limit=depth,
+        )
+
+    queries = (
+        GraphQuery(tenant_id=TENANT, as_of=ON_BOUNDARY, traverse=walk_at(0)),
+        GraphQuery(tenant_id=TENANT, as_of=ON_BOUNDARY, traverse=walk_at(1)),
+        GraphQuery(tenant_id=TENANT, as_of=ON_BOUNDARY, traverse=walk_at(2)),
+        GraphQuery(
+            tenant_id=TENANT,
+            as_of=ON_BOUNDARY,
+            traverse=walk_at(2),
+            allowed_entities=frozenset({seed_uri, target_uri}),
+        ),
+    )
+
+    answers: dict[str, list[bytes]] = {}
+    reached: dict[str, list[set[str]]] = {}
+    for backend in ("neo4j", "memory"):
+        handle = fabric_boot(backend=backend)
+        for claim in entities:
+            handle.worker.admit_entity_claim(tenant_id=TENANT, claim=claim)
+        for edge in relationships:
+            handle.worker.admit_relationship_claim(tenant_id=TENANT, claim=edge)
+        views = [handle.reader.query(q) for q in queries]
+        answers[backend] = [canonical_bytes(view) for view in views]
+        reached[backend] = [
+            {record.claim.entity_uri for record in view.entities}
+            for view in views
+        ]
+        if backend == "neo4j":
+            # The whole point of this test: every one of the four answers came
+            # out of Cypher, none out of the fallback.
+            assert handle.reader.translated_answers == len(queries)
+            assert handle.reader.fallback_answers == 0
+
+    assert answers["neo4j"] == answers["memory"]
+    assert reached["neo4j"] == [
+        {seed_uri},
+        {seed_uri, mid_uri},
+        {seed_uri, mid_uri, target_uri},
+        {seed_uri},
+    ]
