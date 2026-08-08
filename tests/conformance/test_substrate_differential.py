@@ -21,17 +21,29 @@ would couple every adapter's conformance to the planner's shape.
 
 **Property coverage per adapter — the direct subset and the transitivity
 reading.** D-06 says every adapter runs under BOTH suites. For the always-on
-params (sqlite, memory) property coverage must not be transitive-only, so a
-DIRECT property-assertion subset runs against each always-on param's own
-``reader.query()``: the INV-CH7-14 as-of assertions, the hop-admissibility
-seed-excluded-target shape (Pitfall 1), the ``allowed_entities``
-resurrection-closure shape (Pitfall 2 — the amendment's defect, held
-directly per adapter), and the determinism twin. For extras-gated adapters
-(neo4j, mongo — plans 15.2-12/-13), property coverage is TRANSITIVE through
-differential byte-identity with the audited fallback: an adapter
-byte-identical to the fallback over the corpus inherits every property the
-fallback was audited under. That reading is recorded here and is presented
-for Dave's ratification in the 15.2-14 design-choice register.
+params (sqlite, memory — and the tier-2 ``product`` leg below) property
+coverage must not be transitive-only, so a DIRECT property-assertion subset
+runs against each always-on param's own ``reader.query()``: the INV-CH7-14
+as-of assertions, the hop-admissibility seed-excluded-target shape
+(Pitfall 1), the ``allowed_entities`` resurrection-closure shape (Pitfall 2
+— the amendment's defect, held directly per adapter), and the determinism
+twin. For extras-gated adapters (neo4j, mongo — plans 15.2-12/-13),
+property coverage is TRANSITIVE through differential byte-identity with the
+audited fallback: an adapter byte-identical to the fallback over the corpus
+inherits every property the fallback was audited under. That reading is
+recorded here and is presented for Dave's ratification in the 15.2-14
+design-choice register.
+
+**The tier-2 leg (D-08, plan 15.2-10).** The same suite runs on a
+``ProductSource``: corpus graph content is written through booted L2,
+captured verbatim (history reads, so temporal metadata and supersession
+edges are retained — `GQ-25` at docs/GRAPH_QUERY_SEMANTICS.md:502), carried
+as a ``graph_state`` product constructed through the real
+contract/admission path of the peering fixtures, admitted through
+``PeeringAdmissionGate``, and mounted. The mounted source is held to the
+identical corpus byte-identity bar — ``allowed_entities`` strategies
+included — plus the tenant-boundary twin and the direct property subset,
+always-on (no container, no extra).
 
 Two disciplines inherited from ``tests/conformance/test_graphstore.py``:
 
@@ -46,19 +58,22 @@ Two disciplines inherited from ``tests/conformance/test_graphstore.py``:
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from hypothesis import HealthCheck, given, settings
 
 from ccf.contracts.canonical import canonical_bytes
 from ccf.graph.fallback import answer
+from ccf.graph.product_source import ProductSource, mount_product_source
 from ccf.graph.protocols import (
     EntityRecord,
     GraphQuery,
     GraphView,
     RelationshipRecord,
 )
+from ccf.peering.admission import AdmittedProduct
 
 from tests.conformance.query_corpus import (
     EARLY,
@@ -79,6 +94,7 @@ from tests.conformance.test_substrate_properties import (
     PERMITTED_CLASSIFICATIONS,
     SEED_CLASS,
 )
+from tests.graph.test_product_source import admit_product, graph_state_product
 from tests.properties.strategies import CLASSIFICATION_ATTRIBUTE, ENTITY_POOL
 
 if TYPE_CHECKING:
@@ -103,12 +119,161 @@ def backend_name(request: pytest.FixtureRequest) -> str:
     return str(request.param)
 
 
-@pytest.fixture
+# --- the tier-2 mounted-source leg (D-08, plan 15.2-10) ----------------------
+
+
+def graph_state_of(
+    handle: "FabricHandle",
+    *,
+    tenant_id: str,
+    entity_uris: set[str],
+    relationship_keys: set[str],
+) -> dict[str, list[dict[str, Any]]]:
+    """Capture a fabric's records verbatim, as the `GQ-25` payload shape.
+
+    History reads rather than an as-of view, deliberately: history records
+    retain their temporal metadata — full lineage and intact supersession
+    edges — which is what makes the fallback's re-applied as-of predicate
+    the mounted records' temporal enforcement (`GQ-12` at
+    docs/GRAPH_QUERY_SEMANTICS.md:237). An as-of capture would silently
+    drop superseded claims and blank future edges, and the mounted source
+    could then never answer an earlier boundary correctly.
+    """
+    return {
+        "entities": [
+            record.model_dump(mode="json")
+            for uri in sorted(entity_uris)
+            for record in handle.reader.entity_history(
+                tenant_id=tenant_id, entity_uri=uri
+            )
+        ],
+        "relationships": [
+            record.model_dump(mode="json")
+            for key in sorted(relationship_keys)
+            for record in handle.reader.relationship_history(
+                tenant_id=tenant_id, relationship_key=key
+            )
+        ],
+    }
+
+
+def mounted_source_of(
+    handle: "FabricHandle",
+    *,
+    work_dir: Path,
+    tenant_id: str,
+    entity_uris: set[str],
+    relationship_keys: set[str],
+) -> ProductSource:
+    """Carry a fabric's records through the real admission path and mount them."""
+    admitted = admit_product(
+        work_dir=work_dir,
+        product=graph_state_product(
+            graph_state=graph_state_of(
+                handle,
+                tenant_id=tenant_id,
+                entity_uris=entity_uris,
+                relationship_keys=relationship_keys,
+            ),
+            tenant_id=tenant_id,
+        ),
+    )
+    assert isinstance(admitted, AdmittedProduct)
+    source = mount_product_source(admitted=admitted)
+    assert isinstance(source, ProductSource)
+    return source
+
+
+class MountedProductHandle:
+    """A ``FabricHandle``-shaped surface answering through a mounted product.
+
+    Writes delegate to a real booted fabric's L2 worker — nothing here
+    constructs a writer — while recording which keys were written. At the
+    first ``.reader`` access the accumulated state is captured verbatim
+    (:func:`graph_state_of`), carried as a ``graph_state`` product,
+    admitted through the real ``PeeringAdmissionGate``, and mounted; the
+    reader the tests query is then the :class:`ProductSource`. This is
+    what lets the direct property subset and the tenant-boundary twin run
+    over the tier-2 source with the identical test bodies every substrate
+    runs (D-06/D-08).
+    """
+
+    def __init__(self, *, handle: "FabricHandle", work_dir: Path) -> None:
+        self._handle = handle
+        self._work_dir = work_dir
+        self._tenant: str | None = None
+        self._entity_uris: set[str] = set()
+        self._relationship_keys: set[str] = set()
+        self._source: ProductSource | None = None
+        self.worker = _RecordingWorker(self)
+
+    def _note_tenant(self, tenant_id: str) -> None:
+        assert self._source is None, "the mounted leg writes before it reads"
+        if self._tenant is None:
+            self._tenant = tenant_id
+        assert tenant_id == self._tenant, "one product carries one tenant's state"
+
+    @property
+    def reader(self) -> ProductSource:
+        if self._source is None:
+            assert self._tenant is not None, "nothing was written before the read"
+            self._source = mounted_source_of(
+                self._handle,
+                work_dir=self._work_dir,
+                tenant_id=self._tenant,
+                entity_uris=self._entity_uris,
+                relationship_keys=self._relationship_keys,
+            )
+        return self._source
+
+
+class _RecordingWorker:
+    """Booted L2 admits, with the written keys recorded for mount time."""
+
+    def __init__(self, outer: MountedProductHandle) -> None:
+        self._outer = outer
+
+    @property
+    def policy_bundle_version(self) -> str:
+        return str(self._outer._handle.worker.policy_bundle_version)
+
+    def admit_entity_claim(self, *, tenant_id: str, claim: Any) -> Any:
+        self._outer._note_tenant(tenant_id)
+        result = self._outer._handle.worker.admit_entity_claim(
+            tenant_id=tenant_id, claim=claim
+        )
+        self._outer._entity_uris.add(claim.entity_uri)
+        return result
+
+    def admit_relationship_claim(self, *, tenant_id: str, claim: Any) -> Any:
+        self._outer._note_tenant(tenant_id)
+        result = self._outer._handle.worker.admit_relationship_claim(
+            tenant_id=tenant_id, claim=claim
+        )
+        self._outer._relationship_keys.add(result.node_key)
+        return result
+
+
+#: The deterministic tests run per substrate AND on the mounted tier-2
+#: source — the D-08 "same differential suite" obligation, always-on.
+SOURCE_PARAMS = (
+    *BACKEND_PARAMS,
+    pytest.param("product"),
+)
+
+
+@pytest.fixture(params=SOURCE_PARAMS)
 def substrate_fabric(
-    backend_name: str, fabric_boot: Callable[..., "FabricHandle"]
-) -> "FabricHandle":
-    """One booted fabric per backend param, for the deterministic tests."""
-    return fabric_boot(backend=backend_name)
+    request: pytest.FixtureRequest,
+    fabric_boot: Callable[..., "FabricHandle"],
+    tmp_path: Path,
+) -> "FabricHandle | MountedProductHandle":
+    """One booted fabric per backend param — or the mounted tier-2 source."""
+    if request.param == "product":
+        return MountedProductHandle(
+            handle=fabric_boot(backend="memory"), work_dir=tmp_path / "tier2"
+        )
+    return fabric_boot(backend=str(request.param))
 
 
 def _frozen_at(
@@ -194,11 +359,62 @@ def test_every_backend_answers_byte_identical_to_the_fallback(
         )
 
 
+@given(case=corpus_cases())
+@settings(
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+    max_examples=25,
+)
+def test_the_mounted_product_answers_byte_identical_to_the_fallback(
+    fabric_boot: Callable[..., "FabricHandle"],
+    tmp_path: Path,
+    case: CorpusCase,
+) -> None:
+    """The D-05 differential bar on the tier-2 source (D-08), corpus-wide.
+
+    Corpus content is written through booted L2, captured verbatim,
+    admitted through the real gate, and mounted; every corpus query — the
+    ``allowed_entities`` strategies included — must answer byte-identical
+    to the fallback-derived expected view, with the determinism twin. The
+    expected side reads the *live* fabric, so this also pins the stronger
+    fact: a mounted product answers exactly what the substrate it was
+    carried from answers.
+    """
+    handle = fabric_boot(backend="memory")
+    entity_uris: set[str] = set()
+    relationship_keys: set[str] = set()
+    for claim in case.entities:
+        handle.worker.admit_entity_claim(tenant_id=TENANT, claim=claim)
+        entity_uris.add(claim.entity_uri)
+    for edge in case.relationships:
+        written = handle.worker.admit_relationship_claim(
+            tenant_id=TENANT, claim=edge
+        )
+        relationship_keys.add(written.node_key)
+    source = mounted_source_of(
+        handle,
+        work_dir=tmp_path / "tier2",
+        tenant_id=TENANT,
+        entity_uris=entity_uris,
+        relationship_keys=relationship_keys,
+    )
+    for q in build_queries(
+        case, policy_bundle_version=handle.worker.policy_bundle_version
+    ):
+        answered = source.query(q)
+        expected = _expected(handle, q)
+        assert canonical_bytes(answered) == canonical_bytes(expected), (
+            f"the mounted product diverged from the fallback on corpus case"
+            f" {case.name!r}"
+        )
+        # The determinism twin: same question, same bytes.
+        assert canonical_bytes(source.query(q)) == canonical_bytes(answered)
+
+
 # --- the tenant boundary, as a query() twin ---------------------------------
 
 
 def test_query_reads_never_cross_the_tenant_boundary(
-    substrate_fabric: "FabricHandle",
+    substrate_fabric: "FabricHandle | MountedProductHandle",
 ) -> None:
     """The ``query()`` twin of the graphstore suite's tenant-boundary test.
 
@@ -250,7 +466,7 @@ def test_query_reads_never_cross_the_tenant_boundary(
 
 
 def test_as_of_cut_holds_directly_on_each_reader(
-    substrate_fabric: "FabricHandle",
+    substrate_fabric: "FabricHandle | MountedProductHandle",
 ) -> None:
     """INV-CH7-14, directly per param: no future information in an as-of answer.
 
@@ -296,7 +512,7 @@ def test_as_of_cut_holds_directly_on_each_reader(
 
 
 def test_hop_admissibility_holds_directly_on_each_reader(
-    substrate_fabric: "FabricHandle",
+    substrate_fabric: "FabricHandle | MountedProductHandle",
 ) -> None:
     """Pitfall 1 directly per param: prune before walking (INV-CH7-40, `GQ-13`).
 
@@ -341,7 +557,7 @@ def test_hop_admissibility_holds_directly_on_each_reader(
 
 
 def test_resurrection_closure_holds_directly_on_each_reader(
-    substrate_fabric: "FabricHandle",
+    substrate_fabric: "FabricHandle | MountedProductHandle",
 ) -> None:
     """Pitfall 2 directly per param: the amendment's defect, closed (D-IMPL-87).
 
@@ -391,7 +607,7 @@ def test_resurrection_closure_holds_directly_on_each_reader(
 
 
 def test_repeat_query_answers_are_deterministic_on_each_reader(
-    substrate_fabric: "FabricHandle",
+    substrate_fabric: "FabricHandle | MountedProductHandle",
 ) -> None:
     """The determinism twin, directly per param, on a fully loaded question."""
     entities, relationships = chain_claims(
