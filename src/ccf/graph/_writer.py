@@ -87,7 +87,11 @@ from typing import Any, ClassVar, Protocol
 
 import psycopg
 
-from ccf.contracts.canonical import canonical_timestamp, content_hash
+from ccf.contracts.canonical import (
+    canonical_bytes,
+    canonical_timestamp,
+    content_hash,
+)
 from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
 from ccf.graph.backends.memory import (
     EntityClaimRow,
@@ -233,6 +237,45 @@ def _relationship_content_key(claim: RelationshipClaim) -> dict[str, object]:
         "valid_from": claim.valid_from,
         "valid_to": claim.valid_to,
     }
+
+
+def _claim_payload(claim: EntityClaim | RelationshipClaim) -> str:
+    """The persisted ``claim_json`` text, in the SDK's one canonical form.
+
+    **D-IMPL-90 (Dave, 2026-08-08, option (a)).** This used to render
+    ``claim.model_dump(mode="json", exclude={"lineage"})``, which preserves
+    whatever UTC offset a claim was authored with — so the same instant had
+    two renderings in the fabric at once: the pydantic one on disk and the
+    UTC-normalized one every hash, boundary and answer uses
+    (:func:`ccf.contracts.canonical.canonical_bytes`). The pushed `GQ-09`
+    validity predicate compares canonical UTC *text* read out of this column,
+    so an offset-authored claim rendered as NULL and was excluded from a
+    pushed answer the fallback — comparing datetime *values* — included: a
+    reachable counterexample to `GQ-31` byte-identity
+    (docs/GRAPH_QUERY_SEMANTICS.md:573). Rendering the payload through the
+    canonical serializer removes the second rendering at its source, for
+    every adapter at once, rather than teaching each SQL dialect to order
+    offsets.
+
+    Nothing about claim *identity* moves: ``claim_id`` is
+    ``content_hash(_entity_content_key(claim))``, which already passes the
+    ``datetime`` value through the same canonical normalization — an
+    offset-authored claim and a ``Z``-authored claim of the same instant
+    always shared one content hash. Answer bytes do not move either: every
+    answer is re-canonicalized on the way out of
+    :mod:`ccf.graph.reader`. What changes is only the bytes at rest.
+
+    Lineage is excluded because it is persisted per-entry in its own rows and
+    re-attached at boundary by the reader; the field is walked back in on
+    read (``payload["lineage"] = …``), so it must not be in the payload.
+    """
+    return canonical_bytes(
+        {
+            name: getattr(claim, name)
+            for name in type(claim).model_fields
+            if name != "lineage"
+        }
+    ).decode("utf-8")
 
 
 def relationship_key(claim: RelationshipClaim) -> str:
@@ -599,9 +642,7 @@ class BaseGraphWriter:
         self._check_open()
         claim_id = content_hash(_entity_content_key(claim))
         observed_at = canonical_timestamp(claim.observed_at)
-        payload = json.dumps(
-            claim.model_dump(mode="json", exclude={"lineage"}), sort_keys=True
-        )
+        payload = _claim_payload(claim)
         with self._transaction() as txn:
             txn.upsert_entity_node(
                 tenant_id=tenant_id,
@@ -675,9 +716,7 @@ class BaseGraphWriter:
         key = relationship_key(claim)
         claim_id = content_hash(_relationship_content_key(claim))
         observed_at = canonical_timestamp(claim.observed_at)
-        payload = json.dumps(
-            claim.model_dump(mode="json", exclude={"lineage"}), sort_keys=True
-        )
+        payload = _claim_payload(claim)
         with self._transaction() as txn:
             txn.upsert_relationship_node(
                 tenant_id=tenant_id,
