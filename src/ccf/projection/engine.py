@@ -136,9 +136,22 @@ class ExecutionResult(CCFContract):
             ran (`GQ-20` at docs/GRAPH_QUERY_SEMANTICS.md:391). A cap firing
             is visible here as an absent entry (`GQ-18` at
             docs/GRAPH_QUERY_SEMANTICS.md:342). Sentinel-defaulted to the
-            empty tuple; plan 15.2-08 threads the per-round-trip
-            ``content_hash`` pins from this field into the Decision Replay
-            record (D-11) — this contract adds no record field itself.
+            empty tuple. :func:`~ccf.replay.record.build_replay_record`
+            threads the per-round-trip ``content_hash`` pins from this field
+            into replay dimension 5 (D-11), and the serve seam persists the
+            values' canonical bytes (:class:`~ccf.replay.serve.QueryPinWriter`)
+            — the queries travel here as **values, not only hashes**, so the
+            serving path can store the literal question an auditor will ask
+            for.
+        survivor_cap: The cap value **in force for this execution** — the
+            engine's constructor value, echoed onto the result so the
+            execution facts carry it to
+            :func:`~ccf.replay.record.build_replay_record`, which pins it
+            into replay dimension 2 (D-10). ``None`` is the positive no-cap
+            posture. Recorded whether or not any segment's survivor count
+            ever reached it: the dimension-2 fact is the configuration the
+            decision ran under, not whether it fired — the firing is visible
+            in ``executed_queries``.
     """
 
     plan_id: str
@@ -149,6 +162,7 @@ class ExecutionResult(CCFContract):
     view: GraphView
     acquisitions: tuple[AcquiredContent, ...] = ()
     executed_queries: tuple[GraphQuery, ...] = ()
+    survivor_cap: int | None = None
 
     def touched_entities(self) -> tuple[str, ...]:
         """Entity URIs the execution actually touched, sorted."""
@@ -470,4 +484,5 @@ class ProjectionEngine:
             view=view,
             acquisitions=acquisitions,
             executed_queries=tuple(executed_queries),
+            survivor_cap=self._survivor_cap,
         )

@@ -107,12 +107,22 @@ class BootedFabric:
             registry, and still absent from replay dimension 2. ``artifacts`` is
             a parse result handed back to the caller; ``pins`` is the record of
             what was put in force.
+        survivor_cap: The manifest's D-10 cap value, verbatim (15.2-08). The
+            governed route from Control Plane configuration to the engine:
+            the adopter passes this to
+            :class:`~ccf.projection.engine.ProjectionEngine`'s
+            ``survivor_cap`` at construction — value-threading only, exactly
+            as ``tenant_id`` travels; this module still constructs no engine
+            (the D-IMPL-86 correction's boundary). Direct :func:`ccf.boot.boot`
+            callers pass the value to the engine themselves. ``None`` = no
+            cap configured, the engine's own default.
     """
 
     handle: FabricHandle
     pins: ResolvedPins
     tenant_id: str
     artifacts: Mapping[str, CCFContract]
+    survivor_cap: int | None
 
 
 def _resolve_tenant(manifest: DeploymentManifest, supplied: str | None) -> str:
@@ -503,4 +513,5 @@ def load_and_boot(
         pins=pins,
         tenant_id=resolved_tenant,
         artifacts=parsed,
+        survivor_cap=manifest.survivor_cap,
     )

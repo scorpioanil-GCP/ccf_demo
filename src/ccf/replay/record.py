@@ -445,6 +445,21 @@ def build_replay_record(
     threaded into dimension 5 the same way: the workflow engine's
     pre-serialized step-sequence block, recorded verbatim, defaulting to the
     positive :data:`NO_WORKFLOW_TRACE` claim.
+
+    The 15.2-08 seam facts arrive on ``execution`` itself, not as new
+    parameters — they are execution facts, and execution facts already travel
+    here on :class:`~ccf.projection.engine.ExecutionResult`:
+
+    * ``execution.executed_queries`` becomes dimension 5's
+      ``graph_query_sequence`` — one ``content_hash`` per issued
+      ``GraphQuery``, in execution order (D-11; `GQ-20` at
+      docs/GRAPH_QUERY_SEMANTICS.md:391). Derived from what ran, never from
+      plan-side prediction (T-15.2-15); an execution recorded before the
+      query seam existed, or one built by hand without the field, yields the
+      :data:`NO_GRAPH_QUERIES` sentinel exactly as before.
+    * ``execution.survivor_cap`` becomes dimension 2's ``survivor_cap`` —
+      the D-10 Control-Plane-configured value in force, ``None`` asserting
+      no cap was configured.
     """
     return DecisionReplayRecord(
         tenant_id=product.tenant_id,
@@ -459,6 +474,7 @@ def build_replay_record(
         policy_bindings=PolicyBindingsSnapshot(
             bindings=policy_bindings,
             hitl_actions=hitl_actions if hitl_actions is not None else NO_HITL_ACTIONS,
+            survivor_cap=execution.survivor_cap,
         ),
         model_version=ModelVersionRecord(
             assembly_mode=assembly_mode,
@@ -480,5 +496,8 @@ def build_replay_record(
             workflow_step_sequence=workflow_step_sequence
             if workflow_step_sequence is not None
             else NO_WORKFLOW_TRACE,
+            graph_query_sequence=tuple(
+                content_hash(query) for query in execution.executed_queries
+            ),
         ),
     )
