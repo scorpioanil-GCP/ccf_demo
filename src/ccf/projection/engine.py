@@ -55,9 +55,16 @@ from datetime import datetime
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
-from ccf.graph.protocols import GraphQuery, GraphReader, GraphView
+from ccf.graph.protocols import (
+    GraphQuery,
+    GraphReader,
+    GraphView,
+    SourceAttestation,
+)
 from ccf.operators.base import OperatorOutput, OperatorProvenance
 from ccf.operators.planner import IntermediateCache, build_operator_plan
+from ccf.products.contract import RegisteredProductClass
+from ccf.products.gates import AttestationRefusal, refuse_attestation
 from ccf.projection.segmentation import (
     PushableSegment,
     compile_segment_query,
@@ -152,6 +159,21 @@ class ExecutionResult(CCFContract):
             ever reached it: the dimension-2 fact is the configuration the
             decision ran under, not whether it fired — the firing is visible
             in ``executed_queries``.
+        source_attestation: The source's
+            :class:`~ccf.graph.protocols.SourceAttestation` **as observed at
+            the read seam**, threaded here unconditionally by
+            :meth:`ProjectionEngine.execute` — even an execution whose
+            caller skipped :meth:`ProjectionEngine.check_source_attestation`
+            carries the provenance posture it read under, which is what
+            makes the ungoverned path repudiation-proof (T-15.2-25) and what
+            the additive gate in :func:`~ccf.products.gates.run_gates`
+            refuses on. ``None`` is the positive assertion that the reader
+            reported no attestation — an execution driven against a
+            pre-phase reader that predates the ``attestation`` property, or
+            a result built by hand without the field — and passes the gate:
+            the compatibility posture (D-09).
+            :func:`~ccf.replay.record.build_replay_record` pins this value
+            into replay dimension 1.
     """
 
     plan_id: str
@@ -163,6 +185,7 @@ class ExecutionResult(CCFContract):
     acquisitions: tuple[AcquiredContent, ...] = ()
     executed_queries: tuple[GraphQuery, ...] = ()
     survivor_cap: int | None = None
+    source_attestation: SourceAttestation | None = None
 
     def touched_entities(self) -> tuple[str, ...]:
         """Entity URIs the execution actually touched, sorted."""
@@ -259,6 +282,73 @@ class ProjectionEngine:
           inside :meth:`execute`.
         """
         return self._last_survivor_set_sizes
+
+    def _reader_attestation(self) -> SourceAttestation | None:
+        """The reader's attestation, or ``None`` for a pre-phase reader.
+
+        Tolerant by design, and the tolerance is the compatibility promise:
+        a user-implemented reader written before the ``attestation``
+        property existed still conforms to every obligation it was written
+        against, and an engine that crashed on it would be a behavior break
+        this phase forbids. Such a reader yields ``None`` — which the
+        additive gate passes and replay dimension 1 records as the positive
+        "no attestation was reported" claim (D-09).
+        """
+        attestation = getattr(self._reader, "attestation", None)
+        if attestation is None or isinstance(attestation, SourceAttestation):
+            return attestation
+        return None
+
+    def check_source_attestation(
+        self, *, product_class: RegisteredProductClass
+    ) -> AttestationRefusal | None:
+        """The caller-visible pre-execute attestation check (D-09) — SDK-defined.
+
+        SDK-defined per CLAUDE.md §11, the early layer of the two-layer D-09
+        enforcement. It compares this engine's reader's
+        :attr:`~ccf.graph.protocols.GraphReader.attestation` — a property,
+        so **zero queries are issued and no data moves** — against
+        ``product_class``'s accepted-mode sets, and returns the refusal as a
+        value, never an exception (the Phase 04 refusal-vs-exception line: a
+        below-modes source is an expected governance outcome, not a broken
+        deployment). The comparison itself is
+        :func:`~ccf.products.gates.refuse_attestation`, the same function
+        the gate path runs, so the two layers cannot disagree.
+
+        Serving code calls this **before** :meth:`execute`, in the same
+        match-composition the gates use::
+
+            match engine.check_source_attestation(product_class=product_class):
+                case None:
+                    execution = engine.execute(plan=plan, ...)
+                    gated = run_gates(
+                        candidate,
+                        engine_resolved=execution.operators_invoked,
+                        now=now,
+                        registry=registry,
+                        product_class=product_class,
+                        source_attestation=execution.source_attestation,
+                    )
+                case refusal:
+                    ...  # a returned value naming the failing dimension
+
+        The check is advisory in position but not in effect: a caller that
+        skips it changes nothing structurally, because :meth:`execute` pins
+        the attestation into the execution result unconditionally and
+        :func:`~ccf.products.gates.run_gates` refuses a below-modes pin —
+        :class:`~ccf.products.gates.ServableProduct` remains unconstructible
+        for a below-accepted-modes source either way. What the pre-check
+        buys is *earliness*: the refusal before the first byte moves.
+
+        Returns:
+            ``None`` when the source's modes are accepted (or the reader
+            reports no attestation — the compatibility posture), otherwise
+            the :class:`~ccf.products.gates.AttestationRefusal` naming the
+            failing dimension.
+        """
+        return refuse_attestation(
+            attestation=self._reader_attestation(), product_class=product_class
+        )
 
     def _resolve_content(
         self,
@@ -485,4 +575,9 @@ class ProjectionEngine:
             acquisitions=acquisitions,
             executed_queries=tuple(executed_queries),
             survivor_cap=self._survivor_cap,
+            # Unconditional: even a caller that skipped the pre-check leaves
+            # the provenance posture it read under in the execution facts,
+            # which run_gates then refuses on and replay dimension 1 pins
+            # (D-09; T-15.2-25).
+            source_attestation=self._reader_attestation(),
         )

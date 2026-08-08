@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**329 entries**, of which **114** name a public Python surface.
+**342 entries**, of which **127** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-111 entries — 83 public Python surface, 28 not public Python API.
+116 entries — 88 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -1771,6 +1771,91 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.2-10-product-source.md`.*
 
+#### ccf.graph.protocols.PolicyBindingMode
+
+- Surface: ccf.graph.protocols.PolicyBindingMode
+- Public surface: true
+- Change type: added
+- Before: absent — the closed policy-binding vocabulary existed only inline
+  on `SourceAttestation.policy_binding`
+- After: `Literal["assembly-stamped", "admission-verified", "none"]`, the
+  named single definition of the D-09 policy-binding mode vocabulary;
+  `SourceAttestation.policy_binding` and
+  `ProductClassDeclaration.accepted_policy_binding_modes` both annotate
+  against it
+- Why: the accepted-mode sets on the product class must reference the same
+  closed vocabulary the attestation reports; two inline spellings of one
+  vocabulary is how they drift
+- Migration: none — the Literal values are unchanged; existing code that
+  constructed `SourceAttestation` is untouched
+
+*Recorded by `15.2-11-attestation-enforcement.md`.*
+
+#### ccf.graph.protocols.LineageMode
+
+- Surface: ccf.graph.protocols.LineageMode
+- Public surface: true
+- Change type: added
+- Before: absent — inline on `SourceAttestation.lineage` only
+- After: `Literal["graph-supplied", "product-carried", "none"]`, the named
+  single definition of the D-09 lineage mode vocabulary, exactly as
+  `PolicyBindingMode`
+- Why: same single-definition discipline as `PolicyBindingMode`
+- Migration: none
+
+*Recorded by `15.2-11-attestation-enforcement.md`.*
+
+#### ccf.products.gates.GATE_SOURCE_ATTESTATION
+
+- Surface: ccf.products.gates.GATE_SOURCE_ATTESTATION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"source-attestation"` — the gate name the additive D-09 check
+  reports on its refusals, beside the three canonical gate names
+- Why: refusals carry `gate` as a machine-readable field; the additive gate
+  needs a name the caller and the audit reader agree on
+- Migration: new surface — none
+
+*Recorded by `15.2-11-attestation-enforcement.md`.*
+
+#### ccf.products.gates.AttestationRefusal
+
+- Surface: ccf.products.gates.AttestationRefusal
+- Public surface: true
+- Change type: added
+- Before: absent — no typed refusal existed for a source whose attestation
+  a product class does not accept
+- After: derives from `GateRefusal` (the `AdmissionRefusal` precedent), so
+  the `ServableProduct | GateRefusal` union of `run_gates` is unchanged;
+  carries `failing_dimension: Literal["policy_binding", "lineage"]`,
+  `source_mode`, and `accepted_modes` — the `PayloadTooLargeRefusal`
+  diagnostic-pair style, naming the failing dimension per D-09
+- Why: D-09 requires refusal as a returned value naming the failing
+  dimension — never an exception; deriving from the fabric-wide refusal
+  base means no caller learns a new shape
+- Migration: new surface — none
+
+*Recorded by `15.2-11-attestation-enforcement.md`.*
+
+#### ccf.products.gates.refuse_attestation
+
+- Surface: ccf.products.gates.refuse_attestation
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `refuse_attestation(*, attestation, product_class) ->
+  AttestationRefusal | None` — the one D-09 accepted-modes comparison,
+  called by both enforcement layers (the engine pre-check and the
+  `run_gates` gate path) so the two cannot drift into two readings of
+  "accepted"; `None` (a pre-attestation record or a pre-phase reader)
+  passes — the compatibility posture
+- Why: two independently implemented comparisons is how a pre-check and a
+  gate disagree about the same source
+- Migration: new surface — none
+
+*Recorded by `15.2-11-attestation-enforcement.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -2204,7 +2289,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-196 entries — 13 public Python surface, 183 not public Python API.
+203 entries — 20 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -2492,6 +2577,162 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none — `load_and_boot` is the only constructor
 
 *Recorded by `15.2-08-replay-query-pins.md`.*
+
+#### ccf.controlplane.artifacts.ProductClassDeclaration
+
+- Surface: ccf.controlplane.artifacts.ProductClassDeclaration
+- Public surface: true
+- Change type: reshaped
+- Before: the declaration carried no statement of which source-attestation
+  modes the class accepts — every class implicitly consumed whatever source
+  the deployment wired
+- After: gains `accepted_policy_binding_modes: frozenset[PolicyBindingMode]
+  = {"assembly-stamped"}` and `accepted_lineage_modes: frozenset[LineageMode]
+  = {"graph-supplied"}` — unordered accepted-mode **sets** (not ordered
+  minima; no strength ordering between `assembly-stamped` and
+  `admission-verified` is invented), defaulting to the tier-1 posture;
+  `docs/schemas/ccf.product-class.json` regenerated
+- Why: D-09 — a product class must be able to demand provenance; the tier-1
+  defaults make the demand every pre-attestation class already implicitly
+  made, so consuming a tier-2 source becomes an explicit authored opt-in
+  (deny-by-default) and nothing existing changes behavior
+- Migration: none — existing YAML validates unchanged (the defaults);
+  a class that should consume a mounted admitted product declares
+  `accepted_policy_binding_modes: [assembly-stamped, admission-verified]`
+  and `accepted_lineage_modes: [graph-supplied, product-carried]`
+
+*Recorded by `15.2-11-attestation-enforcement.md`.*
+
+#### ccf.products.contract.RegisteredProductClass
+
+- Surface: ccf.products.contract.RegisteredProductClass
+- Public surface: true
+- Change type: reshaped
+- Before: carried the class's registration-time governance (schema lane,
+  TTL anchor, assembly mode, pinned MAX_TTL reference) but no attestation
+  acceptance
+- After: gains `accepted_policy_binding_modes` / `accepted_lineage_modes`
+  with the same tier-1 defaults as the declaration
+- Why: `run_gates` receives the registered class, so carrying the accepted
+  modes here is what lets the gate derive the class side of the D-09
+  comparison from what it already holds — no new gate parameter for the
+  class side
+- Migration: none — both fields default to the tier-1 posture; every
+  existing construction site is unchanged
+
+*Recorded by `15.2-11-attestation-enforcement.md`.*
+
+#### ccf.products.contract.register_product_class
+
+- Surface: ccf.products.contract.register_product_class
+- Public surface: true
+- Change type: reshaped
+- Before: registered schema lane, TTL anchor, assembly mode, and the pinned
+  MAX_TTL reference
+- After: gains keyword-only `accepted_policy_binding_modes` /
+  `accepted_lineage_modes` with tier-1 defaults, threaded verbatim onto
+  `RegisteredProductClass`
+- Why: the declaration's accepted modes must reach the registered value the
+  gates consult; a registration path that dropped them would make the
+  declaration decorative
+- Migration: none — existing call sites register exactly what they always
+  implicitly demanded; a tier-2-consuming deployment passes the
+  declaration's accepted-mode sets
+
+*Recorded by `15.2-11-attestation-enforcement.md`.*
+
+#### ccf.products.gates.run_gates
+
+- Surface: ccf.products.gates.run_gates
+- Public surface: true
+- Change type: reshaped
+- Before: the canonical three-gate sequence over
+  `(candidate, engine_resolved, now, registry, product_class)`
+- After: gains keyword-only `source_attestation: SourceAttestation | None =
+  None` — the pinned attestation of the execution that produced the
+  candidate (the governed path passes `execution.source_attestation`);
+  when present and below the class's accepted modes the additive gate
+  returns `AttestationRefusal` after the canonical three, and no
+  `ServableProduct` exists. The three pre-existing gates' code, docstrings,
+  order, and refusal precedence are byte-untouched; the return union is
+  unchanged
+- Why: the candidate contract cannot carry its source's attestation (a
+  product does not attest its own source; the execution record does), so
+  the pin arrives as the plan-anticipated keyword-only parameter with a
+  `None` default — the only shape that leaves every pre-attestation call
+  site byte-for-byte unchanged
+- Migration: none for existing callers (`None` passes); the governed
+  serving path adds `source_attestation=execution.source_attestation`
+
+*Recorded by `15.2-11-attestation-enforcement.md`.*
+
+#### ccf.projection.engine.ProjectionEngine
+
+- Surface: ccf.projection.engine.ProjectionEngine
+- Public surface: true
+- Change type: reshaped
+- Before: no pre-execute attestation surface; `execute()` did not record
+  the source's attestation
+- After: gains `check_source_attestation(*, product_class) ->
+  AttestationRefusal | None` — the caller-visible pre-execute check: zero
+  queries (it touches only the reader's `attestation` property), refusal
+  as a returned value, the same `refuse_attestation` comparison the gate
+  path runs. `execute()`'s signature and return annotation are
+  byte-identical to plan 15.2-08's
+- Why: the D-09 early layer — a below-modes source is refused before the
+  first byte moves; the check is advisory in position but not in effect,
+  because the unconditional pin plus the gate path make `ServableProduct`
+  unconstructible for a below-modes source regardless
+- Migration: none — new method; serving code calls it before `execute()`
+  in the same match-composition the gates use
+
+*Recorded by `15.2-11-attestation-enforcement.md`.*
+
+#### ccf.projection.engine.ExecutionResult
+
+- Surface: ccf.projection.engine.ExecutionResult
+- Public surface: true
+- Change type: reshaped
+- Before: carried `executed_queries` and `survivor_cap` (15.2-07/08) but
+  not the source's attestation
+- After: gains sentinel-defaulted `source_attestation: SourceAttestation |
+  None = None` — the reader's attestation as observed at the read seam,
+  threaded by `execute()` **unconditionally**; `None` is the positive
+  "no attestation was reported" claim (a pre-phase reader), which the gate
+  passes
+- Why: the dimension-1 pin needs the value in force to travel the same
+  channel every other execution fact travels (the 15.2-08 precedent); the
+  unconditional threading is what makes even a bypassing caller's read
+  path repudiation-proof (T-15.2-25)
+- Migration: none — the field defaults to `None`; `execute()`'s signature
+  is byte-identical
+
+*Recorded by `15.2-11-attestation-enforcement.md`.*
+
+#### ccf.replay.record.ContextFabricSnapshot
+
+- Surface: ccf.replay.record.ContextFabricSnapshot
+- Public surface: true
+- Change type: reshaped
+- Before: dimension 1 recorded the four D-IMPL-06 constituents and the
+  derived snapshot id; nothing recorded how the source vouched for the
+  state read
+- After: gains sentinel-defaulted `source_attestation: SourceAttestation |
+  None = None`, with `None` documented as the positive assertion "recorded
+  before source attestation existed"; `build()` gains the matching
+  keyword-only parameter. The field is deliberately **not** a
+  `graph_snapshot_id` constituent — the id identifies graph state, so
+  re-derived ids stay comparable across records written before and after
+  the field
+- Why: D-09 — the attestation in force at decision time is a dimension-1
+  fact (what state/source the decision drew from); pinned verbatim, so
+  even a read path that skipped every check leaves its provenance posture
+  in the record
+- Migration: none — the sentinel default; stored records lacking the field
+  rebuild to it and their stored content addresses still verify
+  (D-IMPL-89)
+
+*Recorded by `15.2-11-attestation-enforcement.md`.*
 
 ### Not public Python API
 
@@ -4770,7 +5011,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-22 entries — 18 public Python surface, 4 not public Python API.
+23 entries — 19 public Python surface, 4 not public Python API.
 
 ### Public Python surface
 
@@ -5189,6 +5430,22 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   before; pre-extension records additionally verify again
 
 *Recorded by `15.2-08-replay-query-pins.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: behavior
+- Before: dimension 1 carried no attestation
+- After: signature unchanged — the new fact arrives on `execution` itself:
+  `execution.source_attestation` becomes dimension 1's
+  `source_attestation`, exactly as the 15.2-08 facts arrived
+- Why: execution facts already travel to the builder on `ExecutionResult`;
+  a new parameter would have been a second channel for the same fact
+- Migration: none — executions built without the field yield the `None`
+  sentinel
+
+*Recorded by `15.2-11-attestation-enforcement.md`.*
 
 ### Not public Python API
 

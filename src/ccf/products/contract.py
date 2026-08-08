@@ -45,6 +45,7 @@ from typing import Any, Literal
 
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
+from ccf.graph.protocols import LineageMode, PolicyBindingMode
 
 __ccf_mode__ = "algorithmic"
 
@@ -105,6 +106,21 @@ class RegisteredProductClass(CCFContract):
         max_ttl_version: The pinned version of it. Pinned rather than
             "latest" so that the ceiling a decision was gated against is
             re-resolvable years later (whitepaper §7.10, D-IMPL-26).
+        accepted_policy_binding_modes: The **accepted modes** of the
+            ``policy_binding`` attestation dimension — SDK-defined per
+            CLAUDE.md §11, realizing D-09 (see
+            :class:`~ccf.controlplane.artifacts.ProductClassDeclaration`
+            for the authored side). An unordered set, never an ordered
+            minimum: no strength ordering between modes is invented. The
+            default is the tier-1 ``{"assembly-stamped"}`` posture every
+            pre-attestation class already lived under, so tier-2
+            consumption is deny-by-default until a class opts in. Carried
+            here because this is the value ``run_gates`` receives — the
+            gate derives the class side of the attestation comparison from
+            what it already holds.
+        accepted_lineage_modes: The accepted modes of the ``lineage``
+            attestation dimension, under exactly the same discipline;
+            tier-1 default ``{"graph-supplied"}``.
     """
 
     schema_name: str
@@ -113,6 +129,12 @@ class RegisteredProductClass(CCFContract):
     assembly_mode: AssemblyMode
     max_ttl_key: str
     max_ttl_version: str
+    accepted_policy_binding_modes: frozenset[PolicyBindingMode] = frozenset(
+        {"assembly-stamped"}
+    )
+    accepted_lineage_modes: frozenset[LineageMode] = frozenset(
+        {"graph-supplied"}
+    )
 
 
 class ProductLineage(CCFContract):
@@ -168,6 +190,12 @@ def register_product_class(
     assembly_mode: AssemblyMode,
     max_ttl_key: str,
     max_ttl_version: str,
+    accepted_policy_binding_modes: frozenset[PolicyBindingMode] = frozenset(
+        {"assembly-stamped"}
+    ),
+    accepted_lineage_modes: frozenset[LineageMode] = frozenset(
+        {"graph-supplied"}
+    ),
 ) -> RegisteredProductClass:
     """Register a product class, requiring its MAX_TTL to already exist.
 
@@ -176,6 +204,13 @@ def register_product_class(
     while wiring the fabric rather than when a product is about to be served —
     at which point the only remaining options are a silent default (forbidden)
     or a failure in front of a caller.
+
+    ``accepted_policy_binding_modes`` / ``accepted_lineage_modes`` carry the
+    class's D-09 accepted attestation modes onto the registered value (from
+    :class:`~ccf.controlplane.artifacts.ProductClassDeclaration`'s fields of
+    the same names). Their defaults are the tier-1 posture, so a caller that
+    registered before attestation existed registers exactly what it always
+    implicitly demanded.
 
     Raises:
         ProductClassRegistrationError: no MAX_TTL is registered at
@@ -204,4 +239,6 @@ def register_product_class(
         assembly_mode=assembly_mode,
         max_ttl_key=max_ttl_key,
         max_ttl_version=max_ttl_version,
+        accepted_policy_binding_modes=accepted_policy_binding_modes,
+        accepted_lineage_modes=accepted_lineage_modes,
     )

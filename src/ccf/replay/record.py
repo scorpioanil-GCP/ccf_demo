@@ -8,7 +8,10 @@ DESIGN.md §2B.5. The dimensions, and what each holds in I.1:
    tenant + store-state watermark + the touched-substate manifest that lineage
    strict equality already enumerates. No physical graph copy — a copy per
    decision is what makes year-scale replay intractable, and the manifest plus
-   the append-only graph reconstructs the same state.
+   the append-only graph reconstructs the same state. The source attestation
+   in force extends this dimension as of 15.2-11 (D-09): the per-dimension
+   provenance modes the reading source reported, recorded from execution,
+   ``None`` asserting "recorded before source attestation existed".
 2. **Policy Bindings Snapshot** — version identifiers of every Control Plane
    binding in force (INV-CH7-82). HITL actions extend this dimension as of
    I.4 (delivered; CLAUDE.md §8.2): the pre-serialized ``hitl_actions`` block
@@ -51,6 +54,7 @@ from pydantic import field_validator
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
+from ccf.graph.protocols import SourceAttestation
 from ccf.products.contract import AssemblyMode, ContextProductContract
 from ccf.projection.engine import ExecutionResult, ExecutionStep
 from ccf.projection.plan import Perspective
@@ -129,6 +133,17 @@ NO_GRAPH_QUERIES: Final[tuple[str, ...]] = ()
 class ContextFabricSnapshot(CCFContract):
     """Dimension 1 — the logical graph snapshot (INV-CH7-81, D-IMPL-06).
 
+    The source attestation in force extends this dimension as of 15.2-11
+    (D-09) through ``source_attestation``, under the sentinel-default
+    discipline of every prior record extension (the
+    ``workflow_step_sequence`` precedent): dimension 1 is *what state/source
+    the decision drew from*, and how the source vouched for its policy
+    binding and lineage is a dimension-1 fact — a decision made over a
+    mounted tier-2 product and one made over the live graph read different
+    kinds of state even when the bytes agree. Recorded from the engine's own
+    execution facts, unconditionally, so even a read path that skipped every
+    check leaves its provenance posture here (T-15.2-25).
+
     Attributes:
         graph_snapshot_id: Derived identity of the state below. Derived, not
             assigned: an id someone chose could be reused across two different
@@ -139,6 +154,12 @@ class ContextFabricSnapshot(CCFContract):
         store_watermark: Content address of the graph state actually read.
         touched_entities: Entity URIs in the substate, sorted.
         touched_relationships: Relationship keys in the substate, sorted.
+        source_attestation: The :class:`~ccf.graph.protocols.SourceAttestation`
+            the reading source reported at decision time (D-09), pinned
+            verbatim. ``None`` is the positive assertion "recorded before
+            source attestation existed" — or an execution against a
+            pre-phase reader that reported none — asserted, never inferred
+            from silence, exactly as every sentinel default in this record.
     """
 
     graph_snapshot_id: str
@@ -147,6 +168,7 @@ class ContextFabricSnapshot(CCFContract):
     store_watermark: str
     touched_entities: tuple[str, ...]
     touched_relationships: tuple[str, ...]
+    source_attestation: SourceAttestation | None = None
 
     @classmethod
     def build(
@@ -157,12 +179,22 @@ class ContextFabricSnapshot(CCFContract):
         store_watermark: str,
         touched_entities: tuple[str, ...],
         touched_relationships: tuple[str, ...],
+        source_attestation: SourceAttestation | None = None,
     ) -> "ContextFabricSnapshot":
         """Derive the snapshot id from the state it identifies.
 
         The id is ``content_hash`` over exactly the four constituents
         D-IMPL-06 names, so two decisions made against identical state share an
         id and any difference in the state produces a different one.
+
+        ``source_attestation`` is deliberately **not** an id constituent: the
+        id identifies graph *state*, and two reads of identical state share
+        it whatever their sources attested — which is also what keeps
+        :func:`~ccf.replay.snapshots.snapshot_of_execution`'s re-derived id
+        comparable across records written before and after the field existed.
+        The attestation is pinned beside the id and is covered by the
+        record's own content address, so it is tamper-evident without being
+        identity-bearing.
         """
         return cls(
             graph_snapshot_id=content_hash(
@@ -179,6 +211,7 @@ class ContextFabricSnapshot(CCFContract):
             store_watermark=store_watermark,
             touched_entities=touched_entities,
             touched_relationships=touched_relationships,
+            source_attestation=source_attestation,
         )
 
 
@@ -460,6 +493,12 @@ def build_replay_record(
     * ``execution.survivor_cap`` becomes dimension 2's ``survivor_cap`` —
       the D-10 Control-Plane-configured value in force, ``None`` asserting
       no cap was configured.
+    * ``execution.source_attestation`` becomes dimension 1's
+      ``source_attestation`` (15.2-11, D-09) — the provenance modes the
+      reading source reported, threaded by the engine unconditionally; an
+      execution recorded before the attestation seam existed, or one built
+      by hand without the field, yields the ``None`` sentinel exactly as
+      before.
     """
     return DecisionReplayRecord(
         tenant_id=product.tenant_id,
@@ -470,6 +509,7 @@ def build_replay_record(
             store_watermark=execution.state_watermark(),
             touched_entities=execution.touched_entities(),
             touched_relationships=execution.touched_relationships(),
+            source_attestation=execution.source_attestation,
         ),
         policy_bindings=PolicyBindingsSnapshot(
             bindings=policy_bindings,

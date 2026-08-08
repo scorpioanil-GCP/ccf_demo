@@ -61,6 +61,19 @@ never absolute prevention.
 depended on wall-clock time at replay would make replay non-deterministic
 precisely at the boundary where determinism matters most.
 
+**The additive source-attestation gate (Phase 15.2, D-09).** SDK-defined per
+CLAUDE.md §11: after the canonical three, :func:`run_gates` additionally
+refuses a candidate whose **pinned source attestation** reports a mode
+outside the product class's accepted-mode sets — an unordered per-dimension
+comparison (no strength ordering between modes is invented), with the
+refusal naming the failing dimension. The pinned attestation arrives as a
+keyword-only argument because the candidate contract cannot carry it (a
+product does not attest its own source; the engine's execution record does),
+and ``None`` — a record produced before attestation existed, or a bypassing
+caller against a pre-phase reader — passes: the compatibility posture. The
+canonical three gates, their order, and their refusal precedence are
+byte-untouched.
+
 This module holds no TTL values and no thresholds (CLAUDE.md §11, CINV-01).
 Algorithmic module (CINV-03).
 """
@@ -68,10 +81,12 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from typing import Literal
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.graph.protocols import SourceAttestation
 from ccf.products.contract import (
     ContextProductContract,
     MaxTTL,
@@ -84,7 +99,9 @@ __all__ = [
     "GATE_EMPTY_OPERATOR",
     "GATE_LINEAGE_ATTRIBUTABILITY",
     "GATE_LINEAGE_EQUALITY",
+    "GATE_SOURCE_ATTESTATION",
     "GATE_TTL_BOUNDS",
+    "AttestationRefusal",
     "EmptyOperatorRefusal",
     "GateBypassError",
     "GateRefusal",
@@ -92,6 +109,7 @@ __all__ = [
     "LineageMismatchRefusal",
     "ServableProduct",
     "TTLRefusal",
+    "refuse_attestation",
     "run_federated_gates",
     "run_gates",
 ]
@@ -100,6 +118,7 @@ GATE_EMPTY_OPERATOR = "empty-operator-guard"
 GATE_LINEAGE_EQUALITY = "lineage-strict-equality"
 GATE_LINEAGE_ATTRIBUTABILITY = "lineage-attributability"
 GATE_TTL_BOUNDS = "ttl-bounds"
+GATE_SOURCE_ATTESTATION = "source-attestation"
 
 
 class GateBypassError(TypeError):
@@ -158,6 +177,97 @@ class TTLRefusal(GateRefusal):
     max_ttl_seconds: int
 
 
+class AttestationRefusal(GateRefusal):
+    """The additive gate: the source's attestation mode is not accepted (D-09).
+
+    SDK-defined per CLAUDE.md §11, deriving from :class:`GateRefusal` rather
+    than paralleling it for the reason
+    :class:`~ccf.peering.admission.AdmissionRefusal` records: a source meets
+    the fabric's one gate discipline, not a second one that happens to look
+    similar. The ``ServableProduct | GateRefusal`` return union of
+    :func:`run_gates` is therefore unchanged by this refusal existing.
+
+    Both sides of the comparison are carried — the
+    ``PayloadTooLargeRefusal`` diagnostic-pair style — so the refusal names
+    the failing dimension per D-09 and a caller never re-derives either side
+    to learn what the gap was.
+
+    Attributes:
+        failing_dimension: Which attestation dimension refused. Exactly one
+            is named — the first that failed, in the fixed
+            ``policy_binding``-then-``lineage`` order — because "below
+            accepted modes" is a per-dimension fact, not an aggregate.
+        source_mode: The mode the source declared on that dimension.
+        accepted_modes: The product class's accepted-mode set for that
+            dimension — an unordered set (D-09's "minima" realized as
+            accepted-mode sets; no strength ordering exists between modes).
+    """
+
+    failing_dimension: Literal["policy_binding", "lineage"]
+    source_mode: str
+    accepted_modes: frozenset[str]
+
+
+def refuse_attestation(
+    *,
+    attestation: SourceAttestation | None,
+    product_class: RegisteredProductClass,
+) -> AttestationRefusal | None:
+    """The one D-09 accepted-modes comparison — shared by both layers.
+
+    Called by :meth:`ccf.projection.engine.ProjectionEngine.check_source_attestation`
+    (the caller-visible pre-execute check) and by :func:`run_gates` (the
+    structural gate-path enforcement), so the two layers cannot drift into
+    two readings of "accepted". Pure over its arguments: no I/O, no clock,
+    no query.
+
+    ``None`` passes, and the pass is deliberate — the compatibility posture:
+    an attestation pinned as ``None`` is a record produced before source
+    attestation existed, or an execution driven by a bypassing caller
+    against a pre-phase reader that never reported one. Refusing it would
+    reclassify every pre-phase decision as below-modes retroactively;
+    admitting it leaves the audit trail (the unconditional dimension-1 pin)
+    to say exactly what was and was not attested.
+
+    Returns:
+        ``None`` when every attested dimension's mode is in the class's
+        accepted set, otherwise the :class:`AttestationRefusal` naming the
+        first failing dimension (``policy_binding`` checked before
+        ``lineage``, a fixed order so the named dimension is deterministic).
+    """
+    if attestation is None:
+        return None
+    if attestation.policy_binding not in product_class.accepted_policy_binding_modes:
+        return AttestationRefusal(
+            gate=GATE_SOURCE_ATTESTATION,
+            detail=(
+                f"source attests policy_binding={attestation.policy_binding!r} "
+                f"but class {product_class.schema_name!r} accepts "
+                f"{sorted(product_class.accepted_policy_binding_modes)}; the "
+                "accepted-mode sets are unordered — the source's mode must be "
+                "a member (D-09)"
+            ),
+            failing_dimension="policy_binding",
+            source_mode=attestation.policy_binding,
+            accepted_modes=frozenset(product_class.accepted_policy_binding_modes),
+        )
+    if attestation.lineage not in product_class.accepted_lineage_modes:
+        return AttestationRefusal(
+            gate=GATE_SOURCE_ATTESTATION,
+            detail=(
+                f"source attests lineage={attestation.lineage!r} but class "
+                f"{product_class.schema_name!r} accepts "
+                f"{sorted(product_class.accepted_lineage_modes)}; the "
+                "accepted-mode sets are unordered — the source's mode must be "
+                "a member (D-09)"
+            ),
+            failing_dimension="lineage",
+            source_mode=attestation.lineage,
+            accepted_modes=frozenset(product_class.accepted_lineage_modes),
+        )
+    return None
+
+
 _GATE_TOKEN = object()
 
 
@@ -193,6 +303,7 @@ def run_gates(
     now: datetime,
     registry: ControlPlaneProtocol,
     product_class: RegisteredProductClass,
+    source_attestation: SourceAttestation | None = None,
 ) -> ServableProduct | GateRefusal:
     """Run the canonical gate sequence over ``candidate``.
 
@@ -204,6 +315,21 @@ def run_gates(
         registry: Control Plane the MAX_TTL is resolved from.
         product_class: The registered class, carrying the pinned MAX_TTL
             reference established at registration (D-IMPL-39).
+            As of Phase 15.2 it also carries the D-09 accepted attestation
+            modes the additive gate below compares against.
+        source_attestation: The **pinned** source attestation of the
+            execution that produced ``candidate`` — the governed path passes
+            ``execution.source_attestation``, the value the engine observed
+            at the read seam and threads into replay dimension 1. A
+            keyword-only argument with a ``None`` default rather than a
+            field on the candidate, because a product does not attest its
+            own source; and ``None`` passes — the compatibility posture
+            :func:`refuse_attestation` documents — so every pre-attestation
+            call site is byte-for-byte unchanged in behavior. When present
+            and below the class's accepted modes, the additive
+            :data:`GATE_SOURCE_ATTESTATION` gate returns an
+            :class:`AttestationRefusal` naming the failing dimension, and
+            no :class:`ServableProduct` exists (D-09).
 
     Returns:
         A :class:`ServableProduct` when every gate passes, otherwise the
@@ -241,6 +367,12 @@ def run_gates(
     )
     if ttl is not None:
         return ttl
+
+    attestation = refuse_attestation(
+        attestation=source_attestation, product_class=product_class
+    )
+    if attestation is not None:
+        return attestation
 
     return ServableProduct(candidate, _GATE_TOKEN)
 
