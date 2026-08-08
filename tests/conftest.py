@@ -159,6 +159,39 @@ def harness_unavailable(module_name: str, leg: str) -> None:
     pytest.skip(reason)
 
 
+#: Set by the CI job (GitHub Actions Neo4j service container). The neo4j leg
+#: is env-driven only: locally, run the documented container
+#: (`docker run -d -p 7687:7687 -e NEO4J_AUTH=neo4j/<password>
+#: neo4j:5-community`) and export the URI. Plan 15.2-12.
+NEO4J_URI_ENV = "CCF_TEST_NEO4J_URI"
+
+#: Set in CI. Turns "no Neo4j available" from a skip into a failure — the
+#: exact CCF_REQUIRE_POSTGRES rationale: a leg that quietly skips is a green
+#: build that proved nothing.
+NEO4J_REQUIRED_ENV = "CCF_REQUIRE_NEO4J"
+
+
+@pytest.fixture(scope="session")
+def neo4j_uri() -> str:
+    """The Bolt URI of a real Neo4j server, from the environment.
+
+    Skips when unset so a contributor without the container still gets a
+    meaningful run of everything else — unless ``CCF_REQUIRE_NEO4J`` says
+    this environment must have one, in which case it fails (the
+    :func:`_unavailable` posture, applied to the neo4j leg).
+    """
+    uri = os.environ.get(NEO4J_URI_ENV)
+    if uri:
+        return uri
+    reason = (
+        f"{NEO4J_URI_ENV} is unset; start a neo4j:5-community container and"
+        " export the Bolt URI to run the neo4j leg"
+    )
+    if os.environ.get(NEO4J_REQUIRED_ENV):
+        pytest.fail(f"{NEO4J_REQUIRED_ENV} is set but Neo4j is unusable: {reason}")
+    pytest.skip(reason)
+
+
 @pytest.fixture(scope="session")
 def postgres_dsn() -> Iterator[str]:
     """A DSN for a real Postgres, from CI's service container or testcontainers.
@@ -239,6 +272,14 @@ def fabric_boot(
             # boot is its own graph (per-instance synthetic identity), so
             # isolation needs no temp file and no schema.
             location = {"memory": True}
+        elif backend == "neo4j":
+            # Plan 15.2-12: a fresh partition per boot is what makes "a
+            # fresh graph per test" true on a shared Community server,
+            # exactly as a fresh schema does on Postgres.
+            location = {
+                "neo4j_uri": request.getfixturevalue("neo4j_uri"),
+                "neo4j_partition": f"ccf_test_{uuid.uuid4().hex}",
+            }
         else:
             raise NotImplementedError(backend)
         handle = boot(

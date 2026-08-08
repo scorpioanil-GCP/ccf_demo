@@ -61,6 +61,13 @@ ccf = "ccf_runtime.cli.main:main"
 [project.optional-dependencies]
 # chromadb is NEVER a core dependency (heavy transitive tree) — 04-RESEARCH.md Standard Stack.
 chroma = ["chromadb==1.5.9"]
+# The official Neo4j driver is NEVER a core dependency — 15.2-RESEARCH.md Standard
+# Stack (Package Legitimacy Audit: Approved, vendor-official
+# github.com/neo4j/neo4j-python-driver, slopcheck no-flag). Exact pin per the
+# supply-chain posture (threat T-15.2-SC). Driver 6.2.0 ↔ neo4j:5-community
+# server pairing verified with a live Bolt round trip at plan 15.2-12 execution
+# (research assumption A1) — the CI service leg runs exactly this pairing.
+neo4j = ["neo4j==6.2.0"]
 # Harness SDKs are NEVER core dependencies — 06-CONTEXT.md D-08. The reason is stronger
 # than the `chroma` weight argument: harness neutrality is an install-time property as
 # well as an import-time one (CLAUDE.md §7.3). A LangGraph deployment must not be made to
@@ -129,6 +136,7 @@ testpaths = ["tests"]
 markers = [
   "postgres: requires a Postgres backend (service container in CI, testcontainers locally) — D-10",
   "chroma: requires the optional `chroma` extra — D-13",
+  "neo4j: requires the optional `neo4j` extra + a reachable server (CCF_TEST_NEO4J_URI) — Phase 15.2 D-06",
   "conformance: shared parametrized Protocol conformance suite — D-16",
   "crossproc: spawns real subprocesses over loopback — D-15/D-16",
   "harness: requires a harness extra (adk | claude-agent | langgraph) — D-08/D-09",
@@ -162,6 +170,19 @@ ignore_missing_imports = true
 # converted into a CCF-owned type before it leaves the module.
 [[tool.mypy.overrides]]
 module = ["chromadb", "chromadb.*"]
+ignore_missing_imports = true
+
+# The neo4j driver is an optional extra and is deliberately absent from `dev`
+# (15.2-RESEARCH.md: extras only, never core), so a `dev`-only environment —
+# which is exactly what CI's lint job installs — cannot resolve it and `mypy`
+# fails on the one guarded import in `ccf.graph.backends.neo4j`. Same rationale
+# as the chromadb block above, one block per module per the D-21 discipline.
+# The driver itself ships type hints; where it IS installed, mypy checks the
+# boundary against them — `ignore_missing_imports` only silences the absent
+# case. The adapter's public surface is fully typed and every value returned by
+# the driver is converted into a CCF-owned type before it leaves the module.
+[[tool.mypy.overrides]]
+module = ["neo4j", "neo4j.*"]
 ignore_missing_imports = true
 
 # The two overrides above are deliberately written one block per module rather than as a

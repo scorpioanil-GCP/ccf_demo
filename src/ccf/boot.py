@@ -45,6 +45,7 @@ from ccf.graph._writer import (
     BaseGraphWriter,
     BootToken,
     MemoryGraphWriter,
+    Neo4jGraphWriter,
     PostgresGraphWriter,
     SqliteGraphWriter,
     mint_boot_token,
@@ -120,6 +121,8 @@ def _open_backend(
     postgres_dsn: str | None,
     postgres_schema: str,
     memory: bool,
+    neo4j_uri: str | None,
+    neo4j_partition: str | None,
 ) -> tuple[_Backend, Callable[[BootToken], BaseGraphWriter]]:
     """Select and open the graph backend named by explicit configuration.
 
@@ -127,24 +130,54 @@ def _open_backend(
     string: a fabric that guessed its own substrate could silently boot against
     a development SQLite file in production and would still pass every test.
     SQLite remains the *default* (D-IMPL-02) precisely because it is the
-    development backend; Postgres is chosen by saying so — and so is the
-    in-memory backend (Phase 15.2 D-06): ``memory=True`` is an explicit
-    statement, never a fallback a missing connection argument degrades to.
+    development backend; Postgres is chosen by saying so — and so are the
+    in-memory backend (Phase 15.2 D-06) and the Neo4j backend (plan 15.2-12):
+    ``memory=True`` and ``neo4j_uri`` are explicit statements, never a
+    fallback a missing connection argument degrades to.
+
+    The Neo4j branch imports its backend lazily: the ``neo4j`` driver is an
+    optional extra, and boot stays importable — and every other branch stays
+    bootable — in an environment without it.
 
     Raises:
         ValueError: not exactly one backend was named.
     """
-    selected = (database_path is not None) + (postgres_dsn is not None) + memory
+    selected = (
+        (database_path is not None)
+        + (postgres_dsn is not None)
+        + memory
+        + (neo4j_uri is not None)
+    )
     if selected != 1:
         raise ValueError(
             "boot requires exactly one of database_path (SQLite), "
-            "postgres_dsn (Postgres), or memory=True (in-memory); the fabric "
-            "does not infer its substrate"
+            "postgres_dsn (Postgres), memory=True (in-memory), or "
+            "neo4j_uri (Neo4j); the fabric does not infer its substrate"
         )
     if memory:
         memory_store = MemoryGraphStore()
         return memory_store, lambda token: MemoryGraphWriter(
             store=memory_store, token=token
+        )
+    if neo4j_uri is not None:
+        # Lazy by design (the chroma_index precedent): the driver import
+        # happens inside the store's constructor, and the module import here
+        # is deferred so this branch is the first moment Neo4j is named.
+        from ccf.graph.backends.neo4j import (  # noqa: PLC0415
+            DEFAULT_PARTITION,
+            Neo4jGraphStore,
+        )
+
+        neo4j_store = Neo4jGraphStore(
+            uri=neo4j_uri,
+            partition=(
+                neo4j_partition
+                if neo4j_partition is not None
+                else DEFAULT_PARTITION
+            ),
+        )
+        return neo4j_store, lambda token: Neo4jGraphWriter(
+            store=neo4j_store, token=token
         )
     if postgres_dsn is not None:
         pg_store = PostgresGraphStore(dsn=postgres_dsn, schema=postgres_schema)
@@ -164,6 +197,8 @@ def boot(
     postgres_dsn: str | None = None,
     postgres_schema: str = DEFAULT_SCHEMA,
     memory: bool = False,
+    neo4j_uri: str | None = None,
+    neo4j_partition: str | None = None,
     registry: ControlPlaneProtocol,
     resolution_spec_key: str,
     resolution_spec_version: str,
@@ -179,7 +214,8 @@ def boot(
 
     Args:
         database_path: SQLite file to attach to. Exactly one of this,
-            ``postgres_dsn``, and ``memory=True`` must be given.
+            ``postgres_dsn``, ``memory=True``, and ``neo4j_uri`` must be
+            given.
         postgres_dsn: libpq connection string for the Postgres backend. Comes
             from the deployment's environment; it is never persisted and never
             reproduced in the graph identity the single-writer check uses.
@@ -190,6 +226,15 @@ def boot(
             beyond the handle's life. Every ``memory=True`` boot is its own
             graph with its own synthetic identity: two memory fabrics are two
             fabrics, never a shared substrate.
+        neo4j_uri: Bolt connection URI for the Neo4j backend (plan 15.2-12),
+            optionally carrying userinfo. Requires the ``neo4j`` extra; the
+            backend import is lazy, so boot stays importable without it. As
+            with the Postgres DSN: comes from the deployment's environment,
+            never persisted, and never reproduced in the graph identity.
+        neo4j_partition: Which graph on the Neo4j server this fabric owns —
+            the Postgres ``schema`` argument's role. ``None`` selects the
+            adapter's default partition. Two partitions on one database are
+            two graphs.
         registry: Control Plane the resolution spec and policy bundle come from.
         resolution_spec_key: Key of the :class:`EntityResolutionSpec` artifact.
         resolution_spec_version: Pinned version of that artifact.
@@ -198,7 +243,7 @@ def boot(
 
     Raises:
         ValueError: not exactly one of ``database_path`` / ``postgres_dsn`` /
-            ``memory=True`` was given.
+            ``memory=True`` / ``neo4j_uri`` was given.
         ccf.graph._writer.SingleWriterViolation: a live writer already exists
             for this graph.
         ccf.controlplane.registry.ControlPlaneMissing: a pinned key or version
@@ -211,6 +256,8 @@ def boot(
         postgres_dsn=postgres_dsn,
         postgres_schema=postgres_schema,
         memory=memory,
+        neo4j_uri=neo4j_uri,
+        neo4j_partition=neo4j_partition,
     )
     try:
         token = mint_boot_token(graph_identity=store.graph_identity)

@@ -931,7 +931,13 @@ class DeploymentManifest(VersionedArtifact):
             the connection. ``memory`` (Phase 15.2 D-06) declares the
             zero-dependency in-memory backend and needs no connection field:
             there is nothing to connect to, so no environment argument exists
-            for it either.
+            for it either. ``neo4j`` (plan 15.2-12) declares the extras-gated
+            Neo4j backend; its connection URI is environment-supplied through
+            :func:`~ccf.deployment.manifest.load_and_boot`'s ``neo4j_uri``
+            argument, mirroring ``postgres_dsn`` exactly — the D-08 kind-only
+            posture holds: a Bolt URI can carry credentials, and a versioned,
+            content-hashed artifact must never persist one into the audit
+            plane (threat T-15.2-05).
         resolution_spec_key: Manifest key of the entity-resolution spec.
         policy_bundle_key: Manifest key of the policy bundle in force.
         tenant_id: The deployment's tenant, when the manifest names it.
@@ -956,7 +962,7 @@ class DeploymentManifest(VersionedArtifact):
     """
 
     artifacts: tuple[ManifestEntry, ...] = Field(min_length=1)
-    backend: Literal["sqlite", "postgres", "memory"]
+    backend: Literal["sqlite", "postgres", "memory", "neo4j"]
     resolution_spec_key: str
     policy_bundle_key: str
     tenant_id: str | None = None
