@@ -224,6 +224,36 @@ def mongo_uri() -> str:
     pytest.skip(reason)
 
 
+#: Set by the CI job (GitHub Actions Fluree service container). Env-driven
+#: only: locally run `docker run --rm -p 8090:8090 fluree/server:4.1.4`.
+FLUREE_URL_ENV = "CCF_TEST_FLUREE_URL"
+
+#: Set in CI. Turns "no Fluree available" from a skip into a failure — the
+#: exact CCF_REQUIRE_POSTGRES / CCF_REQUIRE_NEO4J rationale: a leg that quietly
+#: skips is a green build that proved nothing.
+FLUREE_REQUIRED_ENV = "CCF_REQUIRE_FLUREE"
+
+
+@pytest.fixture(scope="session")
+def fluree_url() -> str:
+    """The base URL of a real Fluree v4 server, from the environment.
+
+    Skips when unset so a contributor without the container still gets a
+    meaningful run of everything else — unless ``CCF_REQUIRE_FLUREE`` says
+    this environment must have one, in which case it fails.
+    """
+    url = os.environ.get(FLUREE_URL_ENV)
+    if url:
+        return url
+    reason = (
+        f"{FLUREE_URL_ENV} is unset; start a fluree/server:4.1.4 container and"
+        " export the base URL to run the fluree leg"
+    )
+    if os.environ.get(FLUREE_REQUIRED_ENV):
+        pytest.fail(f"{FLUREE_REQUIRED_ENV} is set but Fluree is unusable: {reason}")
+    pytest.skip(reason)
+
+
 @pytest.fixture(scope="session")
 def postgres_dsn() -> Iterator[str]:
     """A DSN for a real Postgres, from CI's service container or testcontainers.

@@ -145,6 +145,7 @@ markers = [
   "chroma: requires the optional `chroma` extra — D-13",
   "neo4j: requires the optional `neo4j` extra + a reachable server (CCF_TEST_NEO4J_URI) — Phase 15.2 D-06",
   "mongo: requires the optional `mongo` extra + a reachable server (CCF_TEST_MONGO_URI) — Phase 15.2 D-06",
+  "fluree: requires a reachable Fluree v4 server (CCF_TEST_FLUREE_URL) — Phase 15.3 D-08",
   "conformance: shared parametrized Protocol conformance suite — D-16",
   "crossproc: spawns real subprocesses over loopback — D-15/D-16",
   "harness: requires a harness extra (adk | claude-agent | langgraph) — D-08/D-09",

@@ -30,7 +30,7 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 	example-06 example-07 example-08 example-ext-00 \
 	example-03-live-ollama example-03-live-anthropic \
 	example-ext-00-live-anthropic example-ext-00-live-adk \
-	legs leg-postgres leg-neo4j leg-mongo \
+	legs leg-postgres leg-neo4j leg-mongo leg-fluree \
 	perf perf-micro perf-scale perf-xproc perf-replay \
 	docs docs-strict docs-serve openapi schemas schema-headers surface \
 	surface-changes measure-examples
@@ -114,12 +114,13 @@ examples: example-00 example-01 example-02 example-03 example-04 example-05 exam
 # no auto-start path, so they default to the ci.yml service-container URIs.
 CCF_TEST_NEO4J_URI ?= neo4j://neo4j:ccf_test_password@localhost:7687
 CCF_TEST_MONGO_URI ?= mongodb://localhost:27017/ccf_test
+CCF_TEST_FLUREE_URL ?= http://localhost:8090
 
 ifneq ($(strip $(CCF_TEST_POSTGRES_DSN)),)
 PG_DSN_ENV := CCF_TEST_POSTGRES_DSN=$(CCF_TEST_POSTGRES_DSN)
 endif
 
-legs: leg-postgres leg-neo4j leg-mongo ## Run all three container-gated substrate legs (DI-15.2-04)
+legs: leg-postgres leg-neo4j leg-mongo leg-fluree ## Run all four container-gated substrate legs (DI-15.2-04)
 
 leg-postgres: ## Postgres leg against a real server — GraphStore conformance + differential (D-11/D-16)
 	$(ENV) CCF_REQUIRE_POSTGRES=1 $(PG_DSN_ENV) \
@@ -132,6 +133,10 @@ leg-neo4j: ## Neo4j leg against a real server — Cypher pushdown byte-identical
 leg-mongo: ## MongoDB leg against a real server — staged aggregation pushdown (plan 15.2-13)
 	$(ENV) CCF_REQUIRE_MONGO=1 CCF_TEST_MONGO_URI=$(CCF_TEST_MONGO_URI) \
 		$(PYTHON) -m pytest tests -q -m mongo -rs
+
+leg-fluree: ## Fluree leg against a real server — Cypher pushdown byte-identical to the fallback (plan 15.3)
+	$(ENV) CCF_REQUIRE_FLUREE=1 CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
+		$(PYTHON) -m pytest tests -q -m fluree -rs
 
 # Perf battery (Phase 11). `perf` NEVER joins `ci` or `ci-core`: always-on CI
 # never times anything (Phase-8 D-10 / D-IMPL-70) — perf runs only via these
