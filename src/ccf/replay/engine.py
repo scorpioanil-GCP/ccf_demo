@@ -9,8 +9,9 @@ The pipeline, in order, with each step's failure mode named:
 
 1. **Resolve the record** at its content address. A missing record is
    :class:`ReplayUnresolvable` — never the nearest one, never the newest under
-   the name. The bytes are re-hashed on arrival, so a substrate that returned
-   the wrong artifact is caught here rather than believed (T-04-17).
+   the name. The **raw fetched bytes** are re-hashed on arrival, before any
+   model validation, so a substrate that returned the wrong artifact is caught
+   here rather than believed (T-04-17, D-IMPL-89).
 
    That read path is :func:`resolve_artifact`, which is **parametrized by
    contract rather than fixed to the decision record**, plus
@@ -53,6 +54,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import hashlib
 from typing import Protocol, TypeVar, runtime_checkable
 
 from ccf.artifacts.protocol import (
@@ -207,10 +209,20 @@ def resolve_artifact(
       :class:`ReplayUnresolvable`. Substituting a nearby or newer artifact would
       produce a confident answer about a decision that never happened, which is
       worse than no answer (CLAUDE.md §7.4, D-IMPL-26).
-    * **The bytes are re-hashed on arrival.** So a substrate that returned the
-      wrong artifact is *caught* rather than believed (T-04-17, T-06-102), and
-      the "exact version" claim rests on arithmetic rather than on the store's
-      good behaviour.
+    * **The raw fetched bytes are re-hashed on arrival, before validation**
+      (D-IMPL-89). The put-time address *is* the sha256 of the stored canonical
+      bytes, and the store's ``get`` contract promises those exact bytes back —
+      so byte fidelity is the whole tamper claim, verified model-class-free. A
+      substrate that returned the wrong artifact is *caught* rather than
+      believed (T-04-17, T-06-102), and the "exact version" claim rests on
+      arithmetic rather than on the store's good behaviour. The check is
+      deliberately **not** a re-hash of the re-validated model: canonicalizing
+      a rebuilt model serializes every sentinel-defaulted field a *later*
+      contract version added, so an honest record written before a record
+      extension would re-hash to a different address and trip the tamper check
+      — the exact failure D-IMPL-89 rules out. Byte-first verification is what
+      makes the sentinel-default extension strategy (D-IMPL-87 lineage) keep
+      its compatibility promise.
 
     Args:
         store: Where the artifact lives (CLAUDE.md §7.4).
@@ -232,15 +244,19 @@ def resolve_artifact(
             "replay resolves the exact recorded artifact and has no fallback "
             "(CLAUDE.md §7.4, D-IMPL-26)"
         ) from missing
-    artifact = contract.model_validate_json(payload)
-    reproduced = content_hash(artifact)
+    # Byte fidelity FIRST, validation second (D-IMPL-89): the address is the
+    # sha256 of the stored canonical bytes, so the raw payload is the thing to
+    # verify. Re-hashing a re-validated model here would serialize every
+    # sentinel-defaulted field a later contract version added and reject
+    # honest pre-extension records as tampered.
+    reproduced = hashlib.sha256(payload).hexdigest()
     if reproduced != content_address:
         raise ReplayDivergence(
-            f"the artifact at {content_address!r} hashes to {reproduced!r}; the "
+            f"the bytes at {content_address!r} hash to {reproduced!r}; the "
             f"store returned bytes that are not the {contract.__name__} that "
             "was asked for"
         )
-    return artifact
+    return contract.model_validate_json(payload)
 
 
 def resolve_artifact_at_uri(
