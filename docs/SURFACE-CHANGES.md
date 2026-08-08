@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**313 entries**, of which **98** name a public Python surface.
+**317 entries**, of which **102** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-104 entries — 76 public Python surface, 28 not public Python API.
+108 entries — 80 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -1641,6 +1641,81 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: new surface — none
 
 *Recorded by `15.2-07-read-intent-segmentation.md`.*
+
+#### ccf.graph.product_source.ProductSource
+
+- Surface: ccf.graph.product_source.ProductSource
+- Public surface: true
+- Change type: added
+- Before: absent — the only tier-2 story was admission-then-L2-ingest; an
+  admitted product could enter the graph through L2 but could not serve as
+  an ephemeral read source
+- After: a `GraphReader` conformer over a mounted admitted product's
+  `graph_state` records. No query engine: `ccf.graph.fallback.answer` is
+  the whole implementation — its re-applied as-of predicate is the records'
+  only temporal enforcement (`GQ-12`) and its set-intersection the only
+  `allowed_entities` enforcement (`GQ-15`) — with ordering/freezing through
+  the substrate-neutral materialization core (`GQ-22`). A tenant-mismatched
+  query answers the empty view, never a mix and never a raise (`GQ-27`).
+  `attestation` reports the tier-2 well-known triple: `admission-verified`
+  / `product-carried` / the admitting peer (D-09). Views are ephemeral —
+  nothing enters L3; the module holds no writer
+- Why: the Phase 15.2 D-08 ruling — same seam, admitted at mount; tier 3
+  later is another gate producing the same wrapper, zero refactor here
+- Migration: new surface — none. Construct via `mount_product_source`; the
+  direct constructor is private by convention
+
+*Recorded by `15.2-10-product-source.md`.*
+
+#### ccf.graph.product_source.mount_product_source
+
+- Surface: ccf.graph.product_source.mount_product_source
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `mount_product_source(*, admitted: AdmittedProduct) ->
+  ProductSource | ProductMountRefusal` — the one door. Validates the
+  `GQ-25` payload convention (top-level `graph_state` with
+  `entities`/`relationships` items `model_validate`d against the existing
+  `EntityRecord`/`RelationshipRecord` contracts) and refuses records
+  claiming a tenant other than the product's own (T-15.2-02). Refusal is a
+  returned value, never an exception. No payload-size ceiling of its own:
+  the admission gate's Control Plane ceiling runs before an
+  `AdmittedProduct` can exist
+- Why: D-08/§6.6 — a source that cannot answer correctly is refused while
+  wiring, not discovered mid-question (`GQ-25`)
+- Migration: new surface — none
+
+*Recorded by `15.2-10-product-source.md`.*
+
+#### ccf.graph.product_source.ProductMountRefusal
+
+- Surface: ccf.graph.product_source.ProductMountRefusal
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the typed mount refusal, deriving from
+  `ccf.products.gates.GateRefusal` (the `AdmissionRefusal` derivation
+  style), carrying the product's `tenant_id` and `schema_name` plus a
+  `reason` field naming what was missing or invalid
+- Why: the refusal-value discipline — a governance verdict a bare `except`
+  could swallow is not a verdict; one gate vocabulary across the fabric
+- Migration: new surface — none
+
+*Recorded by `15.2-10-product-source.md`.*
+
+#### ccf.graph.product_source.GATE_PRODUCT_MOUNT
+
+- Surface: ccf.graph.product_source.GATE_PRODUCT_MOUNT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"product-mount"` — the gate name a `ProductMountRefusal` reports,
+  on the `GATE_*` string precedent of `ccf.peering.admission`
+- Why: a refusal an operator reads in a log names the gate that refused
+- Migration: new surface — none
+
+*Recorded by `15.2-10-product-source.md`.*
 
 ### Not public Python API
 
