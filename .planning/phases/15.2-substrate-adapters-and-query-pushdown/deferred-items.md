@@ -223,8 +223,19 @@ changed. This deferred item requires no further routing.
 ## DI-15.2-04 — a by-hand `pytest` inside a GSD execution worktree silently tests the MAIN checkout, not the worktree
 
 **Raised:** 2026-08-08, plan 15.2-14 re-verification. **Routing: process /
-tooling hygiene, NOT a phase-15.2 defect. Carried forward — no code change
-made at the gate.**
+tooling hygiene, NOT a phase-15.2 defect.**
+
+**CLOSED 2026-08-08 at D-GATE-15.2, by Dave's ruling** (he approved the gate
+conditional on fixing this first, rather than carrying it). Commit `0a47496`
+adds `make legs` / `leg-postgres` / `leg-neo4j` / `leg-mongo`, each carrying
+`$(ENV)` — which puts the working tree's own `src/` ahead of the editable
+install's hard-coded mapping — and the `CCF_REQUIRE_*` fail-closed variables,
+reproducing the ci.yml service-container steps command-for-command (CLAUDE.md
+D-10). Postgres deliberately carries no default DSN: `postgres_dsn` auto-starts
+a `postgres:16` testcontainer when the variable is unset, and a baked-in DSN
+would disable that and hang. Verified at the gate: `leg-postgres` 25 passed
+(auto-started container), `leg-neo4j` 20 passed, `leg-mongo` 22 passed, and a
+required leg with no server fails loudly instead of skipping green.
 
 **What happened.** The `D-IMPL-90` fix looked like it held on sqlite, memory
 and mongo but failed on postgres. It did not. The worktree's `.venv` is a
