@@ -58,3 +58,31 @@ the natural home is the plan that next touches the graphstore fixture
 **Deferred to:** plans 15.2-12/-13 (or the phase-close audit) — add
 `pytest.param("memory")` beside sqlite in the `graph_backend` fixture; no
 test body should need changes.
+
+## DI-15.2-03 — non-UTC claim timestamps are fail-closed under the pushed validity predicate
+
+**Found during:** plan 15.2-09 (SQL pushdown).
+
+**What:** Claim JSON persists datetimes via the pydantic ``mode="json"``
+rendering, which preserves a non-UTC offset (``+05:00``) instead of
+normalizing to the canonical ``Z`` form — the contract tier accepts any
+aware datetime and nothing in L2 re-renders it. The pushed validity
+predicate (`GQ-09` at docs/GRAPH_QUERY_SEMANTICS.md:185) compares
+canonical UTC text, so both backends width-normalize the two ``Z`` forms
+(`src/ccf/graph/backends/sqlite.py::_utc_fixed_width`,
+`src/ccf/graph/backends/postgres.py::_utc_fixed_width`) and render any
+non-``Z`` form as NULL — such a record is EXCLUDED from a
+``require_valid_at_boundary`` answer, where the fallback (comparing
+datetime values) would include it. Fail-closed, never over-disclosing:
+the divergence direction is exclusion, so the T-15.2-03/-26
+information-disclosure posture is preserved — but byte-identity
+(`GQ-31` at docs/GRAPH_QUERY_SEMANTICS.md:573) has a latent corner the
+UTC-only differential corpus cannot exercise.
+
+**Deferred to:** the phase-close audit (15.2-14) to route: either a
+contract-tier UTC normalization of claim datetimes at construction (which
+closes the corner for every adapter at once and matches the canonical
+serializer's existing ``astimezone(UTC)`` discipline), or a corpus case
+authoring an offset-bearing claim plus a documented fallback-alignment
+rule. Until routed, the fail-closed posture is documented in both
+``_utc_fixed_width`` docstrings.
