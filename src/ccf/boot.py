@@ -44,6 +44,7 @@ from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph._writer import (
     BaseGraphWriter,
     BootToken,
+    FlureeGraphWriter,
     MemoryGraphWriter,
     MongoGraphWriter,
     Neo4jGraphWriter,
@@ -51,6 +52,10 @@ from ccf.graph._writer import (
     SqliteGraphWriter,
     mint_boot_token,
 )
+from ccf.graph.backends.fluree import (
+    DEFAULT_PARTITION as FLUREE_DEFAULT_PARTITION,
+)
+from ccf.graph.backends.fluree import FlureeGraphStore
 from ccf.graph.backends.memory import MemoryGraphStore
 from ccf.graph.backends.postgres import DEFAULT_SCHEMA, PostgresGraphStore
 from ccf.graph.backends.sqlite import SqliteGraphStore
@@ -126,6 +131,8 @@ def _open_backend(
     neo4j_partition: str | None,
     mongo_uri: str | None,
     mongo_partition: str | None,
+    fluree_url: str | None,
+    fluree_partition: str | None,
 ) -> tuple[_Backend, Callable[[BootToken], BaseGraphWriter]]:
     """Select and open the graph backend named by explicit configuration.
 
@@ -134,14 +141,18 @@ def _open_backend(
     a development SQLite file in production and would still pass every test.
     SQLite remains the *default* (D-IMPL-02) precisely because it is the
     development backend; Postgres is chosen by saying so — and so are the
-    in-memory backend (Phase 15.2 D-06), the Neo4j backend (plan 15.2-12) and
-    the MongoDB backend (plan 15.2-13): ``memory=True``, ``neo4j_uri`` and
-    ``mongo_uri`` are explicit statements, never a fallback a missing
-    connection argument degrades to.
+    in-memory backend (Phase 15.2 D-06), the Neo4j backend (plan 15.2-12), the
+    MongoDB backend (plan 15.2-13) and the Fluree backend (plan 15.3):
+    ``memory=True``, ``neo4j_uri``, ``mongo_uri`` and ``fluree_url`` are
+    explicit statements, never a fallback a missing connection argument
+    degrades to.
 
     The Neo4j and MongoDB branches import their backends lazily: the ``neo4j``
     and ``pymongo`` drivers are optional extras, and boot stays importable —
     and every other branch stays bootable — in an environment without them.
+    **The Fluree branch does not**, and the difference is the point: its wire
+    client is ``httpx``, a core pin, so its import shape is the *Postgres*
+    one — module-top, unconditional, no lazy deferral (SUBQ-14).
 
     Raises:
         ValueError: not exactly one backend was named.
@@ -152,13 +163,14 @@ def _open_backend(
         + memory
         + (neo4j_uri is not None)
         + (mongo_uri is not None)
+        + (fluree_url is not None)
     )
     if selected != 1:
         raise ValueError(
             "boot requires exactly one of database_path (SQLite), "
             "postgres_dsn (Postgres), memory=True (in-memory), "
-            "neo4j_uri (Neo4j), or mongo_uri (MongoDB); the fabric does not "
-            "infer its substrate"
+            "neo4j_uri (Neo4j), mongo_uri (MongoDB), or fluree_url "
+            "(Fluree v4); the fabric does not infer its substrate"
         )
     if memory:
         memory_store = MemoryGraphStore()
@@ -207,6 +219,18 @@ def _open_backend(
         return mongo_store, lambda token: MongoGraphWriter(
             store=mongo_store, token=token
         )
+    if fluree_url is not None:
+        fluree_store = FlureeGraphStore(
+            url=fluree_url,
+            partition=(
+                fluree_partition
+                if fluree_partition is not None
+                else FLUREE_DEFAULT_PARTITION
+            ),
+        )
+        return fluree_store, lambda token: FlureeGraphWriter(
+            store=fluree_store, token=token
+        )
     if postgres_dsn is not None:
         pg_store = PostgresGraphStore(dsn=postgres_dsn, schema=postgres_schema)
         return pg_store, lambda token: PostgresGraphWriter(
@@ -229,6 +253,8 @@ def boot(
     neo4j_partition: str | None = None,
     mongo_uri: str | None = None,
     mongo_partition: str | None = None,
+    fluree_url: str | None = None,
+    fluree_partition: str | None = None,
     registry: ControlPlaneProtocol,
     resolution_spec_key: str,
     resolution_spec_version: str,
@@ -244,8 +270,8 @@ def boot(
 
     Args:
         database_path: SQLite file to attach to. Exactly one of this,
-            ``postgres_dsn``, ``memory=True``, ``neo4j_uri``, and
-            ``mongo_uri`` must be given.
+            ``postgres_dsn``, ``memory=True``, ``neo4j_uri``, ``mongo_uri``
+            and ``fluree_url`` must be given.
         postgres_dsn: libpq connection string for the Postgres backend. Comes
             from the deployment's environment; it is never persisted and never
             reproduced in the graph identity the single-writer check uses.
@@ -274,6 +300,15 @@ def boot(
         mongo_partition: Which graph in the MongoDB database this fabric owns
             — the ``neo4j_partition`` / Postgres ``schema`` role. ``None``
             selects the adapter's default partition.
+        fluree_url: Server URL for the Fluree v4 backend (plan 15.3),
+            optionally carrying userinfo. Requires **no extra** — the wire
+            client is a core pin — so unlike the Neo4j and MongoDB branches
+            this one imports at module top. As with every other connection
+            argument: comes from the deployment's environment, never
+            persisted, and never reproduced in the graph identity.
+        fluree_partition: Which graph in the CCF-owned ledger this fabric owns
+            — the ``mongo_partition`` / ``neo4j_partition`` / Postgres
+            ``schema`` role. ``None`` selects the adapter's default partition.
         registry: Control Plane the resolution spec and policy bundle come from.
         resolution_spec_key: Key of the :class:`EntityResolutionSpec` artifact.
         resolution_spec_version: Pinned version of that artifact.
@@ -282,7 +317,8 @@ def boot(
 
     Raises:
         ValueError: not exactly one of ``database_path`` / ``postgres_dsn`` /
-            ``memory=True`` / ``neo4j_uri`` / ``mongo_uri`` was given.
+            ``memory=True`` / ``neo4j_uri`` / ``mongo_uri`` / ``fluree_url``
+            was given.
         ccf.graph._writer.SingleWriterViolation: a live writer already exists
             for this graph.
         ccf.controlplane.registry.ControlPlaneMissing: a pinned key or version
@@ -299,6 +335,8 @@ def boot(
         neo4j_partition=neo4j_partition,
         mongo_uri=mongo_uri,
         mongo_partition=mongo_partition,
+        fluree_url=fluree_url,
+        fluree_partition=fluree_partition,
     )
     try:
         token = mint_boot_token(graph_identity=store.graph_identity)

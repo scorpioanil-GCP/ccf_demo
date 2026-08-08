@@ -219,6 +219,7 @@ def _preflight_backend(
     postgres_dsn: str | None,
     neo4j_uri: str | None,
     mongo_uri: str | None,
+    fluree_url: str | None,
 ) -> None:
     """Refuse a backend declaration the environment cannot satisfy (D-08).
 
@@ -238,11 +239,12 @@ def _preflight_backend(
     A declared ``memory`` backend (Phase 15.2 D-06) needs no connection
     argument — there is nothing to connect to — so for it the check runs the
     other way only: supplying ``database_path``, ``postgres_dsn``,
-    ``neo4j_uri``, or ``mongo_uri`` alongside a ``memory`` declaration is
-    refused as a contradiction, exactly as supplying the other backend's
-    argument is. A declared ``neo4j`` backend (plan 15.2-12) requires
-    ``neo4j_uri`` and a declared ``mongo`` backend (plan 15.2-13) requires
-    ``mongo_uri``, the environment-supplied mirrors of ``postgres_dsn``.
+    ``neo4j_uri``, ``mongo_uri``, or ``fluree_url`` alongside a ``memory``
+    declaration is refused as a contradiction, exactly as supplying the other
+    backend's argument is. A declared ``neo4j`` backend (plan 15.2-12) requires
+    ``neo4j_uri``, a declared ``mongo`` backend (plan 15.2-13) requires
+    ``mongo_uri``, and a declared ``fluree`` backend (plan 15.3) requires
+    ``fluree_url`` — the environment-supplied mirrors of ``postgres_dsn``.
 
     Raises:
         ValueError: the declared backend's connection argument is missing, or
@@ -253,6 +255,7 @@ def _preflight_backend(
         "postgres_dsn": postgres_dsn,
         "neo4j_uri": neo4j_uri,
         "mongo_uri": mongo_uri,
+        "fluree_url": fluree_url,
     }
     required = {
         "sqlite": "database_path",
@@ -260,6 +263,7 @@ def _preflight_backend(
         "memory": None,
         "neo4j": "neo4j_uri",
         "mongo": "mongo_uri",
+        "fluree": "fluree_url",
     }[manifest.backend]
     declared = manifest.backend
     if required is not None and supplied[required] is None:
@@ -285,6 +289,7 @@ def load_and_boot(
     postgres_dsn: str | None = None,
     neo4j_uri: str | None = None,
     mongo_uri: str | None = None,
+    fluree_url: str | None = None,
     tenant_id: str | None = None,
 ) -> BootedFabric:
     """Load a manifest, validate and register what it names, and boot the fabric.
@@ -389,6 +394,11 @@ def load_and_boot(
         mongo_uri: MongoDB connection URI, when the manifest declares
             ``mongo`` (plan 15.2-13). Same posture as ``neo4j_uri``, for the
             same reason: a MongoDB URI can carry userinfo.
+        fluree_url: Fluree v4 server URL, when the manifest declares
+            ``fluree`` (plan 15.3). Same posture again, and with one more
+            reason: a Fluree deployment may also hold a bearer token, and
+            neither it nor the URL's userinfo may reach a content-hashed audit
+            artifact (threat T-15.2-05).
         tenant_id: The deployment's tenant, when the manifest does not name it.
 
     Raises:
@@ -460,6 +470,7 @@ def load_and_boot(
         postgres_dsn=postgres_dsn,
         neo4j_uri=neo4j_uri,
         mongo_uri=mongo_uri,
+        fluree_url=fluree_url,
     )
 
     # Phase one: parse everything. Nothing is registered until every document in
@@ -530,6 +541,7 @@ def load_and_boot(
         memory=manifest.backend == "memory",
         neo4j_uri=neo4j_uri,
         mongo_uri=mongo_uri,
+        fluree_url=fluree_url,
         registry=registry,
         resolution_spec_key=manifest.resolution_spec_key,
         resolution_spec_version=pins.version_for(manifest.resolution_spec_key),

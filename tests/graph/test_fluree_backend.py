@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import uuid
@@ -33,8 +34,66 @@ from typing import TYPE_CHECKING, Any
 import httpx
 import pytest
 
+from ccf.contracts.canonical import canonical_bytes
+
+from tests.conformance.query_corpus import (
+    AUTHORING_OFFSETS,
+    EARLY,
+    LATE,
+    ON_BOUNDARY,
+    RELATIONSHIP_TYPES,
+    TENANT,
+    entity_claim,
+    relationship_claim,
+)
+from tests.conformance.test_substrate_properties import (
+    EXCLUDED_CLASSIFICATION,
+    PERMITTED_CLASSIFICATION,
+    SEED_CLASS,
+)
+from tests.properties.strategies import ENTITY_POOL
+
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Callable, Mapping, Sequence
+
+    from ccf.boot import FabricHandle
+
+#: A crossable edge type from the fixture vocabulary — the tests hold
+#: mechanism; the vocabulary is the fixtures' (CLAUDE.md §6.4).
+EDGE_TYPE = sorted(RELATIONSHIP_TYPES)[0]
+
+#: Canonical RFC3339 UTC at microsecond width — what every temporal property
+#: this adapter writes must read back as (§R8 vector 1).
+CANONICAL_UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$")
+
+# Layout probes. Deliberately authored HERE rather than in
+# `ccf.graph.backends.fluree`: they assert the adapter-owned physical model
+# from outside, and a statement that lives in the module under test could be
+# changed in lockstep with the layout it is supposed to pin. The property names
+# are the adapter's, spelled out, so a rename breaks the assertion loudly.
+
+#: Exactly one interposed edge node per CCF relationship, and its admit key.
+_EDGE_NODE_PROBE = """
+    MATCH (e:CcfEdge {ccf_partition: $partition, ccf_tenant_id: $tenant,
+                      ccf_relationship_key: $key})
+    RETURN e.ccf_admit_key AS admit_key
+"""
+
+#: Exactly two CCF_LINK triples, joining that node to its two endpoints. The
+#: pattern is undirected, so it would also catch a doubled write.
+_EDGE_LINK_PROBE = """
+    MATCH (e:CcfEdge {ccf_partition: $partition, ccf_tenant_id: $tenant,
+                      ccf_relationship_key: $key})-[:CCF_LINK]-(n:CcfEntity)
+    RETURN n.ccf_entity_uri AS entity_uri
+"""
+
+#: The write-time validity projections the pushed `GQ-09` cut compares.
+_VALIDITY_PROBE = """
+    MATCH (c:CcfEntityClaim {ccf_partition: $partition, ccf_tenant_id: $tenant,
+                             ccf_entity_uri: $key})
+    RETURN c.ccf_valid_from_cmp AS valid_from_cmp,
+           c.ccf_valid_to_cmp AS valid_to_cmp
+"""
 
 #: Overrides the container name assertion (7) runs ``docker exec`` against. In
 #: CI the server is an Actions service container with a generated name, so the
@@ -973,3 +1032,377 @@ def test_fa4a_control_an_unretracted_value_survives_alongside_the_new_one(
         assert superseded == [SUPERSEDED_OLD, SUPERSEDED_NEW], readback.text
 
     print("\nF-A4(a) control evidence:\n" + json.dumps(evidence, indent=2, sort_keys=True))
+
+
+# --- always-on unit tests (plan 15.3-02) --------------------------------------
+#
+# No server, no marker. The live-server behaviour — writes through booted L2,
+# the interposed layout, the offset-authored projection — runs under the
+# `fluree` marker below and in tests/conformance/test_graphstore.py.
+#
+# `test_module_imports_without_the_driver` (test_neo4j_backend.py:35-43) is
+# deliberately NOT ported. It asserts that a module stays importable without an
+# optional extra installed; httpx is a core pin, so the assertion cannot fail
+# and a test that cannot fail is worse than no test. The honest parallel — that
+# no extra, no lazy import and no mypy override were added at all — is a
+# configuration assertion and lives in the phase gate package.
+
+
+def test_graph_identity_carries_no_credentials() -> None:
+    """The identity string drops userinfo entirely (threat T-15.2-05).
+
+    The single-writer check keys on this string and it lands in exception
+    messages, so the password and user are dropped rather than merely "not
+    usually shown" — the T-04-24 postgres precedent, unit-asserted here given
+    a credentialed URL.
+    """
+    from ccf.graph.backends.fluree import _graph_identity
+
+    identity = _graph_identity(
+        "http://alice:s3cret-password@graph.example.com:8090",
+        ledger="ccf:main",
+        partition="ccf_test",
+    )
+    assert "s3cret-password" not in identity
+    assert "alice" not in identity
+    assert identity == "fluree://graph.example.com:8090/ccf:main#ccf_test"
+
+
+def test_server_root_drops_userinfo_before_the_client_sees_it() -> None:
+    """The httpx client is built on a credential-free origin.
+
+    A bearer token is a header and never reaches the URL; userinfo supplied in
+    the URL is removed here, so it survives into no request line, no redirect
+    target and no connection-pool key.
+    """
+    from ccf.graph.backends.fluree import _server_root
+
+    root = _server_root("http://alice:s3cret@graph.example.com:8090/ignored")
+    assert root == "http://graph.example.com:8090"
+    assert "s3cret" not in root
+    assert "alice" not in root
+
+
+def test_partitions_are_distinct_graphs() -> None:
+    """Two partitions in one ledger are two graph identities.
+
+    The Postgres two-schemas-are-two-graphs rule, carried over: what makes the
+    single-writer check meaningful per fabric rather than per server. D-03
+    keeps one CCF-owned ledger, so the partition is the whole of what
+    distinguishes two fabrics on this substrate.
+    """
+    from ccf.graph.backends.fluree import _graph_identity
+
+    one = _graph_identity(
+        "http://host:8090", ledger="ccf:main", partition="fabric_a"
+    )
+    two = _graph_identity(
+        "http://host:8090", ledger="ccf:main", partition="fabric_b"
+    )
+    assert one != two
+
+
+def test_minted_ids_are_colonless_and_content_addressed() -> None:
+    """No artifact-authored string ever occupies an IRI position (§R3).
+
+    An `@id` is an IRI position and the strict compact-IRI guard rejects
+    `prefix:suffix` with an undefined prefix at parse time — so an
+    artifact-authored `entity_uri`, which may legally contain a colon, must
+    never become one. `_mint_id` is the single site that produces identifiers
+    and it produces colonless, opaque, content-addressed ones.
+    """
+    from ccf.graph.backends.fluree import _mint_id
+
+    hazard = "counterparty:acme"
+    minted = _mint_id("e", "ccf", "tenant-a", hazard)
+    assert ":" not in minted
+    assert hazard not in minted
+    assert minted.startswith("ccf_e_")
+    # Content-addressed: the same node identity always mints the same `@id`,
+    # which is what makes a re-admission re-assert byte-identical triples.
+    assert minted == _mint_id("e", "ccf", "tenant-a", hazard)
+    assert minted != _mint_id("e", "ccf", "tenant-b", hazard)
+
+
+def test_the_adapter_context_carries_no_coercion() -> None:
+    """D-02's hard condition, asserted rather than trusted.
+
+    No `@vocab`, no `@base`, no term definitions — therefore no datatype
+    coercion, and every string lands as `xsd:string` (probe F-A5 read all six
+    temporal datatypes back and confirmed it). `@vocab` in particular is not a
+    style question: adding it to a ledger whose data was written bare changes
+    what every Cypher statement matches, silently.
+    """
+    from ccf.graph.backends.fluree import ADAPTER_CONTEXT
+
+    assert ADAPTER_CONTEXT == {}
+
+
+def test_manifest_declares_fluree_and_preflight_requires_the_url() -> None:
+    """`backend: fluree` is a declarable kind; the URL stays environment-supplied.
+
+    The D-08 kind-only posture: a Fluree URL can carry userinfo and a Fluree
+    deployment may also hold a bearer token, while the manifest is a
+    content-hashed audit artifact — so no connection value lives in it.
+    Preflight refuses a `fluree` declaration with no URL before any document is
+    read, and refuses the *wrong* connection argument just as loudly.
+    """
+    from ccf.controlplane.artifacts import DeploymentManifest
+    from ccf.deployment.manifest import _preflight_backend
+
+    manifest = DeploymentManifest.model_validate(
+        {
+            "semver": "1.0.0",
+            "backend": "fluree",
+            "tenant_id": TENANT,
+            "resolution_spec_key": "ccf.resolution-spec",
+            "policy_bundle_key": "ccf.policy-bundle",
+            "artifacts": [
+                {
+                    "path": "resolution.yaml",
+                    "key": "ccf.resolution-spec",
+                    "class_id": "ccf.resolution-spec",
+                    "role": "register",
+                    "registration": "typed",
+                },
+                {
+                    "path": "policy.yaml",
+                    "key": "ccf.policy-bundle",
+                    "class_id": "ccf.policy-bundle",
+                    "role": "register",
+                    "registration": "versioned",
+                },
+            ],
+        }
+    )
+    with pytest.raises(ValueError, match="fluree"):
+        _preflight_backend(
+            manifest,
+            database_path=None,
+            postgres_dsn=None,
+            neo4j_uri=None,
+            mongo_uri=None,
+            fluree_url=None,
+        )
+    # And the mirror: the right argument is accepted, the wrong one refused.
+    _preflight_backend(
+        manifest,
+        database_path=None,
+        postgres_dsn=None,
+        neo4j_uri=None,
+        mongo_uri=None,
+        fluree_url="http://localhost:8090",
+    )
+    with pytest.raises(ValueError, match="also supplied"):
+        _preflight_backend(
+            manifest,
+            database_path=None,
+            postgres_dsn=None,
+            neo4j_uri=None,
+            mongo_uri="mongodb://localhost:27017",
+            fluree_url="http://localhost:8090",
+        )
+
+
+def test_boot_refuses_fluree_plus_another_backend() -> None:
+    """Selecting fluree *and* memory is a contradiction, refused loudly.
+
+    The exactly-one exclusivity check runs before any store is constructed, so
+    the refusal needs no reachable server — the fabric does not infer its
+    substrate and does not pick a winner.
+    """
+    from ccf.boot import boot
+    from ccf.controlplane.registry import ControlPlaneRegistry
+
+    with pytest.raises(ValueError, match="exactly one"):
+        boot(
+            fluree_url="http://localhost:8090",
+            memory=True,
+            registry=ControlPlaneRegistry(),
+            resolution_spec_key="never",
+            resolution_spec_version="never",
+            policy_bundle_key="never",
+            policy_bundle_version="never",
+        )
+
+
+# --- the live-server half (needs a reachable Fluree v4) -----------------------
+
+
+@pytest.mark.fluree
+def test_l2_writes_round_trip_byte_identically_to_the_memory_backend(
+    fabric_boot: "Callable[..., FabricHandle]",
+) -> None:
+    """A fabric boots on Fluree, writes through L2, and answers identically.
+
+    This plan's own bar, before any translation exists: the same claims
+    admitted through booted L2 on Fluree and on the zero-dependency memory
+    backend answer byte-identical views at three observed-time boundaries —
+    before the revision, on it, and after it — so the supersession chain, the
+    lineage set-union and the canonical timestamps all round-trip through the
+    JSON-LD batch and the RDF layout unchanged.
+    """
+    uri = ENTITY_POOL[SEED_CLASS][0]
+    other = ENTITY_POOL[SEED_CLASS][1]
+    claims = (
+        entity_claim(
+            entity_uri=uri,
+            entity_class=SEED_CLASS,
+            classification=PERMITTED_CLASSIFICATION,
+            observed_at=EARLY,
+        ),
+        entity_claim(
+            entity_uri=other,
+            entity_class=SEED_CLASS,
+            classification=PERMITTED_CLASSIFICATION,
+            observed_at=EARLY,
+        ),
+        entity_claim(
+            entity_uri=uri,
+            entity_class=SEED_CLASS,
+            classification=EXCLUDED_CLASSIFICATION,
+            observed_at=LATE,
+        ),
+    )
+    edge = relationship_claim(
+        relationship_type=EDGE_TYPE,
+        subject_uri=uri,
+        object_uri=other,
+        observed_at=EARLY,
+    )
+
+    views: dict[str, list[bytes]] = {}
+    for backend in ("fluree", "memory"):
+        handle = fabric_boot(backend=backend)
+        for claim in claims:
+            handle.worker.admit_entity_claim(tenant_id=TENANT, claim=claim)
+        handle.worker.admit_relationship_claim(tenant_id=TENANT, claim=edge)
+        views[backend] = [
+            canonical_bytes(handle.reader.as_of(tenant_id=TENANT, at=at))
+            for at in (EARLY, ON_BOUNDARY, LATE)
+        ]
+        if backend == "fluree":
+            # The history read is the second contract the RDF layout has to
+            # satisfy: the whole chain, oldest first, with the supersession
+            # edge restitched by the shared writer algorithm — which on this
+            # substrate means a ground delete of the old value and a ground
+            # insert of the new one, since RDF has no `$set`.
+            history: Any = handle.reader.entity_history(
+                tenant_id=TENANT, entity_uri=uri
+            )
+            assert len(history) == 2
+            assert history[0].superseded_by == history[1].claim_id
+
+    assert views["fluree"] == views["memory"]
+
+
+@pytest.mark.fluree
+def test_the_interposed_edge_layout_is_maintained_by_the_write_path(
+    fabric_boot: "Callable[..., FabricHandle]",
+) -> None:
+    """Every CCF relationship is ONE CcfEdge node and exactly TWO CCF_LINK triples.
+
+    Asserted directly against the store rather than inferred from a traversal
+    answer, because the walk in plan 15.3-04 reads exactly this layout and the
+    two must not drift.
+
+    The counts are exact, not lower bounds, and both directions of the
+    exactness matter. **One** edge node: a second would mean the interposition
+    fanned out, which on RDF is what a bare re-assertion of a changed property
+    does. **Two** links: three would mean the write path doubled the edge the
+    way the Mongo adapter must (`$graphLookup` is directed), and Cypher's
+    `-[:T]-` is first-class undirected, so doubling here would be pure waste
+    and a second place for the layout to be wrong.
+    """
+    uri = ENTITY_POOL[SEED_CLASS][0]
+    other = ENTITY_POOL[SEED_CLASS][1]
+    handle = fabric_boot(backend="fluree")
+    for entity_uri in (uri, other):
+        handle.worker.admit_entity_claim(
+            tenant_id=TENANT,
+            claim=entity_claim(
+                entity_uri=entity_uri,
+                entity_class=SEED_CLASS,
+                classification=PERMITTED_CLASSIFICATION,
+                observed_at=EARLY,
+            ),
+        )
+    written = handle.worker.admit_relationship_claim(
+        tenant_id=TENANT,
+        claim=relationship_claim(
+            relationship_type=EDGE_TYPE,
+            subject_uri=uri,
+            object_uri=other,
+            observed_at=EARLY,
+        ),
+    )
+    # Admit the same edge twice: re-arrival must not fan the layout out.
+    handle.worker.admit_relationship_claim(
+        tenant_id=TENANT,
+        claim=relationship_claim(
+            relationship_type=EDGE_TYPE,
+            subject_uri=uri,
+            object_uri=other,
+            observed_at=EARLY,
+        ),
+    )
+
+    store: Any = handle.reader._store
+    scope = store.scope(TENANT)
+    nodes = store.post_query(
+        _EDGE_NODE_PROBE, {**scope, "key": written.node_key}
+    )
+    assert [row["admit_key"] for row in nodes] == ["r:" + written.node_key]
+
+    links = store.post_query(
+        _EDGE_LINK_PROBE, {**scope, "key": written.node_key}
+    )
+    assert sorted(row["entity_uri"] for row in links) == sorted((uri, other))
+
+
+@pytest.mark.fluree
+def test_offset_authored_validity_lands_as_canonical_utc_text(
+    fabric_boot: "Callable[..., FabricHandle]",
+) -> None:
+    """The §R8 vector-1 assertion: DI-15.2-03 cannot re-enter through this wire.
+
+    `_claim_payload` guarantees the `claim_json` *string* is canonical
+    (D-IMPL-90). But this adapter also writes projected comparison properties,
+    and those are what the pushed `GQ-09` predicate actually compares. The
+    projection re-renders both validity bounds through `parse_timestamp` ->
+    `canonical_timestamp`; if it ever shortcut by copying the payload's raw
+    JSON value, an offset-authored claim would compare as `+05:00` text against
+    a canonical `Z` boundary and silently drop out of every pushed answer while
+    the fallback kept including it.
+
+    **Fluree has no read-time `_utc_fixed_width`.** The SQL adapters can
+    re-normalize on the way out; here write time is the only chance, which is
+    why this is asserted directly against the stored bytes rather than through
+    an answer that a second normalization could rescue.
+    """
+    uri = ENTITY_POOL[SEED_CLASS][0]
+    handle = fabric_boot(backend="fluree")
+    handle.worker.admit_entity_claim(
+        tenant_id=TENANT,
+        claim=entity_claim(
+            entity_uri=uri,
+            entity_class=SEED_CLASS,
+            classification=PERMITTED_CLASSIFICATION,
+            observed_at=EARLY,
+            valid_to=LATE,
+            # A non-UTC authoring offset — the same instant, a different
+            # rendering. This is the corner D-IMPL-90 closed at the contract
+            # tier and that this substrate inherits for free.
+            authoring_offset=AUTHORING_OFFSETS[0],
+        ),
+    )
+
+    store: Any = handle.reader._store
+    rows = store.post_query(
+        _VALIDITY_PROBE, {**store.scope(TENANT), "key": uri}
+    )
+    assert len(rows) == 1
+    for column in ("valid_from_cmp", "valid_to_cmp"):
+        value = rows[0][column]
+        assert isinstance(value, str), (column, rows[0])
+        assert CANONICAL_UTC.fullmatch(value), (column, value)

@@ -51,6 +51,7 @@ T2 = datetime(2026, 3, 1, tzinfo=UTC)
         pytest.param("postgres", marks=pytest.mark.postgres),
         pytest.param("neo4j", marks=pytest.mark.neo4j),
         pytest.param("mongo", marks=pytest.mark.mongo),
+        pytest.param("fluree", marks=pytest.mark.fluree),
     ]
 )
 def graph_backend(
@@ -80,7 +81,7 @@ def graph_backend(
     """
     if request.param == "sqlite":
         return fabric_boot()
-    if request.param in {"memory", "postgres", "neo4j", "mongo"}:
+    if request.param in {"memory", "postgres", "neo4j", "mongo", "fluree"}:
         return fabric_boot(backend=request.param)
     raise NotImplementedError(request.param)
 
