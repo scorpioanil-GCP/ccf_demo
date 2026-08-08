@@ -11,7 +11,7 @@ progress:
   total_plans: 91
   completed_plans: 96
   percent: 80
-stopped_at: Phase 15.3 executing -- wave 1 of 5 merged (15.3-01 probes complete, F-A4(a) ruled `approved` by Dave 2026-08-08); ci-core green 2270 passed, leg-fluree 6 passed; next wave 2 (15.3-02 store envelope + JSON-LD write path)
+stopped_at: Phase 15.3 executing -- waves 1-2 of 5 merged (15.3-01 probes + F-A4(a) ruled `approved` by Dave 2026-08-08; 15.3-02 FlureeGraphStore/_FlureeTxn, _GraphTxn Protocol unchanged at 864 added/0 deleted); ci-core 2277 passed, legs fluree 21 / neo4j 20 / mongo 22 passed, postgres leg NOT RUN (no server available); next wave 3 (15.3-03 stage-1 read translation)
 ---
 
 # STATE — CCF SDK
