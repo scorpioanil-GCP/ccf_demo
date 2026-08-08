@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**317 entries**, of which **102** name a public Python surface.
+**329 entries**, of which **114** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-108 entries — 80 public Python surface, 28 not public Python API.
+111 entries — 83 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -1642,6 +1642,60 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.2-07-read-intent-segmentation.md`.*
 
+#### ccf.replay.record.NO_GRAPH_QUERIES
+
+- Surface: ccf.replay.record.NO_GRAPH_QUERIES
+- Public surface: true
+- Change type: added
+- Before: absent — dimension 5 had no query-pin field and therefore no
+  sentinel for its absence
+- After: `Final[tuple[str, ...]] = ()` — the positive assertion "this
+  decision was recorded before the query seam existed / issued no seam
+  reads", in the `NO_WORKFLOW_TRACE` voice
+- Why: D-11 pins are recorded from execution; a record that predates the
+  seam must assert so rather than leave a field a reader interprets — an
+  absent pin sequence and a dropped one would otherwise be the same artifact
+- Migration: new surface — none; records lacking the field rebuild to this
+  sentinel
+
+*Recorded by `15.2-08-replay-query-pins.md`.*
+
+#### ccf.replay.serve.QueryPinWriter
+
+- Surface: ccf.replay.serve.QueryPinWriter
+- Public surface: true
+- Change type: added
+- Before: absent — nothing persisted an issued query's literal bytes
+- After: constructed like `ReplayWriter` (`store` + `artifact_class`, both
+  deployment-supplied; examples/tests use `"ccf.graph-query"`);
+  `write_query_bytes(tenant_id, queries)` puts each executed `GraphQuery`
+  content-addressed, named by its own `content_hash` — the same value the
+  record pins, and equal to the store's derived address
+- Why: D-11 — an auditor holding a pinned hash resolves the literal question
+  from the store without re-running anything; content addressing converges
+  duplicate questions on one artifact
+- Migration: new surface — none; deployments on the governed path construct
+  one beside their `ReplayWriter`
+
+*Recorded by `15.2-08-replay-query-pins.md`.*
+
+#### ccf.replay.serve.QueryPinMismatch
+
+- Surface: ccf.replay.serve.QueryPinMismatch
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ValueError` raised by `serve()` before anything is persisted when
+  the record's pinned sequence and the queries handed to the seam disagree —
+  or when queries arrive with no writer to persist them, or a configured
+  writer meets a pinned record with no queries
+- Why: T-15.2-28 — a record appended beside bytes it does not pin is a pin
+  an auditor can never resolve; refusing before any store write keeps that
+  unrepresentable on the governed path
+- Migration: new surface — none
+
+*Recorded by `15.2-08-replay-query-pins.md`.*
+
 #### ccf.graph.product_source.ProductSource
 
 - Surface: ccf.graph.product_source.ProductSource
@@ -2150,7 +2204,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-190 entries — 7 public Python surface, 183 not public Python API.
+196 entries — 13 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -2330,6 +2384,114 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   consumers of `ExecutionResult` are unchanged
 
 *Recorded by `15.2-07-read-intent-segmentation.md`.*
+
+#### ccf.replay.serve.serve
+
+- Surface: ccf.replay.serve.serve
+- Public surface: true
+- Change type: reshaped
+- Before: `serve(product, record, replay_writer)` — append the record, then
+  deliver
+- After: gains keyword-only `query_pin_writer: QueryPinWriter | None = None`
+  and `executed_queries: tuple[GraphQuery, ...] = ()`; when the seam is
+  handed the executed queries their canonical bytes are persisted **before**
+  the replay-record append, after an element-for-element consistency check
+  against the record's `graph_query_sequence`
+- Why: D-11's ordering commitment — no moment exists at which an appended
+  record pins bytes the store does not hold (T-15.2-28)
+- Migration: none — both parameters default to the pre-15.2-08 posture, so
+  every existing call site is byte-for-byte unchanged; the governed path
+  passes `execution.executed_queries` plus a `QueryPinWriter`
+
+*Recorded by `15.2-08-replay-query-pins.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: dimension 5 recorded the plan, steps, product address, and the
+  workflow step sequence; nothing recorded the substrate questions asked
+- After: gains sentinel-defaulted `graph_query_sequence: tuple[str, ...] =
+  NO_GRAPH_QUERIES` — one `content_hash` per issued `GraphQuery`, in
+  execution order; a Similarity-bearing execution carries two pins, a
+  cap-firing execution carries one — the record shows what ran
+- Why: D-11 (D-IMPL-87 lineage) — replay recomputes the sequence and
+  compares hashes; the pins derive from the engine's executed-queries record
+  (`GQ-20`), never plan-side prediction (T-15.2-15)
+- Migration: none — the sentinel default; stored records lacking the field
+  rebuild to it and their stored content addresses still verify (D-IMPL-89)
+
+*Recorded by `15.2-08-replay-query-pins.md`.*
+
+#### ccf.replay.record.PolicyBindingsSnapshot
+
+- Surface: ccf.replay.record.PolicyBindingsSnapshot
+- Public surface: true
+- Change type: reshaped
+- Before: dimension 2 recorded the bindings and the HITL actions block
+- After: gains sentinel-defaulted `survivor_cap: int | None = None` — the
+  D-10 Control-Plane-configured cap in force at decision time; `None` is the
+  positive "no cap configured" claim
+- Why: the pushed/in-process split depends on plan + data + this value
+  (`GQ-18`), so the value in force is a dimension-2 fact a replay must
+  re-execute under
+- Migration: none — the sentinel default, exactly as `hitl_actions`
+
+*Recorded by `15.2-08-replay-query-pins.md`.*
+
+#### ccf.projection.engine.ExecutionResult
+
+- Surface: ccf.projection.engine.ExecutionResult
+- Public surface: true
+- Change type: reshaped
+- Before: carried `executed_queries` (15.2-07) but not the cap in force
+- After: gains sentinel-defaulted `survivor_cap: int | None = None` — the
+  engine's constructor value echoed onto the result, whether or not any
+  segment's survivor count reached it
+- Why: the dimension-2 pin needs the value in force to travel the same
+  channel every other execution fact travels; the firing itself is already
+  visible in `executed_queries`
+- Migration: none — the field defaults to `None`; `execute()`'s signature is
+  byte-identical
+
+*Recorded by `15.2-08-replay-query-pins.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentManifest
+
+- Surface: ccf.controlplane.artifacts.DeploymentManifest
+- Public surface: true
+- Change type: reshaped
+- Before: no Control Plane home existed for the D-10 cap value; only direct
+  `ProjectionEngine` construction could set it
+- After: gains `survivor_cap: int | None = None` — deployment-wide,
+  schema-gated (docs/schemas/ccf.deployment-manifest.json regenerated);
+  absent parses to `None` = no cap configured
+- Why: D-10 — the value is Control Plane configuration and the mechanism
+  ships regardless (CLAUDE.md §11); a cap change becomes a versioned
+  manifest change with an audit trail (T-15.2-27); deployment-wide because
+  the manifest is the versioned document with existing schema machinery, and
+  a per-product-class override can arrive later without a contract break
+- Migration: none — existing manifests parse unchanged
+
+*Recorded by `15.2-08-replay-query-pins.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: `handle`, `pins`, `tenant_id`, `artifacts`
+- After: gains `survivor_cap: int | None` — the manifest's value, verbatim;
+  the adopter passes it to `ProjectionEngine(survivor_cap=...)` at
+  construction
+- Why: value-threading only — `load_and_boot` constructs no engine (the
+  D-IMPL-86 correction's boundary), so the governed route ends at the boot
+  result exactly as `tenant_id` does; direct `boot()` callers pass the value
+  to the engine themselves
+- Migration: none — `load_and_boot` is the only constructor
+
+*Recorded by `15.2-08-replay-query-pins.md`.*
 
 ### Not public Python API
 
@@ -4608,7 +4770,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-19 entries — 15 public Python surface, 4 not public Python API.
+22 entries — 18 public Python surface, 4 not public Python API.
 
 ### Public Python surface
 
@@ -4965,6 +5127,68 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none
 
 *Recorded by `15.2-07-read-intent-segmentation.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: behavior
+- Before: dimensions 2 and 5 carried no query pins and no cap value
+- After: signature unchanged — the new facts arrive on `execution` itself:
+  `execution.executed_queries` becomes the dimension-5 pin tuple (hashed
+  here, in order) and `execution.survivor_cap` becomes the dimension-2 cap
+  pin
+- Why: execution facts already travel to the builder on `ExecutionResult`;
+  a new parameter would have been a second channel for the same facts
+- Migration: none — executions built without the fields yield both sentinels
+
+*Recorded by `15.2-08-replay-query-pins.md`.*
+
+#### ccf.replay.engine.replay
+
+- Surface: ccf.replay.engine.replay
+- Public surface: true
+- Change type: behavior
+- Before: re-execution ran with no survivor cap and compared the step
+  sequence, the snapshot id, and the product address
+- After: re-execution runs under the **recorded** dimension-2
+  `survivor_cap`, and after the step-sequence check the re-executed query
+  pins — one `content_hash` per issued `GraphQuery`, in order — are compared
+  against the recorded `graph_query_sequence`; a mismatch is
+  `ReplayDivergence`. A record carrying the pre-seam `NO_GRAPH_QUERIES`
+  sentinel asserts it predates the query seam and the pin comparison stands
+  down — the snapshot and product checks still bind it to the same answer
+- Why: D-11 — replay recomputes each question and compares hashes, so a
+  doctored pin tuple or a drifted question sequence is caught non-determinism;
+  D-10 — the split depends on the cap, so re-executing under the deployment's
+  *current* cap would be a re-computation wearing the decision's identifier
+- Migration: none — pre-phase records replay exactly as before
+
+*Recorded by `15.2-08-replay-query-pins.md`.*
+
+#### ccf.replay.engine.resolve_artifact
+
+- Surface: ccf.replay.engine.resolve_artifact
+- Public surface: true
+- Change type: behavior
+- Before: fetched bytes were validated with the **current** record class and
+  the rebuilt model was re-hashed as the tamper check — so
+  sentinel-defaulted fields added by later contract versions changed the
+  re-derived hash, and honest pre-extension records raised
+  `ReplayDivergence` (the false A5 assumption, empirically reproduced on
+  `PRE_CHANGE_CANONICAL`: stored `26cdaded…`, re-derived `ad21e6ab…`)
+- After: verifies `sha256(raw fetched bytes) == content_address` **before**
+  model validation; the re-validated-model re-hash is gone
+- Why: D-IMPL-89 (option a) — the put-time address *is* the sha256 of the
+  stored canonical bytes and the store's `get` contract returns those exact
+  bytes, so byte fidelity carries identical tamper-detection strength
+  (T-04-17) while being model-class-independent — which is what lets every
+  sentinel-default record extension (I.2, I.3, I.4, 15.2-08) keep its
+  compatibility promise
+- Migration: none — every artifact a conforming store holds verifies as
+  before; pre-extension records additionally verify again
+
+*Recorded by `15.2-08-replay-query-pins.md`.*
 
 ### Not public Python API
 

@@ -12,7 +12,9 @@ DESIGN.md §2B.5. The dimensions, and what each holds in I.1:
 2. **Policy Bindings Snapshot** — version identifiers of every Control Plane
    binding in force (INV-CH7-82). HITL actions extend this dimension as of
    I.4 (delivered; CLAUDE.md §8.2): the pre-serialized ``hitl_actions`` block
-   the HITL primitives report, recorded verbatim.
+   the HITL primitives report, recorded verbatim. The D-10 survivor cap in
+   force extends it as of 15.2-08: the Control-Plane-configured value is a
+   dimension-2 fact, ``None`` asserting "no cap configured".
 3. **Model Version Record** — every invoked model; literally ``"none"`` in
    Mode 1 (INV-CH7-83). A positive claim, not an omission. Harness-attributable
    values — which harness ran the loop, the model version *it* reported, its
@@ -26,7 +28,9 @@ DESIGN.md §2B.5. The dimensions, and what each holds in I.1:
    sequence, plus the content address of the product produced (INV-CH7-85);
    workflow step sequences extend it as of I.4 (delivered; CLAUDE.md §8.1) as
    the pre-serialized ``workflow_step_sequence`` block the workflow engine
-   reports, recorded verbatim.
+   reports, recorded verbatim. The per-round-trip query pins extend it as of
+   15.2-08 (D-11): the ordered ``content_hash`` tuple of every ``GraphQuery``
+   the segmented engine issued, recorded from execution.
 
 The record is a frozen contract, so it is canonically serializable and
 content-addressable: a replay resolves the *exact* record, byte for byte,
@@ -41,6 +45,7 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Final
 
 from pydantic import field_validator
 
@@ -56,6 +61,7 @@ __all__ = [
     "MODE_1_MODEL_VERSION",
     "NO_AGENT_DEFINITION",
     "NO_GRANTS_SET_HASH",
+    "NO_GRAPH_QUERIES",
     "NO_HARNESS",
     "NO_HARNESS_TRACE",
     "NO_HITL_ACTIONS",
@@ -108,6 +114,16 @@ NO_HITL_ACTIONS = "no-hitl-actions"
 #: "this decision was not a workflow step" is asserted, never inferred from
 #: silence.
 NO_WORKFLOW_TRACE = "no-workflow-trace"
+
+#: Dimension 5's query-pin value when no seam query is recorded (15.2-08;
+#: D-11). A positive claim in the :data:`NO_WORKFLOW_TRACE` voice: "this
+#: decision was recorded before the query seam existed / issued no seam reads"
+#: is asserted, never inferred from silence — an absent pin sequence and a
+#: dropped one would otherwise be the same artifact. The empty tuple rather
+#: than a marker string because each element is a ``content_hash`` and the
+#: field's shape must stay one shape (the ``workflow_step_sequence``
+#: sentinel-default precedent, applied to a tuple-valued field).
+NO_GRAPH_QUERIES: Final[tuple[str, ...]] = ()
 
 
 class ContextFabricSnapshot(CCFContract):
@@ -182,10 +198,21 @@ class PolicyBindingsSnapshot(CCFContract):
     ReviewQueue) report at build time, recorded verbatim — derived from what
     the primitive reported, never reconstructed here. Defaults to the positive
     :data:`NO_HITL_ACTIONS` sentinel so a decision no human touched says so.
+
+    The D-10 survivor cap extends this dimension as of 15.2-08 through
+    ``survivor_cap``, under the same sentinel-default discipline as
+    ``hitl_actions`` (the ``workflow_step_sequence`` precedent): the
+    Control-Plane-configured cap in force at decision time is a dimension-2
+    fact — the pushed/in-process split depends on plan + data + this value
+    (`GQ-18` at docs/GRAPH_QUERY_SEMANTICS.md:342), so a replay must
+    re-execute under the cap the decision ran under, never the cap now
+    configured. ``None`` is the positive assertion "no cap configured", the
+    engine's own default posture — asserted, never inferred from silence.
     """
 
     bindings: tuple[PolicyBinding, ...]
     hitl_actions: str = NO_HITL_ACTIONS
+    survivor_cap: int | None = None
 
 
 class HarnessTrace(CCFContract):
@@ -325,6 +352,20 @@ class ContentGenerationPath(CCFContract):
     canonical block the workflow engine reports at build time, recorded
     verbatim. Defaults to the positive :data:`NO_WORKFLOW_TRACE` sentinel so
     a fabric-direct decision asserts it was not a workflow step.
+
+    The per-round-trip query pins extend this dimension as of 15.2-08 (D-11)
+    through ``graph_query_sequence``: one ``content_hash`` per ``GraphQuery``
+    the segmented engine issued, **in execution order** — recorded from the
+    engine's own executed-queries sequence (`GQ-20` at
+    docs/GRAPH_QUERY_SEMANTICS.md:391), never from plan-side prediction
+    (T-15.2-15). A Similarity-bearing execution carries two pins in order; a
+    cap-firing execution carries one — the record shows what ran. The full
+    canonical bytes of every pinned query land in the ArtifactStore keyed by
+    these hashes (:class:`~ccf.replay.serve.QueryPinWriter`), so an auditor
+    resolves the literal question from the store without re-running anything.
+    Defaults to the positive :data:`NO_GRAPH_QUERIES` sentinel — the
+    ``workflow_step_sequence`` precedent — so a record written before the
+    query seam existed asserts so and still verifies (D-IMPL-89).
     """
 
     plan_id: str
@@ -332,6 +373,7 @@ class ContentGenerationPath(CCFContract):
     steps: tuple[ExecutionStep, ...]
     product_content_address: str
     workflow_step_sequence: str = NO_WORKFLOW_TRACE
+    graph_query_sequence: tuple[str, ...] = NO_GRAPH_QUERIES
 
 
 class DecisionReplayRecord(CCFContract):
@@ -403,6 +445,21 @@ def build_replay_record(
     threaded into dimension 5 the same way: the workflow engine's
     pre-serialized step-sequence block, recorded verbatim, defaulting to the
     positive :data:`NO_WORKFLOW_TRACE` claim.
+
+    The 15.2-08 seam facts arrive on ``execution`` itself, not as new
+    parameters — they are execution facts, and execution facts already travel
+    here on :class:`~ccf.projection.engine.ExecutionResult`:
+
+    * ``execution.executed_queries`` becomes dimension 5's
+      ``graph_query_sequence`` — one ``content_hash`` per issued
+      ``GraphQuery``, in execution order (D-11; `GQ-20` at
+      docs/GRAPH_QUERY_SEMANTICS.md:391). Derived from what ran, never from
+      plan-side prediction (T-15.2-15); an execution recorded before the
+      query seam existed, or one built by hand without the field, yields the
+      :data:`NO_GRAPH_QUERIES` sentinel exactly as before.
+    * ``execution.survivor_cap`` becomes dimension 2's ``survivor_cap`` —
+      the D-10 Control-Plane-configured value in force, ``None`` asserting
+      no cap was configured.
     """
     return DecisionReplayRecord(
         tenant_id=product.tenant_id,
@@ -417,6 +474,7 @@ def build_replay_record(
         policy_bindings=PolicyBindingsSnapshot(
             bindings=policy_bindings,
             hitl_actions=hitl_actions if hitl_actions is not None else NO_HITL_ACTIONS,
+            survivor_cap=execution.survivor_cap,
         ),
         model_version=ModelVersionRecord(
             assembly_mode=assembly_mode,
@@ -438,5 +496,8 @@ def build_replay_record(
             workflow_step_sequence=workflow_step_sequence
             if workflow_step_sequence is not None
             else NO_WORKFLOW_TRACE,
+            graph_query_sequence=tuple(
+                content_hash(query) for query in execution.executed_queries
+            ),
         ),
     )

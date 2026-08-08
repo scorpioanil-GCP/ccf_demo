@@ -903,6 +903,24 @@ class DeploymentManifest(VersionedArtifact):
         resolution_spec_key: Manifest key of the entity-resolution spec.
         policy_bundle_key: Manifest key of the policy bundle in force.
         tenant_id: The deployment's tenant, when the manifest names it.
+        survivor_cap: The D-10 survivor-set size cap in force deployment-wide
+            (`GQ-18` at docs/GRAPH_QUERY_SEMANTICS.md:342). **The value is
+            Control Plane configuration; the mechanism ships regardless**
+            (CLAUDE.md §11 — mechanism, not values): the engine's cap
+            machinery exists whether or not a deployment configures a
+            threshold, and no threshold constant exists in ``/src``. ``None``
+            — the default, and what an absent field parses to — is the
+            positive posture "no cap configured", not an omission.
+            :func:`~ccf.deployment.manifest.load_and_boot` threads this value
+            onto the boot result for the adopter's
+            :class:`~ccf.projection.engine.ProjectionEngine` construction,
+            and the value in force pins into Decision Replay dimension 2
+            (15.2-08) — a cap change is a manifest change, versioned and
+            schema-gated, with an audit trail (T-15.2-27). Deployment-wide by
+            decision: the manifest is the versioned Control Plane document
+            with existing schema/regeneration machinery, and a
+            per-product-class override can arrive later without a contract
+            break.
     """
 
     artifacts: tuple[ManifestEntry, ...] = Field(min_length=1)
@@ -910,6 +928,7 @@ class DeploymentManifest(VersionedArtifact):
     resolution_spec_key: str
     policy_bundle_key: str
     tenant_id: str | None = None
+    survivor_cap: int | None = None
 
     @model_validator(mode="after")
     def _keys_are_unique(self) -> "DeploymentManifest":

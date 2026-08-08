@@ -36,6 +36,8 @@ from __future__ import annotations
 
 from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreProtocol
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import content_hash
+from ccf.graph.protocols import GraphQuery
 from ccf.products.contract import ContextProductContract
 from ccf.products.gates import ServableProduct
 from ccf.replay.record import DecisionReplayRecord
@@ -45,6 +47,8 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "CapabilityForgeryError",
     "DeliveryCapability",
+    "QueryPinMismatch",
+    "QueryPinWriter",
     "ReplayWriter",
     "ServedProduct",
     "serve",
@@ -53,6 +57,16 @@ __all__ = [
 
 class CapabilityForgeryError(TypeError):
     """A delivery capability was constructed outside a successful append."""
+
+
+class QueryPinMismatch(ValueError):
+    """The record's pinned query sequence and the serve seam's queries disagree.
+
+    Raised by :func:`serve` before anything is persisted: a record appended
+    beside query bytes it does not pin — or pinning bytes nobody handed the
+    seam — is a pin an auditor can never resolve (T-15.2-28), and refusing at
+    the seam is what keeps that unrepresentable on the governed path.
+    """
 
 
 class ServedProduct(CCFContract):
@@ -100,8 +114,10 @@ class ReplayWriter:
     Args:
         store: The artifact substrate (CLAUDE.md §7.4). Any conforming
             implementation — file-backed here, MCP-backed in I.3 — and the
-            store is never a second writer to the graph: this module imports
-            nothing from :mod:`ccf.graph`.
+            store is never a second writer to the graph: this module holds no
+            graph handle and imports no reader and no writer (its one
+            :mod:`ccf.graph` import is the frozen :class:`GraphQuery` *value*
+            contract the pin surface persists).
         artifact_class: Which artifact class replay records are filed under.
             Deployment vocabulary, so it is supplied rather than assumed.
     """
@@ -136,15 +152,115 @@ class ReplayWriter:
         return DeliveryCapability(ref, _DELIVERY_TOKEN)
 
 
+class QueryPinWriter:
+    """Persists executed queries' canonical bytes, content-addressed (D-11).
+
+    The :class:`ReplayWriter` precedent applied to the query pins of 15.2-08:
+    the record carries the ordered ``content_hash`` tuple (dimension 5,
+    ``graph_query_sequence``); this writer lands the **full canonical bytes**
+    of each pinned :class:`~ccf.graph.protocols.GraphQuery` in the
+    ArtifactStore, keyed by that hash — so an auditor holding a pin resolves
+    the literal question from the store without re-running anything, and a
+    replay that recomputes the sequence can quote what disagreed. Two
+    executions issuing the same question converge on one artifact, because
+    the store's addressing is content addressing.
+
+    The store is reached at the serve seam, never from inside the projection
+    engine: the engine stays free of persistence collaborators, exactly as it
+    holds no replay writer.
+
+    Args:
+        store: The artifact substrate (CLAUDE.md §7.4) — ordinarily the same
+            store the deployment's :class:`ReplayWriter` appends to.
+        artifact_class: Which artifact class query bytes are filed under.
+            Deployment vocabulary, supplied rather than assumed — this
+            project's examples and tests use ``"ccf.graph-query"``.
+    """
+
+    def __init__(
+        self, *, store: ArtifactStoreProtocol, artifact_class: str
+    ) -> None:
+        self._store = store
+        self._artifact_class = artifact_class
+
+    def write_query_bytes(
+        self, *, tenant_id: str, queries: tuple[GraphQuery, ...]
+    ) -> tuple[ArtifactRef, ...]:
+        """Persist every query's canonical bytes; return the refs, in order.
+
+        Each query is named by its own ``content_hash`` — the same value the
+        record pins — and the store's derived content address equals that
+        hash (both are ``sha256(canonical_bytes(...))``), so either the name
+        lane or the address lane resolves a pin to its bytes.
+
+        Raises:
+            Exception: whatever the store raises, deliberately uncaught — the
+                :meth:`ReplayWriter.write_replay_record` posture: a failure to
+                persist a pinned question must fail the serve, because a
+                record whose pins cannot be resolved is the T-15.2-28
+                repudiation threat made durable.
+        """
+        return tuple(
+            self._store.put(
+                tenant_id=tenant_id,
+                artifact_class=self._artifact_class,
+                name=content_hash(query),
+                artifact=query,
+            )
+            for query in queries
+        )
+
+
 def serve(
     *,
     product: ServableProduct,
     record: DecisionReplayRecord,
     replay_writer: ReplayWriter,
+    query_pin_writer: QueryPinWriter | None = None,
+    executed_queries: tuple[GraphQuery, ...] = (),
 ) -> ServedProduct:
     """Record the decision, then deliver the product — in that order, always.
 
-    The whole function is one expression because there is nothing to sequence:
-    the delivery is a method on the value the append returned.
+    **The 15.2-08 pin ordering** (D-11, T-15.2-28): when the seam is handed
+    the executed queries, their canonical bytes are persisted **before** the
+    replay-record append, so no moment exists at which an appended record
+    pins bytes the store does not hold — a recorded pin never dangles. The
+    consistency of the two is checked first: the record's
+    ``graph_query_sequence`` must equal the ``content_hash`` tuple of the
+    queries handed in, in order, or nothing is persisted at all.
+
+    The two new parameters default to the pre-15.2-08 posture — no pin
+    writer, no queries — so every existing call site is byte-for-byte
+    unchanged. A deployment on the governed path passes
+    ``execution.executed_queries`` and a :class:`QueryPinWriter` constructed
+    beside its :class:`ReplayWriter`.
+
+    Raises:
+        QueryPinMismatch: the record's pinned sequence and the handed-in
+            queries disagree, or queries were handed in with no writer to
+            persist them, or a configured writer was given a record that pins
+            queries nobody handed in. Raised before any store write.
     """
+    derived_pins = tuple(content_hash(query) for query in executed_queries)
+    pinned = record.content_generation_path.graph_query_sequence
+    if executed_queries and query_pin_writer is None:
+        raise QueryPinMismatch(
+            f"{len(executed_queries)} executed quer(y/ies) were handed to the "
+            "serve seam with no QueryPinWriter to persist them; a record "
+            "appended without its query bytes is a pin an auditor cannot "
+            "resolve (D-11, T-15.2-28)"
+        )
+    if query_pin_writer is not None and derived_pins != pinned:
+        raise QueryPinMismatch(
+            f"the record pins {list(pinned)!r} but the serve seam was handed "
+            f"queries hashing to {list(derived_pins)!r}; the pinned sequence "
+            "records what ran, so the two must agree element-for-element "
+            "(D-11, `GQ-20`)"
+        )
+    if query_pin_writer is not None and executed_queries:
+        # Bytes first, record second: the append below must never publish a
+        # pin the store cannot already resolve (T-15.2-28).
+        query_pin_writer.write_query_bytes(
+            tenant_id=record.tenant_id, queries=executed_queries
+        )
     return replay_writer.write_replay_record(record=record).deliver(product)

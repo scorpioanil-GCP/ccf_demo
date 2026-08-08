@@ -9,8 +9,9 @@ The pipeline, in order, with each step's failure mode named:
 
 1. **Resolve the record** at its content address. A missing record is
    :class:`ReplayUnresolvable` — never the nearest one, never the newest under
-   the name. The bytes are re-hashed on arrival, so a substrate that returned
-   the wrong artifact is caught here rather than believed (T-04-17).
+   the name. The **raw fetched bytes** are re-hashed on arrival, before any
+   model validation, so a substrate that returned the wrong artifact is caught
+   here rather than believed (T-04-17, D-IMPL-89).
 
    That read path is :func:`resolve_artifact`, which is **parametrized by
    contract rather than fixed to the decision record**, plus
@@ -30,10 +31,19 @@ The pipeline, in order, with each step's failure mode named:
    a seam. It is a *verified* seam: what the environment supplies is checked
    against the record, never trusted.
 4. **Re-execute** against a :class:`~ccf.replay.snapshots.SnapshotReader` pinned
-   to the recorded tenant and boundary, then check that the executed step
-   sequence — operator keys, categories, and parameter hashes, in order —
-   equals the recorded one. Drifted parameters surface as
-   :class:`ReplayDivergence` here rather than as a quietly different answer.
+   to the recorded tenant and boundary — under the recorded dimension-2
+   ``survivor_cap`` (D-10), so a capped decision re-executes the way it ran —
+   then check that the executed step sequence — operator keys, categories, and
+   parameter hashes, in order — equals the recorded one, and that the
+   re-executed query-pin sequence — one ``content_hash`` per issued
+   ``GraphQuery``, in order — equals the recorded dimension-5
+   ``graph_query_sequence`` (D-11). Drifted parameters and a drifted question
+   sequence both surface as :class:`ReplayDivergence` here rather than as a
+   quietly different answer. A record carrying the pre-seam
+   :data:`~ccf.replay.record.NO_GRAPH_QUERIES` sentinel asserts it predates
+   the query seam, and the pin comparison stands down — that is the
+   compatibility promise, not a hole: the snapshot and product checks below
+   still hold it to the same answer.
 5. **Check the snapshot id** derived from the re-execution against the recorded
    one. Both are content-derived, so agreement is a statement about state.
 6. **Re-hydrate the product** and check its content address against the
@@ -53,6 +63,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import hashlib
 from typing import Protocol, TypeVar, runtime_checkable
 
 from ccf.artifacts.protocol import (
@@ -67,7 +78,7 @@ from ccf.graph.protocols import GraphReader
 from ccf.products.contract import ContextProductContract
 from ccf.projection.engine import OperatorRegistry, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput, ProjectionPlan
-from ccf.replay.record import DecisionReplayRecord
+from ccf.replay.record import NO_GRAPH_QUERIES, DecisionReplayRecord
 from ccf.replay.snapshots import SnapshotReader, snapshot_of_execution
 
 __ccf_mode__ = "algorithmic"
@@ -207,10 +218,20 @@ def resolve_artifact(
       :class:`ReplayUnresolvable`. Substituting a nearby or newer artifact would
       produce a confident answer about a decision that never happened, which is
       worse than no answer (CLAUDE.md §7.4, D-IMPL-26).
-    * **The bytes are re-hashed on arrival.** So a substrate that returned the
-      wrong artifact is *caught* rather than believed (T-04-17, T-06-102), and
-      the "exact version" claim rests on arithmetic rather than on the store's
-      good behaviour.
+    * **The raw fetched bytes are re-hashed on arrival, before validation**
+      (D-IMPL-89). The put-time address *is* the sha256 of the stored canonical
+      bytes, and the store's ``get`` contract promises those exact bytes back —
+      so byte fidelity is the whole tamper claim, verified model-class-free. A
+      substrate that returned the wrong artifact is *caught* rather than
+      believed (T-04-17, T-06-102), and the "exact version" claim rests on
+      arithmetic rather than on the store's good behaviour. The check is
+      deliberately **not** a re-hash of the re-validated model: canonicalizing
+      a rebuilt model serializes every sentinel-defaulted field a *later*
+      contract version added, so an honest record written before a record
+      extension would re-hash to a different address and trip the tamper check
+      — the exact failure D-IMPL-89 rules out. Byte-first verification is what
+      makes the sentinel-default extension strategy (D-IMPL-87 lineage) keep
+      its compatibility promise.
 
     Args:
         store: Where the artifact lives (CLAUDE.md §7.4).
@@ -232,15 +253,19 @@ def resolve_artifact(
             "replay resolves the exact recorded artifact and has no fallback "
             "(CLAUDE.md §7.4, D-IMPL-26)"
         ) from missing
-    artifact = contract.model_validate_json(payload)
-    reproduced = content_hash(artifact)
+    # Byte fidelity FIRST, validation second (D-IMPL-89): the address is the
+    # sha256 of the stored canonical bytes, so the raw payload is the thing to
+    # verify. Re-hashing a re-validated model here would serialize every
+    # sentinel-defaulted field a later contract version added and reject
+    # honest pre-extension records as tampered.
+    reproduced = hashlib.sha256(payload).hexdigest()
     if reproduced != content_address:
         raise ReplayDivergence(
-            f"the artifact at {content_address!r} hashes to {reproduced!r}; the "
+            f"the bytes at {content_address!r} hash to {reproduced!r}; the "
             f"store returned bytes that are not the {contract.__name__} that "
             "was asked for"
         )
-    return artifact
+    return contract.model_validate_json(payload)
 
 
 def resolve_artifact_at_uri(
@@ -362,7 +387,13 @@ def replay(
 
     snapshot = record.context_fabric_snapshot
     execution = ProjectionEngine(
-        reader=SnapshotReader(reader=reader, snapshot=snapshot), registry=operators
+        reader=SnapshotReader(reader=reader, snapshot=snapshot),
+        registry=operators,
+        # The recorded dimension-2 cap, not the deployment's current one
+        # (D-10): the pushed/in-process split depends on this value, so a
+        # replay under a different cap would issue a different question
+        # sequence — a re-computation wearing the decision's identifier.
+        survivor_cap=record.policy_bindings.survivor_cap,
     ).execute(
         plan=plan,
         perspective=Perspective(
@@ -381,6 +412,24 @@ def replay(
             "differing parameter hash means the operators are no longer the "
             "ones that ran"
         )
+
+    if path.graph_query_sequence != NO_GRAPH_QUERIES:
+        # D-11: recompute the per-round-trip pins from the re-execution and
+        # compare, in order. A record carrying the pre-seam sentinel asserts
+        # it predates the query seam and is exempt — that is the sentinel's
+        # compatibility promise (D-IMPL-89), and the snapshot and product
+        # checks below still bind such a record to the same answer.
+        replayed_pins = tuple(
+            content_hash(query) for query in execution.executed_queries
+        )
+        if replayed_pins != path.graph_query_sequence:
+            raise ReplayDivergence(
+                "the re-executed query sequence differs from the recorded "
+                f"pins (recorded {list(path.graph_query_sequence)!r}, "
+                f"replayed {list(replayed_pins)!r}); the questions asked of "
+                "the substrate are no longer the questions the decision "
+                "asked (D-11, `GQ-20`)"
+            )
 
     reproduced_snapshot = snapshot_of_execution(
         execution=execution,
