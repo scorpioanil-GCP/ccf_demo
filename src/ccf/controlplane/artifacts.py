@@ -67,6 +67,7 @@ from pydantic import Field, field_validator, model_validator
 
 from ccf.assembly.worker import EntityResolutionSpec
 from ccf.contracts.base import CCFContract
+from ccf.graph.protocols import LineageMode, PolicyBindingMode
 from ccf.controlplane.artifact_base import (
     ArtifactClass,
     VersionedArtifact,
@@ -567,6 +568,31 @@ class ProductClassDeclaration(VersionedArtifact):
         required_operator_keys: Registry keys of the operators the class's
             interpretation depends on. Order is not significant — the engine
             imposes the dependency order (INV-CH7-28).
+        accepted_policy_binding_modes: The **accepted modes** of the
+            ``policy_binding`` attestation dimension — an unordered set drawn
+            from the closed D-09 vocabulary
+            (:data:`~ccf.graph.protocols.PolicyBindingMode`), SDK-defined per
+            CLAUDE.md §11. A source whose
+            :class:`~ccf.graph.protocols.SourceAttestation` reports a
+            ``policy_binding`` mode outside this set is refused for this
+            class. These are accepted-mode *sets*, not ordered minima: no
+            strength ordering exists between ``assembly-stamped`` and
+            ``admission-verified`` (D-09's word "minima" is realized as
+            unordered accepted-mode sets). The default —
+            ``{"assembly-stamped"}`` — is the positive assertion of the
+            tier-1 posture every pre-attestation class already lived under
+            (the sentinel-default precedent): consuming a tier-2 source
+            requires the class to declare ``admission-verified`` explicitly,
+            so tier-2 consumption is deny-by-default until a class opts in
+            (D-09). ``peer`` is a reference, not a mode, and carries no
+            acceptance set — it is pinned into replay, never ranked.
+        accepted_lineage_modes: The **accepted modes** of the ``lineage``
+            attestation dimension (:data:`~ccf.graph.protocols.LineageMode`),
+            under exactly the discipline of
+            ``accepted_policy_binding_modes``: an unordered accepted-mode
+            set, defaulting to the tier-1 ``{"graph-supplied"}`` posture, so
+            ``product-carried`` lineage is deny-by-default until a class
+            declares it (D-09).
     """
 
     schema_name: str
@@ -575,6 +601,12 @@ class ProductClassDeclaration(VersionedArtifact):
     assembly_mode: AssemblyMode
     max_ttl_key: str
     required_operator_keys: tuple[str, ...] = Field(min_length=1)
+    accepted_policy_binding_modes: frozenset[PolicyBindingMode] = frozenset(
+        {"assembly-stamped"}
+    )
+    accepted_lineage_modes: frozenset[LineageMode] = frozenset(
+        {"graph-supplied"}
+    )
 
 
 class ProjectionRequirements(VersionedArtifact):

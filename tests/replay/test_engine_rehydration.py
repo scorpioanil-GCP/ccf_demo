@@ -553,7 +553,15 @@ def test_the_snapshot_reader_scope_checks_query_before_delegating(
 def test_the_snapshot_holds_no_physical_copy_of_the_graph(
     deployment: _Deployment,
 ) -> None:
-    """D-IMPL-06: boundary + tenant + watermark + manifest, and nothing else."""
+    """D-IMPL-06: boundary + tenant + watermark + manifest, and nothing else
+    graph-shaped.
+
+    ``source_attestation`` (15.2-11, D-09) is the one non-D-IMPL-06 field:
+    the per-dimension provenance modes the reading source reported — a pin,
+    not a copy of any graph state, and deliberately outside the
+    ``graph_snapshot_id`` derivation, which stays the four D-IMPL-06
+    constituents exactly.
+    """
     _address, record = _serve(deployment)
     snapshot = record.context_fabric_snapshot
     assert set(type(snapshot).model_fields) == {
@@ -563,6 +571,7 @@ def test_the_snapshot_holds_no_physical_copy_of_the_graph(
         "store_watermark",
         "touched_entities",
         "touched_relationships",
+        "source_attestation",
     }
 
 

@@ -59,12 +59,26 @@ __all__ = [
     "GraphReader",
     "GraphView",
     "GraphWriter",
+    "LineageMode",
+    "PolicyBindingMode",
     "QueryFragment",
     "RelationshipRecord",
     "SourceAttestation",
     "TraversalSpec",
     "UpsertResult",
 ]
+
+#: The closed policy-binding mode vocabulary of :class:`SourceAttestation`
+#: (D-09) — SDK-defined per CLAUDE.md §11. Named so that every surface that
+#: references the vocabulary (the attestation itself, a product class's
+#: accepted-mode sets, the gate refusal) spells it from one definition and
+#: cannot drift.
+PolicyBindingMode = Literal["assembly-stamped", "admission-verified", "none"]
+
+#: The closed lineage mode vocabulary of :class:`SourceAttestation` (D-09) —
+#: SDK-defined per CLAUDE.md §11. One definition for every referencing
+#: surface, exactly as :data:`PolicyBindingMode`.
+LineageMode = Literal["graph-supplied", "product-carried", "none"]
 
 
 def _policy_family_is_partial(
@@ -466,8 +480,8 @@ class SourceAttestation(CCFContract):
             assertion the constructor makes, not a value nobody chose.
     """
 
-    policy_binding: Literal["assembly-stamped", "admission-verified", "none"]
-    lineage: Literal["graph-supplied", "product-carried", "none"]
+    policy_binding: PolicyBindingMode
+    lineage: LineageMode
     peer: PeerRef | None
 
 
