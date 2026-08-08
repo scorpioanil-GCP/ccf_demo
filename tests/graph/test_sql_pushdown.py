@@ -76,7 +76,10 @@ if TYPE_CHECKING:
 
 #: sqlite runs always-on; the postgres twins carry their mark and run against
 #: a real server on the CI service leg (D-10/D-11).
-BACKEND_PARAMS = (pytest.param("sqlite"),)
+BACKEND_PARAMS = (
+    pytest.param("sqlite"),
+    pytest.param("postgres", marks=pytest.mark.postgres),
+)
 
 
 @pytest.fixture(params=BACKEND_PARAMS)

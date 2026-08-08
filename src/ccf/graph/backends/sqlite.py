@@ -238,11 +238,11 @@ _RELATIONSHIP_ANSWER = (
     "FROM edges c\n"
 )
 
-#: The undirected step: whichever endpoint of the joined edge is not the walk
-#: row's own node (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201 — an edge is
-#: crossable in either direction).
+#: The undirected step: whichever endpoint of the joined crossable edge is
+#: not the walk row's own node (`GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201
+#: — an edge is crossable in either direction).
 _REACHED = (
-    "CASE WHEN r.subject_uri = w.uri THEN r.object_uri ELSE r.subject_uri END"
+    "CASE WHEN c.subject_uri = w.uri THEN c.object_uri ELSE c.subject_uri END"
 )
 
 
@@ -364,7 +364,12 @@ def _translated_statements(
     # rendered at the query tier (`GQ-07` at docs/GRAPH_QUERY_SEMANTICS.md:148)
     # over the canonical-text observed_at / superseded_at columns; the
     # remaining families narrow within it.
-    text.append("survivors AS (\n")
+    # MATERIALIZED (SQLite 3.35+; well below the Python 3.12 floor's era)
+    # removes planner discretion: each CTE computes once per statement, so
+    # the walk's recursive term expands over a computed row set rather than
+    # re-evaluating a subquery per candidate row — the difference between a
+    # bounded walk and a combinatorial re-scan on demo-scale graphs.
+    text.append("survivors AS MATERIALIZED (\n")
     text.append(
         "    SELECT ec.entity_uri, ec.claim_id, ec.claim_json,\n"
         "           ec.policy_bundle_version, ec.superseded_by,\n"
@@ -427,101 +432,13 @@ def _translated_statements(
         params += list(values)
     text.append(")")
 
-    if q.traverse is not None:
-        # The bounded typed undirected walk (`GQ-10` at
-        # docs/GRAPH_QUERY_SEMANTICS.md:201, INV-CH7-24). Walk starting
-        # points are the union of seed-class selection and explicit seeds,
-        # computed over survivors only (`GQ-11` at
-        # docs/GRAPH_QUERY_SEMANTICS.md:221) — so starts satisfy every
-        # segment predicate and, when `allowed_entities` is present, sit
-        # inside the set (seed classes select within it; explicit seeds
-        # intersect with it, and a URI naming nothing in scope contributes
-        # no start). depth_limit=0 is the base case alone: the walk
-        # starting points only, a legal bound and not an error.
-        text.append(
-            ",\nwalk(uri, depth) AS (\n"
-            "    SELECT s.entity_uri, 0\n"
-            "    FROM survivors s\n"
-            "    WHERE "
-        )
-        starts: list[str] = []
-        clause, values = _in_clause(
-            "json_extract(s.claim_json, '$.entity_class')",
-            q.traverse.seed_entity_classes,
-        )
-        starts.append(clause)
-        params += list(values)
-        if q.seeds:
-            clause, values = _in_clause("s.entity_uri", q.seeds)
-            starts.append(clause)
-            params += list(values)
-        text.append("(" + " OR ".join(starts) + ")\n")
-        # The recursive term: hop admissibility enforced on every hop, not
-        # on the result set (`GQ-13` at docs/GRAPH_QUERY_SEMANTICS.md:261,
-        # INV-CH7-40). The joined relationship_claims row carries the as-of
-        # predicate — the walk crosses only edges current at the boundary
-        # (INV-CH7-14) — plus the segment's validity and policy predicates
-        # when present; the join back to survivors requires the REACHED
-        # entity's surviving claim to satisfy every segment predicate, so a
-        # path through an excluded node does not exist.
-        text.append(
-            "  UNION\n"
-            "    SELECT " + _REACHED + ",\n"
-            "           w.depth + 1\n"
-            "    FROM walk w\n"
-            "    JOIN relationships r\n"
-            "      ON r.tenant_id = ?\n"
-            "     AND (r.subject_uri = w.uri OR r.object_uri = w.uri)\n"
-        )
-        params.append(q.tenant_id)
-        clause, values = _in_clause(
-            "r.relationship_type", q.traverse.relationship_types
-        )
-        text.append("     AND " + clause + "\n")
-        params += list(values)
-        text.append(
-            "    JOIN relationship_claims rc\n"
-            "      ON rc.tenant_id = ?\n"
-            "     AND rc.relationship_key = r.relationship_key\n"
-            "     AND rc.observed_at <= ?\n"
-            "     AND (rc.superseded_at IS NULL OR rc.superseded_at > ?)\n"
-        )
-        params += [q.tenant_id, boundary, boundary]
-        if require_validity:
-            clause, bound = _validity_clauses(
-                "     ", "rc.claim_json", boundary
-            )
-            text.append(clause)
-            params += list(bound)
-        if policy_versions is not None:
-            clause, values = _in_clause(
-                "rc.policy_bundle_version", policy_versions
-            )
-            text.append("     AND " + clause + "\n")
-            params += list(values)
-        text.append(
-            "    JOIN survivors s\n"
-            "      ON s.entity_uri = " + _REACHED + "\n"
-            "    WHERE w.depth < ?\n"
-        )
-        # Depth is a bound parameter in SQL — the literal-inlining
-        # exception is Cypher-only (plan 15.2-09).
-        params.append(q.traverse.depth_limit)
-        if q.allowed_entities is not None:
-            # The uniform rule inside the recursive term (`GQ-15` at
-            # docs/GRAPH_QUERY_SEMANTICS.md:300): a hop to an out-of-set
-            # node must not extend the walk — the D-IMPL-87 resurrection
-            # defect closed in SQL. The survivors join already implies
-            # membership (survivors are restricted to the set above); this
-            # predicate states it on the reached node itself, so the
-            # closure is explicit in the term that expands the walk.
-            clause, values = _in_clause(_REACHED, q.allowed_entities)
-            text.append("      AND " + clause + "\n")
-            params += list(values)
-        text.append(")")
-
-    # edges: the surviving relationship claims that may appear in the answer.
-    text.append(",\nedges AS (\n")
+    # edges: the surviving relationship claims that may appear in the answer
+    # — and, on a traverse query, the walk's whole expansion surface: the
+    # relationship_claims join carries the as-of predicate (INV-CH7-14;
+    # `GQ-07` at docs/GRAPH_QUERY_SEMANTICS.md:148) plus the segment's
+    # validity and policy predicates when present, and endpoint closure
+    # below restricts crossability to edges between surviving entities.
+    text.append(",\nedges AS MATERIALIZED (\n")
     text.append(
         "    SELECT rc.relationship_key, rc.claim_id, rc.claim_json,\n"
         "           rc.policy_bundle_version, rc.superseded_by,\n"
@@ -580,6 +497,69 @@ def _translated_statements(
             "                  WHERE s.entity_uri = r.object_uri)\n"
         )
     text.append(")\n")
+
+    if q.traverse is not None:
+        # The bounded typed undirected walk (`GQ-10` at
+        # docs/GRAPH_QUERY_SEMANTICS.md:201, INV-CH7-24). Walk starting
+        # points are the union of seed-class selection and explicit seeds,
+        # computed over survivors only (`GQ-11` at
+        # docs/GRAPH_QUERY_SEMANTICS.md:221) — so starts satisfy every
+        # segment predicate and, when `allowed_entities` is present, sit
+        # inside the set (seed classes select within it; explicit seeds
+        # intersect with it, and a URI naming nothing in scope contributes
+        # no start). depth_limit=0 is the base case alone: the walk
+        # starting points only, a legal bound and not an error.
+        text.append(",\nwalk(uri, depth) AS (\n")
+        text.append(
+            "    SELECT s.entity_uri, 0\n"
+            "    FROM survivors s\n"
+            "    WHERE "
+        )
+        starts: list[str] = []
+        clause, values = _in_clause(
+            "json_extract(s.claim_json, '$.entity_class')",
+            q.traverse.seed_entity_classes,
+        )
+        starts.append(clause)
+        params += list(values)
+        if q.seeds:
+            clause, values = _in_clause("s.entity_uri", q.seeds)
+            starts.append(clause)
+            params += list(values)
+        text.append("(" + " OR ".join(starts) + ")\n")
+        # The recursive term: hop admissibility enforced on every hop, not
+        # on the result set (`GQ-13` at docs/GRAPH_QUERY_SEMANTICS.md:261,
+        # INV-CH7-40). The expansion surface is the materialized crossable
+        # set above — relationship_claims joined with the as-of predicate,
+        # the segment's validity and policy predicates, the permitted
+        # types, and BOTH endpoints surviving — so an edge to an excluded
+        # node is not a hop the walk can take, and a path through an
+        # excluded node does not exist. Prune before walking, exactly the
+        # fallback's shape.
+        text.append(
+            "  UNION\n"
+            "    SELECT " + _REACHED + ",\n"
+            "           w.depth + 1\n"
+            "    FROM walk w\n"
+            "    JOIN edges c\n"
+            "      ON (c.subject_uri = w.uri OR c.object_uri = w.uri)\n"
+            "    WHERE w.depth < ?\n"
+        )
+        # Depth is a bound parameter in SQL — the literal-inlining
+        # exception is Cypher-only (plan 15.2-09).
+        params.append(q.traverse.depth_limit)
+        if q.allowed_entities is not None:
+            # The uniform rule inside the recursive term (`GQ-15` at
+            # docs/GRAPH_QUERY_SEMANTICS.md:300): a hop to an out-of-set
+            # node must not extend the walk — the D-IMPL-87 resurrection
+            # defect closed in SQL. The crossable set's endpoint predicates
+            # already imply membership (survivors are restricted to the
+            # set); this predicate states it on the reached node itself, so
+            # the closure is explicit in the term that expands the walk.
+            clause, values = _in_clause(_REACHED, q.allowed_entities)
+            text.append("      AND " + clause + "\n")
+            params += list(values)
+        text.append(")\n")
 
     prologue = "WITH RECURSIVE " if q.traverse is not None else "WITH "
     with_chain = prologue + "".join(text)
