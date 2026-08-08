@@ -592,9 +592,10 @@ def test_the_degenerate_round_trip_counts_exactly_once(fabric: _Fabric) -> None:
     """An all-``None``-intent plan is one ``reader.query`` call, counted once.
 
     On a fresh reader — a second read-only store over the same database —
-    ``translated_answers == 0`` and ``fallback_answers == 1`` after the
-    execution: the degenerate everything-question was answered by the
-    degrade path, exactly once — neither double- nor under-counted.
+    ``translated_answers == 1`` and ``fallback_answers == 0`` after the
+    execution: since plan 15.2-09 the sqlite backend answers the degenerate
+    everything-question natively, so the one round trip lands on the
+    translated counter, exactly once — neither double- nor under-counted.
     """
     registry = _operators(fabric)
     database_path: Path = fabric.database_path  # type: ignore[attr-defined]
@@ -611,8 +612,8 @@ def test_the_degenerate_round_trip_counts_exactly_once(fabric: _Fabric) -> None:
             temporal_boundary=fabric.boundary,
         )
 
-        assert fresh.translated_answers == 0
-        assert fresh.fallback_answers == 1
+        assert fresh.translated_answers == 1
+        assert fresh.fallback_answers == 0
         assert len(execution.executed_queries) == 1
         assert execution.executed_queries[0] == GraphQuery(
             tenant_id=fabric.tenant_id, as_of=fabric.boundary
