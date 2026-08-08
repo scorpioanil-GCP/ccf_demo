@@ -26,7 +26,10 @@ from tests.conformance.query_corpus import (
     LATE,
     ON_BOUNDARY,
     RELATIONSHIP_TYPES,
+    SEED_CLASSES,
     TENANT,
+    chain_claims,
+    chain_uris,
     entity_claim,
     relationship_claim,
 )
@@ -211,9 +214,12 @@ def test_no_query_text_is_assembled_anywhere_in_the_module() -> None:
     assert not re.findall(r'f"\$\{', source)
     assert not re.findall(r'"\$"\s*\+', source)
     assert not re.findall(r'\+\s*"\$', source)
-    # Every `$`-prefixed operator in the module is a literal key.
-    operators = set(re.findall(r'"(\$[a-zA-Z]+)"', source))
-    assert operators <= {
+    # Every `$`-prefixed string literal in the module is a code-authored
+    # operator key or the ONE aggregation field reference the `$graphLookup`
+    # walk starts from. The pattern admits `_` deliberately, so a field
+    # reference cannot slip through on the strength of its spelling.
+    tokens = set(re.findall(r'"(\$[A-Za-z_][A-Za-z0-9_]*)"', source))
+    assert tokens <= {
         "$and",
         "$or",
         "$in",
@@ -222,7 +228,9 @@ def test_no_query_text_is_assembled_anywhere_in_the_module() -> None:
         "$graphLookup",
         "$match",
         "$project",
-    }, sorted(operators)
+        # The walk's `startWith` — SDK-owned, never artifact-authored.
+        "$entity_uri",
+    }, sorted(tokens)
 
 
 def test_boot_refuses_mongo_plus_another_backend() -> None:
@@ -375,6 +383,92 @@ def test_l2_writes_round_trip_byte_identically_to_the_memory_backend(
             assert history[0].superseded_by == history[1].claim_id
 
     assert views["mongo"] == views["memory"]
+
+
+@pytest.mark.mongo
+def test_graphlookup_traversal_holds_on_every_pitfall_3_trap_shape(
+    fabric_boot: "Callable[..., FabricHandle]",
+) -> None:
+    """The stage-2 promotion, asserted on the four shapes it can get wrong.
+
+    Plan 15.2-13 Task 3. The differential corpus is the byte-identity bar;
+    this test names the specific traps so a regression says *which* correction
+    broke rather than "the corpus went red":
+
+    * **depth 0** — the stage is skipped entirely (``maxDepth`` has no value
+      meaning "no hops"); the answer is the walk starting points, which is a
+      legal bound, not an error;
+    * **depth 1** — ``maxDepth: 0``, the off-by-one: ``depthField`` starts at
+      0 for the *first* lookup, so CCF hop *h* is ``depthField`` *h−1*;
+    * **depth 2 over a mixed-direction path** — the chain's second edge points
+      target→mid, so reaching the target from the seed is an out-then-in walk.
+      ``$graphLookup`` is directed and two directed lookups do not compose;
+      only the doubled-edge layout makes this reachable
+      (15.2-RESEARCH.md Pitfall 3);
+    * **the resurrection shape** — the same depth-2 question with the
+      intermediate outside ``allowed_entities``. A walk that crossed it would
+      re-reach the target the set excludes (`GQ-15` at
+      docs/GRAPH_QUERY_SEMANTICS.md:300; threat T-15.2-26).
+
+    Seed re-inclusion is asserted by every case at once: ``$graphLookup``
+    excludes the starting document from its ``as`` array, so a seed missing
+    from any answer would fail the byte-identity comparison.
+
+    ``translated_answers`` is the promotion evidence — the one place a
+    silently-conformant fallback could hide a broken walk, since D-04 makes
+    the degraded posture byte-identical by design.
+    """
+    from ccf.graph.protocols import GraphQuery, TraversalSpec
+
+    seed_uri, mid_uri, target_uri = chain_uris()
+    entities, relationships = chain_claims(
+        mid_classification=PERMITTED_CLASSIFICATION
+    )
+
+    def walk_at(depth: int) -> TraversalSpec:
+        return TraversalSpec(
+            seed_entity_classes=SEED_CLASSES,
+            relationship_types=RELATIONSHIP_TYPES,
+            depth_limit=depth,
+        )
+
+    queries = (
+        GraphQuery(tenant_id=TENANT, as_of=ON_BOUNDARY, traverse=walk_at(0)),
+        GraphQuery(tenant_id=TENANT, as_of=ON_BOUNDARY, traverse=walk_at(1)),
+        GraphQuery(tenant_id=TENANT, as_of=ON_BOUNDARY, traverse=walk_at(2)),
+        GraphQuery(
+            tenant_id=TENANT,
+            as_of=ON_BOUNDARY,
+            traverse=walk_at(2),
+            allowed_entities=frozenset({seed_uri, target_uri}),
+        ),
+    )
+
+    answers: dict[str, list[bytes]] = {}
+    reached: dict[str, list[set[str]]] = {}
+    for backend in ("mongo", "memory"):
+        handle = fabric_boot(backend=backend)
+        for claim in entities:
+            handle.worker.admit_entity_claim(tenant_id=TENANT, claim=claim)
+        for edge in relationships:
+            handle.worker.admit_relationship_claim(tenant_id=TENANT, claim=edge)
+        views = [handle.reader.query(q) for q in queries]
+        answers[backend] = [canonical_bytes(view) for view in views]
+        reached[backend] = [
+            {record.claim.entity_uri for record in view.entities}
+            for view in views
+        ]
+        if backend == "mongo":
+            assert handle.reader.translated_answers == len(queries)
+            assert handle.reader.fallback_answers == 0
+
+    assert answers["mongo"] == answers["memory"]
+    assert reached["mongo"] == [
+        {seed_uri},
+        {seed_uri, mid_uri},
+        {seed_uri, mid_uri, target_uri},
+        {seed_uri},
+    ]
 
 
 @pytest.mark.mongo

@@ -594,6 +594,16 @@ def _closure_clauses(
     ]
 
 
+#: Field the ``$graphLookup`` stage writes its reached traversal documents
+#: into, and the ONE aggregation *field reference* this module contains (the
+#: walk's ``startWith``). Both are SDK-owned constants, code-authored in full:
+#: no artifact-authored string ever becomes a pipeline field reference, which
+#: is the aggregation-stage half of the field-path rule
+#: :func:`attribute_field_path` states for ``$match`` (threat T-15.2-01).
+_REACHED = "reached"
+_START_FROM = "$entity_uri"
+
+
 def _combine(clauses: Sequence[dict[str, Any]]) -> dict[str, Any]:
     """Fold clause documents into one filter under ``$and``.
 
@@ -701,8 +711,9 @@ class MongoGraphReader(BaseGraphReader):
         answer's row pair — every predicate family applied, hop
         admissibility applied, ``allowed_entities`` membership applied.
 
-        **Stage 1 (plan 15.2-13 Task 2) — `$match` pushdown.** Two filter
-        documents answer everything that is a *record* predicate:
+        Three reads answer it. Two are filter documents over the claim
+        collections; the third is the ``$graphLookup`` walk (stage 2, promoted
+        in Task 3 after the corpus proved parity — see :meth:`_walk`).
 
         1. **survivors** — the surviving entity claims: the as-of cut
            (`GQ-07` at docs/GRAPH_QUERY_SEMANTICS.md:148, INV-CH7-14) as
@@ -721,7 +732,20 @@ class MongoGraphReader(BaseGraphReader):
            docs/GRAPH_QUERY_SEMANTICS.md:316 — both endpoints in the set),
            the permitted types when a traverse family is present, and
            endpoint closure against the materialized survivors on every
-           constrained answer.
+           constrained answer;
+        3. **walk** (traverse only, ``depth_limit >= 1``) — the bounded typed
+           undirected expansion (`GQ-10` at
+           docs/GRAPH_QUERY_SEMANTICS.md:201, INV-CH7-24) as one
+           ``$graphLookup`` over the doubled-edge collection, with hop
+           admissibility and ``allowed_entities`` membership carried in
+           ``restrictSearchWithMatch`` (`GQ-13` at
+           docs/GRAPH_QUERY_SEMANTICS.md:261; `GQ-15` at
+           docs/GRAPH_QUERY_SEMANTICS.md:300). Walk starting points are
+           computed within survivors (`GQ-11` at
+           docs/GRAPH_QUERY_SEMANTICS.md:221) — seed classes select within
+           the surviving universe, explicit seeds intersect with it — and the
+           reached set filters both row sets, mirroring the SQL adapters'
+           outer walk-membership SELECTs and the Cypher adapter's shape.
 
         Two shapes short-circuit without a round trip: the empty
         ``allowed_entities`` set IS the empty answer (`GQ-04` at
@@ -739,15 +763,6 @@ class MongoGraphReader(BaseGraphReader):
             # answer, never an error (`GQ-23` at
             # docs/GRAPH_QUERY_SEMANTICS.md:474).
             return (), ()
-        if q.traverse is not None:
-            # Stage 1's shipped posture for the traverse family: decline
-            # BEFORE any round trip — the decline is a pure function of the
-            # query value — and the memory-bounded fallback answers the WHOLE
-            # query. Fully conformant under D-04, byte-identical, visible only
-            # in telemetry (`GQ-34` at docs/GRAPH_QUERY_SEMANTICS.md:609).
-            # Task 3 promotes this to a `$graphLookup` walk over the
-            # doubled-edge collection.
-            return None
         scope = self._store.scope(q.tenant_id)
         filters = _translated_filters(q, scope=scope)
         if filters is None:
@@ -756,9 +771,151 @@ class MongoGraphReader(BaseGraphReader):
         entity_rows = self._survivors(entity_clauses)
         if constrained:
             edge_clauses += _closure_clauses(entity_rows)
-        return entity_rows, self._crossable(edge_clauses)
+        relationship_rows = self._crossable(edge_clauses)
+        if q.traverse is None:
+            return entity_rows, relationship_rows
+        # Walk-start selection within survivors (`GQ-11` at
+        # docs/GRAPH_QUERY_SEMANTICS.md:221): seed classes select within the
+        # surviving universe; explicit seeds intersect with it — a URI naming
+        # nothing in scope contributes no start, which is not an error.
+        survivors = {row["entity_uri"] for row in entity_rows}
+        starts = {
+            row["entity_uri"]
+            for row in entity_rows
+            if row["entity_class"] in q.traverse.seed_entity_classes
+        }
+        if q.seeds is not None:
+            starts |= set(q.seeds) & survivors
+        # **Pitfall-3 correction 2 — explicit seed re-inclusion.**
+        # `$graphLookup` excludes the starting document from its `as` array
+        # while CCF includes the walk starting points (`GQ-10` at
+        # docs/GRAPH_QUERY_SEMANTICS.md:201), so the reached set is seeded
+        # with the starts before the stage runs — which is also what makes
+        # `depth_limit=0` (seeds only) expressible at all.
+        reached = set(starts)
+        if starts and q.traverse.depth_limit >= 1:
+            # **Pitfall-3 correction 3 — depth_limit=0 skips the stage.**
+            # `maxDepth` has no value expressing "no hops": `maxDepth: 0` is
+            # already one lookup. A zero bound is a legal bound, not an error.
+            reached |= self._walk(
+                scope=scope,
+                starts=sorted(starts),
+                crossable=sorted(
+                    {row["relationship_key"] for row in relationship_rows}
+                ),
+                survivors=sorted(survivors),
+                depth_limit=q.traverse.depth_limit,
+            )
+        # The reached set filters both row sets — the aggregation analogue of
+        # the SQL adapters' `IN (SELECT uri FROM walk)` outer SELECTs; the
+        # walk itself ran in the engine.
+        entity_rows = [
+            row for row in entity_rows if row["entity_uri"] in reached
+        ]
+        relationship_rows = [
+            row
+            for row in relationship_rows
+            if row["subject_uri"] in reached and row["object_uri"] in reached
+        ]
+        return entity_rows, relationship_rows
 
-    # -- the two pushed reads the translation is built from -------------------
+    # -- the three pushed reads the translation is built from -----------------
+
+    def _walk(
+        self,
+        *,
+        scope: Mapping[str, str],
+        starts: list[str],
+        crossable: list[str],
+        survivors: list[str],
+        depth_limit: int,
+    ) -> set[str]:
+        """The bounded typed undirected expansion, run in the engine.
+
+        Stage 2 of the staged adapter (plan 15.2-13 Task 3), promoted only
+        after the differential corpus proved byte-identity — `GQ-34` at
+        docs/GRAPH_QUERY_SEMANTICS.md:609 makes the promotion an earned
+        optimization, never a conformance requirement.
+
+        Answers the set of entity URIs reachable within ``depth_limit`` hops
+        of any start. Three of the four `$graphLookup` mismatch corrections
+        (15.2-RESEARCH.md Pitfall 3) land in the caller
+        (:meth:`_translate_query` — seed re-inclusion and the depth-0
+        stage-skip) and in the **doubled-edge collection** the write path
+        maintains (the stage is directed, CCF traversal is undirected, and two
+        directed lookups do not compose). The fourth lands here:
+
+        * **the ``maxDepth`` offset** — ``depthField`` starts at 0 for the
+          first lookup, so CCF hop *h* is ``depthField`` *h−1* and a CCF
+          ``depth_limit`` of N is ``maxDepth: N-1``. Verified against the live
+          server at plan 15.2-13 execution: ``maxDepth: 0`` reaches exactly
+          the one-hop neighbours and no further.
+
+        Hop admissibility (`GQ-13` at docs/GRAPH_QUERY_SEMANTICS.md:261,
+        INV-CH7-40) and the uniform rule (`GQ-15` at
+        docs/GRAPH_QUERY_SEMANTICS.md:300) ride
+        ``restrictSearchWithMatch``, which filters traversal documents
+        *during* the walk rather than after it — the distinction that keeps a
+        path through an excluded node from existing rather than merely being
+        pruned from the result (threats T-15.2-03 / T-15.2-26). Two clauses
+        carry it:
+
+        * ``relationship_key`` ∈ the **crossable** set — the edges the
+          segment's own ``$match`` already admitted under the permitted types,
+          the temporal cuts, the policy family, ``allowed_entities`` on both
+          endpoints, and endpoint closure. Stating hop admissibility as
+          membership in that already-computed set rather than re-deriving the
+          predicates on traversal documents is deliberate: a re-derivation is
+          a second place for the semantics to live, and the two would
+          eventually disagree (the prune-before-walk shape the Postgres
+          MATERIALIZED CTE and the Cypher ``all(…)`` path predicate both use);
+        * ``to`` ∈ the **survivor** set — the uniform rule stated explicitly
+          on the node a hop would extend the walk to. Redundant by
+          construction (a crossable edge has both endpoints surviving) and
+          explicit by the Postgres/Neo4j precedent: the closure belongs in the
+          term that expands the walk, where a reader can see it.
+
+        Assumption A3 (15.2-RESEARCH.md:953) was verified against the live
+        ``mongo:7`` container before promotion: ``restrictSearchWithMatch``
+        accepts every plain-match predicate shape the hop filter needs —
+        scope equality, ``$in``, ``$lte`` on canonical text, and the
+        supersession ``$or`` — with no ``$expr`` required.
+
+        Operational note: the stage holds its reached documents in memory per
+        start (100 MB stage bound). Survivor-set size is the Control Plane's
+        cap to set (`GQ-18` at docs/GRAPH_QUERY_SEMANTICS.md:342), never this
+        module's.
+        """
+        if not crossable:
+            # No admissible edge exists, so no hop does either. Answered
+            # without a round trip; the starts are already in `reached`.
+            return set()
+        pipeline: list[dict[str, Any]] = [
+            {"$match": {**scope, "entity_uri": {"$in": starts}}},
+            {
+                "$graphLookup": {
+                    "from": TRAVERSAL_EDGES,
+                    "startWith": _START_FROM,
+                    "connectFromField": "to",
+                    "connectToField": "from",
+                    "maxDepth": depth_limit - 1,
+                    "restrictSearchWithMatch": {
+                        **scope,
+                        "relationship_key": {"$in": crossable},
+                        "to": {"$in": survivors},
+                    },
+                    "as": _REACHED,
+                }
+            },
+            {"$project": {"_id": False, _REACHED: True}},
+        ]
+        return {
+            edge["to"]
+            for document in self._store.collection(ENTITY_NODES).aggregate(
+                pipeline
+            )
+            for edge in document[_REACHED]
+        }
 
     def _survivors(
         self, clauses: list[dict[str, Any]]
