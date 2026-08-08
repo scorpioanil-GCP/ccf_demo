@@ -212,6 +212,74 @@ def _policy_key(entity_class: str, attr_name: str, attr_value: str) -> str:
     return f"{entity_class}{POLICY_KEY_SEP}{attr_name}{POLICY_KEY_SEP}{attr_value}"
 
 
+#: The supersession value F-A4(a)'s ground retraction removes, and which its
+#: positive control proves survives when the retraction is absent.
+SUPERSEDED_OLD = "2026-03-09T00:00:00.000000Z"
+
+#: The supersession value both bodies assert.
+SUPERSEDED_NEW = "2026-03-10T00:00:00.000000Z"
+
+
+def _seed_supersession(client: httpx.Client, base: str, ledger: str) -> None:
+    """Commit the claim both F-A4(a) and its control then update."""
+    _insert(
+        client,
+        base,
+        ledger,
+        [
+            {
+                "@id": "ccf_c_sup1",
+                "@type": "CcfEntityClaim",
+                "ccf_tenant_id": "tenant-sup",
+                "ccf_claim_id": "sup1",
+                "ccf_superseded_at": SUPERSEDED_OLD,
+            }
+        ],
+    ).raise_for_status()
+
+
+def _supersession_batch(*, retract: bool) -> dict[str, Any]:
+    """The F-A4(a) batch, with or without the ground retraction.
+
+    ONE constructor for both the probe and its positive control, deliberately:
+    the only difference between the two bodies must be the presence of the
+    retraction key. Built separately they would drift, and the control would
+    stop controlling for the thing F-A4(a) actually claims.
+    """
+    batch: dict[str, Any] = {
+        "@context": {},
+        "insert": [
+            {"@id": "ccf_c_sup1", "ccf_superseded_at": SUPERSEDED_NEW},
+            {
+                "@id": "ccf_c_new2",
+                "@type": "CcfEntityClaim",
+                "ccf_tenant_id": "tenant-sup",
+                "ccf_claim_id": "new2",
+            },
+        ],
+    }
+    if retract:
+        batch["delete"] = [{"@id": "ccf_c_sup1", "ccf_superseded_at": SUPERSEDED_OLD}]
+    return batch
+
+
+def _read_supersession(
+    client: httpx.Client, base: str, ledger: str, applied: httpx.Response
+) -> httpx.Response:
+    """Read every supersession value back, at the commit just applied."""
+    readback = _cypher(
+        client,
+        base,
+        ledger,
+        "MATCH (n:CcfEntityClaim) WHERE n.ccf_tenant_id = $t "
+        "RETURN n.ccf_claim_id AS claim_id, n.ccf_superseded_at AS superseded_at",
+        params={"t": "tenant-sup"},
+        min_t=int(applied.json()["t"]),
+    )
+    assert readback.status_code == 200, readback.text
+    return readback
+
+
 @pytest.mark.fluree
 def test_fa1_container_round_trip(fluree_url: str) -> None:
     """F-A1: the pinned container answers, and the read envelope is recorded.
@@ -811,41 +879,12 @@ def test_fa4a_ground_delete_without_a_guard_clause(fluree_url: str) -> None:
     phase cannot afford.
     """
     evidence: dict[str, Any] = {}
-    old_value = "2026-03-09T00:00:00.000000Z"
-    new_value = "2026-03-10T00:00:00.000000Z"
 
     with httpx.Client(timeout=TIMEOUT) as client:
         base, ledger = _bootstrap(client, fluree_url)
+        _seed_supersession(client, base, ledger)
 
-        _insert(
-            client,
-            base,
-            ledger,
-            [
-                {
-                    "@id": "ccf_c_sup1",
-                    "@type": "CcfEntityClaim",
-                    "ccf_tenant_id": "tenant-sup",
-                    "ccf_claim_id": "sup1",
-                    "ccf_superseded_at": old_value,
-                }
-            ],
-        ).raise_for_status()
-
-        # The batch: ground retraction + ground assertion, and NO guard key.
-        batch: dict[str, Any] = {
-            "@context": {},
-            "delete": [{"@id": "ccf_c_sup1", "ccf_superseded_at": old_value}],
-            "insert": [
-                {"@id": "ccf_c_sup1", "ccf_superseded_at": new_value},
-                {
-                    "@id": "ccf_c_new2",
-                    "@type": "CcfEntityClaim",
-                    "ccf_tenant_id": "tenant-sup",
-                    "ccf_claim_id": "new2",
-                },
-            ],
-        }
+        batch = _supersession_batch(retract=True)
         assert set(batch) == {"@context", "delete", "insert"}, batch
         evidence["request_body"] = batch
 
@@ -858,23 +897,15 @@ def test_fa4a_ground_delete_without_a_guard_clause(fluree_url: str) -> None:
         evidence["receipt"] = applied.text
         assert applied.status_code == 200, applied.text
 
-        readback = _cypher(
-            client,
-            base,
-            ledger,
-            "MATCH (n:CcfEntityClaim) WHERE n.ccf_tenant_id = $t "
-            "RETURN n.ccf_claim_id AS claim_id, n.ccf_superseded_at AS superseded_at",
-            params={"t": "tenant-sup"},
-            min_t=int(applied.json()["t"]),
-        )
-        assert readback.status_code == 200, readback.text
+        readback = _read_supersession(client, base, ledger, applied)
         evidence["follow_up_read"] = readback.text
         rows = _rows(readback)
 
         # The retraction applied: exactly one supersession value, the new one.
+        # `test_fa4a_control_...` proves this discriminator has power.
         superseded = [row for row in rows if row["claim_id"] == "sup1"]
         assert superseded == [
-            {"claim_id": "sup1", "superseded_at": new_value}
+            {"claim_id": "sup1", "superseded_at": SUPERSEDED_NEW}
         ], readback.text
         # The assertion applied in the same commit.
         assert {"claim_id": "new2", "superseded_at": None} in rows, readback.text
@@ -882,3 +913,63 @@ def test_fa4a_ground_delete_without_a_guard_clause(fluree_url: str) -> None:
         _assert_context_is_null(client, base, ledger)
 
     print("\nF-A4(a) evidence:\n" + json.dumps(evidence, indent=2, sort_keys=True))
+
+
+@pytest.mark.fluree
+def test_fa4a_control_an_unretracted_value_survives_alongside_the_new_one(
+    fluree_url: str,
+) -> None:
+    """F-A4(a)'s POSITIVE CONTROL: without the retraction, BOTH values persist.
+
+    This test exists because F-A4(a)'s conclusion rests on a premise that was
+    itself unmeasured. F-A4(a) reads "exactly one supersession value, therefore
+    the ground ``delete`` applied" — which only follows if an *un*-retracted
+    old value would have produced TWO rows. F-A6 established multi-value
+    fan-out for a property inserted as an explicit **array**, but not for a
+    property written by two **separate inserts** on an existing subject. Those
+    are the same RDF semantic, but this phase's own D-06 discipline is to
+    measure rather than infer precisely because this class of thing fails
+    silently: had Fluree done last-write-wins on a scalar, F-A4(a) would have
+    returned one row whether or not the delete applied, and the probe would
+    have "passed" while proving nothing.
+
+    So this runs the identical batch with the ``delete`` key removed and
+    asserts both values survive. Both bodies come from
+    :func:`_supersession_batch` so the only difference between them is the
+    retraction — if they were built separately they could drift, and the
+    control would stop controlling for the right thing.
+
+    Keep this test. Without it F-A4(a) silently loses its discriminating power
+    the day the substrate changes that semantic, which is exactly the
+    silent-failure shape this plan exists to catch.
+    """
+    evidence: dict[str, Any] = {}
+
+    with httpx.Client(timeout=TIMEOUT) as client:
+        base, ledger = _bootstrap(client, fluree_url)
+        _seed_supersession(client, base, ledger)
+
+        batch = _supersession_batch(retract=False)
+        assert "delete" not in batch, batch
+        evidence["request_body"] = batch
+
+        applied = client.post(
+            f"{base}/update/{ledger}",
+            headers={"Content-Type": "application/json"},
+            content=json.dumps(batch),
+        )
+        assert applied.status_code == 200, applied.text
+
+        readback = _read_supersession(client, base, ledger, applied)
+        evidence["follow_up_read"] = readback.text
+        rows = _rows(readback)
+
+        # The discriminator has power: the old value SURVIVES beside the new
+        # one, fanning out into two rows for the same subject.
+        superseded = sorted(
+            (row["superseded_at"] for row in rows if row["claim_id"] == "sup1"),
+            key=str,
+        )
+        assert superseded == [SUPERSEDED_OLD, SUPERSEDED_NEW], readback.text
+
+    print("\nF-A4(a) control evidence:\n" + json.dumps(evidence, indent=2, sort_keys=True))
