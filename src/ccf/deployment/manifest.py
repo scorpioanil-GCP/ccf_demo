@@ -218,6 +218,7 @@ def _preflight_backend(
     database_path: str | None,
     postgres_dsn: str | None,
     neo4j_uri: str | None,
+    mongo_uri: str | None,
 ) -> None:
     """Refuse a backend declaration the environment cannot satisfy (D-08).
 
@@ -236,11 +237,12 @@ def _preflight_backend(
 
     A declared ``memory`` backend (Phase 15.2 D-06) needs no connection
     argument — there is nothing to connect to — so for it the check runs the
-    other way only: supplying ``database_path``, ``postgres_dsn``, or
-    ``neo4j_uri`` alongside a ``memory`` declaration is refused as a
-    contradiction, exactly as supplying the other backend's argument is. A
-    declared ``neo4j`` backend (plan 15.2-12) requires ``neo4j_uri``, the
-    environment-supplied mirror of ``postgres_dsn``.
+    other way only: supplying ``database_path``, ``postgres_dsn``,
+    ``neo4j_uri``, or ``mongo_uri`` alongside a ``memory`` declaration is
+    refused as a contradiction, exactly as supplying the other backend's
+    argument is. A declared ``neo4j`` backend (plan 15.2-12) requires
+    ``neo4j_uri`` and a declared ``mongo`` backend (plan 15.2-13) requires
+    ``mongo_uri``, the environment-supplied mirrors of ``postgres_dsn``.
 
     Raises:
         ValueError: the declared backend's connection argument is missing, or
@@ -250,12 +252,14 @@ def _preflight_backend(
         "database_path": database_path,
         "postgres_dsn": postgres_dsn,
         "neo4j_uri": neo4j_uri,
+        "mongo_uri": mongo_uri,
     }
     required = {
         "sqlite": "database_path",
         "postgres": "postgres_dsn",
         "memory": None,
         "neo4j": "neo4j_uri",
+        "mongo": "mongo_uri",
     }[manifest.backend]
     declared = manifest.backend
     if required is not None and supplied[required] is None:
@@ -280,6 +284,7 @@ def load_and_boot(
     database_path: str | None = None,
     postgres_dsn: str | None = None,
     neo4j_uri: str | None = None,
+    mongo_uri: str | None = None,
     tenant_id: str | None = None,
 ) -> BootedFabric:
     """Load a manifest, validate and register what it names, and boot the fabric.
@@ -381,6 +386,9 @@ def load_and_boot(
             environment, never persisted, never in the manifest — a Bolt URI
             can carry credentials, and the manifest is a content-hashed audit
             artifact (threat T-15.2-05).
+        mongo_uri: MongoDB connection URI, when the manifest declares
+            ``mongo`` (plan 15.2-13). Same posture as ``neo4j_uri``, for the
+            same reason: a MongoDB URI can carry userinfo.
         tenant_id: The deployment's tenant, when the manifest does not name it.
 
     Raises:
@@ -451,6 +459,7 @@ def load_and_boot(
         database_path=database_path,
         postgres_dsn=postgres_dsn,
         neo4j_uri=neo4j_uri,
+        mongo_uri=mongo_uri,
     )
 
     # Phase one: parse everything. Nothing is registered until every document in
@@ -520,6 +529,7 @@ def load_and_boot(
         postgres_dsn=postgres_dsn,
         memory=manifest.backend == "memory",
         neo4j_uri=neo4j_uri,
+        mongo_uri=mongo_uri,
         registry=registry,
         resolution_spec_key=manifest.resolution_spec_key,
         resolution_spec_version=pins.version_for(manifest.resolution_spec_key),

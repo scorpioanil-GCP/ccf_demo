@@ -45,6 +45,7 @@ from ccf.graph._writer import (
     BaseGraphWriter,
     BootToken,
     MemoryGraphWriter,
+    MongoGraphWriter,
     Neo4jGraphWriter,
     PostgresGraphWriter,
     SqliteGraphWriter,
@@ -123,6 +124,8 @@ def _open_backend(
     memory: bool,
     neo4j_uri: str | None,
     neo4j_partition: str | None,
+    mongo_uri: str | None,
+    mongo_partition: str | None,
 ) -> tuple[_Backend, Callable[[BootToken], BaseGraphWriter]]:
     """Select and open the graph backend named by explicit configuration.
 
@@ -131,13 +134,14 @@ def _open_backend(
     a development SQLite file in production and would still pass every test.
     SQLite remains the *default* (D-IMPL-02) precisely because it is the
     development backend; Postgres is chosen by saying so — and so are the
-    in-memory backend (Phase 15.2 D-06) and the Neo4j backend (plan 15.2-12):
-    ``memory=True`` and ``neo4j_uri`` are explicit statements, never a
-    fallback a missing connection argument degrades to.
+    in-memory backend (Phase 15.2 D-06), the Neo4j backend (plan 15.2-12) and
+    the MongoDB backend (plan 15.2-13): ``memory=True``, ``neo4j_uri`` and
+    ``mongo_uri`` are explicit statements, never a fallback a missing
+    connection argument degrades to.
 
-    The Neo4j branch imports its backend lazily: the ``neo4j`` driver is an
-    optional extra, and boot stays importable — and every other branch stays
-    bootable — in an environment without it.
+    The Neo4j and MongoDB branches import their backends lazily: the ``neo4j``
+    and ``pymongo`` drivers are optional extras, and boot stays importable —
+    and every other branch stays bootable — in an environment without them.
 
     Raises:
         ValueError: not exactly one backend was named.
@@ -147,12 +151,14 @@ def _open_backend(
         + (postgres_dsn is not None)
         + memory
         + (neo4j_uri is not None)
+        + (mongo_uri is not None)
     )
     if selected != 1:
         raise ValueError(
             "boot requires exactly one of database_path (SQLite), "
-            "postgres_dsn (Postgres), memory=True (in-memory), or "
-            "neo4j_uri (Neo4j); the fabric does not infer its substrate"
+            "postgres_dsn (Postgres), memory=True (in-memory), "
+            "neo4j_uri (Neo4j), or mongo_uri (MongoDB); the fabric does not "
+            "infer its substrate"
         )
     if memory:
         memory_store = MemoryGraphStore()
@@ -179,6 +185,28 @@ def _open_backend(
         return neo4j_store, lambda token: Neo4jGraphWriter(
             store=neo4j_store, token=token
         )
+    if mongo_uri is not None:
+        # Lazy by design, same as the Neo4j branch above: the pymongo import
+        # happens inside the store's constructor, and the module import here
+        # is deferred so this branch is the first moment MongoDB is named.
+        from ccf.graph.backends.mongo import (  # noqa: PLC0415
+            DEFAULT_PARTITION as MONGO_DEFAULT_PARTITION,
+        )
+        from ccf.graph.backends.mongo import (  # noqa: PLC0415
+            MongoGraphStore,
+        )
+
+        mongo_store = MongoGraphStore(
+            uri=mongo_uri,
+            partition=(
+                mongo_partition
+                if mongo_partition is not None
+                else MONGO_DEFAULT_PARTITION
+            ),
+        )
+        return mongo_store, lambda token: MongoGraphWriter(
+            store=mongo_store, token=token
+        )
     if postgres_dsn is not None:
         pg_store = PostgresGraphStore(dsn=postgres_dsn, schema=postgres_schema)
         return pg_store, lambda token: PostgresGraphWriter(
@@ -199,6 +227,8 @@ def boot(
     memory: bool = False,
     neo4j_uri: str | None = None,
     neo4j_partition: str | None = None,
+    mongo_uri: str | None = None,
+    mongo_partition: str | None = None,
     registry: ControlPlaneProtocol,
     resolution_spec_key: str,
     resolution_spec_version: str,
@@ -214,8 +244,8 @@ def boot(
 
     Args:
         database_path: SQLite file to attach to. Exactly one of this,
-            ``postgres_dsn``, ``memory=True``, and ``neo4j_uri`` must be
-            given.
+            ``postgres_dsn``, ``memory=True``, ``neo4j_uri``, and
+            ``mongo_uri`` must be given.
         postgres_dsn: libpq connection string for the Postgres backend. Comes
             from the deployment's environment; it is never persisted and never
             reproduced in the graph identity the single-writer check uses.
@@ -235,6 +265,15 @@ def boot(
             the Postgres ``schema`` argument's role. ``None`` selects the
             adapter's default partition. Two partitions on one database are
             two graphs.
+        mongo_uri: MongoDB connection URI for the MongoDB backend (plan
+            15.2-13), optionally carrying userinfo. Requires the ``mongo``
+            extra; the backend import is lazy, so boot stays importable
+            without it. As with the Postgres DSN and the Bolt URI: comes from
+            the deployment's environment, never persisted, and never
+            reproduced in the graph identity.
+        mongo_partition: Which graph in the MongoDB database this fabric owns
+            — the ``neo4j_partition`` / Postgres ``schema`` role. ``None``
+            selects the adapter's default partition.
         registry: Control Plane the resolution spec and policy bundle come from.
         resolution_spec_key: Key of the :class:`EntityResolutionSpec` artifact.
         resolution_spec_version: Pinned version of that artifact.
@@ -243,7 +282,7 @@ def boot(
 
     Raises:
         ValueError: not exactly one of ``database_path`` / ``postgres_dsn`` /
-            ``memory=True`` / ``neo4j_uri`` was given.
+            ``memory=True`` / ``neo4j_uri`` / ``mongo_uri`` was given.
         ccf.graph._writer.SingleWriterViolation: a live writer already exists
             for this graph.
         ccf.controlplane.registry.ControlPlaneMissing: a pinned key or version
@@ -258,6 +297,8 @@ def boot(
         memory=memory,
         neo4j_uri=neo4j_uri,
         neo4j_partition=neo4j_partition,
+        mongo_uri=mongo_uri,
+        mongo_partition=mongo_partition,
     )
     try:
         token = mint_boot_token(graph_identity=store.graph_identity)

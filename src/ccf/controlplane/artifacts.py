@@ -937,7 +937,10 @@ class DeploymentManifest(VersionedArtifact):
             argument, mirroring ``postgres_dsn`` exactly — the D-08 kind-only
             posture holds: a Bolt URI can carry credentials, and a versioned,
             content-hashed artifact must never persist one into the audit
-            plane (threat T-15.2-05).
+            plane (threat T-15.2-05). ``mongo`` (plan 15.2-13) declares the
+            extras-gated MongoDB backend on exactly the same terms: the
+            connection URI arrives through ``load_and_boot``'s ``mongo_uri``
+            argument and is never written into the manifest.
         resolution_spec_key: Manifest key of the entity-resolution spec.
         policy_bundle_key: Manifest key of the policy bundle in force.
         tenant_id: The deployment's tenant, when the manifest names it.
@@ -962,7 +965,7 @@ class DeploymentManifest(VersionedArtifact):
     """
 
     artifacts: tuple[ManifestEntry, ...] = Field(min_length=1)
-    backend: Literal["sqlite", "postgres", "memory", "neo4j"]
+    backend: Literal["sqlite", "postgres", "memory", "neo4j", "mongo"]
     resolution_spec_key: str
     policy_bundle_key: str
     tenant_id: str | None = None
