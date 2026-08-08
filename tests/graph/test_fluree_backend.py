@@ -778,3 +778,107 @@ def test_fa4_ground_batch_semantics(fluree_url: str) -> None:
         _assert_context_is_null(client, base, ledger)
 
     print("\nF-A4 evidence:\n" + json.dumps(evidence, indent=2, sort_keys=True))
+
+
+@pytest.mark.fluree
+def test_fa4a_ground_delete_without_a_guard_clause(fluree_url: str) -> None:
+    """F-A4(a): a ground ``delete`` + ``insert`` with no guard clause — the ruling gate.
+
+    This is the assertion the buffered commit primitive rests on. A JSON-LD
+    update body carries **one** guard, **one** ``delete`` and **one**
+    ``insert``, so independent conditional operations cannot compose — their
+    guards would join, not union. Read-before-buffer plus ``INV-CH7-10``
+    single-writer already give the adapter the committed state at commit time,
+    so every conditional is resolvable in Python and the batch should need no
+    guard at all.
+
+    A ground ``insert`` with no guard is documented (the plain insert path). A
+    ground ``delete`` with no guard — the JSON-LD analogue of SPARQL's
+    ``DELETE DATA`` — is **not** documented, which is why this is a probe and
+    not an assumption.
+
+    **The follow-up read is the real assertion, not the 200.** The F-A6 probe
+    established that a multi-valued property fans out into one row per value,
+    so an ignored ``delete`` would leave the subject carrying BOTH supersession
+    values and the read would return two rows. One row, carrying the new
+    value, is therefore positive evidence that the retraction actually applied
+    — not merely that the request was accepted.
+
+    Deliberately NOT worked around: a guard-bearing body that mixed a
+    conditional update with unrelated ground inserts would silently drop the
+    inserts whenever the guard missed, which is the documented trap
+    (``transactions/conditional-updates.md``) and exactly the failure this
+    phase cannot afford.
+    """
+    evidence: dict[str, Any] = {}
+    old_value = "2026-03-09T00:00:00.000000Z"
+    new_value = "2026-03-10T00:00:00.000000Z"
+
+    with httpx.Client(timeout=TIMEOUT) as client:
+        base, ledger = _bootstrap(client, fluree_url)
+
+        _insert(
+            client,
+            base,
+            ledger,
+            [
+                {
+                    "@id": "ccf_c_sup1",
+                    "@type": "CcfEntityClaim",
+                    "ccf_tenant_id": "tenant-sup",
+                    "ccf_claim_id": "sup1",
+                    "ccf_superseded_at": old_value,
+                }
+            ],
+        ).raise_for_status()
+
+        # The batch: ground retraction + ground assertion, and NO guard key.
+        batch: dict[str, Any] = {
+            "@context": {},
+            "delete": [{"@id": "ccf_c_sup1", "ccf_superseded_at": old_value}],
+            "insert": [
+                {"@id": "ccf_c_sup1", "ccf_superseded_at": new_value},
+                {
+                    "@id": "ccf_c_new2",
+                    "@type": "CcfEntityClaim",
+                    "ccf_tenant_id": "tenant-sup",
+                    "ccf_claim_id": "new2",
+                },
+            ],
+        }
+        assert set(batch) == {"@context", "delete", "insert"}, batch
+        evidence["request_body"] = batch
+
+        applied = client.post(
+            f"{base}/update/{ledger}",
+            headers={"Content-Type": "application/json"},
+            content=json.dumps(batch),
+        )
+        evidence["status"] = applied.status_code
+        evidence["receipt"] = applied.text
+        assert applied.status_code == 200, applied.text
+
+        readback = _cypher(
+            client,
+            base,
+            ledger,
+            "MATCH (n:CcfEntityClaim) WHERE n.ccf_tenant_id = $t "
+            "RETURN n.ccf_claim_id AS claim_id, n.ccf_superseded_at AS superseded_at",
+            params={"t": "tenant-sup"},
+            min_t=int(applied.json()["t"]),
+        )
+        assert readback.status_code == 200, readback.text
+        evidence["follow_up_read"] = readback.text
+        rows = _rows(readback)
+
+        # The retraction applied: exactly one supersession value, the new one.
+        superseded = [row for row in rows if row["claim_id"] == "sup1"]
+        assert superseded == [
+            {"claim_id": "sup1", "superseded_at": new_value}
+        ], readback.text
+        # The assertion applied in the same commit.
+        assert {"claim_id": "new2", "superseded_at": None} in rows, readback.text
+
+        _assert_context_is_null(client, base, ledger)
+
+    print("\nF-A4(a) evidence:\n" + json.dumps(evidence, indent=2, sort_keys=True))
