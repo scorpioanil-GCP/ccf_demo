@@ -71,7 +71,7 @@
 
 ### Substrate Query (SUBQ)
 
-- [ ] **SUBQ-01**: The normative query-semantics prose (`docs/GRAPH_QUERY_SEMANTICS.md`) exists with stable backticked GQ-NN clause anchors and a semver lane from day one (v1 including `allowed_entities` per D-12), deciding every named edge semantic — including the uniform rule and the induced-subgraph rule — with no implementation-defined escape hatches (D-05 artifact 1, D-12)
+- [x] **SUBQ-01**: The normative query-semantics prose (`docs/GRAPH_QUERY_SEMANTICS.md`) exists with stable backticked GQ-NN clause anchors and a semver lane from day one (v1 including `allowed_entities` per D-12), deciding every named edge semantic — including the uniform rule and the induced-subgraph rule — with no implementation-defined escape hatches (D-05 artifact 1, D-12)
 - [x] **SUBQ-02**: The frozen `GraphQuery` contract family — including `allowed_entities: frozenset | None`, sentinel-defaulted (D-02 extended) — and the `GraphReader.query()` seam ship with canonical ordering and serialization owned by the interface, never the adapter, and `content_hash(GraphQuery)` as the per-round-trip replay pin
 - [x] **SUBQ-03**: `ccf.graph.fallback` is the reference implementation of the prose — including `allowed_entities` set-intersection semantics — with docstrings citing GQ clauses in the lint-verified anchored form, and adapters always answer with no capability negotiation (D-04, D-05 artifact 2)
 - [x] **SUBQ-04**: The two conformance suites ship — differential byte-identity against the fallback over a generated corpus that includes `allowed_entities`-bearing shapes, plus property assertions (INV-CH7-14/-23/-24/-26, each mapped to the property that actually asserts it) running on the fallback itself, so the oracle is audited by something it does not define (D-05 artifact 3)
@@ -81,7 +81,8 @@
 - [x] **SUBQ-08**: Five adapters — sqlite, postgres, memory, neo4j, mongo — answer `GraphQuery` including native `allowed_entities` translation under both suites, with memory always-on in `make ci` and neo4j/mongo extras-gated behind container-gated CI legs (D-06); Mongo conformance via the sanctioned D-04 degrade posture (`$match` narrowing + fallback traversal, plan 15.2-13 stage 1) satisfies this requirement — `$graphLookup` promotion is a budgeted enhancement recorded for ratification, not part of the requirement
 - [x] **SUBQ-09**: `ProductSource` mounts only an `AdmittedProduct`, refuses a payload without graph-shaped state at mount with a typed refusal, passes the same differential suite, and nothing enters L3 (D-08)
 - [x] **SUBQ-10**: The `SourceAttestation` contract ships with per-dimension modes, product-class accepted modes (D-09's "minima", realized as unordered accepted-mode sets — no strength ordering exists between modes), an engine refusal naming the failing dimension, and the attestation in force pinned into replay (D-09)
-- [ ] **SUBQ-11**: The substrate-neutral write seam — `BaseGraphWriter` driving typed transaction operations implemented per backend inside `ccf.graph._writer` — preserves single-writer (INV-CH7-10/CINV-02) for all five backends
+- [x] **SUBQ-11**: The substrate-neutral write seam — `BaseGraphWriter` driving typed transaction operations implemented per backend inside `ccf.graph._writer` — preserves single-writer (INV-CH7-10/CINV-02) for all five backends
+  - **CHECKED 2026-08-08, plan 15.2-14 (the phase-close audit), clause by clause against the tree — not against any SUMMARY.** **SUBQ-01:** `docs/GRAPH_QUERY_SEMANTICS.md` exists at semantics **1.0.1**; **35 distinct** backticked `GQ-NN` anchors over 91 citing lines; the semver lane is declared in the document's first seven lines and states v1 includes `allowed_entities`; the uniform rule (`GQ-15`) and the induced-subgraph rule (`GQ-16`) are both normative clauses; `grep -ci 'implementation-defined'` → **0**. The requirement's "no implementation-defined escape hatches" clause is what forced the 1.0.1 amendment: `GQ-16`'s v1.0.0 "every answer" wording left the dangling-edge degenerate shape decided by `ccf.graph.fallback::_endpoint_closure`'s docstring (recorded in-phase as DI-15.2-01). That was the escape hatch, and it is closed — the scoping is now the prose's, with the amendment history under `GQ-35` recording what changed and why. `python -m tools.lints --all` → exit 0 (the citation guard resolves every anchored `GQ-NN` citation in `/src` and `/tests` against this document). **SUBQ-11:** `_GraphTxn` is the nine-operation typed Protocol and `BaseGraphWriter` drives it with zero SQL text (`grep 'execute(self\.'` → no hits); **five** per-backend implementations exist and all five live inside `ccf.graph._writer` — `_SqliteTxn`/`SqliteGraphWriter`, `_PostgresTxn`/`PostgresGraphWriter`, `_MemoryTxn`/`MemoryGraphWriter`, `_Neo4jTxn`/`Neo4jGraphWriter`, `_MongoTxn`/`MongoGraphWriter`; the ast-walk confinement test proves no `*GraphWriter`/`*GraphTxn` class exists outside that module (the sole exception being the `GraphWriter` **Protocol** in `ccf.graph.protocols`, a D-IMPL-41 layer-1 interface declaration, not write code); CINV-02 is green in `make ci`. The five-backend clause is now asserted by the suite that owns those semantics rather than inferred from neighbouring ones: `tests/conformance/test_graphstore.py` parametrizes the six D-IMPL-34 write semantics over all five backends (DI-15.2-02, closed at this audit) — 24 passed always-on (`sqlite` + `memory`), 12 passed `-m postgres` (PostgreSQL 16.14), 12 passed `-m neo4j` (Neo4j Kernel 5.26.29 community), 12 passed `-m mongo` (MongoDB 7.0.39). Every write in all four runs goes through booted L2; nothing constructs a writer.
 
 ## Future Requirements (deferred)
 
@@ -144,7 +145,7 @@
 | ERGO-17 | Phase 15 | Complete |
 | ERGO-18 | Phase 15.1 | Complete |
 | ERGO-19 | Phase 15.1 | Complete |
-| SUBQ-01 | Phase 15.2 | Pending |
+| SUBQ-01 | Phase 15.2 | Complete |
 | SUBQ-02 | Phase 15.2 | Complete |
 | SUBQ-03 | Phase 15.2 | Complete |
 | SUBQ-04 | Phase 15.2 | Complete |
@@ -154,7 +155,7 @@
 | SUBQ-08 | Phase 15.2 | Complete |
 | SUBQ-09 | Phase 15.2 | Complete |
 | SUBQ-10 | Phase 15.2 | Complete |
-| SUBQ-11 | Phase 15.2 | Pending |
+| SUBQ-11 | Phase 15.2 | Complete |
 
 Coverage: 53/53 v0.2 requirements mapped, each to exactly one phase.
 ERGO-18 and ERGO-19 were minted during Phase 15.1 planning under the Phase 15/16

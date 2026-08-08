@@ -672,7 +672,7 @@
       },
       "boot": {
         "kind": "function",
-        "shape": "(*, database_path: 'Path | str | None' = None, postgres_dsn: 'str | None' = None, postgres_schema: 'str' = 'ccf', memory: 'bool' = False, neo4j_uri: 'str | None' = None, neo4j_partition: 'str | None' = None, registry: 'ControlPlaneProtocol', resolution_spec_key: 'str', resolution_spec_version: 'str', policy_bundle_key: 'str', policy_bundle_version: 'str') -> 'FabricHandle'"
+        "shape": "(*, database_path: 'Path | str | None' = None, postgres_dsn: 'str | None' = None, postgres_schema: 'str' = 'ccf', memory: 'bool' = False, neo4j_uri: 'str | None' = None, neo4j_partition: 'str | None' = None, mongo_uri: 'str | None' = None, mongo_partition: 'str | None' = None, registry: 'ControlPlaneProtocol', resolution_spec_key: 'str', resolution_spec_version: 'str', policy_bundle_key: 'str', policy_bundle_version: 'str') -> 'FabricHandle'"
       }
     }
   },
@@ -922,7 +922,7 @@
         "kind": "contract",
         "shape": {
           "artifacts": "tuple[ccf.controlplane.artifacts.ManifestEntry, ...]",
-          "backend": "typing.Literal['sqlite', 'postgres', 'memory', 'neo4j']",
+          "backend": "typing.Literal['sqlite', 'postgres', 'memory', 'neo4j', 'mongo']",
           "policy_bundle_key": "<class 'str'>",
           "resolution_spec_key": "<class 'str'>",
           "semver": "<class 'str'>",
@@ -1307,7 +1307,7 @@
         "kind": "contract",
         "shape": {
           "artifacts": "tuple[ccf.controlplane.artifacts.ManifestEntry, ...]",
-          "backend": "typing.Literal['sqlite', 'postgres', 'memory', 'neo4j']",
+          "backend": "typing.Literal['sqlite', 'postgres', 'memory', 'neo4j', 'mongo']",
           "policy_bundle_key": "<class 'str'>",
           "resolution_spec_key": "<class 'str'>",
           "semver": "<class 'str'>",
@@ -1357,7 +1357,7 @@
       },
       "load_and_boot": {
         "kind": "function",
-        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', database_path: 'str | None' = None, postgres_dsn: 'str | None' = None, neo4j_uri: 'str | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
+        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', database_path: 'str | None' = None, postgres_dsn: 'str | None' = None, neo4j_uri: 'str | None' = None, mongo_uri: 'str | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
       },
       "refuse_operator_set_divergence": {
         "kind": "function",
@@ -1436,7 +1436,7 @@
       },
       "load_and_boot": {
         "kind": "function",
-        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', database_path: 'str | None' = None, postgres_dsn: 'str | None' = None, neo4j_uri: 'str | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
+        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', database_path: 'str | None' = None, postgres_dsn: 'str | None' = None, neo4j_uri: 'str | None' = None, mongo_uri: 'str | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
       }
     }
   },
@@ -1497,6 +1497,32 @@
       "MemoryGraphStore": {
         "kind": "class",
         "shape": "() -> 'None'"
+      }
+    }
+  },
+  "ccf.graph.backends.mongo": {
+    "__all__": [
+      "DEFAULT_DATABASE",
+      "DEFAULT_PARTITION",
+      "MongoGraphReader",
+      "MongoGraphStore"
+    ],
+    "exports": {
+      "DEFAULT_DATABASE": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "DEFAULT_PARTITION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "MongoGraphReader": {
+        "kind": "class",
+        "shape": "(store: 'MongoGraphStore') -> 'None'"
+      },
+      "MongoGraphStore": {
+        "kind": "class",
+        "shape": "(*, uri: 'str', partition: 'str' = 'ccf', database: 'str | None' = None) -> 'None'"
       }
     }
   },

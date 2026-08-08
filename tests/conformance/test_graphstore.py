@@ -47,7 +47,10 @@ T2 = datetime(2026, 3, 1, tzinfo=UTC)
 @pytest.fixture(
     params=[
         pytest.param("sqlite"),
+        pytest.param("memory"),
         pytest.param("postgres", marks=pytest.mark.postgres),
+        pytest.param("neo4j", marks=pytest.mark.neo4j),
+        pytest.param("mongo", marks=pytest.mark.mongo),
     ]
 )
 def graph_backend(
@@ -60,14 +63,25 @@ def graph_backend(
     test body knows which substrate it is running on. That is what makes the
     suite evidence of parity rather than two suites that happen to agree.
 
-    The ``postgres`` param carries ``pytest.mark.postgres``, so
-    ``-m "not postgres"`` still gives a run with no external substrate while
-    ``-m postgres`` runs the same twelve semantics against a real server.
+    The Phase 15.2 backends landed the same way, and for the same reason —
+    this is **DI-15.2-02 routed at the phase-close audit (plan 15.2-14)**: the
+    three new substrates were passing the six D-IMPL-34 write semantics only
+    *indirectly* (the differential corpus writes through booted L2, and the
+    per-backend unit modules pin boot and idempotent re-arrival), which left
+    the suite that OWNS those semantics silent about them. It is no longer:
+    ``memory`` runs always-on beside ``sqlite``, and ``neo4j``/``mongo`` carry
+    their container marks. Not one test body changed — exactly what the
+    deferred item predicted, and the reason the five-backend claim in SUBQ-11
+    is now asserted by the suite rather than inferred from a neighbouring one.
+
+    Each extras-gated param carries its own mark, so ``-m "not postgres and
+    not neo4j and not mongo"`` still gives a run with no external substrate
+    while ``-m <backend>`` runs the same semantics against a real server.
     """
     if request.param == "sqlite":
         return fabric_boot()
-    if request.param == "postgres":
-        return fabric_boot(backend="postgres")
+    if request.param in {"memory", "postgres", "neo4j", "mongo"}:
+        return fabric_boot(backend=request.param)
     raise NotImplementedError(request.param)
 
 
