@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**356 entries**, of which **139** name a public Python surface.
+**367 entries**, of which **149** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-124 entries — 96 public Python surface, 28 not public Python API.
+129 entries — 101 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -2051,6 +2051,117 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.2-13-mongo-backend.md`.*
 
+#### ccf.graph.backends.fluree.FlureeGraphStore
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphStore
+- Public surface: true
+- Change type: added
+- Before: absent — no RDF/JSON-LD substrate existed; the five shipped adapters
+  were two SQL backends, an in-memory KV floor, a graph-native engine and a
+  document store
+- After: `FlureeGraphStore(url=…, partition=…, ledger=…, bearer_token=…)` —
+  connection and ledger owner over plain HTTP, constructed on the core `httpx`
+  pin with no extra to install. Fails at construction rather than at first read
+  (`GET /health`, at the server root); discovers its API base once from
+  `/.well-known/fluree.json` so it stays correct behind a differently-mounted
+  server; and bootstraps the one CCF-owned ledger idempotently, treating `409
+  Conflict` as success (D-03). Physical model is adapter-owned (D-IMPL-34):
+  five node labels and one predicate, with every CCF relationship written as an
+  **interposed `CcfEdge` node** joined to both endpoints by `CCF_LINK` — because
+  on this engine a property-reading relationship variable sees only
+  reifier-bundled edges, so a hop predicate stated on `r.prop` returns an empty
+  reached set from a query that answers `200`. Timestamps are canonical RFC3339
+  UTC text under a fixed **empty** `@context`, which is what keeps every literal
+  an `xsd:string` and the as-of cut a plain text comparison. `graph_identity`
+  is host/port/ledger/partition and carries neither the URL's userinfo nor the
+  bearer token (threat T-15.2-05). Offers `reader`, `scope()`, `post_query()`,
+  `post_update()`, `close()`, and context management
+- Why: D-IMPL-88 rules Fluree v4 in as a tier-1 substrate, and this adapter is
+  the Phase 15.2 no-refactor claim demonstrated on a real engine rather than
+  asserted — a batched HTTP substrate landing behind the unchanged `_GraphTxn`
+  seam is what that hedge was written for
+- Migration: new surface — none. `boot(fluree_url=…)` constructs the store; no
+  `pip install` extra is required
+
+*Recorded by `15.3-02-fluree-backend.md`.*
+
+#### ccf.graph.backends.fluree.FlureeGraphReader
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphReader
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `GraphReader` over the ledger, inheriting the whole shared read path
+  from `BaseGraphReader`: five acquisition reads answer dict rows into the
+  substrate-neutral materialization core (`ccf.graph.reader.materialize_view` —
+  lineage-at-boundary, supersession-as-of, ordering and freezing are inherited,
+  never re-implemented). The dialect is openCypher over HTTP; rows are extracted
+  from the cypher-json envelope, which upstream documents nowhere and which was
+  therefore captured verbatim from a live `fluree/server:4.1.4` container before
+  any adapter code existed. `_translate_query` is deliberately **not**
+  implemented in this plan: the reader answers everything through the fallback,
+  which is fully conformant under D-04
+- Why: the read seam is not shaped like a query language, and a sixth dialect
+  answering the same five reads is the evidence
+- Migration: new surface — none. Reached as `handle.reader`
+
+*Recorded by `15.3-02-fluree-backend.md`.*
+
+#### ccf.graph.backends.fluree.DEFAULT_PARTITION
+
+- Surface: ccf.graph.backends.fluree.DEFAULT_PARTITION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"ccf"` — the partition a store attaches to when the caller does not
+  say otherwise. A name, never a tuning value (CINV-01); mirrors
+  `ccf.graph.backends.postgres.DEFAULT_SCHEMA` and the neo4j/mongo twins. Two
+  partitions in one ledger are two graphs, two `graph_identity` values and two
+  independently bootable fabrics — which is what makes the single-writer check
+  meaningful per fabric rather than per server
+- Why: D-03 gives the deployment one CCF-owned ledger, so the partition is the
+  whole of what distinguishes two fabrics on this substrate
+- Migration: new surface — none. `boot(fluree_partition=…)` overrides it
+
+*Recorded by `15.3-02-fluree-backend.md`.*
+
+#### ccf.graph.backends.fluree.MAX_DEPTH_CEILING
+
+- Surface: ccf.graph.backends.fluree.MAX_DEPTH_CEILING
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `100` — a mechanism safety bound on the one value a translated
+  statement would inline into query text, the validated traversal-depth literal.
+  Declared on the `ccf.graph.backends.neo4j.MAX_DEPTH_CEILING` precedent, which
+  D-GATE-15.2 checkpoint Q2 ratified as mechanism rather than a domain value. A
+  `depth_limit` above the ceiling is still **answered**: the translation
+  declines and the memory-bounded fallback answers (D-04)
+- Why: the ceiling bounds generated Cypher text, never the query vocabulary —
+  the distinction that keeps a safety bound from becoming a domain value
+- Migration: new surface — none. Read-only mechanism bound
+
+*Recorded by `15.3-02-fluree-backend.md`.*
+
+#### ccf.graph.backends.fluree.MAX_QUERY_BODY_BYTES
+
+- Surface: ccf.graph.backends.fluree.MAX_QUERY_BODY_BYTES
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `900_000` — a mechanism safety bound on the rendered query body,
+  budgeted under this server's documented 1 MB `--max-query-size` limit. It has
+  no analogue on the other five adapters because none of them serializes a query
+  onto a wire with a size cap: `allowed_entities` travels as a parameter list,
+  so a large survivor set is the shape that approaches it. Same posture and same
+  ratified argument as `MAX_DEPTH_CEILING` — an over-budget query is still
+  answered, by the fallback
+- Why: a documented server limit that a legitimate query can reach must degrade
+  to a byte-identical answer, never to a failure (D-04)
+- Migration: new surface — none. Read-only mechanism bound
+
+*Recorded by `15.3-02-fluree-backend.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -2484,7 +2595,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-207 entries — 24 public Python surface, 183 not public Python API.
+212 entries — 29 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -3023,6 +3134,103 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   `mongo_uri` from the environment
 
 *Recorded by `15.2-13-mongo-backend.md`.*
+
+#### ccf.boot.boot
+
+- Surface: ccf.boot.boot
+- Public surface: true
+- Change type: reshaped
+- Before: `boot(*, database_path=…, postgres_dsn=…, postgres_schema=…,
+  memory=…, neo4j_uri=…, neo4j_partition=…, mongo_uri=…, mongo_partition=…,
+  registry, …)` — five selectable backends
+- After: two keyword-only parameters added, `fluree_url: str | None = None` and
+  `fluree_partition: str | None = None`, and the exactly-one exclusivity check
+  now counts six selectors and names `fluree_url (Fluree v4)` in its refusal.
+  Unlike the neo4j and mongo branches, the Fluree branch imports its backend at
+  **module top**: its wire client is a core pin, so the import shape is the
+  Postgres one
+- Why: selection is by explicit argument and never by inference from the shape
+  of a string — a fabric that guessed its substrate could boot against a
+  development file in production and still pass every test. Adding a substrate
+  is therefore adding one more member of an existing enumeration
+- Migration: none — both parameters default to `None` and every existing call
+  is unaffected. A Fluree deployment passes `boot(fluree_url=…)`
+
+*Recorded by `15.3-02-fluree-backend.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: `load_and_boot(manifest_path, *, registry, database_path=…,
+  postgres_dsn=…, neo4j_uri=…, mongo_uri=…, tenant_id=…)`
+- After: one keyword-only parameter added, `fluree_url: str | None = None`,
+  threaded to both `_preflight_backend` and `boot`. Preflight refuses a
+  declared `fluree` backend with no URL **before any artifact is parsed or
+  registered**, and refuses a URL supplied alongside a different declared
+  backend
+- Why: the D-08 kind-only posture — the manifest names the substrate, the
+  environment supplies how to reach it, and the two are reconciled loudly
+  before any Control Plane state exists. A Fluree URL can carry userinfo and the
+  deployment may also hold a bearer token, so neither may reach a
+  content-hashed audit artifact (threat T-15.2-05)
+- Migration: none — the parameter defaults to `None`. A manifest declaring
+  `backend: fluree` must supply `fluree_url` at the call site
+
+*Recorded by `15.3-02-fluree-backend.md`.*
+
+#### ccf.deployment.load_and_boot
+
+- Surface: ccf.deployment.load_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: the package-level re-export of `ccf.deployment.manifest.load_and_boot`
+  without a `fluree_url` parameter
+- After: the same re-export, carrying the new `fluree_url` keyword — the
+  package surface and the module surface are the same function object, so the
+  reshape appears at both names
+- Why: `ccf.deployment` re-exports the entry point so adopters import it from
+  the package; the manifest diff reports both qualified names and each is
+  claimed rather than letting a module-granular match cover the pair silently
+- Migration: none — identical to `ccf.deployment.manifest.load_and_boot`
+
+*Recorded by `15.3-02-fluree-backend.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentManifest
+
+- Surface: ccf.controlplane.artifacts.DeploymentManifest
+- Public surface: true
+- Change type: reshaped
+- Before: `backend: Literal["sqlite", "postgres", "memory", "neo4j", "mongo"]`
+- After: `backend: Literal["sqlite", "postgres", "memory", "neo4j", "mongo",
+  "fluree"]` — one new member; **no existing backend name is removed**. The
+  regenerated `docs/schemas/ccf.deployment-manifest.json` enum matches. The
+  field stays kind-only: no URL field, no token field, no connection value of
+  any sort enters this content-hashed artifact
+- Why: a declarable substrate must be declarable in the one versioned document
+  that says what a deployment puts in force — and the audit plane must be able
+  to answer "which substrate" without ever having stored "how to reach it"
+- Migration: none for existing manifests — the Literal widened, so every
+  previously valid document still validates
+
+*Recorded by `15.3-02-fluree-backend.md`.*
+
+#### ccf.deployment.DeploymentManifest
+
+- Surface: ccf.deployment.DeploymentManifest
+- Public surface: true
+- Change type: reshaped
+- Before: the package-level re-export of
+  `ccf.controlplane.artifacts.DeploymentManifest` with a five-member `backend`
+  Literal
+- After: the same re-export, carrying the six-member Literal — one class object
+  exposed under two qualified names, so the reshape appears at both
+- Why: same as the `load_and_boot` pair — each qualified name in the generated
+  diff is claimed explicitly rather than relying on a module-granular match
+- Migration: none — identical to `ccf.controlplane.artifacts.DeploymentManifest`
+
+*Recorded by `15.3-02-fluree-backend.md`.*
 
 ### Not public Python API
 
@@ -5301,7 +5509,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-25 entries — 19 public Python surface, 6 not public Python API.
+26 entries — 19 public Python surface, 7 not public Python API.
 
 ### Public Python surface
 
@@ -5871,3 +6079,40 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   `ccf.boot`; deployments reach the writer only through `boot(mongo_uri=…)`
 
 *Recorded by `15.2-13-mongo-backend.md`.*
+
+#### ccf.graph._writer._FlureeTxn / FlureeGraphWriter
+
+- Surface: ccf.graph._writer._FlureeTxn / FlureeGraphWriter
+- Public surface: false
+- Change type: behavior
+- Before: five `_GraphTxn` implementations existed — one shared SQL adapter, a
+  dict-backed transaction, a Cypher-backed one and a buffered pymongo one
+- After: a sixth, and the first whose commit is a **single HTTP POST**.
+  `_FlureeTxn` buffers the nine typed operations as ground JSON-LD triples and
+  commits one `delete` + `insert` body with **no `where` clause** — a shape
+  probed before it was written (F-A4(a)) and ruled `approved` by Dave on
+  2026-08-08, so D-02's letter holds and the SPARQL UPDATE multi-operation
+  departure is not taken. Per-operation rowcounts resolve from committed-state
+  reads plus the transaction's own buffer, exactly as `_MongoTxn` resolves them;
+  no receipt field is consulted, because `flakes_added` does not exist on this
+  build and could never have implemented a per-operation contract anyway.
+  Supersession and observed-window widening are ground delete/insert pairs
+  rather than overwrites, because RDF set semantics makes a bare re-assertion
+  *add* a value beside the existing one instead of replacing it — the one place
+  `_MongoTxn` is not a complete template. `_fluree_claim_projection` re-renders
+  both validity bounds through `parse_timestamp` → `canonical_timestamp`
+  (DI-15.2-03 non-reintroduction) and materializes a multi-valued
+  `ccf_policy_key`, because this engine's dynamic property access `c[$key]`
+  parses, returns `200` and evaluates to **null** — porting the Neo4j policy
+  predicate verbatim would have excluded every claim while reporting success
+- Why: this is the SUBQ-13 content. `_GraphTxn` states its contract in terms of
+  *observable results* rather than mechanism, which is why one Protocol covers a
+  held Postgres transaction, a buffered bulk write and a single JSON-LD POST.
+  Landing the sixth backend without touching the Protocol — 864 lines added to
+  `ccf.graph._writer`, zero deleted — is D-IMPL-88's hedge paying off, measured
+  rather than narrated
+- Migration: none — `ccf.graph._writer` is import-restricted to `ccf.assembly`
+  and `ccf.boot` by CINV-02, so no adopter can hold a reference to either name.
+  The write path is reached only through booted L2
+
+*Recorded by `15.3-02-fluree-backend.md`.*

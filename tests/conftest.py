@@ -350,6 +350,14 @@ def fabric_boot(
                 "mongo_uri": request.getfixturevalue("mongo_uri"),
                 "mongo_partition": f"ccf_test_{uuid.uuid4().hex}",
             }
+        elif backend == "fluree":
+            # Plan 15.3: a fresh partition per boot inside ONE CCF-owned
+            # ledger (D-03), so the container's state accumulates across a
+            # whole job — the trade D-03 made for a single Fluree-Min-T lane.
+            location = {
+                "fluree_url": request.getfixturevalue("fluree_url"),
+                "fluree_partition": f"ccf_test_{uuid.uuid4().hex}",
+            }
         else:
             raise NotImplementedError(backend)
         handle = boot(

@@ -298,6 +298,7 @@ def test_manifest_declares_mongo_and_preflight_requires_the_uri() -> None:
             postgres_dsn=None,
             neo4j_uri=None,
             mongo_uri=None,
+            fluree_url=None,
         )
     # And the mirror: the right argument is accepted, the wrong one refused.
     _preflight_backend(
@@ -306,6 +307,7 @@ def test_manifest_declares_mongo_and_preflight_requires_the_uri() -> None:
         postgres_dsn=None,
         neo4j_uri=None,
         mongo_uri="mongodb://localhost:27017",
+        fluree_url=None,
     )
     with pytest.raises(ValueError, match="also supplied"):
         _preflight_backend(
@@ -314,6 +316,7 @@ def test_manifest_declares_mongo_and_preflight_requires_the_uri() -> None:
             postgres_dsn=None,
             neo4j_uri="neo4j://localhost:7687",
             mongo_uri="mongodb://localhost:27017",
+            fluree_url=None,
         )
 
 
