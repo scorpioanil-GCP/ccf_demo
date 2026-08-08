@@ -727,13 +727,13 @@ sequential.
 
 **Requirements**: SUBQ-12, SUBQ-13, SUBQ-14
 
-**Plans:** 5 plans
+**Plans:** 1/5 plans executed
 
 Plans:
 
 **Wave 1**
 
-- [ ] 15.3-01-PLAN.md — Probes F-A1/F-A4/F-A5/F-A6 before any dependent code, the `fluree` marker/fixture/`leg-fluree` plumbing, and the F-A4(a) ruling gate (checkpoint)
+- [x] 15.3-01-PLAN.md — Probes F-A1/F-A4/F-A5/F-A6 before any dependent code, the `fluree` marker/fixture/`leg-fluree` plumbing, and the F-A4(a) ruling gate (checkpoint)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -803,7 +803,7 @@ reader can see which code is CCF and which is theirs.
 | 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 (gated with carried debt; CR-1/CR-2 close in 15.1) |
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
-| 15.3. Fluree Adapter (Tier-1 Substrate) | 0/? | Planned   | — |
+| 15.3. Fluree Adapter (Tier-1 Substrate) | 1/5 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage

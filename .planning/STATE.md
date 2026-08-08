@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-08T21:06:48.347Z"
-last_activity: 2026-08-08 -- Phase 15.3 planning complete
+last_updated: "2026-08-08T21:16:12.509Z"
+last_activity: 2026-08-08 -- Phase 15.3 execution started
 progress:
   total_phases: 15
   completed_phases: 12
   total_plans: 91
   completed_plans: 96
   percent: 80
-stopped_at: Phase 15.3 planned -- 5 plans, 5 waves, SUBQ-12/13/14; D-IMPL-92 ruled and corrected; ready to execute
+stopped_at: Phase 15.3 executing -- wave 1 of 5 merged (15.3-01 probes complete, F-A4(a) ruled `approved` by Dave 2026-08-08); ci-core green 2270 passed, leg-fluree 6 passed; next wave 2 (15.3-02 store envelope + JSON-LD write path)
 ---
 
 # STATE — CCF SDK
@@ -24,20 +24,20 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 15.3 — fluree adapter (tier 1 substrate)
+**Current focus:** Phase 15.3 — fluree-adapter-tier-1-substrate-inserted
 
 ## Current Position
 
-Phase: 15.3
-Plan: Not started
-Status: Ready to execute
+Phase: 15.3 (fluree-adapter-tier-1-substrate-inserted) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 15.3
   allowed_entities in GraphQuery, uniform constraint rule, CP-valued size
   cap, hash+ArtifactStore replay pin, prose-lane versioning. CONTEXT.md
   amended (D-01/D-02 revised, D-10..D-12 added). Next: /gsd:plan-phase 15.2
   redraws all 13 plans against the amended context; §3.1 review at the gate
   re-ratifies D-IMPL-87.
 Progress: [----------] 0%
-Last activity: 2026-08-08 -- Phase 15.3 planning complete
+Last activity: 2026-08-08 -- Phase 15.3 execution started
 
 ## Performance Metrics
 
