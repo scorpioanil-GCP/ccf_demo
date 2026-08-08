@@ -217,6 +217,7 @@ def _preflight_backend(
     *,
     database_path: str | None,
     postgres_dsn: str | None,
+    neo4j_uri: str | None,
 ) -> None:
     """Refuse a backend declaration the environment cannot satisfy (D-08).
 
@@ -235,19 +236,26 @@ def _preflight_backend(
 
     A declared ``memory`` backend (Phase 15.2 D-06) needs no connection
     argument — there is nothing to connect to — so for it the check runs the
-    other way only: supplying ``database_path`` or ``postgres_dsn`` alongside
-    a ``memory`` declaration is refused as a contradiction, exactly as
-    supplying the other backend's argument is.
+    other way only: supplying ``database_path``, ``postgres_dsn``, or
+    ``neo4j_uri`` alongside a ``memory`` declaration is refused as a
+    contradiction, exactly as supplying the other backend's argument is. A
+    declared ``neo4j`` backend (plan 15.2-12) requires ``neo4j_uri``, the
+    environment-supplied mirror of ``postgres_dsn``.
 
     Raises:
         ValueError: the declared backend's connection argument is missing, or
             an argument the declared backend does not take was supplied.
     """
-    supplied = {"database_path": database_path, "postgres_dsn": postgres_dsn}
+    supplied = {
+        "database_path": database_path,
+        "postgres_dsn": postgres_dsn,
+        "neo4j_uri": neo4j_uri,
+    }
     required = {
         "sqlite": "database_path",
         "postgres": "postgres_dsn",
         "memory": None,
+        "neo4j": "neo4j_uri",
     }[manifest.backend]
     declared = manifest.backend
     if required is not None and supplied[required] is None:
@@ -271,6 +279,7 @@ def load_and_boot(
     registry: ControlPlaneProtocol,
     database_path: str | None = None,
     postgres_dsn: str | None = None,
+    neo4j_uri: str | None = None,
     tenant_id: str | None = None,
 ) -> BootedFabric:
     """Load a manifest, validate and register what it names, and boot the fabric.
@@ -367,6 +376,11 @@ def load_and_boot(
         postgres_dsn: libpq connection string, when the manifest declares
             ``postgres``. From the environment; never persisted, and never in
             the manifest.
+        neo4j_uri: Bolt connection URI, when the manifest declares ``neo4j``
+            (plan 15.2-12). Same posture as ``postgres_dsn``: from the
+            environment, never persisted, never in the manifest — a Bolt URI
+            can carry credentials, and the manifest is a content-hashed audit
+            artifact (threat T-15.2-05).
         tenant_id: The deployment's tenant, when the manifest does not name it.
 
     Raises:
@@ -433,7 +447,10 @@ def load_and_boot(
         # second time.
         document_paths[entry.key] = _document_inside_the_deployment(root, entry)
     _preflight_backend(
-        manifest, database_path=database_path, postgres_dsn=postgres_dsn
+        manifest,
+        database_path=database_path,
+        postgres_dsn=postgres_dsn,
+        neo4j_uri=neo4j_uri,
     )
 
     # Phase one: parse everything. Nothing is registered until every document in
@@ -502,6 +519,7 @@ def load_and_boot(
         database_path=database_path,
         postgres_dsn=postgres_dsn,
         memory=manifest.backend == "memory",
+        neo4j_uri=neo4j_uri,
         registry=registry,
         resolution_spec_key=manifest.resolution_spec_key,
         resolution_spec_version=pins.version_for(manifest.resolution_spec_key),

@@ -672,7 +672,7 @@
       },
       "boot": {
         "kind": "function",
-        "shape": "(*, database_path: 'Path | str | None' = None, postgres_dsn: 'str | None' = None, postgres_schema: 'str' = 'ccf', registry: 'ControlPlaneProtocol', resolution_spec_key: 'str', resolution_spec_version: 'str', policy_bundle_key: 'str', policy_bundle_version: 'str') -> 'FabricHandle'"
+        "shape": "(*, database_path: 'Path | str | None' = None, postgres_dsn: 'str | None' = None, postgres_schema: 'str' = 'ccf', memory: 'bool' = False, neo4j_uri: 'str | None' = None, neo4j_partition: 'str | None' = None, registry: 'ControlPlaneProtocol', resolution_spec_key: 'str', resolution_spec_version: 'str', policy_bundle_key: 'str', policy_bundle_version: 'str') -> 'FabricHandle'"
       }
     }
   },
@@ -922,10 +922,11 @@
         "kind": "contract",
         "shape": {
           "artifacts": "tuple[ccf.controlplane.artifacts.ManifestEntry, ...]",
-          "backend": "typing.Literal['sqlite', 'postgres']",
+          "backend": "typing.Literal['sqlite', 'postgres', 'memory', 'neo4j']",
           "policy_bundle_key": "<class 'str'>",
           "resolution_spec_key": "<class 'str'>",
           "semver": "<class 'str'>",
+          "survivor_cap": "int | None",
           "tenant_id": "str | None"
         }
       },
@@ -1011,6 +1012,8 @@
       "ProductClassDeclaration": {
         "kind": "contract",
         "shape": {
+          "accepted_lineage_modes": "frozenset[typing.Literal['graph-supplied', 'product-carried', 'none']]",
+          "accepted_policy_binding_modes": "frozenset[typing.Literal['assembly-stamped', 'admission-verified', 'none']]",
           "assembly_mode": "typing.Literal['algorithmic', 'llm_packaged', 'swarm_assembled']",
           "max_ttl_key": "<class 'str'>",
           "required_operator_keys": "tuple[str, ...]",
@@ -1298,16 +1301,17 @@
       },
       "BootedFabric": {
         "kind": "class",
-        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]') -> None"
+        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None') -> None"
       },
       "DeploymentManifest": {
         "kind": "contract",
         "shape": {
           "artifacts": "tuple[ccf.controlplane.artifacts.ManifestEntry, ...]",
-          "backend": "typing.Literal['sqlite', 'postgres']",
+          "backend": "typing.Literal['sqlite', 'postgres', 'memory', 'neo4j']",
           "policy_bundle_key": "<class 'str'>",
           "resolution_spec_key": "<class 'str'>",
           "semver": "<class 'str'>",
+          "survivor_cap": "int | None",
           "tenant_id": "str | None"
         }
       },
@@ -1353,7 +1357,7 @@
       },
       "load_and_boot": {
         "kind": "function",
-        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', database_path: 'str | None' = None, postgres_dsn: 'str | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
+        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', database_path: 'str | None' = None, postgres_dsn: 'str | None' = None, neo4j_uri: 'str | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
       },
       "refuse_operator_set_divergence": {
         "kind": "function",
@@ -1428,11 +1432,11 @@
     "exports": {
       "BootedFabric": {
         "kind": "class",
-        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]') -> None"
+        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None') -> None"
       },
       "load_and_boot": {
         "kind": "function",
-        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', database_path: 'str | None' = None, postgres_dsn: 'str | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
+        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', database_path: 'str | None' = None, postgres_dsn: 'str | None' = None, neo4j_uri: 'str | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
       }
     }
   },
@@ -1477,6 +1481,43 @@
       "UnpinnedArtifactError": {
         "kind": "class",
         "shape": "type"
+      }
+    }
+  },
+  "ccf.graph.backends.memory": {
+    "__all__": [
+      "MemoryGraphReader",
+      "MemoryGraphStore"
+    ],
+    "exports": {
+      "MemoryGraphReader": {
+        "kind": "class",
+        "shape": "(store: 'MemoryGraphStore') -> 'None'"
+      },
+      "MemoryGraphStore": {
+        "kind": "class",
+        "shape": "() -> 'None'"
+      }
+    }
+  },
+  "ccf.graph.backends.neo4j": {
+    "__all__": [
+      "DEFAULT_PARTITION",
+      "Neo4jGraphReader",
+      "Neo4jGraphStore"
+    ],
+    "exports": {
+      "DEFAULT_PARTITION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "Neo4jGraphReader": {
+        "kind": "class",
+        "shape": "(store: 'Neo4jGraphStore') -> 'None'"
+      },
+      "Neo4jGraphStore": {
+        "kind": "class",
+        "shape": "(*, uri: 'str', partition: 'str' = 'ccf', database: 'str | None' = None) -> 'None'"
       }
     }
   },
@@ -1537,13 +1578,62 @@
       }
     }
   },
+  "ccf.graph.fallback": {
+    "__all__": [
+      "answer"
+    ],
+    "exports": {
+      "answer": {
+        "kind": "function",
+        "shape": "(entities: 'Sequence[EntityRecord]', relationships: 'Sequence[RelationshipRecord]', *, query: 'GraphQuery') -> 'tuple[tuple[EntityRecord, ...], tuple[RelationshipRecord, ...]]'"
+      }
+    }
+  },
+  "ccf.graph.product_source": {
+    "__all__": [
+      "GATE_PRODUCT_MOUNT",
+      "ProductMountRefusal",
+      "ProductSource",
+      "mount_product_source"
+    ],
+    "exports": {
+      "GATE_PRODUCT_MOUNT": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ProductMountRefusal": {
+        "kind": "contract",
+        "shape": {
+          "detail": "<class 'str'>",
+          "gate": "<class 'str'>",
+          "reason": "<class 'str'>",
+          "schema_name": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "ProductSource": {
+        "kind": "class",
+        "shape": "(*, admitted: 'AdmittedProduct', entities: 'tuple[EntityRecord, ...]', relationships: 'tuple[RelationshipRecord, ...]') -> 'None'"
+      },
+      "mount_product_source": {
+        "kind": "function",
+        "shape": "(*, admitted: 'AdmittedProduct') -> 'ProductSource | ProductMountRefusal'"
+      }
+    }
+  },
   "ccf.graph.protocols": {
     "__all__": [
       "EntityRecord",
+      "GraphQuery",
       "GraphReader",
       "GraphView",
       "GraphWriter",
+      "LineageMode",
+      "PolicyBindingMode",
+      "QueryFragment",
       "RelationshipRecord",
+      "SourceAttestation",
+      "TraversalSpec",
       "UpsertResult"
     ],
     "exports": {
@@ -1555,6 +1645,20 @@
           "policy_bundle_version": "<class 'str'>",
           "superseded_at": "datetime.datetime | None",
           "superseded_by": "str | None"
+        }
+      },
+      "GraphQuery": {
+        "kind": "contract",
+        "shape": {
+          "allowed_entities": "frozenset[str] | None",
+          "as_of": "<class 'datetime.datetime'>",
+          "classification_attribute_by_class": "collections.abc.Mapping[str, str] | None",
+          "permitted_classifications": "frozenset[str] | None",
+          "permitted_policy_bundle_versions": "frozenset[str] | None",
+          "require_valid_at_boundary": "bool | None",
+          "seeds": "frozenset[str] | None",
+          "tenant_id": "<class 'str'>",
+          "traverse": "ccf.graph.protocols.TraversalSpec | None"
         }
       },
       "GraphReader": {
@@ -1574,6 +1678,24 @@
         "kind": "class",
         "shape": "(*args, **kwargs)"
       },
+      "LineageMode": {
+        "kind": "function",
+        "shape": "(*args, **kwargs)"
+      },
+      "PolicyBindingMode": {
+        "kind": "function",
+        "shape": "(*args, **kwargs)"
+      },
+      "QueryFragment": {
+        "kind": "contract",
+        "shape": {
+          "classification_attribute_by_class": "collections.abc.Mapping[str, str] | None",
+          "permitted_classifications": "frozenset[str] | None",
+          "permitted_policy_bundle_versions": "frozenset[str] | None",
+          "require_valid_at_boundary": "bool | None",
+          "traverse": "ccf.graph.protocols.TraversalSpec | None"
+        }
+      },
       "RelationshipRecord": {
         "kind": "contract",
         "shape": {
@@ -1583,6 +1705,22 @@
           "relationship_key": "<class 'str'>",
           "superseded_at": "datetime.datetime | None",
           "superseded_by": "str | None"
+        }
+      },
+      "SourceAttestation": {
+        "kind": "contract",
+        "shape": {
+          "lineage": "typing.Literal['graph-supplied', 'product-carried', 'none']",
+          "peer": "ccf.peering.protocol.PeerRef | None",
+          "policy_binding": "typing.Literal['assembly-stamped', 'admission-verified', 'none']"
+        }
+      },
+      "TraversalSpec": {
+        "kind": "contract",
+        "shape": {
+          "depth_limit": "<class 'int'>",
+          "relationship_types": "frozenset[str]",
+          "seed_entity_classes": "frozenset[str]"
         }
       },
       "UpsertResult": {
@@ -2738,7 +2876,9 @@
       "OperatorOutput",
       "OperatorParameters",
       "OperatorProvenance",
-      "mint_provenance"
+      "PushableOperator",
+      "mint_provenance",
+      "read_intent_of"
     ],
     "exports": {
       "CATEGORY_ORDER": {
@@ -2774,9 +2914,17 @@
           "upstream": "tuple[ccf.operators.base.OperatorProvenance, ...]"
         }
       },
+      "PushableOperator": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
       "mint_provenance": {
         "kind": "function",
         "shape": "(operator: 'Operator', *, upstream: 'tuple[OperatorProvenance, ...]', index_version: 'str | None' = None) -> 'OperatorProvenance'"
+      },
+      "read_intent_of": {
+        "kind": "function",
+        "shape": "(operator: 'Operator') -> 'QueryFragment | None'"
       }
     }
   },
@@ -3356,6 +3504,8 @@
       "RegisteredProductClass": {
         "kind": "contract",
         "shape": {
+          "accepted_lineage_modes": "frozenset[typing.Literal['graph-supplied', 'product-carried', 'none']]",
+          "accepted_policy_binding_modes": "frozenset[typing.Literal['assembly-stamped', 'admission-verified', 'none']]",
           "assembly_mode": "typing.Literal['algorithmic', 'llm_packaged', 'swarm_assembled']",
           "max_ttl_key": "<class 'str'>",
           "max_ttl_version": "<class 'str'>",
@@ -3370,16 +3520,18 @@
       },
       "register_product_class": {
         "kind": "function",
-        "shape": "(*, registry: 'ControlPlaneProtocol', schema_name: 'str', schema_version: 'str', ttl_anchor: 'TTLAnchor', assembly_mode: 'AssemblyMode', max_ttl_key: 'str', max_ttl_version: 'str') -> 'RegisteredProductClass'"
+        "shape": "(*, registry: 'ControlPlaneProtocol', schema_name: 'str', schema_version: 'str', ttl_anchor: 'TTLAnchor', assembly_mode: 'AssemblyMode', max_ttl_key: 'str', max_ttl_version: 'str', accepted_policy_binding_modes: 'frozenset[PolicyBindingMode]' = frozenset({'assembly-stamped'}), accepted_lineage_modes: 'frozenset[LineageMode]' = frozenset({'graph-supplied'})) -> 'RegisteredProductClass'"
       }
     }
   },
   "ccf.products.gates": {
     "__all__": [
+      "AttestationRefusal",
       "EmptyOperatorRefusal",
       "GATE_EMPTY_OPERATOR",
       "GATE_LINEAGE_ATTRIBUTABILITY",
       "GATE_LINEAGE_EQUALITY",
+      "GATE_SOURCE_ATTESTATION",
       "GATE_TTL_BOUNDS",
       "GateBypassError",
       "GateRefusal",
@@ -3387,10 +3539,21 @@
       "LineageMismatchRefusal",
       "ServableProduct",
       "TTLRefusal",
+      "refuse_attestation",
       "run_federated_gates",
       "run_gates"
     ],
     "exports": {
+      "AttestationRefusal": {
+        "kind": "contract",
+        "shape": {
+          "accepted_modes": "frozenset[str]",
+          "detail": "<class 'str'>",
+          "failing_dimension": "typing.Literal['policy_binding', 'lineage']",
+          "gate": "<class 'str'>",
+          "source_mode": "<class 'str'>"
+        }
+      },
       "EmptyOperatorRefusal": {
         "kind": "contract",
         "shape": {
@@ -3407,6 +3570,10 @@
         "shape": "str"
       },
       "GATE_LINEAGE_EQUALITY": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "GATE_SOURCE_ATTESTATION": {
         "kind": "constant",
         "shape": "str"
       },
@@ -3458,13 +3625,17 @@
           "now": "<class 'datetime.datetime'>"
         }
       },
+      "refuse_attestation": {
+        "kind": "function",
+        "shape": "(*, attestation: 'SourceAttestation | None', product_class: 'RegisteredProductClass') -> 'AttestationRefusal | None'"
+      },
       "run_federated_gates": {
         "kind": "function",
         "shape": "(candidate: 'ContextProductContract', *, attested_address: 'str', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass') -> 'ServableProduct | GateRefusal'"
       },
       "run_gates": {
         "kind": "function",
-        "shape": "(candidate: 'ContextProductContract', *, engine_resolved: 'frozenset[str]', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass') -> 'ServableProduct | GateRefusal'"
+        "shape": "(candidate: 'ContextProductContract', *, engine_resolved: 'frozenset[str]', now: 'datetime', registry: 'ControlPlaneProtocol', product_class: 'RegisteredProductClass', source_attestation: 'SourceAttestation | None' = None) -> 'ServableProduct | GateRefusal'"
       }
     }
   },
@@ -3556,11 +3727,14 @@
         "kind": "contract",
         "shape": {
           "acquisitions": "tuple[ccf.projection.acquisition.AcquiredContent, ...]",
+          "executed_queries": "tuple[ccf.graph.protocols.GraphQuery, ...]",
           "operators_invoked": "frozenset[str]",
           "plan_id": "<class 'str'>",
           "projection": "<class 'ccf.projection.plan.ProjectionOutput'>",
           "provenance": "ccf.operators.base.OperatorProvenance | None",
+          "source_attestation": "ccf.graph.protocols.SourceAttestation | None",
           "steps": "tuple[ccf.projection.engine.ExecutionStep, ...]",
+          "survivor_cap": "int | None",
           "view": "<class 'ccf.graph.protocols.GraphView'>"
         }
       },
@@ -3578,7 +3752,7 @@
       },
       "ProjectionEngine": {
         "kind": "class",
-        "shape": "(*, reader: 'GraphReader', registry: 'OperatorRegistry', acquirer: 'ContentAcquirer | None' = None) -> 'None'"
+        "shape": "(*, reader: 'GraphReader', registry: 'OperatorRegistry', acquirer: 'ContentAcquirer | None' = None, survivor_cap: 'int | None' = None) -> 'None'"
       },
       "UndeclaredAcquisition": {
         "kind": "class",
@@ -3614,6 +3788,42 @@
       "ProjectionPlan": {
         "kind": "class",
         "shape": "(*args, **kwargs)"
+      }
+    }
+  },
+  "ccf.projection.segmentation": {
+    "__all__": [
+      "FragmentFamilyConflict",
+      "InProcessSegment",
+      "PushableSegment",
+      "SegmentedPlan",
+      "compile_segment_query",
+      "segment_plan"
+    ],
+    "exports": {
+      "FragmentFamilyConflict": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "InProcessSegment": {
+        "kind": "class",
+        "shape": "(operator_keys: 'tuple[str, ...]') -> None"
+      },
+      "PushableSegment": {
+        "kind": "class",
+        "shape": "(operator_keys: 'tuple[str, ...]', fragments: 'tuple[QueryFragment, ...]') -> None"
+      },
+      "SegmentedPlan": {
+        "kind": "class",
+        "shape": "(segments: 'tuple[PushableSegment | InProcessSegment, ...]') -> None"
+      },
+      "compile_segment_query": {
+        "kind": "function",
+        "shape": "(segment: 'PushableSegment', *, tenant_id: 'str', as_of: 'datetime', seeds: 'frozenset[str] | None', allowed_entities: 'frozenset[str] | None') -> 'GraphQuery'"
+      },
+      "segment_plan": {
+        "kind": "function",
+        "shape": "(operators: 'Sequence[Operator]') -> 'SegmentedPlan'"
       }
     }
   },
@@ -3708,6 +3918,7 @@
       "ModelVersionRecord",
       "NO_AGENT_DEFINITION",
       "NO_GRANTS_SET_HASH",
+      "NO_GRAPH_QUERIES",
       "NO_HARNESS",
       "NO_HARNESS_TRACE",
       "NO_HITL_ACTIONS",
@@ -3721,6 +3932,7 @@
       "ContentGenerationPath": {
         "kind": "contract",
         "shape": {
+          "graph_query_sequence": "tuple[str, ...]",
           "operator_plan": "tuple[str, ...]",
           "plan_id": "<class 'str'>",
           "product_content_address": "<class 'str'>",
@@ -3732,6 +3944,7 @@
         "kind": "contract",
         "shape": {
           "graph_snapshot_id": "<class 'str'>",
+          "source_attestation": "ccf.graph.protocols.SourceAttestation | None",
           "store_watermark": "<class 'str'>",
           "temporal_boundary": "<class 'datetime.datetime'>",
           "tenant_id": "<class 'str'>",
@@ -3782,6 +3995,10 @@
         "kind": "constant",
         "shape": "str"
       },
+      "NO_GRAPH_QUERIES": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
       "NO_HARNESS": {
         "kind": "constant",
         "shape": "str"
@@ -3821,7 +4038,8 @@
         "kind": "contract",
         "shape": {
           "bindings": "tuple[ccf.replay.record.PolicyBinding, ...]",
-          "hitl_actions": "<class 'str'>"
+          "hitl_actions": "<class 'str'>",
+          "survivor_cap": "int | None"
         }
       },
       "build_replay_record": {
@@ -3834,6 +4052,8 @@
     "__all__": [
       "CapabilityForgeryError",
       "DeliveryCapability",
+      "QueryPinMismatch",
+      "QueryPinWriter",
       "ReplayWriter",
       "ServedProduct",
       "serve"
@@ -3846,6 +4066,14 @@
       "DeliveryCapability": {
         "kind": "class",
         "shape": "(replay_ref: 'ArtifactRef', token: 'object') -> 'None'"
+      },
+      "QueryPinMismatch": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "QueryPinWriter": {
+        "kind": "class",
+        "shape": "(*, store: 'ArtifactStoreProtocol', artifact_class: 'str') -> 'None'"
       },
       "ReplayWriter": {
         "kind": "class",
@@ -3860,7 +4088,7 @@
       },
       "serve": {
         "kind": "function",
-        "shape": "(*, product: 'ServableProduct', record: 'DecisionReplayRecord', replay_writer: 'ReplayWriter') -> 'ServedProduct'"
+        "shape": "(*, product: 'ServableProduct', record: 'DecisionReplayRecord', replay_writer: 'ReplayWriter', query_pin_writer: 'QueryPinWriter | None' = None, executed_queries: 'tuple[GraphQuery, ...]' = ()) -> 'ServedProduct'"
       }
     }
   },

@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**342 entries**, of which **127** name a public Python surface.
+**348 entries**, of which **132** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-116 entries — 88 public Python surface, 28 not public Python API.
+119 entries — 91 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -1856,6 +1856,81 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.2-11-attestation-enforcement.md`.*
 
+#### ccf.graph.backends.neo4j.Neo4jGraphStore
+
+- Surface: ccf.graph.backends.neo4j.Neo4jGraphStore
+- Public surface: true
+- Change type: added
+- Before: absent — no graph-native substrate existed; every traversal ran
+  in SQL recursive CTEs or the in-process fallback
+- After: `Neo4jGraphStore(uri=…, partition=…, database=…)` — connection and
+  index owner over the official `neo4j` driver (extra-gated, lazy
+  in-constructor import per the chroma_index precedent; constructing the
+  store is the first moment the dependency is demanded). Physical model is
+  adapter-owned (D-IMPL-34): claim-chain nodes carrying `claim_json`
+  verbatim plus write-time projections of predicate-relevant fields,
+  entity nodes joined by the fixed SDK-owned `CCF_EDGE` relationship type
+  (artifact-authored CCF relationship types travel as a property and as
+  driver parameters, never rendered into a Cypher pattern), timestamps as
+  canonical RFC3339 UTC text (never Neo4j temporal types — the byte-drift
+  trap). `partition` names one fabric's graph on a shared server — the
+  Postgres schema role — so `graph_identity`
+  (host/port/database/partition, never credentials — threat T-15.2-05)
+  distinguishes fabrics per partition. Offers `reader`, `session()`,
+  `close()`, and context management
+- Why: D-06 ships all five adapters; 15.2-12 is the pushdown proof — a
+  graph-native engine used as one
+- Migration: new surface — none. `boot(neo4j_uri=…)` constructs the store;
+  install with `pip install "ccf[neo4j]"`
+
+*Recorded by `15.2-12-neo4j-backend.md`.*
+
+#### ccf.graph.backends.neo4j.Neo4jGraphReader
+
+- Surface: ccf.graph.backends.neo4j.Neo4jGraphReader
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `GraphReader` over the driver, inheriting the whole shared read
+  path from `BaseGraphReader`: five Cypher acquisition statements answer
+  dict rows into the substrate-neutral materialization core
+  (`ccf.graph.reader.materialize_view` — lineage-at-boundary,
+  supersession-as-of, ordering and freezing are inherited, never
+  re-implemented; 15.2-RESEARCH.md Pitfall 5). `_translate_query` answers
+  whole queries natively (`GQ-32`): as-of / validity / policy predicates
+  as parameterized Cypher over the write-time projections,
+  `allowed_entities` as a driver list parameter (`GQ-30`), and the
+  traverse family as an undirected variable-length `MATCH` whose path
+  predicates enforce hop admissibility on every node and edge (`GQ-13`) —
+  the one string-formatting site in the module is the validated-integer
+  depth bound (Cypher quantifier bounds cannot be parameters; 15.2
+  research Pitfall 7), bounded by `MAX_DEPTH_CEILING` with over-ceiling
+  queries routed to the fallback under D-04. `as_of()` is the D-07
+  degenerate-query derivation; `attestation` reports tier 1
+- Why: the seam's strongest pushdown claim, demonstrated rather than
+  asserted: traversal runs in Cypher, the survivor set constrains it
+  natively, and the differential suite holds the answers byte-identical to
+  the audited fallback
+- Migration: new surface — none
+
+*Recorded by `15.2-12-neo4j-backend.md`.*
+
+#### ccf.graph.backends.neo4j.DEFAULT_PARTITION
+
+- Surface: ccf.graph.backends.neo4j.DEFAULT_PARTITION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"ccf"` — the partition a store attaches to when the caller does
+  not say otherwise; a name, not a tuning value (CINV-01), mirroring
+  `ccf.graph.backends.postgres.DEFAULT_SCHEMA`
+- Why: partitions are what make "a fresh graph per boot" true on a
+  Community-edition server with one database; the default names the
+  single-fabric case
+- Migration: new surface — none
+
+*Recorded by `15.2-12-neo4j-backend.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -2289,7 +2364,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-203 entries — 20 public Python surface, 183 not public Python API.
+205 entries — 22 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -2733,6 +2808,52 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   (D-IMPL-89)
 
 *Recorded by `15.2-11-attestation-enforcement.md`.*
+
+#### ccf.boot.boot
+
+- Surface: ccf.boot.boot
+- Public surface: true
+- Change type: reshaped
+- Before: `boot(*, database_path=None, postgres_dsn=None, postgres_schema=…,
+  memory=False, registry, …)` — exactly one of {`database_path`,
+  `postgres_dsn`, `memory=True`} selected the substrate
+- After: a `neo4j_uri: str | None = None` keyword joins the selector set
+  (with `neo4j_partition: str | None = None` riding along in the Postgres
+  `postgres_schema` role); the exclusivity check now reads exactly one of
+  {`database_path`, `postgres_dsn`, `memory=True`, `neo4j_uri`}, refused
+  in the same the-fabric-does-not-infer-its-substrate ValueError style.
+  The neo4j branch imports the backend lazily, so boot stays importable —
+  and every other branch stays bootable — without the extra
+- Why: explicit selection, never inference (the `_open_backend` posture),
+  extended to the fourth substrate
+- Migration: none for existing callers — the new keywords default to
+  `None` and every existing selector is untouched
+
+*Recorded by `15.2-12-neo4j-backend.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentManifest
+
+- Surface: ccf.controlplane.artifacts.DeploymentManifest
+- Public surface: true
+- Change type: reshaped
+- Before: `backend: Literal["sqlite", "postgres", "memory"]`
+- After: `backend: Literal["sqlite", "postgres", "memory", "neo4j"]`. A
+  `neo4j` manifest declares the kind only (D-08); the connection URI is
+  environment-supplied through `load_and_boot`'s new `neo4j_uri` argument,
+  mirroring `postgres_dsn` exactly — a Bolt URI can carry credentials, and
+  a content-hashed audit artifact must never persist one (threat
+  T-15.2-05). Preflight refuses a `neo4j` declaration with no URI and
+  refuses the URI alongside any other declared backend, before any
+  document is read. The re-export `ccf.deployment.DeploymentManifest`
+  reshapes identically. The committed
+  `docs/schemas/ccf.deployment-manifest.json` regenerated (ERGO-12)
+- Why: Open Question 4's resolution — all three new backends join boot()
+  and the manifest Literal in-phase, each in its owning plan
+- Migration: none for existing manifests — all three existing kinds are
+  untouched; new manifests may declare `backend: neo4j` and supply
+  `neo4j_uri` from the environment
+
+*Recorded by `15.2-12-neo4j-backend.md`.*
 
 ### Not public Python API
 
@@ -5011,7 +5132,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-23 entries — 19 public Python surface, 4 not public Python API.
+24 entries — 19 public Python surface, 5 not public Python API.
 
 ### Public Python surface
 
@@ -5509,3 +5630,35 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   `boot(memory=True)`
 
 *Recorded by `15.2-06-memory-backend.md`.*
+
+#### ccf.graph._writer.Neo4jGraphWriter
+
+- Surface: ccf.graph._writer.Neo4jGraphWriter
+- Public surface: false
+- Change type: behavior
+- Before: the typed write seam (`_GraphTxn`, plan 15.2-02) had one non-SQL
+  implementation (`_MemoryTxn`, plan 15.2-06) beside the shared SQL
+  adapter
+- After: `_Neo4jTxn` implements the nine typed operations as parameterized
+  Cypher over one explicit driver transaction — `MERGE` on the compound
+  identity honours the rowcount contract (`nodes_created` is 0 for an
+  ignored duplicate claim id, the writer's idempotency signal; for lineage
+  the L-axis set-union itself, INV-CH7-17), reads inside the transaction
+  see its own writes, and a per-partition `CcfMeta` counter renders the
+  insertion-order tiebreak (`rowid`/`BIGSERIAL`). Write-time projections
+  (`_neo4j_claim_projection`) store the predicate-relevant claim fields —
+  validity window re-rendered through `canonical_timestamp`,
+  `entity_class`, string-valued attributes under a prefixed key — so the
+  read path needs no JSON parsing in Cypher. `Neo4jGraphWriter` inherits
+  the whole `BaseGraphWriter` algorithm with no SQL ClassVars. All of it
+  lives in `ccf.graph._writer` only (CINV-02; threat T-15.2-06 — no
+  session or transaction construction exists in the reader module beyond
+  reads)
+- Why: D-05/D-06 lock that conformance writes go through booted L2, and a
+  Cypher store cannot execute SQL text; the typed seam exists precisely so
+  this class could be written without interpreting SQL constants
+- Migration: none — the module is import-restricted to `ccf.assembly` /
+  `ccf.boot`; deployments reach the writer only through
+  `boot(neo4j_uri=…)`
+
+*Recorded by `15.2-12-neo4j-backend.md`.*
