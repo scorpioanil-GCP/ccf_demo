@@ -81,6 +81,23 @@ jobs:
           --health-interval 10s
           --health-timeout 10s
           --health-retries 15
+      # Plan 15.2-13: the mongo differential leg's server. The image pins the
+      # 7 line — the exact pairing the driver pin was verified against
+      # (pymongo==4.17.0 <-> server 7.0.x with a live round trip at plan
+      # 15.2-13 execution); re-verify before moving either side. Deliberately
+      # a plain standalone server rather than a replica set: a service block
+      # cannot pass `--replSet`, which is exactly why `_MongoTxn` is the
+      # buffered/batched implementation of the write seam (D-IMPL-88) instead
+      # of one depending on multi-document transactions.
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 15
 
     env:
       # Consumed by the D-16 parametrized Protocol conformance suite.
@@ -95,6 +112,11 @@ jobs:
       # failure, not a minimal environment.
       CCF_TEST_NEO4J_URI: neo4j://neo4j:ccf_test_password@localhost:7687
       CCF_REQUIRE_NEO4J: "1"
+      # Consumed by the mongo leg of the substrate differential suite
+      # (plan 15.2-13). Same rule as Postgres and Neo4j: in CI a skipped
+      # mongo leg is a failure, not a minimal environment.
+      CCF_TEST_MONGO_URI: mongodb://localhost:27017/ccf_test
+      CCF_REQUIRE_MONGO: "1"
       # Same rule, applied to the three harness adapters (06-16). `[dev]`
       # composes `[harnesses]`, so all three SDKs are installed in CI and a
       # skipped harness leg means the extra broke, not that the environment is
@@ -111,15 +133,15 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      # The neo4j extra joins dev here because this job RUNS the neo4j leg
-      # against the service container above; the lint job stays dev-only (the
-      # extra is absent there, closed by the pyproject mypy override — the
-      # chromadb posture).
-      - name: Install package with dev extras + the neo4j leg's driver
-        run: python -m pip install -e ".[dev,neo4j]"
+      # The neo4j and mongo extras join dev here because this job RUNS both
+      # legs against the service containers above; the lint job stays dev-only
+      # (the extras are absent there, closed by the pyproject mypy overrides —
+      # the chromadb posture).
+      - name: Install package with dev extras + the neo4j and mongo drivers
+        run: python -m pip install -e ".[dev,neo4j,mongo]"
 
       - name: Quick suite (no external substrates)
-        run: pytest tests -q -m "not postgres and not chroma and not neo4j" -rs
+        run: pytest tests -q -m "not postgres and not chroma and not neo4j and not mongo" -rs
 
       # The harness legs, asserted rather than assumed. `-rs` prints any skip;
       # `CCF_REQUIRE_HARNESSES` above turns one into a failure, so this step
@@ -143,9 +165,17 @@ jobs:
       - name: Neo4j leg (service container)
         run: pytest tests -q -m neo4j -rs
 
+      # The substrate differential suite against a document store (plan
+      # 15.2-13): the phase's hardest differential target, held byte-identical
+      # to the audited fallback over the whole corpus, `allowed_entities`
+      # shapes included. `-rs` surfaces any skip; CCF_REQUIRE_MONGO above
+      # turns one into a failure.
+      - name: MongoDB leg (service container)
+        run: pytest tests -q -m mongo -rs
+
       # Coverage is informational only — D-17 sets no numeric gate.
       - name: Coverage (informational)
-        run: pytest tests -q -m "not postgres and not chroma and not neo4j" --cov=ccf --cov-report=term
+        run: pytest tests -q -m "not postgres and not chroma and not neo4j and not mongo" --cov=ccf --cov-report=term
 
   # The v0 examples suite is the adoption contract (CLAUDE.md §9): a broken
   # example is a broken build. Always-on per D-10 — the same `make examples`

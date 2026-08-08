@@ -192,6 +192,38 @@ def neo4j_uri() -> str:
     pytest.skip(reason)
 
 
+#: Set by the CI job (GitHub Actions MongoDB service container). The mongo leg
+#: is env-driven only: locally, run the documented container
+#: (`docker run -d -p 27017:27017 mongo:7`) and export the URI. Plan 15.2-13.
+MONGO_URI_ENV = "CCF_TEST_MONGO_URI"
+
+#: Set in CI. Turns "no MongoDB available" from a skip into a failure — the
+#: exact CCF_REQUIRE_POSTGRES / CCF_REQUIRE_NEO4J rationale: a leg that quietly
+#: skips is a green build that proved nothing.
+MONGO_REQUIRED_ENV = "CCF_REQUIRE_MONGO"
+
+
+@pytest.fixture(scope="session")
+def mongo_uri() -> str:
+    """The connection URI of a real MongoDB server, from the environment.
+
+    Skips when unset so a contributor without the container still gets a
+    meaningful run of everything else — unless ``CCF_REQUIRE_MONGO`` says this
+    environment must have one, in which case it fails (the
+    :func:`_unavailable` posture, applied to the mongo leg).
+    """
+    uri = os.environ.get(MONGO_URI_ENV)
+    if uri:
+        return uri
+    reason = (
+        f"{MONGO_URI_ENV} is unset; start a mongo:7 container and export the"
+        " connection URI to run the mongo leg"
+    )
+    if os.environ.get(MONGO_REQUIRED_ENV):
+        pytest.fail(f"{MONGO_REQUIRED_ENV} is set but MongoDB is unusable: {reason}")
+    pytest.skip(reason)
+
+
 @pytest.fixture(scope="session")
 def postgres_dsn() -> Iterator[str]:
     """A DSN for a real Postgres, from CI's service container or testcontainers.
@@ -279,6 +311,14 @@ def fabric_boot(
             location = {
                 "neo4j_uri": request.getfixturevalue("neo4j_uri"),
                 "neo4j_partition": f"ccf_test_{uuid.uuid4().hex}",
+            }
+        elif backend == "mongo":
+            # Plan 15.2-13: a fresh partition per boot, exactly as the neo4j
+            # leg does — what makes "a fresh graph per test" true on a shared
+            # server without dropping databases between tests.
+            location = {
+                "mongo_uri": request.getfixturevalue("mongo_uri"),
+                "mongo_partition": f"ccf_test_{uuid.uuid4().hex}",
             }
         else:
             raise NotImplementedError(backend)

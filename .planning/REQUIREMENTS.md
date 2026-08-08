@@ -78,7 +78,7 @@
 - [x] **SUBQ-05**: The `Operator` Protocol gains the optional `read_intent()` pushability declaration, with the `apply(full_view) == pushed(intent)` equivalence proven per shipped operator, the pushability matrix pinned by test, and `SimilaritySelect` not pushable (D-03)
 - [x] **SUBQ-06**: Engine-owned multi-segment segmentation per the D-IMPL-87 resolution — one query per pushable segment, post-in-process segments carrying survivors as seeds + `allowed_entities` under the uniform rule, a survivor-set size-cap mechanism whose value is Control Plane configuration defaulting to `None` (D-10), per-plan equivalence proven on Similarity-bearing plans, the executed query-hash sequence pinned into the replay record from execution with full canonical query bytes in the ArtifactStore keyed by hash (D-11), and `SnapshotReader.query()` scope-checked for replay (D-01 amended)
 - [x] **SUBQ-07**: `as_of()` is derived from `query()` as the degenerate everything-question, with zero churn across all 15 existing call sites (D-07)
-- [ ] **SUBQ-08**: Five adapters — sqlite, postgres, memory, neo4j, mongo — answer `GraphQuery` including native `allowed_entities` translation under both suites, with memory always-on in `make ci` and neo4j/mongo extras-gated behind container-gated CI legs (D-06); Mongo conformance via the sanctioned D-04 degrade posture (`$match` narrowing + fallback traversal, plan 15.2-13 stage 1) satisfies this requirement — `$graphLookup` promotion is a budgeted enhancement recorded for ratification, not part of the requirement
+- [x] **SUBQ-08**: Five adapters — sqlite, postgres, memory, neo4j, mongo — answer `GraphQuery` including native `allowed_entities` translation under both suites, with memory always-on in `make ci` and neo4j/mongo extras-gated behind container-gated CI legs (D-06); Mongo conformance via the sanctioned D-04 degrade posture (`$match` narrowing + fallback traversal, plan 15.2-13 stage 1) satisfies this requirement — `$graphLookup` promotion is a budgeted enhancement recorded for ratification, not part of the requirement
 - [x] **SUBQ-09**: `ProductSource` mounts only an `AdmittedProduct`, refuses a payload without graph-shaped state at mount with a typed refusal, passes the same differential suite, and nothing enters L3 (D-08)
 - [x] **SUBQ-10**: The `SourceAttestation` contract ships with per-dimension modes, product-class accepted modes (D-09's "minima", realized as unordered accepted-mode sets — no strength ordering exists between modes), an engine refusal naming the failing dimension, and the attestation in force pinned into replay (D-09)
 - [ ] **SUBQ-11**: The substrate-neutral write seam — `BaseGraphWriter` driving typed transaction operations implemented per backend inside `ccf.graph._writer` — preserves single-writer (INV-CH7-10/CINV-02) for all five backends
@@ -151,7 +151,7 @@
 | SUBQ-05 | Phase 15.2 | Complete |
 | SUBQ-06 | Phase 15.2 | Complete |
 | SUBQ-07 | Phase 15.2 | Complete |
-| SUBQ-08 | Phase 15.2 | Pending |
+| SUBQ-08 | Phase 15.2 | Complete |
 | SUBQ-09 | Phase 15.2 | Complete |
 | SUBQ-10 | Phase 15.2 | Complete |
 | SUBQ-11 | Phase 15.2 | Pending |
