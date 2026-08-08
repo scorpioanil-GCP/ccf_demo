@@ -604,8 +604,8 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 15.2-06-PLAN.md — Memory backend (KV floor) + boot/manifest wiring + differential suite + query corpus incl. allowed_entities/resurrection strategies
-- [ ] 15.2-07-PLAN.md — `read_intent()` + engine-owned multi-segment segmentation (uniform rule, survivors → seeds + allowed_entities) + D-10 cap mechanism + per-plan equivalence with Gate 2 pinned + pushability matrix
+- [x] 15.2-06-PLAN.md — Memory backend (KV floor) + boot/manifest wiring + differential suite + query corpus incl. allowed_entities/resurrection strategies
+- [x] 15.2-07-PLAN.md — `read_intent()` + engine-owned multi-segment segmentation (uniform rule, survivors → seeds + allowed_entities) + D-10 cap mechanism + per-plan equivalence with Gate 2 pinned + pushability matrix
 
 **Wave 5** *(blocked on Wave 4)*
 
@@ -740,7 +740,7 @@ reader can see which code is CCF and which is theirs.
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
 | 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 (gated with carried debt; CR-1/CR-2 close in 15.1) |
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
-| 15.2. Substrate Adapters and Query Pushdown | 5/14 | In Progress|  |
+| 15.2. Substrate Adapters and Query Pushdown | 7/14 | In Progress|  |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 0/? | Planned   | — |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
