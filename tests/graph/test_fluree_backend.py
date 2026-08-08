@@ -142,6 +142,76 @@ def _insert(
     )
 
 
+def _sparql(
+    client: httpx.Client, base: str, ledger: str, query: str
+) -> httpx.Response:
+    """One SPARQL read — a diagnostic assertion, never the read path.
+
+    D-02's "Cypher reads" governs the adapter's ``query()``; it does not
+    govern a probe. ``DATATYPE()`` is the only way to read a literal's datatype
+    back directly, and ``v4.0.7`` shipped the fix that makes it return the
+    datatype **IRI** rather than a compact string — so the answer here is
+    unambiguous in a way no Cypher expression could be.
+    """
+    return client.post(
+        f"{base}/query/{ledger}",
+        headers={
+            "Content-Type": "application/sparql-query",
+            "Accept": "application/sparql-results+json",
+        },
+        content=query,
+    )
+
+
+def _bootstrap(client: httpx.Client, url: str) -> tuple[str, str]:
+    """Discover the API base and create a fresh probe ledger."""
+    base, _ = _api_base(client, url)
+    ledger = _fresh_ledger()
+    created = client.post(
+        f"{base}/create",
+        headers={"Content-Type": "application/json"},
+        content=json.dumps({"ledger": ledger}),
+    )
+    assert created.status_code == 201, created.text
+    return base, ledger
+
+
+def _assert_context_is_null(client: httpx.Client, base: str, ledger: str) -> None:
+    """D-02's other half, re-asserted after writes (Pitfall 9).
+
+    A default ``@context`` — above all one carrying ``@vocab`` — silently
+    changes what every Cypher statement matches while writes keep succeeding.
+    Cheap to check, and it catches a future change that starts setting one.
+    """
+    context = client.get(f"{base}/context/{ledger}")
+    assert context.status_code == 200, context.text
+    assert context.json() == {"@context": None}, context.text
+
+
+#: The six temporal properties the adapter will write. ``ccf_valid_from_cmp``
+#: and ``ccf_valid_to_cmp`` are NOT optional here: §R8 vector 2 is exactly
+#: where DI-15.2-03 (closed by D-IMPL-90) could re-enter through the wire, and
+#: they are the properties the pushed `GQ-09` validity predicate compares.
+TEMPORAL_PROPERTIES = (
+    "ccf_observed_at",
+    "ccf_superseded_at",
+    "ccf_valid_from_cmp",
+    "ccf_valid_to_cmp",
+    "ccf_first_observed_at",
+    "ccf_last_observed_at",
+)
+
+#: Separator for the materialized policy key. Code-authored and impossible in
+#: a CCF class or attribute name, so no artifact-authored string can forge a
+#: key boundary — the F-A6 resolution's whole safety argument.
+POLICY_KEY_SEP = "\x00"
+
+
+def _policy_key(entity_class: str, attr_name: str, attr_value: str) -> str:
+    """One materialized policy key — `GQ-08`'s three cuts as pure membership."""
+    return f"{entity_class}{POLICY_KEY_SEP}{attr_name}{POLICY_KEY_SEP}{attr_value}"
+
+
 @pytest.mark.fluree
 def test_fa1_container_round_trip(fluree_url: str) -> None:
     """F-A1: the pinned container answers, and the read envelope is recorded.
@@ -356,3 +426,355 @@ def _curl_in_image() -> str:
         f"runner-side wait loop (D-08): {probe.stderr.strip()}"
     )
     return probe.stdout.splitlines()[0]
+
+
+@pytest.mark.fluree
+def test_fa5_no_datatype_coercion(fluree_url: str) -> None:
+    """F-A5: temporal text stays ``xsd:string``. D-02's hard condition.
+
+    Asserted three independent ways because a wrong answer here is **silent**.
+    Fluree documents that ordering between incompatible types raises, *but
+    also* that "temporal types can be compared with string representations
+    that parse to the same temporal type" — so a column coerced to
+    ``xsd:dateTime`` compared against a string boundary does **not** error. It
+    compares temporally, at whatever precision the engine normalizes to, and
+    the as-of cut would keep "working" while diverging from the fallback on
+    sub-precision boundaries only. Scattered differential failures, never an
+    exception. That is why D-06 puts this probe up front, and why a failure
+    here is rung 3: lexicographic-equals-chronological is what makes ``as_of``
+    *mean* the same thing on this substrate as on the other four.
+    """
+    evidence: dict[str, Any] = {}
+
+    with httpx.Client(timeout=TIMEOUT) as client:
+        base, ledger = _bootstrap(client, fluree_url)
+
+        # (a) Direct datatype read, over all six temporal properties at once.
+        instant = "2026-03-01T00:00:00.000000Z"
+        _insert(
+            client,
+            base,
+            ledger,
+            [
+                {
+                    "@id": "ccf_e_datatypes",
+                    "@type": "CcfEntityClaim",
+                    "ccf_tenant_id": "tenant-dt",
+                    **{name: instant for name in TEMPORAL_PROPERTIES},
+                }
+            ],
+        ).raise_for_status()
+
+        datatypes: dict[str, str] = {}
+        for name in TEMPORAL_PROPERTIES:
+            response = _sparql(
+                client,
+                base,
+                ledger,
+                f"SELECT ?v (DATATYPE(?v) AS ?dt) WHERE {{ ?s <{name}> ?v }}",
+            )
+            assert response.status_code == 200, response.text
+            bindings = response.json()["results"]["bindings"]
+            assert bindings, f"{name} bound nothing: {response.text}"
+            datatypes[name] = bindings[0]["dt"]["value"]
+        evidence["datatypes"] = datatypes
+
+        assert set(datatypes.values()) == {
+            "http://www.w3.org/2001/XMLSchema#string"
+        }, datatypes
+
+        # (b) Behavioural: microsecond granularity actually discriminates. A
+        # substrate that coerced to xsd:dateTime at millisecond precision
+        # would collapse these two and would NOT error.
+        earlier, later = instant, "2026-03-01T00:00:00.000001Z"
+        _insert(
+            client,
+            base,
+            ledger,
+            [
+                {
+                    "@id": f"ccf_e_micro_{suffix}",
+                    "@type": "CcfMicroProbe",
+                    "ccf_tenant_id": "tenant-us",
+                    "ccf_claim_id": suffix,
+                    "ccf_observed_at": value,
+                }
+                for suffix, value in (("us0", earlier), ("us1", later))
+            ],
+        ).raise_for_status()
+
+        discriminated = _cypher(
+            client,
+            base,
+            ledger,
+            "MATCH (c:CcfMicroProbe) WHERE c.ccf_tenant_id = $t "
+            "AND c.ccf_observed_at > $boundary RETURN c.ccf_claim_id AS claim_id",
+            params={"t": "tenant-us", "boundary": earlier},
+        )
+        assert discriminated.status_code == 200, discriminated.text
+        evidence["microsecond_discrimination"] = discriminated.text
+        assert _rows(discriminated) == [{"claim_id": "us1"}], discriminated.text
+
+        # (c) The ledger context is still null after every write above.
+        _assert_context_is_null(client, base, ledger)
+
+    print("\nF-A5 evidence:\n" + json.dumps(evidence, indent=2, sort_keys=True))
+
+
+@pytest.mark.fluree
+def test_fa6_dynamic_property_access(fluree_url: str) -> None:
+    """F-A6: is ``c[$key]`` available for the policy family? Settled before stage 1.
+
+    This binds **stage 1**, not stage 2 — the policy family is a non-traverse
+    predicate family — so by D-06's consequence-not-convenience logic it
+    belongs up front beside F-A4/F-A5.
+
+    The verdict is taken by **comparison against a static-access control**, not
+    by status code, because the observed failure mode is silent: ``c[$key]``
+    parses, returns ``200``, and evaluates to null. A verdict taken from the
+    status alone would have read "supported" and shipped a policy predicate
+    that excludes every claim.
+
+    On the expected FAIL the resolution is proven in this same test, so plan
+    15.3-03 inherits a design that was measured rather than sketched: a
+    multi-valued ``ccf_policy_key`` property carrying
+    ``entity_class \\0 attr_name \\0 attr_value``, selected by plain membership.
+    Ladder: rung 1 (materialization) → rung 2 (decline the translation when the
+    policy family is present). Never rung 3.
+    """
+    evidence: dict[str, Any] = {}
+
+    with httpx.Client(timeout=TIMEOUT) as client:
+        base, ledger = _bootstrap(client, fluree_url)
+
+        _insert(
+            client,
+            base,
+            ledger,
+            [
+                {
+                    "@id": "ccf_e_dyn",
+                    "@type": "CcfEntityClaim",
+                    "ccf_tenant_id": "tenant-dyn",
+                    "ccf_entity_class": "Counterparty",
+                }
+            ],
+        ).raise_for_status()
+
+        control = _cypher(
+            client,
+            base,
+            ledger,
+            "MATCH (c:CcfEntityClaim) WHERE c.ccf_tenant_id IN $values "
+            "RETURN count(c) AS n",
+            params={"values": ["tenant-dyn"]},
+        )
+        assert control.status_code == 200, control.text
+        assert _rows(control) == [{"n": 1}], control.text
+
+        dynamic = _cypher(
+            client,
+            base,
+            ledger,
+            "MATCH (c:CcfEntityClaim) WHERE c[$key] IN $values RETURN count(c) AS n",
+            params={"key": "ccf_tenant_id", "values": ["tenant-dyn"]},
+        )
+        evidence["dynamic_status"] = dynamic.status_code
+        evidence["dynamic_body"] = dynamic.text
+        supported = dynamic.status_code == 200 and _rows(dynamic) == _rows(control)
+        evidence["fa6_verdict"] = "PASS" if supported else "FAIL"
+        assert not supported, (
+            "c[$key] now agrees with static access — re-cost the stage-1 policy "
+            "family: _ENTITY_POLICY (backends/neo4j.py:335-340) may port with "
+            f"only the ccf_ prefix changed. {dynamic.text}"
+        )
+
+        # --- the resolution, proven end to end (assumption A7) --------------
+        #
+        # A7 as the plan names it — `any(k IN $keys WHERE k IN c.prop)` — is
+        # REJECTED at parse time: "`IN` right-hand side must be an inline list
+        # `[a, b, ...]` in v1". A property expression cannot be an IN operand.
+        # But a `$param` list CAN (the control above proves it), and a
+        # multi-valued property FANS OUT into one row per value rather than
+        # yielding a list — so plain `c.ccf_policy_key IN $keys` expresses
+        # exactly the intended "any materialized key is admissible", and
+        # RETURN DISTINCT collapses the multiplicity.
+        rejected = _cypher(
+            client,
+            base,
+            ledger,
+            "MATCH (c:CcfPolicyProbe) WHERE any(k IN $keys WHERE k IN c.ccf_policy_key) "
+            "RETURN count(c) AS n",
+            params={"keys": [_policy_key("Counterparty", "risk_tier", "tier-1")]},
+        )
+        evidence["a7_named_form"] = f"{rejected.status_code} {rejected.text}"
+        assert rejected.status_code == 400, rejected.text
+
+        _insert(
+            client,
+            base,
+            ledger,
+            [
+                {
+                    "@id": "ccf_e_pk1",
+                    "@type": "CcfPolicyProbe",
+                    "ccf_tenant_id": "tenant-pk",
+                    "ccf_claim_id": "pk1",
+                    "ccf_policy_key": [
+                        _policy_key("Counterparty", "risk_tier", "tier-1"),
+                        _policy_key("Counterparty", "region", "emea"),
+                    ],
+                },
+                {
+                    "@id": "ccf_e_pk2",
+                    "@type": "CcfPolicyProbe",
+                    "ccf_tenant_id": "tenant-pk",
+                    "ccf_claim_id": "pk2",
+                    "ccf_policy_key": [
+                        _policy_key("Counterparty", "risk_tier", "tier-9")
+                    ],
+                },
+            ],
+        ).raise_for_status()
+
+        statement = (
+            "MATCH (c:CcfPolicyProbe) WHERE c.ccf_tenant_id = $t "
+            "AND c.ccf_policy_key IN $keys "
+            "RETURN DISTINCT c.ccf_claim_id AS claim_id"
+        )
+
+        def selected(keys: list[str]) -> set[str]:
+            response = _cypher(
+                client, base, ledger, statement, params={"t": "tenant-pk", "keys": keys}
+            )
+            assert response.status_code == 200, response.text
+            return {row["claim_id"] for row in _rows(response)}
+
+        # Selects the claim carrying the key, and only it.
+        assert selected([_policy_key("Counterparty", "risk_tier", "tier-1")]) == {"pk1"}
+        # Two admissible keys span both claims.
+        assert selected(
+            [
+                _policy_key("Counterparty", "risk_tier", "tier-1"),
+                _policy_key("Counterparty", "risk_tier", "tier-9"),
+            ]
+        ) == {"pk1", "pk2"}
+        # A claim whose key is absent is inadmissible — GQ-08's third cut.
+        assert selected([_policy_key("Counterparty", "risk_tier", "absent")]) == set()
+        # The SECOND value of a multi-valued property selects too (fan-out).
+        assert selected([_policy_key("Counterparty", "region", "emea")]) == {"pk1"}
+        # The NUL separator discriminates: a near-miss value does not match.
+        assert selected([_policy_key("Counterparty", "risk_tier", "tier-1x")]) == set()
+
+        evidence["a7_working_form"] = statement
+        _assert_context_is_null(client, base, ledger)
+
+    print("\nF-A6 evidence:\n" + json.dumps(evidence, indent=2, sort_keys=True))
+
+
+@pytest.mark.fluree
+def test_fa4_ground_batch_semantics(fluree_url: str) -> None:
+    """F-A4 (b)-(e): the ground buffered-batch write, measured.
+
+    Sub-assertion (a) — a ground ``delete`` with no ``where`` — is Task 3's
+    ruling gate and is deliberately NOT worked around here.
+
+    **What these assertions do NOT establish.** The ``_GraphTxn`` contract
+    needs **per-operation** rowcounts (``_writer.py:333-338``) and one POST
+    yields at most **one** aggregate receipt, so a receipt field could only
+    ever cross-check the sum — it could never implement the contract. On this
+    build it cannot even do that: the receipt carries ``ledger_id``, ``t``,
+    ``tx-id`` and ``commit.hash`` and **no ``flakes_added`` at all**, contrary
+    to the shape 15.3-RESEARCH.md §R2 quotes from the docs. The consequence is
+    bounded, because the contract is satisfied exactly as ``_MongoTxn``
+    satisfies it: committed-state read before buffering, plus the txn's own
+    buffer. The cross-check is a nicety this substrate does not offer.
+    """
+    evidence: dict[str, Any] = {}
+
+    with httpx.Client(timeout=TIMEOUT) as client:
+        base, ledger = _bootstrap(client, fluree_url)
+
+        def batch_probe(index: int) -> dict[str, Any]:
+            return {
+                "@id": f"ccf_e_b{index}",
+                "@type": "CcfBatchProbe",
+                "ccf_tenant_id": "tenant-batch",
+                "ccf_claim_id": f"b{index}",
+                "ccf_observed_at": "2026-03-01T00:00:00.000000Z",
+            }
+
+        # (b) One POST touching three distinct subjects is ONE commit. This is
+        # what makes a single-POST batch a transaction, and D-01 is a ratified
+        # precondition of D-IMPL-88 — a failure here escalates.
+        three = [batch_probe(index) for index in range(3)]
+        first = _insert(client, base, ledger, three)
+        assert first.status_code == 200, first.text
+        first_receipt = first.json()
+        evidence["multi_subject_receipt"] = first_receipt
+        assert int(first_receipt["t"]) == 1, first_receipt
+
+        second = _insert(client, base, ledger, [batch_probe(9)])
+        assert second.status_code == 200, second.text
+        assert int(second.json()["t"]) == 2, second.json()
+
+        # (c) Re-asserting identical triples is a no-op in the DATA, which is
+        # what RDF set semantics buys and what makes a claim re-arrival free.
+        # It is NOT observable as `flakes_added == 0` (the field is absent);
+        # what IS observable is that the content-addressed `tx-id` is byte
+        # identical to the original, and that nothing duplicated.
+        replay = _insert(client, base, ledger, three)
+        assert replay.status_code == 200, replay.text
+        replay_receipt = replay.json()
+        evidence["reassert_receipt"] = replay_receipt
+        assert replay_receipt["tx-id"] == first_receipt["tx-id"], (
+            "a re-asserted identical body produced a different tx-id: "
+            f"{replay_receipt} vs {first_receipt}"
+        )
+        # `t` DOES advance on the no-op — it counts commits, not flakes.
+        assert int(replay_receipt["t"]) == 3, replay_receipt
+
+        counted = _cypher(
+            client, base, ledger, "MATCH (n:CcfBatchProbe) RETURN count(n) AS n"
+        )
+        assert _rows(counted) == [{"n": 4}], counted.text
+
+        # (d) The receipt arithmetic, measured against a claim of KNOWN triple
+        # count k: one @type triple + four data properties = 5.
+        known = {
+            "@id": "ccf_e_k1",
+            "@type": "CcfCountProbe",
+            "ccf_tenant_id": "tenant-k",
+            "ccf_claim_id": "k1",
+            "ccf_observed_at": "2026-03-01T00:00:00.000000Z",
+            "ccf_entity_uri": "counterparty://k",
+        }
+        sized = _insert(client, base, ledger, [known])
+        assert sized.status_code == 200, sized.text
+        sized_receipt = sized.json()
+        evidence["k"] = 5
+        evidence["k_receipt"] = sized_receipt
+        evidence["flakes_added"] = sized_receipt.get("flakes_added", "ABSENT")
+        assert "flakes_added" not in sized_receipt, sized_receipt
+
+        # (e) Read-before-buffer is correct: the committed claim is visible to
+        # a plain existence read, which is exactly what lets a second
+        # insert_entity_claim for the same identity resolve to 0 BEFORE
+        # commit, with no post-commit round trip. INV-CH7-10 single-writer is
+        # what makes that pre-commit read authoritative.
+        existence = (
+            "MATCH (n:CcfCountProbe) WHERE n.ccf_tenant_id = $t "
+            "AND n.ccf_claim_id = $c RETURN count(n) AS n"
+        )
+        held = _cypher(
+            client, base, ledger, existence, params={"t": "tenant-k", "c": "k1"}
+        )
+        assert _rows(held) == [{"n": 1}], held.text
+        absent = _cypher(
+            client, base, ledger, existence, params={"t": "tenant-k", "c": "nope"}
+        )
+        assert _rows(absent) == [{"n": 0}], absent.text
+
+        _assert_context_is_null(client, base, ledger)
+
+    print("\nF-A4 evidence:\n" + json.dumps(evidence, indent=2, sort_keys=True))
