@@ -90,11 +90,12 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from types import TracebackType
 from typing import Any, ClassVar
 from urllib.parse import urlsplit
 
+from ccf.contracts.canonical import canonical_timestamp
 from ccf.graph.protocols import GraphQuery
 from ccf.graph.reader import BaseGraphReader, Row
 
@@ -402,6 +403,23 @@ _RELATIONSHIP_CLAIM_PROJECTION: dict[str, bool] = {
     "superseded_at": True,
 }
 
+#: The translated answers carry two write-time projections beyond the
+#: materialization core's input columns: the entity class the walk's
+#: start selection reads (`GQ-11` at docs/GRAPH_QUERY_SEMANTICS.md:221) and
+#: the edge endpoints the induced-subgraph and closure rules read (`GQ-16` at
+#: docs/GRAPH_QUERY_SEMANTICS.md:316). The core ignores what it was not asked
+#: for, so the extra fields cost nothing in canonical bytes.
+_SURVIVOR_PROJECTION: dict[str, bool] = {
+    **_ENTITY_CLAIM_PROJECTION,
+    "entity_class": True,
+}
+
+_CROSSABLE_PROJECTION: dict[str, bool] = {
+    **_RELATIONSHIP_CLAIM_PROJECTION,
+    "subject_uri": True,
+    "object_uri": True,
+}
+
 
 def _as_of_clauses(boundary: str) -> list[dict[str, Any]]:
     """The as-of cut as filter documents — `GQ-07` at docs/GRAPH_QUERY_SEMANTICS.md:148.
@@ -445,6 +463,134 @@ def _validity_clauses(boundary: str) -> list[dict[str, Any]]:
                 {"valid_to_cmp": {"$gt": boundary}},
             ]
         },
+    ]
+
+
+def _classification_clause(q: GraphQuery) -> dict[str, Any] | None:
+    """`GQ-08`'s cuts 2 and 3 as one ``$or`` over the declared classes.
+
+    `GQ-08` at docs/GRAPH_QUERY_SEMANTICS.md:163 (INV-CH7-26): an entity is
+    admissible only if its class has a declared classification attribute and
+    the value of that attribute is permitted. Both cuts fall out of one
+    ``$or``: a class with no declared attribute contributes no branch and is
+    therefore inadmissible, and an entity carrying no value for its class's
+    attribute has no field to match — an absent field is never ``$in`` a set
+    of strings, which is exactly what the fallback's
+    ``attributes.get(name) in classifications`` computes.
+
+    Returns ``None`` when a declared attribute name cannot safely become a
+    document field path (:func:`attribute_field_path`), which declines the
+    whole translation to the fallback (`GQ-32` at
+    docs/GRAPH_QUERY_SEMANTICS.md:583).
+
+    Callable only when the policy family is present; the contract guarantees a
+    present family carries all of its fields (`GQ-02` at
+    docs/GRAPH_QUERY_SEMANTICS.md:64), which the assertions render as type
+    narrowing rather than runtime re-litigation.
+    """
+    attribute_by_class = q.classification_attribute_by_class
+    classifications = q.permitted_classifications
+    assert attribute_by_class is not None  # noqa: S101 - GQ-02 whole family
+    assert classifications is not None  # noqa: S101 - GQ-02 whole family
+    branches: list[dict[str, Any]] = []
+    if classifications:
+        permitted = sorted(classifications)
+        for entity_class in sorted(attribute_by_class):
+            path = attribute_field_path(attribute_by_class[entity_class])
+            if path is None:
+                return None
+            branches.append(
+                {"entity_class": entity_class, path: {"$in": permitted}}
+            )
+    return {"$or": branches} if branches else _MATCHES_NOTHING
+
+
+def _translated_filters(
+    q: GraphQuery, *, scope: Mapping[str, str]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool] | None:
+    """Render ``q`` as the two ``$match`` clause lists, or decline.
+
+    Returns ``(entity_clauses, edge_clauses, constrained)`` — the survivor
+    filter, the crossable-edge filter, and whether endpoint closure applies —
+    or ``None`` when a classification attribute name falls outside the safe
+    field-path charset, in which case the fallback answers (`GQ-32` at
+    docs/GRAPH_QUERY_SEMANTICS.md:583; D-04).
+
+    Every clause is a document assembled from typed contract fields, and every
+    set member travels as a *value* inside one (`GQ-30` at
+    docs/GRAPH_QUERY_SEMANTICS.md:563): the aggregation-pipeline ``$in`` the
+    semantics name as a conformant rendering of ``allowed_entities``. Sorting
+    the sets makes the rendered filter a deterministic function of the query
+    value.
+    """
+    boundary = canonical_timestamp(q.as_of)
+    policy_versions = q.permitted_policy_bundle_versions
+    entity_clauses: list[dict[str, Any]] = [
+        dict(scope),
+        *_as_of_clauses(boundary),
+    ]
+    edge_clauses: list[dict[str, Any]] = [dict(scope), *_as_of_clauses(boundary)]
+    if q.require_valid_at_boundary is True:
+        entity_clauses += _validity_clauses(boundary)
+        edge_clauses += _validity_clauses(boundary)
+    if policy_versions is not None:
+        classification = _classification_clause(q)
+        if classification is None:
+            return None
+        permitted = {"policy_bundle_version": {"$in": sorted(policy_versions)}}
+        entity_clauses.append(permitted)
+        entity_clauses.append(classification)
+        # A relationship is admissible under the policy family iff its bundle
+        # version is permitted (`GQ-08` at
+        # docs/GRAPH_QUERY_SEMANTICS.md:163) — no classification cut of its
+        # own; endpoint survival governs its exposure.
+        edge_clauses.append(permitted)
+    if q.allowed_entities is not None:
+        # The uniform rule's set membership on entity selection (`GQ-15` at
+        # docs/GRAPH_QUERY_SEMANTICS.md:300): every family computes within the
+        # set, restricted before anything else evaluates — and the
+        # induced-subgraph rule on edge selection (`GQ-16` at
+        # docs/GRAPH_QUERY_SEMANTICS.md:316): both endpoints in the set.
+        allowed = sorted(q.allowed_entities)
+        entity_clauses.append({"entity_uri": {"$in": allowed}})
+        edge_clauses.append({"subject_uri": {"$in": allowed}})
+        edge_clauses.append({"object_uri": {"$in": allowed}})
+    if q.traverse is not None:
+        # Typed crossability doubles as answer membership: edges of other
+        # types are absent even between reached endpoints (`GQ-10` at
+        # docs/GRAPH_QUERY_SEMANTICS.md:201).
+        edge_clauses.append(
+            {"relationship_type": {"$in": sorted(q.traverse.relationship_types)}}
+        )
+    # Constraint presence gates endpoint closure exactly as the fallback's
+    # step 4 does: any family present, or `allowed_entities` non-None. The
+    # degenerate everything-question is exempt — its answer keeps dangling
+    # first-class edges (`GQ-05` at docs/GRAPH_QUERY_SEMANTICS.md:122;
+    # `GQ-21` at docs/GRAPH_QUERY_SEMANTICS.md:446).
+    constrained = (
+        q.allowed_entities is not None
+        or policy_versions is not None
+        or q.require_valid_at_boundary is not None
+        or q.traverse is not None
+    )
+    return entity_clauses, edge_clauses, constrained
+
+
+def _closure_clauses(
+    entity_rows: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Endpoint closure against the materialized survivors.
+
+    `GQ-16` at docs/GRAPH_QUERY_SEMANTICS.md:316 (INV-CH7-40): an answer view
+    never retains an edge to a node its principal may not see. Stated on the
+    surviving URIs rather than as a sub-query, because the survivor set is
+    already in hand — and because the same list is what the walk expands over,
+    so the two can never disagree.
+    """
+    survivors = sorted({row["entity_uri"] for row in entity_rows})
+    return [
+        {"subject_uri": {"$in": survivors}},
+        {"object_uri": {"$in": survivors}},
     ]
 
 
@@ -548,6 +694,100 @@ class MongoGraphReader(BaseGraphReader):
     def _translate_query(
         self, q: GraphQuery
     ) -> tuple[Sequence[Row], Sequence[Row]] | None:
-        """The aggregation-pipeline translation — installed by plan 15.2-13 Task 2."""
-        del q  # Task 2 replaces this with the staged `$match` translation.
-        return None
+        """Answer the whole query natively in the aggregation dialect.
+
+        The hook contract is all-or-nothing (`GQ-32` at
+        docs/GRAPH_QUERY_SEMANTICS.md:583): the return is the complete
+        answer's row pair — every predicate family applied, hop
+        admissibility applied, ``allowed_entities`` membership applied.
+
+        **Stage 1 (plan 15.2-13 Task 2) — `$match` pushdown.** Two filter
+        documents answer everything that is a *record* predicate:
+
+        1. **survivors** — the surviving entity claims: the as-of cut
+           (`GQ-07` at docs/GRAPH_QUERY_SEMANTICS.md:148, INV-CH7-14) as
+           canonical-text comparison, the validity window (`GQ-09` at
+           docs/GRAPH_QUERY_SEMANTICS.md:185) over the write-time
+           re-renderings, policy admissibility (`GQ-08` at
+           docs/GRAPH_QUERY_SEMANTICS.md:163) as a bundle-version ``$in``
+           plus an ``$or`` over the declared classes, and the uniform rule's
+           set membership (`GQ-15` at docs/GRAPH_QUERY_SEMANTICS.md:300) as
+           an ``entity_uri`` ``$in`` — the aggregation-pipeline ``$in`` the
+           semantics name as one of the conformant renderings (`GQ-30` at
+           docs/GRAPH_QUERY_SEMANTICS.md:563);
+        2. **edges** — the surviving relationship claims that may appear in
+           the answer: the same temporal cuts, the bundle-version cut, the
+           induced subgraph under ``allowed_entities`` (`GQ-16` at
+           docs/GRAPH_QUERY_SEMANTICS.md:316 — both endpoints in the set),
+           the permitted types when a traverse family is present, and
+           endpoint closure against the materialized survivors on every
+           constrained answer.
+
+        Two shapes short-circuit without a round trip: the empty
+        ``allowed_entities`` set IS the empty answer (`GQ-04` at
+        docs/GRAPH_QUERY_SEMANTICS.md:98), and a classification attribute
+        name that cannot safely become a document field path declines to the
+        fallback (:func:`attribute_field_path`) — still answered, per D-04.
+
+        Every filter is a ``dict`` built from typed contract fields. No value
+        is ever concatenated into anything, because there is nothing to
+        concatenate it into (threat T-15.2-01).
+        """
+        if q.allowed_entities is not None and not q.allowed_entities:
+            # The empty survivor set IS the answer (`GQ-04`): the empty view,
+            # answered without a substrate round trip. An empty answer is an
+            # answer, never an error (`GQ-23` at
+            # docs/GRAPH_QUERY_SEMANTICS.md:474).
+            return (), ()
+        if q.traverse is not None:
+            # Stage 1's shipped posture for the traverse family: decline
+            # BEFORE any round trip — the decline is a pure function of the
+            # query value — and the memory-bounded fallback answers the WHOLE
+            # query. Fully conformant under D-04, byte-identical, visible only
+            # in telemetry (`GQ-34` at docs/GRAPH_QUERY_SEMANTICS.md:609).
+            # Task 3 promotes this to a `$graphLookup` walk over the
+            # doubled-edge collection.
+            return None
+        scope = self._store.scope(q.tenant_id)
+        filters = _translated_filters(q, scope=scope)
+        if filters is None:
+            return None
+        entity_clauses, edge_clauses, constrained = filters
+        entity_rows = self._survivors(entity_clauses)
+        if constrained:
+            edge_clauses += _closure_clauses(entity_rows)
+        return entity_rows, self._crossable(edge_clauses)
+
+    # -- the two pushed reads the translation is built from -------------------
+
+    def _survivors(
+        self, clauses: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """The surviving entity claims under the segment's record predicates."""
+        return [
+            dict(row)
+            for row in self._store.collection(ENTITY_CLAIMS).find(
+                _combine(clauses),
+                _SURVIVOR_PROJECTION,
+                sort=[("entity_uri", 1)],
+            )
+        ]
+
+    def _crossable(
+        self, clauses: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """The surviving relationship claims that may appear in the answer.
+
+        On a traverse query this is also the walk's whole expansion surface:
+        permitted types, the induced subgraph under ``allowed_entities``, and
+        both endpoints surviving — so an edge to an excluded node is not a hop
+        the walk can take (`GQ-13` at docs/GRAPH_QUERY_SEMANTICS.md:261).
+        """
+        return [
+            dict(row)
+            for row in self._store.collection(RELATIONSHIP_CLAIMS).find(
+                _combine(clauses),
+                _CROSSABLE_PROJECTION,
+                sort=[("relationship_key", 1)],
+            )
+        ]

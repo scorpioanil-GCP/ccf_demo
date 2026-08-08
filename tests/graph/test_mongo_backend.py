@@ -121,6 +121,110 @@ def test_attribute_field_path_refuses_unsafe_names() -> None:
         assert attribute_field_path(unsafe) is None, unsafe
 
 
+class _RefusingStore:
+    """A store whose collections cannot be reached.
+
+    Touching :meth:`collection` is the failure the tests below are asserting
+    the absence of: a translation that declined must decline *before* it
+    builds anything a server could run.
+    """
+
+    def scope(self, tenant_id: str) -> dict[str, str]:
+        return {"partition": "ccf_test", "tenant_id": tenant_id}
+
+    def collection(self, name: str) -> Any:
+        raise AssertionError(
+            f"a declined translation reached collection {name!r}"
+        )
+
+
+def _reader_over_a_refusing_store() -> Any:
+    """A ``MongoGraphReader`` bound to :class:`_RefusingStore`, no server."""
+    from ccf.graph.backends.mongo import MongoGraphReader
+
+    reader = MongoGraphReader.__new__(MongoGraphReader)
+    reader._store = _RefusingStore()
+    return reader
+
+
+@pytest.mark.parametrize("unsafe", ["$where", "attributes.classification"])
+def test_an_unsafe_attribute_name_declines_before_any_pipeline(
+    unsafe: str,
+) -> None:
+    """A `$`-prefixed or dotted attribute name never becomes a field path.
+
+    The decline is asserted where it matters — *before* a filter document
+    exists — by binding the reader to a store whose collections raise. The
+    query is still answered: the hook returns ``None`` and the fallback
+    answers the whole query (`GQ-32` at
+    docs/GRAPH_QUERY_SEMANTICS.md:583), byte-identical under D-04.
+    """
+    from datetime import UTC, datetime
+
+    from ccf.graph.protocols import GraphQuery
+
+    reader = _reader_over_a_refusing_store()
+    q = GraphQuery(
+        tenant_id=TENANT,
+        as_of=datetime(2026, 1, 1, tzinfo=UTC),
+        permitted_policy_bundle_versions=frozenset({"1.0.0"}),
+        classification_attribute_by_class={SEED_CLASS: unsafe},
+        permitted_classifications=frozenset({PERMITTED_CLASSIFICATION}),
+    )
+    assert reader._translate_query(q) is None
+
+
+def test_empty_allowed_set_answers_empty_without_a_round_trip() -> None:
+    """The empty survivor set IS the answer (`GQ-04`) — no collection touched."""
+    from datetime import UTC, datetime
+
+    from ccf.graph.protocols import GraphQuery
+
+    reader = _reader_over_a_refusing_store()
+    empty = GraphQuery(
+        tenant_id=TENANT,
+        as_of=datetime(2026, 1, 1, tzinfo=UTC),
+        allowed_entities=frozenset(),
+    )
+    assert reader._translate_query(empty) == ((), ())
+
+
+def test_no_query_text_is_assembled_anywhere_in_the_module() -> None:
+    """Grep the module: nothing formats or concatenates a filter.
+
+    The Neo4j adapter's twin test has to name its ONE sanctioned formatting
+    site (the Cypher depth literal, which cannot be a parameter). MongoDB's
+    claim is stronger and needs no exception: a filter is a ``dict``, so there
+    is no query text for a value to be interpolated into (threat T-15.2-01).
+    The f-strings that do exist render an identity string, an exception
+    message and a prefixed field name — never anything a server parses — and
+    the field name passes ``attribute_field_path`` first.
+    """
+    import re
+    from inspect import getsource
+
+    import ccf.graph.backends.mongo as module
+
+    source = getsource(module)
+    # Nothing in the module builds a Mongo operator token out of a value: no
+    # f-string and no concatenation produces a leading `$`.
+    assert not re.findall(r'f"\$\{', source)
+    assert not re.findall(r'"\$"\s*\+', source)
+    assert not re.findall(r'\+\s*"\$', source)
+    # Every `$`-prefixed operator in the module is a literal key.
+    operators = set(re.findall(r'"(\$[a-zA-Z]+)"', source))
+    assert operators <= {
+        "$and",
+        "$or",
+        "$in",
+        "$lte",
+        "$gt",
+        "$graphLookup",
+        "$match",
+        "$project",
+    }, sorted(operators)
+
+
 def test_boot_refuses_mongo_plus_another_backend() -> None:
     """Selecting mongo *and* memory is a contradiction, refused loudly.
 
