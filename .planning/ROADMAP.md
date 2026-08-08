@@ -609,9 +609,9 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 15.2-08-PLAN.md — Replay pins per D-11: dim-5 hash tuple + query bytes in the ArtifactStore (`ccf.graph-query`) + D-10 cap value on the deployment manifest with dim-2 pin + replay recompute-and-compare
-- [ ] 15.2-09-PLAN.md — SQLite/Postgres native pushdown (recursive CTE, hop admissibility + allowed_entities membership in the recursive term)
-- [ ] 15.2-10-PLAN.md — `ProductSource`: tier-2 Context-Product-as-source over the admission gate
+- [x] 15.2-08-PLAN.md — Replay pins per D-11: dim-5 hash tuple + query bytes in the ArtifactStore (`ccf.graph-query`) + D-10 cap value on the deployment manifest with dim-2 pin + replay recompute-and-compare
+- [x] 15.2-09-PLAN.md — SQLite/Postgres native pushdown (recursive CTE, hop admissibility + allowed_entities membership in the recursive term)
+- [x] 15.2-10-PLAN.md — `ProductSource`: tier-2 Context-Product-as-source over the admission gate
 
 **Wave 6** *(blocked on Wave 5)*
 
@@ -740,7 +740,7 @@ reader can see which code is CCF and which is theirs.
 | 14.1. Docs — Deterministic Path & Adoption Argument | — | Superseded by 16 | — |
 | 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 (gated with carried debt; CR-1/CR-2 close in 15.1) |
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
-| 15.2. Substrate Adapters and Query Pushdown | 7/14 | In Progress|  |
+| 15.2. Substrate Adapters and Query Pushdown | 10/14 | In Progress|  |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 0/? | Planned   | — |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
