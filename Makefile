@@ -30,6 +30,7 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 	example-06 example-07 example-08 example-ext-00 \
 	example-03-live-ollama example-03-live-anthropic \
 	example-ext-00-live-anthropic example-ext-00-live-adk \
+	legs leg-postgres leg-neo4j leg-mongo \
 	perf perf-micro perf-scale perf-xproc perf-replay \
 	docs docs-strict docs-serve openapi schemas schema-headers surface \
 	surface-changes measure-examples
@@ -94,6 +95,43 @@ example-ext-00: ## Run examples/external/00-hello-context — all legs determini
 	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py
 
 examples: example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 example-ext-00 ## Run all ten examples in order, stopping on first failure
+
+# Container-gated substrate legs (DI-15.2-04, D-GATE-15.2). These reproduce the
+# ci.yml service-container steps command-for-command, so a developer runs a leg
+# the same way CI runs it (D-10). Two properties are load-bearing and must not
+# be dropped:
+#   - `$(ENV)` puts the *working tree's* src/ on the path. Without it a bare
+#     pytest resolves `ccf` through the editable install's hard-coded mapping to
+#     the primary checkout, so a worktree tests code it did not change.
+#   - `CCF_REQUIRE_*` turns an unreachable server from a skip into a failure. A
+#     leg that quietly skips is a green run that proved nothing.
+# Each URI is overridable on the command line for a differently-provisioned
+# server, e.g. `make leg-mongo CCF_TEST_MONGO_URI=mongodb://localhost:27019`.
+#
+# Postgres carries no default on purpose: `postgres_dsn` starts a `postgres:16`
+# testcontainer when CCF_TEST_POSTGRES_DSN is unset, and baking in a DSN would
+# disable that and hang against a server nobody started. Neo4j and Mongo have
+# no auto-start path, so they default to the ci.yml service-container URIs.
+CCF_TEST_NEO4J_URI ?= neo4j://neo4j:ccf_test_password@localhost:7687
+CCF_TEST_MONGO_URI ?= mongodb://localhost:27017/ccf_test
+
+ifneq ($(strip $(CCF_TEST_POSTGRES_DSN)),)
+PG_DSN_ENV := CCF_TEST_POSTGRES_DSN=$(CCF_TEST_POSTGRES_DSN)
+endif
+
+legs: leg-postgres leg-neo4j leg-mongo ## Run all three container-gated substrate legs (DI-15.2-04)
+
+leg-postgres: ## Postgres leg against a real server — GraphStore conformance + differential (D-11/D-16)
+	$(ENV) CCF_REQUIRE_POSTGRES=1 $(PG_DSN_ENV) \
+		$(PYTHON) -m pytest tests -q -m postgres -rs
+
+leg-neo4j: ## Neo4j leg against a real server — Cypher pushdown byte-identical to the fallback (plan 15.2-12)
+	$(ENV) CCF_REQUIRE_NEO4J=1 CCF_TEST_NEO4J_URI=$(CCF_TEST_NEO4J_URI) \
+		$(PYTHON) -m pytest tests -q -m neo4j -rs
+
+leg-mongo: ## MongoDB leg against a real server — staged aggregation pushdown (plan 15.2-13)
+	$(ENV) CCF_REQUIRE_MONGO=1 CCF_TEST_MONGO_URI=$(CCF_TEST_MONGO_URI) \
+		$(PYTHON) -m pytest tests -q -m mongo -rs
 
 # Perf battery (Phase 11). `perf` NEVER joins `ci` or `ci-core`: always-on CI
 # never times anything (Phase-8 D-10 / D-IMPL-70) — perf runs only via these
