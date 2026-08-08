@@ -973,3 +973,107 @@ def test_fa4a_control_an_unretracted_value_survives_alongside_the_new_one(
         assert superseded == [SUPERSEDED_OLD, SUPERSEDED_NEW], readback.text
 
     print("\nF-A4(a) control evidence:\n" + json.dumps(evidence, indent=2, sort_keys=True))
+
+
+# --- always-on unit tests (plan 15.3-02) --------------------------------------
+#
+# No server, no marker. The live-server behaviour — writes through booted L2,
+# the interposed layout, the offset-authored projection — runs under the
+# `fluree` marker below and in tests/conformance/test_graphstore.py.
+#
+# `test_module_imports_without_the_driver` (test_neo4j_backend.py:35-43) is
+# deliberately NOT ported. It asserts that a module stays importable without an
+# optional extra installed; httpx is a core pin, so the assertion cannot fail
+# and a test that cannot fail is worse than no test. The honest parallel — that
+# no extra, no lazy import and no mypy override were added at all — is a
+# configuration assertion and lives in the phase gate package.
+
+
+def test_graph_identity_carries_no_credentials() -> None:
+    """The identity string drops userinfo entirely (threat T-15.2-05).
+
+    The single-writer check keys on this string and it lands in exception
+    messages, so the password and user are dropped rather than merely "not
+    usually shown" — the T-04-24 postgres precedent, unit-asserted here given
+    a credentialed URL.
+    """
+    from ccf.graph.backends.fluree import _graph_identity
+
+    identity = _graph_identity(
+        "http://alice:s3cret-password@graph.example.com:8090",
+        ledger="ccf:main",
+        partition="ccf_test",
+    )
+    assert "s3cret-password" not in identity
+    assert "alice" not in identity
+    assert identity == "fluree://graph.example.com:8090/ccf:main#ccf_test"
+
+
+def test_server_root_drops_userinfo_before_the_client_sees_it() -> None:
+    """The httpx client is built on a credential-free origin.
+
+    A bearer token is a header and never reaches the URL; userinfo supplied in
+    the URL is removed here, so it survives into no request line, no redirect
+    target and no connection-pool key.
+    """
+    from ccf.graph.backends.fluree import _server_root
+
+    root = _server_root("http://alice:s3cret@graph.example.com:8090/ignored")
+    assert root == "http://graph.example.com:8090"
+    assert "s3cret" not in root
+    assert "alice" not in root
+
+
+def test_partitions_are_distinct_graphs() -> None:
+    """Two partitions in one ledger are two graph identities.
+
+    The Postgres two-schemas-are-two-graphs rule, carried over: what makes the
+    single-writer check meaningful per fabric rather than per server. D-03
+    keeps one CCF-owned ledger, so the partition is the whole of what
+    distinguishes two fabrics on this substrate.
+    """
+    from ccf.graph.backends.fluree import _graph_identity
+
+    one = _graph_identity(
+        "http://host:8090", ledger="ccf:main", partition="fabric_a"
+    )
+    two = _graph_identity(
+        "http://host:8090", ledger="ccf:main", partition="fabric_b"
+    )
+    assert one != two
+
+
+def test_minted_ids_are_colonless_and_content_addressed() -> None:
+    """No artifact-authored string ever occupies an IRI position (§R3).
+
+    An `@id` is an IRI position and the strict compact-IRI guard rejects
+    `prefix:suffix` with an undefined prefix at parse time — so an
+    artifact-authored `entity_uri`, which may legally contain a colon, must
+    never become one. `_mint_id` is the single site that produces identifiers
+    and it produces colonless, opaque, content-addressed ones.
+    """
+    from ccf.graph.backends.fluree import _mint_id
+
+    hazard = "counterparty:acme"
+    minted = _mint_id("e", "ccf", "tenant-a", hazard)
+    assert ":" not in minted
+    assert hazard not in minted
+    assert minted.startswith("ccf_e_")
+    # Content-addressed: the same node identity always mints the same `@id`,
+    # which is what makes a re-admission re-assert byte-identical triples.
+    assert minted == _mint_id("e", "ccf", "tenant-a", hazard)
+    assert minted != _mint_id("e", "ccf", "tenant-b", hazard)
+
+
+def test_the_adapter_context_carries_no_coercion() -> None:
+    """D-02's hard condition, asserted rather than trusted.
+
+    No `@vocab`, no `@base`, no term definitions — therefore no datatype
+    coercion, and every string lands as `xsd:string` (probe F-A5 read all six
+    temporal datatypes back and confirmed it). `@vocab` in particular is not a
+    style question: adding it to a ledger whose data was written bare changes
+    what every Cypher statement matches, silently.
+    """
+    from ccf.graph.backends.fluree import ADAPTER_CONTEXT
+
+    assert ADAPTER_CONTEXT == {}
