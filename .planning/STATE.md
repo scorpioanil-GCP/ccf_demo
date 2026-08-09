@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: ready_to_plan
-last_updated: 2026-08-09T07:49:54.759Z
-last_activity: 2026-08-09 -- Phase 15.3 gated (D-GATE-15.3); Phase 15.4 commissioned
+last_updated: 2026-08-09T08:22:57.000Z
+last_activity: 2026-08-09 -- Phase 15.4 context gathered; ROADMAP 15.4 detail section repaired
 progress:
-  total_phases: 15
-  completed_phases: 12
+  total_phases: 16
+  completed_phases: 13
   total_plans: 91
   completed_plans: 102
-  percent: 80
-stopped_at: Phase 15.3 COMPLETE and gated (D-GATE-15.3, Dave, 2026-08-09). Next: Phase 15.4 — backend registration seam, commissioned by D-IMPL-93, precedes Phase 16. Residual: 15.3-HUMAN-UAT.md carries 2 GitHub-Actions observations (non-blocking); 6 code-review findings open as recorded debt (WR-01, WR-04, WR-05, WR-06, IN-02, IN-03).
+  percent: 81
+stopped_at: Phase 15.4 context gathered (15.4-CONTEXT.md, commit 8e9fdc7). Twelve decisions locked, six from Dave: two write modules per backend (lint keeps its current shape), manifest-names-it plus entry-point discovery, third-party code imported only when the manifest names it, typed per-adapter config models, manifest holds secret references not values. Half-measures explicitly ruled out. ROADMAP 15.4 detail section was missing and blocked every GSD handler -- repaired in 8e9fdc7. Next: /gsd:plan-phase 15.4. Deferred and documented: Dave's four-database FIBO comparison harness at /home/parkave/fluree/examples/fibo/ (192.168.4.76) for a later cross-adapter demonstration phase. Residual from 15.3: 2 GitHub-Actions UAT observations (non-blocking); 6 code-review findings open as recorded debt (WR-01, WR-04, WR-05, WR-06, IN-02, IN-03).
 ---
 
 # STATE — CCF SDK
@@ -30,7 +30,7 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 Phase: 15.4
 Plan: Not started
-Status: Ready to discuss
+Status: Ready to plan
   Commissioned by D-IMPL-93 (Dave, 2026-08-09): the substrate may evolve and
   gain capability, but must never carry a unique dependency on a named adapter
   and must never change per-adapter. Measured against that standard at
