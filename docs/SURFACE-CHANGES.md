@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**377 entries**, of which **159** name a public Python surface.
+**379 entries**, of which **161** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-139 entries — 111 public Python surface, 28 not public Python API.
+141 entries — 113 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -2380,6 +2380,58 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   exactly one `importlib.import_module` call site across `src/` and `runtime/`,
   asserted by test (T-15.4-03)
 - Migration: none — new surface
+
+*Recorded by `15.4-02-registry.md`.*
+
+#### ccf.graph.registry.validate_connection
+
+- Surface: ccf.graph.registry.validate_connection
+- Public surface: true
+- Change type: added
+- Before: absent. Two separate refusals in `ccf.deployment.manifest`, driven by
+  a hand-written mapping from backend kind to the one connection argument it
+  needed, plus two more in `ccf.boot._open_backend` — four hand-maintained
+  checks, none of which could be reused by a third-party adapter
+- After: `validate_connection(registration, connection) -> CCFContract` — one
+  function, validating a settings mapping against the adapter's own config
+  model. It takes the *record* rather than a name, because every caller already
+  holds one from `resolve` and taking a name would run discovery a second time.
+  The refusal names the adapter (Pydantic names the model class, which is not
+  the same thing), names the field as a dotted path, sorts its lines so two
+  runs over one bad mapping produce one message, and reports every problem in
+  one exception
+- Why: T-15.4-05. A refusal built from a `ValidationError`'s own rendering
+  embeds the value that was supplied, and one of those values is a credential —
+  a misspelled connection key is precisely the case where a credential lands
+  under a key nobody declared. Every line here is built from the error's field
+  location and reason only; the supplied value is never read, and the refusal
+  is raised outside the handler so the exception carries no chain at all —
+  `raise ... from None` would only have suppressed the *printed* chain and left
+  the `ValidationError` reachable on the object. Giving the refusal a
+  single owner *is* the mitigation: three hand-rolled wrappers in the registry,
+  the composition root and the manifest is how one of them ends up formatting
+  `str(exc)`
+- Migration: none — new surface
+
+*Recorded by `15.4-02-registry.md`.*
+
+#### ccf.graph.registry.InvalidBackendConfig
+
+- Surface: ccf.graph.registry.InvalidBackendConfig
+- Public surface: true
+- Change type: added
+- Before: absent — a bad connection mapping raised a bare `ValueError` from the
+  manifest preflight, indistinguishable by type from an unknown backend name
+- After: a `ValueError` subclass raised by `validate_connection`. Subclassing
+  `ValueError` keeps every existing caller and every existing
+  `pytest.raises(ValueError)` working, while a caller that wants to tell a
+  malformed connection mapping apart from an unresolvable adapter name can have
+  the precise type
+- Why: the two failures have different fixes — one is a typo in a settings key,
+  the other is a package that is not installed — and a type that cannot
+  distinguish them makes a caller parse a message to find out
+- Migration: none — new surface. Existing `except ValueError` handlers still
+  catch it
 
 *Recorded by `15.4-02-registry.md`.*
 

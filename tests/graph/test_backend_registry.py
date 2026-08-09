@@ -46,10 +46,12 @@ from ccf.graph.registry import (
     BACKEND_ENTRY_POINT_GROUP,
     BackendRegistration,
     DuplicateBackendName,
+    InvalidBackendConfig,
     ReservedBackendName,
     UnknownBackend,
     declared_names,
     resolve,
+    validate_connection,
 )
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -624,3 +626,142 @@ def test_the_registration_record_is_frozen() -> None:
 
     with pytest.raises(dataclasses.FrozenInstanceError):
         record.name = "beta"
+
+
+class _ProbeConnection(CCFContract):
+    """A fixture config model. Nothing is registered until plan 15.4-04.
+
+    ``endpoint`` is required and ``partition`` is not, which is the shape every
+    adapter's settings actually have: one thing the deployment must say and one
+    thing it may. ``token_ref`` names a *reference*, never a value — the
+    contract validates references and resolution happens afterwards, which is
+    the ordering that keeps a resolved credential out of anything a validation
+    error can reach.
+    """
+
+    endpoint: str
+    partition: str | None = None
+    token_ref: str | None = None
+
+
+def _fixture_registration(name: str = "alpha") -> BackendRegistration:
+    return BackendRegistration(
+        name=name,
+        config_model=_ProbeConnection,
+        secret_fields=frozenset({"token_ref"}),
+        open_store=_unreachable,
+        make_writer=_unreachable,
+    )
+
+
+def test_a_valid_mapping_returns_the_validated_model() -> None:
+    """The happy path, asserted so the refusals below are not vacuous."""
+    validated = validate_connection(
+        _fixture_registration(), {"endpoint": "somewhere", "partition": "p"}
+    )
+
+    assert isinstance(validated, _ProbeConnection)
+    assert validated.endpoint == "somewhere"
+
+
+def test_a_missing_required_field_names_the_adapter_and_the_field() -> None:
+    """V11 — and specifically the half Pydantic does not supply.
+
+    Pydantic names the *model class*. The refusal this function replaces named
+    the **adapter**, which is the thing an adopter typed into a manifest, so a
+    migration that kept only Pydantic's text would quietly have lost half of
+    the refusal. Both halves are asserted.
+    """
+    with pytest.raises(InvalidBackendConfig) as caught:
+        validate_connection(_fixture_registration(), {})
+
+    message = str(caught.value)
+    assert "alpha" in message
+    assert "endpoint" in message
+
+
+def test_an_undeclared_key_is_refused_and_the_key_is_named() -> None:
+    """V12 at registry level — the refusal ``extra="forbid"`` buys.
+
+    This is the protection most easily lost in the migration. It used to be an
+    explicit loop over every connection argument checking that only the
+    required one was present; under one mapping validated against one model it
+    comes entirely from the contract base's ``extra="forbid"``. A config model
+    written against a plain open base would drop it with no test failing —
+    valid manifests would still work.
+    """
+    with pytest.raises(InvalidBackendConfig) as caught:
+        validate_connection(
+            _fixture_registration(), {"endpoint": "somewhere", "endpiont": "x"}
+        )
+
+    assert "endpiont" in str(caught.value)
+
+
+def test_one_exception_carries_every_problem_in_a_stable_order() -> None:
+    """Three problems, one message, and the same message twice.
+
+    An adopter handed one problem at a time reads the same file four times.
+    Sorting is what makes two runs over one bad mapping produce one message
+    rather than two orderings of the same one.
+    """
+    bad = {"partition": 7, "surplus_one": "a", "surplus_two": "b"}
+
+    with pytest.raises(InvalidBackendConfig) as caught:
+        validate_connection(_fixture_registration(), dict(bad))
+    message = str(caught.value)
+
+    for token in ("endpoint", "partition", "surplus_one", "surplus_two"):
+        assert token in message, (token, message)
+
+    with pytest.raises(InvalidBackendConfig) as again:
+        validate_connection(_fixture_registration(), dict(bad))
+    assert str(again.value) == message
+
+
+def test_a_supplied_value_never_reaches_the_refusal() -> None:
+    """T-15.4-05 — WR-02's failure one layer up, and why this is a function.
+
+    Pydantic's ``ValidationError`` embeds ``input_value=`` verbatim, for
+    ``extra_forbidden`` as much as for a type error. So the case that matters
+    most is a misspelled key: a typo in a connection key means the value beside
+    it was meant for somewhere else, and one of those values is a credential.
+
+    Every line of the refusal is built from the error's field location and
+    reason only. The chained exception is suppressed as well, because a
+    traceback is a log and the chained exception's own text carries exactly
+    what this message exists to keep out of one.
+    """
+    secret = "sk-live-do-not-log-me-9f3a"
+
+    with pytest.raises(InvalidBackendConfig) as caught:
+        validate_connection(
+            _fixture_registration(),
+            {"endpoint": "somewhere", "tokn_ref": secret},
+        )
+
+    assert "tokn_ref" in str(caught.value)
+    assert secret not in str(caught.value)
+    assert secret not in repr(caught.value)
+    assert caught.value.__cause__ is None
+    assert caught.value.__context__ is None
+
+
+def test_the_connection_refusal_is_a_value_error() -> None:
+    """Existing callers refuse a bad manifest with ``ValueError``.
+
+    Keeping the base class is what makes this a drop-in for them; adding the
+    subclass is what stops a settings typo being indistinguishable by type
+    from an adapter nobody installed.
+    """
+    assert issubclass(InvalidBackendConfig, ValueError)
+
+
+def test_the_fixture_config_model_forbids_extras_by_construction() -> None:
+    """The undeclared-key refusal only exists because the base is closed.
+
+    Asserted on the fixture model here; plan 15.4-04 asserts it across every
+    registered adapter. Both are needed — this one pins the property the
+    function under test depends on, that one pins the adapters' compliance.
+    """
+    assert _ProbeConnection.model_config["extra"] == "forbid"

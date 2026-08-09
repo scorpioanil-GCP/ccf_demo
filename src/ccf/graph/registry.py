@@ -108,7 +108,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
 from ccf.contracts.base import CCFContract
 from ccf.graph.protocols import GraphReader
@@ -132,12 +132,14 @@ __all__ = [
     "BackendRegistration",
     "BackendStore",
     "DuplicateBackendName",
+    "InvalidBackendConfig",
     "ReservedBackendName",
     "ResolvedBackend",
     "ResolvedSecret",
     "UnknownBackend",
     "declared_names",
     "resolve",
+    "validate_connection",
 ]
 
 #: The entry-point group a third-party distribution declares an adapter under.
@@ -205,6 +207,16 @@ class ReservedBackendName(ValueError):
     against manifest squatting: a name the SDK ships cannot be claimed from
     outside, because the alternative is a deployment whose adapter set depends
     on discovery order.
+    """
+
+
+class InvalidBackendConfig(ValueError):
+    """A connection mapping does not satisfy its adapter's config model.
+
+    Subclasses ``ValueError`` so every caller that already refuses a bad
+    manifest with ``ValueError`` keeps working, while a caller that wants to
+    tell a malformed connection mapping apart from an unresolvable adapter name
+    can have the precise type.
     """
 
 
@@ -612,3 +624,125 @@ def _load_builtin(module_path: str) -> object | None:
     """
     module = importlib.import_module(module_path)
     return getattr(module, REGISTRATION_ATTRIBUTE, None)
+
+
+def validate_connection(
+    registration: BackendRegistration,
+    connection: Mapping[str, object],
+) -> CCFContract:
+    """Validate a connection mapping against one adapter's config model.
+
+    **The one place a connection refusal is built.** Three callers need this —
+    the composition root, the manifest preflight, and the fixture that boots a
+    conformance leg — and three hand-rolled versions is how a credential gets
+    back into a message: a refusal formatted from a ``ValidationError``'s own
+    rendering embeds the value that was supplied, and one of those values is a
+    credential.
+
+    It takes the *record* rather than a name because every caller already holds
+    one from :func:`resolve`; taking a name would run discovery a second time
+    for nothing.
+
+    The message contract, which is the reason this is a function at all:
+
+    * **Every line is built from the error's field location and reason only.**
+      The supplied value is never read and the error's own rendering is never
+      interpolated. See the comment at the construction site for the two keys
+      that are forbidden and why.
+    * **The message names the adapter.** Pydantic names the *model class*,
+      which is not the same thing, and the refusal this replaces named the
+      adapter — so a migration that kept only Pydantic's text would quietly
+      have lost half of the refusal.
+    * **The message names the field**, as a dotted path so a nested field reads
+      as one.
+    * **Lines are sorted**, so two runs over one bad mapping produce one
+      message.
+    * **One exception carries every problem.** A mapping with three problems
+      should say all three; an adopter who fixes them one at a time reads the
+      same file four times.
+    * **The raised exception carries no chain.** The refusal is raised after
+      the handler has exited, so ``__context__`` and ``__cause__`` are both
+      empty. ``raise ... from None`` would not have been enough: it suppresses
+      the *printed* chain and leaves the ``ValidationError`` — text and
+      supplied values intact — reachable on the exception object, which is
+      where a structured logger or an error reporter would find it.
+
+    The case to get exactly right is an undeclared key, because that is the one
+    carrying an adopter's typo — and a typo in a connection key means the value
+    beside it was meant for somewhere else. The error's field location holds the
+    offending key, which is what the message needs; the error's input holds what
+    was supplied under it, which is what the message must never contain.
+
+    What this deliberately does not do, because "the registry validates
+    everything" is the natural next assumption and would put a second wrapper
+    here for no gain:
+
+    * It does not resolve an adapter.
+    * It does not touch the credential mapping. The refusal for a credential
+      supplied for a field an adapter never declared names a *key* and never a
+      value, so it needs no sanitizing, and it stays where the selection is
+      made — in the composition root for a direct caller, in preflight for a
+      manifest. Both of those refusals read in the same shape as this one:
+      adapter, then field.
+
+    The residual, stated rather than claimed away: an adapter's own validator
+    can put whatever it likes in the message it raises, and Pydantic reports
+    that text as the reason. An adapter config model's validators stay
+    value-free for the same reason this function does — the posture the
+    networked adapters already take, where neither credential appears in any
+    message the module raises.
+
+    Args:
+        registration: The adapter's record, as returned by :func:`resolve`.
+        connection: The settings mapping to validate. **References, never
+            resolved values** — a resolved credential inside a mapping that is
+            about to be validated is the one input shape this contract cannot
+            protect.
+
+    Returns:
+        The validated settings model.
+
+    Raises:
+        InvalidBackendConfig: the mapping does not satisfy the config model.
+    """
+    try:
+        return registration.config_model.model_validate(dict(connection))
+    except ValidationError as error:
+        refusal = _connection_refusal(registration, error)
+    # Raised **outside** the ``except`` block, and that placement is the whole
+    # of one mitigation. ``raise ... from None`` sets ``__suppress_context__``
+    # so a printed traceback omits the chained error — but it leaves
+    # ``__context__`` pointing at the ``ValidationError``, whose text carries
+    # the supplied value. Anything that walks exception chains explicitly (a
+    # structured logger, an error reporter) would find the credential there.
+    # Raising after the handler has exited attaches no implicit context at all,
+    # so the object carries nothing to walk.
+    raise InvalidBackendConfig(refusal)
+
+
+def _connection_refusal(
+    registration: BackendRegistration, error: ValidationError
+) -> str:
+    """The refusal text for one failed connection validation.
+
+    Its own function so the two safe keys and the two forbidden ones are stated
+    in one place a reviewer can read whole.
+    """
+    # ``detail["loc"]`` is the field path and ``detail["msg"]`` is the reason;
+    # both are safe. ``detail["input"]`` is the value that was supplied and is
+    # NEVER read, and neither is ``str(error)``, which embeds that value
+    # verbatim. Do not simplify this back to either: one of those values is a
+    # credential, and a misspelled connection key is precisely the case where a
+    # credential lands under a key nobody declared.
+    lines = sorted(
+        f"  {'.'.join(str(part) for part in detail['loc']) or '<root>'}"
+        f" — {detail['msg']}"
+        for detail in error.errors()
+    )
+    return "\n".join(
+        [
+            f"backend {registration.name!r}: its connection settings are"
+            " invalid:",
+            *lines,
+        ]
+    )
