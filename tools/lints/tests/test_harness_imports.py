@@ -179,3 +179,67 @@ def test_a_read_module_inside_the_adapter_package_is_not_guarded() -> None:
     # Only `<name>_write` modules join the guarded set; the read module beside
     # them is imported by many callers and stays unguarded by this rule.
     assert not is_write_module("ccf.graph.backends.sqlite")
+
+
+# --- both spellings of an import (CR-02) ------------------------------------
+#
+# The rule used to read only the dotted name an `ImportFrom` carries, so the
+# two forms below produced nothing. Each is a negative control: the assertion
+# is that the rule *fires*, and each of them was green-for-nothing before.
+
+
+def test_from_package_import_of_the_neutral_base_is_flagged() -> None:
+    """The blind spot that let any core module reach ``mint_boot_token``.
+
+    ``from ccf.graph import _writer`` binds the neutral base and the name the
+    statement carries is ``ccf.graph``, which matches nothing this rule denies.
+    With it unseen, "even with a writer implementation on disk, no other module
+    can name it" was not true as written.
+    """
+    findings = check_source(
+        "from ccf.graph import _writer\n", SRC, "ccf.operators.traversal"
+    )
+    assert _rules(findings) == [RULE_GRAPH_WRITER]
+    assert "ccf.graph._writer" in findings[0]
+
+
+def test_from_package_import_of_a_per_backend_write_module_is_flagged() -> None:
+    """And the blind spot that let one adapter name another's write module.
+
+    ``cinv02-backend-import`` exempts everything under the adapter package —
+    an adapter may name its siblings — so this rule is the only one that can
+    see a *reader* reaching a **different** adapter's write module. It saw
+    ``ccf.graph.backends`` and stopped.
+    """
+    findings = check_source(
+        "from ccf.graph.backends import sqlite_write\n",
+        SRC,
+        "ccf.graph.backends.mongo",
+    )
+    assert _rules(findings) == [RULE_GRAPH_WRITER]
+    assert A_WRITE_MODULE in findings[0]
+
+
+def test_a_write_module_may_still_name_its_own_reader() -> None:
+    # The other side of the bound: a read module is not in the guarded set, so
+    # naming one through the package spelling stays legal.
+    findings = check_source(
+        "from ccf.graph.backends import mongo\n", SRC, "ccf.graph.backends.mongo_write"
+    )
+    assert findings == []
+
+
+def test_a_write_module_may_name_the_base_through_the_package_spelling() -> None:
+    findings = check_source(
+        "from ccf.graph import _writer\n", SRC, A_WRITE_MODULE
+    )
+    assert findings == []
+
+
+def test_two_write_modules_in_one_statement_report_once() -> None:
+    findings = check_source(
+        "from ccf.graph.backends import sqlite_write, mongo_write\n",
+        SRC,
+        "ccf.operators.traversal",
+    )
+    assert _rules(findings) == [RULE_GRAPH_WRITER]

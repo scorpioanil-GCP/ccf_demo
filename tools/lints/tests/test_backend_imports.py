@@ -56,6 +56,33 @@ def test_import_of_the_adapter_package_itself_is_flagged() -> None:
         f"from {BACKENDS_PACKAGE} import sqlite_write\n", BOOT, "ccf.boot"
     )
     assert _rules(findings) == [RULE_BACKEND_IMPORT]
+    # One statement, one finding — and the finding names the write module
+    # rather than the package that merely contains it (CR-02).
+    assert A_WRITE_MODULE in findings[0]
+
+
+def test_from_package_import_submodule_is_flagged_by_its_own_name() -> None:
+    """CR-02 — the spelling `imported_module_names` alone cannot see.
+
+    `from ccf.graph import backends` binds `ccf.graph.backends` at runtime,
+    but the dotted name the statement carries is `ccf.graph`. The rule read
+    only that name until this finding, so the plainest possible spelling of
+    the import it exists to deny produced nothing at all.
+    """
+    findings = check_source("from ccf.graph import backends\n", BOOT, "ccf.boot")
+    assert _rules(findings) == [RULE_BACKEND_IMPORT]
+    assert BACKENDS_PACKAGE in findings[0]
+
+
+def test_two_adapters_in_one_statement_report_once() -> None:
+    # The finding is about the statement, not about how many spellings of the
+    # guarded package it matches.
+    findings = check_source(
+        f"from {BACKENDS_PACKAGE} import sqlite_write, mongo_write\n",
+        BOOT,
+        "ccf.boot",
+    )
+    assert _rules(findings) == [RULE_BACKEND_IMPORT]
 
 
 def test_function_scope_import_is_flagged_at_the_import_line() -> None:

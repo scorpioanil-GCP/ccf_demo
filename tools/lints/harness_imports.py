@@ -44,14 +44,23 @@ Three rules, one AST walk:
     per-backend write module; a test pins that asymmetry so widening one set
     cannot quietly widen the other.
 
-    What this rule does not see: it reads the dotted names
-    :func:`~tools.lints.imported_module_names` reports, so
-    ``from ccf.graph import _writer`` and
-    ``from ccf.graph.backends import <name>_write`` are seen as ``ccf.graph``
-    and ``ccf.graph.backends`` and match nothing here. The first is a
-    pre-existing blind spot of this rule; the second is covered by
-    ``cinv02-backend-import`` in ``tools/lints/backend_imports.py``, which
-    denies the adapter package to every module outside it.
+    **Both spellings of an import are read** (review finding CR-02). The rule
+    used to reason only about the names
+    :func:`~tools.lints.imported_module_names` reports, which meant
+    ``from ccf.graph import _writer`` was seen as ``ccf.graph`` and matched
+    nothing — so any module under ``src/`` or ``runtime/`` could reach
+    ``mint_boot_token`` and name a concrete writer class with zero findings,
+    and a reader module could name a *different* adapter's write module with
+    zero findings. Both spellings bind the submodule at runtime, so both are
+    now resolved through :func:`~tools.lints.reached_module_names`, and the
+    check reports at most one finding per import statement rather than one per
+    spelling that statement matches.
+
+    That is also why the two halves of the walk read different name sets. The
+    harness and vendor-LLM deny lists reason about *distribution* names, where
+    the expanded form would be a claim about a package this rule has no
+    business making; the write-module check reasons about one repository's own
+    modules, where the expanded form is exactly the name that matters.
 
 ``cinv02-deployment-gates``
     The adopter-facing wiring package ``ccf.deployment`` may not import
@@ -88,6 +97,7 @@ from tools.lints import (
     imported_module_names,
     matches_module,
     read_tree,
+    reached_module_names,
 )
 
 RULE_HARNESS = "cinv02-harness"
@@ -175,22 +185,6 @@ def is_write_module(name: str) -> bool:
     ].endswith(WRITE_MODULE_SUFFIX)
 
 
-def submodule_import_names(node: ast.AST) -> list[str]:
-    """Dotted names an ``ImportFrom`` reaches by naming a *submodule*.
-
-    ``from ccf.products import gates`` binds ``ccf.products.gates`` just as
-    surely as ``import ccf.products.gates`` does, but
-    :func:`~tools.lints.imported_module_names` reports only ``ccf.products`` for
-    it — correctly, since it cannot tell a submodule from an attribute. This
-    supplements it for the rules that deny a specific *module*: a name that is
-    an attribute rather than a submodule simply never matches a deny entry, so
-    over-reaching here costs nothing.
-    """
-    if not isinstance(node, ast.ImportFrom) or node.level or not node.module:
-        return []
-    return [f"{node.module}.{alias.name}" for alias in node.names]
-
-
 def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]:
     """Check already-read `source` attributed to `path` / `module_name`."""
     tree = read_tree(source, path)
@@ -202,8 +196,8 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
     ) or matches_module(module_name, ORCHESTRATION_MODULES)
 
     for node in ast.walk(tree):
+        lineno = getattr(node, "lineno", 0)
         for name in imported_module_names(node):
-            lineno = getattr(node, "lineno", 0)
             if matches_module(name, HARNESS_DENY) and not in_harness_adapter:
                 findings.append(
                     format_finding(
@@ -226,29 +220,34 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
                         f" ({', '.join(sorted(LLM_ADAPTER_MODULES))})",
                     )
                 )
-            if is_write_module(name):
-                neutral = name == WRITER_MODULE
-                permitted = (
-                    NEUTRAL_WRITER_OK_MODULES if neutral else WRITER_OK_MODULES
-                )
-                allowed = matches_module(module_name, permitted) or (
-                    neutral and is_write_module(module_name)
-                )
-                if not allowed:
-                    where = ", ".join(sorted(permitted))
-                    if neutral:
-                        where += ", and any guarded write module"
-                    findings.append(
-                        format_finding(
-                            path,
-                            lineno,
-                            RULE_GRAPH_WRITER,
-                            f"GraphWriter module {name!r} is importable only"
-                            f" from {where}"
-                            f" (single-writer invariant, CLAUDE.md §10);"
-                            f" {module_name!r} may not name it",
-                        )
+        # The write-module check reads every name the statement reaches, not
+        # only the one `imported_module_names` reports, and it reports at most
+        # one finding per statement — see the walk's own note below on why the
+        # two halves of this loop read different name sets.
+        reached = reached_module_names(node)
+        guarded = sorted(n for n in reached if is_write_module(n))
+        if guarded:
+            name = guarded[0]
+            neutral = name == WRITER_MODULE
+            permitted = NEUTRAL_WRITER_OK_MODULES if neutral else WRITER_OK_MODULES
+            allowed = matches_module(module_name, permitted) or (
+                neutral and is_write_module(module_name)
+            )
+            if not allowed:
+                where = ", ".join(sorted(permitted))
+                if neutral:
+                    where += ", and any guarded write module"
+                findings.append(
+                    format_finding(
+                        path,
+                        lineno,
+                        RULE_GRAPH_WRITER,
+                        f"GraphWriter module {name!r} is importable only"
+                        f" from {where}"
+                        f" (single-writer invariant, CLAUDE.md §10);"
+                        f" {module_name!r} may not name it",
                     )
+                )
 
         if not in_deployment:
             continue
@@ -256,9 +255,6 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
         # ``from ccf.products.gates import run_gates`` matches on both the
         # module name and the expanded ``...gates.run_gates``, and reporting
         # the same line twice is noise, not evidence.
-        reached = set(imported_module_names(node)) | set(
-            submodule_import_names(node)
-        )
         denied = sorted(n for n in reached if matches_module(n, (GATES_MODULE,)))
         if denied:
             findings.append(

@@ -42,7 +42,14 @@ import ast
 import pathlib
 from typing import Iterable
 
-__all__ = ["format_finding", "imported_module_names", "matches_module", "read_tree"]
+__all__ = [
+    "format_finding",
+    "imported_module_names",
+    "matches_module",
+    "read_tree",
+    "reached_module_names",
+    "submodule_import_names",
+]
 
 
 def format_finding(path: pathlib.Path, lineno: int, rule: str, message: str) -> str:
@@ -68,6 +75,42 @@ def imported_module_names(node: ast.AST) -> list[str]:
             return []
         return [node.module]
     return []
+
+
+def submodule_import_names(node: ast.AST) -> list[str]:
+    """Dotted names an ``ImportFrom`` reaches by naming a *submodule*.
+
+    ``from ccf.graph import _writer`` binds ``ccf.graph._writer`` just as surely
+    as ``import ccf.graph._writer`` does, but :func:`imported_module_names`
+    reports only ``ccf.graph`` for it — correctly, since it cannot tell a
+    submodule from an attribute without importing, which a lint must not do.
+
+    This supplements it for the rules that deny a specific *module*. A name that
+    is an attribute rather than a submodule simply never matches a deny entry,
+    so over-reaching here costs nothing; under-reaching cost the single-writer
+    static gate its central claim (review finding CR-02).
+
+    Lives here rather than in one checker because three rules need it —
+    ``cinv02-graph-writer``, ``cinv02-backend-import`` and
+    ``cinv02-deployment-gates`` — and a helper imported from a sibling checker
+    is how one rule's edit silently changes another's.
+    """
+    if not isinstance(node, ast.ImportFrom) or node.level or not node.module:
+        return []
+    return [f"{node.module}.{alias.name}" for alias in node.names]
+
+
+def reached_module_names(node: ast.AST) -> set[str]:
+    """Every module name one import statement could bring into scope.
+
+    The union of :func:`imported_module_names` and
+    :func:`submodule_import_names`. A **set**, because a rule that denies a
+    module wants one finding per import statement rather than one per spelling
+    that statement matches: ``from ccf.graph.backends import sqlite_write``
+    matches on both the package and the expanded submodule, and reporting the
+    same line twice is noise, not evidence.
+    """
+    return set(imported_module_names(node)) | set(submodule_import_names(node))
 
 
 def matches_module(name: str, prefixes: Iterable[str]) -> bool:

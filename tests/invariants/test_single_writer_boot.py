@@ -139,11 +139,24 @@ def _neutral_base_importers() -> list[str]:
     Only real import statements count — the module is *named* in several
     docstrings, and a check that flagged prose would push people to stop
     explaining the invariant.
+
+    **Three spellings, because two of them were a blind spot** (review finding
+    CR-02). ``from ccf.graph import _writer`` binds the neutral base as surely
+    as the two forms this pattern originally matched, and it mirrored the same
+    gap in ``cinv02-graph-writer`` itself — so the test that exists to repeat
+    the lint's assertion could not have caught what the lint was missing. The
+    third alternative is deliberately loose about what sits between ``import``
+    and ``_writer``, because ``from ccf.graph import reader, _writer`` is the
+    same import wearing a comma.
     """
     import re
 
     importers = re.compile(
-        r"^\s*(?:from\s+ccf\.graph\._writer\s+import|import\s+ccf\.graph\._writer)",
+        r"^\s*(?:"
+        r"from\s+ccf\.graph\._writer\s+import"
+        r"|import\s+ccf\.graph\._writer"
+        r"|from\s+ccf\.graph\s+import\s+[^\n]*\b_writer\b"
+        r")",
         re.MULTILINE,
     )
     source_root = Path(__file__).resolve().parents[2] / "src"
