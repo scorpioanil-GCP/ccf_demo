@@ -273,6 +273,24 @@ P_POLICY_KEY = "ccf_policy_key"
 #: class probe F-A6 caught.
 POLICY_KEY_SEPARATOR = "\x00"
 
+#: Namespace prefixes on :data:`P_ADMIT_KEY`, read side. These are what make an
+#: ``entity_uri`` and a ``relationship_key`` incapable of colliding inside the
+#: walk's single ``$admissible`` parameter list.
+#:
+#: The write half lives in ``ccf.graph._writer`` (that module imports this one;
+#: the reverse would break the CINV-02 confinement and cycle), so — exactly as
+#: for :data:`POLICY_KEY_SEPARATOR` — the two constructions are held identical
+#: by an executable assertion rather than by comment:
+#: ``tests/graph/test_fluree_backend.py::
+#: test_the_write_path_materializes_exactly_the_admit_keys_the_walk_pushes``
+#: reads both keys back off the server and compares them against these. A
+#: drifted prefix would otherwise produce a walk whose ``all(...)`` predicate
+#: is false for every path — an **empty reached set with a 200**, which is the
+#: same silent-failure class probe F-A6 caught and the exact shape do-not-copy
+#: #1 warns about.
+ENTITY_ADMIT_PREFIX = "e:"
+RELATIONSHIP_ADMIT_PREFIX = "r:"
+
 #: L-axis entry identity.
 P_CLAIM_KIND = "ccf_claim_kind"
 P_NODE_KEY = "ccf_node_key"
@@ -328,13 +346,31 @@ MAX_TXN_BODY_BYTES = 9_000_000
 #: :meth:`FlureeGraphStore.post_query` would send.
 MAX_QUERY_BODY_BYTES = 900_000
 
-#: Mechanism safety bound on the ONE value a translated statement would inline
-#: into query text: the validated traversal-depth literal. Declared here on the
+#: Mechanism safety bound on the ONE value a translated statement inlines into
+#: query text: the validated traversal-depth literal. Declared here on the
 #: Neo4j precedent (``backends/neo4j.py:292-306``) so the read translation
 #: lands against a bound that already exists. A ``depth_limit`` above the
 #: ceiling is still answered by the fallback (D-04); the ceiling bounds Cypher
-#: text, never the query vocabulary.
+#: text, never the query vocabulary. **Applied to the CCF depth, before
+#: :func:`_reach_pattern` doubles it** — see that function.
 MAX_DEPTH_CEILING = 100
+
+#: The substring identifying a path-enumeration cap refusal, **measured** by
+#: probe F-A3(c) rather than taken from documentation. The full message on
+#: ``fluree/server:4.1.4`` is ``"Query error: Resource limit exceeded: path
+#: enumeration exceeded max paths (1000); narrow the pattern (tighter hop
+#: bounds, a bound end node, or a specific type)"`` under
+#: ``"@type":"err:db/InvalidQuery"``.
+#:
+#: The cap **errors rather than truncating**, which is why it needs an answer
+#: at all: a truncating cap would silently narrow a reached set, while an
+#: erroring one is a hard failure the adapter can convert into a decline. The
+#: match is deliberately the resource-limit phrase rather than the full text —
+#: any resource-limit refusal of the walk is answerable the same way, and
+#: pinning the parenthesised ``1000`` would bind the adapter to a server
+#: default. It is deliberately **not** ``err:db/InvalidQuery``, which also
+#: covers genuine statement defects that must keep failing loudly.
+PATH_CAP_MARKER = "Resource limit exceeded"
 
 
 #: The charset an artifact-authored attribute name must satisfy before it may
@@ -725,24 +761,27 @@ class FlureeGraphStore:
 # statements do, so lineage-at-boundary and supersession-as-of stay rendered in
 # the one shared place (INV-CH7-14).
 #
-# **Stage 1 pushes the non-traverse families only.** A traverse query returns
-# ``None`` and the fallback answers the WHOLE query — conformant under D-04,
-# byte-identical by construction (`GQ-34`), and visible in `fallback_answers`
-# telemetry rather than hidden. The walk is plan 15.3-04's; the interposed-edge
-# layout it reads is already maintained by the write path.
+# **Every predicate family is pushed** as of plan 15.3-04: stage 1 landed the
+# non-traverse families, stage 2 the bounded undirected walk. A decline still
+# sends the WHOLE query to the fallback — conformant under D-04, byte-identical
+# by construction (`GQ-34`), and visible in `fallback_answers` telemetry rather
+# than hidden — but it is now reserved for the four named guards rather than
+# taken for a whole family.
 #
 # **This is not the Neo4j translation with a prefix change.** Two of its
 # predicates cannot be ported and both were measured rather than assumed:
 # `_ENTITY_POLICY`'s dynamic property access evaluates to null here (probe
 # F-A6 — it fails *silently*, returning 200), and `_WALK_EDGES_ALL`'s
-# relationship-property reads see nothing on a plain RDF edge. The first is
-# resolved below by membership over the write-time materialized key; the second
-# is what the interposed edge node exists for.
+# relationship-property reads see nothing on a plain RDF edge (probe F-A3(e),
+# measured `[null, null]`). The first is resolved below by membership over the
+# write-time materialized key; the second is what the interposed edge node
+# exists for.
 #
-# Unlike Neo4j, this module contains **no string-formatting site at all**: Neo4j
-# must inline the variable-length depth literal because Cypher bounds cannot be
-# parameters, and stage 1 renders no walk. Every value here binds as a `$param`
-# (threat T-15.2-01).
+# Like Neo4j, this module contains **exactly one string-formatting site** —
+# `_reach_pattern`'s variable-length bound. Plan 15.3-03 shipped with none, and
+# that stronger property was spent by probe F-A2, which measured both
+# parameterized bound forms rejected `400` at parse time. Every other value
+# here binds as a `$param` (threat T-15.2-01).
 
 _SURVIVORS_MATCH = (
     "MATCH (c:CcfEntityClaim {ccf_partition: $partition,"
@@ -859,8 +898,10 @@ _EDGE_ALLOWED = (
 #: so it is untouched by the relationship-property break that forced the
 #: interposed edge, and the artifact-authored type list rides as a ``$types``
 #: parameter rather than as a Cypher relationship-type pattern (threat
-#: T-15.2-01). Stage 1 declines every traverse query, so this fragment is
-#: assembled only once plan 15.3-04 pushes the walk.
+#: T-15.2-01). It is also what makes the walk's hop predicate pure membership:
+#: because crossability is decided **here**, the walk needs no type cut of its
+#: own — which is exactly what saves it from the deferred bounded
+#: type-alternation (§R5 Break 2).
 _EDGE_TYPES = "  AND rc.ccf_relationship_type IN $types\n"
 
 #: Endpoint closure against the surviving universe (`GQ-16`, INV-CH7-40): an
@@ -885,6 +926,131 @@ _EDGES_RETURN = (
     "ORDER BY rc.ccf_relationship_key"
 )
 
+# --- the interposed walk, stage 2 (plan 15.3-04) -----------------------------
+#
+# ⛔ **Do not port `_WALK_EDGES_ALL` (``backends/neo4j.py:440-446``).** It reads
+# RELATIONSHIP properties — `r.partition`, `r.relationship_key`,
+# `r.relationship_type` — and on this engine a plain RDF edge has none: a
+# property-reading relationship variable sees only reifier-bundled edges. The
+# ported predicate would make `all(...)` false for every path, return an
+# **empty reached set**, answer `200`, and raise nothing. That is not covered
+# by Fluree's "clear error, never a silently wrong result" promise, which is
+# about parse-time rejection of unsupported *forms*; this form parses fine
+# (15.3-RESEARCH.md §R5 Break 1, §5 do-not-copy #1, Pitfall 7 — whose named
+# warning sign is a traversal returning exactly the seeds and nothing else, at
+# every depth).
+#
+# Probe **F-A3(e) CONFIRMED the break by measurement** before these fragments
+# were written: projecting a relationship property out of a path's relationship
+# list, over the layout the write path produces, returns `[null, null]`. The
+# executable form of this rule is
+# `tests/graph/test_fluree_backend.py::test_no_relationship_property_is_read`,
+# which greps this module for a path-relationship projection and requires zero.
+#
+# Compounding it, the only bounded variable-length pattern this engine admits
+# is a **single fixed relationship type** — bounded type-alternation (a
+# pipe-separated relationship pattern with hop bounds) and undirected-untyped
+# (`-[*]-`) are both deferred upstream (Break 2) — so a two-type shape such as
+# `HAS_EDGE`/`TO` would reintroduce the very constraint being escaped. That
+# option was considered and rejected; `CCF_LINK` and nothing else appears in
+# any pattern here.
+#
+# The resolution is Mongo's, in a different physical model: move the
+# information onto NODE properties and reduce every hop predicate to
+# **membership in a set the adapter already computed**
+# (``backends/mongo.py:862-873``). Crossability — type, temporal, policy,
+# validity, `allowed_entities` on both endpoints, endpoint closure — is
+# already fully decided by the edges statement that computes the crossable
+# set; the walk re-states nothing, because a re-derivation is a second place
+# for the semantics to live and the two would eventually disagree. Secondary
+# "shortcut" relationships are rejected outright for the same reason.
+
+#: The seed, scoped. The inline map is not decoration: D-03 puts every
+#: partition of every fabric in **one ledger**, so an unscoped
+#: `seed.ccf_admit_key IN $starts` matches that URI in every partition present
+#: — measured at 175 matches against 1 on the container the probes ran on
+#: (F-A3(f)). The scope also rides inside the path predicate below, so the
+#: confinement is a property of the statement rather than a side effect of how
+#: `$admissible` happens to be computed elsewhere (threats T-15.2-03 /
+#: T-15.2-26), exactly as ``backends/neo4j.py:411-427`` states it.
+_WALK_MATCH_PREFIX = (
+    "MATCH p = (seed:CcfEntity {ccf_partition: $partition,"
+    " ccf_tenant_id: $tenant})"
+)
+_WALK_MATCH_SUFFIX = "(x:CcfEntity)\n"
+
+#: Hop admissibility as **one** node predicate over **one** prefix-namespaced
+#: parameter list (`GQ-13` at docs/GRAPH_QUERY_SEMANTICS.md:261, INV-CH7-40):
+#: every node on every path — entity nodes and interposed edge nodes alike —
+#: must be a member of the set the adapter already computed, so a path through
+#: an excluded node **does not exist**. Probe F-A3(b) measured that distinction
+#: rather than assuming it: with the intermediate's key removed, the path count
+#: to the target is 0, not merely its absence from the returned rows. The
+#: difference is the whole of threat T-15.2-26 — output-side filtering would
+#: leave the resurrection shape unprotected.
+#:
+#: `$admissible` is built in Python as the `e:`-prefixed survivors-and-allowed
+#: union the `r:`-prefixed crossable keys. The two prefixes are what make an
+#: `entity_uri` incapable of colliding with a `relationship_key` in one list.
+_WALK_NODES_ALL = (
+    "WHERE seed.ccf_admit_key IN $starts\n"
+    "  AND all(n IN nodes(p) WHERE n.ccf_partition = $partition\n"
+    "          AND n.ccf_tenant_id = $tenant\n"
+    "          AND n.ccf_admit_key IN $admissible)\n"
+)
+
+_WALK_RETURN = "RETURN DISTINCT x.ccf_entity_uri AS entity_uri"
+
+
+def _reach_pattern(depth: int) -> str:
+    """The variable-length reach pattern — the ONE string-formatting site.
+
+    Probe **F-A2 FAILED** as expected: both `-[:CCF_LINK*1..$depth]-` and the
+    quantified `-[:CCF_LINK{1,$depth}]-` are rejected `400` at parse time
+    (``"expected `]` but got `$depth`"``), so a variable-length bound cannot be
+    a request parameter here any more than it can on Neo4j. Had either parsed,
+    this module would have kept plan 15.3-03's stronger property of containing
+    **no formatting site at all**; it does not, so this is the single named,
+    documented exception to the everything-is-a-parameter rule (threat
+    T-15.2-01), and it admits exactly one value shape: a genuine ``int``
+    (``bool`` refused), at least 1 (depth 0 never reaches this function — the
+    walk is skipped and the starting points are the answer), and at most
+    :data:`MAX_DEPTH_CEILING` (over-ceiling queries never reach it either — the
+    translation declines and the fallback answers under D-04).
+
+    **The ceiling is checked against the CCF depth, BEFORE the doubling.** A
+    CCF hop is *two* Cypher hops through the interposed edge node, so the
+    rendered bound is ``2 * depth``. The graph is bipartite
+    (entity-edge-entity), so parity handles itself once the terminal is
+    labelled ``(x:CcfEntity)``: only even-length paths end at an entity.
+
+    This ``×2`` is the replacement for Mongo's ``maxDepth: depth_limit - 1``
+    off-by-one — structurally absent here because Cypher's ``*1..N`` is 1-based
+    — and it is exactly the same class of error, which is why it is asserted
+    against the fallback at depths 0, 1, 2 **and** 3 rather than reasoned about
+    (15.3-RESEARCH.md Pitfall 13: an off-by-factor-of-two is silent and
+    surfaces only as an ordinary differential failure at depth >= 2). Replay is
+    unaffected: the pinned value is ``content_hash(GraphQuery)``, never the
+    rendered Cypher (`GQ-20` at docs/GRAPH_QUERY_SEMANTICS.md:391).
+
+    Raises:
+        ValueError: the caller broke the validation contract above — an
+            internal invariant violation, never a query-vocabulary refusal.
+    """
+    if (
+        not isinstance(depth, int)
+        or isinstance(depth, bool)
+        or depth < 1
+        or depth > MAX_DEPTH_CEILING
+    ):
+        raise ValueError(
+            f"traversal depth literal must be an int in [1, "
+            f"{MAX_DEPTH_CEILING}]; got {depth!r} — callers gate depth 0 and "
+            "the over-ceiling decline before rendering, and the ceiling "
+            "applies to the CCF depth before the interposed doubling"
+        )
+    return f"-[:CCF_LINK*1..{2 * depth}]-"
+
 
 class FlureeGraphReader(BaseGraphReader):
     """``GraphReader`` over a Fluree ledger — dialect and rows only.
@@ -908,12 +1074,12 @@ class FlureeGraphReader(BaseGraphReader):
     use the inline form as copied from ``backends/neo4j.py:519-565``.
 
     The reader holds the Cypher ``GraphQuery`` translation:
-    :meth:`_translate_query` answers **non-traverse** queries natively — the
+    :meth:`_translate_query` answers **every** predicate family natively — the
     as-of cut, the validity window, the policy family as membership over the
-    write-time materialized key, and ``allowed_entities`` membership as a
-    request list parameter — and declines the traverse family to the fallback
-    (stage 1 of D-04's staging; the walk is plan 15.3-04's). A declined
-    translation is not a gap: the fallback's answer *is* the definition and is
+    write-time materialized key, ``allowed_entities`` membership as a request
+    list parameter, and (plan 15.3-04) the bounded undirected traversal as a
+    walk over the interposed edge-node layout. A declined translation is still
+    not a gap: the fallback's answer *is* the definition and is
     byte-identical by construction (`GQ-34` at
     docs/GRAPH_QUERY_SEMANTICS.md:609), which is exactly why a passing
     differential suite cannot be read as evidence of pushdown and why the
@@ -998,13 +1164,13 @@ class FlureeGraphReader(BaseGraphReader):
     def _translate_query(
         self, q: GraphQuery
     ) -> tuple[Sequence[Row], Sequence[Row]] | None:
-        """Answer a non-traverse query natively in Cypher (plan 15.3-03).
+        """Answer the whole query natively in Cypher (plans 15.3-03/15.3-04).
 
         The hook contract is all-or-nothing (`GQ-32` at
         docs/GRAPH_QUERY_SEMANTICS.md:583): the return is the complete answer's
         row pair — every predicate family applied, ``allowed_entities``
         membership applied — or ``None``, meaning the fallback enforces the
-        whole query. Two statements run in sequence:
+        whole query. Up to three statements run in sequence:
 
         1. **survivors** — the surviving entity claims: the as-of cut (`GQ-07`
            at docs/GRAPH_QUERY_SEMANTICS.md:148, INV-CH7-14) as canonical-text
@@ -1013,15 +1179,22 @@ class FlureeGraphReader(BaseGraphReader):
            materialized key, and the uniform rule's set membership (`GQ-15`) as
            a request list parameter;
         2. **edges** — the surviving relationship claims that may appear in the
-           answer: the induced subgraph under ``allowed_entities`` (`GQ-16`)
-           and endpoint closure against the materialized survivors on every
-           constrained answer.
+           answer: typed crossability (`GQ-10`), the induced subgraph under
+           ``allowed_entities`` (`GQ-16`) and endpoint closure against the
+           materialized survivors on every constrained answer. This statement
+           is what **decides crossability**; the walk below re-states none of
+           it;
+        3. **walk** — on a traverse query only: the bounded undirected reach
+           (`GQ-10`) over the interposed edge-node layout, with hop
+           admissibility (`GQ-13`) as membership in the set steps 1 and 2
+           already computed. The reached set then filters both row sets, which
+           is the Cypher analogue of the SQL adapters' outer ``SELECT``s.
 
-        **Fluree has no read transaction to hold two statements in**, and it
+        **Fluree has no read transaction to hold these statements in**, and it
         needs none: CCF has exactly one writer (INV-CH7-10), the store threads
-        the highest written ``t`` into ``Fluree-Min-T`` on every read, and both
-        statements are issued inside one :meth:`query` call — so they observe
-        one consistent state without a transaction to hold them.
+        the highest written ``t`` into ``Fluree-Min-T`` on every read, and all
+        of them are issued inside one :meth:`query` call — so they observe one
+        consistent state without a transaction to hold them.
 
         Three shapes never reach the server, and each is a *guard* rather than
         a degradation — it changes which path answers, never the answer:
@@ -1032,14 +1205,11 @@ class FlureeGraphReader(BaseGraphReader):
         * a query whose policy family cannot be encoded injectively declines
           (:func:`policy_key`).
 
-        A fourth decline is measured rather than computed: the rendered request
-        body is checked against :data:`MAX_QUERY_BODY_BYTES` before each
-        statement is sent.
-
-        **Stage 1 declines the whole traverse family** — the fallback answers
-        the entire query, which is conformant under D-04 and invisible to
-        replay, and shows up as a ``fallback_answers`` increment rather than as
-        a silent tail.
+        Two further declines are measured rather than computed: the rendered
+        request body is checked against :data:`MAX_QUERY_BODY_BYTES` before
+        each statement is sent, and a walk refused by the server's
+        path-enumeration cap (:data:`PATH_CAP_MARKER`) declines **after** a
+        round trip — see the catch, which explains why that is deliberate.
         """
         if q.allowed_entities is not None and not q.allowed_entities:
             # The empty survivor set IS the answer (`GQ-04`): the empty view,
@@ -1058,15 +1228,10 @@ class FlureeGraphReader(BaseGraphReader):
             # through the edge node, so bounding the rendered pattern means
             # bounding the number this reads, not the number 15.3-04 renders.
             #
-            # In stage 1 this branch is subsumed by the traverse decline below;
-            # it is stated separately because the two say different things and
-            # only this one survives plan 15.3-04's promotion.
-            return None
-        if q.traverse is not None:
-            # STAGE 1 BOUNDARY. Not "the walk narrowed as far as it can" —
-            # the whole query goes to the fallback, so no partial-family
-            # bookkeeping exists to get wrong (`GQ-32`). Plan 15.3-04 replaces
-            # this branch with the interposed-edge walk.
+            # This is now the ONLY depth guard: plan 15.3-04's promotion
+            # removed the blanket traverse decline that used to subsume it, so
+            # the branch is reached on its own terms and the unit assertion
+            # over it became discriminating.
             return None
 
         policy_versions = q.permitted_policy_bundle_versions
@@ -1121,6 +1286,9 @@ class FlureeGraphReader(BaseGraphReader):
             survivor_text.append(_ENTITY_ALLOWED)
             edge_text.append(_EDGE_ALLOWED)
             params["allowed"] = sorted(q.allowed_entities)
+        if q.traverse is not None:
+            edge_text.append(_EDGE_TYPES)
+            params["types"] = sorted(q.traverse.relationship_types)
         if constrained:
             edge_text.append(_EDGE_CLOSURE)
         survivor_text.append(_SURVIVORS_RETURN)
@@ -1136,6 +1304,93 @@ class FlureeGraphReader(BaseGraphReader):
         if not self._within_body_budget(edges_cypher, params):
             return None
         relationship_rows = self._store.post_query(edges_cypher, params)
+        if q.traverse is None:
+            return entity_rows, relationship_rows
+
+        # Walk-start selection within survivors (`GQ-11` at
+        # docs/GRAPH_QUERY_SEMANTICS.md:221): seed classes select within the
+        # surviving universe; explicit seeds intersect with it — a URI naming
+        # nothing in scope contributes no start.
+        survivor_uris = {row["entity_uri"] for row in entity_rows}
+        starts = {
+            row["entity_uri"]
+            for row in entity_rows
+            if row["entity_class"] in q.traverse.seed_entity_classes
+        }
+        if q.seeds is not None:
+            starts |= set(q.seeds) & survivor_uris
+        # Seeds are IN the answer. `*1..N` starts at one hop, so this
+        # correction transfers verbatim from the Neo4j template
+        # (``backends/neo4j.py:714``) — it is really Neo4j's correction, not
+        # Mongo's `$graphLookup` seed exclusion.
+        reached = set(starts)
+        if starts and q.traverse.depth_limit >= 1:
+            # depth_limit=0 skips the MATCH entirely: `*1..0` is not a bound,
+            # and depth 0 answers with the walk starting points — a legal
+            # bound, not an error (`GQ-10` at
+            # docs/GRAPH_QUERY_SEMANTICS.md:201). Mongo's third correction,
+            # transferring verbatim.
+            reachable = survivor_uris
+            if q.allowed_entities is not None:
+                # The uniform rule stated explicitly in the term that expands
+                # the walk (`GQ-15` at docs/GRAPH_QUERY_SEMANTICS.md:300).
+                # Survivors are already restricted to the set by
+                # `_ENTITY_ALLOWED`, so this is a closure rather than a new
+                # cut — the D-IMPL-87 resurrection defect held shut in the
+                # term that could reopen it (``backends/neo4j.py:429-434``).
+                reachable = survivor_uris & q.allowed_entities
+            admissible = {ENTITY_ADMIT_PREFIX + uri for uri in reachable} | {
+                RELATIONSHIP_ADMIT_PREFIX + row["relationship_key"]
+                for row in relationship_rows
+            }
+            walk_cypher = "".join(
+                (
+                    _WALK_MATCH_PREFIX,
+                    _reach_pattern(q.traverse.depth_limit),
+                    _WALK_MATCH_SUFFIX,
+                    _WALK_NODES_ALL,
+                    _WALK_RETURN,
+                )
+            )
+            params["starts"] = sorted(
+                ENTITY_ADMIT_PREFIX + uri for uri in starts
+            )
+            params["admissible"] = sorted(admissible)
+            if not self._within_body_budget(walk_cypher, params):
+                return None
+            try:
+                walk_rows = self._store.post_query(walk_cypher, params)
+            except httpx.HTTPStatusError as refusal:
+                if PATH_CAP_MARKER not in refusal.response.text:
+                    raise
+                # The path-enumeration cap **errors** rather than truncating
+                # (measured, probe F-A3(c)), so it is a hard failure the
+                # adapter converts into a decline: `None` sends the WHOLE
+                # query to the D-04 fallback, which answers byte-identically
+                # by construction (`GQ-34`) and increments `fallback_answers`.
+                #
+                # Unlike every existing decline in the tree this one happens
+                # **after a round trip** — it cannot be a pure function of the
+                # query value, because whether the cap fires depends on the
+                # graph's density, which no query inspection can know. That is
+                # a deliberate, documentable difference rather than a contract
+                # violation: `GQ-32` constrains what a **non-`None`** return
+                # must contain, never when `None` may be produced. The cost is
+                # wasted requests; the alternative is a `500` reaching the
+                # caller for a question the fallback can answer.
+                return None
+            reached |= {row["entity_uri"] for row in walk_rows}
+        # The reached set filters both row sets — the Cypher analogue of the
+        # SQL adapters' `IN (SELECT uri FROM walk)` outer SELECTs; the walk
+        # itself ran in the engine.
+        entity_rows = [
+            row for row in entity_rows if row["entity_uri"] in reached
+        ]
+        relationship_rows = [
+            row
+            for row in relationship_rows
+            if row["subject_uri"] in reached and row["object_uri"] in reached
+        ]
         return entity_rows, relationship_rows
 
     @staticmethod

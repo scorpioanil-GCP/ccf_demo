@@ -1880,21 +1880,24 @@ def test_offset_authored_validity_lands_as_canonical_utc_text(
 # below.
 
 
-def test_no_formatting_site_renders_query_text() -> None:
-    """Grep the module: **zero** f-strings reach Cypher text.
+def test_exactly_one_formatting_site_renders_query_text() -> None:
+    """Grep the module: exactly one f-string reaches Cypher text.
 
-    Strictly stronger than the Neo4j equivalent
-    (`test_neo4j_backend.py::test_exactly_one_formatting_site_renders_query_text`),
-    and the difference is structural rather than stylistic. Neo4j must inline
-    one value — the variable-length depth literal, because Cypher bounds cannot
-    be parameters — and that literal is its concentrated injection surface
-    (threat T-15.2-01). Stage 1 renders no walk at all, so this module's
-    injection surface is empty: every value binds as a `$param`.
+    **This assertion REPLACES plan 15.3-03's stronger zero-site one, and the
+    replacement is a recorded loss rather than a relaxation.** Stage 1 rendered
+    no walk, so the module's injection surface was genuinely empty — strictly
+    better than Neo4j. Probe F-A2 then measured that a variable-length bound
+    cannot be a ``$param`` on this engine either (both forms rejected ``400``
+    at parse time), so the walk costs exactly the one site the Neo4j adapter
+    pays, on the same value and with the same validation contract
+    (`test_neo4j_backend.py::test_exactly_one_formatting_site_renders_query_text`).
+    Renaming rather than deleting keeps the property under assertion: a second
+    formatting site would still turn this red.
 
-    The f-strings that do exist are inspected individually below and none of
-    them lands in a statement: identity strings, URL paths, error messages, and
-    `_query`'s `f"p{index}"`, which renders a parameter *name* under the
-    positional binding convention.
+    The other f-strings in the module are inspected individually and none lands
+    in a statement: identity strings, URL paths, error messages, and `_query`'s
+    `f"p{index}"`, which renders a parameter *name* under the positional
+    binding convention.
     """
     import re
     from inspect import getsource
@@ -1905,7 +1908,87 @@ def test_no_formatting_site_renders_query_text() -> None:
     cypher_shaped = re.findall(
         r'f"[^"]*(?:MATCH|MERGE|RETURN|WHERE|\[:|\*1\.\.)[^"]*"', source
     )
-    assert cypher_shaped == [], cypher_shaped
+    assert len(cypher_shaped) == 1, cypher_shaped
+    assert "*1..{2 * depth}" in cypher_shaped[0], cypher_shaped
+
+
+def test_reach_pattern_doubles_the_ccf_depth_and_validates_it() -> None:
+    """The ONE formatting site: `-[:CCF_LINK*1..2d]-`, refusing everything else.
+
+    Two claims, both measured rather than reasoned about elsewhere:
+
+    * **the doubling.** A CCF hop is TWO Cypher hops through the interposed
+      edge node, so CCF depth 1 renders `*1..2` and CCF depth 3 renders
+      `*1..6`. This is the replacement for Mongo's `maxDepth: depth_limit - 1`
+      off-by-one — structurally absent because Cypher's `*1..N` is 1-based —
+      and it is the same class of error, which is why
+      `test_fluree_interposed_depth_matches_the_fallback_at_zero_one_two_and_three`
+      asserts it against a live differential control as well as here;
+    * **the validation contract**, ported intact from
+      `backends/neo4j.py`: the depth literal is the concentrated injection
+      surface (threat T-15.2-01), so bools, negatives, zero and over-ceiling
+      values all refuse. The ceiling is checked against the **CCF** depth,
+      before doubling — `MAX_DEPTH_CEILING` renders `*1..200`, not `*1..100`.
+    """
+    from ccf.graph.backends.fluree import MAX_DEPTH_CEILING, _reach_pattern
+
+    assert _reach_pattern(1) == "-[:CCF_LINK*1..2]-"
+    assert _reach_pattern(3) == "-[:CCF_LINK*1..6]-"
+    assert _reach_pattern(MAX_DEPTH_CEILING) == (
+        f"-[:CCF_LINK*1..{2 * MAX_DEPTH_CEILING}]-"
+    )
+    for bad in (0, -1, MAX_DEPTH_CEILING + 1, True):
+        with pytest.raises(ValueError, match="depth literal"):
+            _reach_pattern(bad)
+
+
+def test_no_relationship_property_is_read() -> None:
+    """Do-not-copy #1, as an executable rule rather than a comment.
+
+    ⛔ `_WALK_EDGES_ALL` (`backends/neo4j.py:440-446`) reads relationship
+    properties, and a plain RDF edge on this engine has none — probe F-A3(e)
+    measured `[null, null]` over the layout the write path produces. A ported
+    predicate would make `all(...)` false for every path and return an **empty
+    reached set with a 200**: a silently wrong answer, not covered by Fluree's
+    parse-time-rejection promise, and undetectable from the status code.
+
+    So the module is grepped for the shape that would do it. Note the failure
+    this guards against is exactly the one the four-trap-shape telemetry and
+    the depth 0/1/2/3 differential would also catch — three independent
+    detectors on one silent failure, because it is the phase's dominant risk.
+    """
+    import re
+    from inspect import getsource
+
+    import ccf.graph.backends.fluree as module
+
+    source = getsource(module)
+    assert re.findall(r"relationships\(\w+\)", source) == []
+
+
+def test_no_relationship_type_alternation_appears_in_any_pattern() -> None:
+    """`CCF_LINK` and nothing else — the Break-2 constraint, held shut.
+
+    The only bounded variable-length pattern this engine admits is a **single
+    fixed relationship type**: bounded type-alternation (`-[:A|B*1..3]-`) and
+    undirected-untyped (`-[*]-`) are both deferred upstream. A two-predicate
+    interposition (`HAS_EDGE`/`TO`) would have needed the alternation and so
+    would have reintroduced the very constraint the interposition escapes —
+    considered and rejected, and asserted here so it cannot creep back in.
+
+    The regex is scoped to Cypher relationship-pattern text deliberately: a
+    bare `|` alternative matches every `str | None` union in a `mypy --strict`
+    module, so it could never return zero and would be waived by hand — and a
+    criterion waived by hand has stopped being a criterion.
+    """
+    import re
+    from inspect import getsource
+
+    import ccf.graph.backends.fluree as module
+
+    source = getsource(module)
+    assert re.findall(r"\[:[A-Za-z_]+\|", source) == []
+    assert "CCF_LINK" in source
 
 
 def test_over_ceiling_depth_declines_to_the_fallback() -> None:
@@ -1916,13 +1999,13 @@ def test_over_ceiling_depth_declines_to_the_fallback() -> None:
     fallback (`GQ-29`). Asserted with no store and no server: the decline is a
     pure function of the query value and runs before any request is built.
 
-    **Honest limit of this assertion in stage 1.** Because stage 1 declines the
-    whole traverse family, this query would decline at the next branch anyway,
-    so the test cannot yet distinguish *which* guard fired. It is asserted now
-    because the ceiling applies to the **CCF** depth — before the interposed
-    layout doubles it into Cypher hops — and that is the reading plan 15.3-04
-    inherits; the assertion becomes discriminating the moment the walk is
-    pushed.
+    **This assertion is now discriminating.** In stage 1 it could not be: the
+    blanket traverse decline sat immediately below the ceiling check, so the
+    query would have declined either way and the test could not say *which*
+    guard fired. Plan 15.3-04's promotion removed that branch, so the ceiling
+    is the only thing standing between this query and a walk — and it is
+    checked against the **CCF** depth, before the interposed layout doubles it
+    into Cypher hops.
     """
     from datetime import UTC, datetime
 
@@ -1942,23 +2025,41 @@ def test_over_ceiling_depth_declines_to_the_fallback() -> None:
     assert reader._translate_query(over_ceiling) is None
 
 
-def test_the_traverse_family_declines_in_stage_1() -> None:
-    """The recorded stage-1 boundary: a walk is the fallback's whole query.
+def test_the_traverse_family_is_no_longer_declined_at_the_boundary() -> None:
+    """The FLIPPED stage-1 assertion: a walk is translated, not handed over.
 
-    Not a gap and not a partial push — under `GQ-32` there is no protocol for
-    "policy applied, traverse not", so the translation declines the entire
-    query and the fallback enforces every family. Conformant under D-04,
-    byte-identical by construction, and visible in `fallback_answers`.
+    Plan 15.3-03 asserted the opposite here — `_translate_query` returned
+    `None` for every traverse query, which was the recorded stage-1 boundary.
+    It is **flipped rather than deleted**, because the flip is the promotion's
+    most direct in-process evidence: deleting it would remove the only unit
+    assertion that distinguishes "the walk is pushed" from "the whole family
+    still declines".
 
-    This assertion is expected to **flip** when plan 15.3-04 pushes the
-    interposed walk, and its flip is that promotion's most direct evidence.
+    Driven with a recording double rather than a live server so the claim is
+    about the *branch*, not about the answer. Zero survivor rows means zero
+    walk starts, so no walk statement is issued and the return is the empty
+    row pair — which is emphatically **not** `None`, and that is the whole
+    assertion. The statements the translation did build are captured so the
+    two-statement shape is visible too.
     """
     from datetime import UTC, datetime
 
     from ccf.graph.backends.fluree import FlureeGraphReader
     from ccf.graph.protocols import GraphQuery, TraversalSpec
 
+    issued: list[str] = []
+
+    class _RecordingStore:
+        partition = "ccf_test"
+
+        def post_query(
+            self, cypher: str, params: dict[str, Any]
+        ) -> list[dict[str, Any]]:
+            issued.append(cypher)
+            return []
+
     reader = FlureeGraphReader.__new__(FlureeGraphReader)
+    reader._store = _RecordingStore()  # type: ignore[assignment]
     walk = GraphQuery(
         tenant_id="t",
         as_of=datetime(2026, 1, 1, tzinfo=UTC),
@@ -1968,7 +2069,11 @@ def test_the_traverse_family_declines_in_stage_1() -> None:
             depth_limit=1,
         ),
     )
-    assert reader._translate_query(walk) is None
+    assert reader._translate_query(walk) == ([], [])
+    assert len(issued) == 2, issued
+    # Typed crossability is decided by the EDGES statement, which is what lets
+    # the walk's hop predicate be pure membership (§R5 Break 2).
+    assert "ccf_relationship_type IN $types" in issued[1], issued[1]
 
 
 def test_empty_allowed_set_answers_empty_without_a_round_trip() -> None:
@@ -2088,6 +2193,90 @@ def test_the_write_path_materializes_exactly_the_key_the_read_path_pushes(
 
 
 @pytest.mark.fluree
+def test_the_write_path_materializes_exactly_the_admit_keys_the_walk_pushes(
+    fabric_boot: "Callable[..., FabricHandle]",
+) -> None:
+    """The walk's `$admissible` prefixes cannot drift from the write path's.
+
+    Second instance of the same two-module problem the policy-key separator
+    has, with a worse failure mode. CINV-02 confines every write to
+    `ccf.graph._writer`, and that module imports this backend, so the
+    dependency cannot run the other way — the `e:` / `r:` prefixes therefore
+    exist on both sides of the boundary.
+
+    A drifted prefix would make `all(n IN nodes(p) WHERE n.ccf_admit_key IN
+    $admissible)` false for **every** path: an empty reached set, a `200`, and
+    no error — indistinguishable from a correct empty answer without
+    telemetry, and precisely the do-not-copy #1 failure the interposition
+    exists to avoid. So the agreement is read back off the server, not
+    commented.
+    """
+    from ccf.graph.backends.fluree import (
+        ENTITY_ADMIT_PREFIX,
+        RELATIONSHIP_ADMIT_PREFIX,
+    )
+
+    uri = ENTITY_POOL[SEED_CLASS][0]
+    other = ENTITY_POOL[MID_CLASS][0]
+    handle = fabric_boot(backend="fluree")
+    for entity_uri, entity_class in ((uri, SEED_CLASS), (other, MID_CLASS)):
+        handle.worker.admit_entity_claim(
+            tenant_id=TENANT,
+            claim=entity_claim(
+                entity_uri=entity_uri,
+                entity_class=entity_class,
+                classification=PERMITTED_CLASSIFICATION,
+                observed_at=EARLY,
+            ),
+        )
+    written = handle.worker.admit_relationship_claim(
+        tenant_id=TENANT,
+        claim=relationship_claim(
+            relationship_type=EDGE_TYPE,
+            subject_uri=uri,
+            object_uri=other,
+            observed_at=EARLY,
+        ),
+    )
+
+    store: Any = handle.reader._store
+    scope = store.scope(TENANT)
+    entities = store.post_query(
+        "MATCH (n:CcfEntity {ccf_partition: $partition,"
+        " ccf_tenant_id: $tenant, ccf_entity_uri: $key})"
+        " RETURN n.ccf_admit_key AS admit_key",
+        {**scope, "key": uri},
+    )
+    edges = store.post_query(
+        _EDGE_NODE_PROBE, {**scope, "key": written.node_key}
+    )
+    assert [row["admit_key"] for row in entities] == [
+        ENTITY_ADMIT_PREFIX + uri
+    ]
+    assert [row["admit_key"] for row in edges] == [
+        RELATIONSHIP_ADMIT_PREFIX + written.node_key
+    ]
+
+
+def test_the_cap_matcher_is_the_string_the_server_actually_sends() -> None:
+    """The decline matcher is bound to probe F-A3(c)'s measurement.
+
+    `PATH_CAP_MARKER` decides whether a `400` becomes a decline or propagates.
+    Matched too broadly it would swallow genuine statement defects into a
+    silent permanent degrade; matched against a string the server never sends
+    it would let a cap error reach the caller as a `500`-shaped failure for a
+    question the fallback can answer. Neither is visible from reading the
+    adapter, so the constant is pinned against the text the probe captured.
+    """
+    from ccf.graph.backends.fluree import PATH_CAP_MARKER
+
+    assert PATH_CAP_MARKER == CAP_ERROR_MARKER
+    # Narrow enough to exclude the error CLASS, which also covers genuine
+    # statement defects that must keep failing loudly.
+    assert "InvalidQuery" not in PATH_CAP_MARKER
+
+
+@pytest.mark.fluree
 def test_fluree_non_traverse_queries_are_pushed_not_silently_degraded(
     fabric_boot: "Callable[..., FabricHandle]",
 ) -> None:
@@ -2191,21 +2380,90 @@ def test_fluree_non_traverse_queries_are_pushed_not_silently_degraded(
 
 
 @pytest.mark.fluree
-def test_the_stage_1_traverse_posture_is_recorded_in_telemetry(
+def test_fluree_interposed_depth_matches_the_fallback_at_zero_one_two_and_three(
     fabric_boot: "Callable[..., FabricHandle]",
 ) -> None:
-    """A depth-1 walk is answered by the fallback, and that is *visible*.
+    """The CCF-depth-to-Cypher-hop doubling, MEASURED at four depths.
 
-    The recorded stage-1 posture, asserted rather than described. Under D-04 a
-    declined translation is fully conformant — the fallback's answer *is* the
-    definition — so the only thing distinguishing "stage 1, walk deferred" from
-    "stage 2, walk pushed" is this counter. Without the assertion the deferral
-    would be indistinguishable from a promotion that silently never happened.
+    **Do not reason about the ×2 — measure it.** Mongo's four `$graphLookup`
+    corrections adjudicate as: two transfer verbatim (they are really Neo4j's),
+    one (`maxDepth: depth_limit - 1`) is structurally absent because Cypher's
+    `*1..N` is 1-based, and one is **replaced** — interposition introduces
+    `M = 2d`, which is an off-by-factor-of-two and exactly the same class of
+    error. The honest count of corrections is five, not zero.
 
-    **This assertion is expected to flip** when plan 15.3-04 lands the
-    interposed walk: `fallback_answers` becomes 0 and `translated_answers`
-    becomes 1. Its flip is that promotion's most direct evidence, which is why
-    the numbers are pinned exactly rather than bounded.
+    An off-by-factor-of-two is silent: it produces a plausible answer that is
+    simply the answer to a different question, and it surfaces only as an
+    ordinary differential failure at depth >= 2 (15.3-RESEARCH.md Pitfall 13).
+    So the chain here is **three hops**, not the corpus's two — a doubled bound
+    over-reaches by one CCF hop and a halved one under-reaches by one, and both
+    are visible only once depth 3 is asked. This assertion runs BEFORE the
+    promotion gate rather than after it.
+
+    `memory` is the differential control: the always-on KV floor, which has no
+    native translation at all, so its answer is the fallback's by construction.
+    Both `canonical_bytes` and the reached entity-URI sets are held identical,
+    because equal bytes alone would not localise a divergence to the walk.
+    """
+    from ccf.graph.protocols import GraphQuery, TraversalSpec
+
+    entities, relationships, uris = _extended_chain()
+    seed_uri, mid_uri, target_uri, far_uri = uris
+    depths = (0, 1, 2, 3)
+    queries = tuple(
+        GraphQuery(
+            tenant_id=TENANT,
+            as_of=ON_BOUNDARY,
+            traverse=TraversalSpec(
+                seed_entity_classes=SEED_CLASSES,
+                relationship_types=RELATIONSHIP_TYPES,
+                depth_limit=depth,
+            ),
+        )
+        for depth in depths
+    )
+
+    answers: dict[str, list[bytes]] = {}
+    reached: dict[str, list[list[str]]] = {}
+    for backend in ("fluree", "memory"):
+        handle = fabric_boot(backend=backend)
+        _write_chain(handle, entities, relationships)
+        views = [handle.reader.query(q) for q in queries]
+        answers[backend] = [canonical_bytes(view) for view in views]
+        reached[backend] = [
+            sorted(record.claim.entity_uri for record in view.entities)
+            for view in views
+        ]
+
+    assert answers["fluree"] == answers["memory"]
+    assert reached["fluree"] == reached["memory"]
+    # Spelled out as well as compared, so a control that silently broke in the
+    # same direction could not make this pass.
+    assert reached["fluree"] == [
+        [seed_uri],
+        sorted((seed_uri, mid_uri)),
+        sorted((seed_uri, mid_uri, target_uri)),
+        sorted((seed_uri, mid_uri, target_uri, far_uri)),
+    ]
+
+
+@pytest.mark.fluree
+def test_the_traverse_posture_is_recorded_in_telemetry(
+    fabric_boot: "Callable[..., FabricHandle]",
+) -> None:
+    """A depth-1 walk is answered IN THE ENGINE, and that is *visible*.
+
+    **This is the flipped assertion, and the flip is the promotion's most
+    direct evidence.** Plan 15.3-03 pinned the stage-1 posture here exactly —
+    `fallback_answers == 1`, `translated_answers == 0` — precisely so that
+    landing the walk would have to come here and invert it. Under D-04 a
+    declined translation is fully conformant (the fallback's answer *is* the
+    definition), so this counter is the ONLY thing distinguishing "walk
+    deferred" from "walk pushed"; deleting the assertion instead of inverting
+    it would have removed that distinction from the tree.
+
+    The numbers stay pinned exactly rather than bounded, for the same reason
+    they were pinned before.
     """
     from ccf.graph.protocols import GraphQuery, TraversalSpec
 
@@ -2229,5 +2487,5 @@ def test_the_stage_1_traverse_posture_is_recorded_in_telemetry(
             ),
         )
     )
-    assert handle.reader.fallback_answers == 1
-    assert handle.reader.translated_answers == 0
+    assert handle.reader.fallback_answers == 0
+    assert handle.reader.translated_answers == 1
