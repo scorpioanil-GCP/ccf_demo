@@ -668,11 +668,11 @@
     "exports": {
       "FabricHandle": {
         "kind": "class",
-        "shape": "(*, reader: 'GraphReader', worker: 'AssemblyWorker', registry: 'ControlPlaneProtocol', shutdown: 'Callable[[], None]') -> 'None'"
+        "shape": "(*, reader: 'GraphReader', worker: 'AssemblyWorker', registry: 'ControlPlaneProtocol', adapter: 'AdapterPin', shutdown: 'Callable[[], None]') -> 'None'"
       },
       "boot": {
         "kind": "function",
-        "shape": "(*, database_path: 'Path | str | None' = None, postgres_dsn: 'str | None' = None, postgres_schema: 'str' = 'ccf', memory: 'bool' = False, neo4j_uri: 'str | None' = None, neo4j_partition: 'str | None' = None, mongo_uri: 'str | None' = None, mongo_partition: 'str | None' = None, registry: 'ControlPlaneProtocol', resolution_spec_key: 'str', resolution_spec_version: 'str', policy_bundle_key: 'str', policy_bundle_version: 'str') -> 'FabricHandle'"
+        "shape": "(*, backend: 'str', connection: 'Mapping[str, object] | None' = None, secrets: 'Mapping[str, ResolvedSecret] | None' = None, registry: 'ControlPlaneProtocol', resolution_spec_key: 'str', resolution_spec_version: 'str', policy_bundle_key: 'str', policy_bundle_version: 'str') -> 'FabricHandle'"
       }
     }
   },
@@ -870,6 +870,7 @@
       "RESOLUTION_SPEC",
       "RegistrationMode",
       "SIGNAL_BATCH",
+      "SecretReference",
       "SignalBatch",
       "SimilaritySelectParametersArtifact",
       "TemporalAsOfParametersArtifact",
@@ -922,7 +923,8 @@
         "kind": "contract",
         "shape": {
           "artifacts": "tuple[ccf.controlplane.artifacts.ManifestEntry, ...]",
-          "backend": "typing.Literal['sqlite', 'postgres', 'memory', 'neo4j', 'mongo']",
+          "backend": "<class 'str'>",
+          "backend_secrets": "tuple[ccf.controlplane.artifacts.SecretReference, ...]",
           "policy_bundle_key": "<class 'str'>",
           "resolution_spec_key": "<class 'str'>",
           "semver": "<class 'str'>",
@@ -1042,6 +1044,13 @@
       "SIGNAL_BATCH": {
         "kind": "constant",
         "shape": "ArtifactClass"
+      },
+      "SecretReference": {
+        "kind": "contract",
+        "shape": {
+          "env_var": "<class 'str'>",
+          "field": "<class 'str'>"
+        }
       },
       "SignalBatch": {
         "kind": "contract",
@@ -1307,7 +1316,8 @@
         "kind": "contract",
         "shape": {
           "artifacts": "tuple[ccf.controlplane.artifacts.ManifestEntry, ...]",
-          "backend": "typing.Literal['sqlite', 'postgres', 'memory', 'neo4j', 'mongo']",
+          "backend": "<class 'str'>",
+          "backend_secrets": "tuple[ccf.controlplane.artifacts.SecretReference, ...]",
           "policy_bundle_key": "<class 'str'>",
           "resolution_spec_key": "<class 'str'>",
           "semver": "<class 'str'>",
@@ -1357,7 +1367,7 @@
       },
       "load_and_boot": {
         "kind": "function",
-        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', database_path: 'str | None' = None, postgres_dsn: 'str | None' = None, neo4j_uri: 'str | None' = None, mongo_uri: 'str | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
+        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
       },
       "refuse_operator_set_divergence": {
         "kind": "function",
@@ -1436,7 +1446,7 @@
       },
       "load_and_boot": {
         "kind": "function",
-        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', database_path: 'str | None' = None, postgres_dsn: 'str | None' = None, neo4j_uri: 'str | None' = None, mongo_uri: 'str | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
+        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
       }
     }
   },
@@ -1484,6 +1494,61 @@
       }
     }
   },
+  "ccf.graph.backends.fluree": {
+    "__all__": [
+      "DEFAULT_PARTITION",
+      "FlureeGraphReader",
+      "FlureeGraphStore",
+      "MAX_DEPTH_CEILING",
+      "MAX_QUERY_BODY_BYTES"
+    ],
+    "exports": {
+      "DEFAULT_PARTITION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "FlureeGraphReader": {
+        "kind": "class",
+        "shape": "(store: 'FlureeGraphStore') -> 'None'"
+      },
+      "FlureeGraphStore": {
+        "kind": "class",
+        "shape": "(*, url: 'str', partition: 'str' = 'ccf', ledger: 'str' = 'ccf:main', bearer_token: 'str | None' = None) -> 'None'"
+      },
+      "MAX_DEPTH_CEILING": {
+        "kind": "constant",
+        "shape": "int"
+      },
+      "MAX_QUERY_BODY_BYTES": {
+        "kind": "constant",
+        "shape": "int"
+      }
+    }
+  },
+  "ccf.graph.backends.fluree_write": {
+    "__all__": [
+      "FlureeConnection",
+      "FlureeGraphWriter",
+      "REGISTRATION"
+    ],
+    "exports": {
+      "FlureeConnection": {
+        "kind": "contract",
+        "shape": {
+          "partition": "str | None",
+          "url": "<class 'str'>"
+        }
+      },
+      "FlureeGraphWriter": {
+        "kind": "class",
+        "shape": "(*, store: 'FlureeGraphStore', token: 'BootToken') -> 'None'"
+      },
+      "REGISTRATION": {
+        "kind": "constant",
+        "shape": "BackendRegistration"
+      }
+    }
+  },
   "ccf.graph.backends.memory": {
     "__all__": [
       "MemoryGraphReader",
@@ -1497,6 +1562,27 @@
       "MemoryGraphStore": {
         "kind": "class",
         "shape": "() -> 'None'"
+      }
+    }
+  },
+  "ccf.graph.backends.memory_write": {
+    "__all__": [
+      "MemoryConnection",
+      "MemoryGraphWriter",
+      "REGISTRATION"
+    ],
+    "exports": {
+      "MemoryConnection": {
+        "kind": "contract",
+        "shape": {}
+      },
+      "MemoryGraphWriter": {
+        "kind": "class",
+        "shape": "(*, store: 'MemoryGraphStore', token: 'BootToken') -> 'None'"
+      },
+      "REGISTRATION": {
+        "kind": "constant",
+        "shape": "BackendRegistration"
       }
     }
   },
@@ -1526,6 +1612,30 @@
       }
     }
   },
+  "ccf.graph.backends.mongo_write": {
+    "__all__": [
+      "MongoConnection",
+      "MongoGraphWriter",
+      "REGISTRATION"
+    ],
+    "exports": {
+      "MongoConnection": {
+        "kind": "contract",
+        "shape": {
+          "partition": "str | None",
+          "uri": "<class 'str'>"
+        }
+      },
+      "MongoGraphWriter": {
+        "kind": "class",
+        "shape": "(*, store: 'MongoGraphStore', token: 'BootToken') -> 'None'"
+      },
+      "REGISTRATION": {
+        "kind": "constant",
+        "shape": "BackendRegistration"
+      }
+    }
+  },
   "ccf.graph.backends.neo4j": {
     "__all__": [
       "DEFAULT_PARTITION",
@@ -1549,6 +1659,30 @@
       "Neo4jGraphStore": {
         "kind": "class",
         "shape": "(*, uri: 'str', partition: 'str' = 'ccf', database: 'str | None' = None) -> 'None'"
+      }
+    }
+  },
+  "ccf.graph.backends.neo4j_write": {
+    "__all__": [
+      "Neo4jConnection",
+      "Neo4jGraphWriter",
+      "REGISTRATION"
+    ],
+    "exports": {
+      "Neo4jConnection": {
+        "kind": "contract",
+        "shape": {
+          "partition": "str | None",
+          "uri": "<class 'str'>"
+        }
+      },
+      "Neo4jGraphWriter": {
+        "kind": "class",
+        "shape": "(*, store: 'Neo4jGraphStore', token: 'BootToken') -> 'None'"
+      },
+      "REGISTRATION": {
+        "kind": "constant",
+        "shape": "BackendRegistration"
       }
     }
   },
@@ -1583,6 +1717,30 @@
       }
     }
   },
+  "ccf.graph.backends.postgres_write": {
+    "__all__": [
+      "PostgresConnection",
+      "PostgresGraphWriter",
+      "REGISTRATION"
+    ],
+    "exports": {
+      "PostgresConnection": {
+        "kind": "contract",
+        "shape": {
+          "dsn": "<class 'str'>",
+          "schema_name": "<class 'str'>"
+        }
+      },
+      "PostgresGraphWriter": {
+        "kind": "class",
+        "shape": "(*, store: 'PostgresGraphStore', token: 'BootToken') -> 'None'"
+      },
+      "REGISTRATION": {
+        "kind": "constant",
+        "shape": "BackendRegistration"
+      }
+    }
+  },
   "ccf.graph.backends.sqlite": {
     "__all__": [
       "ENTITY_KIND",
@@ -1606,6 +1764,29 @@
       "SqliteGraphStore": {
         "kind": "class",
         "shape": "(*, database_path: 'Path | str') -> 'None'"
+      }
+    }
+  },
+  "ccf.graph.backends.sqlite_write": {
+    "__all__": [
+      "REGISTRATION",
+      "SqliteConnection",
+      "SqliteGraphWriter"
+    ],
+    "exports": {
+      "REGISTRATION": {
+        "kind": "constant",
+        "shape": "BackendRegistration"
+      },
+      "SqliteConnection": {
+        "kind": "contract",
+        "shape": {
+          "database_path": "<class 'pathlib.Path'>"
+        }
+      },
+      "SqliteGraphWriter": {
+        "kind": "class",
+        "shape": "(*, store: 'SqliteGraphStore', token: 'BootToken') -> 'None'"
       }
     }
   },
@@ -1794,6 +1975,80 @@
       "parse_timestamp": {
         "kind": "function",
         "shape": "(value: 'str | None') -> 'datetime | None'"
+      }
+    }
+  },
+  "ccf.graph.registry": {
+    "__all__": [
+      "AdapterPin",
+      "BackendRegistration",
+      "BackendStore",
+      "DuplicateBackendName",
+      "InvalidBackendConfig",
+      "ReservedBackendName",
+      "ResolvedBackend",
+      "ResolvedSecret",
+      "UnknownBackend",
+      "declared_names",
+      "resolve",
+      "validate_connection"
+    ],
+    "exports": {
+      "AdapterPin": {
+        "kind": "contract",
+        "shape": {
+          "name": "<class 'str'>",
+          "secret_refs": "tuple[str, ...]",
+          "version": "<class 'str'>"
+        }
+      },
+      "BackendRegistration": {
+        "kind": "class",
+        "shape": "(name: 'str', config_model: 'type[CCFContract]', secret_fields: 'frozenset[str]', open_store: 'Callable[[CCFContract, Mapping[str, SecretStr]], BackendStore]', make_writer: 'Callable[[BackendStore, BootToken], BaseGraphWriter]') -> None"
+      },
+      "BackendStore": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "DuplicateBackendName": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "InvalidBackendConfig": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ReservedBackendName": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ResolvedBackend": {
+        "kind": "class",
+        "shape": "(registration: 'BackendRegistration', version: 'str', distribution: 'str') -> None"
+      },
+      "ResolvedSecret": {
+        "kind": "contract",
+        "shape": {
+          "field": "<class 'str'>",
+          "ref_name": "<class 'str'>",
+          "value": "<class 'pydantic.types.SecretStr'>"
+        }
+      },
+      "UnknownBackend": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "declared_names": {
+        "kind": "function",
+        "shape": "() -> 'frozenset[str]'"
+      },
+      "resolve": {
+        "kind": "function",
+        "shape": "(name: 'str') -> 'ResolvedBackend'"
+      },
+      "validate_connection": {
+        "kind": "function",
+        "shape": "(registration: 'BackendRegistration', connection: 'Mapping[str, object]') -> 'CCFContract'"
       }
     }
   },
@@ -3947,6 +4202,7 @@
       "HarnessTrace",
       "MODE_1_MODEL_VERSION",
       "ModelVersionRecord",
+      "NO_ADAPTER",
       "NO_AGENT_DEFINITION",
       "NO_GRANTS_SET_HASH",
       "NO_GRAPH_QUERIES",
@@ -4018,6 +4274,10 @@
           "model_version": "<class 'str'>"
         }
       },
+      "NO_ADAPTER": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "NO_AGENT_DEFINITION": {
         "kind": "constant",
         "shape": "str"
@@ -4069,13 +4329,16 @@
         "kind": "contract",
         "shape": {
           "bindings": "tuple[ccf.replay.record.PolicyBinding, ...]",
+          "graph_adapter": "<class 'str'>",
+          "graph_adapter_version": "<class 'str'>",
+          "graph_secret_refs": "tuple[str, ...]",
           "hitl_actions": "<class 'str'>",
           "survivor_cap": "int | None"
         }
       },
       "build_replay_record": {
         "kind": "function",
-        "shape": "(*, execution: 'ExecutionResult', product: 'ContextProductContract', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None) -> 'DecisionReplayRecord'"
+        "shape": "(*, execution: 'ExecutionResult', product: 'ContextProductContract', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, adapter: 'AdapterPin | None' = None) -> 'DecisionReplayRecord'"
       }
     }
   },
@@ -5516,6 +5779,17 @@
       }
     }
   },
+  "ccf_runtime.cli.commands.backends": {
+    "__all__": [
+      "register"
+    ],
+    "exports": {
+      "register": {
+        "kind": "function",
+        "shape": "(subparsers: \"'argparse._SubParsersAction[argparse.ArgumentParser]'\") -> 'None'"
+      }
+    }
+  },
   "ccf_runtime.cli.commands.config": {
     "__all__": [
       "register"
@@ -5783,6 +6057,17 @@
           "tenant_id": "<class 'str'>"
         }
       },
+      "build_router": {
+        "kind": "function",
+        "shape": "(deps: 'ApiDependencies') -> 'APIRouter'"
+      }
+    }
+  },
+  "ccf_runtime.http_api.routes.backends": {
+    "__all__": [
+      "build_router"
+    ],
+    "exports": {
       "build_router": {
         "kind": "function",
         "shape": "(deps: 'ApiDependencies') -> 'APIRouter'"
