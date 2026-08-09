@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-09T10:24:37.183Z"
-last_activity: 2026-08-09 -- Phase 15.4 cross-AI reviewed and replanned; ready to execute
+last_updated: "2026-08-09T16:06:15.908Z"
+last_activity: 2026-08-09 -- Phase 15.4 execution started
 progress:
   total_phases: 16
   completed_phases: 13
   total_plans: 103
   completed_plans: 102
   percent: 81
-stopped_at: Phase 15.4 planned and ready to execute (12 plans, 9 waves; plans at 8f59e25, revised at b32080d and 6f444db). Research at 95bbc89 corrected two CONTEXT.md premises -- an exported JSON Schema does exist (docs/schemas/ccf.deployment-manifest.json carries the six-name enum, so dropping the Literal must re-run make schemas in the same change), and no replay dimension pins a substrate today (D-09 creates the first adapter pin, not an extension). Four further rulings from Dave recorded as D-13..D-16 in 15.4-CONTEXT.md at 46160a2: no allowlist for the two new lint rules (carve-outs are named constants, deviating from D-IMPL-93's wording deliberately -- gate package owes a line); WR-01 and WR-05 fixed in this phase, WR-04/WR-06/IN-02/IN-03 stay debt; exported schema loses its enum and a `ccf backends` CLI replaces it; adapter names exact-lowercase with the six built-ins reserved. Plan-checker ran twice (11 issues then 8, all closed); it verified coverage of D-01..D-16, C-01, C-02 and V1..V20 is real rather than nominal. Two residuals recorded for the gate package: the enforcement window (rules written wave 1, registered wave 6) and BackendRegistration.make_writer widening who can reach a writer constructor, bounded by a new call-site test. Cross-AI review at 15.4-REVIEWS.md (Gemini LOW, Codex/Cursor/Ollama MEDIUM; Claude skipped as non-independent). Three findings verified against the tree and folded in at 59244d0: the config-validation wrapper was referenced by plans 04/05/06 but defined nowhere (Codex and Cursor found it independently) -- now plan 02 task 3 owns validate_connection/InvalidBackendConfig with messages built from error loc+msg only; V8's headline verify used git diff --stat, which exits 0 regardless, so it could not fail -- now gated on --quiet everywhere; and _open_backend has test callers at test_fluree_backend.py:1703,1717,1746 that the research's "exactly one caller" claim missed, plus three prose sites the planner found in artifacts.py:924 and manifest.py:133,236. Seven further review items folded in, incl. ResolvedSecret(field, ref_name, value) so the D-09 pin records CCF_FLUREE_TOKEN rather than bearer_token. Rulings taken during the fold-in: demo adapter always-on (opt-in would fail the parity test for anyone skipping the step), bad third-party entry-point metadata fails closed everywhere with a refusal naming the offending distribution, GET /backends returns 503 carrying that message. Final plan check closed 1 blocker + 7 warnings at e21b794. Next: /gsd:execute-phase 15.4. Deferred: Dave's four-database FIBO comparison harness at /home/parkave/fluree/examples/fibo/ (192.168.4.76) for a later cross-adapter demonstration phase. Residual from 15.3: 2 GitHub-Actions UAT observations (non-blocking).
+stopped_at: Phase 15.4 executing (12 plans, 9 waves; plans at 8f59e25, revised at b32080d/6f444db/59244d0/e21b794). Commissioned by D-IMPL-93 (Dave, 2026-08-09) -- the substrate may evolve and gain capability but must never carry a unique dependency on a named adapter and must never change per-adapter. Rulings D-13..D-16 in 15.4-CONTEXT.md at 46160a2 -- no allowlist for the two new lint rules (carve-outs are named constants; gate package owes a line for the deliberate deviation from D-IMPL-93's wording); WR-01 and WR-05 fixed here, WR-04/WR-06/IN-02/IN-03 stay debt; the exported JSON Schema loses its six-name enum and a `ccf backends` CLI replaces it; adapter names are exact-lowercase with the six built-ins reserved. Research at 95bbc89 corrected two CONTEXT.md premises -- docs/schemas/ccf.deployment-manifest.json does carry the enum (so dropping the Literal must re-run make schemas in the same change), and no replay dimension pins a substrate today (D-09 creates the first adapter pin). Cross-AI review at 15.4-REVIEWS.md (Gemini LOW, Codex/Cursor/Ollama MEDIUM); three verified findings folded in at 59244d0 -- validate_connection/InvalidBackendConfig now owned by plan 02 task 3, V8 headline verify gated on `git diff --quiet`, and _open_backend's real test callers at test_fluree_backend.py:1703,1717,1746. Two residuals for the gate package -- the enforcement window (rules written wave 1, registered wave 6) and BackendRegistration.make_writer widening who can reach a writer constructor (bounded by a call-site test). Wave 9 (plan 15.4-12) is a checkpoint plan requiring Dave. Deferred -- Dave's four-database FIBO comparison harness at /home/parkave/fluree/examples/fibo/ (192.168.4.76) for a later cross-adapter demonstration phase. Residual from 15.3 -- 2 GitHub-Actions UAT observations (non-blocking).
 ---
 
 # STATE — CCF SDK
@@ -28,9 +28,9 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 15.4
-Plan: Not started
-Status: Ready to execute
+Phase: 15.4 (backend registration seam) — EXECUTING
+Plan: 1 of 12
+Status: Executing Phase 15.4
   Commissioned by D-IMPL-93 (Dave, 2026-08-09): the substrate may evolve and
   gain capability, but must never carry a unique dependency on a named adapter
   and must never change per-adapter. Measured against that standard at
@@ -43,7 +43,7 @@ Status: Ready to execute
   lint-enforced, replacing D-IMPL-92's admitted line-budget proxy. NOTE: the
   handler auto-advanced to Phase 16; 15.4 precedes it per Dave's ruling.
 Progress: [----------] 0%
-Last activity: 2026-08-09 -- Phase 15.4 planning complete
+Last activity: 2026-08-09 -- Phase 15.4 execution started
 
 ## Performance Metrics
 
