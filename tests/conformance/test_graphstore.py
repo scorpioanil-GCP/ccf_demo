@@ -48,6 +48,7 @@ T2 = datetime(2026, 3, 1, tzinfo=UTC)
     params=[
         pytest.param("sqlite"),
         pytest.param("memory"),
+        pytest.param("demo"),
         pytest.param("postgres", marks=pytest.mark.postgres),
         pytest.param("neo4j", marks=pytest.mark.neo4j),
         pytest.param("mongo", marks=pytest.mark.mongo),
@@ -78,10 +79,22 @@ def graph_backend(
     Each extras-gated param carries its own mark, so ``-m "not postgres and
     not neo4j and not mongo"`` still gives a run with no external substrate
     while ``-m <backend>`` runs the same semantics against a real server.
+
+    **``demo`` is different in kind from every param above it (plan 15.4-11).**
+    Each of the others names an adapter living in ``src/ccf``, so the suite was
+    holding this repository's own code to its own bar; ``demo`` names an adapter
+    that ships in a separate installable distribution
+    (``tests/fixtures/ccf-demo-adapter``) and imports nothing from
+    ``ccf.graph.backends``, so from here the suite demonstrates the *contract*
+    rather than the *implementation* — the six D-IMPL-34 semantics are shown to
+    be reachable by a third party through the published seam, not merely
+    upheld by code the seam's authors also wrote. It carries no mark because
+    its store is an in-process dict: no container, no extra, no temp file, so
+    it runs on the always-on leg beside ``sqlite`` and ``memory``.
     """
     if request.param == "sqlite":
         return fabric_boot()
-    if request.param in {"memory", "postgres", "neo4j", "mongo", "fluree"}:
+    if request.param in {"memory", "demo", "postgres", "neo4j", "mongo", "fluree"}:
         return fabric_boot(backend=request.param)
     raise NotImplementedError(request.param)
 

@@ -107,7 +107,7 @@ markdown_extensions:
   - pymdownx.inlinehilite
 
 # Every path enumerated explicitly — no globs. The nav is authoritative: it
-# lists 39 pages, and `charter.md` is the single `not_in_nav` page, for the 40
+# lists 40 pages, and `charter.md` is the single `not_in_nav` page, for the 41
 # markdown files under `public/`. (The eleven `.mmd` diagram sources under
 # `public/diagrams/` are embedded by the Concepts pages, not nav entries.)
 nav:
@@ -124,6 +124,7 @@ nav:
       - Compose a workflow with HITL: how-to/compose-a-workflow-with-hitl.md
       - Swap the artifact store: how-to/swap-the-artifact-store.md
       - Bind a harness adapter: how-to/bind-a-harness-adapter.md
+      - Write a graph backend adapter: how-to/write-a-graph-backend-adapter.md
   - Concepts:
       - Pillars:
           - Data and Context Layer: concepts/pillars/data-context.md
