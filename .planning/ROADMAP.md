@@ -795,6 +795,73 @@ single-writer (`INV-CH7-10`), or cross-substrate replay determinism may weaken.
 `D-IMPL-93` the remedy for an exhausted budget is the registry, never a larger
 number.
 
+**Requirements**: none mapped. The phase is measured against the sixteen
+decisions plus two corrections in `15.4-CONTEXT.md` (`D-01`..`D-16`, `C-01`,
+`C-02`) and the twenty validation claims `V1`..`V20` in `15.4-RESEARCH.md`.
+
+**Success Criteria** (what must be TRUE):
+
+  1. No module under `src/` or `runtime/` outside `ccf.graph.backends` imports
+     `ccf.graph.backends.*`, enforced by the `cinv02-backend-import` rule in
+     `make lint`
+  2. No substrate name appears in `src/ccf` outside the adapters' own package —
+     in code or in docstring prose — enforced by the `cinv04-substrate-name` and
+     `cinv04-substrate-prose` rules, whose vocabulary is read off disk rather
+     than typed into the checker
+  3. All six adapters migrate behind the registry; `boot()` and
+     `load_and_boot()` take an adapter name and one connection mapping, with the
+     `D-15B` migration note written
+  4. An adapter installed from outside this repository passes the same
+     conformance suites the six built-in adapters pass, and
+     `git diff --stat src/ccf` over its arrival is empty
+  5. Single-writer, as-of correctness, operator purity and cross-substrate
+     replay determinism are unweakened: four container legs green,
+     `tests/conformance/query_corpus.py` and `docs/GRAPH_QUERY_SEMANTICS.md`
+     byte-untouched for the whole phase
+
+**Plans:** 12 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 15.4-01-PLAN.md — The two structural lint rules and the widened single-writer rule, with negative controls
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 15.4-02-PLAN.md — The registry: registration record, entry-point and in-package discovery, the three refusals
+- [ ] 15.4-03-PLAN.md — Split `_writer.py` into six per-backend write modules (+ WR-01)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 15.4-04-PLAN.md — Per-adapter config models and registration records (+ WR-05)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 15.4-05-PLAN.md — `boot()` becomes a registry lookup; 23 call sites migrate; the handle carries its adapter pin
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 15.4-06-PLAN.md — Manifest and artifacts: registry preflight, secret references, `Literal` dropped, schema regenerated, 20 call sites
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [ ] 15.4-07-PLAN.md — Turn the structural lints on; retire the D-IMPL-92 line-budget gate
+- [ ] 15.4-08-PLAN.md — Decision Replay dimension 2 pins the adapter
+- [ ] 15.4-09-PLAN.md — `ccf backends list` over `GET /backends`
+
+**Wave 7** *(blocked on Wave 6)*
+
+- [ ] 15.4-10-PLAN.md — The out-of-tree proof adapter distribution and its install wiring
+
+**Wave 8** *(blocked on Wave 7)*
+
+- [ ] 15.4-11-PLAN.md — Conformance params, param/registry parity, the zero-cost measurement, the authoring guide
+
+**Wave 9** *(blocked on Wave 8)*
+
+- [ ] 15.4-12-PLAN.md — Surface record, citations, full sweep, gate package (**checkpoint**)
+
 ### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
 
 **Status**: planned, not yet discussed. This section exists so the phase is
