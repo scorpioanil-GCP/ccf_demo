@@ -3849,13 +3849,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Why: the composition root named all six substrates, so adding a seventh cost
   an edit in core and a substrate name in core was unavoidable. After
   D-IMPL-93 an adapter declares itself and `boot` resolves the one a deployment
-  named, which is what lets a third-party adapter ship as a separate installable
-  distribution with no line changing in this repository. `backend` is required
-  rather than defaulted because a fabric that could infer its own substrate
-  could boot against a development store in production and still pass every
-  test
+  named, which is what lets a third-party adapter ship as a separate
+  installable distribution with no line changing in this repository. `backend`
+  is required rather than defaulted because a fabric that could infer its own
+  substrate could boot against a development store in production and still pass
+  every test
 - Migration: replace the per-database keyword with `backend=` plus
-  `connection=`, using the table above. Two worked cases.
+  `connection=`, using this table. `postgres_schema` became `schema_name`
+  because a Pydantic field named `schema` shadows an attribute on `BaseModel`;
+  the store's own keyword is unchanged.
+  | Retired `boot()` keyword | New location |
+  |---|---|
+  | `database_path` | `backend="sqlite"`, `connection={"database_path": ...}` — name unchanged |
+  | `postgres_dsn` | `backend="postgres"`, `connection={"dsn": ...}` |
+  | `postgres_schema` | `backend="postgres"`, `connection={"schema_name": ...}` |
+  | `memory=True` | `backend="memory"`, no connection mapping at all |
+  | `neo4j_uri` | `backend="neo4j"`, `connection={"uri": ...}` |
+  | `neo4j_partition` | `backend="neo4j"`, `connection={"partition": ...}` |
+  | `mongo_uri` | `backend="mongo"`, `connection={"uri": ...}` |
+  | `mongo_partition` | `backend="mongo"`, `connection={"partition": ...}` |
+  | `fluree_url` | `backend="fluree"`, `connection={"url": ...}` |
+  | `fluree_partition` | `backend="fluree"`, `connection={"partition": ...}` |
+  | `fluree_bearer_token` | `secrets={"bearer_token": ResolvedSecret(...)}` |
+  Two worked cases follow, and then the three refusals to expect while
+  migrating.
 
 *Recorded by `15.4-05-boot.md`.*
 
