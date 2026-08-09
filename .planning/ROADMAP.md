@@ -819,7 +819,7 @@ decisions plus two corrections in `15.4-CONTEXT.md` (`D-01`..`D-16`, `C-01`,
      `tests/conformance/query_corpus.py` and `docs/GRAPH_QUERY_SEMANTICS.md`
      byte-untouched for the whole phase
 
-**Plans:** 1/12 plans executed
+**Plans:** 3/12 plans executed
 
 Plans:
 
@@ -829,8 +829,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 15.4-02-PLAN.md — The registry: registration record, entry-point and in-package discovery, the three refusals
-- [ ] 15.4-03-PLAN.md — Split `_writer.py` into six per-backend write modules (+ WR-01)
+- [x] 15.4-02-PLAN.md — The registry: registration record, entry-point and in-package discovery, the three refusals
+- [x] 15.4-03-PLAN.md — Split `_writer.py` into six per-backend write modules (+ WR-01)
 
 **Wave 3** *(blocked on Wave 2)*
 
