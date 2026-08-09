@@ -752,6 +752,49 @@ Plans:
 
 - [x] 15.3-05-PLAN.md — `make gate-15.3` implementing D-IMPL-92 (checkpoint), the scheduled drift detector, and the committed gate package
 
+### Phase 15.4: Backend Registration Seam — The Substrate Stops Naming Its Adapters (INSERTED)
+
+**Status**: commissioned 2026-08-09 by `D-IMPL-93` (Dave). The goal and
+constraints below are Dave's, recorded at commissioning; success criteria and
+requirement IDs are `/gsd:discuss-phase 15.4`'s to write. This section was
+added 2026-08-09 to repair a malformed insertion — the summary-list entry was
+written without its detail section, which left every GSD handler unable to
+resolve the phase.
+
+**Goal**: The dependency arrow between the core and its graph adapters points
+the wrong way, and adding a substrate costs roughly 96 lines across three core
+files. `src/ccf/boot.py` and `src/ccf/graph/_writer.py` import
+`ccf.graph.backends.*`; `_open_backend` and `_preflight_backend` carry two to
+three keyword arguments per substrate; `controlplane/artifacts.py` hand-maintains
+a `Literal` naming all six. Invert it. Each backend declares itself — name,
+factory, the connection configuration it requires, its preflight rule — the core
+holds a registry and looks up instead of branching, the per-substrate keyword
+arguments collapse into one configuration mapping, and the `Literal` is replaced
+by a registry check. Per-adapter cost goes to zero, which is what "the SDK needs
+no refactor to accept a new substrate" was always trying to say.
+
+**Success is structural, not numeric.** Two properties, both enforced by lint in
+the same machinery as the existing harness-import lint (`tools/lints/`): no
+import of `ccf.graph.backends.*` from outside `backends/`, and no substrate name
+in core outside the registry. These replace `D-IMPL-92`'s per-file added-line
+budgets, which `D-IMPL-92` itself calls an admitted proxy and which are now
+exhausted — `manifest.py` at 24 of 25 and `artifacts.py` at 9 of 10, tied, so a
+seventh substrate breaches both on arrival. `D-IMPL-92`'s gate is **superseded
+by the structural check, not deleted**.
+
+**Depends on**: Phase 15.3 (the sixth backend, whose landing exhausted the
+budgets), Phase 15.2 (the read and write seams the registry must not disturb)
+**Blocks**: Phase 16 — do not document a backend surface this phase reshapes
+
+**Scope**: all six existing backends migrate — sqlite, postgres, memory, neo4j,
+mongo, fluree. Nothing about operator purity, as-of correctness (`INV-CH7-14`),
+single-writer (`INV-CH7-10`), or cross-substrate replay determinism may weaken.
+`D-11`'s line on mechanism change elsewhere under `src/ccf`, the
+`docs/GRAPH_QUERY_SEMANTICS.md` freeze, and the corpus rule all stand.
+`D-IMPL-92`'s prohibition on raising a budget to make a gate pass stands: under
+`D-IMPL-93` the remedy for an exhausted budget is the registry, never a larger
+number.
+
 ### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
 
 **Status**: planned, not yet discussed. This section exists so the phase is
