@@ -819,7 +819,7 @@ decisions plus two corrections in `15.4-CONTEXT.md` (`D-01`..`D-16`, `C-01`,
      `tests/conformance/query_corpus.py` and `docs/GRAPH_QUERY_SEMANTICS.md`
      byte-untouched for the whole phase
 
-**Plans:** 4/12 plans executed
+**Plans:** 5/12 plans executed
 
 Plans:
 
@@ -838,7 +838,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 15.4-05-PLAN.md — `boot()` becomes a registry lookup; 23 call sites migrate; the handle carries its adapter pin
+- [x] 15.4-05-PLAN.md — `boot()` becomes a registry lookup; 23 call sites migrate; the handle carries its adapter pin
 
 **Wave 5** *(blocked on Wave 4)*
 
