@@ -31,6 +31,7 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 	example-03-live-ollama example-03-live-anthropic \
 	example-ext-00-live-anthropic example-ext-00-live-adk \
 	legs leg-postgres leg-neo4j leg-mongo leg-fluree \
+	gate-15.3 \
 	perf perf-micro perf-scale perf-xproc perf-replay \
 	docs docs-strict docs-serve openapi schemas schema-headers surface \
 	surface-changes measure-examples
@@ -137,6 +138,17 @@ leg-mongo: ## MongoDB leg against a real server — staged aggregation pushdown 
 leg-fluree: ## Fluree leg against a real server — Cypher pushdown byte-identical to the fallback (plan 15.3)
 	$(ENV) CCF_REQUIRE_FLUREE=1 CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
 		$(PYTHON) -m pytest tests -q -m fluree -rs
+
+# Phase-local gate (plan 15.3-05). NOT a `tools/lints` rule and never joins
+# `ci`: it asserts a fact about ONE phase's diff, not a standing invariant, so
+# it is expected to be superseded by substrate #7's gate rather than extended
+# (Phase 15.3 CONTEXT.md D-10). `$(ENV)` is MANDATORY, not stylistic: without
+# it a run inside a GSD worktree imports the main checkout's `ccf` through the
+# editable install's hard-coded MAPPING and measures a tree it did not change
+# (DI-15.2-04). The script asserts that itself and fails, but the target is the
+# first line of defence.
+gate-15.3: ## Phase 15.3 permitted-change-surface gate — D-IMPL-92 layer 2 (blocking, D-07)
+	$(ENV) $(PYTHON) -m tools.gates.gate_15_3
 
 # Perf battery (Phase 11). `perf` NEVER joins `ci` or `ci-core`: always-on CI
 # never times anything (Phase-8 D-10 / D-IMPL-70) — perf runs only via these
