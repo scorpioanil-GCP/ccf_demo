@@ -697,6 +697,96 @@ def top_level_defs(source: str, path: pathlib.Path) -> dict[str, ast.AST]:
     }
 
 
+def module_level_statements(source: str, path: pathlib.Path) -> list[ast.stmt]:
+    """Every top-level statement that is NOT a class or function definition.
+
+    The complement of `top_level_defs` over the same module body: imports,
+    `__all__`, module constants, SQL/query string constants, and anything else
+    that executes at import time. Added by the 2026-08-08 FOURTH correction —
+    before it, `_writer.py` was a Tier-A path with no line budget whose
+    module-level constants no check looked at, so rewriting one passed
+    everything (review finding WR-09).
+    """
+    module = read_tree(source, path)
+    return [
+        node
+        for node in module.body
+        if not isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+    ]
+
+
+def name_collection(node: ast.stmt) -> tuple[str, list[str]] | None:
+    """`(target, members)` when `node` binds a flat literal collection of strings.
+
+    Matches `NAME = [...]`, `NAME = (...)`, `NAME = {...}` and their annotated
+    forms, and ONLY when every element is a plain string constant. Anything
+    else — a comprehension, a concatenation, a non-string element, a tuple or
+    attribute target — returns None and is therefore not eligible for the
+    bounded companion permission below.
+    """
+    if isinstance(node, ast.Assign):
+        if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
+            return None
+        target = node.targets[0].id
+        value: ast.expr | None = node.value
+    elif isinstance(node, ast.AnnAssign):
+        if not isinstance(node.target, ast.Name) or node.value is None:
+            return None
+        target = node.target.id
+        value = node.value
+    else:
+        return None
+    if not isinstance(value, (ast.List, ast.Tuple, ast.Set)):
+        return None
+    members: list[str] = []
+    for element in value.elts:
+        if not isinstance(element, ast.Constant) or not isinstance(element.value, str):
+            return None
+        members.append(element.value)
+    return target, members
+
+
+def bounded_name_addition(
+    before: ast.stmt, after: ast.stmt, permitted: frozenset[str]
+) -> str | None:
+    """The ONE name `after` adds to `before`'s string collection, or None.
+
+    The `_writer.py` companion permission granted by D-IMPL-92's 2026-08-08
+    FOURTH correction, bounded as tightly as the two conformance companions it
+    mirrors. ALL of:
+
+    * the two statements are the same statement kind and bind the same name;
+    * both values are flat literal collections of string constants;
+    * the after-members are the before-members plus **exactly one**; and
+    * that one is in `permitted` — which the caller derives from the mechanism
+      (a NEW top-level definition in this same module whose name begins with a
+      backend name this phase ADDED to the `backend` `Literal`), never from a
+      hard-coded list.
+
+    Everything else at module level in `_writer.py` — including any other edit
+    to `__all__` — remains a finding. This is a permission for one name, not a
+    blanket exemption for module-level assignments.
+    """
+    if type(before) is not type(after):
+        return None
+    pair_before = name_collection(before)
+    pair_after = name_collection(after)
+    if pair_before is None or pair_after is None:
+        return None
+    if pair_before[0] != pair_after[0]:
+        return None
+    if len(pair_after[1]) != len(pair_before[1]) + 1:
+        return None
+    surplus = list(pair_after[1])
+    for name in pair_before[1]:
+        if name not in surplus:
+            return None
+        surplus.remove(name)
+    if len(surplus) != 1 or surplus[0] not in permitted:
+        return None
+    return surplus[0]
+
+
 def comment_block_above(source: str, anchor: str) -> set[str]:
     """Stripped `#:` lines in the contiguous block immediately above `anchor`.
 
@@ -1092,10 +1182,137 @@ def check_schema_consistency(root: pathlib.Path, evidence: list[str]) -> list[st
     ]
 
 
-def check_writer_ast(
-    root: pathlib.Path, base: str, evidence: list[str]
+def check_writer_module_level(
+    root: pathlib.Path,
+    base: str,
+    base_source: str,
+    head_source: str,
+    path: pathlib.Path,
+    added_defs: Sequence[str],
+    evidence: list[str],
+    recorded: list[str],
 ) -> list[str]:
-    """Layer-2 check (4): only NEW top-level defs may appear in `_writer.py`."""
+    """The module-level half of layer-2 check (4) — WR-09's fix.
+
+    HEAD's module-level statements must be an ordered SUPERSEQUENCE of the
+    base's: every pre-existing statement still present, unmodified, in order.
+    Additions are free — this is Tier A, and a new substrate's query-string
+    constants have nowhere else to live under CINV-02.
+
+    A base statement that fails to match does NOT consume the cursor, so one
+    modified constant reports as one finding rather than cascading into every
+    statement below it.
+    """
+    base_stmts = module_level_statements(base_source, path)
+    head_stmts = module_level_statements(head_source, path)
+    head_dumps = [ast.dump(node) for node in head_stmts]
+
+    # The names the companion permission may admit, DERIVED rather than listed:
+    # a top-level definition this phase ADDED to this module, whose name begins
+    # with a backend name this phase added to the `backend` Literal.
+    new_names = new_backend_names(root, base)
+    permitted = frozenset(
+        name
+        for name in added_defs
+        if any(name.lower().startswith(backend.lower()) for backend in new_names)
+    )
+
+    findings: list[str] = []
+    companions: list[str] = []
+    unmatched: list[ast.stmt] = []
+    cursor = 0
+    for stmt in base_stmts:
+        dump = ast.dump(stmt)
+        matched = False
+        for index in range(cursor, len(head_dumps)):
+            if head_dumps[index] == dump:
+                cursor = index + 1
+                matched = True
+                break
+        if matched:
+            continue
+        for index in range(cursor, len(head_stmts)):
+            name = bounded_name_addition(stmt, head_stmts[index], permitted)
+            if name is None:
+                continue
+            pair = name_collection(stmt)
+            target = pair[0] if pair is not None else "<unknown>"
+            companions.append(f"{WRITER_MODULE_PATH}: {target} gained {name!r}")
+            cursor = index + 1
+            matched = True
+            break
+        if not matched:
+            unmatched.append(stmt)
+
+    evidence.append(
+        f"  _writer.py module level   : {len(base_stmts)} -> {len(head_stmts)}"
+        f" statements; unmatched={len(unmatched)}"
+        f" bounded-companions={len(companions)}"
+        f" (permitted companion names: {sorted(permitted)})"
+    )
+    for line in companions:
+        evidence.append(f"      companion + {line}")
+        recorded.append(line)
+
+    if len(companions) > 1:
+        findings.append(
+            format_finding(
+                path,
+                0,
+                RULE_WRITER_AST,
+                f"{len(companions)} module-level companion additions; the"
+                " 2026-08-08 FOURTH correction permits exactly ONE — a single"
+                " string collection gaining a single name, and that name the new"
+                " backend's. More than one is a D-IMPL question for Dave, not a"
+                " reason to widen the permission",
+            )
+        )
+    for stmt in unmatched:
+        findings.append(
+            format_finding(
+                path,
+                getattr(stmt, "lineno", 0),
+                RULE_WRITER_AST,
+                f"the pre-existing module-level {type(stmt).__name__} statement at"
+                f" base line {getattr(stmt, 'lineno', 0)} was MODIFIED or REMOVED."
+                " This file is Tier A with NO line budget, so its module-level"
+                " constants are checked structurally instead: existing statements"
+                " may be added to but never rewritten. The ONE permitted companion"
+                " is a flat string collection gaining exactly one name, and that"
+                " name a new top-level definition of the new backend's"
+                f" (permitted here: {sorted(permitted)})",
+            )
+        )
+    return findings
+
+
+def check_writer_ast(
+    root: pathlib.Path, base: str, evidence: list[str], recorded: list[str]
+) -> list[str]:
+    """Layer-2 check (4): `_writer.py` may only GAIN, never change what it had.
+
+    Two halves, and the second was missing until the 2026-08-08 FOURTH
+    correction:
+
+    * **Definitions.** Only NEW top-level classes and functions may appear;
+      every pre-existing one must be byte- and AST-identical.
+    * **Module level.** Every pre-existing module-level statement — imports,
+      `__all__`, module constants, the per-backend query-string constants —
+      must still be present, unmodified, and in order. New ones may be added
+      freely (this file is Tier A: a new substrate's constants have nowhere
+      else to go). Review finding WR-09 recorded the gap: without this half, a
+      Tier-A file with **no line budget** could have an existing module
+      constant rewritten and pass every check the gate ran.
+
+    ONE bounded companion is permitted at module level, and it is recorded like
+    the two conformance companions rather than merely allowed: `__all__` (or
+    any flat string collection) may gain **exactly one** name, and that name
+    must be a new top-level definition in this same module whose name begins
+    with a backend name this phase added to the `backend` `Literal`. See
+    `bounded_name_addition`. Measured before granting: at base `96f54c5` the
+    module carried 33 module-level statements and HEAD carries 51, with exactly
+    one base statement unmatched — `__all__`, which gained `FlureeGraphWriter`.
+    """
     base_source = blob(root, base, WRITER_MODULE_PATH)
     if base_source is None:
         return [
@@ -1135,6 +1352,9 @@ def check_writer_ast(
     )
 
     findings: list[str] = []
+    findings += check_writer_module_level(
+        root, base, base_source, head_source, path, added, evidence, recorded
+    )
     for name in modified:
         kind = (
             "semantically"
@@ -1770,8 +1990,8 @@ def run(root: pathlib.Path, base: str) -> tuple[list[str], list[str]]:
     findings += check_backend_names_kept(root, base)
     findings += check_budgets(changes, evidence)
     findings += check_schema_consistency(root, evidence)
-    findings += check_writer_ast(root, base, evidence)
     recorded: list[str] = []
+    findings += check_writer_ast(root, base, evidence, recorded)
     findings += check_conformance(root, base, changes, evidence, recorded)
     findings += check_recorded_in_package(root, recorded, evidence)
     findings += check_corpus(root, changes, evidence)
