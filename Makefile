@@ -39,8 +39,23 @@ help: ## List targets with one-line descriptions
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  %-28s %s\n", $$1, $$2}'
 
+# The second line installs the out-of-tree adapter fixture (plan 15.4-10). It
+# is ALWAYS-ON rather than opt-in, and the ruling is recorded rather than left
+# as a silence: plan 15.4-11 asserts that the conformance parameter lists and
+# `declared_names()` agree in BOTH directions, so under an opt-in target a
+# developer who ran `make install` and then `make ci-core` would get a red
+# parity test for a step nothing reminded them to take.
+#
+# The visible consequence is accepted: every development checkout and every CI
+# runner reports a seventh name from `ccf backends list`. It is bounded because
+# the fixture is not a dependency of the `ccf` distribution — `pip install ccf`
+# never pulls it, and a test asserts that — and because this target is the
+# developer bootstrap, not an adopter's install path.
+#
+# Order matters: the fixture imports `ccf`, so the SDK's own install goes first.
 install: ## Refresh the editable install with dev extras (pip install -e ".[dev]")
 	.venv/bin/pip install -e ".[dev]"
+	.venv/bin/pip install -e ./tests/fixtures/ccf-demo-adapter
 
 lint: ## CCF invariant lints — CINV-01/02/03 + orchestration split (blocking, D-07)
 	$(ENV) $(PYTHON) -m tools.lints --all

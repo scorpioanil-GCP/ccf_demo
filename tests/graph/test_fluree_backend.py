@@ -1873,17 +1873,41 @@ def test_a_credential_for_an_adapter_that_declares_none_is_refused() -> None:
     The subject adapter here is deliberately one that declares **no** credential
     field, taken off its own registration record rather than named, so the test
     is about the mechanism and not about which adapter happens to have none.
+
+    It must also require **no connection setting**, and that second half is a
+    precondition rather than a convenience. ``boot`` validates the connection
+    mapping before it checks the credential mapping, and this call supplies no
+    connection at all — so a subject with a required setting is refused for the
+    missing setting, which is a refusal about the wrong thing. Both halves are
+    read off the adapter's own record, so the selection stays derived; naming
+    the adapter that happens to satisfy them would put a substrate literal back
+    into a test whose whole point is that it has none.
+
+    Plan 15.4-10 is what made the second half load-bearing. Until an out-of-tree
+    adapter was installed, every credential-free adapter that sorted first also
+    happened to need no connection settings, so the precondition held by
+    accident and the test passed without stating it.
     """
     from ccf.boot import boot
     from ccf.controlplane.registry import ControlPlaneRegistry
     from ccf.graph.registry import ResolvedSecret, declared_names, resolve
 
+    def _needs_neither(name: str) -> bool:
+        registration = resolve(name).registration
+        if registration.secret_fields:
+            return False
+        return not any(
+            field.is_required()
+            for field in registration.config_model.model_fields.values()
+        )
+
     credential_free = sorted(
-        name
-        for name in declared_names()
-        if not resolve(name).registration.secret_fields
+        name for name in declared_names() if _needs_neither(name)
     )
-    assert credential_free, "no adapter declares an empty secret_fields"
+    assert credential_free, (
+        "no adapter declares both an empty secret_fields and a connection"
+        " contract with no required settings"
+    )
     subject = credential_free[0]
 
     with pytest.raises(ValueError) as caught:

@@ -355,6 +355,18 @@ def fabric_boot(
                 "uri": request.getfixturevalue("mongo_uri"),
                 "partition": f"ccf_test_{uuid.uuid4().hex}",
             }
+        elif backend == "demo":
+            # Plan 15.4-10: the out-of-tree adapter, installed from
+            # tests/fixtures/ccf-demo-adapter by `make install` and by CI. A
+            # fresh name per boot is what makes "a fresh graph per test" true
+            # here, exactly as a temp file does on SQLite — this adapter's
+            # graph identity is derived from the name it is given, so two
+            # boots on one name are two handles on one graph and the second is
+            # refused.
+            #
+            # There is no container and no marker: the store is a dict, so this
+            # branch belongs to the always-on leg.
+            location = {"graph_name": f"ccf_test_{uuid.uuid4().hex}"}
         elif backend == "fluree":
             # Plan 15.3: a fresh partition per boot inside ONE CCF-owned
             # ledger (D-03), so the container's state accumulates across a
