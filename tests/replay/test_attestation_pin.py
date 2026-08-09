@@ -111,7 +111,8 @@ def fabric(
         keys["policy_bundle"], control["policy_bundle"]
     )
     handle = boot(
-        database_path=tmp_path / "acme-bank.sqlite3",
+        backend="sqlite",
+        connection={"database_path": tmp_path / "acme-bank.sqlite3"},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,

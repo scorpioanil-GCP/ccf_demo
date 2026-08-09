@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**398 entries**, of which **179** name a public Python surface.
+**400 entries**, of which **181** name a public Python surface.
 
 ## Added
 
@@ -3192,7 +3192,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-212 entries — 29 public Python surface, 183 not public Python API.
+214 entries — 31 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -3828,6 +3828,77 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none — identical to `ccf.controlplane.artifacts.DeploymentManifest`
 
 *Recorded by `15.3-02-fluree-backend.md`.*
+
+#### ccf.boot.boot
+
+- Surface: ccf.boot.boot
+- Public surface: true
+- Change type: reshaped
+- Before: sixteen keyword arguments, eleven of them per-database
+  (`database_path`, `postgres_dsn`, `postgres_schema`, `memory`, `neo4j_uri`,
+  `neo4j_partition`, `mongo_uri`, `mongo_partition`, `fluree_url`,
+  `fluree_partition`, `fluree_bearer_token`), with the substrate selected by
+  asking which of them was not `None`. Omitting all of them selected the
+  development substrate by default
+- After: eight keyword arguments — `backend`, `connection`, `secrets`,
+  `registry`, `resolution_spec_key`, `resolution_spec_version`,
+  `policy_bundle_key`, `policy_bundle_version`. `backend` is required and has
+  no default; `connection` is a mapping validated against the resolved
+  adapter's own contract; `secrets` is a mapping of config field to
+  `ccf.graph.registry.ResolvedSecret`. No parameter names a database
+- Why: the composition root named all six substrates, so adding a seventh cost
+  an edit in core and a substrate name in core was unavoidable. After
+  D-IMPL-93 an adapter declares itself and `boot` resolves the one a deployment
+  named, which is what lets a third-party adapter ship as a separate
+  installable distribution with no line changing in this repository. `backend`
+  is required rather than defaulted because a fabric that could infer its own
+  substrate could boot against a development store in production and still pass
+  every test
+- Migration: replace the per-database keyword with `backend=` plus
+  `connection=`, using this table. `postgres_schema` became `schema_name`
+  because a Pydantic field named `schema` shadows an attribute on `BaseModel`;
+  the store's own keyword is unchanged.
+  | Retired `boot()` keyword | New location |
+  |---|---|
+  | `database_path` | `backend="sqlite"`, `connection={"database_path": ...}` — name unchanged |
+  | `postgres_dsn` | `backend="postgres"`, `connection={"dsn": ...}` |
+  | `postgres_schema` | `backend="postgres"`, `connection={"schema_name": ...}` |
+  | `memory=True` | `backend="memory"`, no connection mapping at all |
+  | `neo4j_uri` | `backend="neo4j"`, `connection={"uri": ...}` |
+  | `neo4j_partition` | `backend="neo4j"`, `connection={"partition": ...}` |
+  | `mongo_uri` | `backend="mongo"`, `connection={"uri": ...}` |
+  | `mongo_partition` | `backend="mongo"`, `connection={"partition": ...}` |
+  | `fluree_url` | `backend="fluree"`, `connection={"url": ...}` |
+  | `fluree_partition` | `backend="fluree"`, `connection={"partition": ...}` |
+  | `fluree_bearer_token` | `secrets={"bearer_token": ResolvedSecret(...)}` |
+  Two worked cases follow, and then the three refusals to expect while
+  migrating.
+
+*Recorded by `15.4-05-boot.md`.*
+
+#### ccf.boot.FabricHandle
+
+- Surface: ccf.boot.FabricHandle
+- Public surface: true
+- Change type: reshaped
+- Before: constructed with `reader`, `worker`, `registry` and `shutdown`, and
+  exposing the first three. It carried capabilities and no state a caller could
+  misuse
+- After: additionally constructed with `adapter` and exposing
+  `handle.adapter`, a `ccf.graph.registry.AdapterPin` carrying the adapter's
+  name, its version, and the sorted names of the credential references in force
+- Why: from D-IMPL-93 onward the adapter behind the graph seam can be
+  third-party code, so which adapter answered and at which version is part of
+  what produced the answer — whitepaper §7.10.1 dimension 2. The pin has no
+  field that can hold a credential: `secret_refs` carries reference *names*,
+  which is what makes the credential path auditable without recording a
+  credential. `FabricHandle` still has no writer attribute, private or
+  otherwise
+- Migration: none for a reader. A caller that constructs a `FabricHandle`
+  directly — which nothing in the SDK does outside `boot` — must now pass
+  `adapter`
+
+*Recorded by `15.4-05-boot.md`.*
 
 ### Not public Python API
 

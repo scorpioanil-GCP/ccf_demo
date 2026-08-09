@@ -211,7 +211,8 @@ def test_a_fabric_whose_policy_bundle_is_unregistered_refuses_to_boot(
 
     with pytest.raises(ControlPlaneMissing):
         boot(
-            database_path=tmp_path / "unbound.sqlite3",
+            backend="sqlite",
+            connection={"database_path": tmp_path / "unbound.sqlite3"},
             registry=registry,
             resolution_spec_key=SPEC_KEY,
             resolution_spec_version=spec_version,
@@ -237,7 +238,8 @@ def test_a_failed_boot_leaves_the_graph_bootable(
 
     with pytest.raises(ControlPlaneMissing):
         boot(
-            database_path=database_path,
+            backend="sqlite",
+            connection={"database_path": database_path},
             registry=registry,
             resolution_spec_key=SPEC_KEY,
             resolution_spec_version=spec_version,
@@ -247,7 +249,8 @@ def test_a_failed_boot_leaves_the_graph_bootable(
 
     policy_version = registry.register(POLICY_KEY, {"regime": "retry"})
     handle = boot(
-        database_path=database_path,
+        backend="sqlite",
+        connection={"database_path": database_path},
         registry=registry,
         resolution_spec_key=SPEC_KEY,
         resolution_spec_version=spec_version,

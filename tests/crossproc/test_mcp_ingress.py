@@ -264,7 +264,8 @@ def test_acquired_signal_reaches_the_graph_only_through_l2(
         keys["policy_bundle"], control["policy_bundle"]
     )
     handle = boot(
-        database_path=tmp_path / "mcp-ingress.sqlite3",
+        backend="sqlite",
+        connection={"database_path": tmp_path / "mcp-ingress.sqlite3"},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,

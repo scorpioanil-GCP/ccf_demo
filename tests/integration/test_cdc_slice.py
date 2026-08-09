@@ -145,7 +145,8 @@ def fabric(tmp_path: Path, ontology: Any) -> Iterator[FabricHandle]:
     spec_version = registry.register(RESOLUTION_SPEC_KEY, _resolution_spec(ontology))
     policy_version = registry.register(POLICY_BUNDLE_KEY, {"regime": "cdc-fixture"})
     handle = boot(
-        database_path=tmp_path / "cdc.sqlite3",
+        backend="sqlite",
+        connection={"database_path": tmp_path / "cdc.sqlite3"},
         registry=registry,
         resolution_spec_key=RESOLUTION_SPEC_KEY,
         resolution_spec_version=spec_version,

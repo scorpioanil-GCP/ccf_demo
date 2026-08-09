@@ -50,6 +50,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from pydantic import SecretStr
+
 from ccf.boot import FabricHandle, boot
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
@@ -65,6 +67,7 @@ from ccf.deployment.classes import (
     resolve_artifact_class,
 )
 from ccf.deployment.pins import ArtifactPin, ResolvedPins
+from ccf.graph.registry import ResolvedSecret
 
 __ccf_mode__ = "algorithmic"
 
@@ -279,6 +282,68 @@ def _preflight_backend(
                 f" {argument} was also supplied; supply only the argument"
                 " the manifest's declared backend needs"
             )
+
+
+#: What :attr:`ccf.graph.registry.AdapterPin.secret_refs` records when a
+#: credential arrives as a direct argument to this function rather than from a
+#: named reference the manifest declares. A positive marker, on the precedent
+#: of the registry's ``unknown`` version marker: the pin says plainly that no
+#: named reference was in force, rather than naming the parameter and implying
+#: one was. Plan 15.4-06 replaces this with the manifest's own declared
+#: reference names (D-08), and this constant goes with it.
+DIRECT_ARGUMENT_REFERENCE = "<direct-argument>"
+
+
+def _connection_mapping(
+    *,
+    database_path: str | None,
+    postgres_dsn: str | None,
+    neo4j_uri: str | None,
+    mongo_uri: str | None,
+    fluree_url: str | None,
+) -> dict[str, object]:
+    """This function's connection arguments, keyed as the adapter declares them.
+
+    Transitional, and narrow on purpose. :func:`_preflight_backend` has already
+    established that exactly the declared backend's connection argument is
+    supplied and no other, so at most one of these is not ``None`` and the
+    result is either empty or a single entry. The key is the field name on the
+    adapter's own connection contract; the argument name is this function's
+    legacy shape, which plan 15.4-06 replaces with a mapping the caller supplies
+    directly.
+    """
+    settings: dict[str, object] = {}
+    for value, field in (
+        (database_path, "database_path"),
+        (postgres_dsn, "dsn"),
+        (neo4j_uri, "uri"),
+        (mongo_uri, "uri"),
+        (fluree_url, "url"),
+    ):
+        if value is not None:
+            settings[field] = value
+    return settings
+
+
+def _supplied_secrets(*, bearer_token: str | None) -> dict[str, ResolvedSecret]:
+    """Credentials this function was handed, keyed by the adapter's config field.
+
+    Transitional in the same way as :func:`_connection_mapping`. A credential
+    supplied for an adapter that declares no such field is refused by
+    :func:`ccf.boot.boot` against the resolved adapter's own ``secret_fields``,
+    which is where the old "a credential for a backend nobody selected" refusal
+    now lives.
+    """
+    if bearer_token is None:
+        return {}
+    field = "bearer_token"
+    return {
+        field: ResolvedSecret(
+            field=field,
+            ref_name=DIRECT_ARGUMENT_REFERENCE,
+            value=SecretStr(bearer_token),
+        )
+    }
 
 
 def load_and_boot(
@@ -542,13 +607,15 @@ def load_and_boot(
 
     pins = ResolvedPins(entries=tuple(pinned))
     handle = boot(
-        database_path=database_path,
-        postgres_dsn=postgres_dsn,
-        memory=manifest.backend == "memory",
-        neo4j_uri=neo4j_uri,
-        mongo_uri=mongo_uri,
-        fluree_url=fluree_url,
-        fluree_bearer_token=fluree_bearer_token,
+        backend=manifest.backend,
+        connection=_connection_mapping(
+            database_path=database_path,
+            postgres_dsn=postgres_dsn,
+            neo4j_uri=neo4j_uri,
+            mongo_uri=mongo_uri,
+            fluree_url=fluree_url,
+        ),
+        secrets=_supplied_secrets(bearer_token=fluree_bearer_token),
         registry=registry,
         resolution_spec_key=manifest.resolution_spec_key,
         resolution_spec_version=pins.version_for(manifest.resolution_spec_key),

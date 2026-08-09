@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from ccf.contracts.canonical import canonical_bytes
+from ccf.graph.backends.mongo_write import REGISTRATION as MONGO_REGISTRATION
 
 from tests.conformance.query_corpus import (
     EARLY,
@@ -48,6 +49,11 @@ if TYPE_CHECKING:
 #: A crossable edge type from the fixture vocabulary — the tests hold
 #: mechanism; the vocabulary is the fixtures' (CLAUDE.md §6.4).
 EDGE_TYPE = sorted(RELATIONSHIP_TYPES)[0]
+
+#: This module's subject, read off the adapter's own registration record
+#: rather than typed here. Importing the write module needs no extra: the
+#: driver import lives inside the store constructor.
+BACKEND_NAME = MONGO_REGISTRATION.name
 
 
 def test_module_imports_without_the_driver() -> None:
@@ -234,26 +240,39 @@ def test_no_query_text_is_assembled_anywhere_in_the_module() -> None:
     }, sorted(tokens)
 
 
-def test_boot_refuses_mongo_plus_another_backend() -> None:
-    """Selecting mongo *and* memory is a contradiction, refused loudly.
+def test_boot_refuses_this_adapter_plus_another_substrates_setting() -> None:
+    """Naming this adapter and supplying another's setting is refused loudly.
 
-    The exactly-one exclusivity check runs before any lazy driver import, so
-    the refusal needs no extra installed — the fabric does not infer its
-    substrate and does not pick a winner.
+    The guarantee is unchanged — the fabric does not infer its substrate and
+    does not pick a winner — and so is the property that made this test cheap:
+    the refusal still runs before any driver is loaded. Validation happens
+    against the adapter's connection contract and no store is constructed, and
+    this adapter's driver import lives inside its store constructor, so the
+    refusal needs no extra installed.
+
+    What changed is the shape of the contradiction. Before D-IMPL-93 it was
+    two of eleven keyword arguments; now it is a connection key this adapter
+    does not declare, refused by the ``extra="forbid"`` its contract inherits.
     """
     from ccf.boot import boot
     from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.graph.registry import InvalidBackendConfig
 
-    with pytest.raises(ValueError, match="exactly one"):
+    with pytest.raises(InvalidBackendConfig) as caught:
         boot(
-            mongo_uri="mongodb://localhost:27017",
-            memory=True,
+            backend=BACKEND_NAME,
+            connection={
+                "uri": "mongodb://localhost:27017",
+                "database_path": "never-created.sqlite3",
+            },
             registry=ControlPlaneRegistry(),
             resolution_spec_key="never",
             resolution_spec_version="never",
             policy_bundle_key="never",
             policy_bundle_version="never",
         )
+    assert BACKEND_NAME in str(caught.value)
+    assert "database_path" in str(caught.value)
 
 
 def test_manifest_declares_mongo_and_preflight_requires_the_uri() -> None:

@@ -504,7 +504,8 @@ def consumer(tmp_path: Path, transport: TransportLeg) -> Iterator[Consumer]:
 
     database_path = tmp_path / "a2a-consumer.sqlite3"
     handle = boot(
-        database_path=database_path,
+        backend="sqlite",
+        connection={"database_path": database_path},
         registry=registry,
         resolution_spec_key=CONTROL["keys"]["resolution_spec"],
         resolution_spec_version=spec_version,

@@ -121,7 +121,8 @@ def build_servable_product(*, database_path: Path) -> AssembledProduct:
     )
     policy_version = registry.register(keys["policy_bundle"], control["policy_bundle"])
     handle = boot(
-        database_path=database_path,
+        backend="sqlite",
+        connection={"database_path": database_path},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,

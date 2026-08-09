@@ -88,7 +88,8 @@ def boot_fabric(*, database_path: Path) -> "FabricHandle":
         keys["policy_bundle"], control["policy_bundle"]
     )
     return boot(
-        database_path=database_path,
+        backend="sqlite",
+        connection={"database_path": database_path},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,

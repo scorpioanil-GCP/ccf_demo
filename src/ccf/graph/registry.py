@@ -44,10 +44,10 @@ Stated here so a later reader does not reach for either as a de-risking step.
   every boot, and it would undo the optional-extra deferral that keeps a
   driver's package unloaded when a deployment booted something else.
 * **It does not infer an adapter from the shape of a connection value.**
-  Selection is a name in a manifest. That is the rule ``_open_backend``'s
-  docstring already states — a fabric that guessed its own substrate could
-  boot against a development store in production and still pass every test —
-  and this module inherits it rather than re-deciding it.
+  Selection is a name in a manifest. That is the rule :func:`ccf.boot.boot`'s
+  required ``backend`` argument states — a fabric that guessed its own
+  substrate could boot against a development store in production and still
+  pass every test — and this module inherits it rather than re-deciding it.
 
 Fail-closed on bad metadata, ruled rather than fallen into
 ----------------------------------------------------------
