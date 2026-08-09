@@ -28,8 +28,10 @@ The decisive fact was verified in source rather than assumed:
   runs the D-05 bump check — the author's `artifact_version` claim held against
   content identity, with the four-outcome refusal table.
 - `ccf.deployment.manifest.load_and_boot` registers every entry through
-  `register_typed` (`src/ccf/deployment/manifest.py:299`), which does not run
-  that check.
+  `register_typed` (`src/ccf/deployment/manifest.py:299` — where it stood in the
+  tree this fragment was written against; the call has moved since, and Phase
+  15.1's ERGO-18 made the path conditional on each entry's declared
+  `registration` mode), which does not run that check.
 
 So a manifest entry for any of those three classes would have **silently
 dropped governance**: routing, steps or an agent's axis bindings could be
