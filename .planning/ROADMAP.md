@@ -728,7 +728,7 @@ sequential.
 
 **Requirements**: SUBQ-12, SUBQ-13, SUBQ-14
 
-**Plans:** 5/5 plans complete
+**Plans:** 6/5 plans complete
 
 Plans:
 
@@ -804,7 +804,7 @@ reader can see which code is CCF and which is theirs.
 | 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 (gated with carried debt; CR-1/CR-2 close in 15.1) |
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
-| 15.3. Fluree Adapter (Tier-1 Substrate) | 5/5 | Complete   | 2026-08-09 |
+| 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage

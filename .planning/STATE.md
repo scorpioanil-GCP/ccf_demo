@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
-status: executing
-last_updated: "2026-08-08T21:16:12.509Z"
-last_activity: 2026-08-08 -- Phase 15.3 execution started
+status: ready_to_plan
+last_updated: 2026-08-09T07:49:54.759Z
+last_activity: 2026-08-09 -- Phase 15.3 gated (D-GATE-15.3); Phase 15.4 commissioned
 progress:
   total_phases: 15
   completed_phases: 12
   total_plans: 91
-  completed_plans: 96
+  completed_plans: 102
   percent: 80
-stopped_at: Phase 15.3 COMPLETE and awaiting Dave's gate approval. All 5 waves + two review-fix rounds merged; verified on main at bcae46a -- gate-15.3 exit 0 (rule-surface pin independently proven to fire), lint 0, typecheck 177 files, ci-core 2298 passed/81 skipped, all four legs green (postgres 25/neo4j 20/mongo 22/fluree 37). Phase verification 6/6 must-haves, status human_needed (2 residual CI-observation items in 15.3-HUMAN-UAT.md; neither blocks). Code review 1 Critical + 13 findings: CLOSED CR-01, WR-02, WR-03, WR-07, WR-08, WR-09, WR-10, IN-01; 6 remain OPEN as recorded debt (WR-01, WR-04, WR-05, WR-06, IN-02, IN-03). D-IMPL-92 carries FOUR dated corrections. AT APPROVAL: log D-GATE-15.3 including the goal-wording correction ("zero changes to the SDK core" and "suite diff: one fixture parameter" are both overstatements; D-IMPL-92's wording is the true claim; ROADMAP goal text left intact by Dave's ruling so the falsified prediction stays visible). Substrate #7 note: manifest.py headroom is 1 line (24/25), tied with artifacts.py (9/10). Superseded detail: re-verified on main at c0db776 -- gate-15.3 exit 0 (rule-surface pin independently proven to fire on a silently-raised budget), lint 0, typecheck 177 files, ci-core 2296 passed/81 skipped, legs postgres 25/neo4j 20/mongo 22/fluree 37. Code review: 1 Critical + 13 findings; CLOSED CR-01 (policy_key non-injective over entity_class -> pushed answer admitted a claim the fallback excluded, T-15.2-03; reproduced and re-verified fixed), WR-02/WR-03 (Fluree auth was unreachable -- credentialed URL connected anonymously), WR-09/WR-10 (gate rule surface self-authored; now digest-pinned to append-only DECISIONS.md). 9 findings remain OPEN for Dave's triage (WR-01/04/05/06/07/08, IN-01/02/03) -- IN-01 is gate coverage and pairs with WR-09/10. D-IMPL-92 now carries FOUR dated corrections. Awaiting phase verification. Superseded detail: all 5 waves merged and re-verified at 5811d04 -- `make gate-15.3` exits 0 and was watched to fail 8 times on 8 distinct violations (2 reproduced by the orchestrator on main, incl. the append-only bound); ci-core 2289 passed/81 skipped; all four legs green (postgres 25 / neo4j 20 / mongo 22 / fluree 37); both pushdown falsifications hold (telemetry RED, corpus GREEN at 7). D-IMPL-92 gained THREE dated corrections -- the gate found the enumeration-is-the-mechanism defect in the test tree, in its own allowlist, and recursively in recording that fix. OPEN for Dave at the gate: (a) the `schedule:` trigger on live-legs.yml (executor call, one-line revert); (b) whether to commission the registration seam D-IMPL-92 names as a future candidate. Awaiting phase verification. Superseded detail: waves 1-4 of 5 merged (01 probes + F-A4(a) ruled `approved` by Dave 2026-08-08; 02 FlureeGraphStore/_FlureeTxn, _GraphTxn Protocol unchanged at 864 added/0 deleted; 03 stage-1 pushdown, SUBQ-12 complete; 04 BF-1 stage-2 traversal Branch A promoted-with-proof, traverse telemetry FLIPPED to fallback 0/translated 1, _writer.py still untouched). BOTH falsifications discharged and independently re-verified on merged main -- with _translate_query neutered, both telemetry tests go RED while the differential corpus stays GREEN at 7 passed. ci-core 2289 passed; ALL FOUR legs green -- postgres 25 / neo4j 20 / mongo 22 / fluree 37 (postgres self-provisions a postgres:16 testcontainer when CCF_TEST_POSTGRES_DSN is unset, per the Makefile note; no standing server is needed). Next wave 5 (15.3-05 gate script, ends in a BLOCKING checkpoint:human-verify for Dave).
+stopped_at: Phase 15.3 COMPLETE and gated (D-GATE-15.3, Dave, 2026-08-09). Next: Phase 15.4 — backend registration seam, commissioned by D-IMPL-93, precedes Phase 16. Residual: 15.3-HUMAN-UAT.md carries 2 GitHub-Actions observations (non-blocking); 6 code-review findings open as recorded debt (WR-01, WR-04, WR-05, WR-06, IN-02, IN-03).
 ---
 
 # STATE — CCF SDK
@@ -24,20 +24,26 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 15.3 — fluree-adapter-tier-1-substrate-inserted
+**Current focus:** Phase 15.4 — backend registration seam (the substrate stops naming its adapters)
 
 ## Current Position
 
-Phase: 15.3 (fluree-adapter-tier-1-substrate-inserted) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 15.3
-  allowed_entities in GraphQuery, uniform constraint rule, CP-valued size
-  cap, hash+ArtifactStore replay pin, prose-lane versioning. CONTEXT.md
-  amended (D-01/D-02 revised, D-10..D-12 added). Next: /gsd:plan-phase 15.2
-  redraws all 13 plans against the amended context; §3.1 review at the gate
-  re-ratifies D-IMPL-87.
+Phase: 15.4
+Plan: Not started
+Status: Ready to discuss
+  Commissioned by D-IMPL-93 (Dave, 2026-08-09): the substrate may evolve and
+  gain capability, but must never carry a unique dependency on a named adapter
+  and must never change per-adapter. Measured against that standard at
+  `773ed92`, tests (1) direction and (2) recurrence both FAIL — `boot.py` and
+  `_writer.py` import `ccf.graph.backends.*`, `_open_backend` carries 2-3
+  kwargs per substrate, and `artifacts.py` hand-maintains a six-name Literal.
+  D-IMPL-92's four corrections are the symptom of the missing seam, not a
+  documentation defect. Success is structural, not numeric: no backend import
+  outside `backends/`, no substrate name in core outside the registry, both
+  lint-enforced, replacing D-IMPL-92's admitted line-budget proxy. NOTE: the
+  handler auto-advanced to Phase 16; 15.4 precedes it per Dave's ruling.
 Progress: [----------] 0%
-Last activity: 2026-08-08 -- Phase 15.3 execution started
+Last activity: 2026-08-09 -- Phase 15.3 gated (D-GATE-15.3); Phase 15.4 commissioned
 
 ## Performance Metrics
 
