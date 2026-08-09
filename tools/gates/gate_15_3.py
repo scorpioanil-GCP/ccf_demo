@@ -69,8 +69,13 @@ checks, deliberately conservative, plus the free assertions D-11 and R6 add:
     (1) a **path allowlist** — any changed path outside it fails;
     (2) **no existing backend name is removed** from any enumeration;
     (3) **per-file added-line budgets** taken from the mongo precedent;
-    (4) an **AST assertion** that no existing class or function body in
-        `src/ccf/graph/_writer.py` is modified, only new ones added.
+    (4) an **AST assertion** that no existing class, function, or
+        module-level statement in `src/ccf/graph/_writer.py` is modified,
+        only new ones added (the module-level half arrived with the FOURTH
+        correction below);
+    (5) a **rule-surface pin** — this gate's own rule constants hash to a
+        digest that must appear in the append-only `docs/DECISIONS.md`, so
+        the gate cannot quietly rewrite its own rules (FOURTH correction).
 
 The budgets are an **admitted proxy** for "extension, not modification" and are
 to be tightened to a direct AST check (enumeration members added, nothing else
@@ -144,6 +149,58 @@ the third time recursively, on the record of the second fix.** A reader
 comparing layer 1 against layer 2 finds gaps that reading either alone would
 miss. That is the argument for recording both.
 
+THE FOURTH CORRECTION (D-IMPL-92, Dave, 2026-08-08) — THE GATE'S OWN RULES
+==========================================================================
+
+The three corrections above were all found by *running* the gate. The fourth
+was found by **reviewing** it, and both halves are the same defect one level
+further in: the part of this artifact that was still narrated rather than
+checked was the artifact's own rule surface.
+
+1. **The rule surface is now PINNED (review finding WR-10).** `tools/gates/*`
+   is Tier C — free — so widening `ALLOWLIST` or raising a `BUDGETS` entry was
+   mechanically indistinguishable from the gate's own authorship. `main()`
+   forbids exactly that in prose ("Fix the DIFF — never the allowlist, the
+   budgets, or the rules") and nothing enforced it. The rule constants are now
+   normalized and hashed (`rule_surface`, `rule_surface_digest`), and the
+   digest must appear in `docs/DECISIONS.md` — which the THIRD correction
+   already bounds **append-only**, so recording a rule change cannot be done by
+   editing the record of the last one.
+
+   **Stated without overclaiming: this makes a rule change audited, not
+   impossible.** A rule change plus an appended, dated decision-log entry
+   carrying the new digest passes, by design — D-IMPL-92's method is that the
+   proxy may be corrected upward toward the rule, and three such corrections
+   already had to happen. What the pin removes is the SILENT change. It also
+   covers rule *data* only, not the check bodies; `rule_surface` states exactly
+   what is and is not inside the hash, including that declaration order is not
+   (the lines are sorted, so cosmetic reordering does not fire).
+
+2. **The `_writer.py` AST check reaches module level (review finding WR-09).**
+   `top_level_defs` collected only `ClassDef`/`FunctionDef`, so every
+   module-level statement in that file — `__all__`, the per-backend query-string
+   constants, module constants — was invisible. `_writer.py` is Tier A with **no
+   line budget**, so rewriting an existing module constant there passed every
+   check. HEAD's module body must now be an ordered SUPERSEQUENCE of the base's.
+
+3. **One bounded companion, measured before it was granted.** A strict
+   supersequence fires on this phase's own diff: base 33 module-level
+   statements, HEAD 51, exactly ONE unmatched — `__all__`, which gained
+   `FlureeGraphWriter` and is therefore a *modified* `Assign`, not an addition.
+   The permission is one flat string collection gaining exactly one name, and
+   that name must be a NEW top-level definition in this module beginning with a
+   backend name this phase added to the `backend` `Literal` — derived from the
+   mechanism, not listed. It is **recorded** in the gate package like the two
+   conformance companions. It is not a blanket exemption for module-level
+   assignments.
+
+**The durable lesson, and it is the fourth instance of one shape.** The first
+three corrections found hand-written enumerations under-enumerating a rule
+stated as a category. This one finds the same thing about the *checker*: the
+gate's rule surface was the last narrated-not-checked part of a phase built to
+replace narration with checks. Substrate #7 should assume the same of its own
+gate before someone else does.
+
 WHAT THIS GATE DELIBERATELY DOES NOT DO
 =======================================
 
@@ -186,6 +243,7 @@ from __future__ import annotations
 import argparse
 import ast
 import fnmatch
+import hashlib
 import pathlib
 import re
 import subprocess
@@ -246,6 +304,17 @@ RULE_CORPUS = "gate153-corpus"
 RULE_FROZEN = "gate153-frozen"
 RULE_LINT = "gate153-lint"
 RULE_PACKAGING = "gate153-packaging"
+RULE_RULE_SURFACE = "gate153-rule-surface"
+
+# --------------------------------------------------------------------------
+# The rule-surface pin (2026-08-08 FOURTH correction; review finding WR-10)
+# --------------------------------------------------------------------------
+
+#: The append-only decision log. Single-homed here because two things point at
+#: it: the Tier-C allowlist entry below, and the rule-surface digest check —
+#: the pin works *because* this path is bounded append-only, so recording a
+#: rule change cannot be done by editing the record of the previous one.
+DECISION_LOG = "docs/DECISIONS.md"
 
 # --------------------------------------------------------------------------
 # Layer-2 check (1): the path allowlist
@@ -387,7 +456,7 @@ ALLOWLIST: tuple[Allowed, ...] = (
         " (D-IMPL-92 layer 1)",
     ),
     Allowed(
-        "docs/DECISIONS.md",
+        DECISION_LOG,
         "C",
         "the decision log — free on the same footing as the Makefile and the"
         " CI workflows, because the test layer 1 actually applies is 'was"
@@ -905,8 +974,148 @@ def nested_imports(source: str, path: pathlib.Path, module: str) -> list[int]:
 
 
 # --------------------------------------------------------------------------
+# The rule surface, normalized and hashed
+# --------------------------------------------------------------------------
+
+
+def rule_surface() -> list[str]:
+    """This gate's rule DATA as canonical, order-independent lines.
+
+    WHAT IS COVERED — every constant that decides what passes:
+
+    * `ALLOWLIST` — each entry's pattern, tier and `append_only` flag;
+    * `BUDGETS` — each path's limit AND its stated mongo baseline (the
+      baseline is a factual claim about the precedent, and the 2026-08-08
+      first correction exists because it was wrong; a change to it is a
+      change worth logging);
+    * `SINGLE_OWNER_DENY` — the denied paths;
+    * `FROZEN_PATHS`, `ENUMERATION_FILES`, `WRITER_EXPECTED_ADDITIONS`;
+    * `CONFORMANCE_SUITES` and `CONFORMANCE_PARAM_RE` — what a conformance
+      suite is permitted to add;
+    * the pinned `PHASE_BASE` and the named path constants the checks resolve
+      against.
+
+    WHAT IS NOT COVERED, stated rather than left to be discovered:
+
+    * **Prose.** `Allowed.reason`, `Budget.note` and the `SINGLE_OWNER_DENY`
+      messages are documentation, not rules. Excluded so that improving an
+      explanation never fires the pin — a digest that fires on cosmetic edits
+      trains a reader to route around it, which is worse than no digest.
+    * **Declaration order.** The lines are sorted before hashing, so
+      reordering entries does not fire. `allowed_for` returns the FIRST
+      matching entry, so order *would* be semantic if two patterns overlapped
+      on a path with different tiers; none currently do, and this pin does not
+      check that they do not.
+    * **Comments and formatting** anywhere in this module.
+    * **The check bodies.** This pins the rule DATA, not the code that
+      interprets it. A weakened comparison inside a `check_*` function is not
+      caught here; that is what code review is for, and WR-09 is the example
+      of it being needed.
+    """
+    lines = [
+        f"PHASE_BASE={PHASE_BASE}",
+        f"ADAPTER_MODULE={ADAPTER_MODULE}",
+        f"WRITER_MODULE_PATH={WRITER_MODULE_PATH}",
+        f"LITERAL_SOURCE={LITERAL_SOURCE}",
+        f"CORPUS_PATH={CORPUS_PATH}",
+        f"DECISION_LOG={DECISION_LOG}",
+        f"GATE_PACKAGE={GATE_PACKAGE}",
+        f"CITED_LINT_RULE={CITED_LINT_RULE}",
+        f"CONFORMANCE_PARAM_RE={CONFORMANCE_PARAM_RE.pattern}",
+    ]
+    lines += [f"ENUMERATION_FILES={path}" for path in ENUMERATION_FILES]
+    lines += [f"FROZEN_PATHS={path}" for path in FROZEN_PATHS]
+    lines += [f"SINGLE_OWNER_DENY={path}" for path in SINGLE_OWNER_DENY]
+    lines += [f"WRITER_EXPECTED_ADDITIONS={name}" for name in WRITER_EXPECTED_ADDITIONS]
+    lines += [
+        f"CONFORMANCE_SUITES={path}|anchor={anchor}"
+        for path, anchor in CONFORMANCE_SUITES.items()
+    ]
+    lines += [
+        f"ALLOWLIST={entry.pattern}|tier={entry.tier}|append_only={entry.append_only}"
+        for entry in ALLOWLIST
+    ]
+    lines += [
+        f"BUDGETS={path}|limit={budget.limit}|mongo_baseline={budget.mongo_baseline}"
+        for path, budget in BUDGETS.items()
+    ]
+    return sorted(lines)
+
+
+def rule_surface_digest() -> str:
+    """The `sha256:` digest of the normalized rule surface."""
+    payload = "\n".join(rule_surface()).encode("utf-8")
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+# --------------------------------------------------------------------------
 # The checks
 # --------------------------------------------------------------------------
+
+
+def check_rule_surface(root: pathlib.Path, evidence: list[str]) -> list[str]:
+    """The gate's own rules must be PINNED to the append-only decision log.
+
+    Review finding WR-10: `tools/gates/*` is Tier C — free — so widening the
+    allowlist or raising a budget was mechanically indistinguishable from the
+    gate's own authorship. `main()` forbids it in prose ("Fix the DIFF — never
+    the allowlist, the budgets, or the rules") and nothing enforced it. That is
+    the narrated-not-checked failure D-10 exists to prevent, occurring inside
+    the artifact built to prevent it, and the pressure was real: the allowlist
+    was widened three times during this phase — correctly each time, but
+    nothing distinguished a correct widening from an expedient one.
+
+    The pin: hash the normalized rule surface and require the digest to appear
+    in `docs/DECISIONS.md`, which this phase's THIRD correction already bounds
+    **append-only**. Changing a rule then changes the digest, and the only way
+    to make the gate green again is to APPEND a dated decision-log entry
+    carrying the new one.
+
+    **What this does and does not buy, plainly.** It makes a rule change
+    *visible and audited*. It does **not** make one impossible: a rule change
+    plus an appended decision-log entry passes, and that is the design, not a
+    hole in it. D-IMPL-92's whole method is that the proxy may be corrected —
+    upward, toward the rule — when it under-enumerates; a pin that forbade
+    correction would forbid the three corrections that already had to happen.
+    What it removes is the *silent* change. See `rule_surface` for exactly
+    which constants are covered and which are not.
+
+    **The residual, recorded rather than implied:** `--base` still accepts an
+    arbitrary ref. `PHASE_BASE` is in the digest, so the DEFAULT is pinned, and
+    `check_base_resolution` requires ancestry plus the adapter module in the
+    measured surface — but an override remains an override.
+    """
+    digest = rule_surface_digest()
+    log = root / DECISION_LOG
+    text = log.read_text(encoding="utf-8") if log.is_file() else ""
+    present = digest in text
+    evidence.append("")
+    evidence.append(f"  rule-surface digest       : {digest}")
+    evidence.append(
+        f"  pinned in {DECISION_LOG}  :"
+        f" {'present' if present else 'ABSENT'}"
+        f" ({len(rule_surface())} normalized rule lines; prose, declaration"
+        " order and the check bodies are NOT covered — see `rule_surface`)"
+    )
+    if present:
+        return []
+    return [
+        format_finding(
+            pathlib.Path(DECISION_LOG),
+            0,
+            RULE_RULE_SURFACE,
+            f"the gate's rule surface hashes to {digest}, which does not appear"
+            f" in {DECISION_LOG}. Either a rule constant changed — the allowlist,"
+            " a budget, a frozen path, the deny list, the pinned base, the"
+            " expected writer additions or a conformance anchor — or the pin was"
+            " never recorded. This is NOT fixed by editing the digest into the"
+            " log's existing entries: that path is bounded append-only, so"
+            " APPEND a dated D-IMPL-92 correction stating what rule changed, why,"
+            " and carrying the new digest. A rule change is permitted; a SILENT"
+            " one is not, and 'the gate is Tier C so its own rules are free' is"
+            " exactly the narration D-10 exists to replace with a check",
+        )
+    ]
 
 
 def check_self_tree(root: pathlib.Path, evidence: list[str]) -> list[str]:
@@ -1962,6 +2171,7 @@ def run(root: pathlib.Path, base: str) -> tuple[list[str], list[str]]:
         f"  git rev-parse --show-toplevel: {git(root, 'rev-parse', '--show-toplevel').strip()}"
     )
 
+    findings += check_rule_surface(root, evidence)
     findings += check_self_tree(root, evidence)
     findings += check_tree_clean(root, evidence)
 
