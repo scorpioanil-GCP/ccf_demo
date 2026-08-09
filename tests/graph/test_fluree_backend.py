@@ -1737,6 +1737,96 @@ def test_boot_threads_the_bearer_token_to_the_store(
         store.close()
 
 
+def test_a_failed_construction_closes_its_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """WR-05 (D-14): a construction that fails leaks no connection pool.
+
+    `__init__` builds an `httpx.Client` and then performs three bootstrap
+    requests. Any failure among them used to propagate with the client — and
+    its pool — still open, and a failed constructor returns no object the
+    caller could have closed, so nothing else could clean it up either.
+
+    This phase is why it stopped being tolerable. D-08 puts a
+    secret-resolution step in front of store construction, so a mis-set
+    environment variable produces construction failures routinely rather than
+    exceptionally, and each one held a pool.
+
+    Asserted on the *observable* fact rather than on the source: `close` is
+    counted, and the count must be exactly one — a guard that closed twice
+    would be as wrong as one that never closed, and the original exception must
+    reach the caller unchanged rather than be swallowed by the cleanup.
+    """
+    import ccf.graph.backends.fluree as fluree_mod
+
+    closes: list[int] = []
+    real_client = httpx.Client
+    real_close = httpx.Client.close
+
+    def _counting_close(self: httpx.Client) -> None:
+        closes.append(1)
+        real_close(self)
+
+    def _refusing_transport() -> httpx.MockTransport:
+        """`/health` answers 503 — the first request after the client exists."""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(503, json={})
+
+        return httpx.MockTransport(handler)
+
+    def _client(**kwargs: Any) -> httpx.Client:
+        return real_client(transport=_refusing_transport(), **kwargs)
+
+    # Order matters: `fluree_mod.httpx` IS the `httpx` module, so the second
+    # patch replaces `httpx.Client` with the factory above and the class is no
+    # longer reachable by that name. Patch the class attribute first.
+    monkeypatch.setattr(httpx.Client, "close", _counting_close)
+    monkeypatch.setattr(fluree_mod.httpx, "Client", _client)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        fluree_mod.FlureeGraphStore(
+            url="http://graph.example.com:8090", partition="ccf_test"
+        )
+
+    assert closes == [1], closes
+
+
+def test_a_refusal_before_the_client_exists_closes_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The WR-05 guard's other half: there is nothing to close, so nothing is.
+
+    The two credential/origin refusals are raised *before* any client is
+    constructed — the credential check runs first, the origin check runs while
+    evaluating the client's own argument. A guard that had been placed one line
+    too early would close a client that was never built, which is an
+    `AttributeError` on the way out of a refusal, and the refusal is the thing
+    the caller needs to see. Non-vacuity for the test above: it establishes
+    that the counter counts nothing when nothing should be closed.
+    """
+    import ccf.graph.backends.fluree as fluree_mod
+
+    closes: list[int] = []
+    real_close = httpx.Client.close
+
+    def _counting_close(self: httpx.Client) -> None:
+        closes.append(1)
+        real_close(self)
+
+    monkeypatch.setattr(httpx.Client, "close", _counting_close)
+
+    with pytest.raises(ValueError, match="supply exactly one credential"):
+        fluree_mod.FlureeGraphStore(
+            url="http://alice:s3cret@graph.example.com:8090",
+            bearer_token="tok-abc",
+        )
+    with pytest.raises(ValueError, match="bare server origin"):
+        fluree_mod.FlureeGraphStore(url="http://graph.example.com:8090/mounted")
+
+    assert closes == [], closes
+
+
 def test_a_bearer_token_without_a_fluree_url_is_refused() -> None:
     """A credential for a backend nobody selected would be silently ignored.
 

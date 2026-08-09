@@ -31,10 +31,14 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from pathlib import Path
 from typing import ClassVar
 
+from pydantic import SecretStr
+
+from ccf.contracts.base import CCFContract
 from ccf.graph._writer import (
     BaseGraphWriter,
     BootToken,
@@ -43,10 +47,17 @@ from ccf.graph._writer import (
 )
 from ccf.graph.backends.sqlite import SqliteGraphStore
 from ccf.graph.reader import Row
+from ccf.graph.registry import BackendRegistration, BackendStore
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["SqliteGraphWriter"]
+#: The name a manifest uses to select this adapter. It is the module's own stem
+#: less ``_write``, which is how built-in discovery derives it — and
+#: :func:`ccf.graph.registry.resolve` refuses a record whose ``name`` disagrees
+#: with the name it was resolved under, so the two cannot drift silently.
+ADAPTER_NAME = "sqlite"
+
+__all__ = ["REGISTRATION", "SqliteConnection", "SqliteGraphWriter"]
 
 
 class _SqliteTxn:
@@ -138,3 +149,72 @@ class SqliteGraphWriter(BaseGraphWriter):
         connection = self._store.connection
         with connection:
             yield _SqlGraphTxn(txn=_SqliteTxn(connection), statements=type(self))
+
+
+class SqliteConnection(CCFContract):
+    """The connection settings this adapter takes — and it takes no others.
+
+    Plan 15.4-04, D-07. This is where the knowledge "which connection argument
+    does this backend require" now lives: in the adapter, not in a
+    hand-maintained mapping in ``ccf.deployment.manifest`` that had to be edited
+    for every substrate.
+
+    Deriving from :class:`~ccf.contracts.base.CCFContract` is load-bearing
+    rather than stylistic. It supplies ``extra="forbid"``, and that inheritance
+    is the *whole* of one of the two refusals this model replaces: a settings
+    key this adapter does not declare is rejected rather than ignored. A model
+    written against a plain open base would keep every valid manifest working
+    and lose that refusal with nothing going red — which is why
+    ``tests/deployment/test_adapter_config.py`` sweeps every registered adapter
+    asserting it.
+
+    Attributes:
+        database_path: The SQLite file this fabric's graph lives in. Required —
+            the second refusal, in its typed form: a manifest declaring this
+            adapter and omitting the path is refused, and the fabric does not
+            fall back. Annotated ``Path`` rather than ``str`` because Pydantic
+            coerces a string to a ``Path`` and not the reverse, and callers pass
+            both.
+    """
+
+    database_path: Path
+
+
+def _open_store(
+    config: CCFContract, secrets: Mapping[str, SecretStr]
+) -> BackendStore:
+    """Construct this adapter's store from validated settings.
+
+    The parameter is typed as the contract base so this function is assignable
+    to :attr:`~ccf.graph.registry.BackendRegistration.open_store` under
+    ``mypy --strict``; the ``isinstance`` narrows it and says what arrived when
+    it is not this adapter's model. ``secrets`` is unused: this adapter declares
+    no credential, which is why its ``secret_fields`` is empty.
+    """
+    if not isinstance(config, SqliteConnection):
+        raise TypeError(
+            f"adapter {ADAPTER_NAME!r} takes a {SqliteConnection.__name__},"
+            f" got a {type(config).__name__}"
+        )
+    return SqliteGraphStore(database_path=config.database_path)
+
+
+def _make_writer(store: BackendStore, token: BootToken) -> BaseGraphWriter:
+    """Construct the write handle — called by the composition root alone."""
+    if not isinstance(store, SqliteGraphStore):
+        raise TypeError(
+            f"adapter {ADAPTER_NAME!r} writes through a"
+            f" {SqliteGraphStore.__name__}, got a {type(store).__name__}"
+        )
+    return SqliteGraphWriter(store=store, token=token)
+
+
+#: What this adapter declares about itself — the record
+#: :func:`ccf.graph.registry.resolve` reads off this module.
+REGISTRATION = BackendRegistration(
+    name=ADAPTER_NAME,
+    config_model=SqliteConnection,
+    secret_fields=frozenset(),
+    open_store=_open_store,
+    make_writer=_make_writer,
+)

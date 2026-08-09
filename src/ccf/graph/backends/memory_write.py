@@ -31,9 +31,12 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import copy
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 
+from pydantic import SecretStr
+
+from ccf.contracts.base import CCFContract
 from ccf.graph._writer import BaseGraphWriter, BootToken, _GraphTxn
 from ccf.graph.backends.memory import (
     EntityClaimRow,
@@ -45,10 +48,15 @@ from ccf.graph.backends.memory import (
     TenantState,
 )
 from ccf.graph.reader import Row
+from ccf.graph.registry import BackendRegistration, BackendStore
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["MemoryGraphWriter"]
+#: The name a manifest uses to select this adapter — the module's own stem less
+#: ``_write``, which is how built-in discovery derives it.
+ADAPTER_NAME = "memory"
+
+__all__ = ["REGISTRATION", "MemoryConnection", "MemoryGraphWriter"]
 
 
 class _MemoryTxn:
@@ -310,3 +318,57 @@ class MemoryGraphWriter(BaseGraphWriter):
         except BaseException:
             txn.rollback()
             raise
+
+
+class MemoryConnection(CCFContract):
+    """No connection settings at all — there is nothing to connect to.
+
+    Plan 15.4-04, D-07. **The empty model is the mechanism, not a placeholder.**
+    The mapping this replaces carried a ``"memory": None`` special case so the
+    required-argument check could be skipped for this adapter, and then a
+    separate loop refused every *other* adapter's argument supplied alongside
+    it. A model with no fields does both at once: nothing is required, and any
+    connection key whatsoever is refused by the ``extra="forbid"`` this class
+    inherits from :class:`~ccf.contracts.base.CCFContract`. The special case
+    disappears without a special case replacing it.
+    """
+
+
+def _open_store(
+    config: CCFContract, secrets: Mapping[str, SecretStr]
+) -> BackendStore:
+    """Construct this adapter's store — which takes nothing, by design.
+
+    Typed against the contract base so it is assignable to
+    :attr:`~ccf.graph.registry.BackendRegistration.open_store` under
+    ``mypy --strict``, then narrowed. The ``isinstance`` is not ceremony here:
+    it is what makes "this adapter accepts no settings" a refusal rather than a
+    silent acceptance of another adapter's validated model.
+    """
+    if not isinstance(config, MemoryConnection):
+        raise TypeError(
+            f"adapter {ADAPTER_NAME!r} takes a {MemoryConnection.__name__},"
+            f" got a {type(config).__name__}"
+        )
+    return MemoryGraphStore()
+
+
+def _make_writer(store: BackendStore, token: BootToken) -> BaseGraphWriter:
+    """Construct the write handle — called by the composition root alone."""
+    if not isinstance(store, MemoryGraphStore):
+        raise TypeError(
+            f"adapter {ADAPTER_NAME!r} writes through a"
+            f" {MemoryGraphStore.__name__}, got a {type(store).__name__}"
+        )
+    return MemoryGraphWriter(store=store, token=token)
+
+
+#: What this adapter declares about itself — the record
+#: :func:`ccf.graph.registry.resolve` reads off this module.
+REGISTRATION = BackendRegistration(
+    name=ADAPTER_NAME,
+    config_model=MemoryConnection,
+    secret_fields=frozenset(),
+    open_store=_open_store,
+    make_writer=_make_writer,
+)

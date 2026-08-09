@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**386 entries**, of which **167** name a public Python surface.
+**398 entries**, of which **179** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-147 entries — 119 public Python surface, 28 not public Python API.
+159 entries — 131 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -2549,6 +2549,213 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Why: D-01, as above
 - Migration: none — same import restriction, reached through
   `boot(fluree_url=…)`
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.sqlite_write.SqliteConnection
+
+- Surface: ccf.graph.backends.sqlite_write.SqliteConnection
+- Public surface: true
+- Change type: added
+- Before: absent. The SQLite adapter's one required connection argument was an
+  entry in the `required` dict in `ccf.deployment.manifest._preflight_backend`
+  (`"sqlite": "database_path"`), and the refusal for any *other* backend's
+  argument supplied alongside it was a loop in the same function
+- After: a frozen, closed-world model with one required field, `database_path`,
+  annotated `Path` rather than `str` because Pydantic coerces a string to a
+  `Path` and not the reverse while callers pass both. `extra="forbid"` is
+  inherited from `CCFContract`, so an undeclared key is refused by the contract
+  base rather than by a loop in core
+- Why: D-07. An adapter should state its own requirements in its own module, so
+  that adding a substrate costs no edit in a core file — the dependency-arrow
+  reversal D-IMPL-93 asks for, applied to configuration as well as to code
+- Migration: none. The name is new; nobody could have been using it
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.sqlite_write.REGISTRATION
+
+- Surface: ccf.graph.backends.sqlite_write.REGISTRATION
+- Public surface: true
+- Change type: added
+- Before: absent. `ccf.boot._open_backend` held this adapter's store
+  construction and writer construction inline, in one branch of a six-branch
+  cascade that named every substrate
+- After: a module-level `ccf.graph.registry.BackendRegistration` naming this
+  adapter (`sqlite`), its config model, its empty `secret_fields`, and its two
+  private factories. `resolve("sqlite")` imports this module and reads it
+- Why: D-07 and D-IMPL-93. This is the object that makes a built-in adapter and
+  a third-party adapter the same kind of thing — the record is what an entry
+  point in the `ccf.graph_backends` group points at
+- Migration: none. The name is new; the supported path to a fabric is still
+  `boot(...)` / `load_and_boot(...)`
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.postgres_write.PostgresConnection
+
+- Surface: ccf.graph.backends.postgres_write.PostgresConnection
+- Public surface: true
+- Change type: added
+- Before: absent — `"postgres": "postgres_dsn"` in the core mapping, plus the
+  schema default carried as a `boot()` keyword default
+- After: a frozen, closed-world model with a required `dsn` and an optional
+  `schema_name` defaulting to the adapter's own `DEFAULT_SCHEMA`. The field is
+  `schema_name` and not `schema` because a field named `schema` shadows an
+  attribute on Pydantic's `BaseModel` and emits a warning on every class
+  construction; the store's keyword argument is unchanged and the mapping
+  happens inside the adapter
+- Why: D-07, as above
+- Migration: none. The name is new
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.postgres_write.REGISTRATION
+
+- Surface: ccf.graph.backends.postgres_write.REGISTRATION
+- Public surface: true
+- Change type: added
+- Before: absent — one branch of `ccf.boot._open_backend`'s cascade
+- After: the module-level record for the `postgres` adapter, with empty
+  `secret_fields`: this adapter's credential travels inside the DSN, exactly as
+  it does today
+- Why: D-07 and D-IMPL-93, as above
+- Migration: none. The name is new
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.memory_write.MemoryConnection
+
+- Surface: ccf.graph.backends.memory_write.MemoryConnection
+- Public surface: true
+- Change type: added
+- Before: absent — and this adapter was the core mapping's one special case,
+  `"memory": None`, which existed so the required-argument check could be
+  skipped for it
+- After: a model with **no fields at all**. Nothing is required, and any
+  connection key whatsoever is refused by the inherited `extra="forbid"`. The
+  special case disappears without a special case replacing it — which is the
+  point: the empty model is the mechanism, not a placeholder
+- Why: D-07. A special case in core is exactly the kind of substrate knowledge
+  this phase moves out of core
+- Migration: none. The name is new
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.memory_write.REGISTRATION
+
+- Surface: ccf.graph.backends.memory_write.REGISTRATION
+- Public surface: true
+- Change type: added
+- Before: absent — one branch of `ccf.boot._open_backend`'s cascade
+- After: the module-level record for the `memory` adapter, with empty
+  `secret_fields` and a store constructor that takes nothing
+- Why: D-07 and D-IMPL-93, as above
+- Migration: none. The name is new
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.neo4j_write.Neo4jConnection
+
+- Surface: ccf.graph.backends.neo4j_write.Neo4jConnection
+- Public surface: true
+- Change type: added
+- Before: absent — `"neo4j": "neo4j_uri"` in the core mapping, with the
+  partition default resolved inside `ccf.boot._open_backend`'s branch
+- After: a frozen, closed-world model with a required `uri` and an optional
+  `partition`. The optional default stays `None` and resolves to the adapter's
+  `DEFAULT_PARTITION` at construction, exactly as `_open_backend` does today —
+  the behaviour to preserve is the resolution, not the argument shape, and a
+  substrate default baked into the model would travel inside every validated
+  settings object
+- Why: D-07, as above
+- Migration: none. The name is new
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.neo4j_write.REGISTRATION
+
+- Surface: ccf.graph.backends.neo4j_write.REGISTRATION
+- Public surface: true
+- Change type: added
+- Before: absent — one branch of `ccf.boot._open_backend`'s cascade, whose
+  module imports were deliberately deferred so a SQLite boot loaded no `neo4j`
+  driver
+- After: the module-level record for the `neo4j` adapter. **The deferral is
+  preserved and is now structural**: `resolve` imports exactly the write module
+  a deployment named, and this module's driver import stays inside the store
+  constructor, so resolving any other adapter loads neither this module nor
+  `neo4j`
+- Why: D-07 and D-IMPL-93, as above
+- Migration: none. The name is new
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.mongo_write.MongoConnection
+
+- Surface: ccf.graph.backends.mongo_write.MongoConnection
+- Public surface: true
+- Change type: added
+- Before: absent — `"mongo": "mongo_uri"` in the core mapping
+- After: a frozen, closed-world model with a required `uri` and an optional
+  `partition`, on the same `None`-default discipline as the Neo4j model
+- Why: D-07, as above
+- Migration: none. The name is new
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.mongo_write.REGISTRATION
+
+- Surface: ccf.graph.backends.mongo_write.REGISTRATION
+- Public surface: true
+- Change type: added
+- Before: absent — one branch of `ccf.boot._open_backend`'s cascade, with the
+  same deliberate import deferral as the Neo4j branch
+- After: the module-level record for the `mongo` adapter, with the `pymongo`
+  import still inside the store constructor and inside `_MongoTxn`
+- Why: D-07 and D-IMPL-93, as above
+- Migration: none. The name is new
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.fluree_write.FlureeConnection
+
+- Surface: ccf.graph.backends.fluree_write.FlureeConnection
+- Public surface: true
+- Change type: added
+- Before: absent — `"fluree": "fluree_url"` in the core mapping, with
+  `fluree_bearer_token` a separate `boot()` keyword and a separate hand-written
+  refusal for "a credential supplied for a backend nobody selected"
+- After: a frozen, closed-world model carrying `url` and `partition` **only**.
+  The bearer token is deliberately *not* a field, and the class docstring says
+  so and says why, so nobody adds it later for convenience: Pydantic reports
+  `input_value=` verbatim in a `ValidationError`, so a misspelled connection key
+  beside a live token would put the token into the refusal message. The token
+  is named in `secret_fields` and its value arrives in a separate mapping that
+  is never validated
+- Why: D-07, and threat T-15.4-05. The credential-free-message posture the
+  adapter already takes (`_authorization` states that neither value appears in
+  its refusal; `_graph_identity` drops userinfo) is extended to the one new
+  surface that could have undone it
+- Migration: none. The name is new
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.fluree_write.REGISTRATION
+
+- Surface: ccf.graph.backends.fluree_write.REGISTRATION
+- Public surface: true
+- Change type: added
+- Before: absent — one branch of `ccf.boot._open_backend`'s cascade, which
+  threaded `fluree_bearer_token` straight into the store constructor
+- After: the module-level record for the `fluree` adapter, and the only one of
+  the six whose `secret_fields` is non-empty: `frozenset({"bearer_token"})`.
+  Its `open_store` reads that key out of the `secrets` mapping and unwraps the
+  `SecretStr` at the call-site argument expression, so the plain value is never
+  bound to anything that outlives the call
+- Why: D-07 and D-IMPL-93. `secret_fields` is what lets the Control Plane know a
+  credential is expected without a versioned document ever carrying one
+- Migration: none. The name is new
 
 *Recorded by `15.4-03-write-modules.md`.*
 

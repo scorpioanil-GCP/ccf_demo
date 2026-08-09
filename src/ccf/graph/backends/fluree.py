@@ -687,6 +687,14 @@ class FlureeGraphStore:
     the Protocol: it offers :attr:`reader`, and the transport surface to the
     writer module alone.
 
+    **A construction that fails leaves no open connection pool** (WR-05, D-14).
+    The two refusals below are raised before any client exists — the credential
+    check runs first, and the origin check runs while evaluating the client's
+    own argument — so there is nothing to clean up. Everything *after* the
+    client exists is guarded and the client is closed on any failure before the
+    exception propagates unchanged, because a constructor that raises returns no
+    object the caller could have closed.
+
     Raises:
         ValueError: ``url`` carries a path/query/fragment, or both credential
             channels were supplied. Both are refusals of an instruction the
@@ -727,33 +735,50 @@ class FlureeGraphStore:
             timeout=DEFAULT_TIMEOUT,
             headers=headers,
         )
-        # Fail at construction, not at first read. `/health` is at the server
-        # root, NOT under the API base.
-        self._client.get(HEALTH_PATH).raise_for_status()
-        # One GET, and it makes the store correct behind a differently-mounted
-        # server.
-        discovered = self._client.get(WELL_KNOWN_PATH)
-        discovered.raise_for_status()
-        base = str(discovered.json().get("api_base_url") or "")
-        self._base = base or DEFAULT_API_BASE
-        # D-03's idempotent bootstrap: one CCF-owned ledger, created on the
-        # first boot and answered `409 Conflict` on every boot after it. Probe
-        # F-A1 assertion (3) proved the 201-then-409 sequence. `POST /create`
-        # has no context parameter, and the context-setting endpoint is never
-        # called, so the ledger has no default context by construction (D-02).
-        created = self._client.post(
-            f"{self._base}/create",
-            content=json.dumps({"ledger": ledger}),
-        )
-        if created.status_code != HTTPStatus.CONFLICT:
-            created.raise_for_status()
-        #: Highest transaction time this store has written. Threaded into
-        #: `Fluree-Min-T` on every read so read-after-write is exact. Note it
-        #: is only ever *written* from a commit receipt: `X-Fluree-T` is not
-        #: sent on the Cypher route by this build (measured, plan 15.3-01), so
-        #: nothing here reads it back.
-        self._min_t = 0
-        self._reader = FlureeGraphReader(self)
+        # Everything after the client exists is guarded, and the guard closes
+        # it (WR-05, D-14). The shape is `ccf.boot.boot`'s around
+        # `mint_boot_token`: construct, guard, close on ANY failure, re-raise
+        # unchanged. `BaseException` rather than `Exception` because a
+        # KeyboardInterrupt between the three bootstrap requests leaks a pool
+        # exactly as an HTTP error does, and neither is the caller's to clean
+        # up — a failed constructor returns no object to close.
+        #
+        # The phase is why this matters more than it did: D-08 puts a
+        # secret-resolution step in front of store construction, so a mis-set
+        # environment variable now produces construction failures often, and
+        # each one held a connection pool open until the interpreter exited.
+        try:
+            # Fail at construction, not at first read. `/health` is at the
+            # server root, NOT under the API base.
+            self._client.get(HEALTH_PATH).raise_for_status()
+            # One GET, and it makes the store correct behind a
+            # differently-mounted server.
+            discovered = self._client.get(WELL_KNOWN_PATH)
+            discovered.raise_for_status()
+            base = str(discovered.json().get("api_base_url") or "")
+            self._base = base or DEFAULT_API_BASE
+            # D-03's idempotent bootstrap: one CCF-owned ledger, created on the
+            # first boot and answered `409 Conflict` on every boot after it.
+            # Probe F-A1 assertion (3) proved the 201-then-409 sequence. `POST
+            # /create` has no context parameter, and the context-setting
+            # endpoint is never called, so the ledger has no default context by
+            # construction (D-02).
+            created = self._client.post(
+                f"{self._base}/create",
+                content=json.dumps({"ledger": ledger}),
+            )
+            if created.status_code != HTTPStatus.CONFLICT:
+                created.raise_for_status()
+            #: Highest transaction time this store has written. Threaded into
+            #: `Fluree-Min-T` on every read so read-after-write is exact. Note
+            #: it is only ever *written* from a commit receipt: `X-Fluree-T` is
+            #: not sent on the Cypher route by this build (measured, plan
+            #: 15.3-01), so nothing here reads it back.
+            self._min_t = 0
+            self._reader = FlureeGraphReader(self)
+        except BaseException:
+            self._client.close()
+            raise
 
     @property
     def graph_identity(self) -> str:
