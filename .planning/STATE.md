@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
-status: ready_to_plan
-last_updated: 2026-08-09T08:22:57.000Z
-last_activity: 2026-08-09 -- Phase 15.4 context gathered; ROADMAP 15.4 detail section repaired
+status: executing
+last_updated: "2026-08-09T10:24:37.183Z"
+last_activity: 2026-08-09 -- Phase 15.4 planning complete
 progress:
   total_phases: 16
   completed_phases: 13
-  total_plans: 91
+  total_plans: 103
   completed_plans: 102
   percent: 81
-stopped_at: Phase 15.4 context gathered (15.4-CONTEXT.md, commit 8e9fdc7). Twelve decisions locked, six from Dave: two write modules per backend (lint keeps its current shape), manifest-names-it plus entry-point discovery, third-party code imported only when the manifest names it, typed per-adapter config models, manifest holds secret references not values. Half-measures explicitly ruled out. ROADMAP 15.4 detail section was missing and blocked every GSD handler -- repaired in 8e9fdc7. Next: /gsd:plan-phase 15.4. Deferred and documented: Dave's four-database FIBO comparison harness at /home/parkave/fluree/examples/fibo/ (192.168.4.76) for a later cross-adapter demonstration phase. Residual from 15.3: 2 GitHub-Actions UAT observations (non-blocking); 6 code-review findings open as recorded debt (WR-01, WR-04, WR-05, WR-06, IN-02, IN-03).
+stopped_at: Phase 15.4 planned and ready to execute (12 plans, 9 waves; plans at 8f59e25, revised at b32080d and 6f444db). Research at 95bbc89 corrected two CONTEXT.md premises -- an exported JSON Schema does exist (docs/schemas/ccf.deployment-manifest.json carries the six-name enum, so dropping the Literal must re-run make schemas in the same change), and no replay dimension pins a substrate today (D-09 creates the first adapter pin, not an extension). Four further rulings from Dave recorded as D-13..D-16 in 15.4-CONTEXT.md at 46160a2: no allowlist for the two new lint rules (carve-outs are named constants, deviating from D-IMPL-93's wording deliberately -- gate package owes a line); WR-01 and WR-05 fixed in this phase, WR-04/WR-06/IN-02/IN-03 stay debt; exported schema loses its enum and a `ccf backends` CLI replaces it; adapter names exact-lowercase with the six built-ins reserved. Plan-checker ran twice (11 issues then 8, all closed); it verified coverage of D-01..D-16, C-01, C-02 and V1..V20 is real rather than nominal. Two residuals recorded for the gate package: the enforcement window (rules written wave 1, registered wave 6) and BackendRegistration.make_writer widening who can reach a writer constructor, bounded by a new call-site test. Next: /gsd:execute-phase 15.4. Deferred: Dave's four-database FIBO comparison harness at /home/parkave/fluree/examples/fibo/ (192.168.4.76) for a later cross-adapter demonstration phase. Residual from 15.3: 2 GitHub-Actions UAT observations (non-blocking).
 ---
 
 # STATE — CCF SDK
@@ -30,7 +30,7 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 Phase: 15.4
 Plan: Not started
-Status: Ready to plan
+Status: Ready to execute
   Commissioned by D-IMPL-93 (Dave, 2026-08-09): the substrate may evolve and
   gain capability, but must never carry a unique dependency on a named adapter
   and must never change per-adapter. Measured against that standard at
@@ -43,7 +43,7 @@ Status: Ready to plan
   lint-enforced, replacing D-IMPL-92's admitted line-budget proxy. NOTE: the
   handler auto-advanced to Phase 16; 15.4 precedes it per Dave's ruling.
 Progress: [----------] 0%
-Last activity: 2026-08-09 -- Phase 15.3 gated (D-GATE-15.3); Phase 15.4 commissioned
+Last activity: 2026-08-09 -- Phase 15.4 planning complete
 
 ## Performance Metrics
 
