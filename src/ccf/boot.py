@@ -48,7 +48,7 @@ from ccf.assembly.worker import (
     SpecDrivenEntityResolution,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol
-from ccf.graph._writer import mint_boot_token
+from ccf.graph._writer import mint_boot_token, release_boot_token
 from ccf.graph.protocols import GraphReader
 from ccf.graph.registry import (
     AdapterPin,
@@ -248,7 +248,15 @@ def boot(
         ccf.controlplane.registry.ControlPlaneMissing: a pinned key or version
             is not registered.
         TypeError: the resolution-spec artifact is not an
-            :class:`EntityResolutionSpec`.
+            :class:`EntityResolutionSpec`; or the resolved adapter's writer
+            constructor was handed a store it does not write through.
+        BaseException: whatever the resolved adapter's own store or writer
+            constructor raises, re-raised unchanged. The adapter chooses the
+            type — it is third-party code — so this function does not wrap it
+            and does not name it. What it guarantees instead is that a boot
+            which failed leaves nothing behind: the store is closed and the
+            graph is released, so a corrected retry boots rather than being
+            refused as a second writer.
     """
     record = resolve(backend)
     registration = record.registration
@@ -270,7 +278,22 @@ def boot(
         store.close()
         raise
 
-    writer = registration.make_writer(store, token)
+    try:
+        writer = registration.make_writer(store, token)
+    except BaseException:
+        # The same guard the mint above gets, for the same reason, over a call
+        # that needs it more: since D-IMPL-93 this constructor is a callable an
+        # installed distribution supplied, and the composition root controls
+        # neither what it does nor whether it returns. If it raises, the store's
+        # connection is the only handle to it that ever existed and no caller
+        # can reach it, and the graph is marked as having a writer that does not
+        # exist — so a corrected retry would be refused as a second writer, the
+        # outcome the comment below says must not happen. Order matters: release
+        # the mint first, so a store whose `close` also raises cannot leave the
+        # graph permanently unbootable on top of everything else.
+        release_boot_token(token)
+        store.close()
+        raise
 
     def shutdown() -> None:
         writer.close()

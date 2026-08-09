@@ -466,3 +466,158 @@ def test_the_adapter_version_is_the_declaring_distributions(
     assert resolved.version == "9.9.9"
     assert resolved.distribution == "ccf-probe"
     assert not hasattr(resolved.registration, "version")
+
+
+# --- a boot that fails leaves nothing behind (CR-01) -------------------------
+
+#: An adapter whose writer constructor raises on demand, over a store whose
+#: graph identity is supplied rather than generated. Both properties are
+#: needed: the raise is the third-party failure being reproduced, and the fixed
+#: identity is what lets a *second* boot collide with the first if the first
+#: left the graph marked as written-to.
+_EXPLODING_WRITER_PROBE = '''\
+"""A throwaway adapter whose writer constructor can be made to raise."""
+
+from typing import Any
+
+from ccf.contracts.base import CCFContract
+from ccf.graph.backends.memory import MemoryGraphStore
+from ccf.graph.backends.memory_write import MemoryGraphWriter
+from ccf.graph.registry import BackendRegistration
+
+#: Flipped by the test between the failing boot and the corrected retry.
+EXPLODE = [True]
+
+#: Every store this adapter opened, in order. Each counts its own closes, so
+#: "was the store released?" is answerable from the test rather than inferred.
+OPENED: list[Any] = []
+
+
+class ProbeConnection(CCFContract):
+    identity: str
+
+
+class _FixedIdentityStore(MemoryGraphStore):
+    """The in-memory store with its identity supplied instead of generated.
+
+    A subclass rather than a wrapper so the adapter's own writer constructor
+    still sees the type it writes through.
+    """
+
+    def __init__(self, identity: str) -> None:
+        super().__init__()
+        self._graph_identity = identity
+        self.closes = 0
+
+    def close(self) -> None:
+        self.closes += 1
+        super().close()
+
+
+def _open_store(config: Any, secrets: Any) -> Any:
+    store = _FixedIdentityStore(config.identity)
+    OPENED.append(store)
+    return store
+
+
+def _make_writer(store: Any, token: Any) -> Any:
+    if EXPLODE[0]:
+        raise RuntimeError("third-party adapter blew up building its writer")
+    return MemoryGraphWriter(store=store, token=token)
+
+
+REGISTRATION = BackendRegistration(
+    name="ADAPTER_NAME",
+    config_model=ProbeConnection,
+    secret_fields=frozenset(),
+    open_store=_open_store,
+    make_writer=_make_writer,
+)
+'''
+
+
+@pytest.fixture
+def exploding_writer_adapter(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
+    """Declare the failing-writer adapter for the duration of one test."""
+    import importlib.metadata as metadata
+    from types import SimpleNamespace
+
+    from ccf.graph import registry as registry_module
+
+    adapter_name = "probe_exploding"
+    module_name = "ccf_probe_exploding_write"
+    source = _EXPLODING_WRITER_PROBE.replace("ADAPTER_NAME", adapter_name)
+    (tmp_path / f"{module_name}.py").write_text(source, encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    point = metadata.EntryPoint(
+        adapter_name, f"{module_name}:REGISTRATION", BACKEND_ENTRY_POINT_GROUP
+    )
+    point = point._for(SimpleNamespace(name="ccf-probe", version="9.9.9"))
+    monkeypatch.setattr(
+        registry_module,
+        "_declared_entry_points",
+        lambda: metadata.EntryPoints((point,)),
+    )
+    try:
+        yield adapter_name, module_name
+    finally:
+        sys.modules.pop(module_name, None)
+
+
+def test_a_failing_writer_constructor_closes_the_store_and_frees_the_graph(
+    exploding_writer_adapter: Any, banking_spec: Any
+) -> None:
+    """CR-01 — the guard around the one call the composition root does not own.
+
+    ``mint_boot_token`` marks a graph as written-to and only a writer's
+    ``close`` ever unmarks it, so the window between the mint and the writer is
+    the one place a failure can leave a graph permanently unbootable. Since
+    D-IMPL-93 that window contains third-party code.
+
+    Three assertions, and each fails without the guard:
+
+    * the adapter's exception reaches the caller unchanged, so nothing is
+      swallowed or re-typed on the way out;
+    * the store this boot opened was closed, so the connection it holds — a
+      driver client in every real adapter — is not leaked to a caller who was
+      handed no object to close it with;
+    * **a corrected retry over the same graph boots.** That is the one
+      ``ccf.boot`` states as the thing that must not happen, and it is what
+      makes this a fabric-level defect rather than a leak: the operator fixes
+      the adapter, restarts nothing, and the fabric refuses them anyway.
+    """
+    from ccf.boot import boot
+    from ccf.controlplane.registry import ControlPlaneRegistry
+
+    adapter_name, module_name = exploding_writer_adapter
+    identity = "probe://cr-01-one-graph"
+    control_plane = ControlPlaneRegistry()
+    spec_version = control_plane.register("probe/spec", banking_spec)
+    policy_version = control_plane.register("probe/policy", {"regime": "probe"})
+
+    def _boot() -> Any:
+        return boot(
+            backend=adapter_name,
+            connection={"identity": identity},
+            registry=control_plane,
+            resolution_spec_key="probe/spec",
+            resolution_spec_version=spec_version,
+            policy_bundle_key="probe/policy",
+            policy_bundle_version=policy_version,
+        )
+
+    with pytest.raises(RuntimeError) as caught:
+        _boot()
+    assert "blew up building its writer" in str(caught.value)
+
+    probe = sys.modules[module_name]
+    assert len(probe.OPENED) == 1
+    assert probe.OPENED[0].closes == 1
+
+    probe.EXPLODE[0] = False
+    handle = _boot()
+    try:
+        assert handle.adapter.name == adapter_name
+    finally:
+        handle.close()
