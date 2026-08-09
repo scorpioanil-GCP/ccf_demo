@@ -32,8 +32,12 @@ from ccf.graph.protocols import GraphView
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.projection.engine import ExecutionResult, ExecutionStep
 from ccf.projection.plan import Perspective, ProjectionOutput
+from ccf.artifacts.file_store import FileArtifactStore
+from ccf.replay.engine import resolve_artifact
 from ccf.replay.record import (
+    NO_ADAPTER,
     NO_AGENT_DEFINITION,
+    NO_GRAPH_QUERIES,
     NO_HITL_ACTIONS,
     NO_WORKFLOW_TRACE,
     ContentGenerationPath,
@@ -43,6 +47,8 @@ from ccf.replay.record import (
     PolicyBindingsSnapshot,
     build_replay_record,
 )
+from tests.replay.test_harness_trace import PRE_CHANGE_CANONICAL
+from tests.replay.test_query_sequence_pin import _stored_verbatim
 
 NOW = datetime(2026, 3, 1, 12, 0, tzinfo=UTC)
 BOUNDARY = datetime(2026, 2, 1, tzinfo=UTC)
@@ -295,3 +301,48 @@ def test_a_pre_workflow_record_still_carries_the_single_element_sentinel() -> No
     record = _build()
     assert record.perspective_conditioning.delegation_chain == ("principal-1",)
     assert record.perspective_conditioning.agent_definition_hash == NO_AGENT_DEFINITION
+
+
+# --- 15.4-08: dimension 2 gains the adapter pin ------------------------------
+
+
+def test_a_record_written_before_the_adapter_pin_still_resolves(
+    tmp_path: Any,
+) -> None:
+    """V16 — the D-IMPL-89 regression, extended to the 15.4-08 pin.
+
+    ``PRE_CHANGE_CANONICAL`` was captured from a builder that predates every
+    record extension, including this one. It is **reused, never re-authored**:
+    the claim is that a record nobody has touched still works, and a fixture
+    written today cannot demonstrate that — it would only show the builder
+    agreeing with itself.
+
+    Resolution is the assertion. :func:`~ccf.replay.engine.resolve_artifact`
+    raises :class:`~ccf.replay.engine.ReplayDivergence` when the stored bytes
+    do not hash to the address asked for, so a return value *is* "no
+    divergence". It holds because D-IMPL-89 verifies the sha256 of the raw
+    fetched bytes **before** model validation; re-hashing a revalidated model
+    would serialize the three fields this plan added and reject an honest
+    pre-extension record as tampered.
+    """
+    store = FileArtifactStore(root=tmp_path / "artifacts")
+    address = _stored_verbatim(store, PRE_CHANGE_CANONICAL)
+
+    record = resolve_artifact(
+        store=store, content_address=address, contract=DecisionReplayRecord
+    )
+
+    # The rebuilt record asserts the three positive claims rather than going
+    # quiet: "this decision did not record which adapter answered".
+    assert record.policy_bindings.graph_adapter == NO_ADAPTER
+    assert record.policy_bindings.graph_adapter_version == NO_ADAPTER
+    assert record.policy_bindings.graph_secret_refs == ()
+
+    # The earlier extensions' sentinels are still intact on the same bytes —
+    # each extension must keep the previous ones' compatibility, not just its
+    # own.
+    assert record.policy_bindings.hitl_actions == NO_HITL_ACTIONS
+    assert record.policy_bindings.survivor_cap is None
+    assert record.content_generation_path.workflow_step_sequence == NO_WORKFLOW_TRACE
+    assert record.content_generation_path.graph_query_sequence == NO_GRAPH_QUERIES
+    assert record.context_fabric_snapshot.source_attestation is None
