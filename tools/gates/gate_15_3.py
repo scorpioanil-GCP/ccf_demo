@@ -330,7 +330,7 @@ ALLOWLIST: tuple[Allowed, ...] = (
 #: between a gate that teaches and a gate that merely blocks.
 SINGLE_OWNER_DENY: dict[str, str] = {
     "docs/surface/v0.2-surface.json": (
-        "SINGLE-OWNER ARTIFACT. Makefile:232-239 reserves regeneration of the"
+        "SINGLE-OWNER ARTIFACT. Makefile:244-251 reserves regeneration of the"
         " live public-surface manifest for exactly two plans — 15-01 at phase"
         " start and 15-21 at phase close. Every in-flight plan runs"
         " `tools/dump_surface.py --report` and writes a fragment at"
@@ -932,10 +932,19 @@ def check_writer_ast(
 
     added = sorted(set(after) - set(before))
     removed = sorted(set(before) - set(after))
+    # Two comparisons, deliberately. `ast.dump()` is the semantic one D-IMPL-92
+    # names. The exact source segment is the second, because a comment inside an
+    # existing body does not appear in the AST at all — a body edit that says
+    # something new about the code while dumping identically would otherwise
+    # walk straight through the check. Comparing segments (rather than dumping
+    # with `include_attributes=True`) catches it without making every
+    # pre-existing definition "modified" the moment a line is inserted above it.
     modified = sorted(
         name
         for name in set(before) & set(after)
         if ast.dump(before[name]) != ast.dump(after[name])
+        or ast.get_source_segment(base_source, before[name])
+        != ast.get_source_segment(head_source, after[name])
     )
     evidence.append("")
     evidence.append(
@@ -946,14 +955,23 @@ def check_writer_ast(
 
     findings: list[str] = []
     for name in modified:
+        kind = (
+            "semantically"
+            if ast.dump(before[name]) != ast.dump(after[name])
+            else "textually (comment or formatting inside the body)"
+        )
         findings.append(
             format_finding(
                 path,
                 after[name].lineno,
                 RULE_WRITER_AST,
-                f"the pre-existing top-level definition {name!r} was MODIFIED."
-                " Only new classes and functions may appear here; the expected"
-                f" additions are {sorted(WRITER_EXPECTED_ADDITIONS)}",
+                f"the pre-existing top-level definition {name!r} was MODIFIED"
+                f" {kind}. Only new classes and functions may appear here; the"
+                f" expected additions are {sorted(WRITER_EXPECTED_ADDITIONS)}."
+                " This is the check that also forbids splitting _writer.py into a"
+                " package: a split relocates every existing definition, so the"
+                " gate would fail on the phase's own refactor — which is exactly"
+                " why 15.2 close-review advisory A5 stays CARRIED, not actioned",
             )
         )
     for name in removed:
