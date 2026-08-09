@@ -819,7 +819,7 @@ decisions plus two corrections in `15.4-CONTEXT.md` (`D-01`..`D-16`, `C-01`,
      `tests/conformance/query_corpus.py` and `docs/GRAPH_QUERY_SEMANTICS.md`
      byte-untouched for the whole phase
 
-**Plans:** 10/12 plans executed
+**Plans:** 11/12 plans executed
 
 Plans:
 
@@ -856,7 +856,7 @@ Plans:
 
 **Wave 8** *(blocked on Wave 7)*
 
-- [ ] 15.4-11-PLAN.md — Conformance params, param/registry parity, the zero-cost measurement, the authoring guide
+- [x] 15.4-11-PLAN.md — Conformance params, param/registry parity, the zero-cost measurement, the authoring guide
 
 **Wave 9** *(blocked on Wave 8)*
 
