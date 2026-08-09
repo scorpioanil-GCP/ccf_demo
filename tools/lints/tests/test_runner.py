@@ -6,9 +6,24 @@ import pathlib
 import subprocess
 import sys
 
-from tools.lints.__main__ import main, module_name_for, run
+from tools.lints import backend_imports, substrate_names
+from tools.lints.__main__ import (
+    CHECKERS,
+    RULE_TREE_SCOPE,
+    WHOLE_TREE_CHECKERS,
+    build_parser,
+    main,
+    module_name_for,
+    run,
+)
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
+
+#: A substrate name that exists nowhere in this repository, planted in a
+#: synthetic adapter package so the scope tests below derive their forbidden
+#: word the same way the checker does — from disk — without depending on the
+#: real adapter set or on the process's working directory.
+FAKE_SUBSTRATE = "zzquux"
 
 
 def _write(base: pathlib.Path, relpath: str, source: str) -> pathlib.Path:
@@ -16,6 +31,23 @@ def _write(base: pathlib.Path, relpath: str, source: str) -> pathlib.Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(source, encoding="utf-8")
     return path
+
+
+def _plant_adapter_package(base: pathlib.Path) -> None:
+    """A one-adapter `src/ccf/graph/backends/` under `base`.
+
+    `substrate_names.repo_base_for` walks a checked file's ancestors for the
+    directory holding this package, so planting it makes the tmp tree
+    self-describing: the vocabulary is `{FAKE_SUBSTRATE}` and nothing else, and
+    the test does not inherit the real repo's adapter set through the
+    working-directory fallback.
+    """
+    _write(base, "src/ccf/graph/backends/__init__.py", "")
+    _write(base, f"src/ccf/graph/backends/{FAKE_SUBSTRATE}.py", "")
+
+
+def _paths(findings: list[str]) -> set[str]:
+    return {finding.split(":", 1)[0] for finding in findings}
 
 
 def test_module_names_are_derived_from_the_tree_root(tmp_path: pathlib.Path) -> None:
@@ -74,3 +106,127 @@ def test_the_real_repo_tree_passes_the_gate() -> None:
         text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+# --- the D-IMPL-93 rules, registered by plan 15.4-07 -------------------------
+
+
+def test_the_registered_rule_set_is_exactly_these_seven() -> None:
+    """A tripwire, not a tautology.
+
+    The set is spelled out so that adding a rule is a decision someone makes on
+    purpose — the same discipline `SUBSTRATE_NAME_EXEMPT_PACKAGES` uses for its
+    two entries. `--all` runs the union of both maps (see `main`), so this is
+    also the assertion that both new rules actually run in CI rather than
+    merely existing behind a flag.
+    """
+    assert set(CHECKERS) == {
+        "no-hardcoding",
+        "harness-imports",
+        "algorithmic",
+        "orchestration-imports",
+        "backend-imports",
+        "substrate-names",
+    }
+    assert set(WHOLE_TREE_CHECKERS) == {"citations"}
+
+
+def test_both_new_rules_are_scoped_in_config_not_by_accident() -> None:
+    """T-15.4-26: a rule absent from RULE_TREE_SCOPE runs over every tree.
+
+    Both entries are explicit, so a narrowing is an edit someone has to make
+    rather than something that happens by omission. The scopes differ, and the
+    difference is the point: `backend-imports` is worded over core *code* and
+    covers the runtime; `substrate-names` is worded over the core alone,
+    because everything outside `src` may legitimately name the substrate a
+    deployment asked for.
+    """
+    assert RULE_TREE_SCOPE["backend-imports"] == ("src", "runtime")
+    assert RULE_TREE_SCOPE["substrate-names"] == ("src",)
+
+
+def test_each_new_rule_has_its_own_flag() -> None:
+    parser = build_parser()
+    assert parser.parse_args(["--backend-imports"]).selected == ["backend-imports"]
+    assert parser.parse_args(["--substrate-names"]).selected == ["substrate-names"]
+
+
+def test_backend_imports_covers_src_and_runtime_but_not_tests(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The same violating import in four trees; exactly two are reported.
+
+    `tests/` is out of scope deliberately: a per-backend unit suite importing
+    the backend it is a unit suite for is the suite doing its job. `examples/`
+    follows the other import rules.
+    """
+    _plant_adapter_package(tmp_path)
+    violation = f"from ccf.graph.backends import {FAKE_SUBSTRATE}\n"
+    _write(tmp_path, "src/ccf/boot.py", violation)
+    _write(tmp_path, "runtime/ccf_runtime/wiring.py", violation)
+    _write(tmp_path, "tests/graph/test_zzquux_backend.py", violation)
+    _write(tmp_path, "examples/00/run.py", violation)
+
+    findings = run(tmp_path, ["backend-imports"])
+    assert _paths(findings) == {
+        str(tmp_path / "src" / "ccf" / "boot.py"),
+        str(tmp_path / "runtime" / "ccf_runtime" / "wiring.py"),
+    }
+    assert all("cinv02-backend-import" in finding for finding in findings)
+
+
+def test_substrate_names_covers_src_alone(tmp_path: pathlib.Path) -> None:
+    """The same substrate-naming parameter in four trees; only `src` reports.
+
+    The forbidden word is derived from the adapter package planted in this tmp
+    tree, so the assertion exercises the checker's own derivation rather than
+    a word typed into the test.
+    """
+    _plant_adapter_package(tmp_path)
+    violation = f"def open_store({FAKE_SUBSTRATE}_dsn: str) -> None: ...\n"
+    _write(tmp_path, "src/ccf/deployment/manifest.py", violation)
+    _write(tmp_path, "runtime/ccf_runtime/cli.py", violation)
+    _write(tmp_path, "tests/graph/test_zzquux_backend.py", violation)
+    _write(tmp_path, "examples/00/run.py", violation)
+
+    findings = run(tmp_path, ["substrate-names"])
+    assert _paths(findings) == {
+        str(tmp_path / "src" / "ccf" / "deployment" / "manifest.py")
+    }
+    assert all("cinv04-substrate-name" in finding for finding in findings)
+
+
+def test_the_adapter_package_is_not_reported_by_either_rule(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Inside the adapter package both rules are silent, by construction.
+
+    An adapter names its own substrate and imports its siblings; that is the
+    module's whole subject. If this ever went red the exemptions would have
+    stopped covering the one place they exist for.
+    """
+    _plant_adapter_package(tmp_path)
+    _write(
+        tmp_path,
+        f"src/ccf/graph/backends/{FAKE_SUBSTRATE}_write.py",
+        f"from ccf.graph.backends import {FAKE_SUBSTRATE}\n"
+        f"{FAKE_SUBSTRATE}_dsn: str = ''\n",
+    )
+    assert run(tmp_path, ["backend-imports", "substrate-names"]) == []
+
+
+def test_neither_new_rule_can_reach_the_allowlist() -> None:
+    """D-13: the allowlist path is structurally unreachable, not merely unused.
+
+    `run()` offers findings to `apply_allowlist` for `no-hardcoding` and for
+    nothing else, and neither checker imports anything from
+    `tools.lints.no_hardcoding` — so there is no second route to it either.
+    This deviates from D-IMPL-93's own wording, which says `allowlist.yaml`
+    governs exceptions to these two rules; Dave ruled the stricter reading, and
+    the reasons are in `tools/lints/allowlist.yaml`'s header.
+    """
+    for module in (backend_imports, substrate_names):
+        source = pathlib.Path(module.__file__ or "").read_text(encoding="utf-8")
+        assert "no_hardcoding" not in source, (
+            f"{module.__name__} must not be able to reach apply_allowlist (D-13)"
+        )

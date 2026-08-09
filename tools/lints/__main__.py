@@ -1,4 +1,4 @@
-"""`python -m tools.lints` — the blocking CI gate for CINV-01/02/03 (D-07).
+"""`python -m tools.lints` — the blocking CI gate for CINV-01/02/03/04 (D-07).
 
 Walks the linted trees (`src/`, `runtime/`, `examples/`, `tests/`), derives
 each file's dotted module name from its path, runs the selected checkers,
@@ -20,6 +20,27 @@ first fabric commit, and a non-blocking mode is how an invariant quietly stops
 being one. `--report` prints *additional* coverage detail alongside the
 findings; it does not change the exit code and cannot suppress a finding.
 
+No allowlist beyond CINV-01 (D-13)
+----------------------------------
+
+`apply_allowlist` runs for `no-hardcoding` and for nothing else. The two
+D-IMPL-93 rules registered here — `backend-imports` and `substrate-names` —
+take **no** allowlist, and the failure message below says so by naming CINV-01
+as the only rule an `allowlist.yaml` entry can reach.
+
+This is a deliberate deviation from D-IMPL-93's own wording, which says
+`tools/lints/allowlist.yaml` governs exceptions to the new rules. It is
+stricter, not looser, and Dave ruled it (D-13). Three reasons, each
+independent: an allowlist entry matches on a sha256 fingerprint of the exact
+offending *literal*, which an import rule structurally cannot produce;
+`allowlist.yaml`'s header and `harness_imports.py` already both state that an
+import restriction with exceptions is not an invariant; and a data-file
+opt-out on a rule whose whole subject is "core names no adapter" would void
+the invariant it exists to enforce. Carve-outs for those two rules are named
+module-path constants in `backend_imports.py` and `substrate_names.py`,
+reviewed with the code. Plan 15.4-12 records the same deviation in the gate
+package.
+
 Usage::
 
     python -m tools.lints --all
@@ -36,10 +57,12 @@ from typing import Callable, Iterator, Sequence
 
 from tools.lints import (
     algorithmic,
+    backend_imports,
     citations,
     harness_imports,
     no_hardcoding,
     orchestration_imports,
+    substrate_names,
 )
 
 #: Trees that are linted, and the package root each one contributes.
@@ -75,11 +98,35 @@ LINTED_TREES: tuple[str, ...] = ("src", "runtime", "examples", "tests")
 #: would trip CINV-02, and the invariant is worded over core (CLAUDE.md
 #: §7.3). As with ``/examples``, the exemption surface is this config file —
 #: not an allowlist entry, and not merely a test assertion.
+#:
+#: ``backend-imports`` (CINV-02, D-IMPL-93 property (1); plan 15.4-07) takes
+#: ``("src", "runtime")``, the same scope as the other import rules and for the
+#: same reason — the invariant is worded over core. It is scoped OFF ``tests``
+#: deliberately rather than by omission: a per-backend unit suite importing the
+#: backend it is a unit suite *for* is the suite doing its job, not a core
+#: module naming an adapter, and there are 45 such imports under ``tests``
+#: today. ``runtime`` is IN scope and has zero violations, so including it
+#: costs nothing and closes the seam a deployment-wiring module would otherwise
+#: leave open. This rule's blind spot — a dynamic ``importlib.import_module``
+#: — is stated in ``backend_imports.py`` and compensated by a test that scans
+#: these same two trees, so the control is exactly as wide as the rule.
+#:
+#: ``substrate-names`` (CINV-04, D-IMPL-93 property (2); plan 15.4-07) takes
+#: ``("src",)`` alone. The property is worded over the *core*: core resolves
+#: the adapter a deployment names and names none of them itself. Every other
+#: tree may legitimately name one — an example that boots a particular store
+#: has to say which store, a per-backend test has to say which backend, and the
+#: runtime's operational surfaces report back the name a deployment supplied.
+#: A rule that fired there would be measuring the wrong thing. The rule's two
+#: package-level exemptions live in ``tools/lints/substrate_names.py`` rather
+#: than here, because they are about packages *inside* ``src``, not trees.
 RULE_TREE_SCOPE: dict[str, tuple[str, ...]] = {
     "no-hardcoding": ("src", "runtime", "examples", "tests"),
     "harness-imports": ("src", "runtime"),
     "algorithmic": ("src", "runtime"),
     "orchestration-imports": ("src", "runtime"),
+    "backend-imports": ("src", "runtime"),
+    "substrate-names": ("src",),
 }
 
 #: Directories never worth walking.
@@ -90,11 +137,18 @@ SKIP_DIRS: frozenset[str] = frozenset(
 Checker = Callable[[pathlib.Path, str], list[str]]
 TreeChecker = Callable[[pathlib.Path], list[str]]
 
+#: ``substrate_names.check`` carries an optional third ``base=`` keyword that
+#: the other checkers do not. The positional pair this runner calls is
+#: unchanged, so it registers like any other per-file checker; the keyword is
+#: for tests that pin a synthetic adapter package, and production runs let the
+#: checker recover the base from the path it is given.
 CHECKERS: dict[str, Checker] = {
     "no-hardcoding": no_hardcoding.check,
     "harness-imports": harness_imports.check,
     "algorithmic": algorithmic.check,
     "orchestration-imports": orchestration_imports.check,
+    "backend-imports": backend_imports.check,
+    "substrate-names": substrate_names.check,
 }
 
 #: Checkers that take the repo root rather than one module. `citations` is
@@ -196,6 +250,20 @@ def build_parser() -> argparse.ArgumentParser:
         action="append_const",
         const="orchestration-imports",
         help="D-06 orchestration/adapters split (D-IMPL-60)",
+    )
+    parser.add_argument(
+        "--backend-imports",
+        dest="selected",
+        action="append_const",
+        const="backend-imports",
+        help="CINV-02 adapter-import ban (D-IMPL-93 property (1))",
+    )
+    parser.add_argument(
+        "--substrate-names",
+        dest="selected",
+        action="append_const",
+        const="substrate-names",
+        help="CINV-04 no substrate name in core (D-IMPL-93 property (2))",
     )
     parser.add_argument(
         "--citations",
