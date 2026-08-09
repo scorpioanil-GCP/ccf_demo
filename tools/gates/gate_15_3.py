@@ -648,7 +648,21 @@ OPTIONAL_EXTRA_CLAUSE_RE = re.compile(r"requires the optional", re.IGNORECASE)
 
 
 def git(root: pathlib.Path, *args: str) -> str:
-    """Run a READ-ONLY git command in `root` and return stdout."""
+    """Run a READ-ONLY git command in `root` and return stdout.
+
+    **Any** nonzero exit raises. The former `and not proc.stdout` escape made
+    the failure mode silent AND permissive: a git command that failed *after*
+    writing some stdout returned that partial output, and every downstream
+    measurement treated it as complete. A truncated `--numstat` under-reports
+    changed paths, under-reports added lines against a budget, and hides an
+    unlisted path from the allowlist check — every one of those in the
+    direction that makes this gate PASS. That is the WR-09/WR-10 class: a
+    check whose failure mode is a quiet green (review finding IN-01).
+
+    No caller needed the escape. The two expected-failure cases have their own
+    helpers — `git_ok` for the `--exit-code` forms and `blob` for a path absent
+    at a ref — and both already read `returncode` themselves.
+    """
     proc = subprocess.run(
         ["git", *args],
         cwd=root,
@@ -656,8 +670,11 @@ def git(root: pathlib.Path, *args: str) -> str:
         text=True,
         check=False,
     )
-    if proc.returncode != 0 and not proc.stdout:
-        raise RuntimeError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"git {' '.join(args)} failed (exit {proc.returncode}): "
+            f"{proc.stderr.strip()}"
+        )
     return proc.stdout
 
 
