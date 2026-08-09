@@ -8,10 +8,11 @@ same conformance suites the built-in adapters run. Nothing about that path is
 reserved for adapters written by this repository: the seam is the published
 surface, and a third-party adapter reaches it the same way.
 
-The smallest complete worked example is
-[`tests/fixtures/ccf-demo-adapter/`](https://github.com/drcastillo/ccf_code/tree/main/tests/fixtures/ccf-demo-adapter),
-a real second distribution that runs in CI beside the built-in adapters. Read it
-alongside this page; everything below is in there in about 900 lines.
+The smallest complete worked example is `tests/fixtures/ccf-demo-adapter/` in
+the SDK repository — a real second distribution that registers an adapter named
+`demo` and runs in CI beside the built-in adapters. Read it alongside this page;
+everything below is in there in about 900 lines, and its own `README.md` is the
+companion to this one.
 
 ## Before you start
 
