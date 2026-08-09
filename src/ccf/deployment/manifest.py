@@ -40,12 +40,31 @@ lint rule stand against exactly that, and this module does not weaken either.
 :func:`load_and_boot`'s own docstring states the boundary in the negative, so
 the line is legible from the surface rather than only from the guard.
 
+The one environment read in ``src/ccf``
+--------------------------------------
+
+:func:`_resolve_secret_references` reads the process environment, and it is the
+only production environment read under ``src/ccf``. That is a deliberate placement
+rather than an accident of where the code was written. :func:`ccf.boot.boot`
+takes *values* and reads no environment, which is what keeps the composition
+root deterministic and testable; the manifest — the document that names which
+references a deployment uses — already lives here, so this is where a name
+becomes a value.
+
+What the manifest carries is the *reference*, never the credential (D-08). A
+manifest is content-hashed and versioned, so a value written into one would be
+persisted into the audit plane forever; a reference name is auditable and holds
+nothing secret, and it is what replay pins as "which credential was in force".
+See :class:`~ccf.controlplane.artifacts.SecretReference` for the two mechanisms
+that make the value's absence structural rather than conventional.
+
 Algorithmic module (CINV-03) — see the package docstring for why file I/O here
 is not a contradiction.
 """
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -67,7 +86,14 @@ from ccf.deployment.classes import (
     resolve_artifact_class,
 )
 from ccf.deployment.pins import ArtifactPin, ResolvedPins
-from ccf.graph.registry import ResolvedSecret
+from ccf.graph.registry import (
+    ResolvedBackend,
+    ResolvedSecret,
+    UnknownBackend,
+    declared_names,
+    resolve,
+    validate_connection,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -132,10 +158,11 @@ def _resolve_tenant(manifest: DeploymentManifest, supplied: str | None) -> str:
     """Return the one tenant this deployment runs as, or refuse.
 
     Exactly one source may supply it. Both-absent and a conflicting pair are
-    both refused rather than resolved by precedence, mirroring
-    ``_open_backend``'s refuse-to-infer posture: a deployment whose tenant
-    depends on which source won is a deployment whose graph scope nobody wrote
-    down (INV-CH7-16, D-IMPL-05).
+    both refused rather than resolved by precedence, mirroring the
+    refuse-to-infer posture :func:`ccf.boot.boot` states in its signature — its
+    ``backend`` argument is required and has no default — because a deployment
+    whose tenant depends on which source won is a deployment whose graph scope
+    nobody wrote down (INV-CH7-16, D-IMPL-05).
     """
     if manifest.tenant_id is None and supplied is None:
         raise ValueError(
@@ -215,147 +242,183 @@ def _document_inside_the_deployment(root: Path, entry: ManifestEntry) -> Path:
     return resolved
 
 
-def _preflight_backend(
+def _preflight_adapter(
     manifest: DeploymentManifest,
-    *,
-    database_path: str | None,
-    postgres_dsn: str | None,
-    neo4j_uri: str | None,
-    mongo_uri: str | None,
-    fluree_url: str | None,
-) -> None:
-    """Refuse a backend declaration the environment cannot satisfy (D-08).
+    connection: Mapping[str, object],
+) -> ResolvedBackend:
+    """Refuse an adapter declaration this deployment cannot satisfy (D-08).
 
     **This runs before any artifact is parsed and before anything is
-    registered**, and the ordering is the whole point. A manifest declaring
-    ``postgres`` with no DSN supplied parses perfectly well, so a check placed
-    beside the ``boot`` call at the end would register every artifact first and
-    fail afterwards — leaving Control Plane state from a fabric that never
-    booted. That is a replay-integrity problem, not an untidiness: the registry
-    would then answer "what was in force" for a deployment that never ran.
+    registered**, and that ordering is the whole point — it is why this is a
+    function here rather than three lines beside the ``boot`` call. A manifest
+    naming an adapter the deployment has not installed *parses* perfectly well,
+    so a check placed at the end would register every artifact first and fail
+    afterwards, leaving Control Plane state from a fabric that never booted.
+    That is a replay-integrity problem, not an untidiness: the registry would
+    then answer "what was in force" for a deployment that never ran.
 
-    The refusal is loud and there is **no fallback to SQLite**. A fabric that
-    guessed its substrate could boot against a development file in production
-    and still pass every test — the reason ``_open_backend`` refuses to infer,
-    inherited here rather than re-decided.
+    The refusal is loud and there is **no fallback**. A fabric that guessed its
+    substrate could boot against a development store in production and still
+    pass every test — the posture :func:`ccf.boot.boot` states in its own
+    signature, inherited here rather than re-decided.
 
-    A declared ``memory`` backend (Phase 15.2 D-06) needs no connection
-    argument — there is nothing to connect to — so for it the check runs the
-    other way only: supplying ``database_path``, ``postgres_dsn``,
-    ``neo4j_uri``, ``mongo_uri``, or ``fluree_url`` alongside a ``memory``
-    declaration is refused as a contradiction, exactly as supplying the other
-    backend's argument is. A declared ``neo4j`` backend (plan 15.2-12) requires
-    ``neo4j_uri``, a declared ``mongo`` backend (plan 15.2-13) requires
-    ``mongo_uri``, and a declared ``fluree`` backend (plan 15.3) requires
-    ``fluree_url`` — the environment-supplied mirrors of ``postgres_dsn``.
+    **What replaced the table this function used to hold.** It carried a
+    mapping from substrate name to required connection argument, edited once
+    per adapter forever. Each adapter now declares its own connection contract
+    (D-07) and the registry answers which adapters this deployment has. Both of
+    that table's refusals survive, by the adapter's contract rather than by a
+    branch here: a required setting missing is a required field, and a setting
+    the adapter does not take is the ``extra="forbid"`` every adapter contract
+    inherits.
+
+    **Message hygiene**, for the refusals built here rather than delegated.
+    Each is built from *names* only — the adapter, the field, the variable
+    name. The underlying exception's own rendering is never interpolated and
+    the supplied value is never read, because Pydantic reproduces a supplied
+    value verbatim in a validation error and on this path one of those values
+    is a credential (T-15.4-05).
 
     Raises:
-        ValueError: the declared backend's connection argument is missing, or
-            an argument the declared backend does not take was supplied.
+        ccf.graph.registry.UnknownBackend: the manifest names an adapter no
+            installed distribution registers.
+        ccf.graph.registry.InvalidBackendConfig: ``connection`` does not
+            satisfy the declared adapter's own contract — a required setting is
+            missing, or a setting the adapter does not take was supplied.
+        ValueError: a ``backend_secrets`` entry names a field the declared
+            adapter does not declare as a credential field; or discovery found
+            a packaging conflict among the installed adapters.
     """
-    supplied = {
-        "database_path": database_path,
-        "postgres_dsn": postgres_dsn,
-        "neo4j_uri": neo4j_uri,
-        "mongo_uri": mongo_uri,
-        "fluree_url": fluree_url,
-    }
-    required = {
-        "sqlite": "database_path",
-        "postgres": "postgres_dsn",
-        "memory": None,
-        "neo4j": "neo4j_uri",
-        "mongo": "mongo_uri",
-        "fluree": "fluree_url",
-    }[manifest.backend]
     declared = manifest.backend
-    if required is not None and supplied[required] is None:
+    known = declared_names()
+    if declared not in known:
+        # Built from two names this deployment already holds: the one the
+        # manifest declared, and what `declared_names()` returned. This is the
+        # payback for deleting the six-name `Literal` — a refusal that can say
+        # what IS registered here, which an enumeration in this repository
+        # could never do, because it listed what someone had hard-coded rather
+        # than what the deployment has.
+        available = ", ".join(sorted(known)) if known else "none"
+        raise UnknownBackend(
+            f"the manifest declares backend {declared!r}, which no installed"
+            f" adapter registers. `declared_names()` returns: {available}."
+            " Install a distribution that declares that adapter, or correct"
+            " the manifest — the fabric does not guess a substrate and does"
+            " not fall back."
+        )
+
+    record = resolve(declared)
+    # The ONE place a connection refusal is built is
+    # `ccf.graph.registry.validate_connection`, and this module is the third
+    # caller tempted to write its own — after `boot()` and the V11 test. Three
+    # hand-written wrappers is how the message contract drifts, and the
+    # specific way it drifts is a formatter reaching for the exception's own
+    # rendering because it is shorter. That rendering reproduces the value that
+    # was supplied, and on this path one of those values is a credential. Do
+    # not build a refusal here; call this.
+    validate_connection(record.registration, connection)
+    _refuse_undeclared_secret_fields(manifest, record)
+    return record
+
+
+def _refuse_undeclared_secret_fields(
+    manifest: DeploymentManifest, record: ResolvedBackend
+) -> None:
+    """Refuse a credential reference the declared adapter has no field for.
+
+    ``secret_fields`` on the adapter's registration record is the whole
+    vocabulary of credentials that adapter accepts, so "a credential declared
+    for an adapter that takes none" is answerable from the record alone — no
+    list lives here, and nothing here changes when a seventh adapter arrives.
+
+    Refused in preflight, on :func:`_preflight_adapter`'s ordering argument,
+    and therefore **before the named variable is read**: a reference the
+    adapter cannot use is a manifest error, and reading the environment to
+    discover that would pull a live credential into this process for nothing.
+
+    The message is built from names only — the adapter, the offending field,
+    and the fields the adapter does declare. No value of any kind appears in
+    it, and no environment variable is consulted to build it.
+    """
+    accepted = record.registration.secret_fields
+    for reference in manifest.backend_secrets:
+        if reference.field in accepted:
+            continue
+        declares = ", ".join(sorted(accepted)) if accepted else "none"
         raise ValueError(
-            f"the manifest declares backend {declared!r} and no"
-            f" {required} was supplied; the fabric does not guess a"
-            " substrate and does not fall back"
+            f"the manifest declares backend {record.registration.name!r} and a"
+            f" `backend_secrets` entry for the field {reference.field!r},"
+            " which that adapter does not declare as a credential field. It"
+            f" declares: {declares}. Remove the entry, or name a field the"
+            " adapter takes."
         )
-    for argument, value in supplied.items():
-        if argument != required and value is not None:
+
+
+def _resolve_secret_references(
+    manifest: DeploymentManifest, record: ResolvedBackend
+) -> dict[str, ResolvedSecret]:
+    """Read each declared credential reference, keyed by adapter config field.
+
+    **The one production environment read in** ``src/ccf``, and it belongs in
+    this wiring layer rather than in :mod:`ccf.boot`. ``boot()`` takes values
+    and reads no environment, which is what keeps the composition root
+    deterministic and testable; the manifest — the document that names the
+    references — already lives here.
+
+    Each entry becomes one :class:`~ccf.graph.registry.ResolvedSecret`, which
+    carries the field, the *name* of the variable it was read from, and the
+    value wrapped in ``pydantic.SecretStr``. The reference name has to travel
+    **with** the value: this function is the only place in the system that
+    knows a given config field was satisfied from a given variable, and
+    :attr:`ccf.graph.registry.AdapterPin.secret_refs` is where that fact is
+    pinned. A plain mapping of field to value would leave the pin able to
+    record only the field name — which says a credential was used and not
+    *which one*, weaker than D-08 and D-09 require.
+
+    **Unset and empty are both refusals, never fallbacks.** A manifest that
+    names a reference has asserted a credential is required, and the fabric
+    does not fall back to an anonymous connection. That is the direct lesson of
+    WR-02/WR-03, where a credentialed URL connected anonymously because the
+    wire client derives no authorization header from ``base_url`` userinfo: the
+    failure was silent, and a refusal here is what stops it arriving through a
+    new door.
+
+    Raises:
+        ValueError: a named variable is unset, or is set to the empty string.
+            The message names the adapter, the field and the variable **name**,
+            and never the value — there is no value to name in the unset case,
+            and naming it in the empty case would be the disclosure this whole
+            path is arranged to prevent.
+    """
+    resolved: dict[str, ResolvedSecret] = {}
+    for reference in manifest.backend_secrets:
+        # The process environment is read on the next line and nowhere else
+        # under `src/ccf`. The value is bound only to reach `SecretStr`; the
+        # refusal below is built from the three names above it, never from
+        # `value`.
+        value = os.environ.get(reference.env_var)
+        if not value:
             raise ValueError(
-                f"the manifest declares backend {declared!r} but"
-                f" {argument} was also supplied; supply only the argument"
-                " the manifest's declared backend needs"
+                f"the manifest declares backend {record.registration.name!r}"
+                f" with a credential for the field {reference.field!r} from"
+                f" the environment variable {reference.env_var!r}, which is"
+                " unset or empty. A manifest that names a reference has"
+                " asserted a credential is required, so the fabric refuses"
+                " rather than connecting anonymously — set the variable, or"
+                " remove the `backend_secrets` entry."
             )
-
-
-#: What :attr:`ccf.graph.registry.AdapterPin.secret_refs` records when a
-#: credential arrives as a direct argument to this function rather than from a
-#: named reference the manifest declares. A positive marker, on the precedent
-#: of the registry's ``unknown`` version marker: the pin says plainly that no
-#: named reference was in force, rather than naming the parameter and implying
-#: one was. Plan 15.4-06 replaces this with the manifest's own declared
-#: reference names (D-08), and this constant goes with it.
-DIRECT_ARGUMENT_REFERENCE = "<direct-argument>"
-
-
-def _connection_mapping(
-    *,
-    database_path: str | None,
-    postgres_dsn: str | None,
-    neo4j_uri: str | None,
-    mongo_uri: str | None,
-    fluree_url: str | None,
-) -> dict[str, object]:
-    """This function's connection arguments, keyed as the adapter declares them.
-
-    Transitional, and narrow on purpose. :func:`_preflight_backend` has already
-    established that exactly the declared backend's connection argument is
-    supplied and no other, so at most one of these is not ``None`` and the
-    result is either empty or a single entry. The key is the field name on the
-    adapter's own connection contract; the argument name is this function's
-    legacy shape, which plan 15.4-06 replaces with a mapping the caller supplies
-    directly.
-    """
-    settings: dict[str, object] = {}
-    for value, field in (
-        (database_path, "database_path"),
-        (postgres_dsn, "dsn"),
-        (neo4j_uri, "uri"),
-        (mongo_uri, "uri"),
-        (fluree_url, "url"),
-    ):
-        if value is not None:
-            settings[field] = value
-    return settings
-
-
-def _supplied_secrets(*, bearer_token: str | None) -> dict[str, ResolvedSecret]:
-    """Credentials this function was handed, keyed by the adapter's config field.
-
-    Transitional in the same way as :func:`_connection_mapping`. A credential
-    supplied for an adapter that declares no such field is refused by
-    :func:`ccf.boot.boot` against the resolved adapter's own ``secret_fields``,
-    which is where the old "a credential for a backend nobody selected" refusal
-    now lives.
-    """
-    if bearer_token is None:
-        return {}
-    field = "bearer_token"
-    return {
-        field: ResolvedSecret(
-            field=field,
-            ref_name=DIRECT_ARGUMENT_REFERENCE,
-            value=SecretStr(bearer_token),
+        resolved[reference.field] = ResolvedSecret(
+            field=reference.field,
+            ref_name=reference.env_var,
+            value=SecretStr(value),
         )
-    }
+    return resolved
 
 
 def load_and_boot(
     manifest_path: str | Path,
     *,
     registry: ControlPlaneProtocol,
-    database_path: str | None = None,
-    postgres_dsn: str | None = None,
-    neo4j_uri: str | None = None,
-    mongo_uri: str | None = None,
-    fluree_url: str | None = None,
-    fluree_bearer_token: str | None = None,
+    connection: Mapping[str, object] | None = None,
     tenant_id: str | None = None,
 ) -> BootedFabric:
     """Load a manifest, validate and register what it names, and boot the fabric.
@@ -372,9 +435,9 @@ def load_and_boot(
        timestamp resolver (D-02) and refuses floats and zone-less timestamps.
     2. **Preflights** the tenant, the D-IMPL-80 role and the D-IMPL-85
        registration path of every entry, **that every entry's document actually
-       lies inside the deployment**, and the declared backend against the
-       supplied connection argument — all before any document is read and
-       before anything is registered.
+       lies inside the deployment**, and the declared adapter against what this
+       deployment has installed and against ``connection`` — all before any
+       document is read and before anything is registered.
     3. Parses **every** entry, then registers the ``role: register`` ones
        **through the path each entry's** ``registration`` **declares** —
        :meth:`register_typed
@@ -448,34 +511,37 @@ def load_and_boot(
             constructed here: a registry built behind the adopter's back would
             split the audit sequence in two, and the Control Plane is the audit
             plane, singular (whitepaper §7.8.2).
-        database_path: SQLite file, when the manifest declares ``sqlite``.
-        postgres_dsn: libpq connection string, when the manifest declares
-            ``postgres``. From the environment; never persisted, and never in
-            the manifest.
-        neo4j_uri: Bolt connection URI, when the manifest declares ``neo4j``
-            (plan 15.2-12). Same posture as ``postgres_dsn``: from the
-            environment, never persisted, never in the manifest — a Bolt URI
-            can carry credentials, and the manifest is a content-hashed audit
-            artifact (threat T-15.2-05).
-        mongo_uri: MongoDB connection URI, when the manifest declares
-            ``mongo`` (plan 15.2-13). Same posture as ``neo4j_uri``, for the
-            same reason: a MongoDB URI can carry userinfo.
-        fluree_url: Fluree v4 server URL, when the manifest declares
-            ``fluree`` (plan 15.3). Same posture again, and with one more
-            reason: a Fluree deployment may also hold a bearer token, and
-            neither it nor the URL's userinfo may reach a content-hashed audit
-            artifact (threat T-15.2-05).
-        fluree_bearer_token: The Fluree bearer credential, when the server
-            requires one and the URL carries no userinfo (WR-03). Threaded to
-            ``boot`` on exactly the ``postgres_dsn`` footing — environment-
-            supplied, never persisted, never in the manifest — and refused by
-            ``boot`` if ``fluree_url`` was not also supplied.
+        connection: The declared adapter's connection settings, keyed by the
+            field names on that adapter's own connection contract and validated
+            against it. One mapping, not a keyword per substrate: the keys and
+            their meaning belong to the adapter, so this function has nothing
+            to enumerate and nothing to edit when a seventh adapter arrives.
+
+            **Caller-supplied, deliberately, and this is the line the manifest
+            does not cross.** A connection string is environment material —
+            a DSN or a URI can carry credentials — and a manifest is
+            content-hashed and versioned, so putting one there would persist it
+            into the audit plane forever. What the manifest *does* carry is the
+            reference to a credential (``backend_secrets``), which is auditable
+            and holds nothing secret.
         tenant_id: The deployment's tenant, when the manifest does not name it.
 
     Raises:
+        ccf.graph.registry.UnknownBackend: the manifest names an adapter no
+            installed distribution registers. The refusal lists what
+            :func:`ccf.graph.registry.declared_names` returns, which is the
+            payback for the six-name ``Literal`` this replaced.
+        ccf.graph.registry.InvalidBackendConfig: ``connection`` does not satisfy
+            the declared adapter's contract — a required setting is missing, or
+            a setting the adapter does not take was supplied. Built by
+            :func:`ccf.graph.registry.validate_connection` and nowhere else, so
+            it cannot reproduce a value that was supplied.
         ValueError: the tenant is absent from both sources or conflicts between
-            them; the declared backend's connection argument is missing or the
-            wrong one was supplied; an entry's ``path`` resolves outside the
+            them; a ``backend_secrets`` entry names a field the declared adapter
+            does not declare as a credential field; a ``backend_secrets``
+            entry's environment variable is unset or empty — a named reference
+            that does not resolve is a refusal, never a fall-back to an
+            anonymous connection; an entry's ``path`` resolves outside the
             manifest's own directory — refused in preflight, before any
             document is opened, and never followed; an entry declares a role
             the SDK fixes otherwise (D-IMPL-80); an entry declares a
@@ -535,14 +601,13 @@ def load_and_boot(
         # mapping is total over the entries and phase one resolves nothing a
         # second time.
         document_paths[entry.key] = _document_inside_the_deployment(root, entry)
-    _preflight_backend(
-        manifest,
-        database_path=database_path,
-        postgres_dsn=postgres_dsn,
-        neo4j_uri=neo4j_uri,
-        mongo_uri=mongo_uri,
-        fluree_url=fluree_url,
-    )
+    adapter = _preflight_adapter(manifest, connection or {})
+    # After the preflight, deliberately: a reference the adapter cannot use is
+    # refused above, without the environment ever being read, so the only
+    # variables read here are ones the declared adapter actually accepts. Still
+    # before any document is parsed and before anything is registered, so a
+    # mis-set variable leaves the Control Plane exactly as this call found it.
+    secrets = _resolve_secret_references(manifest, adapter)
 
     # Phase one: parse everything. Nothing is registered until every document in
     # the manifest has been read and validated.
@@ -608,14 +673,8 @@ def load_and_boot(
     pins = ResolvedPins(entries=tuple(pinned))
     handle = boot(
         backend=manifest.backend,
-        connection=_connection_mapping(
-            database_path=database_path,
-            postgres_dsn=postgres_dsn,
-            neo4j_uri=neo4j_uri,
-            mongo_uri=mongo_uri,
-            fluree_url=fluree_url,
-        ),
-        secrets=_supplied_secrets(bearer_token=fluree_bearer_token),
+        connection=connection or {},
+        secrets=secrets,
         registry=registry,
         resolution_spec_key=manifest.resolution_spec_key,
         resolution_spec_version=pins.version_for(manifest.resolution_spec_key),

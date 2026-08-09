@@ -82,7 +82,7 @@ def _boot(deployment: Deployment, tmp_path: pathlib.Path, *, name: str) -> Any:
     return load_and_boot(
         deployment.manifest_path,
         registry=ControlPlaneRegistry(),
-        database_path=str(tmp_path / name),
+        connection={"database_path": str(tmp_path / name)},
     )
 
 

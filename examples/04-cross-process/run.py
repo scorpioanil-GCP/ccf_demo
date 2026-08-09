@@ -178,7 +178,9 @@ def run(*, root: Path) -> CrossProcessResult:
     #    the A2A trust boundary exists.
     database_path = root / "consumer.sqlite3"
     booted = load_and_boot(
-        MANIFEST, registry=registry, database_path=str(database_path)
+        MANIFEST,
+        registry=registry,
+        connection={"database_path": str(database_path)},
     )
     # --8<-- [end:boot]
     try:

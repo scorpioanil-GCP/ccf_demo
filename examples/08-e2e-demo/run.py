@@ -671,7 +671,9 @@ def run(*, root: Path, live: bool = False) -> DemoResult:
     )
 
     booted = load_and_boot(
-        MANIFEST, registry=registry, database_path=str(root / "fabric.sqlite3")
+        MANIFEST,
+        registry=registry,
+        connection={"database_path": str(root / "fabric.sqlite3")},
     )
     try:
         # Each artifact comes back under its own manifest key, already validated

@@ -384,7 +384,9 @@ def run(*, root: Path) -> WorkflowHitlDemonstration:
     #    resolve against are manifest entries now, not a hand-written closure
     #    walking `referenced_artifacts:` blocks at run time.
     booted = load_and_boot(
-        MANIFEST, registry=registry, database_path=str(root / "lending.sqlite3")
+        MANIFEST,
+        registry=registry,
+        connection={"database_path": str(root / "lending.sqlite3")},
     )
     # --8<-- [end:boot]
 

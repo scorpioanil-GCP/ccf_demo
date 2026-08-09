@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**401 entries**, of which **182** name a public Python surface.
+**403 entries**, of which **184** name a public Python surface.
 
 ## Added
 
@@ -3224,7 +3224,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-214 entries — 31 public Python surface, 183 not public Python API.
+216 entries — 33 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -3931,6 +3931,105 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   `adapter`
 
 *Recorded by `15.4-05-boot.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: eight keyword arguments, six of them per-database — `database_path`,
+  `postgres_dsn`, `neo4j_uri`, `mongo_uri`, `fluree_url`,
+  `fluree_bearer_token` — checked against a hand-maintained mapping from
+  substrate name to required argument that lived in core and was edited once
+  per substrate forever
+- After: four — `manifest_path`, `registry`, `connection`, `tenant_id`.
+  `connection` is one mapping keyed by the field names on the declared
+  adapter's own connection contract, validated against it. The credential no
+  longer travels as an argument at all: the manifest names it, under
+  `backend_secrets`, and boot resolves the named environment variable
+- Why: the manifest layer held the last two substrate enumerations in core —
+  the six-name `Literal` and the required-argument table — so adding a seventh
+  adapter cost an edit here. Each adapter now declares its own connection
+  contract (D-07) and the registry answers which adapters a deployment has, so
+  this function enumerates nothing. Two accepted costs, recorded rather than
+  worked around: the exported JSON Schema loses its `backend` enum, so an
+  adopter's editor no longer completes the name — plan 15.4-09's `ccf backends`
+  command replaces that by answering the better question, "what is installed
+  here" rather than "what did someone hard-code"; and an unknown name is now
+  caught at load rather than at parse, paid back by a refusal that can list what
+  *is* registered. Keeping the retired keywords as deprecated pass-throughs was
+  considered and rejected: it would have left adapter names in the public
+  surface indefinitely, which is what D-IMPL-93 property (2) exists to remove
+- Migration: replace the per-database keyword with a `connection` mapping using
+  this table, and move any credential into the manifest. A key that changed name
+  and was not migrated does not read as a rename — it reads as
+  `extra_forbidden` on a key you are sure exists, which is why the table is
+  here rather than one fragment away.
+  | Retired `load_and_boot` keyword | New location |
+  |---|---|
+  | `database_path` | `connection={"database_path": ...}` — name unchanged |
+  | `postgres_dsn` | `connection={"dsn": ...}` |
+  | `neo4j_uri` | `connection={"uri": ...}` |
+  | `mongo_uri` | `connection={"uri": ...}` |
+  | `fluree_url` | `connection={"url": ...}` |
+  | `fluree_bearer_token` | a `backend_secrets` entry in the manifest, resolved from the environment |
+  The mapping additionally reaches every other field an adapter's contract
+  declares, which the old keyword list could not: `connection={"schema_name":
+  ...}` where a keyword `postgres_schema` never existed here, and
+  `connection={"partition": ...}` for the adapters that take one. `schema_name`
+  rather than `schema` because a Pydantic field named `schema` shadows an
+  attribute on `BaseModel`; the store's own keyword is unchanged.
+  Before and after, for a caller with no credential:
+  `load_and_boot(MANIFEST, registry=registry, database_path=str(path))` becomes
+  `load_and_boot(MANIFEST, registry=registry, connection={"database_path": str(path)})`.
+  For a caller with one, the argument disappears entirely: delete
+  `fluree_bearer_token=os.environ["CCF_FLUREE_TOKEN"]` from the call and add
+  `backend_secrets: [{field: bearer_token, env_var: CCF_FLUREE_TOKEN}]` to the
+  manifest. The value still never enters the manifest and still is never
+  persisted; what the manifest gains is the auditable record of *which*
+  reference was in force.
+  Three refusals to expect while migrating, none of which reproduces a value
+  that was supplied: an adapter name nothing registers raises
+  `ccf.graph.registry.UnknownBackend` listing what `declared_names()` returns; a
+  connection key the adapter does not declare raises
+  `ccf.graph.registry.InvalidBackendConfig` naming the adapter and the key; a
+  `backend_secrets` entry whose variable is unset or empty raises `ValueError`
+  naming the adapter, the field and the variable name.
+
+*Recorded by `15.4-06-manifest.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentManifest
+
+- Surface: ccf.controlplane.artifacts.DeploymentManifest
+- Public surface: true
+- Change type: reshaped
+- Before: `backend` was a `Literal` over six fixed names, and a deployment's
+  credentials appeared nowhere in the document
+- After: `backend` is a plain `str` constrained by `^[a-z][a-z0-9_]*$` — a shape
+  rule, not a vocabulary — with membership checked at load against
+  `ccf.graph.registry.declared_names()`. A new optional `backend_secrets` holds
+  `ccf.controlplane.artifacts.SecretReference` entries, with a validator
+  refusing a repeated `field`
+- Why: six database names in a core contract is exactly what CLAUDE.md §11
+  forbids, and generating the list rather than typing it would not have changed
+  that. Which adapters exist is a property of the deployment that parses the
+  document, not of the document — so the document carries the name and the
+  deployment answers whether it has one. `backend_secrets` closes the other
+  half: a credential must never enter a content-hashed artifact, but the
+  *reference* to one can, and that is what makes "which credential was in
+  force" answerable from replay for the first time
+- Migration: **none — no existing manifest needs an edit**, and there is a
+  mechanical reason rather than a hopeful one. Every name the retired `Literal`
+  admitted is a name the pattern admits and the registry registers, so every
+  manifest in the tree parses byte-unchanged. Manifests are content-addressed by
+  their file bytes, so no existing replay pin moves either. What changes is what
+  a manifest *may* now say: a name a third-party adapter registers, and a
+  `backend_secrets` block. The committed schema at
+  `docs/schemas/ccf.deployment-manifest.json` is regenerated in the same commit,
+  so an adopter authoring against it sees the pattern in place of the enum and
+  sees `backend_secrets` on the same day the code accepts it.
+
+*Recorded by `15.4-06-manifest.md`.*
 
 ### Not public Python API
 

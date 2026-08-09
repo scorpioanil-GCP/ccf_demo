@@ -258,7 +258,9 @@ def run(*, root: Path) -> SkillingResult:
     registry = ControlPlaneRegistry(clock=lambda: now, audit_log=audit)
 
     booted = load_and_boot(
-        MANIFEST, registry=registry, database_path=str(root / "skilling.sqlite3")
+        MANIFEST,
+        registry=registry,
+        connection={"database_path": str(root / "skilling.sqlite3")},
     )
     try:
         events = cast(SignalBatch, booted.artifacts["events"])

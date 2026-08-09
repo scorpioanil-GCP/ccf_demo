@@ -371,7 +371,9 @@ def build_credit_context(*, database_path: Path) -> AssembledContext:
     #    names every artifact in force, `load_and_boot` parses all of them,
     #    registers the `role: register` ones, and boots on the resulting pins.
     booted = load_and_boot(
-        MANIFEST, registry=registry, database_path=str(database_path)
+        MANIFEST,
+        registry=registry,
+        connection={"database_path": str(database_path)},
     )
     try:
         # Each artifact comes back under its own manifest key, already validated

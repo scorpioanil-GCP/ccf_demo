@@ -575,7 +575,7 @@ def main() -> int:
         booted = load_and_boot(
             fabric.MANIFEST,
             registry=registry,
-            database_path=str(Path(scratch) / "replica.sqlite3"),
+            connection={"database_path": str(Path(scratch) / "replica.sqlite3")},
         )
         try:
             for envelope in cast(

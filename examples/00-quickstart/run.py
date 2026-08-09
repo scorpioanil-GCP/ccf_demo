@@ -158,7 +158,9 @@ def run(*, root: Path) -> QuickstartResult:
     #    names every artifact in force, `load_and_boot` parses all of them,
     #    registers the `role: register` ones, and boots on the resulting pins.
     booted = load_and_boot(
-        MANIFEST, registry=registry, database_path=str(root / "quickstart.sqlite3")
+        MANIFEST,
+        registry=registry,
+        connection={"database_path": str(root / "quickstart.sqlite3")},
     )
     # --8<-- [end:boot]
     try:

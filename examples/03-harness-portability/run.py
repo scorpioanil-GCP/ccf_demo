@@ -206,7 +206,7 @@ def decision(*, root: Path) -> Iterator[DecisionBundle]:
     booted = load_and_boot(
         MANIFEST,
         registry=registry,
-        database_path=str(root / "portability.sqlite3"),
+        connection={"database_path": str(root / "portability.sqlite3")},
     )
     # --8<-- [end:boot]
     try:

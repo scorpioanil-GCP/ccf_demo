@@ -282,9 +282,17 @@ def test_manifest_declares_mongo_and_preflight_requires_the_uri() -> None:
     manifest is a content-hashed audit artifact, so the connection value never
     lives in it. Preflight refuses a `mongo` declaration with no URI before
     any document is read.
+
+    The refusals moved and the guarantees did not (15.4-06). Preflight no longer
+    holds a substrate-to-argument table: it resolves the adapter the manifest
+    names and validates one connection mapping against that adapter's own
+    contract, so "the URI is required" is a required field and "this setting is
+    not yours" is the inherited `extra="forbid"`. One assertion is *added* while
+    migrating, because a MongoDB URI carries userinfo: the supplied value must be
+    absent from the refusal.
     """
     from ccf.controlplane.artifacts import DeploymentManifest
-    from ccf.deployment.manifest import _preflight_backend
+    from ccf.deployment.manifest import _preflight_adapter
 
     manifest = DeploymentManifest.model_validate(
         {
@@ -311,33 +319,23 @@ def test_manifest_declares_mongo_and_preflight_requires_the_uri() -> None:
             ],
         }
     )
-    with pytest.raises(ValueError, match="mongo"):
-        _preflight_backend(
-            manifest,
-            database_path=None,
-            postgres_dsn=None,
-            neo4j_uri=None,
-            mongo_uri=None,
-            fluree_url=None,
+    with pytest.raises(ValueError, match="mongo") as missing:
+        _preflight_adapter(manifest, {})
+    assert "uri" in str(missing.value)
+
+    # And the mirror: the right setting is accepted, a setting the adapter does
+    # not declare is refused.
+    _preflight_adapter(manifest, {"uri": "mongodb://localhost:27017"})
+
+    stray = "postgresql://user:pw@localhost:5432/never-connected"
+    with pytest.raises(ValueError, match="dsn") as refused:
+        _preflight_adapter(
+            manifest, {"uri": "mongodb://localhost:27017", "dsn": stray}
         )
-    # And the mirror: the right argument is accepted, the wrong one refused.
-    _preflight_backend(
-        manifest,
-        database_path=None,
-        postgres_dsn=None,
-        neo4j_uri=None,
-        mongo_uri="mongodb://localhost:27017",
-        fluree_url=None,
-    )
-    with pytest.raises(ValueError, match="also supplied"):
-        _preflight_backend(
-            manifest,
-            database_path=None,
-            postgres_dsn=None,
-            neo4j_uri="neo4j://localhost:7687",
-            mongo_uri="mongodb://localhost:27017",
-            fluree_url=None,
-        )
+    # The refusal names the key and never reproduces what was supplied under
+    # it. A URI under an undeclared key is precisely the shape that carries
+    # userinfo into a message nobody meant to write.
+    assert stray not in str(refused.value)
 
 
 # --- the live-server half (needs the extra AND a reachable mongo) ------------

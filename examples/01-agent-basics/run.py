@@ -224,7 +224,9 @@ def run(*, root: Path) -> AgentBasicsResult:
     #    names every fabric artifact in force, `load_and_boot` parses all of
     #    them, registers the `role: register` ones, and boots on the pins.
     booted = load_and_boot(
-        MANIFEST, registry=registry, database_path=str(root / "agent-basics.sqlite3")
+        MANIFEST,
+        registry=registry,
+        connection={"database_path": str(root / "agent-basics.sqlite3")},
     )
     # --8<-- [end:boot]
     try:
