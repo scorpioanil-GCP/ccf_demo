@@ -819,7 +819,7 @@ decisions plus two corrections in `15.4-CONTEXT.md` (`D-01`..`D-16`, `C-01`,
      `tests/conformance/query_corpus.py` and `docs/GRAPH_QUERY_SEMANTICS.md`
      byte-untouched for the whole phase
 
-**Plans:** 5/12 plans executed
+**Plans:** 6/12 plans executed
 
 Plans:
 
@@ -842,7 +842,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 15.4-06-PLAN.md — Manifest and artifacts: registry preflight, secret references, `Literal` dropped, schema regenerated, 20 call sites
+- [x] 15.4-06-PLAN.md — Manifest and artifacts: registry preflight, secret references, `Literal` dropped, schema regenerated, 20 call sites
 
 **Wave 6** *(blocked on Wave 5)*
 
