@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**367 entries**, of which **149** name a public Python surface.
+**379 entries**, of which **161** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-129 entries — 101 public Python surface, 28 not public Python API.
+141 entries — 113 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -2179,6 +2179,261 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: new surface — none. Read-only mechanism bound
 
 *Recorded by `15.3-02-fluree-backend.md`.*
+
+#### ccf.graph.registry.BackendStore
+
+- Surface: ccf.graph.registry.BackendStore
+- Public surface: true
+- Change type: added
+- Before: absent as a public name — the same three members existed as
+  `ccf.boot._Backend`, a private Protocol inside the composition root, so a
+  third-party adapter had no declared shape to implement
+- After: a public `Protocol` with `graph_identity`, `reader` and `close()` —
+  what booting needs of a graph backend, whichever substrate it is. Protocol
+  rather than a base class (CLAUDE.md §11): an adapter conforms structurally
+  and inherits nothing, so nothing in the registry package can become a place
+  adapter behaviour accumulates
+- Why: an out-of-tree adapter has to implement the store contract, and a
+  contract that lives behind a leading underscore in another module is not a
+  contract anyone can implement
+- Migration: none — new surface. `ccf.boot._Backend` was private and is
+  unchanged by this plan
+
+*Recorded by `15.4-02-registry.md`.*
+
+#### ccf.graph.registry.BackendRegistration
+
+- Surface: ccf.graph.registry.BackendRegistration
+- Public surface: true
+- Change type: added
+- Before: absent — an adapter was reached by a hand-written branch in
+  `ccf.boot._open_backend` that named it, imported it, and constructed both
+  its store and its writer inline
+- After: a frozen dataclass carrying `name`, `config_model` (deriving from
+  `CCFContract`, so `extra="forbid"` is inherited rather than re-declared),
+  `secret_fields`, `open_store` and `make_writer`. A record the registry
+  *interprets*, never a base class an adapter subclasses (CLAUDE.md §6.4,
+  §11) — an adapter is data to the registry
+- Why: D-IMPL-93's per-adapter cost is only zero if an adapter can declare
+  everything core needs to know about it without core naming it
+- Migration: none — new surface
+
+*Recorded by `15.4-02-registry.md`.*
+
+#### ccf.graph.registry.ResolvedBackend
+
+- Surface: ccf.graph.registry.ResolvedBackend
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a frozen dataclass carrying the `registration` plus the `version` and
+  `distribution` it came from. Both are **derived by the registry, never
+  declared by the adapter** — from the declaring distribution's own metadata
+  for a third-party adapter, and from this distribution's metadata for a
+  built-in, with a documented fallback when that metadata is absent (a source
+  checkout that was never installed)
+- Why: a third-party adapter gets its replay pin for free and cannot mis-state
+  it, because the two fields an audit reads are not fields the adapter writes
+- Migration: none — new surface
+
+*Recorded by `15.4-02-registry.md`.*
+
+#### ccf.graph.registry.AdapterPin
+
+- Surface: ccf.graph.registry.AdapterPin
+- Public surface: true
+- Change type: added
+- Before: absent — no replay dimension recorded which adapter answered a
+  decision, so "which substrate was this decided against" was unanswerable
+  from a replay record
+- After: a `CCFContract` with `name`, `version` and `secret_refs`. It has no
+  field that can hold a resolved credential: `secret_refs` carries reference
+  **names** only, which is what makes the credential path auditable without
+  ever recording a credential. Plan 15.4-08 threads it into Decision Replay
+  dimension 2 (whitepaper §7.10.1)
+- Why: D-09 — the adapter in force is part of what a decision was made under,
+  and a pin that could hold a value would be a pin nobody could safely persist
+- Migration: none — new surface
+
+*Recorded by `15.4-02-registry.md`.*
+
+#### ccf.graph.registry.ResolvedSecret
+
+- Surface: ccf.graph.registry.ResolvedSecret
+- Public surface: true
+- Change type: added
+- Before: absent — a credential travelled as a bare keyword argument, so the
+  name of the reference it was resolved from existed nowhere the fabric could
+  read
+- After: a `CCFContract` with `field`, `ref_name` and `value: SecretStr`. One
+  object carries the config field a credential satisfies, the name of the
+  reference it came from, and the resolved value, so a pin cannot record a
+  reference the value did not come from and no caller has to keep two mappings
+  in step. `SecretStr` renders as a fixed mask in `repr`, `str` and
+  `model_dump_json`, and `ccf.contracts.canonical.canonical_bytes` refuses
+  `SecretStr` outright — so a `ResolvedSecret` cannot be content-hashed into an
+  artifact even by accident
+- Why: D-08. Two parallel mappings — one of values, one of reference names —
+  can drift; one object cannot
+- Migration: none — new surface. An adapter's `open_store` still receives a
+  mapping of config field to `SecretStr`, so the reference name travels only as
+  far as the pin
+
+*Recorded by `15.4-02-registry.md`.*
+
+#### ccf.graph.registry.UnknownBackend
+
+- Surface: ccf.graph.registry.UnknownBackend
+- Public surface: true
+- Change type: added
+- Before: absent — an unregistered backend name was refused by a `Literal`
+  membership failure that could say what was hard-coded, never what was
+  installed
+- After: a `ValueError` subclass whose message lists the names that *are*
+  registered, sorted, plus the entry-point group an adapter becomes available
+  through. `ValueError` because that is what a caller refusing a bad manifest
+  already catches; the precise type is there for a caller that wants to tell
+  this apart from a malformed connection mapping
+- Why: D-12 — the refusal an adopter reads should name the deployment's actual
+  adapter set
+- Migration: none — new surface
+
+*Recorded by `15.4-02-registry.md`.*
+
+#### ccf.graph.registry.DuplicateBackendName
+
+- Surface: ccf.graph.registry.DuplicateBackendName
+- Public surface: true
+- Change type: added
+- Before: absent. Measured stdlib behaviour: entry-point names are not
+  deduplicated across distributions and the mapping form returns the first
+  match silently, so two distributions declaring one name resolved to whichever
+  one happened to be first
+- After: a `ValueError` subclass raised during **discovery**, naming both
+  distributions and both versions and stating that the fabric does not choose
+  between them. Because it fires in discovery, neither candidate is ever
+  loaded
+- Why: T-15.4-01 — a duplicate name is a broken deployment, and the same
+  fail-closed posture `_open_backend` already takes on an ambiguous substrate
+  selection
+- Migration: none — new surface
+
+*Recorded by `15.4-02-registry.md`.*
+
+#### ccf.graph.registry.ReservedBackendName
+
+- Surface: ccf.graph.registry.ReservedBackendName
+- Public surface: true
+- Change type: added
+- Before: absent — nothing stopped an installed distribution declaring one of
+  the SDK's own adapter names
+- After: a `ValueError` subclass refusing an entry point that declares a name
+  the SDK's own adapter package already holds, naming the declaring
+  distribution. The SDK's adapters never travel the entry-point path at all, so
+  this closes the shadowing hazard structurally as well as by refusal (D-16, on
+  the D-IMPL-84 precedent that reserves the `ccf.` artifact-class prefix
+  against manifest squatting)
+- Why: a deployment whose adapter set depends on package discovery order is a
+  deployment whose decisions cannot be reproduced
+- Migration: none — new surface
+
+*Recorded by `15.4-02-registry.md`.*
+
+#### ccf.graph.registry.declared_names
+
+- Surface: ccf.graph.registry.declared_names
+- Public surface: true
+- Change type: added
+- Before: absent — the set of available backends was a six-name `Literal` on
+  the deployment manifest, which could never say what a deployment had
+  installed
+- After: `declared_names() -> frozenset[str]`, the union of the two discovery
+  sources. **Imports nothing** (D-05): built-in names are read off the adapter
+  package's directory and third-party names are read from entry-point metadata
+  — `.name`, `.value`, `.dist.name`, `.dist.version` — with `.load()` called
+  never. Three refusals are applied first, so a name this function returns is a
+  name `resolve` will honour
+- Why: listing what a deployment has installed must not run arbitrary installed
+  packages' module-level code
+- Migration: none — new surface
+
+*Recorded by `15.4-02-registry.md`.*
+
+#### ccf.graph.registry.resolve
+
+- Surface: ccf.graph.registry.resolve
+- Public surface: true
+- Change type: added
+- Before: absent — `ccf.boot._open_backend` selected among six hand-written
+  branches, each naming an adapter and importing it
+- After: `resolve(name) -> ResolvedBackend`, the only function in the module
+  that imports anything, and it imports exactly the one adapter the name
+  selects. Discovery runs first, so a packaging conflict is refused before any
+  third-party code runs. The loaded object is verified: it must be a
+  `BackendRegistration` and its name must equal the name it was resolved under.
+  A built-in write module discovered on disk but carrying no registration
+  record is refused **by name**, never with an escaping `AttributeError`.
+  Because discovery runs first, bad metadata from an adapter nobody selected
+  fails every boot — the ruling below
+- Why: one resolution path, one import site. The dynamic import here is
+  invisible to an AST import lint, and the compensating control is confinement:
+  exactly one `importlib.import_module` call site across `src/` and `runtime/`,
+  asserted by test (T-15.4-03)
+- Migration: none — new surface
+
+*Recorded by `15.4-02-registry.md`.*
+
+#### ccf.graph.registry.validate_connection
+
+- Surface: ccf.graph.registry.validate_connection
+- Public surface: true
+- Change type: added
+- Before: absent. Two separate refusals in `ccf.deployment.manifest`, driven by
+  a hand-written mapping from backend kind to the one connection argument it
+  needed, plus two more in `ccf.boot._open_backend` — four hand-maintained
+  checks, none of which could be reused by a third-party adapter
+- After: `validate_connection(registration, connection) -> CCFContract` — one
+  function, validating a settings mapping against the adapter's own config
+  model. It takes the *record* rather than a name, because every caller already
+  holds one from `resolve` and taking a name would run discovery a second time.
+  The refusal names the adapter (Pydantic names the model class, which is not
+  the same thing), names the field as a dotted path, sorts its lines so two
+  runs over one bad mapping produce one message, and reports every problem in
+  one exception
+- Why: T-15.4-05. A refusal built from a `ValidationError`'s own rendering
+  embeds the value that was supplied, and one of those values is a credential —
+  a misspelled connection key is precisely the case where a credential lands
+  under a key nobody declared. Every line here is built from the error's field
+  location and reason only; the supplied value is never read, and the refusal
+  is raised outside the handler so the exception carries no chain at all —
+  `raise ... from None` would only have suppressed the *printed* chain and left
+  the `ValidationError` reachable on the object. Giving the refusal a
+  single owner *is* the mitigation: three hand-rolled wrappers in the registry,
+  the composition root and the manifest is how one of them ends up formatting
+  `str(exc)`
+- Migration: none — new surface
+
+*Recorded by `15.4-02-registry.md`.*
+
+#### ccf.graph.registry.InvalidBackendConfig
+
+- Surface: ccf.graph.registry.InvalidBackendConfig
+- Public surface: true
+- Change type: added
+- Before: absent — a bad connection mapping raised a bare `ValueError` from the
+  manifest preflight, indistinguishable by type from an unknown backend name
+- After: a `ValueError` subclass raised by `validate_connection`. Subclassing
+  `ValueError` keeps every existing caller and every existing
+  `pytest.raises(ValueError)` working, while a caller that wants to tell a
+  malformed connection mapping apart from an unresolvable adapter name can have
+  the precise type
+- Why: the two failures have different fixes — one is a typo in a settings key,
+  the other is a package that is not installed — and a type that cannot
+  distinguish them makes a caller parse a message to find out
+- Migration: none — new surface. Existing `except ValueError` handlers still
+  catch it
+
+*Recorded by `15.4-02-registry.md`.*
 
 ### Not public Python API
 
