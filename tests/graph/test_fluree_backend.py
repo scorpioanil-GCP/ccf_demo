@@ -42,7 +42,10 @@ from tests.conformance.query_corpus import (
     LATE,
     ON_BOUNDARY,
     RELATIONSHIP_TYPES,
+    SEED_CLASSES,
     TENANT,
+    chain_claims,
+    chain_uris,
     entity_claim,
     relationship_claim,
 )
@@ -1406,3 +1409,366 @@ def test_offset_authored_validity_lands_as_canonical_utc_text(
         value = rows[0][column]
         assert isinstance(value, str), (column, rows[0])
         assert CANONICAL_UTC.fullmatch(value), (column, value)
+
+
+# --- stage-1 read translation (plan 15.3-03) ---------------------------------
+#
+# Always-on unit assertions about `_translate_query`'s guards and its one
+# artifact-safety encoding. The live-server evidence — byte-identity over the
+# generated corpus, and the telemetry proving the push actually happened — is
+# under the `fluree` marker in tests/conformance/test_substrate_differential.py
+# and in `test_fluree_non_traverse_queries_are_pushed_not_silently_degraded`
+# below.
+
+
+def test_no_formatting_site_renders_query_text() -> None:
+    """Grep the module: **zero** f-strings reach Cypher text.
+
+    Strictly stronger than the Neo4j equivalent
+    (`test_neo4j_backend.py::test_exactly_one_formatting_site_renders_query_text`),
+    and the difference is structural rather than stylistic. Neo4j must inline
+    one value — the variable-length depth literal, because Cypher bounds cannot
+    be parameters — and that literal is its concentrated injection surface
+    (threat T-15.2-01). Stage 1 renders no walk at all, so this module's
+    injection surface is empty: every value binds as a `$param`.
+
+    The f-strings that do exist are inspected individually below and none of
+    them lands in a statement: identity strings, URL paths, error messages, and
+    `_query`'s `f"p{index}"`, which renders a parameter *name* under the
+    positional binding convention.
+    """
+    import re
+    from inspect import getsource
+
+    import ccf.graph.backends.fluree as module
+
+    source = getsource(module)
+    cypher_shaped = re.findall(
+        r'f"[^"]*(?:MATCH|MERGE|RETURN|WHERE|\[:|\*1\.\.)[^"]*"', source
+    )
+    assert cypher_shaped == [], cypher_shaped
+
+
+def test_over_ceiling_depth_declines_to_the_fallback() -> None:
+    """`_translate_query` returns None above MAX_DEPTH_CEILING (D-04).
+
+    The ceiling bounds a rendered pattern, never the query vocabulary: an
+    over-ceiling `depth_limit` is still answered — by the memory-bounded
+    fallback (`GQ-29`). Asserted with no store and no server: the decline is a
+    pure function of the query value and runs before any request is built.
+
+    **Honest limit of this assertion in stage 1.** Because stage 1 declines the
+    whole traverse family, this query would decline at the next branch anyway,
+    so the test cannot yet distinguish *which* guard fired. It is asserted now
+    because the ceiling applies to the **CCF** depth — before the interposed
+    layout doubles it into Cypher hops — and that is the reading plan 15.3-04
+    inherits; the assertion becomes discriminating the moment the walk is
+    pushed.
+    """
+    from datetime import UTC, datetime
+
+    from ccf.graph.backends.fluree import MAX_DEPTH_CEILING, FlureeGraphReader
+    from ccf.graph.protocols import GraphQuery, TraversalSpec
+
+    reader = FlureeGraphReader.__new__(FlureeGraphReader)
+    over_ceiling = GraphQuery(
+        tenant_id="t",
+        as_of=datetime(2026, 1, 1, tzinfo=UTC),
+        traverse=TraversalSpec(
+            seed_entity_classes=frozenset({SEED_CLASS}),
+            relationship_types=RELATIONSHIP_TYPES,
+            depth_limit=MAX_DEPTH_CEILING + 1,
+        ),
+    )
+    assert reader._translate_query(over_ceiling) is None
+
+
+def test_the_traverse_family_declines_in_stage_1() -> None:
+    """The recorded stage-1 boundary: a walk is the fallback's whole query.
+
+    Not a gap and not a partial push — under `GQ-32` there is no protocol for
+    "policy applied, traverse not", so the translation declines the entire
+    query and the fallback enforces every family. Conformant under D-04,
+    byte-identical by construction, and visible in `fallback_answers`.
+
+    This assertion is expected to **flip** when plan 15.3-04 pushes the
+    interposed walk, and its flip is that promotion's most direct evidence.
+    """
+    from datetime import UTC, datetime
+
+    from ccf.graph.backends.fluree import FlureeGraphReader
+    from ccf.graph.protocols import GraphQuery, TraversalSpec
+
+    reader = FlureeGraphReader.__new__(FlureeGraphReader)
+    walk = GraphQuery(
+        tenant_id="t",
+        as_of=datetime(2026, 1, 1, tzinfo=UTC),
+        traverse=TraversalSpec(
+            seed_entity_classes=frozenset({SEED_CLASS}),
+            relationship_types=RELATIONSHIP_TYPES,
+            depth_limit=1,
+        ),
+    )
+    assert reader._translate_query(walk) is None
+
+
+def test_empty_allowed_set_answers_empty_without_a_round_trip() -> None:
+    """The empty survivor set IS the answer (`GQ-04`) — no request built."""
+    from datetime import UTC, datetime
+
+    from ccf.graph.backends.fluree import FlureeGraphReader
+    from ccf.graph.protocols import GraphQuery
+
+    reader = FlureeGraphReader.__new__(FlureeGraphReader)
+    empty = GraphQuery(
+        tenant_id="t",
+        as_of=datetime(2026, 1, 1, tzinfo=UTC),
+        allowed_entities=frozenset(),
+    )
+    assert reader._translate_query(empty) == ((), ())
+
+
+def test_policy_key_refuses_a_separator_bearing_component() -> None:
+    """A NUL in an artifact-authored component cannot forge a key boundary.
+
+    The policy key is a separator-joined encoding, and such an encoding is only
+    injective while no component carries the separator. Attribute names and
+    classification values are both artifact-authored, so a NUL in either could
+    make two different `(class, attribute, value)` triples encode to one key —
+    a pushed answer admitting a claim the fallback excludes (threats
+    T-15.2-01 / T-15.2-03). The builder refuses instead, and the caller
+    declines the translation.
+    """
+    from ccf.graph.backends.fluree import POLICY_KEY_SEPARATOR, policy_key
+
+    assert policy_key("Counterparty", "risk_tier", "tier-1") == (
+        POLICY_KEY_SEPARATOR.join(("Counterparty", "risk_tier", "tier-1"))
+    )
+    assert policy_key("Counterparty", f"a{POLICY_KEY_SEPARATOR}b", "c") is None
+    assert policy_key("Counterparty", "a", f"b{POLICY_KEY_SEPARATOR}c") is None
+
+
+def test_a_query_whose_policy_family_cannot_be_encoded_declines() -> None:
+    """The refusal above is wired to a decline, not swallowed.
+
+    Without this the builder could return `None` and the caller could push a
+    key set missing an entry — narrowing the answer silently, which is the one
+    failure mode worse than declining.
+    """
+    from datetime import UTC, datetime
+
+    from ccf.graph.backends.fluree import (
+        POLICY_KEY_SEPARATOR,
+        FlureeGraphReader,
+    )
+    from ccf.graph.protocols import GraphQuery
+
+    reader = FlureeGraphReader.__new__(FlureeGraphReader)
+    forged = GraphQuery(
+        tenant_id="t",
+        as_of=datetime(2026, 1, 1, tzinfo=UTC),
+        permitted_policy_bundle_versions=frozenset({"v1"}),
+        classification_attribute_by_class={
+            SEED_CLASS: f"clearance{POLICY_KEY_SEPARATOR}forged"
+        },
+        permitted_classifications=frozenset({PERMITTED_CLASSIFICATION}),
+    )
+    assert reader._translate_query(forged) is None
+
+
+def test_an_over_budget_rendered_body_is_refused() -> None:
+    """The byte budget measures the bytes that would actually be sent.
+
+    `MAX_QUERY_BODY_BYTES` sits under the documented 1 MB `--max-query-size`,
+    and `allowed_entities` is the caller-influenced term that can approach it
+    (threat T-15.3-09). The guard bounds the generated request, never the
+    vocabulary: an over-budget query is still answered, by the fallback.
+    """
+    from ccf.graph.backends.fluree import (
+        MAX_QUERY_BODY_BYTES,
+        FlureeGraphReader,
+    )
+
+    small = {"allowed": ["u://one", "u://two"]}
+    assert FlureeGraphReader._within_body_budget("MATCH (c)", small)
+
+    oversized = {"allowed": ["u://" + "x" * 64] * (MAX_QUERY_BODY_BYTES // 32)}
+    assert not FlureeGraphReader._within_body_budget("MATCH (c)", oversized)
+
+
+def test_the_write_path_materializes_exactly_the_key_the_read_path_pushes(
+) -> None:
+    """Write-side and read-side key construction cannot drift apart.
+
+    The materialization spans two modules by necessity: the write half lives in
+    `ccf.graph._writer` (CINV-02 confines every write there, and that module
+    imports this backend, so the dependency cannot run the other way). Two
+    copies of a separator-joined encoding is exactly the shape that rots
+    silently — a drifted separator produces a policy family matching *nothing*,
+    with a `200` and an empty answer, which is the same silent-failure class
+    probe F-A6 caught. So the agreement is asserted rather than commented.
+    """
+    import json as _json
+
+    from ccf.graph._writer import _fluree_claim_projection
+    from ccf.graph.backends.fluree import P_POLICY_KEY, policy_key
+    from ccf.graph.reader import ENTITY_KIND
+    from tests.properties.strategies import CLASSIFICATION_ATTRIBUTE
+
+    attribute = CLASSIFICATION_ATTRIBUTE[SEED_CLASS]
+    claim_json = _json.dumps(
+        {
+            "entity_class": SEED_CLASS,
+            "attributes": {attribute: PERMITTED_CLASSIFICATION},
+        }
+    )
+    projected = _fluree_claim_projection(claim_json, kind=ENTITY_KIND)
+    expected = policy_key(SEED_CLASS, attribute, PERMITTED_CLASSIFICATION)
+    assert expected is not None
+    assert projected[P_POLICY_KEY] == [expected]
+
+
+@pytest.mark.fluree
+def test_fluree_non_traverse_queries_are_pushed_not_silently_degraded(
+    fabric_boot: "Callable[..., FabricHandle]",
+) -> None:
+    """The Cypher ran in the engine — telemetry, not byte-identity alone.
+
+    **Byte-identity to the fallback is a conformance bar, not a pushdown
+    bar.** D-04 makes the degraded posture byte-identical *by design* (`GQ-34`
+    at docs/GRAPH_QUERY_SEMANTICS.md:609), so a `_translate_query` that always
+    returned ``None`` would pass the entire differential corpus — green, with
+    zero pushdown actually happening. That is precisely the defect the 15.2
+    §3.1 phase-close review caught on Neo4j, where the leg's whole evidence was
+    the corpus; this test ships in the same plan as the translation so the
+    claim never rests on evidence that cannot distinguish a working
+    translation from an absent one (threat T-15.3-11).
+
+    The four shapes are the non-traverse families stage 1 actually pushes —
+    the traverse family declines by design and is asserted separately below:
+
+    * **as-of only** at a boundary instant — the degenerate everything-question
+      (`GQ-05`), which every other family is layered on;
+    * **validity-constrained** — the `GQ-09` window over the write-time
+      canonical re-renderings, the projection §R8 vector 1 could have
+      re-broken;
+    * **the policy family** — the one whose design probe F-A6 *determined*
+      rather than left to preference, pushed as membership over the
+      materialized key instead of the dynamic property access that evaluates
+      to null here;
+    * **`allowed_entities`-bearing** — the uniform rule (`GQ-15`) as a request
+      list parameter, and the term that can reach the query-body budget.
+
+    ``memory`` is the differential control — the always-on KV floor, which has
+    no native translation at all — so the canonical bytes and the reached sets
+    are held identical while only the fluree leg is asserted pushed.
+    """
+    from ccf.graph.protocols import GraphQuery
+    from tests.conformance.test_substrate_properties import (
+        PERMITTED_CLASSIFICATIONS,
+    )
+    from tests.properties.strategies import CLASSIFICATION_ATTRIBUTE
+
+    entities, relationships = chain_claims(
+        mid_classification=PERMITTED_CLASSIFICATION
+    )
+    seed_uri, mid_uri, target_uri = chain_uris()
+
+    answers: dict[str, list[bytes]] = {}
+    reached: dict[str, list[list[str]]] = {}
+    for backend in ("fluree", "memory"):
+        handle = fabric_boot(backend=backend)
+        for claim in entities:
+            handle.worker.admit_entity_claim(tenant_id=TENANT, claim=claim)
+        for edge in relationships:
+            handle.worker.admit_relationship_claim(
+                tenant_id=TENANT, claim=edge
+            )
+        # The booted worker's own stamped version is the only one persisted
+        # records can carry, so it is the only one a policy family can
+        # meaningfully admit.
+        version = handle.worker.policy_bundle_version
+        queries = (
+            GraphQuery(tenant_id=TENANT, as_of=ON_BOUNDARY),
+            GraphQuery(
+                tenant_id=TENANT,
+                as_of=ON_BOUNDARY,
+                require_valid_at_boundary=True,
+            ),
+            GraphQuery(
+                tenant_id=TENANT,
+                as_of=ON_BOUNDARY,
+                permitted_policy_bundle_versions=frozenset({version}),
+                classification_attribute_by_class=dict(
+                    CLASSIFICATION_ATTRIBUTE
+                ),
+                permitted_classifications=frozenset(PERMITTED_CLASSIFICATIONS),
+            ),
+            GraphQuery(
+                tenant_id=TENANT,
+                as_of=ON_BOUNDARY,
+                allowed_entities=frozenset({seed_uri, mid_uri}),
+            ),
+        )
+        views = [handle.reader.query(q) for q in queries]
+        answers[backend] = [canonical_bytes(view) for view in views]
+        reached[backend] = [
+            sorted(record.claim.entity_uri for record in view.entities)
+            for view in views
+        ]
+        if backend == "fluree":
+            # The whole point of this test: every one of the four answers came
+            # out of Cypher, none out of the fallback.
+            assert handle.reader.translated_answers == len(queries)
+            assert handle.reader.fallback_answers == 0
+
+    assert answers["fluree"] == answers["memory"]
+    assert reached["fluree"] == [
+        sorted((seed_uri, mid_uri, target_uri)),
+        sorted((seed_uri, mid_uri, target_uri)),
+        sorted((seed_uri, mid_uri, target_uri)),
+        sorted((seed_uri, mid_uri)),
+    ]
+
+
+@pytest.mark.fluree
+def test_the_stage_1_traverse_posture_is_recorded_in_telemetry(
+    fabric_boot: "Callable[..., FabricHandle]",
+) -> None:
+    """A depth-1 walk is answered by the fallback, and that is *visible*.
+
+    The recorded stage-1 posture, asserted rather than described. Under D-04 a
+    declined translation is fully conformant — the fallback's answer *is* the
+    definition — so the only thing distinguishing "stage 1, walk deferred" from
+    "stage 2, walk pushed" is this counter. Without the assertion the deferral
+    would be indistinguishable from a promotion that silently never happened.
+
+    **This assertion is expected to flip** when plan 15.3-04 lands the
+    interposed walk: `fallback_answers` becomes 0 and `translated_answers`
+    becomes 1. Its flip is that promotion's most direct evidence, which is why
+    the numbers are pinned exactly rather than bounded.
+    """
+    from ccf.graph.protocols import GraphQuery, TraversalSpec
+
+    entities, relationships = chain_claims(
+        mid_classification=PERMITTED_CLASSIFICATION
+    )
+    handle = fabric_boot(backend="fluree")
+    for claim in entities:
+        handle.worker.admit_entity_claim(tenant_id=TENANT, claim=claim)
+    for edge in relationships:
+        handle.worker.admit_relationship_claim(tenant_id=TENANT, claim=edge)
+
+    handle.reader.query(
+        GraphQuery(
+            tenant_id=TENANT,
+            as_of=ON_BOUNDARY,
+            traverse=TraversalSpec(
+                seed_entity_classes=SEED_CLASSES,
+                relationship_types=RELATIONSHIP_TYPES,
+                depth_limit=1,
+            ),
+        )
+    )
+    assert handle.reader.fallback_answers == 1
+    assert handle.reader.translated_answers == 0

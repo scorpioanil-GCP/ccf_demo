@@ -106,20 +106,21 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.conformance
 
-#: The always-on params run in every `make ci`; postgres, neo4j and mongo
-#: carry their marks and run the identical tests against real servers in CI
-#: (D-10/D-11). The neo4j param (plan 15.2-12) reads CCF_TEST_NEO4J_URI and
-#: the mongo param (plan 15.2-13) reads CCF_TEST_MONGO_URI via their session
-#: fixtures; their property coverage is transitive through the differential
-#: byte-identity bar per the module-docstring reading, and the direct subset
-#: runs on them too whenever the legs run — strictly more evidence, never
-#: less.
+#: The always-on params run in every `make ci`; postgres, neo4j, mongo and
+#: fluree carry their marks and run the identical tests against real servers in
+#: CI (D-10/D-11). The neo4j param (plan 15.2-12) reads CCF_TEST_NEO4J_URI, the
+#: mongo param (plan 15.2-13) reads CCF_TEST_MONGO_URI and the fluree param
+#: (plan 15.3) reads CCF_TEST_FLUREE_URL via their session fixtures; their
+#: property coverage is transitive through the differential byte-identity bar
+#: per the module-docstring reading, and the direct subset runs on them too
+#: whenever the legs run — strictly more evidence, never less.
 BACKEND_PARAMS = (
     pytest.param("sqlite"),
     pytest.param("memory"),
     pytest.param("postgres", marks=pytest.mark.postgres),
     pytest.param("neo4j", marks=pytest.mark.neo4j),
     pytest.param("mongo", marks=pytest.mark.mongo),
+    pytest.param("fluree", marks=pytest.mark.fluree),
 )
 
 
