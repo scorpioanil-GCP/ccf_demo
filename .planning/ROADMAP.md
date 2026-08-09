@@ -819,7 +819,7 @@ decisions plus two corrections in `15.4-CONTEXT.md` (`D-01`..`D-16`, `C-01`,
      `tests/conformance/query_corpus.py` and `docs/GRAPH_QUERY_SEMANTICS.md`
      byte-untouched for the whole phase
 
-**Plans:** 6/12 plans executed
+**Plans:** 9/12 plans executed
 
 Plans:
 
@@ -846,9 +846,9 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5)*
 
-- [ ] 15.4-07-PLAN.md — Turn the structural lints on; retire the D-IMPL-92 line-budget gate
-- [ ] 15.4-08-PLAN.md — Decision Replay dimension 2 pins the adapter
-- [ ] 15.4-09-PLAN.md — `ccf backends list` over `GET /backends`
+- [x] 15.4-07-PLAN.md — Turn the structural lints on; retire the D-IMPL-92 line-budget gate
+- [x] 15.4-08-PLAN.md — Decision Replay dimension 2 pins the adapter
+- [x] 15.4-09-PLAN.md — `ccf backends list` over `GET /backends`
 
 **Wave 7** *(blocked on Wave 6)*
 
