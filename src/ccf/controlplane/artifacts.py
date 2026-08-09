@@ -112,6 +112,7 @@ __all__ = [
     "ProductClassDeclaration",
     "ProjectionRequirements",
     "RegistrationMode",
+    "SecretReference",
     "SignalBatch",
     "SimilaritySelectParametersArtifact",
     "TemporalAsOfParametersArtifact",
@@ -891,6 +892,51 @@ class ManifestEntry(CCFContract):
         return value
 
 
+class SecretReference(CCFContract):
+    """The *name* of a credential a deployment supplies — never the credential.
+
+    SDK-defined mechanism (CLAUDE.md §6.4 and §10; D-08). A manifest is
+    content-hashed and versioned, so anything written into one is persisted into
+    the Control Plane record forever. A credential therefore cannot live here.
+    The *reference* to one can, and carrying it is a net improvement rather than
+    a lateral move: before this contract a credential travelled as a boot
+    argument and nothing in the versioned record said which credential a
+    deployment had used, so "safe" and "invisible" were the same posture. A
+    named reference is auditable, and replay can pin which reference was in
+    force without ever recording what it resolved to.
+
+    Two mechanisms make "a value cannot get in here" structural rather than
+    conventional:
+
+    * :func:`~ccf.contracts.canonical.canonical_bytes` **refuses**
+      ``pydantic.SecretStr`` outright, so a resolved credential cannot be
+      content-hashed into an artifact even by accident. Both fields here are
+      plain names, and a resolved value never touches this contract at all — it
+      is read at boot into :class:`~ccf.graph.registry.ResolvedSecret` and
+      travels from there as a function argument.
+    * Resolution is fail-closed. A reference naming a variable that is unset —
+      or set to the empty string — is refused rather than read as "no
+      credential", because a manifest that names a reference has asserted a
+      credential is required.
+
+    :attr:`env_var` is the fact plan 15.4-08 pins into Decision Replay
+    dimension 2 through :attr:`ccf.graph.registry.AdapterPin.secret_refs`:
+    *which reference was in force*, never what it held.
+
+    Attributes:
+        field: The adapter connection-contract field this credential satisfies.
+            Refused at load if the adapter the manifest names does not declare
+            it as a credential field, so a credential authored against one
+            adapter cannot be handed to another.
+        env_var: Name of the environment variable holding the value — a name,
+            never a value. See the two mechanisms above for what keeps it that
+            way.
+    """
+
+    field: str
+    env_var: str
+
+
 class DeploymentManifest(VersionedArtifact):
     """The one document naming what a deployment puts in force (D-06).
 
@@ -901,16 +947,23 @@ class DeploymentManifest(VersionedArtifact):
     "what was this deployment configured to put in force" is answerable by
     reading one versioned thing.
 
-    **The backend is declared as a kind only (D-08).** There is no DSN field and
-    no database-path field, deliberately: a connection string is a deployment
+    **The backend is declared as a name only (D-08).** There is no connection
+    field of any kind, deliberately: a connection string is a deployment
     *environment* value that
     :func:`ccf.boot.boot` already documents as never persisted, and putting one
     in a versioned, content-hashed artifact would persist it into the audit
-    plane. The manifest says which substrate; the environment supplies how to
-    reach it, and :func:`~ccf.deployment.manifest.load_and_boot` refuses loudly
-    if the two do not agree. A ``memory`` backend (Phase 15.2 D-06) needs no
-    connection value at all — the environment supplies nothing, and supplying
-    a connection argument anyway is refused as the contradiction it is.
+    plane. The manifest names the adapter; the caller supplies the settings that
+    adapter's own contract declares, and
+    :func:`~ccf.deployment.manifest.load_and_boot` refuses loudly if the two do
+    not agree. An adapter that needs no connection settings at all takes none —
+    the check runs against the adapter's contract, never against a list kept
+    here.
+
+    **A credential is named, never held (D-08).** ``backend_secrets`` carries
+    :class:`SecretReference` entries: an adapter config field, and the
+    environment variable whose value satisfies it. See that class for why the
+    reference rather than the value, and for the two mechanisms that make the
+    distinction structural rather than conventional.
 
     **Q3 — where** ``tenant_id`` **lives.** It is carried here, optionally, and
     the caller supplies it when absent. D-03 makes ``ccf.resolution-spec``
@@ -920,34 +973,50 @@ class DeploymentManifest(VersionedArtifact):
     required because D-IMPL-05 makes tenancy a first-class runtime axis, and a
     manifest-pinned tenant would stop one manifest serving a multi-tenant
     deployment. Exactly one of the two sources must supply it: the entry point
-    refuses both-absent and refuses a conflicting pair, mirroring
-    ``_open_backend``'s refuse-to-infer posture rather than picking a winner.
+    refuses both-absent and refuses a conflicting pair, mirroring the
+    refuse-to-infer posture :func:`ccf.boot.boot` states in its signature — its
+    ``backend`` argument is required and has no default, so a fabric cannot
+    infer its own substrate — rather than picking a winner.
 
     Attributes:
         artifacts: Every artifact in force, enumerated. ``min_length=1`` because
             a manifest naming nothing is an authoring mistake rather than a
             deployment that configures nothing.
-        backend: Which graph substrate this deployment runs on — the kind, not
-            the connection. ``memory`` (Phase 15.2 D-06) declares the
-            zero-dependency in-memory backend and needs no connection field:
-            there is nothing to connect to, so no environment argument exists
-            for it either. ``neo4j`` (plan 15.2-12) declares the extras-gated
-            Neo4j backend; its connection URI is environment-supplied through
-            :func:`~ccf.deployment.manifest.load_and_boot`'s ``neo4j_uri``
-            argument, mirroring ``postgres_dsn`` exactly — the D-08 kind-only
-            posture holds: a Bolt URI can carry credentials, and a versioned,
-            content-hashed artifact must never persist one into the audit
-            plane (threat T-15.2-05). ``mongo`` (plan 15.2-13) declares the
-            extras-gated MongoDB backend on exactly the same terms: the
-            connection URI arrives through ``load_and_boot``'s ``mongo_uri``
-            argument and is never written into the manifest. ``fluree`` (plan
-            15.3) declares the Fluree v4 backend, which needs **no extra** —
-            its wire client is a core pin — but stands on identical
-            kind-only terms: the connection URL arrives through
-            ``load_and_boot``'s ``fluree_url`` argument and is never written
-            into the manifest, and the same holds for the deployment's bearer
-            token, which is a request header and reaches neither this artifact
-            nor the graph identity (threat T-15.2-05).
+        backend: The name of the graph adapter this deployment runs on — the
+            adapter, not the connection. A plain lowercase name matching
+            ``^[a-z][a-z0-9_]*$``, which is a **shape** rule fixing D-16's
+            naming convention without naming a single adapter.
+
+            **Which names exist is not a property of this document.** A manifest
+            is a document; which adapters a deployment has installed is a
+            property of the deployment that parses it. So membership is checked
+            at load, against :func:`ccf.graph.registry.declared_names`, and the
+            pattern here constrains only the shape.
+
+            This field carried a fixed six-name ``Literal`` until D-IMPL-93. A
+            *generated* list was considered and rejected: generated or not, an
+            enumeration of database names in a core file is the thing CLAUDE.md
+            §11 forbids. The cost of dropping it is one-directional and accepted
+            rather than worked around — a typo is now caught at load rather than
+            at parse, and the exported schema no longer completes the name in an
+            adopter's editor. What it buys is an error message that can name what
+            *is* registered, which the ``Literal`` never could because it listed
+            what someone had hard-coded rather than what the deployment has; and
+            an adapter that ships as a separate installable distribution with no
+            line changing in this repository.
+        backend_secrets: The credentials this deployment supplies to its
+            adapter, **by reference**. Each entry names an adapter config field
+            and the environment variable holding its value; the value itself
+            never appears here, and :class:`SecretReference` records the two
+            mechanisms that make that structural. Empty — the default — is the
+            ordinary case, because most adapters declare no credential field at
+            all.
+
+            Resolution happens in
+            :func:`~ccf.deployment.manifest.load_and_boot`, which refuses a
+            reference the resolved adapter does not declare as a credential
+            field, and refuses a reference whose variable is unset or empty
+            rather than falling back to an anonymous connection.
         resolution_spec_key: Manifest key of the entity-resolution spec.
         policy_bundle_key: Manifest key of the policy bundle in force.
         tenant_id: The deployment's tenant, when the manifest names it.
@@ -972,11 +1041,40 @@ class DeploymentManifest(VersionedArtifact):
     """
 
     artifacts: tuple[ManifestEntry, ...] = Field(min_length=1)
-    backend: Literal["sqlite", "postgres", "memory", "neo4j", "mongo", "fluree"]
+    backend: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    backend_secrets: tuple[SecretReference, ...] = ()
     resolution_spec_key: str
     policy_bundle_key: str
     tenant_id: str | None = None
     survivor_cap: int | None = None
+
+    @model_validator(mode="after")
+    def _secret_fields_are_unique(self) -> "DeploymentManifest":
+        """Each adapter config field is satisfied by exactly one reference.
+
+        The same argument :meth:`_keys_are_unique` makes for artifact keys. Two
+        entries naming one ``field`` make "which reference was in force"
+        ambiguous, and that answer feeds Decision Replay dimension 2 through
+        :attr:`ccf.graph.registry.AdapterPin.secret_refs` — so the ambiguity
+        would not stay cosmetic. Refusing it here refuses it at parse, before
+        anything reads an environment variable.
+
+        Two entries naming one ``env_var`` under *different* fields are
+        permitted, deliberately, and the asymmetry is the same one
+        :meth:`_keys_are_unique` draws: one variable legitimately satisfying two
+        fields is not ambiguous about anything.
+        """
+        seen: set[str] = set()
+        for reference in self.backend_secrets:
+            if reference.field in seen:
+                raise ValueError(
+                    f"backend_secrets declares the field {reference.field!r}"
+                    " twice; each field is satisfied by exactly one reference,"
+                    " and a repeated field makes the reference in force at"
+                    " decision time ambiguous"
+                )
+            seen.add(reference.field)
+        return self
 
     @model_validator(mode="after")
     def _keys_are_unique(self) -> "DeploymentManifest":

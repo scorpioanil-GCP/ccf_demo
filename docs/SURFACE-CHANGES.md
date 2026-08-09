@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**400 entries**, of which **181** name a public Python surface.
+**401 entries**, of which **182** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-159 entries — 131 public Python surface, 28 not public Python API.
+160 entries — 132 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -2758,6 +2758,38 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none. The name is new
 
 *Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.controlplane.artifacts.SecretReference
+
+- Surface: ccf.controlplane.artifacts.SecretReference
+- Public surface: true
+- Change type: added
+- Before: absent — a credential travelled as a bare boot argument
+  (`fluree_bearer_token`), so nothing in the versioned Control Plane record said
+  which credential a deployment had used
+- After: a two-field `CCFContract` — `field` (the adapter connection-contract
+  field the credential satisfies) and `env_var` (the name of the environment
+  variable holding its value). Both are names; neither can hold a value.
+  `DeploymentManifest.backend_secrets` is a tuple of these, with a validator
+  refusing a repeated `field`
+- Why: a credential must never enter a content-hashed, versioned artifact, but a
+  *reference* to one can — and that is a net improvement over the boot argument
+  it replaces rather than a lateral move. The old posture was safe and invisible:
+  the value was never persisted, and neither was any record of which credential
+  was in force. A named reference is auditable, and
+  `ccf.graph.registry.AdapterPin.secret_refs` pins the reference name into
+  Decision Replay dimension 2 without ever recording what it resolved to. Two
+  mechanisms make the value's absence structural rather than conventional:
+  `ccf.contracts.canonical.canonical_bytes` refuses `pydantic.SecretStr`
+  outright, so a resolved credential cannot be content-hashed even by accident;
+  and a reference resolving to unset or empty is refused rather than read as "no
+  credential"
+- Migration: none — the name is new, so nobody could have been using it. Adopters
+  *adding* a credential reference author it in the manifest:
+  `backend_secrets: [{field: bearer_token, env_var: CCF_FLUREE_TOKEN}]`, and
+  supply nothing at the call site.
+
+*Recorded by `15.4-06-manifest.md`.*
 
 ### Not public Python API
 
