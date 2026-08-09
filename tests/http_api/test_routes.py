@@ -23,9 +23,12 @@ typed refusal body; wiring errors surface as opaque 5xx (T-07-26).
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 from ccf.contracts.canonical import canonical_bytes, content_hash
 
@@ -585,3 +588,104 @@ def test_config_resolution_of_nothing_is_a_404(app: Any) -> None:
         params={"key": "acme-bank/nothing", "version": "1.0.0"},
     )
     assert response.status_code == 404
+
+
+# --- backends: the adapter names this deployment accepts (D-15) -------------
+
+
+def test_backends_lists_the_registry_names_sorted(app: Any) -> None:
+    """The answer is the registry's, sorted — never a list written here."""
+    from ccf.graph.registry import declared_names
+
+    response = call(app, "GET", "/backends")
+    assert response.status_code == 200
+    assert response.json()["backends"] == sorted(declared_names())
+
+
+def test_backends_discloses_names_and_nothing_else(app: Any) -> None:
+    """T-15.4-11: no distribution name, version, or module path.
+
+    Asserted as "exactly one key" rather than as a blocklist of the fields
+    that must be absent, because a blocklist only ever catches the leaks
+    somebody thought of. A widening of this response body fails here.
+    """
+    body = call(app, "GET", "/backends").json()
+    assert set(body) == {"backends"}
+    assert all(isinstance(name, str) for name in body["backends"])
+
+
+def test_backends_is_guarded_exactly_as_schema_is(
+    fabric: Fabric, tmp_path: Path
+) -> None:
+    """T-15.4-30: the same authentication posture as the other read routes.
+
+    Held to ``GET /schema`` rather than to a literal 401, so the claim is
+    "this route did not invent a posture" — if the read-route posture ever
+    changes, this test follows it instead of pinning the old one.
+    """
+    from ccf_runtime.http_api.app import create_app
+    from ccf_runtime.http_api.auth import BearerTokenAuth
+    from ccf_runtime.http_api.dependencies import ApiDependencies
+    from ccf_runtime.mcp.auth import FileTokenSource
+
+    token_file = tmp_path / "tokens.json"
+    token_file.write_text(
+        json.dumps({"good-token": {"client_id": "alice", "scopes": []}}),
+        encoding="utf-8",
+    )
+    authed = create_app(
+        ApiDependencies(
+            control_plane=fabric.registry,
+            artifact_store=fabric.store,
+            product_resolver=fabric.product_resolver,
+            workflow_factory=fabric.factory,
+            workflow_engine=fabric.engine,
+            hitl_transport=fabric.hitl,
+            skill_catalog=fabric.catalog,
+            grant_ledger=fabric.ledger,
+        ),
+        auth=BearerTokenAuth(token_source=FileTokenSource(path=token_file)),
+    )
+
+    unauthenticated = call(authed, "GET", "/backends").status_code
+    assert unauthenticated == call(authed, "GET", "/schema").status_code
+    assert unauthenticated == 401
+
+    header = {"Authorization": "Bearer good-token"}
+    assert call(authed, "GET", "/backends", headers=header).status_code == 200
+
+
+def test_backends_refuses_503_naming_the_conflicting_distributions(
+    app: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A packaging conflict is a 503 an operator can act on, not a 500.
+
+    The refusal names the offending distributions, which is the one thing
+    that tells a packaging conflict apart from a missing adapter — and the
+    one thing an uncaught exception would have thrown away.
+    """
+    from ccf.graph.registry import DuplicateBackendName
+    from ccf_runtime.http_api.routes import backends as backends_route
+
+    refusal = DuplicateBackendName(
+        "two installed distributions declare the adapter name 'duplicated':"
+        " acme-adapters 1.2.3 and beta-adapters 4.5.6. Neither was resolved."
+        " Run `pip uninstall` on one of them."
+    )
+
+    def _conflicted() -> frozenset[str]:
+        raise refusal
+
+    # The route binds ``declared_names`` at import, so the patch goes on the
+    # route module's own name — patching the registry's would not be seen.
+    monkeypatch.setattr(backends_route, "declared_names", _conflicted)
+
+    response = call(app, "GET", "/backends")
+    assert response.status_code == 503
+    detail = response.json()["detail"]
+    assert detail["error_code"] == backends_route.BACKEND_REGISTRY_CONFLICT
+    assert "acme-adapters" in detail["message"]
+    assert "beta-adapters" in detail["message"]
+    # Not an empty list under a 200: fail-closed exists so that nothing
+    # answers past the ambiguity, and an empty list is a different fact.
+    assert "backends" not in response.json()

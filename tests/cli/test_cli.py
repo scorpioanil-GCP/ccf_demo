@@ -88,6 +88,7 @@ INVENTORY: tuple[tuple[str, ...], ...] = (
     ("config", "keys", "--class-id", "c"),
     ("config", "versions", "--key", "k"),
     ("config", "resolve", "--key", "k", "--version", "v"),
+    ("backends", "list"),
 )
 
 
@@ -613,6 +614,80 @@ def test_local_flag_runs_without_infra(
 def test_local_requires_a_root(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit):
         run_cli(["--local", "config", "keys", "--class-id", "x"], capsys)
+
+
+# --- backends: the adapter names, over the route, with no local path -------
+
+
+def test_backends_list_reports_every_declared_name(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--local` answers about the CLI's own process — the first case an
+    adopter runs, and an honest answer to "what is installed here"."""
+    from ccf.graph.registry import declared_names
+
+    code, out, _ = run_cli(
+        ["--local", "--local-root", str(tmp_path), "backends", "list"],
+        capsys,
+    )
+    assert code == 0
+    assert json.loads(out)["backends"] == sorted(declared_names())
+
+
+def test_backends_with_no_verb_is_a_usage_error(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The noun-verb shape D-IMPL-22 ruled: no bare `ccf backends`."""
+    from ccf_runtime.cli.main import build_parser
+
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["backends"])
+    assert "list" in capsys.readouterr().err
+
+
+def test_backends_command_holds_no_local_generation_path() -> None:
+    """D-IMPL-79: the command travels the route and re-derives nothing.
+
+    Asserted against the source rather than by behaviour, because the
+    failure this guards is someone "simplifying" the HTTP hop away — which
+    would still pass every behavioural test in this file while costing the
+    invariant that the CLI holds no privileged path (T-07-27).
+    """
+    source = (CLI_SOURCE / "commands" / "backends.py").read_text()
+    assert "declared_names" not in source
+    assert "RequestSpec" in source
+
+
+def test_backends_list_surfaces_the_registry_refusal_not_a_traceback(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A packaging conflict reaches the operator with the name in it.
+
+    `--local` runs the app in-process rather than around it, so the typed
+    503 the route builds travels the same path a remote client sees.
+    """
+    from ccf.graph.registry import DuplicateBackendName
+    from ccf_runtime.http_api.routes import backends as backends_route
+
+    def _conflicted() -> frozenset[str]:
+        raise DuplicateBackendName(
+            "two installed distributions declare the adapter name"
+            " 'duplicated': acme-adapters 1.2.3 and beta-adapters 4.5.6."
+            " Neither was resolved. Run `pip uninstall` on one of them."
+        )
+
+    monkeypatch.setattr(backends_route, "declared_names", _conflicted)
+
+    code, out, err = run_cli(
+        ["--local", "--local-root", str(tmp_path), "backends", "list"],
+        capsys,
+    )
+    assert code != 0
+    assert "acme-adapters" in err and "beta-adapters" in err
+    assert "Traceback" not in err and "Traceback" not in out
 
 
 # --- HTTP-vs-injected equivalence over one real hosted server --------------

@@ -37,6 +37,7 @@ from ccf_runtime.cli.commands import (
     RequestSpec,
     agent,
     artifact,
+    backends,
     config,
     hitl,
     product,
@@ -93,6 +94,7 @@ def build_parser() -> argparse.ArgumentParser:
     product.register(subparsers)
     config.register(subparsers)
     schema.register(subparsers)
+    backends.register(subparsers)
     return parser
 
 
@@ -114,9 +116,21 @@ async def _execute(
                 json=spec.json,
             )
             if response.status_code >= 500:
+                # The body travels too, when there is one. A 5xx is
+                # usually opaque by design (T-07-26), but a deployment
+                # that answers 5xx with a *typed* refusal has said
+                # something the operator has to act on — the backend
+                # registry's fail-closed 503 names the distribution whose
+                # packaging conflicts, which is the one thing that tells a
+                # conflict apart from a missing adapter. Discarding it
+                # leaves the operator with a status code and no lead.
+                # Stderr, not stdout: this is still a wiring error under
+                # the documented exit-code contract.
+                detail = response.text.strip()
                 sys.stderr.write(
                     f"wiring error: {spec.method} {spec.path} ->"
                     f" {response.status_code}\n"
+                    + (f"{detail}\n" if detail else "")
                 )
                 return EXIT_WIRING
             if response.status_code >= 400:
