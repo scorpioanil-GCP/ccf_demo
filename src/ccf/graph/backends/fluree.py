@@ -130,7 +130,8 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.canonical import canonical_timestamp, content_hash
+from ccf.graph.protocols import GraphQuery
 from ccf.graph.reader import BaseGraphReader, Row
 
 __ccf_mode__ = "algorithmic"
@@ -253,6 +254,25 @@ P_ADMIT_KEY = "ccf_admit_key"
 #: ``ccf.graph._writer`` for the key construction and its argument.
 P_POLICY_KEY = "ccf_policy_key"
 
+#: Field separator inside a materialized policy key. ``NUL`` is deliberate: it
+#: is code-authored and cannot appear in a CCF entity class name, so no
+#: artifact-authored string can forge a key boundary *from the class side*. The
+#: attribute-name and value sides are gated separately — see
+#: :func:`policy_key`, which refuses to build a key from any component
+#: containing this character.
+#:
+#: The write half of the pair lives in ``ccf.graph._writer`` (that module
+#: imports this one; the reverse would break the CINV-02 confinement and
+#: cycle), so the two constructions are held identical by an executable
+#: assertion rather than by comment —
+#: ``tests/graph/test_fluree_backend.py::
+#: test_the_write_path_materializes_exactly_the_key_the_read_path_pushes``
+#: projects a real claim through the writer and compares it against
+#: :func:`policy_key`. A separator that drifted would otherwise produce a
+#: policy family that silently matches nothing, which is the same silent-failure
+#: class probe F-A6 caught.
+POLICY_KEY_SEPARATOR = "\x00"
+
 #: L-axis entry identity.
 P_CLAIM_KIND = "ccf_claim_kind"
 P_NODE_KEY = "ccf_node_key"
@@ -303,9 +323,9 @@ MAX_TXN_BODY_BYTES = 9_000_000
 #: domain value (CINV-01), it bounds the generated request rather than the
 #: query vocabulary, and an over-budget query is still **answered** — the
 #: translation declines and the memory-bounded fallback answers (D-04; `GQ-29`
-#: at docs/GRAPH_QUERY_SEMANTICS.md:554). The decline itself belongs to the
-#: read-translation plan; the budget is declared here with the layout it
-#: measures.
+#: at docs/GRAPH_QUERY_SEMANTICS.md:554). The decline is applied by
+#: :meth:`FlureeGraphReader._within_body_budget`, against the exact bytes
+#: :meth:`FlureeGraphStore.post_query` would send.
 MAX_QUERY_BODY_BYTES = 900_000
 
 #: Mechanism safety bound on the ONE value a translated statement would inline
@@ -365,6 +385,39 @@ def attribute_predicate(attribute: str) -> str | None:
     return ATTRIBUTE_PROPERTY_PREFIX + attribute
 
 
+def policy_key(entity_class: str, attribute: str, value: str) -> str | None:
+    """One materialized `GQ-08` classification key, or ``None`` if unforgeable.
+
+    The read half of the write-time materialization probe F-A6 forced (see
+    :data:`P_POLICY_KEY`): ``(entity_class, attribute_name, attribute_value)``
+    joined by :data:`POLICY_KEY_SEPARATOR`, so that `GQ-08`'s classification
+    cut is a set-membership test over stored literals instead of the dynamic
+    property access this engine evaluates to null.
+
+    **Why a component may be refused.** A separator-joined encoding is only
+    injective if no component contains the separator. The class name is safe by
+    construction, but an attribute *name* and a classification *value* are both
+    artifact-authored, and a ``NUL`` in either could make two different triples
+    encode to one key — a pushed answer admitting a claim the fallback excludes
+    (threats T-15.2-01 / T-15.2-03, and precisely the divergence the
+    differential bar exists to catch). Rather than trust that a ``NUL`` cannot
+    occur, this function refuses to encode one and the caller declines the
+    translation, so the fallback answers the whole query (D-04; `GQ-29` at
+    docs/GRAPH_QUERY_SEMANTICS.md:554). Nothing is lost: the answer is
+    identical, only the path differs.
+
+    Refusing on the *read* side is sufficient to make matching exact. A key
+    built here carries exactly two separators, so it can only equal a stored
+    key that also carries exactly two — and a two-separator string splits into
+    ``(class, attribute, value)`` one way only. A stored key whose components
+    smuggled in a separator has three or more and can never collide with one
+    built here.
+    """
+    if any(POLICY_KEY_SEPARATOR in part for part in (attribute, value)):
+        return None
+    return POLICY_KEY_SEPARATOR.join((entity_class, attribute, value))
+
+
 class FlureeTransactionTooLarge(RuntimeError):
     """A buffered commit body exceeded the server's transaction size limit.
 
@@ -405,6 +458,19 @@ def _server_root(url: str) -> str:
     return parts._replace(
         netloc=netloc, path="", query="", fragment=""
     ).geturl()
+
+
+def _query_body(cypher: str, params: dict[str, object]) -> str:
+    """Render the request body of one Cypher read.
+
+    One function rather than an inline ``json.dumps`` at the call site, because
+    two callers must agree on it byte for byte: :meth:`FlureeGraphStore.
+    post_query`, which sends it, and :meth:`FlureeGraphReader._translate_query`,
+    which measures it against :data:`MAX_QUERY_BODY_BYTES` before deciding
+    whether to send it. A budget check that measured a *different* rendering
+    than the one transmitted would be a budget check in name only.
+    """
+    return json.dumps({"cypher": cypher, "params": params})
 
 
 def _mint_id(kind: str, *parts: str) -> str:
@@ -584,7 +650,7 @@ class FlureeGraphStore:
                 "Content-Type": "application/cypher",
                 "Fluree-Min-T": str(self._min_t),
             },
-            content=json.dumps({"cypher": cypher, "params": params}),
+            content=_query_body(cypher, params),
         )
         response.raise_for_status()
         result = response.json()["results"][0]
@@ -649,6 +715,177 @@ class FlureeGraphStore:
         self.close()
 
 
+# --- GraphQuery translation, stage 1 (plan 15.3-03) --------------------------
+#
+# The Cypher half of the pushdown story, on the shape ``backends/neo4j.py:276-290``
+# established: statements composed exclusively of code-authored fragments, with
+# every value travelling as a named request parameter. The hook contract is
+# all-or-nothing (`GQ-32` at docs/GRAPH_QUERY_SEMANTICS.md:583); the surviving
+# rows feed ccf.graph.reader.materialize_view exactly as the five fixed
+# statements do, so lineage-at-boundary and supersession-as-of stay rendered in
+# the one shared place (INV-CH7-14).
+#
+# **Stage 1 pushes the non-traverse families only.** A traverse query returns
+# ``None`` and the fallback answers the WHOLE query — conformant under D-04,
+# byte-identical by construction (`GQ-34`), and visible in `fallback_answers`
+# telemetry rather than hidden. The walk is plan 15.3-04's; the interposed-edge
+# layout it reads is already maintained by the write path.
+#
+# **This is not the Neo4j translation with a prefix change.** Two of its
+# predicates cannot be ported and both were measured rather than assumed:
+# `_ENTITY_POLICY`'s dynamic property access evaluates to null here (probe
+# F-A6 — it fails *silently*, returning 200), and `_WALK_EDGES_ALL`'s
+# relationship-property reads see nothing on a plain RDF edge. The first is
+# resolved below by membership over the write-time materialized key; the second
+# is what the interposed edge node exists for.
+#
+# Unlike Neo4j, this module contains **no string-formatting site at all**: Neo4j
+# must inline the variable-length depth literal because Cypher bounds cannot be
+# parameters, and stage 1 renders no walk. Every value here binds as a `$param`
+# (threat T-15.2-01).
+
+_SURVIVORS_MATCH = (
+    "MATCH (c:CcfEntityClaim {ccf_partition: $partition,"
+    " ccf_tenant_id: $tenant})\n"
+    "WHERE c.ccf_observed_at <= $boundary\n"
+    "  AND (c.ccf_superseded_at IS NULL OR c.ccf_superseded_at > $boundary)\n"
+)
+
+#: The validity-window cut (`GQ-09` at docs/GRAPH_QUERY_SEMANTICS.md:185,
+#: INV-CH7-25) over the write-time canonical re-renderings, so the pushed
+#: comparison is fixed-width text against the canonical boundary (`GQ-24` at
+#: docs/GRAPH_QUERY_SEMANTICS.md:482). Correctness rests entirely on probe
+#: F-A5, which read ``DATATYPE()`` back for ``ccf_valid_from_cmp`` and
+#: ``ccf_valid_to_cmp`` and got ``xsd:string`` for both: under a temporal
+#: datatype this comparison would run temporally at the engine's own precision
+#: and diverge from the fallback on exactly the boundary cases the corpus
+#: generates (§R8 vector 2). An absent projection compares NULL, and NULL fails
+#: every comparison — fail-closed, never over-disclosing (threats T-15.2-03 /
+#: T-15.2-26), measured directly against the live server before this fragment
+#: was written.
+_ENTITY_VALIDITY = (
+    "  AND c.ccf_valid_from_cmp <= $boundary\n"
+    "  AND (c.ccf_valid_to_cmp IS NULL OR c.ccf_valid_to_cmp > $boundary)\n"
+)
+
+#: Policy admissibility, all three cuts of `GQ-08` at
+#: docs/GRAPH_QUERY_SEMANTICS.md:163 (INV-CH7-26) — as **pure membership**,
+#: which is this backend's whole departure from ``backends/neo4j.py:335-340``.
+#:
+#: Neo4j reads the classification through dynamic property access — ``c[$key]``
+#: with the attribute name supplied as map-parameter content
+#: (``backends/neo4j.py:335-340``). Probe F-A6 measured that expression on this
+#: engine: it **parses, returns 200 and evaluates to null**. Ported verbatim it
+#: would have excluded every claim while reporting success, on the predicate
+#: family that gates the majority of real queries — a wrong answer no status
+#: check would catch, which is why the verdict was taken by comparison against
+#: a static-access control. The plan's own named alternative
+#: ``any(k IN $keys WHERE k IN c.ccf_policy_key)`` is rejected at parse time
+#: (400): an ``IN`` right-hand side must be an inline list or a parameter,
+#: never a property expression.
+#:
+#: What works is plain membership over the multi-valued key the write path
+#: materializes, because a multi-valued RDF property **fans out into one row
+#: per value** rather than yielding a list — so ``IN`` expresses "any
+#: materialized key is admissible" and ``RETURN DISTINCT`` collapses the
+#: multiplicity. That materializes `GQ-08` exactly: a class with no declared
+#: attribute contributes no key and is inadmissible; a claim carrying no value
+#: for its class's attribute produces no matching key and is inadmissible
+#: (measured — a claim with no ``ccf_policy_key`` at all is excluded while a
+#: control proves it exists). And **no artifact-authored string enters query
+#: text**: the keys are computed in Python by :func:`policy_key` and travel as
+#: a parameter list, which is this backend's realization of the T-15.2-01
+#: closure.
+_ENTITY_POLICY = (
+    "  AND c.ccf_policy_bundle_version IN $policy_versions\n"
+    "  AND c.ccf_policy_key IN $policy_keys\n"
+)
+
+#: The uniform rule's set membership on entity selection (`GQ-15` at
+#: docs/GRAPH_QUERY_SEMANTICS.md:300): every family computes within the set,
+#: restricted before anything else evaluates. The set travels as a request list
+#: parameter (`GQ-30` at docs/GRAPH_QUERY_SEMANTICS.md:563) — no member is ever
+#: rendered into query text. It is also the term that can push the rendered
+#: body past :data:`MAX_QUERY_BODY_BYTES`.
+_ENTITY_ALLOWED = "  AND c.ccf_entity_uri IN $allowed\n"
+
+#: ``DISTINCT`` is not decoration: the policy fragment above matches per
+#: *value* of a multi-valued property, so a claim admissible under two of its
+#: own materialized keys would otherwise arrive twice and be materialized as a
+#: duplicate record. Applied unconditionally rather than only alongside the
+#: policy family, because it cannot change any other answer — ``claim_id`` is
+#: unique per claim, so two distinct claims can never render an identical row.
+_SURVIVORS_RETURN = (
+    "RETURN DISTINCT c.ccf_entity_uri AS entity_uri,"
+    " c.ccf_claim_id AS claim_id,\n"
+    "       c.ccf_claim_json AS claim_json,\n"
+    "       c.ccf_policy_bundle_version AS policy_bundle_version,\n"
+    "       c.ccf_superseded_by AS superseded_by,\n"
+    "       c.ccf_superseded_at AS superseded_at,\n"
+    "       c.ccf_entity_class AS entity_class\n"
+    "ORDER BY c.ccf_entity_uri"
+)
+
+_EDGES_MATCH = (
+    "MATCH (rc:CcfRelationshipClaim {ccf_partition: $partition,"
+    " ccf_tenant_id: $tenant})\n"
+    "WHERE rc.ccf_observed_at <= $boundary\n"
+    "  AND (rc.ccf_superseded_at IS NULL"
+    " OR rc.ccf_superseded_at > $boundary)\n"
+)
+
+_EDGE_VALIDITY = (
+    "  AND rc.ccf_valid_from_cmp <= $boundary\n"
+    "  AND (rc.ccf_valid_to_cmp IS NULL OR rc.ccf_valid_to_cmp > $boundary)\n"
+)
+
+#: A relationship is admissible under the policy family iff its bundle version
+#: is permitted (`GQ-08`) — no classification cut of its own; endpoint survival
+#: governs its exposure below.
+_EDGE_POLICY = "  AND rc.ccf_policy_bundle_version IN $policy_versions\n"
+
+#: The induced-subgraph rule (`GQ-16` at docs/GRAPH_QUERY_SEMANTICS.md:316):
+#: both endpoints members of the allowed set, stated natively on the claim's
+#: own projected endpoint columns.
+_EDGE_ALLOWED = (
+    "  AND rc.ccf_subject_uri IN $allowed\n"
+    "  AND rc.ccf_object_uri IN $allowed\n"
+)
+
+#: Typed crossability doubles as answer membership: edges of other types are
+#: absent even between reached endpoints (`GQ-10` at
+#: docs/GRAPH_QUERY_SEMANTICS.md:201). **This looks like a relationship read
+#: and is not** — it reads a property on the ``CcfRelationshipClaim`` *node*,
+#: so it is untouched by the relationship-property break that forced the
+#: interposed edge, and the artifact-authored type list rides as a ``$types``
+#: parameter rather than as a Cypher relationship-type pattern (threat
+#: T-15.2-01). Stage 1 declines every traverse query, so this fragment is
+#: assembled only once plan 15.3-04 pushes the walk.
+_EDGE_TYPES = "  AND rc.ccf_relationship_type IN $types\n"
+
+#: Endpoint closure against the surviving universe (`GQ-16`, INV-CH7-40): an
+#: answer view never retains an edge to a node its principal may not see. The
+#: degenerate everything-question skips this — a dangling first-class edge is
+#: state, not a leak, in the unconstrained answer (`GQ-05` at
+#: docs/GRAPH_QUERY_SEMANTICS.md:122).
+_EDGE_CLOSURE = (
+    "  AND rc.ccf_subject_uri IN $survivors\n"
+    "  AND rc.ccf_object_uri IN $survivors\n"
+)
+
+_EDGES_RETURN = (
+    "RETURN DISTINCT rc.ccf_relationship_key AS relationship_key,\n"
+    "       rc.ccf_claim_id AS claim_id,"
+    " rc.ccf_claim_json AS claim_json,\n"
+    "       rc.ccf_policy_bundle_version AS policy_bundle_version,\n"
+    "       rc.ccf_superseded_by AS superseded_by,\n"
+    "       rc.ccf_superseded_at AS superseded_at,\n"
+    "       rc.ccf_subject_uri AS subject_uri,"
+    " rc.ccf_object_uri AS object_uri\n"
+    "ORDER BY rc.ccf_relationship_key"
+)
+
+
 class FlureeGraphReader(BaseGraphReader):
     """``GraphReader`` over a Fluree ledger — dialect and rows only.
 
@@ -670,12 +907,18 @@ class FlureeGraphReader(BaseGraphReader):
     So the statements order on both keys with no Python-side stable sort, and
     use the inline form as copied from ``backends/neo4j.py:519-565``.
 
-    :meth:`_translate_query` is **not implemented here**; it belongs to the
-    read-translation plan. Until it lands the reader answers every query
-    through the inherited fallback, which is fully conformant under D-04 — the
-    fallback's answer is the definition, and pushdown is an earned optimization
-    visible only in telemetry (`GQ-34` at
-    docs/GRAPH_QUERY_SEMANTICS.md:609).
+    The reader holds the Cypher ``GraphQuery`` translation:
+    :meth:`_translate_query` answers **non-traverse** queries natively — the
+    as-of cut, the validity window, the policy family as membership over the
+    write-time materialized key, and ``allowed_entities`` membership as a
+    request list parameter — and declines the traverse family to the fallback
+    (stage 1 of D-04's staging; the walk is plan 15.3-04's). A declined
+    translation is not a gap: the fallback's answer *is* the definition and is
+    byte-identical by construction (`GQ-34` at
+    docs/GRAPH_QUERY_SEMANTICS.md:609), which is exactly why a passing
+    differential suite cannot be read as evidence of pushdown and why the
+    ``translated_answers`` / ``fallback_answers`` telemetry is asserted
+    separately.
 
     Positional parameters map onto ``$p0…$pN`` in statement order; the store's
     partition rides along as ``$partition`` on every statement, so a reader can
@@ -751,3 +994,170 @@ class FlureeGraphReader(BaseGraphReader):
         }
         bound["partition"] = self._store.partition
         return self._store.post_query(sql, bound)
+
+    def _translate_query(
+        self, q: GraphQuery
+    ) -> tuple[Sequence[Row], Sequence[Row]] | None:
+        """Answer a non-traverse query natively in Cypher (plan 15.3-03).
+
+        The hook contract is all-or-nothing (`GQ-32` at
+        docs/GRAPH_QUERY_SEMANTICS.md:583): the return is the complete answer's
+        row pair — every predicate family applied, ``allowed_entities``
+        membership applied — or ``None``, meaning the fallback enforces the
+        whole query. Two statements run in sequence:
+
+        1. **survivors** — the surviving entity claims: the as-of cut (`GQ-07`
+           at docs/GRAPH_QUERY_SEMANTICS.md:148, INV-CH7-14) as canonical-text
+           comparison, the validity window (`GQ-09`) over the write-time
+           re-renderings, policy admissibility (`GQ-08`) as membership over the
+           materialized key, and the uniform rule's set membership (`GQ-15`) as
+           a request list parameter;
+        2. **edges** — the surviving relationship claims that may appear in the
+           answer: the induced subgraph under ``allowed_entities`` (`GQ-16`)
+           and endpoint closure against the materialized survivors on every
+           constrained answer.
+
+        **Fluree has no read transaction to hold two statements in**, and it
+        needs none: CCF has exactly one writer (INV-CH7-10), the store threads
+        the highest written ``t`` into ``Fluree-Min-T`` on every read, and both
+        statements are issued inside one :meth:`query` call — so they observe
+        one consistent state without a transaction to hold them.
+
+        Three shapes never reach the server, and each is a *guard* rather than
+        a degradation — it changes which path answers, never the answer:
+
+        * the empty ``allowed_entities`` set IS the empty answer (`GQ-04` at
+          docs/GRAPH_QUERY_SEMANTICS.md:98), returned without a round trip;
+        * an over-ceiling ``depth_limit`` declines (:data:`MAX_DEPTH_CEILING`);
+        * a query whose policy family cannot be encoded injectively declines
+          (:func:`policy_key`).
+
+        A fourth decline is measured rather than computed: the rendered request
+        body is checked against :data:`MAX_QUERY_BODY_BYTES` before each
+        statement is sent.
+
+        **Stage 1 declines the whole traverse family** — the fallback answers
+        the entire query, which is conformant under D-04 and invisible to
+        replay, and shows up as a ``fallback_answers`` increment rather than as
+        a silent tail.
+        """
+        if q.allowed_entities is not None and not q.allowed_entities:
+            # The empty survivor set IS the answer (`GQ-04`): the empty view,
+            # answered without a substrate round trip. An empty answer is an
+            # answer, never an error (`GQ-23` at
+            # docs/GRAPH_QUERY_SEMANTICS.md:474).
+            return (), ()
+        if (
+            q.traverse is not None
+            and q.traverse.depth_limit > MAX_DEPTH_CEILING
+        ):
+            # Decline → the fallback answers (D-04). Deliberately BEFORE any
+            # request is built: the decline is a pure function of the query
+            # value. The ceiling is applied to the **CCF** depth, before the
+            # interposed layout's doubling — a CCF hop is two Cypher hops
+            # through the edge node, so bounding the rendered pattern means
+            # bounding the number this reads, not the number 15.3-04 renders.
+            #
+            # In stage 1 this branch is subsumed by the traverse decline below;
+            # it is stated separately because the two say different things and
+            # only this one survives plan 15.3-04's promotion.
+            return None
+        if q.traverse is not None:
+            # STAGE 1 BOUNDARY. Not "the walk narrowed as far as it can" —
+            # the whole query goes to the fallback, so no partial-family
+            # bookkeeping exists to get wrong (`GQ-32`). Plan 15.3-04 replaces
+            # this branch with the interposed-edge walk.
+            return None
+
+        policy_versions = q.permitted_policy_bundle_versions
+        attribute_by_class = q.classification_attribute_by_class
+        policy_keys: list[str] | None = None
+        if policy_versions is not None:
+            assert attribute_by_class is not None  # noqa: S101 - GQ-02 whole family
+            assert q.permitted_classifications is not None  # noqa: S101
+            # The classification cut, computed HERE in Python and compared as
+            # stored literals — the F-A6 resolution. A class with no declared
+            # attribute contributes no key, so it is inadmissible by producing
+            # nothing to match, exactly as the fallback computes it.
+            keys: set[str] = set()
+            for entity_class, attribute in attribute_by_class.items():
+                for classification in q.permitted_classifications:
+                    key = policy_key(entity_class, attribute, classification)
+                    if key is None:
+                        # A component carrying the separator would make the
+                        # encoding non-injective, so a pushed answer could
+                        # admit a claim the fallback excludes. Decline — still
+                        # a pure function of the query value, so like the three
+                        # guards above it happens before anything is built.
+                        return None
+                    keys.add(key)
+            policy_keys = sorted(keys)
+
+        boundary = canonical_timestamp(q.as_of)
+        constrained = (
+            q.allowed_entities is not None
+            or policy_versions is not None
+            or q.require_valid_at_boundary is not None
+            or q.traverse is not None
+        )
+        require_validity = q.require_valid_at_boundary is True
+
+        params: dict[str, object] = {
+            "partition": self._store.partition,
+            "tenant": q.tenant_id,
+            "boundary": boundary,
+        }
+        survivor_text = [_SURVIVORS_MATCH]
+        edge_text = [_EDGES_MATCH]
+        if require_validity:
+            survivor_text.append(_ENTITY_VALIDITY)
+            edge_text.append(_EDGE_VALIDITY)
+        if policy_versions is not None:
+            survivor_text.append(_ENTITY_POLICY)
+            edge_text.append(_EDGE_POLICY)
+            params["policy_versions"] = sorted(policy_versions)
+            params["policy_keys"] = policy_keys
+        if q.allowed_entities is not None:
+            survivor_text.append(_ENTITY_ALLOWED)
+            edge_text.append(_EDGE_ALLOWED)
+            params["allowed"] = sorted(q.allowed_entities)
+        if constrained:
+            edge_text.append(_EDGE_CLOSURE)
+        survivor_text.append(_SURVIVORS_RETURN)
+        edge_text.append(_EDGES_RETURN)
+
+        survivors_cypher = "".join(survivor_text)
+        if not self._within_body_budget(survivors_cypher, params):
+            return None
+        entity_rows = self._store.post_query(survivors_cypher, params)
+
+        params["survivors"] = [row["entity_uri"] for row in entity_rows]
+        edges_cypher = "".join(edge_text)
+        if not self._within_body_budget(edges_cypher, params):
+            return None
+        relationship_rows = self._store.post_query(edges_cypher, params)
+        return entity_rows, relationship_rows
+
+    @staticmethod
+    def _within_body_budget(cypher: str, params: dict[str, object]) -> bool:
+        """Would this statement's rendered body fit the server's query cap?
+
+        The byte-budget guard (:data:`MAX_QUERY_BODY_BYTES`), measured on the
+        exact bytes :meth:`FlureeGraphStore.post_query` would send rather than
+        estimated from the parameter values. ``allowed_entities`` and the
+        materialized survivor list both travel as ``$param`` lists, so a large
+        set is the shape that approaches the documented 1 MB
+        ``--max-query-size``; the Control Plane's survivor cap (`GQ-18`) bounds
+        that set, but the two are unrelated numbers and neither implies the
+        other.
+
+        A refusal is not a failure and not a narrowing: the caller returns
+        ``None``, the fallback answers the whole query byte-identically (D-04;
+        `GQ-29` at docs/GRAPH_QUERY_SEMANTICS.md:554), and the event is visible
+        in ``fallback_answers``. This bounds the generated request, never the
+        query vocabulary — the :data:`MAX_DEPTH_CEILING` argument ratified at
+        the D-GATE-15.2 checkpoint Q2, applied to the other end of the same
+        request.
+        """
+        rendered = _query_body(cypher, params)
+        return len(rendered.encode("utf-8")) <= MAX_QUERY_BODY_BYTES
