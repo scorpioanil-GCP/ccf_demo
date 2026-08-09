@@ -819,7 +819,7 @@ decisions plus two corrections in `15.4-CONTEXT.md` (`D-01`..`D-16`, `C-01`,
      `tests/conformance/query_corpus.py` and `docs/GRAPH_QUERY_SEMANTICS.md`
      byte-untouched for the whole phase
 
-**Plans:** 9/12 plans executed
+**Plans:** 10/12 plans executed
 
 Plans:
 
@@ -852,7 +852,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6)*
 
-- [ ] 15.4-10-PLAN.md — The out-of-tree proof adapter distribution and its install wiring
+- [x] 15.4-10-PLAN.md — The out-of-tree proof adapter distribution and its install wiring
 
 **Wave 8** *(blocked on Wave 7)*
 
