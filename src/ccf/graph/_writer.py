@@ -2834,10 +2834,27 @@ class _FlureeTxn:
             P_CLAIM_JSON: claim_json,
             P_OBSERVED_AT: observed_at,
             P_POLICY_VERSION: policy_bundle_version,
+            # Committed count for THIS entity plus this transaction's own
+            # buffered claims for THIS entity. Both terms must be scoped to
+            # the same key or the sum is not a sequence: an unscoped
+            # `len(self._entity_claims)` would count claims buffered for
+            # OTHER entities, so `A1, B1, A2` in one transaction gives `A`
+            # seq 0 and 2, and the next transaction's `A3` reads
+            # `count(A) == 2` and computes 2 — a duplicate. Two claims of one
+            # entity sharing an `observed_at` and a `seq` then order
+            # non-deterministically under `ORDER BY observed_at, seq`, and
+            # `_restitch_chain` yields a different supersession chain per
+            # read. Dormant while `BaseGraphWriter` opens one transaction per
+            # claim, but that is a property of the caller, not of a buffered
+            # batch adapter (review finding WR-07).
             P_SEQ: self._count(
                 _FLUREE_ENTITY_CLAIM_COUNT, {**scope, "key": entity_uri}
             )
-            + len(self._entity_claims),
+            + sum(
+                1
+                for buffered_claim in self._entity_claims
+                if buffered_claim[P_ENTITY_URI] == entity_uri
+            ),
             **_fluree_claim_projection(claim_json, kind=ENTITY_KIND),
         }
         # One object in two roles: the pending insert triple AND the buffer
@@ -3023,11 +3040,17 @@ class _FlureeTxn:
             P_CLAIM_JSON: claim_json,
             P_OBSERVED_AT: observed_at,
             P_POLICY_VERSION: policy_bundle_version,
+            # Scoped to `relationship_key` on both terms, for the reason
+            # `insert_entity_claim` states in full (review finding WR-07).
             P_SEQ: self._count(
                 _FLUREE_RELATIONSHIP_CLAIM_COUNT,
                 {**scope, "key": relationship_key},
             )
-            + len(self._relationship_claims),
+            + sum(
+                1
+                for buffered_claim in self._relationship_claims
+                if buffered_claim[P_RELATIONSHIP_KEY] == relationship_key
+            ),
             **_fluree_claim_projection(claim_json, kind=RELATIONSHIP_KIND),
         }
         self._relationship_claims.append(document)

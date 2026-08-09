@@ -2098,9 +2098,25 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   never re-implemented). The dialect is openCypher over HTTP; rows are extracted
   from the cypher-json envelope, which upstream documents nowhere and which was
   therefore captured verbatim from a live `fluree/server:4.1.4` container before
-  any adapter code existed. `_translate_query` is deliberately **not**
-  implemented in this plan: the reader answers everything through the fallback,
-  which is fully conformant under D-04
+  any adapter code existed. `_translate_query` **is** implemented and pushes
+  every predicate family down to the server: the as-of cut, the validity
+  window, the policy family as membership over the write-time materialized key,
+  `allowed_entities` membership as a request list parameter, and the bounded
+  undirected traversal as a walk over the interposed edge-node layout. An empty
+  `allowed_entities` set is answered natively as the empty view with no round
+  trip. **Four** named conditions decline to the fallback instead — an
+  over-ceiling `depth_limit`, a policy family that cannot be encoded
+  injectively, a rendered request body over `MAX_QUERY_BODY_BYTES`, and a walk
+  refused by the server's path-enumeration cap (the one decline taken *after* a
+  round trip). A decline is a change of path, never a change of answer: the
+  fallback's result is byte-identical by construction and fully conformant
+  under D-04 (`GQ-34`), which is why the `translated_answers` /
+  `fallback_answers` telemetry is asserted separately rather than inferred from
+  a passing differential suite. *(Corrected 2026-08-09, review finding WR-08:
+  this entry previously said translation was deliberately not implemented,
+  which was true of plan 15.3-02 and false of the shipped adapter — plans
+  15.3-03 and 15.3-04 landed the translation and added no public name, so no
+  later fragment superseded the claim.)*
 - Why: the read seam is not shaped like a query language, and a sixth dialect
   answering the same five reads is the evidence
 - Migration: new surface — none. Reached as `handle.reader`
@@ -2132,7 +2148,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Change type: added
 - Before: absent
 - After: `100` — a mechanism safety bound on the one value a translated
-  statement would inline into query text, the validated traversal-depth literal.
+  statement inlines into query text, the validated traversal-depth literal
+  (plan 15.3-04's promoted walk renders it; everything else travels as a
+  request parameter).
   Declared on the `ccf.graph.backends.neo4j.MAX_DEPTH_CEILING` precedent, which
   D-GATE-15.2 checkpoint Q2 ratified as mechanism rather than a domain value. A
   `depth_limit` above the ceiling is still **answered**: the translation
