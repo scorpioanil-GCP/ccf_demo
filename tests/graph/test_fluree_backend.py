@@ -2482,6 +2482,186 @@ def test_an_over_budget_rendered_body_is_refused() -> None:
     assert not FlureeGraphReader._within_body_budget("MATCH (c)", oversized)
 
 
+class _SeqOnlyStore:
+    """The narrowest ``FlureeGraphStore`` ``_FlureeTxn`` can buffer against.
+
+    ``insert_entity_claim`` / ``insert_relationship_claim`` touch the store in
+    exactly two ways before they buffer: ``scope()`` for the two bound
+    parameters, and ``post_query()`` for the committed-state existence read and
+    the committed-state ``count()``. Nothing is sent until ``commit()``, which
+    this test never calls — so the whole `P_SEQ` arithmetic is reachable with
+    no server and no marker.
+
+    ``committed`` maps a claim key to the number of claims for that key already
+    in the ledger, which is what makes the ACROSS-transaction half of the
+    collision expressible: the second transaction's read is the first
+    transaction's write.
+    """
+
+    def __init__(self, committed: "dict[str, int] | None" = None) -> None:
+        self.partition = "ccf"
+        self._committed = dict(committed or {})
+
+    def scope(self, tenant_id: str) -> dict[str, str]:
+        return {"partition": self.partition, "tenant": tenant_id}
+
+    def post_query(
+        self, cypher: str, params: dict[str, object]
+    ) -> list[dict[str, Any]]:
+        from ccf.graph._writer import (
+            _FLUREE_ENTITY_CLAIM_COUNT,
+            _FLUREE_RELATIONSHIP_CLAIM_COUNT,
+        )
+
+        if cypher in (
+            _FLUREE_ENTITY_CLAIM_COUNT,
+            _FLUREE_RELATIONSHIP_CLAIM_COUNT,
+        ):
+            return [{"n": self._committed.get(str(params["key"]), 0)}]
+        # Every other read is the existence check, and an empty ledger answers
+        # it with no rows — so no insert resolves to the idempotent 0 and the
+        # sequence arithmetic is what the test observes.
+        return []
+
+
+def _seqs(documents: "list[dict[str, Any]]", key_property: str, key: str) -> list[int]:
+    from ccf.graph.backends.fluree import P_SEQ
+
+    return [
+        int(document[P_SEQ])
+        for document in documents
+        if document[key_property] == key
+    ]
+
+
+def test_buffered_claim_sequences_are_scoped_to_their_own_node() -> None:
+    """`P_SEQ` counts THIS node's claims, never the whole transaction buffer.
+
+    `P_SEQ` is "the graph rendering of SQLite's `rowid`" — the tiebreaker that
+    orders two claims of one entity sharing an `observed_at`, under
+    `SELECT_ENTITY_HISTORY`'s `ORDER BY c.ccf_observed_at, c.ccf_seq`. It is
+    computed as *committed count for this key* + *this transaction's own
+    buffered claims*, and the two terms must be scoped to the same key or the
+    sum is not a sequence at all.
+
+    Buffering `A1, B1, A2` in one transaction is the discriminating case. With
+    an unscoped buffer term, `A` receives seq 0 and **2** while `B` receives
+    **1** — and the collision is not merely cosmetic: the next transaction
+    reads `count(A) == 2` and computes seq **2**, duplicating `A2`. Two claims
+    of one entity sharing an `observed_at` and a `seq` then order
+    non-deterministically and `_restitch_chain` yields a different supersession
+    chain per read, silently.
+
+    The defect was dormant because `BaseGraphWriter.upsert_entity` opens one
+    transaction per claim, so `len(buffer)` was always 0. That is a property of
+    today's caller, not of the adapter — and this is the batched adapter whose
+    whole premise is buffering (review finding WR-07).
+    """
+    from ccf.graph._writer import _FlureeTxn
+    from ccf.graph.backends.fluree import P_ENTITY_URI, P_RELATIONSHIP_KEY
+
+    a, b = "counterparty://a", "counterparty://b"
+    store = _SeqOnlyStore()
+    txn = _FlureeTxn(store=store)  # type: ignore[arg-type]
+
+    for entity_uri, claim_id in ((a, "a1"), (b, "b1"), (a, "a2")):
+        assert (
+            txn.insert_entity_claim(
+                tenant_id="tenant-a",
+                entity_uri=entity_uri,
+                claim_id=claim_id,
+                claim_json=json.dumps({"entity_class": SEED_CLASS}),
+                observed_at="2026-03-01T00:00:00.000000Z",
+                policy_bundle_version="v1",
+            )
+            == 1
+        )
+
+    buffered = txn._entity_claims
+    assert _seqs(buffered, P_ENTITY_URI, a) == [0, 1], (
+        "A's two buffered claims must form a gapless chain of their own; a "
+        "whole-buffer count gives [0, 2]"
+    )
+    assert _seqs(buffered, P_ENTITY_URI, b) == [0], (
+        "B's first claim is B's claim 0 — unrelated buffered claims for A "
+        "must not advance it"
+    )
+
+    # The relationship mirror, same arithmetic on `relationship_key`.
+    ab, cd = "rel://a-b", "rel://c-d"
+    rel_txn = _FlureeTxn(store=_SeqOnlyStore())  # type: ignore[arg-type]
+    for relationship_key, claim_id in ((ab, "r1"), (cd, "r2"), (ab, "r3")):
+        assert (
+            rel_txn.insert_relationship_claim(
+                tenant_id="tenant-a",
+                relationship_key=relationship_key,
+                claim_id=claim_id,
+                claim_json=json.dumps(
+                    {
+                        "relationship_type": "linked_to",
+                        "subject_uri": "counterparty://a",
+                        "object_uri": "counterparty://b",
+                    }
+                ),
+                observed_at="2026-03-01T00:00:00.000000Z",
+                policy_bundle_version="v1",
+            )
+            == 1
+        )
+    rel_buffered = rel_txn._relationship_claims
+    assert _seqs(rel_buffered, P_RELATIONSHIP_KEY, ab) == [0, 1]
+    assert _seqs(rel_buffered, P_RELATIONSHIP_KEY, cd) == [0]
+
+
+def test_a_following_transaction_never_reissues_a_buffered_sequence() -> None:
+    """The collision itself: seq values stay unique per node ACROSS commits.
+
+    The previous test measures one transaction's arithmetic; this one measures
+    the consequence that actually corrupts a chain. Transaction 1 buffers
+    `A1, B1, A2`. Transaction 2 opens against the ledger those writes produced
+    — `count(A) == 2`, `count(B) == 1` — and claims `A3`.
+
+    `A3` must receive a sequence no earlier `A` claim holds. Under the unscoped
+    buffer term `A2` held 2 and `A3` computes 2, which is the duplicate. The
+    assertion is stated as "no repeat in the union", not "A3 == 2", so it
+    remains discriminating if the sequence base ever changes.
+    """
+    from ccf.graph._writer import _FlureeTxn
+    from ccf.graph.backends.fluree import P_ENTITY_URI
+
+    a, b = "counterparty://a", "counterparty://b"
+    first = _FlureeTxn(store=_SeqOnlyStore())  # type: ignore[arg-type]
+    for entity_uri, claim_id in ((a, "a1"), (b, "b1"), (a, "a2")):
+        first.insert_entity_claim(
+            tenant_id="tenant-a",
+            entity_uri=entity_uri,
+            claim_id=claim_id,
+            claim_json=json.dumps({"entity_class": SEED_CLASS}),
+            observed_at="2026-03-01T00:00:00.000000Z",
+            policy_bundle_version="v1",
+        )
+    committed_a = _seqs(first._entity_claims, P_ENTITY_URI, a)
+
+    # Transaction 2 reads what transaction 1 wrote: two A claims, one B claim.
+    second = _FlureeTxn(store=_SeqOnlyStore({a: 2, b: 1}))  # type: ignore[arg-type]
+    second.insert_entity_claim(
+        tenant_id="tenant-a",
+        entity_uri=a,
+        claim_id="a3",
+        claim_json=json.dumps({"entity_class": SEED_CLASS}),
+        observed_at="2026-03-01T00:00:00.000000Z",
+        policy_bundle_version="v1",
+    )
+    next_a = _seqs(second._entity_claims, P_ENTITY_URI, a)
+
+    chain = committed_a + next_a
+    assert len(set(chain)) == len(chain), (
+        f"two claims of one entity share a `ccf_seq`: {chain} — they would "
+        "then order non-deterministically under ORDER BY observed_at, seq"
+    )
+    assert chain == sorted(chain), f"the chain is not monotonic: {chain}"
+
+
 def test_the_write_path_materializes_exactly_the_key_the_read_path_pushes(
 ) -> None:
     """Write-side and read-side key construction cannot drift apart.
