@@ -112,11 +112,37 @@ move.
    comparing the two lines with every string literal removed — and the change
    is **recorded** (see `check_recorded_in_package`).
 
-The durable lesson, and the reason this is in the module docstring rather than
-only in the phase record: **the enumeration-is-the-mechanism finding recurs in
-the test tree, and this gate's own allowlist is itself an enumeration that
-under-enumerated.** A reader comparing layer 1 against layer 2 finds gaps that
-reading either alone would miss. That is the argument for recording both.
+THE THIRD CORRECTION (D-IMPL-92, Dave, 2026-08-08) — AND THE RECURSION
+=======================================================================
+
+Recording the second correction in `docs/DECISIONS.md` — which CLAUDE.md §11
+makes **mandatory** for any `D-IMPL` ruling — put that path in the measured
+surface, where Tier C had named `docs/SURFACE-CHANGES.md` and
+`docs/surface-changes/*` and omitted the decision log. The gate failed again,
+on the record of the fix for the previous failure.
+
+**That recursion is the durable lesson, more than the path is.** The test
+layer 1 actually applies is *"was never inside D-11's `src/ccf`-scoped hard
+line"*; `docs/DECISIONS.md` is not under `src/ccf` at all, so it is free on the
+same footing as the `Makefile` and the CI workflows. Ruling: **Tier C gains
+`docs/DECISIONS.md`, bounded APPEND-ONLY** — added lines permitted, any
+deletion a finding. The bound is not decoration: it turns the
+appended-and-dated correction discipline into a mechanical check, so the entry
+stays a check that would still fire if someone rewrote decision history rather
+than becoming a hole.
+
+**Broadening Tier C to `docs/**` was considered and rejected.** It would free
+`docs/GRAPH_QUERY_SEMANTICS.md`, which the ruling explicitly freezes — real
+coverage traded for a tidier allowlist. Named here so a future reader does not
+"simplify" it.
+
+The durable lesson, and the reason all of this is in the module docstring
+rather than only in the phase record: **the enumeration-is-the-mechanism
+finding recurs in the test tree AND in the documentation tree, and this gate's
+own allowlist is itself an enumeration that under-enumerated — three times,
+the third time recursively, on the record of the second fix.** A reader
+comparing layer 1 against layer 2 finds gaps that reading either alone would
+miss. That is the argument for recording both.
 
 WHAT THIS GATE DELIBERATELY DOES NOT DO
 =======================================
@@ -210,6 +236,7 @@ RULE_DIRTY_TREE = "gate153-dirty-tree"
 RULE_BASE_RESOLUTION = "gate153-base-resolution"
 RULE_SINGLE_OWNER = "gate153-single-owner"
 RULE_PATH_ALLOWLIST = "gate153-path-allowlist"
+RULE_APPEND_ONLY = "gate153-append-only"
 RULE_BACKEND_REMOVED = "gate153-backend-removed"
 RULE_BUDGET = "gate153-budget"
 RULE_SCHEMA_CONSISTENCY = "gate153-schema-consistency"
@@ -238,6 +265,13 @@ class Allowed:
     pattern: str
     tier: str
     reason: str
+    #: When true, the path may only GROW: added lines are permitted, any
+    #: deletion is a finding. This is how a *documented discipline* becomes a
+    #: *mechanical* one. Used for `docs/DECISIONS.md`, whose whole value rests
+    #: on corrections being appended and dated rather than edited into the
+    #: entry they correct — a bound of zero deletions encodes exactly that and
+    #: keeps the allowlist entry a real check rather than a hole.
+    append_only: bool = False
 
 
 #: Patterns are `fnmatch` — note that `*` crosses directory separators there,
@@ -351,6 +385,24 @@ ALLOWLIST: tuple[Allowed, ...] = (
         "C",
         "the assembled D-15B migration note; documentation is free"
         " (D-IMPL-92 layer 1)",
+    ),
+    Allowed(
+        "docs/DECISIONS.md",
+        "C",
+        "the decision log — free on the same footing as the Makefile and the"
+        " CI workflows, because the test layer 1 actually applies is 'was"
+        " never inside D-11's src/ccf-scoped hard line' and this path is not"
+        " under src/ccf at all. Added by the 2026-08-08 THIRD correction, and"
+        " mandatory rather than incidental: CLAUDE.md §11 requires every"
+        " D-IMPL ruling to be logged here, so a gate that fails because the"
+        " project's own decision-logging rule was followed is measuring the"
+        " wrong thing. APPEND-ONLY: corrections are appended and dated, never"
+        " edited into the entry they correct (the D-IMPL-86/-87/-92"
+        " discipline), so a deletion here is rewritten history and stays a"
+        " finding. Broadening this to `docs/**` was considered and REJECTED —"
+        " it would free docs/GRAPH_QUERY_SEMANTICS.md, which the ruling"
+        " explicitly freezes, trading real coverage for a tidier allowlist.",
+        append_only=True,
     ),
     Allowed(
         "docs/surface-changes/*",
@@ -877,7 +929,25 @@ def check_paths(changes: Sequence[Change]) -> list[str]:
                 )
             )
             continue  # a narrower pre-filter, not an early return from the run
-        if allowed_for(change.path) is None:
+        entry = allowed_for(change.path)
+        if entry is not None and entry.append_only and change.deleted > 0:
+            findings.append(
+                format_finding(
+                    pathlib.Path(change.path),
+                    0,
+                    RULE_APPEND_ONLY,
+                    f"deleted {change.deleted} line(s). This path is allowlisted"
+                    " APPEND-ONLY: it may grow, never shrink. The"
+                    " D-IMPL-86/-87/-92 discipline is that a correction is"
+                    " appended and dated rather than edited into the entry it"
+                    " corrects, so the reasoning at each point in time survives;"
+                    " a deletion is rewritten history. Append a new dated entry"
+                    " instead. (This bound is what keeps the allowlist entry a"
+                    " check rather than a hole.)",
+                )
+            )
+            continue
+        if entry is None:
             findings.append(
                 format_finding(
                     pathlib.Path(change.path),
