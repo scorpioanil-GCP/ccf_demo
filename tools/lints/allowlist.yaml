@@ -6,6 +6,26 @@
 # alternation) take no allowlist at all — an import restriction with exceptions
 # is not an invariant.
 #
+# Nor do the two D-IMPL-93 rules registered in plan 15.4-07:
+#
+#   cinv02-backend-import   (tools/lints/backend_imports.py) — no module
+#                           outside the adapter package may import it
+#   cinv04-substrate-name   (tools/lints/substrate_names.py) — core names no
+#   cinv04-substrate-prose  graph substrate, in code or in enumerating prose
+#
+# D-13 (Dave). This is deliberately STRICTER than D-IMPL-93's own wording,
+# which says this file governs exceptions to those rules. It does not, for
+# three independent reasons: `apply_allowlist` runs for cinv01* and nothing
+# else, so the path is structurally unreachable from either checker; the
+# `fingerprint` field below is a hash of an offending *literal*, which an
+# import rule cannot produce and a name rule would produce ambiguously; and
+# the sentence above — an import restriction with exceptions is not an
+# invariant — applies with more force, not less, to a rule whose whole subject
+# is that core names no adapter. Carve-outs for those rules are named
+# module-path constants in the checkers themselves, reviewed with the code:
+# BACKENDS_PACKAGE in backend_imports.py, SUBSTRATE_NAME_EXEMPT_PACKAGES (two
+# entries, each argued, count asserted by test) in substrate_names.py.
+#
 # Entry schema — every field is required, and a missing one is a load error:
 #
 #   file:         repo-relative path exactly as the lint reports it
