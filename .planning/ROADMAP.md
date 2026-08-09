@@ -727,7 +727,7 @@ sequential.
 
 **Requirements**: SUBQ-12, SUBQ-13, SUBQ-14
 
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 
@@ -745,7 +745,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 15.3-04-PLAN.md — F-A2/F-A3, the interposed bounded undirected walk with depth 0/1/2/3 asserted, and promotion at byte-identity or a recorded stage-1 degrade
+- [x] 15.3-04-PLAN.md — F-A2/F-A3, the interposed bounded undirected walk with depth 0/1/2/3 asserted, and promotion at byte-identity or a recorded stage-1 degrade
 
 **Wave 5** *(blocked on Wave 4)*
 
@@ -803,7 +803,7 @@ reader can see which code is CCF and which is theirs.
 | 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 (gated with carried debt; CR-1/CR-2 close in 15.1) |
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
-| 15.3. Fluree Adapter (Tier-1 Substrate) | 3/5 | In Progress|  |
+| 15.3. Fluree Adapter (Tier-1 Substrate) | 4/5 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage

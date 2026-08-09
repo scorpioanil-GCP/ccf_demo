@@ -11,7 +11,7 @@ progress:
   total_plans: 91
   completed_plans: 96
   percent: 80
-stopped_at: Phase 15.3 executing -- waves 1-3 of 5 merged (01 probes + F-A4(a) ruled `approved` by Dave 2026-08-08; 02 FlureeGraphStore/_FlureeTxn with _GraphTxn Protocol unchanged at 864 added/0 deleted; 03 stage-1 pushdown, SUBQ-12 complete, pushdown falsification-tested and independently reproduced -- corpus stays green at 7 passed with translation neutered while telemetry fails assert 0 == 4); ci-core 2285 passed, legs fluree 30 / neo4j 20 / mongo 22, postgres leg NOT RUN (no server available); next wave 4 (15.3-04 stage-2 traversal via edge-as-node interposition, BF-1)
+stopped_at: Phase 15.3 executing -- waves 1-4 of 5 merged (01 probes + F-A4(a) ruled `approved` by Dave 2026-08-08; 02 FlureeGraphStore/_FlureeTxn, _GraphTxn Protocol unchanged at 864 added/0 deleted; 03 stage-1 pushdown, SUBQ-12 complete; 04 BF-1 stage-2 traversal Branch A promoted-with-proof, traverse telemetry FLIPPED to fallback 0/translated 1, _writer.py still untouched). BOTH falsifications discharged and independently re-verified on merged main -- with _translate_query neutered, both telemetry tests go RED while the differential corpus stays GREEN at 7 passed. ci-core 2289 passed, legs fluree 37 / neo4j 20 / mongo 22; postgres leg NOT RUN (no server on this machine -- needed before the phase gate). Next wave 5 (15.3-05 gate script, ends in a BLOCKING checkpoint:human-verify for Dave).
 ---
 
 # STATE — CCF SDK
