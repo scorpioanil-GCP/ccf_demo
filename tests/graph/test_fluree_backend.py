@@ -42,7 +42,10 @@ from tests.conformance.query_corpus import (
     LATE,
     ON_BOUNDARY,
     RELATIONSHIP_TYPES,
+    SEED_CLASSES,
     TENANT,
+    chain_claims,
+    chain_uris,
     entity_claim,
     relationship_claim,
 )
@@ -1623,3 +1626,149 @@ def test_the_write_path_materializes_exactly_the_key_the_read_path_pushes(
     expected = policy_key(SEED_CLASS, attribute, PERMITTED_CLASSIFICATION)
     assert expected is not None
     assert projected[P_POLICY_KEY] == [expected]
+
+
+@pytest.mark.fluree
+def test_fluree_non_traverse_queries_are_pushed_not_silently_degraded(
+    fabric_boot: "Callable[..., FabricHandle]",
+) -> None:
+    """The Cypher ran in the engine — telemetry, not byte-identity alone.
+
+    **Byte-identity to the fallback is a conformance bar, not a pushdown
+    bar.** D-04 makes the degraded posture byte-identical *by design* (`GQ-34`
+    at docs/GRAPH_QUERY_SEMANTICS.md:609), so a `_translate_query` that always
+    returned ``None`` would pass the entire differential corpus — green, with
+    zero pushdown actually happening. That is precisely the defect the 15.2
+    §3.1 phase-close review caught on Neo4j, where the leg's whole evidence was
+    the corpus; this test ships in the same plan as the translation so the
+    claim never rests on evidence that cannot distinguish a working
+    translation from an absent one (threat T-15.3-11).
+
+    The four shapes are the non-traverse families stage 1 actually pushes —
+    the traverse family declines by design and is asserted separately below:
+
+    * **as-of only** at a boundary instant — the degenerate everything-question
+      (`GQ-05`), which every other family is layered on;
+    * **validity-constrained** — the `GQ-09` window over the write-time
+      canonical re-renderings, the projection §R8 vector 1 could have
+      re-broken;
+    * **the policy family** — the one whose design probe F-A6 *determined*
+      rather than left to preference, pushed as membership over the
+      materialized key instead of the dynamic property access that evaluates
+      to null here;
+    * **`allowed_entities`-bearing** — the uniform rule (`GQ-15`) as a request
+      list parameter, and the term that can reach the query-body budget.
+
+    ``memory`` is the differential control — the always-on KV floor, which has
+    no native translation at all — so the canonical bytes and the reached sets
+    are held identical while only the fluree leg is asserted pushed.
+    """
+    from ccf.graph.protocols import GraphQuery
+    from tests.conformance.test_substrate_properties import (
+        PERMITTED_CLASSIFICATIONS,
+    )
+    from tests.properties.strategies import CLASSIFICATION_ATTRIBUTE
+
+    entities, relationships = chain_claims(
+        mid_classification=PERMITTED_CLASSIFICATION
+    )
+    seed_uri, mid_uri, target_uri = chain_uris()
+
+    answers: dict[str, list[bytes]] = {}
+    reached: dict[str, list[list[str]]] = {}
+    for backend in ("fluree", "memory"):
+        handle = fabric_boot(backend=backend)
+        for claim in entities:
+            handle.worker.admit_entity_claim(tenant_id=TENANT, claim=claim)
+        for edge in relationships:
+            handle.worker.admit_relationship_claim(
+                tenant_id=TENANT, claim=edge
+            )
+        # The booted worker's own stamped version is the only one persisted
+        # records can carry, so it is the only one a policy family can
+        # meaningfully admit.
+        version = handle.worker.policy_bundle_version
+        queries = (
+            GraphQuery(tenant_id=TENANT, as_of=ON_BOUNDARY),
+            GraphQuery(
+                tenant_id=TENANT,
+                as_of=ON_BOUNDARY,
+                require_valid_at_boundary=True,
+            ),
+            GraphQuery(
+                tenant_id=TENANT,
+                as_of=ON_BOUNDARY,
+                permitted_policy_bundle_versions=frozenset({version}),
+                classification_attribute_by_class=dict(
+                    CLASSIFICATION_ATTRIBUTE
+                ),
+                permitted_classifications=frozenset(PERMITTED_CLASSIFICATIONS),
+            ),
+            GraphQuery(
+                tenant_id=TENANT,
+                as_of=ON_BOUNDARY,
+                allowed_entities=frozenset({seed_uri, mid_uri}),
+            ),
+        )
+        views = [handle.reader.query(q) for q in queries]
+        answers[backend] = [canonical_bytes(view) for view in views]
+        reached[backend] = [
+            sorted(record.claim.entity_uri for record in view.entities)
+            for view in views
+        ]
+        if backend == "fluree":
+            # The whole point of this test: every one of the four answers came
+            # out of Cypher, none out of the fallback.
+            assert handle.reader.translated_answers == len(queries)
+            assert handle.reader.fallback_answers == 0
+
+    assert answers["fluree"] == answers["memory"]
+    assert reached["fluree"] == [
+        sorted((seed_uri, mid_uri, target_uri)),
+        sorted((seed_uri, mid_uri, target_uri)),
+        sorted((seed_uri, mid_uri, target_uri)),
+        sorted((seed_uri, mid_uri)),
+    ]
+
+
+@pytest.mark.fluree
+def test_the_stage_1_traverse_posture_is_recorded_in_telemetry(
+    fabric_boot: "Callable[..., FabricHandle]",
+) -> None:
+    """A depth-1 walk is answered by the fallback, and that is *visible*.
+
+    The recorded stage-1 posture, asserted rather than described. Under D-04 a
+    declined translation is fully conformant — the fallback's answer *is* the
+    definition — so the only thing distinguishing "stage 1, walk deferred" from
+    "stage 2, walk pushed" is this counter. Without the assertion the deferral
+    would be indistinguishable from a promotion that silently never happened.
+
+    **This assertion is expected to flip** when plan 15.3-04 lands the
+    interposed walk: `fallback_answers` becomes 0 and `translated_answers`
+    becomes 1. Its flip is that promotion's most direct evidence, which is why
+    the numbers are pinned exactly rather than bounded.
+    """
+    from ccf.graph.protocols import GraphQuery, TraversalSpec
+
+    entities, relationships = chain_claims(
+        mid_classification=PERMITTED_CLASSIFICATION
+    )
+    handle = fabric_boot(backend="fluree")
+    for claim in entities:
+        handle.worker.admit_entity_claim(tenant_id=TENANT, claim=claim)
+    for edge in relationships:
+        handle.worker.admit_relationship_claim(tenant_id=TENANT, claim=edge)
+
+    handle.reader.query(
+        GraphQuery(
+            tenant_id=TENANT,
+            as_of=ON_BOUNDARY,
+            traverse=TraversalSpec(
+                seed_entity_classes=SEED_CLASSES,
+                relationship_types=RELATIONSHIP_TYPES,
+                depth_limit=1,
+            ),
+        )
+    )
+    assert handle.reader.fallback_answers == 1
+    assert handle.reader.translated_answers == 0
