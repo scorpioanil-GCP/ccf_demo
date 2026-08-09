@@ -2380,6 +2380,171 @@ def test_fluree_non_traverse_queries_are_pushed_not_silently_degraded(
 
 
 @pytest.mark.fluree
+def test_fluree_traversal_is_pushed_not_silently_degraded(
+    fabric_boot: "Callable[..., FabricHandle]",
+) -> None:
+    """The interposed walk ran in the engine — telemetry, not byte-identity.
+
+    **Byte-identity to the fallback is a conformance bar, not a pushdown
+    bar.** D-04 makes the degraded posture byte-identical *by design* (`GQ-34`
+    at docs/GRAPH_QUERY_SEMANTICS.md:609), so a `_translate_query` that always
+    returned ``None`` would pass the entire differential corpus — green, with
+    zero pushdown actually happening. Plan 15.3-03 did not argue that; it
+    **demonstrated** it, monkeypatching the translation away and watching all
+    seven differential tests stay green while the telemetry test went red. This
+    test is the traversal half of the same discrimination, and it was
+    falsification-tested the same way before the promotion was claimed.
+
+    The four shapes are the ones a variable-length ``MATCH`` can get wrong,
+    mirroring the Neo4j and Mongo trap-shape tests so a regression names
+    *which* correction broke:
+
+    * **depth 0** — starts only, no hop (`GQ-10`). The ``*1..0`` bound does not
+      exist, so this must skip the ``MATCH`` entirely;
+    * **depth 1** — one CCF hop, which is TWO Cypher hops through the
+      interposed edge node;
+    * **depth 2 over a mixed-direction chain** — CCF traversal is undirected,
+      so the second edge pointing target->mid must still be crossable. Cypher's
+      ``-[:T]-`` is first-class undirected, which is why the interposed model
+      is written once and needs none of Mongo's forward/reverse doubling;
+    * **the resurrection shape** — the same depth-2 question with the
+      intermediate outside ``allowed_entities``. A walk that crossed it would
+      re-reach the target the set excludes (`GQ-15` at
+      docs/GRAPH_QUERY_SEMANTICS.md:300; threat T-15.2-26). **This is the one
+      that most needs the telemetry, because a degrade answers it correctly
+      too** — and on this substrate it is also the shape that proves hop
+      admissibility is enforced *during* the walk rather than on its output,
+      which probe F-A3(b) measured as a path count of zero.
+
+    ``memory`` is the differential control — the always-on KV floor, which has
+    no native translation at all — so the reached sets and the canonical bytes
+    are held identical while only the fluree leg is asserted pushed.
+    """
+    from ccf.graph.protocols import GraphQuery, TraversalSpec
+
+    seed_uri, mid_uri, target_uri = chain_uris()
+    entities, relationships = chain_claims(
+        mid_classification=PERMITTED_CLASSIFICATION
+    )
+
+    def walk_at(depth: int) -> TraversalSpec:
+        return TraversalSpec(
+            seed_entity_classes=SEED_CLASSES,
+            relationship_types=RELATIONSHIP_TYPES,
+            depth_limit=depth,
+        )
+
+    queries = (
+        GraphQuery(tenant_id=TENANT, as_of=ON_BOUNDARY, traverse=walk_at(0)),
+        GraphQuery(tenant_id=TENANT, as_of=ON_BOUNDARY, traverse=walk_at(1)),
+        GraphQuery(tenant_id=TENANT, as_of=ON_BOUNDARY, traverse=walk_at(2)),
+        GraphQuery(
+            tenant_id=TENANT,
+            as_of=ON_BOUNDARY,
+            traverse=walk_at(2),
+            allowed_entities=frozenset({seed_uri, target_uri}),
+        ),
+    )
+
+    answers: dict[str, list[bytes]] = {}
+    reached: dict[str, list[set[str]]] = {}
+    for backend in ("fluree", "memory"):
+        handle = fabric_boot(backend=backend)
+        _write_chain(handle, entities, relationships)
+        views = [handle.reader.query(q) for q in queries]
+        answers[backend] = [canonical_bytes(view) for view in views]
+        reached[backend] = [
+            {record.claim.entity_uri for record in view.entities}
+            for view in views
+        ]
+        if backend == "fluree":
+            # The whole point of this test: every one of the four answers came
+            # out of Cypher, none out of the fallback.
+            assert handle.reader.translated_answers == len(queries)
+            assert handle.reader.fallback_answers == 0
+
+    assert answers["fluree"] == answers["memory"]
+    assert reached["fluree"] == [
+        {seed_uri},
+        {seed_uri, mid_uri},
+        {seed_uri, mid_uri, target_uri},
+        {seed_uri},
+    ]
+
+
+@pytest.mark.fluree
+def test_a_capped_walk_declines_to_the_fallback_rather_than_failing(
+    fabric_boot: "Callable[..., FabricHandle]",
+) -> None:
+    """T-15.3-13's mitigation, executed rather than described.
+
+    The path-enumeration cap **errors rather than truncating** (probe
+    F-A3(c)), so it is a hard failure that would otherwise reach the caller as
+    an `httpx.HTTPStatusError` for a question the fallback can answer
+    perfectly well. The adapter catches it and declines the whole query.
+
+    Three things are asserted together, and the combination is the mitigation:
+
+    * the query is still **answered**, byte-identically to the `memory`
+      control — a decline changes which path answers, never the answer
+      (D-04 / `GQ-34`);
+    * the decline is **visible**: `fallback_answers == 1`, which is the
+      operator-facing signal the residual risk is recorded against;
+    * `translated_answers == 0`, so nothing partial was returned — the
+      all-or-nothing contract (`GQ-32`) holds across a decline that happens
+      *after* a round trip.
+
+    The graph is every ontology-legal edge over the whole fixture pool (12
+    entities, 27 edges) — small, and still enough at CCF depth 5 to exceed the
+    server's 1000-path budget. The corpus's deepest walk is depth 4 over
+    three-node chains, so nothing in the differential suite approaches this.
+    """
+    from ccf.graph.protocols import GraphQuery, TraversalSpec
+
+    query = GraphQuery(
+        tenant_id=TENANT,
+        as_of=ON_BOUNDARY,
+        traverse=TraversalSpec(
+            seed_entity_classes=SEED_CLASSES,
+            relationship_types=RELATIONSHIP_TYPES,
+            depth_limit=5,
+        ),
+    )
+    answers: dict[str, bytes] = {}
+    for backend in ("fluree", "memory"):
+        handle = fabric_boot(backend=backend)
+        for entity_class, pool in ENTITY_POOL.items():
+            for uri in pool:
+                handle.worker.admit_entity_claim(
+                    tenant_id=TENANT,
+                    claim=entity_claim(
+                        entity_uri=uri,
+                        entity_class=entity_class,
+                        classification=PERMITTED_CLASSIFICATION,
+                        observed_at=EARLY,
+                    ),
+                )
+        for rtype, subject_class, object_class in RELATIONSHIP_RULES:
+            for subject_uri in ENTITY_POOL[subject_class]:
+                for object_uri in ENTITY_POOL[object_class]:
+                    handle.worker.admit_relationship_claim(
+                        tenant_id=TENANT,
+                        claim=relationship_claim(
+                            relationship_type=rtype,
+                            subject_uri=subject_uri,
+                            object_uri=object_uri,
+                            observed_at=EARLY,
+                        ),
+                    )
+        answers[backend] = canonical_bytes(handle.reader.query(query))
+        if backend == "fluree":
+            assert handle.reader.fallback_answers == 1
+            assert handle.reader.translated_answers == 0
+
+    assert answers["fluree"] == answers["memory"]
+
+
+@pytest.mark.fluree
 def test_fluree_interposed_depth_matches_the_fallback_at_zero_one_two_and_three(
     fabric_boot: "Callable[..., FabricHandle]",
 ) -> None:
