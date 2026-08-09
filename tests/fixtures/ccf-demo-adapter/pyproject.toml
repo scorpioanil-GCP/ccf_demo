@@ -1,0 +1,59 @@
+# ccf-demo-adapter — the out-of-tree proof of the backend registration seam.
+#
+# A second installable distribution whose only reason to exist is that "a third
+# party can add a graph adapter with no line changing inside this repository" is
+# a fact rather than a claim. Plan 15.4-10, D-11.
+#
+# It lives under tests/ rather than examples/ so it stays out of `make
+# examples`. The phase context records that it is expected to graduate into a
+# real cross-adapter demonstration later; moving it should then be a deliberate
+# step rather than an accident of where it started.
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ccf-demo-adapter"
+version = "0.1.0"
+description = "Out-of-tree graph adapter proving the ccf.graph_backends registration seam"
+requires-python = ">=3.12"
+authors = [{ name = "drcastillo" }]
+
+# Deliberately empty, and the emptiness is a decision rather than an omission
+# (threat T-15.4-SC). This package imports `ccf` and cannot run without it, so
+# the natural spelling is `dependencies = ["ccf"]` — which is the wrong thing to
+# write here. The name `ccf` on PyPI belongs to an unrelated project (7.0.12 at
+# the time of writing); this repository's `ccf` is 0.1.0, private, and
+# unpublished. Naming it as a requirement would point a resolver at a name this
+# project does not own on any index, so an environment without the local
+# editable install would silently acquire somebody else's package instead of
+# failing.
+#
+# What replaces the declaration is ordering plus a loud failure: `make install`
+# installs `ccf` editable first and this distribution second, and a missing
+# `ccf` surfaces as an ImportError the moment `ccf.graph.registry.resolve`
+# imports this adapter — never as a substitution.
+#
+# No third-party package is named here, which is the property the threat
+# register asks for, satisfied more strongly than by naming one.
+dependencies = []
+
+# The declaration that makes this adapter discoverable. The group name and the
+# `<name> = "<module>:<attribute>"` shape are `ccf.graph.registry`'s contract;
+# nothing in this file is CCF-specific beyond it.
+#
+# It names the WRITE module's REGISTRATION on purpose. The read module may be
+# imported by anyone; the write module is where the writer factory lives, and
+# pointing an entry point at a read module would put that factory on an
+# unguarded import path. The write module may import the read module freely and
+# the reverse is forbidden.
+#
+# `demo` matches the registry's required name shape (lower case, leading letter,
+# no dots) and is not one of the six names the SDK's own adapter package holds.
+# A third party attempting to claim one of those is refused — see the README.
+[project.entry-points."ccf.graph_backends"]
+demo = "ccf_demo_adapter.demo_write:REGISTRATION"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -165,6 +165,21 @@ jobs:
       - name: Install package with dev extras + the neo4j and mongo drivers
         run: python -m pip install -e ".[dev,neo4j,mongo]"
 
+      # The out-of-tree adapter fixture (plan 15.4-10), mirroring `make
+      # install` command-for-command. It is NOT optional here: entry points
+      # live in build-time metadata, not in `pyproject.toml` as read from disk,
+      # so without this step discovery finds no declaration and the suite that
+      # boots on it fails rather than skipping — which is the intended
+      # behaviour, and the reason the step has to exist rather than the reason
+      # it could be dropped.
+      #
+      # The `lint` job deliberately does NOT get this step. Nothing it runs
+      # reaches the adapter: the invariant lints walk source trees on disk,
+      # mypy's `files` covers `src` and `runtime` only, and the lint checker
+      # unit tests do not touch the registry.
+      - name: Install the out-of-tree demo adapter fixture
+        run: python -m pip install -e ./tests/fixtures/ccf-demo-adapter
+
       - name: Quick suite (no external substrates)
         run: pytest tests -q -m "not postgres and not chroma and not neo4j and not mongo and not fluree" -rs
 
