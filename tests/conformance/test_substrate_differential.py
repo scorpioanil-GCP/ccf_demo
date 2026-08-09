@@ -114,9 +114,21 @@ pytestmark = pytest.mark.conformance
 #: property coverage is transitive through the differential byte-identity bar
 #: per the module-docstring reading, and the direct subset runs on them too
 #: whenever the legs run — strictly more evidence, never less.
+#:
+#: ``demo`` (plan 15.4-11) is different in kind from every param above it: each
+#: of those names an adapter living in ``src/ccf``, while ``demo`` names one
+#: shipped by a separate installable distribution
+#: (``tests/fixtures/ccf-demo-adapter``), so this suite now holds the *contract*
+#: byte-identical to the fallback rather than only this repository's own
+#: implementations of it. It declines pushdown for every query — there is no
+#: translation branch in it at all — which is precisely why byte-identity is
+#: the honest bar for it: the fallback answers, and the corpus stays untouched.
+#: It carries no mark because its store is an in-process dict, so it belongs to
+#: the always-on leg.
 BACKEND_PARAMS = (
     pytest.param("sqlite"),
     pytest.param("memory"),
+    pytest.param("demo"),
     pytest.param("postgres", marks=pytest.mark.postgres),
     pytest.param("neo4j", marks=pytest.mark.neo4j),
     pytest.param("mongo", marks=pytest.mark.mongo),
