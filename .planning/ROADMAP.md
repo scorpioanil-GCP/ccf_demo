@@ -819,13 +819,13 @@ decisions plus two corrections in `15.4-CONTEXT.md` (`D-01`..`D-16`, `C-01`,
      `tests/conformance/query_corpus.py` and `docs/GRAPH_QUERY_SEMANTICS.md`
      byte-untouched for the whole phase
 
-**Plans:** 12 plans
+**Plans:** 1/12 plans executed
 
 Plans:
 
 **Wave 1**
 
-- [ ] 15.4-01-PLAN.md — The two structural lint rules and the widened single-writer rule, with negative controls
+- [x] 15.4-01-PLAN.md — The two structural lint rules and the widened single-writer rule, with negative controls
 
 **Wave 2** *(blocked on Wave 1)*
 
