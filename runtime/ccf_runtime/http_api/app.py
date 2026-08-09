@@ -48,6 +48,7 @@ from ccf_runtime.http_api.errors import ERROR_UNAUTHENTICATED, refusal_detail
 from ccf_runtime.http_api.routes import (
     agent,
     artifact,
+    backends,
     config,
     hitl,
     product,
@@ -287,6 +288,10 @@ def create_app(
 
     app.include_router(
         schema.build_router(deps), prefix="/schema", dependencies=guarded
+    )
+
+    app.include_router(
+        backends.build_router(deps), prefix="/backends", dependencies=guarded
     )
 
     @app.get("/health", summary="Liveness (D-IMPL-23)")

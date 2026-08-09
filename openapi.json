@@ -1411,6 +1411,31 @@
         "summary": "Artifact get (D-IMPL-23)"
       }
     },
+    "/backends": {
+      "get": {
+        "operationId": "backends_backends_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "title": "Response Backends Backends Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Installed adapter names (D-15)"
+      }
+    },
     "/config/keys": {
       "get": {
         "operationId": "keys_config_keys_get",

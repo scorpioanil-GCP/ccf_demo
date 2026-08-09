@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**403 entries**, of which **184** name a public Python surface.
+**405 entries**, of which **185** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-160 entries — 132 public Python surface, 28 not public Python API.
+162 entries — 133 public Python surface, 29 not public Python API.
 
 ### Public Python surface
 
@@ -2791,6 +2791,41 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.4-06-manifest.md`.*
 
+#### ccf_runtime.http_api.routes.backends.build_router
+
+- Surface: ccf_runtime.http_api.routes.backends.build_router
+- Public surface: true
+- Change type: added
+- Before: absent — the set of adapter names a deployment would accept was not
+  reachable over the wire; an adopter learned it from the refusal they got
+  after naming one wrong
+- After: one read-only endpoint, `GET /backends`, returning
+  `{"backends": [...]}` — the sorted result of
+  `ccf.graph.registry.declared_names()`, mounted under the same authentication
+  and tenant-authorization dependencies as every other read route
+- Why: the route D-IMPL-79 rules the CLI noun onto, on the argument that
+  earned `GET /schema` its own module — the CLI's posture is that every
+  command travels the same routes any client uses, and the first exception is
+  the one that makes the second easy. It enumerates no vocabulary: the names
+  come from the registry, which derives them from the adapter package on disk
+  and from installed entry points, so a hand-written list here would
+  reintroduce exactly what 15.4-06 removed (CINV-01). The success path
+  deliberately carries names only — the registry knows each adapter's
+  distribution and version, and a caller who learned those would have learned
+  the deployment's dependency inventory, which this endpoint owes nobody
+  (T-15.4-11). The one narrowing is the refusal path: `declared_names()` is
+  fail-closed on any installed distribution's bad entry-point metadata, so
+  that refusal is caught here and returned as `503` carrying the registry's
+  own message, which names the offending distribution. `503` because the
+  deployment is misconfigured rather than the request malformed; not `200`
+  with an empty list, because an empty list is a different fact. Without the
+  distribution name a fail-closed refusal is unactionable, and the path is
+  reachable only when the deployment's own installed adapters already
+  conflict.
+- Migration: none — a new read-only surface
+
+*Recorded by `15.4-09-backends-cli.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -3219,6 +3254,27 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   new class by construction
 
 *Recorded by `15.1-01-projection-requirements-and-protocol.md`.*
+
+#### GET /backends
+
+- Surface: GET /backends
+- Public surface: false
+- Change type: added
+- Before: absent
+- After: `{"backends": ["<name>", ...]}` on 200; on 503 the API's existing
+  typed-refusal shape, `{"detail": {"error_code": "backend_registry_conflict",
+  "message": "..."}}`. The answer is deployment-local — it describes the
+  process serving the request, which under `ccf --local` is the CLI's own
+  process and over HTTP is the server's.
+- Why: a route path is not a Python name and can never appear in the generated
+  manifest diff, so it is classified `false` — classifying it `true` would
+  fail the phase-close cross-check in the direction that catches
+  misclassification. D-IMPL-22's noun enumeration is amended to ten as the
+  mechanical consequence of adding it; `tests/http_api/test_routes.py` reads
+  that ruling text to hold the mounted prefixes to it.
+- Migration: none — a new endpoint; nothing existing moved
+
+*Recorded by `15.4-09-backends-cli.md`.*
 
 ## Reshaped
 
