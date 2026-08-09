@@ -11,7 +11,7 @@ progress:
   total_plans: 91
   completed_plans: 96
   percent: 80
-stopped_at: Phase 15.3 executing -- waves 1-2 of 5 merged (15.3-01 probes + F-A4(a) ruled `approved` by Dave 2026-08-08; 15.3-02 FlureeGraphStore/_FlureeTxn, _GraphTxn Protocol unchanged at 864 added/0 deleted); ci-core 2277 passed, legs fluree 21 / neo4j 20 / mongo 22 passed, postgres leg NOT RUN (no server available); next wave 3 (15.3-03 stage-1 read translation)
+stopped_at: Phase 15.3 executing -- waves 1-3 of 5 merged (01 probes + F-A4(a) ruled `approved` by Dave 2026-08-08; 02 FlureeGraphStore/_FlureeTxn with _GraphTxn Protocol unchanged at 864 added/0 deleted; 03 stage-1 pushdown, SUBQ-12 complete, pushdown falsification-tested and independently reproduced -- corpus stays green at 7 passed with translation neutered while telemetry fails assert 0 == 4); ci-core 2285 passed, legs fluree 30 / neo4j 20 / mongo 22, postgres leg NOT RUN (no server available); next wave 4 (15.3-04 stage-2 traversal via edge-as-node interposition, BF-1)
 ---
 
 # STATE — CCF SDK

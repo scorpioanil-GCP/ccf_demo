@@ -727,7 +727,7 @@ sequential.
 
 **Requirements**: SUBQ-12, SUBQ-13, SUBQ-14
 
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 
@@ -741,7 +741,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 15.3-03-PLAN.md — Stage-1 non-traverse pushdown, the differential param, the fourth always-on CI leg, and the falsification-tested pushdown telemetry
+- [x] 15.3-03-PLAN.md — Stage-1 non-traverse pushdown, the differential param, the fourth always-on CI leg, and the falsification-tested pushdown telemetry
 
 **Wave 4** *(blocked on Wave 3)*
 
@@ -803,7 +803,7 @@ reader can see which code is CCF and which is theirs.
 | 15. SDK Ergonomics — The Integration Surface | 21/21 | Complete    | 2026-08-05 (gated with carried debt; CR-1/CR-2 close in 15.1) |
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
-| 15.3. Fluree Adapter (Tier-1 Substrate) | 2/5 | In Progress|  |
+| 15.3. Fluree Adapter (Tier-1 Substrate) | 3/5 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
 
 ## Coverage
