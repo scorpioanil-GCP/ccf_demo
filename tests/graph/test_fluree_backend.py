@@ -2096,20 +2096,126 @@ def test_policy_key_refuses_a_separator_bearing_component() -> None:
     """A NUL in an artifact-authored component cannot forge a key boundary.
 
     The policy key is a separator-joined encoding, and such an encoding is only
-    injective while no component carries the separator. Attribute names and
-    classification values are both artifact-authored, so a NUL in either could
-    make two different `(class, attribute, value)` triples encode to one key —
-    a pushed answer admitting a claim the fallback excludes (threats
-    T-15.2-01 / T-15.2-03). The builder refuses instead, and the caller
-    declines the translation.
+    injective while no component carries the separator. **All three components
+    are artifact-authored**: a class name is user-declared ontology vocabulary
+    held as a bare `str` on `EntityClaim` with no charset validation, an
+    attribute name comes from the opaque deployment-defined attribute map the
+    SDK never enumerates, and a classification value is deployment data too. A
+    NUL in any of the three could make two different `(class, attribute,
+    value)` triples encode to one key — a pushed answer admitting a claim the
+    fallback excludes (threats T-15.2-01 / T-15.2-03). The builder refuses
+    instead, and the caller declines the translation.
+
+    This asserted the attribute and value components only until the CR-01
+    correction of 2026-08-09; the un-asserted third is the one that shipped
+    broken, so the coverage here is now exhaustive over the components rather
+    than representative of them.
     """
     from ccf.graph.backends.fluree import POLICY_KEY_SEPARATOR, policy_key
 
     assert policy_key("Counterparty", "risk_tier", "tier-1") == (
         POLICY_KEY_SEPARATOR.join(("Counterparty", "risk_tier", "tier-1"))
     )
+    assert policy_key(f"C{POLICY_KEY_SEPARATOR}p", "a", "b") is None
     assert policy_key("Counterparty", f"a{POLICY_KEY_SEPARATOR}b", "c") is None
     assert policy_key("Counterparty", "a", f"b{POLICY_KEY_SEPARATOR}c") is None
+
+
+def test_no_pushed_policy_key_can_collide_with_a_stored_one() -> None:
+    """The CR-01 regression: pushed and fallback cannot disagree by collision.
+
+    The defect this pins closed. `policy_key` gated `attribute` and `value` but
+    not `entity_class`, so a class carrying the separator re-cut the key at a
+    different boundary and matched a *different* claim's stored key:
+
+        claim   : entity_class="A", attributes={"B\\0C": "D"}
+        stored  : ["A\\0B\\0C\\0D"]      # _fluree_claim_projection
+        query   : classification_attribute_by_class={"A\\0B": "C"},
+                  permitted_classifications={"D"}
+        pushed  : "A\\0B\\0C\\0D"        # policy_key("A\\0B", "C", "D")
+
+    `_ENTITY_POLICY` pushes `c.ccf_policy_key IN $policy_keys`, so the
+    translated statement returned that claim — while `_admissible_entity`
+    excludes it, because the claim's own class `"A"` has no declared
+    classification attribute. The pushed path over-disclosed a record the
+    policy family excludes: threats T-15.2-01 / T-15.2-03, and exactly the
+    divergence the differential bar exists to catch. The differential suite
+    could not catch it because the corpus generates no control characters in
+    class names, which is why the assertion is made here and directly.
+
+    Two things are asserted, because either alone would be satisfiable by a
+    wrong fix: the *key* no longer collides, AND the query declines so the
+    fallback answers the whole thing — pushed and fallback then agree by
+    construction (D-04). No server: the collision is a pure function of the
+    claim and the query, which is why it could have been caught before it
+    shipped.
+    """
+    import json as _json
+    from datetime import UTC, datetime
+
+    from ccf.graph._writer import _fluree_claim_projection
+    from ccf.graph.backends.fluree import (
+        POLICY_KEY_SEPARATOR,
+        P_POLICY_KEY,
+        FlureeGraphReader,
+        policy_key,
+    )
+    from ccf.graph.fallback import _admissible_entity
+    from ccf.graph.protocols import EntityRecord, GraphQuery
+    from ccf.graph.reader import ENTITY_KIND
+
+    sep = POLICY_KEY_SEPARATOR
+    victim_class = SEED_CLASS
+    forged_class = f"{victim_class}{sep}part"
+    split_attribute = f"part{sep}attr"
+
+    claim = entity_claim(
+        entity_uri=ENTITY_POOL[victim_class][0],
+        entity_class=victim_class,
+        classification=PERMITTED_CLASSIFICATION,
+        observed_at=EARLY,
+    ).model_copy(
+        update={"attributes": {split_attribute: PERMITTED_CLASSIFICATION}}
+    )
+    claim_json = _json.dumps(
+        {
+            "entity_class": claim.entity_class,
+            "attributes": dict(claim.attributes),
+        }
+    )
+    stored = _fluree_claim_projection(claim_json, kind=ENTITY_KIND)[
+        P_POLICY_KEY
+    ]
+    # The write path is deliberately ungated (its projection is unchanged by
+    # this fix), so the forgeable stored key is still materialized...
+    assert stored == [
+        sep.join((victim_class, split_attribute, PERMITTED_CLASSIFICATION))
+    ]
+    # ...and is unreachable anyway: the read side refuses to build the key that
+    # used to equal it. Every key the read side CAN build carries exactly two
+    # separators; this stored one carries three, so no read key can ever match.
+    assert policy_key(forged_class, "attr", PERMITTED_CLASSIFICATION) is None
+    assert isinstance(stored[0], str)
+    assert stored[0].count(sep) == 3
+
+    # The refusal is wired to a decline, not swallowed into a narrowed push.
+    reader = FlureeGraphReader.__new__(FlureeGraphReader)
+    forged = GraphQuery(
+        tenant_id=TENANT,
+        as_of=datetime(2026, 1, 1, tzinfo=UTC),
+        permitted_policy_bundle_versions=frozenset({"v1"}),
+        classification_attribute_by_class={forged_class: "attr"},
+        permitted_classifications=frozenset({PERMITTED_CLASSIFICATION}),
+    )
+    assert reader._translate_query(forged) is None
+
+    # And the other half of the divergence, asserted rather than assumed: the
+    # audited fallback — the answer the decline routes to — excludes this
+    # claim, because its own class has no declared classification attribute.
+    record = EntityRecord(
+        claim_id="cr01", claim=claim, policy_bundle_version="v1"
+    )
+    assert _admissible_entity(record, query=forged) is False
 
 
 def test_a_query_whose_policy_family_cannot_be_encoded_declines() -> None:

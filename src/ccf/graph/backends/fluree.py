@@ -255,11 +255,15 @@ P_ADMIT_KEY = "ccf_admit_key"
 P_POLICY_KEY = "ccf_policy_key"
 
 #: Field separator inside a materialized policy key. ``NUL`` is deliberate: it
-#: is code-authored and cannot appear in a CCF entity class name, so no
-#: artifact-authored string can forge a key boundary *from the class side*. The
-#: attribute-name and value sides are gated separately — see
-#: :func:`policy_key`, which refuses to build a key from any component
-#: containing this character.
+#: is code-authored, and no *well-formed* class name, attribute name or
+#: classification value contains one — but "well-formed" is a convention, not a
+#: contract. All three components are artifact-authored and none is charset
+#: validated, so the separator alone forges nothing: the guard is
+#: :func:`policy_key`, which refuses to build a key from **any** of the three
+#: components containing this character. (Until the CR-01 correction of
+#: 2026-08-09 this note claimed the class side was safe by construction and the
+#: guard covered only the other two — the false premise that produced a pushed
+#: answer admitting a claim the fallback excluded. See :func:`policy_key`.)
 #:
 #: The write half of the pair lives in ``ccf.graph._writer`` (that module
 #: imports this one; the reverse would break the CINV-02 confinement and
@@ -431,25 +435,55 @@ def policy_key(entity_class: str, attribute: str, value: str) -> str | None:
     property access this engine evaluates to null.
 
     **Why a component may be refused.** A separator-joined encoding is only
-    injective if no component contains the separator. The class name is safe by
-    construction, but an attribute *name* and a classification *value* are both
-    artifact-authored, and a ``NUL`` in either could make two different triples
-    encode to one key — a pushed answer admitting a claim the fallback excludes
-    (threats T-15.2-01 / T-15.2-03, and precisely the divergence the
-    differential bar exists to catch). Rather than trust that a ``NUL`` cannot
-    occur, this function refuses to encode one and the caller declines the
-    translation, so the fallback answers the whole query (D-04; `GQ-29` at
-    docs/GRAPH_QUERY_SEMANTICS.md:554). Nothing is lost: the answer is
-    identical, only the path differs.
+    injective if no component contains the separator, and **all three
+    components are artifact-authored**. A class name is user-declared ontology
+    vocabulary carried as a bare ``str`` on
+    :class:`~ccf.contracts.claims.EntityClaim` with no charset validation, an
+    attribute *name* comes from *"an opaque, deployment-defined attribute map —
+    the SDK never enumerates its keys"*, and a classification *value* is
+    likewise deployment data. A ``NUL`` in **any** of the three could make two
+    different triples encode to one key — a pushed answer admitting a claim the
+    fallback excludes (threats T-15.2-01 / T-15.2-03, and precisely the
+    divergence the differential bar exists to catch). Rather than trust that a
+    ``NUL`` cannot occur, this function refuses to encode one and the caller
+    declines the translation, so the fallback answers the whole query (D-04;
+    `GQ-29` at docs/GRAPH_QUERY_SEMANTICS.md:554). Nothing is lost: the answer
+    is identical, only the path differs.
 
-    Refusing on the *read* side is sufficient to make matching exact. A key
-    built here carries exactly two separators, so it can only equal a stored
-    key that also carries exactly two — and a two-separator string splits into
-    ``(class, attribute, value)`` one way only. A stored key whose components
-    smuggled in a separator has three or more and can never collide with one
-    built here.
+    **All three, not two — the CR-01 correction (2026-08-09).** As first
+    shipped this guard covered ``attribute`` and ``value`` only, on the premise
+    that *"the class name is safe by construction"*. That premise was false,
+    and the whole injectivity argument below rested on it. Reproduced against
+    the shipped code: a claim ``entity_class="A"``, ``attributes={"B\\0C": "D"}``
+    materializes the stored key ``"A\\0B\\0C\\0D"``, and a query
+    ``classification_attribute_by_class={"A\\0B": "C"}`` with
+    ``permitted_classifications={"D"}`` built the *identical* pushed key — so
+    ``c.ccf_policy_key IN $policy_keys`` returned a claim
+    :func:`~ccf.graph.fallback._admissible_entity` excludes, because the
+    claim's own class ``"A"`` has no declared classification attribute. That is
+    over-disclosure by the pushed path: the exact T-15.2-03 divergence.
+
+    Refusing on the *read* side is sufficient to make matching exact, and the
+    argument is now sound because the premise it needs is established rather
+    than assumed:
+
+    * every key built here carries **exactly two** separators, since all three
+      components were checked;
+    * a stored key whose components smuggled in *k* extra separators carries
+      ``2 + k``, so it can never equal one built here;
+    * a stored key carrying exactly two therefore had separator-free
+      components, and a two-separator string splits into
+      ``(class, attribute, value)`` one way only.
+
+    So a read key matches a stored key iff the two triples are equal. The write
+    half in ``ccf.graph._writer`` needs no gate of its own: an unencodable
+    stored key is simply unreachable from here, which is the fail-closed
+    direction, and the claim is answered by the fallback.
     """
-    if any(POLICY_KEY_SEPARATOR in part for part in (attribute, value)):
+    if any(
+        POLICY_KEY_SEPARATOR in part
+        for part in (entity_class, attribute, value)
+    ):
         return None
     return POLICY_KEY_SEPARATOR.join((entity_class, attribute, value))
 
