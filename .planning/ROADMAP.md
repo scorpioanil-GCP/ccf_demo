@@ -819,7 +819,7 @@ decisions plus two corrections in `15.4-CONTEXT.md` (`D-01`..`D-16`, `C-01`,
      `tests/conformance/query_corpus.py` and `docs/GRAPH_QUERY_SEMANTICS.md`
      byte-untouched for the whole phase
 
-**Plans:** 3/12 plans executed
+**Plans:** 4/12 plans executed
 
 Plans:
 
@@ -834,7 +834,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 15.4-04-PLAN.md — Per-adapter config models and registration records (+ WR-05)
+- [x] 15.4-04-PLAN.md — Per-adapter config models and registration records (+ WR-05)
 
 **Wave 4** *(blocked on Wave 3)*
 
