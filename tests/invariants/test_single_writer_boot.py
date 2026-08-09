@@ -26,12 +26,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from ccf.graph._writer import (
-    BootToken,
-    SingleWriterViolation,
-    SqliteGraphWriter,
-)
+from ccf.graph._writer import BootToken, SingleWriterViolation
 from ccf.graph.backends.sqlite import SqliteGraphStore
+from ccf.graph.backends.sqlite_write import SqliteGraphWriter
 from ccf.graph.protocols import GraphWriter
 
 if TYPE_CHECKING:
@@ -136,7 +133,28 @@ def test_a_retired_writer_refuses_further_writes(
     assert reopened is not handle
 
 
-def test_only_permitted_modules_name_the_neutral_writer_module() -> None:
+def _neutral_base_importers() -> list[str]:
+    """Repo-relative ``src`` paths whose source imports the neutral write base.
+
+    Only real import statements count — the module is *named* in several
+    docstrings, and a check that flagged prose would push people to stop
+    explaining the invariant.
+    """
+    import re
+
+    importers = re.compile(
+        r"^\s*(?:from\s+ccf\.graph\._writer\s+import|import\s+ccf\.graph\._writer)",
+        re.MULTILINE,
+    )
+    source_root = Path(__file__).resolve().parents[2] / "src"
+    return sorted(
+        path.relative_to(source_root).as_posix()
+        for path in source_root.rglob("*.py")
+        if importers.search(path.read_text(encoding="utf-8"))
+    )
+
+
+def test_only_permitted_modules_name_the_neutral_write_base() -> None:
     """The import restriction, asserted here as well as in CI.
 
     This is layer 3 of the stack (CINV-02). It is checked by
@@ -144,46 +162,37 @@ def test_only_permitted_modules_name_the_neutral_writer_module() -> None:
     so a regression fails the run a developer is actually watching, not only
     the pipeline.
 
-    **The permitted set is read from the rule, never restated here.** It used to
-    be the literal ``["ccf/boot.py"]``, which made this test a second definition
-    of the invariant — and a second definition drifts. It drifted the moment
-    plan 15.4-01 widened ``cinv02-graph-writer``'s permitted importers of the
-    *neutral base* to include ``ccf.graph.registry`` (the registry types the
+    **Stated against the lint's own permitted set, not a literal list (D-01).**
+    It used to be the literal ``["ccf/boot.py"]``, which made this test a second
+    definition of the invariant — and a second definition drifts. It drifted the
+    moment plan 15.4-01 widened ``cinv02-graph-writer``'s permitted importers of
+    the *neutral base* to include ``ccf.graph.registry`` (the registry types the
     write seam so ``BackendRegistration.make_writer`` can be typed under
-    ``mypy --strict``; it mints no token and calls no factory), and it would
-    drift again at plan 15.4-03, where every ``backends/<name>_write`` module
-    legitimately names the base it subclasses. Importing
+    ``mypy --strict``; it mints no token and calls no factory), and it drifted
+    again at plan 15.4-03, where every ``backends/<name>_write`` module
+    legitimately names the base it subclasses. That is three classes of
+    legitimate consumer over a set that grows per adapter — the per-adapter edit
+    D-IMPL-93 exists to remove.
+
+    So the permitted set is imported from the checker:
     :data:`~tools.lints.harness_imports.NEUTRAL_WRITER_OK_MODULES` and
-    :func:`~tools.lints.harness_imports.is_write_module` is the same
-    name-the-class-not-the-instance correction D-GATE-15.3 records the project
-    learning three times in one phase: the rule and its test cannot disagree
-    about what is permitted, because there is one statement of it.
+    :func:`~tools.lints.harness_imports.is_write_module`. Whatever the lint
+    permits is what this test permits, and the two cannot drift.
+
+    **The membership test mirrors the lint's, dot-bounded.** The rule asks
+    ``matches_module(module, permitted) or is_write_module(module)``, so a
+    legitimate descendant such as ``ccf.assembly.worker`` is permitted. Plain
+    set membership here would be *stricter than the rule it claims to mirror*,
+    which is the same disagreement in the other direction.
 
     Containment is the property; the equality form was a tripwire. So the
-    non-vacuity half is asserted separately — the composition root must still
-    be in the offender list, or a regex that matched nothing would pass this
-    silently.
+    non-vacuity half is asserted separately, below — a regex that matched
+    nothing would pass this one silently.
     """
-    import re
-
     from tools.lints import matches_module
     from tools.lints.harness_imports import (
         NEUTRAL_WRITER_OK_MODULES,
         is_write_module,
-    )
-
-    # Only real import statements count — the module is *named* in several
-    # docstrings, and a check that flagged prose would push people to stop
-    # explaining the invariant.
-    importers = re.compile(
-        r"^\s*(?:from\s+ccf\.graph\._writer\s+import|import\s+ccf\.graph\._writer)",
-        re.MULTILINE,
-    )
-    source_root = Path(__file__).resolve().parents[2] / "src"
-    offenders = sorted(
-        path.relative_to(source_root).as_posix()
-        for path in source_root.rglob("*.py")
-        if importers.search(path.read_text(encoding="utf-8"))
     )
 
     def permitted(relative_path: str) -> bool:
@@ -193,5 +202,19 @@ def test_only_permitted_modules_name_the_neutral_writer_module() -> None:
             module
         )
 
-    assert [path for path in offenders if not permitted(path)] == [], offenders
-    assert "ccf/boot.py" in offenders, offenders
+    offenders = [
+        relative for relative in _neutral_base_importers() if not permitted(relative)
+    ]
+
+    assert offenders == [], offenders
+
+
+def test_the_composition_root_is_still_among_the_importers() -> None:
+    """Non-vacuity: a scan that found nothing would pass the test above.
+
+    ``ccf/boot.py`` constructs the one writer, so it must name the write
+    surface. If it ever stops appearing here, either the composition root
+    stopped being the composition root or the scan stopped scanning — and both
+    make the assertion above green for the wrong reason.
+    """
+    assert "ccf/boot.py" in _neutral_base_importers()

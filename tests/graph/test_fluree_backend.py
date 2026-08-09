@@ -1252,8 +1252,9 @@ def test_fa3_interposed_walk_primitives(
     """F-A3 (a)-(e), plus one sub-assertion the plan did not name.
 
     Every sub-assertion runs against a chain admitted through **booted L2**, so
-    the interposed layout under test is the one ``ccf.graph._writer`` actually
-    produces rather than the probe's idea of it.
+    the interposed layout under test is the one
+    ``ccf.graph.backends.fluree_write`` actually produces rather than the
+    probe's idea of it.
 
     Recorded outcomes:
 
@@ -2365,11 +2366,21 @@ def test_no_pushed_policy_key_can_collide_with_a_stored_one() -> None:
     construction (D-04). No server: the collision is a pure function of the
     claim and the query, which is why it could have been caught before it
     shipped.
+
+    **Amended at D-14 (2026-08-09).** As first fixed, the guard lived on the
+    read side only and the write path still materialized the forgeable key;
+    this test asserted that, and then asserted the key was unreachable anyway
+    by a separator count. D-14 deleted the write path's duplicate constant and
+    routed `_fluree_claim_projection` through the same `policy_key`, so the
+    forgeable key is **not stored at all**. That is strictly stronger —
+    unreachable by non-existence rather than by arithmetic — and the assertion
+    below now says so. Both halves of the divergence claim are unchanged: the
+    query still declines, and the fallback still excludes the claim.
     """
     import json as _json
     from datetime import UTC, datetime
 
-    from ccf.graph._writer import _fluree_claim_projection
+    from ccf.graph.backends.fluree_write import _fluree_claim_projection
     from ccf.graph.backends.fluree import (
         POLICY_KEY_SEPARATOR,
         P_POLICY_KEY,
@@ -2399,20 +2410,31 @@ def test_no_pushed_policy_key_can_collide_with_a_stored_one() -> None:
             "attributes": dict(claim.attributes),
         }
     )
-    stored = _fluree_claim_projection(claim_json, kind=ENTITY_KIND)[
-        P_POLICY_KEY
-    ]
-    # The write path is deliberately ungated (its projection is unchanged by
-    # this fix), so the forgeable stored key is still materialized...
-    assert stored == [
-        sep.join((victim_class, split_attribute, PERMITTED_CLASSIFICATION))
-    ]
-    # ...and is unreachable anyway: the read side refuses to build the key that
-    # used to equal it. Every key the read side CAN build carries exactly two
-    # separators; this stored one carries three, so no read key can ever match.
+    projected = _fluree_claim_projection(claim_json, kind=ENTITY_KIND)
+    # D-14: the write path calls the same guarded builder, so the triple whose
+    # attribute name carries the separator produces no key — the claim stores
+    # no policy key at all rather than a forgeable one.
+    assert policy_key(
+        victim_class, split_attribute, PERMITTED_CLASSIFICATION
+    ) is None
+    assert P_POLICY_KEY not in projected, projected.get(P_POLICY_KEY)
+    # The read side refuses the key that used to equal the stored one, for the
+    # same reason and independently: every key either side CAN build carries
+    # exactly two separators, so a smuggled component can never round-trip.
     assert policy_key(forged_class, "attr", PERMITTED_CLASSIFICATION) is None
-    assert isinstance(stored[0], str)
-    assert stored[0].count(sep) == 3
+    # Non-vacuity: the projection is still doing its job for a well-formed
+    # triple, so the absence above is the guard firing and not the function
+    # having stopped producing keys.
+    clean_json = _json.dumps(
+        {
+            "entity_class": victim_class,
+            "attributes": {"attr": PERMITTED_CLASSIFICATION},
+        }
+    )
+    clean = _fluree_claim_projection(clean_json, kind=ENTITY_KIND)
+    assert clean[P_POLICY_KEY] == [
+        sep.join((victim_class, "attr", PERMITTED_CLASSIFICATION))
+    ]
 
     # The refusal is wired to a decline, not swallowed into a narrowed push.
     reader = FlureeGraphReader.__new__(FlureeGraphReader)
@@ -2508,7 +2530,7 @@ class _SeqOnlyStore:
     def post_query(
         self, cypher: str, params: dict[str, object]
     ) -> list[dict[str, Any]]:
-        from ccf.graph._writer import (
+        from ccf.graph.backends.fluree_write import (
             _FLUREE_ENTITY_CLAIM_COUNT,
             _FLUREE_RELATIONSHIP_CLAIM_COUNT,
         )
@@ -2557,7 +2579,7 @@ def test_buffered_claim_sequences_are_scoped_to_their_own_node() -> None:
     today's caller, not of the adapter — and this is the batched adapter whose
     whole premise is buffering (review finding WR-07).
     """
-    from ccf.graph._writer import _FlureeTxn
+    from ccf.graph.backends.fluree_write import _FlureeTxn
     from ccf.graph.backends.fluree import P_ENTITY_URI, P_RELATIONSHIP_KEY
 
     a, b = "counterparty://a", "counterparty://b"
@@ -2626,7 +2648,7 @@ def test_a_following_transaction_never_reissues_a_buffered_sequence() -> None:
     assertion is stated as "no repeat in the union", not "A3 == 2", so it
     remains discriminating if the sequence base ever changes.
     """
-    from ccf.graph._writer import _FlureeTxn
+    from ccf.graph.backends.fluree_write import _FlureeTxn
     from ccf.graph.backends.fluree import P_ENTITY_URI
 
     a, b = "counterparty://a", "counterparty://b"
@@ -2666,18 +2688,23 @@ def test_the_write_path_materializes_exactly_the_key_the_read_path_pushes(
 ) -> None:
     """Write-side and read-side key construction cannot drift apart.
 
-    The materialization spans two modules by necessity: the write half lives in
-    `ccf.graph._writer` (CINV-02 confines every write there, and that module
-    imports this backend, so the dependency cannot run the other way). Two
-    copies of a separator-joined encoding is exactly the shape that rots
-    silently — a drifted separator produces a policy family matching *nothing*,
-    with a `200` and an empty answer, which is the same silent-failure class
-    probe F-A6 caught. So the agreement is asserted rather than commented.
+    The materialization still spans two modules — CINV-02 confines write code
+    to `ccf.graph.backends.fluree_write`, which imports this backend, so the
+    dependency cannot run the other way — but since D-14 it is **one
+    construction called twice** rather than two copies of a separator-joined
+    encoding. Two copies is exactly the shape that rots silently: a drifted
+    separator produces a policy family matching *nothing*, with a `200` and an
+    empty answer, which is the same silent-failure class probe F-A6 caught, and
+    a guard on one copy only is what made CR-01 reachable. The agreement is
+    asserted here anyway rather than assumed from the shared call, because what
+    matters is the *projected value*, and a future projection could stop
+    routing through `policy_key` without this assertion noticing the
+    difference.
     """
     import json as _json
 
-    from ccf.graph._writer import _fluree_claim_projection
     from ccf.graph.backends.fluree import P_POLICY_KEY, policy_key
+    from ccf.graph.backends.fluree_write import _fluree_claim_projection
     from ccf.graph.reader import ENTITY_KIND
     from tests.properties.strategies import CLASSIFICATION_ATTRIBUTE
 
@@ -2701,10 +2728,14 @@ def test_the_write_path_materializes_exactly_the_admit_keys_the_walk_pushes(
     """The walk's `$admissible` prefixes cannot drift from the write path's.
 
     Second instance of the same two-module problem the policy-key separator
-    has, with a worse failure mode. CINV-02 confines every write to
-    `ccf.graph._writer`, and that module imports this backend, so the
-    dependency cannot run the other way — the `e:` / `r:` prefixes therefore
-    exist on both sides of the boundary.
+    had, with a worse failure mode — and, unlike that one, still an actual
+    duplicate. CINV-02 confines every write to
+    `ccf.graph.backends.fluree_write`, and that module imports this backend, so
+    the dependency cannot run the other way; the `e:` / `r:` prefixes
+    nonetheless exist on both sides of the boundary as two literals, which is
+    why the agreement is read back off the server here. D-14 collapsed the
+    policy-key pair into one function and left this pair alone, so this test is
+    what stands in for that collapse.
 
     A drifted prefix would make `all(n IN nodes(p) WHERE n.ccf_admit_key IN
     $admissible)` false for **every** path: an empty reached set, a `200`, and

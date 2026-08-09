@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**379 entries**, of which **161** name a public Python surface.
+**386 entries**, of which **167** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-141 entries — 113 public Python surface, 28 not public Python API.
+147 entries — 119 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -2434,6 +2434,123 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   catch it
 
 *Recorded by `15.4-02-registry.md`.*
+
+#### ccf.graph.backends.sqlite_write.SqliteGraphWriter
+
+- Surface: ccf.graph.backends.sqlite_write.SqliteGraphWriter
+- Public surface: true
+- Change type: added
+- Before: defined in `ccf.graph._writer`, a module invisible to the generated
+  manifest by its leading-underscore segment — so the class was on no public
+  name list
+- After: defined in `ccf.graph.backends.sqlite_write`, beside the SQLite
+  reader. The class did not change: same `BaseGraphWriter` subclass, same nine
+  dialect `ClassVar` statements, same `_SqliteTxn` over a `sqlite3` connection,
+  same `_SqlGraphTxn` shared adapter — only where it lives
+- Why: D-01. While `ccf.graph._writer` imported all six adapters, importing the
+  write path meant importing every substrate, and the registry seam D-IMPL-93
+  specifies could not exist. Reads and writes in one module per backend was
+  considered and rejected: it would force the single-writer lint to guard a
+  *class* instead of a module, which is weaker and harder to check statically
+- Migration: none. The module is import-restricted to `ccf.assembly` and
+  `ccf.boot` by the `cinv02-graph-writer` lint; deployments reach the writer
+  only through `boot(database_path=…)`. A deployment that had somehow named
+  `ccf.graph._writer.SqliteGraphWriter` was already failing that lint
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.postgres_write.PostgresGraphWriter
+
+- Surface: ccf.graph.backends.postgres_write.PostgresGraphWriter
+- Public surface: true
+- Change type: added
+- Before: defined in `ccf.graph._writer`, invisible to the generated manifest
+- After: defined in `ccf.graph.backends.postgres_write`, beside the Postgres
+  reader. Unchanged class: the same dialect statements (`%s` placeholders,
+  `LEAST`/`GREATEST`, `seq` where SQLite reads `rowid`) driving the same
+  `_SqlGraphTxn`, which stays with the neutral base because it is shared by
+  both SQL adapters and would otherwise make one backend's module a dependency
+  of another's
+- Why: D-01, as above
+- Migration: none — same import restriction, reached through
+  `boot(postgres_dsn=…)`
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.memory_write.MemoryGraphWriter
+
+- Surface: ccf.graph.backends.memory_write.MemoryGraphWriter
+- Public surface: true
+- Change type: added
+- Before: defined in `ccf.graph._writer`, invisible to the generated manifest
+- After: defined in `ccf.graph.backends.memory_write`, beside the in-memory
+  reader. Unchanged class: `_MemoryTxn` still implements the nine typed
+  operations natively over the store's per-tenant dicts, with deep-copy
+  snapshot-and-restore for all-or-nothing. The row types stay in the reader
+  module and the mutations stay here, which is what keeps the reader's dicts
+  read-only in practice as well as in principle
+- Why: D-01, as above
+- Migration: none — same import restriction, reached through
+  `boot(memory=True)`
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.neo4j_write.Neo4jGraphWriter
+
+- Surface: ccf.graph.backends.neo4j_write.Neo4jGraphWriter
+- Public surface: true
+- Change type: added
+- Before: defined in `ccf.graph._writer`, invisible to the generated manifest
+- After: defined in `ccf.graph.backends.neo4j_write`, beside the Neo4j reader,
+  together with the ten parameterized Cypher write statements and
+  `_neo4j_claim_projection`. Unchanged: `MERGE … ON CREATE` still reports
+  creation through `nodes_created`, the per-partition `CcfMeta` counter still
+  renders the arrival-order tiebreak, and the write-time projections are
+  byte-for-byte what they were. Still extras-gated — the driver is demanded at
+  store construction, so a tree without the `neo4j` extra imports this module
+  fine
+- Why: D-01, as above
+- Migration: none — same import restriction, reached through
+  `boot(neo4j_uri=…)`
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.mongo_write.MongoGraphWriter
+
+- Surface: ccf.graph.backends.mongo_write.MongoGraphWriter
+- Public surface: true
+- Change type: added
+- Before: defined in `ccf.graph._writer`, invisible to the generated manifest
+- After: defined in `ccf.graph.backends.mongo_write`, beside the MongoDB
+  reader, together with `_MongoTxn` and `_mongo_claim_projection`. Unchanged:
+  the buffered `bulk_write(ordered=True)` batching, the read-before-buffer
+  rowcount resolution the `_GraphTxn` contract anticipates (D-IMPL-88), the
+  doubled traversal-edge layout, and the per-node arrival index. Still
+  extras-gated, and `_MongoTxn` still defers its own driver import to
+  construction
+- Why: D-01, as above
+- Migration: none — same import restriction, reached through
+  `boot(mongo_uri=…)`
+
+*Recorded by `15.4-03-write-modules.md`.*
+
+#### ccf.graph.backends.fluree_write.FlureeGraphWriter
+
+- Surface: ccf.graph.backends.fluree_write.FlureeGraphWriter
+- Public surface: true
+- Change type: added
+- Before: defined in `ccf.graph._writer`, invisible to the generated manifest
+- After: defined in `ccf.graph.backends.fluree_write`, beside the Fluree
+  reader, together with the nine committed-state read statements, the node-kind
+  and admit-prefix constants, `_fluree_claim_projection` and `_FlureeTxn`. The
+  one-POST ground JSON-LD commit, the delete/insert replacement pair, and the
+  per-key sequence arithmetic are unchanged. Needs no extra — the wire client
+  is a core pin
+- Why: D-01, as above
+- Migration: none — same import restriction, reached through
+  `boot(fluree_url=…)`
+
+*Recorded by `15.4-03-write-modules.md`.*
 
 ### Not public Python API
 
@@ -5782,7 +5899,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-26 entries — 19 public Python surface, 7 not public Python API.
+27 entries — 19 public Python surface, 8 not public Python API.
 
 ### Public Python surface
 
@@ -6389,3 +6506,34 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   The write path is reached only through booted L2
 
 *Recorded by `15.3-02-fluree-backend.md`.*
+
+#### ccf.graph.backends.fluree.policy_key
+
+- Surface: ccf.graph.backends.fluree.policy_key
+- Public surface: false
+- Change type: behavior
+- Before: `policy_key` was the *read* side's key construction only. The write
+  side held its own copy of the separator (`_POLICY_KEY_SEPARATOR` in
+  `ccf.graph._writer`) and joined the `(entity_class, attribute, value)` triple
+  by hand, on the stated argument that importing the reader from the writer
+  would break the CINV-02 confinement and create a cycle. The argument was
+  false — the write path already imported the reader — and the duplicate is
+  what made defect CR-01 reachable, because the injectivity guard lived on one
+  copy only
+- After: the duplicate constant and the hand-rolled join are deleted.
+  `_fluree_claim_projection` calls `policy_key` and skips the triples it
+  refuses, so a key that cannot be built on the read side is no longer stored
+  on the write side. The observable answer does not move: an unencodable stored
+  key was already unreachable from the read path (every pushed key carries
+  exactly two separators; a smuggled one carries more), and a query naming such
+  a triple still declines the pushdown so the fallback answers the whole thing
+  (D-04). What moves is that the over-disclosure surface is now closed at both
+  ends rather than at one
+- Why: D-14 (Dave, 2026-08-09), review finding WR-01. Relocating a
+  known-defective duplicate unchanged is worse than either fixing it or
+  deferring it explicitly, and the writer split removes the last shred of the
+  duplicate's justification
+- Migration: none. `policy_key`'s own signature and behaviour are untouched;
+  only its second caller is new
+
+*Recorded by `15.4-03-write-modules.md`.*
