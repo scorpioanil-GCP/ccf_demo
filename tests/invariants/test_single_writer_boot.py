@@ -136,15 +136,41 @@ def test_a_retired_writer_refuses_further_writes(
     assert reopened is not handle
 
 
-def test_only_l2_and_the_composition_root_name_the_writer_module() -> None:
+def test_only_permitted_modules_name_the_neutral_writer_module() -> None:
     """The import restriction, asserted here as well as in CI.
 
     This is layer 3 of the stack (CINV-02). It is checked by
     ``python -m tools.lints --all``; the assertion is repeated in the test suite
     so a regression fails the run a developer is actually watching, not only
     the pipeline.
+
+    **The permitted set is read from the rule, never restated here.** It used to
+    be the literal ``["ccf/boot.py"]``, which made this test a second definition
+    of the invariant — and a second definition drifts. It drifted the moment
+    plan 15.4-01 widened ``cinv02-graph-writer``'s permitted importers of the
+    *neutral base* to include ``ccf.graph.registry`` (the registry types the
+    write seam so ``BackendRegistration.make_writer`` can be typed under
+    ``mypy --strict``; it mints no token and calls no factory), and it would
+    drift again at plan 15.4-03, where every ``backends/<name>_write`` module
+    legitimately names the base it subclasses. Importing
+    :data:`~tools.lints.harness_imports.NEUTRAL_WRITER_OK_MODULES` and
+    :func:`~tools.lints.harness_imports.is_write_module` is the same
+    name-the-class-not-the-instance correction D-GATE-15.3 records the project
+    learning three times in one phase: the rule and its test cannot disagree
+    about what is permitted, because there is one statement of it.
+
+    Containment is the property; the equality form was a tripwire. So the
+    non-vacuity half is asserted separately — the composition root must still
+    be in the offender list, or a regex that matched nothing would pass this
+    silently.
     """
     import re
+
+    from tools.lints import matches_module
+    from tools.lints.harness_imports import (
+        NEUTRAL_WRITER_OK_MODULES,
+        is_write_module,
+    )
 
     # Only real import statements count — the module is *named* in several
     # docstrings, and a check that flagged prose would push people to stop
@@ -160,4 +186,12 @@ def test_only_l2_and_the_composition_root_name_the_writer_module() -> None:
         if importers.search(path.read_text(encoding="utf-8"))
     )
 
-    assert offenders == ["ccf/boot.py"], offenders
+    def permitted(relative_path: str) -> bool:
+        module = relative_path.removesuffix(".py").replace("/", ".")
+        module = module.removesuffix(".__init__")
+        return matches_module(module, NEUTRAL_WRITER_OK_MODULES) or is_write_module(
+            module
+        )
+
+    assert [path for path in offenders if not permitted(path)] == [], offenders
+    assert "ccf/boot.py" in offenders, offenders
