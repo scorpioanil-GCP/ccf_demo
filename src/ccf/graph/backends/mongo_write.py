@@ -21,10 +21,19 @@ reach write code and the CINV-02 rule would flag the reader itself. The write
 module is therefore also where a ``REGISTRATION`` record belongs (plan
 15.4-04).
 
-The driver stays an optional extra. Importing this module imports the reader
-module, which demands the driver at *store construction* rather than at import,
-and :class:`_MongoTxn` defers its own driver import to construction for the
-same reason — so a tree without the extra remains importable.
+**The driver stays an optional extra, and the registry must not flatten that.**
+Importing this module imports the reader module, which demands the driver at
+*store construction* rather than at import, and :class:`_MongoTxn` defers its
+own driver import to construction for the same reason — so a tree without the
+extra remains importable, and resolving a different adapter through
+:mod:`ccf.graph.registry` loads neither this module nor its driver, because
+:func:`ccf.graph.registry.resolve` imports exactly the write module the
+deployment named. Adapters do **not** all load the same way:
+:mod:`ccf.graph.backends.fluree_write` imports its wire client at module top on
+purpose, because ``httpx`` is a core pin (SUBQ-14). The difference is recorded
+evidence, not an inconsistency to tidy away, and
+``tests/deployment/test_adapter_config.py`` asserts the deferral in a fresh
+interpreter.
 
 Algorithmic module (CINV-03).
 """
@@ -32,13 +41,17 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Any
 
+from pydantic import SecretStr
+
+from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_timestamp
 from ccf.graph._writer import BaseGraphWriter, BootToken, _GraphTxn
 from ccf.graph.backends.mongo import (
+    DEFAULT_PARTITION,
     ENTITY_CLAIMS,
     ENTITY_NODES,
     LINEAGE,
@@ -49,10 +62,15 @@ from ccf.graph.backends.mongo import (
     attribute_field_path,
 )
 from ccf.graph.reader import ENTITY_KIND, RELATIONSHIP_KIND, Row, parse_timestamp
+from ccf.graph.registry import BackendRegistration, BackendStore
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["MongoGraphWriter"]
+#: The name a manifest uses to select this adapter — the module's own stem less
+#: ``_write``, which is how built-in discovery derives it.
+ADAPTER_NAME = "mongo"
+
+__all__ = ["REGISTRATION", "MongoConnection", "MongoGraphWriter"]
 
 
 # --- the MongoDB write path (plan 15.2-13) ------------------------------------
@@ -570,3 +588,75 @@ class MongoGraphWriter(BaseGraphWriter):
             raise
         else:
             txn.commit()
+
+
+class MongoConnection(CCFContract):
+    """The connection settings this adapter takes — and it takes no others.
+
+    Plan 15.4-04, D-07. Derives from :class:`~ccf.contracts.base.CCFContract`
+    so ``extra="forbid"`` is inherited: a settings key this adapter does not
+    declare is refused rather than ignored.
+
+    **No credential is a field here.** This adapter's credential travels inside
+    ``uri``, which the reader module keeps out of the identity string. Nothing
+    that is *only* a credential belongs on a validated model — Pydantic reports
+    ``input_value=`` verbatim in a ``ValidationError``.
+
+    Attributes:
+        uri: The MongoDB URI this fabric's graph lives behind. Required: a
+            manifest declaring this adapter and omitting it is refused, and the
+            fabric does not fall back.
+        partition: Which graph in that database this store attaches to. Optional,
+            and the default stays ``None`` rather than the adapter's
+            ``DEFAULT_PARTITION`` because the behaviour to preserve is
+            ``_open_backend``'s: an unsupplied partition resolves to the
+            adapter's default at construction, in :func:`_open_store`, not on
+            the model.
+    """
+
+    uri: str
+    partition: str | None = None
+
+
+def _open_store(
+    config: CCFContract, secrets: Mapping[str, SecretStr]
+) -> BackendStore:
+    """Construct this adapter's store from validated settings.
+
+    Typed against the contract base so it is assignable to
+    :attr:`~ccf.graph.registry.BackendRegistration.open_store` under
+    ``mypy --strict``, then narrowed. ``secrets`` is unused: this adapter's
+    credential travels inside the URI, so it declares no secret field.
+    """
+    if not isinstance(config, MongoConnection):
+        raise TypeError(
+            f"adapter {ADAPTER_NAME!r} takes a {MongoConnection.__name__},"
+            f" got a {type(config).__name__}"
+        )
+    return MongoGraphStore(
+        uri=config.uri,
+        partition=(
+            config.partition if config.partition is not None else DEFAULT_PARTITION
+        ),
+    )
+
+
+def _make_writer(store: BackendStore, token: BootToken) -> BaseGraphWriter:
+    """Construct the write handle — called by the composition root alone."""
+    if not isinstance(store, MongoGraphStore):
+        raise TypeError(
+            f"adapter {ADAPTER_NAME!r} writes through a"
+            f" {MongoGraphStore.__name__}, got a {type(store).__name__}"
+        )
+    return MongoGraphWriter(store=store, token=token)
+
+
+#: What this adapter declares about itself — the record
+#: :func:`ccf.graph.registry.resolve` reads off this module.
+REGISTRATION = BackendRegistration(
+    name=ADAPTER_NAME,
+    config_model=MongoConnection,
+    secret_fields=frozenset(),
+    open_store=_open_store,
+    make_writer=_make_writer,
+)

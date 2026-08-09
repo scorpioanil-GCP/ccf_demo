@@ -29,8 +29,16 @@ is gone: :func:`~ccf.graph.backends.fluree.policy_key` is called on both sides
 of the seam, so the guard that made CR-01 reachable on one copy only now covers
 both (WR-01, D-14).
 
-The wire client is a core pin, so this module needs no optional dependency, no
-lazy import and no mypy override — the SUBQ-14 evidence, visible as an absence.
+**The wire client is a core pin, so this module imports it at the top and the
+registry must not flatten that into "all adapters load the same way."** This
+module needs no optional dependency, no lazy import and no mypy override — the
+SUBQ-14 evidence, visible as an absence. Its two extras-gated siblings,
+:mod:`ccf.graph.backends.neo4j_write` and :mod:`ccf.graph.backends.mongo_write`,
+keep their driver imports inside their store constructors on purpose, so
+resolving one adapter loads no other adapter's driver. The difference between
+the two shapes is a recorded finding about the substrates, not an inconsistency
+to normalize away, and ``tests/deployment/test_adapter_config.py`` asserts the
+optional-driver half of it in a fresh interpreter.
 
 Algorithmic module (CINV-03).
 """
@@ -38,14 +46,18 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Any
 
+from pydantic import SecretStr
+
+from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_timestamp
 from ccf.graph._writer import BaseGraphWriter, BootToken, _GraphTxn
 from ccf.graph.backends.fluree import (
     ADAPTER_CONTEXT,
+    DEFAULT_PARTITION,
     L_EDGE,
     L_ENTITY,
     L_ENTITY_CLAIM,
@@ -83,10 +95,22 @@ from ccf.graph.backends.fluree import (
     policy_key,
 )
 from ccf.graph.reader import ENTITY_KIND, RELATIONSHIP_KIND, Row, parse_timestamp
+from ccf.graph.registry import BackendRegistration, BackendStore
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["FlureeGraphWriter"]
+#: The name a manifest uses to select this adapter — the module's own stem less
+#: ``_write``, which is how built-in discovery derives it.
+ADAPTER_NAME = "fluree"
+
+#: The one config field of this adapter whose value is a credential. It is
+#: **not** a field on :class:`FlureeConnection`: it is named here so the Control
+#: Plane knows a credential is expected, and the value travels in the separate
+#: ``secrets`` mapping :func:`_open_store` receives. See
+#: :class:`FlureeConnection` for why the separation is structural.
+BEARER_TOKEN_FIELD = "bearer_token"
+
+__all__ = ["REGISTRATION", "FlureeConnection", "FlureeGraphWriter"]
 
 
 # --- the Fluree v4 write path (plan 15.3-02) ---------------------------------
@@ -951,3 +975,99 @@ class FlureeGraphWriter(BaseGraphWriter):
             raise
         else:
             txn.commit()
+
+
+class FlureeConnection(CCFContract):
+    """The connection settings this adapter takes — and it takes no others.
+
+    Plan 15.4-04, D-07. Derives from :class:`~ccf.contracts.base.CCFContract`
+    so ``extra="forbid"`` is inherited: a settings key this adapter does not
+    declare is refused rather than ignored.
+
+    **The bearer token is deliberately not a field on this model, and it must
+    not be added later for convenience** (threat T-15.4-05). Pydantic reports
+    ``input_value=`` **verbatim** in a ``ValidationError`` — measured, for
+    ``extra_forbidden`` as well as for type errors. So the one case that matters
+    is the one that will actually happen: an adopter misspells a connection key
+    and puts a live token under the misspelling. If the token were a field on
+    this model, the mapping carrying it would be the mapping being validated,
+    and the refusal would print the credential into a log, a traceback and an
+    error reporter.
+
+    Instead this adapter *names* its credential field in
+    :data:`BEARER_TOKEN_FIELD` and in
+    :attr:`~ccf.graph.registry.BackendRegistration.secret_fields`, and the
+    resolved value travels in the separate ``secrets`` mapping
+    :func:`_open_store` receives — a mapping that is never validated and never
+    canonicalized. That is the same posture the store itself already takes:
+    ``_authorization``'s refusal states that neither credential value appears in
+    its message, and ``_graph_identity`` drops userinfo entirely.
+
+    Attributes:
+        url: The Fluree server **origin** this fabric's graph lives behind.
+            Required: a manifest declaring this adapter and omitting it is
+            refused, and the fabric does not fall back. It may carry userinfo,
+            which the store converts into an HTTP Basic header rather than
+            discarding — the WR-02 fix, unchanged here.
+        partition: Which graph in the CCF-owned ledger this store attaches to.
+            Optional, and the default stays ``None`` rather than the adapter's
+            ``DEFAULT_PARTITION`` because the behaviour to preserve is
+            ``_open_backend``'s: an unsupplied partition resolves to the
+            adapter's default at construction, in :func:`_open_store`, not on
+            the model.
+    """
+
+    url: str
+    partition: str | None = None
+
+
+def _open_store(
+    config: CCFContract, secrets: Mapping[str, SecretStr]
+) -> BackendStore:
+    """Construct this adapter's store from validated settings plus credentials.
+
+    Typed against the contract base so it is assignable to
+    :attr:`~ccf.graph.registry.BackendRegistration.open_store` under
+    ``mypy --strict``, then narrowed.
+
+    The credential is unwrapped **once, at the call site**, and is never bound to
+    a name that outlives the call: a :class:`~pydantic.SecretStr` masks itself in
+    ``repr``, ``str`` and ``model_dump_json``, and
+    :func:`~ccf.contracts.canonical.canonical_bytes` refuses it outright, so the
+    only moment the plain value exists is the argument expression below.
+    """
+    if not isinstance(config, FlureeConnection):
+        raise TypeError(
+            f"adapter {ADAPTER_NAME!r} takes a {FlureeConnection.__name__},"
+            f" got a {type(config).__name__}"
+        )
+    bearer = secrets.get(BEARER_TOKEN_FIELD)
+    return FlureeGraphStore(
+        url=config.url,
+        partition=(
+            config.partition if config.partition is not None else DEFAULT_PARTITION
+        ),
+        bearer_token=None if bearer is None else bearer.get_secret_value(),
+    )
+
+
+def _make_writer(store: BackendStore, token: BootToken) -> BaseGraphWriter:
+    """Construct the write handle — called by the composition root alone."""
+    if not isinstance(store, FlureeGraphStore):
+        raise TypeError(
+            f"adapter {ADAPTER_NAME!r} writes through a"
+            f" {FlureeGraphStore.__name__}, got a {type(store).__name__}"
+        )
+    return FlureeGraphWriter(store=store, token=token)
+
+
+#: What this adapter declares about itself — the record
+#: :func:`ccf.graph.registry.resolve` reads off this module. The one adapter
+#: shipped here whose ``secret_fields`` is non-empty.
+REGISTRATION = BackendRegistration(
+    name=ADAPTER_NAME,
+    config_model=FlureeConnection,
+    secret_fields=frozenset({BEARER_TOKEN_FIELD}),
+    open_store=_open_store,
+    make_writer=_make_writer,
+)
