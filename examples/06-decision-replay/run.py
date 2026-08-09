@@ -907,6 +907,12 @@ def run(*, root: Path) -> ReplayDemonstration:
         agent_conditioning=conditioning,
         hitl_actions=canonical_bytes(action_record).decode("utf-8"),
         workflow_step_sequence=outcome.step_sequence_block,
+        # Which adapter answered, at which version, under which credential
+        # REFERENCE names — dimension 2, read off the pin the boot reported and
+        # off nothing else. The other examples deliberately leave this on its
+        # `no-adapter` default, so the always-on run exercises both branches;
+        # that is a choice, not an unfinished job.
+        adapter=booted.handle.adapter,
     )
     served = serve(
         product=gated,
@@ -975,6 +981,10 @@ def run(*, root: Path) -> ReplayDemonstration:
         agent_conditioning=conditioning,
         hitl_actions=resolution.hitl_actions_block,
         workflow_step_sequence=outcome.step_sequence_block,
+        # The override decision ran against the same fabric, so it pins the
+        # same adapter. Read from the pin again rather than reused from above:
+        # the pin is a fact about the boot, not a local the driver carries.
+        adapter=booted.handle.adapter,
     )
     override_served = serve(
         product=gated,

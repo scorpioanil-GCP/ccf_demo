@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**403 entries**, of which **184** name a public Python surface.
+**406 entries**, of which **187** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-160 entries — 132 public Python surface, 28 not public Python API.
+161 entries — 133 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -2791,6 +2791,23 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.4-06-manifest.md`.*
 
+#### ccf.replay.record.NO_ADAPTER
+
+- Surface: ccf.replay.record.NO_ADAPTER
+- Public surface: true
+- Change type: added
+- Before: absent — dimension 2 had no adapter field and therefore no sentinel
+  for its absence
+- After: `"no-adapter"` — the positive assertion "this decision did not record
+  which adapter answered", in the `NO_HITL_ACTIONS` voice
+- Why: a record written before the pin existed and one whose caller dropped
+  the pin would otherwise be the same artifact, which is the repudiation
+  failure mode every sentinel in this module exists to close
+- Migration: new surface — none; records lacking the fields rebuild to this
+  sentinel
+
+*Recorded by `15.4-08-replay.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -3224,7 +3241,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-216 entries — 33 public Python surface, 183 not public Python API.
+217 entries — 34 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -4030,6 +4047,28 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   sees `backend_secrets` on the same day the code accepts it.
 
 *Recorded by `15.4-06-manifest.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: ten keyword parameters; dimension 2 carried no adapter pin and the
+  builder had no channel to receive one
+- After: one further optional keyword, `adapter: AdapterPin | None = None`.
+  Supplied, its three values land on dimension 2 with `secret_refs` sorted;
+  omitted or `None`, the three positive sentinels apply and every field the
+  builder wrote before this extension is byte-for-byte what it was
+- Why: a parameter rather than a fact read off `execution`, unlike the 15.2-08
+  and 15.2-11 extensions, because the adapter is a property of the **fabric**
+  and the execution object has never seen the fabric — it carries what the
+  engine ran, not what the deployment booted against. D-06 additionally keeps
+  dimension-2 assembly in adopter code
+- Migration: pass `adapter=booted.handle.adapter` to start pinning. Nothing is
+  required of an existing caller: omitting the keyword is supported and
+  records the positive `no-adapter` claim rather than falling silent
+
+*Recorded by `15.4-08-replay.md`.*
 
 ### Not public Python API
 
@@ -6308,7 +6347,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-27 entries — 19 public Python surface, 8 not public Python API.
+28 entries — 20 public Python surface, 8 not public Python API.
 
 ### Public Python surface
 
@@ -6743,6 +6782,29 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   sentinel
 
 *Recorded by `15.2-11-attestation-enforcement.md`.*
+
+#### ccf.replay.record.PolicyBindingsSnapshot
+
+- Surface: ccf.replay.record.PolicyBindingsSnapshot
+- Public surface: true
+- Change type: behavior
+- Before: dimension 2 recorded the bindings, the HITL actions block and the
+  D-10 survivor cap, and said nothing about which adapter served the read
+- After: gains three sentinel-defaulted fields — `graph_adapter: str =
+  NO_ADAPTER`, `graph_adapter_version: str = NO_ADAPTER` and
+  `graph_secret_refs: tuple[str, ...] = ()`. `graph_secret_refs` holds
+  reference **names**, stored sorted, and can hold nothing else
+- Why: the bindings in force at decision time now include which adapter was
+  bound and which credential references it ran under, because from D-IMPL-93
+  onward that adapter can be third-party code — the same reason a policy
+  bundle version is a dimension-2 fact. Sorted because declaration order is
+  not a fact about the decision, and an unsorted tuple would make replay
+  comparison order-sensitive on something that has no order
+- Migration: none — the three defaults preserve existing records byte-for-byte,
+  and a record written before the fields existed still resolves under
+  D-IMPL-89's content-address-before-validation ordering
+
+*Recorded by `15.4-08-replay.md`.*
 
 ### Not public Python API
 

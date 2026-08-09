@@ -180,10 +180,16 @@ def test_every_pre_change_field_is_byte_for_byte_unchanged() -> None:
     # keys: dimension 3's harness block (I.3, D-25), the I.4 sentinel fields
     # on dimensions 2 and 5 (07-05: hitl_actions, workflow_step_sequence),
     # the 15.2-08 sentinel fields on the same two dimensions (D-10/D-11:
-    # survivor_cap, graph_query_sequence), and the 15.2-11 sentinel field on
-    # dimension 1 (D-09: source_attestation). Removing exactly those
-    # reproduces the captured literal — "byte-identical except for the
-    # sentinel fields".
+    # survivor_cap, graph_query_sequence), the 15.2-11 sentinel field on
+    # dimension 1 (D-09: source_attestation), and the 15.4-08 adapter pin on
+    # dimension 2 (D-IMPL-93: graph_adapter, graph_adapter_version,
+    # graph_secret_refs). Removing exactly those reproduces the captured
+    # literal — "byte-identical except for the sentinel fields".
+    #
+    # PRE_CHANGE_CANONICAL itself is never edited. Each extension adds one
+    # `.replace()` here and leaves the captured literal alone, because the
+    # literal is the evidence: a fixture retouched to match the current
+    # builder would assert only that the builder agrees with itself.
     assert produced.replace(
         b'"harness_trace":{"harness_id":"no-harness","input_tokens":0,'
         b'"model_version":"no-harness","output_tokens":0,'
@@ -203,6 +209,10 @@ def test_every_pre_change_field_is_byte_for_byte_unchanged() -> None:
         b"",
     ).replace(
         b'"source_attestation":null,',
+        b"",
+    ).replace(
+        b',"graph_adapter":"no-adapter","graph_adapter_version":"no-adapter"'
+        b',"graph_secret_refs":[]',
         b"",
     ) == PRE_CHANGE_CANONICAL
 

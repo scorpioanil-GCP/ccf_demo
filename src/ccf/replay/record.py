@@ -55,6 +55,7 @@ from pydantic import field_validator
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.graph.protocols import SourceAttestation
+from ccf.graph.registry import AdapterPin
 from ccf.products.contract import AssemblyMode, ContextProductContract
 from ccf.projection.engine import ExecutionResult, ExecutionStep
 from ccf.projection.plan import Perspective
@@ -63,6 +64,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "MODE_1_MODEL_VERSION",
+    "NO_ADAPTER",
     "NO_AGENT_DEFINITION",
     "NO_GRANTS_SET_HASH",
     "NO_GRAPH_QUERIES",
@@ -128,6 +130,14 @@ NO_WORKFLOW_TRACE = "no-workflow-trace"
 #: field's shape must stay one shape (the ``workflow_step_sequence``
 #: sentinel-default precedent, applied to a tuple-valued field).
 NO_GRAPH_QUERIES: Final[tuple[str, ...]] = ()
+
+#: Dimension 2's adapter value when no adapter pin was recorded (15.4-08;
+#: D-IMPL-93). A positive claim in the :data:`NO_HITL_ACTIONS` voice: "this
+#: decision did not record which adapter answered" is asserted, never inferred
+#: from silence — a record written before the pin existed and one whose caller
+#: dropped the pin would otherwise be the same artifact, which is the
+#: repudiation failure mode every sentinel in this module exists to close.
+NO_ADAPTER = "no-adapter"
 
 
 class ContextFabricSnapshot(CCFContract):
@@ -241,11 +251,38 @@ class PolicyBindingsSnapshot(CCFContract):
     re-execute under the cap the decision ran under, never the cap now
     configured. ``None`` is the positive assertion "no cap configured", the
     engine's own default posture — asserted, never inferred from silence.
+
+    The adapter pin extends this dimension as of 15.4-08 through
+    ``graph_adapter``, ``graph_adapter_version`` and ``graph_secret_refs``,
+    under the same sentinel-default discipline as ``hitl_actions`` and
+    ``survivor_cap`` (the ``workflow_step_sequence`` precedent). These are
+    dimension-2 facts because the bindings in force at decision time now
+    include *which adapter was bound* and *which credential references it ran
+    under*: from D-IMPL-93 onward the code behind the graph seam can be a
+    third-party distribution, so which one answered and at which version is
+    part of what produced the answer, exactly as a policy bundle version is.
+    The three defaults — :data:`NO_ADAPTER` twice and the empty tuple — are the
+    positive claim "no adapter was recorded", asserted rather than left as an
+    absence a reader must interpret.
+
+    ``graph_secret_refs`` carries reference **names** and can never carry a
+    resolved credential. That is a mechanism rather than a discipline, in two
+    layers: :class:`~ccf.graph.registry.AdapterPin` has no field a value can
+    reach, and :func:`~ccf.contracts.canonical.canonical_bytes` refuses
+    ``SecretStr`` outright, so a credential could not be hashed into this
+    record even by accident. The names are stored **sorted**, so two
+    deployments that declared the same references in a different order produce
+    the same record: declaration order is not a fact about the decision, and a
+    replay comparison that was sensitive to it would report a difference where
+    there is none.
     """
 
     bindings: tuple[PolicyBinding, ...]
     hitl_actions: str = NO_HITL_ACTIONS
     survivor_cap: int | None = None
+    graph_adapter: str = NO_ADAPTER
+    graph_adapter_version: str = NO_ADAPTER
+    graph_secret_refs: tuple[str, ...] = ()
 
 
 class HarnessTrace(CCFContract):
@@ -438,6 +475,7 @@ def build_replay_record(
     harness_trace: HarnessTrace | None = None,
     hitl_actions: str | None = None,
     workflow_step_sequence: str | None = None,
+    adapter: AdapterPin | None = None,
 ) -> DecisionReplayRecord:
     """Assemble the record from what the execution and the product already know.
 
@@ -479,6 +517,22 @@ def build_replay_record(
     pre-serialized step-sequence block, recorded verbatim, defaulting to the
     positive :data:`NO_WORKFLOW_TRACE` claim.
 
+    ``adapter`` is the 15.4-08 registration seam (D-IMPL-93), threaded into
+    dimension 2 the same way: the caller passes the
+    :class:`~ccf.graph.registry.AdapterPin` its booted fabric reported at
+    :attr:`ccf.boot.FabricHandle.adapter` and the three dimension-2 fields
+    carry its values, with ``secret_refs`` stored sorted. When ``None``, the
+    three positive :data:`NO_ADAPTER`/empty-tuple claims apply and every field
+    the builder wrote before this extension is byte-for-byte what it was.
+
+    It is a **parameter** rather than a fact read off ``execution`` — which is
+    where the 15.2-08 facts below arrive — for two reasons that both point the
+    same way. The adapter is a property of the *fabric*, and the execution
+    object has never seen the fabric: it carries what the engine ran, not what
+    the deployment booted against. And D-06 keeps dimension-2 assembly in
+    adopter code, because a dimension 2 assembled by a rule nobody in the
+    deployment wrote down is not an audit record.
+
     The 15.2-08 seam facts arrive on ``execution`` itself, not as new
     parameters — they are execution facts, and execution facts already travel
     here on :class:`~ccf.projection.engine.ExecutionResult`:
@@ -515,6 +569,17 @@ def build_replay_record(
             bindings=policy_bindings,
             hitl_actions=hitl_actions if hitl_actions is not None else NO_HITL_ACTIONS,
             survivor_cap=execution.survivor_cap,
+            graph_adapter=adapter.name if adapter is not None else NO_ADAPTER,
+            graph_adapter_version=(
+                adapter.version if adapter is not None else NO_ADAPTER
+            ),
+            # Sorted here as well as at the pin: a caller may hand-build an
+            # AdapterPin, and declaration order is not a fact about the
+            # decision — an unsorted tuple would make replay comparison
+            # order-sensitive on something that has no order.
+            graph_secret_refs=(
+                tuple(sorted(adapter.secret_refs)) if adapter is not None else ()
+            ),
         ),
         model_version=ModelVersionRecord(
             assembly_mode=assembly_mode,
