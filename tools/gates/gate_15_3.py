@@ -80,6 +80,44 @@ baseline, per the 2026-08-08 correction, so a future reader sees the headroom
 rather than inferring it — a budget whose stated derivation is wrong is a
 budget nobody will trust when it fires.
 
+THE SECOND CORRECTION (D-IMPL-92, Dave, 2026-08-08) — TWO PROXY EXTENSIONS
+=========================================================================
+
+The first run of this gate against the real diff exited 1 on two changes.
+Neither was a claim violation: both were **already permitted or forced under
+layer 1**, and the failure was that **layer 2 under-enumerated a class layer 1
+states in general terms**. The ruling extends the *proxy* and leaves the
+*normative rule* exactly as strong — which is the only direction this may ever
+move.
+
+1. **Backend-specific unit tests are free as a CLASS, not as one instance.**
+   Layer 1 already says so verbatim ("backend-specific unit tests … were never
+   inside D-11's `src/ccf`-scoped hard line and are free"), but the Tier-C
+   allowlist named only the *new* substrate's module. Adding a required keyword
+   argument to `_preflight_backend` forced three identical `fluree_url=None,`
+   lines into `tests/graph/test_mongo_backend.py`. The allowlist now names the
+   class (`tests/graph/test_*_backend.py`). A bare special case for the mongo
+   module was explicitly refused: it would repeat the very under-enumeration
+   being fixed.
+
+2. **A conformance suite may carry ONE forced enumeration extension beside its
+   param line.** `tests/conformance/test_graphstore.py`'s fixture guards on a
+   set literal of backend names; without the new name in that set the added
+   `pytest.param` raises `NotImplementedError`, so the param addition is not
+   self-contained. That file has **no `#:` block**, so the first correction's
+   comment-block permission cannot reach it. The permission granted is
+   deliberately tight and mirrors the comment-block one: one added and one
+   deleted line whose ONLY difference is that a set/tuple/list literal of
+   backend-name strings gained exactly the new backend's name — verified by
+   comparing the two lines with every string literal removed — and the change
+   is **recorded** (see `check_recorded_in_package`).
+
+The durable lesson, and the reason this is in the module docstring rather than
+only in the phase record: **the enumeration-is-the-mechanism finding recurs in
+the test tree, and this gate's own allowlist is itself an enumeration that
+under-enumerated.** A reader comparing layer 1 against layer 2 finds gaps that
+reading either alone would miss. That is the argument for recording both.
+
 WHAT THIS GATE DELIBERATELY DOES NOT DO
 =======================================
 
@@ -278,10 +316,18 @@ ALLOWLIST: tuple[Allowed, ...] = (
     ),
     # --- Tier C: free. Evidence and operations, never SDK mechanism. --------
     Allowed(
-        "tests/graph/test_fluree_backend.py",
+        "tests/graph/test_*_backend.py",
         "C",
-        "the new backend's own unit module. New per-backend evidence is not a"
-        " claim violation; it IS the evidence",
+        "backend-specific unit tests, as a CLASS. D-IMPL-92 layer 1 already"
+        " frees them verbatim; the first cut of this allowlist named only the"
+        " new substrate's module and so failed on the three `fluree_url=None,`"
+        " lines that a new required keyword argument on `_preflight_backend`"
+        " forced into test_mongo_backend.py. Extended to the class by the"
+        " 2026-08-08 second correction. Naming the one offending FILE was"
+        " refused: a special case would repeat the under-enumeration being"
+        " fixed. (fnmatch `*` crosses separators, so a nested"
+        " tests/graph/**/test_*_backend.py would match too — stated, not"
+        " relied on.)",
     ),
     Allowed(
         ".github/workflows/*",
@@ -617,6 +663,71 @@ def comment_block_above(source: str, anchor: str) -> set[str]:
             cursor -= 1
         return block
     return set()
+
+
+#: Any single- or double-quoted string literal on one source line.
+_STRING_LITERAL_RE = re.compile(r"\"[^\"]*\"|'[^']*'")
+
+
+def string_literals(line: str) -> list[str]:
+    """Every quoted string on `line`, in order, without its quotes."""
+    return [match.group(0)[1:-1] for match in _STRING_LITERAL_RE.finditer(line)]
+
+
+def line_skeleton(line: str) -> str:
+    """`line` with every string literal, all whitespace and all commas removed.
+
+    Two lines with the same skeleton differ ONLY in their string literals — no
+    operator, no identifier, no bracket and no call shape changed between them.
+    That is what makes the enumeration-extension permission below narrow enough
+    to grant.
+    """
+    stripped = _STRING_LITERAL_RE.sub("", line)
+    return re.sub(r"[\s,]+", "", stripped)
+
+
+def is_forced_enumeration_extension(
+    added: str, deleted: str, new_names: frozenset[str]
+) -> bool:
+    """Is (`deleted` -> `added`) a one-member extension of a backend enumeration?
+
+    Granted by D-IMPL-92's 2026-08-08 second correction, and deliberately as
+    tight as the `#:` comment-block permission it mirrors. ALL of:
+
+    * the two lines are identical once every string literal is removed — so
+      nothing but the literals changed;
+    * the added line's literals are the deleted line's literals plus exactly
+      one more; and
+    * that one more is the new backend's name, derived from the `backend`
+      Literal rather than hard-coded.
+
+    Anything else in a conformance suite is still a finding.
+    """
+    if line_skeleton(added) != line_skeleton(deleted):
+        return False
+    before = string_literals(deleted)
+    after = string_literals(added)
+    if len(after) != len(before) + 1:
+        return False
+    surplus = list(after)
+    for name in before:
+        if name not in surplus:
+            return False
+        surplus.remove(name)
+    return len(surplus) == 1 and surplus[0] in new_names
+
+
+def new_backend_names(root: pathlib.Path, base: str) -> frozenset[str]:
+    """Backend names this phase ADDED to the `backend` Literal.
+
+    Derived from the mechanism (the enumeration itself), never hard-coded — the
+    same discipline as `check_backend_names_kept`.
+    """
+    base_source = blob(root, base, LITERAL_SOURCE) or ""
+    head_source = (root / LITERAL_SOURCE).read_text(encoding="utf-8")
+    if not base_source:
+        return frozenset()
+    return literal_backend_names(head_source) - literal_backend_names(base_source)
 
 
 def diff_lines(root: pathlib.Path, base: str, path: str) -> tuple[list[str], list[str]]:
@@ -998,20 +1109,38 @@ def check_writer_ast(
 
 
 def check_conformance(
-    root: pathlib.Path, base: str, changes: Sequence[Change], evidence: list[str]
+    root: pathlib.Path,
+    base: str,
+    changes: Sequence[Change],
+    evidence: list[str],
+    recorded: list[str],
 ) -> list[str]:
-    """One added `pytest.param` line plus a bounded `#:` comment-block edit.
+    """One added `pytest.param` line, plus TWO bounded companion permissions.
 
-    The comment permission is not a loophole. `test_substrate_differential.py`
-    names the container backends explicitly, so a fluree addition cannot be
-    "one line, zero deleted" without leaving the comment stating something
-    false — and leaving it false would be a documentation defect purchased to
-    make a line count look tidier, which inverts what the gate is for.
+    Neither companion is a loophole; both exist because the param addition is
+    not self-contained in the file it lands in, and pretending otherwise would
+    buy a tidy line count with a false file.
+
+    * **The `#:` comment block** (first correction, 2026-08-08).
+      `test_substrate_differential.py` names the container backends explicitly,
+      so a fluree addition cannot be "one line, zero deleted" without leaving
+      the comment stating something false.
+    * **One forced enumeration extension** (second correction, 2026-08-08).
+      `test_graphstore.py` guards its fixture on a set literal of backend
+      names; without the new name in that set the added param raises
+      `NotImplementedError`. That file has no `#:` block, so the first
+      permission cannot reach it. See `is_forced_enumeration_extension` for
+      how narrowly this is bounded.
+
+    Both companions are **recorded**: every permitted non-param line is
+    appended to `recorded` and must appear in the gate package once that
+    package exists (`check_recorded_in_package`).
     """
     findings: list[str] = []
+    new_names = new_backend_names(root, base)
     touched = {c.path for c in changes}
     evidence.append("")
-    evidence.append("  Conformance suites:")
+    evidence.append(f"  Conformance suites (new backend name(s): {sorted(new_names)}):")
     for path, anchor in CONFORMANCE_SUITES.items():
         if path not in touched:
             evidence.append(f"    {path}: unchanged")
@@ -1034,16 +1163,6 @@ def check_conformance(
 
         param_added = [line for line in added if CONFORMANCE_PARAM_RE.search(line)]
         param_deleted = [line for line in deleted if CONFORMANCE_PARAM_RE.search(line)]
-        other_added = [
-            line
-            for line in added
-            if not CONFORMANCE_PARAM_RE.search(line) and line.strip() not in head_block
-        ]
-        other_deleted = [
-            line
-            for line in deleted
-            if not CONFORMANCE_PARAM_RE.search(line) and line.strip() not in base_block
-        ]
         comment_added = [
             line
             for line in added
@@ -1055,15 +1174,67 @@ def check_conformance(
             if not CONFORMANCE_PARAM_RE.search(line) and line.strip() in base_block
         ]
 
+        # What is left once the param line and the `#:` block are accounted
+        # for. The enumeration permission is applied to THIS residue only, and
+        # pairwise: an added line is forgiven if and only if some remaining
+        # deleted line is the same line minus exactly the new backend's name.
+        residue_added = [
+            line
+            for line in added
+            if line not in param_added and line not in comment_added
+        ]
+        residue_deleted = [
+            line
+            for line in deleted
+            if line not in param_deleted and line not in comment_deleted
+        ]
+        enum_added: list[str] = []
+        enum_deleted: list[str] = []
+        for candidate in list(residue_added):
+            match = next(
+                (
+                    other
+                    for other in residue_deleted
+                    if other not in enum_deleted
+                    and is_forced_enumeration_extension(candidate, other, new_names)
+                ),
+                None,
+            )
+            if match is not None:
+                enum_added.append(candidate)
+                enum_deleted.append(match)
+
+        other_added = [line for line in residue_added if line not in enum_added]
+        other_deleted = [line for line in residue_deleted if line not in enum_deleted]
+
         evidence.append(
             f"    {path}: param+={len(param_added)} param-={len(param_deleted)}"
             f" comment-block+={len(comment_added)} comment-block-={len(comment_deleted)}"
+            f" enum-extension+={len(enum_added)} enum-extension-={len(enum_deleted)}"
             f" other+={len(other_added)} other-={len(other_deleted)}"
         )
         for line in comment_added:
             evidence.append(f"      comment + {line.strip()}")
+            recorded.append(line.strip())
         for line in comment_deleted:
             evidence.append(f"      comment - {line.strip()}")
+        for line in enum_added:
+            evidence.append(f"      enum-extension + {line.strip()}")
+            recorded.append(line.strip())
+        for line in enum_deleted:
+            evidence.append(f"      enum-extension - {line.strip()}")
+
+        if len(enum_added) > 1:
+            findings.append(
+                format_finding(
+                    pathlib.Path(path),
+                    0,
+                    RULE_CONFORMANCE,
+                    f"{len(enum_added)} enumeration extensions in one suite; the"
+                    " 2026-08-08 second correction permits exactly ONE forced"
+                    " one-line extension beside the param addition",
+                )
+            )
 
         if len(param_added) != 1:
             findings.append(
@@ -1096,13 +1267,66 @@ def check_conformance(
                     f"change outside the permitted shapes ({sign}{line.strip()!r})."
                     " D-IMPL-92 as corrected permits, per conformance suite, ONE"
                     " added `pytest.param` line PLUS edits confined to the `#:`"
-                    " comment block immediately above the param tuple, and nothing"
+                    " comment block immediately above the param tuple PLUS one"
+                    " forced one-line extension of a backend-name enumeration"
+                    " (a set/tuple/list literal that gained exactly the new"
+                    " backend's name and changed in no other way), and nothing"
                     " else. A change that is genuinely forced by adding a substrate"
-                    " but is neither of those is a D-IMPL question for Dave — not a"
+                    " but is none of those is a D-IMPL question for Dave — not a"
                     " reason to loosen this rule",
                 )
             )
     return findings
+
+
+def check_recorded_in_package(
+    root: pathlib.Path, recorded: Sequence[str], evidence: list[str]
+) -> list[str]:
+    """Both conformance companions must be RECORDED, not merely permitted.
+
+    D-IMPL-92's first correction requires the `#:` comment change be "recorded
+    in the gate package"; the second correction requires the same of the
+    enumeration extension. This is that requirement, and it is what stops the
+    two permissions from becoming quiet exemptions.
+
+    **Armed by existence**, exactly like the corpus rule: the gate package is
+    written by this same plan's final task, so until it exists the gate's own
+    evidence block IS the record (every permitted line is printed verbatim
+    above, which is what the package is assembled from). From the moment the
+    package lands, the assertion is live and stays live.
+    """
+    evidence.append("")
+    package = root / GATE_PACKAGE
+    if not recorded:
+        evidence.append("  recorded companions       : none to record")
+        return []
+    if not package.is_file():
+        evidence.append(
+            f"  recorded companions       : {len(recorded)} line(s) printed above;"
+            " gate package not yet written, so the evidence block is the record"
+            " (this assertion arms itself when the package lands)"
+        )
+        return []
+
+    text = re.sub(r"\s+", " ", package.read_text(encoding="utf-8"))
+    missing = [line for line in recorded if re.sub(r"\s+", " ", line) not in text]
+    evidence.append(
+        f"  recorded companions       : {len(recorded) - len(missing)}"
+        f"/{len(recorded)} line(s) present in the gate package"
+    )
+    return [
+        format_finding(
+            pathlib.Path(GATE_PACKAGE),
+            0,
+            RULE_CONFORMANCE,
+            f"a permitted conformance companion is not recorded here: {line!r}."
+            " Both companion permissions (the `#:` comment block and the forced"
+            " enumeration extension) are granted ON CONDITION that the change is"
+            " written down — an unrecorded one is a quiet exemption, which is"
+            " what D-IMPL-92 grants permissions in order to avoid",
+        )
+        for line in missing
+    ]
 
 
 def check_corpus(
@@ -1477,7 +1701,9 @@ def run(root: pathlib.Path, base: str) -> tuple[list[str], list[str]]:
     findings += check_budgets(changes, evidence)
     findings += check_schema_consistency(root, evidence)
     findings += check_writer_ast(root, base, evidence)
-    findings += check_conformance(root, base, changes, evidence)
+    recorded: list[str] = []
+    findings += check_conformance(root, base, changes, evidence, recorded)
+    findings += check_recorded_in_package(root, recorded, evidence)
     findings += check_corpus(root, changes, evidence)
     findings += check_frozen(root, base, evidence)
     findings += check_lint(root, evidence)
