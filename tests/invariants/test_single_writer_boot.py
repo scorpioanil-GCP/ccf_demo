@@ -136,28 +136,68 @@ def test_a_retired_writer_refuses_further_writes(
     assert reopened is not handle
 
 
-def test_only_l2_and_the_composition_root_name_the_writer_module() -> None:
+def _neutral_base_importers() -> list[str]:
+    """Repo-relative ``src`` paths whose source imports the neutral write base.
+
+    Only real import statements count — the module is *named* in several
+    docstrings, and a check that flagged prose would push people to stop
+    explaining the invariant.
+    """
+    import re
+
+    importers = re.compile(
+        r"^\s*(?:from\s+ccf\.graph\._writer\s+import|import\s+ccf\.graph\._writer)",
+        re.MULTILINE,
+    )
+    source_root = Path(__file__).resolve().parents[2] / "src"
+    return sorted(
+        path.relative_to(source_root).as_posix()
+        for path in source_root.rglob("*.py")
+        if importers.search(path.read_text(encoding="utf-8"))
+    )
+
+
+def test_only_permitted_modules_name_the_neutral_write_base() -> None:
     """The import restriction, asserted here as well as in CI.
 
     This is layer 3 of the stack (CINV-02). It is checked by
     ``python -m tools.lints --all``; the assertion is repeated in the test suite
     so a regression fails the run a developer is actually watching, not only
     the pipeline.
+
+    **Stated against the lint's own permitted set, not a literal list (D-01).**
+    Before the Phase 15.4 writer split there was one legitimate importer and
+    the assertion could name it. The split gives the neutral base three classes
+    of legitimate consumer — L2 and the composition root, the backend registry
+    (which *types* the seam and never exercises it), and every guarded
+    per-backend write module (each subclasses ``BaseGraphWriter``) — and a
+    hand-maintained list over a set that grows per adapter is the per-adapter
+    edit D-IMPL-93 exists to remove. So the permitted set is imported from the
+    checker: whatever the lint permits is what this test permits, and the two
+    cannot drift.
     """
-    import re
-
-    # Only real import statements count — the module is *named* in several
-    # docstrings, and a check that flagged prose would push people to stop
-    # explaining the invariant.
-    importers = re.compile(
-        r"^\s*(?:from\s+ccf\.graph\._writer\s+import|import\s+ccf\.graph\._writer)",
-        re.MULTILINE,
-    )
-    source_root = Path(__file__).resolve().parents[2] / "src"
-    offenders = sorted(
-        path.relative_to(source_root).as_posix()
-        for path in source_root.rglob("*.py")
-        if importers.search(path.read_text(encoding="utf-8"))
+    from tools.lints.harness_imports import (
+        NEUTRAL_WRITER_OK_MODULES,
+        is_write_module,
     )
 
-    assert offenders == ["ccf/boot.py"], offenders
+    offenders = [
+        relative
+        for relative in _neutral_base_importers()
+        if relative[: -len(".py")].replace("/", ".")
+        not in NEUTRAL_WRITER_OK_MODULES
+        and not is_write_module(relative[: -len(".py")].replace("/", "."))
+    ]
+
+    assert offenders == [], offenders
+
+
+def test_the_composition_root_is_still_among_the_importers() -> None:
+    """Non-vacuity: a scan that found nothing would pass the test above.
+
+    ``ccf/boot.py`` constructs the one writer, so it must name the write
+    surface. If it ever stops appearing here, either the composition root
+    stopped being the composition root or the scan stopped scanning — and both
+    make the assertion above green for the wrong reason.
+    """
+    assert "ccf/boot.py" in _neutral_base_importers()

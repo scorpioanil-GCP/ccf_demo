@@ -11,10 +11,16 @@ things must stay true afterwards, and each gets one test here:
 * **Behavior** — the rowcount-zero re-arrival contract survived the refactor
   byte-for-byte: a re-arrived claim accumulates lineage without minting a
   supersession, exactly as the pre-refactor suite pinned.
-* **Confinement** — the generalization created no second home for write code:
-  every writer and every ``_GraphTxn`` implementation still lives in
-  ``ccf.graph._writer`` (CINV-02; the module docstring's "a new backend adds a
-  writer class here" rule).
+* **Confinement** — the generalization created no *unguarded* home for write
+  code: every writer and every ``_GraphTxn`` implementation lives in a module
+  the CINV-02 ``cinv02-graph-writer`` rule guards. Until Phase 15.4 that was
+  one module, ``ccf.graph._writer``; D-01 split the per-backend writers out to
+  ``ccf.graph.backends.<name>_write``, and the rule's guarded set became the
+  predicate ``tools.lints.harness_imports.is_write_module`` over exactly that
+  class of modules. The confinement claim is therefore stated against the
+  predicate rather than against a path — a test pinned to one file would have
+  gone green-and-vacuous the moment the file split, which is the failure
+  D-GATE-15.3 records the project learning three times in one phase.
 
 The behavioral test writes through a booted fabric only — never a directly
 constructed writer — per the conformance suite's discipline (D-IMPL-41;
@@ -132,7 +138,7 @@ def test_rearrival_through_the_typed_seam_is_idempotent(
     assert history[0].superseded_by is None
 
 
-#: The one legitimate write-shaped name outside the writer module: the
+#: The one legitimate write-shaped name outside a guarded write module: the
 #: ``GraphWriter`` *Protocol* — layer 1 of the D-IMPL-41 stack (the
 #: reader/writer interface split). It is a type declaration with no
 #: implementation, predates the typed seam, and is exactly what the CINV-02
@@ -140,26 +146,36 @@ def test_rearrival_through_the_typed_seam_is_idempotent(
 _ALLOWED_ELSEWHERE = frozenset({("ccf/graph/protocols.py", "GraphWriter")})
 
 
-def test_write_code_has_no_second_home_outside_the_writer_module() -> None:
-    """No module outside ``ccf.graph._writer`` defines writer or txn classes.
+def _dotted(relative: str) -> str:
+    """``ccf/graph/backends/x_write.py`` -> ``ccf.graph.backends.x_write``."""
+    return relative[: -len(".py")].replace("/", ".")
 
-    The CINV-02 lint restricts who may *import* the writer module; this test
+
+def test_write_code_has_no_second_home_outside_a_guarded_write_module() -> None:
+    """Every writer and txn class lives in a module ``is_write_module`` guards.
+
+    The CINV-02 lint restricts who may *import* a write module; this test
     guards the other direction — that generalizing the seam did not scatter
-    write *implementations* (``*GraphWriter``, ``*GraphTxn``) into modules
-    the lint never guards. A backend that shipped its transaction class next
-    to its reader would re-open exactly the hole the module docstring's
-    "a new backend adds a writer class here" rule closes.
+    write *implementations* (``*GraphWriter``, ``*GraphTxn``) into modules the
+    lint never guards. A backend that shipped its transaction class next to its
+    *reader* would re-open exactly the hole D-01 closes.
+
+    The membership test is imported from the checker rather than restated, so
+    the two cannot drift: whatever the lint guards is what this test permits,
+    and a seventh adapter's write module is admitted here on arrival for the
+    same reason it joins the guarded set on arrival.
     """
+    from tools.lints.harness_imports import is_write_module
+
     source_root = Path(__file__).resolve().parents[2] / "src"
-    writer_module = source_root / "ccf" / "graph" / "_writer.py"
     write_shaped = re.compile(r"(GraphWriter|GraphTxn)$")
 
     offenders: list[str] = []
     for path in sorted(source_root.rglob("*.py")):
-        if path == writer_module:
+        relative = path.relative_to(source_root).as_posix()
+        if is_write_module(_dotted(relative)):
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        relative = path.relative_to(source_root).as_posix()
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
                 continue
@@ -170,6 +186,33 @@ def test_write_code_has_no_second_home_outside_the_writer_module() -> None:
             offenders.append(f"{relative}:{node.lineno}::{node.name}")
 
     assert offenders == [], (
-        "write code found outside ccf.graph._writer (CINV-02 second-home "
-        f"violation): {offenders}"
+        "write code found outside a CINV-02-guarded write module "
+        f"(second-home violation): {offenders}"
+    )
+
+
+def test_the_guarded_set_is_not_vacuous() -> None:
+    """The test above is only worth anything if something was skipped.
+
+    A predicate that matched nothing would make the scan above pass by
+    scanning the whole tree and finding no writer at all — green, and
+    guarding nothing. So the modules the predicate admits are counted, and
+    the count is asserted against the writers actually on disk.
+    """
+    from tools.lints.harness_imports import is_write_module
+
+    source_root = Path(__file__).resolve().parents[2] / "src"
+    guarded = sorted(
+        relative
+        for relative in (
+            path.relative_to(source_root).as_posix()
+            for path in source_root.rglob("*.py")
+        )
+        if is_write_module(_dotted(relative))
+    )
+
+    assert "ccf/graph/_writer.py" in guarded, guarded
+    assert len(guarded) >= 2, (
+        "no per-backend write module is guarded; the predicate matched only "
+        f"the neutral base: {guarded}"
     )
