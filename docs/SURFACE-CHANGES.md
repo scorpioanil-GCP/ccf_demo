@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**405 entries**, of which **185** name a public Python surface.
+**407 entries**, of which **186** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-162 entries — 133 public Python surface, 29 not public Python API.
+164 entries — 134 public Python surface, 30 not public Python API.
 
 ### Public Python surface
 
@@ -2826,6 +2826,40 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.4-09-backends-cli.md`.*
 
+#### ccf_runtime.cli.commands.backends.register
+
+- Surface: ccf_runtime.cli.commands.backends.register
+- Public surface: true
+- Change type: added
+- Before: absent — no CLI path to the adapter names a deployment accepts
+- After: the tenth noun, `ccf backends list`, whose verb returns a single
+  `RequestSpec(method="GET", path="/backends")` exactly like the other nine
+- Why: D-IMPL-79 again, and the trade is worth stating plainly. The deployment
+  manifest's `backend` field used to be a six-name `Literal`, which put an
+  `enum` in `docs/schemas/ccf.deployment-manifest.json` and gave an adopter's
+  editor a completion list. Plan 15.4-06 removed the `Literal` because a
+  generated six-name list would still have been six substrate names in a core
+  contract (D-12), and the `enum` went with it. This command is what replaces
+  it, and it answers a better question: the enum could only ever say what
+  someone hard-coded, while this reads the deployment's own registry and says
+  what is *installed here* — third-party adapters included, which is the case
+  that becomes interesting the moment an adapter can arrive from outside this
+  repository. The command holds no local generation path: it returns a
+  `RequestSpec` and nothing else, so the route's fail-closed `503` and the
+  distribution name it carries arrive over the same path any client sees,
+  under `--local` too.
+- Migration: none for the command itself — a new noun; nothing existing moved.
+  An adopter who relied on editor autocompletion of the manifest's `backend`
+  field should run `ccf backends list` against the deployment they are writing
+  the manifest for, and use a name from that answer. It is strictly better
+  information than the enum was: the enum listed what the SDK shipped at the
+  version the schema was generated from, while this lists what the target
+  deployment actually has installed. A typo is still caught — at manifest
+  load, by a membership check against the same registry, with a refusal that
+  lists the accepted names.
+
+*Recorded by `15.4-09-backends-cli.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -3273,6 +3307,22 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   mechanical consequence of adding it; `tests/http_api/test_routes.py` reads
   that ruling text to hold the mounted prefixes to it.
 - Migration: none — a new endpoint; nothing existing moved
+
+*Recorded by `15.4-09-backends-cli.md`.*
+
+#### ccf backends list
+
+- Surface: ccf backends list
+- Public surface: false
+- Change type: added
+- Before: absent
+- After: prints the `GET /backends` response body; exit 0 on success, and a
+  nonzero wiring exit carrying the registry's refusal message on a packaging
+  conflict
+- Why: the command an adopter types is not a Python name, so it can never
+  appear in the manifest diff and is classified `false`. The noun-verb shape
+  is D-IMPL-22's ruling — there is deliberately no bare `ccf backends`.
+- Migration: none — a new command
 
 *Recorded by `15.4-09-backends-cli.md`.*
 
