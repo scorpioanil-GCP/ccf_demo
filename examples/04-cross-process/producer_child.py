@@ -243,7 +243,9 @@ def build_covenant_slice_product(*, database_path: Path) -> AssembledCovenantSli
     #    names every artifact in force, `load_and_boot` parses all of them,
     #    registers the `role: register` ones, and boots on the resulting pins.
     booted = load_and_boot(
-        MANIFEST, registry=registry, database_path=str(database_path)
+        MANIFEST,
+        registry=registry,
+        connection={"database_path": str(database_path)},
     )
     try:
         events = cast(SignalBatch, booted.artifacts["events"])

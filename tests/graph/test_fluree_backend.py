@@ -1971,10 +1971,18 @@ def test_manifest_declares_fluree_and_preflight_requires_the_url() -> None:
     deployment may also hold a bearer token, while the manifest is a
     content-hashed audit artifact — so no connection value lives in it.
     Preflight refuses a `fluree` declaration with no URL before any document is
-    read, and refuses the *wrong* connection argument just as loudly.
+    read, and refuses the *wrong* connection setting just as loudly.
+
+    The refusals moved and the guarantees did not (15.4-06). Preflight no longer
+    holds a substrate-to-argument table: it resolves the adapter the manifest
+    names and validates one connection mapping against that adapter's own
+    contract, so "the URL is required" is a required field and "this setting is
+    not yours" is the inherited `extra="forbid"`. One assertion is *added* while
+    migrating, because this path carries a credential: the supplied value must be
+    absent from the refusal.
     """
     from ccf.controlplane.artifacts import DeploymentManifest
-    from ccf.deployment.manifest import _preflight_backend
+    from ccf.deployment.manifest import _preflight_adapter
 
     manifest = DeploymentManifest.model_validate(
         {
@@ -2001,33 +2009,24 @@ def test_manifest_declares_fluree_and_preflight_requires_the_url() -> None:
             ],
         }
     )
-    with pytest.raises(ValueError, match="fluree"):
-        _preflight_backend(
-            manifest,
-            database_path=None,
-            postgres_dsn=None,
-            neo4j_uri=None,
-            mongo_uri=None,
-            fluree_url=None,
+    with pytest.raises(ValueError, match="fluree") as missing:
+        _preflight_adapter(manifest, {})
+    assert "url" in str(missing.value)
+
+    # And the mirror: the right setting is accepted, a setting the adapter does
+    # not declare is refused.
+    _preflight_adapter(manifest, {"url": "http://localhost:8090"})
+
+    stray = "mongodb://user:pw@localhost:27017"
+    with pytest.raises(ValueError, match="uri") as refused:
+        _preflight_adapter(
+            manifest, {"url": "http://localhost:8090", "uri": stray}
         )
-    # And the mirror: the right argument is accepted, the wrong one refused.
-    _preflight_backend(
-        manifest,
-        database_path=None,
-        postgres_dsn=None,
-        neo4j_uri=None,
-        mongo_uri=None,
-        fluree_url="http://localhost:8090",
-    )
-    with pytest.raises(ValueError, match="also supplied"):
-        _preflight_backend(
-            manifest,
-            database_path=None,
-            postgres_dsn=None,
-            neo4j_uri=None,
-            mongo_uri="mongodb://localhost:27017",
-            fluree_url="http://localhost:8090",
-        )
+    # The refusal names the key and never reproduces what was supplied under
+    # it — the same posture `_authorization` holds for this adapter's two
+    # credential channels, asserted here because a misspelled connection key is
+    # exactly where a credential lands under a name nobody declared.
+    assert stray not in str(refused.value)
 
 
 def test_boot_refuses_this_adapter_plus_another_substrates_setting() -> None:

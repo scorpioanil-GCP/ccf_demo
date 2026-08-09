@@ -281,7 +281,7 @@ def workload(store_config: str) -> WorkloadResult:
         booted = load_and_boot(
             MANIFEST,
             registry=registry,
-            database_path=str(root / "fabric.sqlite3"),
+            connection={"database_path": str(root / "fabric.sqlite3")},
         )
         # --8<-- [end:boot]
         try:

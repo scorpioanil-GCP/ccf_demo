@@ -84,7 +84,7 @@ def _boot(
     return load_and_boot(
         manifest or deployment.manifest_path,
         registry=registry if registry is not None else ControlPlaneRegistry(),
-        database_path=str(tmp_path / name),
+        connection={"database_path": str(tmp_path / name)},
         **kwargs,
     )
 
@@ -370,7 +370,7 @@ def test_an_unlisted_file_in_the_artifacts_directory_changes_nothing(
         after.handle.close()
 
 
-# --- (4) the backend kind, and the loud failure -------------------------------
+# --- (4) the declared adapter, and the loud failure ---------------------------
 
 
 def test_postgres_declared_with_no_dsn_fails_loudly_and_creates_no_sqlite_file(
@@ -382,6 +382,13 @@ def test_postgres_declared_with_no_dsn_fails_loudly_and_creates_no_sqlite_file(
     production and still pass every test. So the assertion is not only that the
     call raised — it is that nothing SQLite-shaped exists anywhere under
     ``tmp_path`` afterwards.
+
+    The refusal moved and the guarantee did not. It used to come from a
+    substrate-to-required-argument table inside this module's subject; it now
+    comes from the adapter's own connection contract, where the field is
+    required (D-07), built by
+    :func:`ccf.graph.registry.validate_connection`. It still names the adapter
+    and it still names the field, which is what an operator needs.
     """
     path = deployment.variant_manifest(
         "postgres.yaml", manifest_document(backend="postgres")
@@ -393,7 +400,7 @@ def test_postgres_declared_with_no_dsn_fails_loudly_and_creates_no_sqlite_file(
 
     message = str(raised.value)
     assert "postgres" in message
-    assert "postgres_dsn" in message
+    assert "dsn" in message
     assert not any(
         candidate.suffix in {".sqlite3", ".sqlite", ".db"}
         for candidate in tmp_path.rglob("*")
@@ -440,16 +447,35 @@ def test_sqlite_declared_with_no_database_path_fails_the_same_way(
 def test_supplying_the_other_backends_argument_is_refused(
     deployment: Deployment, tmp_path: pathlib.Path
 ) -> None:
-    """Declaring ``sqlite`` and supplying a DSN is a contradiction, not a choice."""
+    """Declaring ``sqlite`` and supplying a DSN is a contradiction, not a choice.
+
+    The *shape* of the contradiction changed with the signature and the point
+    did not. It used to be two connection keyword arguments where the manifest
+    named one substrate; it is now one connection mapping carrying a key the
+    declared adapter does not take, refused by the ``extra="forbid"`` every
+    adapter contract inherits.
+
+    This is the refusal easiest to lose in a migration like this one — it is
+    the one that disappears silently, because a manifest with a stray key still
+    boots if the guard goes. So the assertion is kept, and strengthened: the
+    supplied *value* must be absent from the message, because the same code
+    path carries credentials and Pydantic reproduces a supplied value verbatim
+    in a validation error.
+    """
     registry = ControlPlaneRegistry()
+    stray = "postgresql://fixture/never-connected"
     with pytest.raises(ValueError) as raised:
         load_and_boot(
             deployment.manifest_path,
             registry=registry,
-            database_path=str(tmp_path / "graph.sqlite3"),
-            postgres_dsn="postgresql://fixture/never-connected",
+            connection={
+                "database_path": str(tmp_path / "graph.sqlite3"),
+                "dsn": stray,
+            },
         )
-    assert "postgres_dsn" in str(raised.value)
+    message = str(raised.value)
+    assert "dsn" in message
+    assert stray not in message
     assert registry.audit_events() == ()
 
 
@@ -475,7 +501,12 @@ def test_memory_declared_boots_with_no_connection_argument(
 def test_memory_declared_with_a_connection_argument_is_refused(
     deployment: Deployment, tmp_path: pathlib.Path
 ) -> None:
-    """``memory`` plus a connection argument is the same contradiction as ever.
+    """``memory`` plus a connection setting is the same contradiction as ever.
+
+    The adapter with no required settings is the clearest case for the
+    mechanism that replaced the per-substrate table: its connection contract
+    has no fields at all, so "requires nothing" and "forbids everything" are
+    one inherited property rather than a special case anybody wrote.
 
     Refused in preflight, before anything is registered — the registry is
     exactly as the call found it.
@@ -488,7 +519,7 @@ def test_memory_declared_with_a_connection_argument_is_refused(
         load_and_boot(
             path,
             registry=registry,
-            database_path=str(tmp_path / "graph.sqlite3"),
+            connection={"database_path": str(tmp_path / "graph.sqlite3")},
         )
     assert "database_path" in str(raised.value)
     assert registry.audit_events() == ()
