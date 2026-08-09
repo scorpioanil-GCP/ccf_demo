@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pathlib
 
-from tools.lints.harness_imports import RULE_GRAPH_WRITER, RULE_HARNESS, check_source
+from tools.lints.harness_imports import (
+    RULE_GRAPH_WRITER,
+    RULE_HARNESS,
+    check_source,
+    is_write_module,
+)
 
 SRC = pathlib.Path("src/ccf/operators/traversal.py")
 
@@ -111,3 +116,66 @@ def test_a_harness_import_in_a_lookalike_sibling_module_is_still_flagged() -> No
     # is not a dotted descendant of it; the boundary must hold.
     findings = check_source("import langgraph\n", EVIL, "ccf_runtime.adapters_evil")
     assert _rules(findings) == [RULE_HARNESS]
+
+
+# --- the widened cinv02-graph-writer guarded set (D-01/D-03) ----------------
+#
+# The rule guards a *class* of modules — the neutral base plus every
+# ``backends/<name>_write`` module — with two distinct permitted-importer sets.
+# These tests watch it fire, watch it stay quiet, and pin the asymmetry between
+# the two sets so that widening one cannot quietly widen the other.
+
+A_WRITE_MODULE = "ccf.graph.backends.sqlite_write"
+IMPORT_A_WRITE_MODULE = f"from {A_WRITE_MODULE} import SqliteGraphWriter\n"
+
+
+def test_per_backend_write_module_import_outside_l2_is_flagged() -> None:
+    findings = check_source(IMPORT_A_WRITE_MODULE, SRC, "ccf.operators.traversal")
+    assert _rules(findings) == [RULE_GRAPH_WRITER]
+    assert A_WRITE_MODULE in findings[0]
+
+
+def test_per_backend_write_module_import_from_assembly_is_allowed() -> None:
+    assert check_source(IMPORT_A_WRITE_MODULE, SRC, "ccf.assembly.worker") == []
+
+
+def test_a_write_module_may_import_the_neutral_base() -> None:
+    # Every write module subclasses BaseGraphWriter and implements _GraphTxn,
+    # so naming the base is the subclass's whole reason to exist.
+    findings = check_source(
+        "from ccf.graph._writer import BaseGraphWriter\n", SRC, A_WRITE_MODULE
+    )
+    assert findings == []
+
+
+def test_the_registry_may_not_import_a_per_backend_write_module() -> None:
+    # The registry carve-out covers the neutral base and stops there. If this
+    # test ever goes green the two permitted sets have been collapsed into one.
+    findings = check_source(IMPORT_A_WRITE_MODULE, SRC, "ccf.graph.registry")
+    assert _rules(findings) == [RULE_GRAPH_WRITER]
+
+
+def test_the_registry_may_import_the_neutral_base() -> None:
+    # It types the seam — BaseGraphWriter and BootToken — and never mints a
+    # token or calls a factory.
+    findings = check_source(
+        "from ccf.graph._writer import BootToken\n", SRC, "ccf.graph.registry"
+    )
+    assert findings == []
+
+
+def test_is_write_module_covers_the_base_and_the_per_backend_modules() -> None:
+    assert is_write_module("ccf.graph._writer")
+    assert is_write_module(A_WRITE_MODULE)
+
+
+def test_is_write_module_is_dot_bounded() -> None:
+    # `ccf.graph.backends_evil` shares a string prefix with the adapter package
+    # but is not a dotted descendant of it.
+    assert not is_write_module("ccf.graph.backends_evil.sqlite_write")
+
+
+def test_a_read_module_inside_the_adapter_package_is_not_guarded() -> None:
+    # Only `<name>_write` modules join the guarded set; the read module beside
+    # them is imported by many callers and stays unguarded by this rule.
+    assert not is_write_module("ccf.graph.backends.sqlite")

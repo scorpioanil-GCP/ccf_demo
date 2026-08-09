@@ -13,10 +13,45 @@ Three rules, one AST walk:
     path, where it is the adapter's whole purpose (D-IMPL-09).
 
 ``cinv02-graph-writer``
-    The concrete writer module ``ccf.graph._writer`` is importable only from L2
-    (``ccf.assembly``) and the composition root (``ccf.boot``). This is layer 2
-    of the single-writer defence: even with a writer implementation on disk, no
-    other module can name it.
+    The guarded set is a *class* of modules, not one path: the neutral write
+    base ``ccf.graph._writer`` plus every per-backend write module
+    ``ccf.graph.backends.<name>_write`` (D-01). This is layer 2 of the
+    single-writer defence: even with a writer implementation on disk, no other
+    module can name it.
+
+    Naming the class rather than the instance is the lesson D-GATE-15.3 records
+    the project learning three times in one phase. A rule pinned to one file
+    stops enforcing anything the moment that file splits, and it stops
+    *silently* — the rule still runs, still passes, and guards nothing. The
+    membership test is therefore a predicate, :func:`is_write_module`, and a
+    seventh adapter's write module joins the guarded set on arrival with no
+    edit here.
+
+    Two permitted-importer sets, not one, because the neutral base has one more
+    legitimate consumer than a per-backend write module does. A per-backend
+    write module keeps exactly today's permitted set — L2 (``ccf.assembly``)
+    and the composition root (``ccf.boot``), i.e. ``WRITER_OK_MODULES``. The
+    neutral base additionally permits ``ccf.graph.registry`` and the guarded
+    write modules themselves (``NEUTRAL_WRITER_OK_MODULES``), because each
+    write module subclasses ``BaseGraphWriter`` and implements the ``_GraphTxn``
+    Protocol and so must be able to name the base.
+
+    The registry carve-out has two limits and both are deliberate. It exists
+    because the registry *types* the write seam — it names ``BaseGraphWriter``
+    and ``BootToken`` so ``BackendRegistration.make_writer`` can be typed under
+    ``mypy --strict`` — and it stops there: the registry never mints a token
+    and never calls the factory. And it covers the neutral base only, never a
+    per-backend write module; a test pins that asymmetry so widening one set
+    cannot quietly widen the other.
+
+    What this rule does not see: it reads the dotted names
+    :func:`~tools.lints.imported_module_names` reports, so
+    ``from ccf.graph import _writer`` and
+    ``from ccf.graph.backends import <name>_write`` are seen as ``ccf.graph``
+    and ``ccf.graph.backends`` and match nothing here. The first is a
+    pre-existing blind spot of this rule; the second is covered by
+    ``cinv02-backend-import`` in ``tools/lints/backend_imports.py``, which
+    denies the adapter package to every module outside it.
 
 ``cinv02-deployment-gates``
     The adopter-facing wiring package ``ccf.deployment`` may not import
@@ -88,9 +123,32 @@ HARNESS_ADAPTER_MODULES: frozenset[str] = frozenset({"ccf_runtime.adapters"})
 #: surface (D-IMPL-17's second seam), with the CCF engine authoritative.
 ORCHESTRATION_MODULES: frozenset[str] = frozenset({"ccf_runtime.orchestration"})
 
-#: The concrete GraphWriter module and its permitted importers.
+#: The neutral write base. Substrate-neutral machinery only after D-03: the
+#: transaction Protocols, ``BootToken``, and ``BaseGraphWriter``.
 WRITER_MODULE = "ccf.graph._writer"
+
+#: The adapter package, and the suffix that marks a module inside it as a write
+#: module. Together they are the guarded set's second half — see
+#: :func:`is_write_module`. Neither names a substrate, so the set grows by
+#: itself.
+BACKENDS_PACKAGE = "ccf.graph.backends"
+WRITE_MODULE_SUFFIX = "_write"
+
+#: Permitted importers of a **per-backend** write module: L2 and the
+#: composition root. Unchanged from before the writer split.
 WRITER_OK_MODULES: frozenset[str] = frozenset({"ccf.assembly", "ccf.boot"})
+
+#: The backend registry, which is permitted to name the *neutral base* only.
+#: A reviewed named constant, not an allowlist line (D-13).
+REGISTRY_MODULE = "ccf.graph.registry"
+
+#: Permitted importers of the **neutral base**: the two above, plus the
+#: registry (which types the seam without exercising it), plus any guarded
+#: write module — each subclasses ``BaseGraphWriter`` and implements
+#: ``_GraphTxn``, so each must be able to name the base. The write modules are
+#: admitted by predicate in :func:`check_source` rather than by enumeration,
+#: for the same reason the guarded set itself is a predicate.
+NEUTRAL_WRITER_OK_MODULES: frozenset[str] = WRITER_OK_MODULES | {REGISTRY_MODULE}
 
 #: The gate module and the one package denied it (D-15A). Both matches are
 #: dot-bounded, so ``ccf.deployment_evil`` is not caught by accident while
@@ -99,6 +157,22 @@ WRITER_OK_MODULES: frozenset[str] = frozenset({"ccf.assembly", "ccf.boot"})
 #: the gates except this one package.
 GATES_MODULE = "ccf.products.gates"
 GATES_DENIED_IMPORTER = "ccf.deployment"
+
+
+def is_write_module(name: str) -> bool:
+    """True when `name` is a module the single-writer rule guards.
+
+    That is: the neutral base :data:`WRITER_MODULE`, or a module inside
+    :data:`BACKENDS_PACKAGE` whose final dotted segment ends with
+    :data:`WRITE_MODULE_SUFFIX`. The package match is dot-bounded via
+    :func:`~tools.lints.matches_module`, so a sibling package that merely shares
+    a string prefix is not a member.
+    """
+    if name == WRITER_MODULE:
+        return True
+    return matches_module(name, (BACKENDS_PACKAGE,)) and name.rpartition(".")[
+        2
+    ].endswith(WRITE_MODULE_SUFFIX)
 
 
 def submodule_import_names(node: ast.AST) -> list[str]:
@@ -152,20 +226,29 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
                         f" ({', '.join(sorted(LLM_ADAPTER_MODULES))})",
                     )
                 )
-            if matches_module(name, (WRITER_MODULE,)) and not matches_module(
-                module_name, WRITER_OK_MODULES
-            ):
-                findings.append(
-                    format_finding(
-                        path,
-                        lineno,
-                        RULE_GRAPH_WRITER,
-                        f"GraphWriter module {name!r} is importable only from"
-                        f" {', '.join(sorted(WRITER_OK_MODULES))}"
-                        f" (single-writer invariant, CLAUDE.md §10);"
-                        f" {module_name!r} may not name it",
-                    )
+            if is_write_module(name):
+                neutral = name == WRITER_MODULE
+                permitted = (
+                    NEUTRAL_WRITER_OK_MODULES if neutral else WRITER_OK_MODULES
                 )
+                allowed = matches_module(module_name, permitted) or (
+                    neutral and is_write_module(module_name)
+                )
+                if not allowed:
+                    where = ", ".join(sorted(permitted))
+                    if neutral:
+                        where += ", and any guarded write module"
+                    findings.append(
+                        format_finding(
+                            path,
+                            lineno,
+                            RULE_GRAPH_WRITER,
+                            f"GraphWriter module {name!r} is importable only"
+                            f" from {where}"
+                            f" (single-writer invariant, CLAUDE.md §10);"
+                            f" {module_name!r} may not name it",
+                        )
+                    )
 
         if not in_deployment:
             continue
