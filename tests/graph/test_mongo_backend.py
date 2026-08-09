@@ -55,12 +55,13 @@ def test_module_imports_without_the_driver() -> None:
 
     The lazy-import posture: the driver is demanded at store *construction*,
     never at import, so the no-extra tree stays fully importable — including
-    ``ccf.graph._writer``, which imports the backend module for its collection
-    names and the field-path helper.
+    ``ccf.graph.backends.mongo_write``, which imports the reader module for its
+    collection names and the field-path helper (D-01: the write module imports
+    its reader, never the reverse).
     """
     import ccf.boot  # noqa: F401 - the import IS the assertion
-    import ccf.graph._writer  # noqa: F401
     import ccf.graph.backends.mongo  # noqa: F401
+    import ccf.graph.backends.mongo_write  # noqa: F401
 
 
 def test_graph_identity_carries_no_credentials() -> None:

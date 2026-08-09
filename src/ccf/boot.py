@@ -8,9 +8,14 @@ constructs exactly one ``GraphWriter`` and injects it into L2 and nowhere else.
 Everything the single-writer invariant rests on converges here, so it is worth
 stating what each part is doing:
 
-* :mod:`ccf.graph._writer` is imported by this module and by ``ccf.assembly``
-  alone, enforced by the CINV-02 import lint. A module that wanted a write
-  handle would have to name that import, and naming it fails CI.
+* The write surface is import-restricted by the CINV-02 lint, and since D-01
+  that surface is a *class* of modules rather than one file: the neutral base
+  :mod:`ccf.graph._writer` plus every ``ccf.graph.backends.<name>_write``.
+  This module and ``ccf.assembly`` are the permitted importers of a
+  per-backend write module; the neutral base additionally permits the backend
+  registry, which types the seam without exercising it. A module that wanted a
+  write handle would have to name one of those imports, and naming it fails
+  CI.
 * The token is minted once per graph and consumed by the one writer. A second
   boot against the same graph raises before any write can occur, rather than
   producing a second writer that quietly interleaves state the replay engine
@@ -41,24 +46,18 @@ from ccf.assembly.worker import (
     SpecDrivenEntityResolution,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol
-from ccf.graph._writer import (
-    BaseGraphWriter,
-    BootToken,
-    FlureeGraphWriter,
-    MemoryGraphWriter,
-    MongoGraphWriter,
-    Neo4jGraphWriter,
-    PostgresGraphWriter,
-    SqliteGraphWriter,
-    mint_boot_token,
-)
+from ccf.graph._writer import BaseGraphWriter, BootToken, mint_boot_token
 from ccf.graph.backends.fluree import (
     DEFAULT_PARTITION as FLUREE_DEFAULT_PARTITION,
 )
 from ccf.graph.backends.fluree import FlureeGraphStore
+from ccf.graph.backends.fluree_write import FlureeGraphWriter
 from ccf.graph.backends.memory import MemoryGraphStore
+from ccf.graph.backends.memory_write import MemoryGraphWriter
 from ccf.graph.backends.postgres import DEFAULT_SCHEMA, PostgresGraphStore
+from ccf.graph.backends.postgres_write import PostgresGraphWriter
 from ccf.graph.backends.sqlite import SqliteGraphStore
+from ccf.graph.backends.sqlite_write import SqliteGraphWriter
 from ccf.graph.protocols import GraphReader
 
 __ccf_mode__ = "algorithmic"
@@ -148,9 +147,12 @@ def _open_backend(
     explicit statements, never a fallback a missing connection argument
     degrades to.
 
-    The Neo4j and MongoDB branches import their backends lazily: the ``neo4j``
-    and ``pymongo`` drivers are optional extras, and boot stays importable —
-    and every other branch stays bootable — in an environment without them.
+    The Neo4j and MongoDB branches import their reader **and write** modules
+    lazily: the ``neo4j`` and ``pymongo`` drivers are optional extras, and boot
+    stays importable — and every other branch stays bootable — in an
+    environment without them. Since D-01 the write module is a second import to
+    keep deferred, and keeping it deferred is what stops a SQLite boot pulling
+    either driver's adapter into ``sys.modules``.
     **The Fluree branch does not**, and the difference is the point: its wire
     client is ``httpx``, a core pin, so its import shape is the *Postgres*
     one — module-top, unconditional, no lazy deferral (SUBQ-14).
@@ -192,6 +194,9 @@ def _open_backend(
             DEFAULT_PARTITION,
             Neo4jGraphStore,
         )
+        from ccf.graph.backends.neo4j_write import (  # noqa: PLC0415
+            Neo4jGraphWriter,
+        )
 
         neo4j_store = Neo4jGraphStore(
             uri=neo4j_uri,
@@ -213,6 +218,9 @@ def _open_backend(
         )
         from ccf.graph.backends.mongo import (  # noqa: PLC0415
             MongoGraphStore,
+        )
+        from ccf.graph.backends.mongo_write import (  # noqa: PLC0415
+            MongoGraphWriter,
         )
 
         mongo_store = MongoGraphStore(

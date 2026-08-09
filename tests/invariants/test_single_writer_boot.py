@@ -26,12 +26,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from ccf.graph._writer import (
-    BootToken,
-    SingleWriterViolation,
-    SqliteGraphWriter,
-)
+from ccf.graph._writer import BootToken, SingleWriterViolation
 from ccf.graph.backends.sqlite import SqliteGraphStore
+from ccf.graph.backends.sqlite_write import SqliteGraphWriter
 from ccf.graph.protocols import GraphWriter
 
 if TYPE_CHECKING:

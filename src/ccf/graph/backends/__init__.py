@@ -1,13 +1,20 @@
 """Reference ``GraphStore`` backends (D-IMPL-02).
 
-SQLite for development and for the §9 examples discipline; Postgres for the
-production posture (D-11 — a later wave, implemented against the conformance
-suite this wave establishes). Physical layout is backend-internal; what a
-backend owes is the six semantics of :mod:`ccf.graph.protocols`.
+One adapter per substrate. Physical layout is backend-internal; what an adapter
+owes is the six semantics of :mod:`ccf.graph.protocols`.
 
-Backends expose *reader* implementations only. The write handle for every
-backend lives in the import-restricted ``ccf.graph._writer`` module — see its
-docstring for why that placement is the point rather than an inconvenience.
+**An adapter is two modules, and the pair is asymmetric (D-01).** Each ships a
+*reader* module, ``<name>.py``, and a *write* module, ``<name>_write.py``. The
+write module is guarded by the same CINV-02 ``cinv02-graph-writer`` rule that
+guards the neutral base ``ccf.graph._writer``: only ``ccf.assembly`` (L2) and
+``ccf.boot`` (the composition root) may import it, and the rule's membership
+test is a predicate over module names, so a new adapter's write module joins
+the guarded set on arrival with no lint edit.
+
+**A write module may import its own reader; the reverse is forbidden.** If a
+reader imported its writer, every importer of the reader would transitively
+reach write code and the rule would flag the reader itself — the whole point of
+splitting them would be undone by the import that looks most convenient.
 
 Algorithmic package (CINV-03).
 """
