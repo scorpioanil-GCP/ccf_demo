@@ -19,11 +19,38 @@ on:
         required: false
         default: "qwen3:0.6b"
         type: string
+  schedule:
+    # Plan 15.3-05, D-09: the fluree upstream-drift detector, run against the
+    # FLOATING 4.1 tag while ci.yml pins 4.1.4 exactly. Justification: 12 v4
+    # releases Apr–Jul 2026, and 4.1.3 shipped a documented breaking change
+    # INSIDE a minor. Discovering an upstream break on its own schedule beats
+    # discovering it in the middle of someone else's phase.
+    #
+    # NOTE — this is a change to the workflow's TRIGGER SURFACE. Until now the
+    # workflow was `workflow_dispatch:` only and consumed Actions minutes only
+    # when a human asked for it; from here it consumes them on a cadence. The
+    # cost was accepted on the record as threat T-15.3-19 (weekly, one leg,
+    # seconds of runtime against a ~70 MB Rust binary), so it is a decision
+    # rather than a side effect. The two manually-dispatched example-03 legs
+    # below are NOT scheduled — GitHub runs every job in a workflow on every
+    # trigger unless the job says otherwise, so each of those two carries an
+    # explicit `if: github.event_name == 'workflow_dispatch'`. `fluree-drift`
+    # deliberately carries no guard: it should answer to both triggers, so a
+    # human can ask "has upstream moved?" without waiting for Monday.
+    - cron: "0 7 * * 1"      # weekly, Mondays 07:00 UTC — a cadence, not a
+                             # value; tune freely without a decision.
 
 jobs:
   examples-live-ollama:
     name: example 03 live leg (Ollama, keyless — D-03)
     runs-on: ubuntu-latest
+    # Dispatch only. The `schedule:` trigger added for the fluree drift
+    # detector would otherwise pull this job along with it — GitHub runs every
+    # job in a workflow on every trigger — turning an opt-in 15-minute
+    # CPU-only model run into a weekly one nobody asked for. D-11 makes this
+    # leg opt-in; the guard is what keeps it opt-in after the trigger surface
+    # widened.
+    if: github.event_name == 'workflow_dispatch'
     # CPU-only runner safeguard (Ollama SUG5): a slow model pull or generation
     # must not hang the runner.
     timeout-minutes: 15
@@ -67,6 +94,11 @@ jobs:
   examples-live-anthropic:
     name: example 03 live leg (Anthropic, secret-gated — D-11)
     runs-on: ubuntu-latest
+    # Dispatch only, same reason as the Ollama leg above — and one sharper: a
+    # scheduled run of this job spends real API credit weekly, and on a
+    # repository without the secret it would go red every Monday for a reason
+    # unrelated to anything anyone changed.
+    if: github.event_name == 'workflow_dispatch'
     timeout-minutes: 15
 
     steps:
@@ -104,3 +136,72 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: make example-03-live-anthropic
+
+  # ---------------------------------------------------------------------
+  # The D-09 upstream-drift detector (plan 15.3-05).
+  #
+  # This runs the SAME fluree differential leg that ci.yml runs, against a
+  # DIFFERENT image tag: ci.yml pins `4.1.4` exactly, this pins the floating
+  # `4.1`. The pair is the whole mechanism — the exact pin is what makes the
+  # phase's conformance evidence reproducible, and the floating tag is what
+  # notices when upstream moves underneath it. Swapping them would defeat
+  # both, so `4.1.4` must never appear in this file.
+  #
+  # This job is allowed to FAIL LOUDLY, and no non-blocking escape hatch is
+  # configured for it anywhere in this file. Phase 4's D-07 forbids that dodge,
+  # and a drift detector that cannot go red detects nothing.
+  #
+  # TWO HONEST LIMITATIONS, recorded as facts rather than as reconsiderations
+  # of D-09:
+  #
+  #   1. `4.1` resolves to the same image as the exact pin TODAY (4.1.4 is the
+  #      current release as of 2026-08-08). The job is therefore a NO-OP until
+  #      4.1.5 ships, and a first green run proves that the job works — not
+  #      that no drift exists. Read it that way until a 4.1.x lands.
+  #   2. `4.1` tracks the PATCH stream only. A `4.2.0` would pass here
+  #      unnoticed; the `4` tag would have caught it. D-09 says `4.1`, so
+  #      `4.1` is implemented — and the gap is made visible rather than
+  #      assumed away.
+  fluree-drift:
+    name: fluree upstream-drift detector (floating 4.1 — D-09)
+    runs-on: ubuntu-latest
+    # Generous vs. the leg's real cost (37 tests, seconds): the budget is for
+    # the image pull on a cold runner, not for the tests.
+    timeout-minutes: 20
+
+    services:
+      fluree:
+        image: fluree/server:4.1
+        ports:
+          - 8090:8090
+        options: >-
+          --health-cmd "curl -fsS http://127.0.0.1:8090/health"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+          --health-start-period 10s
+
+    env:
+      # Identical to ci.yml. A skipped leg here is a failure, not a minimal
+      # environment — a drift job that silently skips is the same nothing as
+      # one that cannot go red.
+      CCF_TEST_FLUREE_URL: http://localhost:8090
+      CCF_REQUIRE_FLUREE: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # Deliberately UNCHANGED from ci.yml's install line, and deliberately
+      # without a fluree extra: httpx is a core pin, so this substrate needs
+      # no packaging accommodation at all (SUBQ-14 evidence, visible here as
+      # an absence).
+      - name: Install package with dev extras
+        run: python -m pip install -e ".[dev,neo4j,mongo]"
+
+      - name: Fluree leg against the floating 4.1 tag
+        run: pytest tests -q -m fluree -rs
