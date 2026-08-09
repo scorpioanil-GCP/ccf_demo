@@ -133,6 +133,7 @@ def _open_backend(
     mongo_partition: str | None,
     fluree_url: str | None,
     fluree_partition: str | None,
+    fluree_bearer_token: str | None,
 ) -> tuple[_Backend, Callable[[BootToken], BaseGraphWriter]]:
     """Select and open the graph backend named by explicit configuration.
 
@@ -155,7 +156,8 @@ def _open_backend(
     one — module-top, unconditional, no lazy deferral (SUBQ-14).
 
     Raises:
-        ValueError: not exactly one backend was named.
+        ValueError: not exactly one backend was named, or a credential was
+            supplied for a backend that was not selected.
     """
     selected = (
         (database_path is not None)
@@ -171,6 +173,11 @@ def _open_backend(
             "postgres_dsn (Postgres), memory=True (in-memory), "
             "neo4j_uri (Neo4j), mongo_uri (MongoDB), or fluree_url "
             "(Fluree v4); the fabric does not infer its substrate"
+        )
+    if fluree_bearer_token is not None and fluree_url is None:
+        raise ValueError(
+            "fluree_bearer_token was supplied without fluree_url; a credential"
+            " for a backend nobody selected would be silently ignored"
         )
     if memory:
         memory_store = MemoryGraphStore()
@@ -227,6 +234,7 @@ def _open_backend(
                 if fluree_partition is not None
                 else FLUREE_DEFAULT_PARTITION
             ),
+            bearer_token=fluree_bearer_token,
         )
         return fluree_store, lambda token: FlureeGraphWriter(
             store=fluree_store, token=token
@@ -255,6 +263,7 @@ def boot(
     mongo_partition: str | None = None,
     fluree_url: str | None = None,
     fluree_partition: str | None = None,
+    fluree_bearer_token: str | None = None,
     registry: ControlPlaneProtocol,
     resolution_spec_key: str,
     resolution_spec_version: str,
@@ -309,6 +318,11 @@ def boot(
         fluree_partition: Which graph in the CCF-owned ledger this fabric owns
             — the ``mongo_partition`` / ``neo4j_partition`` / Postgres
             ``schema`` role. ``None`` selects the adapter's default partition.
+        fluree_bearer_token: Bearer credential for a secured Fluree server —
+            the alternative channel to userinfo in ``fluree_url``, and
+            supplying both is refused rather than resolved by precedence. Same
+            posture as every other connection value: environment-supplied,
+            never persisted, never in the graph identity, header-only (WR-03).
         registry: Control Plane the resolution spec and policy bundle come from.
         resolution_spec_key: Key of the :class:`EntityResolutionSpec` artifact.
         resolution_spec_version: Pinned version of that artifact.
@@ -337,6 +351,7 @@ def boot(
         mongo_partition=mongo_partition,
         fluree_url=fluree_url,
         fluree_partition=fluree_partition,
+        fluree_bearer_token=fluree_bearer_token,
     )
     try:
         token = mint_boot_token(graph_identity=store.graph_identity)

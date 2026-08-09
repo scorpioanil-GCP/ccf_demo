@@ -79,13 +79,30 @@ observation-time error the ruling forbids. ``t`` appears in this module in
 exactly one role — threading ``Fluree-Min-T`` for read-after-write — and in no
 other.
 
-**Credentials.** The connection URL may carry userinfo, and a deployment may
-additionally supply a bearer token. Neither ever reaches
+**Credentials — two channels, exactly one at a time.** The connection URL may
+carry userinfo, or the deployment may supply a ``bearer_token``. Userinfo
+becomes an HTTP **Basic** ``Authorization`` header and the token becomes a
+**Bearer** one; both are computed by :func:`_authorization`, and supplying
+both is **refused** rather than resolved by precedence. Both are reachable
+from ``boot()`` and ``load_and_boot()`` —
+``fluree_url="http://user:pass@host:8090"`` or ``fluree_bearer_token=…``.
+
+Whichever channel is used, the credential's one and only home is the httpx
+client's default headers. It never reaches
 :attr:`FlureeGraphStore.graph_identity`, which is built from
 host/port/ledger/partition only (threat T-15.2-05, the T-04-24 postgres
-precedent). A bearer token is a **header**, not userinfo: it lives in the
-httpx client's default headers and nowhere else — not in the identity string,
-not in a docstring, and never in a content-hashed manifest artifact.
+precedent); it never survives into a request line, because the client is
+built on the credential-free origin :func:`_server_root` returns; and it is
+never interpolated into any exception this module raises, so it reaches no
+log, no error and no content-hashed manifest artifact.
+
+**Correction (WR-02/WR-03, 2026-08-09).** Until this fix userinfo was stripped
+and then *discarded*: httpx 0.28.1 derives no ``Authorization`` header from a
+``base_url``'s userinfo (measured), and ``bearer_token`` was reachable from no
+supported boot path. A credentialed URL therefore connected **anonymously**
+while three documents presented one channel or the other as the credential.
+The rule now enforced is the ``neo4j.py:151-165`` precedent this module always
+cited: userinfo a caller supplied is *used*, never silently dropped.
 
 **No artifact-authored string ever occupies an IRI position.** This is
 Fluree's slot for Mongo's :func:`~ccf.graph.backends.mongo.attribute_field_path`
@@ -122,11 +139,12 @@ from __future__ import annotations
 
 import json
 import re
+from base64 import b64encode
 from collections.abc import Sequence
 from http import HTTPStatus
 from types import TracebackType
 from typing import Any, ClassVar
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 import httpx
 
@@ -170,7 +188,11 @@ DEFAULT_LEDGER = "ccf:main"
 #: Documented standalone-server API base, used only when
 #: ``/.well-known/fluree.json`` omits ``api_base_url``. The store discovers the
 #: value rather than hard-coding it, which is what makes it correct behind a
-#: differently-mounted server (15.3-RESEARCH.md §R2).
+#: differently-mounted **API base** (15.3-RESEARCH.md §R2). Note the bound,
+#: made explicit by WR-02: that is the API base *beneath* the origin, not a
+#: differently-mounted server root — the discovery document is itself read
+#: from the origin, so a root-mounted path is refused by :func:`_server_root`
+#: rather than silently dropped.
 DEFAULT_API_BASE = "/v1/fluree"
 
 #: ``GET /health`` is at the **server root**, not under the API base.
@@ -520,14 +542,83 @@ def _server_root(url: str) -> str:
 
     The httpx client is built on this rather than on the supplied URL, so a
     credentialed URL's userinfo does not survive into request lines, redirect
-    targets or connection-pool keys.
+    targets or connection-pool keys. Measured against the pinned httpx 0.28.1:
+    a client whose ``base_url`` carries userinfo emits it **in the request URL**
+    and derives **no** ``Authorization`` header from it — so stripping it here
+    is necessary, and :func:`_authorization` is what keeps it a *credential*
+    rather than a discarded one (WR-02).
+
+    Anything below the origin is **refused, not silently trimmed**. Every
+    request this store issues is rooted here — ``/health`` and
+    ``/.well-known/fluree.json`` at the origin, the discovered API base beneath
+    it — so a path-mounted server is genuinely unreachable through this store,
+    and quietly dropping the path turns "unreachable" into "connected to a
+    different server than the caller named". None of ``path``, ``query`` or
+    ``fragment`` can carry userinfo, so naming them in the message leaks
+    nothing.
+
+    Raises:
+        ValueError: the URL carries a path, query or fragment.
     """
     parts = urlsplit(url)
+    if parts.path not in ("", "/") or parts.query or parts.fragment:
+        raise ValueError(
+            "fluree_url must be a bare server origin (scheme://host:port);"
+            f" got path={parts.path!r} query={parts.query!r}"
+            f" fragment={parts.fragment!r}. Every request this store issues is"
+            " rooted at the origin, so anything below it would be dropped"
+            " rather than honoured — and a component the caller supplied and"
+            " the store silently discarded is the WR-02 failure mode"
+        )
     host = parts.hostname or "localhost"
     netloc = host if parts.port is None else f"{host}:{parts.port}"
     return parts._replace(
         netloc=netloc, path="", query="", fragment=""
     ).geturl()
+
+
+def _authorization(url: str, bearer_token: str | None) -> str | None:
+    """The ``Authorization`` header value the supplied credentials stand for.
+
+    Two channels reach this store and **exactly one may be used at a time**:
+
+    * **URL userinfo** — ``http://user:pass@host:8090`` — becomes HTTP Basic.
+      This is the Fluree rendering of what ``_split_credentials`` does with a
+      Bolt URI at ``ccf.graph.backends.neo4j:151-165``: userinfo a caller
+      supplied is *used*, never discarded. Fluree's wire is HTTP, so the
+      credential's home is a header rather than a driver ``auth`` argument,
+      but the rule is the precedent's. The two halves are percent-decoded
+      first, because a password containing ``@`` or ``:`` cannot be written
+      into a URL any other way (RFC 3986 §3.2.1).
+    * **``bearer_token``** — becomes ``Bearer <token>``, unchanged.
+
+    Supplying **both** is refused rather than resolved by precedence. A store
+    that silently preferred one would authenticate as an identity the
+    deployment did not unambiguously ask for, and "which credential won" is
+    exactly the question an audit cannot afford to answer by convention.
+
+    Returns ``None`` when neither is supplied. That is an anonymous connection
+    the caller *asked* for — a different thing from the anonymous connection
+    WR-02 produced from a credential the caller did supply.
+
+    Neither credential is interpolated into the refusal below, into
+    :func:`_graph_identity`, or into any other exception this module raises.
+
+    Raises:
+        ValueError: both channels were supplied.
+    """
+    parts = urlsplit(url)
+    if parts.username is None and parts.password is None:
+        return None if bearer_token is None else f"Bearer {bearer_token}"
+    if bearer_token is not None:
+        raise ValueError(
+            "fluree_url carries userinfo and bearer_token was also supplied;"
+            " supply exactly one credential. This store refuses to choose"
+            " between two rather than silently preferring one — neither value"
+            " appears in this message"
+        )
+    userinfo = f"{unquote(parts.username or '')}:{unquote(parts.password or '')}"
+    return "Basic " + b64encode(userinfo.encode("utf-8")).decode("ascii")
 
 
 def _query_body(cypher: str, params: dict[str, object]) -> str:
@@ -568,10 +659,14 @@ class FlureeGraphStore:
     """Connection and ledger owner for the Fluree v4 backend — no extra needed.
 
     Args:
-        url: Server URL (``http://host:8090``), optionally carrying userinfo.
-            Supplied by the deployment (typically from an environment
-            variable); never committed, never logged, and never echoed back
-            through :attr:`graph_identity`.
+        url: Server **origin** (``http://host:8090``), optionally carrying
+            userinfo — which becomes an HTTP Basic ``Authorization`` header
+            (:func:`_authorization`), not a discarded string. Supplied by the
+            deployment (typically from an environment variable); never
+            committed, never logged, and never echoed back through
+            :attr:`graph_identity`. A URL carrying a path, query or fragment
+            is refused: every request is rooted at the origin, so anything
+            below it would be dropped rather than honoured (WR-02).
         partition: Which graph in this ledger this store attaches to. Two
             partitions in one ledger are two graphs — what lets one server
             host several fabrics, and what makes the single-writer check
@@ -579,17 +674,23 @@ class FlureeGraphStore:
             ``schema`` argument's role, exactly).
         ledger: The CCF-owned ledger (D-03). Bootstrapped idempotently at
             construction; every boot after the first sees ``409``.
-        bearer_token: Optional bearer credential. Held **only** in the httpx
-            client's default headers — never in :attr:`graph_identity`, never
-            in the URL, and never in a content-hashed manifest artifact
-            (threats T-15.2-05 / T-04-24; the manifest carries the backend
-            *kind* only).
+        bearer_token: Optional bearer credential, reachable from the supported
+            boot path as ``boot(fluree_bearer_token=…)`` and
+            ``load_and_boot(fluree_bearer_token=…)`` (WR-03). Held **only** in
+            the httpx client's default headers — never in
+            :attr:`graph_identity`, never in the URL, and never in a
+            content-hashed manifest artifact (threats T-15.2-05 / T-04-24; the
+            manifest carries the backend *kind* only). Mutually exclusive with
+            userinfo in ``url``.
 
     As with every backend store, this is *not* a store offering both halves of
     the Protocol: it offers :attr:`reader`, and the transport surface to the
     writer module alone.
 
     Raises:
+        ValueError: ``url`` carries a path/query/fragment, or both credential
+            channels were supplied. Both are refusals of an instruction the
+            store could otherwise only honour by discarding half of it.
         httpx.HTTPError: When the server is unreachable or refuses the
             bootstrap. Raised at construction rather than at first read: a
             store that cannot reach its server is a broken deployment
@@ -612,9 +713,15 @@ class FlureeGraphStore:
             url, ledger=ledger, partition=partition
         )
         headers = {"Content-Type": "application/json"}
-        if bearer_token is not None:
-            # The token's one and only home. It is a header, not userinfo.
-            headers["Authorization"] = f"Bearer {bearer_token}"
+        # Computed BEFORE the client, from BOTH channels, so a credentialed
+        # URL authenticates instead of connecting anonymously (WR-02) and an
+        # ambiguous pair is refused instead of silently resolved.
+        credential = _authorization(url, bearer_token)
+        if credential is not None:
+            # The credential's one and only home: a request header. Never the
+            # URL — `_server_root` strips it, and httpx would otherwise emit
+            # userinfo in the request line while sending no `Authorization`.
+            headers["Authorization"] = credential
         self._client = httpx.Client(
             base_url=_server_root(url),
             timeout=DEFAULT_TIMEOUT,

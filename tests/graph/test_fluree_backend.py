@@ -1533,16 +1533,232 @@ def test_graph_identity_carries_no_credentials() -> None:
 def test_server_root_drops_userinfo_before_the_client_sees_it() -> None:
     """The httpx client is built on a credential-free origin.
 
-    A bearer token is a header and never reaches the URL; userinfo supplied in
-    the URL is removed here, so it survives into no request line, no redirect
-    target and no connection-pool key.
+    Both credentials are headers and neither reaches the URL; userinfo
+    supplied in the URL is removed here, so it survives into no request line,
+    no redirect target and no connection-pool key. What *carries* it is
+    `_authorization`, asserted separately below — dropping it here without
+    that was WR-02.
     """
     from ccf.graph.backends.fluree import _server_root
 
-    root = _server_root("http://alice:s3cret@graph.example.com:8090/ignored")
+    root = _server_root("http://alice:s3cret@graph.example.com:8090")
     assert root == "http://graph.example.com:8090"
     assert "s3cret" not in root
     assert "alice" not in root
+
+
+def test_a_url_below_the_origin_is_refused_rather_than_silently_trimmed() -> None:
+    """WR-02's second half: a dropped mount path is a lost capability.
+
+    `_server_root` used to `_replace(path="")`, so `http://host/fluree` became
+    `http://host` and a path-mounted server was unreachable *silently*. Every
+    request this store issues is rooted at the origin — `/health` and the
+    discovery document included — so the honest answer is a refusal naming the
+    component, not a trim.
+    """
+    from ccf.graph.backends.fluree import _server_root
+
+    for url in (
+        "http://graph.example.com:8090/fluree",
+        "http://graph.example.com:8090/?tenant=a",
+        "http://graph.example.com:8090/#frag",
+    ):
+        with pytest.raises(ValueError, match="bare server origin"):
+            _server_root(url)
+    # A bare origin, with or without the trailing slash, still resolves.
+    assert _server_root("http://host:8090") == "http://host:8090"
+    assert _server_root("http://host:8090/") == "http://host:8090"
+
+
+def test_url_userinfo_becomes_a_basic_credential_not_a_discarded_string() -> None:
+    """WR-02, the defect itself: userinfo must AUTHENTICATE or be refused.
+
+    The pre-fix code stripped userinfo in `_server_root` and then did nothing
+    with it, and httpx 0.28.1 derives no `Authorization` header from a
+    `base_url`'s userinfo (asserted below against the real client, so this
+    stays true if the pin moves). A credentialed URL therefore connected
+    **anonymously** — the one outcome that must not remain.
+
+    The rule now is `neo4j.py:151-165`'s: userinfo a caller supplied is used.
+    """
+    from ccf.graph.backends.fluree import _authorization
+
+    # (a) httpx really does not do this for us. If a future httpx starts
+    #     deriving the header, this assertion fails and the duplication is
+    #     surfaced rather than left to rot.
+    with httpx.Client(base_url="http://alice:s3cret@host:8090") as probe:
+        assert "authorization" not in probe.build_request("GET", "/health").headers
+
+    # (b) so the adapter does it.
+    header = _authorization("http://alice:s3cret@host:8090", None)
+    assert header is not None
+    assert header.startswith("Basic ")
+    import base64
+
+    assert base64.b64decode(header.split(" ", 1)[1]).decode() == "alice:s3cret"
+
+    # (c) percent-encoded halves are decoded first: a password containing `@`
+    #     or `:` cannot be written into a URL any other way (RFC 3986 §3.2.1).
+    encoded = _authorization("http://al%40ice:p%3Ass%40word@host:8090", None)
+    assert encoded is not None
+    assert (
+        base64.b64decode(encoded.split(" ", 1)[1]).decode() == "al@ice:p:ss@word"
+    )
+
+    # (d) no credential supplied is still anonymous — a caller's choice, and a
+    #     different thing from a supplied credential being dropped.
+    assert _authorization("http://host:8090", None) is None
+
+    # (e) the bearer channel.
+    assert _authorization("http://host:8090", "tok") == "Bearer tok"
+
+
+def test_two_credential_channels_at_once_are_refused_without_echoing_either() -> None:
+    """Ambiguity is refused, not resolved by precedence.
+
+    "Which credential won" is a question an audit cannot answer by convention,
+    so the store refuses instead of picking. The refusal must also not leak:
+    neither the password nor the token appears in the message.
+    """
+    from ccf.graph.backends.fluree import _authorization
+
+    with pytest.raises(ValueError) as caught:
+        _authorization("http://alice:s3cret@host:8090", "tok-abc")
+    message = str(caught.value)
+    assert "s3cret" not in message
+    assert "tok-abc" not in message
+    assert "alice" not in message
+
+
+def _offline_fluree_transport(seen: list[httpx.Request]) -> httpx.MockTransport:
+    """A server-free stand-in for the three requests construction makes.
+
+    `/health`, `/.well-known/fluree.json`, then the idempotent `POST /create`
+    answered `409` as a second boot would answer it. Every request is recorded
+    so the test can assert what the WIRE carried, not merely what the store
+    computed — the difference between "the header was built" and "the header
+    was sent" is exactly the gap WR-02 lived in.
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path == "/.well-known/fluree.json":
+            return httpx.Response(200, json={"api_base_url": "/v1/fluree"})
+        if request.url.path.endswith("/create"):
+            return httpx.Response(409, json={})
+        return httpx.Response(200, json={})
+
+    return httpx.MockTransport(handler)
+
+
+def test_a_credentialed_url_authenticates_on_the_wire(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """End to end, server-free: every request carries the credential.
+
+    Constructs a real `FlureeGraphStore` over a `MockTransport`, so the
+    assertion is about the requests httpx actually built. Before the WR-02 fix
+    this test fails on the first request: no `Authorization` header at all.
+    """
+    import ccf.graph.backends.fluree as fluree_mod
+
+    seen: list[httpx.Request] = []
+    real_client = httpx.Client
+
+    def _client(**kwargs: Any) -> httpx.Client:
+        return real_client(transport=_offline_fluree_transport(seen), **kwargs)
+
+    monkeypatch.setattr(fluree_mod.httpx, "Client", _client)
+
+    store = fluree_mod.FlureeGraphStore(
+        url="http://alice:s3cret@graph.example.com:8090", partition="ccf_test"
+    )
+    try:
+        assert seen, "construction issued no request"
+        for request in seen:
+            assert request.headers.get("authorization") == "Basic YWxpY2U6czNjcmV0"
+            # And the credential never travels in the URL either.
+            assert "alice" not in str(request.url)
+            assert "s3cret" not in str(request.url)
+        # Nor into the identity the single-writer check and replay key on.
+        assert "s3cret" not in store.graph_identity
+        assert "alice" not in store.graph_identity
+    finally:
+        store.close()
+
+
+def test_boot_threads_the_bearer_token_to_the_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """WR-03: `bearer_token` is reachable through the supported boot path.
+
+    It was a constructor parameter no supported path could set, which reads as
+    a credential path that works. Asserted three ways: the two public
+    signatures carry it, and `_open_backend` actually threads it onto the
+    wire.
+    """
+    import inspect
+
+    import ccf.graph.backends.fluree as fluree_mod
+    from ccf.boot import _open_backend, boot
+    from ccf.deployment.manifest import load_and_boot
+
+    assert "fluree_bearer_token" in inspect.signature(boot).parameters
+    assert "fluree_bearer_token" in inspect.signature(load_and_boot).parameters
+
+    seen: list[httpx.Request] = []
+    real_client = httpx.Client
+
+    def _client(**kwargs: Any) -> httpx.Client:
+        return real_client(transport=_offline_fluree_transport(seen), **kwargs)
+
+    monkeypatch.setattr(fluree_mod.httpx, "Client", _client)
+
+    store, _make_writer = _open_backend(
+        database_path=None,
+        postgres_dsn=None,
+        postgres_schema="ccf",
+        memory=False,
+        neo4j_uri=None,
+        neo4j_partition=None,
+        mongo_uri=None,
+        mongo_partition=None,
+        fluree_url="http://graph.example.com:8090",
+        fluree_partition="ccf_test",
+        fluree_bearer_token="tok-abc",
+    )
+    try:
+        assert seen, "construction issued no request"
+        for request in seen:
+            assert request.headers.get("authorization") == "Bearer tok-abc"
+        assert "tok-abc" not in store.graph_identity
+    finally:
+        store.close()
+
+
+def test_a_bearer_token_without_a_fluree_url_is_refused() -> None:
+    """A credential for a backend nobody selected would be silently ignored.
+
+    The same failure class as WR-02 one layer up: an argument the caller
+    supplied that the machinery quietly drops. `_open_backend` refuses, so
+    `boot` and `load_and_boot` both inherit the refusal.
+    """
+    from ccf.boot import _open_backend
+
+    with pytest.raises(ValueError, match="without fluree_url"):
+        _open_backend(
+            database_path=None,
+            postgres_dsn=None,
+            postgres_schema="ccf",
+            memory=True,
+            neo4j_uri=None,
+            neo4j_partition=None,
+            mongo_uri=None,
+            mongo_partition=None,
+            fluree_url=None,
+            fluree_partition=None,
+            fluree_bearer_token="tok-abc",
+        )
 
 
 def test_partitions_are_distinct_graphs() -> None:
