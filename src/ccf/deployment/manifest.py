@@ -290,6 +290,7 @@ def load_and_boot(
     neo4j_uri: str | None = None,
     mongo_uri: str | None = None,
     fluree_url: str | None = None,
+    fluree_bearer_token: str | None = None,
     tenant_id: str | None = None,
 ) -> BootedFabric:
     """Load a manifest, validate and register what it names, and boot the fabric.
@@ -399,6 +400,11 @@ def load_and_boot(
             reason: a Fluree deployment may also hold a bearer token, and
             neither it nor the URL's userinfo may reach a content-hashed audit
             artifact (threat T-15.2-05).
+        fluree_bearer_token: The Fluree bearer credential, when the server
+            requires one and the URL carries no userinfo (WR-03). Threaded to
+            ``boot`` on exactly the ``postgres_dsn`` footing — environment-
+            supplied, never persisted, never in the manifest — and refused by
+            ``boot`` if ``fluree_url`` was not also supplied.
         tenant_id: The deployment's tenant, when the manifest does not name it.
 
     Raises:
@@ -542,6 +548,7 @@ def load_and_boot(
         neo4j_uri=neo4j_uri,
         mongo_uri=mongo_uri,
         fluree_url=fluree_url,
+        fluree_bearer_token=fluree_bearer_token,
         registry=registry,
         resolution_spec_key=manifest.resolution_spec_key,
         resolution_spec_version=pins.version_for(manifest.resolution_spec_key),
