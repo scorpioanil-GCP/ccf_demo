@@ -125,7 +125,8 @@ def fabric(
     )
     database_path = tmp_path / "acme-bank.sqlite3"
     handle = boot(
-        database_path=database_path,
+        backend="sqlite",
+        connection={"database_path": database_path},
         registry=registry,
         resolution_spec_key=keys["resolution_spec"],
         resolution_spec_version=spec_version,

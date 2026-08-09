@@ -72,7 +72,8 @@ def _boot_by_hand(database_path: pathlib.Path) -> FabricHandle:
         _POLICY_KEY, {"permitted_classifications": ["fixture-open"]}
     )
     return boot(
-        database_path=database_path,
+        backend="sqlite",
+        connection={"database_path": database_path},
         registry=registry,
         resolution_spec_key=_SPEC_KEY,
         resolution_spec_version=spec_version,

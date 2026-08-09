@@ -318,11 +318,14 @@ def fabric_boot(
         registry = ControlPlaneRegistry()
         spec_version = registry.register(RESOLUTION_SPEC_KEY, _resolution_spec())
         policy_version = registry.register(POLICY_BUNDLE_KEY, _policy_bundle())
+        # The keys are the field names on the adapter's own connection
+        # contract (plan 15.4-04), not `boot`'s — `boot` has no per-database
+        # parameter left to name.
         location: dict[str, Any]
         if backend == "postgres":
             location = {
-                "postgres_dsn": request.getfixturevalue("postgres_dsn"),
-                "postgres_schema": f"ccf_test_{uuid.uuid4().hex}",
+                "dsn": request.getfixturevalue("postgres_dsn"),
+                "schema_name": f"ccf_test_{uuid.uuid4().hex}",
             }
         elif backend == "sqlite":
             location = {
@@ -332,41 +335,44 @@ def fabric_boot(
         elif backend == "memory":
             # Phase 15.2 D-06: the zero-dependency in-memory backend. Every
             # boot is its own graph (per-instance synthetic identity), so
-            # isolation needs no temp file and no schema.
-            location = {"memory": True}
+            # isolation needs no temp file and no schema — and the adapter's
+            # connection contract has no fields at all, so the mapping is
+            # empty rather than carrying a selection flag.
+            location = {}
         elif backend == "neo4j":
             # Plan 15.2-12: a fresh partition per boot is what makes "a
             # fresh graph per test" true on a shared Community server,
             # exactly as a fresh schema does on Postgres.
             location = {
-                "neo4j_uri": request.getfixturevalue("neo4j_uri"),
-                "neo4j_partition": f"ccf_test_{uuid.uuid4().hex}",
+                "uri": request.getfixturevalue("neo4j_uri"),
+                "partition": f"ccf_test_{uuid.uuid4().hex}",
             }
         elif backend == "mongo":
             # Plan 15.2-13: a fresh partition per boot, exactly as the neo4j
             # leg does — what makes "a fresh graph per test" true on a shared
             # server without dropping databases between tests.
             location = {
-                "mongo_uri": request.getfixturevalue("mongo_uri"),
-                "mongo_partition": f"ccf_test_{uuid.uuid4().hex}",
+                "uri": request.getfixturevalue("mongo_uri"),
+                "partition": f"ccf_test_{uuid.uuid4().hex}",
             }
         elif backend == "fluree":
             # Plan 15.3: a fresh partition per boot inside ONE CCF-owned
             # ledger (D-03), so the container's state accumulates across a
             # whole job — the trade D-03 made for a single Fluree-Min-T lane.
             location = {
-                "fluree_url": request.getfixturevalue("fluree_url"),
-                "fluree_partition": f"ccf_test_{uuid.uuid4().hex}",
+                "url": request.getfixturevalue("fluree_url"),
+                "partition": f"ccf_test_{uuid.uuid4().hex}",
             }
         else:
             raise NotImplementedError(backend)
         handle = boot(
+            backend=backend,
+            connection=location,
             registry=registry,
             resolution_spec_key=RESOLUTION_SPEC_KEY,
             resolution_spec_version=spec_version,
             policy_bundle_key=POLICY_BUNDLE_KEY,
             policy_bundle_version=policy_version,
-            **location,
         )
         handles.append(handle)
         return handle

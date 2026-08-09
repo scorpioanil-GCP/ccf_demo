@@ -33,8 +33,16 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 import pytest
+from pydantic import SecretStr
 
 from ccf.contracts.canonical import canonical_bytes
+from ccf.controlplane.registry import ControlPlaneMissing
+from ccf.graph.backends.fluree_write import (
+    BEARER_TOKEN_FIELD,
+)
+from ccf.graph.backends.fluree_write import (
+    REGISTRATION as FLUREE_REGISTRATION,
+)
 
 from tests.conformance.query_corpus import (
     AUTHORING_OFFSETS,
@@ -1503,8 +1511,9 @@ def test_fa3c_the_path_enumeration_cap_errors_identifiably(
 # the interposed layout, the offset-authored projection — runs under the
 # `fluree` marker below and in tests/conformance/test_graphstore.py.
 #
-# `test_module_imports_without_the_driver` (test_neo4j_backend.py:35-43) is
-# deliberately NOT ported. It asserts that a module stays importable without an
+# `test_neo4j_backend.py::test_module_imports_without_the_driver` is
+# deliberately NOT ported. (Cited by symbol rather than by line: a line anchor
+# into another module drifts every time that module gains an import.) It asserts that a module stays importable without an
 # optional extra installed; httpx is a core pin, so the assertion cannot fail
 # and a test that cannot fail is worse than no test. The honest parallel — that
 # no extra, no lazy import and no mypy override were added at all — is a
@@ -1694,18 +1703,23 @@ def test_boot_threads_the_bearer_token_to_the_store(
     """WR-03: `bearer_token` is reachable through the supported boot path.
 
     It was a constructor parameter no supported path could set, which reads as
-    a credential path that works. Asserted three ways: the two public
-    signatures carry it, and `_open_backend` actually threads it onto the
-    wire.
+    a credential path that works. The guarantee is *a token supplied at boot
+    reaches the wire and reaches nothing else* — asserted end to end through
+    the supported path rather than against a signature.
+
+    The two signature assertions this test used to carry — that
+    ``fluree_bearer_token`` is a parameter of ``boot`` and of
+    ``load_and_boot`` — are false by design since D-IMPL-93: no parameter names
+    a database any more. They are replaced by the assertion below rather than
+    deleted, because the guarantee was never the parameter name. The credential
+    now travels as a `ResolvedSecret` keyed by the adapter's own config field,
+    which is what lets the adapter pin record *which reference* was in force
+    rather than merely that some credential was supplied.
     """
-    import inspect
-
     import ccf.graph.backends.fluree as fluree_mod
-    from ccf.boot import _open_backend, boot
-    from ccf.deployment.manifest import load_and_boot
-
-    assert "fluree_bearer_token" in inspect.signature(boot).parameters
-    assert "fluree_bearer_token" in inspect.signature(load_and_boot).parameters
+    from ccf.boot import boot
+    from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.graph.registry import ResolvedSecret
 
     seen: list[httpx.Request] = []
     real_client = httpx.Client
@@ -1715,26 +1729,40 @@ def test_boot_threads_the_bearer_token_to_the_store(
 
     monkeypatch.setattr(fluree_mod.httpx, "Client", _client)
 
-    store, _make_writer = _open_backend(
-        database_path=None,
-        postgres_dsn=None,
-        postgres_schema="ccf",
-        memory=False,
-        neo4j_uri=None,
-        neo4j_partition=None,
-        mongo_uri=None,
-        mongo_partition=None,
-        fluree_url="http://graph.example.com:8090",
-        fluree_partition="ccf_test",
-        fluree_bearer_token="tok-abc",
-    )
-    try:
-        assert seen, "construction issued no request"
-        for request in seen:
-            assert request.headers.get("authorization") == "Bearer tok-abc"
-        assert "tok-abc" not in store.graph_identity
-    finally:
-        store.close()
+    # Boot fails at the Control Plane resolution — the registry is empty — and
+    # that is after the store is constructed, which is the step under test.
+    # `boot`'s half-booted-fabric cleanup closes the store on the way out, so
+    # nothing leaks and this test needs no artifacts.
+    with pytest.raises(ControlPlaneMissing):
+        boot(
+            backend=FLUREE_REGISTRATION.name,
+            connection={
+                "url": "http://graph.example.com:8090",
+                "partition": "ccf_test",
+            },
+            secrets={
+                BEARER_TOKEN_FIELD: ResolvedSecret(
+                    field=BEARER_TOKEN_FIELD,
+                    ref_name="CCF_FLUREE_TOKEN",
+                    value=SecretStr("tok-abc"),
+                )
+            },
+            registry=ControlPlaneRegistry(),
+            resolution_spec_key="never",
+            resolution_spec_version="never",
+            policy_bundle_key="never",
+            policy_bundle_version="never",
+        )
+
+    assert seen, "construction issued no request"
+    for request in seen:
+        assert request.headers.get("authorization") == "Bearer tok-abc"
+        # Header-only (WR-03): the credential never travels in the URL.
+        assert "tok-abc" not in str(request.url)
+    # The other half of "reaches nothing else" — the identity the
+    # single-writer check and replay key on — is asserted directly by
+    # `test_graph_identity_carries_no_credentials`, which builds the identity
+    # from a URL that carries one.
 
 
 def test_a_failed_construction_closes_its_client(
@@ -1827,29 +1855,58 @@ def test_a_refusal_before_the_client_exists_closes_nothing(
     assert closes == [], closes
 
 
-def test_a_bearer_token_without_a_fluree_url_is_refused() -> None:
+def test_a_credential_for_an_adapter_that_declares_none_is_refused() -> None:
     """A credential for a backend nobody selected would be silently ignored.
 
     The same failure class as WR-02 one layer up: an argument the caller
-    supplied that the machinery quietly drops. `_open_backend` refuses, so
-    `boot` and `load_and_boot` both inherit the refusal.
-    """
-    from ccf.boot import _open_backend
+    supplied that the machinery quietly drops. This is the *relocation* of the
+    old `fluree_bearer_token`-without-`fluree_url` refusal, not a replacement
+    for it. Selection is a name now, so the same mistake arrives as a
+    credential keyed by a field the resolved adapter does not declare, and
+    `boot` refuses it against the adapter's own `secret_fields`.
 
-    with pytest.raises(ValueError, match="without fluree_url"):
-        _open_backend(
-            database_path=None,
-            postgres_dsn=None,
-            postgres_schema="ccf",
-            memory=True,
-            neo4j_uri=None,
-            neo4j_partition=None,
-            mongo_uri=None,
-            mongo_partition=None,
-            fluree_url=None,
-            fluree_partition=None,
-            fluree_bearer_token="tok-abc",
+    The guarantee was split rather than shortened. Its narrower half — a token
+    supplied *to this adapter* with no `url` — is now the `missing` refusal on
+    `url` in this adapter's connection contract, which
+    `tests/deployment/test_adapter_config.py` asserts per adapter.
+
+    The subject adapter here is deliberately one that declares **no** credential
+    field, taken off its own registration record rather than named, so the test
+    is about the mechanism and not about which adapter happens to have none.
+    """
+    from ccf.boot import boot
+    from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.graph.registry import ResolvedSecret, declared_names, resolve
+
+    credential_free = sorted(
+        name
+        for name in declared_names()
+        if not resolve(name).registration.secret_fields
+    )
+    assert credential_free, "no adapter declares an empty secret_fields"
+    subject = credential_free[0]
+
+    with pytest.raises(ValueError) as caught:
+        boot(
+            backend=subject,
+            secrets={
+                BEARER_TOKEN_FIELD: ResolvedSecret(
+                    field=BEARER_TOKEN_FIELD,
+                    ref_name="CCF_FLUREE_TOKEN",
+                    value=SecretStr("tok-abc"),
+                )
+            },
+            registry=ControlPlaneRegistry(),
+            resolution_spec_key="never",
+            resolution_spec_version="never",
+            policy_bundle_key="never",
+            policy_bundle_version="never",
         )
+    message = str(caught.value)
+    assert subject in message
+    assert BEARER_TOKEN_FIELD in message
+    # Names the adapter and the key, never the value.
+    assert "tok-abc" not in message
 
 
 def test_partitions_are_distinct_graphs() -> None:
@@ -1973,26 +2030,37 @@ def test_manifest_declares_fluree_and_preflight_requires_the_url() -> None:
         )
 
 
-def test_boot_refuses_fluree_plus_another_backend() -> None:
-    """Selecting fluree *and* memory is a contradiction, refused loudly.
+def test_boot_refuses_this_adapter_plus_another_substrates_setting() -> None:
+    """Naming this adapter and supplying another's setting is refused loudly.
 
-    The exactly-one exclusivity check runs before any store is constructed, so
-    the refusal needs no reachable server — the fabric does not infer its
-    substrate and does not pick a winner.
+    The guarantee is unchanged — the fabric does not infer its substrate and
+    does not pick a winner — and so is the property that made this test cheap:
+    the refusal still runs before any store is constructed, so it needs no
+    reachable server.
+
+    What changed is the shape of the contradiction. Before D-IMPL-93 it was two
+    of eleven keyword arguments; now it is a connection key this adapter does
+    not declare, refused by the ``extra="forbid"`` its contract inherits.
     """
     from ccf.boot import boot
     from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.graph.registry import InvalidBackendConfig
 
-    with pytest.raises(ValueError, match="exactly one"):
+    with pytest.raises(InvalidBackendConfig) as caught:
         boot(
-            fluree_url="http://localhost:8090",
-            memory=True,
+            backend=FLUREE_REGISTRATION.name,
+            connection={
+                "url": "http://localhost:8090",
+                "database_path": "never-created.sqlite3",
+            },
             registry=ControlPlaneRegistry(),
             resolution_spec_key="never",
             resolution_spec_version="never",
             policy_bundle_key="never",
             policy_bundle_version="never",
         )
+    assert FLUREE_REGISTRATION.name in str(caught.value)
+    assert "database_path" in str(caught.value)
 
 
 # --- the live-server half (needs a reachable Fluree v4) -----------------------

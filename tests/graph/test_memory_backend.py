@@ -2,10 +2,12 @@
 
 Four facts this module exists to hold:
 
-* **Explicit selection, never inference.** ``boot`` reaches the memory
-  backend only through ``memory=True``, and the exactly-one exclusivity check
-  covers all three substrates — two selections or none are refused with the
-  same loud ValueError style the two-backend check used.
+* **Explicit selection, never inference.** ``boot`` reaches this adapter only
+  by being told its name. Since D-IMPL-93 the name is required and carries no
+  default, and a connection setting this adapter does not declare is refused
+  by its own connection contract — the successor to the exactly-one
+  exclusivity check, which the eleven per-database keyword arguments took with
+  them.
 * **The floor is real.** A fabric boots against the memory backend through
   the real composition root, writes through L2, and answers a ``GraphQuery``
   — zero external dependencies. This is the D-06 must-have, asserted
@@ -40,11 +42,17 @@ from ccf.graph.backends.memory import (
     RelationshipClaimRow,
     RelationshipNodeRow,
 )
+from ccf.graph.backends.memory_write import REGISTRATION as MEMORY_REGISTRATION
 from ccf.graph.protocols import GraphQuery, GraphReader
 from ccf.signal.envelope import SourceIdentity
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
+
+#: This module's subject, read off the adapter's own registration record
+#: rather than typed here, so the name a manifest uses and the name this
+#: module asserts cannot drift apart.
+BACKEND_NAME = MEMORY_REGISTRATION.name
 
 TENANT = "tenant-a"
 T0 = datetime(2026, 1, 1, tzinfo=UTC)
@@ -72,34 +80,59 @@ def _entity(*, uri: str = "counterparty://acme", observed_at: datetime = T1) -> 
     )
 
 
-def test_boot_refuses_two_backend_selection(tmp_path: object) -> None:
-    """Selecting memory *and* a file is a contradiction, refused loudly.
+def test_boot_refuses_another_substrates_connection_setting() -> None:
+    """Naming this adapter and supplying another's setting is still refused.
 
-    The message states the exactly-one rule, the existing ValueError style:
-    the fabric does not infer its substrate and does not pick a winner.
+    The guarantee this test has always carried is *the fabric does not pick a
+    winner*. Before D-IMPL-93 it arrived as "exactly one of eleven keyword
+    arguments"; the eleven are gone, so the same contradiction now arrives as a
+    connection key the named adapter does not declare — and this adapter
+    declares none at all, so every key is one. The refusal comes from the
+    adapter's own connection contract through the registry's single
+    config-validation wrapper, which names the adapter and the key and never
+    the value.
     """
     from ccf.boot import boot
     from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.graph.registry import InvalidBackendConfig
 
-    with pytest.raises(ValueError, match="exactly one"):
+    with pytest.raises(InvalidBackendConfig) as caught:
         boot(
-            database_path="never-created.sqlite3",
-            memory=True,
+            backend=BACKEND_NAME,
+            connection={"database_path": "never-created.sqlite3"},
             registry=ControlPlaneRegistry(),
             resolution_spec_key="never",
             resolution_spec_version="never",
             policy_bundle_key="never",
             policy_bundle_version="never",
         )
+    assert BACKEND_NAME in str(caught.value)
+    assert "database_path" in str(caught.value)
+    # The refusal is the adapter's, not a rebuilt one: the value that was
+    # supplied does not travel with it.
+    assert "never-created.sqlite3" not in str(caught.value)
 
 
-def test_boot_refuses_no_backend_selection() -> None:
-    """Naming no substrate is refused the same way — there is no default-to-memory."""
+def test_boot_refuses_to_infer_a_substrate() -> None:
+    """There is no default substrate — not this one, not any other.
+
+    `backend` is required and carries no default, so omitting it is refused by
+    the signature itself rather than by a check that could be relaxed. That is
+    the successor to the old "naming no substrate is refused" case, and it is
+    the stronger form: a fabric that could infer its substrate could boot
+    against a development store in production and still pass every test.
+    """
+    import inspect
+
     from ccf.boot import boot
     from ccf.controlplane.registry import ControlPlaneRegistry
 
-    with pytest.raises(ValueError, match="exactly one"):
-        boot(
+    assert (
+        inspect.signature(boot).parameters["backend"].default
+        is inspect.Parameter.empty
+    )
+    with pytest.raises(TypeError, match="backend"):
+        boot(  # type: ignore[call-arg]
             registry=ControlPlaneRegistry(),
             resolution_spec_key="never",
             resolution_spec_version="never",

@@ -84,8 +84,10 @@ carry userinfo, or the deployment may supply a ``bearer_token``. Userinfo
 becomes an HTTP **Basic** ``Authorization`` header and the token becomes a
 **Bearer** one; both are computed by :func:`_authorization`, and supplying
 both is **refused** rather than resolved by precedence. Both are reachable
-from ``boot()`` and ``load_and_boot()`` —
-``fluree_url="http://user:pass@host:8090"`` or ``fluree_bearer_token=…``.
+from ``boot()`` and ``load_and_boot()`` — the userinfo through this adapter's
+``url`` connection setting, the token through the ``secrets`` mapping under
+the field this adapter declares in
+:attr:`~ccf.graph.registry.BackendRegistration.secret_fields`.
 
 Whichever channel is used, the credential's one and only home is the httpx
 client's default headers. It never reaches
@@ -675,8 +677,8 @@ class FlureeGraphStore:
         ledger: The CCF-owned ledger (D-03). Bootstrapped idempotently at
             construction; every boot after the first sees ``409``.
         bearer_token: Optional bearer credential, reachable from the supported
-            boot path as ``boot(fluree_bearer_token=…)`` and
-            ``load_and_boot(fluree_bearer_token=…)`` (WR-03). Held **only** in
+            boot path through the ``secrets`` mapping, keyed by the field this
+            adapter declares as carrying a credential (WR-03). Held **only** in
             the httpx client's default headers — never in
             :attr:`graph_identity`, never in the URL, and never in a
             content-hashed manifest artifact (threats T-15.2-05 / T-04-24; the

@@ -12,17 +12,21 @@ stating what each part is doing:
   that surface is a *class* of modules rather than one file: the neutral base
   :mod:`ccf.graph._writer` plus every ``ccf.graph.backends.<name>_write``.
   This module and ``ccf.assembly`` are the permitted importers of a
-  per-backend write module; the neutral base additionally permits the backend
+  per-adapter write module; the neutral base additionally permits the backend
   registry, which types the seam without exercising it. A module that wanted a
   write handle would have to name one of those imports, and naming it fails
-  CI.
+  CI. **This module now names none of them.** It asks
+  :func:`ccf.graph.registry.resolve` for the adapter a deployment selected and
+  calls the two factories that adapter registered, so the write module is
+  reached through the record rather than through an import here.
 * The token is minted once per graph and consumed by the one writer. A second
   boot against the same graph raises before any write can occur, rather than
   producing a second writer that quietly interleaves state the replay engine
   could never reconstruct.
-* :class:`FabricHandle` exposes a reader, the worker, and the Control Plane.
-  It has no writer attribute — not a private one either. Shutdown runs through
-  a closure, so there is nothing on the handle to reach for.
+* :class:`FabricHandle` exposes a reader, the worker, the Control Plane, and
+  the adapter pin. It has no writer attribute — not a private one either.
+  Shutdown runs through a closure, so there is nothing on the handle to reach
+  for.
 
 **Honest residual claim, verbatim from DESIGN.md §9 (per the D-IMPL-41
 ruling):** Python cannot make determined-insider evasion impossible. The claim
@@ -35,10 +39,8 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from pathlib import Path
+from collections.abc import Callable, Mapping
 from types import TracebackType
-from typing import Protocol
 
 from ccf.assembly.worker import (
     AssemblyWorker,
@@ -46,19 +48,14 @@ from ccf.assembly.worker import (
     SpecDrivenEntityResolution,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol
-from ccf.graph._writer import BaseGraphWriter, BootToken, mint_boot_token
-from ccf.graph.backends.fluree import (
-    DEFAULT_PARTITION as FLUREE_DEFAULT_PARTITION,
-)
-from ccf.graph.backends.fluree import FlureeGraphStore
-from ccf.graph.backends.fluree_write import FlureeGraphWriter
-from ccf.graph.backends.memory import MemoryGraphStore
-from ccf.graph.backends.memory_write import MemoryGraphWriter
-from ccf.graph.backends.postgres import DEFAULT_SCHEMA, PostgresGraphStore
-from ccf.graph.backends.postgres_write import PostgresGraphWriter
-from ccf.graph.backends.sqlite import SqliteGraphStore
-from ccf.graph.backends.sqlite_write import SqliteGraphWriter
+from ccf.graph._writer import mint_boot_token
 from ccf.graph.protocols import GraphReader
+from ccf.graph.registry import (
+    AdapterPin,
+    ResolvedSecret,
+    resolve,
+    validate_connection,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -66,12 +63,28 @@ __all__ = ["FabricHandle", "boot"]
 
 
 class FabricHandle:
-    """What a booted fabric hands back: read access, L2, and the Control Plane.
+    """What a booted fabric hands back: read access, L2, Control Plane, pin.
 
     Deliberately *not* a container for everything that was constructed. The
     write handle exists inside the worker and is unreachable from here, so
     "get the writer off the handle" is not a thing a caller can discover
     (DESIGN.md §2A.5.3 layer 2).
+
+    :attr:`adapter` is a departure worth naming rather than slipping in. Until
+    D-IMPL-93 this class carried capabilities and no *state* a caller could
+    misuse; the pin makes it carry a fact. The fact is one an adopter needs:
+    from D-IMPL-93 onward the adapter behind the graph seam can be third-party
+    code, so *which* adapter answered, at *which* version, and under which
+    credential references is part of what produced the answer. Whitepaper
+    §7.10.1 dimension 2 is where it lands; a later plan threads it there.
+
+    Attributes:
+        reader: Read access to the graph.
+        worker: L2 — the one holder of the write handle.
+        registry: The Control Plane the fabric resolved its bindings from.
+        adapter: The replay pin for the adapter that answered this boot. Three
+            fields, none of which can hold a credential: a name, a version, and
+            the *names* of the references the credentials came from.
     """
 
     def __init__(
@@ -80,11 +93,13 @@ class FabricHandle:
         reader: GraphReader,
         worker: AssemblyWorker,
         registry: ControlPlaneProtocol,
+        adapter: AdapterPin,
         shutdown: Callable[[], None],
     ) -> None:
         self.reader = reader
         self.worker = worker
         self.registry = registry
+        self.adapter = adapter
         self._shutdown = shutdown
 
     def close(self) -> None:
@@ -108,170 +123,48 @@ class FabricHandle:
         self.close()
 
 
-class _Backend(Protocol):
-    """What ``boot`` needs of a graph backend, whichever substrate it is."""
+def _refuse_undeclared_secrets(
+    adapter_name: str,
+    declared: frozenset[str],
+    supplied: Mapping[str, ResolvedSecret],
+) -> None:
+    """Refuse a credential offered for a field this adapter never declares.
 
-    @property
-    def graph_identity(self) -> str: ...
+    The survival of one of the four refusals the branch cascade performed: a
+    credential supplied for a backend that was not selected. Selection is now a
+    name, so the same mistake arrives as a credential keyed by a field the
+    resolved adapter does not declare — and dropping it silently is WR-02's
+    failure class, an argument the caller supplied that the machinery ignores.
 
-    @property
-    def reader(self) -> GraphReader: ...
-
-    def close(self) -> None: ...
-
-
-def _open_backend(
-    *,
-    database_path: Path | str | None,
-    postgres_dsn: str | None,
-    postgres_schema: str,
-    memory: bool,
-    neo4j_uri: str | None,
-    neo4j_partition: str | None,
-    mongo_uri: str | None,
-    mongo_partition: str | None,
-    fluree_url: str | None,
-    fluree_partition: str | None,
-    fluree_bearer_token: str | None,
-) -> tuple[_Backend, Callable[[BootToken], BaseGraphWriter]]:
-    """Select and open the graph backend named by explicit configuration.
-
-    Selection is by explicit argument, never by inference from the shape of a
-    string: a fabric that guessed its own substrate could silently boot against
-    a development SQLite file in production and would still pass every test.
-    SQLite remains the *default* (D-IMPL-02) precisely because it is the
-    development backend; Postgres is chosen by saying so — and so are the
-    in-memory backend (Phase 15.2 D-06), the Neo4j backend (plan 15.2-12), the
-    MongoDB backend (plan 15.2-13) and the Fluree backend (plan 15.3):
-    ``memory=True``, ``neo4j_uri``, ``mongo_uri`` and ``fluree_url`` are
-    explicit statements, never a fallback a missing connection argument
-    degrades to.
-
-    The Neo4j and MongoDB branches import their reader **and write** modules
-    lazily: the ``neo4j`` and ``pymongo`` drivers are optional extras, and boot
-    stays importable — and every other branch stays bootable — in an
-    environment without them. Since D-01 the write module is a second import to
-    keep deferred, and keeping it deferred is what stops a SQLite boot pulling
-    either driver's adapter into ``sys.modules``.
-    **The Fluree branch does not**, and the difference is the point: its wire
-    client is ``httpx``, a core pin, so its import shape is the *Postgres*
-    one — module-top, unconditional, no lazy deferral (SUBQ-14).
-
-    Raises:
-        ValueError: not exactly one backend was named, or a credential was
-            supplied for a backend that was not selected.
+    Built from key names only. No value is read, so nothing here needs the
+    sanitizing :func:`ccf.graph.registry.validate_connection` performs, and the
+    message reads in the same shape that one does: adapter, then field.
     """
-    selected = (
-        (database_path is not None)
-        + (postgres_dsn is not None)
-        + memory
-        + (neo4j_uri is not None)
-        + (mongo_uri is not None)
-        + (fluree_url is not None)
-    )
-    if selected != 1:
-        raise ValueError(
-            "boot requires exactly one of database_path (SQLite), "
-            "postgres_dsn (Postgres), memory=True (in-memory), "
-            "neo4j_uri (Neo4j), mongo_uri (MongoDB), or fluree_url "
-            "(Fluree v4); the fabric does not infer its substrate"
+    undeclared = sorted(set(supplied) - set(declared))
+    if not undeclared:
+        return
+    known = ", ".join(sorted(declared)) if declared else "none"
+    lines = [
+        f"  {field} — not a credential field of this adapter"
+        for field in undeclared
+    ]
+    raise ValueError(
+        "\n".join(
+            [
+                f"backend {adapter_name!r}: credentials were supplied for"
+                " fields it does not declare:",
+                *lines,
+                f"  declared credential fields: {known}",
+            ]
         )
-    if fluree_bearer_token is not None and fluree_url is None:
-        raise ValueError(
-            "fluree_bearer_token was supplied without fluree_url; a credential"
-            " for a backend nobody selected would be silently ignored"
-        )
-    if memory:
-        memory_store = MemoryGraphStore()
-        return memory_store, lambda token: MemoryGraphWriter(
-            store=memory_store, token=token
-        )
-    if neo4j_uri is not None:
-        # Lazy by design (the chroma_index precedent): the driver import
-        # happens inside the store's constructor, and the module import here
-        # is deferred so this branch is the first moment Neo4j is named.
-        from ccf.graph.backends.neo4j import (  # noqa: PLC0415
-            DEFAULT_PARTITION,
-            Neo4jGraphStore,
-        )
-        from ccf.graph.backends.neo4j_write import (  # noqa: PLC0415
-            Neo4jGraphWriter,
-        )
-
-        neo4j_store = Neo4jGraphStore(
-            uri=neo4j_uri,
-            partition=(
-                neo4j_partition
-                if neo4j_partition is not None
-                else DEFAULT_PARTITION
-            ),
-        )
-        return neo4j_store, lambda token: Neo4jGraphWriter(
-            store=neo4j_store, token=token
-        )
-    if mongo_uri is not None:
-        # Lazy by design, same as the Neo4j branch above: the pymongo import
-        # happens inside the store's constructor, and the module import here
-        # is deferred so this branch is the first moment MongoDB is named.
-        from ccf.graph.backends.mongo import (  # noqa: PLC0415
-            DEFAULT_PARTITION as MONGO_DEFAULT_PARTITION,
-        )
-        from ccf.graph.backends.mongo import (  # noqa: PLC0415
-            MongoGraphStore,
-        )
-        from ccf.graph.backends.mongo_write import (  # noqa: PLC0415
-            MongoGraphWriter,
-        )
-
-        mongo_store = MongoGraphStore(
-            uri=mongo_uri,
-            partition=(
-                mongo_partition
-                if mongo_partition is not None
-                else MONGO_DEFAULT_PARTITION
-            ),
-        )
-        return mongo_store, lambda token: MongoGraphWriter(
-            store=mongo_store, token=token
-        )
-    if fluree_url is not None:
-        fluree_store = FlureeGraphStore(
-            url=fluree_url,
-            partition=(
-                fluree_partition
-                if fluree_partition is not None
-                else FLUREE_DEFAULT_PARTITION
-            ),
-            bearer_token=fluree_bearer_token,
-        )
-        return fluree_store, lambda token: FlureeGraphWriter(
-            store=fluree_store, token=token
-        )
-    if postgres_dsn is not None:
-        pg_store = PostgresGraphStore(dsn=postgres_dsn, schema=postgres_schema)
-        return pg_store, lambda token: PostgresGraphWriter(
-            store=pg_store, token=token
-        )
-    assert database_path is not None  # narrowed by the exclusivity check above
-    sqlite_store = SqliteGraphStore(database_path=database_path)
-    return sqlite_store, lambda token: SqliteGraphWriter(
-        store=sqlite_store, token=token
     )
 
 
 def boot(
     *,
-    database_path: Path | str | None = None,
-    postgres_dsn: str | None = None,
-    postgres_schema: str = DEFAULT_SCHEMA,
-    memory: bool = False,
-    neo4j_uri: str | None = None,
-    neo4j_partition: str | None = None,
-    mongo_uri: str | None = None,
-    mongo_partition: str | None = None,
-    fluree_url: str | None = None,
-    fluree_partition: str | None = None,
-    fluree_bearer_token: str | None = None,
+    backend: str,
+    connection: Mapping[str, object] | None = None,
+    secrets: Mapping[str, ResolvedSecret] | None = None,
     registry: ControlPlaneProtocol,
     resolution_spec_key: str,
     resolution_spec_version: str,
@@ -280,57 +173,62 @@ def boot(
 ) -> FabricHandle:
     """Construct a fabric over one graph and return its handle.
 
+    Selection is a *name*, resolved through :mod:`ccf.graph.registry`. This
+    function knows of no adapter in particular: it resolves the one it was
+    given, validates the connection mapping against the contract that adapter
+    declares, and calls the two factories that adapter registered. Adding a
+    substrate therefore costs no edit here, which is the whole of D-IMPL-93
+    property (2).
+
+    ``backend`` is required and has no default, and that is a refusal rather
+    than an omission. A fabric that could infer its own substrate could boot
+    against a development store in production and still pass every test. The
+    fabric does not infer, and it does not fall back.
+
+    Only the named adapter is imported. An adapter whose driver is an optional
+    extra therefore loads its driver only when a deployment asks for that
+    adapter — a property that used to be two hand-written lazy branches here
+    and now holds by construction, because resolution imports exactly one write
+    module. How an adapter arranges its own imports is that adapter's recorded
+    decision, made in its own module and argued there; nothing here flattens
+    the shapes into one.
+
     Every Control Plane binding is an explicit, pinned ``(key, version)`` pair.
     There are no defaults and no "latest": a fabric whose configuration could
     drift between boots is a fabric whose decisions cannot be replayed
     (D-IMPL-38, whitepaper §7.10).
 
+    **Where the branch cascade's four refusals went**, so a reader can see that
+    nothing was dropped when it was deleted:
+
+    1. *Not exactly one backend selected* — structurally impossible now. One
+       name selects one adapter.
+    2. *A credential supplied for a backend that was not selected* — the
+       ``secrets`` membership check below, against the resolved adapter's own
+       declared credential fields.
+    3. *A required connection setting missing* — the adapter's config model,
+       where the field is required (D-07).
+    4. *A connection setting the adapter does not take* — the same model, by
+       the ``extra="forbid"`` every adapter contract inherits.
+
+    Refusals 3 and 4 are built by
+    :func:`ccf.graph.registry.validate_connection` and nowhere else. A second
+    wrapper written here would format the underlying validation error, and that
+    rendering embeds the value that was supplied.
+
     Args:
-        database_path: SQLite file to attach to. Exactly one of this,
-            ``postgres_dsn``, ``memory=True``, ``neo4j_uri``, ``mongo_uri``
-            and ``fluree_url`` must be given.
-        postgres_dsn: libpq connection string for the Postgres backend. Comes
-            from the deployment's environment; it is never persisted and never
+        backend: The adapter name this fabric boots against. Required; resolved
+            through :func:`ccf.graph.registry.resolve`, which refuses a name no
+            installed adapter registers and lists the ones that are registered.
+        connection: The adapter's connection settings, validated against the
+            contract it declares. Keys and their meaning are the adapter's, not
+            this function's. Environment-supplied: never persisted, and never
             reproduced in the graph identity the single-writer check uses.
-        postgres_schema: Postgres schema the fabric's tables live in. Two
-            schemas on one database are two graphs.
-        memory: Boot against a fresh in-memory graph (Phase 15.2 D-06) — zero
-            external dependencies, no connection argument, no persistence
-            beyond the handle's life. Every ``memory=True`` boot is its own
-            graph with its own synthetic identity: two memory fabrics are two
-            fabrics, never a shared substrate.
-        neo4j_uri: Bolt connection URI for the Neo4j backend (plan 15.2-12),
-            optionally carrying userinfo. Requires the ``neo4j`` extra; the
-            backend import is lazy, so boot stays importable without it. As
-            with the Postgres DSN: comes from the deployment's environment,
-            never persisted, and never reproduced in the graph identity.
-        neo4j_partition: Which graph on the Neo4j server this fabric owns —
-            the Postgres ``schema`` argument's role. ``None`` selects the
-            adapter's default partition. Two partitions on one database are
-            two graphs.
-        mongo_uri: MongoDB connection URI for the MongoDB backend (plan
-            15.2-13), optionally carrying userinfo. Requires the ``mongo``
-            extra; the backend import is lazy, so boot stays importable
-            without it. As with the Postgres DSN and the Bolt URI: comes from
-            the deployment's environment, never persisted, and never
-            reproduced in the graph identity.
-        mongo_partition: Which graph in the MongoDB database this fabric owns
-            — the ``neo4j_partition`` / Postgres ``schema`` role. ``None``
-            selects the adapter's default partition.
-        fluree_url: Server URL for the Fluree v4 backend (plan 15.3),
-            optionally carrying userinfo. Requires **no extra** — the wire
-            client is a core pin — so unlike the Neo4j and MongoDB branches
-            this one imports at module top. As with every other connection
-            argument: comes from the deployment's environment, never
-            persisted, and never reproduced in the graph identity.
-        fluree_partition: Which graph in the CCF-owned ledger this fabric owns
-            — the ``mongo_partition`` / ``neo4j_partition`` / Postgres
-            ``schema`` role. ``None`` selects the adapter's default partition.
-        fluree_bearer_token: Bearer credential for a secured Fluree server —
-            the alternative channel to userinfo in ``fluree_url``, and
-            supplying both is refused rather than resolved by precedence. Same
-            posture as every other connection value: environment-supplied,
-            never persisted, never in the graph identity, header-only (WR-03).
+        secrets: Resolved credentials keyed by the adapter's config field, each
+            carrying the *name* of the reference it came from. The reference
+            name is what reaches :attr:`FabricHandle.adapter`; the value goes
+            to the adapter's store factory and nowhere else. A key the adapter
+            does not declare as a credential field is refused.
         registry: Control Plane the resolution spec and policy bundle come from.
         resolution_spec_key: Key of the :class:`EntityResolutionSpec` artifact.
         resolution_spec_version: Pinned version of that artifact.
@@ -338,9 +236,13 @@ def boot(
         policy_bundle_version: Pinned version of that bundle.
 
     Raises:
-        ValueError: not exactly one of ``database_path`` / ``postgres_dsn`` /
-            ``memory=True`` / ``neo4j_uri`` / ``mongo_uri`` / ``fluree_url``
-            was given.
+        ccf.graph.registry.UnknownBackend: no installed adapter registers
+            ``backend``.
+        ccf.graph.registry.InvalidBackendConfig: ``connection`` does not
+            satisfy the resolved adapter's contract.
+        ValueError: ``secrets`` names a field the resolved adapter does not
+            declare as a credential field; or discovery found a packaging
+            conflict among the installed adapters.
         ccf.graph._writer.SingleWriterViolation: a live writer already exists
             for this graph.
         ccf.controlplane.registry.ControlPlaneMissing: a pinned key or version
@@ -348,18 +250,19 @@ def boot(
         TypeError: the resolution-spec artifact is not an
             :class:`EntityResolutionSpec`.
     """
-    store, make_writer = _open_backend(
-        database_path=database_path,
-        postgres_dsn=postgres_dsn,
-        postgres_schema=postgres_schema,
-        memory=memory,
-        neo4j_uri=neo4j_uri,
-        neo4j_partition=neo4j_partition,
-        mongo_uri=mongo_uri,
-        mongo_partition=mongo_partition,
-        fluree_url=fluree_url,
-        fluree_partition=fluree_partition,
-        fluree_bearer_token=fluree_bearer_token,
+    record = resolve(backend)
+    registration = record.registration
+    config = validate_connection(registration, connection or {})
+    resolved_secrets = dict(secrets or {})
+    _refuse_undeclared_secrets(
+        registration.name, registration.secret_fields, resolved_secrets
+    )
+    # Unwrapped at the call site and nowhere earlier: a credential bound to a
+    # local before it is needed is a value with a longer life than the call
+    # that wanted it. The reference names stay behind, for the pin.
+    store = registration.open_store(
+        config,
+        {field: secret.value for field, secret in resolved_secrets.items()},
     )
     try:
         token = mint_boot_token(graph_identity=store.graph_identity)
@@ -367,7 +270,7 @@ def boot(
         store.close()
         raise
 
-    writer = make_writer(token)
+    writer = registration.make_writer(store, token)
 
     def shutdown() -> None:
         writer.close()
@@ -398,5 +301,15 @@ def boot(
         reader=store.reader,
         worker=worker,
         registry=registry,
+        # Reference names, never the fields they filled and never a value.
+        # Reading the field names instead would pin "a credential was used"
+        # where D-08 asks which one.
+        adapter=AdapterPin(
+            name=registration.name,
+            version=record.version,
+            secret_refs=tuple(
+                sorted(secret.ref_name for secret in resolved_secrets.values())
+            ),
+        ),
         shutdown=shutdown,
     )
