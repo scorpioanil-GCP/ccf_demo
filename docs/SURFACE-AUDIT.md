@@ -193,18 +193,27 @@ what holds. The bytes at `c4e7ca4` hash to the digest above.
 
 **Sources.** `tools/measure_examples.py` (an AST measurement, not a regex),
 frozen at phase start into `docs/surface/examples/before/` and re-measured into
-`docs/surface/examples/after/`. The table is rendered from
-`tests/examples/test_surface_audit.py::audit_report()`, which returns four
-independent totals and a per-file breakdown, and is **structurally incapable**
-of returning a combined figure — `test_audit_report_never_returns_a_combined_figure`
-parses its own source and fails on the forbidden names.
+`docs/surface/examples/after/`. The table below was rendered from the
+`audit_report()` function in the ERGO-03 audit module under `tests/examples/`,
+which returned four independent totals and a per-file breakdown and was
+**structurally incapable** of returning a combined figure — a companion
+assertion parsed the function's own source and failed on the forbidden names.
+
+**That module was retired on 2026-08-10 and no longer exists** (`D-IMPL-94` /
+Phase 16 `D-15`) — see **§2.5** below for the ruling, and
+`docs/surface/examples/ERGO-03-FROZEN.md` for the same measurement frozen as
+scripted output at a named tree SHA. The paragraph above is left in the past
+tense rather than rewritten, so the record of how this table was produced
+survives its producer.
 
 ### 2.1 Removal and relocation are two figures, never one
 
-Per D-12 there is **no target number**. What follows is the achieved number,
-and the executable audit pins it: `test_no_rewritten_example_has_silently_regressed`
-compares every `after/` fragment against a live re-measurement, so a later edit
-cannot quietly re-inflate an example a rewrite plan already thinned.
+Per D-12 there is **no target number**. What follows is the achieved number, and
+the executable audit pinned it: `test_no_rewritten_example_has_silently_regressed`
+compared every `after/` fragment against a live re-measurement, so a later edit
+could not quietly re-inflate an example a rewrite plan had already thinned. That
+assertion was green at its retirement on 2026-08-10 and the figures below are
+the ones it last pinned (§2.5).
 
 `mechanical` is wiring the SDK absorbed — it is *gone*. `relocated` is
 assertions and print summaries that moved into `tests/` under D-09 — the work
@@ -328,6 +337,42 @@ requirements read and the binder import). Tree-wide, import lines fell
 **974 → 867**. An
 adopter's first impression of an SDK is how many of its names they must know to
 write anything at all, and that number went down while capability did not.
+
+### 2.5 ERGO-03's running check is retired; the measurement is frozen (D-IMPL-94 / D-15)
+
+**Recorded 2026-08-10, plan 16-01.** The executable half of this section — the
+test module under `tests/examples/` that produced the table in §2.2 — **no
+longer exists**. It was deleted deliberately, and this note is here so that a
+reader arriving at §2.2 finds the measurement rather than an absence.
+
+**The ruling** is `docs/DECISIONS.md` **`D-IMPL-94`**, recording Phase 16
+**`D-15`** (Dave, 2026-08-10). **The reason** is structural, not cleanup: the
+check compared the live `examples/` tree against `docs/surface/examples/before/`,
+a baseline frozen once at Phase 15's *start* and never regenerated. Phase 16
+retires `examples/00`–`08` and `examples/external/00-hello-context` and rebuilds
+the suite greenfield (`DOCS-17`), so from the first new example directory onward
+the comparison is not stale but **meaningless** — the "after" side stops being a
+rewrite of the "before" side and becomes a different tree.
+
+`D-IMPL-94` rejected the two alternatives explicitly. **Re-baselining** would
+have destroyed the Phase 15 comparison this requirement's evidence rests on, and
+`tools/measure_examples.py` warns in its own docstring that a mid-phase re-freeze
+does exactly that. **Deleting without capture** would have erased a **Complete**
+requirement's shipped evidence.
+
+**Where the measurement now lives:** `docs/surface/examples/ERGO-03-FROZEN.md`,
+written from scripted output at tree SHA `e7e1729` **before** any Phase 16
+example change and before the module was removed, reporting relocation and
+removal as separate figures per ERGO-03's own wording. The four headline
+figures there are identical to §2.2's — 1425 → 134 mechanical and 737 → 152
+relocated — and the `raw` column is re-measured (11735 → 11793 tree-wide, the
+lines Phases 15.2/15.3/15.4 added).
+
+**What did not retire:** `tools/measure_examples.py` and `make measure-examples`
+still work; the 24 `before/` and 24 `after/` fragments stay committed and are
+the primary evidence; and **ERGO-03 stays Complete** — a requirement is not
+un-met by the retirement of a check whose comparison a later ruling made
+meaningless.
 
 ---
 
