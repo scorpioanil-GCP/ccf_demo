@@ -474,30 +474,92 @@ def _declared() -> tuple[dict[str, str], dict[str, importlib.metadata.EntryPoint
         if previous is None:
             third_party[entry_point.name] = entry_point
             continue
-        if _distribution_of(previous) == _distribution_of(entry_point):
-            # One distribution declaring one name twice is a malformed table,
-            # not an ambiguity: both declarations name the same code, so there
-            # is nothing for the fabric to choose between.
+        if _is_one_declaration_twice(previous, entry_point):
+            # One distribution declaring one name twice *at one target* is a
+            # malformed table, not an ambiguity: both declarations name the
+            # same code, so there is nothing for the fabric to choose between.
             continue
-        conflicting = ", ".join(
-            sorted(
-                {
-                    f"{_distribution_of(previous)} {_version_of(previous)}",
-                    f"{_distribution_of(entry_point)} {_version_of(entry_point)}",
-                }
-            )
-        )
-        raise DuplicateBackendName(
-            f"adapter name {entry_point.name!r} is declared by more than one"
-            f" installed distribution ({conflicting}); the fabric does not"
-            " choose between them. This is a packaging conflict in the"
-            " installed environment, not a missing adapter: no adapter was"
-            " resolved and neither candidate was loaded. Run"
-            " `pip uninstall` on one of them, or ask its author to rename its"
-            " adapter."
-        )
+        raise DuplicateBackendName(_duplicate_refusal(previous, entry_point))
 
     return builtins, third_party
+
+
+def _is_one_declaration_twice(
+    previous: importlib.metadata.EntryPoint,
+    entry_point: importlib.metadata.EntryPoint,
+) -> bool:
+    """True when two declarations of one name are provably the same declaration.
+
+    The only case the fabric may pass over, and it is narrow on purpose: one
+    distribution, at one version, pointing at one target. Comparing the
+    distribution *name* alone accepted two states that are not that, and in both
+    the fabric then chose an adapter by metadata iteration order — the hazard
+    :func:`declared_names` exists to close (review finding CR-03):
+
+    * **Two metadata directories for one distribution name at different
+      versions, pointing at different modules.** The ordinary failed-uninstall
+      state. Whichever declaration the iterator yielded first won, and the pin
+      the fabric wrote into Decision Replay recorded that arbitrary winner's
+      version as fact.
+    * **Two declarations with no distribution metadata at all.** Both collapse
+      to :data:`UNKNOWN_DISTRIBUTION`, so "same distribution" was a comparison
+      of two sentinels rather than of two facts. Absent metadata is exactly the
+      "bad metadata" class the fail-closed ruling is written about, so it
+      refuses rather than being read as agreement.
+    """
+    distribution = _distribution_of(previous)
+    if distribution == UNKNOWN_DISTRIBUTION:
+        return False
+    return (
+        distribution == _distribution_of(entry_point)
+        and _version_of(previous) == _version_of(entry_point)
+        and previous.value == entry_point.value
+    )
+
+
+def _duplicate_refusal(
+    previous: importlib.metadata.EntryPoint,
+    entry_point: importlib.metadata.EntryPoint,
+) -> str:
+    """The refusal text for one name declared twice, in the shape that fits.
+
+    Two shapes, because two different things go wrong and they need different
+    remedies. Two distributions is "uninstall one"; one distribution declaring
+    itself twice — or a declaration with no distribution behind it — is "this
+    environment's installed metadata is inconsistent", which no uninstall of a
+    *rival* package can fix.
+    """
+    names = sorted({_distribution_of(previous), _distribution_of(entry_point)})
+    described = ", ".join(
+        sorted(
+            {
+                f"{_distribution_of(point)} {_version_of(point)}"
+                for point in (previous, entry_point)
+            }
+        )
+    )
+    shared = f"adapter name {entry_point.name!r}"
+    tail = (
+        " This is a packaging conflict in the installed environment, not a"
+        " missing adapter: no adapter was resolved and neither candidate was"
+        " loaded."
+    )
+    if len(names) > 1:
+        return (
+            f"{shared} is declared by more than one installed distribution"
+            f" ({described}); the fabric does not choose between"
+            f" them.{tail} Run `pip uninstall` on one of them, or ask its"
+            " author to rename its adapter."
+        )
+    return (
+        f"{shared} is declared more than once by {described}, and the"
+        " declarations do not agree on which code the name selects — they"
+        " differ in version, in target, or in both, or the declaring"
+        " distribution could not be identified at all. The fabric does not"
+        f" choose between them.{tail} This is usually two metadata directories"
+        " for one distribution left behind by a failed uninstall: reinstall"
+        " that distribution, or remove the stale one."
+    )
 
 
 def declared_names() -> frozenset[str]:
@@ -508,8 +570,10 @@ def declared_names() -> frozenset[str]:
 
     * a third-party declaration of a name the SDK's own adapters hold
       (:class:`ReservedBackendName`, D-16);
-    * one name declared by two different installed distributions
-      (:class:`DuplicateBackendName`);
+    * one name declared twice, unless the two declarations are provably the
+      same declaration — one distribution, one version, one target
+      (:class:`DuplicateBackendName`; see :func:`_is_one_declaration_twice`
+      for the two states that used to slip past this and why neither may);
     * a declared name that is not of the required shape (``ValueError``).
 
     All three refuse the *whole* call, not just the offending name — see the
@@ -518,7 +582,8 @@ def declared_names() -> frozenset[str]:
 
     Raises:
         ReservedBackendName: an installed distribution claims a built-in name.
-        DuplicateBackendName: two distributions declare one name.
+        DuplicateBackendName: one name is declared twice by declarations the
+            fabric cannot establish are the same declaration.
         ValueError: a declared name is not of the required shape.
     """
     builtins, third_party = _declared()
@@ -542,7 +607,8 @@ def resolve(name: str) -> ResolvedBackend:
     Raises:
         UnknownBackend: no installed adapter registers `name`.
         ReservedBackendName: discovery found a reserved-name conflict.
-        DuplicateBackendName: discovery found one name from two distributions.
+        DuplicateBackendName: discovery found one name declared twice by
+            declarations it cannot establish are the same declaration.
         ValueError: a declared name is malformed, a discovered built-in carries
             no registration record, or the loaded object is not the adapter it
             was resolved as.
@@ -575,12 +641,14 @@ def resolve(name: str) -> ResolvedBackend:
         version = _sdk_version()
         distribution = SDK_DISTRIBUTION
     else:
-        # ``.select(name=...)`` returns *every* match. The mapping form
-        # ``eps[name]`` returns the first silently, which is the shadowing
-        # hazard D-16 exists to close — measured, not assumed. Duplicates are
-        # already refused above, so this collection holds exactly one element.
-        matches = tuple(_declared_entry_points().select(name=name))
-        entry_point = matches[0]
+        # The declaration :func:`_declared` already resolved, rather than a
+        # second metadata scan. The old form re-read the entry-point set and
+        # took ``[0]`` of the matches, which had two problems: the index was
+        # unchecked, so an entry-point set that changed between the two scans
+        # was an ``IndexError`` rather than a refusal; and it reached past the
+        # discovery pass that had just applied every name refusal, which is
+        # the one place those refusals can be relied on (review finding CR-03).
+        entry_point = third_party[name]
         registration = entry_point.load()
         origin = (
             f"distribution {_distribution_of(entry_point)}"

@@ -298,6 +298,124 @@ def test_a_duplicated_name_is_refused_naming_both_distributions(
     assert not _marker_of(second_path).exists()
 
 
+def test_one_distribution_name_at_two_versions_is_refused_not_chosen_between(
+    monkeypatch: pytest.MonkeyPatch, probe_factory: Any
+) -> None:
+    """CR-03 — the ordinary failed-uninstall state, which used to fail *open*.
+
+    Two metadata directories for one distribution name, at different versions,
+    pointing at different modules. The check compared the distribution **name**
+    alone and passed over the pair as "the same code declared twice", so the
+    fabric took whichever the metadata iterator yielded first — and the
+    ``AdapterPin`` it wrote into Decision Replay recorded that arbitrary
+    winner's version as fact.
+
+    The companion assertion is the one that makes this about the hazard rather
+    than about the exception type: neither candidate is loaded, so no package
+    nobody chose has run its module-level code by the time the refusal lands.
+    """
+    first_module = "ccf_probe_same_name_first"
+    second_module = "ccf_probe_same_name_second"
+    first_path = probe_factory(first_module, "dup")
+    second_path = probe_factory(second_module, "dup")
+    monkeypatch.setattr(registry, "_builtin_names", dict)
+    monkeypatch.setattr(
+        registry,
+        "_declared_entry_points",
+        lambda: _entry_points(
+            _entry_point(
+                name="dup",
+                value=f"{first_module}:REGISTRATION",
+                distribution="ccf-x-adapter",
+                version="1.0.0",
+            ),
+            _entry_point(
+                name="dup",
+                value=f"{second_module}:REGISTRATION",
+                distribution="ccf-x-adapter",
+                version="2.0.0",
+            ),
+        ),
+    )
+
+    with pytest.raises(DuplicateBackendName) as caught:
+        resolve("dup")
+
+    message = str(caught.value)
+    assert "ccf-x-adapter" in message
+    assert "packaging conflict" in message
+    assert first_module not in sys.modules
+    assert second_module not in sys.modules
+    assert not _marker_of(first_path).exists()
+    assert not _marker_of(second_path).exists()
+
+
+def test_two_declarations_with_no_distribution_metadata_are_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CR-03, the second fail-open: two sentinels compared as if they were facts.
+
+    ``_distribution_of`` answers with a positive "the environment could not
+    tell us" marker when an entry point has no distribution behind it. Two
+    unrelated metadata-less declarations therefore compared *equal* and were
+    treated as one distribution declaring one name twice.
+
+    Absent metadata is precisely the bad-metadata class the fail-closed ruling
+    is written about, so it refuses. The refusal names the marker rather than
+    inventing a distribution, because "we could not identify the declaring
+    distribution" is the fact an operator has to act on.
+    """
+    monkeypatch.setattr(registry, "_builtin_names", dict)
+    monkeypatch.setattr(
+        registry,
+        "_declared_entry_points",
+        lambda: _entry_points(
+            metadata.EntryPoint("dup2", "pkg.a:REGISTRATION", BACKEND_ENTRY_POINT_GROUP),
+            metadata.EntryPoint("dup2", "pkg.b:REGISTRATION", BACKEND_ENTRY_POINT_GROUP),
+        ),
+    )
+
+    with pytest.raises(DuplicateBackendName) as caught:
+        declared_names()
+
+    message = str(caught.value)
+    assert registry.UNKNOWN_DISTRIBUTION in message
+    assert "packaging conflict" in message
+
+
+def test_one_distribution_declaring_one_name_twice_at_one_target_is_passed_over(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The narrow case that stays legal, so the refusal above is not a blanket.
+
+    One distribution, one version, one target, listed twice: a malformed
+    entry-point table with exactly one answer in it. There is nothing for the
+    fabric to choose between, so it does not refuse — and pinning that keeps
+    the CR-03 fix a *discrimination* rather than a widening.
+    """
+    monkeypatch.setattr(registry, "_builtin_names", dict)
+    monkeypatch.setattr(
+        registry,
+        "_declared_entry_points",
+        lambda: _entry_points(
+            _entry_point(
+                name="twice",
+                value="pkg.one:REGISTRATION",
+                distribution="ccf-twice-adapter",
+                version="1.0.0",
+            ),
+            _entry_point(
+                name="twice",
+                value="pkg.one:REGISTRATION",
+                distribution="ccf-twice-adapter",
+                version="1.0.0",
+            ),
+        ),
+    )
+
+    assert declared_names() == frozenset({"twice"})
+
+
 def test_a_third_party_distribution_cannot_claim_a_builtin_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
