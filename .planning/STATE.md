@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
-status: executing
-last_updated: "2026-08-09T16:06:15.908Z"
-last_activity: 2026-08-09 -- Phase 15.4 executed, reviewed, fixed; awaiting Dave's gate
+status: ready_to_plan
+last_updated: 2026-08-10T01:55:37.231Z
+last_activity: 2026-08-10 -- Phase 15.4 gated (D-GATE-15.4); ready to discuss Phase 16
 progress:
   total_phases: 16
-  completed_phases: 13
-  total_plans: 103
-  completed_plans: 102
-  percent: 81
-stopped_at: Phase 15.4 EXECUTED IN FULL, AWAITING DAVE'S GATE (CLAUDE.md 3.1 step 3). All 12 plans merged to main across 9 waves, 64 plan commits plus a 14-commit code-review fix pass. Sweep at 8336d7f: make ci exit 0 (2450 passed, 81 skipped), pytest tools/lints/tests 141 passed, legs mongo 22 / neo4j 20 / fluree 37 (postgres 25 recorded, no server on this machine at verify time), frozen paths byte-untouched. Headline claim holds over the adapter-arrival window f9857d94..9f80986^ (git diff --quiet -- src/ccf exit 0) and the gate is shown falsifiable (same form over the whole phase exits 1). Post-execution code review returned 3 BLOCKERS -- CR-01 unguarded make_writer leaking the store and permanently marking the graph live, CR-02 both new lint rules blind to `from <pkg> import <submodule>`, CR-03 duplicate discovery failing open on distribution name alone -- all fixed inside the phase with mutation-checked regression tests, plus 9 warnings. Review finding WR-05 (neither checker has tests) was CHECKED AND REJECTED as false: 41 test functions exist in tools/lints/tests/, which make ci-core never reaches because testpaths=['tests']; CI runs them separately. Verifier returned human_needed, 8/9 must-haves verified. TWO THINGS AWAIT DAVE: (1) the ROADMAP commissioning text says D-IMPL-92's gate is 'superseded by the structural check, not deleted' but plan 15.4-07 deleted tools/gates/gate_15_3.py and the whole tools/gates package -- if Dave reads 'not deleted' as reaching the artifact this is a blocker; the script was crashing (KeyError: 'enum') before removal. (2) three rulings surfaced and not taken: the six unexported names an out-of-tree adapter must reach for (materialize_view/_ordered_view/_entity_records/_relationship_records/_LineageRowsFor/_GraphTxn), the underscore-separated backend_registry_conflict error code among seven hyphenated ones (free to change now, breaking later), and the CINV-04 identifier now naming two unrelated invariants (DI-15.4-03; CINV-05 is free). Also open: the ccf distribution name is taken on PyPI by an unrelated project at 7.0.12. No D-GATE-15.4 entry written; docs/DECISIONS.md byte-untouched. Deferred -- Dave's four-database FIBO harness at /home/parkave/fluree/examples/fibo/ (192.168.4.76). Residual from 15.3 -- 2 GitHub-Actions UAT observations (non-blocking).
+  completed_phases: 14
+  total_plans: 115
+  completed_plans: 115
+  percent: 88
+stopped_at: Phase 15.4 COMPLETE and gated — D-GATE-15.4 (Dave, 2026-08-09) in docs/DECISIONS.md. 12 plans / 9 waves plus a 14-commit code-review fix pass, all on main. Sweep at 16952cb: make ci exit 0 (2450 passed, 81 skipped); pytest tools/lints/tests 141 passed SEPARATELY — testpaths=['tests'] keeps the checker suite out of ci-core and CI runs it as its own step, so a local sweep alone does not exercise it (this is what made the code review file a false finding that the two new checkers had no tests). DELIVERED: ccf.graph.registry (entry-point + on-disk discovery, discovery imports nothing, resolve() imports exactly one adapter); six backends/<name>_write.py modules leaving _writer.py at 935 lines from 3,215 importing no backend; six typed connection contracts; boot() 16 kwargs -> 8 with no substrate name; manifest Literal -> registry-validated string and the exported schema enum -> pattern; credentials by named env-var reference; the FIRST adapter pin in replay dimension 2; cinv02-backend-import and cinv04-substrate-name/-prose registered; ccf backends list over GET /backends; and tests/fixtures/ccf-demo-adapter, an out-of-tree installable distribution that boots a fabric and passes both conformance suites. HEADLINE CLAIM: git diff --quiet f9857d94..9f80986^ -- src/ccf exits 0 (the adapter-arrival window; bounded there, NOT at HEAD, because seven review-fix commits landed after and five touch src/ccf) and the same form over the whole phase exits 1, so the gate is shown able to refuse. FOUR GATE RULINGS: (1) tools/gates/gate_15_3.py deletion accepted — 'gate' = criterion not artifact; recoverable at d364b65^, recorded because it was a Phase 15.3 approved deliverable; (2) error code hyphenated to backend-registry-conflict while still free; (3) CINV-04 -> CINV-05 split APPROVED, rename DEFERRED to one coordinated pass across code and record (DI-15.4-03 — no ruling to wait on, only scope to cover); (4) the private-surface gap stays an OPEN DESIGN ITEM (DI-15.4-05) — six unexported names an out-of-tree adapter must reach for; D-11's claim holds as written AND the surface an adapter reaches is not public, the second bounding how much the first proves; the right question is what the supported authoring surface should BE, not which names to export (BaseGraphReader is SQL-shaped). OPEN DEBT: DI-15.4-01 duplicated Fluree admit prefixes; DI-15.4-02 line-anchored citation drift (45 anchors, wider than any one plan); DI-15.4-04 load_and_boot runs discovery 3x; the ccf name is taken on PyPI by an unrelated project at 7.0.12; WR-04/WR-06/IN-02/IN-03 from 15.3; 15.3-HUMAN-UAT.md's 2 GitHub-Actions observations. 15.4-VERIFICATION.md is status human_needed (8/9) — the 9th was the gate-script question Dave has now ruled; it can be re-run or annotated. TWO PLANNING-TEMPLATE DEFECTS to fix before Phase 16: a plan that writes a docs/surface-changes/ fragment must also list the assembled docs/SURFACE-CHANGES.md it regenerates (hit 5 consecutive plans), and a comment explaining why a token is absent fails the grep asserting that absence (hit 4 plans; resolve by describing, never spelling). NEXT: Phase 16 documents the backend surface this phase reshaped — boot()'s signature, the manifest's plain-string backend, credentials by reference, and ccf backends. OPERATIONAL: mongo container is on port 27019 not 27017 (wrong port HANGS, use CCF_TEST_MONGO_URI); the fluree leg is 37 not 38. Deferred — Dave's four-database FIBO harness at /home/parkave/fluree/examples/fibo/ (192.168.4.76).
 ---
 
 # STATE — CCF SDK
@@ -24,13 +24,13 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 15.4 — backend registration seam (the substrate stops naming its adapters)
+**Current focus:** Phase 16 — documentation rewrite — the deterministic path & the adoption argument
 
 ## Current Position
 
-Phase: 15.4 (backend registration seam) — EXECUTED, AWAITING GATE
-Plan: 12 of 12 (all merged; review fixes merged)
-Status: Phase 15.4 executed in full — AWAITING DAVE'S GATE
+Phase: 16
+Plan: Not started
+Status: Ready to plan
   Commissioned by D-IMPL-93 (Dave, 2026-08-09): the substrate may evolve and
   gain capability, but must never carry a unique dependency on a named adapter
   and must never change per-adapter. Measured against that standard at
@@ -43,7 +43,7 @@ Status: Phase 15.4 executed in full — AWAITING DAVE'S GATE
   lint-enforced, replacing D-IMPL-92's admitted line-budget proxy. NOTE: the
   handler auto-advanced to Phase 16; 15.4 precedes it per Dave's ruling.
 Progress: [##########] 100% (execution) — gate pending
-Last activity: 2026-08-09 -- Phase 15.4 executed, reviewed, blockers fixed; awaiting Dave's gate
+Last activity: 2026-08-10
 
 ## Performance Metrics
 

@@ -819,7 +819,7 @@ decisions plus two corrections in `15.4-CONTEXT.md` (`D-01`..`D-16`, `C-01`,
      `tests/conformance/query_corpus.py` and `docs/GRAPH_QUERY_SEMANTICS.md`
      byte-untouched for the whole phase
 
-**Plans:** 12/12 plans complete
+**Plans:** 12/12 plans complete, plus a post-review fix pass (13 SUMMARYs)
 
 Plans:
 
