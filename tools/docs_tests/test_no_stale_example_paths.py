@@ -17,10 +17,15 @@ covered it: a path written in **running prose** — "the assembler lives in
 `examples/04-cross-process`", "asserted by
 `tests/examples/test_workflow_hitl_output.py`". Nothing checks these. They are
 not includes, so `check_paths` never sees them; the build stays green; the
-sentence quietly starts lying the moment the directory is renamed. Measured at
-this plan's HEAD: **13 distinct path tokens, 15 references**, every one
-resolving. This discharges SURFACE-AUDIT **A-5**'s mis-pointed-include gap for
-path targets.
+sentence quietly starts lying the moment the directory is renamed. This
+discharges SURFACE-AUDIT **A-5**'s mis-pointed-include gap for path targets.
+
+Measured at this plan's HEAD, and both figures are stated because the scan
+covers more than the running prose the requirement names — **running prose
+alone: 13 distinct tokens, 15 references, 7 pages**, which is the surface
+``16-RESEARCH.md`` § A.2 enumerates; **prose and fenced blocks together: 56
+distinct tokens, 119 references, 15 pages**, which is what this module actually
+asserts over. Zero unresolvable in either set.
 
 **Why paragraph scoping, stated accurately.** The phase plan motivates it as
 "a wrapped Markdown sentence hides a path from a line-scoped regex", and for
