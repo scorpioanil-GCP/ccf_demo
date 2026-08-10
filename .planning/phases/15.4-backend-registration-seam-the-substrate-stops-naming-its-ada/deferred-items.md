@@ -87,3 +87,76 @@ migration is measurable as it proceeds.
 file records that a naive edit inserting lines near the top of a heavily-cited
 document produced 124 citation-guard findings in one commit. Edit
 line-number-neutrally, or migrate the citations first.
+
+---
+
+## DI-15.4-03 — `CINV-04` names two different invariants — **OPEN, needs Dave's ruling**
+
+**Found during:** the phase code review (finding WR-11), closed out in the
+review-fix pass.
+
+**What.** The repository's established `CINV-04` is
+**replay-by-construction** — `docs/FEASIBILITY.md`, `docs/PHASE_I1_GATE.md`,
+`docs/PHASE_I4_GATE.md`, `docs/PHASE_I5_GATE.md`,
+`tests/invariants/test_replay_by_construction.py`, `src/ccf/hitl/__init__.py`,
+and `src/ccf/hitl/approval_gate.py` all use it that way. This phase minted
+`CINV-04 — no substrate name in core` for an unrelated rule, and registered the
+rule ids `cinv04-substrate-name` / `cinv04-substrate-prose` under that badge. An
+invariant identifier that resolves to two invariants makes every gate table,
+traceability row and `D-GATE` citation using it ambiguous.
+
+**One correction to the finding as written.** It suggests
+`tests/invariants/test_single_writer_boot.py:1` is a *third* meaning. It is
+not: `tests/invariants/test_replay_by_construction.py` names single-writer as
+one of CINV-04's own legs, so that module's "CINV-04, single-writer leg" is the
+established meaning used correctly. There are two meanings, not three.
+
+**Why it was not fixed in the review-fix pass.** The code change is small — the
+two rule ids and about a dozen prose lines across `tools/lints/` and
+`docs/15.4-GATE-PACKAGE.md`. What is not small is that the identifier appears
+in the gate tables Dave signs and in every one of this phase's twelve plans and
+summaries, `.planning/ROADMAP.md`, and `15.4-VALIDATION.md`. Renaming it in the
+gate package alone would hand Dave a document whose rule ids disagree with the
+whole record behind it, and rewriting the record is not something a fix pass
+should do to a phase's history. Allocating an invariant id is also a naming
+decision on a list `CLAUDE.md` §3.1 enumerates.
+
+**The fix, when Dave rules.** Allocate the next free id — `CINV-05` is free and
+unambiguous — and change, in one commit: the rule ids in
+`tools/lints/substrate_names.py`, the badge lines in `tools/lints/__init__.py`
+and `tools/lints/__main__.py`, the two mentions in `tools/lints/allowlist.yaml`,
+and `docs/15.4-GATE-PACKAGE.md`. Leave the phase's plans and summaries as the
+dated record they are, and note the renumbering in the gate package so a reader
+of the older documents can follow it. **Zero behavioural effect either way** —
+this is identifier hygiene, and nothing about what the rule checks changes.
+
+---
+
+## DI-15.4-04 — `load_and_boot` runs adapter discovery three times and validates the connection twice — **OPEN**
+
+**Found during:** the phase code review (finding IN-01).
+
+**What.** `_preflight_adapter` calls `declared_names()` (one full metadata plus
+directory scan) and then `resolve(declared)` (a second), and `boot()` calls
+`resolve(backend)` again — so a manifest boot runs discovery three times and
+the adapter's config-model validators twice.
+
+**One thing already improved.** The CR-03 fix removed a *fourth* scan: `resolve`
+used to re-read the entry-point set and index `[0]` into the matches, and now
+uses the declaration `_declared()` already resolved.
+
+**Why it is only Info.** Correctness-neutral: adapter config validators are pure
+functions over a mapping. What it costs is the literal truth of "the adapter's
+contract is validated once at the boundary", and an adapter with a
+side-effecting validator would observe the repetition.
+
+**Why it was not fixed.** The fix is a signature change — `boot()` accepting an
+already-resolved `ResolvedBackend` and a validated config, or a second internal
+entry point that does. That is public API surface, freshly broken once in this
+phase under D-15B with a migration note owed and written. Breaking it a second
+time in a review-fix pass, after the gate package was assembled, is worse than
+carrying a repeated pure computation.
+
+**The fix, when someone takes it.** Thread the resolved record and the validated
+config from `_preflight_adapter` into `boot` through an internal entry point,
+leaving the public `boot(backend=...)` signature alone.
