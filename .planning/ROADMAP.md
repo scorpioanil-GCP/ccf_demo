@@ -864,18 +864,40 @@ Plans:
 
 ### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
 
-**Status**: planned, not yet discussed. This section exists so the phase is
-*visible* — without a `### Phase` heading the roadmap parser cannot see a phase at
-all, which is why `roadmap.analyze` returned `next_phase: "14.1"` (the superseded
-entry) and then `None`. Added 2026-08-07. **Nothing below is authored here**: every
-line is carried from material already recorded elsewhere in this roadmap. The goal,
-success criteria and requirement IDs (DOCS-07..NN) are `/gsd:discuss-phase 16`'s
-and `/gsd:plan-phase 16`'s to write.
+**Status**: discussed 2026-08-09. The scope was expanded at that discussion on
+Dave's authority and this entry was rewritten to match (2026-08-09) — the
+pre-discussion goal below is absorbed in full, nothing dropped. The authoritative
+record is
+`.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-CONTEXT.md`
+(decisions `D-01`..`D-12`); every line here is carried from it or from material
+already recorded elsewhere in this roadmap. Requirement IDs (DOCS-07..NN) remain
+`/gsd:plan-phase 16`'s to mint.
 
-**Goal** (verbatim from the milestone entry above): one document, two sections
-(deterministic + external MCP consumption; CCF-agent assembly + MCP/A2A
-consumption), banking scenarios from the whitepaper, re-cut snippet markers so a
-reader can see which code is CCF and which is theirs.
+**Goal**: rebuild the adopter-facing **examples suite** and **published
+documentation** against the post-Phase-15 surface, organized as four sections of
+increasing depth. Phase 16 ships **Sections 1–3**, all against mechanism the SDK
+demonstrably ships today; **Section 4 is Phase 17's**, arriving with the fabric
+that enables it (`D-01`).
+
+  - **Section 1 — "Hello CCF."** Deterministic assembly only, agent-free. A
+    beginner's path through Context Products, Context Operators, and the six axes
+    of `G(E, R, T, P, Π, L)`.
+  - **Section 2 — External agents over MCP.** Client agents reach CCF with zero
+    CCF dependency. Claude Agent SDK, Google ADK, and LangGraph legs.
+  - **Section 3 — Advanced CCF.** Embedding CCF in your own application, and
+    developing agentic skills within CCF against a real use case.
+  - **Section 4 — LLM packaging and agent swarms.** *Phase 17.* Assembly Mode 2
+    (`llm_packaged`) and Mode 3 (`swarm_assembled`).
+
+The examples are **greenfield** — `examples/00`–`08` retire and the suite is
+rebuilt against the Phase 15.4 registry seam as one parameterized runner proven
+across all six backends. **KYC / UBO resolution and refresh** on the FIBO dataset
+is the use-case spine, and the adoption argument gets its own page naming the
+alternatives. The pre-discussion goal it replaces, carried verbatim from the
+milestone entry above: *"one document, two sections (deterministic + external MCP
+consumption; CCF-agent assembly + MCP/A2A consumption), banking scenarios from
+the whitepaper, re-cut snippet markers so a reader can see which code is CCF and
+which is theirs."*
 
 **What it inherits, already on the record:**
 
@@ -897,7 +919,45 @@ reader can see which code is CCF and which is theirs.
   the phase gate (which cost that phase a withdrawn approval), and `make ci` does
   not reach `tools/` though CI does — three suites there fail pre-existing.
 
-**Requirements**: mints its own DOCS-07..NN at planning; not counted in Coverage below.
+**Requirements**: mints its own DOCS-07..NN at planning; not counted in Coverage
+below. DEMO-01..03 and EXAM-01..05 re-home onto the new suite rather than being
+retired (`D-08`).
+**Plans:** 19 plans in 12 waves
+
+Plans:
+- [ ] 16-01-PLAN.md — ruling package (`D-IMPL-94`), DOCS-07..18 minted, ERGO-03 measurement frozen
+- [ ] 16-02-PLAN.md — FIBO source-estate extension: corp→corp ownership edges with per-edge percentages
+- [ ] 16-03-PLAN.md — Section-2 client-leg transport spike: LangGraph + Claude Agent SDK
+- [ ] 16-04-PLAN.md — gate-checker unblock + three standing docs tripwires
+- [ ] 16-05-PLAN.md — Section-1 example 1: spine/deployment split, KYC/UBO deterministic assembly
+- [ ] 16-06-PLAN.md — advisory pages A-1/A-2/A-3/A-8 + discharge gate
+- [ ] 16-07-PLAN.md — parameterized backend runner + six-backend equality matrix
+- [ ] 16-08-PLAN.md — Section-1 example 2: freshness (λ_c) and Context Debt (D_c)
+- [ ] 16-09-PLAN.md — Section-2 example: MCP fabric + four zero-CCF client legs
+- [ ] 16-10-PLAN.md — Section-3 example A: embed CCF in a host application
+- [ ] 16-11-PLAN.md — Section-3 example B: agentic skills, workflow, HITL, replay
+- [ ] 16-12-PLAN.md — Makefile + CI wiring + DGX opt-in job + credential gate
+- [ ] 16-13-PLAN.md — Section-1 published pages, six-axes concept, G-01 pillar rewrite
+- [ ] 16-14-PLAN.md — the adoption-argument page + its standing gate
+- [ ] 16-15-PLAN.md — Section-2 published pages; retire `examples/03-harness-portability`
+- [ ] 16-16-PLAN.md — Section-3 skills pages + eight reference/how-to re-cuts
+- [ ] 16-17-PLAN.md — Section-3 embed pages; retire `examples/04-cross-process`, `07-artifact-store-mcp`
+- [ ] 16-18-PLAN.md — terminal retirement: adopters guide, seven examples, final nav
+- [ ] 16-19-PLAN.md — phase close: `make gate-16`, gate package, §3.1 review protocol
+
+
+**Success Criteria** (what must be TRUE):
+
+  1. Sections 1–3 are published in `public/` and each runs end-to-end by a single documented command, with Section 4 absent and named as Phase 17's (`D-01`)
+  2. Section 1 invokes no agent — deterministic assembly only — so UAT gap G-01's agent-first framing is closed by construction rather than by editing the condemned pages (`D-12`)
+  3. Every Section 2 client leg imports nothing from `ccf`, with the zero-CCF-dependency claim visible in the client's own import list and asserted in CI, across all three harnesses: Claude Agent SDK, Google ADK, LangGraph (`D-09`, `D-IMPL-24`)
+  4. One parameterized example runner, with a CI matrix asserting equivalent Context Products across `sqlite`, `memory`, `postgres`, `neo4j`, `mongo` and `fluree`; `sqlite` + `memory` run in always-on CI which stays deterministic and network-free, the four DGX databases are an opt-in live-legs job, and no credential enters the tree (`D-06`)
+  5. `examples/00`–`08` are retired and every published page that sources snippets from them is re-cut in the same phase — there is no partial state (`D-07`)
+  6. Each example physically separates the **CCF call spine** from **deployment code** into distinct, separately-markered regions, legible to someone reading the repository and not only the rendered site, using Phase 14's `D-07` marker vocabulary (`D-11`)
+  7. An adoption-argument page names what teams build instead — RAG over a vector store, hand-rolled context assembly, a semantic layer plus prompt templates — and states what each lacks: no replay, no policy binding at assembly, no lineage to a passage, no staleness measure; its worked demonstration is the UBO question, "Who ultimately owns Acme?" (`D-10`)
+  8. Gate 2 (INV-CH7-47) is documented as **assembly-path integrity** and nowhere as a comparison of two independently authored sets, and the `tests/examples/test_*_output.py` checks that compare `required_operator_keys` against `operators_invoked` are not promoted as independence proofs (`D-IMPL-86`, SURFACE-AUDIT §5.3 A-4)
+  9. The carried advisories this phase owns are discharged in the published tree: A-1 (`from ccf.deployment import …` as the single preferred day-1 import), A-2 (a maintainer page for the surface toolchain), A-3 (the pre-15 surface described in the shipped docs), A-8 (`role: load` artifacts reachable on `BootedFabric.artifacts` and absent from the replay pin set)
+  10. No fabric changed: the only fabric-adjacent act is `D-02`, a `D-IMPL-NN` ruling with no diff confirming that Mode 2 packaging attaches **above** `serve()` rather than within it, and there is no Mode 2 packaging stage, no Mode 3 coordinator, no `src/ccf/unstructured/`, and no tier-3 external sources
 
 ## Progress
 
@@ -915,7 +975,7 @@ reader can see which code is CCF and which is theirs.
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
-| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/? | Planned   | — |
+| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/19 | Planned   | — |
 
 ## Coverage
 

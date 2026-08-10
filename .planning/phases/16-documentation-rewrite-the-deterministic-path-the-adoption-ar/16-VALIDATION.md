@@ -1,7 +1,7 @@
 ---
 phase: 16
 slug: documentation-rewrite-the-deterministic-path-the-adoption-ar
-status: draft
+status: planned
 nyquist_compliant: false
 wave_0_complete: false
 created: 2026-08-09
@@ -45,7 +45,59 @@ created: 2026-08-09
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| *(pending planning)* | | | | | | | | | ⬜ pending |
+| 16-01 T1 | 16-01 | 1 | DOCS-07 | T-16-01-01 | whitepaper cited by section number only | gate | pytest tools/lints/tests -q && grep -c 'D-IMPL-94' docs/DECISIONS.md | docs/DECISIONS.md | ⬜ pending |
+| 16-01 T2 | 16-01 | 1 | DOCS-07 | T-16-01-02 | frozen evidence preserved before deletion | unit | pytest tests -q -m 'not postgres and not chroma and not neo4j and not mongo and not fluree' | docs/surface/examples/ERGO-03-FROZEN.md | ⬜ pending |
+| 16-01 T3 | 16-01 | 1 | DOCS-07 | T-16-01-03 | carve-out scope confirmed by a human | manual | checkpoint:human-verify | — | ⬜ pending |
+| 16-02 T1 | 16-02 | 2 | DOCS-09 | T-16-02-01 | no credential or host literal in artifact | unit | pytest tests/examples/test_artifact_schema_headers.py -q | examples/s1-01-hello-context-product/artifacts/source-estate.yaml | ⬜ pending |
+| 16-02 T2 | 16-02 | 2 | DOCS-09 | T-16-02-03 | generator holds no graph writer | unit | pytest tests/examples/test_source_estate.py -q | tests/examples/test_source_estate.py | ⬜ pending |
+| 16-02 T3 | 16-02 | 2 | DOCS-09 | T-16-02-02 | additive load verified before write | manual | checkpoint:human-verify | — | ⬜ pending |
+| 16-03 T1 | 16-03 | 2 | DOCS-13 | T-16-03-SC | no new dependency installed | unit | python -c AST-scan of client_langgraph.py for ccf imports | examples/s2-01-external-consumers/client_langgraph.py | ⬜ pending |
+| 16-03 T2 | 16-03 | 2 | DOCS-13 | T-16-03-01 | bearer token from env, no anonymous mode | unit | python -c AST-scan of client_claude_agent.py for ccf imports | examples/s2-01-external-consumers/client_claude_agent.py | ⬜ pending |
+| 16-03 T3 | 16-03 | 2 | DOCS-13 | T-16-03-04 | shipped external example untouched | integration | pytest tests/examples/test_s2_client_transport_spike.py -q | tests/examples/test_s2_client_transport_spike.py | ⬜ pending |
+| 16-04 T1 | 16-04 | 2 | DOCS-08 | T-16-04-01 | no whitepaper shingle in a published docstring | gate | pytest tools/lints/tests tools/publish_scan_tests tools/docs_tests -q | src/ccf/controlplane/artifacts.py | ⬜ pending |
+| 16-04 T2 | 16-04 | 2 | DOCS-17 | T-16-04-03 | gate proven to refuse an injected violation | gate | pytest tools/docs_tests/test_gate_two_wording.py -q | tools/docs_tests/test_gate_two_wording.py | ⬜ pending |
+| 16-04 T3 | 16-04 | 2 | DOCS-17 | T-16-04-03 | no vacuous pass; CWD-independent walk | gate | pytest tools/docs_tests -q | tools/docs_tests/test_no_stale_example_paths.py | ⬜ pending |
+| 16-05 T1 | 16-05 | 3 | DOCS-11 | T-16-05-01 | no connection value in a content-hashed manifest | integration | python examples/s1-01-hello-context-product/run.py && python -m tools.lints --all | examples/s1-01-hello-context-product/spine.py | ⬜ pending |
+| 16-05 T2 | 16-05 | 3 | DOCS-12 | T-16-05-04 | agent-free guard catches the CR-02 spelling | unit | pytest tests/examples/test_s1_01_output.py tests/examples/test_section_one_is_agent_free.py tests/examples/test_spine_separation.py -q | tests/examples/test_section_one_is_agent_free.py | ⬜ pending |
+| 16-05 T3 | 16-05 | 3 | DOCS-11 | T-16-05-01 | split legible to a repository reader | manual | checkpoint:human-verify | — | ⬜ pending |
+| 16-06 T1 | 16-06 | 3 | DOCS-16 | T-16-06-03 | unruled question not published | gate | tools/publish_scan.py --pre-build && make docs-strict | public/how-to/write-a-graph-backend-adapter.md | ⬜ pending |
+| 16-06 T2 | 16-06 | 3 | DOCS-16 | T-16-06-01 | maintainer page passes pub02-internal-path | gate | tools/publish_scan.py --pre-build && make docs-strict | public/reference/surface-toolchain.md | ⬜ pending |
+| 16-06 T3 | 16-06 | 3 | DOCS-16 | T-16-06-04 | documented boot() signature tracks the code | gate | pytest tools/docs_tests -q && make docs-strict | tools/docs_tests/test_advisory_discharge.py | ⬜ pending |
+| 16-07 T1 | 16-07 | 4 | DOCS-10 | T-16-07-01 | no DGX host literal; env-supplied endpoints | integration | run.py --backend sqlite && run.py --backend memory && git grep 192.168.4.76 | examples/s1-01-hello-context-product/connection.py | ⬜ pending |
+| 16-07 T2 | 16-07 | 4 | DOCS-10 | T-16-07-02 | non-loopback egress refused and guard fires | unit | pytest tests/examples/test_backend_matrix.py -q -m 'not postgres and not neo4j and not mongo and not fluree' -rs | tests/examples/test_backend_matrix.py | ⬜ pending |
+| 16-08 T1 | 16-08 | 4 | DOCS-12 | T-16-08-01 | thresholds and decay rates in artifacts only | integration | python examples/s1-02-freshness-and-debt/run.py && python -m tools.lints --all | examples/s1-02-freshness-and-debt/spine.py | ⬜ pending |
+| 16-08 T2 | 16-08 | 4 | DOCS-12 | T-16-08-02 | no claim that a routing state invokes a model | unit | pytest tests/examples/test_s1_02_output.py -q | tests/examples/test_s1_02_output.py | ⬜ pending |
+| 16-09 T1 | 16-09 | 4 | EXAM-04 | T-16-09-02 | tool allowlist omits at registration time | integration | python -m tools.lints --all && pytest tests/examples/test_artifact_schema_headers.py -q | examples/s2-01-external-consumers/serve.py | ⬜ pending |
+| 16-09 T2 | 16-09 | 4 | EXAM-05 | T-16-09-03 | determinism transport-level; no leg branch | integration | python examples/s2-01-external-consumers/run.py | examples/s2-01-external-consumers/fixtures/ | ⬜ pending |
+| 16-09 T3 | 16-09 | 4 | DOCS-13 | T-16-09-04 | AST guard refuses five import spellings | unit | pytest tests/examples/test_s2_01_output.py -q | tests/examples/test_s2_01_output.py | ⬜ pending |
+| 16-10 T1 | 16-10 | 4 | DOCS-14 | T-16-10-03 | host app holds no graph write handle | integration | python examples/s3-01-embed-in-your-application/run.py && python -m tools.lints --all | examples/s3-01-embed-in-your-application/host_app.py | ⬜ pending |
+| 16-10 T2 | 16-10 | 4 | DOCS-14 | T-16-10-01 | admission verified before L3; no fast path | integration | python examples/s3-01-embed-in-your-application/run.py | examples/s3-01-embed-in-your-application/producer_child.py | ⬜ pending |
+| 16-10 T3 | 16-10 | 4 | DOCS-14 | T-16-10-02 | tampered envelope refused with a typed reason | unit | pytest tests/examples/test_s3_01_output.py -q | tests/examples/test_s3_01_output.py | ⬜ pending |
+| 16-11 T1 | 16-11 | 4 | DEMO-02 | T-16-11-01 | impermissible grant refused in the run | integration | python -m tools.lints --all && pytest tests/examples/test_spine_separation.py -q | examples/s3-02-agentic-skills/artifacts/ | ⬜ pending |
+| 16-11 T2 | 16-11 | 4 | EXAM-02 | T-16-11-02 | no unrecorded human action; pinned replay | integration | python examples/s3-02-agentic-skills/run.py && pytest tools/docs_tests/test_gate_two_wording.py -q | examples/s3-02-agentic-skills/run.py | ⬜ pending |
+| 16-11 T3 | 16-11 | 4 | DOCS-14 | T-16-11-03 | historical skill-set asserted, not current | unit | pytest tests/examples/test_s3_02_output.py tests/examples/test_gate_two_divergence.py -q | tests/examples/test_gate_two_divergence.py | ⬜ pending |
+| 16-12 T1 | 16-12 | 5 | EXAM-03 | T-16-12-05 | make ci composes the gate-checker suites | gate | make ci | Makefile | ⬜ pending |
+| 16-12 T2 | 16-12 | 5 | DOCS-10 | T-16-12-01 | no credential in tree; dispatch-only DGX job | gate | pytest tests/examples/test_no_credential_in_tree.py -q && make ci | tests/examples/test_no_credential_in_tree.py | ⬜ pending |
+| 16-12 T3 | 16-12 | 5 | DOCS-10 | T-16-12-03 | fail-fast precondition confirmed to fire | manual | checkpoint:human-verify | — | ⬜ pending |
+| 16-13 T1 | 16-13 | 6 | DOCS-12 | T-16-13-01 | no whitepaper body text in new prose | gate | make docs-strict && pytest tools/docs_tests -q | public/tutorial/hello-ccf.md | ⬜ pending |
+| 16-13 T2 | 16-13 | 6 | DOCS-12 | T-16-13-02 | passage-anchor caveat carried | gate | make docs-strict && pytest tools/docs_tests/test_diagram_coverage.py -q | public/concepts/context-graph-axes.md | ⬜ pending |
+| 16-13 T3 | 16-13 | 6 | DEMO-03 | T-16-13-04 | re-point while the old example still exists | gate | make docs-strict && pytest tools/docs_tests -q && python -m tools.lints --all | public/reference/artifacts/product-registration.md | ⬜ pending |
+| 16-14 T1 | 16-14 | 7 | DOCS-15 | T-16-14-01 | no overclaim on passage anchors | gate | make docs-strict && tools/publish_scan.py --pre-build | public/concepts/why-ccf.md | ⬜ pending |
+| 16-14 T2 | 16-14 | 7 | DOCS-15 | T-16-14-05 | gate proven to fire on a stripped element | gate | pytest tools/docs_tests -q && make docs-strict | tools/docs_tests/test_adoption_argument.py | ⬜ pending |
+| 16-14 T3 | 16-14 | 7 | DOCS-15 | T-16-14-04 | argument assessed cold by a human | manual | checkpoint:human-verify | — | ⬜ pending |
+| 16-15 T1 | 16-15 | 8 | DOCS-13 | T-16-15-03 | no token value in a published snippet | gate | make docs-strict | public/tutorial/external-agents-over-mcp.md | ⬜ pending |
+| 16-15 T2 | 16-15 | 8 | DOCS-17 | T-16-15-01 | no-references check before deletion | gate | make ci && pytest tools/docs_tests -q && test ! -d examples/03-harness-portability | public/how-to/bind-a-harness-adapter.md | ⬜ pending |
+| 16-16 T1 | 16-16 | 9 | DOCS-14 | T-16-16-03 | agents stated as governed identity | gate | make docs-strict && pytest tools/docs_tests -q | public/tutorial/build-an-agentic-skill.md | ⬜ pending |
+| 16-16 T2 | 16-16 | 9 | DOCS-17 | T-16-16-05 | mkdocstrings identifiers still resolve | gate | make docs-strict && pytest tools/docs_tests -q | public/reference/artifacts/agent-definitions.md | ⬜ pending |
+| 16-16 T3 | 16-16 | 9 | DOCS-17 | T-16-16-01 | all 20 markers mapped before editing | gate | make docs-strict && pytest tools/docs_tests -q && make ci | public/how-to/compose-a-workflow-with-hitl.md | ⬜ pending |
+| 16-17 T1 | 16-17 | 10 | DOCS-14 | T-16-17-05 | no store endpoint in a published snippet | gate | make docs-strict && pytest tools/docs_tests -q | public/how-to/embed-ccf-in-your-application.md | ⬜ pending |
+| 16-17 T2 | 16-17 | 10 | DOCS-17 | T-16-17-04 | independent statement carried before deletion | gate | make ci && pytest tools/docs_tests -q && test ! -d examples/04-cross-process | public/how-to/run-agents-cross-process.md | ⬜ pending |
+| 16-18 T1 | 16-18 | 11 | DOCS-17 | T-16-18-01 | scripted zero-reference proof before deletion | gate | make docs-strict && pytest tools/docs_tests -q | mkdocs.yml | ⬜ pending |
+| 16-18 T2 | 16-18 | 11 | DOCS-17 | T-16-18-03 | survivor test modules enumerated and kept | gate | make ci && pytest tools/lints/tests tools/publish_scan_tests tools/docs_tests -q | Makefile | ⬜ pending |
+| 16-18 T3 | 16-18 | 11 | DOCS-17 | T-16-18-05 | no gate weakened to reach green | gate | make ci && pytest tools/lints/tests tools/publish_scan_tests tools/docs_tests -q && pytest tests -q -rs | 16-VALIDATION.md | ⬜ pending |
+| 16-19 T1 | 16-19 | 12 | DOCS-18 | T-16-19-02 | one enumerated src/ exception, no report-only | gate | make gate-16 | tools/gates/gate_16.py | ⬜ pending |
+| 16-19 T2 | 16-19 | 12 | DOCS-18 | T-16-19-01 | criteria marked from scripted output | gate | make ci && make gate-16 && pytest tools/lints/tests tools/publish_scan_tests tools/docs_tests -q | docs/PHASE_16_GATE.md | ⬜ pending |
+| 16-19 T3 | 16-19 | 12 | DOCS-18 | T-16-19-03 | every review finding verified; rejections recorded | manual | checkpoint:human-verify | — | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
