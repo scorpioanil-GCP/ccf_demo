@@ -315,10 +315,30 @@ class _MongoTxn:
             "policy_bundle_version": policy_bundle_version,
             "superseded_by": None,
             "superseded_at": None,
+            # Committed count for THIS entity plus this transaction's own
+            # buffered claims for THIS entity. Both terms must be scoped to the
+            # same key or the sum is not a sequence: an unscoped
+            # `len(self._entity_claims)` counts claims buffered for OTHER
+            # entities, so `A1, B1, A2` in one transaction gives `A` seq 0 and
+            # 2, and the next transaction's `A3` reads `count(A) == 2` and
+            # computes 2 — a duplicate. Two claims of one entity sharing an
+            # `observed_at` and a `seq` then order non-deterministically under
+            # the (observed_at, seq) sort, and `_restitch_chain` yields a
+            # different supersession chain per read. Dormant while
+            # `BaseGraphWriter` opens one transaction per claim, but that is a
+            # property of the caller, not of a buffered batch adapter
+            # (D-IMPL-88). One decision with `fluree_write.insert_entity_claim`,
+            # which carries the same fix (review findings WR-07 there, WR-06
+            # here) — the two are the same defect in the two batched adapters
+            # and must not drift apart again.
             "seq": self._arrival_index(
                 ENTITY_CLAIMS, {**scope, "entity_uri": entity_uri}
             )
-            + len(self._entity_claims),
+            + sum(
+                1
+                for buffered_claim in self._entity_claims
+                if buffered_claim["entity_uri"] == entity_uri
+            ),
             **_mongo_claim_projection(claim_json, kind=ENTITY_KIND),
         }
         self._entity_claims.append(document)
@@ -466,11 +486,17 @@ class _MongoTxn:
             "policy_bundle_version": policy_bundle_version,
             "superseded_by": None,
             "superseded_at": None,
+            # Scoped to THIS relationship key, for the reason spelled out at
+            # the entity site above. Same defect, same fix, same decision.
             "seq": self._arrival_index(
                 RELATIONSHIP_CLAIMS,
                 {**scope, "relationship_key": relationship_key},
             )
-            + len(self._relationship_claims),
+            + sum(
+                1
+                for buffered_claim in self._relationship_claims
+                if buffered_claim["relationship_key"] == relationship_key
+            ),
             **_mongo_claim_projection(claim_json, kind=RELATIONSHIP_KIND),
         }
         self._relationship_claims.append(document)
