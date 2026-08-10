@@ -8,7 +8,7 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **160** across **45** files
+- Coupling rows: **161** across **46** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **78** across **24** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **195**
 
@@ -19,7 +19,7 @@ Rows by owning plan:
 | 16-02 | 8 |
 | 16-15 | 22 |
 | 16-17 | 31 |
-| 16-18 | 99 |
+| 16-18 | 100 |
 
 Rows by coupling shape:
 
@@ -28,7 +28,7 @@ Rows by coupling shape:
 | `comment` | 14 |
 | `count-constant` | 4 |
 | `count-scan-function` | 4 |
-| `docstring` | 31 |
+| `docstring` | 32 |
 | `indirect-execution` | 1 |
 | `inline-tree-witness` | 1 |
 | `literal-set-member` | 3 |
@@ -181,6 +181,7 @@ Rows by coupling shape:
 | `tests/examples/test_s2_client_transport_spike.py` | 71 | `examples/external/00-hello-context` | `path-construction` | live | - | - | 16-18 | constructed as `examples/external/00-hello-context` |
 | `tests/examples/test_s2_client_transport_spike.py` | 271 | `tests/examples/test_ext00_serve_output.py` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_s2_client_transport_spike.py` | 666 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_spine_separation.py` | 21 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/integration/test_proto_quickstart.py` | 3 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/lints/test_examples_scope.py` | 41 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
 | `tests/lints/test_examples_scope.py` | 55 | `examples/03-harness-portability` | `tmp_path-synthetic` | survives | - | - | 16-15 |  |
@@ -424,6 +425,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-04-PLAN.md` | 6 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-04-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-05-PLAN.md` | 11 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-05-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-06-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-06-SUMMARY.md` | 8 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-07-PLAN.md` | 5 | the phase's own planning tree — not shipped, not published |

@@ -2,6 +2,7 @@
 phase: 16-documentation-rewrite-the-deterministic-path-the-adoption-ar
 plan: 05
 subsystem: testing
+status: paused-at-checkpoint
 tags: [examples, kyc, ubo, context-product, snippet-markers, ast-lint, no-hardcoding, decision-replay]
 
 # Dependency graph
