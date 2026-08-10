@@ -41,6 +41,16 @@ Only #4 is inheritance. Everything else is structural: you conform by having
 the right shape, not by importing a class and extending it
 ([Protocols over inheritance](../concepts/invariants.md)).
 
+**#4 is checked, not merely asked for.** `boot()` refuses a `make_writer` that
+returns anything other than a `BaseGraphWriter`, with a `TypeError` naming your
+adapter — and it refuses it the same way a writer constructor that *raises* is
+handled: the graph is released and the store is closed, so a corrected retry
+boots. The reason is narrow and worth knowing: retiring a writer is what
+releases the graph for the next boot, and only `BaseGraphWriter.close` does
+that. A duck-typed writer with the two upserts and no `close` would boot
+successfully once and then leave the graph unbootable for the life of the
+process.
+
 The nine transaction operations are `upsert_entity_node`,
 `insert_entity_claim`, `select_entity_chain`, `update_entity_supersession`, the
 four relationship twins of those, and `insert_lineage`. Two contract rules hold

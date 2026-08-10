@@ -15,6 +15,21 @@ algorithmic path.
 
 Like CINV-02 this checker takes no allowlist: an exempted algorithmic module is
 simply a semantic module and should drop the tag.
+
+Both spellings of an import (review finding F0)
+-----------------------------------------------
+
+Two entries in :data:`LLM_MODULES` carry a dot — ``ccf.llm`` and
+``google.generativeai`` — and both were reachable by a spelling this rule did
+not see. Proven by execution before the fix: in a module tagged
+``__ccf_mode__ = "algorithmic"``, ``from ccf.llm import LLMClient`` produced a
+finding and ``from ccf import llm`` produced none, which is the SDK's *own*
+LLM seam entering the algorithmic path unremarked. The single-segment vendor
+entries (``anthropic``, ``openai``, ``cohere``, ``litellm``, ``mistralai``)
+were never affected — they have no parent to be named by — and that asymmetry
+is exactly what let the hole survive a suite that tests the vendor spellings.
+The rule now reads :func:`~tools.lints.reached_module_names`, which resolves
+the parent-named form and the relative form alike.
 """
 
 from __future__ import annotations
@@ -24,9 +39,10 @@ import pathlib
 
 from tools.lints import (
     format_finding,
-    imported_module_names,
     matches_module,
+    package_for,
     read_tree,
+    reached_module_names,
 )
 
 RULE_ALGORITHMIC = "cinv03-algorithmic"
@@ -73,20 +89,27 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
         return []
 
     findings: list[str] = []
+    package = package_for(path, module_name)
     for node in ast.walk(tree):
-        for name in imported_module_names(node):
-            if matches_module(name, LLM_MODULES):
-                findings.append(
-                    format_finding(
-                        path,
-                        getattr(node, "lineno", 0),
-                        RULE_ALGORITHMIC,
-                        f"module is tagged {MODE_DUNDER}={ALGORITHMIC_MODE!r} and"
-                        f" may not import {name!r} — LLMs never see raw signal"
-                        " (CLAUDE.md §11); move the model call to a semantic"
-                        " stage",
-                    )
-                )
+        # One finding per import statement, not one per spelling it matches.
+        denied = sorted(
+            name
+            for name in reached_module_names(node, package=package)
+            if matches_module(name, LLM_MODULES)
+        )
+        if not denied:
+            continue
+        findings.append(
+            format_finding(
+                path,
+                getattr(node, "lineno", 0),
+                RULE_ALGORITHMIC,
+                f"module is tagged {MODE_DUNDER}={ALGORITHMIC_MODE!r} and"
+                f" may not import {denied[0]!r} — LLMs never see raw signal"
+                " (CLAUDE.md §11); move the model call to a semantic"
+                " stage",
+            )
+        )
     return findings
 
 

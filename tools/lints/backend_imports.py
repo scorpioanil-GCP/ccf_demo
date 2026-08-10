@@ -65,13 +65,17 @@ package would have left a dynamic adapter import in the deployment wiring
 invisible to the lint *and* to the test that exists to cover the lint's blind
 spot.
 
-Two smaller blind spots, for completeness. Relative imports carry no absolute
-module name and are reported as nothing by
-:func:`~tools.lints.imported_module_names`; ``src/`` uses none today, and a
-relative import that reached across packages would have to climb out of its own
-package to do it. And a module that depends on one adapter's *behaviour*
-without importing it is beyond any import rule — that residual belongs to
-``cinv04-substrate-name``, and past it, to review.
+One smaller blind spot, for completeness. A module that depends on one
+adapter's *behaviour* without importing it is beyond any import rule — that
+residual belongs to ``cinv04-substrate-name``, and past it, to review.
+
+Relative imports used to be listed here as a second blind spot, on the argument
+that ``src/`` uses none today. Review finding F3 rejected the argument rather
+than the observation: "by convention" is the thing this rule exists to replace,
+which is the same reasoning that made CR-02 a blocker. The name helpers now
+resolve a relative import against the importing module's package, so
+``from .graph.backends import sqlite_write`` in ``ccf.boot`` is caught by the
+same machinery as the absolute spelling.
 
 Both spellings of an import
 ---------------------------
@@ -101,6 +105,7 @@ import pathlib
 from tools.lints import (
     format_finding,
     matches_module,
+    package_for,
     reached_module_names,
     read_tree,
 )
@@ -124,13 +129,14 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
     if matches_module(module_name, (BACKENDS_PACKAGE,)):
         return findings
 
+    package = package_for(path, module_name)
     for node in ast.walk(tree):
         # Both spellings, and one finding per import statement rather than one
         # per spelling it matches — see the "Both spellings of an import"
         # section of the module docstring.
         denied = sorted(
             name
-            for name in reached_module_names(node)
+            for name in reached_module_names(node, package=package)
             if matches_module(name, (BACKENDS_PACKAGE,))
         )
         if not denied:

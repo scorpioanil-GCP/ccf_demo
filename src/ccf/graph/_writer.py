@@ -117,6 +117,7 @@ __all__ = [
     "BaseGraphWriter",
     "BootToken",
     "SingleWriterViolation",
+    "adopt_writer",
     "mint_boot_token",
     "release_boot_token",
 ]
@@ -226,6 +227,72 @@ def release_boot_token(token: BootToken) -> None:
         token: The token whose graph is being given back.
     """
     _LIVE_WRITERS.discard(token.graph_identity)
+
+
+def adopt_writer(writer: object, *, adapter: str) -> BaseGraphWriter:
+    """Admit a third-party writer into the fabric, or refuse it at boot.
+
+    The success-path half of :func:`release_boot_token`'s guard (review finding
+    F6). CR-01 covered a ``make_writer`` that **raises**; a ``make_writer`` that
+    **returns the wrong thing** was still trusted unconditionally, and three
+    facts composed into the same outcome:
+
+    1. Only :meth:`BaseGraphWriter.close` and :func:`release_boot_token` ever
+       discard from :data:`_LIVE_WRITERS`. An object that is neither cannot
+       release the graph, whatever else it can do.
+    2. :meth:`ccf.boot.FabricHandle.close` calls the returned object's
+       ``close``. A duck-typed writer without one raises ``AttributeError``
+       there — *after* the mint, during orderly shutdown.
+    3. The graph is then marked as having a writer that will never release it,
+       and every subsequent boot over that graph is refused as a second writer
+       for the life of the process.
+
+    That is CR-01's exact outcome reached through the path CR-01 did not cover,
+    and it is reachable by an adapter author doing nothing unreasonable — the
+    ``BackendRegistration.make_writer`` field is *typed* ``-> BaseGraphWriter``
+    and ``public/how-to/write-a-graph-backend-adapter.md`` says "subclasses the
+    SDK's neutral ``BaseGraphWriter``", but a third-party distribution is not
+    type-checked by this repository's ``mypy --strict`` run, so the declared
+    type is a statement rather than a gate until something checks it.
+
+    **Why an isinstance check rather than a structural one.** ``hasattr(writer,
+    "close")`` would admit an object with a ``close`` that does not release the
+    graph, which is the defect with one more step in it. The requirement is not
+    "has a close method"; it is "is the thing whose close releases the mint",
+    and that is a class identity, not a shape. Checking the type the seam
+    already declares also adds no new contract: it enforces the one written
+    down.
+
+    Refuses with ``TypeError``, which :func:`ccf.boot.boot` already documents
+    for a writer constructor handed a store it does not write through — the
+    same failure class, from the same call, in the same window. Raised *inside*
+    the composition root's existing guard, so the refusal releases the mint and
+    closes the store exactly as a raising constructor does; a corrected retry
+    boots.
+
+    Args:
+        writer: Whatever the adapter's ``make_writer`` returned.
+        adapter: The adapter's declared name, so the refusal says whose
+            distribution to fix. A declared name, never a credential and never
+            third-party exception text.
+
+    Returns:
+        `writer`, narrowed to :class:`BaseGraphWriter`.
+
+    Raises:
+        TypeError: `writer` is not a :class:`BaseGraphWriter`.
+    """
+    if isinstance(writer, BaseGraphWriter):
+        return writer
+    raise TypeError(
+        f"backend {adapter!r}: make_writer returned a"
+        f" {type(writer).__name__}, which is not a BaseGraphWriter."
+        " A writer that does not subclass BaseGraphWriter never releases the"
+        " graph on close, so the fabric would accept this boot and then refuse"
+        " every later one over the same graph (INV-CH7-10, CLAUDE.md §10)."
+        " Subclass ccf.graph._writer.BaseGraphWriter and contribute the"
+        " transaction; see public/how-to/write-a-graph-backend-adapter.md."
+    )
 
 
 def _entity_content_key(claim: EntityClaim) -> dict[str, object]:

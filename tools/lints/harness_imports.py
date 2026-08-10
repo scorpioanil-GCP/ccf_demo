@@ -56,11 +56,18 @@ Three rules, one AST walk:
     check reports at most one finding per import statement rather than one per
     spelling that statement matches.
 
-    That is also why the two halves of the walk read different name sets. The
-    harness and vendor-LLM deny lists reason about *distribution* names, where
-    the expanded form would be a claim about a package this rule has no
-    business making; the write-module check reasons about one repository's own
-    modules, where the expanded form is exactly the name that matters.
+    **Every half of the walk reads the same name set** (review finding F0). It
+    did not always: the harness and vendor-LLM deny loop was left on
+    :func:`~tools.lints.imported_module_names` when CR-02 moved the
+    write-module check across, on the argument that expanding a *distribution*
+    name would be a claim about a package this rule has no business making.
+    That argument was wrong in the one direction that mattered. ``google.adk``
+    is a deny entry with a dot in it, ``from google import adk`` is the
+    idiomatic spelling of it, and under the old helper that statement produced
+    no finding at all — while ``from google.adk import agents`` produced one.
+    Expansion cannot over-reach here, because an expanded name only ever
+    matches when it *equals or descends from* a deny entry: ``from google
+    import protobuf`` expands to ``google.protobuf``, which matches nothing.
 
 ``cinv02-deployment-gates``
     The adopter-facing wiring package ``ccf.deployment`` may not import
@@ -94,8 +101,8 @@ import pathlib
 
 from tools.lints import (
     format_finding,
-    imported_module_names,
     matches_module,
+    package_for,
     read_tree,
     reached_module_names,
 )
@@ -189,6 +196,7 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
     """Check already-read `source` attributed to `path` / `module_name`."""
     tree = read_tree(source, path)
     findings: list[str] = []
+    package = package_for(path, module_name)
     in_llm_adapter = matches_module(module_name, LLM_ADAPTER_MODULES)
     in_deployment = matches_module(module_name, (GATES_DENIED_IMPORTER,))
     in_harness_adapter = matches_module(
@@ -197,34 +205,39 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
 
     for node in ast.walk(tree):
         lineno = getattr(node, "lineno", 0)
-        for name in imported_module_names(node):
-            if matches_module(name, HARNESS_DENY) and not in_harness_adapter:
-                findings.append(
-                    format_finding(
-                        path,
-                        lineno,
-                        RULE_HARNESS,
-                        f"harness import {name!r} is forbidden in core"
-                        " (CLAUDE.md §7.3); bind harnesses in"
-                        " runtime/adapters/<harness>/ instead",
-                    )
+        # Every name the statement reaches, for every rule in this walk — see
+        # "Both spellings of an import are read" in the module docstring. One
+        # finding per statement per rule, never one per spelling it matches:
+        # `from google import adk` reaches both `google` and `google.adk`, and
+        # naming the line twice is noise rather than evidence.
+        reached = reached_module_names(node, package=package)
+
+        denied_harness = sorted(n for n in reached if matches_module(n, HARNESS_DENY))
+        if denied_harness and not in_harness_adapter:
+            findings.append(
+                format_finding(
+                    path,
+                    lineno,
+                    RULE_HARNESS,
+                    f"harness import {denied_harness[0]!r} is forbidden in core"
+                    " (CLAUDE.md §7.3); bind harnesses in"
+                    " runtime/adapters/<harness>/ instead",
                 )
-            elif matches_module(name, VENDOR_LLM_DENY) and not in_llm_adapter:
-                findings.append(
-                    format_finding(
-                        path,
-                        lineno,
-                        RULE_HARNESS,
-                        f"vendor LLM import {name!r} is allowed only inside the"
-                        " LLMClientProtocol adapter path"
-                        f" ({', '.join(sorted(LLM_ADAPTER_MODULES))})",
-                    )
+            )
+
+        denied_vendor = sorted(n for n in reached if matches_module(n, VENDOR_LLM_DENY))
+        if denied_vendor and not in_llm_adapter:
+            findings.append(
+                format_finding(
+                    path,
+                    lineno,
+                    RULE_HARNESS,
+                    f"vendor LLM import {denied_vendor[0]!r} is allowed only"
+                    " inside the LLMClientProtocol adapter path"
+                    f" ({', '.join(sorted(LLM_ADAPTER_MODULES))})",
                 )
-        # The write-module check reads every name the statement reaches, not
-        # only the one `imported_module_names` reports, and it reports at most
-        # one finding per statement — see the walk's own note below on why the
-        # two halves of this loop read different name sets.
-        reached = reached_module_names(node)
+            )
+
         guarded = sorted(n for n in reached if is_write_module(n))
         if guarded:
             name = guarded[0]

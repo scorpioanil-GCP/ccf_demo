@@ -48,7 +48,7 @@ from ccf.assembly.worker import (
     SpecDrivenEntityResolution,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol
-from ccf.graph._writer import mint_boot_token, release_boot_token
+from ccf.graph._writer import adopt_writer, mint_boot_token, release_boot_token
 from ccf.graph.protocols import GraphReader
 from ccf.graph.registry import (
     AdapterPin,
@@ -118,11 +118,22 @@ class FabricHandle:
         it; :class:`ccf.graph.registry.BackendStore` now *requires* it of a
         third-party store, and requiring something is a poor reason to keep
         depending on it in the one place that can simply not do it twice.
+
+        **Idempotent on success, retryable on failure** (review finding F6).
+        The flag used to be set *before* the shutdown ran, so a shutdown that
+        raised could never be retried: the second call returned immediately and
+        the graph stayed marked as written-to. Setting it after means a
+        successful close is still exactly one shutdown — the property the
+        paragraph above argues for — while a failed one leaves the handle in
+        the state it was actually in. Retrying re-runs the whole closure, which
+        is safe because both steps it drives are required to be idempotent:
+        :meth:`ccf.graph.protocols.GraphWriter.close` and
+        :meth:`ccf.graph.registry.BackendStore.close`.
         """
         if self._closed:
             return
-        self._closed = True
         self._shutdown()
+        self._closed = True
 
     def __enter__(self) -> FabricHandle:
         return self
@@ -299,7 +310,10 @@ def boot(
             is not registered.
         TypeError: the resolution-spec artifact is not an
             :class:`EntityResolutionSpec`; or the resolved adapter's writer
-            constructor was handed a store it does not write through.
+            constructor was handed a store it does not write through; or that
+            constructor returned an object that is not a ``BaseGraphWriter``
+            and so could never release the graph on close
+            (:func:`ccf.graph._writer.adopt_writer`).
         BaseException: whatever the resolved adapter's own store or writer
             constructor raises, re-raised unchanged. The adapter chooses the
             type — it is third-party code — so this function does not wrap it
@@ -329,7 +343,14 @@ def boot(
         raise
 
     try:
-        writer = registration.make_writer(store, token)
+        # `adopt_writer` refuses a returned object that is not a
+        # `BaseGraphWriter` — the success-path half of the guard below (review
+        # finding F6). Deliberately *inside* this `try`, so a refusal releases
+        # the mint and closes the store on the same path a raising constructor
+        # takes; both are "the adapter did not give us a writer".
+        writer = adopt_writer(
+            registration.make_writer(store, token), adapter=registration.name
+        )
     except BaseException:
         # The same guard the mint above gets, for the same reason, over a call
         # that needs it more: since D-IMPL-93 this constructor is a callable an

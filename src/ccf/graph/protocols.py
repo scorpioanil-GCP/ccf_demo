@@ -576,6 +576,19 @@ class GraphWriter(Protocol):
     writer looks up: policy is bound *at assembly time* and travels with the
     subgraph — the fabric does not persist state first and ask who may see it
     afterwards (INV-CH7-03).
+
+    **The lifecycle obligation is part of the contract** (review finding F6).
+    This Protocol used to declare the two upserts and stop, while the runtime
+    required a third method the reader of this file could not see: the
+    composition root calls ``close()`` on shutdown, and a writer that has no
+    ``close`` leaves the graph marked as written-to for the life of the
+    process. A public contract that under-declares what the runtime requires is
+    the ``DI-15.4-05`` gap producing a defect rather than an inconvenience, so
+    the contract now says what it needs.
+
+    ``close`` is the **composition root's** to call, not L2's. Nothing about
+    declaring it here changes who owns the lifecycle; it changes what a reader
+    of the documented surface knows they must implement.
     """
 
     def upsert_entity(
@@ -600,4 +613,22 @@ class GraphWriter(Protocol):
         policy_bundle_version: str,
     ) -> UpsertResult:
         """Idempotently upsert a relationship claim, with per-edge lineage."""
+        ...
+
+    def close(self) -> None:
+        """Retire this writer and release its graph for a subsequent boot.
+
+        Shutdown, not an escape hatch: a retired writer refuses every further
+        write, so this cannot be used to hold two usable writers at once. It
+        must be **idempotent** — the composition root's handle is also a
+        context manager, so ``with handle:`` around a body that also closes is
+        two calls written by someone doing nothing wrong.
+
+        Releasing the graph is the load-bearing half. A writer whose ``close``
+        does not release leaves the fabric refusing every later boot over that
+        graph (INV-CH7-10); this is why
+        :func:`ccf.graph._writer.adopt_writer` refuses a returned writer that
+        is not a :class:`~ccf.graph._writer.BaseGraphWriter`, whose ``close``
+        is the implementation of this method every adapter inherits.
+        """
         ...
