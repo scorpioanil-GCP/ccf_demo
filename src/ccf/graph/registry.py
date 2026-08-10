@@ -627,8 +627,8 @@ def resolve(name: str) -> ResolvedBackend:
         DuplicateBackendName: discovery found one name declared twice by
             declarations it cannot establish are the same declaration.
         ValueError: a declared name is malformed, a discovered built-in carries
-            no registration record, or the loaded object is not the adapter it
-            was resolved as.
+            no registration record, a third-party declaration could not be
+            loaded, or the loaded object is not the adapter it was resolved as.
     """
     builtins, third_party = _declared()
     known = frozenset(builtins) | frozenset(third_party)
@@ -666,11 +666,11 @@ def resolve(name: str) -> ResolvedBackend:
         # discovery pass that had just applied every name refusal, which is
         # the one place those refusals can be relied on (review finding CR-03).
         entry_point = third_party[name]
-        registration = entry_point.load()
         origin = (
             f"distribution {_distribution_of(entry_point)}"
             f" {_version_of(entry_point)} entry point {entry_point.value!r}"
         )
+        registration = _load_third_party(entry_point, name, origin)
         version = _version_of(entry_point)
         distribution = _distribution_of(entry_point)
 
@@ -709,6 +709,45 @@ def _load_builtin(module_path: str) -> object | None:
     """
     module = importlib.import_module(module_path)
     return getattr(module, REGISTRATION_ATTRIBUTE, None)
+
+
+def _load_third_party(
+    entry_point: importlib.metadata.EntryPoint, name: str, origin: str
+) -> object:
+    """Load one third-party declaration, refusing in the shape the SDK's own uses.
+
+    ``EntryPoint.load()`` imports the named module and reads the named
+    attribute off it, so three unrelated failures arrive here untyped: the
+    module does not exist (``ModuleNotFoundError``), the attribute does not
+    (``AttributeError``), or the adapter's module-level body raised whatever it
+    liked. None appeared in :func:`resolve`'s or :func:`ccf.boot.boot`'s
+    documented ``Raises``, while the *built-in* path next door refuses a
+    missing record by name and has a test asserting no ``AttributeError``
+    escapes. The careful treatment was on the half the SDK wrote and the half a
+    stranger wrote got none (review finding WR-02).
+
+    The refusal separates the two states an operator confuses: an adapter that
+    is **not installed** and an adapter that is installed and **broken**. Only
+    the second can be reached here at all, because discovery already found the
+    declaration.
+
+    Raised outside the handler, on :func:`validate_connection`'s precedent, so
+    the third-party exception does not ride along on ``__context__`` where a
+    structured logger would find its text. The type name and message are
+    reproduced deliberately — they are the diagnosis — but they are reproduced
+    into *this* refusal rather than left attached to it.
+    """
+    try:
+        return entry_point.load()
+    except Exception as failure:
+        detail = f"{type(failure).__name__}: {failure}"
+    raise ValueError(
+        f"adapter {name!r} is declared by {origin}, but its declaration could"
+        f" not be loaded ({detail}). The distribution that ships it is"
+        " installed and its declaration is broken, which is a different"
+        " problem from an adapter that is not installed: nothing here is"
+        " fixed by installing something."
+    )
 
 
 def validate_connection(

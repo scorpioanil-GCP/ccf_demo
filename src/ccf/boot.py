@@ -278,7 +278,8 @@ def boot(
         ValueError: ``secrets`` names a field the resolved adapter does not
             declare as a credential field; or a supplied credential is keyed by
             a field its own record does not name; or discovery found a
-            packaging conflict among the installed adapters.
+            packaging conflict among the installed adapters; or the named
+            adapter is installed but its declaration could not be loaded.
         ccf.graph._writer.SingleWriterViolation: a live writer already exists
             for this graph.
         ccf.controlplane.registry.ControlPlaneMissing: a pinned key or version

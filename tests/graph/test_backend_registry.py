@@ -596,6 +596,66 @@ def test_a_registration_that_answers_to_another_name_is_refused(
     assert "actual" in message
 
 
+@pytest.mark.parametrize(
+    ("value", "expected_type"),
+    [
+        pytest.param(
+            "ccf_no_such_module_anywhere:REGISTRATION",
+            "ModuleNotFoundError",
+            id="module-missing",
+        ),
+        pytest.param(
+            "ccf.graph.protocols:MISSING_ATTR",
+            "AttributeError",
+            id="attribute-missing",
+        ),
+    ],
+)
+def test_a_third_party_declaration_that_cannot_load_is_refused_by_name(
+    monkeypatch: pytest.MonkeyPatch, value: str, expected_type: str
+) -> None:
+    """WR-02 — the stranger's half of the load path gets the SDK's own care.
+
+    The built-in path refuses a missing record with a message naming the module
+    and the adapter, and a test beside it asserts no ``AttributeError`` escapes.
+    The third-party branch called ``entry_point.load()`` bare, so a bad module
+    target or a bad attribute name reached the caller as a raw import error
+    that appeared in no documented ``Raises``.
+
+    The refusal has to separate two states an operator conflates: an adapter
+    that is not installed, and one that is installed and broken. Only the
+    second can be reached here — discovery already found the declaration — and
+    the remedy for the two is opposite.
+    """
+    monkeypatch.setattr(registry, "_builtin_names", dict)
+    monkeypatch.setattr(
+        registry,
+        "_declared_entry_points",
+        lambda: _entry_points(
+            _entry_point(
+                name="broken",
+                value=value,
+                distribution="ccf-broken-adapter",
+                version="0.1.0",
+            )
+        ),
+    )
+
+    with pytest.raises(ValueError) as caught:
+        resolve("broken")
+
+    assert not isinstance(caught.value, (AttributeError, ImportError))
+    message = str(caught.value)
+    assert "broken" in message
+    assert "ccf-broken-adapter" in message
+    assert expected_type in message
+    assert "not installed" in message
+    # Raised outside the handler, so the third-party exception is not reachable
+    # on the object a structured logger would walk.
+    assert caught.value.__context__ is None
+    assert caught.value.__cause__ is None
+
+
 def test_a_loaded_object_that_is_not_a_registration_is_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
