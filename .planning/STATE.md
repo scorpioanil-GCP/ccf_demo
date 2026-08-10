@@ -4,14 +4,14 @@ milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
 last_updated: "2026-08-09T16:06:15.908Z"
-last_activity: 2026-08-09 -- Phase 15.4 execution started
+last_activity: 2026-08-09 -- Phase 15.4 executed, reviewed, fixed; awaiting Dave's gate
 progress:
   total_phases: 16
   completed_phases: 13
   total_plans: 103
   completed_plans: 102
   percent: 81
-stopped_at: Phase 15.4 executing (12 plans, 9 waves; plans at 8f59e25, revised at b32080d/6f444db/59244d0/e21b794). Commissioned by D-IMPL-93 (Dave, 2026-08-09) -- the substrate may evolve and gain capability but must never carry a unique dependency on a named adapter and must never change per-adapter. Rulings D-13..D-16 in 15.4-CONTEXT.md at 46160a2 -- no allowlist for the two new lint rules (carve-outs are named constants; gate package owes a line for the deliberate deviation from D-IMPL-93's wording); WR-01 and WR-05 fixed here, WR-04/WR-06/IN-02/IN-03 stay debt; the exported JSON Schema loses its six-name enum and a `ccf backends` CLI replaces it; adapter names are exact-lowercase with the six built-ins reserved. Research at 95bbc89 corrected two CONTEXT.md premises -- docs/schemas/ccf.deployment-manifest.json does carry the enum (so dropping the Literal must re-run make schemas in the same change), and no replay dimension pins a substrate today (D-09 creates the first adapter pin). Cross-AI review at 15.4-REVIEWS.md (Gemini LOW, Codex/Cursor/Ollama MEDIUM); three verified findings folded in at 59244d0 -- validate_connection/InvalidBackendConfig now owned by plan 02 task 3, V8 headline verify gated on `git diff --quiet`, and _open_backend's real test callers at test_fluree_backend.py:1703,1717,1746. Two residuals for the gate package -- the enforcement window (rules written wave 1, registered wave 6) and BackendRegistration.make_writer widening who can reach a writer constructor (bounded by a call-site test). Wave 9 (plan 15.4-12) is a checkpoint plan requiring Dave. Deferred -- Dave's four-database FIBO comparison harness at /home/parkave/fluree/examples/fibo/ (192.168.4.76) for a later cross-adapter demonstration phase. Residual from 15.3 -- 2 GitHub-Actions UAT observations (non-blocking).
+stopped_at: Phase 15.4 EXECUTED IN FULL, AWAITING DAVE'S GATE (CLAUDE.md 3.1 step 3). All 12 plans merged to main across 9 waves, 64 plan commits plus a 14-commit code-review fix pass. Sweep at 8336d7f: make ci exit 0 (2450 passed, 81 skipped), pytest tools/lints/tests 141 passed, legs mongo 22 / neo4j 20 / fluree 37 (postgres 25 recorded, no server on this machine at verify time), frozen paths byte-untouched. Headline claim holds over the adapter-arrival window f9857d94..9f80986^ (git diff --quiet -- src/ccf exit 0) and the gate is shown falsifiable (same form over the whole phase exits 1). Post-execution code review returned 3 BLOCKERS -- CR-01 unguarded make_writer leaking the store and permanently marking the graph live, CR-02 both new lint rules blind to `from <pkg> import <submodule>`, CR-03 duplicate discovery failing open on distribution name alone -- all fixed inside the phase with mutation-checked regression tests, plus 9 warnings. Review finding WR-05 (neither checker has tests) was CHECKED AND REJECTED as false: 41 test functions exist in tools/lints/tests/, which make ci-core never reaches because testpaths=['tests']; CI runs them separately. Verifier returned human_needed, 8/9 must-haves verified. TWO THINGS AWAIT DAVE: (1) the ROADMAP commissioning text says D-IMPL-92's gate is 'superseded by the structural check, not deleted' but plan 15.4-07 deleted tools/gates/gate_15_3.py and the whole tools/gates package -- if Dave reads 'not deleted' as reaching the artifact this is a blocker; the script was crashing (KeyError: 'enum') before removal. (2) three rulings surfaced and not taken: the six unexported names an out-of-tree adapter must reach for (materialize_view/_ordered_view/_entity_records/_relationship_records/_LineageRowsFor/_GraphTxn), the underscore-separated backend_registry_conflict error code among seven hyphenated ones (free to change now, breaking later), and the CINV-04 identifier now naming two unrelated invariants (DI-15.4-03; CINV-05 is free). Also open: the ccf distribution name is taken on PyPI by an unrelated project at 7.0.12. No D-GATE-15.4 entry written; docs/DECISIONS.md byte-untouched. Deferred -- Dave's four-database FIBO harness at /home/parkave/fluree/examples/fibo/ (192.168.4.76). Residual from 15.3 -- 2 GitHub-Actions UAT observations (non-blocking).
 ---
 
 # STATE — CCF SDK
@@ -28,9 +28,9 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 15.4 (backend registration seam) — EXECUTING
-Plan: 1 of 12
-Status: Executing Phase 15.4
+Phase: 15.4 (backend registration seam) — EXECUTED, AWAITING GATE
+Plan: 12 of 12 (all merged; review fixes merged)
+Status: Phase 15.4 executed in full — AWAITING DAVE'S GATE
   Commissioned by D-IMPL-93 (Dave, 2026-08-09): the substrate may evolve and
   gain capability, but must never carry a unique dependency on a named adapter
   and must never change per-adapter. Measured against that standard at
@@ -42,8 +42,8 @@ Status: Executing Phase 15.4
   outside `backends/`, no substrate name in core outside the registry, both
   lint-enforced, replacing D-IMPL-92's admitted line-budget proxy. NOTE: the
   handler auto-advanced to Phase 16; 15.4 precedes it per Dave's ruling.
-Progress: [----------] 0%
-Last activity: 2026-08-09 -- Phase 15.4 execution started
+Progress: [##########] 100% (execution) — gate pending
+Last activity: 2026-08-09 -- Phase 15.4 executed, reviewed, blockers fixed; awaiting Dave's gate
 
 ## Performance Metrics
 
