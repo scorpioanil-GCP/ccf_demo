@@ -2,7 +2,7 @@
 phase: 16-documentation-rewrite-the-deterministic-path-the-adoption-ar
 plan: 01
 subsystem: planning-record
-status: awaiting-checkpoint
+status: complete
 tags: [decisions, requirements, ergo-03, gate-2, criterion-10, assembly-mode]
 requires:
   - .planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-CONTEXT.md  # D-02, D-13, D-14, D-15
@@ -56,10 +56,10 @@ eight DEMO/EXAM rows re-homed; ERGO-03's Phase 15 measurement is frozen as
 scripted output at a named SHA and its running check retired. No source file
 changed.
 
-**Status: awaiting Dave's ruling at Task 3's blocking checkpoint.** Tasks 1 and
-2 are complete and committed. Task 3 is a `checkpoint:human-verify` with
-`gate="blocking"` and was **not** self-approved. Plans 16-02, 16-03 and 16-04
-depend on rulings recorded here and must not start until the resume signal.
+**Status: complete.** Tasks 1 and 2 were committed, then Task 3's blocking
+`checkpoint:human-verify` was put to Dave and **approved as recorded**
+(2026-08-10). It was not self-approved by the executor. Plans 16-02, 16-03,
+16-04 and 16-21 are unblocked.
 
 ## What was built
 
@@ -288,11 +288,32 @@ exists in `examples/00-quickstart/run.py` (plan 16-02 repoints
 - commit `e7e1729` — FOUND
 - commit `2c52b5f` — FOUND
 
-## AWAITING CHECKPOINT — Task 3
+## Task 3 — checkpoint cleared (2026-08-10)
 
-Task 3 (`checkpoint:human-verify`, `gate="blocking"`) is **not** executed. Dave
-must confirm the ruling package. The specific rulings put to him, and the
-consequence of each if he rules differently, are in the executor's returned
-checkpoint report. Downstream plans 16-02, 16-03 and 16-04 are blocked; 16-04's
-`src/` docstring edit is authorised **only** by the `D-13` carve-out recorded in
-this entry.
+Task 3 (`checkpoint:human-verify`, `gate="blocking"`) was put to Dave by the
+orchestrator, not self-approved, and **approved as recorded**. All six
+dispositions stand unchanged: the Q-2 substrate reading of `assembly_mode`; the
+criterion-10 carve-out as one literal symbol/file pair; Q-7 left unruled with
+`DI-15.4-05`/`DI-15.4-06` kept out of the published page; Q-8's three gate
+suites joining `make ci`; `D-14`'s carry-forward bounded on both limbs; and the
+twelve DOCS rows with the eight DEMO/EXAM re-homings.
+
+**Orchestrator verification before presenting.** Three load-bearing claims in
+the entry were re-checked against the tree rather than taken from the executor:
+`serve.py` has three `QueryPinMismatch` guards and exactly one `return` (so the
+plan's "no branch" wording was wrong and the entry's stronger claim is right);
+`required=True` has exactly one witness under `examples/`
+(`03-harness-portability/run.py:694`, n=1, as limb 2 asserts); and
+`test_docstring_leaks.py` reports exactly 20 shingle hits on
+`ProductClassDeclaration` with every other docstring clean.
+
+**Post-merge suite:** 2423 passed, 81 skipped, exit 0. The 34-test drop from the
+Phase 15.4 baseline of 2457 is exactly the retired `test_surface_audit.py`,
+which collected 34. Nothing else regressed.
+
+**Deviation accepted by Dave.** `tools/measure_examples.py` is not in this
+plan's `files_modified` (it belongs to 16-18) but received a docstring-only
+correction, because its prose described the deleted audit module in the present
+tense. Two further stale cross-references in `tests/products/` were logged to
+`deferred-items.md` rather than fixed, since those modules belong to plans 16-15
+and 16-18 and editing them from a wave-1 worktree would collide at waves 8/11.
