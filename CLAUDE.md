@@ -202,6 +202,43 @@ optional and its steps do not merge:
    phase's deliverables. The review runs *before* anything is presented
    to Dave — a review report is a precondition of requesting approval,
    not a substitute for it.
+
+   **This step is the cross-AI panel, and nothing else satisfies it.**
+   `/gsd-review --all` invokes every available external reviewer; a
+   single-agent code review (`/gsd:code-review`, the `gsd-code-reviewer`
+   agent, or any in-session review by the executing model) is **additive,
+   never a substitute**. Running the single-agent review and presenting on
+   its findings does not discharge this step. Both run: the panel because
+   independent models catch different blind spots, the single-agent pass
+   because it reads at a depth a panel prompt cannot carry.
+
+   **When execution has already happened, the panel reviews the *shipped
+   code*, not the plans.** A phase whose plans were reviewed before
+   execution does not get a second plan review at close — those decisions
+   are already executed. Write the close-time panel to a distinct file
+   (`<phase>-CLOSE-REVIEWS.md`) so the pre-execution plan review survives.
+
+   **Give the panel the findings already known and tell it not to re-derive
+   them** — its budget is better spent on what is *adjacent* to each known
+   defect, and on what each suggests about where the same defect class
+   lives. Phase 15.4's close-time panel found a harness-neutrality lint hole
+   that predated the phase entirely, purely because it was pointed at the
+   neighbourhood of a fixed blocker rather than at the blocker.
+
+   **Verify every finding against the tree before recording or acting on
+   it, and record the ones you reject as rejected.** Reviewers in this
+   project have produced confident, well-formatted, false findings — one
+   was rejected outright in Phase 15.1 for fabricated citations, and Phase
+   15.4 received a finding asserting that two lint checkers had no tests
+   when 41 test functions existed. An unverified finding acted on is worse
+   than no review.
+
+   **Ordering, explicitly:** `/gsd:execute-phase` completing is not the end
+   of a phase. Execution → cross-AI panel (`--all`) → single-agent code
+   review → verify every finding → fix all blocking findings in-phase →
+   *then* present to Dave. A phase is not closed until Dave's ruling and
+   the `D-GATE-<Phase>` entry, and no defect known at that point should be
+   carried into the next phase without an explicit ruling to carry it.
 2. **Triage findings.** Classify every finding as **blocking** (a
    violated invariant, a whitepaper-fidelity defect, a missing
    deliverable element, an unsurfaced decision) or **advisory** (style,
