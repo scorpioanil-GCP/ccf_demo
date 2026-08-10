@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-10T15:02:20.669Z"
-last_activity: 2026-08-10 -- Phase 16 planning complete
+last_updated: "2026-08-10T15:31:00.000Z"
+last_activity: 2026-08-10 -- Phase 16 execution started (wave 1 of 12)
 progress:
   total_phases: 16
   completed_phases: 14
@@ -28,22 +28,21 @@ is canonical for phases, review protocol, invariants, and decision log.
 
 ## Current Position
 
-Phase: 16
-Plan: Not started
-Status: Ready to execute
-  Commissioned by D-IMPL-93 (Dave, 2026-08-09): the substrate may evolve and
-  gain capability, but must never carry a unique dependency on a named adapter
-  and must never change per-adapter. Measured against that standard at
-  `773ed92`, tests (1) direction and (2) recurrence both FAIL — `boot.py` and
-  `_writer.py` import `ccf.graph.backends.*`, `_open_backend` carries 2-3
-  kwargs per substrate, and `artifacts.py` hand-maintains a six-name Literal.
-  D-IMPL-92's four corrections are the symptom of the missing seam, not a
-  documentation defect. Success is structural, not numeric: no backend import
-  outside `backends/`, no substrate name in core outside the registry, both
-  lint-enforced, replacing D-IMPL-92's admitted line-budget proxy. NOTE: the
-  handler auto-advanced to Phase 16; 15.4 precedes it per Dave's ruling.
-Progress: [##########] 100% (execution) — gate pending
-Last activity: 2026-08-10 -- Phase 16 planning complete
+Phase: 16 — Documentation Rewrite — The Deterministic Path & The Adoption Argument
+Plan: 0 of 21 complete (wave 1 of 12)
+Status: EXECUTING on branch `phase-16` (forked from main @ 06fea5c, per CLAUDE.md
+  §2.2 — merge to main happens at the D-GATE-16 entry, not before). Six plans
+  carry `autonomous: false` and will halt for Dave: 16-01 (the D-IMPL-94 ruling
+  package), 16-02 (the FIBO corp→corp extension, which writes to four live DGX
+  stores outside the repo), 16-05 (the reference Section-1 example), 16-12
+  (Makefile + CI on the split D-06 shape), 16-14 (the adoption argument), 16-19
+  (the phase gate).
+  NOTE, carried from the block this replaced: the previous Current Position text
+  described Phase 15.4's D-IMPL-93 commission, not Phase 16 — a GSD handler left
+  it stranded under a Phase 16 heading. That commission is recorded canonically
+  in ROADMAP.md and DECISIONS.md; nothing is lost by removing it here.
+Progress: [░░░░░░░░░░] 0% — 0/21 plans, 0/12 waves
+Last activity: 2026-08-10 -- Phase 16 execution started (wave 1 of 12)
 
 ## Performance Metrics
 
