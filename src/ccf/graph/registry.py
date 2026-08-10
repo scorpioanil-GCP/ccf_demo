@@ -73,6 +73,17 @@ says the requested adapter was never reached, so an operator can tell "this
 deployment's installed adapters conflict" from "the adapter I asked for is not
 installed".
 
+**A discovery refusal names distributions and never their versions** (review
+finding WR-01). :func:`declared_names` is the *listing* function: anything that
+can ask this deployment what adapters it has can reach these three refusals,
+including a caller that is not entitled to the deployment's dependency
+inventory — the HTTP front door serves that question with no credential under
+its documented default. A distribution name is what the remedy needs (an
+uninstall names a distribution, not a version); a version is a reconnaissance
+detail the remedy never uses. :func:`resolve` is a different case and keeps
+both: it runs only for the adapter a deployment asked for by name, and by then
+the caller has already declared what they are booting.
+
 The residual this module carries, and the compensating control
 --------------------------------------------------------------
 
@@ -453,10 +464,11 @@ def _declared() -> tuple[dict[str, str], dict[str, importlib.metadata.EntryPoint
 
     third_party: dict[str, importlib.metadata.EntryPoint] = {}
     for entry_point in _declared_entry_points():
-        origin = (
-            f"distribution {_distribution_of(entry_point)}"
-            f" {_version_of(entry_point)}"
-        )
+        # Name only. See "A discovery refusal names distributions and never
+        # their versions" in the module docstring — this string is the origin
+        # every refusal below is built from, so the property holds for all
+        # three at once rather than one message at a time.
+        origin = f"distribution {_distribution_of(entry_point)}"
         _check_name_shape(entry_point.name, origin)
 
         if entry_point.name in builtins:
@@ -529,15 +541,11 @@ def _duplicate_refusal(
     environment's installed metadata is inconsistent", which no uninstall of a
     *rival* package can fix.
     """
+    # Names only, never versions — see the module docstring's note on what a
+    # discovery refusal discloses. The version is what these two declarations
+    # most often differ *in*, but naming it is a fact the remedy never uses and
+    # this refusal is reachable by anyone who can ask for the adapter listing.
     names = sorted({_distribution_of(previous), _distribution_of(entry_point)})
-    described = ", ".join(
-        sorted(
-            {
-                f"{_distribution_of(point)} {_version_of(point)}"
-                for point in (previous, entry_point)
-            }
-        )
-    )
     shared = f"adapter name {entry_point.name!r}"
     tail = (
         " This is a packaging conflict in the installed environment, not a"
@@ -547,12 +555,12 @@ def _duplicate_refusal(
     if len(names) > 1:
         return (
             f"{shared} is declared by more than one installed distribution"
-            f" ({described}); the fabric does not choose between"
+            f" ({', '.join(names)}); the fabric does not choose between"
             f" them.{tail} Run `pip uninstall` on one of them, or ask its"
             " author to rename its adapter."
         )
     return (
-        f"{shared} is declared more than once by {described}, and the"
+        f"{shared} is declared more than once by {names[0]}, and the"
         " declarations do not agree on which code the name selects — they"
         " differ in version, in target, or in both, or the declaring"
         " distribution could not be identified at all. The fabric does not"

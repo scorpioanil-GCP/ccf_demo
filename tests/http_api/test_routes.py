@@ -663,14 +663,23 @@ def test_backends_refuses_503_naming_the_conflicting_distributions(
     The refusal names the offending distributions, which is the one thing
     that tells a packaging conflict apart from a missing adapter — and the
     one thing an uncaught exception would have thrown away.
+
+    The message is the registry's, forwarded verbatim, so what it discloses is
+    decided where it is built. That the registry builds a discovery refusal
+    from distribution names and never their versions is asserted in
+    ``tests/graph/test_backend_registry.py`` (WR-01); the injected message here
+    is written in that same shape so this test does not teach a body the route
+    can no longer receive.
     """
     from ccf.graph.registry import DuplicateBackendName
     from ccf_runtime.http_api.routes import backends as backends_route
 
     refusal = DuplicateBackendName(
-        "two installed distributions declare the adapter name 'duplicated':"
-        " acme-adapters 1.2.3 and beta-adapters 4.5.6. Neither was resolved."
-        " Run `pip uninstall` on one of them."
+        "adapter name 'duplicated' is declared by more than one installed"
+        " distribution (acme-adapters, beta-adapters); the fabric does not"
+        " choose between them. This is a packaging conflict in the installed"
+        " environment, not a missing adapter. Run `pip uninstall` on one of"
+        " them."
     )
 
     def _conflicted() -> frozenset[str]:

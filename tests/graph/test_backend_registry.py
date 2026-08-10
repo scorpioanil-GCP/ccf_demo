@@ -34,6 +34,7 @@ import ast
 import dataclasses
 import importlib.metadata as metadata
 import pathlib
+import re
 import sys
 from types import SimpleNamespace
 from typing import Any
@@ -290,7 +291,7 @@ def test_a_duplicated_name_is_refused_naming_both_distributions(
         resolve("dup")
 
     message = str(caught.value)
-    for token in ("ccf-first-adapter", "0.1.0", "ccf-second-adapter", "9.9.9"):
+    for token in ("ccf-first-adapter", "ccf-second-adapter"):
         assert token in message, (token, message)
     assert first_module not in sys.modules
     assert second_module not in sys.modules
@@ -622,6 +623,75 @@ def test_a_loaded_object_that_is_not_a_registration_is_refused(
         resolve("notarecord")
 
     assert "BackendRegistration" in str(caught.value)
+
+
+#: A version-shaped token: two dot-separated runs of digits. Loose on purpose —
+#: the assertion below is "no version reached the message", and a matcher that
+#: only recognised semver would miss ``2.0`` and ``0.9.2-rc4`` alike.
+_VERSION_SHAPED = re.compile(r"\b\d+\.\d+")
+
+
+@pytest.mark.parametrize(
+    "declaration",
+    [
+        pytest.param(("dup", "pkg.a:REGISTRATION", "acme-adapters", "3.14.1"), id="dup"),
+        pytest.param(
+            ("sqlite_lookalike", "pkg.b:REGISTRATION", "acme-adapters", "3.14.1"),
+            id="reserved",
+        ),
+        pytest.param(
+            ("NotALowerName", "pkg.c:REGISTRATION", "acme-adapters", "3.14.1"),
+            id="malformed",
+        ),
+    ],
+)
+def test_no_discovery_refusal_discloses_a_version(
+    monkeypatch: pytest.MonkeyPatch, declaration: tuple[str, str, str, str]
+) -> None:
+    """WR-01 — the listing function's refusals name distributions, never versions.
+
+    ``declared_names()`` answers "which adapters does this deployment have",
+    and the HTTP front door serves that question with no credential under its
+    documented default. Its three refusals therefore reach a caller who is not
+    entitled to the deployment's dependency inventory, and a version is a
+    reconnaissance detail no remedy uses — an uninstall names a distribution.
+
+    Asserted here rather than at the route, because the route forwards the
+    registry's message verbatim: the property has to hold where the message is
+    built, or it holds nowhere. All three refusals are covered, since the
+    version travelled through the shared ``origin`` string and would have come
+    back through any one of them.
+    """
+    name, value, distribution, version = declaration
+    builtin = "sqlite_lookalike"
+    monkeypatch.setattr(
+        registry, "_builtin_names", lambda: {builtin: "pkg.builtin_write"}
+    )
+    monkeypatch.setattr(
+        registry,
+        "_declared_entry_points",
+        lambda: _entry_points(
+            _entry_point(
+                name=name,
+                value=value,
+                distribution=distribution,
+                version=version,
+            ),
+            _entry_point(
+                name=name,
+                value="pkg.rival:REGISTRATION",
+                distribution="beta-adapters",
+                version="0.9.2",
+            ),
+        ),
+    )
+
+    with pytest.raises(ValueError) as caught:
+        declared_names()
+
+    message = str(caught.value)
+    assert distribution in message, message
+    assert not _VERSION_SHAPED.search(message), message
 
 
 def _python_files() -> list[pathlib.Path]:
