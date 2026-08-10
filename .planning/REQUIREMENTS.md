@@ -29,20 +29,40 @@
 - [ ] **DOCS-04**: How-to guides + concepts pages (pillars, invariants, replay anatomy, whitepaper cross-reference index)
 - [ ] **DOCS-05**: Security & deployment notes + OpenAPI polish with drift check
 - [ ] **DOCS-06**: `make docs --strict` builds in always-on CI (logged D-10 amendment); PERFORMANCE.md publishes measured baselines with methodology
+- [ ] **DOCS-07**: The Phase 16 ruling package — `D-IMPL-94` records the Mode 2 attachment point above `serve()` and what `assembly_mode` describes, plus the criterion-10 carve-out, the Gate-2 tripwire carry-forward with its two-limb bound, and the ERGO-03 freeze — with no accompanying source diff
+- [ ] **DOCS-08**: The three pre-existing gate-checker failures are green and `make ci` composes `tools/lints/tests`, `tools/publish_scan_tests` and `tools/docs_tests`, so its "full local reproduction of the always-on pipeline" claim is true rather than aspirational
+- [ ] **DOCS-09**: The KYC/UBO enterprise source estate carries corp→corp `hasOwnershipInterestIn` edges with per-edge `ownershipPercent`, generated deterministically from a definition artifact, written to the source estate and never to CCF's L3, so "Who ultimately owns Acme?" has a chain to traverse
+- [ ] **DOCS-10**: **One** example driver resolves its backend from a supplied configuration artifact — the substrate name from `DeploymentManifest.backend` and the `connection=` field/env-var shape from a declarative backends document, never from a per-backend code fork and never from a value baked into the driver — and a CI matrix asserts `content_hash` equality of the served Context Product across `sqlite`, `memory`, `postgres`, `neo4j`, `mongo` and `fluree`, with `sqlite`+`memory` always-on and network-free, the four DGX databases opt-in, and no credential in the tree
+- [ ] **DOCS-11**: Every example physically separates the CCF call spine from deployment code into distinct modules carrying the canonical ordered marker set, legible to a repository reader rather than only to the rendered site
+- [ ] **DOCS-12**: Section 1 ships agent-free deterministic examples and published pages teaching Context Products, the four Context Operator categories and the six axes of `G(E, R, T, P, Π, L)`, introducing `assembly_mode: algorithmic` as a governance choice with two siblings named as Phase 17's
+- [ ] **DOCS-13**: Section 2 ships external client legs for the Claude Agent SDK, Google ADK and LangGraph that import nothing from `ccf`, asserted by an AST matcher with a negative control and an exactly-three-harnesses assertion, plus their published pages
+- [ ] **DOCS-14**: Section 3 ships embedding CCF in a host application (in-process, MCP egress, A2A admission, ArtifactStore swap) and developing agentic skills within CCF, plus their published pages, stating plainly that SDK agents are governed identity and are structurally barred from calling a model
+- [ ] **DOCS-15**: An adoption-argument page names RAG over a vector store, hand-rolled context assembly, and a semantic layer plus prompt templates, and states what each lacks against cited shipped mechanism, with the UBO question as its worked demonstration and the passage-anchor honesty caveat carried
+- [ ] **DOCS-16**: Carried advisories A-1, A-2, A-3 and A-8 are discharged in the published tree with positive per-advisory evidence rather than a green build
+- [ ] **DOCS-17**: `examples/00`–`08` and `examples/external/00-hello-context` are retired with every published page that sourced from them re-cut, proven by standing gates for dangling includes, stale prose paths, Gate-2 wording and documented commands
+- [ ] **DOCS-18**: The phase closes with a mechanical no-fabric-change assertion carrying D-13's single enumerated exception, a full gate sweep, and a requirement ledger that matches the tree
 
 ### Demonstration (DEMO)
 
 - [x] **DEMO-01**: A synthetic fake data store — deterministic, multi-entity, domain values entirely in definition artifacts — ships as the demonstration substrate
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto `examples/s1-01-hello-context-product`'s deterministic source-estate generator. Not retired and not re-minted: the requirement is unchanged, the example carrying it moves.
 - [x] **DEMO-02**: An end-to-end runnable example: data ingested through L1→L2, folded into the Context Graph, projected into typed Context Products, consumed by an agent that solves a concrete reasoning problem it could not solve from raw data alone
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto `examples/s3-02-agentic-skills`, which is where an agent consuming typed Context Products against a real use case now lives.
 - [x] **DEMO-03**: A narrated walkthrough document in the docs site tracing the demo step-by-step ("how data folds into context"), literal-including the example's code and artifacts; demo runs in CI like the v0.1 examples
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto `public/tutorial/hello-ccf.md`, the narrated Section-1 walkthrough that replaces `demo-walkthrough.md`.
 
 ### Examples (EXAM)
 
 - [ ] **EXAM-01**: Every v0.1 example (00–07) has a detailed narrated README — what it demonstrates, artifact-by-artifact explanation, whitepaper/CLAUDE.md sections exercised, and "what to change first to adapt it"
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto the seven-heading README of every new Section-1/2/3 example. The examples `00`–`07` retire under `DOCS-17`; the narrated-README obligation travels with the suite rather than dying with it.
 - [ ] **EXAM-02**: Example scenarios are enriched to exercise more of the SDK surface (specialization axes, skilling, HITL, replay) through richer definition artifacts — example code stays thin and generic per No-Hardcoding
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto `examples/s3-02-agentic-skills`, the Section-3 example whose artifacts carry the specialization axes, skilling, HITL and replay surface.
 - [ ] **EXAM-03**: The upgraded suite stays CI-green with a single documented command per example; any expected-output change is a reviewed, deliberate event
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto the `make example-s*` target surface, which is the single documented command per example for the rebuilt suite.
 - [x] **EXAM-04**: An external agent with zero CCF imports client-side consumes typed Context Products, lineage, and the replay record over the authenticated MCP surface, deterministically in CI, across bare-MCP, Anthropic-SDK, and Google-ADK legs (family charter + `examples/external/00-hello-context`)
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto `examples/s2-01-external-consumers`, which carries the same zero-CCF-import claim across the three `D-09` harnesses.
 - [x] **EXAM-05**: The external-consumer example is hardened against the four-AI consensus concerns — live-captured diff-reviewed fixtures with a schema guard and request-fingerprint replay matching, a server-side tool allowlist, byte-path/README/duration assertion hardening — and the three external-consumption tools (`get_context`, `get_lineage`, `get_replay_record`) are promoted into the SDK Experience surface, enabled by default
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto `examples/s2-01-external-consumers`, alongside EXAM-04: the hardening obligations (diff-reviewed fixtures with a schema guard, request-fingerprint replay matching, a server-side tool allowlist, the three promoted Experience-surface tools) travel to the example that replaces `examples/external/00-hello-context`.
 
 ### SDK Ergonomics (ERGO)
 
@@ -133,6 +153,18 @@
 | DOCS-04 | Phase 14 | Pending |
 | DOCS-05 | Phase 14 | Pending |
 | DOCS-06 | Phase 14 | Pending |
+| DOCS-07 | Phase 16 | Pending |
+| DOCS-08 | Phase 16 | Pending |
+| DOCS-09 | Phase 16 | Pending |
+| DOCS-10 | Phase 16 | Pending |
+| DOCS-11 | Phase 16 | Pending |
+| DOCS-12 | Phase 16 | Pending |
+| DOCS-13 | Phase 16 | Pending |
+| DOCS-14 | Phase 16 | Pending |
+| DOCS-15 | Phase 16 | Pending |
+| DOCS-16 | Phase 16 | Pending |
+| DOCS-17 | Phase 16 | Pending |
+| DOCS-18 | Phase 16 | Pending |
 | ERGO-01 | Phase 15 | Complete |
 | ERGO-02 | Phase 15 | Complete |
 | ERGO-03 | Phase 15 | Complete |
@@ -167,7 +199,27 @@
 | SUBQ-13 | Phase 15.3 | Complete |
 | SUBQ-14 | Phase 15.3 | Complete |
 
-Coverage: 56/56 v0.2 requirements mapped, each to exactly one phase.
+Coverage: 68/68 v0.2 requirements mapped, each to exactly one phase.
+Counted from the traceability table above by counting its rows, not from the
+previous sentence: 56 rows before Phase 16's minting, 68 after.
+**DOCS-07..DOCS-18 were minted at Phase 16 planning and recorded here by plan
+16-01 (2026-08-10)**, under the same inserted-phase precedent SUBQ-12..14 and
+ERGO-18..19 were minted under — a phase mints its own requirement IDs at
+planning rather than borrowing a predecessor's. Three things about this minting
+are worth stating because a later reader will otherwise reconstruct them wrongly.
+First, **DEMO-01..03 and EXAM-01..05 re-home rather than retire** (Phase 16
+`D-08`): each of those eight rows now carries a bracketed re-homing note naming
+the new example or page that carries it, and no duplicate ID was minted for work
+that already has one. The suite those requirements were satisfied against is
+retired by DOCS-17; the requirements are not, and their Status column is
+untouched by the re-homing. Second, **DOCS-01..DOCS-06 stay Pending against
+Phase 14**, deliberately: Phase 16 rewrites what they delivered rather than
+reopening them, so re-pointing their Phase column at 16 would erase the record
+of which phase built the pages this one replaces. Third, Phase 16 is the largest
+single minting in this file (twelve IDs) because the phase absorbed Phase 14.1
+whole plus a scope expansion Dave ruled on 2026-08-09 — a greenfield examples
+suite, a four-section documentation rewrite, and a six-backend CI matrix — and
+the lane is sized to the phase rather than to the original roadmap sentence.
 ERGO-18 and ERGO-19 were minted during Phase 15.1 planning under the Phase 15/16
 precedent already stated in `.planning/ROADMAP.md` §Coverage — an inserted phase
 mints its own requirement IDs at planning rather than borrowing a predecessor's —

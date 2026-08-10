@@ -18,8 +18,24 @@ must never be summed into one headline figure: D-09 **relocates** assertions
 and prints into `tests/`, while the helper and wiring work is **removed**, and
 D-12's stated risk is a target being hit by moving lines rather than removing
 work. `removable` therefore carries the mechanical total and `relocatable`
-carries `asserts + prints`; `tests/examples/test_surface_audit.py` asserts
-structurally that no combined figure is ever produced.
+carries `asserts + prints`; the ERGO-03 audit module under `tests/examples/`
+asserted structurally that no combined figure was ever produced.
+
+The audit module retired, this tool did not
+-------------------------------------------
+
+**Retired 2026-08-10** — `docs/DECISIONS.md` `D-IMPL-94`, recording Phase 16
+`D-15`. Phase 16 rebuilds `examples/` greenfield, which makes a comparison
+against the Phase-15-start baseline meaningless rather than merely stale, so the
+standing check was frozen and removed rather than re-baselined (which would have
+destroyed the Phase 15 comparison — see the `--baseline` help text) or deleted
+without capture (which would have erased a Complete requirement's evidence).
+
+This tool is unaffected: it still measures, `make measure-examples` still writes
+`after/`, and both fragment directories stay committed. What no longer exists is
+the module that pinned the achieved numbers. The frozen measurement, with the
+tree SHA it was taken at, is `docs/surface/examples/ERGO-03-FROZEN.md`; the
+narrative is `docs/SURFACE-AUDIT.md` §2, and §2.5 records the retirement.
 
 Why one fragment per file
 -------------------------
@@ -82,8 +98,9 @@ EXAMPLES_ROOT = REPO_ROOT / "examples"
 BEFORE_DIR = REPO_ROOT / "docs" / "surface" / "examples" / "before"
 
 #: The phase-close re-measurement, written per-example by the rewrite plans.
-#: ``tests/examples/test_surface_audit.py`` reads this directory to produce the
-#: four separate figures Criterion 1 reports.
+#: The retired ERGO-03 audit module read this directory to produce the four
+#: separate figures Criterion 1 reports; the last such reading is frozen at
+#: ``docs/surface/examples/ERGO-03-FROZEN.md`` (D-IMPL-94 / Phase 16 D-15).
 AFTER_DIR = REPO_ROOT / "docs" / "surface" / "examples" / "after"
 
 #: Marshalling helpers extracted as named functions (15-RESEARCH.md §1 pass 2).
