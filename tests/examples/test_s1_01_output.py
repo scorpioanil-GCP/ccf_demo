@@ -62,6 +62,7 @@ import importlib.util
 import json
 import pathlib
 import sys
+import types
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -99,6 +100,11 @@ EXPECTED_BOUNDARY_CASE = "boundary_case_party"
 #: so a witness added to ``expected.yaml`` is checked without editing this file.
 ABSENCE_PREFIX = "absent_by_"
 
+#: The bare names ``run.py`` imports its siblings under. Shadowed for the
+#: duration of the load — see :func:`_load_example` — because ``deployment``
+#: also names a package under ``tests/``.
+SIBLING_MODULES = ("deployment", "spine", "source_estate")
+
 
 def _load_example() -> Any:
     """Load the example module by file path (the example dir is no package).
@@ -108,13 +114,48 @@ def _load_example() -> Any:
     field annotations by looking its own module up there, and a module absent
     from the table fails with an opaque ``AttributeError`` at class-definition
     time rather than anywhere near the cause.
+
+    **The sibling names are shadowed for the duration of the load, and restored
+    after.** ``run.py`` puts its own directory on ``sys.path`` and imports its
+    two siblings by bare name — ``import deployment``, ``import spine`` — which
+    is unambiguous for a user running the example, and ambiguous inside this
+    process: ``tests/deployment/`` is a package with an ``__init__.py``, so by
+    the time ``tests/examples`` is collected ``sys.modules["deployment"]``
+    already holds the *test* package. A bare import then returns the cached
+    module and the example fails with ``module 'deployment' has no attribute
+    'KycDeployment'`` — a collision between two trees, not a fault in either.
+
+    Evicting the names forces a fresh resolution through ``sys.path``, where
+    ``run.py`` has just put the example directory first; restoring them
+    afterwards leaves ``tests/deployment`` importable for every test collected
+    after this one. The loaded driver keeps a direct reference to the example's
+    own modules, so the restore costs it nothing.
     """
     name = "s1_01_under_test"
     spec = importlib.util.spec_from_file_location(name, EXAMPLE)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
-    spec.loader.exec_module(module)
+
+    shadowed = {
+        sibling: sys.modules.pop(sibling)
+        for sibling in SIBLING_MODULES
+        if sibling in sys.modules
+    }
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        for sibling in SIBLING_MODULES:
+            sys.modules.pop(sibling, None)
+        sys.modules.update(shadowed)
+
+    # Loud rather than subtle: if a future change lets a same-named module from
+    # another tree win, this fails here instead of as a puzzling AttributeError
+    # on the first fixture that reaches for the deployment's vocabulary.
+    assert pathlib.Path(module.deployment.__file__).parent == EXAMPLE_DIR, (
+        f"the driver resolved `deployment` to {module.deployment.__file__},"
+        f" not to the example's own module under {EXAMPLE_DIR}"
+    )
     return module
 
 
@@ -171,6 +212,37 @@ def payload_is_populated(payload: Any) -> bool:
         and payload[PAYLOAD_ENTITY_CLASSES]
         and payload[PAYLOAD_OWNERSHIP_BY_PARTY]
     )
+
+
+def test_the_driver_loads_beside_a_same_named_module_from_another_tree() -> None:
+    """The sibling-name collision, pinned so the loader's fix cannot rot.
+
+    ``tests/deployment/`` is a package, so in a full-suite run
+    ``sys.modules["deployment"]`` is already taken by the time this module is
+    collected, and ``run.py``'s bare ``import deployment`` would otherwise
+    return it. Running this file alone hides that entirely — which is how the
+    collision reached a green targeted run and a red ``make ci-core``.
+
+    A decoy is planted here so the case is exercised regardless of collection
+    order, and the decoy is asserted to survive the load: shadowing the name
+    must be temporary, or every test collected after this one loses
+    ``tests/deployment``.
+    """
+    decoy = types.ModuleType("deployment")
+    previous = sys.modules.get("deployment")
+    sys.modules["deployment"] = decoy
+    try:
+        loaded = _load_example()
+        assert pathlib.Path(loaded.deployment.__file__).parent == EXAMPLE_DIR
+        assert sys.modules["deployment"] is decoy, (
+            "the loader left the example's module shadowing the name it"
+            " borrowed — later tests would import the wrong `deployment`"
+        )
+    finally:
+        if previous is None:
+            sys.modules.pop("deployment", None)
+        else:
+            sys.modules["deployment"] = previous
 
 
 def test_the_expectation_document_declares_something(expected: Any) -> None:
