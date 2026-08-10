@@ -1,12 +1,9 @@
 # Write a graph backend adapter
 
 Put a graph substrate CCF has never heard of behind the fabric, shipped as your
-own installable distribution, with no line changing in the SDK.
-
-An adapter is found through an entry point, resolved by name, and held to the
-same conformance suites the built-in adapters run. Nothing about that path is
-reserved for adapters written by this repository: the seam is the published
-surface, and a third-party adapter reaches it the same way.
+own installable distribution. Your adapter declares itself, the fabric resolves
+it by name, and the same conformance suites the built-in adapters run are the
+bar it clears.
 
 The smallest complete worked example is `tests/fixtures/ccf-demo-adapter/` in
 the SDK repository — a real second distribution that registers an adapter named
@@ -19,10 +16,10 @@ companion to this one.
 You need a substrate that can store rows and give them back, and you need to
 decide one thing early: **whether your adapter will translate queries at all.**
 It does not have to. Declining pushdown is a first-class outcome — the SDK's
-shared fallback answers every query family over materialized records, so an
-adapter that translates nothing is still a conforming adapter, and it is the
-tier a third party reaches without reimplementing the query surface. Start
-there; add native translation later, when you have a measured reason.
+shared fallback (`ccf.graph.fallback`) answers every query family over
+materialized records, so an adapter that translates nothing is still a
+conforming adapter. Start there; add native translation later, when you have a
+measured reason.
 
 ## What an adapter owes
 
@@ -63,6 +60,35 @@ across all nine and are easy to violate without noticing:
   `select_*_chain` following an `insert_*_claim` in the same transaction must
   see it.
 
+## The registration record
+
+`BackendRegistration` is the whole of what your adapter tells the fabric about
+itself, and it is a record the fabric *interprets* rather than a class you
+extend. Five fields:
+
+| Field | What it carries |
+| --- | --- |
+| `name` | The name a deployment writes in its manifest to select you |
+| `config_model` | The typed contract your connection settings satisfy |
+| `secret_fields` | Which of those settings carry a credential |
+| `open_store` | Constructs the store from validated settings plus resolved credentials |
+| `make_writer` | Constructs the write handle from the store and the boot token |
+
+**A conforming `config_model` derives from `CCFContract`.** That is not a
+stylistic preference: `CCFContract` carries `extra="forbid"`, so a settings key
+your adapter never declared is refused by the contract base rather than being
+silently accepted. A model written against a plain open base would lose that
+refusal, and no test anywhere would fail.
+
+The record is declared as a **module-level `REGISTRATION`** in your write module
+— see [where each piece goes](#where-each-piece-goes) — and that attribute name
+is what both discovery paths look for.
+
+`make_writer` is never called by the registry. The composition root calls it,
+holding the boot token, and a test asserts it is the only caller under the SDK's
+own `src/` and `runtime/` trees. Your adapter supplies the factory; it does not
+decide when a writer exists.
+
 ## Where each piece goes
 
 Two modules, and the split is not cosmetic:
@@ -78,10 +104,28 @@ names that module. The read module is imported by many callers; putting the
 writer factory there would place write-path code on an unguarded import path.
 The write module may import the read module freely. The reverse is forbidden.
 
+The same separation is enforced inside the SDK, from the other side. The neutral
+write base lives in its own private module (`ccf.graph._writer`), and a
+structural lint denies that module to every core module outside the assembly
+layer and the composition root. Your package is not in that lint's scope — see
+[what the lints do and do not cover](#what-the-sdks-lints-do-and-do-not-cover) —
+but the convention it enforces is the one your two-module layout mirrors, and
+following it is what keeps a reader import from dragging the write path along
+with it.
+
 ## How the fabric finds your adapter
 
-Declare an entry point in the `ccf.graph_backends` group pointing at the
-`REGISTRATION` object in your write module:
+There are two discovery sources, and yours is the second.
+
+**Adapters the SDK ships are found by reading module names off disk**, inside
+the SDK's own adapter package. A directory read, never an import, and no
+packaging metadata is involved — which is why a stale editable install cannot
+make the fabric unbootable, and why an installed distribution cannot shadow a
+name the SDK ships.
+
+**Your adapter is found through the `ccf.graph_backends` entry-point group.**
+Declare an entry point pointing at the `REGISTRATION` object in your write
+module:
 
 ```toml
 [project.entry-points."ccf.graph_backends"]
@@ -98,10 +142,12 @@ python -m pip install -e .
 This is the single most likely first failure. If `ccf backends list` does not
 show your adapter after you added the declaration, you have not reinstalled.
 
-Discovery never imports your package — listing what a deployment has installed
-reads metadata only. Only resolving your adapter by name imports it, and it
-imports exactly one adapter. So an installed adapter nobody selected costs a
-deployment nothing, and your module-level code does not run at every boot.
+Two functions, and the difference between them is what keeps discovery cheap.
+`declared_names()` is the *listing* function — it reads both sources, applies
+every name refusal, and imports nothing at all. `resolve(name)` is the
+*selection* function, and it **imports exactly one adapter**: the one a
+deployment named. So an installed adapter nobody selected is never loaded, and
+your module-level code does not run at every boot.
 
 ## Naming rules
 
@@ -117,9 +163,20 @@ deployment nothing, and your module-level code does not run at every boot.
   anyone — the refusal reads as a packaging conflict and tells you which two
   distributions to look at.
 
-Those last two refusals fail the *whole* discovery call, not just the offending
-name. That is deliberate and fail-closed: an environment whose answer to "which
-code does this name select" is ambiguous has not earned a boot.
+`declared_names()` is **fail-closed on all three**: a duplicated, a reserved or a
+malformed name declared by *any* installed distribution refuses the whole
+discovery call, not just the offending name — including a boot of an adapter
+that has nothing to do with it. That is deliberate: an environment whose answer
+to "which code does this name select" is ambiguous has not earned a boot. Each
+refusal names the distributions involved and says the requested adapter was
+never reached, so a packaging conflict reads differently from an adapter that is
+simply not installed.
+
+The same fail-closed behaviour reaches the front door.
+[`ccf backends list`](../reference/http-api.md) travels `GET /backends`, which
+returns the sorted names on the success path and a `503` carrying the registry's
+own refusal when the deployment's installed adapters conflict. The CLI holds no
+local generation path of its own; it asks the route like any other client.
 
 ## Credentials
 
@@ -147,9 +204,78 @@ Declare which config fields carry a credential in your registration's
 authenticate to. A credential supplied for a field you did not declare is
 refused, by field name.
 
+`secret_fields` exists so the resolved value can be kept out of the *validated
+settings model* entirely — the credential mapping arrives at `open_store`
+separately, which is why a validation error over your connection settings has no
+credential to echo. The no-persistence half is mechanism rather than discipline:
+the SDK's canonical-bytes function refuses a `SecretStr` outright, so a resolved
+credential cannot be content-hashed into a versioned artifact even by accident.
+See [manage keys and secrets](security-and-deployment.md) for the deployment
+side of that boundary.
+
 You do not declare your adapter's version or distribution name. The registry
 **derives** both from your distribution's own installed metadata, which is why a
 third-party adapter gets its replay pin for free and cannot misstate it.
+
+## What `query()` must answer
+
+The read seam is one method — `GraphReader.query()`, taking a `GraphQuery` and
+returning a `GraphView` — and what it *means* is defined normatively in
+`docs/GRAPH_QUERY_SEMANTICS.md`, not here. That document is the authority a
+dispute is resolved by quoting; its clauses carry `GQ-NN` ids, refusal messages
+cite them, and semantic changes arrive as versioned amendments rather than as
+silent drift. Read it before you write a translation, and cite clause ids in
+your own tests.
+
+Three properties of the seam shape every adapter, and are worth stating here
+because they are the ones authors are surprised by:
+
+- **A conformant answerer answers any well-formed query.** There is no
+  capability negotiation and no refusal path on this seam. Where you hold no
+  native translation you degrade internally to scan-and-filter; you do not tell
+  the caller you cannot help.
+- **The as-of view arrives as data.** Tenant scope and `as_of` are inside the
+  frozen query value, so no answerer reads a clock and none takes tenant as a
+  separate argument.
+- **An empty answer is a legitimate value, never an error.**
+
+Each issued query's content hash is the per-round-trip replay pin, recorded in
+execution order, with the canonical query bytes landing in the ArtifactStore
+keyed by those hashes. That is why the query value is frozen and why it carries
+no version field of its own.
+
+## How to prove it works
+
+Run the two conformance suites with your adapter as a parameter. They are the
+acceptance bar, and they are the same bar every built-in adapter clears:
+
+- **The `GraphStore` conformance suite** asserts the six invariant write
+  semantics every conforming backend must carry.
+- **The substrate differential suite** asserts that your adapter's answers over
+  the generated query corpus are **byte-identical** to the shared fallback's,
+  plus determinism and the tenant boundary. The fallback is itself audited by a
+  property suite, so the oracle is answerable to something it does not define.
+
+A parity test asserts that the suites' parameter lists and the set of registered
+adapters agree in both directions, so an installed adapter that no parameter
+names fails loudly instead of producing a suite that passes while testing one
+substrate fewer.
+
+**Byte-identity does not measure your translation, and you should not read it as
+if it did.** A staged adapter — one that narrows natively by the policy and
+temporal families and leaves traversal to the fallback — is fully conformant
+(`GQ-34`), because the degraded posture is byte-identical *by design*. So an
+adapter that translates nothing and an adapter that translates everything both
+pass the differential suite, which is exactly what makes it a correctness bar
+rather than a performance one.
+
+What a translation is proved by instead is its own counters. The SDK's reader
+base exposes `translated_answers` and `fallback_answers` as per-instance,
+monotonic observables; if you do not use that base, keep the equivalent
+yourself. They are deliberately **outside** the replay record — what was
+natively translated versus scanned is telemetry, and performance is never a
+replay input. Assert on them in your own tests to show a translation you added
+is the one answering.
 
 ## What a development checkout looks like
 
@@ -161,49 +287,6 @@ That is the command answering correctly about the environment it is in — the
 question it asks is *what is installed here* — and not a statement that the
 fixture is a supported substrate. It is a test fixture, and it is **not** a
 dependency of the `ccf` distribution, so installing CCF never pulls it.
-
-## The private-surface gap, stated plainly
-
-**Some of what an adapter needs is not exported.** As of the phase that added
-the out-of-tree proof, six names an adapter reaches for are absent from their
-modules' `__all__`: `materialize_view`, `_ordered_view`, `_entity_records`,
-`_relationship_records` and `_LineageRowsFor` from the graph reader module, and
-`_GraphTxn` from the writer's private module.
-
-None of them is currently avoidable. Ordering belongs to the interface rather
-than to an answerer, so an adapter that sorted results for itself would fork the
-convention the shared helper exists to hold; and the entity and relationship
-record helpers have no public counterpart at all, so history reads are not
-implementable from public names alone. The SDK's `BaseGraphReader` *is* public
-but is SQL-shaped — it expects SQL statements and a `_query(sql, params)` — so a
-non-relational store cannot use it.
-
-This page states the gap rather than routing around it: the surface a
-third-party adapter must reach for is not yet the same as the published surface,
-and closing that distance is an open decision rather than something an adapter
-author can fix. Write against these names knowing they are private, and expect
-them to be the part of your adapter most exposed to churn.
-
-## How to prove it works
-
-Run the two conformance suites with your adapter as a parameter. They are the
-acceptance bar, and they are the same bar every built-in adapter clears:
-
-- **The `GraphStore` conformance suite** asserts the six invariant write
-  semantics every conforming backend must carry.
-- **The substrate differential suite** asserts that your adapter's answers over
-  the generated query corpus are **byte-identical** to the shared fallback's,
-  plus determinism and the tenant boundary.
-
-Byte-identity is the honest bar precisely for an adapter that declines pushdown:
-the fallback answers, so the assertion is that routing through your store
-changed nothing. If you *do* add native translation later, the same suite is
-what catches a translation that disagrees with the prose.
-
-A parity test asserts that the suites' parameter lists and the set of registered
-adapters agree in both directions, so an installed adapter that no parameter
-names fails loudly instead of producing a suite that passes while testing one
-substrate fewer.
 
 ## What the SDK's lints do and do not cover
 

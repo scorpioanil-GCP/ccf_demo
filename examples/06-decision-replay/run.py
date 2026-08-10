@@ -75,11 +75,11 @@ from ccf.controlplane.artifacts import (
 from ccf.controlplane.audit import AuditLog
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import (
+    ResolvedPins,
     build_operator_registry,
     load_and_boot,
     refuse_operator_set_divergence,
 )
-from ccf.deployment.pins import ResolvedPins
 from ccf.graph.protocols import GraphReader, GraphView
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
 from ccf.hitl.approval_gate import HitlActionRecord
