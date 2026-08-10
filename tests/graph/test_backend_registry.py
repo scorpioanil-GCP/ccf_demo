@@ -417,6 +417,33 @@ def test_one_distribution_declaring_one_name_twice_at_one_target_is_passed_over(
     assert declared_names() == frozenset({"twice"})
 
 
+def test_an_unreadable_adapter_package_says_so_instead_of_reporting_none(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """WR-08 — the failure mode that gave an operator the wrong instruction.
+
+    Built-in discovery reads a directory rather than packaging metadata, which
+    is the right trade for the failure modes the module argues about — but it
+    makes every SDK adapter depend on that directory existing as real module
+    files. Under a packaging that does not lay files out that way the built-in
+    set came back empty, and the refusal an operator then read told them to
+    install a distribution that declares the adapter. Following that
+    instruction cannot fix an SDK whose own package could not be read, and
+    nothing in the message distinguished the two.
+    """
+    monkeypatch.setattr(
+        registry, "_backends_directory", lambda: tmp_path / "not-a-directory"
+    )
+    monkeypatch.setattr(registry, "_declared_entry_points", _entry_points)
+
+    with pytest.raises(RuntimeError) as caught:
+        declared_names()
+
+    message = str(caught.value)
+    assert "the SDK's own adapter package" in message
+    assert BACKEND_ENTRY_POINT_GROUP not in message
+
+
 def test_a_third_party_distribution_cannot_claim_a_builtin_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -101,6 +101,7 @@ class FabricHandle:
         self.registry = registry
         self.adapter = adapter
         self._shutdown = shutdown
+        self._closed = False
 
     def close(self) -> None:
         """Retire the fabric: the writer stops accepting writes, the store closes.
@@ -108,7 +109,19 @@ class FabricHandle:
         Releases the graph for a subsequent boot. This is orderly shutdown, not
         a way to hold two live writers — the retired writer refuses every
         further call.
+
+        **Idempotent, and guarded here rather than relied on below** (review
+        finding WR-07). This method is public and this class is also a context
+        manager, so ``with handle:`` around a body that also closes is two
+        calls written by someone doing nothing wrong — and the second one used
+        to reach the adapter's store. Every in-tree store happens to tolerate
+        it; :class:`ccf.graph.registry.BackendStore` now *requires* it of a
+        third-party store, and requiring something is a poor reason to keep
+        depending on it in the one place that can simply not do it twice.
         """
+        if self._closed:
+            return
+        self._closed = True
         self._shutdown()
 
     def __enter__(self) -> FabricHandle:

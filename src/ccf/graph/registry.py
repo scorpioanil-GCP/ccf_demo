@@ -250,7 +250,23 @@ class BackendStore(Protocol):
     @property
     def reader(self) -> GraphReader: ...
 
-    def close(self) -> None: ...
+    def close(self) -> None:
+        """Release this store's hold on its substrate. **Must be idempotent.**
+
+        Stated because a third party implements this Protocol now, and the
+        requirement was previously discoverable only by reasoning about a bug:
+        the out-of-tree fixture's author added a ``_closed`` guard because
+        without one a second close double-decremented a handle count and
+        deleted a graph another handle was still using. Every in-tree store
+        happens to delegate to a driver that tolerates a second call, so
+        nothing was broken and nothing said so (review finding WR-07).
+
+        A second call is an ordinary caller shape rather than a defect:
+        :meth:`ccf.boot.FabricHandle.close` is public *and* the handle is a
+        context manager, so ``with handle:`` around a body that also closes is
+        two calls written by someone doing nothing wrong.
+        """
+        ...
 
 
 @dataclass(frozen=True)
@@ -393,9 +409,35 @@ def _builtin_names() -> dict[str, str]:
     and reports module names. A module is an adapter's write module when its
     name ends with :data:`WRITE_MODULE_SUFFIX`; the suffix is stripped to give
     the adapter name.
+
+    **An unreadable adapter directory is refused, not reported as "no
+    built-ins"** (review finding WR-08). Reading the directory is more robust
+    than packaging metadata for the failure modes the module docstring names,
+    and it is the reason a built-in cannot be shadowed — but it does make
+    built-in discovery depend on the package existing as a real directory of
+    module files. Under a packaging that does not lay files out that way, every
+    SDK adapter silently ceased to exist and the refusal an operator then read
+    told them to install a distribution, which cannot fix it. Two states, two
+    messages: "you did not install anything" is :class:`UnknownBackend`'s to
+    say, and it is not this one.
+
+    Raises:
+        RuntimeError: the SDK's own adapter package is not a readable
+            directory.
     """
+    directory = _backends_directory()
+    if not directory.is_dir():
+        raise RuntimeError(
+            f"the SDK's own adapter package is not readable at {directory}."
+            " Built-in discovery reads that directory rather than packaging"
+            " metadata, so this is an installation problem with the SDK"
+            " itself — a zipped, frozen or sourceless distribution, or a"
+            " damaged install — and not a missing third-party adapter:"
+            " `pip install --force-reinstall` the SDK rather than installing"
+            " an adapter."
+        )
     found: dict[str, str] = {}
-    for info in pkgutil.iter_modules([str(_backends_directory())]):
+    for info in pkgutil.iter_modules([str(directory)]):
         if info.ispkg or not info.name.endswith(WRITE_MODULE_SUFFIX):
             continue
         adapter = info.name[: -len(WRITE_MODULE_SUFFIX)]
@@ -602,6 +644,8 @@ def declared_names() -> frozenset[str]:
         DuplicateBackendName: one name is declared twice by declarations the
             fabric cannot establish are the same declaration.
         ValueError: a declared name is not of the required shape.
+        RuntimeError: the SDK's own adapter package is not readable, which is
+            an installation problem with the SDK rather than a missing adapter.
     """
     builtins, third_party = _declared()
     return frozenset(builtins) | frozenset(third_party)

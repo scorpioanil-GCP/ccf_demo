@@ -453,6 +453,53 @@ def test_the_pin_records_the_reference_name_never_the_field_or_the_value(
         handle.close()
 
 
+def test_closing_a_handle_twice_reaches_the_store_once(
+    exploding_writer_adapter: Any, banking_spec: Any
+) -> None:
+    """WR-07 — ``close`` is public and the handle is also a context manager.
+
+    ``with handle:`` around a body that also calls ``close()`` is two calls
+    written by someone doing nothing wrong, and the second one used to reach
+    the adapter's store. Every in-tree store delegates to a driver that
+    tolerates it, so nothing broke and nothing said so — while the out-of-tree
+    fixture's author added a guard of their own after reasoning about the bug
+    it causes. ``BackendStore`` now states the requirement, and this asserts the
+    composition root does not lean on it.
+    """
+    from ccf.boot import boot
+    from ccf.controlplane.registry import ControlPlaneRegistry
+
+    adapter_name, module_name = exploding_writer_adapter
+    control_plane = ControlPlaneRegistry()
+    spec_version = control_plane.register("probe/spec", banking_spec)
+    policy_version = control_plane.register("probe/policy", {"regime": "probe"})
+
+    probe = None
+    handle = None
+    try:
+        sys.modules.pop(module_name, None)
+        resolve(adapter_name)
+        probe = sys.modules[module_name]
+        probe.EXPLODE[0] = False
+
+        with boot(
+            backend=adapter_name,
+            connection={"identity": "probe://wr-07-one-graph"},
+            registry=control_plane,
+            resolution_spec_key="probe/spec",
+            resolution_spec_version=spec_version,
+            policy_bundle_key="probe/policy",
+            policy_bundle_version=policy_version,
+        ) as handle:
+            handle.close()
+    finally:
+        if handle is not None:
+            handle.close()
+
+    assert probe is not None
+    assert probe.OPENED[-1].closes == 1
+
+
 def test_a_credential_keyed_by_a_field_its_record_disowns_is_refused(
     secretful_adapter: str, banking_spec: Any
 ) -> None:
