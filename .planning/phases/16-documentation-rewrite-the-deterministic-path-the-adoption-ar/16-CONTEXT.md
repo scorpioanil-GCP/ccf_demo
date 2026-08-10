@@ -216,15 +216,16 @@ default and hoping. These are locked on the same footing as D-01..D-12.
   Ruling: carry them forward with this explicit entry rather than absorbing them
   silently. A phase claiming "no fabric changed" that quietly takes on mechanism
   work invites exactly the criterion-10 argument D-13 settles.
-- **D-15: ERGO-03's surface-audit baseline is re-baselined against the
-  greenfield suite.** `tests/examples/test_surface_audit.py` compares against
-  `docs/surface/examples/before/`, frozen at Phase 15's start; the greenfield
-  rewrite makes that comparison meaningless. Dave ruled re-baseline, against the
-  researcher's recommendation to freeze-and-retire and with the tool's own
-  warning that re-freezing destroys the comparison stated at the time of the
-  ruling. Implementation note added at planning: capture the superseded Phase 15
-  measured figures into the phase record **before** re-freezing, so ERGO-03's
-  shipped evidence is archived rather than overwritten.
+- **D-15: ERGO-03's surface-audit measurement is frozen as a historical record
+  and the running test retires.** `tests/examples/test_surface_audit.py` compares
+  against `docs/surface/examples/before/`, frozen at Phase 15's start; the
+  greenfield rewrite makes that comparison meaningless, and the tool's own comment
+  warns that re-freezing mid-phase destroys it. Ruling: capture the measured
+  Phase 15 before/after figures into the phase record as a historical result,
+  then stop running the test. ERGO-03 is a **Complete** requirement — its shipped
+  evidence is preserved, not overwritten and not silently deleted. The retirement
+  carries a recorded rationale citing this entry, so a later reader finds the
+  measurement rather than an absence.
 
 ### Claude's Discretion
 
