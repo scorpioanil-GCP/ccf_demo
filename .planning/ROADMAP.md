@@ -925,28 +925,67 @@ retired (`D-08`).
 **Plans:** 21 plans in 12 waves
 
 Plans:
+**Wave 1**
+
 - [ ] 16-01-PLAN.md — ruling package (`D-IMPL-94`), DOCS-07..18 minted, ERGO-03 measurement frozen
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 16-02-PLAN.md — FIBO source-estate extension: corp→corp ownership edges with per-edge percentages
 - [ ] 16-03-PLAN.md — Section-2 client-leg transport spike: LangGraph + Claude Agent SDK
 - [ ] 16-04-PLAN.md — gate-checker unblock, three standing docs tripwires
+- [ ] 16-21-PLAN.md — repo-wide retirement-coupling sweep, its inventory and its gate (split from 16-04)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 16-05-PLAN.md — Section-1 example 1: spine/deployment split, KYC/UBO deterministic assembly
 - [ ] 16-06-PLAN.md — advisory pages A-1/A-2/A-3/A-8 + discharge gate
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 16-07-PLAN.md — one driver, backend from a configuration artifact + six-backend equality matrix
 - [ ] 16-08-PLAN.md — Section-1 example 2: freshness (λ_c) and Context Debt (D_c)
 - [ ] 16-09-PLAN.md — Section-2 example: MCP fabric + four zero-CCF client legs
 - [ ] 16-10-PLAN.md — Section-3 example A: embed CCF in a host application
 - [ ] 16-11-PLAN.md — Section-3 example B: agentic skills, workflow, HITL, replay
-- [ ] 16-12-PLAN.md — Makefile + CI wiring + DGX opt-in job + credential gate
-- [ ] 16-13-PLAN.md — Section-1 published pages, six-axes concept, G-01 pillar rewrite
-- [ ] 16-14-PLAN.md — the adoption-argument page + its standing gate
-- [ ] 16-15-PLAN.md — Section-2 published pages; retire `examples/03-harness-portability`
-- [ ] 16-16-PLAN.md — Section-3 skills pages + eight reference/how-to re-cuts
-- [ ] 16-17-PLAN.md — Section-3 embed pages; retire `examples/04-cross-process`, `07-artifact-store-mcp`
-- [ ] 16-18-PLAN.md — terminal retirement: adopters guide, seven examples, final nav
-- [ ] 16-19-PLAN.md — phase close: `make gate-16`, gate package, §3.1 review protocol
-- [ ] 16-20-PLAN.md — Section-2 zero-import AST guard, three-harness assertion, README (split from 16-09)
-- [ ] 16-21-PLAN.md — repo-wide retirement-coupling sweep, its inventory and its gate (split from 16-04)
 
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 16-12-PLAN.md — Makefile + CI wiring + DGX opt-in job + credential gate
+- [ ] 16-20-PLAN.md — Section-2 zero-import AST guard, three-harness assertion, README (split from 16-09)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 16-13-PLAN.md — Section-1 published pages, six-axes concept, G-01 pillar rewrite
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 16-14-PLAN.md — the adoption-argument page + its standing gate
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 16-15-PLAN.md — Section-2 published pages; retire `examples/03-harness-portability`
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [ ] 16-16-PLAN.md — Section-3 skills pages + eight reference/how-to re-cuts
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
+- [ ] 16-17-PLAN.md — Section-3 embed pages; retire `examples/04-cross-process`, `07-artifact-store-mcp`
+
+**Wave 11** *(blocked on Wave 10 completion)*
+
+- [ ] 16-18-PLAN.md — terminal retirement: adopters guide, seven examples, final nav
+
+**Wave 12** *(blocked on Wave 11 completion)*
+
+- [ ] 16-19-PLAN.md — phase close: `make gate-16`, gate package, §3.1 review protocol
+
+**Cross-cutting constraints:**
+
+- The example's spine contributes one gate call site, one projecting body and one resolved binder site, so the three headroom-free tests/products/ floors survive waves 8 and 10 until plan 16-18 re-floors at wave 11
+- Every out-of-swept-tree coupling this plan owns is named in files_modified before the sweep runs, so the sweep confirms rather than discovers
 
 **Success Criteria** (what must be TRUE):
 
