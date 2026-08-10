@@ -208,6 +208,26 @@ BINARY_SUFFIXES: frozenset[str] = frozenset(
      ".gz", ".db", ".sqlite", ".sqlite3", ".pyc", ".so", ".dylib", ".whl"}
 )
 
+#: Build and cache directories pruned in addition to `publish_scan.SKIP_DIRS`.
+#:
+#: Found by the wave-2 post-merge gate, not by this module's own suite: the
+#: first committed report carried **301 rows from `.pytest_cache/v/cache/
+#: nodeids`**, a gitignored file whose contents are whatever tests were last
+#: selected. That made the inventory a function of the developer's last pytest
+#: invocation rather than of the tree, so `--report && git diff` — the gate
+#: plans 16-15, 16-17 and 16-18 depend on — produced spurious diffs. The
+#: shared `publish_scan.SKIP_DIRS` is deliberately not widened: it is another
+#: phase's surface and the publish scan has its own reasons for what it reads.
+#:
+#: The set is every gitignored directory that exists at the repo root, so the
+#: rule is "the inventory measures the tracked tree" rather than a list of
+#: names someone remembered. `test_no_gitignored_path_reaches_the_report`
+#: fails if a new one appears.
+ARTIFACT_DIRS: frozenset[str] = frozenset(
+    {".pytest_cache", ".hypothesis", ".ruff_cache", "ccf.egg-info", "site",
+     "htmlcov", ".tox", "node_modules", ".claude"}
+)
+
 
 # ---------------------------------------------------------------------------
 # Shape vocabulary. The four no-path-token shapes are the last four.
@@ -318,11 +338,15 @@ def resolve_owner(relative_file: str, retiring_path: str) -> str:
 def iter_source_files() -> list[pathlib.Path]:
     """Every readable file under `REPO_ROOT`, minus the skip set and the report.
 
-    Rooted at `REPO_ROOT`, never `Path.cwd()`.
+    Rooted at `REPO_ROOT`, never `Path.cwd()`. The skip set is
+    `publish_scan.SKIP_DIRS` widened by `ARTIFACT_DIRS`, so the walk reads the
+    tracked tree and not build output — see `ARTIFACT_DIRS` for the measured
+    failure that motivates the widening.
     """
     found: list[pathlib.Path] = []
+    pruned = SKIP_DIRS | ARTIFACT_DIRS
     for dirpath, dirnames, filenames in os.walk(REPO_ROOT):
-        dirnames[:] = sorted(name for name in dirnames if name not in SKIP_DIRS)
+        dirnames[:] = sorted(name for name in dirnames if name not in pruned)
         for name in sorted(filenames):
             path = pathlib.Path(dirpath) / name
             if path == REPORT_PATH:

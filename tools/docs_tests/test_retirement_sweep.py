@@ -38,6 +38,7 @@ work, not fabric mechanism.
 from __future__ import annotations
 
 import pathlib
+import subprocess
 import sys
 import textwrap
 
@@ -536,4 +537,36 @@ def test_the_committed_report_is_current() -> None:
     assert REPORT_PATH.read_text(encoding="utf-8") == render(head()), (
         "docs/surface/examples/RETIREMENT-COUPLINGS.md is stale — re-run"
         " `python tools/retirement_sweep.py --report`"
+    )
+
+
+def test_no_gitignored_path_reaches_the_report() -> None:
+    """The inventory measures the tracked tree, not build output.
+
+    Found by the wave-2 post-merge gate rather than by this module: the first
+    committed report carried 301 rows from `.pytest_cache/v/cache/nodeids`,
+    whose contents are whatever tests were last selected. The inventory was
+    therefore a function of the developer's last pytest run, which makes
+    `--report && git diff` — the gate plans 16-15, 16-17 and 16-18 re-run
+    before deleting — produce spurious diffs and mask a real coupling change.
+
+    Asserted against `git check-ignore` rather than against `ARTIFACT_DIRS`,
+    so adding a new build directory to `.gitignore` without adding it to the
+    prune set fails here instead of silently polluting the next inventory.
+    """
+    scanned = sorted({row.file for row in head().rows})
+    if not scanned:
+        pytest.fail("no rows to check — the sweep found nothing")
+    proc = subprocess.run(
+        ["git", "check-ignore", "--stdin"],
+        input="\n".join(scanned),
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    # check-ignore exits 0 when at least one path is ignored, 1 when none is.
+    ignored = sorted(line for line in proc.stdout.splitlines() if line.strip())
+    assert not ignored, (
+        "the sweep read gitignored paths, so the inventory is not reproducible:\n  "
+        + "\n  ".join(ignored)
     )

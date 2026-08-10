@@ -8,34 +8,34 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **148** across **38** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **70** across **21** files
+- Coupling rows: **160** across **45** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **78** across **24** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **195**
 
 Rows by owning plan:
 
 | Owning plan | Rows |
 | --- | --- |
-| 16-02 | 13 |
-| 16-15 | 21 |
-| 16-17 | 30 |
-| 16-18 | 84 |
+| 16-02 | 8 |
+| 16-15 | 22 |
+| 16-17 | 31 |
+| 16-18 | 99 |
 
 Rows by coupling shape:
 
 | Shape | Rows |
 | --- | --- |
-| `comment` | 13 |
+| `comment` | 14 |
 | `count-constant` | 4 |
 | `count-scan-function` | 4 |
-| `docstring` | 16 |
+| `docstring` | 31 |
 | `indirect-execution` | 1 |
 | `inline-tree-witness` | 1 |
-| `literal-set-member` | 11 |
+| `literal-set-member` | 3 |
 | `makefile-recipe` | 14 |
 | `markdown-link` | 8 |
-| `path-construction` | 5 |
-| `prose` | 10 |
+| `path-construction` | 6 |
+| `prose` | 13 |
 | `snippet-include` | 53 |
 | `string-literal` | 4 |
 | `tmp_path-synthetic` | 4 |
@@ -85,7 +85,13 @@ Rows by coupling shape:
 | `README.md` | 63 | `examples/05-workflow-hitl` | `markdown-link` | live | - | - | 16-18 |  |
 | `README.md` | 64 | `examples/06-decision-replay` | `markdown-link` | live | - | - | 16-18 |  |
 | `README.md` | 65 | `examples/07-artifact-store-mcp` | `markdown-link` | live | - | - | 16-17 |  |
+| `docs/surface/examples/SECTION-2-TRANSPORT.md` | 6 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/surface/examples/SECTION-2-TRANSPORT.md` | 112 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/surface/examples/SECTION-2-TRANSPORT.md` | 208 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
 | `examples/external/README.md` | 61 | `examples/03-harness-portability` | `prose` | documentary | - | - | 16-15 |  |
+| `examples/s1-01-hello-context-product/artifacts/source-estate.yaml` | 23 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 |  |
+| `examples/s2-01-external-consumers/client_claude_agent.py` | 44 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `examples/s2-01-external-consumers/client_langgraph.py` | 35 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `perf/suites/common.py` | 140 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `perf/suites/crossproc/conftest.py` | 3 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `perf/suites/crossproc/conftest.py` | 52 | `examples/04-cross-process` | `path-construction` | live | - | - | 16-17 | constructed as `examples/04-cross-process` |
@@ -159,21 +165,22 @@ Rows by coupling shape:
 | `tests/deployment/test_manifest.py` | 930 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/deployment/test_operator_builder.py` | 479 | `examples/02-skilling` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_artifact_schema_headers.py` | 3 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 48 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 84 | `examples/00-quickstart` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 85 | `examples/01-agent-basics` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 86 | `examples/02-skilling` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 87 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 88 | `examples/04-cross-process` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 89 | `examples/05-workflow-hitl` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 90 | `examples/06-decision-replay` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 91 | `examples/07-artifact-store-mcp` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 92 | `examples/08-e2e-demo` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 93 | `examples/external/00-hello-context` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 99 | `examples/08-e2e-demo` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 55 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 61 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 62 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 123 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 172 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 175 | `examples/external/00-hello-context` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 183 | `examples/08-e2e-demo` | `literal-set-member` | live | - | - | 16-02 |  |
 | `tests/examples/test_demo_generator.py` | 4 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_demo_generator.py` | 22 | `examples/08-e2e-demo` | `path-construction` | live | - | - | 16-18 | constructed as `examples/08-e2e-demo` |
 | `tests/examples/test_gate_two_divergence.py` | 96 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/run.py` |
+| `tests/examples/test_s2_client_transport_spike.py` | 8 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_s2_client_transport_spike.py` | 15 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_s2_client_transport_spike.py` | 16 | `tests/examples/test_ext00_hardening.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_s2_client_transport_spike.py` | 71 | `examples/external/00-hello-context` | `path-construction` | live | - | - | 16-18 | constructed as `examples/external/00-hello-context` |
+| `tests/examples/test_s2_client_transport_spike.py` | 271 | `tests/examples/test_ext00_serve_output.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_s2_client_transport_spike.py` | 666 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/integration/test_proto_quickstart.py` | 3 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/lints/test_examples_scope.py` | 41 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
 | `tests/lints/test_examples_scope.py` | 55 | `examples/03-harness-portability` | `tmp_path-synthetic` | survives | - | - | 16-15 |  |
@@ -191,7 +198,12 @@ Rows by coupling shape:
 | `tests/products/test_required_operators_guard.py` | 3 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/products/test_required_operators_guard.py` | 94 | `examples/00-quickstart` | `count-constant` | live | 9 | - | 16-18 | `MINIMUM_IMPLEMENTATIONS` — floor 9, 11 witnesses, headroom 2; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=1, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=1; first break: wave 10 (16-17) |
 | `tests/products/test_required_operators_guard.py` | 217 | `examples/00-quickstart` | `count-scan-function` | live | 9 | - | 16-18 | `_implementations()` feeds `MINIMUM_IMPLEMENTATIONS` — floor 9, 11 witnesses, headroom 2; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=1, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=1; first break: wave 10 (16-17) |
-| `tools/docs_tests/test_snippet_gate.py` | 39 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/run.py` |
+| `tools/docs_tests/test_gate_two_wording.py` | 161 | `public/tutorial/adopters-guide.md` | `docstring` | documentary | - | - | 16-18 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 17 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 18 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 16-18 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 42 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
+| `tools/docs_tests/test_no_stale_example_paths.py` | 45 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
+| `tools/docs_tests/test_snippet_gate.py` | 51 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/run.py` |
 | `tools/lints/tests/test_citations.py` | 350 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 16-18 |  |
 | `tools/measure_examples.py` | 261 | `examples/01-agent-basics` | `docstring` | documentary | - | - | 16-18 |  |
 | `tools/measure_examples.py` | 308 | `examples/01-agent-basics` | `string-literal` | live | - | - | 16-18 |  |
@@ -406,8 +418,11 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-01-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-01-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-02-PLAN.md` | 12 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-02-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-03-PLAN.md` | 18 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-03-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-04-PLAN.md` | 6 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-04-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-05-PLAN.md` | 11 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-06-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-07-PLAN.md` | 5 | the phase's own planning tree — not shipped, not published |
@@ -423,6 +438,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-18-PLAN.md` | 59 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-20-PLAN.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-21-PLAN.md` | 21 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-21-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-CONTEXT.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-DISCUSSION-LOG.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-PATTERNS.md` | 55 | the phase's own planning tree — not shipped, not published |
