@@ -1,0 +1,569 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The KYC/UBO **enterprise source estate** — the whole vocabulary of the world
+# that exists BEFORE any fabric does (CLAUDE.md §6.4 No-Hardcoding Rule; phase
+# 16 CONTEXT D-03, D-04).
+#
+# `../source_estate.py` is a pure interpreter of this document: it holds no
+# entity name, no relationship type, no percentage, no jurisdiction, no date
+# and no threshold — only mechanism roles. So does
+# `tests/examples/test_source_estate.py`, which reads its domain values out of
+# the `teaching_properties` block below rather than writing them as constants;
+# `tools/lints`' RULE_TREE_SCOPE covers `tests/` as well as `examples/`, so a
+# threshold written into a test is the same violation as one written into a
+# module.
+#
+# WHAT THIS IS NOT: it is not CCF's Context Graph and nothing here is loaded
+# into one. D-04 draws the line — CCF *reads* an enterprise estate at L1 and
+# assembles selectively; it never mirrors the estate wholesale into L3. This
+# document declares the estate; L1 ingress (plan 16-05) is what reads it.
+#
+# NO CONNECTION VALUE OF ANY KIND lives here — no host, no port, no connection
+# string, no credential of any form. Endpoint defaults for the opt-in live legs
+# are plan 16-07's `backends.yaml` concern, on the
+# `examples/03-harness-portability/artifacts/live.yaml` pattern (threat
+# T-16-02-01). The acceptance check for this is a case-insensitive grep, so the
+# words it looks for do not appear in this document at all — including here.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id`, every record under `streams.*.records`, every value
+# under `teaching_properties`, every `field` and `name` under `outputs`, and
+# the `seed` and `epoch` values are [ADAPT]; the keys `semver`, `class_id`,
+# `declaration`, `seed`, `epoch`, `streams`, `rng_offset`,
+# `observation_interval_seconds`, `observation_jitter_seconds`, `records`,
+# `outputs`, `format`, `path`, `stream`, `tables`, `columns`, `field`,
+# `encode`, `role`, `field_roles` and `teaching_properties`, together with the
+# `format` values `jsonl`/`sqlite`, the `encode` value `json` and the `role`
+# value `observation_time`, are [MECHANISM]. Every quantity is quoted so it
+# parses as text: the artifact loader refuses YAML floats outright, because a
+# float is not bit-stable across platforms and would make this document's
+# content hash — and therefore its version identity — depend on the platform's
+# float printing (D-IMPL-38, D-IMPL-26).
+
+semver: "1.0.0"
+class_id: fibo-kyc.source-estate
+
+declaration:
+  # -------------------------------------------------------------------------
+  # Determinism. The same inputs produce byte-identical output, which is what
+  # lets plan 16-07's backend matrix compare a `content_hash` across
+  # substrates. Changing `seed` or `epoch` changes every generated
+  # observation time.
+  # -------------------------------------------------------------------------
+
+  # The single documented seed. One `random.Random(seed + rng_offset)` per
+  # stream; the offsets are declared per stream below rather than implied by
+  # ordering, so a stream added later cannot silently renumber another's.
+  seed: 20260810
+
+  # The fixed instant every generated timestamp derives from. Never a clock
+  # read. States its zone explicitly — the loader refuses a zone-less
+  # timestamp rather than guessing one (D-IMPL-38).
+  epoch: "2026-08-01T00:00:00+00:00"
+
+  # -------------------------------------------------------------------------
+  # PROVENANCE AND THE EXTENSION.
+  #
+  # Every entity and relationship measured in the shipped FIBO dataset at
+  # `/home/parkave/fluree/examples/fibo/` is carried forward here UNCHANGED:
+  # 14 entities (6 Corporations, 4 Parties, 3 Addresses — the sixth
+  # Corporation and the fourth Party are the two search-demo near-duplicates
+  # and Sarah Chen) and 11 relationships (`isRelatedTo` x6,
+  # `hasOwnershipInterestIn` x4, `hasControllingInterestIn` x1).
+  #
+  # The extension is ADDITIVE in two structural respects, and additive is the
+  # word that matters: the existing out-of-tree loaders and the queries in
+  # `compare_backends.py` keep working unchanged, and a bad load cannot
+  # silently destroy the shipped dataset (threat T-16-02-02).
+  #
+  # (a) PER-EDGE PERCENTAGES. 16-RESEARCH.md FINDING F-1 measured that
+  #     `ownershipPercent` is an attribute of the **Party entity**, never of
+  #     the ownership relationship. A party carries ONE `ownershipPercent`
+  #     regardless of how many entities it holds an interest in, so the
+  #     shipped shape cannot attribute a percentage per edge — and an
+  #     ownership chain therefore cannot be aggregated at all. Every
+  #     `hasOwnershipInterestIn` record below carries its own
+  #     `ownershipPercent`. Hans Müller is the clearest witness: his Party
+  #     record carries no percentage whatsoever and his edge does, which is
+  #     exactly the shape the entity-level field cannot express.
+  #     The entity-level field is KEPT as measured, not removed.
+  #
+  # (b) CORPORATION -> CORPORATION OWNERSHIP. Every shipped
+  #     `hasOwnershipInterestIn` edge ran Party -> Corporation in exactly one
+  #     hop; no corporation owned another, so "Who ultimately owns Acme?" had
+  #     no chain to traverse. Four corp->corp edges are added below.
+  #
+  # DESIGN INTENT OF THE CHAIN — this is what makes the adoption argument's
+  # claim ("a vector store over chunked documents structurally cannot answer
+  # this") demonstrable rather than asserted:
+  #
+  #   * Jane Doe crosses the 25% beneficial-ownership threshold on Acme ONLY
+  #     under aggregation. Her direct edge is 12.0% — below it. Her indirect
+  #     holding is 60.0% of Beta Holdings x 30.0% of Acme = 18.0%. Together
+  #     30.0%, above it. No single passage of any document states 30.0%; the
+  #     answer lives in the relationships.
+  #   * Sarah Chen reaches Acme in THREE hops (Delta -> Beta -> Acme) for
+  #     1.125% — a chain that exists, is traversable, and lands nowhere near
+  #     the threshold. Depth alone is not significance.
+  #   * Hans Müller reaches Acme in three hops through a German bank and a
+  #     British broker for 0.1%, so the chain spans three regulatory regimes
+  #     and gives the Policy axis something real to bind.
+  #   * John Smith is 45.0% direct and needs no traversal at all — the case
+  #     retrieve-then-filter gets right, kept so the contrast is visible.
+  #
+  # The ownership edges form a DAG (Acme owns nothing), so traversal
+  # terminates without a cycle guard being the thing under test.
+  #
+  # JURISDICTIONS, MEASURED: four distinct values exist across the entity
+  # records — `US-DE`, `US-NY`, `DE`, `GB`. 16-RESEARCH.md Assumption A2
+  # recorded only three as directly observed and flagged CONTEXT's fourth as
+  # unread; the fourth is Omega Securities' `GB`, and D-03's "four
+  # jurisdictions" claim stands as written. Nothing was added to reach four.
+  # -------------------------------------------------------------------------
+
+  streams:
+    entities:
+      rng_offset: 0
+      observation_interval_seconds: 3600
+      observation_jitter_seconds: 900
+      records:
+        - types: ["Corporation"]
+          source: "fluree:fibo:main"
+          label: "Acme Corporation"
+          lei: "5493001KJTIIGC8Y1R12"
+          legalName: "Acme Corporation Inc."
+          jurisdiction: "US-DE"
+          entityStatus: "ACTIVE"
+          clientType: "Corporate Client"
+          onboardingDate: "2021-03-15"
+          attrs:
+            hasRegisteredAddress: "http://example.org/fibo/AcmeHQ"
+            hasBusinessAddress: "http://example.org/fibo/AcmeHQ"
+          riskRating: "Medium"
+          kycStatus: "Approved"
+          _id: "http://example.org/fibo/AcmeCorp"
+          id: "http://example.org/fibo/AcmeCorp"
+
+        - types: ["Corporation"]
+          source: "fluree:fibo:main"
+          label: "Beta Holdings LLC"
+          lei: "549300ABCDEF12345678"
+          legalName: "Beta Holdings Limited Liability Company"
+          jurisdiction: "US-NY"
+          entityStatus: "ACTIVE"
+          clientType: "Investment Vehicle"
+          onboardingDate: "2022-07-01"
+          attrs:
+            hasRegisteredAddress: "http://example.org/fibo/BetaOffice"
+          riskRating: "Low"
+          kycStatus: "Approved"
+          _id: "http://example.org/fibo/BetaHoldings"
+          id: "http://example.org/fibo/BetaHoldings"
+
+        # A Party's `ownershipPercent` is ONE number for the whole party. John
+        # Smith holds an interest in exactly one entity, so it reads as if it
+        # belonged to the edge — which is precisely the reading FINDING F-1
+        # showed the data cannot support once a party holds two interests.
+        - types: ["Party"]
+          source: "fluree:fibo:main"
+          label: "John Smith"
+          fullName: "John Michael Smith"
+          nationality: "US"
+          dateOfBirth: "1975-04-12"
+          role: "Ultimate Beneficial Owner"
+          ownershipPercent: "45.0"
+          _id: "http://example.org/fibo/JohnSmith"
+          id: "http://example.org/fibo/JohnSmith"
+
+        # Jane Doe now holds TWO ownership interests (Beta Holdings and, via
+        # the added edge, Acme directly). Her entity-level `60.0` is kept
+        # exactly as measured and is now visibly insufficient: it names one
+        # number for two edges carrying 60.0 and 12.0.
+        - types: ["Party"]
+          source: "fluree:fibo:main"
+          label: "Jane Doe"
+          fullName: "Jane Elizabeth Doe"
+          nationality: "US"
+          dateOfBirth: "1982-09-03"
+          role: "Managing Member"
+          ownershipPercent: "60.0"
+          _id: "http://example.org/fibo/JaneDoe"
+          id: "http://example.org/fibo/JaneDoe"
+
+        - types: ["Corporation"]
+          source: "fluree:fibo:main"
+          label: "Gamma Bank AG"
+          lei: "529900T8BM49AURSDO55"
+          legalName: "Gamma Bank Aktiengesellschaft"
+          jurisdiction: "DE"
+          entityStatus: "ACTIVE"
+          clientType: "Financial Institution / Counterparty"
+          onboardingDate: "2019-11-20"
+          attrs:
+            hasRegisteredAddress: "http://example.org/fibo/GammaHQ"
+          riskRating: "Low"
+          kycStatus: "Approved"
+          _id: "http://example.org/fibo/GammaBank"
+          id: "http://example.org/fibo/GammaBank"
+
+        - types: ["Corporation"]
+          source: "fluree:fibo:main"
+          label: "Delta Private Equity Fund LP"
+          lei: "549300XYZ98765432109"
+          legalName: "Delta Private Equity Fund Limited Partnership"
+          jurisdiction: "US-DE"
+          entityStatus: "ACTIVE"
+          clientType: "Fund / Investor"
+          onboardingDate: "2023-01-10"
+          riskRating: "Medium"
+          kycStatus: "Approved"
+          _id: "http://example.org/fibo/DeltaFund"
+          id: "http://example.org/fibo/DeltaFund"
+
+        # No `ownershipPercent` at all. The shipped shape has no way to say
+        # what fraction of Gamma Bank he holds; the edge below says 5.0.
+        - types: ["Party"]
+          source: "fluree:fibo:main"
+          label: "Hans Müller"
+          fullName: "Hans Müller"
+          nationality: "DE"
+          dateOfBirth: "1968-11-22"
+          role: "Director"
+          _id: "http://example.org/fibo/HansMueller"
+          id: "http://example.org/fibo/HansMueller"
+
+        - types: ["Address"]
+          source: "fluree:fibo:main"
+          label: "Acme HQ"
+          attrs:
+            street: "100 Main Street"
+            city: "Wilmington"
+            state: "DE"
+            postalCode: "19801"
+            country: "US"
+          _id: "http://example.org/fibo/AcmeHQ"
+          id: "http://example.org/fibo/AcmeHQ"
+
+        - types: ["Address"]
+          source: "fluree:fibo:main"
+          label: "Beta Holdings Office"
+          attrs:
+            street: "350 Fifth Avenue"
+            city: "New York"
+            state: "NY"
+            postalCode: "10118"
+            country: "US"
+          _id: "http://example.org/fibo/BetaOffice"
+          id: "http://example.org/fibo/BetaOffice"
+
+        - types: ["Address"]
+          source: "fluree:fibo:main"
+          label: "Gamma Bank HQ"
+          attrs:
+            street: "Taunusanlage 12"
+            city: "Frankfurt am Main"
+            postalCode: "60325"
+            country: "DE"
+          _id: "http://example.org/fibo/GammaHQ"
+          id: "http://example.org/fibo/GammaHQ"
+
+        # Planted near-duplicate 1 of 2. "Acme Global Trading Corporation" is
+        # NOT Acme Corporation, and a name-matching Similarity operator has to
+        # get that right. Kept exactly as measured.
+        - types: ["Corporation"]
+          source: "fluree:fibo:main"
+          label: "Acme Global Trading Corporation"
+          legalName: "Acme Global Trading Corporation Inc."
+          _id: "http://example.org/fibo/SearchDemo1"
+          id: "http://example.org/fibo/SearchDemo1"
+
+        # Planted near-duplicate 2 of 2, against "Beta Holdings LLC".
+        - types: ["Corporation"]
+          source: "fluree:fibo:main"
+          label: "Beta Investment Holdings"
+          legalName: "Beta Investment Holdings LLC"
+          _id: "http://example.org/fibo/SearchDemo2"
+          id: "http://example.org/fibo/SearchDemo2"
+
+        # The fourth jurisdiction, `GB`, measured rather than added.
+        - types: ["Corporation"]
+          source: "fluree:fibo:main"
+          label: "Omega Securities Ltd"
+          lei: "213800ABCDE12345XYZ9"
+          legalName: "Omega Securities Limited"
+          jurisdiction: "GB"
+          entityStatus: "ACTIVE"
+          clientType: "Broker / Counterparty"
+          onboardingDate: "2020-05-12"
+          riskRating: "Medium"
+          kycStatus: "Approved"
+          _id: "http://example.org/fibo/OmegaSecurities"
+          id: "http://example.org/fibo/OmegaSecurities"
+
+        # THE BOUNDARY CASE. Exactly 25.0 — the FinCEN CDD beneficial-ownership
+        # threshold (D-03). This value is FROZEN: moving it by a tenth in
+        # either direction destroys the teaching property, because a threshold
+        # nobody sits exactly on is a threshold no test can show the sense of.
+        - types: ["Party"]
+          source: "fluree:fibo:main"
+          label: "Sarah Chen"
+          fullName: "Sarah Wei Chen"
+          nationality: "SG"
+          dateOfBirth: "1988-02-17"
+          role: "Limited Partner"
+          ownershipPercent: "25.0"
+          _id: "http://example.org/fibo/SarahChen"
+          id: "http://example.org/fibo/SarahChen"
+
+    relationships:
+      rng_offset: 1
+      observation_interval_seconds: 3600
+      observation_jitter_seconds: 900
+      records:
+        # --- the 11 measured relationships, in source order ----------------
+        # The four `hasOwnershipInterestIn` edges gain `ownershipPercent`;
+        # nothing else about them changes. `isRelatedTo` and
+        # `hasControllingInterestIn` carry no percentage, deliberately: the
+        # per-edge field belongs to the ownership relation, and adding it to
+        # relations that do not express a fraction would be inventing data.
+        - from: "http://example.org/fibo/AcmeCorp"
+          to: "http://example.org/fibo/BetaHoldings"
+          type: "isRelatedTo"
+          source: "fluree:fibo:main"
+          _id: "rel:1"
+
+        - from: "http://example.org/fibo/AcmeCorp"
+          to: "http://example.org/fibo/GammaBank"
+          type: "isRelatedTo"
+          source: "fluree:fibo:main"
+          _id: "rel:2"
+
+        - from: "http://example.org/fibo/AcmeCorp"
+          to: "http://example.org/fibo/OmegaSecurities"
+          type: "isRelatedTo"
+          source: "fluree:fibo:main"
+          _id: "rel:3"
+
+        - from: "http://example.org/fibo/BetaHoldings"
+          to: "http://example.org/fibo/DeltaFund"
+          type: "isRelatedTo"
+          source: "fluree:fibo:main"
+          _id: "rel:4"
+
+        - from: "http://example.org/fibo/JohnSmith"
+          to: "http://example.org/fibo/AcmeCorp"
+          type: "hasOwnershipInterestIn"
+          ownershipPercent: "45.0"
+          source: "fluree:fibo:main"
+          _id: "rel:5"
+
+        - from: "http://example.org/fibo/JohnSmith"
+          to: "http://example.org/fibo/AcmeCorp"
+          type: "hasControllingInterestIn"
+          source: "fluree:fibo:main"
+          _id: "rel:6"
+
+        - from: "http://example.org/fibo/JaneDoe"
+          to: "http://example.org/fibo/BetaHoldings"
+          type: "hasOwnershipInterestIn"
+          ownershipPercent: "60.0"
+          source: "fluree:fibo:main"
+          _id: "rel:7"
+
+        - from: "http://example.org/fibo/GammaBank"
+          to: "http://example.org/fibo/OmegaSecurities"
+          type: "isRelatedTo"
+          source: "fluree:fibo:main"
+          _id: "rel:8"
+
+        - from: "http://example.org/fibo/DeltaFund"
+          to: "http://example.org/fibo/AcmeCorp"
+          type: "isRelatedTo"
+          source: "fluree:fibo:main"
+          _id: "rel:9"
+
+        # The edge whose percentage the entity record cannot supply.
+        - from: "http://example.org/fibo/HansMueller"
+          to: "http://example.org/fibo/GammaBank"
+          type: "hasOwnershipInterestIn"
+          ownershipPercent: "5.0"
+          source: "fluree:fibo:main"
+          _id: "rel:10"
+
+        - from: "http://example.org/fibo/SarahChen"
+          to: "http://example.org/fibo/DeltaFund"
+          type: "hasOwnershipInterestIn"
+          ownershipPercent: "25.0"
+          source: "fluree:fibo:main"
+          _id: "rel:11"
+
+        # --- the extension: four corp -> corp edges and one direct edge ----
+        # `source` marks them as this example's own extension rather than as
+        # rows the shipped FIBO ledger produced, so a later reader can tell
+        # synthetic ownership structure from measured data at a glance.
+
+        # Beta Holdings owns 30.0% of Acme. This is the hop that turns Jane
+        # Doe's 60.0% of Beta into an 18.0% indirect interest in Acme.
+        - from: "http://example.org/fibo/BetaHoldings"
+          to: "http://example.org/fibo/AcmeCorp"
+          type: "hasOwnershipInterestIn"
+          ownershipPercent: "30.0"
+          source: "ccf:examples:s1-01:ubo-extension"
+          _id: "rel:12"
+
+        # Delta Fund owns 15.0% of Beta Holdings — the second hop of Sarah
+        # Chen's three-hop, 1.125% path to Acme.
+        - from: "http://example.org/fibo/DeltaFund"
+          to: "http://example.org/fibo/BetaHoldings"
+          type: "hasOwnershipInterestIn"
+          ownershipPercent: "15.0"
+          source: "ccf:examples:s1-01:ubo-extension"
+          _id: "rel:13"
+
+        # Omega Securities (GB) owns 10.0% of Acme (US-DE) — a chain crossing
+        # a regulatory boundary, which is what gives the Policy axis work.
+        - from: "http://example.org/fibo/OmegaSecurities"
+          to: "http://example.org/fibo/AcmeCorp"
+          type: "hasOwnershipInterestIn"
+          ownershipPercent: "10.0"
+          source: "ccf:examples:s1-01:ubo-extension"
+          _id: "rel:14"
+
+        # Gamma Bank (DE) owns 20.0% of Omega Securities (GB). With rel:14
+        # this puts Hans Müller three hops and three jurisdictions from Acme.
+        - from: "http://example.org/fibo/GammaBank"
+          to: "http://example.org/fibo/OmegaSecurities"
+          type: "hasOwnershipInterestIn"
+          ownershipPercent: "20.0"
+          source: "ccf:examples:s1-01:ubo-extension"
+          _id: "rel:15"
+
+        # Jane Doe's DIRECT 12.0% of Acme. Below the threshold on its own;
+        # 30.0% once the 18.0% indirect holding is aggregated with it. This
+        # single edge is what makes the UBO question require aggregation
+        # rather than lookup.
+        - from: "http://example.org/fibo/JaneDoe"
+          to: "http://example.org/fibo/AcmeCorp"
+          type: "hasOwnershipInterestIn"
+          ownershipPercent: "12.0"
+          source: "ccf:examples:s1-01:ubo-extension"
+          _id: "rel:16"
+
+  # ---------------------------------------------------------------------------
+  # Which record key plays which role. The interpreter and the assertions both
+  # read this rather than knowing any of these names; renaming a source field
+  # is then an edit here, not a code change.
+  # ---------------------------------------------------------------------------
+  field_roles:
+    entity_id: "_id"
+    entity_types: "types"
+    entity_label: "label"
+    entity_full_name: "fullName"
+    entity_jurisdiction: "jurisdiction"
+    entity_ownership_percent: "ownershipPercent"
+    relationship_id: "_id"
+    relationship_source_entity: "from"
+    relationship_target_entity: "to"
+    relationship_type: "type"
+    relationship_ownership_percent: "ownershipPercent"
+
+  # ---------------------------------------------------------------------------
+  # The teaching properties `tests/examples/test_source_estate.py` states, as
+  # DOMAIN VALUES rather than test constants. A threshold or an entity name
+  # written into a test module is the same No-Hardcoding violation as one
+  # written into a library module — `tools/lints`' RULE_TREE_SCOPE covers
+  # `src`, `runtime`, `examples` AND `tests`.
+  # ---------------------------------------------------------------------------
+  teaching_properties:
+    natural_person_type: "Party"
+    legal_entity_type: "Corporation"
+    ownership_relationship_type: "hasOwnershipInterestIn"
+
+    # The subject of "Who ultimately owns Acme?".
+    ultimate_owner_subject: "http://example.org/fibo/AcmeCorp"
+
+    # The FinCEN CDD beneficial-ownership threshold, as a percentage.
+    beneficial_ownership_threshold_percent: "25.0"
+
+    # The natural person whose aggregate interest in the subject crosses the
+    # threshold ONLY once the indirect holding is added to the direct one.
+    aggregation_demonstrator: "http://example.org/fibo/JaneDoe"
+
+    # The natural person whose shortest ownership path to the subject is at
+    # least `minimum_chain_depth` hops long.
+    deep_chain_demonstrator: "http://example.org/fibo/SarahChen"
+    minimum_chain_depth: 2
+
+    # The boundary case, frozen. See the Sarah Chen record above.
+    fixed_boundary_case:
+      entity: "http://example.org/fibo/SarahChen"
+      ownership_percent: "25.0"
+
+    # Both planted near-duplicate pairs, by entity id.
+    near_duplicate_pairs:
+      - ["http://example.org/fibo/AcmeCorp", "http://example.org/fibo/SearchDemo1"]
+      - ["http://example.org/fibo/BetaHoldings", "http://example.org/fibo/SearchDemo2"]
+
+  # ---------------------------------------------------------------------------
+  # What the interpreter materialises, and where.
+  #
+  # TWO SHAPES, TWO PURPOSES:
+  #
+  #   * The JSONL documents mirror the shipped
+  #     `mongo-entities.json` / `mongo-relationships.json` shape exactly and in
+  #     source order, so the four out-of-tree DGX loaders read them unchanged
+  #     and the "is the extension a superset of the original?" check at the
+  #     human checkpoint is a `head` and a `diff` rather than a set comparison.
+  #     They carry NO field the shipped documents do not have.
+  #   * The SQLite file mirrors `load_postgres.py`'s table shape and adds an
+  #     `observed_at` column. That column is why the SQLite file exists: L1
+  #     ingress (plan 16-05) reads a source system with an observation time,
+  #     and putting that time into the JSONL would break the superset
+  #     property above.
+  # ---------------------------------------------------------------------------
+  outputs:
+    - format: "jsonl"
+      path: "entities.jsonl"
+      stream: "entities"
+
+    - format: "jsonl"
+      path: "relationships.jsonl"
+      stream: "relationships"
+
+    - format: "sqlite"
+      path: "source_estate.db"
+      tables:
+        - stream: "entities"
+          name: "entities"
+          columns:
+            - { name: "id", field: "_id" }
+            - { name: "label", field: "label" }
+            - { name: "types", field: "types", encode: "json" }
+            - { name: "lei", field: "lei" }
+            - { name: "legal_name", field: "legalName" }
+            - { name: "jurisdiction", field: "jurisdiction" }
+            - { name: "entity_status", field: "entityStatus" }
+            - { name: "client_type", field: "clientType" }
+            - { name: "risk_rating", field: "riskRating" }
+            - { name: "kyc_status", field: "kycStatus" }
+            - { name: "onboarding_date", field: "onboardingDate" }
+            - { name: "full_name", field: "fullName" }
+            - { name: "nationality", field: "nationality" }
+            - { name: "date_of_birth", field: "dateOfBirth" }
+            - { name: "role", field: "role" }
+            - { name: "ownership_percent", field: "ownershipPercent" }
+            - { name: "attrs", field: "attrs", encode: "json" }
+            - { name: "source", field: "source" }
+            - { name: "observed_at", role: "observation_time" }
+
+        - stream: "relationships"
+          name: "relationships"
+          columns:
+            - { name: "id", field: "_id" }
+            - { name: "from_id", field: "from" }
+            - { name: "to_id", field: "to" }
+            - { name: "type", field: "type" }
+            - { name: "ownership_percent", field: "ownershipPercent" }
+            - { name: "source", field: "source" }
+            - { name: "observed_at", role: "observation_time" }

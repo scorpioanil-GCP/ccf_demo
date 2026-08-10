@@ -34,6 +34,81 @@ header is right", and the two would eventually disagree. This module supplies
 what the tool does not: **always-on, tree-wide, non-vacuous** execution inside
 the `test` job, so the gate cannot be forgotten the way a `make` target can.
 
+How coverage is pinned, and why it changed in phase 16 (plan 16-02)
+-------------------------------------------------------------------
+
+Coverage used to be a **literal named tuple** of the ten artifact directories
+that existed at the Phase 15 close, asserted for exact equality against what
+the tool discovered. That was the right answer to the hole cross-AI review
+raised at that close — an *aggregate floor* lets a directory drop out of
+coverage silently while the count stays above it — but it does not survive
+phase 16, for a structural reason rather than a stylistic one: the phase
+rewrites the examples suite, and plans 16-08, 16-09, 16-10 and 16-11 each
+create an example directory **in wave 4, in parallel**. Four concurrent
+appends to one constant is a merge conflict by construction. The gate has to
+arm on a new example without a source edit, or four plans collide.
+
+So coverage is now a **two-sided bijection** against the examples that exist:
+
+* An **example root** is *a directory that directly contains a file named*
+  ``run.py``. Mechanical, checkable, and depth-agnostic — which matters,
+  because ``examples/external/00-hello-context`` is at depth 2 and does carry
+  ``artifacts/``, so "top-level directories under ``examples/``" would wrongly
+  exclude it. The looser predicate "a directory under ``examples/`` containing
+  a ``.py``" is *false against this tree*: 12 directories satisfy it and only
+  10 carry ``artifacts/``. The two that do not — and the reason the loose
+  predicate would make this gate unbuildable — are
+  ``examples/03-harness-portability/legs/`` and
+  ``examples/external/00-hello-context/fixtures/``, each all-``.py`` and no
+  ``artifacts/``. A control below asserts both are excluded, and asserts the
+  same for ``fixtures/`` **as a shape**, which is what keeps the rule true
+  when plan 16-09 ships its own fixtures directory at wave 4.
+* **Left side:** every example root has an ``artifacts/`` directory the gate
+  covers.
+* **Right side:** every covered ``artifacts/`` directory sits directly under
+  an example root.
+* Both directions are reported **by name**, on the
+  ``tools/docs_tests/test_diagram_coverage.py`` model.
+* **Per-directory non-vacuity** replaces the aggregate hundred-document floor
+  the previous version carried. That floor has to go regardless of the
+  bijection: it was fed by 216 documents across ten directories that are
+  almost all retiring in this phase, the five-directory suite that replaces
+  them cannot be assumed to reach it, and a floor nobody can meet is a gate
+  that gets weakened at the worst possible moment. A per-directory floor is
+  also strictly stronger than an aggregate one, which can be satisfied by a
+  single fat directory while every other directory is empty.
+
+**Why this does not reopen the silent-drop hole.** The hole was a property of
+a *floor*: a count can stay above a threshold while a member leaves the set. A
+bijection has no floor and no count. For a directory to leave coverage here,
+its example must stop being an example — every ``run.py`` in it must vanish —
+and that is loud in four other places:
+
+1. ``make examples``, which runs each example by path and fails on the first
+   missing one;
+2. the Makefile's ``examples:`` target list, which names each example
+   explicitly;
+3. ``tools/docs_tests/test_documented_commands_exist.py``, whose
+   both-directions assertion ties documented commands to the tree (shipped by
+   plan 16-04, in this same wave);
+4. ``tools/retirement_sweep.py``, the repo-wide coupling sweep (shipped by
+   plan 16-21, in this same wave).
+
+Naming them is what makes that argument checkable rather than asserted. Two of
+the four land alongside this module rather than before it, which is stated
+here so a reader at this commit is not left hunting for a file that has not
+arrived yet.
+
+Controls
+--------
+
+A gate nobody has watched fail is a gate that may be scanning nothing, so
+three controls run below: the bijection is shown **refusing in each
+direction** against a synthetic tree, the two real ``.py``-bearing
+non-example directories are shown **excluded**, and a scratch example is
+shown **collected without any edit to this module** — which is the property
+the four wave-4 plans depend on.
+
 The exemption, and why the tree now carries exactly one
 -------------------------------------------------------
 
@@ -50,10 +125,11 @@ describing the synthetic world that exists before any fabric does, and it
 carries YAML floats the artifact loader refuses by design — no envelope can
 accept it without changing the data and every pinned checksum with it.
 
-This module therefore pins the exemption set **by name**. Adding a second
-deferral is then a deliberate edit to this list with a reason, not a quiet
-widening — which is the property the plan text was reaching for with its
-"single documented exemption mechanism".
+:data:`PERMANENTLY_DEFERRED` stays a **named** set, deliberately, and is not
+reshaped the way coverage was. It is edited by exactly one plan (16-18, which
+deletes its only member's file), so it carries no concurrency problem and
+loses nothing by staying named: adding a second deferral remains a deliberate
+edit to this list with a reason, never a quiet widening.
 """
 
 from __future__ import annotations
@@ -74,24 +150,32 @@ from tools.check_schema_headers import (  # noqa: E402
     discover,
 )
 
-#: Every artifact directory the suite carries, by name. A *floor* would let a
-#: directory drop out of coverage silently as long as the count stayed above it
-#: — raised at the Phase 15 close by cross-AI review, and closed here by naming
-#: the set instead. Adding or removing an example is then a deliberate edit to
-#: this list, which is the same discipline `PERMANENTLY_DEFERRED` below applies
-#: to the exemption set.
-EXPECTED_ARTIFACT_DIRECTORIES: tuple[str, ...] = (
-    "examples/00-quickstart/artifacts",
-    "examples/01-agent-basics/artifacts",
-    "examples/02-skilling/artifacts",
-    "examples/03-harness-portability/artifacts",
-    "examples/04-cross-process/artifacts",
-    "examples/05-workflow-hitl/artifacts",
-    "examples/06-decision-replay/artifacts",
-    "examples/07-artifact-store-mcp/artifacts",
-    "examples/08-e2e-demo/artifacts",
-    "examples/external/00-hello-context/artifacts",
-)
+#: The tree the bijection closes over.
+EXAMPLES_ROOT = REPO_ROOT / "examples"
+
+#: The mechanical example-root predicate: a directory that *directly* contains
+#: a file with this name. See the module docstring for why it is this and not
+#: "a directory containing a ``.py``" or "a top-level directory".
+EXAMPLE_ROOT_MARKER = "run.py"
+
+#: The directory name an example's Control Plane artifacts live under.
+ARTIFACTS_DIRNAME = "artifacts"
+
+#: The two directories in the tree at phase 16 wave 2 that carry ``.py``
+#: modules and no ``artifacts/`` — the counter-examples that make the
+#: ``run.py`` predicate load-bearing rather than incidental. Each maps to the
+#: wave that retires it, so the control below degrades to a *named* skip
+#: instead of turning red once its subject is gone: a control that outlives
+#: its subject is a coupling of exactly the class ``tools/retirement_sweep.py``
+#: exists to find.
+PY_BEARING_NON_EXAMPLES: dict[str, str] = {
+    "examples/03-harness-portability/legs": (
+        "retired with example 03 at wave 8 (plan 16-17)"
+    ),
+    "examples/external/00-hello-context/fixtures": (
+        "retired with the external example at wave 11 (plan 16-18)"
+    ),
+}
 
 #: The only documents permitted to carry a deferral marker at the phase close,
 #: with the ruling that permits each. See the module docstring.
@@ -104,28 +188,158 @@ PERMANENTLY_DEFERRED: dict[str, str] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# The two sides of the bijection, each computed over an arbitrary tree so the
+# controls can exercise them against a synthetic one.
+# ---------------------------------------------------------------------------
+
+
+def example_roots(tree: pathlib.Path) -> set[pathlib.Path]:
+    """Every example root under ``tree``.
+
+    An example root is a directory that *directly* contains
+    :data:`EXAMPLE_ROOT_MARKER`. This is the same set as
+    ``find examples -name "run.py" -printf "%h\\n" | sort -u``.
+    """
+    return {
+        path.parent
+        for path in tree.rglob(EXAMPLE_ROOT_MARKER)
+        if path.is_file()
+    }
+
+
+def covered_artifact_directories(tree: pathlib.Path) -> set[pathlib.Path]:
+    """Every ``artifacts/`` directory the header gate covers under ``tree``.
+
+    Mirrors ``tools.check_schema_headers.discover``'s glob, parameterized on
+    the root so a control can run it over ``tmp_path``. The precondition
+    below asserts the two agree on the real tree — otherwise this module
+    would be gating a different set than the tool checks.
+    """
+    return {
+        path.parent
+        for path in tree.glob(f"**/{ARTIFACTS_DIRNAME}/*.yaml")
+    }
+
+
+def bijection_violations(
+    tree: pathlib.Path,
+) -> tuple[list[str], list[str]]:
+    """Return ``(uncovered roots, orphaned artifact directories)``, by name."""
+    roots = example_roots(tree)
+    covered = covered_artifact_directories(tree)
+    uncovered = sorted(
+        str(root.relative_to(tree))
+        for root in roots
+        if (root / ARTIFACTS_DIRNAME) not in covered
+    )
+    orphaned = sorted(
+        str(directory.relative_to(tree))
+        for directory in covered
+        if directory.parent not in roots
+    )
+    return uncovered, orphaned
+
+
 def _artifact_documents() -> list[pathlib.Path]:
     return sorted(REPO_ROOT.glob("examples/**/artifacts/*.yaml"))
 
 
-def test_the_glob_covers_exactly_the_expected_artifact_directories() -> None:
-    """Coverage is a named set, not a floor.
+# ---------------------------------------------------------------------------
+# Preconditions — a vacuous pass is the failure this module exists to prevent.
+# ---------------------------------------------------------------------------
 
-    A floor lets a directory drop out of coverage silently while the count
-    stays above it. Naming the set means an example gained or lost is a
-    deliberate edit here — and non-vacuity comes for free, since the named set
-    is non-empty.
+
+def test_the_example_tree_is_populated() -> None:
+    """Both sides of the bijection are non-empty.
+
+    Without this, a renamed or moved ``examples/`` tree would make every
+    assertion below pass over empty sets — which is the exact failure mode a
+    coverage gate is supposed to be immune to.
     """
-    discovered = sorted(
+    assert EXAMPLES_ROOT.is_dir(), f"missing example tree: {EXAMPLES_ROOT}"
+    assert example_roots(EXAMPLES_ROOT), (
+        f"no `{EXAMPLE_ROOT_MARKER}` found anywhere under {EXAMPLES_ROOT} —"
+        " the example-root predicate collects nothing, so the bijection below"
+        " would close over an empty set"
+    )
+    assert covered_artifact_directories(EXAMPLES_ROOT), (
+        f"no `{ARTIFACTS_DIRNAME}/*.yaml` found under {EXAMPLES_ROOT}"
+    )
+
+
+def test_this_module_gates_the_same_set_the_tool_checks() -> None:
+    """The local glob and ``discover(require_all=True)`` agree.
+
+    :func:`covered_artifact_directories` re-expresses the tool's glob so a
+    control can point it at ``tmp_path``. Re-expressing it is a second
+    definition, and two definitions of one set eventually disagree — so they
+    are compared here rather than trusted.
+    """
+    local = sorted(
+        str(path.relative_to(REPO_ROOT))
+        for path in covered_artifact_directories(EXAMPLES_ROOT)
+    )
+    tool = sorted(
         str(path.relative_to(REPO_ROOT)) for path in discover(require_all=True)
     )
-    assert discovered == sorted(EXPECTED_ARTIFACT_DIRECTORIES), (
-        "the set of example artifact directories moved. Add or remove the"
-        " directory in EXPECTED_ARTIFACT_DIRECTORIES deliberately;"
-        f" discovered {discovered}"
+    assert local == tool, (
+        "this module's artifact-directory glob and"
+        " `tools/check_schema_headers.py`'s have diverged; the gate would be"
+        f" covering a different set than the tool checks. local={local}"
+        f" tool={tool}"
     )
-    documents = _artifact_documents()
-    assert len(documents) >= 100, len(documents)
+
+
+# ---------------------------------------------------------------------------
+# The bijection.
+# ---------------------------------------------------------------------------
+
+
+def test_every_example_root_has_a_covered_artifact_directory() -> None:
+    """Left side: an example without covered artifacts is an example the gate cannot see."""
+    uncovered, _ = bijection_violations(EXAMPLES_ROOT)
+    assert not uncovered, (
+        "example roots (directories directly containing"
+        f" `{EXAMPLE_ROOT_MARKER}`) with no covered `{ARTIFACTS_DIRNAME}/`"
+        " directory — their artifact headers are checked by nothing: "
+        + ", ".join(uncovered)
+    )
+
+
+def test_every_covered_artifact_directory_sits_under_an_example_root() -> None:
+    """Right side: a covered directory under no example root is coverage of a ghost."""
+    _, orphaned = bijection_violations(EXAMPLES_ROOT)
+    assert not orphaned, (
+        f"covered `{ARTIFACTS_DIRNAME}/` directories whose parent is not an"
+        f" example root (no `{EXAMPLE_ROOT_MARKER}` beside them) — either the"
+        " example lost its driver or the directory is in the wrong place: "
+        + ", ".join(orphaned)
+    )
+
+
+def test_every_example_roots_artifact_directory_is_non_vacuous() -> None:
+    """Per-directory floor, replacing the aggregate document floor.
+
+    Computed **by name from the example root** rather than from the document
+    glob, so it states the property at the point where it must hold rather
+    than restating how the covered set was derived. Under today's
+    ``discover`` an empty ``artifacts/`` directory also fails the left side;
+    stating it separately is what keeps the property true if that derivation
+    ever changes to enumerate directories by name.
+
+    The aggregate floor it replaces could be satisfied by one fat directory
+    while every other example shipped nothing. This one cannot.
+    """
+    empty = sorted(
+        str(root.relative_to(REPO_ROOT))
+        for root in example_roots(EXAMPLES_ROOT)
+        if not sorted((root / ARTIFACTS_DIRNAME).glob("*.yaml"))
+    )
+    assert not empty, (
+        "example roots whose `artifacts/` directory holds no document, so the"
+        " header check runs over nothing for them: " + ", ".join(empty)
+    )
 
 
 @pytest.mark.parametrize(
@@ -140,10 +354,111 @@ def test_every_artifact_directory_passes_the_header_check(
 
     Parametrized per directory rather than run as one call so a failure names
     the example that broke rather than handing back a wall of problems from
-    ten directories at once.
+    every directory at once.
     """
     problems = check_directory(directory)
     assert not problems, "\n".join(problems)
+
+
+# ---------------------------------------------------------------------------
+# Controls. A gate nobody has watched fail may be scanning nothing.
+# ---------------------------------------------------------------------------
+
+
+def test_the_bijection_refuses_an_example_root_with_no_artifacts(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Control, left direction: a driver with no artifacts beside it is named."""
+    root = tmp_path / "zz-driver-only"
+    root.mkdir()
+    (root / EXAMPLE_ROOT_MARKER).write_text("", encoding="utf-8")
+
+    uncovered, orphaned = bijection_violations(tmp_path)
+    assert uncovered == ["zz-driver-only"], uncovered
+    assert orphaned == [], orphaned
+
+
+def test_the_bijection_refuses_an_artifact_directory_under_no_example_root(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Control, right direction: a covered directory under no driver is named."""
+    stray = tmp_path / "zz-orphan" / ARTIFACTS_DIRNAME
+    stray.mkdir(parents=True)
+    (stray / "x.yaml").write_text("", encoding="utf-8")
+
+    uncovered, orphaned = bijection_violations(tmp_path)
+    assert uncovered == [], uncovered
+    assert orphaned == [f"zz-orphan/{ARTIFACTS_DIRNAME}"], orphaned
+
+
+def test_a_new_example_is_collected_without_editing_this_module(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Control: the gate arms on a new example directory with no source edit.
+
+    This is the property the four wave-4 plans (16-08, 16-09, 16-10, 16-11)
+    depend on. Under the literal named tuple this module used to carry, each
+    of them would have had to append its own entry to one constant, in
+    parallel — a merge conflict by construction.
+    """
+    probe = tmp_path / "zz-probe"
+    (probe / ARTIFACTS_DIRNAME).mkdir(parents=True)
+    (probe / EXAMPLE_ROOT_MARKER).write_text("", encoding="utf-8")
+    (probe / ARTIFACTS_DIRNAME / "x.yaml").write_text("", encoding="utf-8")
+
+    assert example_roots(tmp_path) == {probe}
+    assert covered_artifact_directories(tmp_path) == {
+        probe / ARTIFACTS_DIRNAME
+    }
+    assert bijection_violations(tmp_path) == ([], [])
+
+
+@pytest.mark.parametrize("relative", sorted(PY_BEARING_NON_EXAMPLES))
+def test_the_predicate_excludes_the_py_bearing_non_examples(
+    relative: str,
+) -> None:
+    """Control: a directory of `.py` modules with no `artifacts/` is not an example.
+
+    Asserted against the live tree, because the point is that these two
+    directories really exist and really would break a looser predicate. Once
+    the wave that retires each has run, the control degrades to a named skip
+    rather than turning red.
+    """
+    directory = REPO_ROOT / relative
+    if not directory.is_dir():
+        pytest.skip(f"{relative}: {PY_BEARING_NON_EXAMPLES[relative]}")
+    assert sorted(directory.glob("*.py")), (
+        f"{relative} carries no `.py` module, so it is no longer the"
+        " counter-example this control exists to exclude"
+    )
+    assert directory not in example_roots(EXAMPLES_ROOT), (
+        f"{relative} was collected as an example root; the predicate has"
+        f" loosened from `{EXAMPLE_ROOT_MARKER}` to something that catches"
+        " support directories"
+    )
+
+
+def test_the_predicate_excludes_fixtures_directories_as_a_shape() -> None:
+    """Control: no `fixtures/` directory is ever an example root.
+
+    Asserted as a shape rather than by path, which is what keeps the rule true
+    when plan 16-09 ships `examples/s2-01-external-consumers/fixtures/` at
+    wave 4 — modelled on the shipped fixtures directory and carrying `.py`.
+    """
+    collected = sorted(
+        str(root.relative_to(REPO_ROOT))
+        for root in example_roots(EXAMPLES_ROOT)
+        if root.name == "fixtures"
+    )
+    assert not collected, (
+        "a `fixtures/` directory was collected as an example root: "
+        + ", ".join(collected)
+    )
+
+
+# ---------------------------------------------------------------------------
+# The exemption set, which stays named.
+# ---------------------------------------------------------------------------
 
 
 def test_the_only_deferred_documents_are_the_ruled_permanent_ones() -> None:
