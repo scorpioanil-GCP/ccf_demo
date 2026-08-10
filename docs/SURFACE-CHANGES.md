@@ -3313,7 +3313,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Change type: added
 - Before: absent
 - After: `{"backends": ["<name>", ...]}` on 200; on 503 the API's existing
-  typed-refusal shape, `{"detail": {"error_code": "backend_registry_conflict",
+  typed-refusal shape, `{"detail": {"error_code": "backend-registry-conflict",
   "message": "..."}}`. The answer is deployment-local — it describes the
   process serving the request, which under `ccf --local` is the CLI's own
   process and over HTTP is the server's.

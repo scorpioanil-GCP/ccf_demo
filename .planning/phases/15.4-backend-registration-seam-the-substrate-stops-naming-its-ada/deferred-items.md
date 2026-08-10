@@ -90,7 +90,19 @@ line-number-neutrally, or migrate the citations first.
 
 ---
 
-## DI-15.4-03 — `CINV-04` names two different invariants — **OPEN, needs Dave's ruling**
+## DI-15.4-03 — `CINV-04` names two different invariants — **RULED, RENAME DEFERRED**
+
+> **D-GATE-15.4 (Dave, 2026-08-09): the split is approved — allocate `CINV-05`
+> for the no-substrate-name rule. The rename itself is deliberately deferred to
+> a single coordinated pass across code *and* record**, for exactly the reason
+> given under "Why it was not fixed in the review-fix pass" below: renaming the
+> code alone leaves a document whose rule ids disagree with the history behind
+> it. The decision is now settled and only the execution is outstanding, so the
+> next pass has no ruling to wait on — it has a scope to cover. See "The fix,
+> when Dave rules" below for that scope; it stands as written, with the addition
+> that `.planning/ROADMAP.md` and `15.4-VALIDATION.md` get a pointer note rather
+> than a rewrite, and that this gate entry and `D-GATE-15.4` are the two places
+> a reader of the older documents will be sent.
 
 **Found during:** the phase code review (finding WR-11), closed out in the
 review-fix pass.
@@ -160,3 +172,52 @@ carrying a repeated pure computation.
 **The fix, when someone takes it.** Thread the resolved record and the validated
 config from `_preflight_adapter` into `boot` through an internal entry point,
 leaving the public `boot(backend=...)` signature alone.
+
+---
+
+## DI-15.4-05 — An out-of-tree adapter cannot be written from the public surface — **OPEN DESIGN ITEM (D-GATE-15.4)**
+
+**Found during:** plan 15.4-10 (the out-of-tree adapter), reported as finding 1
+and deliberately not fixed there.
+
+**Ruled at the gate.** Dave, 2026-08-09: this stays open as a **design item for
+a later cycle**, not a defect to close inside a gate. It is the one thing in
+this phase that is a real gap rather than a rough edge, and wedging a fix into
+the phase close would have papered over it.
+
+**What.** `tests/fixtures/ccf-demo-adapter` — the distribution that proves the
+whole phase — reaches for six names that are not exported:
+
+| Name | Module | Why it is not avoidable |
+| --- | --- | --- |
+| `materialize_view` | `ccf.graph.reader` | no public equivalent |
+| `_ordered_view` | `ccf.graph.reader` | cannot be replaced without forking the ordering convention the helper exists to hold |
+| `_entity_records` | `ccf.graph.reader` | no public counterpart, so `entity_history` is unimplementable from public names |
+| `_relationship_records` | `ccf.graph.reader` | same, for `relationship_history` |
+| `_LineageRowsFor` | `ccf.graph.reader` | same |
+| `_GraphTxn` | `ccf.graph._writer` | the write seam every adapter satisfies |
+
+**The two true statements, and how they bound each other.** `D-11`'s claim holds
+**exactly as written** — no line of `src/ccf` changed for the adapter to work,
+measured with `git diff --quiet` over the arrival window and shown falsifiable.
+*And* the surface an adapter must reach for is not the public surface. The
+second does not contradict the first; it bounds how much the first proves. Zero
+substrate cost was demonstrated. A supported authoring path was not.
+
+**What was done instead of fixing it.** `public/how-to/write-a-graph-backend-adapter.md`
+states the gap plainly rather than implying the public surface suffices. That is
+the honest interim posture: an author who follows the guide will not be
+surprised, and the guide does not make a promise the SDK cannot keep.
+
+**Why it is genuinely a design question.** The public `BaseGraphReader` is
+SQL-shaped, which is why a dict-backed store cannot use it — so "export the six
+names" is the wrong framing. The real question is what the *supported* adapter
+authoring surface should be: a reader base that is not SQL-shaped, a documented
+Protocol set with the ordering convention expressed rather than inherited, or a
+narrower published subset. That is a Phase D shape, with `D-IMPL-NN` entries,
+not an export list.
+
+**Interacts with:** `DI-15.4-01` (the Fluree admit prefixes are the same
+question one layer down — knowledge an adapter needs that has no owner) and the
+PyPI naming collision recorded in `docs/15.4-GATE-PACKAGE.md` §11.2, which
+blocks the natural `dependencies = ["ccf"]` an adapter author would write.

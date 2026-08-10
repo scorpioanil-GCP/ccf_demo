@@ -99,7 +99,17 @@ __all__ = ["build_router"]
 #: is still that module's :func:`~ccf_runtime.http_api.errors.refusal_detail`,
 #: so a client parses this refusal the same way it parses every other. Like
 #: the registry's own constants it is deliberately not in ``__all__``.
-BACKEND_REGISTRY_CONFLICT: Final[str] = "backend_registry_conflict"
+#:
+#: **Hyphenated, matching every other code in the vocabulary** (D-GATE-15.4).
+#: Plan 15.4-09 named the literal with underscores and the executor followed the
+#: plan over house style, correctly — but that made it the only
+#: underscore-separated value among seven hyphenated ones, and ``errors.py``
+#: records that renaming a code is a breaking change to every consumer. Dave
+#: ruled it at the phase gate, while the code had never shipped and the change
+#: was still free. The value is pinned by literal in
+#: ``tests/http_api/test_routes.py`` so a future rename cannot be silent: a test
+#: that asserts only the symbol agrees with whatever the symbol happens to say.
+BACKEND_REGISTRY_CONFLICT: Final[str] = "backend-registry-conflict"
 
 
 def build_router(deps: ApiDependencies) -> APIRouter:

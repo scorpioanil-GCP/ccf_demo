@@ -693,6 +693,13 @@ def test_backends_refuses_503_naming_the_conflicting_distributions(
     assert response.status_code == 503
     detail = response.json()["detail"]
     assert detail["error_code"] == backends_route.BACKEND_REGISTRY_CONFLICT
+    # The literal, not only the symbol (D-GATE-15.4). Asserting the constant
+    # against itself agrees with whatever it happens to say, so it would have
+    # stayed green through the underscore/hyphen inconsistency this rename
+    # closed — and would stay green through the next silent rename, which
+    # ``errors.py`` records as a breaking change to every consumer. Hyphenated
+    # to match all seven of the shared vocabulary's codes.
+    assert detail["error_code"] == "backend-registry-conflict"
     assert "acme-adapters" in detail["message"]
     assert "beta-adapters" in detail["message"]
     # Not an empty list under a 200: fail-closed exists so that nothing
