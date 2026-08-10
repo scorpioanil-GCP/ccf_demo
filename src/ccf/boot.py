@@ -341,13 +341,34 @@ def boot(
         # outcome the comment below says must not happen. Order matters: release
         # the mint first, so a store whose `close` also raises cannot leave the
         # graph permanently unbootable on top of everything else.
-        release_boot_token(token)
-        store.close()
+        #
+        # `try`/`finally` rather than two statements (close-review finding F4,
+        # Gemini and Ollama independently). The ordering rationale above is
+        # unchanged and still correct — it reasoned about `store.close()`
+        # raising, which is the second step. What it did not reason about is the
+        # *first* step raising: written as two statements, a `release_boot_token`
+        # that raised skipped `store.close()` entirely and leaked the connection,
+        # which is the leak this whole handler exists to prevent. Both steps run
+        # now, in the same order, whatever either of them does.
+        try:
+            release_boot_token(token)
+        finally:
+            store.close()
         raise
 
     def shutdown() -> None:
-        writer.close()
-        store.close()
+        """Retire the writer, then the store — both, whatever the first does.
+
+        Same shape and same finding (F4) as the handler above, for the same
+        reason: written as two statements, a `writer.close()` that raised
+        skipped `store.close()` and leaked the connection. `writer.close()` is
+        also what releases the mint, so ordering it first is the rule the
+        handler above states, not a coincidence.
+        """
+        try:
+            writer.close()
+        finally:
+            store.close()
 
     try:
         spec = registry.resolve(resolution_spec_key, resolution_spec_version)
