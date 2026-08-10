@@ -107,7 +107,7 @@ markdown_extensions:
   - pymdownx.inlinehilite
 
 # Every path enumerated explicitly — no globs. The nav is authoritative: it
-# lists 40 pages, and `charter.md` is the single `not_in_nav` page, for the 41
+# lists 42 pages, and `charter.md` is the single `not_in_nav` page, for the 43
 # markdown files under `public/`. (The eleven `.mmd` diagram sources under
 # `public/diagrams/` are embedded by the Concepts pages, not nav entries.)
 nav:
@@ -158,5 +158,9 @@ nav:
           - Skill grants: reference/artifacts/skill-grants.md
           - Control Plane artifacts: reference/artifacts/control-plane-artifacts.md
           - Product registration: reference/artifacts/product-registration.md
+          - Deployment manifest: reference/artifacts/deployment-manifest.md
       - HTTP API: reference/http-api.md
       - Performance: reference/performance.md
+      # D-17 placement: the surface-record toolchain is maintainer-facing, so it
+      # sits last in Reference rather than among the adopter-facing surfaces.
+      - How the surface record works: reference/surface-toolchain.md
