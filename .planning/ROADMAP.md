@@ -922,16 +922,16 @@ which is theirs."*
 **Requirements**: mints its own DOCS-07..NN at planning; not counted in Coverage
 below. DEMO-01..03 and EXAM-01..05 re-home onto the new suite rather than being
 retired (`D-08`).
-**Plans:** 19 plans in 12 waves
+**Plans:** 20 plans in 12 waves
 
 Plans:
 - [ ] 16-01-PLAN.md — ruling package (`D-IMPL-94`), DOCS-07..18 minted, ERGO-03 measurement frozen
 - [ ] 16-02-PLAN.md — FIBO source-estate extension: corp→corp ownership edges with per-edge percentages
 - [ ] 16-03-PLAN.md — Section-2 client-leg transport spike: LangGraph + Claude Agent SDK
-- [ ] 16-04-PLAN.md — gate-checker unblock + three standing docs tripwires
+- [ ] 16-04-PLAN.md — gate-checker unblock, three standing docs tripwires, repo-wide retirement-coupling sweep
 - [ ] 16-05-PLAN.md — Section-1 example 1: spine/deployment split, KYC/UBO deterministic assembly
 - [ ] 16-06-PLAN.md — advisory pages A-1/A-2/A-3/A-8 + discharge gate
-- [ ] 16-07-PLAN.md — parameterized backend runner + six-backend equality matrix
+- [ ] 16-07-PLAN.md — one driver, backend from a configuration artifact + six-backend equality matrix
 - [ ] 16-08-PLAN.md — Section-1 example 2: freshness (λ_c) and Context Debt (D_c)
 - [ ] 16-09-PLAN.md — Section-2 example: MCP fabric + four zero-CCF client legs
 - [ ] 16-10-PLAN.md — Section-3 example A: embed CCF in a host application
@@ -944,6 +944,7 @@ Plans:
 - [ ] 16-17-PLAN.md — Section-3 embed pages; retire `examples/04-cross-process`, `07-artifact-store-mcp`
 - [ ] 16-18-PLAN.md — terminal retirement: adopters guide, seven examples, final nav
 - [ ] 16-19-PLAN.md — phase close: `make gate-16`, gate package, §3.1 review protocol
+- [ ] 16-20-PLAN.md — Section-2 zero-import AST guard, three-harness assertion, README (split from 16-09)
 
 
 **Success Criteria** (what must be TRUE):

@@ -1419,13 +1419,33 @@ blow that budget. Keep the matrix in the `test` job (or its own job) and keep th
 
 ---
 
-## Open Questions for the Planner
+## Open Questions for the Planner (RESOLVED)
 
 **D-01..D-12 in CONTEXT.md are LOCKED. Nothing below reopens one.** Where a
 locked decision meets a tree fact awkwardly, it is filed as a finding for the
 planner to surface, not resolved here.
 
+**Status at the close of planning: all eight are ruled.** Each carries a
+`> **Ruled:**` line naming where. Nothing under this heading is open, and no
+plan should treat an entry here as an outstanding question. The ruling surface
+is either `16-CONTEXT.md`'s locked decisions, `D-IMPL-94` (written by plan
+16-01, Task 1, behind that plan's blocking human checkpoint), or CONTEXT's
+*Claude's Discretion* section.
+
+| Q | Ruled where | Disposition |
+|---|-------------|-------------|
+| Q-1 | `16-CONTEXT.md` **D-13**, recorded in `D-IMPL-94` | Criterion 10 carries **one enumerated exception**: `ProductClassDeclaration`'s docstring in `src/ccf/controlplane/artifacts.py`. Plan 16-04 makes the edit; plan 16-19's `gate_16.py` allowlists it as a **literal**. |
+| Q-2 | `D-IMPL-94` (plan 16-01 T1) | `assembly_mode` describes the **substrate**. `ModelVersionRecord.assembly_mode` carries the delivered artifact's mode when Phase 17 lands packaging. |
+| Q-3 | `16-CONTEXT.md` *Claude's Discretion* | The **narrow** reading. KYC/UBO is the Section-1 and adoption-argument spine; Sections 2 and 3 carry other domains so `D-IMPL-52`'s horizontal mix holds. Named visibly in plans 16-05, 16-09 and their READMEs. |
+| Q-4 | `16-CONTEXT.md` **D-15**, recorded in `D-IMPL-94` | **Freeze and retire.** Plan 16-01 T2 writes `docs/surface/examples/ERGO-03-FROZEN.md` from scripted output before deleting `tests/examples/test_surface_audit.py`. |
+| Q-5 | `16-CONTEXT.md` **D-14**, recorded in `D-IMPL-94` | The four residuals **carry forward unclosed**; none is Phase 16 work. The D-14 paragraph also **bounds** the carry: re-counting a non-vacuity floor after a ruled deletion is bookkeeping, not a residual (plan 16-18). |
+| Q-6 | `D-IMPL-94` (plan 16-01 T1) | `docs/SURFACE-CHANGES.md` **does not** publish. The A-2 maintainer page describes the toolchain and links nothing that would drag `.planning/` paths past `pub02-internal-path`. |
+| Q-7 | `D-IMPL-94` (plan 16-01 T1) | DI-15.4-05 / F2 is **not** ruled here. `how-to/write-a-graph-backend-adapter.md` is rewritten against the settled registry surface; the open question is recorded in the phase record, **never** in the published page (plan 16-06). |
+| Q-8 | `D-IMPL-94` (plan 16-01 T1) | `make ci` **does** gain the three gate-checker suites. Plan 16-04 fixes the three failures; plan 16-12 owns the `Makefile` composition. |
+
 ### Q-1 — The `ProductClassDeclaration` docstring fails the publish scan, and fixing it edits `src/`
+> **Ruled:** CONTEXT **D-13**, recorded in `D-IMPL-94` (plan 16-01 T1). One enumerated exception; plan 16-04 makes the edit, plan 16-19 allowlists it as a literal.
+
 **Known:** `tools/publish_scan_tests/test_docstring_leaks.py::test_no_docstring_
 reproduces_whitepaper_body_text` fails at HEAD with 20 shingle hits against
 `src/ccf/controlplane/artifacts.py`. CI's `docs` job runs this suite.
@@ -1437,6 +1457,8 @@ criterion 10 is Dave's wording. Surface it as a one-line scope clarification
 alongside D-02's ruling rather than deciding it inside a plan.
 
 ### Q-2 — Does the D-02 ruling also settle what `assembly_mode` describes?
+> **Ruled:** `D-IMPL-94` (plan 16-01 T1). The **substrate** reading; the recommendation to fold it into the D-02 entry was taken.
+
 **Known:** `assembly_mode` is on the product class *and* on `ModelVersionRecord`.
 CONTEXT `<specifics>` promises Section 1 introduces `assembly_mode: algorithmic`
 as *a real choice with two siblings arriving later*.
@@ -1448,6 +1470,8 @@ without the answer.
 minting a second ruling.
 
 ### Q-3 — How many examples share the KYC/UBO domain? (D-03 × D-IMPL-52)
+> **Ruled:** CONTEXT's *Claude's Discretion* entry — the planner's call, made narrow and named visibly in plans 16-05 and 16-09 and in both READMEs.
+
 **Known:** D-03 makes KYC/UBO the spine; D-IMPL-52 and CLAUDE.md §9 require a
 horizontal domain mix; today's suite is deliberately mixed (banking, e-commerce
 `atlas-commerce`, financial services `meridian-bank`).
@@ -1458,6 +1482,8 @@ Claude's discretion, so this is the planner's call — but it should be *made
 visibly*, with the D-IMPL-52 tension named, not fallen into.
 
 ### Q-4 — What happens to ERGO-03's `test_surface_audit.py` baseline?
+> **Ruled:** CONTEXT **D-15**, recorded in `D-IMPL-94`. Freeze the measurement, retire the running test; plan 16-01 T2.
+
 Three options: retire the test with a recorded rationale; re-baseline against the
 greenfield suite (destroying the Phase 15 comparison the requirement's evidence
 rests on); or freeze the current before/after as a historical record and stop
@@ -1466,6 +1492,8 @@ measured figures moved into the phase record — but this touches a Complete
 requirement's evidence, so surface it rather than decide it.
 
 ### Q-5 — Does the phase take the four inherited Gate-2 tripwire residuals?
+> **Ruled:** CONTEXT **D-14**, recorded in `D-IMPL-94`. Carried forward unclosed — **and bounded**: re-flooring a non-vacuity constant after a ruled deletion is bookkeeping, not a residual, which is what unblocks plan 16-18.
+
 R-9. They are real, measured, and placed in Phase 16 by deferred-items, but none
 is documentation work and R5-WR-01 needs a measurement no one has made.
 **Recommendation:** carry them with an explicit ruling rather than absorbing them
@@ -1473,11 +1501,15 @@ silently; a phase that quietly takes on `tests/products/` mechanism work while
 claiming "no fabric changed" invites exactly the criterion-10 argument Q-1 raises.
 
 ### Q-6 — Does `docs/SURFACE-CHANGES.md` publish into the site?
+> **Ruled:** `D-IMPL-94` (plan 16-01 T1). It does **not** publish.
+
 SURFACE-AUDIT §5.4 open editorial question, explicitly carried to Phase 16.
 Interacts with A-2's maintainer page and with `pub02-internal-path` (the fragments
 reference `.planning/` paths).
 
 ### Q-7 — Does DI-15.4-05 / F2 need to be ruled before `write-a-graph-backend-adapter.md` is rewritten?
+> **Ruled:** `D-IMPL-94` (plan 16-01 T1). Not ruled here; the page is written to the settled registry surface and the open question stays in the phase record, never on the page (plan 16-06).
+
 The public-vs-private adapter surface, and `substrate_vocabulary` deriving from
 in-tree adapters only, are awaiting Dave. That how-to page is the one this phase
 must rewrite most substantially, and it would document exactly the surface under
@@ -1486,6 +1518,8 @@ or write the page to the surface that is settled and state the open question in
 the phase record rather than in the published page.
 
 ### Q-8 — Should `make ci` compose the three gate-checker suites?
+> **Ruled:** `D-IMPL-94` (plan 16-01 T1). Yes — plan 16-04 fixes the three failures, plan 16-12 owns the `Makefile` composition.
+
 deferred-items names it as two separable Phase-16 items ("fix the three, and
 decide whether `make ci` should compose the gate-checker suites so the claim it
 makes becomes true"). Doing it makes `make ci` slower and truer.
