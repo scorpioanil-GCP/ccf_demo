@@ -29,7 +29,7 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 16 — Documentation Rewrite — The Deterministic Path & The Adoption Argument
-Plan: 0 of 21 complete (wave 1 of 12)
+Plan: 1 of 21 complete (wave 2 of 12)
 Status: EXECUTING on branch `phase-16` (forked from main @ 06fea5c, per CLAUDE.md
   §2.2 — merge to main happens at the D-GATE-16 entry, not before). Six plans
   carry `autonomous: false` and will halt for Dave: 16-01 (the D-IMPL-94 ruling
@@ -41,7 +41,7 @@ Status: EXECUTING on branch `phase-16` (forked from main @ 06fea5c, per CLAUDE.m
   described Phase 15.4's D-IMPL-93 commission, not Phase 16 — a GSD handler left
   it stranded under a Phase 16 heading. That commission is recorded canonically
   in ROADMAP.md and DECISIONS.md; nothing is lost by removing it here.
-Progress: [░░░░░░░░░░] 0% — 0/21 plans, 0/12 waves
+Progress: [#░░░░░░░░░] 5% — 1/21 plans, wave 1 of 12 complete
 Last activity: 2026-08-10 -- Phase 16 execution started (wave 1 of 12)
 
 ## Performance Metrics

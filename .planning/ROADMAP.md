@@ -922,12 +922,12 @@ which is theirs."*
 **Requirements**: mints its own DOCS-07..NN at planning; not counted in Coverage
 below. DEMO-01..03 and EXAM-01..05 re-home onto the new suite rather than being
 retired (`D-08`).
-**Plans:** 21 plans in 12 waves
+**Plans:** 1/21 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 16-01-PLAN.md — ruling package (`D-IMPL-94`), DOCS-07..18 minted, ERGO-03 measurement frozen
+- [x] 16-01-PLAN.md — ruling package (`D-IMPL-94`), DOCS-07..18 minted, ERGO-03 measurement frozen
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -1016,7 +1016,7 @@ Plans:
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
-| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/19 | Planned   | — |
+| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 1/21 | In Progress|  |
 
 ## Coverage
 
