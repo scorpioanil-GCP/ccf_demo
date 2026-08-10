@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.policy.json
+# Policy category parameters (whitepaper §7.4; D-IMPL-76; KYC/UBO domain, phase
+# 16 CONTEXT D-03).
+#
+# Read as: the KYC-analyst perspective may see state classified
+# `kyc-disclosable`, and each class carries its sensitivity in its own field.
+#
+# `classification_attribute_by_class` lives HERE rather than in the resolution
+# spec: one artifact, one consumer (D-03). It is read by the operator this
+# document configures, and by nothing else.
+#
+# WHAT POLICY ACTUALLY REMOVES HERE, AND WHY IT IS NOT COSMETIC. One natural
+# person in this estate is a German national whose personal data this regime is
+# not entitled to disclose to this perspective. He is classified
+# `jurisdiction-restricted` in `events.yaml` and the operator substitutes him
+# out — and, by INV-CH7-40, the `holds_stake` edge that would otherwise announce
+# his existence by its dangling end goes with him. What survives is a view that
+# is itself a valid graph for this principal, not a valid graph with a hole in
+# it. The downstream consequence is visible and intended: the ownership chain he
+# alone anchored is no longer walkable from a seed, so a bank holding 20% of a
+# broker holding 10% of the client is reached only the long way round, and the
+# stake he held is not reached at all.
+#
+# This document deliberately declares NO `permitted_policy_bundle_versions`.
+# That set is a content hash minted at registration, so an adopter has no value
+# to author; `build_operator_registry` completes the parameter set from the
+# adopter-passed pins (D-IMPL-76). An entity class absent from the map below is
+# inadmissible, and an entity carrying no permitted classification is excluded:
+# the fabric does not admit state it cannot prove is admissible.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: every entity class name, attribute name and classification
+# value is [ADAPT]; the keys `classification_attribute_by_class` and
+# `permitted_classifications` are [MECHANISM].
+
+semver: "1.0.0"
+
+# Which attribute carries each class's policy classification — per class,
+# because a natural person's sensitivity and a corporation's are different
+# fields. Every class the resolution spec declares appears here; one that did
+# not would be inadmissible in its entirety, which is a refusal and not a leak,
+# but is rarely what an author meant.
+classification_attribute_by_class:
+  party: party_classification
+  corporation: corporation_classification
+  ownership_stake: stake_classification
+  registered_address: address_classification
+  screening_candidate: screening_classification
+
+permitted_classifications:
+  - kyc-disclosable

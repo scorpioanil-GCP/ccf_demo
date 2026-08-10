@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.product-class.json
+# The product class this fabric serves (whitepaper §7.6; D-IMPL-31 for the TTL
+# anchor, INV-CH7-55 for the assembly mode, INV-CH7-49 for the per-class schema
+# lane; KYC/UBO domain, phase 16 CONTEXT D-03).
+#
+# `assembly_mode: algorithmic` IS A GOVERNANCE CHOICE, NOT BOILERPLATE.
+# The field has three values — `algorithmic`, `llm_packaged`, `swarm_assembled`
+# — and it describes how the *substrate* was assembled, not how the delivered
+# artifact was rendered (D-IMPL-94, Q-2, Dave, 2026-08-10). `algorithmic` is
+# what this document claims: every value in the served payload was computed by
+# the four operator categories and the projection, with no model in the path.
+# That claim is checkable, and it is what makes the product replayable bit for
+# bit.
+#
+# The two siblings arrive in Phase 17. `llm_packaged` and `swarm_assembled`
+# describe substrates assembled with a model in the path; a *presentation* layer
+# that renders this product into prose sits ABOVE `serve()` and does not change
+# this value, because it does not change how the product was assembled. The
+# delivered artifact's own mode is recorded where the models invoked are
+# recorded — `ModelVersionRecord.assembly_mode`, replay dimension 3.
+#
+# `required_operator_keys` is the AUTHORED declared side of the lineage
+# strict-equality gate (Gate 2, INV-CH7-47) — the Control Plane CLAIM that fills
+# `lineage.operators_invoked`. It is NOT the set the projection reads: that is
+# the separate `projection-requirements.yaml`, and
+# `refuse_operator_set_divergence` compares the two and refuses a disagreement
+# before the engine runs. THAT is where drift an author could introduce fails.
+# Gate 2 itself verifies ASSEMBLY-PATH INTEGRITY: the engine transcribes the
+# plan faithfully rather than witnessing it independently — it builds its
+# invoked set and its steps in one loop over the same operator plan — so it
+# cannot catch a misdeclaration (D-IMPL-86). At least one key is required, on
+# the whitepaper's own posture: §7.6's empty-operator guard treats a resolved
+# set of zero as a misconfiguration rather than as a trivial success.
+#
+# `max_ttl_version` is deliberately ABSENT. That pin is minted by *registering*
+# the MaxTTL value and is a content hash of what was registered, so an artifact
+# declaring it would be authoring a hash of something it does not contain. This
+# is what keeps Gate 3 meaningful: the ceiling is an authored artifact value,
+# the pin is derived from registering it, and the product's own `expires_at` is
+# a separately authored number.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the schema name, its lane, the MAX_TTL key and the operator key
+# names are [ADAPT]; the keys `schema_name`, `schema_version`, `ttl_anchor`,
+# `assembly_mode`, `max_ttl_key` and `required_operator_keys`, and the
+# `ttl_anchor`/`assembly_mode` enum values, are [MECHANISM].
+
+semver: "1.0.0"
+
+schema_name: fibo-kyc.ultimate-beneficial-ownership
+schema_version: "1.0.0"
+ttl_anchor: from_decision
+assembly_mode: algorithmic
+
+# The Control Plane key this class's MAX_TTL ceiling is registered under. The
+# key is authored; the version pinning it is not.
+max_ttl_key: fibo-kyc/product/ultimate-beneficial-ownership/max-ttl
+
+required_operator_keys:
+  - traversal.typed-neighborhood
+  - temporal.as-of-boundary
+  - policy.principal-subgraph
+  - similarity.corpus-select

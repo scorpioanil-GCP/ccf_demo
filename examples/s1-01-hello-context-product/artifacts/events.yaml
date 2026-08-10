@@ -1,0 +1,502 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.signal-batch.json
+# The KYC/UBO L1 signal stream — the envelopes this fabric OBSERVED (whitepaper
+# §7.1; KYC/UBO domain, phase 16 CONTEXT D-03, D-04, D-05).
+#
+# WHERE THIS COMES FROM, AND WHY IT IS NOT THE WHOLE ESTATE.
+# `source-estate.yaml` beside this file declares the *enterprise source estate*:
+# 14 entities and 16 relationships in the shipped FIBO shape, materialised by
+# `../source_estate.py` as standalone source-system files. This document is the
+# SELECTION of that estate which the ultimate-beneficial-ownership product
+# needs, expressed as L1 envelopes. The two are deliberately different things,
+# and D-04 is why: CCF *reads* an enterprise estate and assembles selectively;
+# it never mirrors an estate wholesale into its own graph. A signal stream that
+# were a copy of the estate would be exactly the replication D-04 rejects.
+#
+# Every reference below is the estate's own `_id`, so the provenance of each
+# envelope is checkable by eye against `source-estate.yaml`.
+#
+# ONE ENVELOPE HERE IS NOT IN THE ESTATE, AND THAT IS D-05.
+# `obs:17` is an *observation*, not state: a share transfer recorded by the
+# registry before the decision instant and taking legal effect a month after it.
+# L1 is signal; L3 is state. See the temporal note on that envelope.
+#
+# The document adopts the SDK's OWN envelope vocabulary — `source: {system_id}`,
+# `raw_payload:` — rather than a flat shape the loader would have to translate.
+# A translation removed is one that cannot drift.
+#
+# Payload keys are the *source systems'* vocabulary, never the fabric's, and
+# every value is quoted text: a resolved claim's attributes are strings, and a
+# YAML float would not survive canonical serialization anyway.
+#
+# HOW TO READ THE SHAPE. A stake is a resolved entity (see
+# `resolution-spec.yaml` for why), so an envelope that names a stake and an
+# entity emits the incidence edge between them:
+#
+#   * a stake held by a PERSON needs one envelope — the person, the stake and
+#     the corporation it is held in all resolve from it, and both edges follow;
+#   * a stake held by a CORPORATION needs two — one envelope resolves one
+#     corporation, so the owner side and the target side are two records, which
+#     is also how a source system emits them.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: everything under `raw_payload:` and every source system id is
+# [ADAPT]; the envelope keys (`envelope_id`, `tenant_id`, `source`,
+# `system_id`, `ingestion_timestamp`, `observed_time`, `raw_payload`) are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: meridian-bank
+
+envelopes:
+  # ==========================================================================
+  # Stakes held by natural persons. One envelope each: the person, the stake
+  # and the corporation resolve together, so `holds_stake` and
+  # `stake_incident_to` both follow from co-occurrence.
+  # ==========================================================================
+
+  # John Smith holds 45.0% of Acme directly. The case a retrieve-then-filter
+  # system gets right, kept so the contrast with Jane Doe is visible.
+  - envelope_id: kyc-001
+    tenant_id: meridian-bank
+    source:
+      system_id: kyc-registry
+    ingestion_timestamp: 2026-07-31T09:00:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      party_ref: "http://example.org/fibo/JohnSmith"
+      party_name: "John Michael Smith"
+      party_nationality: "US"
+      party_role: "Ultimate Beneficial Owner"
+      party_classification: "kyc-disclosable"
+      stake_ref: "rel:5"
+      stake_owner_ref: "http://example.org/fibo/JohnSmith"
+      stake_target_ref: "http://example.org/fibo/AcmeCorp"
+      ownership_percent: "45.0"
+      stake_classification: "kyc-disclosable"
+      corporation_ref: "http://example.org/fibo/AcmeCorp"
+      corporation_legal_name: "Acme Corporation Inc."
+      corporation_jurisdiction: "US-DE"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+
+  # Jane Doe holds 60.0% of Beta Holdings. On its own this says nothing about
+  # Acme.
+  - envelope_id: kyc-002
+    tenant_id: meridian-bank
+    source:
+      system_id: kyc-registry
+    ingestion_timestamp: 2026-07-31T09:05:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      party_ref: "http://example.org/fibo/JaneDoe"
+      party_name: "Jane Elizabeth Doe"
+      party_nationality: "US"
+      party_role: "Managing Member"
+      party_classification: "kyc-disclosable"
+      stake_ref: "rel:7"
+      stake_owner_ref: "http://example.org/fibo/JaneDoe"
+      stake_target_ref: "http://example.org/fibo/BetaHoldings"
+      ownership_percent: "60.0"
+      stake_classification: "kyc-disclosable"
+      corporation_ref: "http://example.org/fibo/BetaHoldings"
+      corporation_legal_name: "Beta Holdings Limited Liability Company"
+      corporation_jurisdiction: "US-NY"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+
+  # ...and 12.0% of Acme directly. BELOW the 25.0% threshold on its own. This
+  # single edge is what makes the question require aggregation rather than
+  # lookup: no passage of any document states Jane Doe's real figure, because
+  # her real figure is 12.0 + 60.0% x 30.0% = 30.0 and that number exists only
+  # in the relationships.
+  - envelope_id: kyc-003
+    tenant_id: meridian-bank
+    source:
+      system_id: kyc-registry
+    ingestion_timestamp: 2026-07-31T09:10:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      party_ref: "http://example.org/fibo/JaneDoe"
+      party_name: "Jane Elizabeth Doe"
+      party_nationality: "US"
+      party_role: "Managing Member"
+      party_classification: "kyc-disclosable"
+      stake_ref: "rel:16"
+      stake_owner_ref: "http://example.org/fibo/JaneDoe"
+      stake_target_ref: "http://example.org/fibo/AcmeCorp"
+      ownership_percent: "12.0"
+      stake_classification: "kyc-disclosable"
+      corporation_ref: "http://example.org/fibo/AcmeCorp"
+      corporation_legal_name: "Acme Corporation Inc."
+      corporation_jurisdiction: "US-DE"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+
+  # Hans Müller holds 5.0% of Gamma Bank. He is classified
+  # `jurisdiction-restricted`: a German national whose personal data this regime
+  # does not permit disclosing to this perspective. The policy operator
+  # substitutes him out, and the `holds_stake` edge that would announce his
+  # existence by its dangling end goes with him (INV-CH7-40). His stake survives
+  # in the graph and is simply never reached — it sits at hop seven of a
+  # six-hop walk once he is gone.
+  #
+  # Note what his record does NOT carry: a percentage. In the shipped FIBO
+  # shape `ownershipPercent` is an attribute of the party, and his party record
+  # has none — which is 16-RESEARCH.md FINDING F-1's cleanest witness for why an
+  # entity-level field cannot express a per-edge interest.
+  - envelope_id: kyc-004
+    tenant_id: meridian-bank
+    source:
+      system_id: kyc-registry
+    ingestion_timestamp: 2026-07-31T09:15:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      party_ref: "http://example.org/fibo/HansMueller"
+      party_name: "Hans Müller"
+      party_nationality: "DE"
+      party_role: "Director"
+      party_classification: "jurisdiction-restricted"
+      stake_ref: "rel:10"
+      stake_owner_ref: "http://example.org/fibo/HansMueller"
+      stake_target_ref: "http://example.org/fibo/GammaBank"
+      ownership_percent: "5.0"
+      stake_classification: "kyc-disclosable"
+      corporation_ref: "http://example.org/fibo/GammaBank"
+      corporation_legal_name: "Gamma Bank Aktiengesellschaft"
+      corporation_jurisdiction: "DE"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+
+  # Sarah Chen holds exactly 25.0% of Delta Private Equity. The boundary case,
+  # frozen in the estate: a party who sits precisely ON the threshold one hop
+  # down, and whose aggregate interest in Acme three hops down is 1.125%. Depth
+  # is not significance.
+  - envelope_id: kyc-005
+    tenant_id: meridian-bank
+    source:
+      system_id: kyc-registry
+    ingestion_timestamp: 2026-07-31T09:20:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      party_ref: "http://example.org/fibo/SarahChen"
+      party_name: "Sarah Wei Chen"
+      party_nationality: "SG"
+      party_role: "Limited Partner"
+      party_classification: "kyc-disclosable"
+      stake_ref: "rel:11"
+      stake_owner_ref: "http://example.org/fibo/SarahChen"
+      stake_target_ref: "http://example.org/fibo/DeltaFund"
+      ownership_percent: "25.0"
+      stake_classification: "kyc-disclosable"
+      corporation_ref: "http://example.org/fibo/DeltaFund"
+      corporation_legal_name: "Delta Private Equity Fund Limited Partnership"
+      corporation_jurisdiction: "US-DE"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+
+  # ==========================================================================
+  # Stakes held by corporations — the hops that make the chain a chain. Two
+  # envelopes each, one per endpoint, because one envelope resolves one
+  # corporation.
+  # ==========================================================================
+
+  # Beta Holdings owns 30.0% of Acme. This is the hop that turns Jane Doe's
+  # 60.0% of Beta into an 18.0% indirect interest in Acme.
+  - envelope_id: kyc-006
+    tenant_id: meridian-bank
+    source:
+      system_id: kyc-registry
+    ingestion_timestamp: 2026-07-31T09:25:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      stake_ref: "rel:12"
+      stake_owner_ref: "http://example.org/fibo/BetaHoldings"
+      stake_target_ref: "http://example.org/fibo/AcmeCorp"
+      ownership_percent: "30.0"
+      stake_classification: "kyc-disclosable"
+      corporation_ref: "http://example.org/fibo/BetaHoldings"
+      corporation_legal_name: "Beta Holdings Limited Liability Company"
+      corporation_jurisdiction: "US-NY"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+
+  - envelope_id: kyc-007
+    tenant_id: meridian-bank
+    source:
+      system_id: kyc-registry
+    ingestion_timestamp: 2026-07-31T09:30:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      stake_ref: "rel:12"
+      stake_owner_ref: "http://example.org/fibo/BetaHoldings"
+      stake_target_ref: "http://example.org/fibo/AcmeCorp"
+      ownership_percent: "30.0"
+      stake_classification: "kyc-disclosable"
+      corporation_ref: "http://example.org/fibo/AcmeCorp"
+      corporation_legal_name: "Acme Corporation Inc."
+      corporation_jurisdiction: "US-DE"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+
+  # Delta Private Equity owns 15.0% of Beta Holdings — the second hop of Sarah
+  # Chen's three-hop, 1.125% path to Acme.
+  - envelope_id: kyc-008
+    tenant_id: meridian-bank
+    source:
+      system_id: kyc-registry
+    ingestion_timestamp: 2026-07-31T09:35:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      stake_ref: "rel:13"
+      stake_owner_ref: "http://example.org/fibo/DeltaFund"
+      stake_target_ref: "http://example.org/fibo/BetaHoldings"
+      ownership_percent: "15.0"
+      stake_classification: "kyc-disclosable"
+      corporation_ref: "http://example.org/fibo/DeltaFund"
+      corporation_legal_name: "Delta Private Equity Fund Limited Partnership"
+      corporation_jurisdiction: "US-DE"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+
+  - envelope_id: kyc-009
+    tenant_id: meridian-bank
+    source:
+      system_id: kyc-registry
+    ingestion_timestamp: 2026-07-31T09:40:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      stake_ref: "rel:13"
+      stake_owner_ref: "http://example.org/fibo/DeltaFund"
+      stake_target_ref: "http://example.org/fibo/BetaHoldings"
+      ownership_percent: "15.0"
+      stake_classification: "kyc-disclosable"
+      corporation_ref: "http://example.org/fibo/BetaHoldings"
+      corporation_legal_name: "Beta Holdings Limited Liability Company"
+      corporation_jurisdiction: "US-NY"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+
+  # Omega Securities (GB) owns 10.0% of Acme (US-DE) — a chain crossing a
+  # regulatory boundary.
+  - envelope_id: kyc-010
+    tenant_id: meridian-bank
+    source:
+      system_id: kyc-registry
+    ingestion_timestamp: 2026-07-31T09:45:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      stake_ref: "rel:14"
+      stake_owner_ref: "http://example.org/fibo/OmegaSecurities"
+      stake_target_ref: "http://example.org/fibo/AcmeCorp"
+      ownership_percent: "10.0"
+      stake_classification: "kyc-disclosable"
+      corporation_ref: "http://example.org/fibo/OmegaSecurities"
+      corporation_legal_name: "Omega Securities Limited"
+      corporation_jurisdiction: "GB"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+
+  - envelope_id: kyc-011
+    tenant_id: meridian-bank
+    source:
+      system_id: kyc-registry
+    ingestion_timestamp: 2026-07-31T09:50:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      stake_ref: "rel:14"
+      stake_owner_ref: "http://example.org/fibo/OmegaSecurities"
+      stake_target_ref: "http://example.org/fibo/AcmeCorp"
+      ownership_percent: "10.0"
+      stake_classification: "kyc-disclosable"
+      corporation_ref: "http://example.org/fibo/AcmeCorp"
+      corporation_legal_name: "Acme Corporation Inc."
+      corporation_jurisdiction: "US-DE"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+
+  # Gamma Bank (DE) owns 20.0% of Omega Securities (GB). With `rel:14` this is
+  # the arm of the graph the restricted director alone anchored — three
+  # jurisdictions and three hops from the client.
+  - envelope_id: kyc-012
+    tenant_id: meridian-bank
+    source:
+      system_id: kyc-registry
+    ingestion_timestamp: 2026-07-31T09:55:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      stake_ref: "rel:15"
+      stake_owner_ref: "http://example.org/fibo/GammaBank"
+      stake_target_ref: "http://example.org/fibo/OmegaSecurities"
+      ownership_percent: "20.0"
+      stake_classification: "kyc-disclosable"
+      corporation_ref: "http://example.org/fibo/GammaBank"
+      corporation_legal_name: "Gamma Bank Aktiengesellschaft"
+      corporation_jurisdiction: "DE"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+
+  - envelope_id: kyc-013
+    tenant_id: meridian-bank
+    source:
+      system_id: kyc-registry
+    ingestion_timestamp: 2026-07-31T10:00:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      stake_ref: "rel:15"
+      stake_owner_ref: "http://example.org/fibo/GammaBank"
+      stake_target_ref: "http://example.org/fibo/OmegaSecurities"
+      ownership_percent: "20.0"
+      stake_classification: "kyc-disclosable"
+      corporation_ref: "http://example.org/fibo/OmegaSecurities"
+      corporation_legal_name: "Omega Securities Limited"
+      corporation_jurisdiction: "GB"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+
+  # ==========================================================================
+  # Registered addresses. Ingested, resolved, and present in L3 — and absent
+  # from the served product, because `registered_at` is not one of the edge
+  # types the traversal was given. A depth bound alone would have carried all
+  # three in.
+  # ==========================================================================
+
+  - envelope_id: kyc-014
+    tenant_id: meridian-bank
+    source:
+      system_id: corporate-registry
+    ingestion_timestamp: 2026-07-31T10:05:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      corporation_ref: "http://example.org/fibo/AcmeCorp"
+      corporation_legal_name: "Acme Corporation Inc."
+      corporation_jurisdiction: "US-DE"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+      address_ref: "http://example.org/fibo/AcmeHQ"
+      address_label: "Acme HQ"
+      address_classification: "kyc-disclosable"
+
+  - envelope_id: kyc-015
+    tenant_id: meridian-bank
+    source:
+      system_id: corporate-registry
+    ingestion_timestamp: 2026-07-31T10:10:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      corporation_ref: "http://example.org/fibo/BetaHoldings"
+      corporation_legal_name: "Beta Holdings Limited Liability Company"
+      corporation_jurisdiction: "US-NY"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+      address_ref: "http://example.org/fibo/BetaOffice"
+      address_label: "Beta Holdings Office"
+      address_classification: "kyc-disclosable"
+
+  - envelope_id: kyc-016
+    tenant_id: meridian-bank
+    source:
+      system_id: corporate-registry
+    ingestion_timestamp: 2026-07-31T10:15:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      corporation_ref: "http://example.org/fibo/GammaBank"
+      corporation_legal_name: "Gamma Bank Aktiengesellschaft"
+      corporation_jurisdiction: "DE"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+      address_ref: "http://example.org/fibo/GammaHQ"
+      address_label: "Gamma Bank HQ"
+      address_classification: "kyc-disclosable"
+
+  # ==========================================================================
+  # Name-screening hits. Two planted near-duplicates, of two different
+  # entities, so the Similarity operator has something it can get wrong.
+  # ==========================================================================
+
+  # Three of five tokens shared with the client's own legal name: scores 60,
+  # clears the 40 floor, and survives into the product as a screening hit a
+  # human has to look at.
+  - envelope_id: kyc-017
+    tenant_id: meridian-bank
+    source:
+      system_id: name-screening
+    ingestion_timestamp: 2026-07-31T10:20:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      corporation_ref: "http://example.org/fibo/AcmeCorp"
+      corporation_legal_name: "Acme Corporation Inc."
+      corporation_jurisdiction: "US-DE"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+      screening_ref: "http://example.org/fibo/SearchDemo1"
+      screening_legal_name: "Acme Global Trading Corporation Inc."
+      screening_classification: "kyc-disclosable"
+
+  # No tokens shared with the query: scores 0 and is ranked out. Its presence
+  # is what makes the survival of the other one a result rather than a
+  # tautology.
+  - envelope_id: kyc-018
+    tenant_id: meridian-bank
+    source:
+      system_id: name-screening
+    ingestion_timestamp: 2026-07-31T10:25:00Z
+    observed_time: 2026-07-30T12:00:00Z
+    raw_payload:
+      corporation_ref: "http://example.org/fibo/BetaHoldings"
+      corporation_legal_name: "Beta Holdings Limited Liability Company"
+      corporation_jurisdiction: "US-NY"
+      corporation_kyc_status: "Approved"
+      corporation_classification: "kyc-disclosable"
+      screening_ref: "http://example.org/fibo/SearchDemo2"
+      screening_legal_name: "Beta Investment Holdings LLC"
+      screening_classification: "kyc-disclosable"
+
+  # ==========================================================================
+  # The future-effective transfer (D-05: L1 is signal, L3 is state).
+  # ==========================================================================
+
+  # A share transfer the registry recorded on 31 July which takes legal effect
+  # on 1 September: a new investor acquiring 30.0% of the client. Both
+  # timestamps are true and they are different facts. `ingestion_timestamp` is
+  # when the fabric RECEIVED it — before the decision boundary, so
+  # `reader.as_of` keeps it — and `observed_time` is when it becomes VALID at
+  # the source, which is a month AFTER the boundary.
+  #
+  # `require_valid_at_boundary: true` in the temporal parameters is what makes
+  # both the new party and his stake correctly absent from an answer about
+  # 1 August. Turn that flag off and he appears as a beneficial owner at 30.0%
+  # on the strength of a transfer that has not happened yet. This envelope is
+  # the only reason that flag is checkable rather than decorative.
+  #
+  # NEITHER OF THESE TWO ENTITIES IS IN THE ESTATE, AND THAT IS D-05: L1 is
+  # signal, L3 is state. An observation stream carries things the estate does
+  # not yet know about; that is what makes it an observation stream.
+  #
+  # It asserts NO existing entity, and that is deliberate rather than
+  # incidental. `valid_from` is part of a claim's content identity, so
+  # re-asserting a corporation at a future validity would mint a NEW claim that
+  # supersedes the current one — and the current one, superseded before the
+  # boundary, would drop out of the as-of answer. The fabric is right to do
+  # that; a future-dated record of an entity is a future-dated record of that
+  # entity. An envelope announcing a pending transfer therefore names the
+  # pending parties and nothing else, which is also what a registry emits.
+  - envelope_id: kyc-019
+    tenant_id: meridian-bank
+    source:
+      system_id: kyc-registry
+    ingestion_timestamp: 2026-07-31T20:00:00Z
+    observed_time: 2026-09-01T00:00:00Z
+    raw_payload:
+      party_ref: "http://example.org/fibo/MarcusVale"
+      party_name: "Marcus Vale"
+      party_nationality: "US"
+      party_role: "Incoming Shareholder"
+      party_classification: "kyc-disclosable"
+      stake_ref: "obs:17"
+      stake_owner_ref: "http://example.org/fibo/MarcusVale"
+      stake_target_ref: "http://example.org/fibo/AcmeCorp"
+      ownership_percent: "30.0"
+      stake_classification: "kyc-disclosable"

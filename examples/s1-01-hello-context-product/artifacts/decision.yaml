@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# This decision's inputs (KYC/UBO domain, phase 16 CONTEXT D-03).
+#
+# Explicit inputs, never clock reads: the example is replayable precisely
+# because these are data. `expires_at` DERIVES from `now` plus
+# `product_governance.product_ttl_seconds`, and `now` is authored here — so the
+# instant a product stops being servable traces to an artifact rather than to
+# whenever the process happened to run.
+#
+# **This document is `role: load` in the manifest, and that is a decision, not
+# an oversight.** Registering it would content-hash "what instant this run asked
+# about" into Control Plane state and therefore into replay dimension 2 — but
+# dimension 2 records what the fabric was PERMITTED TO DO, not what any one run
+# asked of it. Re-running at a different boundary would otherwise look like a
+# governance change. Compare `events.yaml`, which is `role: load` for the same
+# reason and additionally has that role FIXED by the SDK (D-IMPL-80); this
+# document's class is the deployment's, so the role here is the deployment's
+# call, made deliberately.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM]. Every timestamp
+# states its zone — the loader refuses a zone-less one rather than guessing
+# (D-IMPL-38).
+
+semver: "1.0.0"
+class_id: fibo-kyc.decision-inputs
+
+declaration:
+  # "Who ultimately owns Acme, as of the first of August?" Every claim the
+  # answer rests on must have been both observed and legally effective by this
+  # instant.
+  temporal_boundary: 2026-08-01T00:00:00Z
+
+  # When the answer is produced, and therefore what its TTL runs from.
+  now: 2026-08-01T00:05:00Z

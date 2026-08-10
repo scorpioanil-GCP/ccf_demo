@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The remaining governance values this deployment puts in force, in one
+# deployment-authored document (KYC/UBO domain, phase 16 CONTEXT D-03).
+#
+# Every value here is one the SDK deliberately declines to own:
+#
+#   * `max_ttl_seconds` — the per-class TTL ceiling (INV-CH7-48, D-IMPL-39).
+#     MAX_TTL has no SDK default. `spine.py` registers this number as a typed
+#     `MaxTTL` to MINT the pin `register_product_class` needs; the number and
+#     the pin are therefore two things, which is what leaves Gate 3 something
+#     real to compare against `product_ttl_seconds` below.
+#   * `product_ttl_seconds` — how long an individual product stays servable.
+#     A SEPARATELY authored number from the ceiling, on purpose. A UBO answer
+#     goes stale as ownership changes; ten minutes is this deployment's choice
+#     and not a recommendation.
+#   * `similarity_index_version` — the version identity this deployment assigns
+#     to the screening corpus at its named boundary (INV-CH7-27, D-IMPL-38). The
+#     builder does not mint one: a version derived from the parameters
+#     artifact's pin would be identical across two different boundaries, which
+#     is precisely the corpus identity the determinism contract distinguishes.
+#   * `replay_record_class` — the artifact class the replay writer stores under.
+#   * `artifact_store_dirname` — where under the run root the file-backed
+#     ArtifactStore lives. A path relative to a caller-supplied root, so no
+#     absolute location enters a content-hashed artifact.
+#
+# `plan_id` is deliberately NOT here. It lives in
+# `projection-requirements.yaml`, the document that states the plan's operator
+# set, because a value authored in two places is a value that can drift.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: fibo-kyc.product-governance
+
+declaration:
+  max_ttl_seconds: 1200
+  product_ttl_seconds: 600
+  similarity_index_version: "fibo-kyc-screening-corpus@2026-08-01"
+  replay_record_class: decision-replay-record
+  artifact_store_dirname: replay

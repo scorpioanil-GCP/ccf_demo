@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.operator-parameters.traversal.json
+# Traversal category parameters (whitepaper §7.4; KYC/UBO domain, phase 16
+# CONTEXT D-03).
+#
+# Read as: start from every natural person and expand six hops over the
+# ownership-graph edge types. No field carries a default — `depth_limit` in
+# particular is the operator's entire correctness claim (INV-CH7-24), and a
+# default bound is one nobody chose (D-IMPL-38).
+#
+# TRAVERSAL IS THE POINT OF THIS EXAMPLE, AND BOTH HALVES OF THE BOUND BITE.
+#
+#   * The TYPE bound. `registered_at` is deliberately ABSENT below. All three
+#     registered addresses are ingested, resolved, and present in L3; none of
+#     them appears in the served product, because the walk cannot take an edge
+#     type it was not given. A traversal bounded only by depth would have
+#     carried them in at hop three. This is the difference between a *typed*
+#     neighborhood and a radius.
+#   * The DEPTH bound. Each ownership hop costs TWO graph hops, because a stake
+#     is a node: party -> stake -> corporation. Six is therefore three ownership
+#     hops, which is exactly what the longest chain in this estate needs. With
+#     the policy operator having substituted out the one jurisdiction-restricted
+#     natural person, Gamma Bank is reachable only the long way round — through
+#     Acme, Omega Securities and the stake between them — and lands at hop six.
+#     The stake that person alone held sits at hop seven and is absent. Change
+#     this to 7 and it returns; change it to 5 and Gamma Bank goes. The number
+#     is load-bearing, which is why it is stated rather than defaulted.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: every entity class name, relationship type and the depth value
+# are [ADAPT]; the keys `seed_entity_classes`, `relationship_types` and
+# `depth_limit` are [MECHANISM].
+
+semver: "1.0.0"
+
+# The UBO question is asked about people, so the walk starts at people.
+seed_entity_classes:
+  - party
+
+relationship_types:
+  - holds_stake
+  - stake_incident_to
+  - screened_against
+
+depth_limit: 6
