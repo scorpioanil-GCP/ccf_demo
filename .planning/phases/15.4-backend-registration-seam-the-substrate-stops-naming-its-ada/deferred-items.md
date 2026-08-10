@@ -221,3 +221,24 @@ not an export list.
 question one layer down — knowledge an adapter needs that has no owner) and the
 PyPI naming collision recorded in `docs/15.4-GATE-PACKAGE.md` §11.2, which
 blocks the natural `dependencies = ["ccf"]` an adapter author would write.
+
+**Narrowed, not closed — 2026-08-09, by the close-fix for finding F6.** The
+gap had a second direction the entry above does not name: as well as six
+*private* names an adapter must reach for, there was one *public* name that
+under-declared what the runtime requires. `ccf.graph.protocols.GraphWriter`
+declared two upserts and no `close()`, while the composition root calls
+`close()` on shutdown and only a `BaseGraphWriter`'s `close` releases the
+graph. An author writing to the documented public Protocol therefore produced
+a writer that booted once and left the graph unbootable for the process
+lifetime. F6 closed that one instance from both sides: `GraphWriter` now
+declares `close()` with its lifecycle obligation, and
+`ccf.graph._writer.adopt_writer` refuses a returned writer that is not a
+`BaseGraphWriter` — so the declaration and the enforcement agree.
+
+**What that changes for this item, stated precisely so it is not read as more
+than it is.** The six-name table above is untouched; every one of those names
+is still private and still unavoidable. What changed is the *class* of the
+remaining gap. It is now entirely "private names an adapter must reach for",
+with no remaining case of "a public name that says less than the runtime
+requires" known. The design question — what the supported authoring surface
+should be — is unchanged and still open.

@@ -719,3 +719,233 @@ def test_a_failing_writer_constructor_closes_the_store_and_frees_the_graph(
         assert handle.adapter.name == adapter_name
     finally:
         handle.close()
+
+
+# --- a boot that *succeeds* wrongly leaves nothing behind either (F6) --------
+#
+# CR-01 above covers a `make_writer` that raises. This section covers the other
+# half of the same seam: a `make_writer` that **returns**, handing back an
+# object the fabric cannot retire. The panel's framing for the pair is "seam
+# completeness" — a fix covering one failure shape leaves the isomorphic
+# neighbour green.
+
+#: An adapter whose writer constructor returns a duck-typed object satisfying
+#: exactly the surface the public ``GraphWriter`` Protocol used to declare:
+#: two upserts and no ``close``. Same fixed-identity store as the CR-01 probe,
+#: for the same reason — a second boot must be able to collide with the first.
+_DUCK_WRITER_PROBE = '''\
+"""A throwaway adapter whose writer constructor returns the wrong kind of thing."""
+
+from typing import Any
+
+from ccf.contracts.base import CCFContract
+from ccf.graph.backends.memory import MemoryGraphStore
+from ccf.graph.backends.memory_write import MemoryGraphWriter
+from ccf.graph.registry import BackendRegistration
+
+#: Flipped by the test between the refused boot and the corrected retry.
+DUCK = [True]
+
+#: Every store this adapter opened, in order. Each counts its own closes.
+OPENED: list[Any] = []
+
+
+class ProbeConnection(CCFContract):
+    identity: str
+
+
+class _FixedIdentityStore(MemoryGraphStore):
+    """The in-memory store with its identity supplied instead of generated."""
+
+    def __init__(self, identity: str) -> None:
+        super().__init__()
+        self._graph_identity = identity
+        self.closes = 0
+
+    def close(self) -> None:
+        self.closes += 1
+        super().close()
+
+
+class DuckWriter:
+    """Precisely the surface an adapter author reading the old public Protocol
+    would have implemented: ``upsert_entity``, ``upsert_relationship``, and
+    nothing else. Not a subclass of anything, and no ``close``."""
+
+    def upsert_entity(self, **kwargs: Any) -> Any:
+        raise AssertionError("this writer must never be reached")
+
+    def upsert_relationship(self, **kwargs: Any) -> Any:
+        raise AssertionError("this writer must never be reached")
+
+
+def _open_store(config: Any, secrets: Any) -> Any:
+    store = _FixedIdentityStore(config.identity)
+    OPENED.append(store)
+    return store
+
+
+def _make_writer(store: Any, token: Any) -> Any:
+    if DUCK[0]:
+        return DuckWriter()
+    return MemoryGraphWriter(store=store, token=token)
+
+
+REGISTRATION = BackendRegistration(
+    name="ADAPTER_NAME",
+    config_model=ProbeConnection,
+    secret_fields=frozenset(),
+    open_store=_open_store,
+    make_writer=_make_writer,
+)
+'''
+
+
+@pytest.fixture
+def duck_writer_adapter(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
+    """Declare the duck-typed-writer adapter for the duration of one test."""
+    import importlib.metadata as metadata
+    from types import SimpleNamespace
+
+    from ccf.graph import registry as registry_module
+
+    adapter_name = "probe_duck_writer"
+    module_name = "ccf_probe_duck_writer_write"
+    source = _DUCK_WRITER_PROBE.replace("ADAPTER_NAME", adapter_name)
+    (tmp_path / f"{module_name}.py").write_text(source, encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    point = metadata.EntryPoint(
+        adapter_name, f"{module_name}:REGISTRATION", BACKEND_ENTRY_POINT_GROUP
+    )
+    point = point._for(SimpleNamespace(name="ccf-probe", version="9.9.9"))
+    monkeypatch.setattr(
+        registry_module,
+        "_declared_entry_points",
+        lambda: metadata.EntryPoints((point,)),
+    )
+    try:
+        yield adapter_name, module_name
+    finally:
+        sys.modules.pop(module_name, None)
+
+
+def test_a_writer_that_can_never_release_the_graph_is_refused_at_boot(
+    duck_writer_adapter: Any, banking_spec: Any
+) -> None:
+    """F6 — CR-01's success path: ``make_writer`` returns, and the graph dies.
+
+    Without the check this boot **succeeds**. The mint has already marked the
+    graph as written-to; nothing but ``BaseGraphWriter.close`` or
+    ``release_boot_token`` ever unmarks it; and ``FabricHandle.close`` then
+    calls ``close()`` on an object that has none. The fabric is left with a
+    graph it will refuse for the life of the process — CR-01's exact outcome,
+    reached through the path CR-01 did not cover.
+
+    The three assertions are CR-01's, deliberately, because the property being
+    protected is the same one:
+
+    * the refusal is a ``TypeError`` naming the adapter and what it returned,
+      so the operator knows whose distribution to fix;
+    * the store this boot opened was closed, so its connection is not leaked;
+    * **a corrected retry over the same graph boots.**
+    """
+    from ccf.boot import boot
+    from ccf.controlplane.registry import ControlPlaneRegistry
+
+    adapter_name, module_name = duck_writer_adapter
+    identity = "probe://f6-one-graph"
+    control_plane = ControlPlaneRegistry()
+    spec_version = control_plane.register("probe/spec", banking_spec)
+    policy_version = control_plane.register("probe/policy", {"regime": "probe"})
+
+    def _boot() -> Any:
+        return boot(
+            backend=adapter_name,
+            connection={"identity": identity},
+            registry=control_plane,
+            resolution_spec_key="probe/spec",
+            resolution_spec_version=spec_version,
+            policy_bundle_key="probe/policy",
+            policy_bundle_version=policy_version,
+        )
+
+    with pytest.raises(TypeError) as caught:
+        _boot()
+    message = str(caught.value)
+    assert adapter_name in message
+    assert "DuckWriter" in message
+    assert "BaseGraphWriter" in message
+
+    probe = sys.modules[module_name]
+    assert len(probe.OPENED) == 1
+    assert probe.OPENED[0].closes == 1
+
+    probe.DUCK[0] = False
+    handle = _boot()
+    try:
+        assert handle.adapter.name == adapter_name
+    finally:
+        handle.close()
+
+
+def test_the_public_writer_protocol_no_longer_admits_a_writer_without_close(
+    duck_writer_adapter: Any,
+) -> None:
+    """F6's other half: the documented surface now says what the runtime needs.
+
+    ``GraphWriter`` is ``@runtime_checkable``, so this is the contract change
+    stated as an assertion rather than as prose. The refusal above is the
+    *enforcement*; this is the *declaration*, and the two are separate fixes to
+    one defect — an adapter author reading ``protocols.py`` had no way to learn
+    that a ``close`` was required, and the composition root had no way to find
+    out that one was missing until shutdown.
+    """
+    import importlib
+
+    from ccf.graph.protocols import GraphWriter
+
+    _, module_name = duck_writer_adapter
+    probe = importlib.import_module(module_name)
+
+    assert not isinstance(probe.DuckWriter(), GraphWriter)
+    assert "close" in GraphWriter.__protocol_attrs__
+
+
+def test_a_failed_close_can_be_retried(tmp_path: Any) -> None:
+    """F6, third fact: ``_closed`` was set *before* the shutdown it guards.
+
+    A shutdown that raises used to be unrepeatable — the flag was already set,
+    so the second ``close()`` returned immediately and the graph stayed marked
+    as written-to by a fabric whose caller had done everything right. The
+    ordering now records what actually happened, and the WR-07 idempotency the
+    docstring argues for is unaffected: a *successful* close still runs the
+    shutdown exactly once.
+    """
+    from ccf.boot import FabricHandle
+
+    calls: list[int] = []
+
+    def shutdown() -> None:
+        calls.append(len(calls))
+        if len(calls) == 1:
+            raise RuntimeError("the store's driver was mid-reconnect")
+
+    handle = FabricHandle(
+        reader=None,  # type: ignore[arg-type]
+        worker=None,  # type: ignore[arg-type]
+        registry=None,  # type: ignore[arg-type]
+        adapter=AdapterPin(name="probe", version="9.9.9", secret_refs=()),
+        shutdown=shutdown,
+    )
+
+    with pytest.raises(RuntimeError, match="mid-reconnect"):
+        handle.close()
+    assert len(calls) == 1
+
+    handle.close()
+    assert len(calls) == 2
+
+    # And idempotent once it has actually succeeded (WR-07, unchanged).
+    handle.close()
+    assert len(calls) == 2
