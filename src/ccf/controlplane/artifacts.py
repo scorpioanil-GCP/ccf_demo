@@ -544,11 +544,14 @@ class ProductClassDeclaration(VersionedArtifact):
     projection that reads the operator registry's own keys — a tripwire over a
     convention list of receivers, not a wall.
 
-    ``min_length=1`` on the operator keys is the whitepaper's own posture, not an
-    ergonomics choice: §7.6 specifies the empty-operator guard as the first of
-    the three validation gates, and states that "a projection must have resolved
-    at least one operator to have meaningfully read the graph, and an empty set
-    indicates a misconfigured projection rather than a trivially-successful one."
+    ``min_length=1`` on the operator keys follows the whitepaper's own posture
+    rather than an ergonomics preference: §7.6 (*Context Products — System of
+    Delivery*) makes the empty-operator guard the first of the three validation
+    gates, and its reasoning — stated here in this project's words, because
+    CLAUDE.md §11 requires a citation by section number and title and not a
+    reproduction of the text — is that resolving no operator at all is evidence
+    the graph was never consulted, so a zero-length set reports a
+    misconfiguration rather than an assembly that legitimately needed nothing.
     A declaration of zero operators could only ever produce a resolved set of
     zero, which Gate 1 refuses at assembly time. Refusing it here refuses it
     where the author can still fix it. A deployment that serves no product simply
