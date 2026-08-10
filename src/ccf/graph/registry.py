@@ -831,14 +831,12 @@ def _load_third_party(
         failure_type = type(failure).__name__
     raise ValueError(
         f"adapter {name!r} is declared by {origin}, but loading that"
-        f" declaration raised {failure_type}. The exception's own message is"
-        " deliberately not reproduced here — it is written by code this"
-        " repository does not own and this refusal is a disclosure surface."
-        " The distribution that ships it is installed and its declaration is"
-        " broken, which is a different problem from an adapter that is not"
-        " installed: nothing here is fixed by installing something. Reinstall"
-        " or repair the distribution named above, or run its import directly"
-        " to read the failure in full."
+        f" declaration raised {failure_type}. Its own message is deliberately"
+        " not reproduced — run that import directly to read it. The"
+        " distribution is installed and its declaration is broken, which is a"
+        " different problem from an adapter that is not installed: nothing is"
+        " fixed by installing something, so `pip install --force-reinstall`"
+        " the distribution named above or report the failure to its author."
     )
 
 
