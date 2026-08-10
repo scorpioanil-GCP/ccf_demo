@@ -193,10 +193,55 @@ paper ruling (D-01 below) that writes no code.
   records"*, the buried line-133 acknowledgement that the SDK ships no agents,
   and the absence of any how-to for deterministic Context Product assembly.
 
+### Rulings at planning (Dave, 2026-08-10)
+
+Three findings from `16-RESEARCH.md` were put to Dave before the planner ran,
+because each changes the phase's shape and CLAUDE.md §11 forbids picking a
+default and hoping. These are locked on the same footing as D-01..D-12.
+
+- **D-13: a docstring correction in `src/` is not "the fabric changed."**
+  `tools/publish_scan_tests/test_docstring_leaks.py` fails at HEAD because
+  `ProductClassDeclaration`'s docstring in `src/ccf/controlplane/artifacts.py`
+  trips the whitepaper shingle scan with 20 hits. Fixing it edits `src/`, which
+  criterion 10 forbids on its face. Ruling: it does not count — no behavior, no
+  signature, no contract changes, and mkdocstrings publishes that docstring, so
+  it is squarely documentation. The carve-out is recorded in the same ruling
+  package as `D-02`, and criterion 10's `git diff --stat -- src/ runtime/`
+  assertion carries this single enumerated exception rather than requiring zero.
+- **D-14: the four inherited Gate-2 tripwire residuals are NOT in Phase 16.**
+  `deferred-items.md` places R4-WR-03, R5-WR-01, the augmented-assignment
+  mutable-set opacity and the attribute/subscript `global`/`nonlocal` exception
+  here, but none is documentation work — each is a `tests/products/` mechanism
+  change, and R5-WR-01's outermost-iterable walrus case has never been measured.
+  Ruling: carry them forward with this explicit entry rather than absorbing them
+  silently. A phase claiming "no fabric changed" that quietly takes on mechanism
+  work invites exactly the criterion-10 argument D-13 settles.
+- **D-15: ERGO-03's surface-audit baseline is re-baselined against the
+  greenfield suite.** `tests/examples/test_surface_audit.py` compares against
+  `docs/surface/examples/before/`, frozen at Phase 15's start; the greenfield
+  rewrite makes that comparison meaningless. Dave ruled re-baseline, against the
+  researcher's recommendation to freeze-and-retire and with the tool's own
+  warning that re-freezing destroys the comparison stated at the time of the
+  ruling. Implementation note added at planning: capture the superseded Phase 15
+  measured figures into the phase record **before** re-freezing, so ERGO-03's
+  shipped evidence is archived rather than overwritten.
+
 ### Claude's Discretion
 
 - Section-to-example mapping (how many examples per section, and their
   boundaries) — planner-level, given the section definitions above.
+  **Decided at planning:** the narrow reading of D-03's "spine" — KYC/UBO is the
+  through-line for Section 1 and the adoption argument, where the data lives and
+  where the UBO question earns typed products; Sections 2–3 carry other domains.
+  This keeps D-IMPL-52 and CLAUDE.md §9's horizontal-domain-mix ruling intact. The
+  tension is to be named visibly in the plans, not fallen into silently.
+- **Also decided at planning:** D-06's "always-on CI stays network-free" is to be
+  stated as a deliberate distinction from `ci.yml`'s `test` job, which already
+  runs Postgres/Neo4j/Mongo/Fluree as blocking service containers. The example
+  matrix is weaker than the conformance matrix on purpose (the `examples` job has
+  no service containers, and a DGX host is not a container). Do **not** resolve
+  this by adding containers to the `examples` job — that is a third option D-06
+  did not authorize.
 - Whether the six-backend matrix is one CI job or several.
 - How DEMO-01..03's fraud-ring scenario re-homes given the KYC/UBO spine — the
   two are compatible (both are counterparty-network problems) but the mapping is
