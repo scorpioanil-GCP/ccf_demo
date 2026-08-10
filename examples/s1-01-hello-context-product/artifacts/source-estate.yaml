@@ -327,6 +327,13 @@ declaration:
         # `hasControllingInterestIn` carry no percentage, deliberately: the
         # per-edge field belongs to the ownership relation, and adding it to
         # relations that do not express a fraction would be inventing data.
+        #
+        # The added key is written LAST in every record, after `_id`. Key order
+        # here is emission order in the generated JSONL, so each measured line
+        # comes back as the shipped line verbatim with the new key appended
+        # before the closing brace — which makes "is the extension additive?"
+        # a `diff` a human can read at the checkpoint rather than a set
+        # comparison (threat T-16-02-02).
         - from: "http://example.org/fibo/AcmeCorp"
           to: "http://example.org/fibo/BetaHoldings"
           type: "isRelatedTo"
@@ -354,9 +361,9 @@ declaration:
         - from: "http://example.org/fibo/JohnSmith"
           to: "http://example.org/fibo/AcmeCorp"
           type: "hasOwnershipInterestIn"
-          ownershipPercent: "45.0"
           source: "fluree:fibo:main"
           _id: "rel:5"
+          ownershipPercent: "45.0"
 
         - from: "http://example.org/fibo/JohnSmith"
           to: "http://example.org/fibo/AcmeCorp"
@@ -367,9 +374,9 @@ declaration:
         - from: "http://example.org/fibo/JaneDoe"
           to: "http://example.org/fibo/BetaHoldings"
           type: "hasOwnershipInterestIn"
-          ownershipPercent: "60.0"
           source: "fluree:fibo:main"
           _id: "rel:7"
+          ownershipPercent: "60.0"
 
         - from: "http://example.org/fibo/GammaBank"
           to: "http://example.org/fibo/OmegaSecurities"
@@ -387,16 +394,16 @@ declaration:
         - from: "http://example.org/fibo/HansMueller"
           to: "http://example.org/fibo/GammaBank"
           type: "hasOwnershipInterestIn"
-          ownershipPercent: "5.0"
           source: "fluree:fibo:main"
           _id: "rel:10"
+          ownershipPercent: "5.0"
 
         - from: "http://example.org/fibo/SarahChen"
           to: "http://example.org/fibo/DeltaFund"
           type: "hasOwnershipInterestIn"
-          ownershipPercent: "25.0"
           source: "fluree:fibo:main"
           _id: "rel:11"
+          ownershipPercent: "25.0"
 
         # --- the extension: four corp -> corp edges and one direct edge ----
         # `source` marks them as this example's own extension rather than as
@@ -408,36 +415,36 @@ declaration:
         - from: "http://example.org/fibo/BetaHoldings"
           to: "http://example.org/fibo/AcmeCorp"
           type: "hasOwnershipInterestIn"
-          ownershipPercent: "30.0"
           source: "ccf:examples:s1-01:ubo-extension"
           _id: "rel:12"
+          ownershipPercent: "30.0"
 
         # Delta Fund owns 15.0% of Beta Holdings — the second hop of Sarah
         # Chen's three-hop, 1.125% path to Acme.
         - from: "http://example.org/fibo/DeltaFund"
           to: "http://example.org/fibo/BetaHoldings"
           type: "hasOwnershipInterestIn"
-          ownershipPercent: "15.0"
           source: "ccf:examples:s1-01:ubo-extension"
           _id: "rel:13"
+          ownershipPercent: "15.0"
 
         # Omega Securities (GB) owns 10.0% of Acme (US-DE) — a chain crossing
         # a regulatory boundary, which is what gives the Policy axis work.
         - from: "http://example.org/fibo/OmegaSecurities"
           to: "http://example.org/fibo/AcmeCorp"
           type: "hasOwnershipInterestIn"
-          ownershipPercent: "10.0"
           source: "ccf:examples:s1-01:ubo-extension"
           _id: "rel:14"
+          ownershipPercent: "10.0"
 
         # Gamma Bank (DE) owns 20.0% of Omega Securities (GB). With rel:14
         # this puts Hans Müller three hops and three jurisdictions from Acme.
         - from: "http://example.org/fibo/GammaBank"
           to: "http://example.org/fibo/OmegaSecurities"
           type: "hasOwnershipInterestIn"
-          ownershipPercent: "20.0"
           source: "ccf:examples:s1-01:ubo-extension"
           _id: "rel:15"
+          ownershipPercent: "20.0"
 
         # Jane Doe's DIRECT 12.0% of Acme. Below the threshold on its own;
         # 30.0% once the 18.0% indirect holding is aggregated with it. This
@@ -446,9 +453,9 @@ declaration:
         - from: "http://example.org/fibo/JaneDoe"
           to: "http://example.org/fibo/AcmeCorp"
           type: "hasOwnershipInterestIn"
-          ownershipPercent: "12.0"
           source: "ccf:examples:s1-01:ubo-extension"
           _id: "rel:16"
+          ownershipPercent: "12.0"
 
   # ---------------------------------------------------------------------------
   # Which record key plays which role. The interpreter and the assertions both
