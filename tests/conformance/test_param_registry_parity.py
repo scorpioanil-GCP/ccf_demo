@@ -125,7 +125,28 @@ def _differential_param_names() -> frozenset[str]:
 
 
 def test_every_registered_adapter_is_named_by_the_graphstore_params() -> None:
-    """An installed adapter no param names is a suite that passes by not running."""
+    """An installed adapter no param names is a suite that passes by not running.
+
+    **The boundary, stated so the first person to hit it knows which side they
+    are on** (review finding IN-02). This asserts over *everything*
+    ``declared_names()`` returns, which includes any third-party adapter
+    installed into the environment — and installing one is precisely the
+    workflow D-11 exists to enable. So a developer who installs a real
+    third-party adapter to try it out turns this red, with a message telling
+    them to add a param for somebody else's code.
+
+    That is the rule working as ruled, not a defect. The strictness is what
+    closes the hole in the direction that matters: the repository's own
+    adapters and its out-of-tree fixture must be *run*, and "the suite passes
+    because it never ran them" has no symptom other than a test count that did
+    not rise. Narrowing the assertion to a known set would reintroduce exactly
+    the hard-coded adapter list D-IMPL-93 removed.
+
+    A developer in that position uninstalls the adapter for the run, or adds
+    the param. If a deployment ever needs to run this suite against an
+    installed third party as a matter of course, that is a decision with its
+    own entry rather than a quiet relaxation here.
+    """
     registered = frozenset(declared_names())
     assert registered, "the registry declared no adapters at all"
 
@@ -140,7 +161,11 @@ def test_every_registered_adapter_is_named_by_the_graphstore_params() -> None:
 
 
 def test_every_registered_adapter_is_named_by_the_differential_params() -> None:
-    """The same hole, in the suite that pins byte-identity with the fallback."""
+    """The same hole, in the suite that pins byte-identity with the fallback.
+
+    The boundary stated above applies here unchanged: an installed third-party
+    adapter turns this red too, and for the same reason.
+    """
     registered = frozenset(declared_names())
     assert registered, "the registry declared no adapters at all"
 

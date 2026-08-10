@@ -72,6 +72,25 @@ relative import that reached across packages would have to climb out of its own
 package to do it. And a module that depends on one adapter's *behaviour*
 without importing it is beyond any import rule — that residual belongs to
 ``cinv04-substrate-name``, and past it, to review.
+
+Both spellings of an import
+---------------------------
+
+``from ccf.graph import backends`` and ``from ccf.graph.backends import
+sqlite_write`` reach the adapter package as surely as naming it in full, but
+:func:`~tools.lints.imported_module_names` reports ``ccf.graph`` for the first
+and only ``ccf.graph.backends`` for the second — correctly, since it cannot
+tell a submodule from an attribute without importing, which a lint must not do.
+The rule therefore resolves both forms through
+:func:`~tools.lints.reached_module_names` (review finding CR-02). Two things
+follow, and both are properties rather than details:
+
+* ``from ccf.graph import backends`` is now caught. It was not before, which
+  left a spelling of the exact import this rule exists to deny going unseen.
+* The finding names the **most specific** module the statement reaches, so an
+  adapter's write module is reported by its own name rather than by the package
+  that contains it — and one import statement produces one finding, never one
+  per spelling it happens to match.
 """
 
 from __future__ import annotations
@@ -81,8 +100,8 @@ import pathlib
 
 from tools.lints import (
     format_finding,
-    imported_module_names,
     matches_module,
+    reached_module_names,
     read_tree,
 )
 
@@ -106,22 +125,34 @@ def check_source(source: str, path: pathlib.Path, module_name: str) -> list[str]
         return findings
 
     for node in ast.walk(tree):
-        for name in imported_module_names(node):
-            if not matches_module(name, (BACKENDS_PACKAGE,)):
-                continue
-            findings.append(
-                format_finding(
-                    path,
-                    getattr(node, "lineno", 0),
-                    RULE_BACKEND_IMPORT,
-                    f"{module_name!r} imports the adapter module {name!r};"
-                    f" only modules under {BACKENDS_PACKAGE} may. An adapter"
-                    " registers itself and the core resolves the one a"
-                    f" deployment names through {REGISTRY_MODULE}. A core"
-                    " module that names an adapter is the dependency arrow"
-                    " D-IMPL-93 exists to reverse.",
-                )
+        # Both spellings, and one finding per import statement rather than one
+        # per spelling it matches — see the "Both spellings of an import"
+        # section of the module docstring.
+        denied = sorted(
+            name
+            for name in reached_module_names(node)
+            if matches_module(name, (BACKENDS_PACKAGE,))
+        )
+        if not denied:
+            continue
+        # The most specific name the statement reaches, so the finding says
+        # `ccf.graph.backends.sqlite_write` rather than the package that
+        # merely contains it. Longest wins because a submodule name is its
+        # package's name plus a dotted segment.
+        name = max(denied, key=len)
+        findings.append(
+            format_finding(
+                path,
+                getattr(node, "lineno", 0),
+                RULE_BACKEND_IMPORT,
+                f"{module_name!r} imports the adapter module {name!r};"
+                f" only modules under {BACKENDS_PACKAGE} may. An adapter"
+                " registers itself and the core resolves the one a"
+                f" deployment names through {REGISTRY_MODULE}. A core"
+                " module that names an adapter is the dependency arrow"
+                " D-IMPL-93 exists to reverse.",
             )
+        )
 
     return findings
 

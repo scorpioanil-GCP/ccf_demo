@@ -48,7 +48,7 @@ from ccf.assembly.worker import (
     SpecDrivenEntityResolution,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol
-from ccf.graph._writer import mint_boot_token
+from ccf.graph._writer import mint_boot_token, release_boot_token
 from ccf.graph.protocols import GraphReader
 from ccf.graph.registry import (
     AdapterPin,
@@ -101,6 +101,7 @@ class FabricHandle:
         self.registry = registry
         self.adapter = adapter
         self._shutdown = shutdown
+        self._closed = False
 
     def close(self) -> None:
         """Retire the fabric: the writer stops accepting writes, the store closes.
@@ -108,7 +109,19 @@ class FabricHandle:
         Releases the graph for a subsequent boot. This is orderly shutdown, not
         a way to hold two live writers — the retired writer refuses every
         further call.
+
+        **Idempotent, and guarded here rather than relied on below** (review
+        finding WR-07). This method is public and this class is also a context
+        manager, so ``with handle:`` around a body that also closes is two
+        calls written by someone doing nothing wrong — and the second one used
+        to reach the adapter's store. Every in-tree store happens to tolerate
+        it; :class:`ccf.graph.registry.BackendStore` now *requires* it of a
+        third-party store, and requiring something is a poor reason to keep
+        depending on it in the one place that can simply not do it twice.
         """
+        if self._closed:
+            return
+        self._closed = True
         self._shutdown()
 
     def __enter__(self) -> FabricHandle:
@@ -139,25 +152,60 @@ def _refuse_undeclared_secrets(
     Built from key names only. No value is read, so nothing here needs the
     sanitizing :func:`ccf.graph.registry.validate_connection` performs, and the
     message reads in the same shape that one does: adapter, then field.
+
+    **It also performs the reconciliation** :class:`ResolvedSecret` says it
+    exists for (review finding WR-09). That class justifies itself on the two
+    facts travelling together — "a pin cannot record a reference the value did
+    not come from and no caller has to keep two mappings in step" — but the
+    mapping *key* is what selects the config field here, and nothing read
+    ``secret.field`` at all. A direct caller could pass a credential keyed by
+    one field whose own record named another, and the mismatch was accepted in
+    silence: the store got one field and the pin recorded a reference resolved
+    for a different one. The manifest path happened to keep them in step
+    because :func:`ccf.deployment.manifest._resolve_secret_references` writes
+    both from one source — but that is the caller being careful rather than the
+    contract holding, and ``boot`` is public and documented for direct use.
     """
     undeclared = sorted(set(supplied) - set(declared))
-    if not undeclared:
-        return
-    known = ", ".join(sorted(declared)) if declared else "none"
-    lines = [
-        f"  {field} — not a credential field of this adapter"
-        for field in undeclared
-    ]
-    raise ValueError(
-        "\n".join(
-            [
-                f"backend {adapter_name!r}: credentials were supplied for"
-                " fields it does not declare:",
-                *lines,
-                f"  declared credential fields: {known}",
-            ]
+    if undeclared:
+        known = ", ".join(sorted(declared)) if declared else "none"
+        lines = [
+            f"  {field} — not a credential field of this adapter"
+            for field in undeclared
+        ]
+        raise ValueError(
+            "\n".join(
+                [
+                    f"backend {adapter_name!r}: credentials were supplied for"
+                    " fields it does not declare:",
+                    *lines,
+                    f"  declared credential fields: {known}",
+                ]
+            )
         )
+
+    disagreeing = sorted(
+        key for key, secret in supplied.items() if secret.field != key
     )
+    if disagreeing:
+        lines = [
+            f"  {key} — its own record names the field {supplied[key].field!r}"
+            for key in disagreeing
+        ]
+        raise ValueError(
+            "\n".join(
+                [
+                    f"backend {adapter_name!r}: a resolved credential is keyed"
+                    " by a field its own record does not name:",
+                    *lines,
+                    "  The key and the record's `field` are one fact. A caller"
+                    " that can desynchronize them is the two-parallel-mappings"
+                    " problem ResolvedSecret exists to remove — the store would"
+                    " receive one field while the replay pin recorded a"
+                    " reference resolved for another.",
+                ]
+            )
+        )
 
 
 def boot(
@@ -241,14 +289,24 @@ def boot(
         ccf.graph.registry.InvalidBackendConfig: ``connection`` does not
             satisfy the resolved adapter's contract.
         ValueError: ``secrets`` names a field the resolved adapter does not
-            declare as a credential field; or discovery found a packaging
-            conflict among the installed adapters.
+            declare as a credential field; or a supplied credential is keyed by
+            a field its own record does not name; or discovery found a
+            packaging conflict among the installed adapters; or the named
+            adapter is installed but its declaration could not be loaded.
         ccf.graph._writer.SingleWriterViolation: a live writer already exists
             for this graph.
         ccf.controlplane.registry.ControlPlaneMissing: a pinned key or version
             is not registered.
         TypeError: the resolution-spec artifact is not an
-            :class:`EntityResolutionSpec`.
+            :class:`EntityResolutionSpec`; or the resolved adapter's writer
+            constructor was handed a store it does not write through.
+        BaseException: whatever the resolved adapter's own store or writer
+            constructor raises, re-raised unchanged. The adapter chooses the
+            type — it is third-party code — so this function does not wrap it
+            and does not name it. What it guarantees instead is that a boot
+            which failed leaves nothing behind: the store is closed and the
+            graph is released, so a corrected retry boots rather than being
+            refused as a second writer.
     """
     record = resolve(backend)
     registration = record.registration
@@ -270,7 +328,22 @@ def boot(
         store.close()
         raise
 
-    writer = registration.make_writer(store, token)
+    try:
+        writer = registration.make_writer(store, token)
+    except BaseException:
+        # The same guard the mint above gets, for the same reason, over a call
+        # that needs it more: since D-IMPL-93 this constructor is a callable an
+        # installed distribution supplied, and the composition root controls
+        # neither what it does nor whether it returns. If it raises, the store's
+        # connection is the only handle to it that ever existed and no caller
+        # can reach it, and the graph is marked as having a writer that does not
+        # exist — so a corrected retry would be refused as a second writer, the
+        # outcome the comment below says must not happen. Order matters: release
+        # the mint first, so a store whose `close` also raises cannot leave the
+        # graph permanently unbootable on top of everything else.
+        release_boot_token(token)
+        store.close()
+        raise
 
     def shutdown() -> None:
         writer.close()

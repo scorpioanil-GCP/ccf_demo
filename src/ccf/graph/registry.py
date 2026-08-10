@@ -73,6 +73,17 @@ says the requested adapter was never reached, so an operator can tell "this
 deployment's installed adapters conflict" from "the adapter I asked for is not
 installed".
 
+**A discovery refusal names distributions and never their versions** (review
+finding WR-01). :func:`declared_names` is the *listing* function: anything that
+can ask this deployment what adapters it has can reach these three refusals,
+including a caller that is not entitled to the deployment's dependency
+inventory — the HTTP front door serves that question with no credential under
+its documented default. A distribution name is what the remedy needs (an
+uninstall names a distribution, not a version); a version is a reconnaissance
+detail the remedy never uses. :func:`resolve` is a different case and keeps
+both: it runs only for the adapter a deployment asked for by name, and by then
+the caller has already declared what they are booting.
+
 The residual this module carries, and the compensating control
 --------------------------------------------------------------
 
@@ -239,7 +250,23 @@ class BackendStore(Protocol):
     @property
     def reader(self) -> GraphReader: ...
 
-    def close(self) -> None: ...
+    def close(self) -> None:
+        """Release this store's hold on its substrate. **Must be idempotent.**
+
+        Stated because a third party implements this Protocol now, and the
+        requirement was previously discoverable only by reasoning about a bug:
+        the out-of-tree fixture's author added a ``_closed`` guard because
+        without one a second close double-decremented a handle count and
+        deleted a graph another handle was still using. Every in-tree store
+        happens to delegate to a driver that tolerates a second call, so
+        nothing was broken and nothing said so (review finding WR-07).
+
+        A second call is an ordinary caller shape rather than a defect:
+        :meth:`ccf.boot.FabricHandle.close` is public *and* the handle is a
+        context manager, so ``with handle:`` around a body that also closes is
+        two calls written by someone doing nothing wrong.
+        """
+        ...
 
 
 @dataclass(frozen=True)
@@ -344,8 +371,17 @@ class ResolvedSecret(CCFContract):
     so :class:`BackendRegistration` and every adapter constructor are untouched
     by this shape. The reference name travels only as far as the pin.
 
+    The reconciliation is *performed*, not merely made possible:
+    :func:`ccf.boot.boot` refuses a credential whose ``field`` disagrees with
+    the key it was supplied under. Before that check the field was written and
+    never read anywhere in ``src/``, so a direct caller could desynchronize the
+    two and the store would receive one field while the pin recorded a
+    reference resolved for another — the exact failure this class is written
+    against, surviving inside it (review finding WR-09).
+
     Attributes:
-        field: The config field this credential satisfies.
+        field: The config field this credential satisfies. Must equal the key
+            it is supplied under; ``boot`` refuses the pair otherwise.
         ref_name: The name of the reference it was resolved from.
         value: The resolved credential.
     """
@@ -373,9 +409,35 @@ def _builtin_names() -> dict[str, str]:
     and reports module names. A module is an adapter's write module when its
     name ends with :data:`WRITE_MODULE_SUFFIX`; the suffix is stripped to give
     the adapter name.
+
+    **An unreadable adapter directory is refused, not reported as "no
+    built-ins"** (review finding WR-08). Reading the directory is more robust
+    than packaging metadata for the failure modes the module docstring names,
+    and it is the reason a built-in cannot be shadowed — but it does make
+    built-in discovery depend on the package existing as a real directory of
+    module files. Under a packaging that does not lay files out that way, every
+    SDK adapter silently ceased to exist and the refusal an operator then read
+    told them to install a distribution, which cannot fix it. Two states, two
+    messages: "you did not install anything" is :class:`UnknownBackend`'s to
+    say, and it is not this one.
+
+    Raises:
+        RuntimeError: the SDK's own adapter package is not a readable
+            directory.
     """
+    directory = _backends_directory()
+    if not directory.is_dir():
+        raise RuntimeError(
+            f"the SDK's own adapter package is not readable at {directory}."
+            " Built-in discovery reads that directory rather than packaging"
+            " metadata, so this is an installation problem with the SDK"
+            " itself — a zipped, frozen or sourceless distribution, or a"
+            " damaged install — and not a missing third-party adapter:"
+            " `pip install --force-reinstall` the SDK rather than installing"
+            " an adapter."
+        )
     found: dict[str, str] = {}
-    for info in pkgutil.iter_modules([str(_backends_directory())]):
+    for info in pkgutil.iter_modules([str(directory)]):
         if info.ispkg or not info.name.endswith(WRITE_MODULE_SUFFIX):
             continue
         adapter = info.name[: -len(WRITE_MODULE_SUFFIX)]
@@ -453,10 +515,11 @@ def _declared() -> tuple[dict[str, str], dict[str, importlib.metadata.EntryPoint
 
     third_party: dict[str, importlib.metadata.EntryPoint] = {}
     for entry_point in _declared_entry_points():
-        origin = (
-            f"distribution {_distribution_of(entry_point)}"
-            f" {_version_of(entry_point)}"
-        )
+        # Name only. See "A discovery refusal names distributions and never
+        # their versions" in the module docstring — this string is the origin
+        # every refusal below is built from, so the property holds for all
+        # three at once rather than one message at a time.
+        origin = f"distribution {_distribution_of(entry_point)}"
         _check_name_shape(entry_point.name, origin)
 
         if entry_point.name in builtins:
@@ -474,30 +537,88 @@ def _declared() -> tuple[dict[str, str], dict[str, importlib.metadata.EntryPoint
         if previous is None:
             third_party[entry_point.name] = entry_point
             continue
-        if _distribution_of(previous) == _distribution_of(entry_point):
-            # One distribution declaring one name twice is a malformed table,
-            # not an ambiguity: both declarations name the same code, so there
-            # is nothing for the fabric to choose between.
+        if _is_one_declaration_twice(previous, entry_point):
+            # One distribution declaring one name twice *at one target* is a
+            # malformed table, not an ambiguity: both declarations name the
+            # same code, so there is nothing for the fabric to choose between.
             continue
-        conflicting = ", ".join(
-            sorted(
-                {
-                    f"{_distribution_of(previous)} {_version_of(previous)}",
-                    f"{_distribution_of(entry_point)} {_version_of(entry_point)}",
-                }
-            )
-        )
-        raise DuplicateBackendName(
-            f"adapter name {entry_point.name!r} is declared by more than one"
-            f" installed distribution ({conflicting}); the fabric does not"
-            " choose between them. This is a packaging conflict in the"
-            " installed environment, not a missing adapter: no adapter was"
-            " resolved and neither candidate was loaded. Run"
-            " `pip uninstall` on one of them, or ask its author to rename its"
-            " adapter."
-        )
+        raise DuplicateBackendName(_duplicate_refusal(previous, entry_point))
 
     return builtins, third_party
+
+
+def _is_one_declaration_twice(
+    previous: importlib.metadata.EntryPoint,
+    entry_point: importlib.metadata.EntryPoint,
+) -> bool:
+    """True when two declarations of one name are provably the same declaration.
+
+    The only case the fabric may pass over, and it is narrow on purpose: one
+    distribution, at one version, pointing at one target. Comparing the
+    distribution *name* alone accepted two states that are not that, and in both
+    the fabric then chose an adapter by metadata iteration order — the hazard
+    :func:`declared_names` exists to close (review finding CR-03):
+
+    * **Two metadata directories for one distribution name at different
+      versions, pointing at different modules.** The ordinary failed-uninstall
+      state. Whichever declaration the iterator yielded first won, and the pin
+      the fabric wrote into Decision Replay recorded that arbitrary winner's
+      version as fact.
+    * **Two declarations with no distribution metadata at all.** Both collapse
+      to :data:`UNKNOWN_DISTRIBUTION`, so "same distribution" was a comparison
+      of two sentinels rather than of two facts. Absent metadata is exactly the
+      "bad metadata" class the fail-closed ruling is written about, so it
+      refuses rather than being read as agreement.
+    """
+    distribution = _distribution_of(previous)
+    if distribution == UNKNOWN_DISTRIBUTION:
+        return False
+    return (
+        distribution == _distribution_of(entry_point)
+        and _version_of(previous) == _version_of(entry_point)
+        and previous.value == entry_point.value
+    )
+
+
+def _duplicate_refusal(
+    previous: importlib.metadata.EntryPoint,
+    entry_point: importlib.metadata.EntryPoint,
+) -> str:
+    """The refusal text for one name declared twice, in the shape that fits.
+
+    Two shapes, because two different things go wrong and they need different
+    remedies. Two distributions is "uninstall one"; one distribution declaring
+    itself twice — or a declaration with no distribution behind it — is "this
+    environment's installed metadata is inconsistent", which no uninstall of a
+    *rival* package can fix.
+    """
+    # Names only, never versions — see the module docstring's note on what a
+    # discovery refusal discloses. The version is what these two declarations
+    # most often differ *in*, but naming it is a fact the remedy never uses and
+    # this refusal is reachable by anyone who can ask for the adapter listing.
+    names = sorted({_distribution_of(previous), _distribution_of(entry_point)})
+    shared = f"adapter name {entry_point.name!r}"
+    tail = (
+        " This is a packaging conflict in the installed environment, not a"
+        " missing adapter: no adapter was resolved and neither candidate was"
+        " loaded."
+    )
+    if len(names) > 1:
+        return (
+            f"{shared} is declared by more than one installed distribution"
+            f" ({', '.join(names)}); the fabric does not choose between"
+            f" them.{tail} Run `pip uninstall` on one of them, or ask its"
+            " author to rename its adapter."
+        )
+    return (
+        f"{shared} is declared more than once by {names[0]}, and the"
+        " declarations do not agree on which code the name selects — they"
+        " differ in version, in target, or in both, or the declaring"
+        " distribution could not be identified at all. The fabric does not"
+        f" choose between them.{tail} This is usually two metadata directories"
+        " for one distribution left behind by a failed uninstall: reinstall"
+        " that distribution, or remove the stale one."
+    )
 
 
 def declared_names() -> frozenset[str]:
@@ -508,8 +629,10 @@ def declared_names() -> frozenset[str]:
 
     * a third-party declaration of a name the SDK's own adapters hold
       (:class:`ReservedBackendName`, D-16);
-    * one name declared by two different installed distributions
-      (:class:`DuplicateBackendName`);
+    * one name declared twice, unless the two declarations are provably the
+      same declaration — one distribution, one version, one target
+      (:class:`DuplicateBackendName`; see :func:`_is_one_declaration_twice`
+      for the two states that used to slip past this and why neither may);
     * a declared name that is not of the required shape (``ValueError``).
 
     All three refuse the *whole* call, not just the offending name — see the
@@ -518,8 +641,11 @@ def declared_names() -> frozenset[str]:
 
     Raises:
         ReservedBackendName: an installed distribution claims a built-in name.
-        DuplicateBackendName: two distributions declare one name.
+        DuplicateBackendName: one name is declared twice by declarations the
+            fabric cannot establish are the same declaration.
         ValueError: a declared name is not of the required shape.
+        RuntimeError: the SDK's own adapter package is not readable, which is
+            an installation problem with the SDK rather than a missing adapter.
     """
     builtins, third_party = _declared()
     return frozenset(builtins) | frozenset(third_party)
@@ -542,10 +668,11 @@ def resolve(name: str) -> ResolvedBackend:
     Raises:
         UnknownBackend: no installed adapter registers `name`.
         ReservedBackendName: discovery found a reserved-name conflict.
-        DuplicateBackendName: discovery found one name from two distributions.
+        DuplicateBackendName: discovery found one name declared twice by
+            declarations it cannot establish are the same declaration.
         ValueError: a declared name is malformed, a discovered built-in carries
-            no registration record, or the loaded object is not the adapter it
-            was resolved as.
+            no registration record, a third-party declaration could not be
+            loaded, or the loaded object is not the adapter it was resolved as.
     """
     builtins, third_party = _declared()
     known = frozenset(builtins) | frozenset(third_party)
@@ -575,17 +702,19 @@ def resolve(name: str) -> ResolvedBackend:
         version = _sdk_version()
         distribution = SDK_DISTRIBUTION
     else:
-        # ``.select(name=...)`` returns *every* match. The mapping form
-        # ``eps[name]`` returns the first silently, which is the shadowing
-        # hazard D-16 exists to close — measured, not assumed. Duplicates are
-        # already refused above, so this collection holds exactly one element.
-        matches = tuple(_declared_entry_points().select(name=name))
-        entry_point = matches[0]
-        registration = entry_point.load()
+        # The declaration :func:`_declared` already resolved, rather than a
+        # second metadata scan. The old form re-read the entry-point set and
+        # took ``[0]`` of the matches, which had two problems: the index was
+        # unchecked, so an entry-point set that changed between the two scans
+        # was an ``IndexError`` rather than a refusal; and it reached past the
+        # discovery pass that had just applied every name refusal, which is
+        # the one place those refusals can be relied on (review finding CR-03).
+        entry_point = third_party[name]
         origin = (
             f"distribution {_distribution_of(entry_point)}"
             f" {_version_of(entry_point)} entry point {entry_point.value!r}"
         )
+        registration = _load_third_party(entry_point, name, origin)
         version = _version_of(entry_point)
         distribution = _distribution_of(entry_point)
 
@@ -624,6 +753,45 @@ def _load_builtin(module_path: str) -> object | None:
     """
     module = importlib.import_module(module_path)
     return getattr(module, REGISTRATION_ATTRIBUTE, None)
+
+
+def _load_third_party(
+    entry_point: importlib.metadata.EntryPoint, name: str, origin: str
+) -> object:
+    """Load one third-party declaration, refusing in the shape the SDK's own uses.
+
+    ``EntryPoint.load()`` imports the named module and reads the named
+    attribute off it, so three unrelated failures arrive here untyped: the
+    module does not exist (``ModuleNotFoundError``), the attribute does not
+    (``AttributeError``), or the adapter's module-level body raised whatever it
+    liked. None appeared in :func:`resolve`'s or :func:`ccf.boot.boot`'s
+    documented ``Raises``, while the *built-in* path next door refuses a
+    missing record by name and has a test asserting no ``AttributeError``
+    escapes. The careful treatment was on the half the SDK wrote and the half a
+    stranger wrote got none (review finding WR-02).
+
+    The refusal separates the two states an operator confuses: an adapter that
+    is **not installed** and an adapter that is installed and **broken**. Only
+    the second can be reached here at all, because discovery already found the
+    declaration.
+
+    Raised outside the handler, on :func:`validate_connection`'s precedent, so
+    the third-party exception does not ride along on ``__context__`` where a
+    structured logger would find its text. The type name and message are
+    reproduced deliberately — they are the diagnosis — but they are reproduced
+    into *this* refusal rather than left attached to it.
+    """
+    try:
+        return entry_point.load()
+    except Exception as failure:
+        detail = f"{type(failure).__name__}: {failure}"
+    raise ValueError(
+        f"adapter {name!r} is declared by {origin}, but its declaration could"
+        f" not be loaded ({detail}). The distribution that ships it is"
+        " installed and its declaration is broken, which is a different"
+        " problem from an adapter that is not installed: nothing here is"
+        " fixed by installing something."
+    )
 
 
 def validate_connection(

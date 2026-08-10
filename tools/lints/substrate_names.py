@@ -35,16 +35,40 @@ interpreter, not a list. A seventh adapter file extends the ban the moment it
 lands, with no edit here — and the rule cannot drift out of step with the set of
 adapters it is about, because there is only one set.
 
+**And it refuses when it cannot read one.** A derived vocabulary has a failure
+mode a typed list does not: the derivation can come back empty, and an empty
+vocabulary passes every file while guarding nothing. That is fail-open, so it
+raises :class:`EmptySubstrateVocabulary` instead (review finding WR-03).
+
+Two things the derivation cannot decide for itself
+--------------------------------------------------
+
+The vocabulary's *blast radius* is set by adapter module naming, and nothing in
+that naming is chosen with this rule in mind. A stem whose spelling collides
+with vocabulary core legitimately uses for something else would make every use
+of that word a violation across ``src/`` — with no edit here and no warning.
+
+:data:`GENERIC_WORD_STEMS` is the stated escape (review finding WR-04): a stem
+listed there is matched as a whole token rather than under the loose boundary
+below, so ``"in-memory"`` and ``memory_budget`` in an unrelated module are not
+read as "core names the graph substrate", while a bare adapter name still is.
+It is a named constant reviewed with the code (D-13), it narrows how a word
+matches rather than exempting any module from the rule, and its cost is stated
+at the constant.
+
 Sub-rule 2a — code positions
 ----------------------------
 
 Matching is by the word-boundary pattern ``(?i)(?<![a-z0-9])<name>(?![a-z0-9])``.
 The boundary is deliberately loose: it treats ``_`` as a boundary character, so
-``<name>_dsn`` and ``<name>_uri`` match. Tightening it to exclude ``_`` on both
-sides was measured and does clear the single residual on today's tree — but it
-also stops the rule catching a reintroduced ``<name>_dsn`` parameter, which is
-the exact thing the rule exists to catch. The residual is handled in the scope
-constant below instead, where it is visible.
+``<name>_dsn`` and ``<name>_uri`` match. Tightening it *everywhere* was measured
+and rejected — it stops the rule catching a reintroduced ``<name>_dsn``
+parameter, which is the exact thing the rule exists to catch.
+
+The tight pattern is applied to :data:`GENERIC_WORD_STEMS` and nowhere else, so
+the trade is paid once per colliding word rather than across the whole
+vocabulary. Everything about that trade — what it buys, what it gives up, and
+when to add an entry — is stated at the constant.
 
 Sub-rule 2b — docstring enumeration
 -----------------------------------
@@ -148,6 +172,37 @@ SUBSTRATE_NAME_EXEMPT_PACKAGES: frozenset[str] = frozenset(
 #: purpose — see the module docstring.
 _WORD_PATTERN = r"(?i)(?<![a-z0-9]){word}(?![a-z0-9])"
 
+#: The strict matcher, for the stems in :data:`GENERIC_WORD_STEMS`. ``_`` and
+#: ``-`` are *not* boundaries here, so the stem matches only as a whole token.
+_STRICT_WORD_PATTERN = r"(?i)(?<![a-z0-9_-]){word}(?![a-z0-9_-])"
+
+#: Adapter stems that are also ordinary English, matched strictly rather than
+#: loosely (review finding WR-04). Named constants reviewed with the code, per
+#: D-13 — not an allowlist, and not a per-module opt-out: this narrows *how* a
+#: word matches everywhere, it does not exempt anybody from the rule.
+#:
+#: **Why the escape exists.** The vocabulary is derived from adapter module
+#: names, and nothing bounds what those names are. One of today's adapters is
+#: named for a word core uses about something else entirely, so under the loose
+#: boundary a cache mode spelled ``"in-memory"`` and a parameter named
+#: ``memory_budget`` in an unrelated module both read as "core names the graph
+#: substrate" — neither line being about a graph substrate at all. The rule
+#: passes today only because no such literal happens to exist outside the two
+#: exempt packages, which is luck rather than design.
+#:
+#: **What it costs, stated rather than discovered.** For a stem listed here the
+#: rule no longer catches ``<stem>_dsn``, ``<stem>_uri`` or ``open_<stem>`` —
+#: the compound forms the loose boundary exists to catch. It still catches the
+#: form that actually matters and the one every deletion in this phase took:
+#: the bare adapter name as a literal, a parameter, or a ``def``. A stem is
+#: added here only when its spelling collides with vocabulary core legitimately
+#: uses for something else, and adding one is a reviewed code change — which is
+#: the trade D-13 asks for over a data file nobody reads.
+#:
+#: **Not a substrate list.** Every entry is a *word*, and a stem here that no
+#: adapter is named after simply never enters the vocabulary and does nothing.
+GENERIC_WORD_STEMS: frozenset[str] = frozenset({"memory"})
+
 #: Derived vocabularies and their compiled matchers, cached per base so one
 #: ``--all`` run stats the adapter directory once instead of once per file.
 #: The cache is keyed by the base it was read from; a caller that mutates the
@@ -156,20 +211,58 @@ _VOCABULARY_CACHE: dict[pathlib.Path, frozenset[str]] = {}
 _MATCHER_CACHE: dict[pathlib.Path, tuple[tuple[str, re.Pattern[str]], ...]] = {}
 
 
+class EmptySubstrateVocabulary(RuntimeError):
+    """The rule could not read the vocabulary it enforces against.
+
+    Its own type so a caller can tell "this checker cannot see its subject"
+    apart from "this file is fine" — which is the distinction the empty set
+    erased (review finding WR-03).
+    """
+
+
 def substrate_vocabulary(base: pathlib.Path) -> frozenset[str]:
     """Substrate names, read from the adapter package under `base`.
 
     The stem of every ``*.py`` file in :data:`BACKENDS_DIR_PARTS`, less
     :data:`PACKAGE_INIT_STEM` and less a trailing :data:`WRITE_MODULE_SUFFIX`.
-    A base with no adapter package yields the empty set, which makes both rules
-    silent rather than wrong.
+
+    **Refuses rather than returning an empty set** (review finding WR-03). It
+    used to answer with the empty set when the adapter package was missing or
+    held no adapters, and :func:`check_source` then returned no findings for
+    every file — which the docstring called "silent rather than wrong". It is
+    silent rather than *safe*: a rule with an empty vocabulary passes every
+    file while guarding nothing, and that is the same defect class this
+    module's own docstring indicts three paragraphs earlier — "a rule pinned to
+    one file stops enforcing anything the moment that file splits, and it stops
+    *silently*".
+
+    The trigger is not hypothetical. :data:`BACKENDS_DIR_PARTS` is a path this
+    file states and the adapter package's location is not this file's to
+    decide; :func:`repo_base_for` falls back to the working directory when no
+    ancestor holds the package, so a run from the wrong directory reached the
+    empty set by an ordinary route.
+
+    Raises:
+        EmptySubstrateVocabulary: the adapter package is not a readable
+            directory under `base`, or holds no adapter modules.
     """
     cached = _VOCABULARY_CACHE.get(base)
     if cached is not None:
         return cached
 
+    directory = base.joinpath(*BACKENDS_DIR_PARTS)
+    if not directory.is_dir():
+        raise EmptySubstrateVocabulary(
+            f"{RULE_SUBSTRATE_NAME} derives its vocabulary from {directory},"
+            " which is not a readable directory. A rule with an empty"
+            " vocabulary passes every file while guarding nothing, so it"
+            " refuses instead. Either the run is rooted somewhere other than"
+            " the repository, or the adapter package moved and"
+            " BACKENDS_DIR_PARTS needs updating."
+        )
+
     stems: set[str] = set()
-    for module_path in sorted(base.joinpath(*BACKENDS_DIR_PARTS).glob("*.py")):
+    for module_path in sorted(directory.glob("*.py")):
         stem = module_path.stem
         if stem == PACKAGE_INIT_STEM:
             continue
@@ -177,6 +270,15 @@ def substrate_vocabulary(base: pathlib.Path) -> frozenset[str]:
             stem = stem[: -len(WRITE_MODULE_SUFFIX)]
         if stem:
             stems.add(stem)
+
+    if not stems:
+        raise EmptySubstrateVocabulary(
+            f"{RULE_SUBSTRATE_NAME} read {directory} and found no adapter"
+            " modules, so it has nothing to enforce against. An adapter"
+            " package with no adapters in it is a broken checkout or a moved"
+            " package, not a deployment with no substrates — the SDK ships"
+            " its own."
+        )
 
     vocabulary = frozenset(stems)
     _VOCABULARY_CACHE[base] = vocabulary
@@ -190,7 +292,16 @@ def _matchers(base: pathlib.Path) -> tuple[tuple[str, re.Pattern[str]], ...]:
         return cached
 
     matchers = tuple(
-        (word, re.compile(_WORD_PATTERN.format(word=re.escape(word))))
+        (
+            word,
+            re.compile(
+                (
+                    _STRICT_WORD_PATTERN
+                    if word in GENERIC_WORD_STEMS
+                    else _WORD_PATTERN
+                ).format(word=re.escape(word))
+            ),
+        )
         for word in sorted(substrate_vocabulary(base))
     )
     _MATCHER_CACHE[base] = matchers
@@ -275,9 +386,10 @@ def check_source(
     if matches_module(module_name, SUBSTRATE_NAME_EXEMPT_PACKAGES):
         return []
 
+    # No empty-matcher escape: `substrate_vocabulary` refuses rather than
+    # answering with nothing, so there is no state in which this function
+    # returns "clean" because it could not see its own subject (WR-03).
     matchers = _matchers(base if base is not None else repo_base_for(path))
-    if not matchers:
-        return []
 
     tree = read_tree(source, path)
     docstring_ids, docstrings = _docstring_positions(tree)

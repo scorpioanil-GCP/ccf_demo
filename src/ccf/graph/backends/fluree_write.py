@@ -608,7 +608,10 @@ class _FlureeTxn:
             # `_restitch_chain` yields a different supersession chain per
             # read. Dormant while `BaseGraphWriter` opens one transaction per
             # claim, but that is a property of the caller, not of a buffered
-            # batch adapter (review finding WR-07).
+            # batch adapter (review finding WR-07). The other batched adapter,
+            # `mongo_write.insert_entity_claim`, carries the same fix under its
+            # own finding id (WR-06); the two are one decision and a change to
+            # either belongs in both.
             P_SEQ: self._count(
                 _FLUREE_ENTITY_CLAIM_COUNT, {**scope, "key": entity_uri}
             )

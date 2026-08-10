@@ -674,9 +674,9 @@ def test_backends_list_surfaces_the_registry_refusal_not_a_traceback(
 
     def _conflicted() -> frozenset[str]:
         raise DuplicateBackendName(
-            "two installed distributions declare the adapter name"
-            " 'duplicated': acme-adapters 1.2.3 and beta-adapters 4.5.6."
-            " Neither was resolved. Run `pip uninstall` on one of them."
+            "adapter name 'duplicated' is declared by more than one installed"
+            " distribution (acme-adapters, beta-adapters); the fabric does not"
+            " choose between them. Run `pip uninstall` on one of them."
         )
 
     monkeypatch.setattr(backends_route, "declared_names", _conflicted)

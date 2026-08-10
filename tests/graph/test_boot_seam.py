@@ -453,6 +453,104 @@ def test_the_pin_records_the_reference_name_never_the_field_or_the_value(
         handle.close()
 
 
+def test_closing_a_handle_twice_reaches_the_store_once(
+    exploding_writer_adapter: Any, banking_spec: Any
+) -> None:
+    """WR-07 — ``close`` is public and the handle is also a context manager.
+
+    ``with handle:`` around a body that also calls ``close()`` is two calls
+    written by someone doing nothing wrong, and the second one used to reach
+    the adapter's store. Every in-tree store delegates to a driver that
+    tolerates it, so nothing broke and nothing said so — while the out-of-tree
+    fixture's author added a guard of their own after reasoning about the bug
+    it causes. ``BackendStore`` now states the requirement, and this asserts the
+    composition root does not lean on it.
+    """
+    from ccf.boot import boot
+    from ccf.controlplane.registry import ControlPlaneRegistry
+
+    adapter_name, module_name = exploding_writer_adapter
+    control_plane = ControlPlaneRegistry()
+    spec_version = control_plane.register("probe/spec", banking_spec)
+    policy_version = control_plane.register("probe/policy", {"regime": "probe"})
+
+    probe = None
+    handle = None
+    try:
+        sys.modules.pop(module_name, None)
+        resolve(adapter_name)
+        probe = sys.modules[module_name]
+        probe.EXPLODE[0] = False
+
+        with boot(
+            backend=adapter_name,
+            connection={"identity": "probe://wr-07-one-graph"},
+            registry=control_plane,
+            resolution_spec_key="probe/spec",
+            resolution_spec_version=spec_version,
+            policy_bundle_key="probe/policy",
+            policy_bundle_version=policy_version,
+        ) as handle:
+            handle.close()
+    finally:
+        if handle is not None:
+            handle.close()
+
+    assert probe is not None
+    assert probe.OPENED[-1].closes == 1
+
+
+def test_a_credential_keyed_by_a_field_its_record_disowns_is_refused(
+    secretful_adapter: str, banking_spec: Any
+) -> None:
+    """WR-09 — the reconciliation ``ResolvedSecret`` says it exists for.
+
+    That class justifies itself on the field and the reference name travelling
+    together, so "a pin cannot record a reference the value did not come from".
+    But ``boot`` keyed everything off the mapping key and read ``secret.field``
+    nowhere, so the two could disagree in silence: the adapter's store would be
+    handed the credential under one field while the replay pin recorded a
+    reference that was resolved for another. Both halves are then wrong and
+    neither is detectable from the pin, which is the artifact the audit story
+    rests on.
+
+    The refusal names both the key and the field the record carries, because
+    "these two disagree" is unactionable without saying which two.
+    """
+    from ccf.boot import boot
+    from ccf.controlplane.registry import ControlPlaneRegistry
+
+    control_plane = ControlPlaneRegistry()
+    spec_version = control_plane.register("probe/spec", banking_spec)
+    policy_version = control_plane.register("probe/policy", {"regime": "probe"})
+    disowned = "a_field_this_record_does_not_name"
+
+    with pytest.raises(ValueError) as caught:
+        boot(
+            backend=secretful_adapter,
+            secrets={
+                # Keyed by the field the adapter declares; the record inside
+                # names a different one. The adapter is satisfied, so nothing
+                # else in the boot has cause to notice.
+                PROBE_CREDENTIAL_FIELD: ResolvedSecret(
+                    field=disowned,
+                    ref_name=PROBE_REFERENCE_NAME,
+                    value=SecretStr(PROBE_SECRET_VALUE),
+                )
+            },
+            registry=control_plane,
+            resolution_spec_key="probe/spec",
+            resolution_spec_version=spec_version,
+            policy_bundle_key="probe/policy",
+            policy_bundle_version=policy_version,
+        )
+
+    message = str(caught.value)
+    assert PROBE_CREDENTIAL_FIELD in message
+    assert disowned in message
+    assert PROBE_SECRET_VALUE not in message
+
+
 def test_the_adapter_version_is_the_declaring_distributions(
     secretful_adapter: str,
 ) -> None:
@@ -466,3 +564,158 @@ def test_the_adapter_version_is_the_declaring_distributions(
     assert resolved.version == "9.9.9"
     assert resolved.distribution == "ccf-probe"
     assert not hasattr(resolved.registration, "version")
+
+
+# --- a boot that fails leaves nothing behind (CR-01) -------------------------
+
+#: An adapter whose writer constructor raises on demand, over a store whose
+#: graph identity is supplied rather than generated. Both properties are
+#: needed: the raise is the third-party failure being reproduced, and the fixed
+#: identity is what lets a *second* boot collide with the first if the first
+#: left the graph marked as written-to.
+_EXPLODING_WRITER_PROBE = '''\
+"""A throwaway adapter whose writer constructor can be made to raise."""
+
+from typing import Any
+
+from ccf.contracts.base import CCFContract
+from ccf.graph.backends.memory import MemoryGraphStore
+from ccf.graph.backends.memory_write import MemoryGraphWriter
+from ccf.graph.registry import BackendRegistration
+
+#: Flipped by the test between the failing boot and the corrected retry.
+EXPLODE = [True]
+
+#: Every store this adapter opened, in order. Each counts its own closes, so
+#: "was the store released?" is answerable from the test rather than inferred.
+OPENED: list[Any] = []
+
+
+class ProbeConnection(CCFContract):
+    identity: str
+
+
+class _FixedIdentityStore(MemoryGraphStore):
+    """The in-memory store with its identity supplied instead of generated.
+
+    A subclass rather than a wrapper so the adapter's own writer constructor
+    still sees the type it writes through.
+    """
+
+    def __init__(self, identity: str) -> None:
+        super().__init__()
+        self._graph_identity = identity
+        self.closes = 0
+
+    def close(self) -> None:
+        self.closes += 1
+        super().close()
+
+
+def _open_store(config: Any, secrets: Any) -> Any:
+    store = _FixedIdentityStore(config.identity)
+    OPENED.append(store)
+    return store
+
+
+def _make_writer(store: Any, token: Any) -> Any:
+    if EXPLODE[0]:
+        raise RuntimeError("third-party adapter blew up building its writer")
+    return MemoryGraphWriter(store=store, token=token)
+
+
+REGISTRATION = BackendRegistration(
+    name="ADAPTER_NAME",
+    config_model=ProbeConnection,
+    secret_fields=frozenset(),
+    open_store=_open_store,
+    make_writer=_make_writer,
+)
+'''
+
+
+@pytest.fixture
+def exploding_writer_adapter(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
+    """Declare the failing-writer adapter for the duration of one test."""
+    import importlib.metadata as metadata
+    from types import SimpleNamespace
+
+    from ccf.graph import registry as registry_module
+
+    adapter_name = "probe_exploding"
+    module_name = "ccf_probe_exploding_write"
+    source = _EXPLODING_WRITER_PROBE.replace("ADAPTER_NAME", adapter_name)
+    (tmp_path / f"{module_name}.py").write_text(source, encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    point = metadata.EntryPoint(
+        adapter_name, f"{module_name}:REGISTRATION", BACKEND_ENTRY_POINT_GROUP
+    )
+    point = point._for(SimpleNamespace(name="ccf-probe", version="9.9.9"))
+    monkeypatch.setattr(
+        registry_module,
+        "_declared_entry_points",
+        lambda: metadata.EntryPoints((point,)),
+    )
+    try:
+        yield adapter_name, module_name
+    finally:
+        sys.modules.pop(module_name, None)
+
+
+def test_a_failing_writer_constructor_closes_the_store_and_frees_the_graph(
+    exploding_writer_adapter: Any, banking_spec: Any
+) -> None:
+    """CR-01 — the guard around the one call the composition root does not own.
+
+    ``mint_boot_token`` marks a graph as written-to and only a writer's
+    ``close`` ever unmarks it, so the window between the mint and the writer is
+    the one place a failure can leave a graph permanently unbootable. Since
+    D-IMPL-93 that window contains third-party code.
+
+    Three assertions, and each fails without the guard:
+
+    * the adapter's exception reaches the caller unchanged, so nothing is
+      swallowed or re-typed on the way out;
+    * the store this boot opened was closed, so the connection it holds — a
+      driver client in every real adapter — is not leaked to a caller who was
+      handed no object to close it with;
+    * **a corrected retry over the same graph boots.** That is the one
+      ``ccf.boot`` states as the thing that must not happen, and it is what
+      makes this a fabric-level defect rather than a leak: the operator fixes
+      the adapter, restarts nothing, and the fabric refuses them anyway.
+    """
+    from ccf.boot import boot
+    from ccf.controlplane.registry import ControlPlaneRegistry
+
+    adapter_name, module_name = exploding_writer_adapter
+    identity = "probe://cr-01-one-graph"
+    control_plane = ControlPlaneRegistry()
+    spec_version = control_plane.register("probe/spec", banking_spec)
+    policy_version = control_plane.register("probe/policy", {"regime": "probe"})
+
+    def _boot() -> Any:
+        return boot(
+            backend=adapter_name,
+            connection={"identity": identity},
+            registry=control_plane,
+            resolution_spec_key="probe/spec",
+            resolution_spec_version=spec_version,
+            policy_bundle_key="probe/policy",
+            policy_bundle_version=policy_version,
+        )
+
+    with pytest.raises(RuntimeError) as caught:
+        _boot()
+    assert "blew up building its writer" in str(caught.value)
+
+    probe = sys.modules[module_name]
+    assert len(probe.OPENED) == 1
+    assert probe.OPENED[0].closes == 1
+
+    probe.EXPLODE[0] = False
+    handle = _boot()
+    try:
+        assert handle.adapter.name == adapter_name
+    finally:
+        handle.close()

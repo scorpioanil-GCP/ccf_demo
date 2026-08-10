@@ -47,11 +47,19 @@ malformed. Not ``200`` with an empty list, because an empty list is a
 different fact, and fail-closed exists precisely so that nothing answers past
 the ambiguity.
 
-That refusal body carries one distribution name, which narrows the disclosure
-rule above. The narrowing is deliberate: without the name the refusal is
-unactionable. It is reachable only when the deployment's own installed
-adapters already conflict, and it is still not a version and still not an
-inventory.
+That refusal body carries **the distribution name or names the conflict is
+between** — one for a reserved or malformed name, up to two for a duplicate —
+which narrows the disclosure rule above. The narrowing is deliberate: without
+the names the refusal is unactionable, and an uninstall names a distribution.
+It is reachable only when the deployment's own installed adapters already
+conflict, and it is still not a version and still not an inventory.
+
+The "not a version" half is a property of the message rather than a promise
+made here. The route forwards ``str(conflict)`` verbatim, so what it discloses
+is whatever the registry built — and the registry builds every *discovery*
+refusal from names alone, for this reason and stated in its own docstring
+(review finding WR-01, which found this paragraph describing a body that
+carried two distributions and both their versions).
 
 **This route enumerates no vocabulary.** The names come from the registry,
 which derives them from the adapter package on disk and from installed entry

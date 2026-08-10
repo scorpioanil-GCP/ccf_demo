@@ -118,6 +118,7 @@ __all__ = [
     "BootToken",
     "SingleWriterViolation",
     "mint_boot_token",
+    "release_boot_token",
 ]
 
 
@@ -191,6 +192,40 @@ def mint_boot_token(*, graph_identity: str) -> BootToken:
         )
     _LIVE_WRITERS.add(graph_identity)
     return BootToken(graph_identity=graph_identity, mint_key=_MINT_KEY)
+
+
+def release_boot_token(token: BootToken) -> None:
+    """Give back a graph a token was minted for but whose writer never existed.
+
+    The mint and the writer are two steps, and between them sits a call the
+    composition root does not control: since D-IMPL-93 the writer constructor
+    is a callable an installed distribution supplied. If that call raises, this
+    graph has no writer — but :func:`mint_boot_token` has already marked it as
+    having one, and only :meth:`BaseGraphWriter.close` ever unmarks it. Without
+    a way back the graph stays unbootable for the life of the process, so a
+    *corrected* retry is refused as a second writer. That is the outcome
+    :mod:`ccf.boot` says must not happen; this is what lets it keep that
+    promise across the third-party seam (review finding CR-01).
+
+    **This does not weaken the invariant, and the reason is the argument.** It
+    releases a graph that demonstrably has no writer: the only caller is the
+    failure path of the one construction site, and it runs where construction
+    raised rather than returned. It mints nothing, so it cannot be used to
+    obtain a write handle, and calling it while a writer *is* live would not
+    produce a second writer either — it would let a later boot mint a second
+    token, which :class:`BaseGraphWriter` still refuses when the first writer
+    has not been closed only insofar as ``consume`` is single-use. That
+    residual is why the permitted-importer set is not widened for it: it lives
+    in the guarded module and is reachable only from ``ccf.boot`` (CINV-02),
+    exactly like the mint it undoes.
+
+    Idempotent, and deliberately so — the token may or may not have been
+    consumed before the constructor raised, and the caller cannot tell which.
+
+    Args:
+        token: The token whose graph is being given back.
+    """
+    _LIVE_WRITERS.discard(token.graph_identity)
 
 
 def _entity_content_key(claim: EntityClaim) -> dict[str, object]:

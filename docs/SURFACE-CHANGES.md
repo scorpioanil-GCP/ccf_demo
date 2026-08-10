@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**410 entries**, of which **189** name a public Python surface.
+**415 entries**, of which **194** name a public Python surface.
 
 ## Added
 
@@ -6453,7 +6453,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-28 entries — 20 public Python surface, 8 not public Python API.
+33 entries — 25 public Python surface, 8 not public Python API.
 
 ### Public Python surface
 
@@ -6911,6 +6911,134 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   D-IMPL-89's content-address-before-validation ordering
 
 *Recorded by `15.4-08-replay.md`.*
+
+#### ccf.boot.boot
+
+- Surface: ccf.boot.boot
+- Public surface: true
+- Change type: behavior
+- Before: two gaps. A `secrets` entry was keyed by config field and its
+  `ResolvedSecret.field` was never read, so a key and the record under it could
+  disagree with no complaint. And a failure inside the resolved adapter's
+  writer constructor propagated with the store never closed and the graph still
+  marked as having a live writer, so a corrected retry over the same graph was
+  refused as a second writer for the life of the process
+- After: a credential whose record names a field other than the key it is
+  supplied under raises `ValueError` naming both. And a boot that fails at any
+  point closes the store and releases the graph before re-raising the adapter's
+  exception unchanged, so a corrected retry boots
+- Why: `ResolvedSecret` justifies its existence on the field and the reference
+  name travelling together — a pin cannot record a reference the value did not
+  come from — and nothing performed that reconciliation, so the store could
+  receive a credential under one field while the replay pin recorded a
+  reference resolved for another. The writer constructor is a callable an
+  installed distribution supplies as of D-IMPL-93, and it sat between the
+  mint guard above it and the worker guard below it, protected by neither
+- Migration: none for a caller whose `ResolvedSecret.field` already equals its
+  mapping key — which is every caller going through
+  `ccf.deployment.load_and_boot`, since `_resolve_secret_references` writes
+  both from one source. A direct `boot()` caller that built the two
+  independently must make them agree; the refusal names the key and the field
+  its record carries. Nothing to do for the writer-constructor guard: it turns
+  a stuck process into a retryable failure and adds no new exception type
+
+*Recorded by `15.4-13-review-fixes.md`.*
+
+#### ccf.boot.FabricHandle.close
+
+- Surface: ccf.boot.FabricHandle.close
+- Public surface: true
+- Change type: behavior
+- Before: unguarded — every call ran the shutdown closure, so
+  `with handle:` around a body that also called `close()` reached the adapter's
+  store twice
+- After: idempotent. The second and later calls return without touching the
+  store
+- Why: `close()` is public *and* the class is a context manager, so two calls
+  is an ordinary caller shape rather than a defect. Every in-tree store happens
+  to delegate to a driver that tolerates a second close, so nothing was broken
+  and nothing said so — while the out-of-tree adapter fixture's author added a
+  guard of their own after reasoning about the bug it causes
+- Migration: none. A caller that was closing twice was relying on adapter
+  tolerance and now does not have to
+
+*Recorded by `15.4-13-review-fixes.md`.*
+
+#### ccf.graph.registry.BackendStore
+
+- Surface: ccf.graph.registry.BackendStore
+- Public surface: true
+- Change type: behavior
+- Before: `close()` carried no contract beyond its signature
+- After: `close()` is documented as **required to be idempotent**
+- Why: this Protocol is what a third-party adapter implements, and the
+  requirement was previously discoverable only by hitting the bug — a second
+  close double-decrementing a handle count and dropping a graph another handle
+  was still using. A Protocol docstring exists to prevent exactly that
+  discovery route
+- Migration: if your store's `close()` is not safe to call twice, add a
+  `_closed` guard. Note that `ccf.boot.FabricHandle.close` no longer calls it
+  twice, so this is a contract you should be able to satisfy cheaply rather
+  than a behaviour anything now depends on
+
+*Recorded by `15.4-13-review-fixes.md`.*
+
+#### ccf.graph.registry.declared_names
+
+- Surface: ccf.graph.registry.declared_names
+- Public surface: true
+- Change type: behavior
+- Before: three refusals, all reachable, but two states passed through them.
+  Two declarations of one adapter name were accepted as "the same code declared
+  twice" whenever the distribution *names* matched — so two metadata
+  directories for one distribution at different versions pointing at different
+  modules were accepted, and so were two declarations with no distribution
+  metadata at all, since both collapsed to the `unknown-distribution` sentinel.
+  Separately, an unreadable adapter package reported an empty built-in set, and
+  the refusal an operator then read told them to install a distribution. The
+  refusal messages carried distribution names and their versions
+- After: a duplicate is passed over only when it is provably one declaration —
+  one distribution, one version, one target — and never when the declaring
+  distribution could not be identified. An unreadable adapter package raises
+  `RuntimeError` saying so. Every refusal message names distributions and never
+  a version
+- Why: the fabric was choosing an adapter by metadata iteration order in both
+  accepted states, and the winner's version then landed in Decision Replay
+  dimension 2 as fact — the hazard this function's fail-closed ruling exists to
+  close. The version disclosure is separate: this is the listing function, the
+  HTTP front door serves it with no credential under `create_app`'s documented
+  default, and an uninstall names a distribution rather than a version
+- Migration: an environment with a stale `dist-info` left by a failed uninstall
+  now refuses instead of picking one — reinstall or remove the stale
+  directory, which the refusal says. A caller that parsed a version out of a
+  refusal message must stop; refusal prose was never a contract and the
+  `error_code` on the HTTP refusal body is
+
+*Recorded by `15.4-13-review-fixes.md`.*
+
+#### ccf.graph.registry.resolve
+
+- Surface: ccf.graph.registry.resolve
+- Public surface: true
+- Change type: behavior
+- Before: the third-party branch called `EntryPoint.load()` bare, so a bad
+  module target, a missing attribute, or anything the adapter's module-level
+  body raised reached the caller untyped and in neither this function's nor
+  `ccf.boot.boot`'s documented `Raises`
+- After: a declaration that cannot be loaded raises `ValueError` naming the
+  adapter, the declaring distribution, and the underlying failure's type and
+  message — and stating that the distribution is installed and broken, which is
+  a different problem from an adapter that is not installed
+- Why: the built-in branch beside it already refused a missing registration
+  record by name, with a test asserting no `AttributeError` escapes. The
+  careful treatment was on the half the SDK wrote and the half a stranger wrote
+  got none
+- Migration: a caller catching `ModuleNotFoundError` or `AttributeError` around
+  `resolve` should catch `ValueError` instead — which is what every caller
+  refusing a bad manifest already catches. The refusal is raised outside the
+  handler, so the third-party exception is not reachable on `__context__`
+
+*Recorded by `15.4-13-review-fixes.md`.*
 
 ### Not public Python API
 

@@ -34,6 +34,7 @@ import ast
 import dataclasses
 import importlib.metadata as metadata
 import pathlib
+import re
 import sys
 from types import SimpleNamespace
 from typing import Any
@@ -290,12 +291,157 @@ def test_a_duplicated_name_is_refused_naming_both_distributions(
         resolve("dup")
 
     message = str(caught.value)
-    for token in ("ccf-first-adapter", "0.1.0", "ccf-second-adapter", "9.9.9"):
+    for token in ("ccf-first-adapter", "ccf-second-adapter"):
         assert token in message, (token, message)
     assert first_module not in sys.modules
     assert second_module not in sys.modules
     assert not _marker_of(first_path).exists()
     assert not _marker_of(second_path).exists()
+
+
+def test_one_distribution_name_at_two_versions_is_refused_not_chosen_between(
+    monkeypatch: pytest.MonkeyPatch, probe_factory: Any
+) -> None:
+    """CR-03 — the ordinary failed-uninstall state, which used to fail *open*.
+
+    Two metadata directories for one distribution name, at different versions,
+    pointing at different modules. The check compared the distribution **name**
+    alone and passed over the pair as "the same code declared twice", so the
+    fabric took whichever the metadata iterator yielded first — and the
+    ``AdapterPin`` it wrote into Decision Replay recorded that arbitrary
+    winner's version as fact.
+
+    The companion assertion is the one that makes this about the hazard rather
+    than about the exception type: neither candidate is loaded, so no package
+    nobody chose has run its module-level code by the time the refusal lands.
+    """
+    first_module = "ccf_probe_same_name_first"
+    second_module = "ccf_probe_same_name_second"
+    first_path = probe_factory(first_module, "dup")
+    second_path = probe_factory(second_module, "dup")
+    monkeypatch.setattr(registry, "_builtin_names", dict)
+    monkeypatch.setattr(
+        registry,
+        "_declared_entry_points",
+        lambda: _entry_points(
+            _entry_point(
+                name="dup",
+                value=f"{first_module}:REGISTRATION",
+                distribution="ccf-x-adapter",
+                version="1.0.0",
+            ),
+            _entry_point(
+                name="dup",
+                value=f"{second_module}:REGISTRATION",
+                distribution="ccf-x-adapter",
+                version="2.0.0",
+            ),
+        ),
+    )
+
+    with pytest.raises(DuplicateBackendName) as caught:
+        resolve("dup")
+
+    message = str(caught.value)
+    assert "ccf-x-adapter" in message
+    assert "packaging conflict" in message
+    assert first_module not in sys.modules
+    assert second_module not in sys.modules
+    assert not _marker_of(first_path).exists()
+    assert not _marker_of(second_path).exists()
+
+
+def test_two_declarations_with_no_distribution_metadata_are_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CR-03, the second fail-open: two sentinels compared as if they were facts.
+
+    ``_distribution_of`` answers with a positive "the environment could not
+    tell us" marker when an entry point has no distribution behind it. Two
+    unrelated metadata-less declarations therefore compared *equal* and were
+    treated as one distribution declaring one name twice.
+
+    Absent metadata is precisely the bad-metadata class the fail-closed ruling
+    is written about, so it refuses. The refusal names the marker rather than
+    inventing a distribution, because "we could not identify the declaring
+    distribution" is the fact an operator has to act on.
+    """
+    monkeypatch.setattr(registry, "_builtin_names", dict)
+    monkeypatch.setattr(
+        registry,
+        "_declared_entry_points",
+        lambda: _entry_points(
+            metadata.EntryPoint("dup2", "pkg.a:REGISTRATION", BACKEND_ENTRY_POINT_GROUP),
+            metadata.EntryPoint("dup2", "pkg.b:REGISTRATION", BACKEND_ENTRY_POINT_GROUP),
+        ),
+    )
+
+    with pytest.raises(DuplicateBackendName) as caught:
+        declared_names()
+
+    message = str(caught.value)
+    assert registry.UNKNOWN_DISTRIBUTION in message
+    assert "packaging conflict" in message
+
+
+def test_one_distribution_declaring_one_name_twice_at_one_target_is_passed_over(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The narrow case that stays legal, so the refusal above is not a blanket.
+
+    One distribution, one version, one target, listed twice: a malformed
+    entry-point table with exactly one answer in it. There is nothing for the
+    fabric to choose between, so it does not refuse — and pinning that keeps
+    the CR-03 fix a *discrimination* rather than a widening.
+    """
+    monkeypatch.setattr(registry, "_builtin_names", dict)
+    monkeypatch.setattr(
+        registry,
+        "_declared_entry_points",
+        lambda: _entry_points(
+            _entry_point(
+                name="twice",
+                value="pkg.one:REGISTRATION",
+                distribution="ccf-twice-adapter",
+                version="1.0.0",
+            ),
+            _entry_point(
+                name="twice",
+                value="pkg.one:REGISTRATION",
+                distribution="ccf-twice-adapter",
+                version="1.0.0",
+            ),
+        ),
+    )
+
+    assert declared_names() == frozenset({"twice"})
+
+
+def test_an_unreadable_adapter_package_says_so_instead_of_reporting_none(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """WR-08 — the failure mode that gave an operator the wrong instruction.
+
+    Built-in discovery reads a directory rather than packaging metadata, which
+    is the right trade for the failure modes the module argues about — but it
+    makes every SDK adapter depend on that directory existing as real module
+    files. Under a packaging that does not lay files out that way the built-in
+    set came back empty, and the refusal an operator then read told them to
+    install a distribution that declares the adapter. Following that
+    instruction cannot fix an SDK whose own package could not be read, and
+    nothing in the message distinguished the two.
+    """
+    monkeypatch.setattr(
+        registry, "_backends_directory", lambda: tmp_path / "not-a-directory"
+    )
+    monkeypatch.setattr(registry, "_declared_entry_points", _entry_points)
+
+    with pytest.raises(RuntimeError) as caught:
+        declared_names()
+
+    message = str(caught.value)
+    assert "the SDK's own adapter package" in message
+    assert BACKEND_ENTRY_POINT_GROUP not in message
 
 
 def test_a_third_party_distribution_cannot_claim_a_builtin_name(
@@ -477,6 +623,66 @@ def test_a_registration_that_answers_to_another_name_is_refused(
     assert "actual" in message
 
 
+@pytest.mark.parametrize(
+    ("value", "expected_type"),
+    [
+        pytest.param(
+            "ccf_no_such_module_anywhere:REGISTRATION",
+            "ModuleNotFoundError",
+            id="module-missing",
+        ),
+        pytest.param(
+            "ccf.graph.protocols:MISSING_ATTR",
+            "AttributeError",
+            id="attribute-missing",
+        ),
+    ],
+)
+def test_a_third_party_declaration_that_cannot_load_is_refused_by_name(
+    monkeypatch: pytest.MonkeyPatch, value: str, expected_type: str
+) -> None:
+    """WR-02 — the stranger's half of the load path gets the SDK's own care.
+
+    The built-in path refuses a missing record with a message naming the module
+    and the adapter, and a test beside it asserts no ``AttributeError`` escapes.
+    The third-party branch called ``entry_point.load()`` bare, so a bad module
+    target or a bad attribute name reached the caller as a raw import error
+    that appeared in no documented ``Raises``.
+
+    The refusal has to separate two states an operator conflates: an adapter
+    that is not installed, and one that is installed and broken. Only the
+    second can be reached here — discovery already found the declaration — and
+    the remedy for the two is opposite.
+    """
+    monkeypatch.setattr(registry, "_builtin_names", dict)
+    monkeypatch.setattr(
+        registry,
+        "_declared_entry_points",
+        lambda: _entry_points(
+            _entry_point(
+                name="broken",
+                value=value,
+                distribution="ccf-broken-adapter",
+                version="0.1.0",
+            )
+        ),
+    )
+
+    with pytest.raises(ValueError) as caught:
+        resolve("broken")
+
+    assert not isinstance(caught.value, (AttributeError, ImportError))
+    message = str(caught.value)
+    assert "broken" in message
+    assert "ccf-broken-adapter" in message
+    assert expected_type in message
+    assert "not installed" in message
+    # Raised outside the handler, so the third-party exception is not reachable
+    # on the object a structured logger would walk.
+    assert caught.value.__context__ is None
+    assert caught.value.__cause__ is None
+
+
 def test_a_loaded_object_that_is_not_a_registration_is_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -504,6 +710,75 @@ def test_a_loaded_object_that_is_not_a_registration_is_refused(
         resolve("notarecord")
 
     assert "BackendRegistration" in str(caught.value)
+
+
+#: A version-shaped token: two dot-separated runs of digits. Loose on purpose —
+#: the assertion below is "no version reached the message", and a matcher that
+#: only recognised semver would miss ``2.0`` and ``0.9.2-rc4`` alike.
+_VERSION_SHAPED = re.compile(r"\b\d+\.\d+")
+
+
+@pytest.mark.parametrize(
+    "declaration",
+    [
+        pytest.param(("dup", "pkg.a:REGISTRATION", "acme-adapters", "3.14.1"), id="dup"),
+        pytest.param(
+            ("sqlite_lookalike", "pkg.b:REGISTRATION", "acme-adapters", "3.14.1"),
+            id="reserved",
+        ),
+        pytest.param(
+            ("NotALowerName", "pkg.c:REGISTRATION", "acme-adapters", "3.14.1"),
+            id="malformed",
+        ),
+    ],
+)
+def test_no_discovery_refusal_discloses_a_version(
+    monkeypatch: pytest.MonkeyPatch, declaration: tuple[str, str, str, str]
+) -> None:
+    """WR-01 — the listing function's refusals name distributions, never versions.
+
+    ``declared_names()`` answers "which adapters does this deployment have",
+    and the HTTP front door serves that question with no credential under its
+    documented default. Its three refusals therefore reach a caller who is not
+    entitled to the deployment's dependency inventory, and a version is a
+    reconnaissance detail no remedy uses — an uninstall names a distribution.
+
+    Asserted here rather than at the route, because the route forwards the
+    registry's message verbatim: the property has to hold where the message is
+    built, or it holds nowhere. All three refusals are covered, since the
+    version travelled through the shared ``origin`` string and would have come
+    back through any one of them.
+    """
+    name, value, distribution, version = declaration
+    builtin = "sqlite_lookalike"
+    monkeypatch.setattr(
+        registry, "_builtin_names", lambda: {builtin: "pkg.builtin_write"}
+    )
+    monkeypatch.setattr(
+        registry,
+        "_declared_entry_points",
+        lambda: _entry_points(
+            _entry_point(
+                name=name,
+                value=value,
+                distribution=distribution,
+                version=version,
+            ),
+            _entry_point(
+                name=name,
+                value="pkg.rival:REGISTRATION",
+                distribution="beta-adapters",
+                version="0.9.2",
+            ),
+        ),
+    )
+
+    with pytest.raises(ValueError) as caught:
+        declared_names()
+
+    message = str(caught.value)
+    assert distribution in message, message
+    assert not _VERSION_SHAPED.search(message), message
 
 
 def _python_files() -> list[pathlib.Path]:
@@ -560,27 +835,46 @@ def test_exactly_one_dynamic_import_site_exists_across_both_linted_trees() -> No
     assert sites == {"src/ccf/graph/registry.py": 1}, sites
 
 
-def _make_writer_call_sites(module: ast.Module) -> int:
-    """*Calls* of something named ``make_writer``.
+def _make_writer_references(module: ast.Module) -> int:
+    """Every *reference* to ``make_writer``, not only the ones that are calls.
 
-    The field definition on ``BackendRegistration`` and its type annotation are
-    not calls and are deliberately not counted: the question is who can obtain
-    and invoke a writer constructor, not who can name the field that holds one.
+    Widened from a call-only scan (review finding WR-10). The old form counted
+    ``ast.Call`` nodes whose func was named ``make_writer``, which
+    ``factory = record.make_writer`` followed by ``factory(store, token)``
+    evades, and ``getattr(record, "make_writer")(...)`` evades twice over. It
+    was a typo detector describing itself as a confinement proof — and with
+    CR-02's blind spot removing the lint's ability to see the imports such a
+    module would otherwise need, the widening had no effective control at all.
+
+    An attribute *load* is as much a capability acquisition as the call is: the
+    thing loaded is a writer constructor, and what happens to it next is out of
+    this scan's sight. So attribute references count, string arguments to
+    ``getattr`` count, and bare-name calls still count.
+
+    What is deliberately not counted, because both are the field's *definition*
+    rather than an acquisition of it: the annotated assignment in
+    ``ccf.graph.registry`` that declares the field, and prose. Neither is an
+    ``ast.Attribute`` — the declaration is an ``ast.Name`` target, which is why
+    the two known definition sites need no exemption written here.
     """
     count = 0
     for node in ast.walk(module):
-        if not isinstance(node, ast.Call):
-            continue
-        func = node.func
-        named = (isinstance(func, ast.Attribute) and func.attr == "make_writer") or (
-            isinstance(func, ast.Name) and func.id == "make_writer"
-        )
-        if named:
+        if isinstance(node, ast.Attribute) and node.attr == "make_writer":
+            count += 1
+        elif isinstance(node, ast.Constant) and node.value == "make_writer":
+            # `getattr(record, "make_writer")` — the spelling that evades an
+            # attribute scan by turning the attribute into a string.
+            count += 1
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "make_writer"
+        ):
             count += 1
     return count
 
 
-def test_every_make_writer_call_site_is_the_composition_root() -> None:
+def test_every_make_writer_reference_is_the_composition_root() -> None:
     """T-15.4-43 — the one thing this seam made wider, stated and tested.
 
     ``BackendRegistration.make_writer`` is a public field on a public frozen
@@ -591,12 +885,18 @@ def test_every_make_writer_call_site_is_the_composition_root() -> None:
     the guarded neutral base and still refuses a second live writer per graph
     identity — but D-01's argument is that the lint keeps its exact present
     shape, so the widening is asserted here rather than discovered later.
+
+    **Scope, stated honestly** (WR-10). This scans two trees for references
+    spelled in one of three ways. A name assembled at runtime, or a record
+    passed to something that reaches the field by other means, is beyond it —
+    the same residual class ``cinv02-backend-import`` records for
+    ``importlib.import_module``, and for the same reason.
     """
     sites = {
         path.relative_to(_REPO_ROOT).as_posix(): count
         for path in _python_files()
         if (
-            count := _make_writer_call_sites(
+            count := _make_writer_references(
                 ast.parse(path.read_text(encoding="utf-8"))
             )
         )
