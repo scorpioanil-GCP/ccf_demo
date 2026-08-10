@@ -17,10 +17,12 @@ import pathlib
 import pytest
 
 from tools.lints.substrate_names import (
+    GENERIC_WORD_STEMS,
     PROSE_DISTINCT_THRESHOLD,
     RULE_SUBSTRATE_NAME,
     RULE_SUBSTRATE_PROSE,
     SUBSTRATE_NAME_EXEMPT_PACKAGES,
+    EmptySubstrateVocabulary,
     check_source,
     substrate_vocabulary,
 )
@@ -29,6 +31,16 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 MANIFEST = pathlib.Path("src/ccf/deployment/manifest.py")
 
 VOCABULARY = sorted(substrate_vocabulary(REPO_ROOT))
+
+#: The adapters this repository ships whose stem is also ordinary English, and
+#: one of them. Derived rather than named, so the WR-04 assertions below follow
+#: the vocabulary the way every other test in this module does.
+GENERIC_STEMS_IN_VOCABULARY = sorted(set(VOCABULARY) & GENERIC_WORD_STEMS)
+GENERIC_WORD = GENERIC_STEMS_IN_VOCABULARY[0] if GENERIC_STEMS_IN_VOCABULARY else ""
+
+#: A stem that is *not* on the generic list, for the assertions about the loose
+#: boundary that the generic ones no longer carry.
+DISTINCT_WORD = next(word for word in VOCABULARY if word not in GENERIC_WORD_STEMS)
 
 
 def _rules(findings: list[str]) -> list[str]:
@@ -84,19 +96,52 @@ def test_a_derived_vocabulary_word_is_what_the_rule_matches(
     assert "zzquux" in findings[0]
 
 
-def test_an_empty_adapter_package_makes_the_rules_silent(
+def test_an_empty_adapter_package_is_refused_not_ignored(
     tmp_path: pathlib.Path,
 ) -> None:
+    """WR-03 — a checker that cannot see its vocabulary must not report clean.
+
+    The rule used to answer the empty set here and return no findings for every
+    file. That is fail-open on the rule carrying D-IMPL-93 property (2): it
+    still runs, still passes, and guards nothing — the exact defect class this
+    module's own docstring indicts.
+    """
     (tmp_path / "src" / "ccf" / "graph" / "backends").mkdir(parents=True)
-    assert (
+
+    with pytest.raises(EmptySubstrateVocabulary):
+        substrate_vocabulary(tmp_path)
+
+    with pytest.raises(EmptySubstrateVocabulary):
         check_source(
             _docstring_module(VOCABULARY),
             MANIFEST,
             "ccf.deployment.manifest",
             base=tmp_path,
         )
-        == []
-    )
+
+
+def test_a_missing_adapter_package_is_refused_by_name(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The other half of WR-03, and the one `repo_base_for` can reach.
+
+    Its fallback is the working directory, so a run rooted anywhere without the
+    adapter package took this path by an ordinary route rather than an exotic
+    one. The refusal names the directory it looked in, because "the checker is
+    pointed at the wrong tree" and "the package moved" are different problems
+    with the same symptom.
+    """
+    with pytest.raises(EmptySubstrateVocabulary) as caught:
+        substrate_vocabulary(tmp_path)
+
+    assert "backends" in str(caught.value)
+
+
+def test_the_repo_vocabulary_is_non_empty_and_holds_a_known_adapter() -> None:
+    # Non-vacuity for the whole module and for `make lint`: the rule really is
+    # reading adapters off this repository's own disk.
+    assert VOCABULARY
+    assert substrate_vocabulary(REPO_ROOT) == frozenset(VOCABULARY)
 
 
 # --- sub-rule 2a: code positions (V2) --------------------------------------
@@ -133,9 +178,123 @@ def test_an_import_alias_naming_a_substrate_is_flagged() -> None:
 
 
 def test_an_attribute_naming_a_substrate_is_flagged() -> None:
-    source = "def f(cfg: object) -> object:\n    return cfg.memory_rows\n"
+    source = f"def f(cfg: object) -> object:\n    return cfg.{DISTINCT_WORD}_rows\n"
     findings = check_source(source, MANIFEST, "ccf.deployment.manifest")
     assert RULE_SUBSTRATE_NAME in _rules(findings)
+
+
+# --- generic stems match strictly (WR-04) -----------------------------------
+#
+# One adapter is named for a word core uses about something else. Under the
+# loose boundary the rule read both false positives below as "core names the
+# graph substrate", and D-13 forbids an allowlist — so the only escape was
+# exempting a whole package, which disables the rule for that package entirely.
+
+
+@pytest.mark.skipif(
+    not GENERIC_STEMS_IN_VOCABULARY,
+    reason="no adapter is named for a word on the generic list",
+)
+@pytest.mark.parametrize("attached", ["in-{word}", "{word}_budget", "{word}-mapped"])
+def test_a_generic_stem_inside_a_larger_word_is_not_a_substrate(
+    attached: str,
+) -> None:
+    """The false positives: neither line is about a graph substrate."""
+    text = attached.format(word=GENERIC_WORD)
+    source = f'CACHE_MODE = "{text}"\n'
+    assert check_source(source, MANIFEST, "ccf.artifacts.store") == []
+
+
+@pytest.mark.skipif(
+    not GENERIC_STEMS_IN_VOCABULARY,
+    reason="no adapter is named for a word on the generic list",
+)
+@pytest.mark.parametrize(
+    "source",
+    [
+        'BACKEND = "{word}"\n',
+        "def open_store({word}: object) -> None:\n    pass\n",
+        "def {word}() -> None:\n    pass\n",
+    ],
+)
+def test_a_generic_stem_as_a_whole_token_is_still_flagged(source: str) -> None:
+    """The true positive the strict boundary keeps.
+
+    The bare adapter name in a code position is the form every deletion in this
+    phase took — a value in a `Literal`, a branch key, a per-database keyword
+    argument. Losing that would have made the escape a hole rather than a
+    narrowing.
+    """
+    findings = check_source(
+        source.format(word=GENERIC_WORD), MANIFEST, "ccf.deployment.manifest"
+    )
+    assert _rules(findings) == [RULE_SUBSTRATE_NAME]
+    assert GENERIC_WORD in findings[0]
+
+
+@pytest.mark.skipif(
+    not GENERIC_STEMS_IN_VOCABULARY,
+    reason="no adapter is named for a word on the generic list",
+)
+def test_a_generic_stem_still_counts_toward_the_prose_threshold() -> None:
+    # The escape is about compound *tokens*, not about prose: a docstring that
+    # lists it alongside two others is still a catalogue.
+    words = [GENERIC_WORD] + [
+        word for word in VOCABULARY if word != GENERIC_WORD
+    ][: PROSE_DISTINCT_THRESHOLD - 1]
+    findings = check_source(
+        _docstring_module(words), MANIFEST, "ccf.deployment.manifest"
+    )
+    assert _rules(findings) == [RULE_SUBSTRATE_PROSE]
+
+
+def test_a_distinctive_stem_keeps_the_loose_boundary(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The trade is per-word, not global.
+
+    A stem that is not on the generic list still matches inside a compound
+    token, which is what catches a reintroduced `<name>_dsn` parameter. Pinned
+    against a synthetic adapter package so the assertion does not depend on
+    which adapters this repository happens to ship.
+    """
+    backends = tmp_path / "src" / "ccf" / "graph" / "backends"
+    backends.mkdir(parents=True)
+    (backends / "zzquux_write.py").write_text("", encoding="utf-8")
+
+    findings = check_source(
+        "zzquux_dsn: str | None = None\n",
+        MANIFEST,
+        "ccf.deployment.manifest",
+        base=tmp_path,
+    )
+    assert _rules(findings) == [RULE_SUBSTRATE_NAME]
+
+
+def test_a_generic_stem_in_a_synthetic_package_is_matched_strictly(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The measured half of WR-04: the trade pinned, not left latent.
+
+    A synthetic adapter package whose stem is on the generic list, so the
+    behaviour is asserted over a vocabulary this test controls rather than over
+    whichever adapters ship today. Both directions in one place: the compound
+    token is silent, the whole token still fires.
+    """
+    assert GENERIC_WORD_STEMS, "an escape with no entries measures nothing"
+    word = sorted(GENERIC_WORD_STEMS)[0]
+    backends = tmp_path / "src" / "ccf" / "graph" / "backends"
+    backends.mkdir(parents=True)
+    (backends / f"{word}_write.py").write_text("", encoding="utf-8")
+
+    quiet = check_source(
+        f'MODE = "in-{word}"\n', MANIFEST, "ccf.deployment.manifest", base=tmp_path
+    )
+    loud = check_source(
+        f'BACKEND = "{word}"\n', MANIFEST, "ccf.deployment.manifest", base=tmp_path
+    )
+    assert quiet == []
+    assert _rules(loud) == [RULE_SUBSTRATE_NAME]
 
 
 def test_a_docstring_is_not_a_code_position() -> None:
@@ -234,6 +393,13 @@ def test_the_registry_is_not_exempt_and_does_not_need_to_be() -> None:
         "REGISTRATIONS: dict[str, object] = {}\n"
     )
     assert check_source(source, MANIFEST, "ccf.graph.registry") == []
+
+
+def test_the_generic_stem_escape_has_exactly_one_reviewed_entry() -> None:
+    # Same discipline as the exempt set below and for the same reason: this is
+    # the other place the checker gives ground, so growing it should be a
+    # decision somebody makes on purpose rather than a line somebody adds.
+    assert GENERIC_WORD_STEMS == frozenset({"memory"})
 
 
 def test_the_exempt_set_has_exactly_two_reviewed_entries() -> None:
