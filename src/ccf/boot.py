@@ -139,25 +139,60 @@ def _refuse_undeclared_secrets(
     Built from key names only. No value is read, so nothing here needs the
     sanitizing :func:`ccf.graph.registry.validate_connection` performs, and the
     message reads in the same shape that one does: adapter, then field.
+
+    **It also performs the reconciliation** :class:`ResolvedSecret` says it
+    exists for (review finding WR-09). That class justifies itself on the two
+    facts travelling together — "a pin cannot record a reference the value did
+    not come from and no caller has to keep two mappings in step" — but the
+    mapping *key* is what selects the config field here, and nothing read
+    ``secret.field`` at all. A direct caller could pass a credential keyed by
+    one field whose own record named another, and the mismatch was accepted in
+    silence: the store got one field and the pin recorded a reference resolved
+    for a different one. The manifest path happened to keep them in step
+    because :func:`ccf.deployment.manifest._resolve_secret_references` writes
+    both from one source — but that is the caller being careful rather than the
+    contract holding, and ``boot`` is public and documented for direct use.
     """
     undeclared = sorted(set(supplied) - set(declared))
-    if not undeclared:
-        return
-    known = ", ".join(sorted(declared)) if declared else "none"
-    lines = [
-        f"  {field} — not a credential field of this adapter"
-        for field in undeclared
-    ]
-    raise ValueError(
-        "\n".join(
-            [
-                f"backend {adapter_name!r}: credentials were supplied for"
-                " fields it does not declare:",
-                *lines,
-                f"  declared credential fields: {known}",
-            ]
+    if undeclared:
+        known = ", ".join(sorted(declared)) if declared else "none"
+        lines = [
+            f"  {field} — not a credential field of this adapter"
+            for field in undeclared
+        ]
+        raise ValueError(
+            "\n".join(
+                [
+                    f"backend {adapter_name!r}: credentials were supplied for"
+                    " fields it does not declare:",
+                    *lines,
+                    f"  declared credential fields: {known}",
+                ]
+            )
         )
+
+    disagreeing = sorted(
+        key for key, secret in supplied.items() if secret.field != key
     )
+    if disagreeing:
+        lines = [
+            f"  {key} — its own record names the field {supplied[key].field!r}"
+            for key in disagreeing
+        ]
+        raise ValueError(
+            "\n".join(
+                [
+                    f"backend {adapter_name!r}: a resolved credential is keyed"
+                    " by a field its own record does not name:",
+                    *lines,
+                    "  The key and the record's `field` are one fact. A caller"
+                    " that can desynchronize them is the two-parallel-mappings"
+                    " problem ResolvedSecret exists to remove — the store would"
+                    " receive one field while the replay pin recorded a"
+                    " reference resolved for another.",
+                ]
+            )
+        )
 
 
 def boot(
@@ -241,8 +276,9 @@ def boot(
         ccf.graph.registry.InvalidBackendConfig: ``connection`` does not
             satisfy the resolved adapter's contract.
         ValueError: ``secrets`` names a field the resolved adapter does not
-            declare as a credential field; or discovery found a packaging
-            conflict among the installed adapters.
+            declare as a credential field; or a supplied credential is keyed by
+            a field its own record does not name; or discovery found a
+            packaging conflict among the installed adapters.
         ccf.graph._writer.SingleWriterViolation: a live writer already exists
             for this graph.
         ccf.controlplane.registry.ControlPlaneMissing: a pinned key or version

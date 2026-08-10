@@ -355,8 +355,17 @@ class ResolvedSecret(CCFContract):
     so :class:`BackendRegistration` and every adapter constructor are untouched
     by this shape. The reference name travels only as far as the pin.
 
+    The reconciliation is *performed*, not merely made possible:
+    :func:`ccf.boot.boot` refuses a credential whose ``field`` disagrees with
+    the key it was supplied under. Before that check the field was written and
+    never read anywhere in ``src/``, so a direct caller could desynchronize the
+    two and the store would receive one field while the pin recorded a
+    reference resolved for another — the exact failure this class is written
+    against, surviving inside it (review finding WR-09).
+
     Attributes:
-        field: The config field this credential satisfies.
+        field: The config field this credential satisfies. Must equal the key
+            it is supplied under; ``boot`` refuses the pair otherwise.
         ref_name: The name of the reference it was resolved from.
         value: The resolved credential.
     """

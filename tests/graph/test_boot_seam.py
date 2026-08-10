@@ -453,6 +453,57 @@ def test_the_pin_records_the_reference_name_never_the_field_or_the_value(
         handle.close()
 
 
+def test_a_credential_keyed_by_a_field_its_record_disowns_is_refused(
+    secretful_adapter: str, banking_spec: Any
+) -> None:
+    """WR-09 — the reconciliation ``ResolvedSecret`` says it exists for.
+
+    That class justifies itself on the field and the reference name travelling
+    together, so "a pin cannot record a reference the value did not come from".
+    But ``boot`` keyed everything off the mapping key and read ``secret.field``
+    nowhere, so the two could disagree in silence: the adapter's store would be
+    handed the credential under one field while the replay pin recorded a
+    reference that was resolved for another. Both halves are then wrong and
+    neither is detectable from the pin, which is the artifact the audit story
+    rests on.
+
+    The refusal names both the key and the field the record carries, because
+    "these two disagree" is unactionable without saying which two.
+    """
+    from ccf.boot import boot
+    from ccf.controlplane.registry import ControlPlaneRegistry
+
+    control_plane = ControlPlaneRegistry()
+    spec_version = control_plane.register("probe/spec", banking_spec)
+    policy_version = control_plane.register("probe/policy", {"regime": "probe"})
+    disowned = "a_field_this_record_does_not_name"
+
+    with pytest.raises(ValueError) as caught:
+        boot(
+            backend=secretful_adapter,
+            secrets={
+                # Keyed by the field the adapter declares; the record inside
+                # names a different one. The adapter is satisfied, so nothing
+                # else in the boot has cause to notice.
+                PROBE_CREDENTIAL_FIELD: ResolvedSecret(
+                    field=disowned,
+                    ref_name=PROBE_REFERENCE_NAME,
+                    value=SecretStr(PROBE_SECRET_VALUE),
+                )
+            },
+            registry=control_plane,
+            resolution_spec_key="probe/spec",
+            resolution_spec_version=spec_version,
+            policy_bundle_key="probe/policy",
+            policy_bundle_version=policy_version,
+        )
+
+    message = str(caught.value)
+    assert PROBE_CREDENTIAL_FIELD in message
+    assert disowned in message
+    assert PROBE_SECRET_VALUE not in message
+
+
 def test_the_adapter_version_is_the_declaring_distributions(
     secretful_adapter: str,
 ) -> None:
