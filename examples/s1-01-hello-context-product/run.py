@@ -1,25 +1,44 @@
-"""examples/s1-01-hello-context-product — wave-2 placeholder driver.
+"""examples/s1-01-hello-context-product — the thin driver, and nothing else.
 
-**Plan 16-05 REPLACES this file at wave 3** with the full seven-step Section 1
-driver. It replaces it in place; it does not delete it and recreate it, and
-the wave-3 executor should expect to find this file already here.
+Wire ``deployment.py`` into ``spine.py`` and exit. Every fabric call is in
+``spine.py``; every domain value is in ``artifacts/*.yaml``; this file is the
+three lines that put them together, and it is deliberately not a second spine.
 
-Why it exists at wave 2 rather than at wave 3. The tree-wide artifact-header
-gate (``tests/examples/test_artifact_schema_headers.py``) defines an *example
-root* as a directory that directly contains ``run.py``, and closes a two-sided
-bijection between example roots and covered ``artifacts/`` directories. Plan
-16-02 ships this directory's ``artifacts/`` tree. Without this file in the same
-commit the bijection would have a right-side violation — a covered artifact
-directory under no example root — from wave 2 until wave 3.
+**What the example is.** A KYC analyst at a fictional bank asks *"who ultimately
+owns Acme Corporation?"* — a question a vector store over chunked documents
+structurally cannot answer, because the answer is not in any passage. Jane Doe's
+real interest is 12.0% directly plus 60.0% of a holding company that itself owns
+30.0%, which is 30.0% in total and crosses the regime's 25.0% threshold. No
+document states 30.0%. The fabric traverses an ownership chain, aggregates
+across hops, filters on a jurisdiction-conditioned threshold, and serves the
+result as a typed, gated, replay-ready **Context Product**. It is deterministic,
+offline, keyless, model-free — and there is no agent anywhere in it (phase 16
+CONTEXT `D-12`).
 
-What it does: materialise the declared KYC/UBO source estate under a
-caller-supplied output directory, and exit 0. Nothing here reaches CCF's
-Context Graph; ``source_estate`` writes an *enterprise source system* and
-L1 ingress is what reads it (phase 16 CONTEXT D-04).
+**It asserts nothing and prints nothing** (`D-09`). Its assertions live in
+``tests/examples/test_s1_01_output.py``, where a test runner will run them and a
+failure can fail a build. ``make example-s1-01`` exiting 0 means the spine
+executed; it is not a correctness result.
 
-It carries no checks and no output of its own (ERGO-16 / phase 16 CONTEXT
-D-09). ``tests/examples/test_source_estate.py`` is where the estate's
-properties are stated, because that is where a failure can fail a build.
+**Every domain value is loaded from ``artifacts/*.yaml``** and enumerated by
+``artifacts/manifest.yaml`` — entity classes, source systems, identifiers, the
+ownership threshold, the decimal scale, the screening query, the TTLs, the
+temporal boundary, the subject of the question itself. Deleting the artifacts
+leaves this example with nothing meaningful to run (CLAUDE.md §6.4, the
+No-Hardcoding Rule).
+
+**The substrate is a value in a configuration document, not a fact about this
+code.** ``artifacts/manifest.yaml`` says ``backend: sqlite`` — a kind, with no
+DSN, host, path or credential anywhere near it. Change the document, not the
+code.
+
+Run it: ``make example-s1-01`` (or
+``PYTHONPATH=src:runtime python examples/s1-01-hello-context-product/run.py``).
+
+``--estate`` materialises the declared enterprise source estate instead — the
+world that exists before any fabric does, which ``artifacts/events.yaml``
+selects from. Nothing it writes enters CCF's Context Graph (phase 16 CONTEXT
+`D-04`).
 """
 
 from __future__ import annotations
@@ -28,38 +47,57 @@ import argparse
 import pathlib
 import sys
 import tempfile
-from typing import Any
 
-import source_estate
+EXAMPLE_DIR = pathlib.Path(__file__).resolve().parent
+
+# The example directory is not a package, so its three modules find each other
+# the way every multi-module example in this suite does.
+sys.path.insert(0, str(EXAMPLE_DIR))
+
+import deployment  # noqa: E402
+import source_estate  # noqa: E402
+import spine  # noqa: E402
 
 
-def run(*, root: pathlib.Path) -> dict[str, Any]:
-    """Materialise the declared estate under ``root`` and return its manifest."""
+def run(*, root: pathlib.Path) -> spine.Assembled:
+    """Assemble and serve one ultimate-beneficial-ownership Context Product."""
+    return spine.assemble_and_serve(deployment.KycDeployment(), root=root)
+
+
+def materialise_estate(*, root: pathlib.Path) -> dict[str, object]:
+    """Write the declared enterprise source estate under ``root``.
+
+    Separate from :func:`run` because it is a separate thing: the estate is an
+    enterprise source system, not CCF state. ``artifacts/events.yaml`` is the
+    SELECTION of it this Context Product needs, expressed as L1 envelopes —
+    CCF reads an estate and assembles selectively, and never mirrors one
+    wholesale into its own graph (`D-04`).
+    """
     return source_estate.generate(source_estate.load_declaration(), root)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Materialise the declared KYC/UBO enterprise source estate as"
-            " standalone source-system files (JSONL + SQLite). Nothing this"
-            " writes enters CCF's Context Graph."
+            "Assemble and serve one ultimate-beneficial-ownership Context"
+            " Product from the declared KYC/UBO artifacts."
         )
     )
     parser.add_argument(
-        "--out",
+        "--estate",
         type=pathlib.Path,
         default=None,
+        metavar="DIR",
         help=(
-            "directory to write the estate into; omitted, a scratch directory"
-            " is used and discarded"
+            "materialise the declared enterprise source estate into DIR and"
+            " exit, instead of running the fabric"
         ),
     )
-    destination = parser.parse_args(argv).out
+    destination = parser.parse_args(argv).estate
     if destination is not None:
-        run(root=destination)
+        materialise_estate(root=destination)
         return 0
-    with tempfile.TemporaryDirectory(prefix="ccf-s1-01-estate-") as scratch:
+    with tempfile.TemporaryDirectory(prefix="ccf-s1-01-") as scratch:
         run(root=pathlib.Path(scratch))
     return 0
 

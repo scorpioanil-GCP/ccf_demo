@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.resolution-spec.json
+# The KYC/UBO entity-resolution spec — this deployment's declared vocabulary
+# (phase 16 CONTEXT D-03). Everything here is a *value*: entity classes,
+# relationship types, attribute names. None of it exists in `/src`, none of it
+# exists in `../spine.py`, and none of it exists in `../deployment.py`
+# (CLAUDE.md §6.4, the No-Hardcoding Rule).
+#
+# It mirrors the *shape* the assembly worker accepts (whitepaper §7.3:
+# identity_keys mint the canonical entity URI, INV-CH7-18).
+#
+# WHY `ownership_stake` IS AN ENTITY CLASS AND NOT AN EDGE ATTRIBUTE.
+# A CCF relationship is a typed, first-class edge between two resolved entities
+# (INV-CH7-20); attributes live on entity claims. An ownership interest is a
+# *qualified* relation — it carries a percentage that belongs to the pair, not
+# to either end — so it is modelled here as its own entity, with the two
+# endpoints and the percentage as its attributes and typed edges recording
+# incidence. This is the standard reification of a qualified relation, and it is
+# exactly the shape 16-RESEARCH.md FINDING F-1 showed the source data could not
+# express: in the shipped FIBO records `ownershipPercent` is an attribute of the
+# *party*, so one party holding two interests carries one number for both. Hans
+# Müller is the cleanest witness — his party record carries no percentage at all
+# and his stake carries 5.0.
+#
+# The direction of an ownership interest is therefore read from the stake's own
+# `stake_owner_ref` / `stake_target_ref` attributes, not from edge direction:
+# a corporate stake resolves one corporation per envelope, so its two incidence
+# edges are emitted by two envelopes and are indistinguishable by direction. The
+# projection reads the attributes; the traversal operator reads the edges. Each
+# gets what it needs and neither is asked for what it cannot supply.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: every entity class name, match key, attribute name and
+# relationship type is [ADAPT]; the keys `entity_rules`, `match_key`,
+# `entity_class`, `identity_keys`, `attribute_keys`, `relationship_rules`,
+# `relationship_type`, `subject_entity_class` and `object_entity_class` are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+# Source payload vocabulary -> E nodes. `match_key` selects a rule by presence;
+# `identity_keys` mint the canonical URI, so the same counterparty arriving from
+# two source systems converges on one node without either system knowing about
+# the other.
+entity_rules:
+  # Natural persons. The class the UBO question is *about*: a beneficial owner
+  # is a human being, not a holding company.
+  - match_key: party_ref
+    entity_class: party
+    identity_keys: [party_ref]
+    attribute_keys:
+      - party_ref
+      - party_name
+      - party_nationality
+      - party_role
+      - party_classification
+
+  # Legal entities on the ownership graph.
+  - match_key: corporation_ref
+    entity_class: corporation
+    identity_keys: [corporation_ref]
+    attribute_keys:
+      - corporation_ref
+      - corporation_legal_name
+      - corporation_jurisdiction
+      - corporation_kyc_status
+      - corporation_classification
+
+  # The reified ownership interest. See the header note above for why this is an
+  # entity rather than an edge property.
+  - match_key: stake_ref
+    entity_class: ownership_stake
+    identity_keys: [stake_ref]
+    attribute_keys:
+      - stake_owner_ref
+      - stake_target_ref
+      - ownership_percent
+      - stake_classification
+
+  # Registered addresses. Present so the TYPED half of the traversal bound has
+  # something real to exclude, and so the depth bound has a real seventh hop.
+  - match_key: address_ref
+    entity_class: registered_address
+    identity_keys: [address_ref]
+    attribute_keys:
+      - address_label
+      - address_classification
+
+  # Name-screening hits: entities whose names resemble a client's without being
+  # that client. The class the Similarity operator ranks.
+  - match_key: screening_ref
+    entity_class: screening_candidate
+    identity_keys: [screening_ref]
+    attribute_keys:
+      - screening_legal_name
+      - screening_classification
+
+# Typed first-class edges, emitted when one envelope resolves both endpoint
+# classes — co-occurrence in one source event is the evidence.
+relationship_rules:
+  - relationship_type: holds_stake
+    subject_entity_class: party
+    object_entity_class: ownership_stake
+
+  # Incidence, not direction. A stake is incident to the corporation that holds
+  # it and to the corporation it is held in; which is which is the stake's own
+  # `stake_owner_ref` / `stake_target_ref` to say.
+  - relationship_type: stake_incident_to
+    subject_entity_class: ownership_stake
+    object_entity_class: corporation
+
+  - relationship_type: registered_at
+    subject_entity_class: corporation
+    object_entity_class: registered_address
+
+  - relationship_type: screened_against
+    subject_entity_class: corporation
+    object_entity_class: screening_candidate

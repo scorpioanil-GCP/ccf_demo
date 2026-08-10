@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# What the served product should contain, as declared by the deployment that
+# authored the events (KYC/UBO domain, phase 16 CONTEXT D-03).
+#
+# This document exists so that `tests/examples/test_s1_01_output.py` has a
+# source for its domain expectations OTHER THAN ITSELF. A value the test module
+# authored would be the test agreeing with itself about what this deployment's
+# vocabulary says; read from here, the assertion is against the deployment's own
+# declaration. CINV-01 reaches `tests/` (D-IMPL-78) and would flag an inlined
+# domain literal, but the discipline is the point, not the lint.
+#
+# **`role: load` in the manifest.** An expectation is not something the fabric
+# is permitted to do, so it has no business in Control Plane state or in replay
+# dimension 2. It is parsed, validated, and handed back — which is exactly what
+# `role: load` means.
+#
+# Nothing in the pipeline derives these numbers from this file. They follow from
+# `events.yaml`, `resolution-spec.yaml` and the four operator parameter sets, so
+# changing either side alone makes the assertions fail. That is what makes them
+# independent expectations rather than propagation checks.
+#
+# **Expected-output changes are a reviewed event.** If you enrich the artifacts,
+# run `pytest tests/examples/test_s1_01_output.py`, review the failure, then
+# deliberately edit this file to match what you reviewed — in the same commit as
+# the enrichment. There is no regeneration target and none will be added.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: fibo-kyc.expected-product
+
+declaration:
+  # --- what survives the four operators ------------------------------------
+  # `registered_address` is absent from this list although three addresses were
+  # ingested and resolved: `registered_at` is not one of the edge types the
+  # traversal was given, so a typed neighborhood never reaches them.
+  entity_classes:
+    - corporation
+    - ownership_stake
+    - party
+    - screening_candidate
+
+  entity_count: 17
+
+  entity_count_by_class:
+    corporation: 5
+    ownership_stake: 8
+    party: 3
+    screening_candidate: 1
+
+  relationship_types:
+    - holds_stake
+    - screened_against
+    - stake_incident_to
+
+  # --- the answer -----------------------------------------------------------
+  # Aggregate interest in the subject, per surviving natural person, at the
+  # scale `policy-bundle.yaml` declares.
+  ownership_percent_by_party:
+    "http://example.org/fibo/JaneDoe": "30.000"
+    "http://example.org/fibo/JohnSmith": "45.000"
+    "http://example.org/fibo/SarahChen": "1.125"
+
+  # Those at or above the regime's 25.0% threshold. Jane Doe is here ONLY
+  # because 12.0% direct and 60.0% x 30.0% indirect were added together; no
+  # record in any source system states her real figure.
+  beneficial_owners:
+    - party_ref: "http://example.org/fibo/JaneDoe"
+      aggregate_ownership_percent: "30.000"
+    - party_ref: "http://example.org/fibo/JohnSmith"
+      aggregate_ownership_percent: "45.000"
+
+  # --- what is deliberately NOT in the answer, and which operator removed it -
+  # Each of these is a witness. If any of them appears, the operator named
+  # beside it stopped working.
+  absent_by_policy:
+    # A `jurisdiction-restricted` natural person, substituted out along with the
+    # `holds_stake` edge that would announce him by its dangling end.
+    - "http://example.org/fibo/HansMueller"
+
+  absent_by_similarity:
+    # Scores 0 against the client's legal name; below the 40 floor.
+    - "http://example.org/fibo/SearchDemo2"
+
+  absent_by_temporal:
+    # A share transfer recorded before the boundary and legally effective a
+    # month after it, and the incoming shareholder it would make a beneficial
+    # owner. The fabric knows about both; neither is valid on 1 August.
+    - "obs:17"
+    - "http://example.org/fibo/MarcusVale"
+
+  absent_by_traversal_depth:
+    # The stake the restricted director alone held. With him substituted out it
+    # sits at hop seven of a six-hop walk.
+    - "rel:10"
+
+  absent_by_traversal_type:
+    # All three registered addresses: `registered_at` is not a permitted edge
+    # type, so a typed neighborhood never reaches them.
+    - "http://example.org/fibo/AcmeHQ"
+    - "http://example.org/fibo/BetaOffice"
+    - "http://example.org/fibo/GammaHQ"
+
+  # --- the near miss --------------------------------------------------------
+  # Sarah Chen sits at exactly 25.0% one hop down and at 1.125% of the subject
+  # three hops down. Depth is not significance, and the aggregation says so.
+  boundary_case_party: "http://example.org/fibo/SarahChen"
