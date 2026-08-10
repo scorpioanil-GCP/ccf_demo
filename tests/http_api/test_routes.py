@@ -705,3 +705,45 @@ def test_backends_refuses_503_naming_the_conflicting_distributions(
     # Not an empty list under a 200: fail-closed exists so that nothing
     # answers past the ambiguity, and an empty list is a different fact.
     assert "backends" not in response.json()
+
+
+def test_backends_refuses_503_when_the_sdks_own_adapter_package_is_unreadable(
+    app: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Close-review F5 — the registry's fourth refusal is not a ``ValueError``.
+
+    ``declared_names`` documents four refusals. Three are ``ValueError``
+    subclasses; the fourth — the SDK's own adapter package not being a readable
+    directory — is a ``RuntimeError``, and the route's catch tuple had been
+    assembled from the three that shared a base class. So the one refusal whose
+    remedy an operator is least likely to guess (`pip install
+    --force-reinstall` **the SDK**, not an adapter) escaped as an unshaped 500,
+    which is exactly the loss this route's docstring rejects for a packaging
+    conflict.
+
+    Driven through the *real* ``declared_names`` with only the directory lookup
+    redirected, rather than by injecting a ``RuntimeError`` into the route. The
+    claim is that the registry's own refusal reaches an operator intact, and an
+    injected exception would assert the catch tuple's contents while proving
+    nothing about the path — the shape of mistake that let this through in the
+    first place.
+    """
+    import pathlib
+
+    from ccf.graph import registry as registry_module
+
+    monkeypatch.setattr(
+        registry_module,
+        "_backends_directory",
+        lambda: pathlib.Path("/nonexistent/ccf-adapter-package-f5"),
+    )
+
+    response = call(app, "GET", "/backends")
+
+    assert response.status_code == 503
+    detail = response.json()["detail"]
+    assert detail["error_code"] == "backend-registry-conflict"
+    # The remedy survives the trip, which is the whole reason this is a 503.
+    assert "force-reinstall" in detail["message"]
+    assert "not readable" in detail["message"]
+    assert "backends" not in response.json()

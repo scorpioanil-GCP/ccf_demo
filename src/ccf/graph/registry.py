@@ -777,20 +777,66 @@ def _load_third_party(
 
     Raised outside the handler, on :func:`validate_connection`'s precedent, so
     the third-party exception does not ride along on ``__context__`` where a
-    structured logger would find its text. The type name and message are
-    reproduced deliberately — they are the diagnosis — but they are reproduced
-    into *this* refusal rather than left attached to it.
+    structured logger would find its text.
+
+    **The exception's own message is not reproduced** (close-review finding F1,
+    reached independently by three of four reviewers). Raising outside the
+    handler clears ``__context__`` — but the first version of this function had
+    already copied the text out into ``f"{type(failure).__name__}: {failure}"``
+    before the handler exited, so the mitigation removed the *object* and kept
+    the *string*. That string is written by an installed third party's
+    module-level body, and module-level bodies are exactly where a client gets
+    constructed against a DSN or a token gets read out of the environment: a
+    ``postgres://user:secret@host/db`` or an ``os.environ`` value inside the
+    raised message is not a hypothetical shape. This refusal reaches operator
+    logs, the CLI's stderr and ``GET /backends``'s ``503`` body, which under
+    the HTTP front door's documented default needs no credential.
+
+    Before D-IMPL-93 no arbitrary installed distribution's exception text could
+    reach a CCF refusal at all, because the adapter set was closed. This module
+    opened that seam deliberately, so it also owes the seam the discipline
+    :func:`validate_connection` documents one screen down for CCF's *own*
+    validation errors — where ``detail["input"]`` is never read and neither is
+    ``str(error)``. That care was applied to the half the SDK wrote; this is
+    the same care applied to the half a stranger wrote.
+
+    What survives is what the remedy actually uses. The exception **type** is a
+    class name — an identifier, not a formatted string — and `origin` carries
+    the declaring distribution, its version, and the entry point's own
+    ``module:attribute`` target, which is the diagnosis for the two commonest
+    cases (a missing module and a missing attribute) without reading the
+    stranger's prose at all. "Which distribution, and reinstall it" is
+    answerable from that alone.
+
+    **No debug-level log of the dropped text, either.** Considered and
+    rejected: a log line is the same disclosure through a quieter door, and a
+    deployment shipping structured logs to an aggregator would have moved the
+    credential from one collection surface to another rather than off the path
+    — which is the mistake this fix exists to undo, repeated at a different
+    severity. Whoever needs the third party's own message can reach it where it
+    belongs, by running the failing import in the environment that holds the
+    credential. :func:`validate_connection` logs nothing for the same reason.
+
+    The residual, stated rather than claimed away: an exception *class name* is
+    still third-party text. It is an identifier rather than a rendered message,
+    so it cannot carry an interpolated value — which is the whole of why it is
+    the piece kept.
     """
     try:
         return entry_point.load()
     except Exception as failure:
-        detail = f"{type(failure).__name__}: {failure}"
+        # The type, and nothing else. ``str(failure)`` is a third party's
+        # arbitrary string and this refusal is reachable from an
+        # unauthenticated HTTP body; do not put it back. See the docstring.
+        failure_type = type(failure).__name__
     raise ValueError(
-        f"adapter {name!r} is declared by {origin}, but its declaration could"
-        f" not be loaded ({detail}). The distribution that ships it is"
-        " installed and its declaration is broken, which is a different"
-        " problem from an adapter that is not installed: nothing here is"
-        " fixed by installing something."
+        f"adapter {name!r} is declared by {origin}, but loading that"
+        f" declaration raised {failure_type}. Its own message is deliberately"
+        " not reproduced — run that import directly to read it. The"
+        " distribution is installed and its declaration is broken, which is a"
+        " different problem from an adapter that is not installed: nothing is"
+        " fixed by installing something, so `pip install --force-reinstall`"
+        " the distribution named above or report the failure to its author."
     )
 
 

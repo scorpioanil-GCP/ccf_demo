@@ -34,13 +34,23 @@ happened to have it.
 **When the registry refuses.** :func:`~ccf.graph.registry.declared_names` is
 fail-closed: any installed distribution's bad entry-point metadata — a
 duplicate, a reserved name, a malformed one, whoever declared it — refuses
-the whole call. This route calls it directly, so the one command an operator
-reaches for to answer "which adapters does this deployment have" raises in
-exactly the case they need it. Letting that escape would arrive as an opaque
-500 and throw away the one thing the refusal was written to carry: the name
-of the offending distribution, which is what tells a packaging conflict apart
-from a missing adapter. So it is caught here and returned as ``503`` in the
+the whole call, and so does the SDK's own adapter package not being a
+readable directory. This route calls it directly, so the one command an
+operator reaches for to answer "which adapters does this deployment have"
+raises in exactly the case they need it. Letting that escape would arrive as
+an opaque 500 and throw away the one thing the refusal was written to carry:
+the remedy — the name of the offending distribution, which tells a packaging
+conflict apart from a missing adapter, or the instruction to reinstall the SDK
+rather than an adapter. So it is caught here and returned as ``503`` in the
 API's existing typed-refusal shape, carrying the registry's own message.
+
+**All four of the registry's documented refusals, not the three that share a
+base class** (close-review finding F5). The unreadable-package refusal is a
+``RuntimeError`` and the other three are ``ValueError`` subclasses, so a catch
+tuple assembled from the ones that *looked* alike let the fourth through as an
+unshaped 500. It is the case where an unshaped 500 costs most: the remedy is
+`pip install --force-reinstall` of the SDK, which is the one an operator
+staring at a backend endpoint is least likely to guess.
 
 ``503`` because the deployment is misconfigured rather than the request
 malformed. Not ``200`` with an empty list, because an empty list is a
@@ -127,13 +137,24 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         try:
             names = declared_names()
         except (
-            # All three are ``ValueError`` subclasses today, so the last
-            # arm alone would catch them; naming them keeps the handler
-            # correct if the registry ever narrows its hierarchy, and says
-            # at the catch site which three refusals are expected here.
+            # The first three are ``ValueError`` subclasses today, so the
+            # ``ValueError`` arm alone would catch them; naming them keeps the
+            # handler correct if the registry ever narrows its hierarchy, and
+            # says at the catch site which refusals are expected here.
             DuplicateBackendName,
             ReservedBackendName,
             ValueError,
+            # The fourth is **not** a ``ValueError`` subclass, which is exactly
+            # how it escaped (close-review finding F5). ``declared_names``
+            # documents it in its own ``Raises``: the SDK's own adapter package
+            # not being a readable directory is *refused* rather than reported
+            # as "no built-ins", because a zipped, frozen or damaged install
+            # needs the SDK reinstalled and the "install an adapter" message
+            # cannot fix it. That refusal was written for precisely the
+            # operator who reaches this endpoint, and an unshaped 500 threw it
+            # away — the same loss the paragraph above rejects for a packaging
+            # conflict, in the one case where the remedy is least guessable.
+            RuntimeError,
         ) as conflict:
             raise HTTPException(
                 status_code=503,

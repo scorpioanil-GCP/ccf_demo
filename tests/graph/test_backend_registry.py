@@ -683,6 +683,94 @@ def test_a_third_party_declaration_that_cannot_load_is_refused_by_name(
     assert caught.value.__cause__ is None
 
 
+#: A credential in the shape one actually arrives in — a DSN carrying a
+#: password in its userinfo. Distinctive enough that a substring search for it
+#: cannot match anything in a refusal by accident.
+_LEAKABLE_CREDENTIAL = "postgres://svc:hunter2f1secret@db.internal:5432/graph"
+
+#: A throwaway adapter that imports right up to the point where it builds a
+#: client and raises carrying the credential it was building against.
+#:
+#: **A third failure shape, and the only one that can leak.** The two cases
+#: parametrized above — a missing module and a missing attribute — raise with
+#: text *the interpreter* wrote, so a refusal that echoed them disclosed
+#: nothing an operator did not already supply. This one raises with text a
+#: *stranger* wrote, in the one place a stranger's code runs during resolution:
+#: an installed distribution's module-level body, which is exactly where a
+#: client gets constructed against a DSN.
+_LEAKING_PROBE_SOURCE = '''\
+"""A throwaway adapter whose module-level body raises carrying a credential."""
+
+raise RuntimeError("connection refused for CREDENTIAL while registering")
+'''
+
+
+def test_a_third_party_load_failure_does_not_echo_its_own_message(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Close-review F1 — the seam this module opened is not a credential path.
+
+    Three of four reviewers reached this independently. ``_load_third_party``
+    raised outside its handler, which correctly leaves ``__context__`` and
+    ``__cause__`` empty — but it had already copied the failure's text out into
+    the refusal, so the mitigation removed the exception object and kept the
+    string. This refusal reaches operator logs, the CLI's stderr and
+    ``GET /backends``'s ``503`` body, which the HTTP front door serves with no
+    credential under its documented default.
+
+    The test is written in both directions on purpose. Asserting only that the
+    credential is absent passes on a refusal that says nothing at all — which
+    is how a redaction test rots into a test of the empty string. So it also
+    asserts the three things the remedy needs and that survive: the declaring
+    distribution, the adapter name, and the exception *type*, which is an
+    identifier rather than a rendered message and so cannot carry a value.
+    """
+    adapter_name = "brokenload"
+    module_name = "ccf_probe_credential_in_message"
+    (tmp_path / f"{module_name}.py").write_text(
+        _LEAKING_PROBE_SOURCE.replace("CREDENTIAL", _LEAKABLE_CREDENTIAL),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(registry, "_builtin_names", dict)
+    monkeypatch.setattr(
+        registry,
+        "_declared_entry_points",
+        lambda: _entry_points(
+            _entry_point(
+                name=adapter_name,
+                value=f"{module_name}:REGISTRATION",
+                distribution="ccf-credential-adapter",
+                version="0.1.0",
+            )
+        ),
+    )
+
+    try:
+        with pytest.raises(ValueError) as caught:
+            resolve(adapter_name)
+    finally:
+        sys.modules.pop(module_name, None)
+
+    message = str(caught.value)
+    rendered = repr(caught.value)
+    # The finding itself.
+    assert _LEAKABLE_CREDENTIAL not in message, message
+    assert _LEAKABLE_CREDENTIAL not in rendered, rendered
+    assert "hunter2f1secret" not in message, message
+    assert "connection refused" not in message, message
+    # ...and the refusal is still worth reading, so the assertions above cannot
+    # pass for the wrong reason.
+    assert "ccf-credential-adapter" in message, message
+    assert adapter_name in message, message
+    assert "RuntimeError" in message, message
+    assert "not installed" in message, message
+    # Nothing to walk, either: the object carries no chain to reach the
+    # original text through.
+    assert caught.value.__context__ is None
+    assert caught.value.__cause__ is None
+
+
 def test_a_loaded_object_that_is_not_a_registration_is_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
