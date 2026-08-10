@@ -29,7 +29,7 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 16 — Documentation Rewrite — The Deterministic Path & The Adoption Argument
-Plan: 1 of 21 complete (wave 2 of 12)
+Plan: 4 of 21 complete (wave 3 of 12); 16-02 open at 2/3
 Status: EXECUTING on branch `phase-16` (forked from main @ 06fea5c, per CLAUDE.md
   §2.2 — merge to main happens at the D-GATE-16 entry, not before). Six plans
   carry `autonomous: false` and will halt for Dave: 16-01 (the D-IMPL-94 ruling
@@ -41,7 +41,16 @@ Status: EXECUTING on branch `phase-16` (forked from main @ 06fea5c, per CLAUDE.m
   described Phase 15.4's D-IMPL-93 commission, not Phase 16 — a GSD handler left
   it stranded under a Phase 16 heading. That commission is recorded canonically
   in ROADMAP.md and DECISIONS.md; nothing is lost by removing it here.
-Progress: [#░░░░░░░░░] 5% — 1/21 plans, wave 1 of 12 complete
+Progress: [##░░░░░░░░] 19% — 4/21 plans, waves 1-2 of 12 complete
+  OPEN: 16-02 Task 3 loads the extended FIBO estate into the four DGX stores at
+  192.168.4.76. NEO4J_PASSWORD and PGPASSWORD are not in this environment, so it
+  needs Dave as operator. Dave ruled 2026-08-10 to run waves 3-4 in parallel with
+  that load — 16-05 pins backend: sqlite and 16-07's always-on legs are sqlite +
+  memory only, with the four DGX databases opt-in per D-06. Close 16-02 before
+  wave 5, where 16-12 needs the same credentials as GitHub Actions secrets.
+  Verified before proceeding: the generator's output is a true superset of the
+  shipped FIBO data — 0 entities lost, 0 relationships lost, 5 added, and
+  ownershipPercent present on 9 edges where the originals had it on none.
 Last activity: 2026-08-10 -- Phase 16 execution started (wave 1 of 12)
 
 ## Performance Metrics

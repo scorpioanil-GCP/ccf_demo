@@ -922,7 +922,7 @@ which is theirs."*
 **Requirements**: mints its own DOCS-07..NN at planning; not counted in Coverage
 below. DEMO-01..03 and EXAM-01..05 re-home onto the new suite rather than being
 retired (`D-08`).
-**Plans:** 1/21 plans executed
+**Plans:** 4/21 plans executed (16-02 at 2/3, paused at its DGX checkpoint)
 
 Plans:
 **Wave 1**
@@ -931,10 +931,10 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 16-02-PLAN.md — FIBO source-estate extension: corp→corp ownership edges with per-edge percentages
-- [ ] 16-03-PLAN.md — Section-2 client-leg transport spike: LangGraph + Claude Agent SDK
-- [ ] 16-04-PLAN.md — gate-checker unblock, three standing docs tripwires
-- [ ] 16-21-PLAN.md — repo-wide retirement-coupling sweep, its inventory and its gate (split from 16-04)
+- [ ] 16-02-PLAN.md — FIBO source-estate extension: corp→corp ownership edges with per-edge percentages *(2/3 — Task 3 loads the four DGX stores and needs operator credentials; `roadmap.update-plan-progress` marked this `[x]` because it counts SUMMARY files, and 16-02's SUMMARY is `status: paused-at-checkpoint`)*
+- [x] 16-03-PLAN.md — Section-2 client-leg transport spike: LangGraph + Claude Agent SDK
+- [x] 16-04-PLAN.md — gate-checker unblock, three standing docs tripwires
+- [x] 16-21-PLAN.md — repo-wide retirement-coupling sweep, its inventory and its gate (split from 16-04)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -1016,7 +1016,7 @@ Plans:
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
-| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 1/21 | In Progress|  |
+| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 4/21 | In Progress|  |
 
 ## Coverage
 
