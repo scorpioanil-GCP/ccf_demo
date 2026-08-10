@@ -242,3 +242,57 @@ remaining gap. It is now entirely "private names an adapter must reach for",
 with no remaining case of "a public name that says less than the runtime
 requires" known. The design question — what the supported authoring surface
 should be — is unchanged and still open.
+
+---
+
+## DI-15.4-06 — `cinv04-substrate-name` knows only *built-in* substrate names — **OPEN, needs Dave's ruling**
+
+**Found during:** the close-time cross-AI panel (finding F2, Codex), carried
+unfixed by Dave's ruling when the other six findings were closed. **Filed as its
+own entry after the security audit (UF-4) caught that it had none** — the review
+file and the `D-GATE-15.4` addendum both said F2 was "carried with DI-15.4-05",
+which is wrong: `DI-15.4-05` is the *private-surface* gap (which names an adapter
+author must reach for), and this is the *lint vocabulary* gap (which names the
+rule can see). Related questions about the same seam, but not the same question,
+and F2 was tracked nowhere.
+
+**What.** `substrate_vocabulary()` in `tools/lints/substrate_names.py` derives its
+vocabulary from `*.py` stems in `src/ccf/graph/backends/` and nothing else. So
+`cinv04-substrate-name` enforces *"no **built-in** substrate name in core"*,
+while the phase goal, the ROADMAP and `D-IMPL-93` all state the property as *"no
+substrate name in core"*.
+
+**Failure scenario.** Install a third-party adapter named `demo`. Add
+`if backend == "demo": ...`, or `DEMO_TIMEOUT = 30  # demo needs longer`, to
+`src/ccf/boot.py`. `cinv04-substrate-name` does not fire — `demo` is not in its
+derived set. `cinv02-backend-import` does not fire either: nothing was imported.
+Both structural guarantees pass on exactly the per-adapter substrate coupling
+`D-IMPL-93` exists to forbid.
+
+**Codex's framing, recorded verbatim because it is the accurate one:** this makes
+the third-party "zero substrate cost" claim *"partly true by construction of the
+measurement."* The demo adapter cost zero lines partly because the rule that
+would catch a non-zero cost cannot see its name.
+
+**Why it was not fixed with the other six.** The obvious remedy — consult
+installed entry points — makes the lint **environment-dependent**: green on a
+machine without the adapter installed, red on one with it. A structural invariant
+whose verdict depends on the local virtualenv is a different kind of weak, and
+trading one for the other is a ruling rather than a patch. Dave carried it
+deliberately on 2026-08-09.
+
+**What bounds it meanwhile.** `T-15.4-48`'s mitigation is recorded in
+`15.4-SECURITY.md` as accepted risk **R-15.4-C** rather than unqualified CLOSED,
+precisely so that no register row rests on a guarantee wider than the lint
+actually gives. Any future row that leans on `cinv04-substrate-name` inherits
+that bound.
+
+**Options when Dave rules.** (a) Accept the bound and state it wherever the
+property is claimed — cheapest, and honest, but leaves the recurrence guard
+partial for the case the phase exists to serve. (b) Derive the vocabulary from
+installed entry points and accept environment-dependence, probably with a
+documented "lint is only as complete as the environment" caveat and a CI job that
+installs the demo adapter so CI's verdict is the strict one. (c) Something else —
+e.g. a separate non-lint check that runs where the installed set is known.
+**Zero behavioural effect on the SDK either way**; this is about what the gate
+can prove.
