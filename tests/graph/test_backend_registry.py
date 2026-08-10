@@ -835,27 +835,46 @@ def test_exactly_one_dynamic_import_site_exists_across_both_linted_trees() -> No
     assert sites == {"src/ccf/graph/registry.py": 1}, sites
 
 
-def _make_writer_call_sites(module: ast.Module) -> int:
-    """*Calls* of something named ``make_writer``.
+def _make_writer_references(module: ast.Module) -> int:
+    """Every *reference* to ``make_writer``, not only the ones that are calls.
 
-    The field definition on ``BackendRegistration`` and its type annotation are
-    not calls and are deliberately not counted: the question is who can obtain
-    and invoke a writer constructor, not who can name the field that holds one.
+    Widened from a call-only scan (review finding WR-10). The old form counted
+    ``ast.Call`` nodes whose func was named ``make_writer``, which
+    ``factory = record.make_writer`` followed by ``factory(store, token)``
+    evades, and ``getattr(record, "make_writer")(...)`` evades twice over. It
+    was a typo detector describing itself as a confinement proof — and with
+    CR-02's blind spot removing the lint's ability to see the imports such a
+    module would otherwise need, the widening had no effective control at all.
+
+    An attribute *load* is as much a capability acquisition as the call is: the
+    thing loaded is a writer constructor, and what happens to it next is out of
+    this scan's sight. So attribute references count, string arguments to
+    ``getattr`` count, and bare-name calls still count.
+
+    What is deliberately not counted, because both are the field's *definition*
+    rather than an acquisition of it: the annotated assignment in
+    ``ccf.graph.registry`` that declares the field, and prose. Neither is an
+    ``ast.Attribute`` — the declaration is an ``ast.Name`` target, which is why
+    the two known definition sites need no exemption written here.
     """
     count = 0
     for node in ast.walk(module):
-        if not isinstance(node, ast.Call):
-            continue
-        func = node.func
-        named = (isinstance(func, ast.Attribute) and func.attr == "make_writer") or (
-            isinstance(func, ast.Name) and func.id == "make_writer"
-        )
-        if named:
+        if isinstance(node, ast.Attribute) and node.attr == "make_writer":
+            count += 1
+        elif isinstance(node, ast.Constant) and node.value == "make_writer":
+            # `getattr(record, "make_writer")` — the spelling that evades an
+            # attribute scan by turning the attribute into a string.
+            count += 1
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "make_writer"
+        ):
             count += 1
     return count
 
 
-def test_every_make_writer_call_site_is_the_composition_root() -> None:
+def test_every_make_writer_reference_is_the_composition_root() -> None:
     """T-15.4-43 — the one thing this seam made wider, stated and tested.
 
     ``BackendRegistration.make_writer`` is a public field on a public frozen
@@ -866,12 +885,18 @@ def test_every_make_writer_call_site_is_the_composition_root() -> None:
     the guarded neutral base and still refuses a second live writer per graph
     identity — but D-01's argument is that the lint keeps its exact present
     shape, so the widening is asserted here rather than discovered later.
+
+    **Scope, stated honestly** (WR-10). This scans two trees for references
+    spelled in one of three ways. A name assembled at runtime, or a record
+    passed to something that reaches the field by other means, is beyond it —
+    the same residual class ``cinv02-backend-import`` records for
+    ``importlib.import_module``, and for the same reason.
     """
     sites = {
         path.relative_to(_REPO_ROOT).as_posix(): count
         for path in _python_files()
         if (
-            count := _make_writer_call_sites(
+            count := _make_writer_references(
                 ast.parse(path.read_text(encoding="utf-8"))
             )
         )
