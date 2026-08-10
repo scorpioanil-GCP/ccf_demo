@@ -9,8 +9,9 @@
 
 You are here because you are about to stand a fabric up somewhere real, and
 you need to know what the SDK does for you and — more usefully — what it
-leaves to you. This page answers three questions: where signing keys come
-from, what the rotation story is, and what you must decide before exposing
+leaves to you. This page answers four questions: where signing keys come
+from, how a graph adapter's credentials reach it without entering a versioned
+document, what the rotation story is, and what you must decide before exposing
 the HTTP surface. It is written from shipped mechanism only.
 
 What it does **not** cover: how to run a key-management service, how to
@@ -64,6 +65,43 @@ never a code constant. The typed decision values and the door surfaces are
 documented on the [HITL Protocols](../reference/protocols/hitl.md) page;
 [compose a workflow with HITL](compose-a-workflow-with-hitl.md) shows the
 setting being flipped and the behaviour changing with no code edit.
+
+### 1.3 Graph adapter credentials (`D-IMPL-93`)
+
+A graph adapter that authenticates to something — a token, a password, a
+connection secret — reaches its credential over a path built so the value
+cannot land in a versioned document. Three pieces, and the third is what makes
+the guarantee mechanism rather than discipline.
+
+- **The manifest names, never holds.** `DeploymentManifest.backend_secrets`
+  carries `SecretReference` entries, and each entry is a *pair*: an adapter
+  config field, and the environment variable whose value satisfies it. The
+  value itself never appears in the document. Each config field may be
+  satisfied by exactly one reference — two entries naming one field make
+  "which reference was in force" ambiguous, and that answer feeds the replay
+  record, so the ambiguity is refused at parse.
+- **Resolution happens at boot, into a typed carrier.** `ResolvedSecret` binds
+  the config field, the reference name and the resolved value in one object, so
+  the adapter pin can record *which reference* was in force without recording
+  what it resolved to. A reference the resolved adapter never declared as a
+  credential field is refused, and so is a reference whose variable is unset or
+  empty — a manifest that names a reference has asserted a credential is
+  required, so the fabric refuses rather than connecting anonymously.
+- **A credential cannot be content-hashed, even by accident.** The SDK's
+  canonical-bytes function **refuses a `SecretStr` outright**. That is the load-
+  bearing half: it means no artifact anywhere can carry a resolved credential
+  into a content hash by an author's mistake, rather than everyone being asked
+  to remember not to.
+
+**The deployment rule that follows, and this project's CI follows it.** A
+connection string is a deployment *environment* value, not a governance
+statement. It belongs in the caller-supplied `connection=` mapping handed to
+the fabric at boot — never in a versioned, content-hashed manifest, which is
+why the manifest has no connection field of any kind. The manifest names the
+adapter; the deployment supplies the settings that adapter's own contract
+declares; the two are reconciled loudly at load. Adapter authors: see
+[write a graph backend adapter](write-a-graph-backend-adapter.md) for the
+`secret_fields` side of the same boundary.
 
 ## 2. Rotation posture
 
