@@ -170,6 +170,7 @@ __all__ = [
     "NOT_ADDRESSABLE",
     "NOT_DISCOVERABLE",
     "NO_PAYLOAD_SCHEMA",
+    "NO_REQUEST_CONTRACT",
     "NO_VALIDITY_FLOORS",
     "UNMEASURED_FRESHNESS_SLA",
     "AssemblyMode",
@@ -397,6 +398,26 @@ NOT_ADDRESSABLE = ProductAddress(address_template="not-addressable")
 #: than inferred from a missing field.
 NO_PAYLOAD_SCHEMA = "no-payload-schema"
 
+#: A class that declares no request contract (D-IMPL-98).
+#:
+#: Defined **here**, beside the field it defaults, on
+#: :data:`NO_PAYLOAD_SCHEMA`'s own placement and for a hard reason as well as a
+#: tidy one: :mod:`ccf.products.request` — where the request surface itself
+#: lives — imports :class:`ProductClassRegistrationError` from this module, so
+#: the sentinel cannot live there and still be readable from
+#: :class:`RegisteredProductClass`'s default. It is re-exported from
+#: :mod:`ccf.products.request`, which is where an adopter authoring a contract
+#: will look for it, exactly as :mod:`ccf.products.bind` reads
+#: :data:`NO_PAYLOAD_SCHEMA` from here.
+#:
+#: Carried on **both** halves of the pin so that "no contract" is one visible
+#: state rather than a key and a version disagreeing. The positive assertion is
+#: *this class has not yet declared the questions it answers* — until it does,
+#: its subject and its instant are whatever an artifact happened to author, and
+#: that gap is visible in the declaration rather than inferred from a missing
+#: field.
+NO_REQUEST_CONTRACT = "no-request-contract"
+
 
 class RegisteredProductClass(CCFContract):
     """Class-level governance of one product class, resolved at registration.
@@ -443,6 +464,19 @@ class RegisteredProductClass(CCFContract):
             reason — the schema a payload was held to must be re-resolvable
             years later — or :data:`NO_PAYLOAD_SCHEMA`. The pair moves
             together; half a pin is refused at registration.
+        request_contract_key: Control Plane key of the class's declared
+            request contract (D-IMPL-98's typed request surface — *which
+            questions this class answers*), or
+            :data:`~ccf.products.request.NO_REQUEST_CONTRACT`. The mirror of
+            :attr:`~ccf.controlplane.artifacts.ProductClassDeclaration
+            .request_contract_key`, resolved at registration rather than
+            trusted from the declaration.
+        request_contract_version: The pinned version of it, on the same
+            (key, version) discipline as the payload-schema pin and for the
+            same reason — the surface a *question* was validated against has
+            to be re-resolvable years later for a decision to replay — or
+            the same sentinel. The pair moves together; half a pin is refused
+            at registration.
     """
 
     schema_name: str
@@ -463,6 +497,8 @@ class RegisteredProductClass(CCFContract):
     constituent_validity_floors: ConstituentValidityFloors = NO_VALIDITY_FLOORS
     payload_schema_key: str = NO_PAYLOAD_SCHEMA
     payload_schema_version: str = NO_PAYLOAD_SCHEMA
+    request_contract_key: str = NO_REQUEST_CONTRACT
+    request_contract_version: str = NO_REQUEST_CONTRACT
 
 
 class ProductLineage(CCFContract):
@@ -544,6 +580,8 @@ def register_product_class(
     constituent_validity_floors: ConstituentValidityFloors = NO_VALIDITY_FLOORS,
     payload_schema_key: str = NO_PAYLOAD_SCHEMA,
     payload_schema_version: str = NO_PAYLOAD_SCHEMA,
+    request_contract_key: str = NO_REQUEST_CONTRACT,
+    request_contract_version: str = NO_REQUEST_CONTRACT,
 ) -> RegisteredProductClass:
     """Register a product class, requiring its MAX_TTL to already exist.
 
@@ -613,6 +651,21 @@ def register_product_class(
         payload_schema_key=payload_schema_key,
         payload_schema_version=payload_schema_version,
     )
+    # The import is function-local for exactly the reason the payload one
+    # below is, and one reason more: `ccf.products.request` imports
+    # `ProductClassRegistrationError` from THIS module, so a top-level import
+    # here would close the cycle directly rather than through the skills
+    # catalog. The resolution happens once per class registration, at wiring
+    # time, so the deferral costs nothing.
+    from ccf.products.request import refuse_request_contract_pin
+
+    refuse_request_contract_pin(
+        registry=registry,
+        schema_name=schema_name,
+        schema_version=schema_version,
+        request_contract_key=request_contract_key,
+        request_contract_version=request_contract_version,
+    )
     return RegisteredProductClass(
         schema_name=schema_name,
         schema_version=schema_version,
@@ -628,6 +681,8 @@ def register_product_class(
         constituent_validity_floors=constituent_validity_floors,
         payload_schema_key=payload_schema_key,
         payload_schema_version=payload_schema_version,
+        request_contract_key=request_contract_key,
+        request_contract_version=request_contract_version,
     )
 
 
