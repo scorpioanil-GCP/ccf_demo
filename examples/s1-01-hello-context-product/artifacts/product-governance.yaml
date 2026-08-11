@@ -18,7 +18,17 @@
 #     builder does not mint one: a version derived from the parameters
 #     artifact's pin would be identical across two different boundaries, which
 #     is precisely the corpus identity the determinism contract distinguishes.
+#   * `request_contract_key` — the Control Plane key this deployment registers
+#     its class's request surface under (D-IMPL-98). The KEY is authored here;
+#     the VERSION pinning it is minted by registering the parsed contract, on
+#     exactly the `max_ttl_key` discipline above — which is why
+#     `request-contract.yaml` declares no version of its own.
 #   * `replay_record_class` — the artifact class the replay writer stores under.
+#   * `query_pin_class` — the artifact class the executed graph queries are
+#     stored under, so that every pin in the record's `graph_query_sequence`
+#     resolves to the canonical bytes it names (T-15.2-28). A separate class
+#     from the record's, because a record and the questions it pins are two
+#     kinds of thing an auditor retrieves separately.
 #   * `artifact_store_dirname` — where under the run root the file-backed
 #     ArtifactStore lives. A path relative to a caller-supplied root, so no
 #     absolute location enters a content-hashed artifact.
@@ -40,5 +50,7 @@ declaration:
   max_ttl_seconds: 1200
   product_ttl_seconds: 600
   similarity_index_version: "fibo-kyc-screening-corpus@2026-08-01"
+  request_contract_key: fibo-kyc/product/ultimate-beneficial-ownership/requests
   replay_record_class: decision-replay-record
+  query_pin_class: graph-query
   artifact_store_dirname: replay

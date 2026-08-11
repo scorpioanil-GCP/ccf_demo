@@ -443,24 +443,29 @@ def test_every_declared_absence_really_is_absent(
     )
 
 
-def test_the_product_answers_the_question_the_artifacts_asked(
-    example: Any, result: Any, payload: Any
+def test_the_product_answers_the_question_the_caller_asked(
+    result: Any, payload: Any
 ) -> None:
     """Propagation checks on the question, the role and the threshold.
 
-    The subject and the threshold are Control Plane statements — which entity
-    the question is about, and what interest the regime treats as beneficial
-    ownership — so a product that answered a different question, or applied a
-    different threshold, than the artifacts declared is a wiring fault.
+    **The subject is checked against the REQUEST, not against an artifact**
+    (plan ``15.5-13``). It used to be a Control Plane statement — a
+    ``subject_entity_ref`` key in ``ubo-question.yaml`` — which is what made
+    this product configurable rather than callable. It is now
+    :attr:`ccf.products.request.ProductRequest.subject`, so this assertion is
+    the one that fails if the fabric answers about a company other than the one
+    it was asked about. The threshold stays a Control Plane statement, because
+    what interest the regime treats as beneficial ownership genuinely is
+    governance and not a caller's choice.
 
-    The subject is reached through the deployment's own ``QUESTION_SUBJECT``
-    key rather than through a key literal written here: the question document's
-    field names are this deployment's vocabulary, and a second copy of them in
-    a test module is a second place to edit.
+    Both instants are checked against the request for the same reason: the
+    boundary is ``asked_at`` and the decision instant is the class-declared
+    request parameter, so a product whose TTL ran from something else is a
+    wiring fault.
     """
     scenario = result.scenario
-    subject_key = example.deployment.QUESTION_SUBJECT
-    assert payload[PAYLOAD_SUBJECT] == scenario.question[subject_key]
+    assert payload[PAYLOAD_SUBJECT] == scenario.request.subject
+    assert result.product.temporal_boundary == scenario.request.asked_at
     assert payload[PAYLOAD_ROLE] == scenario.perspective.role
     assert Decimal(payload[PAYLOAD_THRESHOLD]) == scenario.threshold_percent
     assert result.product.plan_id == scenario.plan_id

@@ -125,12 +125,11 @@ artifacts:
     role: register
     registration: typed
 
-  # The question this product answers, as a Control Plane statement rather than
-  # as code. Which entity is the subject, which class is a natural person, which
-  # attribute carries a stake's percentage — all of it is governance, and all of
-  # it belongs in replay dimension 2, because a deployment that changed the
-  # subject of "who ultimately owns this?" changed what the fabric was permitted
-  # to answer.
+  # The VOCABULARY the question is asked in, as a Control Plane statement rather
+  # than as code. Which class is a natural person, which attribute carries a
+  # stake's percentage — that is governance, and it belongs in replay dimension
+  # 2. WHICH COMPANY is being asked about does not, and is no longer in this
+  # document: it arrives on the caller's `ProductRequest` (plan 15.5-13).
   - path: ubo-question.yaml
     key: ubo-question
     class_id: fibo-kyc.ubo-question
@@ -154,12 +153,21 @@ artifacts:
     role: load
     registration: typed
 
-  # This run's decision instants. The deployment's own class, so the role is the
-  # deployment's call — and it is `load` for the same reason: what instant one
-  # run asked about is not part of what the fabric was permitted to do.
-  - path: decision.yaml
-    key: decision
-    class_id: fibo-kyc.decision-inputs
+  # The request surface of the product class — WHICH QUESTIONS it answers
+  # (D-IMPL-98). `load` rather than `register` for the reason
+  # `product-class.yaml` carries no `max_ttl_version`: the pin binding this
+  # contract to the class is MINTED by registering it, so `spine.py` registers
+  # this parsed value and hands the resulting version to
+  # `register_product_class`, which refuses a pin onto another class or lane.
+  #
+  # NOT LISTED HERE: `questions.yaml`. That document holds the questions the
+  # bundled demonstration ASKS, which is caller input rather than Control Plane
+  # state — the same read-side/write-side split `source-estate.yaml` records
+  # (`D-04`). A question is not a permission and has no business in replay
+  # dimension 2. `../run.py` reads it directly.
+  - path: request-contract.yaml
+    key: request-contract
+    class_id: fibo-kyc.request-contract
     role: load
     registration: typed
 

@@ -5,15 +5,25 @@ Wire ``deployment.py`` into ``spine.py`` and exit. Every fabric call is in
 three lines that put them together, and it is deliberately not a second spine.
 
 **What the example is.** A KYC analyst at a fictional bank asks *"who ultimately
-owns Acme Corporation?"* — a question a vector store over chunked documents
-structurally cannot answer, because the answer is not in any passage. Jane Doe's
-real interest is 12.0% directly plus 60.0% of a holding company that itself owns
-30.0%, which is 30.0% in total and crosses the regime's 25.0% threshold. No
-document states 30.0%. The fabric traverses an ownership chain, aggregates
-across hops, filters on a jurisdiction-conditioned threshold, and serves the
-result as a typed, gated, replay-ready **Context Product**. It is deterministic,
-offline, keyless, model-free — and there is no agent anywhere in it (phase 16
-CONTEXT `D-12`).
+owns this company, and does any natural person's stake cross the reporting
+threshold?"* — a question a vector store over chunked documents structurally
+cannot answer, because the answer is not in any passage. A real interest is a
+sum over ownership paths: 12.0% held directly plus 60.0% of a holding company
+that itself owns 30.0% is 30.0% in total, and no document states 30.0%. The
+fabric traverses an ownership chain, aggregates across hops, filters on a
+jurisdiction-conditioned threshold, and serves the result as a typed, gated,
+replay-ready **Context Product**. It is deterministic, offline, keyless,
+model-free — and there is no agent anywhere in it (phase 16 CONTEXT `D-12`).
+
+**The question is ASKED, not configured** (plan `15.5-13`). Which company and as
+of which instant are arguments on a typed
+:class:`~ccf.products.request.ProductRequest`, validated at the door against the
+request surface the product class declares (whitepaper §6.3 *Addressability*,
+D-IMPL-98). One product class answers about **any company at any time**. Run
+with no arguments and it asks the three questions
+``artifacts/questions.yaml`` declares — two companies, two instants, a
+controlled experiment; run it with ``--subject`` and it asks one that is in no
+artifact at all.
 
 **It asserts nothing and prints nothing** (`D-09`). Its assertions live in
 ``tests/examples/test_s1_01_output.py``, where a test runner will run them and a
@@ -22,10 +32,13 @@ executed; it is not a correctness result.
 
 **Every domain value is loaded from ``artifacts/*.yaml``** and enumerated by
 ``artifacts/manifest.yaml`` — entity classes, source systems, identifiers, the
-ownership threshold, the decimal scale, the screening query, the TTLs, the
-temporal boundary, the subject of the question itself. Deleting the artifacts
-leaves this example with nothing meaningful to run (CLAUDE.md §6.4, the
-No-Hardcoding Rule).
+ownership threshold, the decimal scale, the screening query, the TTLs. Deleting
+the artifacts leaves this example with nothing meaningful to run (CLAUDE.md
+§6.4, the No-Hardcoding Rule). ``artifacts/questions.yaml`` is deliberately
+**not** in the manifest: a question is caller input, not Control Plane state,
+and it has no business in Decision Replay dimension 2 — the same read-side /
+write-side split ``artifacts/source-estate.yaml`` records (phase 16 CONTEXT
+`D-04`).
 
 **The substrate is a value in a configuration document, not a fact about this
 code.** ``artifacts/manifest.yaml`` says ``backend: sqlite`` — a kind, with no
@@ -47,6 +60,9 @@ import argparse
 import pathlib
 import sys
 import tempfile
+from collections.abc import Sequence
+
+from ccf.products.request import ProductRequest
 
 EXAMPLE_DIR = pathlib.Path(__file__).resolve().parent
 
@@ -59,22 +75,49 @@ import source_estate  # noqa: E402
 import spine  # noqa: E402
 
 
-def run(*, root: pathlib.Path) -> spine.Assembled:
+def run(
+    *, root: pathlib.Path, request: ProductRequest | None = None
+) -> spine.Assembled:
     """Assemble and serve one ultimate-beneficial-ownership Context Product.
 
-    The wiring is four arguments, one per thing the fabric asks a deployment to
+    The wiring is five arguments, one per thing the fabric asks a deployment to
     supply. Π is handed over as a CLASS rather than as a constructed object:
     ``spine.py`` builds it one statement before it binds it, because a plan
     handed over ready-made is a plan no binder can be shown to have been given
     (design E2, D-IMPL-86 as corrected 2026-08-05).
+
+    ``request`` is the question. It defaults to the first question
+    ``artifacts/questions.yaml`` declares so that a caller with nothing
+    particular to ask still gets a product — never to a subject or an instant
+    written down in this file.
     """
+    asked = deployment.declared_questions()[0] if request is None else request
     return spine.assemble_and_serve(
         manifest=deployment.MANIFEST,
         connection=deployment.connection(root=root),
         read=deployment.read,
         plan_class=deployment.UltimateBeneficialOwnershipPlan,
+        request=asked,
         root=root,
     )
+
+
+def ask_all(
+    *, root: pathlib.Path, requests: Sequence[ProductRequest]
+) -> tuple[spine.Assembled, ...]:
+    """Ask every question in turn, each against its own fabric under ``root``.
+
+    Each question gets its own scratch directory, and therefore its own graph
+    substrate and its own file-backed ArtifactStore. That is not tidiness: it
+    is what lets two replay records — and the query sequences they pin — be
+    compared side by side without either run having observed the other.
+    """
+    answered = []
+    for index, request in enumerate(requests):
+        scratch = root / f"q{index}"
+        scratch.mkdir(parents=True, exist_ok=True)
+        answered.append(run(root=scratch, request=request))
+    return tuple(answered)
 
 
 def materialise_estate(*, root: pathlib.Path) -> dict[str, object]:
@@ -90,10 +133,19 @@ def materialise_estate(*, root: pathlib.Path) -> dict[str, object]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Ask the declared questions, or one the caller composes on the spot.
+
+    ``--subject`` is the whole demonstration in one flag: supply it and the
+    fabric answers about a company no artifact in this directory names. The
+    three axes are supplied together and none of them is defaulted — a defaulted
+    subject is the frozen-answer defect this example was rewritten to remove,
+    and a defaulted instant is a clock read wearing a disguise.
+    """
     parser = argparse.ArgumentParser(
         description=(
-            "Assemble and serve one ultimate-beneficial-ownership Context"
-            " Product from the declared KYC/UBO artifacts."
+            "Assemble and serve ultimate-beneficial-ownership Context Products"
+            " for the questions declared in artifacts/questions.yaml, or for"
+            " one question supplied on the command line."
         )
     )
     parser.add_argument(
@@ -106,12 +158,56 @@ def main(argv: list[str] | None = None) -> int:
             " exit, instead of running the fabric"
         ),
     )
-    destination = parser.parse_args(argv).estate
-    if destination is not None:
-        materialise_estate(root=destination)
+    parser.add_argument(
+        "--subject",
+        default=None,
+        metavar="ENTITY_REF",
+        help=(
+            "ask about this entity instead of the declared questions; requires"
+            " --as-of and --decision-instant"
+        ),
+    )
+    parser.add_argument(
+        "--as-of",
+        default=None,
+        metavar="INSTANT",
+        help="read the graph as of this ISO-8601 instant (zone required)",
+    )
+    parser.add_argument(
+        "--decision-instant",
+        default=None,
+        metavar="INSTANT",
+        help="produce the answer at this ISO-8601 instant; the TTL runs from it",
+    )
+    arguments = parser.parse_args(argv)
+
+    if arguments.estate is not None:
+        materialise_estate(root=arguments.estate)
         return 0
+
+    composed = (arguments.subject, arguments.as_of, arguments.decision_instant)
+    if any(axis is not None for axis in composed) and not all(
+        axis is not None for axis in composed
+    ):
+        parser.error(
+            "--subject, --as-of and --decision-instant are supplied together:"
+            " a question missing one of its axes is a question nobody asked,"
+            " answered anyway"
+        )
+
+    requests = (
+        deployment.declared_questions()
+        if arguments.subject is None
+        else (
+            deployment.ad_hoc_question(
+                subject=arguments.subject,
+                asked_at=arguments.as_of,
+                decision_instant=arguments.decision_instant,
+            ),
+        )
+    )
     with tempfile.TemporaryDirectory(prefix="ccf-s1-01-") as scratch:
-        run(root=pathlib.Path(scratch))
+        ask_all(root=pathlib.Path(scratch), requests=requests)
     return 0
 
 

@@ -2,17 +2,28 @@
 # The question this product answers, as a Control Plane statement (KYC/UBO
 # domain, phase 16 CONTEXT D-03; CLAUDE.md §6.4, the No-Hardcoding Rule).
 #
-# *"Who ultimately owns Acme Corporation?"* is a question with parameters, and
-# every one of them is here rather than in `../deployment.py`: which entity is
-# the subject, which class counts as a natural person, which class carries an
-# ownership interest, and which attribute of that class carries the owner, the
-# target and the percentage. The projection is an interpreter of this document.
-# Delete it and there is nothing left for the projection to compute.
+# *"Who ultimately owns this company?"* is a question with a VOCABULARY, and
+# every term of it is here rather than in `../deployment.py`: which class counts
+# as a natural person, which class carries an ownership interest, and which
+# attribute of that class carries the owner, the target and the percentage. The
+# projection is an interpreter of this document. Delete it and there is nothing
+# left for the projection to compute.
 #
-# `role: register`, not `load`. Changing the subject of the question, or which
-# class the fabric treats as a natural person, changes what this fabric is
-# permitted to answer — so it belongs in the pin set and in Decision Replay
-# dimension 2, beside the policy bundle that supplies the threshold.
+# THE SUBJECT IS NOT HERE, AND ITS ABSENCE IS THE POINT (plan 15.5-13).
+# `subject_entity_ref` used to sit under `declaration:` below, which made this
+# product *configurable* rather than *callable*: one class, one company, one
+# frozen answer. Which company is being asked about is the caller's question,
+# not the fabric's configuration — it arrives as `ProductRequest.subject`,
+# validated at the door against the class's declared request contract
+# (`request-contract.yaml`, D-IMPL-98). What stays here is the vocabulary the
+# question is asked IN, which genuinely is Control Plane governance.
+#
+# `role: register`, not `load`. Changing which class the fabric treats as a
+# natural person changes what this fabric is permitted to answer — so it belongs
+# in the pin set and in Decision Replay dimension 2, beside the policy bundle
+# that supplies the threshold. A *subject* would not: re-asking about a
+# different company is not a governance change, which is the second reason it
+# does not belong in this document.
 #
 # THE THRESHOLD IS NOT HERE. It lives in `policy-bundle.yaml`, because it is
 # jurisdiction-conditioned regulatory policy rather than a property of the
@@ -29,10 +40,6 @@ semver: "1.0.0"
 class_id: fibo-kyc.ubo-question
 
 declaration:
-  # The entity the question is about. Its source-system reference, which is what
-  # the reified stakes name their endpoints by.
-  subject_entity_ref: "http://example.org/fibo/AcmeCorp"
-
   # Which resolved class is a human being. A beneficial owner is a natural
   # person; a holding company on the chain is a step, not an answer.
   natural_person_class: party

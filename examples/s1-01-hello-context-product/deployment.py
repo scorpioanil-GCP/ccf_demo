@@ -46,6 +46,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
 
+import yaml
+
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
     DeclaredArtifact,
@@ -58,11 +60,19 @@ from ccf.controlplane.artifacts import (
 from ccf.deployment import BootedFabric
 from ccf.graph.protocols import GraphView
 from ccf.operators.base import OperatorOutput
+from ccf.products.payload import ProductPayloadSchema
+from ccf.products.request import ProductRequest, ProductRequestContract
 from ccf.projection.plan import Perspective, ProjectionOutput
 from ccf.signal.envelope import SignalEnvelope
 
 EXAMPLE_DIR = Path(__file__).resolve().parent
 MANIFEST = EXAMPLE_DIR / "artifacts" / "manifest.yaml"
+
+#: The questions the bundled demonstration asks. Deliberately NOT in the
+#: manifest: a question is caller input, not Control Plane state, and it has no
+#: business in Decision Replay dimension 2. Read directly, on the read-side /
+#: write-side split ``source-estate.yaml`` already records (`D-04`).
+QUESTIONS = EXAMPLE_DIR / "artifacts" / "questions.yaml"
 
 # --- this deployment's artifact-key vocabulary -------------------------------
 # Every name below is a `key` in `artifacts/manifest.yaml`. They are literals
@@ -71,7 +81,7 @@ MANIFEST = EXAMPLE_DIR / "artifacts" / "manifest.yaml"
 # match — is type introspection dressed up as configuration.
 
 KEY_EVENTS = "events"
-KEY_DECISION = "decision"
+KEY_REQUEST_CONTRACT = "request-contract"
 KEY_EXPECTED = "expected"
 KEY_PERSPECTIVE = "perspective"
 KEY_PRODUCT_CLASS = "product-class"
@@ -101,15 +111,40 @@ GOVERNANCE_MAX_TTL_SECONDS = "max_ttl_seconds"
 GOVERNANCE_PRODUCT_TTL_SECONDS = "product_ttl_seconds"
 GOVERNANCE_SIMILARITY_INDEX_VERSION = "similarity_index_version"
 GOVERNANCE_REPLAY_RECORD_CLASS = "replay_record_class"
+GOVERNANCE_QUERY_PIN_CLASS = "query_pin_class"
 GOVERNANCE_ARTIFACT_STORE_DIRNAME = "artifact_store_dirname"
+GOVERNANCE_REQUEST_CONTRACT_KEY = "request_contract_key"
 
-DECISION_TEMPORAL_BOUNDARY = "temporal_boundary"
-DECISION_NOW = "now"
+#: The `arguments` block of `artifacts/request-contract.yaml`. The Control Plane
+#: KEY the contract is registered under is authored in
+#: `artifacts/product-governance.yaml` beside the MAX_TTL key, for the same
+#: reason: the key is authored, the version pinning it is minted by registering
+#: the parsed value (D-IMPL-98, D-IMPL-39).
+REQUEST_CONTRACT_SCHEMA_NAME = "schema_name"
+REQUEST_CONTRACT_SCHEMA_VERSION = "schema_version"
+REQUEST_CONTRACT_ARGUMENTS = "arguments"
+
+#: The class-declared remainder of a question, beyond the four address axes.
+#: Declared in `artifacts/request-contract.yaml`; named here because naming it
+#: is how this deployment says which of ITS parameters plays which role.
+PARAM_DECISION_INSTANT = "decision_instant"
+
+#: `artifacts/questions.yaml`'s own blocks — the address every question is sent
+#: to, the defaults an ad-hoc command-line question inherits, and the list.
+QUESTIONS_SCHEMA_NAME = "schema_name"
+QUESTIONS_SCHEMA_VERSION = "schema_version"
+QUESTIONS_DEFAULT_INTENT = "default_intent"
+QUESTIONS_DEFAULT_FRESHNESS = "default_freshness"
+QUESTIONS_LIST = "questions"
+QUESTION_SUBJECT = "subject"
+QUESTION_INTENT = "intent"
+QUESTION_FRESHNESS = "freshness"
+QUESTION_ASKED_AT = "asked_at"
+QUESTION_PARAMETERS = "parameters"
 
 POLICY_THRESHOLD_PERCENT = "beneficial_ownership_threshold_percent"
 POLICY_SCALE_PLACES = "ownership_percent_scale_places"
 
-QUESTION_SUBJECT = "subject_entity_ref"
 QUESTION_NATURAL_PERSON_CLASS = "natural_person_class"
 QUESTION_STAKE_CLASS = "ownership_stake_class"
 QUESTION_STAKE_OWNER_ATTRIBUTE = "stake_owner_attribute"
@@ -135,6 +170,9 @@ class KycScenario:
 
     artifacts: Mapping[str, CCFContract]
     envelopes: tuple[SignalEnvelope, ...]
+    request: ProductRequest
+    request_contract: ProductRequestContract
+    request_contract_key: str
     temporal_boundary: datetime
     now: datetime
     expires_at: datetime
@@ -147,6 +185,7 @@ class KycScenario:
     perspective: PerspectiveArtifact
     max_ttl_seconds: int
     replay_record_class: str
+    query_pin_class: str
     artifact_store_dirname: str
 
     # --- not read by the fabric: the question and how to report its answer ---
@@ -176,11 +215,21 @@ class UltimateBeneficialOwnershipPlan:
     D-IMPL-86).
 
     **What it computes.** Aggregate ultimate beneficial ownership of the subject
-    named in ``artifacts/ubo-question.yaml``, over the ownership DAG the
-    operators left standing, against the threshold in
-    ``artifacts/policy-bundle.yaml``. The answer to *"who ultimately owns this
-    company?"* is a sum over paths, and it is stated in no single record of any
-    source system — which is the whole of why the graph is the substrate.
+    **the caller asked about**, over the ownership DAG the operators left
+    standing, against the threshold in ``artifacts/policy-bundle.yaml``. The
+    answer to *"who ultimately owns this company?"* is a sum over paths, and it
+    is stated in no single record of any source system — which is the whole of
+    why the graph is the substrate.
+
+    **The subject is read off the request, never off an artifact** (plan
+    ``15.5-13``). ``artifacts/ubo-question.yaml`` supplies the vocabulary the
+    question is asked in — which class is a natural person, which attribute
+    carries a stake's percentage — and that genuinely is governance. Which
+    company is being asked about is not, and a projection that read it from a
+    document could only ever answer about one company. This one answers about
+    whichever company arrived on :attr:`ccf.products.request.ProductRequest
+    .subject`, which is the difference between a product that is *configured*
+    and a product that is *called*.
     """
 
     def __init__(
@@ -193,6 +242,7 @@ class UltimateBeneficialOwnershipPlan:
         self._plan_id = plan_id
         self._required = required
         self._question = scenario.question
+        self._subject = scenario.request.subject
         self._threshold = scenario.threshold_percent
         self._scale = scenario.scale_places
 
@@ -268,7 +318,7 @@ class UltimateBeneficialOwnershipPlan:
         perspective: Perspective,
         temporal_boundary: datetime,
     ) -> ProjectionOutput:
-        subject = self._question[QUESTION_SUBJECT]
+        subject = self._subject
         person_class = self._question[QUESTION_NATURAL_PERSON_CLASS]
         ref_key = self._question[QUESTION_PARTY_REF_ATTRIBUTE]
         name_key = self._question[QUESTION_PARTY_NAME_ATTRIBUTE]
@@ -352,16 +402,105 @@ def connection(*, root: Path) -> Mapping[str, str]:
     return {CONNECTION_PATH_KEY: str(root / DATABASE_FILENAME)}
 
 
-def read(booted: BootedFabric) -> KycScenario:
-    """Name this deployment's own artifact keys and read the run's values.
+def _questions_document() -> Mapping[str, Any]:
+    """The caller's questions, read straight off ``artifacts/questions.yaml``.
+
+    Read directly rather than through the manifest, on the split
+    ``source-estate.yaml`` records (`D-04`): a question is caller input, not
+    Control Plane state, and registering it would content-hash *what one caller
+    asked* into the pin set and therefore into Decision Replay dimension 2 —
+    which records what the fabric was PERMITTED to do.
+
+    Raises:
+        FileNotFoundError: the artifact is absent. This module is an
+            interpreter and has nothing to interpret without it (CLAUDE.md
+            §6.4).
+    """
+    document = yaml.safe_load(QUESTIONS.read_text(encoding="utf-8"))
+    return cast(Mapping[str, Any], document["declaration"])
+
+
+def _request(
+    *,
+    address: Mapping[str, Any],
+    subject: str,
+    intent: str,
+    freshness: str,
+    asked_at: str,
+    parameters: Mapping[str, Any],
+) -> ProductRequest:
+    """Build one typed question at the address the questions document names."""
+    return ProductRequest(
+        schema_name=address[QUESTIONS_SCHEMA_NAME],
+        schema_version=address[QUESTIONS_SCHEMA_VERSION],
+        subject=subject,
+        intent=intent,
+        freshness=freshness,
+        asked_at=datetime.fromisoformat(asked_at),
+        parameters=dict(parameters),
+    )
+
+
+def declared_questions() -> tuple[ProductRequest, ...]:
+    """Every question the bundled demonstration asks, typed.
+
+    Three of them, and they are a controlled experiment rather than a list —
+    see the artifact's own header. ``run.py`` asks each in turn against its own
+    fabric, so the two replay records can be compared side by side.
+    """
+    document = _questions_document()
+    return tuple(
+        _request(
+            address=document,
+            subject=question[QUESTION_SUBJECT],
+            intent=question[QUESTION_INTENT],
+            freshness=question[QUESTION_FRESHNESS],
+            asked_at=question[QUESTION_ASKED_AT],
+            parameters=question[QUESTION_PARAMETERS],
+        )
+        for question in document[QUESTIONS_LIST]
+    )
+
+
+def ad_hoc_question(
+    *, subject: str, asked_at: str, decision_instant: str
+) -> ProductRequest:
+    """A question that is in no artifact at all.
+
+    This is what makes the product *callable*: a reader asks about a company
+    nobody anticipated, at an instant nobody authored, without editing a
+    document or a line of code. The intent and freshness a command line does not
+    carry are taken from the questions document's declared defaults rather than
+    invented here — an exposed door would read both off the caller's own
+    request and substitute nothing.
+    """
+    document = _questions_document()
+    return _request(
+        address=document,
+        subject=subject,
+        intent=document[QUESTIONS_DEFAULT_INTENT],
+        freshness=document[QUESTIONS_DEFAULT_FRESHNESS],
+        asked_at=asked_at,
+        parameters={PARAM_DECISION_INSTANT: decision_instant},
+    )
+
+
+def read(booted: BootedFabric, request: ProductRequest) -> KycScenario:
+    """Name this deployment's own artifact keys and read this question's values.
 
     Each artifact comes back under its own manifest key, already validated
     against the class the manifest declared for it — so these casts restate
     what ``load_and_boot`` already enforced. A wrong ``class_id`` in the
     manifest fails at parse, before this function runs.
+
+    **The two instants come off the request, not off a document.** ``asked_at``
+    is the boundary the graph is read as of; ``decision_instant`` is the
+    class-declared parameter the TTL runs from, and ``expires_at`` derives from
+    it exactly as it derived from the old ``decision.yaml``'s ``now``. Nothing
+    here reads a clock: replay feeds the recorded values back through this same
+    function and gets the same product.
     """
     events = cast(SignalBatch, booted.artifacts[KEY_EVENTS])
-    decision = cast(DeclaredArtifact, booted.artifacts[KEY_DECISION]).declaration
     governance = cast(
         DeclaredArtifact, booted.artifacts[KEY_PRODUCT_GOVERNANCE]
     ).declaration
@@ -374,13 +513,32 @@ def read(booted: BootedFabric) -> KycScenario:
         ProjectionRequirements, booted.artifacts[KEY_PROJECTION_REQUIREMENTS]
     )
 
-    now = datetime.fromisoformat(decision[DECISION_NOW])
+    contract_artifact = cast(
+        DeclaredArtifact, booted.artifacts[KEY_REQUEST_CONTRACT]
+    )
+    contract = contract_artifact.declaration
+    now = datetime.fromisoformat(request.parameters[PARAM_DECISION_INSTANT])
     return KycScenario(
         artifacts=booted.artifacts,
         envelopes=events.envelopes,
-        temporal_boundary=datetime.fromisoformat(
-            decision[DECISION_TEMPORAL_BOUNDARY]
+        request=request,
+        request_contract=ProductRequestContract(
+            # The document's OWN lane — how this declaration evolved — which is
+            # not the product class's lane below. Two lanes, two things
+            # versioned (D-IMPL-98).
+            semver=contract_artifact.semver,
+            schema_name=contract[REQUEST_CONTRACT_SCHEMA_NAME],
+            schema_version=contract[REQUEST_CONTRACT_SCHEMA_VERSION],
+            # `ProductPayloadSchema` IS `SkillArgumentSchema` — the alias
+            # `ccf.products.payload` exports, reached through the products
+            # package so that a Section 1 example imports no agent surface
+            # (D-IMPL-103, D-IMPL-97 ruling 1).
+            arguments=ProductPayloadSchema.model_validate(
+                contract[REQUEST_CONTRACT_ARGUMENTS]
+            ),
         ),
+        request_contract_key=governance[GOVERNANCE_REQUEST_CONTRACT_KEY],
+        temporal_boundary=request.asked_at,
         now=now,
         expires_at=now + timedelta(seconds=governance[GOVERNANCE_PRODUCT_TTL_SECONDS]),
         operator_parameters={
@@ -397,6 +555,7 @@ def read(booted: BootedFabric) -> KycScenario:
         perspective=cast(PerspectiveArtifact, booted.artifacts[KEY_PERSPECTIVE]),
         max_ttl_seconds=governance[GOVERNANCE_MAX_TTL_SECONDS],
         replay_record_class=governance[GOVERNANCE_REPLAY_RECORD_CLASS],
+        query_pin_class=governance[GOVERNANCE_QUERY_PIN_CLASS],
         artifact_store_dirname=governance[GOVERNANCE_ARTIFACT_STORE_DIRNAME],
         question=question,
         threshold_percent=Decimal(policy[POLICY_THRESHOLD_PERCENT]),
