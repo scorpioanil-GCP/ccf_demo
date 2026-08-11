@@ -416,6 +416,8 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/15.4-backend-registration-seam-the-substrate-stops-naming-its-ada/15.4-08-SUMMARY.md` | 10 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.4-backend-registration-seam-the-substrate-stops-naming-its-ada/15.4-RESEARCH.md` | 12 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.4-backend-registration-seam-the-substrate-stops-naming-its-ada/15.4-SECURITY.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-04-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-13-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-RESEARCH.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-01-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-01-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
