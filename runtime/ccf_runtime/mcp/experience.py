@@ -45,9 +45,31 @@ wrong tenant by positional accident.
 required together, exactly as on the artifact server: a server given a
 verifier and no settings would look authenticated and refuse nothing.
 
+**And entitled (15.5-06).** Authentication was never the whole question. Until
+this plan, this module's ``context_product`` resource served whatever the
+deployment's resolver held to *any* verified caller, under whatever role that
+caller's downstream chose — the same principal-free three-string signature the
+egress edge and the HTTP route carry. **Why the front door is gated at all**,
+since a later reader will ask why two MCP modules run the same check: this is
+the surface external agent runtimes reach, the egress role is the
+fabric-internal one, and a fabric whose external door is less governed than its
+internal one has its threat model backwards. This phase's founding complaint is
+*"an MCP server in front of a database"*; shipping the SDK's own front door
+ungated would be that complaint, self-inflicted.
+
+The entitlement source and the perspective resolver are therefore **required**
+keyword-only parameters on the same terms as the verifier pair — there is no
+inert configuration of this builder — and both they and the resolution order
+are **imported** from :mod:`ccf_runtime.authz.product_entitlement`, never
+re-declared here. That module is a package neither MCP role owns, which is what
+lets three doors share one definition of "entitled" while
+``tests/invariants/test_mcp_role_separation.py`` keeps the roles themselves
+from importing each other. A second ``PerspectiveResolverProtocol`` in this
+module would be a second reading of the phase's central security property.
+
 Server name, bind address, token values, tenant identifiers, agent names,
-and skill vocabulary are all deployment values supplied by the caller. This
-module holds none of them (CINV-01).
+principal identifiers, role names, and skill vocabulary are all deployment
+values supplied by the caller. This module holds none of them (CINV-01).
 
 Algorithmic module (CINV-03).
 """
@@ -66,6 +88,12 @@ from ccf.contracts.canonical import canonical_bytes
 from ccf.products.gates import ServableProduct
 from ccf.skills.catalog import SkillCatalogEntry
 from ccf.skills.toolsurface import render_tool_surface
+from ccf_runtime.authz.product_entitlement import (
+    PerspectiveResolverProtocol,
+    ProductEntitlementSourceProtocol,
+    entitled_perspective,
+    verified_grant,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -427,6 +455,8 @@ def build_experience_server(
     product_resource_description: str | None = None,
     token_verifier: TokenVerifier,
     auth_settings: AuthSettings,
+    entitlement_source: ProductEntitlementSourceProtocol,
+    perspective_resolver: PerspectiveResolverProtocol,
     tool_allowlist: frozenset[str] | None = None,
 ) -> FastMCP:
     """Build the authenticated Experience-surface server over six seams.
@@ -517,6 +547,19 @@ def build_experience_server(
             (:mod:`ccf_runtime.mcp.auth` ships the reference implementation).
         auth_settings: Issuer, resource-server identity, required scopes —
             deployment values in their entirety.
+        entitlement_source: The deployment's per-principal entitlement
+            decision seam for the product leg (15.5-06).
+            :class:`~ccf_runtime.authz.product_entitlement
+            .ControlPlaneProductEntitlementSource` is the reference
+            implementation. Required, not optional-and-inert: this is the
+            front door, and a deployment must not be able to stand it up
+            answering every verified caller with every class.
+        perspective_resolver: The deployment's role-derivation seam. The
+            front-door product URI carries three segments and no role among
+            them, so the resolver is called with ``requested_role=None`` and
+            derives the role from the verified grant; whatever it proposes
+            is checked against the principal's grant before anything is
+            served.
         tool_allowlist: Which Tools to register; ``None`` registers all of
             :data:`EXPERIENCE_TOOLS`.
 
@@ -560,10 +603,29 @@ def build_experience_server(
     def context_product(tenant: str, product_class: str, version: str) -> str:
         """Serve one gate-admitted Context Product as canonical JSON.
 
+        Authenticate, then entitle, then resolve. The auth middleware refuses
+        an unverified caller before this body runs;
+        :func:`~ccf_runtime.authz.product_entitlement.verified_grant` refuses
+        if it somehow did not; and the entitlement decides on the resolved
+        role before ``product_resolver`` is reached, so a refused caller
+        moves no fabric. The resolved perspective is the subject of that
+        decision rather than a value this door forwards — the resolver seam
+        is three strings, so the deployment's assemble-and-gate path
+        constructs its own; see the egress edge's handler for why threading
+        it further is a separate reshaping.
+
         Canonical bytes, not ``model_dump_json``: the same serialization the
         content address is computed over, so a consumer that hashes what it
         received gets the address the producer would.
         """
+        entitled_perspective(
+            grant=verified_grant(),
+            tenant=tenant,
+            product_class=product_class,
+            requested_role=None,
+            entitlement_source=entitlement_source,
+            perspective_resolver=perspective_resolver,
+        )
         servable = product_resolver(
             tenant=tenant, product_class=product_class, version=version
         )

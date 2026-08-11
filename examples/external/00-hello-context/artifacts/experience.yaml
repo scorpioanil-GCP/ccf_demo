@@ -36,6 +36,25 @@ declaration:
     resource_server_url: "https://context.first-meridian.example"
     required_scope: "context:read"
 
+  # Who this front door may serve, and in what capacity (15.5-06).
+  #
+  # Authentication answers "is this caller who it says it is"; entitlement
+  # answers "may this caller receive THIS product class, and as WHOM". The
+  # front door requires both, and neither is optional: `build_experience_
+  # server` refuses to build without an entitlement source, so there is no
+  # configuration of this example that answers every verified caller.
+  #
+  # `client_id` values match `tokens.yaml` — the verified identity, never a
+  # value a caller supplies. The permitted product class is deliberately NOT
+  # restated here: `serve.py` derives it from the product the fabric actually
+  # assembled, so an entitlement can never name a class this deployment does
+  # not serve, and the two cannot drift.
+  entitlement:
+    policy_version: "1.0.0"
+    principals:
+      - client_id: external-analyst-07
+        roles: ["credit-analyst"]
+
   # Deployment-side tools composed onto the experience server in serve.py.
   # The prose below is the tool description the MCP surface advertises —
   # artifact-carried, never inline in code (§6.4).
