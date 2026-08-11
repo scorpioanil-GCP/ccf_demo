@@ -88,6 +88,32 @@ already owns the retirement decision for the `15.5-01` spike module.
 - **Where it is recorded in code:** the `context_product` handler docstrings in
   `runtime/ccf_runtime/mcp/egress.py` and `runtime/ccf_runtime/mcp/experience.py`
   both state where the value stops and why.
-- **Owner:** unassigned. Natural home is a follow-on plan that owns the
-  `ProductResolverProtocol` reshaping, or plan `15.5-14`'s close-out sweep if
-  the phase decides to carry it.
+- **Owner:** **CLOSED AS UNOWNED — now owned by plan `15.5-15`** (`D-IMPL-108`,
+  Dave, 2026-08-11). The seam is widened exactly once, carrying both the typed
+  request contract and the authorized `Perspective`, rather than being reshaped
+  twice. Dave named this *"the highest-priority structural debt for the later
+  waves"* on 2026-08-11.
+
+## DI-15.5-04 — `IntermediateCache` computes a key for a cache that cannot hit
+
+- **Found during:** the `D-IMPL-107` perf investigation (wave 3), while profiling
+  `perf/suites/micro/test_operators.py::test_composed_chain`.
+- **What:** `ProjectionEngine.execute` invokes each operator key **exactly once**,
+  so `IntermediateCache` can never hit — the cache is unreachable *by
+  construction*, not by configuration. Yet `IntermediateCache.run` computes
+  `content_hash(view)` on **every** invocation purely to build the lookup key.
+  Measured at roughly **0.20 s of the benchmark's remaining 0.41 s** — about half
+  the remaining time, spent constructing a key nothing will ever look up.
+- **Why deferred (Dave's ruling, 2026-08-11):** making the hash lazy is
+  behaviour-identical and the win is real, but the key's composition is
+  `D-IMPL-36`'s and is documented as *"everything `Operator.apply` can observe"*.
+  Narrowing **when** that key is computed is still a change to a ruled contract
+  even though the final value is identical. Nothing in Phase 15.5 depends on the
+  performance win, and `make perf-micro` is green as of wave 3. Taking it now
+  would be an unnecessary mid-phase edit to a ruled surface.
+- **The two facts a later reader needs:** the cache is currently **unreachable by
+  construction**, and the hash is computed **unconditionally**. Either could
+  change independently — if a future engine change makes the cache reachable, the
+  unconditional hash stops being waste and this entry stops applying.
+- **Owner:** a later performance pass. Low risk, well bounded, explicitly not
+  Phase 15.5's.
