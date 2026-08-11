@@ -44,6 +44,7 @@ from ccf.agents.archetypes import ARCHETYPES, ArchetypeComponent
 from ccf.agents.composition import compose
 from ccf.agents.definitions import (
     AGENT_DEFINITION,
+    ASSEMBLY_ARCHETYPE_ID,
     PROMPT_ARTIFACT,
     TASK_DEFINITION,
     AgentDefinition,
@@ -57,6 +58,7 @@ from ccf.artifacts.protocol import artifact_uri, parse_artifact_uri
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.resolution import ControlPlaneResolution, resolve_pinned
+from ccf.products.contract import RegisteredProductClass
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY
 from ccf.skills.grants import BoundSkillView
@@ -182,6 +184,71 @@ def _compose(archetypes: tuple[str, ...]) -> tuple[ArchetypeComponent, ...]:
     return tuple(components)
 
 
+def _refuse_emission_bindings(
+    definition: AgentDefinition,
+    product_classes: Mapping[str, RegisteredProductClass],
+) -> None:
+    """Raise unless every axis-2 emission binding is coherent and registered.
+
+    Two refusals, and both are the class of check ``register_product_class``
+    already makes for ``MAX_TTL`` (D-IMPL-39): a deployment finds out **while
+    wiring the fabric**, rather than when a product is about to be assembled.
+    Raised, never repaired and never warned, naming both sides — the
+    :func:`~ccf.deployment.binder.refuse_operator_set_divergence` posture, for
+    its stated reason: the factory does not choose which of two disagreeing
+    documents is right, because only the deployment's author knows which of
+    the two was meant.
+
+    An empty ``emits`` reaches neither check, which is what keeps the widening
+    additive: every definition authored before the field existed is untouched
+    by this function.
+
+    Raises:
+        AgentDefinitionError: the definition declares an emission binding but
+            is not built from the ``context_assembly`` archetype
+            (``docs/DECISIONS.md`` D-IMPL-97 ruling 2); or it emits to a
+            product class this deployment has not registered, or to a lane of
+            it other than the registered one (INV-CH7-49).
+    """
+    emits = definition.context_contract.emits
+    if not emits:
+        return
+    if ASSEMBLY_ARCHETYPE_ID not in definition.archetypes:
+        raise AgentDefinitionError(
+            f"agent {definition.name!r} declares"
+            f" {len(emits)} emission binding(s) on its context contract but"
+            f" its archetype list is {list(definition.archetypes)!r}, which"
+            f" does not include {ASSEMBLY_ARCHETYPE_ID!r}; the emission"
+            " pattern and its two replay obligations are what that archetype"
+            " contributes, so an agent that emits without it would emit under"
+            " obligations nothing declared (CLAUDE.md §6.1/§6.3;"
+            " docs/DECISIONS.md D-IMPL-97)"
+        )
+    for emitted in emits:
+        registered = product_classes.get(emitted.product_class)
+        if registered is None:
+            raise AgentDefinitionError(
+                f"agent {definition.name!r} emits to product class"
+                f" {emitted.product_class!r} at lane"
+                f" {emitted.schema_version!r}, which this deployment has not"
+                f" registered (registered: {sorted(product_classes)!r}); an"
+                " emission binding is resolved at construction so that a"
+                " deployment which named a class that is not there finds out"
+                " while wiring the fabric rather than when a product is about"
+                " to be assembled (D-IMPL-39, applied to D-IMPL-97)"
+            )
+        if registered.schema_version != emitted.schema_version:
+            raise AgentDefinitionError(
+                f"agent {definition.name!r} emits to product class"
+                f" {emitted.product_class!r} at lane"
+                f" {emitted.schema_version!r}, and this deployment registered"
+                f" that class at lane {registered.schema_version!r}; lanes are"
+                " per class and never compared across classes, so a producer"
+                " pinned to another lane would claim to satisfy a shape the"
+                " class does not have (INV-CH7-49)"
+            )
+
+
 class AgentFactory:
     """Constructs agents from definition artifacts — the only supported path.
 
@@ -218,6 +285,16 @@ class AgentFactory:
             Threaded alongside its MCP counterpart because the two share one
             wiring gap and one shape; closing one and leaving the other would
             re-open the same deferred item under a different name.
+        product_classes: The deployment's registered product classes, keyed by
+            ``schema_name`` — the shape
+            :class:`~ccf.peering.admission.AdmissionGate` already takes for the
+            same population. Constructor injection rather than an ambient
+            lookup, on the ``callable_registry`` precedent: the factory holds
+            no registry of its own. ``None`` is the positive statement *this
+            deployment registered no product classes*, and it is **fail-closed
+            rather than a silent skip** — a definition that declares an
+            emission binding is then refused, naming the empty set, because an
+            unwired factory cannot know the class is there (D-IMPL-97).
     """
 
     def __init__(
@@ -227,11 +304,13 @@ class AgentFactory:
         callable_registry: CallableRegistry | None = None,
         mcp_skills: McpSkillRegistry | None = None,
         peering_skills: PeeringSkillRegistry | None = None,
+        product_classes: Mapping[str, RegisteredProductClass] | None = None,
     ) -> None:
         self._control_plane = control_plane
         self._callable_registry = callable_registry
         self._mcp_skills = mcp_skills
         self._peering_skills = peering_skills
+        self._product_classes = dict(product_classes or {})
 
     def _resolve_reference(self, uri: str) -> object:
         """Resolve one pinned reference via :func:`_resolve_pinned`."""
@@ -257,18 +336,22 @@ class AgentFactory:
         ``None`` binds nothing: an agent granted nothing has no skills,
         positively.
 
-        The four steps in order: (1) resolve the definition and every
+        The five steps in order: (1) resolve the definition and every
         referenced artifact at pinned versions; (2) hold the resolved
-        definition to its artifact class; (3) compose the declared archetype
-        bundles in declaration order; (4) validate every instruction binding
-        against its resolved prompt artifact (D-13). Only then is the D-06
-        identity block computed — hash, versioned-URI annotation, archetype
-        tuple, all captured at construction time — and the ``Agent``
-        instantiated.
+        definition to its artifact class; (3) refuse any axis-2 emission
+        binding that disagrees with axis 1 or with what the deployment
+        registered (D-IMPL-97); (4) compose the declared archetype bundles in
+        declaration order; (5) validate every instruction binding against its
+        resolved prompt artifact (D-13). Only then is the D-06 identity block
+        computed — hash, versioned-URI annotation, archetype tuple, all
+        captured at construction time — and the ``Agent`` instantiated.
 
         Raises:
-            AgentDefinitionError: a declared archetype has no shipped bundle,
-                or a referenced artifact cannot be resolved.
+            AgentDefinitionError: a declared archetype has no shipped bundle;
+                a referenced artifact cannot be resolved; or an emission
+                binding is declared without the ``context_assembly`` archetype
+                or names a product class or lane this deployment has not
+                registered.
             PromptValidationError: an instruction binding fails parse-only
                 validation against its prompt artifact (D-13).
             TypeError: a resolved artifact does not satisfy its declared
@@ -283,6 +366,9 @@ class AgentFactory:
         # Axes 4 and 5: the refs must resolve, at their pinned versions.
         self._resolve_reference(definition.policy_regime.ref)
         self._resolve_reference(definition.halflife_debt_profile.ref)
+
+        # Axis 2's emission side: coherent with axis 1, and registered.
+        _refuse_emission_bindings(definition, self._product_classes)
 
         # Axis 1: compose the declared bundles in declaration order.
         components = _compose(definition.archetypes)

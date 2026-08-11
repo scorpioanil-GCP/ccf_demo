@@ -46,12 +46,15 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "AGENT_DEFINITION",
     "ARCHETYPE_IDS",
+    "ASSEMBLY_ARCHETYPE_ID",
+    "EMITS_NOTHING",
     "PROMPT_ARTIFACT",
     "TASK_DEFINITION",
     "TASK_STEP_KINDS",
     "AgentDefinition",
     "ConsumedProduct",
     "ContextContract",
+    "EmittedProduct",
     "InstructionBinding",
     "PerspectiveBinding",
     "PromptArtifact",
@@ -74,6 +77,12 @@ ARCHETYPE_IDS: frozenset[str] = frozenset(
         "context_assembly",
     }
 )
+
+#: The archetype an emission binding requires (``docs/DECISIONS.md``
+#: D-IMPL-97 ruling 2). Named once here rather than spelled at each site that
+#: needs it, so the schema, the factory and the archetype registry cannot drift
+#: to two readings of which archetype supplies the emission pattern.
+ASSEMBLY_ARCHETYPE_ID = "context_assembly"
 
 
 def _validate_artifact_ref(value: str) -> str:
@@ -127,15 +136,76 @@ class ConsumedProduct(CCFContract):
         return validate_semver(value)
 
 
-class ContextContract(CCFContract):
-    """Axis 2 — which Context Product schemas the agent reads (CLAUDE.md §6.2).
+class EmittedProduct(CCFContract):
+    """One Context Product schema an agent emits to (axis 2; D-IMPL-97).
 
-    Emission bindings (which projection an assembler emits to) extend this
-    contract when the ContextAssembly archetype's transport lands; the shape is
-    additive by design.
+    The producing counterpart of :class:`ConsumedProduct`, and pinned on the
+    same reasoning: ``schema_version`` names the class's own lane, because a
+    producer that named no version would be claiming to satisfy whatever shape
+    the class takes next — a contract drift replay cannot survive (whitepaper
+    §6.3, INV-CH7-49).
+
+    A separate contract from :class:`ConsumedProduct` rather than a reuse of
+    it, because the two are read by different mechanism and refused on
+    different grounds: a consumed class is checked at
+    :meth:`ccf.agents.agent.Agent.consume`, an emitted class at construction
+    against what the deployment has registered. Sharing the type would make
+    "which side is this?" a question the code could not answer.
+    """
+
+    product_class: str
+    schema_version: str
+
+    @field_validator("schema_version")
+    @classmethod
+    def _version_is_semver(cls, value: str) -> str:
+        return validate_semver(value)
+
+
+#: The positive claim that an agent emits no Context Product.
+#:
+#: A named sentinel rather than a bare empty tuple, in the
+#: :data:`~ccf.replay.record.NO_GRANTS_SET_HASH` voice: *this agent emits
+#: nothing* is a statement its author made, distinguishable from an emission
+#: binding somebody dropped only because the claim is named. It is also what
+#: keeps the widening additive — every agent definition authored before this
+#: field existed keeps asserting exactly what it always asserted.
+EMITS_NOTHING: tuple[EmittedProduct, ...] = ()
+
+
+class ContextContract(CCFContract):
+    """Axis 2 — the Context Product schemas an agent reads, and emits to.
+
+    CLAUDE.md §6.2. Both directions live here, on one contract, because they
+    are one axis: what an agent's fabric relationship *is*. The emission side
+    landed with the assembler surface (``docs/DECISIONS.md`` D-IMPL-97 ruling
+    2), on the seam this contract's own earlier docstring reserved for it —
+    *"emission bindings … extend this contract when the ContextAssembly
+    archetype's transport lands; the shape is additive by design"* — rather
+    than as a parallel artifact beside it.
+
+    **Additive means additive.** ``consumes`` keeps its shape and its
+    non-empty rule; ``emits`` defaults to the positive
+    :data:`EMITS_NOTHING` claim, so every shipped definition and every fixture
+    parses byte-unchanged and means what it meant.
+
+    **What is *not* checked here.** That an emitting definition is built from
+    the ``context_assembly`` archetype, and that the class it emits to is one
+    the deployment registered, are both refused by
+    :class:`~ccf.agents.factory.AgentFactory` rather than by this schema. The
+    schema knows the shape of a document; only the factory holds the archetype
+    bundles and the deployment's registered classes, and a check that cannot
+    see both sides cannot name both sides.
+
+    Attributes:
+        consumes: The product classes this agent reads. At least one — an
+            agent that reads nothing has no fabric relationship to declare.
+        emits: The product classes this agent assembles and emits, or
+            :data:`EMITS_NOTHING`.
     """
 
     consumes: tuple[ConsumedProduct, ...]
+    emits: tuple[EmittedProduct, ...] = EMITS_NOTHING
 
     @model_validator(mode="after")
     def _contract_is_nonempty(self) -> "ContextContract":
@@ -144,6 +214,18 @@ class ContextContract(CCFContract):
                 "a context contract must name at least one consumed product;"
                 " an agent that reads nothing has no fabric relationship to"
                 " declare (CLAUDE.md §6.2 axis 2)"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _emissions_are_distinct(self) -> "ContextContract":
+        emitted = [(e.product_class, e.schema_version) for e in self.emits]
+        if len(set(emitted)) != len(emitted):
+            raise ValueError(
+                "a context contract names the same emitted product class and"
+                f" lane twice ({sorted(emitted)!r}); an agent emits to a class"
+                " or it does not, and a duplicate binding would make one"
+                " declaration mean two things (CLAUDE.md §6.2 axis 2)"
             )
         return self
 

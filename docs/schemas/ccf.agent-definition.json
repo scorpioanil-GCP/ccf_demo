@@ -22,7 +22,7 @@
     },
     "ContextContract": {
       "additionalProperties": false,
-      "description": "Axis 2 \u2014 which Context Product schemas the agent reads (CLAUDE.md \u00a76.2).\n\nEmission bindings (which projection an assembler emits to) extend this\ncontract when the ContextAssembly archetype's transport lands; the shape is\nadditive by design.",
+      "description": "Axis 2 \u2014 the Context Product schemas an agent reads, and emits to.\n\nCLAUDE.md \u00a76.2. Both directions live here, on one contract, because they\nare one axis: what an agent's fabric relationship *is*. The emission side\nlanded with the assembler surface (``docs/DECISIONS.md`` D-IMPL-97 ruling\n2), on the seam this contract's own earlier docstring reserved for it \u2014\n*\"emission bindings \u2026 extend this contract when the ContextAssembly\narchetype's transport lands; the shape is additive by design\"* \u2014 rather\nthan as a parallel artifact beside it.\n\n**Additive means additive.** ``consumes`` keeps its shape and its\nnon-empty rule; ``emits`` defaults to the positive\n:data:`EMITS_NOTHING` claim, so every shipped definition and every fixture\nparses byte-unchanged and means what it meant.\n\n**What is *not* checked here.** That an emitting definition is built from\nthe ``context_assembly`` archetype, and that the class it emits to is one\nthe deployment registered, are both refused by\n:class:`~ccf.agents.factory.AgentFactory` rather than by this schema. The\nschema knows the shape of a document; only the factory holds the archetype\nbundles and the deployment's registered classes, and a check that cannot\nsee both sides cannot name both sides.\n\nAttributes:\n    consumes: The product classes this agent reads. At least one \u2014 an\n        agent that reads nothing has no fabric relationship to declare.\n    emits: The product classes this agent assembles and emits, or\n        :data:`EMITS_NOTHING`.",
       "properties": {
         "consumes": {
           "items": {
@@ -30,12 +30,40 @@
           },
           "title": "Consumes",
           "type": "array"
+        },
+        "emits": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EmittedProduct"
+          },
+          "title": "Emits",
+          "type": "array"
         }
       },
       "required": [
         "consumes"
       ],
       "title": "ContextContract",
+      "type": "object"
+    },
+    "EmittedProduct": {
+      "additionalProperties": false,
+      "description": "One Context Product schema an agent emits to (axis 2; D-IMPL-97).\n\nThe producing counterpart of :class:`ConsumedProduct`, and pinned on the\nsame reasoning: ``schema_version`` names the class's own lane, because a\nproducer that named no version would be claiming to satisfy whatever shape\nthe class takes next \u2014 a contract drift replay cannot survive (whitepaper\n\u00a76.3, INV-CH7-49).\n\nA separate contract from :class:`ConsumedProduct` rather than a reuse of\nit, because the two are read by different mechanism and refused on\ndifferent grounds: a consumed class is checked at\n:meth:`ccf.agents.agent.Agent.consume`, an emitted class at construction\nagainst what the deployment has registered. Sharing the type would make\n\"which side is this?\" a question the code could not answer.",
+      "properties": {
+        "product_class": {
+          "title": "Product Class",
+          "type": "string"
+        },
+        "schema_version": {
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "product_class",
+        "schema_version"
+      ],
+      "title": "EmittedProduct",
       "type": "object"
     },
     "InstructionBinding": {
