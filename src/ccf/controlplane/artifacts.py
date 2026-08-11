@@ -91,6 +91,7 @@ from ccf.products.contract import (
     ProductDiscovery,
     TTLAnchor,
 )
+from ccf.products.request import NO_REQUEST_CONTRACT
 from ccf.projection.plan import Perspective
 from ccf.signal.envelope import SignalEnvelope
 
@@ -625,8 +626,25 @@ class ProductClassDeclaration(VersionedArtifact):
             schema (D-IMPL-97 ruling 1). **The key is authored; the version
             pinning it is not** — see the class docstring's rule above, which
             this field is the second instance of.
+        request_contract_key: Control Plane key of the class's declared
+            **request contract** — the typed surface a caller's question is
+            validated against, so that the subject and the instant are
+            arguments the caller supplies rather than literals authored in this
+            document (D-IMPL-98, option (a)). The **third** instance of the
+            authored-key/derived-version rule, and ``request_contract_version``
+            is absent for exactly the reason ``max_ttl_version`` and
+            ``payload_schema_version`` are. The contract itself is
+            :class:`~ccf.products.request.ProductRequestContract`, a separately
+            authored ``ccf.product-request-contract`` document that names the
+            class and lane it serves, and
+            :func:`~ccf.products.request.refuse_request_contract_pin` refuses a
+            pin onto the wrong class at wiring time. **Nothing in this tree
+            resolves this key at a door yet**: D-IMPL-108 ruled that the
+            product-resolver seam is widened exactly once, by plan
+            ``15.5-15``, carrying the typed request and the authorized
+            perspective together rather than reshaping 24 files twice.
 
-    **The five governance fields above all default**, on the
+    **The six governance fields above all default**, on the
     ``accepted_policy_binding_modes`` precedent and for the same reason: an
     artifact authored before they existed declared exactly what it declares
     now, so no committed document is rewritten and no adopter's file becomes
@@ -651,6 +669,7 @@ class ProductClassDeclaration(VersionedArtifact):
     addressability: ProductAddress = NOT_ADDRESSABLE
     constituent_validity_floors: ConstituentValidityFloors = NO_VALIDITY_FLOORS
     payload_schema_key: str = NO_PAYLOAD_SCHEMA
+    request_contract_key: str = NO_REQUEST_CONTRACT
 
 
 class ProjectionRequirements(VersionedArtifact):
