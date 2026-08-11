@@ -147,3 +147,40 @@ already owns the retirement decision for the `15.5-01` spike module.
   unconditional hash stops being waste and this entry stops applying.
 - **Owner:** a later performance pass. Low risk, well bounded, explicitly not
   Phase 15.5's.
+
+## DI-15.5-06 — the drift manifest cannot see a call-Protocol's signature
+
+- **Found during:** plan `15.5-15`, task 4, while classifying the two widened
+  resolver seams in `docs/surface-changes/15.5-15-resolver-seam.md`.
+- **What:** `tools/dump_surface.py` records a `Protocol` class as
+  `{"kind": "class", "shape": "(*args, **kwargs)"}` — that is its `__init__`,
+  and every `Protocol` in the tree shares it. The `__call__` member is never
+  captured. So **no change to a call-Protocol's signature can produce a
+  manifest diff line**, and the D-15 drift gate that exists to make a reshaped
+  export reviewable is structurally blind to the one shape whose entire public
+  contract lives in that member.
+
+  This is not hypothetical: `ProductResolverProtocol` and
+  `ExperienceProductResolverProtocol` went from three arguments to five in this
+  plan, a breaking change for every adopter supplying a resolver, and the
+  manifest is byte-identical across it. The same is true of every
+  `…Protocol` this SDK ships as a seam — `PerspectiveResolverProtocol`,
+  `HarnessAdapterProtocol`, `ArtifactStoreProtocol`, `WireProtocol` — which is
+  most of the pluggable surface CLAUDE.md §11 says to prefer Protocols for.
+- **Consequence already visible in the record:** two entries in this plan's
+  fragment are classified `Change type: behavior` where `reshaped` is the
+  truthful word, because `reshaped` is unrepresentable for a name the manifest
+  never moves and fails `tests/test_surface_completeness.py`. Plan `15.5-11`
+  hit the same wall for `ReplayEnvironment` and made the same choice. Two plans
+  reaching for the exempt class to describe a signature change is the signal.
+- **Why deferred:** teaching `dump_surface.py` to record `__call__` for
+  `Protocol` subclasses would move **every** Protocol entry in
+  `docs/surface/v0.2-surface.json` in one commit, which is a drift-gate event
+  of its own and would collide with the concurrent wave-5 plans. It also needs
+  a ruling on whether the frozen Phase-15 baseline is rewritten or the diff
+  reconciled, the same question `test_every_public_log_entry_has_a_matching_diff_line`
+  already carries one narrow reconciliation for.
+- **Owner:** unassigned — a phase-close or Phase-16 gate-tooling item. What
+  this plan did instead is pin the two seams with a dedicated invariant
+  (`tests/invariants/test_mcp_role_separation.py`), which is a per-seam
+  substitute for a gate and does not generalize.

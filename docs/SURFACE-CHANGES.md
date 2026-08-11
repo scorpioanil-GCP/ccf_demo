@@ -4698,7 +4698,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-240 entries — 57 public Python surface, 183 not public Python API.
+238 entries — 55 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -5982,59 +5982,6 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: as above
 
 *Recorded by `15.5-11-debt-delivery.md`.*
-
-#### ccf_runtime.mcp.egress.ProductResolverProtocol
-
-- Surface: ccf_runtime.mcp.egress.ProductResolverProtocol
-- Public surface: true
-- Change type: reshaped
-- Before: `__call__(*, tenant: str, product_class: str, version: str) -> ServableProduct`
-- After:
-  `__call__(*, tenant, product_class, version, perspective: Perspective, request: ProductRequest | None) -> ServableProduct`
-- Why: D-IMPL-108, closing DI-15.5-03. The door resolves and authorizes a
-  `Perspective` and must be able to hand it to the path that shapes the
-  product, or the authorization is a refusal check and nothing more.
-  **Neither new argument is defaulted, and `perspective` is not nullable** —
-  that is the substance rather than a style choice. A resolver silently
-  constructing its own perspective is indistinguishable from one honouring the
-  door's, and a parameter defaulting to `None` would recreate exactly that
-  ambiguity one layer down. `request` is required-with-no-default but typed
-  `ProductRequest | None`, because a surface can honestly have **no way to
-  ask**: the `ccf-product://` template is three path segments with no query
-  among them, and manufacturing a subject, an intent, a freshness figure and
-  an instant would be the SDK holding deployment values (CINV-01) and reading
-  a clock — the literal-instead-of-argument defect D-IMPL-98 exists to remove,
-  reintroduced one layer up. That is the same voice `requested_role: str | None`
-  already carries on `PerspectiveResolverProtocol`
-- Migration: **required, and mechanical.** Every resolver a deployment supplies
-  gains two keyword-only parameters. Eleven definitions across `runtime/`,
-  `examples/` and `tests/` were updated in this plan's commits; an adopter's
-  own is the same edit. The minimum conforming change is to accept both and
-  ignore them, which type-checks and runs — but a resolver that ignores
-  `perspective` is asserting *the conditioning this door authorized does not
-  affect what I serve*, which is a claim worth making deliberately. The
-  reference deployments do not: `examples/04-cross-process/producer_child.py`
-  and `examples/external/00-hello-context/serve.py` both refuse to serve when
-  the authorized perspective is not the one their product was assembled under
-
-*Recorded by `15.5-15-resolver-seam.md`.*
-
-#### ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
-
-- Surface: ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
-- Public surface: true
-- Change type: reshaped
-- Before: the same three-string signature as its egress twin
-- After: the same five-argument signature as its egress twin
-- Why: the two moved together deliberately. The seams are structurally
-  identical so that one deployment resolver can serve both roles, and a
-  deployment supplying one resolver to both doors must not discover that only
-  one of them forwards what it authorized. The two modules remain separate and
-  import neither each other nor a sibling —
-  `tests/invariants/test_mcp_role_separation.py` still asserts it, unrelaxed
-- Migration: as above
-
-*Recorded by `15.5-15-resolver-seam.md`.*
 
 #### ccf.products.contract.RegisteredProductClass
 
@@ -8357,7 +8304,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-37 entries — 28 public Python surface, 9 not public Python API.
+39 entries — 30 public Python surface, 9 not public Python API.
 
 ### Public Python surface
 
@@ -9004,6 +8951,59 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   this fabric prefers
 
 *Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf_runtime.mcp.egress.ProductResolverProtocol
+
+- Surface: ccf_runtime.mcp.egress.ProductResolverProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `__call__(*, tenant: str, product_class: str, version: str) -> ServableProduct`
+- After:
+  `__call__(*, tenant, product_class, version, perspective: Perspective, request: ProductRequest | None) -> ServableProduct`
+- Why: D-IMPL-108, closing DI-15.5-03. The door resolves and authorizes a
+  `Perspective` and must be able to hand it to the path that shapes the
+  product, or the authorization is a refusal check and nothing more.
+  **Neither new argument is defaulted, and `perspective` is not nullable** —
+  that is the substance rather than a style choice. A resolver silently
+  constructing its own perspective is indistinguishable from one honouring the
+  door's, and a parameter defaulting to `None` would recreate exactly that
+  ambiguity one layer down. `request` is required-with-no-default but typed
+  `ProductRequest | None`, because a surface can honestly have **no way to
+  ask**: the `ccf-product://` template is three path segments with no query
+  among them, and manufacturing a subject, an intent, a freshness figure and
+  an instant would be the SDK holding deployment values (CINV-01) and reading
+  a clock — the literal-instead-of-argument defect D-IMPL-98 exists to remove,
+  reintroduced one layer up. That is the same voice `requested_role: str | None`
+  already carries on `PerspectiveResolverProtocol`
+- Migration: **required, and mechanical.** Every resolver a deployment supplies
+  gains two keyword-only parameters. Eleven definitions across `runtime/`,
+  `examples/` and `tests/` were updated in this plan's commits; an adopter's
+  own is the same edit. The minimum conforming change is to accept both and
+  ignore them, which type-checks and runs — but a resolver that ignores
+  `perspective` is asserting *the conditioning this door authorized does not
+  affect what I serve*, which is a claim worth making deliberately. The
+  reference deployments do not: `examples/04-cross-process/producer_child.py`
+  and `examples/external/00-hello-context/serve.py` both refuse to serve when
+  the authorized perspective is not the one their product was assembled under
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
+
+- Surface: ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
+- Public surface: true
+- Change type: behavior
+- Before: the same three-string signature as its egress twin
+- After: the same five-argument signature as its egress twin
+- Why: the two moved together deliberately. The seams are structurally
+  identical so that one deployment resolver can serve both roles, and a
+  deployment supplying one resolver to both doors must not discover that only
+  one of them forwards what it authorized. The two modules remain separate and
+  import neither each other nor a sibling —
+  `tests/invariants/test_mcp_role_separation.py` still asserts it, unrelaxed
+- Migration: as above
+
+*Recorded by `15.5-15-resolver-seam.md`.*
 
 #### ccf_runtime.http_api.routes.product — `GET /{tenant}/{product_class}/{version}`
 
