@@ -663,13 +663,123 @@
         "title": "SignedPrincipalBinding",
         "type": "object"
       },
-      "SkillArgumentProperty": {
+      "SkillArgumentElement": {
         "additionalProperties": false,
-        "description": "One argument's typed spec on a catalog entry (D-IMPL-56).\n\nJSON-Schema-shaped by construction: ``type`` is a closed Literal over the\nJSON Schema primitive type names, and ``description`` is required with no\ndefault \u2014 the same D-16 forcing function as the entry description,\nbecause a property whose meaning an adapter would have to invent is the\nsame defect one schema level down. Nested property specs beyond one\nlevel are out of v0 scope by ruling.",
+        "description": "An array's element spec: a primitive, or an object of members.\n\nThe *\"lists-of-objects (sufficient for the UBO owner list)\"* half of\nD-IMPL-103. An array is transparent to the depth count \u2014 a list of\nobjects is one level of nesting, not two, because the array is a\ncontainer of the object rather than a level of its own \u2014 which is why\nthis type may declare members while :class:`SkillArgumentMember` may not.\n\nIt deliberately has **no** ``items`` field, so a list of lists is not\nexpressible: that would be a second container level the ruling does not\nadmit.\n\nAttributes:\n    type: The declared JSON Schema type of one element.\n    description: What one element is.\n    properties: For an ``object``-typed element, its members. ``None`` \u2014\n        the default \u2014 is the positive statement *this element declares no\n        members*, which for a non-object type is the only coherent\n        statement and is why the field agrees with ``type``.\n    required: Which of those members must be present. A subset.",
         "properties": {
           "description": {
             "title": "Description",
             "type": "string"
+          },
+          "properties": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/SkillArgumentMember"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Properties"
+          },
+          "required": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Required",
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "string",
+              "number",
+              "integer",
+              "boolean",
+              "array",
+              "object"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "description"
+        ],
+        "title": "SkillArgumentElement",
+        "type": "object"
+      },
+      "SkillArgumentMember": {
+        "additionalProperties": false,
+        "description": "A member of a nested object \u2014 the deepest a declaration may go.\n\nD-IMPL-103's ceiling, expressed **structurally**: this type has no\n``properties`` and no ``items`` field, so a third level is not something\na declaration can be refused for \u2014 it is something a declaration cannot\nsay. That is a stronger reading of *\"one level of nesting ... depth 2 is\nthe ceiling, not a floor\"* than a validator, which is a rule someone can\nlater relax; a missing field is not.\n\nAttributes:\n    type: The declared JSON Schema type.\n    description: What the member is for. Required with no default, the\n        same D-16 forcing function that applies at every other level.",
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "string",
+              "number",
+              "integer",
+              "boolean",
+              "array",
+              "object"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "description"
+        ],
+        "title": "SkillArgumentMember",
+        "type": "object"
+      },
+      "SkillArgumentProperty": {
+        "additionalProperties": false,
+        "description": "One argument's typed spec on a catalog entry (D-IMPL-56, D-IMPL-103).\n\nJSON-Schema-shaped by construction: ``type`` is a closed Literal over the\nJSON Schema primitive type names, and ``description`` is required with no\ndefault \u2014 the same D-16 forcing function as the entry description,\nbecause a property whose meaning an adapter would have to invent is the\nsame defect one schema level down.\n\n**The D-IMPL-103 widening, and what it did not change.** Dave ruled\n(2026-08-11) that this declaration supports *one* level of nested objects\nand lists-of-objects \u2014 enough for a beneficial-owner list, whose pairing\na flattening into parallel arrays degrades to an index convention the\nschema cannot state. The ruling is explicit that it is a **widening, not\na replacement**: ``properties``, ``items`` and ``required`` all default to\n\"not declared\", so every declaration written before the widening is still\nvalid, still means what it meant, and still renders byte-identically \u2014\nan unset nesting field is not a declaration and contributes nothing to\n:meth:`SkillArgumentSchema.to_input_schema`'s output.\n\n**One level is a ceiling, and the ceiling is structural rather than\nchecked.** The nested types are :class:`SkillArgumentMember` (which has no\nnesting fields at all) and :class:`SkillArgumentElement` (which has\nmembers but no ``items``), so depth 3 and a list of lists are not\ndeclarations this contract can express. The alternative \u2014 one\nself-referential type plus a depth validator \u2014 was written first and\nrejected: it expresses the ceiling as a rule a later author can relax,\nand it additionally made FastAPI split every model reaching it into\n``-Input`` / ``-Output`` variants in the published OpenAPI document,\nrenaming ``SkillCatalogEntry`` in a contract external integrators read.\n\nAttributes:\n    type: The declared JSON Schema type.\n    description: What the argument is for. Required, never adapter-authored.\n    properties: For an ``object``-typed property, its own typed members.\n        ``None`` \u2014 the default \u2014 is the positive statement *this property\n        declares no members*, which for a non-object type is the only\n        coherent statement and is why the field agrees with ``type``.\n    items: For an ``array``-typed property, the spec every element must\n        satisfy. ``None`` by the same discipline.\n    required: For an ``object``-typed property, which of its own members\n        must be present. Empty by default, and a subset of ``properties``.",
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SkillArgumentElement"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "properties": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/SkillArgumentMember"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Properties"
+          },
+          "required": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Required",
+            "type": "array"
           },
           "type": {
             "enum": [
@@ -693,7 +803,7 @@
       },
       "SkillArgumentSchema": {
         "additionalProperties": false,
-        "description": "The typed argument declaration on a catalog entry (D-IMPL-56).\n\nJSON-Schema-shaped and MCP-``inputSchema``-compatible, pre-specified:\n``properties`` maps argument names to typed specs, ``required`` is a\nsubset of the property names, and the rendered surface always pins\n``additionalProperties`` to ``false`` \u2014 structurally, mirroring this\ncontract's own ``extra=forbid`` closed world. One shared derivation\n(:mod:`ccf.skills.toolsurface`) renders it into every harness.",
+        "description": "The typed argument declaration on a catalog entry (D-IMPL-56).\n\nJSON-Schema-shaped and MCP-``inputSchema``-compatible, pre-specified:\n``properties`` maps argument names to typed specs, ``required`` is a\nsubset of the property names, and the rendered surface always pins\n``additionalProperties`` to ``false`` at **every** object level \u2014\nstructurally, mirroring this contract's own ``extra=forbid`` closed\nworld. One shared derivation (:mod:`ccf.skills.toolsurface`) renders it\ninto every harness.\n\n**This is also the declared payload schema of a Context Product class**\n(D-IMPL-97 ruling 1, D-IMPL-103 branch (i)). ``ccf.products.payload``\nnames it ``ProductPayloadSchema`` and *aliases* this type rather than\ncopying it: the ruling measured a nesting-capable sibling at five\nduplicated symbols and declined it, because D-IMPL-97 asked for reuse of\nthe machinery already proven rather than a second one.",
         "properties": {
           "properties": {
             "additionalProperties": {

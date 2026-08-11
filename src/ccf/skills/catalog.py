@@ -69,6 +69,8 @@ __all__ = [
     "McpBinding",
     "PeeringBinding",
     "ProcedureBinding",
+    "SkillArgumentElement",
+    "SkillArgumentMember",
     "SkillArgumentProperty",
     "SkillArgumentSchema",
     "SkillCatalog",
@@ -95,12 +97,6 @@ SKILL_TYPES: frozenset[str] = frozenset(get_args(SkillType))
 JsonSchemaType = Literal[
     "string", "number", "integer", "boolean", "array", "object"
 ]
-
-#: The ceiling D-IMPL-103 set: the declaration root, then **one** nested object
-#: level. An array is transparent to the count — a list of objects is one
-#: level, not two — because the array is a container of the object rather than
-#: a level of its own. Structural, not a tunable: the value names a ruling.
-_NESTING_CEILING = 1
 
 
 class SkillNotInCatalog(LookupError):
@@ -198,6 +194,105 @@ _BINDING_CONTRACTS: dict[str, type[CCFContract]] = {
 }
 
 
+def _refuse_undeclared_required(
+    *, required: tuple[str, ...], declared: Mapping[str, object] | None
+) -> None:
+    """Raise unless every ``required`` name is a declared member.
+
+    The D-IMPL-56 reasoning, one level down: a requirement over an undeclared
+    member is a schema that cannot be satisfied. Factored so the two nested
+    shapes below hold it identically rather than each re-deriving it.
+    """
+    names = declared or {}
+    missing = [name for name in required if name not in names]
+    if missing:
+        raise ValueError(
+            f"required member names {missing!r} are not declared in this"
+            " spec's 'properties' — a requirement over an undeclared member"
+            " is a schema that cannot be satisfied (D-IMPL-103, the D-IMPL-56"
+            " reasoning one level down)"
+        )
+
+
+class SkillArgumentMember(CCFContract):
+    """A member of a nested object — the deepest a declaration may go.
+
+    D-IMPL-103's ceiling, expressed **structurally**: this type has no
+    ``properties`` and no ``items`` field, so a third level is not something
+    a declaration can be refused for — it is something a declaration cannot
+    say. That is a stronger reading of *"one level of nesting ... depth 2 is
+    the ceiling, not a floor"* than a validator, which is a rule someone can
+    later relax; a missing field is not.
+
+    Attributes:
+        type: The declared JSON Schema type.
+        description: What the member is for. Required with no default, the
+            same D-16 forcing function that applies at every other level.
+    """
+
+    type: JsonSchemaType
+    description: str
+
+
+class SkillArgumentElement(CCFContract):
+    """An array's element spec: a primitive, or an object of members.
+
+    The *"lists-of-objects (sufficient for the UBO owner list)"* half of
+    D-IMPL-103. An array is transparent to the depth count — a list of
+    objects is one level of nesting, not two, because the array is a
+    container of the object rather than a level of its own — which is why
+    this type may declare members while :class:`SkillArgumentMember` may not.
+
+    It deliberately has **no** ``items`` field, so a list of lists is not
+    expressible: that would be a second container level the ruling does not
+    admit.
+
+    Attributes:
+        type: The declared JSON Schema type of one element.
+        description: What one element is.
+        properties: For an ``object``-typed element, its members. ``None`` —
+            the default — is the positive statement *this element declares no
+            members*, which for a non-object type is the only coherent
+            statement and is why the field agrees with ``type``.
+        required: Which of those members must be present. A subset.
+    """
+
+    type: JsonSchemaType
+    description: str
+    properties: Mapping[str, SkillArgumentMember] | None = None
+    required: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def _members_agree_with_the_declared_type(self) -> "SkillArgumentElement":
+        if self.properties is not None and self.type != "object":
+            raise ValueError(
+                "an array element declaring 'properties' must declare type"
+                f" 'object', not {self.type!r} — a member list under a"
+                " non-object type is a declaration nothing can satisfy"
+                " (D-IMPL-103)"
+            )
+        _refuse_undeclared_required(
+            required=self.required, declared=self.properties
+        )
+        return self
+
+    def __hash__(self) -> int:
+        # Same reason as SkillArgumentSchema.__hash__ below: the generated
+        # frozen-model hash cannot hash a mapping field, and this type
+        # participates in entry hashing through the schema.
+        return hash(
+            (
+                type(self),
+                self.type,
+                self.description,
+                None
+                if self.properties is None
+                else tuple(sorted(self.properties.items())),
+                self.required,
+            )
+        )
+
+
 class SkillArgumentProperty(CCFContract):
     """One argument's typed spec on a catalog entry (D-IMPL-56, D-IMPL-103).
 
@@ -218,10 +313,16 @@ class SkillArgumentProperty(CCFContract):
     an unset nesting field is not a declaration and contributes nothing to
     :meth:`SkillArgumentSchema.to_input_schema`'s output.
 
-    **One level is a ceiling, not a floor.** The depth check lives on
-    :class:`SkillArgumentSchema`, the contract surface a declaration is
-    authored as, and refuses depth 2 naming the ruling. An array is
-    transparent to the count: a list of objects is one level.
+    **One level is a ceiling, and the ceiling is structural rather than
+    checked.** The nested types are :class:`SkillArgumentMember` (which has no
+    nesting fields at all) and :class:`SkillArgumentElement` (which has
+    members but no ``items``), so depth 3 and a list of lists are not
+    declarations this contract can express. The alternative — one
+    self-referential type plus a depth validator — was written first and
+    rejected: it expresses the ceiling as a rule a later author can relax,
+    and it additionally made FastAPI split every model reaching it into
+    ``-Input`` / ``-Output`` variants in the published OpenAPI document,
+    renaming ``SkillCatalogEntry`` in a contract external integrators read.
 
     Attributes:
         type: The declared JSON Schema type.
@@ -238,8 +339,8 @@ class SkillArgumentProperty(CCFContract):
 
     type: JsonSchemaType
     description: str
-    properties: Mapping[str, "SkillArgumentProperty"] | None = None
-    items: "SkillArgumentProperty | None" = None
+    properties: Mapping[str, SkillArgumentMember] | None = None
+    items: SkillArgumentElement | None = None
     required: tuple[str, ...] = ()
 
     @model_validator(mode="after")
@@ -259,24 +360,9 @@ class SkillArgumentProperty(CCFContract):
                 f" {self.type!r} — an element spec under a non-array type is a"
                 " declaration nothing can satisfy (D-IMPL-103)"
             )
-        if self.items is not None and self.items.items is not None:
-            raise ValueError(
-                "an array's element spec may not itself be an array."
-                " D-IMPL-103 widened this declaration to nested objects and"
-                " lists-of-objects; a list of lists is a second container"
-                " level the ruling does not admit, and the depth count is"
-                " transparent to arrays precisely because one array is the"
-                " most a declaration may wrap an object in"
-            )
-        declared = self.properties or {}
-        missing = [name for name in self.required if name not in declared]
-        if missing:
-            raise ValueError(
-                f"required member names {missing!r} are not declared in this"
-                " property's 'properties' — a requirement over an undeclared"
-                " member is a schema that cannot be satisfied (D-IMPL-103,"
-                " the same reasoning as D-IMPL-56 one level down)"
-            )
+        _refuse_undeclared_required(
+            required=self.required, declared=self.properties
+        )
         return self
 
     def __hash__(self) -> int:
@@ -295,23 +381,6 @@ class SkillArgumentProperty(CCFContract):
                 self.required,
             )
         )
-
-
-def _nesting_depth(spec: SkillArgumentProperty) -> int:
-    """Levels of *object* nesting at and below one property spec.
-
-    An array is transparent — ``array`` of ``object`` is one level, because
-    the array is a container of the object rather than a level of its own.
-    Pure and total over the declaration; nothing here reads anything.
-    """
-    if spec.items is not None:
-        return _nesting_depth(spec.items)
-    if spec.properties is None:
-        return 0
-    return 1 + max(
-        (_nesting_depth(member) for member in spec.properties.values()),
-        default=0,
-    )
 
 
 class SkillArgumentSchema(CCFContract):
@@ -347,28 +416,6 @@ class SkillArgumentSchema(CCFContract):
             )
         return self
 
-    @model_validator(mode="after")
-    def _nesting_stops_at_one_level(self) -> "SkillArgumentSchema":
-        """Depth 2 is the ceiling D-IMPL-103 set, refused here by name.
-
-        Checked on the schema rather than on the property because the schema
-        is the artifact an author writes and therefore the only place a depth
-        is a property of a *declaration* rather than of a fragment.
-        """
-        too_deep = sorted(
-            name
-            for name, spec in self.properties.items()
-            if _nesting_depth(spec) > _NESTING_CEILING
-        )
-        if too_deep:
-            raise ValueError(
-                f"argument properties {too_deep!r} nest deeper than one level."
-                " D-IMPL-103 widened this declaration by exactly one level of"
-                " nested objects and lists-of-objects and no further; depth 2"
-                " is the ceiling, not a floor"
-            )
-        return self
-
     def __hash__(self) -> int:
         # The generated frozen-model hash cannot hash a mapping field; the
         # schema participates in entry hashing (catalog discovery compares
@@ -397,26 +444,60 @@ class SkillArgumentSchema(CCFContract):
         }
 
 
+def _render_member(spec: SkillArgumentMember) -> dict[str, Any]:
+    """The deepest fragment: exactly the two keys, and no way to have more."""
+    return {"type": spec.type, "description": spec.description}
+
+
+def _render_members(
+    *, properties: Mapping[str, SkillArgumentMember], required: tuple[str, ...]
+) -> dict[str, Any]:
+    """An object's member block, closed — ``additionalProperties`` false.
+
+    Closed at every object level, not only the root, because a nested object
+    left open would be a hole in exactly the surface D-IMPL-103's widening
+    creates.
+    """
+    return {
+        "properties": {
+            name: _render_member(member) for name, member in properties.items()
+        },
+        "required": list(required),
+        "additionalProperties": False,
+    }
+
+
+def _render_element(spec: SkillArgumentElement) -> dict[str, Any]:
+    """One array element's ``inputSchema`` fragment."""
+    rendered: dict[str, Any] = {
+        "type": spec.type,
+        "description": spec.description,
+    }
+    if spec.properties is not None:
+        rendered.update(
+            _render_members(properties=spec.properties, required=spec.required)
+        )
+    return rendered
+
+
 def _render_property(spec: SkillArgumentProperty) -> dict[str, Any]:
     """One property's ``inputSchema`` fragment, nesting included.
 
-    A leaf renders exactly the two keys it rendered before D-IMPL-103's
-    widening — which is what makes the widening a widening on the *rendered*
-    surface every harness adapter consumes, not only on the model.
+    A property that declares no nesting renders exactly the two keys it
+    rendered before D-IMPL-103's widening — which is what makes the widening a
+    widening on the *rendered* surface every harness adapter consumes, not
+    only on the model.
     """
     rendered: dict[str, Any] = {
         "type": spec.type,
         "description": spec.description,
     }
     if spec.properties is not None:
-        rendered["properties"] = {
-            name: _render_property(member)
-            for name, member in spec.properties.items()
-        }
-        rendered["required"] = list(spec.required)
-        rendered["additionalProperties"] = False
+        rendered.update(
+            _render_members(properties=spec.properties, required=spec.required)
+        )
     if spec.items is not None:
-        rendered["items"] = _render_property(spec.items)
+        rendered["items"] = _render_element(spec.items)
     return rendered
 
 

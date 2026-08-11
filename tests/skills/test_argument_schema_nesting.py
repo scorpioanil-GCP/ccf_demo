@@ -5,8 +5,9 @@ separately, because either one read loosely turns the ruling into a different
 one:
 
 * **one level of nesting is the ceiling.** Nested objects and lists-of-objects,
-  one deep. Depth 3 is refused, and the refusal names the ruling rather than
-  reading as an implementation limit;
+  one deep. Depth 3 and a list of lists are refused, and refused
+  *structurally* — the nested types have no nesting fields to fill in, so the
+  ceiling is not a rule a later author can relax;
 * **a widening, not a replacement.** Every existing depth-1 declaration stays
   valid, unchanged, and renders byte-identically through
   :meth:`~ccf.skills.catalog.SkillArgumentSchema.to_input_schema`.
@@ -211,10 +212,21 @@ class TestOneLevelOfNestingIsExpressible:
 
 
 class TestTheCeilingIsOneLevel:
-    """Bound 1, the refusing half: depth 2 is the ceiling, not a floor."""
+    """Bound 1, the refusing half: depth 2 is the ceiling, not a floor.
+
+    The ceiling is **structural**, not a validator: the nested types are
+    :class:`~ccf.skills.catalog.SkillArgumentMember` (no nesting fields at
+    all) and :class:`~ccf.skills.catalog.SkillArgumentElement` (members but no
+    ``items``), so a third level and a list of lists are not declarations the
+    contract can express. These cases therefore assert a refusal without
+    matching the ruling's number in the message — a structural impossibility
+    refuses as ``extra=forbid``, which is a stronger guarantee than a rule a
+    later author can relax, and asserting on a message would have made the
+    weaker implementation the passing one.
+    """
 
     def test_an_object_inside_an_object_is_refused(self) -> None:
-        with pytest.raises(ValidationError, match="D-IMPL-103"):
+        with pytest.raises(ValidationError):
             SkillArgumentSchema.model_validate(
                 {
                     "properties": {
@@ -240,7 +252,7 @@ class TestTheCeilingIsOneLevel:
             )
 
     def test_a_list_of_objects_of_objects_is_refused(self) -> None:
-        with pytest.raises(ValidationError, match="D-IMPL-103"):
+        with pytest.raises(ValidationError):
             SkillArgumentSchema.model_validate(
                 {
                     "properties": {
@@ -270,7 +282,7 @@ class TestTheCeilingIsOneLevel:
             )
 
     def test_a_list_of_lists_is_refused(self) -> None:
-        with pytest.raises(ValidationError, match="D-IMPL-103"):
+        with pytest.raises(ValidationError):
             SkillArgumentSchema.model_validate(
                 {
                     "properties": {

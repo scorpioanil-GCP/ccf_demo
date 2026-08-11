@@ -11,11 +11,21 @@ the sentence that describes them.
 **Why the union.** The enumeration runs over the union of
 ``ContextProductContract.model_fields`` and
 ``RegisteredProductClass.model_fields`` rather than over the instance type
-alone. ``assembly_mode`` is already borne by the registered class and not by
-the instance, and the phase's open question ``Q8`` has not ruled whether
-``freshness_sla`` lands on the instance or on the class. The union makes this
-suite correct under either ruling, because it asserts that an element is
-**borne**, not where it is borne.
+alone, because the nine elements are borne across both types by ruling:
+``assembly_mode`` on the registered class (``D-IMPL-30``), and — since
+``D-IMPL-106`` (option (b), 2026-08-11) — ``freshness_sla`` there too, the
+sidebar's "freshness SLA" naming a **class-level promise the product was
+assembled under** rather than an instance field. The union asserts that an
+element is **borne**, which is the claim; *where* is each element's own
+ruling's to make, and this suite deliberately does not re-litigate it.
+
+**Borne is not served, and this suite says only the first.** An element having
+a named field is one claim; a working surface serving it is a different one.
+``discovery`` and ``addressability`` are borne here as class-level governance;
+whether a registry answers a lookup and whether a request binds to an address
+is ``D-IMPL-98``'s surface, built by plans ``15.5-08`` and ``15.5-10``. This
+module would be lying if it conflated the two, so it asserts the first and is
+silent on the second.
 
 **Why a pending element asserts an absence before it skips.** A ratchet that
 only skips has one working direction, and the direction it fails to hold is
@@ -25,13 +35,16 @@ the anti-recurrence requirement is silently unmet. So the pending branch
 asserts the field is absent from the union *first*; the skip is unreachable
 once the element has landed.
 
-**Deferrals are emitted, not hidden.** Three elements and one false docstring
-claim are carried as pytest skips naming the reason, the plan that closes them
-and the requirement — the shipped idiom of
-``tests/invariants/test_replay_by_construction.py``. This tree carries no
-expected-failure marker anywhere and this module does not introduce the first
-one; a deferral that announces itself in the run output is a deferral someone
-reads.
+**The deferrals are closed; the machinery that carried them is not removed.**
+Plan ``15.5-02`` carried three elements and one false docstring claim as
+pytest skips naming the reason, the plan that closes them and the requirement.
+Plan ``15.5-07`` landed all three fields and made the docstring true, so
+``PENDING_ELEMENT_NAMES`` is now **empty** — the ratchet's terminal state, and
+the only state in which the enumeration and the code agree completely. The
+pending branch, its absence assertion and the emitted-skip idiom stay in
+place: they are how a *tenth* element, or a re-deferral, would be carried, and
+deleting them would leave the next author with no shape to follow and no
+tripwire if they invented one.
 
 **Chosen to be jointly falsifying, not individually reassuring** — the
 standard ``tests/properties/test_lineage_union.py`` holds this repo's property
@@ -44,9 +57,11 @@ rules out:
 * the **absence** assertion on the pending branch falsifies "an element that
   landed while its marker stayed on", which a skip-only ratchet cannot see and
   which is the exact direction this phase is about to exercise;
-* :func:`test_the_pending_set_is_exactly_the_three_this_phase_closes`
-  falsifies "a *fourth* element quietly declared pending" — a contributor
-  answering a red presence branch by adding a deferral instead of a field;
+* :func:`test_the_pending_set_is_empty_which_is_the_ratchets_terminal_state`
+  falsifies "an element quietly declared pending" — a contributor answering a
+  red presence branch by adding a deferral instead of a field. It was written
+  against a set of three and now asserts a set of none, which is a strictly
+  stronger statement: with an empty target, *any* deferral is a red test;
 * :func:`test_no_element_is_borne_by_a_field_two_elements_share` falsifies
   "nine names all pointing at one field that happens to exist" — without it,
   every element could be keyed to ``schema_name`` and the suite would be
@@ -62,16 +77,25 @@ rules out:
   ``pending`` reason on an element whose field is also declared present, or an
   element dropped from both halves and therefore checked by nothing.
 
-**Where the union mechanism is coarse, and this says so rather than hiding
-it.** ``contract.py``'s own field-to-element table routes Policy Binding
-through ``lineage.policy_bundle_versions`` — a *nested* field, which a
-top-level ``model_fields`` union cannot reach. This enumeration therefore keys
-Policy Binding to ``accepted_policy_binding_modes``, the class-level top-level
-field that carries the element's contract surface. Keying it to ``lineage``
-instead would have collapsed two distinct elements onto one field, which the
-injectivity guard rejects for good reason. The residual is recorded, not
-papered over: the union proves the element has a bearing field, it does not
-prove the nested policy-bundle route still exists.
+**The Policy Binding residual plan 15.5-02 left open, now ruled.** That plan
+recorded that ``contract.py``'s field-to-element table routed Policy Binding
+through ``lineage.policy_bundle_versions`` — a *nested* field a top-level
+``model_fields`` union cannot reach — while this enumeration keyed the element
+to ``accepted_policy_binding_modes``, and it declined to say whether the
+nested route still existed. Plan ``15.5-07`` read both and rules it:
+**both routes exist and they carry different things.**
+``lineage.policy_bundle_versions`` carries the bundle versions actually
+*bound into* the state a given product was assembled from — a fact about one
+product, and the one that lands in the replay record.
+``accepted_policy_binding_modes`` carries what the **class** accepts, which
+is what governance means and what ``run_gates`` compares against. The
+enumeration keys the element to the second because the union reaches it and
+because keying it to ``lineage`` would collapse two distinct elements onto one
+field, which the injectivity guard rejects for good reason. ``contract.py``'s
+rewritten table now says the same thing, so the two no longer disagree. What
+remains true and is not papered over: this union proves the element has a
+bearing field at the class level; the per-product route is asserted elsewhere,
+by the lineage gate and by the replay suite, not here.
 
 Requirement CPS-02.
 """
@@ -93,8 +117,10 @@ from ccf.products.contract import (
 #: move of the tests tree cannot leave the anchor guard reading a stale copy.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-#: The plan that lands the three absent elements and makes the ``contract.py``
-#: module docstring true.
+#: The plan that landed the three absent elements and made the ``contract.py``
+#: module docstring true. Kept after the fact, not as history: it is what the
+#: absence branch's failure message points a future author at when an element
+#: lands with its marker still on.
 CLOSING_PLAN = "15.5-07"
 
 #: The requirement every deferral in this module answers to.
@@ -130,13 +156,6 @@ class Element(NamedTuple):
     field_name: str
     pending: str | None = None
     absence_markers: tuple[str, ...] = ()
-
-
-def _deferral(element_name: str) -> str:
-    return (
-        f"{element_name} is a 6.3 element with no field on either shipped "
-        f"type yet; plan {CLOSING_PLAN} lands it ({REQUIREMENT})"
-    )
 
 
 _INSTANCE = "ccf.products.contract.ContextProductContract"
@@ -189,39 +208,42 @@ NINE_ELEMENTS: tuple[Element, ...] = (
         field_name="assembly_mode",
     ),
     Element(
+        # Class-level by D-IMPL-106 option (b), landed by 15.5-07 as a
+        # per-signal mapping rather than a scalar: §6.3 at :1453 says the SLA
+        # "varies by signal and by decision", and the ruling stated in terms
+        # that no scalar was ruled in by its silence on the shape.
         name="Freshness SLA",
         whitepaper_anchor="docs/CCF_Whitepaper_1-2.md:1453",
         borne_by=_CLASS,
         field_name="freshness_sla",
-        pending=_deferral("Freshness SLA"),
-        absence_markers=("freshness",),
     ),
     Element(
+        # Landed for real rather than declaration-only: D-IMPL-98 ruled that
+        # addressability and the typed request contract are one commitment,
+        # which makes 15.5-CONTEXT.md's declaration-only permission moot.
         name="Discovery",
         whitepaper_anchor="docs/CCF_Whitepaper_1-2.md:1463",
         borne_by=_CLASS,
         field_name="discovery",
-        pending=_deferral("Discovery"),
-        absence_markers=("discovery",),
     ),
     Element(
         name="Addressability",
         whitepaper_anchor="docs/CCF_Whitepaper_1-2.md:1465",
         borne_by=_CLASS,
         field_name="addressability",
-        pending=_deferral("Addressability"),
-        absence_markers=("address",),
     ),
 )
 
-#: The elements this phase closes, named rather than counted. A *fourth*
-#: element quietly losing its field fails
-#: :func:`test_the_pending_set_is_exactly_the_three_this_phase_closes`, and an
-#: element landing without its marker removed fails the absence assertion in
-#: :func:`test_every_element_is_borne_by_a_named_field`.
-PENDING_ELEMENT_NAMES = frozenset(
-    {"Freshness SLA", "Discovery", "Addressability"}
-)
+#: **Empty — the ratchet's terminal state.** Plan 15.5-02 declared three
+#: deferrals here and plan 15.5-07 closed all three. An empty target is a
+#: strictly stronger assertion than a set of three: with nothing permitted to
+#: be pending, *any* deferral fails
+#: :func:`test_the_pending_set_is_empty_which_is_the_ratchets_terminal_state`,
+#: and an element landing without its marker removed still fails the absence
+#: assertion in :func:`test_every_element_is_borne_by_a_named_field`. A future
+#: deferral re-arms both halves by adding its name here and a ``pending``
+#: reason naming its closing plan and requirement on the element.
+PENDING_ELEMENT_NAMES: frozenset[str] = frozenset()
 
 
 def borne_field_names() -> frozenset[str]:
@@ -294,28 +316,37 @@ def test_every_element_is_borne_by_a_named_field(element: Element) -> None:
     pytest.skip(element.pending)
 
 
-def test_the_pending_set_is_exactly_the_three_this_phase_closes() -> None:
-    """The ratchet's second direction: the deferral list cannot go stale.
+def test_the_pending_set_is_empty_which_is_the_ratchets_terminal_state() -> None:
+    """The ratchet's second direction, at its end state: nothing is pending.
 
     Between this and the absence assertion in
     :func:`test_every_element_is_borne_by_a_named_field` the declaration is
     impossible to leave stale. Landing a field without removing its marker
     fails there; removing a marker without landing the field fails there too,
-    on the presence branch; and a *fourth* element quietly losing its field
-    fails here, because it would have to be declared pending to pass the
-    presence branch.
+    on the presence branch; and an element quietly losing its field fails
+    here, because it would have to be declared pending to pass the presence
+    branch — and no element may be pending now.
+
+    A deferral that does return must still name its closing plan and its
+    requirement, which the second half asserts. The format is not decoration:
+    a deferral nobody can act on is a deferral nobody closes.
     """
     declared_pending = {
         element.name
         for element in NINE_ELEMENTS
         if element.pending is not None
     }
-    assert declared_pending == set(PENDING_ELEMENT_NAMES)
+    assert declared_pending == set(PENDING_ELEMENT_NAMES) == set(), (
+        f"a 6.3 element is declared pending: {sorted(declared_pending)}. "
+        f"Plan {CLOSING_PLAN} closed the last of them, and the enumeration's "
+        f"terminal state is an empty pending set — an element that needs to "
+        f"be deferred again needs a ruling first, not a marker ({REQUIREMENT})."
+    )
     for element in NINE_ELEMENTS:
         if element.pending is None:
             continue
-        assert CLOSING_PLAN in element.pending, element.name
         assert REQUIREMENT in element.pending, element.name
+        assert "15." in element.pending, element.name
 
 
 # --- the guards that make the set jointly falsifying -----------------------
@@ -420,13 +451,19 @@ def _paragraphs_claiming_class_level_residence(
 def test_the_module_docstring_names_only_fields_that_exist() -> None:
     """The ``contract.py`` docstring is a thing the suite checks, not reads.
 
-    ``contract.py`` states that four 6.3 elements "live" on
-    :class:`RegisteredProductClass`. Only one of them does. This test reads
-    the docstring, resolves each element it claims resides there to the field
-    that claim implies, and asserts the field exists. It is **expected to skip
-    today**: the three unlanded claims are the same three deferrals the
-    enumeration carries, and plan ``15.5-07`` closes them by making the
-    sentence true.
+    ``contract.py`` names the 6.3 elements that live on
+    :class:`RegisteredProductClass`. This test reads the docstring, resolves
+    each element it claims resides there to the field that claim implies, and
+    asserts the field exists. Plan ``15.5-02`` wrote it against a sentence
+    that was **false in three places** and it emitted a skip saying so; plan
+    ``15.5-07`` landed the three fields, so it now passes outright and the
+    skip branch is unreachable while the pending set stays empty.
+
+    T-15.5-28, the repudiation mitigation: prose about which type bears which
+    element can no longer diverge from the types silently, in either
+    direction — a claim about an absent field fails, and (by the presence
+    branch of :func:`test_every_element_is_borne_by_a_named_field`) a field
+    that disappears fails too.
     """
     docstring = contract_module.__doc__ or ""
     claiming = _paragraphs_claiming_class_level_residence(docstring)

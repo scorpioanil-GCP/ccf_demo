@@ -77,6 +77,7 @@ from typing import Any, Literal
 from ccf.contracts.base import CCFContract
 from ccf.skills.catalog import (
     JsonSchemaType,
+    SkillArgumentMember,
     SkillArgumentProperty,
     SkillArgumentSchema,
 )
@@ -184,14 +185,19 @@ def _matches(declared: JsonSchemaType, value: object) -> bool:
     return isinstance(value, Mapping)
 
 
-def _refuse_object(
+def _refuse_shape(
     *,
     presented: Mapping[str, Any],
-    declared: Mapping[str, SkillArgumentProperty],
+    declared: Mapping[str, JsonSchemaType],
     required: tuple[str, ...],
     path: str,
 ) -> PayloadSchemaViolation | None:
-    """One object level of the comparison, recursing one level at most.
+    """One object level: closed world, required keys, declared types.
+
+    Takes the declared **types** rather than the declared specs, so the one
+    function serves the root, a nested object and a list element identically
+    — the levels differ in what they may declare *below* them, never in what
+    conformance means at the level itself.
 
     The order is fixed — undeclared keys, then missing required keys, then
     type mismatches — and every scan is over ``sorted`` names, so the refusal
@@ -222,53 +228,61 @@ def _refuse_object(
         return PayloadSchemaViolation(
             reason="missing-required-key",
             key=f"{path}{name}",
-            declared_type=declared[name].type,
+            declared_type=declared[name],
             presented_type=None,
             declared_keys=declared_keys,
             presented_keys=presented_keys,
             detail=(
                 f"payload is missing required key {path + name!r}, declared"
-                f" {declared[name].type!r} by the product class's payload"
-                f" schema; the payload presents {sorted(presented_keys)}"
+                f" {declared[name]!r} by the product class's payload schema;"
+                f" the payload presents {sorted(presented_keys)}"
             ),
         )
 
     for name in sorted(presented_keys & declared_keys):
-        spec = declared[name]
         value = presented[name]
-        if not _matches(spec.type, value):
+        if not _matches(declared[name], value):
             return PayloadSchemaViolation(
                 reason="type-mismatch",
                 key=f"{path}{name}",
-                declared_type=spec.type,
+                declared_type=declared[name],
                 presented_type=type(value).__name__,
                 declared_keys=declared_keys,
                 presented_keys=presented_keys,
                 detail=(
-                    f"payload key {path + name!r} is declared {spec.type!r}"
-                    f" and presented {type(value).__name__!r}"
+                    f"payload key {path + name!r} is declared"
+                    f" {declared[name]!r} and presented"
+                    f" {type(value).__name__!r}"
                 ),
             )
-        nested = _refuse_member(spec=spec, value=value, path=f"{path}{name}")
-        if nested is not None:
-            return nested
 
     return None
 
 
-def _refuse_member(
+def _member_types(
+    properties: Mapping[str, SkillArgumentMember],
+) -> dict[str, JsonSchemaType]:
+    return {name: member.type for name, member in properties.items()}
+
+
+def _refuse_below(
     *, spec: SkillArgumentProperty, value: object, path: str
 ) -> PayloadSchemaViolation | None:
-    """Descend into one already-type-checked member, if it declares members.
+    """Descend into one already-type-checked property, if it declares below.
 
-    A property that declares neither ``properties`` nor ``items`` is a leaf
-    and there is nothing below it — which is why a declaration written before
-    the D-IMPL-103 widening is checked exactly as it was before.
+    A property that declares neither ``properties`` nor ``items`` has nothing
+    below it — which is why a declaration written before the D-IMPL-103
+    widening is checked exactly as it was checked before, by
+    :func:`_refuse_shape` alone.
+
+    The descent is one level and stops there because the *types* stop there:
+    :class:`~ccf.skills.catalog.SkillArgumentMember` has no nesting fields at
+    all, so there is no third level to walk.
     """
     if spec.properties is not None and isinstance(value, Mapping):
-        return _refuse_object(
+        return _refuse_shape(
             presented=value,
-            declared=spec.properties,
+            declared=_member_types(spec.properties),
             required=spec.required,
             path=f"{path}.",
         )
@@ -276,26 +290,32 @@ def _refuse_member(
         return None
     if not isinstance(value, Sequence):
         return None
+    element_spec = spec.items
     for element in value:
-        if not _matches(spec.items.type, element):
+        if not _matches(element_spec.type, element):
             return PayloadSchemaViolation(
                 reason="type-mismatch",
                 key=f"{path}[]",
-                declared_type=spec.items.type,
+                declared_type=element_spec.type,
                 presented_type=type(element).__name__,
                 declared_keys=frozenset(),
                 presented_keys=frozenset(),
                 detail=(
                     f"an element of payload list {path!r} is declared"
-                    f" {spec.items.type!r} and presented"
+                    f" {element_spec.type!r} and presented"
                     f" {type(element).__name__!r}"
                 ),
             )
-        element_violation = _refuse_member(
-            spec=spec.items, value=element, path=f"{path}[]"
+        if element_spec.properties is None or not isinstance(element, Mapping):
+            continue
+        violation = _refuse_shape(
+            presented=element,
+            declared=_member_types(element_spec.properties),
+            required=element_spec.required,
+            path=f"{path}[].",
         )
-        if element_violation is not None:
-            return element_violation
+        if violation is not None:
+            return violation
     return None
 
 
@@ -325,9 +345,20 @@ def refuse_payload(
         failure in the fixed undeclared-then-missing-then-mistyped order,
         carrying both sides of the comparison that failed.
     """
-    return _refuse_object(
+    shape = _refuse_shape(
         presented=payload,
-        declared=declared.properties,
+        declared={
+            name: spec.type for name, spec in declared.properties.items()
+        },
         required=declared.required,
         path="",
     )
+    if shape is not None:
+        return shape
+    for name in sorted(frozenset(payload) & frozenset(declared.properties)):
+        below = _refuse_below(
+            spec=declared.properties[name], value=payload[name], path=name
+        )
+        if below is not None:
+            return below
+    return None

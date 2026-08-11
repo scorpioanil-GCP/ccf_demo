@@ -36,17 +36,24 @@ Field                                        Specification element
 ``addressability``                           Addressability
 ===========================================  ================================
 
-**Two things this table says that the previous one got wrong, named rather
-than quietly fixed.** First, it asserted that Freshness SLA, Discovery and
-Addressability *lived* on :class:`RegisteredProductClass` when only
-``assembly_mode`` of the four did; a repo-wide grep for ``freshness_sla``
-returned zero. Second, it routed Policy Binding through
-``lineage.policy_bundle_versions``. That route still exists and is still where
-the *bound versions* land, but the element's **contract surface** — what a
-class accepts, which is what governance means — is
-``accepted_policy_binding_modes``, and it is keyed there because a nested
-field is not reachable from a top-level ``model_fields`` union and keying two
-elements to ``lineage`` would collapse them onto one field.
+**What the previous version of this table got wrong, named rather than quietly
+fixed.** It asserted that Freshness SLA, Discovery and Addressability *lived*
+on :class:`RegisteredProductClass` when only ``assembly_mode`` of the four
+did; a repo-wide grep for ``freshness_sla`` in ``src/`` returned zero. Plan
+``15.5-07`` landed the three fields, and
+``tests/products/test_contract_elements.py`` now asserts this table against
+``model_fields`` so the prose cannot drift from the types again.
+
+The second correction concerns Policy Binding, which the previous table routed
+through ``lineage.policy_bundle_versions``. **Both routes exist and they carry
+different things.** That one carries the bundle versions actually bound into
+the state a *given product* was assembled from — a per-product fact, and the
+one that reaches the replay record. The element's **contract surface** — what
+the class accepts, which is what governance means and what
+:func:`ccf.products.gates.run_gates` compares against — is
+``accepted_policy_binding_modes``. The element is keyed to the second above
+because a nested field is not reachable from a top-level ``model_fields``
+union, and because keying two elements to one field would collapse them.
 
 **Freshness SLA is class-level by ruling, not by convenience** (D-IMPL-106,
 option (b), Dave 2026-08-11). The whitepaper's two enumerations of "the same

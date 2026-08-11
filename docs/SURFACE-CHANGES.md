@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**441 entries**, of which **219** name a public Python surface.
+**461 entries**, of which **239** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-186 entries — 155 public Python surface, 31 not public Python API.
+201 entries — 170 public Python surface, 31 not public Python API.
 
 ### Public Python surface
 
@@ -3250,6 +3250,294 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.5-06-egress-entitlement.md`.*
 
+#### ccf.products.contract.FreshnessSLA
+
+- Surface: ccf.products.contract.FreshnessSLA
+- Public surface: true
+- Change type: added
+- Before: absent — the §6.3 Freshness SLA element had no representation
+  anywhere in `src/`, while `contract.py`'s docstring asserted it lived on the
+  registered product class
+- After: a contract carrying `max_age_seconds_by_signal: Mapping[str, int]` —
+  per signal type, the greatest age at which an observation still satisfies
+  the class's currency expectation
+- Why: §6.3 at `docs/CCF_Whitepaper_1-2.md:1453` says the SLA "varies by
+  signal and by decision" and that "a product that mixed the two without
+  surfacing the asymmetry would produce an unreliable agent input" — a scalar
+  is the weaker reading, and D-IMPL-106 ruled the *placement* while stating
+  that no scalar was ruled in by its silence on the shape. It is the sibling
+  of TTL, not a second spelling of it: expectation of currency versus bounded
+  validity once currency is no longer guaranteed
+- Migration: new surface — nothing required. Signal-type keys are the
+  deployment's own opaque identifiers and the SDK interprets none of them, so
+  a class that wants the element declares its own map and one that does not
+  keeps `UNMEASURED_FRESHNESS_SLA`
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.UNMEASURED_FRESHNESS_SLA
+
+- Surface: ccf.products.contract.UNMEASURED_FRESHNESS_SLA
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `FreshnessSLA(max_age_seconds_by_signal={})` — the positive assertion
+  *this class's freshness is bounded by its TTL alone and it measures no
+  signal separately*, in the `NO_HITL_ACTIONS` / `NO_ADAPTER` voice
+- Why: a required field with no default was measured at 29
+  `register_product_class` call sites across 26 files; a default was measured
+  at zero. The default is only admissible because it says something true —
+  every class registered before D-IMPL-106 was in exactly this posture, and a
+  class declaring only a TTL has made a smaller promise rather than no promise
+- Migration: new surface — none. An existing registration keeps asserting what
+  it always asserted
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.ProductDiscovery
+
+- Surface: ccf.products.contract.ProductDiscovery
+- Public surface: true
+- Change type: added
+- Before: absent — §6.3 Discovery was one of the two elements
+  `docs/CONTEXT_PRODUCT_REVISION.md` §1.2 measured as unrepresented in code
+- After: a contract carrying `domain: str`, `intents: frozenset[str]` and
+  `capabilities: frozenset[str]`
+- Why: §6.3 at `:1463` — "a registry exposes available products by intent,
+  domain, and capability" — with the worked entry carrying "a capability
+  manifest", which `capabilities` is. Every value is a deployment-declared
+  opaque identifier compared structurally; no intent vocabulary, domain
+  taxonomy or capability list exists in the SDK (CLAUDE.md §11)
+- Migration: new surface — none required to keep working. A deployment that
+  wants its classes discoverable declares the block on its
+  `ccf.product-class` document; one that does not keeps `NOT_DISCOVERABLE`
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.NOT_DISCOVERABLE
+
+- Surface: ccf.products.contract.NOT_DISCOVERABLE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ProductDiscovery(domain="not-discoverable", intents=frozenset(),
+  capabilities=frozenset())` — the positive assertion *this class is reached
+  by direct reference and is not offered for intent-, domain- or
+  capability-based lookup*
+- Why: a class with no registry entry is a real deployment choice — it is the
+  choice every class in this tree has made until now — and it is a different
+  statement from an entry nobody filled in
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.ProductAddress
+
+- Surface: ccf.products.contract.ProductAddress
+- Public surface: true
+- Change type: added
+- Before: absent — §6.3 Addressability was the other unrepresented element
+- After: a contract carrying `address_template: str`, the address pattern the
+  class answers at
+- Why: §6.3 at `:1465`, worked as
+  `/context-products/credit-risk/counterparty/{counterparty-id}?intent=…&freshness=…`.
+  **The path half only, deliberately**: D-IMPL-98 ruled that the request
+  surface is a typed request contract per product class and that addressability
+  and that contract are one commitment, so the query half — subject and instant
+  as typed *arguments* — is that ruling's surface, built by plan 15.5-08.
+  Modelling query parameters here would foreclose its shape
+- Migration: new surface — none. A deployment declaring an address declares the
+  template; the arguments it is called with arrive with 15.5-08
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.NOT_ADDRESSABLE
+
+- Surface: ccf.products.contract.NOT_ADDRESSABLE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ProductAddress(address_template="not-addressable")` — the positive
+  assertion *this class is served in process and publishes no address pattern*
+- Why: exactly what the in-process delivery path this tree ships has always
+  done, stated rather than left blank
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.ConstituentValidityFloors
+
+- Surface: ccf.products.contract.ConstituentValidityFloors
+- Public surface: true
+- Change type: added
+- Before: absent — D-IMPL-31 ruled the floors on 2026-07-25 and nothing
+  implemented them
+- After: a contract carrying `min_validity_seconds_by_signal: Mapping[str, int]`
+  — per signal type, the least remaining validity a load-bearing constituent
+  must have
+- Why: D-IMPL-31's mixing-refusal rule, verbatim: "Product classes may declare
+  constituent-validity floors whose breach refuses assembly rather than
+  emitting a product fresher-labeled than its stalest load-bearing
+  constituent." Distinct from `FreshnessSLA` and not a restatement of it — one
+  is the currency a class expects of a signal, the other a refusal condition on
+  remaining validity
+- Migration: new surface — none. **Declaration only in this plan**: nothing in
+  the registration path reads a floor, because a mixing-refusal enforced at
+  wiring time would be a rule applied at the wrong moment. The refusal that
+  reads them is plan 15.5-12's, at assembly, where the mix exists
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.NO_VALIDITY_FLOORS
+
+- Surface: ccf.products.contract.NO_VALIDITY_FLOORS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ConstituentValidityFloors(min_validity_seconds_by_signal={})` — the
+  positive assertion *no constituent of this class is load-bearing enough to
+  refuse assembly on its staleness alone*
+- Why: a governance statement rather than an omission, and what every class
+  shipped before the floors existed was in fact asserting
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.NO_PAYLOAD_SCHEMA
+
+- Surface: ccf.products.contract.NO_PAYLOAD_SCHEMA
+- Public surface: true
+- Change type: added
+- After: `"no-payload-schema"` — carried on **both** halves of the
+  payload-schema pin so that "no schema" is one visible state rather than a
+  key and a version disagreeing
+- Before: absent — there was no payload schema to pin
+- Why: honest about a gap rather than papering over it. Until a class declares
+  a schema its payload is the unchecked `Mapping[str, Any]` D-IMPL-97 named as
+  the substantive defect of the vessel model, and this sentinel makes that
+  visible in the registration rather than inferable from a missing field
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.payload.ProductPayloadSchema
+
+- Surface: ccf.products.payload.ProductPayloadSchema
+- Public surface: true
+- Change type: added
+- Before: absent — a product class had no way to declare what its payload must
+  look like, so `ContextProductContract.payload` was an unchecked
+  `Mapping[str, Any]`
+- After: the name a product class's declared payload schema is read under. **An
+  alias of `ccf.skills.catalog.SkillArgumentSchema`, not a copy** —
+  `ProductPayloadSchema is SkillArgumentSchema` is `True`, and a test asserts
+  it rather than a comment claiming it
+- Why: D-IMPL-103 branch (i) — extend in place. The declined alternative, a
+  nesting-capable sibling declared here, was measured at five duplicated
+  symbols, which is the second machinery D-IMPL-97 explicitly asked this work
+  not to invent
+- Migration: new surface — none. A class adopting a declared payload registers
+  a `SkillArgumentSchema` under its own Control Plane key and pins it from the
+  product class
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.payload.PayloadSchemaViolation
+
+- Surface: ccf.products.payload.PayloadSchemaViolation
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the returned refusal when a payload does not match its class's
+  declared schema, carrying both sides — `reason`, the dotted `key`,
+  `declared_type`, `presented_type`, `declared_keys`, `presented_keys` and a
+  human-readable `detail`
+- Why: the refusal-as-value posture `ccf.products.gates` states at its own head
+  — a refusal returned as data cannot be swallowed by a bare `except`, and a
+  payload that does not match its schema is a bad *product*, not a broken
+  deployment. It deliberately does **not** derive from `GateRefusal`: under
+  D-IMPL-102 no payload gate joins `run_gates`, and a violation that inherited
+  the gate refusal type could be returned from the gate path by a later caller
+  who assumed the type meant it belonged there
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.payload.PayloadViolationReason
+
+- Surface: ccf.products.payload.PayloadViolationReason
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["undeclared-key", "missing-required-key", "type-mismatch"]`
+- Why: three reasons because there are three ways a closed, typed, partially
+  required declaration can be missed, and naming which one happened is what
+  lets a caller act without re-deriving anything
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.payload.refuse_payload
+
+- Surface: ccf.products.payload.refuse_payload
+- Public surface: true
+- Change type: added
+- Before: absent — no payload was compared against anything anywhere
+- After: `refuse_payload(*, payload, declared) -> PayloadSchemaViolation | None`
+  — one pure comparison, returning `None` for a conforming payload and the
+  first violation otherwise, in the fixed undeclared-then-missing-then-mistyped
+  order over sorted keys so the verdict does not depend on the order a
+  payload's keys were built in
+- Why: one function for the same reason `refuse_attestation` is one function —
+  D-IMPL-102's two limbs, registration-time binding and bind-time conformity,
+  must not drift into two readings of "conforms". Pure over its arguments: a
+  conformity verdict that moved with the clock or with what was registered
+  elsewhere would not be reproducible at replay
+- Migration: new surface — none. Bind-time conformity is called by plan
+  15.5-09 on the request surface D-IMPL-98 creates
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.skills.catalog.SkillArgumentMember
+
+- Surface: ccf.skills.catalog.SkillArgumentMember
+- Public surface: true
+- Change type: added
+- Before: absent — nothing below the top level of an argument declaration was
+  expressible at all
+- After: a member of a nested object: `type` and `description`, and **no
+  nesting fields whatsoever**
+- Why: this is where D-IMPL-103's ceiling lives, and it lives here
+  *structurally*. A third level is not something a declaration can be refused
+  for — it is something a declaration cannot say. The alternative was one
+  self-referential type plus a depth validator, which was written first and
+  rejected on two counts: it expresses the ceiling as a rule a later author can
+  relax, and it made FastAPI split every model reaching it into `-Input` /
+  `-Output` variants in the published OpenAPI document, renaming
+  `SkillCatalogEntry` in a contract external integrators read
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.skills.catalog.SkillArgumentElement
+
+- Surface: ccf.skills.catalog.SkillArgumentElement
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: an array's element spec — `type`, `description`, and optionally
+  `properties` (a map of `SkillArgumentMember`) with `required`. It has **no**
+  `items` field, so a list of lists is not expressible
+- Why: the "lists-of-objects (sufficient for the UBO owner list)" half of
+  D-IMPL-103. An array is transparent to the depth count — a list of objects is
+  one level of nesting, not two, because the array is a container of the object
+  rather than a level of its own — which is why this type may declare members
+  where `SkillArgumentMember` may not, and why a second container level is
+  absent rather than validated against
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -3736,7 +4024,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-222 entries — 39 public Python surface, 183 not public Python API.
+226 entries — 43 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -4702,6 +4990,119 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   `examples/04-cross-process/run.py` is the worked example
 
 *Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf.products.contract.RegisteredProductClass
+
+- Surface: ccf.products.contract.RegisteredProductClass
+- Public surface: true
+- Change type: reshaped
+- Before: eight fields — `schema_name`, `schema_version`, `ttl_anchor`,
+  `assembly_mode`, `max_ttl_key`, `max_ttl_version`,
+  `accepted_policy_binding_modes`, `accepted_lineage_modes`. Of the four §6.3
+  elements the module docstring placed here, only `assembly_mode` existed
+- After: six further fields, every one defaulted — `freshness_sla`,
+  `discovery`, `addressability`, `constituent_validity_floors`,
+  `payload_schema_key` and `payload_schema_version`. Between this class and
+  `ContextProductContract` all nine §6.3 elements are now borne by named
+  fields, asserted by `tests/products/test_contract_elements.py` with nothing
+  pending
+- Why: D-IMPL-106 (freshness), D-IMPL-98 (discovery and addressability, ruled
+  *not* declaration-only), D-IMPL-31 (the floors) and D-IMPL-97 ruling 1 (the
+  declared payload schema). Class-level throughout, because a product does not
+  carry a copy of its class's governance — it is governed by it — and because
+  that is the placement under which no recorded content address moves
+- Migration: **nothing is required of an existing adopter.** Every new field
+  defaults to a named positive sentinel, so a `register_product_class` call
+  written before this plan constructs unchanged and the resulting class states
+  what it always stated. To adopt: pass `freshness_sla=FreshnessSLA(...)` for
+  the per-signal currency expectation; `discovery=ProductDiscovery(...)` to
+  publish the class to a registry; `addressability=ProductAddress(...)` for the
+  address it answers at; `constituent_validity_floors=...` to declare the
+  D-IMPL-31 floors ahead of 15.5-12's refusal; and
+  `payload_schema_key=` / `payload_schema_version=` to pin a declared payload
+  schema, which must already be registered in the Control Plane
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.register_product_class
+
+- Surface: ccf.products.contract.register_product_class
+- Public surface: true
+- Change type: reshaped
+- Before: eight keyword parameters; resolved and type-checked the class's
+  MAX_TTL and nothing else
+- After: six further keyword parameters carrying the fields above, all
+  defaulted. When a payload-schema pin is declared, the schema is **resolved at
+  registration** and refused — `ProductClassRegistrationError`, raised and
+  naming both sides — if the pin is half-declared, names nothing registered, or
+  names an artifact that is not a payload schema
+- Why: D-IMPL-102 limb 1, *schema validity at registration*: a deployment that
+  pinned a schema that is not there finds out while wiring the fabric rather
+  than when a request is about to be bound to it, which is the MAX_TTL
+  reasoning (D-IMPL-39) applied to the second piece of pinned governance. The
+  well-formedness half is structural rather than a check that could be
+  forgotten — a malformed schema cannot be constructed at all — so what remains
+  for registration is that the pinned artifact *is* one
+- Migration: none for an existing caller; every added parameter is
+  keyword-only with a default. A caller adopting the payload schema registers
+  the schema first and passes the `(key, version)` the registration minted.
+  **No fourth gate follows**: `ccf.products.gates.run_gates` is byte-untouched
+  and the three shipped validation gates stay at three (D-IMPL-102 limb 3)
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.controlplane.artifacts.ProductClassDeclaration
+
+- Surface: ccf.controlplane.artifacts.ProductClassDeclaration
+- Public surface: true
+- Change type: reshaped
+- Before: `semver`, `schema_name`, `schema_version`, `ttl_anchor`,
+  `assembly_mode`, `max_ttl_key`, `required_operator_keys`,
+  `accepted_policy_binding_modes`, `accepted_lineage_modes`
+- After: five further defaulted fields mirroring the registered class —
+  `freshness_sla`, `discovery`, `addressability`,
+  `constituent_validity_floors` and `payload_schema_key`.
+  `docs/schemas/ccf.product-class.json` regenerates accordingly, in the same
+  commit, under the bytes-equality drift gate
+- Why: the authored twin of `RegisteredProductClass`. **`payload_schema_version`
+  is deliberately absent**, on exactly the rule that keeps `max_ttl_version`
+  absent: that pin is a content hash minted by *registering* the schema, and an
+  artifact declaring it would be authoring a hash of something it does not
+  contain. Authored key, derived version — the second instance of the rule
+  rather than a new one
+- Migration: **no committed `ccf.product-class` document needs editing.** All
+  five fields default, on the `accepted_policy_binding_modes` precedent, so an
+  artifact authored before this plan parses unchanged and means what it meant.
+  To adopt, add any of `freshness_sla:`, `discovery:`, `addressability:`,
+  `constituent_validity_floors:` or `payload_schema_key:` to the document; an
+  editor pointed at the regenerated schema will complete them
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.skills.catalog.SkillArgumentProperty
+
+- Surface: ccf.skills.catalog.SkillArgumentProperty
+- Public surface: true
+- Change type: reshaped
+- Before: two required fields, `type` and `description`, and no way to describe
+  anything below the top level
+- After: three further fields, all defaulted to "not declared" — `properties`
+  (an object-typed property's own members), `items` (an array-typed property's
+  element spec) and `required` (which of its own members must be present).
+  Keyword agreement is validated: `properties` requires `type == "object"`,
+  `items` requires `type == "array"`, an array's element spec may not itself be
+  an array, and a nested `required` name must be declared
+- Why: D-IMPL-103, Dave 2026-08-11, branch (i). Flattening v0 payloads to one
+  level was measured as not surviving without loss — three declared fields in
+  `examples/s1-01-hello-context-product` lose a typed fact, and flattening a
+  beneficial-owner list into parallel arrays preserves the values while
+  degrading the pairing to an index convention the schema cannot state
+- Migration: **none — this is a widening, not a replacement.** Every existing
+  depth-1 property is still valid with the two fields it always had, and an
+  unset nesting field is not a declaration: a leaf renders exactly the two keys
+  it rendered before
+
+*Recorded by `15.5-07-contract-elements.md`.*
 
 ### Not public Python API
 
@@ -6980,7 +7381,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-33 entries — 25 public Python surface, 8 not public Python API.
+34 entries — 26 public Python surface, 8 not public Python API.
 
 ### Public Python surface
 
@@ -7566,6 +7967,33 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   handler, so the third-party exception is not reachable on `__context__`
 
 *Recorded by `15.4-13-review-fixes.md`.*
+
+#### ccf.skills.catalog.SkillArgumentSchema
+
+- Surface: ccf.skills.catalog.SkillArgumentSchema
+- Public surface: true
+- Change type: behavior
+- Before: a flat declaration; `to_input_schema()` rendered one level with
+  `additionalProperties: false` at the root
+- After: **the same two fields, unchanged** — which is why this is classified
+  `behavior` rather than `reshaped`: the signature diff cannot see it, because
+  the change is entirely in what `properties`' member type may now declare and
+  in what the renderer emits. `to_input_schema()` renders nesting losslessly
+  with `additionalProperties: false` at **every** object level, not only the
+  root. `docs/schemas/ccf.skill-catalog-entry.json` and `openapi.json` both
+  regenerate accordingly, in the same commit, under their bytes-equality gates
+- Why: this is also the declared payload schema of a Context Product class
+  (D-IMPL-97 ruling 1), reached through the `ProductPayloadSchema` alias. A
+  nested object left open would be a hole in exactly the surface the widening
+  creates, which is why the closed world extends downward with it
+- Migration: **none.** A depth-1 declaration validates unchanged, hashes
+  unchanged, and renders byte-identically — asserted directly rather than
+  assumed, on the rendered surface every harness adapter consumes rather than
+  on the model. All three harness adapters (`adk`, `claude_agent`,
+  `langgraph`) reach this type through the one shared derivation in
+  `ccf.skills.toolsurface`, so none of them changes
+
+*Recorded by `15.5-07-contract-elements.md`.*
 
 ### Not public Python API
 
