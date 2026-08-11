@@ -1739,6 +1739,22 @@
               "title": "Version",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role"
+            }
           }
         ],
         "responses": {

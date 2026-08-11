@@ -59,13 +59,13 @@ from ccf_runtime.authz.refusals import (
 )
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import (
-    ERROR_INVALID_GRANT,
     ERROR_SIGNED_BINDING_INVALID,
     ERROR_SIGNED_BINDING_REQUIRED,
     ERROR_SUBJECT_CONFLICT,
     ERROR_TENANT_UNAUTHORIZED,
     refusal_detail,
 )
+from ccf_runtime.http_api.grants import grant_from_request
 from ccf_runtime.identity_binding import principal_from_token_grant
 from ccf_runtime.mcp.auth import TokenGrant
 
@@ -81,26 +81,6 @@ def build_router(
 ) -> APIRouter:
     """The hitl router over the injected typed transport."""
     router = APIRouter()
-
-    def _grant_from(request: Request) -> TokenGrant | None:
-        """The stashed verified grant, failing closed on a near-miss."""
-        grant = getattr(request.state, "token_grant", None)
-        if grant is not None and not isinstance(grant, TokenGrant):
-            # Fail closed (Codex finding, 07-REVIEWS round 2): an object
-            # that is not the verified TokenGrant type never falls
-            # through to any authorization or principal path.
-            raise HTTPException(
-                status_code=403,
-                detail=refusal_detail(
-                    error_code=ERROR_INVALID_GRANT,
-                    message=(
-                        "the stashed grant object is not a TokenGrant;"
-                        " the door refuses rather than fall back to the"
-                        " caller-supplied identity"
-                    ),
-                ),
-            )
-        return grant
 
     def _enforce_tenant_authz(
         grant: TokenGrant | None, *, tenant: str, action_id: str
@@ -138,7 +118,7 @@ def build_router(
     )
     def queue(tenant: str, request: Request) -> list[PendingHitlEvent]:
         _enforce_tenant_authz(
-            _grant_from(request),
+            grant_from_request(request),
             tenant=tenant,
             action_id=ACTION_HITL_QUEUE_READ,
         )
@@ -152,7 +132,7 @@ def build_router(
     def act(
         submission: HitlActionSubmission, request: Request
     ) -> HitlActionReceipt:
-        grant = _grant_from(request)
+        grant = grant_from_request(request)
         _enforce_tenant_authz(
             grant,
             tenant=submission.tenant,
