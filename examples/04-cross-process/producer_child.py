@@ -100,6 +100,24 @@ from ccf.products.gates import ServableProduct, run_gates  # noqa: E402
 from ccf.projection.engine import ProjectionEngine  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
 
+from mcp.server.auth.settings import AuthSettings  # noqa: E402
+from pydantic import AnyHttpUrl  # noqa: E402
+
+from ccf.products.entitlement import (  # noqa: E402
+    PRODUCT_ENTITLEMENT_POLICY,
+    ProductEntitlementGrant,
+    ProductEntitlementPolicy,
+    product_entitlement_key,
+)
+
+from ccf_runtime.authz.product_entitlement import (  # noqa: E402
+    ControlPlaneProductEntitlementSource,
+)
+from ccf_runtime.mcp.auth import (  # noqa: E402
+    FileTokenSource,
+    SourceBackedTokenVerifier,
+    TokenGrant,
+)
 from ccf_runtime.mcp.egress import (  # noqa: E402
     ProductNotServable,
     build_egress_server,
@@ -122,6 +140,17 @@ PROMPT_ARTIFACT_DOCUMENT = ARTIFACTS / "prompt-artifact.yaml"
 #: still assembles, signs with a throwaway key, and serves both surfaces.
 CONSUMER_URL_VAR = "CCF_EXAMPLE04_CONSUMER_URL"
 KEY_DIR_VAR = "CCF_EXAMPLE04_KEY_DIR"
+
+#: The bearer credential the parent will present to the egress door. Optional
+#: like the two above: run standalone and the child mints a throwaway one into
+#: its temp workspace. A token VALUE is never an artifact and never a repo
+#: file — the artifact declares who may be recognised, and the credential that
+#: proves it is generated per run, exactly as the signing key is.
+EGRESS_TOKEN_VAR = "CCF_EXAMPLE04_EGRESS_TOKEN"
+
+#: What a standalone run mints when the parent supplied nothing. Obviously
+#: synthetic and scoped to one temp directory that is deleted on exit.
+STANDALONE_EGRESS_TOKEN = "ccf-example04-standalone-egress-token"
 
 
 class CovenantSlicePlan:
@@ -217,6 +246,13 @@ class AssembledCovenantSlice(NamedTuple):
     definition_version: str
     expected: Mapping[str, object]
     peering: Mapping[str, str | int]
+    #: The egress door's declared deployment values (`egress-door.yaml`).
+    egress_door: Mapping[str, str]
+    #: Who this fabric assembles for, and in what capacity — the same
+    #: `perspective.yaml` the assembly conditioned on, so the door's
+    #: entitlement and the product's conditioning cannot disagree.
+    principal_id: str
+    role: str
     declared_operator_keys: tuple[str, ...]
     operators_invoked: tuple[str, ...]
     now: datetime
@@ -262,6 +298,7 @@ def build_covenant_slice_product(*, database_path: Path) -> AssembledCovenantSli
         perspective = cast(PerspectiveArtifact, booted.artifacts["perspective"])
         registration = cast(DeclaredArtifact, booted.artifacts["agent-registration"])
         peering = cast(DeclaredArtifact, booted.artifacts["producer-peering"])
+        egress_door = cast(DeclaredArtifact, booted.artifacts["egress-door"])
 
         boundary = datetime.fromisoformat(decision.declaration["temporal_boundary"])
         now = datetime.fromisoformat(decision.declaration["now"])
@@ -436,6 +473,9 @@ def build_covenant_slice_product(*, database_path: Path) -> AssembledCovenantSli
         definition_version=definition_version,
         expected=expected.declaration,
         peering=peering.declaration,
+        egress_door=egress_door.declaration,
+        principal_id=perspective.principal_id,
+        role=perspective.role,
         declared_operator_keys=declared.required_operator_keys,
         operators_invoked=execution.operators_invoked,
         now=now,
@@ -496,6 +536,53 @@ def main() -> None:
         else:
             key_dir = Path(key_dir_value)
 
+        # The egress door's two governance inputs, built from the artifacts
+        # that declare them. The token FILE is a development substrate
+        # (`FileTokenSource` says so in its first line); what a production
+        # deployment substitutes is a `TokenSourceProtocol` over its real
+        # identity infrastructure, and nothing else about this call changes.
+        egress_token = os.environ.get(
+            EGRESS_TOKEN_VAR, STANDALONE_EGRESS_TOKEN
+        )
+        token_file = workspace / "egress-tokens.json"
+        token_file.write_text(
+            json.dumps(
+                {
+                    egress_token: {
+                        "client_id": assembled.principal_id,
+                        "scopes": [
+                            str(assembled.egress_door["required_scope"])
+                        ],
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        # Registration is adopter code: no manifest can name
+        # `ccf.product-entitlement-policy`, so the door's composition root
+        # registers it against the real contract — which is what makes a
+        # near-miss a validation failure here rather than a refusal at the
+        # first served call. The permitted class is the one the fabric
+        # actually assembled, so an entitlement cannot name a class this
+        # deployment does not serve.
+        door_registry = ControlPlaneRegistry()
+        door_registry.register_typed(
+            product_entitlement_key(tenant_id=assembled.address.tenant),
+            ProductEntitlementPolicy(
+                tenant_id=assembled.address.tenant,
+                policy_version=str(assembled.egress_door["policy_version"]),
+                principals={
+                    assembled.principal_id: ProductEntitlementGrant(
+                        permitted_schema_names=frozenset(
+                            {assembled.address.product_class}
+                        ),
+                        permitted_roles=frozenset({assembled.role}),
+                    )
+                },
+            ),
+            PRODUCT_ENTITLEMENT_POLICY,
+        )
+
         provider = DetachedJwsIdentityProvider(
             key_source=FileBackedKeySource(directory=key_dir)
         )
@@ -548,8 +635,52 @@ def main() -> None:
                     raise ProductNotServable(str(requested))
                 return assembled.servable
 
+            def resolve_perspective(
+                *, grant: TokenGrant, tenant: str, requested_role: str | None
+            ) -> Perspective:
+                """This deployment's role derivation — its statement, not the SDK's.
+
+                The subject is the *verified* ``client_id``, never a value
+                the caller supplied, and the capacity is the one
+                ``perspective.yaml`` declares. Whatever this returns is
+                still checked against the principal's entitlement grant
+                before a product is resolved, so widening it here would not
+                widen the door.
+                """
+                return Perspective(
+                    principal_id=grant.client_id,
+                    role=(
+                        requested_role
+                        if requested_role is not None
+                        else assembled.role
+                    ),
+                )
+
+            # The door's governance, from the artifacts that own it. All four
+            # seams are required: `build_egress_server` has no inert
+            # configuration, so there is no way to stand this door up
+            # answering everyone.
             egress = build_egress_server(
-                server_name=assembled.server_name, resolver=resolve
+                server_name=assembled.server_name,
+                resolver=resolve,
+                token_verifier=SourceBackedTokenVerifier(
+                    source=FileTokenSource(path=token_file)
+                ),
+                auth_settings=AuthSettings(
+                    issuer_url=AnyHttpUrl(
+                        str(assembled.egress_door["issuer_url"])
+                    ),
+                    resource_server_url=AnyHttpUrl(
+                        str(assembled.egress_door["resource_server_url"])
+                    ),
+                    required_scopes=[
+                        str(assembled.egress_door["required_scope"])
+                    ],
+                ),
+                entitlement_source=ControlPlaneProductEntitlementSource(
+                    control_plane=door_registry, clock=lambda: now
+                ),
+                perspective_resolver=resolve_perspective,
             )
 
             mcp_bound = socket.socket()

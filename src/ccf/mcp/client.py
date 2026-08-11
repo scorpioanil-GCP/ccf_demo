@@ -224,11 +224,26 @@ class McpResourceClient:
             drive. Optional: an async-only consumer never needs one, and
             constructing a thread it will not use is waste. Not owned — the
             constructor of the bridge closes it.
+        http_client_factory: Builds the HTTP client every call's transport
+            uses — the seam for credentials, proxies, and timeouts, threaded
+            to :func:`run_with_session` unchanged. Optional, and the default
+            stays ``None`` so an unauthenticated endpoint needs nothing new;
+            supplied when the server is authenticated, which every SDK MCP
+            server now is (D-26). Without this seam the only way to read an
+            authenticated server was to drop to ``run_with_session`` and
+            re-implement the three operations this class already offers.
     """
 
-    def __init__(self, *, url: str, bridge: SyncMcpBridge | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        url: str,
+        bridge: SyncMcpBridge | None = None,
+        http_client_factory: HttpClientFactory | None = None,
+    ) -> None:
         self._url = url
         self._bridge = bridge
+        self._http_client_factory = http_client_factory
 
     @property
     def url(self) -> str:
@@ -266,7 +281,11 @@ class McpResourceClient:
                 if isinstance(contents, TextResourceContents)
             )
 
-        return await run_with_session(url=self._url, operation=operation)
+        return await run_with_session(
+            url=self._url,
+            operation=operation,
+            http_client_factory=self._http_client_factory,
+        )
 
     async def resource_uris_async(self) -> tuple[str, ...]:
         """Return the URIs the server advertises, in server order.
@@ -279,7 +298,11 @@ class McpResourceClient:
             listing = await session.list_resources()
             return tuple(str(resource.uri) for resource in listing.resources)
 
-        return await run_with_session(url=self._url, operation=operation)
+        return await run_with_session(
+            url=self._url,
+            operation=operation,
+            http_client_factory=self._http_client_factory,
+        )
 
     async def resource_templates_async(self) -> tuple[str, ...]:
         """Return the URI *templates* the server advertises, in server order.
@@ -300,7 +323,11 @@ class McpResourceClient:
                 template.uriTemplate for template in listing.resourceTemplates
             )
 
-        return await run_with_session(url=self._url, operation=operation)
+        return await run_with_session(
+            url=self._url,
+            operation=operation,
+            http_client_factory=self._http_client_factory,
+        )
 
     def read_text(self, uri: str) -> str:
         """Synchronous :meth:`read_text_async`, bounded by the bridge deadline.

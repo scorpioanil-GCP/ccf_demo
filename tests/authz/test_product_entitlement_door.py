@@ -165,6 +165,9 @@ def test_an_entitled_principal_receives_its_grant_and_the_allow_is_audited() -> 
     half an examiner reading "who received this class?" needs most.
     """
     registry = _registry_with(_policy())
+    in_force, _ = registry.resolve_latest(
+        product_entitlement_key(tenant_id=TENANT)
+    )
 
     entitled = _source(registry).authorize(
         grant=_grant(), tenant=TENANT, product_class=PRODUCT_CLASS, role=ROLE
@@ -176,7 +179,12 @@ def test_an_entitled_principal_receives_its_grant_and_the_allow_is_audited() -> 
     assert events[0].resolved is True
     assert events[0].actor == PRINCIPAL
     assert events[0].key == TENANT
-    assert events[0].version == POLICY_VERSION
+    # The *registry* version in force, not the artifact's own declared lane:
+    # ``register_typed`` versions by content address, and what an examiner
+    # needs on the record is the exact artifact that decided, which is the
+    # address (D-04/D-07). A policy edited without a lane bump would still
+    # move this string; the declared lane would not.
+    assert events[0].version == in_force
     assert events[0].artifact_class == PRODUCT_ENTITLEMENT_POLICY.class_id
 
 
