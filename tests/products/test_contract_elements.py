@@ -33,6 +33,35 @@ expected-failure marker anywhere and this module does not introduce the first
 one; a deferral that announces itself in the run output is a deferral someone
 reads.
 
+**Chosen to be jointly falsifying, not individually reassuring** — the
+standard ``tests/properties/test_lineage_union.py`` holds this repo's property
+suites to. Each check below names the weaker implementation it, and only it,
+rules out:
+
+* the **presence** branch of
+  :func:`test_every_element_is_borne_by_a_named_field` falsifies "an element
+  the code silently stopped carrying" — a deleted or renamed field;
+* the **absence** assertion on the pending branch falsifies "an element that
+  landed while its marker stayed on", which a skip-only ratchet cannot see and
+  which is the exact direction this phase is about to exercise;
+* :func:`test_the_pending_set_is_exactly_the_three_this_phase_closes`
+  falsifies "a *fourth* element quietly declared pending" — a contributor
+  answering a red presence branch by adding a deferral instead of a field;
+* :func:`test_no_element_is_borne_by_a_field_two_elements_share` falsifies
+  "nine names all pointing at one field that happens to exist" — without it,
+  every element could be keyed to ``schema_name`` and the suite would be
+  green;
+* :func:`test_the_whitepaper_anchor_of_every_element_resolves` falsifies "an
+  enumeration that agrees with itself" — a declaration whose nine names have
+  drifted from the specification they claim to enumerate. This is the
+  ``T-15.5-04`` repudiation mitigation, and it follows the anchored-citation
+  posture ``make lint``'s ``GQ-NN`` guard already applies to
+  ``docs/GRAPH_QUERY_SEMANTICS.md``;
+* :func:`test_the_present_set_and_the_pending_set_partition_the_nine`
+  falsifies "an element that is neither asserted nor deferred" — a
+  ``pending`` reason on an element whose field is also declared present, or an
+  element dropped from both halves and therefore checked by nothing.
+
 **Where the union mechanism is coarse, and this says so rather than hiding
 it.** ``contract.py``'s own field-to-element table routes Policy Binding
 through ``lineage.policy_bundle_versions`` — a *nested* field, which a
@@ -49,6 +78,7 @@ Requirement CPS-02.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import NamedTuple
 
 import pytest
@@ -58,6 +88,10 @@ from ccf.products.contract import (
     ContextProductContract,
     RegisteredProductClass,
 )
+
+#: Repo root, from this module's own location — never a configured path, so a
+#: move of the tests tree cannot leave the anchor guard reading a stale copy.
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 #: The plan that lands the three absent elements and makes the ``contract.py``
 #: module docstring true.
@@ -282,6 +316,95 @@ def test_the_pending_set_is_exactly_the_three_this_phase_closes() -> None:
             continue
         assert CLOSING_PLAN in element.pending, element.name
         assert REQUIREMENT in element.pending, element.name
+
+
+# --- the guards that make the set jointly falsifying -----------------------
+#
+# Task 1's checks are individually satisfiable by a weaker declaration than
+# criterion 2 asks for. These three close that, each against a named weaker
+# implementation (see the module docstring).
+
+
+def test_no_element_is_borne_by_a_field_two_elements_share() -> None:
+    """The element-to-field mapping is injective.
+
+    Without this, nine elements could all name ``schema_name`` — a field that
+    exists — and every presence assertion would pass while eight elements were
+    unrepresented. Injectivity is what makes "borne by a named field" mean one
+    field per element rather than one field for all of them.
+    """
+    fields = [element.field_name for element in NINE_ELEMENTS]
+    shared = sorted({name for name in fields if fields.count(name) > 1})
+    assert shared == [], (
+        f"6.3 elements share a bearing field: {shared}. Each element must be "
+        f"borne by its own field; a shared field means at least one element "
+        f"is unrepresented while the presence assertion still passes "
+        f"({REQUIREMENT})."
+    )
+
+
+def _anchor_lines(anchor: str) -> tuple[Path, int, int]:
+    """Split ``path:start`` or ``path:start-end`` into a path and a range."""
+    path_part, _, line_part = anchor.rpartition(":")
+    start_part, _, end_part = line_part.partition("-")
+    start = int(start_part)
+    return REPO_ROOT / path_part, start, int(end_part or start_part)
+
+
+@pytest.mark.parametrize(
+    "element", NINE_ELEMENTS, ids=lambda element: element.name
+)
+def test_the_whitepaper_anchor_of_every_element_resolves(
+    element: Element,
+) -> None:
+    """Each element resolves against the specification it claims to enumerate.
+
+    ``T-15.5-04``: a declaration that authors its own expectations is the suite
+    agreeing with itself. The anchor must name a line range that exists in the
+    whitepaper and whose text carries the element's name, so the nine cannot
+    drift away from the nine the specification commits to.
+    """
+    source, start, end = _anchor_lines(element.whitepaper_anchor)
+    assert source.is_file(), (
+        f"6.3 element {element.name!r} anchors at "
+        f"{element.whitepaper_anchor}, and that file does not exist "
+        f"({REQUIREMENT})."
+    )
+    lines = source.read_text(encoding="utf-8").splitlines()
+    assert 1 <= start <= end <= len(lines), (
+        f"6.3 element {element.name!r} anchors at "
+        f"{element.whitepaper_anchor}, and that range is outside the "
+        f"{len(lines)} lines the file has ({REQUIREMENT})."
+    )
+    cited = "\n".join(lines[start - 1 : end]).lower()
+    assert element.name.lower() in cited, (
+        f"6.3 element {element.name!r} anchors at "
+        f"{element.whitepaper_anchor}, and those lines do not name it. "
+        f"Either the whitepaper moved and the anchor needs re-pointing, or "
+        f"this element is not the one the anchor specifies ({REQUIREMENT})."
+    )
+
+
+def test_the_present_set_and_the_pending_set_partition_the_nine() -> None:
+    """Every element is exactly one of present or pending — never neither.
+
+    Task 1's parametrized test branches on ``pending``, so an element in
+    neither half is unreachable by construction there. Stated as its own check
+    because the property being relied on is a *partition*, and a property
+    relied on but never asserted is how the last three elements went missing.
+    """
+    present = {
+        element.name for element in NINE_ELEMENTS if element.pending is None
+    }
+    pending = {
+        element.name
+        for element in NINE_ELEMENTS
+        if element.pending is not None
+    }
+    assert present & pending == set()
+    assert present | pending == {element.name for element in NINE_ELEMENTS}
+    assert len(present) + len(pending) == len(NINE_ELEMENTS) == 9
+    assert pending == set(PENDING_ELEMENT_NAMES)
 
 
 def _paragraphs_claiming_class_level_residence(
