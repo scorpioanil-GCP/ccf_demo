@@ -378,6 +378,11 @@ class GridReplayEnvironment:
     def rehydrate_product(
         self, *, record: DecisionReplayRecord, projection: ProjectionOutput
     ) -> ContextProductContract:
+        # `debt` is read back off dimension 5, never re-assessed (D-IMPL-100).
+        # It is inside the product's content address, and D_c is computed from
+        # observations and a `now` the replay does not re-derive — so a fresh
+        # assessment here would be a different decision wearing this one's
+        # identifier, and the engine's address check would say so.
         return ContextProductContract(
             schema_name=self._declared.schema_name,
             schema_version=self._declared.schema_version,
@@ -397,6 +402,7 @@ class GridReplayEnvironment:
                 graph_snapshot_at=record.context_fabric_snapshot.temporal_boundary,
             ),
             payload=projection.payload,
+            debt=record.content_generation_path.debt,
         )
 
 

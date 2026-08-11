@@ -33,7 +33,14 @@ DESIGN.md §2B.5. The dimensions, and what each holds in I.1:
    the pre-serialized ``workflow_step_sequence`` block the workflow engine
    reports, recorded verbatim. The per-round-trip query pins extend it as of
    15.2-08 (D-11): the ordered ``content_hash`` tuple of every ``GraphQuery``
-   the segmented engine issued, recorded from execution.
+   the segmented engine issued, recorded from execution. The Context Debt in
+   force extends it as of 15.5-11 (D-IMPL-100): the ``DebtAssessment`` the
+   product carries, derived from the product rather than passed beside it,
+   ``None`` asserting "this decision carried no debt assessment". Debt lands
+   here rather than on dimension 1 because its CAR band *is* a generation-path
+   fact — Forced-LLM invokes a semantic stage, Fail-Closed declines — and
+   because it is a property of the delivered product, which is what dimension 5
+   already records.
 
 The record is a frozen contract, so it is canonically serializable and
 content-addressable: a replay resolves the *exact* record, byte for byte,
@@ -56,6 +63,7 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.graph.protocols import SourceAttestation
 from ccf.graph.registry import AdapterPin
+from ccf.halflife.assessment import DebtAssessment
 from ccf.products.contract import AssemblyMode, ContextProductContract
 from ccf.projection.engine import ExecutionResult, ExecutionStep
 from ccf.projection.plan import Perspective
@@ -436,6 +444,32 @@ class ContentGenerationPath(CCFContract):
     Defaults to the positive :data:`NO_GRAPH_QUERIES` sentinel — the
     ``workflow_step_sequence`` precedent — so a record written before the
     query seam existed asserts so and still verifies (D-IMPL-89).
+
+    The Context Debt in force extends this dimension as of 15.5-11 (D-IMPL-100)
+    through ``debt``, under the same sentinel-default discipline as every
+    extension above it. **Dimension 5 and not dimension 1**, for two reasons
+    that point the same way. D_c's routing band *is* a fact about how the
+    content came to be — a Forced-LLM signal invokes a semantic stage and a
+    Fail-Closed signal declines the decision outright (§7.7 CAR), which is the
+    generation path rather than a description of the state read. And debt is a
+    property of the **delivered product**, so it belongs beside
+    ``product_content_address``, the record's other product-side fact: the
+    field a rehydrator reads in order to reproduce the address sits next to the
+    address it must reproduce. Dimension 1 stays exactly the four D-IMPL-06
+    constituents plus the attestation pin, which is what
+    ``tests/replay/test_engine_rehydration.py`` asserts on its field set.
+
+    ``None`` is the positive assertion *this decision carried no debt
+    assessment* — the ``source_attestation`` precedent, the same voice and the
+    same reason: a record written before the debt seam existed and a record
+    whose caller dropped the assessment would otherwise be the same artifact,
+    which is the repudiation failure mode every sentinel in this module closes.
+
+    The value is **derived from the product the builder was handed**, never
+    passed alongside it. That is what keeps all 30 ``build_replay_record``
+    consumers — including two conformance modules — byte-for-byte unchanged,
+    and it makes a record that pins a debt its product does not carry
+    unrepresentable rather than merely discouraged.
     """
 
     plan_id: str
@@ -444,6 +478,7 @@ class ContentGenerationPath(CCFContract):
     product_content_address: str
     workflow_step_sequence: str = NO_WORKFLOW_TRACE
     graph_query_sequence: tuple[str, ...] = NO_GRAPH_QUERIES
+    debt: DebtAssessment | None = None
 
 
 class DecisionReplayRecord(CCFContract):
@@ -553,6 +588,14 @@ def build_replay_record(
       execution recorded before the attestation seam existed, or one built
       by hand without the field, yields the ``None`` sentinel exactly as
       before.
+
+    ``product.debt`` becomes dimension 5's ``debt`` (15.5-11, D-IMPL-100), on
+    the same "already here, so it is derived rather than threaded" reasoning:
+    the assessment is a property of the product, the product is already a
+    parameter, and reading it off the product is what makes a record pinning a
+    debt its product does not carry unrepresentable. A product assembled with
+    no assessment yields the ``None`` sentinel, so every call site written
+    before this extension is byte-for-byte what it was.
     """
     return DecisionReplayRecord(
         tenant_id=product.tenant_id,
@@ -604,5 +647,9 @@ def build_replay_record(
             graph_query_sequence=tuple(
                 content_hash(query) for query in execution.executed_queries
             ),
+            # D-IMPL-100: read off the product, not off a parameter. The
+            # product is already here, so no call site moves — and a record
+            # pinning a debt its product does not carry cannot be constructed.
+            debt=product.debt,
         ),
     )
