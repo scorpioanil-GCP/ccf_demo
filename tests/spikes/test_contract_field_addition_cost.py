@@ -17,15 +17,18 @@ everything else.**
 under ``make ci-core``, which must stay green from wave 1 onward. Plans
 ``15.5-03``, ``15.5-07``, ``15.5-08``, ``15.5-09``, ``15.5-10``, ``15.5-11``,
 ``15.5-12`` and ``15.5-13`` each add or move the constructor call sites this
-module counts. A module asserting a call-site count would go red on *correct*
-work by a later plan in its own phase, and the only available repair would be to
-edit the evidence. Editing the evidence to keep a gate green is the opposite of
-evidence.
+module counts, ``15.5-11`` may make the supersession link this module reports as
+absent exist, and ``15.5-07`` may extend the one-level skill-argument schema this
+module measures the nesting cost of. A module asserting any of those would go red
+on *correct* work by a later plan in its own phase, and the only available repair
+would be to edit the evidence. Editing the evidence to keep a gate green is the
+opposite of evidence.
 
 So the separation is load-bearing, not stylistic:
 
 * **Reported** (via :func:`measure_all`, never compared in an assertion):
-  every tree-derived count, and the outcome of the real rehydration tripwire.
+  every tree-derived count, the A3 supersession verdict, the three Q5 nesting
+  costs, the A8 perf headroom, and the outcome of the real rehydration tripwire.
 * **Asserted**: only properties of stand-in models this module itself owns, of
   the content-addressing function, and of the five shipped positive sentinels
   that no plan in this phase removes (``15.5-11`` *adds* one).
@@ -69,9 +72,12 @@ import pytest
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
+from ccf.halflife import debt as debt_module
+from ccf.halflife import decay as decay_module
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.replay import record as record_module
 from ccf.replay import serve as serve_module
+from ccf.skills import catalog as catalog_module
 
 # --------------------------------------------------------------------------
 # Tree location
@@ -495,6 +501,269 @@ def run_rehydration_tripwire() -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------
+# A3 — is supersession reachable from the debt computation path? REPORTED.
+# --------------------------------------------------------------------------
+
+
+def _occurrences(needle: str, *roots: str) -> dict[str, int]:
+    """Count literal occurrences of ``needle`` under each named subtree."""
+    counts: dict[str, int] = {}
+    for root_name in roots:
+        root = REPO_ROOT / root_name
+        if not root.is_dir():
+            counts[root_name] = -1
+            continue
+        hits = 0
+        for path in sorted(root.rglob("*.py")):
+            if EXCLUDED_PARTS & set(path.parts):
+                continue
+            try:
+                hits += path.read_text(encoding="utf-8").count(needle)
+            except UnicodeDecodeError:
+                continue
+        counts[root_name] = hits
+    return counts
+
+
+def measure_supersession_reachability() -> dict[str, Any]:
+    """Answer A3 with the ``file:line`` that fails to carry the link.
+
+    RESEARCH.md rates A3 MEDIUM-HIGH and explicitly did not trace it. Q4 option
+    (c) — supersession-as-Policy-event — is a much larger piece of work if the
+    answer is no, and the ruling package must not offer an option whose cost is
+    unknown.
+
+    **Reported, not asserted**, and the reason is specific: plan ``15.5-11``
+    task 1 edits ``src/ccf/halflife/debt.py`` under the Q4 ruling. If Q4 rules
+    supersession in scope, ``15.5-11`` makes the link exist — correct work that
+    would turn an asserted "not reachable" red. The verdict has to survive in
+    ``docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md``, not in an assertion.
+    """
+    return {
+        "reachable": False,
+        "verdict": (
+            "No. The debt computation path takes a Sequence[Observation]; "
+            "Observation carries exactly (observation_type, observed_at) and "
+            "no claim or entity identity, so there is no join key from an "
+            "observation back to the claim whose supersession would be the "
+            "material event."
+        ),
+        "missing_link_at": "src/ccf/halflife/decay.py:97-115 (Observation)",
+        "consumer_of_the_missing_link": (
+            "src/ccf/halflife/debt.py:233-262 (FreshnessScorer.score)"
+        ),
+        "supersession_lives_at": (
+            "src/ccf/graph/protocols.py:132-133 "
+            "(ClaimRecord.superseded_by / superseded_at)"
+        ),
+        "observation_fields": tuple(decay_module.Observation.model_fields),
+        "freshness_scorer_score_signature": str(
+            inspect.signature(debt_module.FreshnessScorer.score)
+        ),
+        "supersed_occurrences_by_subtree": _occurrences(
+            "supersed",
+            "src/ccf/halflife",
+            "src/ccf/projection",
+            "src/ccf/products",
+            "src/ccf/graph",
+        ),
+        "observation_constructor_call_sites_in_src_and_runtime": {
+            path: hits
+            for path, hits in count_call_sites("Observation")["by_file"].items()
+            if path.startswith(("src/", "runtime/"))
+        },
+        "consequence_for_q4_option_c": (
+            "Q4 option (c) is not a wiring task. It requires an identity on "
+            "Observation (or a parallel event sequence beside it) plus a "
+            "producer that reads superseded_by / superseded_at off the graph "
+            "and joins the two; neither exists, and no function in src/ or "
+            "runtime/ constructs an Observation at all."
+        ),
+    }
+
+
+# --------------------------------------------------------------------------
+# Q5 — the nesting cost of the declared payload schema. REPORTED.
+# --------------------------------------------------------------------------
+
+_UBO_FLATTENING_NOTE = (
+    "examples/s1-01-hello-context-product/artifacts/expected.yaml declares "
+    "ownership_percent_by_party (an object keyed by party URI) and "
+    "beneficial_owners (an array of two-field objects). Neither is expressible "
+    "under a one-level SkillArgumentSchema: the first needs an object-valued "
+    "property with deployment-chosen keys, the second an array of objects. "
+    "Flattening beneficial_owners into two parallel arrays (party_refs, "
+    "aggregate_ownership_percents) preserves the values but loses the pairing "
+    "as a typed fact — the association degrades to an index convention the "
+    "schema cannot state, and entity_count_by_class degrades the same way."
+)
+
+
+def _files_mentioning(needle: str) -> tuple[str, ...]:
+    """Files under :data:`SEARCH_ROOTS` whose text contains ``needle``."""
+    found: list[str] = []
+    for path in _python_files():
+        try:
+            if needle in path.read_text(encoding="utf-8"):
+                found.append(str(path.relative_to(REPO_ROOT)))
+        except UnicodeDecodeError:
+            continue
+    return tuple(sorted(found))
+
+
+def measure_q5_nesting_cost() -> dict[str, Any]:
+    """The three Q5 nesting branches, each with a counted cost.
+
+    Reported: plan ``15.5-07`` may extend ``SkillArgumentSchema`` under the Q5
+    ruling, which would move every count here.
+    """
+    renderer = count_call_sites("to_input_schema")
+    consumers = _files_mentioning("argument_schema")
+    return {
+        "current_shape": {
+            "SkillArgumentProperty_fields": tuple(
+                catalog_module.SkillArgumentProperty.model_fields
+            ),
+            "SkillArgumentSchema_fields": tuple(
+                catalog_module.SkillArgumentSchema.model_fields
+            ),
+            "declared_depth": 1,
+            "ruled_at": "src/ccf/skills/catalog.py:194-206",
+        },
+        "branch_i_extend_in_place": {
+            "description": (
+                "add an items / nested-properties slot to "
+                "SkillArgumentProperty"
+            ),
+            "to_input_schema_call_sites": renderer["call_sites"],
+            "to_input_schema_by_file": renderer["by_file"],
+            "argument_schema_consumer_files": consumers,
+            "argument_schema_consumer_count": len(consumers),
+            "committed_schema_that_moves": (
+                "docs/schemas/ccf.skill-catalog-entry.json"
+            ),
+            "surface_change_required": True,
+        },
+        "branch_ii_nesting_capable_sibling": {
+            "description": (
+                "a ProductPayloadSchema beside SkillArgumentSchema, leaving "
+                "the skill surface untouched"
+            ),
+            "symbols_duplicated": (
+                "JsonSchemaType",
+                "SkillArgumentProperty",
+                "SkillArgumentSchema",
+                "SkillArgumentSchema.to_input_schema",
+                "the required-names-exist validator",
+            ),
+            "duplicated_symbol_count": 5,
+            "new_committed_schema": "one new docs/schemas/*.json file",
+            "surface_change_required": True,
+        },
+        "branch_iii_flatten_v0_payloads": {
+            "description": (
+                "constrain v0 product payloads to flat one-level objects"
+            ),
+            "reference_payload": (
+                "examples/s1-01-hello-context-product/artifacts/expected.yaml"
+            ),
+            "survives_flattening_without_loss": False,
+            "fields_that_lose_a_typed_fact": (
+                "ownership_percent_by_party",
+                "beneficial_owners",
+                "entity_count_by_class",
+            ),
+            "fields_lost_count": 3,
+            "note": _UBO_FLATTENING_NOTE,
+            "surface_change_required": False,
+        },
+    }
+
+
+# --------------------------------------------------------------------------
+# A8 — the perf headroom. REPORTED, and it is the chain's first link.
+# --------------------------------------------------------------------------
+
+#: `perf/gate.py` writes this beside the raw benchmark output. It is gitignored,
+#: so a fresh checkout reports the figure as not taken rather than estimating.
+PERF_GATE_RESULTS = pathlib.Path("perf/results/micro.results.json")
+
+#: The subset of the micro suite that exercises `run_gates` over prepared
+#: `ContextProductContract` candidates — the benchmarks a fourth gate or a new
+#: vessel field would move (`perf/suites/micro/test_gates.py`).
+PRODUCTS_SURFACE_PREFIX = "suites/micro/test_gates.py::"
+
+
+def measure_perf_headroom() -> dict[str, Any]:
+    """Read the micro battery's medians and margins against the 10% band.
+
+    ``make perf-micro`` is deliberately outside ``make ci`` (``Makefile:180``),
+    so this function reads whatever the last deliberate run left in
+    :data:`PERF_GATE_RESULTS` rather than running a 60-second battery inside the
+    always-on suite. When no results exist the figure is reported as **not
+    taken, with the reason** — never estimated. This is the pre-change baseline
+    plan ``15.5-07`` measures its post-field medians against, and plan
+    ``15.5-09`` measures its post-gate medians against ``15.5-07``'s.
+    """
+    results = REPO_ROOT / PERF_GATE_RESULTS
+    band = "perf/thresholds.toml [suite.micro] default = 0.10"
+    if not results.is_file():
+        return {
+            "taken": False,
+            "band": band,
+            "reason": (
+                f"{PERF_GATE_RESULTS} is absent (it is gitignored); run "
+                "`make perf-micro` to take the measurement"
+            ),
+        }
+    try:
+        raw = json.loads(results.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        return {"taken": False, "band": band, "reason": str(error)}
+
+    measured: dict[str, Any] = {}
+    for name, row in raw.get("benchmarks", {}).items():
+        baseline = row["baseline_median"]
+        median = row["median"]
+        threshold = row["threshold"]
+        ceiling = baseline * (1 + threshold)
+        measured[name] = {
+            "median_seconds": median,
+            "baseline_median_seconds": baseline,
+            "threshold": threshold,
+            "relative_delta": (median - baseline) / baseline,
+            "ceiling_seconds": ceiling,
+            "absolute_margin_seconds": ceiling - median,
+            "verdict": row["verdict"],
+        }
+    products_surface = {
+        name: row
+        for name, row in measured.items()
+        if name.startswith(PRODUCTS_SURFACE_PREFIX)
+    }
+    failing = sorted(
+        name for name, row in measured.items() if row["verdict"] != "PASS"
+    )
+    return {
+        "taken": True,
+        "band": band,
+        "suite": raw.get("suite"),
+        "gate_exit_code": raw.get("exit_code"),
+        "runner_class": os.environ.get("CCF_PERF_RUNNER_CLASS", "local"),
+        "benchmark_count": len(measured),
+        "benchmarks": measured,
+        "products_surface_benchmarks": sorted(products_surface),
+        "products_surface_all_pass": all(
+            row["verdict"] == "PASS" for row in products_surface.values()
+        ),
+        "failing_benchmarks": failing,
+        "failing_outside_products_surface": [
+            name for name in failing if not name.startswith(PRODUCTS_SURFACE_PREFIX)
+        ],
+    }
+
+
+# --------------------------------------------------------------------------
 # The report
 # --------------------------------------------------------------------------
 
@@ -522,6 +791,9 @@ def measure_all() -> dict[str, Any]:
         "q3_placements": measure_q3_placements(),
         "q3_tripwire": run_rehydration_tripwire(),
         "q3_tripwire_shapes": dict(TRIPWIRE_SHAPES),
+        "a3_supersession": measure_supersession_reachability(),
+        "q5_nesting": measure_q5_nesting_cost(),
+        "a8_perf_headroom": measure_perf_headroom(),
     }
 
 
@@ -549,7 +821,14 @@ def test_the_report_is_producible_and_is_printed_for_the_evidence_document(
     destination = os.environ.get(REPORT_ENV)
     if destination:
         pathlib.Path(destination).write_text(rendered, encoding="utf-8")
-    assert set(figures) >= {"a2_call_sites", "a2_sentinels", "q3_placements"}
+    assert set(figures) >= {
+        "a2_call_sites",
+        "a2_sentinels",
+        "q3_placements",
+        "a3_supersession",
+        "q5_nesting",
+        "a8_perf_headroom",
+    }
 
 
 @pytest.mark.parametrize("symbol", MEASURED_SYMBOLS)
