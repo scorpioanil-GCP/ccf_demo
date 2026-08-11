@@ -25,6 +25,7 @@ Requirements CPS-03, CPS-13.
 
 from __future__ import annotations
 
+import ast
 import inspect
 from pathlib import Path
 
@@ -312,8 +313,23 @@ class TestTheBindHoldsNoPrincipalAndNoDomainValue:
     it, and holds no domain value either (CLAUDE.md §11, CINV-01)."""
 
     def test_no_principal_reaches_the_bind(self) -> None:
+        """Asserted over *identifiers*, not prose: the module says in words
+        that entitlement is the door's, and the check that matters is that no
+        argument, attribute or name here carries one."""
         source = Path("src/ccf/products/bind.py").read_text(encoding="utf-8")
-        assert "principal" not in source
+        tree = ast.parse(source)
+        named = {
+            node.arg
+            for node in ast.walk(tree)
+            if isinstance(node, ast.arg)
+        } | {
+            node.id for node in ast.walk(tree) if isinstance(node, ast.Name)
+        } | {
+            node.attr
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Attribute)
+        }
+        assert not [name for name in named if "principal" in name]
 
     def test_the_module_is_declared_algorithmic(self) -> None:
         import ccf.products.bind as module
