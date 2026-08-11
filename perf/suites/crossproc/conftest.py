@@ -71,6 +71,15 @@ from ccf_runtime.peering.typed_http import TypedHttpWire  # noqa: E402
 
 from perf.suites.common import instant as _instant  # noqa: E402
 
+# The egress door is authenticated and entitled from 15.5-06, so the benchmark
+# has to present a credential like any other consumer. The token the child
+# mints in standalone mode is its own constant rather than an artifact value —
+# a credential is never an artifact — so it is imported from the child rather
+# than re-typed here, which is the same discipline that makes `_CHILD` a path
+# and not a copy of the child's code.
+sys.path.insert(0, str(_EXAMPLE_04))
+from producer_child import STANDALONE_EGRESS_TOKEN  # noqa: E402
+
 #: Warm-up round-trips performed on each transport before the fixture yields
 #: (research Pitfall 5: exclude startup/import cost from every timed round).
 WARMUP_ROUND_TRIPS = 10
@@ -176,7 +185,19 @@ def crossproc_endpoints() -> Iterator[CrossProcessEndpoints]:
                 call_timeout_seconds=CALL_TIMEOUT_SECONDS
             ) as bridge, httpx.Client(timeout=CALL_TIMEOUT_SECONDS) as client:
                 mcp_client = McpResourceClient(
-                    url=f"http://127.0.0.1:{mcp_port}/mcp", bridge=bridge
+                    url=f"http://127.0.0.1:{mcp_port}/mcp",
+                    bridge=bridge,
+                    # 15.5-06: the door verifies this bearer token and then
+                    # resolves what its entitlement policy says this
+                    # principal may receive. The credential is part of what
+                    # the benchmark times, which is correct — an
+                    # unauthenticated number would be timing a door this
+                    # SDK no longer ships.
+                    http_client_factory=lambda: httpx.AsyncClient(
+                        headers={
+                            "Authorization": f"Bearer {STANDALONE_EGRESS_TOKEN}"
+                        }
+                    ),
                 )
 
                 # Warm-up round-trips, transport 1 (MCP egress): real reads
