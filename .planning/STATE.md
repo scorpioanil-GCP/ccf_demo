@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-10T15:31:00.000Z"
-last_activity: 2026-08-10 -- Phase 16 execution started (wave 1 of 12)
+last_updated: "2026-08-11T00:20:00.000Z"
+last_activity: 2026-08-10 -- Phase 16 parked at wave 3; Context Product design ruling pending
 progress:
   total_phases: 16
   completed_phases: 14
@@ -29,25 +29,67 @@ is canonical for phases, review protocol, invariants, and decision log.
 ## Current Position
 
 Phase: 16 — Documentation Rewrite — The Deterministic Path & The Adoption Argument
-Plan: 4 of 21 complete (wave 3 of 12); 16-02 open at 2/3
-Status: EXECUTING on branch `phase-16` (forked from main @ 06fea5c, per CLAUDE.md
-  §2.2 — merge to main happens at the D-GATE-16 entry, not before). Six plans
-  carry `autonomous: false` and will halt for Dave: 16-01 (the D-IMPL-94 ruling
-  package), 16-02 (the FIBO corp→corp extension, which writes to four live DGX
-  stores outside the repo), 16-05 (the reference Section-1 example), 16-12
-  (Makefile + CI on the split D-06 shape), 16-14 (the adoption argument), 16-19
-  (the phase gate).
+Plan: 6 of 21 complete (waves 1-3); 16-02 open at 2/3, 16-05 open at 2/3
+Status: **PARKED — do NOT start wave 4.** Branch `phase-16` (forked from main @
+  06fea5c per CLAUDE.md §2.2; merge to main at the D-GATE-16 entry, not before),
+  pushed to origin, HEAD 4c70596. Waves 4-12 are deliberately unstarted.
+  WHY PARKED: Dave's review of `examples/s1-01-hello-context-product` on
+  2026-08-10 found that the Context Product surface is a fidelity defect against
+  the whitepaper, not a documentation gap — so documenting it now would document
+  the defect. Three of §6.3's eight committed elements (freshness SLA, discovery,
+  addressability) are unimplemented while the code claims they live on
+  `RegisteredProductClass`; the payload is an unvalidated dict because
+  `register_product_class` takes no schema; and `DebtAssessment` is computed by
+  `ccf.halflife.debt` and appears on neither the product nor the replay record.
+  Every example after 16-05 copies its shape, which is why waves 4-12 wait.
+  THE RULINGS SO FAR, all recorded: `D-IMPL-95` (systems of record are read-only
+  to L1; CCF's graph is CCF-owned on the same substrate), `D-IMPL-96` (revokes
+  criterion 10's "no fabric changed", withdrawing D-13, D-14 and 16-19's
+  gate_16.py allowlist with it), plus the vessel ruling — a Context Product is
+  ONE standardised vessel, not a class hierarchy; its uniqueness is in how it was
+  assembled; the assembler is a Protocol whose declaration is a Control Plane
+  artifact. The vessel ruling is NOT yet a D-IMPL entry: it is enumerated in
+  `docs/CONTEXT_PRODUCT_REVISION.md` pending Dave's confirmation of the DERIVED
+  items and his whitepaper revision.
+  NEXT ACTION: Dave is considering `docs/CONTEXT_PRODUCT_REVISION.md` (2026-08-10,
+  "let me ponder this over dinner"). Its §9 lists eight open questions; question 6
+  — whether the request surface is a typed request contract per class — unlocks
+  the others, because it collapses the fixed-subject and fixed-instant defects
+  into one design. Expect a Phase D mini-cycle per CLAUDE.md §3 before wave 4.
+  The six checkpoint plans, unchanged: 16-01 (done), 16-02, 16-05, 16-12, 16-14,
+  16-19.
   NOTE, carried from the block this replaced: the previous Current Position text
   described Phase 15.4's D-IMPL-93 commission, not Phase 16 — a GSD handler left
   it stranded under a Phase 16 heading. That commission is recorded canonically
   in ROADMAP.md and DECISIONS.md; nothing is lost by removing it here.
-Progress: [##░░░░░░░░] 19% — 4/21 plans, waves 1-2 of 12 complete
-  OPEN: 16-02 Task 3 loads the extended FIBO estate into the four DGX stores at
-  192.168.4.76. NEO4J_PASSWORD and PGPASSWORD are not in this environment, so it
-  needs Dave as operator. Dave ruled 2026-08-10 to run waves 3-4 in parallel with
-  that load — 16-05 pins backend: sqlite and 16-07's always-on legs are sqlite +
-  memory only, with the four DGX databases opt-in per D-06. Close 16-02 before
-  wave 5, where 16-12 needs the same credentials as GitHub Actions secrets.
+Progress: [###░░░░░░░] 29% — 6/21 plans, waves 1-3 of 12 complete
+  OPEN 16-02 (2/3): Task 3 loads the extended FIBO estate into the DGX stores.
+  Dave ran the loaders 2026-08-10; MongoDB, Neo4j and PostgreSQL now all carry
+  16 relationships with `ownershipPercent` on 9 EDGES (verified by direct query).
+  Two out-of-tree loaders were patched to carry the per-edge percentage —
+  `load_neo4j.py` gained one SET clause, `load_postgres.py` one nullable column;
+  backups under `/home/parkave/fluree/examples/fibo/.backups/`. FLUREE REMAINS
+  UNLOADED and holds 4 of 9 ownership pairs: there is no Fluree loader in that
+  harness (`fluree_to_mongo.py` is export-only), and it is not a missing line —
+  RDF has nowhere to hang a qualifier on a triple, which is exactly WHY the source
+  modelled ownershipPercent on the Party and every chain was one hop. CCF's own
+  adapter solves it with the interposed-edge layout (`fluree_write.py`, 15.3
+  §R5); the source harness would need the same reification decided deliberately.
+  Dave has not ruled write / leave / defer.
+  OPEN 16-05 (2/3): Task 3 is a human-verify gate — read spine.py and
+  deployment.py side by side and judge whether the CCF/yours boundary is legible.
+  Superseded in practice by the Context Product findings above; do not close it
+  until the vessel design lands, since the example's shape is what is changing.
+  MEASURED FOR THAT REVIEW, worth not re-deriving: the example's own algorithm is
+  125 executable lines (`UltimateBeneficialOwnershipPlan`) against 189 of spine
+  choreography and 74 of wiring — and 55 of those 74 exist only to satisfy
+  `DeploymentBinding`, a Protocol the example invented, calls "the adoption
+  checklist", and CCF does not ship. All eight examples call `load_and_boot`
+  identically; seven differ only in a filename. The fix is deletion.
+  TIMINGS, measured 2026-08-10, not regression-gated: boot 74.3 ms once per
+  process; projection execute 8.68 ms per question; the replay append that gates
+  delivery 0.29 ms; full example 347 ms (dominated by boot + ~30 ingests at
+  ~5 ms each). So a second question in a live service costs ~10 ms, not 347.
   Verified before proceeding: the generator's output is a true superset of the
   shipped FIBO data — 0 entities lost, 0 relationships lost, 5 added, and
   ownershipPercent present on 9 edges where the originals had it on none.
