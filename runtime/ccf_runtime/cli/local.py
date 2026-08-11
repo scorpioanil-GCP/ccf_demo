@@ -32,6 +32,8 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.hitl.approval_gate import ApprovalSinkAdapter
 from ccf.hitl.transport import InMemoryHitlTransport
 from ccf.products.gates import ServableProduct
+from ccf.products.request import ProductRequest
+from ccf.projection.plan import Perspective
 from ccf.skills.catalog import SkillCatalog
 from ccf.skills.grants import GrantLedger
 from ccf.workflow.factory import WorkflowFactory
@@ -78,9 +80,24 @@ class _UnwiredNodeBinding:
 
 
 def _no_products_resolver(
-    *, tenant: str, product_class: str, version: str
+    *,
+    tenant: str,
+    product_class: str,
+    version: str,
+    perspective: Perspective,
+    request: ProductRequest | None,
 ) -> ServableProduct:
-    """The egress seam with nothing assembled — every request is a miss."""
+    """The egress seam with nothing assembled — every request is a miss.
+
+    Carries the widened ``D-IMPL-108`` signature — the authorized
+    :class:`~ccf.projection.plan.Perspective` and the caller's typed request —
+    and honours it in the only way an empty fabric can: by refusing. The
+    arguments are named rather than swallowed by ``**_`` so that this honest
+    empty form still *conforms* to
+    :class:`~ccf_runtime.mcp.egress.ProductResolverProtocol`, and so that a
+    deployment reading it as the template it is sees the two values its own
+    resolver is obliged to condition on.
+    """
     raise ProductNotServable(
         f"no gate-admitted product at {tenant}/{product_class}/{version};"
         " the --local dev fabric assembles nothing"

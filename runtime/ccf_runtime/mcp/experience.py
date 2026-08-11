@@ -86,6 +86,8 @@ from mcp.server.fastmcp import FastMCP
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.gates import ServableProduct
+from ccf.products.request import ProductRequest
+from ccf.projection.plan import Perspective
 from ccf.skills.catalog import SkillCatalogEntry
 from ccf.skills.toolsurface import render_tool_surface
 from ccf_runtime.authz.product_entitlement import (
@@ -215,16 +217,39 @@ class ExperienceProductNotServable(LookupError):
 class ExperienceProductResolverProtocol(Protocol):
     """What a deployment plugs into the front door's product leg.
 
-    The same keyword-only three-string signature as the egress resolver, so
-    one deployment resolver can serve both roles structurally — while the two
-    modules stay separate (§7.1). Protocol rather than a base class
-    (CLAUDE.md §11).
+    Structurally identical to
+    :class:`~ccf_runtime.mcp.egress.ProductResolverProtocol`, so one
+    deployment resolver can serve both roles — while the two modules stay
+    separate (§7.1) and neither imports the other. Protocol rather than a base
+    class (CLAUDE.md §11).
+
+    **Widened alongside its egress twin, once** (``D-IMPL-108``). The two
+    seams moved together deliberately: a deployment supplying one resolver to
+    both doors must not find that only one of them forwards what it
+    authorized. See the egress Protocol for why neither new argument is
+    defaulted and why ``request`` is ``None`` on an MCP surface.
     """
 
     def __call__(
-        self, *, tenant: str, product_class: str, version: str
+        self,
+        *,
+        tenant: str,
+        product_class: str,
+        version: str,
+        perspective: Perspective,
+        request: ProductRequest | None,
     ) -> ServableProduct:
-        """Return the gate-admitted product at that address.
+        """Return the gate-admitted product at that address, under ``perspective``.
+
+        Args:
+            tenant: The tenant the product is addressed under.
+            product_class: The Context Product class being requested.
+            version: The class's own semver lane (INV-CH7-49).
+            perspective: The Π role-conditioning this door's entitlement
+                authorized. Required and non-nullable — ``DI-15.5-03``.
+            request: The caller's typed question, or ``None`` when the surface
+                carries no way to ask. Required with no default; this door's
+                URI template has no query surface, so it passes ``None``.
 
         Raises:
             ExperienceProductNotServable: no such product.
@@ -608,17 +633,21 @@ def build_experience_server(
         :func:`~ccf_runtime.authz.product_entitlement.verified_grant` refuses
         if it somehow did not; and the entitlement decides on the resolved
         role before ``product_resolver`` is reached, so a refused caller
-        moves no fabric. The resolved perspective is the subject of that
-        decision rather than a value this door forwards — the resolver seam
-        is three strings, so the deployment's assemble-and-gate path
-        constructs its own; see the egress edge's handler for why threading
-        it further is a separate reshaping.
+        moves no fabric. **And the perspective that decision authorized is
+        then forwarded** (``DI-15.5-03``, closed by ``D-IMPL-108``): the door
+        no longer discards it, so the product an external caller receives is
+        shaped under the conditioning this door approved rather than under
+        whatever the deployment's resolver would have derived on its own.
+
+        ``request=None`` because this URI template carries no query surface —
+        see the egress edge's handler for why the SDK does not manufacture a
+        request the caller never sent.
 
         Canonical bytes, not ``model_dump_json``: the same serialization the
         content address is computed over, so a consumer that hashes what it
         received gets the address the producer would.
         """
-        entitled_perspective(
+        perspective = entitled_perspective(
             grant=verified_grant(),
             tenant=tenant,
             product_class=product_class,
@@ -627,7 +656,11 @@ def build_experience_server(
             perspective_resolver=perspective_resolver,
         )
         servable = product_resolver(
-            tenant=tenant, product_class=product_class, version=version
+            tenant=tenant,
+            product_class=product_class,
+            version=version,
+            perspective=perspective,
+            request=None,
         )
         return canonical_bytes(servable.product).decode("utf-8")
 
