@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**461 entries**, of which **239** name a public Python surface.
+**470 entries**, of which **248** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-201 entries — 170 public Python surface, 31 not public Python API.
+209 entries — 178 public Python surface, 31 not public Python API.
 
 ### Public Python surface
 
@@ -3538,6 +3538,207 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.5-07-contract-elements.md`.*
 
+#### ccf.products.request.ProductRequest
+
+- Surface: ccf.products.request.ProductRequest
+- Public surface: true
+- Change type: added
+- Before: absent — a Context Product had no surface for the question that
+  provoked it, so a class's subject and instant had nowhere to live but an
+  artifact, and one product class answered one question about one entity as of
+  one frozen moment
+- After: a frozen, `extra=forbid` contract carrying `schema_name`,
+  `schema_version`, `subject`, `intent`, `freshness`, `asked_at` and
+  `parameters` — none of them defaulted
+- Why: whitepaper §6.3 **Addressability** at `docs/CCF_Whitepaper_1-2.md:1465`,
+  whose worked address pattern
+  `/context-products/credit-risk/counterparty/{counterparty-id}?intent=…&freshness=…`
+  "encodes exactly what the agent needs: which entity, for what decision, under
+  what temporal requirement". The four axes are that sentence. `asked_at` is a
+  *field* rather than a clock read because the projection engine deliberately
+  reads no clock — the caller passes `now` at serve time and replay passes the
+  **recorded** boundary through the same code path, and a clock anywhere on
+  this path would make replay impossible. **There is no role field and no
+  tenant field**: both are established by the door from the caller's verified
+  entitlement grant (plan 15.5-06), and a request that could carry either would
+  be a claim rather than a question. The absence is asserted by field
+  enumeration in `tests/products/test_request_contract.py`, in the
+  `tests/peering/test_trust_policy.py:213` shape, because a docstring cannot
+  fail when someone adds `requested_role`
+- Migration: new surface — nothing required. No shipped call site constructs
+  one, because no door accepts one yet (D-IMPL-108). An adopter preparing for
+  15.5-15 can construct requests and validate them today with `refuse_request`
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: added
+- Before: absent — §6.3 Addressability's *query* half had no representation in
+  code. Plan 15.5-07 landed `ProductAddress`, the path half, and deliberately
+  modelled no query parameter so this shape would not be foreclosed
+- After: a `VersionedArtifact` carrying `schema_name`, `schema_version` and
+  `arguments: SkillArgumentSchema` — the questions one product class, at one
+  lane, answers
+- Why: D-IMPL-98 option (a), which ruled the request surface a *typed request
+  contract per product class, declared as a Control Plane artifact, in the
+  `SkillArgumentSchema` shape*. `arguments` is that type itself rather than a
+  copy or a sibling, which is D-IMPL-103 applied where it was written to apply
+  — the ruling declined a second machinery at five duplicated symbols. The
+  artifact **names the class and lane it serves**, which a payload schema
+  cannot: a `SkillArgumentSchema` is a shape and knows nothing about what
+  declared it, so a payload schema pinned onto the wrong product class is
+  undetectable, while a request contract so pinned is refused at wiring time
+- Migration: new surface — none. An adopter adopting it authors a
+  `ccf.product-request-contract` document, registers it, and pins it from the
+  product class by the `(key, version)` registration mints
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.request.PRODUCT_REQUEST_CONTRACT
+
+- Surface: ccf.products.request.PRODUCT_REQUEST_CONTRACT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ArtifactClass(class_id="ccf.product-request-contract",
+  contract=ProductRequestContract)`, with a committed
+  `docs/schemas/ccf.product-request-contract.json`
+- Why: the class joins **neither** `SDK_ARTIFACT_CLASSES` nor
+  `SDK_VERSIONED_ARTIFACT_CLASSES`, on the placement plan 15.5-03 established
+  for `ccf.product-entitlement-policy` and `ccf.peering-trust-policy`. The
+  first mapping *is* the set the HTTP `GET /schema` route and `ccf schema
+  export` enumerate, and widening it here would be an unruled runtime surface
+  change made incidentally; the second is closed to a contract declaring no
+  `artifact_version`. The schema still lands, because
+  `tools/dump_schemas.py::unaddressable_classes` **discovers** `ArtifactClass`
+  instances in neither mapping rather than reading a list. **Consequence for
+  `ccf schema export` and the HTTP route: none — the served set is
+  byte-unchanged at 12 entries**, asserted by test
+- Migration: new surface — none. Registration is adopter code: a deployment's
+  composition root registers its request contracts with `register_typed`
+  against this constant, exactly as it registers its entitlement policy. No
+  manifest can name the class
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.request.NO_REQUEST_CONTRACT
+
+- Surface: ccf.products.request.NO_REQUEST_CONTRACT
+- Public surface: true
+- Change type: added
+- Before: absent — there was no request contract to pin
+- After: `"no-request-contract"`, carried on **both** halves of the pin so that
+  "no contract" is one visible state rather than a key and a version
+  disagreeing
+- Why: the discipline `NO_PAYLOAD_SCHEMA` states for its own pin, and honest
+  about a gap rather than papering over it. Until a class declares a request
+  contract, its subject and its instant are whatever an artifact happened to
+  author — the defect this plan exists to close — and that is visible in the
+  declaration rather than inferable from a missing field
+- Migration: new surface — none
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.request.refuse_request
+
+- Surface: ccf.products.request.refuse_request
+- Public surface: true
+- Change type: added
+- Before: absent — no request was compared against anything anywhere, because
+  no request existed
+- After: `refuse_request(*, request, declared) -> ProductRequestViolation |
+  None` — address first (is this request even addressed to this contract?),
+  then the declared parameters
+- Why: one comparison, for the reason `refuse_attestation` is one function —
+  the door's check and any registration-time capability check must not drift
+  into two readings of "well-formed". It goes further than restating
+  `refuse_payload`'s logic: it **calls** it and translates the verdict, so
+  there is literally one reading of "conforms" across the payload and request
+  surfaces and D-IMPL-103's widening reaches both for free. The address check
+  runs first because comparing a request's arguments against another class's
+  declaration produces a confident verdict about the wrong question. Pure over
+  its arguments: no clock, no registry lookup, no I/O, so a verdict is
+  reproducible at replay
+- Migration: new surface — none. The call site at the door is plan 15.5-15's,
+  under D-IMPL-108
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.request.ProductRequestViolation
+
+- Surface: ccf.products.request.ProductRequestViolation
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the returned refusal when a request does not match its class's
+  declared contract, carrying both sides — `reason`, the dotted `key`,
+  `declared_type`, `presented_type`, `declared_keys`, `presented_keys` and a
+  human-readable `detail`
+- Why: the refusal-as-value posture `ccf.products.gates` states at its own head
+  — a refusal returned as data cannot be swallowed by a bare `except` — and a
+  malformed request is a bad *question*, not a broken deployment. It
+  deliberately does **not** derive from `PayloadSchemaViolation`, for the
+  reason that type does not derive from `GateRefusal`: the comparison beneath
+  the two is shared on purpose, and a shared *verdict type* would let a request
+  refusal be returned from the payload path by a later caller who assumed the
+  type meant it belonged there
+- Migration: new surface — none
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.request.ProductRequestViolationReason
+
+- Surface: ccf.products.request.ProductRequestViolationReason
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["undeclared-parameter", "missing-required-parameter",
+  "type-mismatch", "class-mismatch"]`
+- Why: the first three are `PayloadViolationReason`'s three, spelled in the
+  request surface's own vocabulary (*parameter*, not *key*) so a caller reading
+  a refusal is not asked to translate. The fourth has no payload analogue: a
+  payload belongs to whatever product carried it, while a request is
+  **addressed**, and a request handed to the wrong class's contract is a
+  mis-delivery rather than a bad argument
+- Migration: new surface — none
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.request.refuse_request_contract_pin
+
+- Surface: ccf.products.request.refuse_request_contract_pin
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `refuse_request_contract_pin(*, registry, schema_name, schema_version,
+  request_contract_key, request_contract_version) -> None` — raising
+  `ProductClassRegistrationError`, naming both sides, when the pin is
+  half-declared, names nothing registered, names an artifact that is not a
+  request contract, or names a contract declared for another class or another
+  lane
+- Why: D-IMPL-39's reasoning applied to D-IMPL-98. A deployment that pinned a
+  contract that is not there — or pinned another class's — finds out **while
+  wiring the fabric**, rather than in front of a caller whose question it can
+  no longer answer. The shipped `ProductClassRegistrationError` is reused
+  rather than a new error type added, because from the adopter's point of view
+  a class whose governance configuration is absent or malformed fails for one
+  reason. The fourth refusal is the cross-check the payload-schema pin cannot
+  make
+- Migration: new surface — none, and one honest gap. **`register_product_class`
+  does not call this function yet.** `src/ccf/products/contract.py` is under
+  concurrent edit this wave by plan 15.5-11 (D-IMPL-100 puts `DebtAssessment`
+  on the vessel there), so the one-line call site and the two
+  `RegisteredProductClass` fields that mirror the authored key belong to the
+  plan that next opens that file — 15.5-15, which is already widening the
+  request path end to end. Until then the refusal is called directly by a
+  deployment's composition root, exactly as `ProductEntitlementPolicy`
+  resolution is
+
+*Recorded by `15.5-08-request-contract.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -4024,7 +4225,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-226 entries — 43 public Python surface, 183 not public Python API.
+227 entries — 44 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -5103,6 +5304,43 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   it rendered before
 
 *Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.controlplane.artifacts.ProductClassDeclaration
+
+- Surface: ccf.controlplane.artifacts.ProductClassDeclaration
+- Public surface: true
+- Change type: reshaped
+- Before: as plan 15.5-07 left it — `semver`, `schema_name`, `schema_version`,
+  `ttl_anchor`, `assembly_mode`, `max_ttl_key`, `required_operator_keys`,
+  `accepted_policy_binding_modes`, `accepted_lineage_modes`, `freshness_sla`,
+  `discovery`, `addressability`, `constituent_validity_floors` and
+  `payload_schema_key`
+- After: one further defaulted field, `request_contract_key`.
+  `docs/schemas/ccf.product-class.json` regenerates accordingly, in the same
+  commit, under the bytes-equality drift gate
+- Why: the authored half of the request-contract pin. **`request_contract_version`
+  is deliberately absent**, on exactly the rule that keeps `max_ttl_version`
+  and `payload_schema_version` absent: that pin is a content hash minted by
+  *registering* the contract, and an artifact declaring it would be authoring a
+  hash of something it does not contain. Authored key, derived version — the
+  **third** instance of the rule rather than a new one. Note the asymmetry this
+  plan leaves and does not hide: `RegisteredProductClass` gains **no** mirror
+  field, because `src/ccf/products/contract.py` is owned by a concurrent plan
+  this wave; the authored side lands now and the registered side lands with the
+  door wiring in 15.5-15
+- Migration: **this note composes with 15.5-07's rather than replacing it.**
+  15.5-07 said no committed `ccf.product-class` document needs editing and
+  listed five fields to add when adopting; this plan adds a sixth to that same
+  list and changes nothing about the first five. `request_contract_key`
+  defaults on the `accepted_policy_binding_modes` precedent, so an artifact
+  authored before either plan parses unchanged and means what it meant. To
+  adopt, add `request_contract_key:` to the document alongside
+  `payload_schema_key:`; an editor pointed at the regenerated schema will
+  complete both. Adopting it is inert until 15.5-15 wires the door — the
+  declaration is read by `refuse_request_contract_pin` when a composition root
+  calls it, and by nothing else
+
+*Recorded by `15.5-08-request-contract.md`.*
 
 ### Not public Python API
 
