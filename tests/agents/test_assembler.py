@@ -15,6 +15,8 @@ already declares the ``context_assembly`` archetype.
 from __future__ import annotations
 
 import inspect
+from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -30,23 +32,43 @@ from ccf.agents.assembler import (
     ContextAssemblerProtocol,
     DeterministicAssembler,
 )
-from ccf.agents.archetypes import ReplayObligation, context_assembly
+from ccf.agents.archetypes import ARCHETYPES, ReplayObligation, context_assembly
 from ccf.agents.definitions import (
     AGENT_DEFINITION,
+    ASSEMBLY_ARCHETYPE_ID,
     EMITS_NOTHING,
     PROMPT_ARTIFACT,
     AgentDefinition,
     EmittedProduct,
     PromptArtifact,
 )
-from ccf.agents.errors import AgentDefinitionError, AssemblyRefused
+from ccf.agents.errors import (
+    AgentDefinitionError,
+    AssemblyRefused,
+    SkillNotBound,
+)
 from ccf.agents.factory import AgentFactory
+from ccf.artifacts.protocol import parse_artifact_uri
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.controlplane.resolution import resolve_pinned
 from ccf.projection.acquisition import AcquiredContent, ContentRequest
 from ccf.projection.plan import Perspective, ProjectionOutput
 from ccf.products.contract import RegisteredProductClass
 from ccf.products.request import ProductRequest
+from ccf.skills.catalog import (
+    SKILL_CATALOG_ENTRY,
+    SkillCatalog,
+    SkillCatalogEntry,
+)
+from ccf.skills.grants import (
+    GOVERNANCE_FIELD,
+    GrantLedger,
+    PolicyRegimeGovernance,
+    SkillGrant,
+)
+from skills.sinks import ScriptedApprovalSink
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
 
@@ -71,7 +93,14 @@ def _assembler_fixture() -> dict[str, Any]:
 
 @pytest.fixture
 def registry() -> ControlPlaneRegistry:
-    """A plane holding everything the assembler fixture references."""
+    """A plane holding what both banking agent fixtures reference.
+
+    Both, because the axis-4 claim needs two policy regimes that differ in
+    what they permit, and the tree already ships exactly two: the assembler
+    fixture's regime declares no skilling envelope, and the analytics
+    fixture's declares one. Using the shipped pair keeps the difference a
+    *fixture* statement rather than a value invented in test code (§6.4).
+    """
     plane = ControlPlaneRegistry()
     prompt_fixture = _prompt_fixture()
     prompt = parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT)
@@ -79,17 +108,18 @@ def registry() -> ControlPlaneRegistry:
     plane.register_typed(
         prompt_fixture["keys"]["prompt_artifact"], prompt, PROMPT_ARTIFACT
     )
-    for reference in _assembler_fixture()["referenced_artifacts"].values():
-        artifact_class = declared_artifact_class(reference["class_id"])
-        declared = parse_artifact(
-            {
-                "class_id": reference["class_id"],
-                "semver": reference["semver"],
-                "declaration": reference["declaration"],
-            },
-            artifact_class,
-        )
-        plane.register_typed(reference["key"], declared, artifact_class)
+    for name in ("deal_monitor_assembler.yaml", "covenant_analytics.yaml"):
+        for reference in _fixture(name)["referenced_artifacts"].values():
+            artifact_class = declared_artifact_class(reference["class_id"])
+            declared = parse_artifact(
+                {
+                    "class_id": reference["class_id"],
+                    "semver": reference["semver"],
+                    "declaration": reference["declaration"],
+                },
+                artifact_class,
+            )
+            plane.register_typed(reference["key"], declared, artifact_class)
     return plane
 
 
@@ -536,3 +566,307 @@ def test_the_context_assembly_archetype_declares_what_it_always_declared() -> No
         ),
     )
     assert context_assembly.configuration_defaults() == ()
+
+
+# --- the implementation is a declared agent, not code -------------------------
+
+
+def test_the_assembler_is_a_declared_agent_and_its_identity_is_the_artifact(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """D-IMPL-97 ruling 2, as a property rather than a slogan.
+
+    Nothing here asserts the CINV-01c factory-bypass lint — that is CI's job.
+    What it demonstrates is the path: the thing implementing the Protocol is a
+    Control Plane artifact, and the running assembler's identity is the
+    *content identity of that artifact*, so replay answers "which assembler"
+    by answering "which agent version" (D-06, D-IMPL-26).
+    """
+    agent = _assembler_agent(registry)
+    assembler = DeterministicAssembler(agent=agent, projection=_projection())
+    assert isinstance(assembler, ContextAssemblerProtocol)
+    assert assembler.agent.identity.definition_hash == content_hash(
+        agent.definition
+    )
+    # And there is no assembler in /src that is an agent: the archetype
+    # registry holds mechanism, and the definition it was built from is a
+    # document under tests/fixtures, not a Python class (CLAUDE.md §6.1).
+    assert ASSEMBLY_ARCHETYPE_ID in agent.definition.archetypes
+    assert ASSEMBLY_ARCHETYPE_ID in ARCHETYPES
+
+
+# --- axis 4 bounds what an assembler may consult ------------------------------
+
+
+@dataclass(frozen=True)
+class _RegimeBoundedAssembler:
+    """A conforming assembler whose consultations are bounded by axis 4.
+
+    A *test* implementation, and its existence is half the point: the SDK
+    ships a Protocol, so a deployment that needs consultation behaviour writes
+    one of these rather than subclassing or patching anything in ``/src``.
+
+    Its identity is the declared agent's own — ``assembler_id`` is the agent's
+    name and ``assembler_version`` its artifact version — which is what
+    D-IMPL-97 ruling 2 means by *"agent becomes the implementation protocol"*.
+
+    The permitted envelope is read from the agent's resolved policy regime
+    through the SDK's own :class:`~ccf.skills.grants.PolicyRegimeGovernance`,
+    so no governance key name is spelled in test code.
+    """
+
+    agent: Agent
+    projection: ProjectionOutput
+    control_plane: ControlPlaneRegistry
+    requested: tuple[str, ...]
+
+    @property
+    def assembler_id(self) -> str:
+        return self.agent.definition.name
+
+    @property
+    def assembler_version(self) -> str:
+        return self.agent.definition.artifact_version
+
+    def _permitted_scopes(self) -> frozenset[str]:
+        regime = resolve_pinned(
+            self.control_plane, self.agent.definition.policy_regime.ref
+        )
+        declaration = getattr(regime, "declaration", None)
+        block = (
+            declaration.get(GOVERNANCE_FIELD)
+            if isinstance(declaration, Mapping)
+            else None
+        )
+        if block is None:
+            # A regime silent about skilling has permitted nothing (D-IMPL-38).
+            return frozenset()
+        return PolicyRegimeGovernance.model_validate(block).permitted_scopes
+
+    def assemble(
+        self,
+        *,
+        request: ProductRequest,
+        perspective: Perspective,
+        tenant_id: str,
+    ) -> AssemblyOutcome:
+        permitted = self._permitted_scopes()
+        return AssemblyOutcome(
+            payload=self.projection.payload,
+            consultations=ConsultationRecord(
+                permitted=tuple(sorted(t for t in self.requested if t in permitted)),
+                refused=tuple(
+                    sorted(t for t in self.requested if t not in permitted)
+                ),
+            ),
+            acquisitions=(),
+            assembler_id=self.assembler_id,
+            assembler_version=self.assembler_version,
+            skill_set_in_force=self.agent.bound_skill_names,
+            halflife_debt_profile=self.agent.definition.halflife_debt_profile.ref,
+        )
+
+
+def _wide_regime_document(*, artifact_version: str) -> dict[str, Any]:
+    """The assembler definition, re-pinned to the regime that permits a scope.
+
+    Differs from the shipped fixture in **axis 4 alone** — a fixture mutation
+    registered under its own key, with both refs taken from fixtures.
+    """
+    document = dict(_assembler_fixture()["agent_definition"])
+    document["policy_regime"] = dict(
+        _fixture("covenant_analytics.yaml")["agent_definition"]["policy_regime"]
+    )
+    document["artifact_version"] = artifact_version
+    return document
+
+
+def _requested_targets() -> tuple[str, ...]:
+    """The consultation targets the two regimes disagree about.
+
+    Sourced from the wide regime's own declared envelope, so the test asks
+    about exactly what a deployment said, and invents no identifier.
+    """
+    declaration = _fixture("covenant_analytics.yaml")["referenced_artifacts"][
+        "policy_regime"
+    ]["declaration"]
+    return tuple(sorted(declaration[GOVERNANCE_FIELD]["permitted_scopes"]))
+
+
+def test_axis_4_bounds_what_an_assembler_may_consult(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Two definitions differing only in policy regime consult differently."""
+    requested = _requested_targets()
+    assert requested, "the wide regime declares at least one permitted scope"
+
+    narrow = _assembler_agent(registry)
+    wide = _construct(
+        registry,
+        _wide_regime_document(artifact_version="2.0.0"),
+        _assembler_fixture()["keys"]["agent_definition"],
+    )
+    assert narrow.definition.policy_regime != wide.definition.policy_regime
+    # Everything else about the two definitions is identical — axis 4 alone.
+    assert narrow.definition.archetypes == wide.definition.archetypes
+    assert narrow.definition.context_contract == wide.definition.context_contract
+    assert narrow.definition.perspective == wide.definition.perspective
+
+    outcomes = {
+        role: _RegimeBoundedAssembler(
+            agent=agent,
+            projection=_projection(),
+            control_plane=registry,
+            requested=requested,
+        ).assemble(
+            request=_request(agent),
+            perspective=_perspective(agent),
+            tenant_id=agent.definition.tenant,
+        )
+        for role, agent in (("narrow", narrow), ("wide", wide))
+    }
+    assert outcomes["wide"].consultations.permitted == requested
+    assert outcomes["wide"].consultations.refused == ()
+    assert outcomes["narrow"].consultations.permitted == ()
+    assert outcomes["narrow"].consultations.refused == requested
+    assert (
+        outcomes["narrow"].consultations != outcomes["wide"].consultations
+    )
+
+
+# --- axis 5 is already required, and is honoured ------------------------------
+
+
+def test_axis_5_is_pinned_resolved_at_construction_and_reported(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The home for a product's debt configuration already exists, on the agent.
+
+    Three claims, and the middle one is why D-IMPL-97 calls the agent's fit
+    *confirmation rather than convenience*: the profile ref is pinned (never
+    ``@latest``), the factory refuses a definition whose profile does not
+    resolve, and the assembler reports the exact ref it ran under.
+
+    The shipped fixture registers its profile as a *declared* artifact class
+    (``debt-profile``, the deployment's own envelope) rather than the SDK's
+    ``ccf.debt-profile``, so the assertion here is that the pin resolves at
+    its pinned version — not that the resolved value is a
+    :class:`~ccf.controlplane.artifacts.DebtProfile` instance. Overstating it
+    would be the test asserting something the fixture does not say.
+    """
+    agent = _assembler_agent(registry)
+    ref = agent.definition.halflife_debt_profile.ref
+    name = parse_artifact_uri(ref)
+    assert name.artifact_version and name.artifact_version != "latest"
+    assert resolve_pinned(registry, ref) is not None
+
+    outcome = DeterministicAssembler(
+        agent=agent, projection=_projection()
+    ).assemble(
+        request=_request(agent),
+        perspective=_perspective(agent),
+        tenant_id=agent.definition.tenant,
+    )
+    assert outcome.halflife_debt_profile == ref
+
+    # And the factory refuses a definition whose axis-5 pin resolves to
+    # nothing — the deployment finds out while wiring the fabric.
+    document = dict(_assembler_fixture()["agent_definition"])
+    document["halflife_debt_profile"] = {
+        "ref": ref.rsplit("@", 1)[0] + "@9.9.9"
+    }
+    document["artifact_version"] = "3.0.0"
+    with pytest.raises(AgentDefinitionError):
+        _construct(
+            registry, document, _assembler_fixture()["keys"]["agent_definition"]
+        )
+
+
+# --- channel 2 governs enlistment ---------------------------------------------
+
+
+def _skill_entry() -> SkillCatalogEntry:
+    tool_fixture: dict[str, Any] = yaml.safe_load(
+        (FIXTURES.parent / "banking" / "skills" / "covenant_metrics_tool.yaml")
+        .read_text()
+    )
+    entry = parse_artifact(tool_fixture["entry"], SKILL_CATALOG_ENTRY)
+    assert isinstance(entry, SkillCatalogEntry)
+    return entry
+
+
+def test_channel_2_governs_enlistment_and_the_outcome_records_it(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """A decision replays against the skills the agent *had*, not the ones it has.
+
+    The claim the plan asks for in full: grant, assemble, revoke, assemble
+    again — and the **first** outcome still records the skill-set that was in
+    force when it ran. That is the difference between a record and a live
+    query, and it is what makes the skill-set answerable from replay alone
+    (CLAUDE.md §6.2; D-07).
+    """
+    granted_values = _fixture("covenant_analytics.yaml")["slice"]["granted_skill"]
+    document = _wide_regime_document(artifact_version="2.1.0")
+    definition = _definition(document)
+    key = _assembler_fixture()["keys"]["agent_definition"]
+    version = registry.register_versioned(key, definition, AGENT_DEFINITION)
+    assert isinstance(version, str)
+
+    catalog = SkillCatalog(registry)
+    assert isinstance(catalog.register(_skill_entry()), str)
+    ledger = GrantLedger(
+        control_plane=registry,
+        catalog=catalog,
+        audit=registry.audit_log,
+        sink=ScriptedApprovalSink(
+            approve=True, approver_id=granted_values["approver_id"]
+        ),
+        clock=lambda: ASKED_AT,
+    )
+    definition_hash = content_hash(definition)
+    grant = SkillGrant(
+        agent_definition_hash=definition_hash, **granted_values["grant"]
+    )
+    grant_hash = ledger.request(
+        grant, definition=definition, actor=granted_values["requesting_actor"]
+    )
+    assert isinstance(grant_hash, str), grant_hash
+
+    agent = AgentFactory(control_plane=registry).construct(
+        definition_key=key,
+        definition_version=version,
+        bound_skills=ledger.bound_view(definition_hash),
+    )
+    assembler = DeterministicAssembler(agent=agent, projection=_projection())
+
+    granted_outcome = assembler.assemble(
+        request=_request(agent),
+        perspective=_perspective(agent),
+        tenant_id=agent.definition.tenant,
+    )
+    assert grant.skill_name in granted_outcome.skill_set_in_force
+    # The agent can enlist it while it is bound.
+    assert agent.invoke_skill(grant.skill_name) is not None
+
+    ledger.revoke(grant_hash, actor=granted_values["requesting_actor"])
+
+    revoked_outcome = assembler.assemble(
+        request=_request(agent),
+        perspective=_perspective(agent),
+        tenant_id=agent.definition.tenant,
+    )
+    assert grant.skill_name not in revoked_outcome.skill_set_in_force
+    with pytest.raises(SkillNotBound):
+        agent.invoke_skill(grant.skill_name)
+
+    # The decisive assertion: the first outcome is unchanged by the revocation.
+    assert granted_outcome.skill_set_in_force == (grant.skill_name,)
+    assert revoked_outcome.skill_set_in_force == ()
+
+    # Both governance actions are in the audit log, and the agent's identity
+    # never moved across either (D-07).
+    actions = [event.action for event in registry.audit_log.events()]
+    assert any("grant" in action for action in actions), actions
+    assert any("revoke" in action for action in actions), actions
+    assert agent.identity.definition_hash == definition_hash

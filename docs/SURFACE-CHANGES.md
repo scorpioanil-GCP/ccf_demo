@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**500 entries**, of which **277** name a public Python surface.
+**524 entries**, of which **298** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-228 entries — 197 public Python surface, 31 not public Python API.
+247 entries — 215 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -3801,6 +3801,313 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.5-09-payload-bind.md`.*
 
+#### ccf.agents.assembler.ContextAssemblerProtocol
+
+- Surface: ccf.agents.assembler.ContextAssemblerProtocol
+- Public surface: true
+- Change type: added
+- Before: absent — the fabric had a delivered product (`ContextProductContract`)
+  and a declared emission *pattern* (`_ContextAssemblyComponent`), and nothing
+  in between. There was no surface on which "what produced this product" was a
+  question with an answer
+- After: a `@runtime_checkable` Protocol carrying `assembler_id`,
+  `assembler_version` and a keyword-only
+  `assemble(*, request, perspective, tenant_id) -> AssemblyOutcome`
+- Why: a Protocol rather than a base class for the reason
+  `DebtFactorScorerProtocol` gives for its own case — a deployment substitutes
+  its own assembler by **conforming**, never by inheriting, and the SDK's
+  reference implementation carries no privileged status. `assembler_id` and
+  `assembler_version` are on the surface for the reason
+  `scorer_id`/`scorer_version` are on theirs: what made a vessel this
+  particular product is *how it was assembled*, so the assembler in force must
+  be pinnable into replay. `assemble` is keyword-only because a three-value
+  call whose arguments could transpose would attribute an assembly to the wrong
+  tenant — the discipline `ProductResolverProtocol` already applies at egress.
+  **No reasoning loop is on this surface and none ships**: there is no `run`,
+  `step`, `plan` or `loop`, the loop belongs to the harness (CLAUDE.md §7.3),
+  and the module holds zero harness imports
+- Migration: new surface — nothing required. No shipped call site constructs
+  one. An adopter adopting it declares an agent from the `context_assembly`
+  archetype, declares what it emits on axis 2, and writes a conforming
+  assembler — a `@dataclass` with two properties and one method, with nothing
+  to inherit
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.assembler.AssemblyOutcome
+
+- Surface: ccf.agents.assembler.AssemblyOutcome
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a frozen, `extra=forbid` contract carrying `payload`,
+  `consultations`, `acquisitions`, `assembler_id`, `assembler_version`,
+  `skill_set_in_force` and `halflife_debt_profile`
+- Why: two structural invariants ride on this shape rather than on caller
+  discipline. **Single-writer** (CLAUDE.md §10): the whole effect of an
+  assembly is this return value — nothing here is a handle, a session or a
+  callback, and carrying an outcome into L3 stays L2's job, the shape
+  `Agent.emit_effect` already establishes. **Algorithmic ⇄ Semantic
+  Alternation** (whitepaper §7.6.6): `acquisitions` is the *only* field typed
+  to carry content an enlisted agent produced, so model-produced content
+  re-enters through `ProjectionEngine.execute(recorded_acquisitions=…)` with
+  the content address that makes a replay a re-feed, never as payload. That
+  one-route property is asserted by **field enumeration**, in the
+  `tests/products/test_request_contract.py` shape, because a docstring cannot
+  fail when somebody adds `generated_narrative`. `skill_set_in_force` is the
+  skill-set bound **at assembly time**, not a live query, so a decision
+  replays against the skills the agent actually had (D-07)
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.assembler.ConsultationRecord
+
+- Surface: ccf.agents.assembler.ConsultationRecord
+- Public surface: true
+- Change type: added
+- Before: absent — what a product had been *permitted to reach for* was
+  nowhere, so two products assembled under different policy regimes were
+  indistinguishable in the record
+- After: `permitted` and `refused` tuples of opaque consultation targets, held
+  sorted, unique and disjoint by validator
+- Why: *what a product was permitted to consult* is what makes a product's
+  identity auditable — replay answers not only what an assembly returned but
+  what it was allowed to reach for. Targets are **opaque identifiers the SDK
+  never interprets**, the posture `SkillRequirements` states verbatim for its
+  own module: no consultation vocabulary exists anywhere in `/src`. Sorted and
+  unique because both tuples participate in canonical serialization and
+  therefore in content identity, and a record whose ordering followed a
+  scheduler's visit order would hash two ways for one assembly; disjoint
+  because a target both permitted and refused describes no Control Plane
+  decision
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.assembler.DeterministicAssembler
+
+- Surface: ccf.agents.assembler.DeterministicAssembler
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the SDK's reference assembler — consults nothing, records
+  `NO_CONSULTATIONS`, returns Π's payload unchanged, and reads the governed
+  part (skill-set in force, pinned axis-5 ref) off the declared agent at
+  assembly time
+- Why: reference implementations ship alongside Protocols (CLAUDE.md §11). It
+  exists to prove the Protocol composes against a real factory-built agent and
+  to give a deployment something to diff its own against — **and for no third
+  reason**. It is deliberately not a worked assembler for any domain: a
+  product class named after a business process, or a reference assembler shaped
+  like one, is a defect of the same severity as a hard-coded half-life table
+  (CLAUDE.md §6.1). Its two refusals name both sides and repair neither, the
+  `refuse_operator_set_divergence` posture
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.assembler.NO_CONSULTATIONS
+
+- Surface: ccf.agents.assembler.NO_CONSULTATIONS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ConsultationRecord(permitted=(), refused=())`
+- Why: the `NO_GRANTS_SET_HASH` voice — *this assembly reached for nothing
+  outside itself* is a claim an auditor can read, and it is distinguishable
+  from a record somebody forgot to populate only because the claim is named
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.assembler.DETERMINISTIC_ASSEMBLER_ID
+
+- Surface: ccf.agents.assembler.DETERMINISTIC_ASSEMBLER_ID
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"ccf.reference.deterministic-assembler"`
+- Why: the identity `DeterministicAssembler` reports, named as a constant for
+  the reason `FRESHNESS_SCORER_ID` is — a value pinned into a record has to be
+  referable by the code that asserts against it, and a literal repeated at the
+  assertion site is a second spelling waiting to drift
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.assembler.DETERMINISTIC_ASSEMBLER_VERSION
+
+- Surface: ccf.agents.assembler.DETERMINISTIC_ASSEMBLER_VERSION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"1.0.0"`
+- Why: the version half of the pin, on the `FRESHNESS_SCORER_VERSION`
+  precedent: a payload is only reproducible alongside the version of the
+  computation that produced it
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.ContextAssemblerProtocol
+
+- Surface: ccf.agents.ContextAssemblerProtocol
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-exported at the `ccf.agents` package root
+- Why: the package root already re-exports `Agent`, `AgentFactory` and the
+  archetype bundles; an assembler surface reachable only by module path would
+  be the odd one out. See `ccf.agents.assembler.ContextAssemblerProtocol` above
+  for the substance
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.AssemblyOutcome
+
+- Surface: ccf.agents.AssemblyOutcome
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-exported at the `ccf.agents` package root
+- Why: as above. See `ccf.agents.assembler.AssemblyOutcome` for the substance
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.ConsultationRecord
+
+- Surface: ccf.agents.ConsultationRecord
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-exported at the `ccf.agents` package root
+- Why: as above. See `ccf.agents.assembler.ConsultationRecord` for the substance
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.DeterministicAssembler
+
+- Surface: ccf.agents.DeterministicAssembler
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-exported at the `ccf.agents` package root
+- Why: as above. See `ccf.agents.assembler.DeterministicAssembler` for the
+  substance
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.NO_CONSULTATIONS
+
+- Surface: ccf.agents.NO_CONSULTATIONS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-exported at the `ccf.agents` package root
+- Why: as above. See `ccf.agents.assembler.NO_CONSULTATIONS` for the substance
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.DETERMINISTIC_ASSEMBLER_ID
+
+- Surface: ccf.agents.DETERMINISTIC_ASSEMBLER_ID
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-exported at the `ccf.agents` package root
+- Why: as above. See `ccf.agents.assembler.DETERMINISTIC_ASSEMBLER_ID` for the
+  substance
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.DETERMINISTIC_ASSEMBLER_VERSION
+
+- Surface: ccf.agents.DETERMINISTIC_ASSEMBLER_VERSION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-exported at the `ccf.agents` package root
+- Why: as above. See `ccf.agents.assembler.DETERMINISTIC_ASSEMBLER_VERSION` for
+  the substance
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.errors.AssemblyRefused
+
+- Surface: ccf.agents.errors.AssemblyRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `ValueError` raised when an assembly is asked of an agent whose
+  declared tenant or axis-3 role is not the one asked for
+- Why: it lives in `errors.py` with the rest of the agent taxonomy rather than
+  beside the Protocol, because a stray error class in `assembler.py` would be
+  the drift. The sibling of `ConsumptionRefused` on the other face of the
+  fabric: that one refuses a product an agent may not read, this one refuses an
+  assembly an agent may not perform. Raised rather than returned, because both
+  conditions are channel-1 identity disagreements — they describe a *different
+  agent*, not a recoverable argument
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.definitions.EmittedProduct
+
+- Surface: ccf.agents.definitions.EmittedProduct
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `product_class` plus a semver-validated `schema_version`
+- Why: the producing counterpart of `ConsumedProduct`, pinned on the same
+  reasoning — a producer that named no version would claim to satisfy whatever
+  shape the class takes next, a contract drift replay cannot survive. A
+  separate contract rather than a reuse of `ConsumedProduct` because the two
+  are read by different mechanism and refused on different grounds: a consumed
+  class is checked at `Agent.consume`, an emitted class at construction against
+  what the deployment registered. Sharing the type would make "which side is
+  this?" a question the code could not answer
+- Migration: new surface — none beyond the `ContextContract` note above
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.definitions.EMITS_NOTHING
+
+- Surface: ccf.agents.definitions.EMITS_NOTHING
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the empty tuple, named
+- Why: the `NO_GRANTS_SET_HASH` voice again — *this agent emits nothing* is a
+  statement its author made, distinguishable from an emission binding somebody
+  dropped only because the claim is named. It is also what keeps the widening
+  additive
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.definitions.ASSEMBLY_ARCHETYPE_ID
+
+- Surface: ccf.agents.definitions.ASSEMBLY_ARCHETYPE_ID
+- Public surface: true
+- Change type: added
+- Before: absent — `"context_assembly"` was spelled in `ARCHETYPE_IDS` and
+  nowhere else needed it
+- After: `"context_assembly"`, named once
+- Why: the schema, the factory refusal and the archetype registry now all
+  depend on which archetype supplies the emission pattern, and three spellings
+  of one identifier is three places to drift
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
 #### ccf.halflife.assessment.DebtAssessment
 
 - Surface: ccf.halflife.assessment.DebtAssessment
@@ -4642,11 +4949,41 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.5-03-product-entitlement.md`.*
 
+#### src/ccf/agents/assembler.py
+
+- Surface: src/ccf/agents/assembler.py
+- Public surface: false
+- Change type: added
+- Before: the `ccf.agents` package's permitted `ccf` import surface
+  (`ALLOWED_CCF_PREFIXES` in `tests/agents/test_consumption_discipline.py`)
+  admitted no module under `ccf.projection`, and AGNT-01 held package-wide
+- After: a **per-module** widening, `MODULE_CCF_PREFIXES`, admitting
+  `ccf.projection.plan`, `ccf.projection.acquisition` and `ccf.products.request`
+  for `assembler.py` alone — plus a new fourth claim asserting that a widened
+  module names none of `FABRIC_CAPABILITY_NAMES`
+- Why: the file's own rule is that a new fabric import *"must be argued into
+  the allowlist, in review — never slipped in"*, so here is the argument. Every
+  symbol the module actually binds from those modules is a **frozen value
+  contract, never a capability**: `Perspective` is specialization axis 3 itself
+  (its docstring says *"the agent framework binds to it in I.2 rather than
+  replacing it"*), `ProjectionOutput` is a `plan_id` plus a payload,
+  `AcquiredContent` is the content-addressed item the Alternation claim cannot
+  be stated without naming, and `ccf.products.request` reaches no fabric layer
+  at all. The widening is **bounded rather than trusted**, which is the part
+  that matters: admitting the module that *holds* `ContentAcquirer` and
+  `ProjectionPlan` does not admit reaching for either, and the new claim runs
+  over every module in the package, so a capability arriving through one of
+  these doors is a red build. It is per-module rather than package-wide so the
+  prefix does not silently become admissible for `agent.py`
+- Migration: none — a test-scope invariant. An adopter is unaffected
+
+*Recorded by `15.5-10-assembler.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-236 entries — 53 public Python surface, 183 not public Python API.
+239 entries — 56 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -5762,6 +6099,75 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   calls it, and by nothing else
 
 *Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.agents.AgentFactory
+
+- Surface: ccf.agents.AgentFactory
+- Public surface: true
+- Change type: reshaped
+- Before: the package-root re-export of the four-keyword constructor
+- After: the package-root re-export of the five-keyword constructor, the fifth
+  being the defaulted `product_classes`
+- Why: the re-export follows the module surface. See
+  `ccf.agents.factory.AgentFactory` above for the substance and the migration
+  reasoning
+- Migration: existing call sites are unaffected — the new keyword defaults
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.definitions.ContextContract
+
+- Surface: ccf.agents.definitions.ContextContract
+- Public surface: true
+- Change type: reshaped
+- Before: `consumes: tuple[ConsumedProduct, ...]` alone, with a docstring
+  reserving the emission side: *"Emission bindings (which projection an
+  assembler emits to) extend this contract when the ContextAssembly
+  archetype's transport lands; the shape is additive by design"*
+- After: `consumes` unchanged, plus `emits: tuple[EmittedProduct, ...] =
+  EMITS_NOTHING`. `docs/schemas/ccf.agent-definition.json` regenerates
+  accordingly, in the same commit, under the bytes-equality drift gate
+- Why: that reserved sentence, followed literally — the binding extends axis 2
+  rather than becoming a parallel artifact beside it, because both directions
+  are one axis: what an agent's fabric relationship *is*. `emits` defaults to
+  the named positive `EMITS_NOTHING` claim so every shipped definition and
+  every fixture parses byte-unchanged. What is deliberately **not** checked
+  here is the coherence: the schema knows the shape of a document, and only
+  the factory holds the archetype bundles and the deployment's registered
+  classes — a check that cannot see both sides cannot name both sides
+- Migration: **an emission binding is two lines in an agent definition, and
+  adopting it is optional.** In the `context_contract:` block that today reads
+  only `consumes:`, add:
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.factory.AgentFactory
+
+- Surface: ccf.agents.factory.AgentFactory
+- Public surface: true
+- Change type: reshaped
+- Before: constructor took `control_plane`, `callable_registry`, `mcp_skills`
+  and `peering_skills`; `construct` ran four steps
+- After: one further defaulted keyword, `product_classes: Mapping[str,
+  RegisteredProductClass] | None = None`, and a fifth construction step that
+  refuses an incoherent or unregistered axis-2 emission binding
+- Why: both refusals are the class of check `register_product_class` already
+  makes for `MAX_TTL` (D-IMPL-39) — a deployment finds out **while wiring the
+  fabric**, rather than when a product is about to be assembled. They are
+  raised, never returned or warned, and they name both sides without repairing
+  either. `product_classes` is constructor-injected on the `callable_registry`
+  precedent — the factory holds no registry of its own — and keyed by
+  `schema_name`, the shape `AdmissionGate` already takes for the same
+  population. `None` is the positive statement *this deployment registered no
+  product classes*, and it is fail-closed: an emitting definition is then
+  refused, naming the empty set
+- Migration: **existing call sites are unaffected.** The new keyword defaults,
+  and a definition that declares no emission binding reaches neither refusal —
+  every shipped `AgentFactory(control_plane=…)` construction is untouched, and
+  all 162 tests under `tests/agents` pass with no fixture edited. Wire
+  `product_classes` only when you declare an emission binding
+
+*Recorded by `15.5-10-assembler.md`.*
 
 #### ccf.halflife.debt.DebtAssessment
 
@@ -8208,7 +8614,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-36 entries — 27 public Python surface, 9 not public Python API.
+38 entries — 27 public Python surface, 11 not public Python API.
 
 ### Public Python surface
 
@@ -9058,6 +9464,47 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   only its second caller is new
 
 *Recorded by `15.4-03-write-modules.md`.*
+
+#### openapi.json
+
+- Surface: openapi.json
+- Public surface: false
+- Change type: behavior
+- Before: the published HTTP contract carried `ContextContract` with
+  `consumes` alone
+- After: it carries `ContextContract` with `consumes` and the defaulted
+  `emits`, plus the `EmittedProduct` schema it references — 29 added lines,
+  one changed description
+- Why: the HTTP API publishes the agent-definition shape, so an axis-2
+  widening reaches the committed spec by construction. Regenerated with `make
+  openapi` under the D-12 drift baseline, in the same commit as the schema
+- Migration: none — the added property is optional and defaulted, so a client
+  generated against the previous spec keeps working and a client regenerated
+  against this one gains the emission field
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### examples/08-e2e-demo/artifacts/expected_output.txt
+
+- Surface: examples/08-e2e-demo/artifacts/expected_output.txt
+- Public surface: false
+- Change type: behavior
+- Before: `replay record 27f35f7ad5eac7ac…` and `skill-set in force
+  6592ac147e297f35…`
+- After: `replay record 83d4e34178b9bcac…` and `skill-set in force
+  aafa91413bcd8b21…`
+- Why: the `ContextContract` consequence above, landing where it is visible.
+  **Two lines change and every other line of the transcript is byte-identical**
+  — every count, every resolved entity total, every detection outcome, every
+  label — and both changed lines are content addresses that derive from
+  `content_hash(AgentDefinition)`, which now walks one more field. The
+  transcript's own test warns that a failure here is *not* to be fixed by
+  regeneration until the diff has been read line by line and every changed line
+  traced to a deliberate change; that was done, and this entry is the trace
+- Migration: none for an adopter of the SDK. A deployment that keeps its own
+  pinned narration or replay fixtures regenerates them on the same reading
+
+*Recorded by `15.5-10-assembler.md`.*
 
 #### ccf.deployment.binder
 
