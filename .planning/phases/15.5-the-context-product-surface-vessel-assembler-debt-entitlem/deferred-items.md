@@ -63,3 +63,31 @@ already owns the retirement decision for the `15.5-01` spike module.
 - **Owner:** plan `15.5-13` rewrites this example and needs the target for its
   own verification step; it is the natural place to add it. If `15.5-13` is
   descoped, this becomes a phase-close finding.
+
+## DI-15.5-03 — the entitled `Perspective` stops at the door
+
+- **Found during:** plan `15.5-06`, tasks 1 and 3.
+- **What:** all three exposed product doors now resolve a `Perspective` from
+  the verified grant and refuse a caller not entitled to the requested class or
+  to that role. What they do **not** do is forward the resolved perspective
+  into the assemble-and-gate path: `ProductResolverProtocol` and
+  `ExperienceProductResolverProtocol` are three-string seams
+  (`tenant, product_class, version`), so the deployment's resolver constructs
+  its own `Perspective` behind them. The door therefore guarantees the
+  *refusal* leg but not that the served product was shaped under the
+  perspective the door authorized.
+- **Why deferred:** closing it reshapes both resolver Protocols to carry a
+  `Perspective`, which touches `ApiDependencies`, `runtime/ccf_runtime/cli/local.py`,
+  three doors, two crossproc test children, three examples and the HTTP test
+  fixtures — roughly twenty call sites. Plan `15.5-06` does not scope it: its
+  own `<interfaces>` block quotes the resolver seam unchanged at all three
+  doors, and its success criterion ("Perspective is derived from the verified
+  grant and never asserted by the caller") is met by the door-side resolution
+  and refusal. Doing it inside `15.5-06` would also have collided with the
+  `perspective`-shaped work in sibling wave-2 plans.
+- **Where it is recorded in code:** the `context_product` handler docstrings in
+  `runtime/ccf_runtime/mcp/egress.py` and `runtime/ccf_runtime/mcp/experience.py`
+  both state where the value stops and why.
+- **Owner:** unassigned. Natural home is a follow-on plan that owns the
+  `ProductResolverProtocol` reshaping, or plan `15.5-14`'s close-out sweep if
+  the phase decides to carry it.
