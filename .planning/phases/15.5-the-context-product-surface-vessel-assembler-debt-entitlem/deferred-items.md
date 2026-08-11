@@ -96,7 +96,7 @@ already owns the retirement decision for the `15.5-01` spike module.
 - **STATUS: CLOSED** by plan `15.5-15`, closing commit `c244400`
   (`feat(15.5-15): widen the product resolver seam once, carrying perspective
   and request`), with the supplying call sites in `685cbf0` and the structural
-  assertions in `1b2a5b3`.
+  assertions in `74ab80b`.
 
   What closed it, in the order the assertions run:
 
