@@ -406,7 +406,84 @@ subject fully replayable. It is built and unused.
 
 ---
 
-## 10. Whitepaper sections the revision touches
+## 10. Entitlement to Context Products — **RULED (fabric change required)**
+
+Dave, 2026-08-10: *"I need to make a fabric change to accommodate this."*
+
+**Framing — DERIVED.** Entitlement is not a new axis. `P` already composes
+*during* assembly: the policy operators run before similarity at every assembly
+step, which is a declared replay obligation of the `context_assembly` archetype.
+What is missing is **`P` at delivery** — who may receive, and as whom. Keeping the
+change inside the whitepaper's own vocabulary rather than introducing a parallel
+concept.
+
+### 11.1 What is built — **MEASURED**
+
+**A2A entitlement is real and strong.** `src/ccf/peering/trust_policy.py`
+expresses per-peer entitlement over *"which keys, which producers, which product
+classes, which regimes"* — checked **after** signature verification, never
+instead of it, with `extra="forbid"` so a deployment cannot add a bypass field,
+and the claim enforced by a field-enumeration test rather than by prose.
+
+Authentication exists on every door (bearer tokens via `TokenSourceProtocol`,
+constant-time comparison, FastMCP intersecting grant scopes with the server's
+`required_scopes`). Content-shaping is built (Π conditions on `principal_id` and
+`role`; policy operators compose before similarity).
+
+### 11.2 What is not — **MEASURED**
+
+| Question | Belongs | State |
+| --- | --- | --- |
+| May you call **this product class**? | egress door | **absent** — scopes are server-wide, not per class |
+| **Whose** view do you get? | Perspective bound to verified identity | **absent** |
+| What may that view **contain**? | Π + policy operators | built |
+| May a **foreign peer** receive this class? | A2A trust policy | built, strongly |
+
+`build_egress_server` exposes `context_product(tenant, product_class, version)`
+and binds **no authorizer**. `TenantAuthorizerProtocol` exists, gates
+`(grant, tenant, action_id)`, is bound only on the HITL server and the HTTP API,
+and is explicitly *"inert when no authorizer is bound."* Neither `serve()` nor
+`run_gates()` knows who is receiving.
+
+**The sharpest one: Perspective is a statement, not a credential.**
+`Perspective(principal_id, role)` is passed *into* `execute()` by the caller, and
+nothing derives it from the verified grant. Inside a trust boundary that is fine.
+On an exposed egress surface a caller can assert any role and receive that role's
+view — and since Π conditioning and the policy operators both key off perspective,
+the whole content-shaping layer sits downstream of an unverified claim.
+
+### 11.3 The change, in four parts — **DERIVED, needs scoping**
+
+1. **Perspective resolution at the door.** The caller may *request* a role; a
+   resolver taking the verified `TokenGrant` decides whether it is granted.
+   **Keep this a door concern, not an engine concern** — `execute()` keeps taking
+   a `Perspective`, because replay must feed the *recorded* perspective and get
+   the original answer. That separation keeps the change small and leaves replay
+   determinism untouched.
+2. **Per-product-class entitlement at the egress door.** The same shape
+   `trust_policy.py` already implements per peer, with the local principal as
+   subject. The pattern is built and tested on the harder boundary and simply is
+   not used on the easier one.
+3. **Assembler delegation.** May this assembler consult that store, call that
+   tool, enlist that agent *on your behalf*? Already well-placed — the assembler
+   is an agent, axis 4 is its policy regime (CLAUDE.md §6.2 names *"entitlements"*
+   first in that list), channel 2 governs its skills, and grants already land in
+   replay. What is missing is that the assembler must **record which consultations
+   were permitted and which refused**, because that feeds (4).
+4. **Debt becomes per-(product, principal).** A relationship manager and a
+   compliance officer may both be entitled to call `kyc.ubo`, but the product may
+   be permitted to consult sanctions on behalf of one and not the other — so the
+   same call, by two principals, legitimately returns different **completeness**.
+   Entitlement and Context Debt are therefore coupled, and debt cannot be computed
+   once per product.
+
+**Part 4 does not follow from anything ruled yet** and is the item most likely to
+change the design's shape. If it holds, `DebtAssessment` is computed against the
+effective entitlement set rather than against the product alone.
+
+---
+
+## 11. Whitepaper sections the revision touches
 
 | Section | Change |
 | --- | --- |
@@ -420,3 +497,5 @@ subject fully replayable. It is built and unused.
 | Ch 8 §8.3 Pattern 3 (MCP) | MCP fronts a product that assembles, not a store that answers |
 | New or extended | product aggregation: lineage union, TTL floor, freshness-SLA bind-time refusal, debt composition |
 | New or extended | the assembler: Protocol, declared as an artifact, owns sources/tools/agents/KG placement |
+| Ch 7 §7.5 / §7.8 (Projection, Control/Data Plane) | `P` applies at **delivery**, not only during assembly: who may receive a product, and as whom. Perspective must be derived from verified identity, never asserted by the caller |
+| Ch 8 §8.3 Pattern 4 (A2A) | note that the per-peer entitlement model is the template the local egress door should reuse |
