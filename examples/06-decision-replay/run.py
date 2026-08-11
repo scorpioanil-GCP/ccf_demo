@@ -287,7 +287,16 @@ class UnconsultedSink:
         raise AssertionError("tier-2 sink consulted under an auto regime")
 
 
-def _no_product(*, tenant: str, product_class: str, version: str) -> Any:
+def _no_product(
+    *,
+    tenant: str,
+    product_class: str,
+    version: str,
+    perspective: Any,
+    request: Any,
+) -> Any:
+    # Carries the widened D-IMPL-108 signature even though it serves
+    # nothing: an empty form that did not conform would not be a template.
     raise ProductNotServable(
         f"no gate-admitted product at {tenant}/{product_class}/{version}"
     )
