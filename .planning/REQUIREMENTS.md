@@ -111,6 +111,23 @@
 - [x] **SUBQ-13**: The JSON-LD buffered-batch write path — `_FlureeTxn` + `FlureeGraphWriter` in `ccf.graph._writer` — satisfies the nine typed `_GraphTxn` operations with **per-operation rowcounts resolved before commit** by read-before-buffer plus own-buffer merging, never from the single POST's aggregate `flakes_added`, committing as one ground `delete`+`insert` body; preserving single-writer (INV-CH7-10) and write confinement (CINV-02) with **no write code in `ccf.graph.backends.fluree`**, and adding no new Python dependency, no optional extra and no mypy override (Phase 15.3 D-01, D-02, D-03, D-12)
 - [x] **SUBQ-14**: The Phase 15.2 no-refactor claim is **mechanically demonstrated rather than narrated**: `make gate-15.3` enforces the `D-IMPL-92` permitted-change surface — a path allowlist, no existing backend name removed from any enumeration, per-file added-line budgets printed beside their measured mongo baselines, and an AST assertion that no pre-existing class or function body in `ccf.graph._writer` changed — and exits non-zero on anything outside it; the gate package is committed with the phase; and the `fluree` container leg is a fourth **always-on** blocking leg in `ci.yml`, green on `main` after merge (Phase 15.3 D-08, D-09, D-10, D-11 as amended by `D-IMPL-92`, D-12)
 
+### Context Product Surface (CPS)
+
+- [ ] **CPS-01**: Every Context Product delivered to a consumer carries its Context Debt, and no delivery path exists that drops it — across all three delivery paths (`runtime/ccf_runtime/mcp/egress.py`, `runtime/ccf_runtime/http_api/routes/product.py`, `runtime/ccf_runtime/mcp/experience.py`) — registered as a CINV-04 `Check` row with an owning test and an adversarial case, not asserted in prose
+- [ ] **CPS-02**: All **nine** §6.3 contract elements are present across the shipped product types (`D-IMPL-30`, Dave, 2026-07-25 — Assembly Mode included; every "eight" reference is editorial drift that ruling authorizes treating as such), each verified by a field-enumeration assertion that fails when one is unrepresented, so the defect class that hid three of them cannot recur silently
+- [ ] **CPS-03**: A product class declares its payload schema and a payload violating that declaration is refused, reusing the shipped declared-schema machinery rather than a second one
+- [ ] **CPS-04**: Perspective is derived from the verified grant at every exposed door, a caller cannot assert a role it was not granted, and `ProjectionEngine.execute` keeps taking a `Perspective` so replay feeds the recorded one
+- [ ] **CPS-05**: Per-product-class entitlement gates every exposed door — the MCP egress door, the HTTP product route and the Experience front door — through a Control Plane artifact with no permissive default and no field able to express a bypass, enforced by field enumeration, and downstream of authentication at each
+- [ ] **CPS-06**: The assembler is a Protocol with a shipped mechanism-only reference implementation whose production instance is a declared agent from the `context_assembly` archetype, binding sources, tools, enlisted agents and its debt profile through axes 4 and 5 and channel 2
+- [ ] **CPS-07**: A product answers a runtime request — subject and instant are arguments, never artifact literals — and the question asked is pinned into replay through `graph_query_sequence` and `QueryPinWriter`
+- [ ] **CPS-08**: Aggregate products compose lineage by union and implement `D-IMPL-31`'s mixing-refusal rule, with declarable constituent-validity floors whose breach refuses assembly
+- [ ] **CPS-09**: The four anti-leakage lints stay green throughout: zero harness imports in `src/`, no LLM client in an `@algorithmic` module, no prompt or threshold literal outside an artifact, no substrate name outside the backend registry
+- [ ] **CPS-10**: `examples/s1-01-hello-context-product` demonstrates an agent asking about any company at any time and is the shape every later example copies
+- [ ] **CPS-11**: Replay reproduces byte-exactly after every contract change, with `rehydrate_product`'s content-address check run against each candidate field placement before the placement is committed, and re-run before the first edit and after every commit of any plan that changes a hashed contract
+- [ ] **CPS-12**: No committed baseline drifts un-narrated
+- [ ] **CPS-13**: Micro-benchmark medians stay inside the 10% relative band after the field and gate additions, measured deliberately because `make perf` is not part of `make ci`, against a chain of baselines that starts before any change lands
+- [ ] **CPS-14**: The eight open design questions are put to Dave with measured costs, ruled, and recorded as `D-IMPL` entries before the tracks they gate are implemented
+
 ## Future Requirements (deferred)
 
 - Perf SaaS/dashboarding integration
@@ -198,10 +215,44 @@
 | SUBQ-12 | Phase 15.3 | Complete |
 | SUBQ-13 | Phase 15.3 | Complete |
 | SUBQ-14 | Phase 15.3 | Complete |
+| CPS-01 | Phase 15.5 | Pending |
+| CPS-02 | Phase 15.5 | Pending |
+| CPS-03 | Phase 15.5 | Pending |
+| CPS-04 | Phase 15.5 | Pending |
+| CPS-05 | Phase 15.5 | Pending |
+| CPS-06 | Phase 15.5 | Pending |
+| CPS-07 | Phase 15.5 | Pending |
+| CPS-08 | Phase 15.5 | Pending |
+| CPS-09 | Phase 15.5 | Pending |
+| CPS-10 | Phase 15.5 | Pending |
+| CPS-11 | Phase 15.5 | Pending |
+| CPS-12 | Phase 15.5 | Pending |
+| CPS-13 | Phase 15.5 | Pending |
+| CPS-14 | Phase 15.5 | Pending |
 
-Coverage: 68/68 v0.2 requirements mapped, each to exactly one phase.
+Coverage: 82/82 v0.2 requirements mapped, each to exactly one phase.
 Counted from the traceability table above by counting its rows, not from the
-previous sentence: 56 rows before Phase 16's minting, 68 after.
+previous sentence: 56 rows before Phase 16's minting, 68 after, 82 after Phase
+15.5's.
+**CPS-01..CPS-14 were minted at Phase 15.5 planning and recorded here by plan
+15.5-05 (2026-08-11)**, under the same inserted-phase precedent DOCS-07..18,
+SUBQ-12..14 and ERGO-18..19 were minted under — an inserted phase mints its own
+requirement IDs at planning rather than borrowing a predecessor's. Two things
+about this minting are worth stating because a later reader will otherwise
+reconstruct them wrongly. First, **CPS opens a new lane rather than extending
+SUBQ or ERGO**, which is the opposite call from SUBQ-12..14's (Phase 15.3 D-12,
+where a sixth adapter was held to be the same requirement family as the first
+five). The reason the calls differ: 15.3 added a substrate to a surface that
+already existed, whereas 15.5 changes what a Context Product *is* on delivery —
+the vessel, its declared payload schema, the three absent §6.3 elements, debt
+reaching the consumer, entitlement at the door, and the request contract. That
+is a distinct surface, not another instance of one. Second, **CPS-01..CPS-13
+correspond one-to-one to the phase's ten ROADMAP success criteria plus its three
+standing verification obligations** (replay byte-exactness, baseline narration,
+micro-benchmark headroom), and **CPS-14 is the ruling package itself** — the
+requirement that the eight open questions are ruled *before* the tracks they
+gate are implemented, which is the one requirement whose failure mode is a plan
+guessing a design decision rather than a defect in shipped code.
 **DOCS-07..DOCS-18 were minted at Phase 16 planning and recorded here by plan
 16-01 (2026-08-10)**, under the same inserted-phase precedent SUBQ-12..14 and
 ERGO-18..19 were minted under — a phase mints its own requirement IDs at
