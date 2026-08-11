@@ -1,4 +1,17 @@
-"""[MECHANISM] The CCF call spine — every line here is a fabric call an adopter must make.
+"""Who ultimately owns this company, and whose stake crosses the reporting threshold?
+
+That is the question this program answers, and no record of any source system
+states its answer. Ownership runs through intermediaries, so a real interest is
+a sum over paths — what a party holds directly, plus its fraction of whatever
+the companies it holds hold in turn — and the total appears in no document.
+This program assembles the chain into a graph, aggregates across the hops,
+applies the threshold the regime in force sets, and serves the result as a
+typed, gated, replay-ready Context Product.
+
+**This file is the fabric's half of answering it.** [MECHANISM] The CCF call
+spine — every line here is a fabric call an adopter must make. Which company,
+at which instant, under which threshold, and which resolved class counts as a
+natural person are none of its business.
 
 [ADAPT] nothing. There is no domain vocabulary in this file: no entity class, no
 source system, no identifier, no threshold, no policy version, no query and no
