@@ -72,6 +72,21 @@ artifacts:
     role: register
     registration: typed
 
+  # λ_c and the CAR bands. `register`, because what the fabric treats as fresh
+  # and what debt it tolerates before it refuses to answer are both squarely
+  # "what this fabric is permitted to do" (whitepaper §7.7).
+  - path: half-life-table.yaml
+    key: half-life-table
+    class_id: ccf.half-life-table
+    role: register
+    registration: typed
+
+  - path: debt-profile.yaml
+    key: debt-profile
+    class_id: ccf.debt-profile
+    role: register
+    registration: typed
+
   - path: operator-parameters-traversal.yaml
     key: traversal
     class_id: ccf.operator-parameters.traversal

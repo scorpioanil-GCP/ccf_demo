@@ -109,3 +109,74 @@ declaration:
   # Sarah Chen sits at exactly 25.0% one hop down and at 1.125% of the subject
   # three hops down. Depth is not significance, and the aggregation says so.
   boundary_case_party: "http://example.org/fibo/SarahChen"
+
+  # --- the other two questions ----------------------------------------------
+  # Everything above is question 1 of `questions.yaml`. These two blocks are
+  # what the SAME product class returns for the other two, and they are the
+  # independent expectations that make "assemble, not aggregate" falsifiable:
+  # if the fabric were aggregating a precomputed answer, all three would agree.
+  #
+  # Keyed by ORDINAL rather than by subject, because question 3 has the same
+  # subject as question 1 and differs only in when it was asked — a subject-keyed
+  # map could not hold both, which is itself the point being made.
+
+  # 2 — a different company, same instant. Beta Holdings is a step on Acme's own
+  # chain, so this is the same graph read from a different anchor. Jane Doe's
+  # interest DOUBLES (she holds Beta directly), John Smith's falls to zero (his
+  # stake is in Acme, not in Beta), and the beneficial-owner list is a different
+  # list. No re-ingest, no second product class, no second query.
+  second_question:
+    subject_entity_ref: "http://example.org/fibo/BetaHoldings"
+    entity_count: 17
+    ownership_percent_by_party:
+      "http://example.org/fibo/JaneDoe": "60.000"
+      "http://example.org/fibo/JohnSmith": "0.000"
+      "http://example.org/fibo/SarahChen": "3.750"
+    beneficial_owners:
+      - party_ref: "http://example.org/fibo/JaneDoe"
+        aggregate_ownership_percent: "60.000"
+
+  # 3 — the same company six weeks later. The share transfer that
+  # `absent_by_temporal` above witnesses as NOT YET EFFECTIVE on 1 August IS
+  # effective on 15 September, so Marcus Vale — invisible in question 1 — is a
+  # 30.0% beneficial owner here. Two entities more in the view; nothing
+  # ingested in between. This is the answer a design-time query cannot hold,
+  # because which answer is right depends on when you ask.
+  third_question:
+    subject_entity_ref: "http://example.org/fibo/AcmeCorp"
+    entity_count: 19
+    ownership_percent_by_party:
+      "http://example.org/fibo/JaneDoe": "30.000"
+      "http://example.org/fibo/JohnSmith": "45.000"
+      "http://example.org/fibo/MarcusVale": "30.000"
+      "http://example.org/fibo/SarahChen": "1.125"
+    beneficial_owners:
+      - party_ref: "http://example.org/fibo/JaneDoe"
+        aggregate_ownership_percent: "30.000"
+      - party_ref: "http://example.org/fibo/JohnSmith"
+        aggregate_ownership_percent: "45.000"
+      - party_ref: "http://example.org/fibo/MarcusVale"
+        aggregate_ownership_percent: "30.000"
+    # Newly visible here and nowhere else — the temporal witness, inverted.
+    newly_visible:
+      - "http://example.org/fibo/MarcusVale"
+
+  # --- the delivered debt ----------------------------------------------------
+  # D_c rides the product (D-IMPL-100). These are the CAR routing states the
+  # measured figures land in under `debt-profile.yaml`'s bands, not the figures
+  # themselves: the numbers are a decay computation over the assembled view and
+  # restating them here would be authoring the answer. The STATES are the
+  # deployment's expectation of what its own calibration should route to.
+  #
+  # Question 1 is fresh and routes OK. Question 3 asks the same thing six weeks
+  # later against the same graph, measures more decay, and crosses the
+  # Forced-LLM band — the escalation is a MEASUREMENT, which is why the two
+  # differ at all.
+  debt_signal_first_question: "ok"
+  debt_signal_third_question: "forced_llm"
+
+  # Which dimension is weak, not only how weak. Freshness is the factor that
+  # moves between question 1 and question 3; completeness and semantic
+  # consistency do not, so an examiner reading the assessment can see WHICH of
+  # the three collapsed rather than only that D_c rose (D-IMPL-99).
+  debt_weak_factor: freshness

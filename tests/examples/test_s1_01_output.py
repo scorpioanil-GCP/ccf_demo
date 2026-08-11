@@ -70,7 +70,7 @@ from typing import Any
 import pytest
 
 from ccf.contracts.canonical import content_hash
-from ccf.replay.record import DecisionReplayRecord
+from ccf.replay.record import NO_GRAPH_QUERIES, DecisionReplayRecord
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE_DIR = REPO_ROOT / "examples" / "s1-01-hello-context-product"
@@ -94,6 +94,12 @@ OWNER_PERCENT = "aggregate_ownership_percent"
 
 #: The expectation document's own blocks.
 EXPECTED_BOUNDARY_CASE = "boundary_case_party"
+EXPECTED_SECOND_QUESTION = "second_question"
+EXPECTED_THIRD_QUESTION = "third_question"
+EXPECTED_NEWLY_VISIBLE = "newly_visible"
+EXPECTED_DEBT_SIGNAL_FIRST = "debt_signal_first_question"
+EXPECTED_DEBT_SIGNAL_THIRD = "debt_signal_third_question"
+EXPECTED_DEBT_WEAK_FACTOR = "debt_weak_factor"
 
 #: Every ``absent_by_*`` block is a witness: a reference the pipeline must have
 #: removed, and the operator that removed it. Prefix-matched rather than listed,
@@ -551,6 +557,235 @@ def test_the_record_is_written_before_the_product_is_delivered(
     assert reference.artifact_class == result.scenario.replay_record_class
     assert reference.tenant_id == result.tenant_id
     assert result.store.exists(content_address=reference.content_address)
+
+
+# ---------------------------------------------------------------------------
+# Assemble, not aggregate — the three declared questions (plan 15.5-13).
+#
+# Every assertion below runs against `answers`, which asks all three questions
+# `artifacts/questions.yaml` declares, each against its own fabric. The module
+# fixture above stays a single run because the assertions above it are about one
+# product; these are about the DIFFERENCES between products, which is a
+# different claim and needs a different fixture.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def questions(example: Any) -> Any:
+    """The declared questions, typed, as the driver builds them."""
+    return example.deployment.declared_questions()
+
+
+@pytest.fixture(scope="module")
+def answers(
+    example: Any, questions: Any, tmp_path_factory: pytest.TempPathFactory
+) -> Any:
+    """One answered product per declared question, in declaration order."""
+    return example.ask_all(
+        root=tmp_path_factory.mktemp("s1-01-questions"), requests=questions
+    )
+
+
+def test_the_declared_questions_are_a_controlled_experiment(questions: Any) -> None:
+    """A precondition, because every claim below is about a contrast.
+
+    Two of the three share a subject and differ in instant; two share an instant
+    and differ in subject. If a future edit collapsed that structure the
+    assertions below would still pass while demonstrating nothing, which is the
+    quiet failure this file exists to avoid.
+    """
+    assert len(questions) >= 3
+    subjects = {question.subject for question in questions}
+    instants = {question.asked_at for question in questions}
+    assert len(subjects) > 1, "no two questions differ in subject"
+    assert len(instants) > 1, "no two questions differ in instant"
+
+
+def test_a_different_company_gets_a_different_answer(
+    expected: Any, answers: Any
+) -> None:
+    """**Independent expectation.** The second question's answer follows from
+    the events, the resolution spec and the operator parameters read from a
+    different anchor; ``expected.yaml`` derives none of it.
+
+    This is the claim the whole phase turns on. One product class, one graph,
+    one ingest — and the answer to *"who ultimately owns this?"* is a different
+    set of people with different percentages depending on which company was
+    asked about. A precomputed aggregate cannot hold both.
+    """
+    declared = expected[EXPECTED_SECOND_QUESTION]
+    payload = answers[1].product.payload
+
+    assert payload[PAYLOAD_SUBJECT] == declared[PAYLOAD_SUBJECT]
+    assert payload[PAYLOAD_ENTITY_COUNT] == declared[PAYLOAD_ENTITY_COUNT]
+    assert (
+        payload[PAYLOAD_OWNERSHIP_BY_PARTY] == declared[PAYLOAD_OWNERSHIP_BY_PARTY]
+    ), payload
+    assert _owners(payload) == _owners(declared), payload
+    assert _owners(payload) != _owners(answers[0].product.payload), (
+        "the first two questions returned the same beneficial owners; the"
+        " subject is not reaching the projection"
+    )
+
+
+def test_the_same_company_at_a_later_instant_gets_a_different_answer(
+    expected: Any, answers: Any
+) -> None:
+    """**Independent expectation.** The third question re-asks the first at a
+    later boundary, against a graph nothing was added to in between.
+
+    A share transfer recorded before 1 August and legally effective in September
+    is invisible in the first answer and decisive in the third: a natural person
+    who was not a beneficial owner becomes one. The fabric knew about the
+    transfer the whole time — which is exactly why *"when are you asking?"* is
+    part of the question and not part of the configuration.
+    """
+    declared = expected[EXPECTED_THIRD_QUESTION]
+    first, third = answers[0].product, answers[2].product
+
+    assert third.payload[PAYLOAD_SUBJECT] == first.payload[PAYLOAD_SUBJECT], (
+        "questions 1 and 3 must share a subject, or this contrast is about two"
+        " things at once"
+    )
+    assert third.temporal_boundary > first.temporal_boundary
+    assert third.payload[PAYLOAD_ENTITY_COUNT] == declared[PAYLOAD_ENTITY_COUNT]
+    assert (
+        third.payload[PAYLOAD_OWNERSHIP_BY_PARTY]
+        == declared[PAYLOAD_OWNERSHIP_BY_PARTY]
+    ), third.payload
+    assert _owners(third.payload) == _owners(declared), third.payload
+
+    appeared = set(_owners(third.payload)) - set(_owners(first.payload))
+    assert {reference for reference, _percent in appeared} == set(
+        declared[EXPECTED_NEWLY_VISIBLE]
+    ), (
+        "the later boundary did not admit the party the expectation says it"
+        " should; the temporal operator is not reading the request's instant"
+    )
+
+
+def test_every_pinned_query_resolves_to_the_bytes_it_names(answers: Any) -> None:
+    """**SDK mechanism claim.** The record pins which questions were put to the
+    graph, and every pin is resolvable.
+
+    ``serve()`` persists the canonical query bytes BEFORE it appends the record,
+    so no moment exists at which a recorded pin dangles (T-15.2-28). That
+    mechanism shipped in plan 15.2-08 and this example is the reason it had
+    never been exercised: ``serve()`` was called without a ``QueryPinWriter``,
+    so the record pinned questions nothing could resolve.
+
+    Computed here rather than read from an artifact because the pin being the
+    query's own ``content_hash`` is a claim about the SDK, not about this
+    deployment.
+    """
+    for answered in answers:
+        pinned = answered.record.content_generation_path.graph_query_sequence
+        assert pinned, "the record pins no graph query at all"
+        assert pinned != NO_GRAPH_QUERIES
+        for pin in pinned:
+            assert answered.store.exists(content_address=pin), (
+                f"pin {pin} names bytes the store does not hold"
+            )
+
+
+def test_a_later_instant_pins_a_different_question_to_the_graph(
+    answers: Any,
+) -> None:
+    """**Independent expectation.** The pins distinguish the graph reads.
+
+    Questions 1 and 3 differ only in when they were asked, and the boundary is
+    inside the compiled query — so the pinned sequence differs. An auditor
+    asking *"which question did this decision answer?"* gets a different answer
+    for the two, from the record alone.
+
+    **What this does NOT show, stated because the distinction is load-bearing.**
+    Questions 1 and 2 pin IDENTICALLY: the subject enters at Π and not in the
+    graph query, so both read the same subgraph and differ only in what was
+    projected out of it. ``graph_query_sequence`` is a pin of the questions put
+    to the GRAPH, not of the question put to the PRODUCT — the latter is
+    recoverable from the served payload's subject and the record's boundary, and
+    is not itself a replay dimension. Asserting the two-subject case here would
+    be claiming a property the mechanism does not have.
+    """
+    first, second, third = (
+        answered.record.content_generation_path.graph_query_sequence
+        for answered in answers[:3]
+    )
+    assert first != third, (
+        "two boundaries produced the same pinned query sequence; the request's"
+        " instant is not reaching the compiled query"
+    )
+    assert first == second, (
+        "questions 1 and 2 pinned different graph queries — if the subject has"
+        " become part of the compiled query this test's caveat is stale and"
+        " should be rewritten rather than relaxed"
+    )
+
+
+def test_the_delivered_product_carries_its_debt(expected: Any, answers: Any) -> None:
+    """**Propagation check.** D_c rides the vessel and reaches the caller.
+
+    Debt *"is a runtime signal the agent must consume as a first-class decision
+    input, not a log-line to be read after the fact"* — so this fails on a
+    wiring fault: a product served with ``debt=None`` is a product whose
+    consumer has no way to know how much to trust it (D-IMPL-100).
+    """
+    for answered in answers:
+        assessment = answered.product.debt
+        assert assessment is not None, "the served product carries no debt"
+        assert Decimal(0) <= assessment.debt <= Decimal(1)
+        assert assessment.scorers, "no scorer is pinned beside the factor it produced"
+
+    assert answers[0].product.debt.signal.value == (
+        expected[EXPECTED_DEBT_SIGNAL_FIRST]
+    )
+
+
+def test_the_debt_figure_is_measured_and_not_constant(
+    expected: Any, answers: Any
+) -> None:
+    """**Independent expectation.** Stale constituent data reads as more debt.
+
+    Questions 1 and 3 assemble against the same graph and differ only in when
+    they were asked. Six weeks of decay against the λ_c table drives freshness
+    down and D_c up, far enough to cross this deployment's Forced-LLM band — so
+    the CAR routing state on the delivered product is a measurement, not a
+    constant. Nothing in ``expected.yaml`` supplies the figures; it declares
+    only which band its own calibration should route each to.
+
+    The last assertion is the one a KYC analyst needs: the assessment says
+    WHICH dimension is weak, not only how weak (D-IMPL-99). Freshness moves;
+    completeness and semantic consistency do not.
+    """
+    fresh, stale = answers[0].product.debt, answers[2].product.debt
+
+    assert stale.debt > fresh.debt, (
+        f"the later question measured no more debt ({stale.debt}) than the"
+        f" earlier one ({fresh.debt}); the figure is not measured"
+    )
+    assert fresh.signal.value == expected[EXPECTED_DEBT_SIGNAL_FIRST]
+    assert stale.signal.value == expected[EXPECTED_DEBT_SIGNAL_THIRD]
+
+    weak = expected[EXPECTED_DEBT_WEAK_FACTOR]
+    assert getattr(stale.factors, weak) < getattr(fresh.factors, weak)
+    unchanged = [
+        factor
+        for factor in ("freshness", "completeness", "semantic_consistency")
+        if factor != weak
+    ]
+    for factor in unchanged:
+        assert getattr(stale.factors, factor) == getattr(fresh.factors, factor), (
+            f"{factor} moved as well as {weak}; the contrast no longer isolates"
+            " a single dimension"
+        )
+
+
+def _owners(payload: Any) -> list[tuple[str, str]]:
+    """``(party_ref, aggregate_percent)`` pairs, in served order."""
+    return [
+        (owner[OWNER_PARTY_REF], owner[OWNER_PERCENT])
+        for owner in payload[PAYLOAD_BENEFICIAL_OWNERS]
+    ]
 
 
 def test_the_recorded_boundary_is_data_and_not_a_clock_read(result: Any) -> None:

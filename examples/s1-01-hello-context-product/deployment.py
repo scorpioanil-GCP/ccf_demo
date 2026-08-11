@@ -57,8 +57,17 @@ from ccf.controlplane.artifacts import (
     ProjectionRequirements,
     SignalBatch,
 )
+from ccf.controlplane.artifacts import DebtProfile, HalfLifeTable
 from ccf.deployment import BootedFabric
 from ccf.graph.protocols import GraphView
+from ccf.halflife.debt import (
+    DebtAssessment,
+    DebtFactors,
+    FreshnessScorer,
+    ScorerPin,
+    assess_debt,
+)
+from ccf.halflife.decay import Observation
 from ccf.operators.base import OperatorOutput
 from ccf.products.payload import ProductPayloadSchema
 from ccf.products.request import ProductRequest, ProductRequestContract
@@ -114,6 +123,11 @@ GOVERNANCE_REPLAY_RECORD_CLASS = "replay_record_class"
 GOVERNANCE_QUERY_PIN_CLASS = "query_pin_class"
 GOVERNANCE_ARTIFACT_STORE_DIRNAME = "artifact_store_dirname"
 GOVERNANCE_REQUEST_CONTRACT_KEY = "request_contract_key"
+GOVERNANCE_REQUIRED_ENTITY_CLASSES = "required_entity_classes"
+GOVERNANCE_SEMANTIC_CONSISTENCY = "semantic_consistency"
+
+KEY_HALF_LIFE_TABLE = "half-life-table"
+KEY_DEBT_PROFILE = "debt-profile"
 
 #: The `arguments` block of `artifacts/request-contract.yaml`. The Control Plane
 #: KEY the contract is registered under is authored in
@@ -158,6 +172,11 @@ QUESTION_PARTY_NAME_ATTRIBUTE = "party_name_attribute"
 #: meaning percent.
 HUNDRED = Decimal(100)
 
+#: Which of the three D_c factors this deployment's pinned scorer accounts for.
+#: SDK vocabulary (`DebtFactorName`), named here because a pin has to say which
+#: factor it produced.
+FRESHNESS_FACTOR = "freshness"
+
 
 @dataclass(frozen=True)
 class KycScenario:
@@ -188,10 +207,63 @@ class KycScenario:
     query_pin_class: str
     artifact_store_dirname: str
 
+    half_life_table: HalfLifeTable
+    debt_profile: DebtProfile
+    required_entity_classes: tuple[str, ...]
+    semantic_consistency: Decimal
+
     # --- not read by the fabric: the question and how to report its answer ---
     question: Mapping[str, Any]
     threshold_percent: Decimal
     scale_places: int
+
+    def debt(self, view: GraphView) -> DebtAssessment:
+        """Measure D_c over what this question actually assembled.
+
+        **Measured, not declared** — which is why it takes the assembled view.
+        F is the reference decay-ratio scorer run over every entity claim the
+        operators left standing, typed by the class the resolution spec
+        resolved it to and dated by its own ``observed_at``; C is the fraction
+        of this deployment's declared required classes the view actually holds;
+        S is a declared figure, because the SDK ships no S producer and
+        inventing one here would be worse than saying so (D-IMPL-101's posture
+        on salience, applied).
+
+        The instant is ``now`` — the class-declared ``decision_instant`` off
+        the request — so the same question asked six weeks later measures more
+        decay against the same graph and delivers a larger debt. That is the
+        whole point of a figure that is measured rather than constant.
+
+        Only F is pinned. An assessment whose pins somebody dropped and one
+        whose factors no declared scorer produced would otherwise be the same
+        artifact (D-IMPL-47).
+        """
+        observations = tuple(
+            Observation(
+                observation_type=record.claim.entity_class,
+                observed_at=record.claim.observed_at,
+            )
+            for record in view.entities
+        )
+        scorer = FreshnessScorer(
+            table=self.half_life_table,
+            risk_sensitivity=self.debt_profile.risk_sensitivity,
+        )
+        assembled = {record.claim.entity_class for record in view.entities}
+        held = sum(
+            1 for required in self.required_entity_classes if required in assembled
+        )
+        return assess_debt(
+            DebtFactors(
+                freshness=scorer.score(observations, now=self.now),
+                completeness=(
+                    Decimal(held) / Decimal(len(self.required_entity_classes))
+                ),
+                semantic_consistency=self.semantic_consistency,
+            ),
+            profile=self.debt_profile,
+            scorers=(ScorerPin.of(scorer, factor=FRESHNESS_FACTOR),),
+        )
 
 
 class UltimateBeneficialOwnershipPlan:
@@ -557,6 +629,14 @@ def read(booted: BootedFabric, request: ProductRequest) -> KycScenario:
         replay_record_class=governance[GOVERNANCE_REPLAY_RECORD_CLASS],
         query_pin_class=governance[GOVERNANCE_QUERY_PIN_CLASS],
         artifact_store_dirname=governance[GOVERNANCE_ARTIFACT_STORE_DIRNAME],
+        half_life_table=cast(HalfLifeTable, booted.artifacts[KEY_HALF_LIFE_TABLE]),
+        debt_profile=cast(DebtProfile, booted.artifacts[KEY_DEBT_PROFILE]),
+        required_entity_classes=tuple(
+            governance[GOVERNANCE_REQUIRED_ENTITY_CLASSES]
+        ),
+        semantic_consistency=Decimal(
+            governance[GOVERNANCE_SEMANTIC_CONSISTENCY]
+        ),
         question=question,
         threshold_percent=Decimal(policy[POLICY_THRESHOLD_PERCENT]),
         scale_places=policy[POLICY_SCALE_PLACES],

@@ -92,6 +92,8 @@ from ccf.deployment import (
     load_and_boot,
     refuse_operator_set_divergence,
 )
+from ccf.graph.protocols import GraphView
+from ccf.halflife.debt import DebtAssessment
 from ccf.products.contract import (
     ContextProductContract,
     MaxTTL,
@@ -204,6 +206,16 @@ class Scenario(Protocol):
     @property
     def artifacts(self) -> Mapping[str, CCFContract]:
         """Every artifact the manifest named, parsed, under its own key."""
+
+    def debt(self, view: GraphView) -> DebtAssessment:
+        """D_c over what this question actually assembled (whitepaper §7.7).
+
+        A method rather than a property, and it takes the view, because debt is
+        MEASURED against the assembly rather than declared beside it. What
+        counts as an observation, what a complete assembly holds, and which
+        factors a declared scorer produced are the deployment's answers; the
+        curve, the scorer and the CAR bands are the SDK's.
+        """
 
 
 @dataclass(frozen=True)
@@ -426,6 +438,16 @@ def assemble_and_serve(
                 graph_snapshot_at=scenario.temporal_boundary,
             ),
             payload=execution.projection.payload,
+            # HOW MUCH TO TRUST THE ANSWER, delivered WITH the answer
+            # (D-IMPL-100). D_c *"is a runtime signal the agent must consume as
+            # a first-class decision input, not a log-line to be read after the
+            # fact"* (`docs/CCF_Whitepaper_1-2.md:2696`), so it rides the vessel
+            # and is inside the product's content address — a delivered debt an
+            # auditor could not reconstruct would be a claim rather than a
+            # measurement. Measured against `execution.view`: what the
+            # operators actually left standing, not what the artifacts hoped
+            # for.
+            debt=scenario.debt(execution.view),
         )
         # A refusal is not a thing to proceed past: `ServableProduct` is not
         # constructible outside `run_gates`, so holding one IS the evidence the

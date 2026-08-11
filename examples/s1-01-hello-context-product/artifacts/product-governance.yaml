@@ -29,6 +29,17 @@
 #     resolves to the canonical bytes it names (T-15.2-28). A separate class
 #     from the record's, because a record and the questions it pins are two
 #     kinds of thing an auditor retrieves separately.
+#   * `required_entity_classes` — what a COMPLETE assembly for this question
+#     contains. C in the D_c product is the fraction of these the assembled
+#     view actually holds, so a class the operators removed entirely shows up
+#     as a completeness shortfall in the delivered debt rather than as a
+#     quietly thinner answer (whitepaper §7.7.4). This deployment's list, not
+#     the SDK's: only the deployment knows what its own question needs.
+#   * `semantic_consistency` — S, DECLARED rather than measured, and the
+#     honesty matters. The SDK ships a reference scorer for F and none for S,
+#     so this number is a deployment assertion carried into the answer, and the
+#     assessment's `scorers` tuple pins F alone — an unpinned factor and a
+#     pinned one are different artifacts on purpose (D-IMPL-47, `NO_SCORER_PINS`).
 #   * `artifact_store_dirname` — where under the run root the file-backed
 #     ArtifactStore lives. A path relative to a caller-supplied root, so no
 #     absolute location enters a content-hashed artifact.
@@ -54,3 +65,16 @@ declaration:
   replay_record_class: decision-replay-record
   query_pin_class: graph-query
   artifact_store_dirname: replay
+
+  # What a complete UBO assembly holds. `registered_address` is deliberately
+  # NOT here: the traversal is never given `registered_at`, so an address has
+  # no business being counted as missing from an answer that does not need one.
+  required_entity_classes:
+    - party
+    - corporation
+    - ownership_stake
+    - screening_candidate
+
+  # Quoted, and validated as a decimal, for the reason `debt-profile.yaml`
+  # states: this figure reaches the product's content address.
+  semantic_consistency: "0.97"
