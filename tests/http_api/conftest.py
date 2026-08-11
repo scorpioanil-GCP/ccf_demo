@@ -325,9 +325,26 @@ class Fabric:
         self.product_address = assembled.address
         servable = assembled.servable
 
+        # Every call the widened D-IMPL-108 seam receives, in order — so a
+        # test can assert on the *value* the door forwarded rather than only
+        # on the status code the caller saw. A door that had passed some
+        # other perspective, or re-derived one, would be indistinguishable
+        # from a correct one at the response body.
+        self.resolver_calls: list[tuple[Perspective, Any]] = []
+        #: The one gate-admitted product this fabric serves, exposed so a
+        #: test can compare served bytes against it without calling the
+        #: resolver (which now requires an authorized perspective).
+        self.product_servable = servable
+
         def resolver(
-            *, tenant: str, product_class: str, version: str
+            *,
+            tenant: str,
+            product_class: str,
+            version: str,
+            perspective: Perspective,
+            request: Any,
         ) -> ServableProduct:
+            self.resolver_calls.append((perspective, request))
             address = assembled.address
             if (tenant, product_class, version) == (
                 address.tenant,

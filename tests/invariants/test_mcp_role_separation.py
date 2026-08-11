@@ -540,8 +540,29 @@ RUNTIME_ROOT = Path(__file__).resolve().parents[2] / "runtime" / "ccf_runtime"
 #: The two resolver seams a product door calls. A module that *calls* one is
 #: serving a product; a module that merely holds one in a field (the
 #: ``ApiDependencies`` bundle) or forwards one (``cli/local.py``) is not.
+#:
+#: Widened in shape but not in membership by plan ``15.5-15`` (``D-IMPL-108``):
+#: both seams now carry the authorized :class:`~ccf.projection.plan.Perspective`
+#: and the caller's typed request alongside the three strings. The set is
+#: unchanged because the *role-separation* claim is unchanged — these are still
+#: the two seams, still in two modules, still importing neither each other nor
+#: a sibling. Nothing in this file is relaxed to accommodate the widening.
 PRODUCT_RESOLVER_PROTOCOLS: frozenset[str] = frozenset(
     {"ProductResolverProtocol", "ExperienceProductResolverProtocol"}
+)
+
+#: The two arguments a widened resolver seam must carry (``D-IMPL-108``), with
+#: the annotation each must carry, keyed by the module that defines the seam.
+#:
+#: Enumerated rather than inferred so that a later "simplification" back to
+#: three strings is a test failure and not a silent reopening of
+#: ``DI-15.5-03``. ``perspective`` is spelled non-optionally on purpose: the
+#: whole substance of that deferred item is that a resolver constructing its own
+#: perspective is indistinguishable from one honouring the door's, and a
+#: defaulted parameter would recreate exactly that ambiguity one layer down.
+REQUIRED_RESOLVER_ARGUMENTS: tuple[tuple[str, str], ...] = (
+    ("perspective", "Perspective"),
+    ("request", "ProductRequest | None"),
 )
 
 
@@ -765,3 +786,146 @@ def test_the_product_door_table_is_exhaustive_over_the_runtime_tree() -> None:
         f" discovered={sorted(discovered)} — a door added without an entry"
         " would otherwise ship ungated (T-15.5-21b)"
     )
+
+
+# --- DI-15.5-03: the perspective a door authorized is the one it forwards ---
+#
+# Closed by plan `15.5-15` under `D-IMPL-108`. Three assertions, in ascending
+# strength, because the weak ones alone are what let the gap live for two
+# waves: the seam has the parameter (shape), no door discards the decision
+# (source), and the value that arrives is the value that was authorized
+# (behaviour). Only the third would have failed against the shipped defect.
+
+
+@pytest.mark.parametrize(
+    ("module_name", "protocol_name"),
+    (
+        ("ccf_runtime.mcp.egress", "ProductResolverProtocol"),
+        ("ccf_runtime.mcp.experience", "ExperienceProductResolverProtocol"),
+    ),
+)
+def test_both_resolver_seams_require_the_perspective_and_the_request(
+    module_name: str, protocol_name: str
+) -> None:
+    """Shape: five keyword-only arguments, and neither new one defaulted.
+
+    What would fail here: a well-meaning later change giving ``perspective`` a
+    ``None`` default "for compatibility". That single edit would restore
+    DI-15.5-03 exactly — a resolver could then be handed nothing and construct
+    its own, and no test of status codes or served bytes anywhere in this tree
+    would notice.
+    """
+    import importlib
+
+    module = importlib.import_module(module_name)
+    signature = inspect.signature(getattr(module, protocol_name).__call__)
+
+    for name, annotation in REQUIRED_RESOLVER_ARGUMENTS:
+        parameter = signature.parameters[name]
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+        assert parameter.default is inspect.Parameter.empty, (
+            f"{module_name}.{protocol_name} defaults {name!r}; the seam"
+            " requires the value, because a default is indistinguishable"
+            " from the deployment constructing its own (DI-15.5-03)"
+        )
+        assert str(parameter.annotation).replace("'", "") == annotation
+
+
+@pytest.mark.parametrize("module_name", PRODUCT_DOOR_MODULES)
+def test_no_door_discards_what_entitled_perspective_returned(
+    module_name: str,
+) -> None:
+    """Source: every call to the shared decision binds its result.
+
+    The shipped defect was literally ``entitled_perspective(...)`` as a bare
+    expression statement — the decision computed, the refusal honoured, the
+    answer thrown away. This walks each door's AST for that shape rather than
+    grepping for prose, so the assertion is about the code and not about the
+    comment above it.
+    """
+    import importlib
+
+    module = importlib.import_module(module_name)
+    tree = ast.parse(inspect.getsource(module))
+
+    discarded = [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "entitled_perspective"
+    ]
+
+    assert not discarded, (
+        f"{module_name} calls entitled_perspective for its refusal alone at"
+        f" line(s) {discarded} and discards what it decided; the door then"
+        " proves that an unentitled caller was refused while leaving unproven"
+        " that the product it served was shaped under the perspective it"
+        " authorized (DI-15.5-03, D-IMPL-108)"
+    )
+
+
+def test_the_perspective_the_egress_door_authorized_reaches_the_resolver(
+    tmp_path: Path,
+) -> None:
+    """Behaviour: the VALUE, observed on the real door, over the real auth.
+
+    The assertion this whole item was missing. The two above would both pass
+    against a door that forwarded ``Perspective(principal_id=..., role=...)``
+    freshly constructed from the URI — which is a different security property
+    from forwarding what the entitlement decided, and is indistinguishable
+    from it in every byte the consumer sees.
+
+    So: stand the authenticated egress server up in process, read one product
+    through it as a verified and entitled caller, and compare what the
+    resolver received against what this deployment's perspective seam returned
+    for that grant. Identity of value, not presence of parameter.
+
+    What would fail here: a door re-deriving the perspective after the
+    decision, forwarding a different principal's, or resolving the product
+    before the decision ran.
+    """
+    from crossproc.test_mcp_egress import (
+        LOCAL_PRINCIPAL,
+        LOCAL_ROLE,
+        LOCAL_TOKEN,
+        _local_world,
+        _read_in_process,
+        build_servable_product,
+    )
+    from ccf.projection.plan import Perspective
+    from ccf_runtime.mcp.egress import product_uri
+
+    assembled = build_servable_product(
+        database_path=tmp_path / "perspective-forwarding.sqlite3"
+    )
+    forwarded: list[tuple[Perspective, object]] = []
+    server, _entitlement, _registry = _local_world(
+        tmp_path,
+        servable=assembled.servable,
+        address=assembled.address,
+        forwarded=forwarded,
+    )
+
+    served, _body = _read_in_process(
+        server,
+        product_uri(
+            tenant=assembled.address.tenant,
+            product_class=assembled.address.product_class,
+            version=assembled.address.version,
+        ),
+        token=LOCAL_TOKEN,
+    )
+
+    assert served is True
+    assert len(forwarded) == 1
+    perspective, request = forwarded[0]
+    assert perspective == Perspective(
+        principal_id=LOCAL_PRINCIPAL, role=LOCAL_ROLE
+    )
+    # And the honest absence: this surface's URI carries no query segment, so
+    # the door passes no request rather than manufacturing one (CINV-01 — a
+    # subject, an intent and a freshness figure the SDK invented would be
+    # deployment values in library code).
+    assert request is None

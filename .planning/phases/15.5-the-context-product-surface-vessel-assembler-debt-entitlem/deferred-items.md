@@ -93,6 +93,36 @@ already owns the retirement decision for the `15.5-01` spike module.
   request contract and the authorized `Perspective`, rather than being reshaped
   twice. Dave named this *"the highest-priority structural debt for the later
   waves"* on 2026-08-11.
+- **STATUS: CLOSED** by plan `15.5-15`, closing commit `c244400`
+  (`feat(15.5-15): widen the product resolver seam once, carrying perspective
+  and request`), with the supplying call sites in `685cbf0` and the structural
+  assertions in `74ab80b`.
+
+  What closed it, in the order the assertions run:
+
+  1. Both Protocols carry `perspective: Perspective` and
+     `request: ProductRequest | None`, keyword-only and **neither defaulted**.
+     A default would have recreated the ambiguity one layer down — a resolver
+     handed nothing and constructing its own is indistinguishable from one
+     honouring the door's — so the seam requires the value.
+  2. All three doors bind what `entitled_perspective` returns and pass it.
+     `tests/invariants/test_mcp_role_separation.py` walks each door's AST for
+     the shipped defect's exact shape (a bare `entitled_perspective(...)`
+     expression statement) and fails on it.
+  3. The property is asserted **by value**, not by parameter: the authenticated
+     egress server is stood up in process, one product is read as a verified
+     and entitled caller, and what the resolver received is compared against
+     what that deployment's perspective seam returned for that grant. A test
+     that only checked the parameter existed would have passed against a door
+     forwarding a freshly-constructed perspective, which is a different
+     security property and identical in every byte a consumer sees.
+
+  One behaviour change rode with it and is **not** a side effect but the
+  deferred item's own consequence: the HTTP door in the ungoverned posture can
+  name no perspective, so it refuses (503, `product-door-ungoverned`) rather
+  than serving. See `docs/surface-changes/15.5-15-resolver-seam.md` for the
+  trade and the two-line restoration. This supersedes T-07-24's preservation of
+  that posture and **wants Dave's ruling at the phase gate**.
 
 ## DI-15.5-04 — `IntermediateCache` computes a key for a cache that cannot hit
 
@@ -117,3 +147,40 @@ already owns the retirement decision for the `15.5-01` spike module.
   unconditional hash stops being waste and this entry stops applying.
 - **Owner:** a later performance pass. Low risk, well bounded, explicitly not
   Phase 15.5's.
+
+## DI-15.5-06 — the drift manifest cannot see a call-Protocol's signature
+
+- **Found during:** plan `15.5-15`, task 4, while classifying the two widened
+  resolver seams in `docs/surface-changes/15.5-15-resolver-seam.md`.
+- **What:** `tools/dump_surface.py` records a `Protocol` class as
+  `{"kind": "class", "shape": "(*args, **kwargs)"}` — that is its `__init__`,
+  and every `Protocol` in the tree shares it. The `__call__` member is never
+  captured. So **no change to a call-Protocol's signature can produce a
+  manifest diff line**, and the D-15 drift gate that exists to make a reshaped
+  export reviewable is structurally blind to the one shape whose entire public
+  contract lives in that member.
+
+  This is not hypothetical: `ProductResolverProtocol` and
+  `ExperienceProductResolverProtocol` went from three arguments to five in this
+  plan, a breaking change for every adopter supplying a resolver, and the
+  manifest is byte-identical across it. The same is true of every
+  `…Protocol` this SDK ships as a seam — `PerspectiveResolverProtocol`,
+  `HarnessAdapterProtocol`, `ArtifactStoreProtocol`, `WireProtocol` — which is
+  most of the pluggable surface CLAUDE.md §11 says to prefer Protocols for.
+- **Consequence already visible in the record:** two entries in this plan's
+  fragment are classified `Change type: behavior` where `reshaped` is the
+  truthful word, because `reshaped` is unrepresentable for a name the manifest
+  never moves and fails `tests/test_surface_completeness.py`. Plan `15.5-11`
+  hit the same wall for `ReplayEnvironment` and made the same choice. Two plans
+  reaching for the exempt class to describe a signature change is the signal.
+- **Why deferred:** teaching `dump_surface.py` to record `__call__` for
+  `Protocol` subclasses would move **every** Protocol entry in
+  `docs/surface/v0.2-surface.json` in one commit, which is a drift-gate event
+  of its own and would collide with the concurrent wave-5 plans. It also needs
+  a ruling on whether the frozen Phase-15 baseline is rewritten or the diff
+  reconciled, the same question `test_every_public_log_entry_has_a_matching_diff_line`
+  already carries one narrow reconciliation for.
+- **Owner:** unassigned — a phase-close or Phase-16 gate-tooling item. What
+  this plan did instead is pin the two seams with a dedicated invariant
+  (`tests/invariants/test_mcp_role_separation.py`), which is a per-seam
+  substitute for a gate and does not generalize.

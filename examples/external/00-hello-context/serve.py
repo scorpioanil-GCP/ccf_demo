@@ -110,6 +110,7 @@ from ccf.products.contract import (  # noqa: E402
     register_product_class,
 )
 from ccf.products.gates import ServableProduct, run_gates  # noqa: E402
+from ccf.products.request import ProductRequest  # noqa: E402
 from ccf.projection.engine import ProjectionEngine  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
 from ccf.replay.record import (  # noqa: E402
@@ -627,13 +628,32 @@ def main() -> None:
             return canonical_bytes(served.product)
 
         def resolve(
-            *, tenant: str, product_class: str, version: str
+            *,
+            tenant: str,
+            product_class: str,
+            version: str,
+            perspective: Perspective,
+            request: ProductRequest | None,
         ) -> ServableProduct:
+            # `perspective` and `request` arrive because plan 15.5-15 widened
+            # the resolver seam once (D-IMPL-108). This front door assembled
+            # its product under one declared capacity, so the perspective the
+            # door authorized has to be that one — a resolver that served
+            # regardless would put DI-15.5-03's gap back one layer down, where
+            # nothing on the wire would show it.
             requested = ProductAddress(
                 tenant=tenant, product_class=product_class, version=version
             )
             if requested != assembled.address:
                 raise ExperienceProductNotServable(str(requested))
+            assembled_role = cast(
+                PerspectiveArtifact, assembled.artifacts["perspective"]
+            ).role
+            if perspective.role != assembled_role:
+                raise ExperienceProductNotServable(
+                    f"{requested}: assembled for {assembled_role!r}, the door"
+                    f" authorized {perspective.role!r}"
+                )
             _serve_recorded(
                 experience_product_uri(
                     tenant=tenant, product_class=product_class, version=version

@@ -100,7 +100,10 @@ from typing import Any, Literal
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifact_base import ArtifactClass, VersionedArtifact
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
-from ccf.products.contract import ProductClassRegistrationError
+from ccf.products.contract import (
+    NO_REQUEST_CONTRACT,
+    ProductClassRegistrationError,
+)
 from ccf.products.payload import PayloadSchemaViolation, refuse_payload
 from ccf.skills.catalog import SkillArgumentSchema
 
@@ -117,17 +120,15 @@ __all__ = [
     "refuse_request_contract_pin",
 ]
 
-#: A product class that declares no request contract (D-IMPL-98).
+#: Re-exported from :mod:`ccf.products.contract`, where it is defined.
 #:
-#: Carried on **both** halves of the pin so that "no contract" is one visible
-#: state rather than a key and a version disagreeing — the discipline
-#: :data:`~ccf.products.contract.NO_PAYLOAD_SCHEMA` states for its own pin. The
-#: positive assertion is *this class has not yet declared the questions it
-#: answers*, which is honest about a gap rather than papering over it: until a
-#: class declares a request contract, its subject and its instant are whatever
-#: an artifact happened to author, and that is visible in the declaration
-#: rather than inferred from a missing field.
-NO_REQUEST_CONTRACT = "no-request-contract"
+#: It lives beside the :class:`~ccf.products.contract.RegisteredProductClass`
+#: field it defaults — the placement :data:`
+#: ~ccf.products.contract.NO_PAYLOAD_SCHEMA` already holds — because this
+#: module imports that one and the dependency cannot run the other way. Named
+#: here as well because this is where an adopter authoring a request contract
+#: looks for it, on the terms :mod:`ccf.products.bind` reads its own sentinel.
+#: See the defining module for what the sentinel asserts.
 
 #: Why a request did not conform.
 #:

@@ -71,6 +71,7 @@ from ccf.products.contract import (  # noqa: E402
     ProductLineage,
 )
 from ccf.products.gates import ServableProduct  # noqa: E402
+from ccf.products.request import ProductRequest  # noqa: E402
 from ccf.projection.engine import ExecutionResult, ExecutionStep  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
 from ccf.replay.record import PolicyBinding, build_replay_record  # noqa: E402
@@ -365,7 +366,12 @@ def build_server(
     latest_record: dict[str, str | None] = {"record": None}
 
     def resolve_product(
-        *, tenant: str, product_class: str, version: str
+        *,
+        tenant: str,
+        product_class: str,
+        version: str,
+        perspective: Perspective,
+        request: ProductRequest | None,
     ) -> ServableProduct:
         """Serve exactly the one assembled address; refuse anything else."""
         requested = ProductAddress(

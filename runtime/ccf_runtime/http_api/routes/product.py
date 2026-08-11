@@ -33,15 +33,37 @@ surface whose MCP siblings address the same three facts. It is optional: with
 no ``role``, the deployment's resolver derives one from the verified grant,
 and whatever it derives is still checked against the grant.
 
+**This is the one door with a query surface, so it is the one door that can
+carry a request** (``D-IMPL-108``, closing plan ``15.5-08``'s undeliverable
+must-have). Whitepaper §6.3 **Addressability**
+(``docs/CCF_Whitepaper_1-2.md:1465``) writes the address as
+``/context-products/credit-risk/counterparty/{counterparty-id}?intent=…&freshness=…``
+— path for *what*, query for *what is being asked of it* — and that is exactly
+the split this route now realizes. The four §6.3 axes arrive as query
+parameters and the door assembles them into a
+:class:`~ccf.products.request.ProductRequest` before the resolver is reached.
+
+**The request's address is the door's, never the caller's.** ``schema_name``
+and ``schema_version`` are filled from the *path segments this door already
+resolved*, so a request addressed to a class other than the one being served
+is **unrepresentable** rather than merely refused — the strongest available
+form of "validated where it crosses the door, not downstream", and the reason
+this route needs no address cross-check. The tenant is likewise not on the
+request at all: it is a thing the door establishes.
+
 Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from starlette.requests import Request
 
+from ccf.products.request import ProductRequest
+from ccf.projection.plan import Perspective
 from ccf_runtime.authz.product_entitlement import (
     PerspectiveResolverProtocol,
     ProductEntitlementRefused,
@@ -49,7 +71,11 @@ from ccf_runtime.authz.product_entitlement import (
     entitled_perspective,
 )
 from ccf_runtime.http_api.dependencies import ApiDependencies
-from ccf_runtime.http_api.errors import refusal_detail
+from ccf_runtime.http_api.errors import (
+    ERROR_PRODUCT_DOOR_UNGOVERNED,
+    ERROR_PRODUCT_REQUEST_INCOMPLETE,
+    refusal_detail,
+)
 from ccf_runtime.http_api.grants import grant_from_request
 from ccf_runtime.http_api.routes import canonical_response
 from ccf_runtime.mcp.egress import ProductNotServable
@@ -99,37 +125,105 @@ def build_router(
         version: str,
         request: Request,
         role: str | None = None,
+        subject: str | None = None,
+        intent: str | None = None,
+        freshness: str | None = None,
+        asked_at: datetime | None = None,
     ) -> Response:
-        _enforce_entitlement(
+        perspective = _authorized_perspective(
             request, tenant=tenant, product_class=product_class, role=role
+        )
+        asked = _asked(
+            product_class=product_class,
+            version=version,
+            subject=subject,
+            intent=intent,
+            freshness=freshness,
+            asked_at=asked_at,
         )
         try:
             servable = deps.product_resolver(
-                tenant=tenant, product_class=product_class, version=version
+                tenant=tenant,
+                product_class=product_class,
+                version=version,
+                perspective=perspective,
+                request=asked,
             )
         except ProductNotServable as absent:
             raise HTTPException(status_code=404, detail=str(absent)) from absent
         return canonical_response(servable.product)
 
-    def _enforce_entitlement(
+    def _authorized_perspective(
         request: Request, *, tenant: str, product_class: str, role: str | None
-    ) -> None:
-        """Ask the bound seams before the resolver is reached.
+    ) -> Perspective:
+        """The conditioning this door authorizes, or no product at all.
 
-        Inert when the seams are unbound, and inert when no verified grant
-        exists (auth unbound — the D-06 posture ``hitl.py`` already holds):
-        with no verified identity there is no principal to decide about, and
-        deciding about an unverified claim is worse than not deciding.
-        ``create_app`` is what warns about that configuration rather than
-        this handler, because the caller is who can fix it.
+        Ask the bound seams before the resolver is reached, and **return what
+        they decided** rather than only whether they refused (``DI-15.5-03``,
+        closed by ``D-IMPL-108``). Until plan ``15.5-15`` this function was
+        called for its exception and its return value was discarded, so the
+        route proved that an unentitled caller was refused while leaving
+        unproven that the product it served was shaped under the perspective
+        it had authorized.
+
+        **It is no longer inert, and that is the substantive change.** The
+        previous shape returned quietly when the seams were unbound or when no
+        verified grant accompanied the call, and the resolver then ran with no
+        perspective at all. That is no longer expressible: the resolver seam
+        requires one, deliberately, because a door that manufactured a
+        perspective would serve a product conditioned on a role nobody granted
+        and nothing on the wire would say so. With no authorized perspective
+        this door refuses — the plan's own truth, *"a door that cannot pass a
+        perspective refuses rather than silently constructing one"*.
+
+        The refusal is a 503 and not a 403 because the fault is the
+        deployment's, not the caller's: ``create_app`` already warns at
+        construction and at first request about both configurations that reach
+        it (:data:`~ccf_runtime.http_api.app.CcfDeadEntitlementWarning` and the
+        D-IMPL-73 insecure-default warning), and the operator reading this code
+        is being told which of the two to fix.
+
+        Raises:
+            HTTPException: 403 with the typed refusal body when the entitlement
+                refused the class or the role; 503 with
+                :data:`~ccf_runtime.http_api.errors.ERROR_PRODUCT_DOOR_UNGOVERNED`
+                when no authorized perspective can be produced at all.
         """
         if entitlement_source is None or perspective_resolver is None:
-            return
+            raise HTTPException(
+                status_code=503,
+                detail=refusal_detail(
+                    error_code=ERROR_PRODUCT_DOOR_UNGOVERNED,
+                    message=(
+                        "this product door has no entitlement seam and no"
+                        " perspective resolver bound, so it cannot name the"
+                        " Π conditioning a product would be shaped under;"
+                        " it refuses rather than serving one conditioned on"
+                        " a role nobody granted (D-IMPL-108, DI-15.5-03)."
+                        " Supply product_entitlement= and"
+                        " perspective_resolver= to create_app()"
+                    ),
+                ),
+            )
         grant = grant_from_request(request)
         if grant is None:
-            return
+            raise HTTPException(
+                status_code=503,
+                detail=refusal_detail(
+                    error_code=ERROR_PRODUCT_DOOR_UNGOVERNED,
+                    message=(
+                        "this product door's entitlement seams are bound but"
+                        " no verified grant accompanies the call, so there is"
+                        " no principal to resolve a perspective for; deciding"
+                        " about an unverified claim is worse than not"
+                        " deciding, and serving without a perspective is"
+                        " worse than both (D-IMPL-108). Bind auth= to"
+                        " create_app()"
+                    ),
+                ),
+            )
         try:
-            entitled_perspective(
+            return entitled_perspective(
                 grant=grant,
                 tenant=tenant,
                 product_class=product_class,
@@ -147,5 +241,93 @@ def build_router(
                     error_code=refused.error_code, message=refused.message
                 ),
             ) from refused
+
+    def _asked(
+        *,
+        product_class: str,
+        version: str,
+        subject: str | None,
+        intent: str | None,
+        freshness: str | None,
+        asked_at: datetime | None,
+    ) -> ProductRequest | None:
+        """The caller's typed question, or the honest absence of one.
+
+        Whitepaper §6.3's four address axes arrive as query parameters and are
+        assembled here, at the door, before anything is resolved — which is
+        where ``D-IMPL-98``'s request surface was always supposed to be
+        validated. ``schema_name`` and ``schema_version`` are taken from the
+        **path this door already resolved**, never from the caller, so a
+        request addressed to another class cannot be expressed on this surface
+        at all.
+
+        Three outcomes, and the middle one is the point:
+
+        * none of the four supplied → ``None``, the positive assertion *this
+          caller asked for the class's standing answer and posed no question of
+          their own*;
+        * some but not all → refused, because a defaulted axis is a question
+          nobody asked, answered anyway;
+        * all four → the typed request, ``parameters`` empty.
+
+        ``parameters`` is the empty mapping rather than something read off the
+        query string: the class-declared remainder is a *typed* surface whose
+        declared types (``D-IMPL-103``'s one level of nested objects and
+        lists-of-objects) a flat string-valued query cannot carry without the
+        door guessing at coercions. An empty mapping is expressible and says
+        *this question needs nothing beyond its four axes*, which is a
+        statement rather than an omission; a caller needing declared parameters
+        reaches the fabric in process or through a deployment's own surface.
+
+        No clock is read here, and that is structural rather than incidental:
+        ``asked_at`` is the caller's instant at serve time and the *recorded*
+        boundary at replay time, through the same code path, which is the
+        entire reason nothing downstream of the request reads one either.
+
+        Raises:
+            HTTPException: 400 with
+                :data:`~ccf_runtime.http_api.errors.ERROR_PRODUCT_REQUEST_INCOMPLETE`
+                when the address is partial.
+        """
+        supplied = [
+            name
+            for name, axis in (
+                ("subject", subject),
+                ("intent", intent),
+                ("freshness", freshness),
+                ("asked_at", asked_at),
+            )
+            if axis is not None
+        ]
+        if not supplied:
+            return None
+        if (
+            subject is None
+            or intent is None
+            or freshness is None
+            or asked_at is None
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=refusal_detail(
+                    error_code=ERROR_PRODUCT_REQUEST_INCOMPLETE,
+                    message=(
+                        "a §6.3 request address is the four axes together:"
+                        " subject, intent, freshness and asked_at. This call"
+                        f" supplied {supplied}; the door fills none of the"
+                        " rest, because a defaulted axis is a question nobody"
+                        " asked, answered anyway (D-IMPL-98)"
+                    ),
+                ),
+            )
+        return ProductRequest(
+            schema_name=product_class,
+            schema_version=version,
+            subject=subject,
+            intent=intent,
+            freshness=freshness,
+            asked_at=asked_at,
+            parameters={},
+        )
 
     return router

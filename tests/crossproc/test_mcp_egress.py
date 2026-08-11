@@ -350,8 +350,15 @@ def _local_world(
     permitted_classes: frozenset[str] | None = None,
     permitted_roles: frozenset[str] | None = None,
     resolved_role: str = LOCAL_ROLE,
+    forwarded: list[tuple[Perspective, object]] | None = None,
 ) -> tuple[object, _RecordingEntitlement, ControlPlaneRegistry]:
-    """An egress server over a stub resolver, plus its recording entitlement."""
+    """An egress server over a stub resolver, plus its recording entitlement.
+
+    ``forwarded`` collects every ``(perspective, request)`` pair the door
+    handed the resolver, which is what lets a test assert the *value* the door
+    forwarded rather than only that the parameter exists (D-IMPL-108).
+    """
+    forwarded = [] if forwarded is None else forwarded
     token_file = tmp_path / "local-tokens.json"
     token_file.write_text(
         json.dumps(
@@ -397,7 +404,17 @@ def _local_world(
         )
     )
 
-    def resolve(*, tenant: str, product_class: str, version: str) -> object:
+    def resolve(
+        *,
+        tenant: str,
+        product_class: str,
+        version: str,
+        perspective: Perspective,
+        request: object,
+    ) -> object:
+        # Record what the door forwarded, so a test can assert on the VALUE
+        # and not merely on the parameter's existence (D-IMPL-108).
+        forwarded.append((perspective, request))
         return servable
 
     def resolve_perspective(

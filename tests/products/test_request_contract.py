@@ -473,3 +473,157 @@ def test_a_contract_declared_for_another_lane_is_refused() -> None:
     version = registry.register(CONTRACT_KEY, _contract(schema_version="2.0.0"))
     with pytest.raises(ProductClassRegistrationError, match="2.0.0"):
         _pin(pair=(registry, version))
+
+
+# --- (f) reachable FROM registration, not merely defined --------------------
+#
+# Plan 15.5-08 shipped `refuse_request_contract_pin` complete and tested but
+# could not wire it: `register_product_class` and `RegisteredProductClass` both
+# live in `src/ccf/products/contract.py`, which concurrent plan 15.5-11 owned
+# that wave. The section above proves the refusal is CORRECT; this one proves
+# it is REACHED — which is the difference between a check and a check that
+# runs, and the whole of what 15.5-15 inherited (D-IMPL-108).
+
+
+def _register(**overrides: Any) -> Any:
+    """Register a class through the real factory, with a valid MAX_TTL."""
+    from ccf.products.contract import MaxTTL, register_product_class
+
+    registry, version = overrides.pop("pair", _registry_with_contract())
+    max_ttl_version = registry.register("fixture.max-ttl", MaxTTL(seconds=600))
+    fields: dict[str, Any] = {
+        "registry": registry,
+        "schema_name": CLASS_NAME,
+        "schema_version": CLASS_VERSION,
+        "ttl_anchor": "from_decision",
+        "assembly_mode": "algorithmic",
+        "max_ttl_key": "fixture.max-ttl",
+        "max_ttl_version": max_ttl_version,
+        "request_contract_key": CONTRACT_KEY,
+        "request_contract_version": version,
+    }
+    fields.update(overrides)
+    return register_product_class(**fields)
+
+
+def test_registration_refuses_a_half_declared_request_contract_pin() -> None:
+    """The wiring 15.5-08 could not take, taken.
+
+    What would fail here: `register_product_class` calling the payload pin
+    refusal and not this one — which is exactly the state the tree was in
+    between plan 15.5-08 and plan 15.5-15, with the refusal defined, tested,
+    and reached by nobody.
+    """
+    with pytest.raises(
+        ProductClassRegistrationError, match="half a request-contract"
+    ):
+        _register(request_contract_version=NO_REQUEST_CONTRACT)
+
+
+def test_registration_refuses_a_contract_pinned_onto_another_class() -> None:
+    """The cross-check no payload schema can make, now made at wiring time."""
+    registry = ControlPlaneRegistry()
+    version = registry.register(
+        CONTRACT_KEY, _contract(schema_name="fixture.other")
+    )
+    with pytest.raises(ProductClassRegistrationError, match="fixture.other"):
+        _register(pair=(registry, version))
+
+
+def test_registration_carries_the_pin_onto_the_registered_class() -> None:
+    """The mirror fields exist and are filled from what was resolved.
+
+    Resolved at registration rather than trusted from the declaration, on
+    `max_ttl_version`'s own discipline: the surface a question was validated
+    against has to be re-resolvable years later for the decision to replay.
+    """
+    registry, version = _registry_with_contract()
+    registered = _register(pair=(registry, version))
+
+    assert registered.request_contract_key == CONTRACT_KEY
+    assert registered.request_contract_version == version
+
+
+def test_a_registration_written_before_this_plan_says_what_it_always_said() -> None:
+    """Both mirror fields default to the sentinel, so no call site moves.
+
+    What would fail here: making either field required, which would break
+    every `register_product_class` call in this tree and in every adopter's —
+    and would do it to say something none of them ever meant to say.
+    """
+    registered = _register(
+        request_contract_key=NO_REQUEST_CONTRACT,
+        request_contract_version=NO_REQUEST_CONTRACT,
+    )
+
+    assert registered.request_contract_key == NO_REQUEST_CONTRACT
+    assert registered.request_contract_version == NO_REQUEST_CONTRACT
+
+
+def test_the_sentinel_is_one_value_read_from_two_modules() -> None:
+    """`ccf.products.request` re-exports it; it is not a second constant.
+
+    What would fail here: the two modules drifting to two spellings of "no
+    contract", at which point a class pinned with one would look half-declared
+    to the other. Identity, not equality, because two equal strings is exactly
+    the state this asserts against.
+    """
+    from ccf.products import contract as contract_module
+    from ccf.products import request as request_module
+
+    assert (
+        request_module.NO_REQUEST_CONTRACT
+        is contract_module.NO_REQUEST_CONTRACT
+    )
+
+
+def test_no_content_address_moves_because_of_the_pin() -> None:
+    """The mirror fields are governance, not payload — asserted, not assumed.
+
+    `RegisteredProductClass` is a `CCFContract`, so adding two fields changes
+    ITS canonical bytes. That is only harmless if it is inside no content
+    address, which is the thing this asserts rather than the thing it assumes:
+    no addressed contract in the tree carries a `RegisteredProductClass`, and
+    the vessel `run_gates` admits — the value replay re-derives an address over
+    — has exactly the fields it had before this plan.
+
+    What would fail here: a later change hanging the registered class off the
+    product, at which point every address recorded before it would differ from
+    the one the same product produced after, and D-IMPL-100's ruling for the
+    debt field would have been needed for this one too.
+    """
+    from ccf.contracts.base import CCFContract
+    from ccf.products.contract import (
+        ContextProductContract,
+        RegisteredProductClass,
+    )
+
+    assert set(ContextProductContract.model_fields) == {
+        "schema_name",
+        "schema_version",
+        "plan_id",
+        "tenant_id",
+        "temporal_boundary",
+        "expires_at",
+        "ttl_anchor",
+        "lineage",
+        "payload",
+        "debt",
+    }
+
+    def _reaches(model: type[CCFContract], seen: set[type]) -> bool:
+        if model in seen:
+            return False
+        seen.add(model)
+        for field in model.model_fields.values():
+            annotation = field.annotation
+            if annotation is RegisteredProductClass:
+                return True
+            if isinstance(annotation, type) and issubclass(
+                annotation, CCFContract
+            ):
+                if _reaches(annotation, seen):
+                    return True
+        return False
+
+    assert not _reaches(ContextProductContract, set())

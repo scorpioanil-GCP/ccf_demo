@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**500 entries**, of which **277** name a public Python surface.
+**508 entries**, of which **285** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-228 entries — 197 public Python surface, 31 not public Python API.
+231 entries — 200 public Python surface, 31 not public Python API.
 
 ### Public Python surface
 
@@ -4160,6 +4160,58 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.5-12-aggregate-composition.md`.*
 
+#### ccf_runtime.http_api.errors.ERROR_PRODUCT_DOOR_UNGOVERNED
+
+- Surface: ccf_runtime.http_api.errors.ERROR_PRODUCT_DOOR_UNGOVERNED
+- Public surface: true
+- Change type: added
+- Before: absent — the state it names could not arise, because the door served
+  in it
+- After: `"product-door-ungoverned"`, rendered in the one refusal-body shape at
+  503
+- Why: D-08's one-vocabulary posture. The typed constant is the contract and
+  the prose is human context; an operator handling this code programmatically
+  must not have to parse a sentence to learn that the deployment, not the
+  caller, is what needs fixing
+- Migration: new surface — nothing is required of a caller that never reached
+  the state. A client with exhaustive refusal-code handling adds one arm
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_PRODUCT_REQUEST_INCOMPLETE
+
+- Surface: ccf_runtime.http_api.errors.ERROR_PRODUCT_REQUEST_INCOMPLETE
+- Public surface: true
+- Change type: added
+- Before: absent — there were no request axes to supply partially
+- After: `"product-request-incomplete"`, rendered at 400
+- Why: the four §6.3 axes are supplied together or not at all. A defaulted axis
+  is a question nobody asked, answered anyway — which is precisely the literal
+  D-IMPL-98 removed from the artifact, and the door must not put it back
+- Migration: new surface — none
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf.products.contract.NO_REQUEST_CONTRACT
+
+- Surface: ccf.products.contract.NO_REQUEST_CONTRACT
+- Public surface: true
+- Change type: added
+- Before: the constant existed, defined in `ccf.products.request`
+- After: **defined here**, beside the `RegisteredProductClass` field it
+  defaults, and re-exported from `ccf.products.request` unchanged
+- Why: `ccf.products.request` imports `ProductClassRegistrationError` from this
+  module, so the dependency cannot run the other way — a `RegisteredProductClass`
+  field defaulting to a constant defined in `request.py` would close an import
+  cycle at load time. This is exactly where `NO_PAYLOAD_SCHEMA` already lives
+  and exactly how `ccf.products.bind` already reads it
+- Migration: **none.** `from ccf.products.request import NO_REQUEST_CONTRACT`
+  keeps working and returns the same object — asserted by identity, not
+  equality, because two equal strings is the state that assertion exists to
+  rule out
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -4646,7 +4698,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-236 entries — 53 public Python surface, 183 not public Python API.
+238 entries — 55 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -5930,6 +5982,50 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: as above
 
 *Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.products.contract.RegisteredProductClass
+
+- Surface: ccf.products.contract.RegisteredProductClass
+- Public surface: true
+- Change type: reshaped
+- Before: fourteen fields, ending at the payload-schema pin
+- After: two further fields — `request_contract_key` and
+  `request_contract_version`, both defaulted to `NO_REQUEST_CONTRACT`
+- Why: D-IMPL-98's request-contract pin, mirrored onto the registered value the
+  way every other piece of pinned governance already is. Plan `15.5-08` shipped
+  the refusal that guards it but could not wire it, because this file was owned
+  by concurrent plan `15.5-11` that wave
+- Migration: **none.** Both fields are defaulted to the positive sentinel, so
+  every existing registration keeps saying exactly what it always said.
+  **No content address moves**, and that is asserted rather than assumed:
+  `RegisteredProductClass` is reachable from no addressed contract — the check
+  walks `ContextProductContract`'s field graph — and `ContextProductContract`'s
+  own field set is pinned by test. `make schemas` produces no diff, because
+  this type is not an artifact class
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf.products.contract.register_product_class
+
+- Surface: ccf.products.contract.register_product_class
+- Public surface: true
+- Change type: reshaped
+- Before: the payload-schema pin was resolved at registration; the
+  request-contract pin was not resolved anywhere
+- After: two further keyword-only parameters, both defaulted, and one call to
+  `ccf.products.request.refuse_request_contract_pin` — so a class that pinned a
+  contract that is not there, or another class's, or another lane's, finds out
+  **while wiring the fabric** rather than in front of a caller whose question
+  it can no longer answer
+- Why: D-IMPL-102 limb 1's reasoning applied to D-IMPL-98's surface, and the
+  MAX_TTL voice throughout: raised, never returned or warned, naming both
+  sides. Until this plan the refusal existed, was fully tested, and was reached
+  by nobody
+- Migration: **none.** Both parameters are defaulted. A deployment adopting the
+  pin registers its `ProductRequestContract` and passes the `(key, version)`
+  pair, exactly as it does for a payload schema
+
+*Recorded by `15.5-15-resolver-seam.md`.*
 
 ### Not public Python API
 
@@ -8208,7 +8304,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-36 entries — 27 public Python surface, 9 not public Python API.
+39 entries — 30 public Python surface, 9 not public Python API.
 
 ### Public Python surface
 
@@ -8855,6 +8951,87 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   this fabric prefers
 
 *Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf_runtime.mcp.egress.ProductResolverProtocol
+
+- Surface: ccf_runtime.mcp.egress.ProductResolverProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `__call__(*, tenant: str, product_class: str, version: str) -> ServableProduct`
+- After:
+  `__call__(*, tenant, product_class, version, perspective: Perspective, request: ProductRequest | None) -> ServableProduct`
+- Why: D-IMPL-108, closing DI-15.5-03. The door resolves and authorizes a
+  `Perspective` and must be able to hand it to the path that shapes the
+  product, or the authorization is a refusal check and nothing more.
+  **Neither new argument is defaulted, and `perspective` is not nullable** —
+  that is the substance rather than a style choice. A resolver silently
+  constructing its own perspective is indistinguishable from one honouring the
+  door's, and a parameter defaulting to `None` would recreate exactly that
+  ambiguity one layer down. `request` is required-with-no-default but typed
+  `ProductRequest | None`, because a surface can honestly have **no way to
+  ask**: the `ccf-product://` template is three path segments with no query
+  among them, and manufacturing a subject, an intent, a freshness figure and
+  an instant would be the SDK holding deployment values (CINV-01) and reading
+  a clock — the literal-instead-of-argument defect D-IMPL-98 exists to remove,
+  reintroduced one layer up. That is the same voice `requested_role: str | None`
+  already carries on `PerspectiveResolverProtocol`
+- Migration: **required, and mechanical.** Every resolver a deployment supplies
+  gains two keyword-only parameters. Eleven definitions across `runtime/`,
+  `examples/` and `tests/` were updated in this plan's commits; an adopter's
+  own is the same edit. The minimum conforming change is to accept both and
+  ignore them, which type-checks and runs — but a resolver that ignores
+  `perspective` is asserting *the conditioning this door authorized does not
+  affect what I serve*, which is a claim worth making deliberately. The
+  reference deployments do not: `examples/04-cross-process/producer_child.py`
+  and `examples/external/00-hello-context/serve.py` both refuse to serve when
+  the authorized perspective is not the one their product was assembled under
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
+
+- Surface: ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
+- Public surface: true
+- Change type: behavior
+- Before: the same three-string signature as its egress twin
+- After: the same five-argument signature as its egress twin
+- Why: the two moved together deliberately. The seams are structurally
+  identical so that one deployment resolver can serve both roles, and a
+  deployment supplying one resolver to both doors must not discover that only
+  one of them forwards what it authorized. The two modules remain separate and
+  import neither each other nor a sibling —
+  `tests/invariants/test_mcp_role_separation.py` still asserts it, unrelaxed
+- Migration: as above
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf_runtime.http_api.routes.product — `GET /{tenant}/{product_class}/{version}`
+
+- Surface: ccf_runtime.http_api.routes.product.build_router
+- Public surface: true
+- Change type: behavior
+- Before: four query-free path parameters plus optional `?role=`; served
+  whatever the resolver returned, with entitlement enforcement **inert** when
+  the seams were unbound or no grant was present
+- After: four new optional query parameters — `subject`, `intent`, `freshness`,
+  `asked_at` — and the enforcement is no longer inert. The route refuses
+  (503, `product-door-ungoverned`) when it cannot produce an authorized
+  perspective, and refuses (400, `product-request-incomplete`) when a caller
+  supplies some but not all four address axes
+- Why: two reasons, one per half. The refusal is D-IMPL-108 (above). The query
+  axes are whitepaper §6.3 **Addressability**
+  (`docs/CCF_Whitepaper_1-2.md:1465`), whose worked pattern is literally
+  `/context-products/credit-risk/counterparty/{counterparty-id}?intent=…&freshness=…`
+  — path for *what*, query for *what is being asked of it*. This is the one
+  door with a query surface, so it is the one door that can carry a request,
+  which is where `15.5-08`'s must-have lands
+- Migration: an existing caller that passes none of the four query parameters
+  sees no change to the request it sends; what changes is whether the door it
+  reaches is governed. `asked_at` is ISO-8601 and is the caller's instant —
+  the door reads no clock, so replay feeds the *recorded* boundary through the
+  same code path
+
+*Recorded by `15.5-15-resolver-seam.md`.*
 
 ### Not public Python API
 

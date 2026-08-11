@@ -58,6 +58,7 @@ from ccf.products.entitlement import (  # noqa: E402
     product_entitlement_key,
 )
 from ccf.products.gates import ServableProduct, run_gates  # noqa: E402
+from ccf.products.request import ProductRequest  # noqa: E402
 from ccf.projection.plan import Perspective  # noqa: E402
 from ccf_runtime.authz.product_entitlement import (  # noqa: E402
     ControlPlaneProductEntitlementSource,
@@ -272,7 +273,14 @@ def build_server(*, workspace: Path) -> FastMCP:
     )
     registry = build_entitlement_registry(assembled)
 
-    def resolve(*, tenant: str, product_class: str, version: str) -> ServableProduct:
+    def resolve(
+        *,
+        tenant: str,
+        product_class: str,
+        version: str,
+        perspective: Perspective,
+        request: ProductRequest | None,
+    ) -> ServableProduct:
         """Serve exactly the one assembled address; refuse anything else.
 
         The refusal matters as much as the hit: a resolver that returned its

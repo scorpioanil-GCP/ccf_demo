@@ -90,13 +90,16 @@ from ccf.peering.identity import (  # noqa: E402
     SignedContextProduct,
 )
 from ccf.peering.protocol import PeerRef  # noqa: E402
+from ccf.products.bind import refuse_bound_payload  # noqa: E402
 from ccf.products.contract import (  # noqa: E402
     ContextProductContract,
     MaxTTL,
     ProductLineage,
+    RegisteredProductClass,
     register_product_class,
 )
 from ccf.products.gates import ServableProduct, run_gates  # noqa: E402
+from ccf.products.request import ProductRequest  # noqa: E402
 from ccf.projection.engine import ProjectionEngine  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
 
@@ -253,6 +256,12 @@ class AssembledCovenantSlice(NamedTuple):
     #: entitlement and the product's conditioning cannot disagree.
     principal_id: str
     role: str
+    #: The class the request binds to, and the Control Plane its payload-schema
+    #: pin resolves in. Carried so the egress resolver — which IS the bound
+    #: path — can make D-IMPL-102 limb 2's one call before the payload leaves
+    #: it (`refuse_bound_payload`, plan 15.5-09, wired by 15.5-15).
+    registered: RegisteredProductClass
+    control_plane: ControlPlaneRegistry
     declared_operator_keys: tuple[str, ...]
     operators_invoked: tuple[str, ...]
     now: datetime
@@ -476,6 +485,8 @@ def build_covenant_slice_product(*, database_path: Path) -> AssembledCovenantSli
         egress_door=egress_door.declaration,
         principal_id=perspective.principal_id,
         role=perspective.role,
+        registered=product_class,
+        control_plane=registry,
         declared_operator_keys=declared.required_operator_keys,
         operators_invoked=execution.operators_invoked,
         now=now,
@@ -626,13 +637,70 @@ def main() -> None:
 
             # MCP egress: the L6 front door (whitepaper §8.3 Pattern 3).
             def resolve(
-                *, tenant: str, product_class: str, version: str
+                *,
+                tenant: str,
+                product_class: str,
+                version: str,
+                perspective: Perspective,
+                request: ProductRequest | None,
             ) -> ServableProduct:
+                """This deployment's assemble-and-gate path — and its bind.
+
+                Three things happen here that did not before plan `15.5-15`
+                widened the resolver seam (`D-IMPL-108`), and each is what a
+                reference deployment is *for*:
+
+                1. **The door's perspective is honoured, not ignored.** The
+                   product this fabric assembled was conditioned on
+                   `perspective.yaml`'s declared capacity, and the door
+                   authorized a perspective of its own. A resolver that
+                   served regardless would be exactly the `DI-15.5-03` gap
+                   one layer down — the served bytes would carry no trace of
+                   the mismatch. So the two must agree or nothing is served.
+                2. **The bound payload meets its class's declared schema**
+                   (`D-IMPL-102` limb 2, `refuse_bound_payload`, shipped
+                   unwired by plan `15.5-09`). This closure is the bound
+                   path: the request has resolved to a
+                   `RegisteredProductClass` and the payload exists, which is
+                   the exact precondition that function documents. One call,
+                   after the payload exists and before it leaves.
+                3. **A typed request, when the caller sent one**, is
+                   cross-checked against the address being served. The
+                   `ccf-product://` URI carries no query surface, so this
+                   door receives `None` today; the check is here because the
+                   HTTP door on the same resolver does send one.
+                """
                 requested = ProductAddress(
                     tenant=tenant, product_class=product_class, version=version
                 )
                 if requested != assembled.address:
                     raise ProductNotServable(str(requested))
+                if (perspective.principal_id, perspective.role) != (
+                    assembled.principal_id,
+                    assembled.role,
+                ):
+                    raise ProductNotServable(
+                        f"{requested}: this fabric assembled for"
+                        f" {assembled.principal_id!r} as {assembled.role!r}"
+                        f" and the door authorized {perspective.principal_id!r}"
+                        f" as {perspective.role!r}; a product shaped under one"
+                        " perspective is not servable under another"
+                    )
+                if request is not None and (
+                    request.schema_name,
+                    request.schema_version,
+                ) != (product_class, version):
+                    raise ProductNotServable(
+                        f"{requested}: the request is addressed to"
+                        f" {request.schema_name}/{request.schema_version}"
+                    )
+                violation = refuse_bound_payload(
+                    payload=assembled.servable.product.payload,
+                    product_class=assembled.registered,
+                    registry=assembled.control_plane,
+                )
+                if violation is not None:
+                    raise ProductNotServable(f"{requested}: {violation.detail}")
                 return assembled.servable
 
             def resolve_perspective(
