@@ -35,11 +35,20 @@ across the delivery seam is deliberately not here: D-IMPL-108 ruled that
 sibling are widened exactly once, by plan ``15.5-15``, carrying the request and
 the authorized :class:`~ccf.projection.plan.Perspective` together.
 
+Alongside them, :mod:`ccf.products.composition` holds the three
+rules by which an aggregate product composes from constituents — the N-way
+lineage union, the TTL floor, and D-IMPL-31's mixing refusal. It composes **no
+debt**: D-IMPL-104 ruled aggregate debt to be the per-factor maximum across
+constituents and deferred implementing it until an aggregate-product surface
+exists, so the meaning is on record and the combinator is not.
+
 The three validation gates remain three. Nothing in
 :mod:`ccf.products.payload` is reachable from :func:`ccf.products.gates.run_gates`,
 and :class:`~ccf.products.payload.PayloadSchemaViolation` deliberately does not
 derive from :class:`~ccf.products.gates.GateRefusal`, so a payload verdict
-cannot travel as a gate verdict even by accident.
+cannot travel as a gate verdict even by accident. The same holds for
+:class:`~ccf.products.composition.MixingRefusal`, which is D-IMPL-31's
+assembly-time rule and not a fourth gate.
 
 The package re-exports nothing, deliberately: a second import path for the same
 symbol is a second surface the drift manifest has to track.
