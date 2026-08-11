@@ -33,6 +33,9 @@ them.
 
 from __future__ import annotations
 
+import ast
+import importlib
+import inspect
 import re
 from collections.abc import Callable
 from pathlib import Path
@@ -41,6 +44,7 @@ from typing import TYPE_CHECKING, NamedTuple
 import pytest
 
 from ccf.replay.serve import CapabilityForgeryError, DeliveryCapability
+from tests.invariants.test_mcp_role_separation import PRODUCT_DOOR_MODULES
 
 if TYPE_CHECKING:
     from ccf.boot import FabricHandle
@@ -146,6 +150,19 @@ CINV_04_CHECKS: tuple[Check, ...] = (
             "test_a_granted_decision_captures_the_grant_set_hash_in_dimension_4"
         ),
     ),
+    Check(
+        name="debt-delivery",
+        invariant=(
+            "each of the three enumerated Context Product doors serializes the "
+            "whole vessel, so no door can drop the Context Debt the vessel "
+            "carries, and the debt a decision was made with lands on replay "
+            "dimension 5 by construction (D-IMPL-100)"
+        ),
+        owning_test=(
+            "invariants/test_replay_by_construction.py::"
+            "test_no_enumerated_door_can_drop_the_debt_the_vessel_carries"
+        ),
+    ),
 )
 
 #: The adversarial companions of the two I.4-activated families (Cursor
@@ -162,6 +179,11 @@ ADVERSARIAL_CASES: tuple[tuple[str, str], ...] = (
         "workflow-trace-capture",
         "workflow/test_slice.py::"
         "test_a_completion_that_skips_the_dim_5_landing_is_detectable",
+    ),
+    (
+        "debt-delivery",
+        "invariants/test_replay_by_construction.py::"
+        "test_a_door_that_serialized_around_the_vessel_would_be_detected",
     ),
 )
 
@@ -233,3 +255,132 @@ def test_a_second_writer_over_one_graph_is_refused_at_boot(
     fabric_boot(database_path=database_path)
     with pytest.raises(SingleWriterViolation):
         fabric_boot(database_path=database_path)
+
+
+# --- the debt-delivery leg (15.5-11, D-IMPL-100) ---------------------------
+#
+# Criterion 1 says "no delivery path exists that drops it", and a claim about
+# delivery paths checked at one of them is the defect this phase exists to
+# correct: its first plans covered two doors and missed the external front
+# door. So this check ranges over `PRODUCT_DOOR_MODULES` — plan 15.5-06's
+# enumeration, whose own companion test proves it exhaustive over `runtime/`'s
+# product-serving handlers. There is one list of doors in this suite, and
+# `test_this_module_declares_no_second_door_enumeration` is what keeps it one.
+
+#: The two canonical serializers a door hands the vessel to.
+_VESSEL_SERIALIZERS: frozenset[str] = frozenset(
+    {"canonical_bytes", "canonical_response"}
+)
+
+
+def _serializes_the_whole_vessel(source: str) -> bool:
+    """Whether ``source`` hands a served product's ``.product`` to a serializer.
+
+    The detector both the owning test and its adversarial companion run, so
+    the adversarial case exercises the *check* rather than a paraphrase of it.
+    It looks for the one shape all three shipped doors have — a canonical
+    serializer called on ``<something>.product`` — because that is what makes
+    debt reach a consumer: the field is on the vessel, so a door that
+    serializes the vessel carries it and a door that reaches around the vessel
+    does not.
+    """
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call) or not node.args:
+            continue
+        function = node.func
+        name = (
+            function.id
+            if isinstance(function, ast.Name)
+            else function.attr
+            if isinstance(function, ast.Attribute)
+            else None
+        )
+        if name not in _VESSEL_SERIALIZERS:
+            continue
+        argument = node.args[0]
+        if isinstance(argument, ast.Attribute) and argument.attr == "product":
+            return True
+    return False
+
+
+@pytest.mark.parametrize("door", PRODUCT_DOOR_MODULES)
+def test_no_enumerated_door_can_drop_the_debt_the_vessel_carries(
+    door: str,
+) -> None:
+    """CINV-04's debt-delivery leg, at the strength the mechanism supports.
+
+    Two assertions, and the conjunction is the whole claim. The vessel carries
+    ``debt`` — so debt is inside the bytes rather than beside them — and every
+    enumerated door serializes the *whole* vessel rather than picking fields
+    off it. A door therefore cannot drop debt without ceasing to serve a
+    Context Product at all.
+
+    **The strength is deliberately not higher.** This does not claim that every
+    product carries an assessment: ``debt`` is optional, because a product
+    assembled without one must still be constructible and every product written
+    before D-IMPL-100 was in exactly that posture. The claim is *carried debt
+    cannot be dropped at a door*, which is what criterion 1 asks and what the
+    shipped mechanism supports. The declined placement — debt as a third field
+    on ``ServedProduct`` — would have failed this test at all three doors, since
+    none of them reads ``servable.replay_ref``.
+    """
+    from ccf.products.contract import ContextProductContract
+
+    assert "debt" in ContextProductContract.model_fields
+
+    module = importlib.import_module(door)
+    source = Path(inspect.getsourcefile(module) or "").read_text(encoding="utf-8")
+
+    assert _serializes_the_whole_vessel(source), door
+
+
+def test_a_door_that_serialized_around_the_vessel_would_be_detected() -> None:
+    """The adversarial companion: the check guards the path, not the happy case.
+
+    A door engineered to skip the debt landing — serializing the replay
+    reference, or reaching past the vessel for the payload alone — is detected
+    by the same predicate the owning test runs. A check with only a happy-path
+    witness is the false green this registry exists to prevent.
+    """
+    assert not _serializes_the_whole_vessel(
+        "def context_product(tenant, product_class, version):\n"
+        "    servable = resolver.resolve(tenant=tenant)\n"
+        "    return canonical_bytes(servable.replay_ref).decode('utf-8')\n"
+    )
+    assert not _serializes_the_whole_vessel(
+        "def retrieve(request):\n"
+        "    servable = resolver.resolve()\n"
+        "    return canonical_response(servable.product.payload)\n"
+    )
+    # The control: the shape the three shipped doors actually have.
+    assert _serializes_the_whole_vessel(
+        "def context_product(tenant, product_class, version):\n"
+        "    servable = resolver.resolve(tenant=tenant)\n"
+        "    return canonical_bytes(servable.product).decode('utf-8')\n"
+    )
+
+
+def test_this_module_declares_no_second_door_enumeration() -> None:
+    """One list of doors in the invariant suite, asserted on the source.
+
+    Two lists are two answers to "how many doors are there", and this phase
+    began because nobody had counted. The enumeration is
+    ``tests/invariants/test_mcp_role_separation.py``'s, whose own companion
+    test proves it exhaustive over ``runtime/``; this module imports it and
+    names no door itself.
+    """
+    # Derived from the enumeration rather than written out, so this assertion
+    # cannot match its own prefix literal — and so the runtime package name
+    # appears nowhere in this module, which is the property being asserted.
+    prefix = PRODUCT_DOOR_MODULES[0].split(".")[0] + "."
+    source = Path(__file__).read_text(encoding="utf-8")
+    door_literals = [
+        node.value
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and node.value.startswith(prefix)
+    ]
+
+    assert not door_literals, door_literals
+    assert len(PRODUCT_DOOR_MODULES) == len(set(PRODUCT_DOOR_MODULES))
