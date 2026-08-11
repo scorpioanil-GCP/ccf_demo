@@ -2,20 +2,64 @@
 
 ## What this demonstrates
 
-The whole fabric, end to end in one process, with no API key, no model and
-**no agent anywhere in it**: boot on a manifest, ingest a handful of L1
-envelopes, build the four-category operator chain, project, pass the three
-delivery gates, record the decision across five dimensions, and serve one
-typed **Context Product**.
+**A Context Product is something you CALL, not something you configure.**
+That is the first claim, it is the one everything else here rests on, and
+one command shows it:
+
+```sh
+make example-s1-01
+```
+
+That asks the same product class three questions and gets three different
+answers out of one graph, one ingest, and no second query:
+
+| # | Question | Beneficial owners it returns | D_c |
+| --- | --- | --- | --- |
+| 1 | Who ultimately owns **Acme**, as of **1 Aug 2026**? | Jane Doe 30.0%, John Smith 45.0% | 0.035 — `ok` |
+| 2 | Who ultimately owns **Beta Holdings**, as of **1 Aug 2026**? | Jane Doe 60.0% | 0.035 — `ok` |
+| 3 | Who ultimately owns **Acme**, as of **15 Sep 2026**? | Jane Doe 30.0%, John Smith 45.0%, **Marcus Vale 30.0%** | 0.221 — `forced_llm` |
+
+Read the pairs. **1 versus 2** is a different *company*: Jane's interest
+doubles, John's falls to zero, and the answer is a different list of
+people. **1 versus 3** is a different *instant*: a share transfer that was
+already sitting in the graph on 1 August but was not legally effective
+until September makes Marcus Vale a beneficial owner — and nothing was
+re-ingested in between. The measured Context Debt rises with the staleness
+and crosses this deployment's Forced-LLM band, so the answer arrives saying
+*how much to trust it* and *which dimension is weak*.
+
+Ask a fourth question that is in no artifact at all:
+
+```sh
+PYTHONPATH=src:runtime python examples/s1-01-hello-context-product/run.py \
+  --subject http://example.org/fibo/GammaBank \
+  --as-of 2026-08-01T00:00:00Z \
+  --decision-instant 2026-08-01T00:05:00Z
+```
+
+Nothing was edited. The subject and both instants are fields on a typed
+`ProductRequest`, validated at the door against the request surface the
+product class declares (whitepaper §6.3 *Addressability*, D-IMPL-98). This
+is the difference between the verb *aggregate* and the verb *assemble*: the
+question is not knowable at design time, so it is not written down at
+design time.
 
 It answers a question a vector store over chunked documents structurally
-cannot: *"Who ultimately owns Acme Corporation?"* Jane Doe holds 12.0%
-directly and 60.0% of a holding company that itself holds 30.0%. Her real
-interest is 30.0%, it crosses the regime's 25.0% threshold, and **no
-document in any source system states that number**. It is a sum over
-ownership paths, which is what a graph is a substrate for.
+cannot. Jane Doe holds 12.0% of Acme directly and 60.0% of a holding
+company that itself holds 30.0%. Her real interest is 30.0%, it crosses the
+regime's 25.0% threshold, and **no document in any source system states
+that number**. It is a sum over ownership paths, which is what a graph is a
+substrate for — and it is a *different* sum depending on which company you
+ask about and when.
 
-**The thing to look at first is the file split.** `spine.py` holds the CCF
+Under all of that: the whole fabric, end to end in one process, with no API
+key, no model and **no agent anywhere in it** — boot on a manifest, ingest a
+handful of L1 envelopes, build the four-category operator chain, project,
+pass the three delivery gates, record the decision across five dimensions,
+pin the graph questions that were actually asked, and serve one typed
+**Context Product** carrying its own debt.
+
+**The thing to look at second is the file split.** `spine.py` holds the CCF
 call spine and nothing else — seven named regions, `boot` → `ingest` →
 `operators` → `project` → `gate` → `record` → `serve` — and it contains no
 entity class, no source system, no identifier, no threshold, no policy
@@ -42,15 +86,22 @@ horizontal mix is satisfied across the suite, not within Section 1. It is
 named here rather than fallen into silently.
 
 It also demonstrates the **No-Hardcoding Rule** (CLAUDE.md §6.4): every
-entity class, attribute name, threshold, decimal scale, TTL, boundary
-instant and the subject of the question itself is loaded from
-`artifacts/*.yaml`. Delete `artifacts/` and neither module has anything
-meaningful to run.
+entity class, attribute name, threshold, decimal scale, TTL and λ_c rate is
+loaded from `artifacts/*.yaml`. Delete `artifacts/` and neither module has
+anything meaningful to run.
+
+The rule cuts the other way too, and the distinction is worth holding on to.
+The *vocabulary* the question is asked in — which class is a natural person,
+which attribute carries a stake's percentage — is Control Plane governance
+and belongs in an artifact. The *subject and the instant* are not: re-asking
+about a different company is not a governance change, and freezing them into
+a document is what made this example configurable rather than callable
+before plan 15.5-13.
 
 ## Run it
 
 ```sh
-make example-s1-01
+make example-s1-01                       # the three declared questions
 ```
 
 or, directly:
@@ -58,6 +109,15 @@ or, directly:
 ```sh
 PYTHONPATH=src:runtime python examples/s1-01-hello-context-product/run.py
 ```
+
+With no arguments it asks the three questions `artifacts/questions.yaml`
+declares. With `--subject`, `--as-of` and `--decision-instant` — supplied
+together, none of them defaulted — it asks one of yours instead. A defaulted
+subject would be the frozen answer this example was rewritten to remove, and
+a defaulted instant is a clock read wearing a disguise: the driver reads the
+clock or takes the instant as an argument, and the fabric never does either
+(which is exactly what makes replay feed the recorded boundary back through
+the same code path and get the same answer).
 
 `run.py` is a thin driver and not a second spine: it wires `deployment.py`
 into `spine.py` and exits. It **asserts nothing and prints nothing**. Exit
@@ -119,8 +179,18 @@ everything the fabric needs; the code only interprets them.
    anywhere in the process. Nothing else in either module holds one and
    nothing can obtain one.
 
-3. **`operators`.** The graph is read at the temporal boundary the decision
-   document names, and the four-category chain is built from the four
+2b. **The door.** Before the graph is touched, `refuse_request` compares the
+   caller's `ProductRequest` against `artifacts/request-contract.yaml` — the
+   address first (is this even a question for this class, at this lane?),
+   then the class-declared parameters, whose declared world is *closed*. A
+   parameter the class never declared is refused rather than forwarded,
+   because a parameter that reaches plan selection undeclared is an argument
+   nobody governed. Nothing on the request says who is asking: role and
+   tenant are things a door **establishes** from a verified grant, never
+   things a request **claims**.
+
+3. **`operators`.** The graph is read at the temporal boundary **the request
+   asked as of**, and the four-category chain is built from the four
    `operator-parameters-*.yaml` documents. Each category is load-bearing
    here rather than decorative: **traversal** walks the ownership chain
    within a typed, depth-bounded neighborhood; **temporal** holds the
@@ -136,24 +206,37 @@ everything the fabric needs; the code only interprets them.
    and the binder between the two lines refuses a disagreement **before the
    engine runs**, rather than repairing one afterwards.
 
-5. **`gate`.** The MAX_TTL ceiling is registered — which is what mints its
-   pin — the product class is registered, the candidate product is built
-   with the lineage the Control Plane *claims*, and the three delivery gates
-   run. A `ServableProduct` is not constructible outside the gate call, so
-   holding one is the evidence the gates ran.
+5. **`gate`.** The MAX_TTL ceiling and the request contract are registered —
+   which is what mints their pins — the product class is registered against
+   both, the candidate product is built with the lineage the Control Plane
+   *claims* **and the Context Debt measured over what was actually
+   assembled**, and the three delivery gates run. A `ServableProduct` is not
+   constructible outside the gate call, so holding one is the evidence the
+   gates ran.
 
 6. **`record`.** The five-dimension Decision Replay record is built from
    the execution, the served product, the perspective and the pins in force.
 
-7. **`serve`.** The record is persisted **before** the product is
-   delivered, and delivery is what the successful append returns. There is
-   no branch that reaches a served product without a recorded decision.
+7. **`serve`.** The canonical bytes of every graph query the engine issued
+   are persisted, *then* the record, *then* the product is delivered — and
+   delivery is what the successful append returns. There is no branch that
+   reaches a served product without a recorded decision, and no moment at
+   which the record pins a question the store cannot resolve.
 
-The answer that comes out: Jane Doe at 30.0% and John Smith at 45.0% are
-beneficial owners; Sarah Chen is not. Sarah is the case worth reading
-twice — she holds exactly the threshold *one hop down*, and 1.125% of the
-subject three hops down. A single-hop reading would report her as a
+The answer that comes out for question 1: Jane Doe at 30.0% and John Smith
+at 45.0% are beneficial owners; Sarah Chen is not. Sarah is the case worth
+reading twice — she holds exactly the threshold *one hop down*, and 1.125%
+of the subject three hops down. A single-hop reading would report her as a
 beneficial owner. Depth is not significance, and the aggregation says so.
+
+**One caveat, stated because it would otherwise be assumed.** The record's
+`graph_query_sequence` pins the questions put to the **graph**, not the
+question put to the **product**. Questions 1 and 3 pin differently, because
+the boundary is compiled into the query. Questions 1 and 2 pin
+*identically*: the subject enters at Π, so both read the same subgraph and
+differ only in what was projected out of it. Which product question a
+decision answered is recoverable from the served payload's subject and the
+record's boundary — it is not itself a replay dimension.
 
 ## Artifact-by-artifact
 
@@ -169,11 +252,14 @@ beneficial owner. Depth is not significance, and the aggregation says so.
 | `perspective.yaml` | register | The Π role-conditioning the product is served under. |
 | `product-class.yaml` | register | Schema name and lane, TTL anchor, `assembly_mode`, the MAX_TTL key, and the operator set the product *claims*. |
 | `projection-requirements.yaml` | register | The plan id and the projection's *own* required operator set — the second authored side of the binder. |
-| `product-governance.yaml` | register | TTL ceiling and product TTL in seconds, the similarity index version, the replay artifact class and store directory. |
-| `ubo-question.yaml` | register | The question as governance: which entity is the subject, which class is a natural person, which attribute carries a stake's percentage. |
+| `product-governance.yaml` | register | TTL ceiling and product TTL in seconds, the similarity index version, the replay and query-pin artifact classes and store directory, the request-contract key, what a complete assembly holds, and the declared S factor. |
+| `ubo-question.yaml` | register | The **vocabulary** the question is asked in: which class is a natural person, which attribute carries a stake's percentage. The subject is *not* here — that is the caller's. |
+| `half-life-table.yaml` | register | λ_c per observation type. This deployment types observations by resolved entity class; a share transfer decays over months, a screening hit over a week. |
+| `debt-profile.yaml` | register | The CAR bands — risk sensitivity, and the D_c thresholds at which the answer routes to Forced-LLM or Fail-Closed. |
 | `events.yaml` | load | The L1 signal batch — the selection of the source estate this product needs. Fixed to `role: load` by the SDK. |
-| `decision.yaml` | load | This run's temporal boundary and decision instant. Authored values; nothing here reads a clock. |
-| `expected.yaml` | load | What the deployment declares the served product should contain, for the test module to assert against. |
+| `request-contract.yaml` | load | The class's **request surface**: which questions it answers, and the class-declared parameters beyond the four address axes. `load`, because the pin binding it to the class is minted by registering it. |
+| `expected.yaml` | load | What the deployment declares the served products should contain, for the test module to assert against — all three questions. |
+| `questions.yaml` | *not in the manifest* | The questions the bundled demonstration **asks**. Caller input, not Control Plane state; a question is not a permission and belongs in no replay dimension. Read directly by `run.py`. |
 | `source-estate.yaml` | *not in the manifest* | The enterprise source estate declaration, read by `source_estate.py`. Not Control Plane state and not in replay dimension 2. |
 
 Every document carries a `# yaml-language-server: $schema=` header and an
@@ -221,9 +307,11 @@ Then, in order:
    and relationship rules.
 2. `artifacts/source-estate.yaml` and `artifacts/events.yaml` — your source
    systems' records, and the selection of them this product needs.
-3. `artifacts/ubo-question.yaml` — the question. Which entity is the
-   subject and which attributes carry what; this is what the projection
-   interprets.
+3. `artifacts/ubo-question.yaml` — the question's **vocabulary**: which
+   class is a natural person, which attributes carry what. This is what the
+   projection interprets. The *subject* is not here and should not be put
+   back — see `artifacts/questions.yaml` and `--subject` for where a
+   question comes from.
 4. `artifacts/operator-parameters-*.yaml` — retune all four, especially the
    permitted edge types, the depth bound, the screening query and the score
    floor.
@@ -235,12 +323,17 @@ Then, in order:
    `spine.py`.
 7. `deployment.py` — replace `UltimateBeneficialOwnershipPlan` with your own
    projection. It is the one piece of real code you write.
-8. `artifacts/manifest.yaml` — `tenant_id`, and any `class_id` you renamed.
-9. `artifacts/expected.yaml` — last, after one reviewed run.
+8. `artifacts/request-contract.yaml` and `artifacts/questions.yaml` — the
+   questions your class answers, and the ones the demonstration asks.
+9. `artifacts/half-life-table.yaml` and `artifacts/debt-profile.yaml` — your
+   λ_c rates and your CAR bands. These are regulatory posture, not tuning:
+   they decide when your fabric escalates instead of answering.
+10. `artifacts/manifest.yaml` — `tenant_id`, and any `class_id` you renamed.
+11. `artifacts/expected.yaml` — last, after one reviewed run.
 
 On the next run expect your entity classes in the served payload, your
 relationship types surviving traversal, and a failing
-`pytest tests/examples/test_s1_01_output.py` until you complete step 9 —
+`pytest tests/examples/test_s1_01_output.py` until you complete step 11 —
 that failure is the workflow, not a bug.
 
 ## What would fail
@@ -256,6 +349,10 @@ that failure is the workflow, not a bug.
 | aggregation across hops (phase 16 D-03) | the near-miss party at exactly the threshold one hop down would be reported as a beneficial owner, and Jane Doe's real interest would be understated |
 | the three gates (INV-CH7-46/47/48) | an empty-operator, forged-lineage or over-TTL product would become servable |
 | the operator-set binder (D-IMPL-86) | the projection's own required set and the product class's claim could drift apart, and the disagreement would be repaired silently instead of refused before the engine runs |
+| assemble, not aggregate (plan 15.5-13) | two companies, or two instants, would get the same answer — the subject or the boundary would have stopped reaching the fabric from the request |
+| resolvable query pins (T-15.2-28) | the record would pin graph questions whose canonical bytes are in no store, so an auditor could not ask what was asked |
+| debt rides the vessel (D-IMPL-100) | the product would arrive with `debt=None`, and its consumer would have no way to know how much to trust it |
+| debt is measured (whitepaper §7.7) | the same question six weeks later would report the same freshness, and the CAR signal would be a constant wearing a measurement's clothes |
 | replay before delivery (INV-CH7-79) | a product would be served with no five-dimension record in the store |
 | the No-Hardcoding Rule (CLAUDE.md §6.4) | a threshold, an entity class or a query would live in `spine.py` or `deployment.py` instead of an artifact |
 | the spine/deployment split (phase 16 D-11) | a fabric call would sit in `deployment.py`, or a domain value in `spine.py`, and a reader could no longer tell which code is required by CCF |
