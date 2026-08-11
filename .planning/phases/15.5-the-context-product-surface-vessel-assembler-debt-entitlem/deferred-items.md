@@ -38,5 +38,28 @@ exit code is already 1 for reasons that predate the phase. A plan that treats
 `make perf-micro` exiting 0 as its acceptance criterion will never pass on this
 machine.
 
+**Verified by the orchestrator at wave-1 close:** both `15.5-07` and `15.5-09`
+carry `make perf-micro` *inside* their `<automated>` verification blocks, which
+require exit 0, while their prose success criteria permit recording and
+escalating an excess. The two readings contradict each other. Carried into the
+`15.5-05` ruling package rather than resolved by re-baselining, because both
+plans explicitly forbid a silent re-baseline.
+
 **Owner:** unassigned. Candidate: plan `15.5-14`'s close-out sweep, which
 already owns the retirement decision for the `15.5-01` spike module.
+
+## DI-15.5-02 — `make example-s1-01` does not exist
+
+- **Found during:** plan `15.5-04`, task 1 (reading the example's docstrings).
+- **What:** `examples/s1-01-hello-context-product/run.py` tells the reader to
+  run the example with `make example-s1-01`, and plan `15.5-13`'s checkpoint
+  task 4 uses `make example-s1-01` as its automated verification. No such target
+  exists in the `Makefile` — `grep -n "s1" Makefile` returns nothing. The
+  aggregate `examples` target (`example-00` … `example-08`, `example-ext-00`)
+  does not include `s1-01` either, so the example runs in no CI job.
+- **Why deferred:** adding the target and wiring it into `examples` changes what
+  `make ci` runs, which is outside plan `15.5-04`'s three-file scope (an example
+  added to the always-on aggregate is a CI-surface change, not a deletion).
+- **Owner:** plan `15.5-13` rewrites this example and needs the target for its
+  own verification step; it is the natural place to add it. If `15.5-13` is
+  descoped, this becomes a phase-close finding.
