@@ -222,7 +222,35 @@ aggregate, so the example runs in CI. This **changes what `make ci` runs**,
 which was the reason `15.5-04` deferred it rather than a side effect discovered
 afterwards. `make examples` exits 0 with the new member; verified 2026-08-11.
 
-## DI-15.5-07 — the replay record pins the graph question, not the product question
+## DI-15.5-07 — CLOSED by plan `15.5-13`'s continuation (`20fff85`, `956abed`)
+
+Ruled as **D-IMPL-111** (Dave, 2026-08-11), **both limbs**, and both landed.
+
+- **Limb (a)** — `ProjectionEngine.execute` gained `seeds`, threaded to every
+  pushable segment carrying a traverse family, and the s1-01 spine passes
+  `request_seeds(request)`. Questions 1 and 2 now pin **differently**; their
+  first pin is still shared, because that segment carries no walk for an anchor
+  to start (`GQ-03`). All four property suites green, unweakened.
+- **Limb (b)** — `ContentGenerationPath.request` carries the
+  `ProductRequest` verbatim on dimension 5, so `intent` and `freshness` are
+  recorded rather than absent. 0 forced repairs across 32 call sites in 28
+  files, under the positive sentinel.
+- **The two are one mechanism.** Limb (a) makes the pins depend on the
+  question, which makes them unreproducible unless replay can re-derive the
+  seeds; limb (b) is what lets it, through the same `request_seeds` reading.
+- **The record content address moved** and is proven reconstructible on the real
+  serve path after four months of later state
+  (`tests/replay/test_engine_rehydration.py::test_the_question_the_decision_answered_replays_byte_exactly`),
+  with an adversarial twin that diverges when the recorded subject is swapped.
+  One recorded address regenerated: `examples/08-e2e-demo/artifacts/expected_output.txt`.
+- **The guard was inverted, not deleted.** The test that failed loudly if
+  questions 1 and 2 ever stopped pinning alike now fails loudly if they ever
+  start again, and its README caveat is corrected.
+
+The original entry follows, unedited, because what it recorded was true when it
+was recorded and the ruling exists because of it.
+
+## DI-15.5-07 (original entry) — the replay record pins the graph question, not the product question
 
 - **Found during:** plan `15.5-13`, task 2 (writing the two-subject pin
   assertion the plan's `<behavior>` block asked for, and finding it false).
@@ -256,3 +284,29 @@ afterwards. `make examples` exits 0 with the new member; verified 2026-08-11.
   the same caveat beside the same claim.
 - **Owner:** Dave, as a `D-IMPL` entry on whether the request surface joins the
   replay record. Raised at plan `15.5-13`'s checkpoint.
+
+## DI-15.5-08 — line-number citations rot on any edit to the file they cite
+
+- **Found during:** plan `15.5-13`'s continuation, when adding eleven lines to
+  `src/ccf/replay/engine.py` made `cite02-anchor` fail on
+  `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md:125` — a citation that was accurate
+  when written.
+- **What:** the tree cites source by `path:START-END` in prose. Any insertion
+  above a cited range silently invalidates every citation below it. The
+  `cite02-anchor` lint catches only the subset that pairs a range with a
+  **symbol name**; a bare range that now points at the wrong lines is invisible
+  to it.
+- **What this plan did:** refreshed the four live citations of
+  `src/ccf/replay/engine.py:449-455` (now `:472-477`) in
+  `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md`, `src/ccf/products/contract.py` and
+  `tests/spikes/test_contract_field_addition_cost.py`, and re-cited the
+  lint-flagged one in the `path::Symbol` form the checker itself recommends.
+  **Deliberately not touched:** the same range in `docs/DECISIONS.md`
+  (D-IMPL-100), `docs/SURFACE-CHANGES.md` and
+  `docs/surface-changes/15.5-11-debt-delivery.md` — an append-only ruling
+  record, an assembled artifact, and a landed plan's historical fragment. Those
+  three now point at the wrong lines.
+- **Owner:** phase close. Either widen `cite02-anchor` to verify bare ranges
+  (it would have to know what a range is *supposed* to contain, which is why it
+  does not today), or rule that prose cites `path::Symbol` and stop citing
+  ranges. Both are decisions rather than fixes.

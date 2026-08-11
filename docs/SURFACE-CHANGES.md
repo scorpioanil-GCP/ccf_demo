@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**532 entries**, of which **306** name a public Python surface.
+**538 entries**, of which **312** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-250 entries — 218 public Python surface, 32 not public Python API.
+251 entries — 219 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -4467,6 +4467,32 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.5-12-aggregate-composition.md`.*
 
+#### ccf.products.request.request_seeds
+
+- Surface: ccf.products.request.request_seeds
+- Public surface: true
+- Change type: added
+- Before: absent. The request's subject reached Π and nothing else; the walk
+  started only from the entity classes the traversal operator's parameters
+  declared
+- After: `request_seeds(request: ProductRequest | None) -> frozenset[str] |
+  None` — the single-element set naming the request's subject, or `None` for no
+  request
+- Why: D-IMPL-111 limb (a). The entity anchor of the whitepaper's address
+  pattern (`docs/CCF_Whitepaper_1-2.md:1465`) is *which entity the question is
+  about*, so it is where a walk asked to answer that question begins. A function
+  rather than a set literal at two call sites because the **serving path and the
+  replay path must derive it identically**: two derivations could drift, and a
+  drift here would replay a different question under the original decision's
+  identifier
+- Migration: **none required.** To adopt, pass
+  `seeds=request_seeds(request)` to `ProjectionEngine.execute`. A deployment
+  that seeds by some other rule is not silently wrong — the seeds are inside
+  every issued `GraphQuery` and therefore inside the recorded pins, so the
+  divergence surfaces loudly at replay
+
+*Recorded by `15.5-13-request-in-replay.md`.*
+
 #### ccf_runtime.http_api.errors.ERROR_PRODUCT_DOOR_UNGOVERNED
 
 - Surface: ccf_runtime.http_api.errors.ERROR_PRODUCT_DOOR_UNGOVERNED
@@ -5035,7 +5061,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-241 entries — 58 public Python surface, 183 not public Python API.
+243 entries — 60 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -6388,6 +6414,57 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: as above
 
 *Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: seven fields, ending at the 15.5-11 debt landing
+- After: one further field, `request: ProductRequest | None`, defaulted to
+  `None`
+- Why: D-IMPL-111 limb (b). **Dimension 5 and not dimension 4.** Dimension 4
+  answers *"for whom, with what authority?"* (`docs/CCF_Whitepaper_1-2.md:3266`)
+  — principal, role, agent identity, grants, delegation — and a request asserts
+  none of those. What a request *does* determine is the generation path: its
+  `parameters` reach plan selection through D-IMPL-49's `selection_params` slot,
+  its `subject` seeds the traversal, and its `asked_at` is the instant the
+  caller asked as of. So it sits beside `graph_query_sequence`, which it
+  explains. `None` is the positive assertion *this decision recorded no
+  request*, in the `debt` and `source_attestation` voice: a record written
+  before this seam and one whose caller dropped the question would otherwise be
+  the same artifact
+- Migration: none for construction; see "The record's content address moves"
+  above for the one thing that is required
+
+*Recorded by `15.5-13-request-in-replay.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: `build_replay_record(*, execution, product, perspective,
+  policy_bindings, assembly_mode, recorded_at, agent_conditioning=None,
+  harness_trace=None, hitl_actions=None, workflow_step_sequence=None,
+  adapter=None)`
+- After: one further keyword-only parameter, `request: ProductRequest | None =
+  None`, recorded verbatim on dimension 5
+- Why: a **parameter** rather than a derivation, which is the opposite of the
+  choice D-IMPL-100 made for `debt` — and for a reason that points the same way.
+  Debt is a property of the product, and the product was already a parameter, so
+  reading it off made a record pinning a debt its product does not carry
+  unrepresentable. The *question* is a property of the **call**: neither the
+  execution nor the product has ever seen it, the engine is handed a plan, a
+  perspective, a boundary and a seed set, and L5 importing L6's request surface
+  to carry one would invert the layering (CLAUDE.md §10). A question
+  reconstructed from its answer is not the question that was asked
+- Migration: **none.** All 32 call sites across 28 files are byte-for-byte
+  unchanged under the positive sentinel — the pattern this phase has now used
+  six times, priced at 0 forced repairs in
+  `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` § Q1
+
+*Recorded by `15.5-13-request-in-replay.md`.*
 
 #### ccf.products.contract.RegisteredProductClass
 
@@ -8710,7 +8787,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-41 entries — 30 public Python surface, 11 not public Python API.
+44 entries — 33 public Python surface, 11 not public Python API.
 
 ### Public Python surface
 
@@ -9357,6 +9434,87 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   this fabric prefers
 
 *Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.projection.engine.ProjectionEngine.execute
+
+- Surface: ccf.projection.engine.ProjectionEngine.execute
+- Public surface: true
+- Change type: behavior
+- Before: `execute(*, plan, perspective, tenant_id, temporal_boundary,
+  recorded_acquisitions=None)`. Every compiled segment query carried
+  `seeds=None`, a hardcoded literal
+- After: one further keyword-only parameter, `seeds: frozenset[str] | None =
+  None`, threaded to **every pushable segment that carries a traverse family and
+  no other**. `GQ-03` refuses seeds with no walk to start, so a segment that
+  walks nothing is passed `None`; where a survivor set is also in force the two
+  compose under `GQ-17` — the anchor starts a walk only if it survived, and the
+  walk still may not cross outside the set
+- Why: **classified `behavior` rather than `reshaped` under the `DI-15.5-06`
+  precedent**, and the classification is a tooling limit rather than a judgement
+  about the change: `tools/dump_surface.py` records module-level names, so a
+  **method** signature is invisible to the drift gate and a `reshaped` claim
+  here has no diff line to match. The 15.5-11 and 15.5-15 fragments classify
+  `ReplayEnvironment.rehydrate_product` and the two resolver Protocols the same
+  way for the same reason; Phase 17 should expect to reclassify all of them once
+  the manifest can see methods. This is a **parameter addition** in substance.
+  D-IMPL-111 limb (a). Note the rule is *every walking segment*, not *the
+  opening segment*: in the shipped reference example the traverse family lands
+  in a **post**-in-process segment, so an opening-segment-only rule would seed
+  nothing at all. This is deliberately the **opposite** of the pitfall
+  `tests/invariants/test_mcp_role_separation.py` pins this signature against —
+  the anchor is *what* was asked about, never *who* asked, and
+  `ProductRequest` has no role, principal or tenant field by construction
+- Migration: **none.** The parameter is keyword-only with a default, so every
+  existing call site is byte-for-byte unchanged in behaviour and in the queries
+  it issues
+
+*Recorded by `15.5-13-request-in-replay.md`.*
+
+#### ccf.replay.engine.replay
+
+- Surface: ccf.replay.engine.replay
+- Public surface: true
+- Change type: behavior
+- Before: re-executed the recorded plan with the recorded perspective, tenant,
+  boundary and D-10 survivor cap
+- After: **the same signature** — which is why this is `behavior` rather than
+  `reshaped` — re-executing additionally with the seeds the recorded question
+  implies, through `request_seeds(record.content_generation_path.request)`
+- Why: the walk starting points are compiled into the query, so a replay under
+  different seeds would ask a different question wearing the decision's
+  identifier. It is the `survivor_cap` argument one line above it, applied to
+  the other half of what shapes a query: replay resolves what the decision ran
+  under, never what the deployment is configured with now
+- Migration: **none.** A record carrying no request yields `None` and replays
+  exactly as it did before the ruling. A deployment whose serving path seeds by
+  a rule other than `request_seeds` will see `ReplayDivergence` on the pin
+  comparison — loudly, which is the intended failure mode: the record must
+  contain everything needed to reproduce the decision
+
+*Recorded by `15.5-13-request-in-replay.md`.*
+
+#### ccf.products.request — module import order
+
+- Surface: ccf.products.request
+- Public surface: true
+- Change type: behavior
+- Before: `ccf.products.payload` and `ccf.skills.catalog` were imported at the
+  top of the module
+- After: both are imported at the **bottom**, on the D-IMPL-56 pattern
+  `ccf.skills.catalog` itself documents, with an explicit
+  `ProductRequestContract.model_rebuild()`. `ccf.replay.record` defers its
+  import of this module the same way
+- Why: limb (b) makes `ccf.replay.record` name `ProductRequest`, and
+  `ccf.skills.catalog` reaches `ccf.agents.agent`, which reads
+  `NO_GRANTS_SET_HASH` and `PerspectiveConditioning` back out of
+  `ccf.replay.record`. With the imports at the top, first-import order would
+  decide whether the SDK imports at all. Deferring them makes `ProductRequest`
+  exist before anything here can reach the replay plane, so the cycle closes in
+  every order — asserted by importing each of the four modules first in turn
+- Migration: **none.** Every name this module exported still exports from it,
+  and no import statement anywhere else changes
+
+*Recorded by `15.5-13-request-in-replay.md`.*
 
 #### ccf_runtime.mcp.egress.ProductResolverProtocol
 
