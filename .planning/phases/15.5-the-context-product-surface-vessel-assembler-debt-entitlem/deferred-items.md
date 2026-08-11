@@ -222,7 +222,7 @@ aggregate, so the example runs in CI. This **changes what `make ci` runs**,
 which was the reason `15.5-04` deferred it rather than a side effect discovered
 afterwards. `make examples` exits 0 with the new member; verified 2026-08-11.
 
-## DI-15.5-04 — the replay record pins the graph question, not the product question
+## DI-15.5-07 — the replay record pins the graph question, not the product question
 
 - **Found during:** plan `15.5-13`, task 2 (writing the two-subject pin
   assertion the plan's `<behavior>` block asked for, and finding it false).
