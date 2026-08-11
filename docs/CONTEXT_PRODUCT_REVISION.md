@@ -66,9 +66,16 @@ record that must exist before delivery. Accurate statement: **MCP-shaped in its
 typing discipline, with a governance envelope MCP has no equivalent for.** Worth
 saying explicitly in the revision so the analogy is not over-applied downstream.
 
-### 1.2 The eight-element contract is shipping as five — **MEASURED**
+### 1.2 The nine-element contract is shipping as six — **MEASURED (count corrected)**
 
-§6.3 commits eight elements. Checked field by field against
+**Correction, 2026-08-10.** An earlier revision of this section said *eight*
+elements. `D-IMPL-30` (Dave, 2026-07-25) already resolved that question as
+reading (a): **the contract has nine**, Assembly Mode included, and every
+"eight" reference — CLAUDE.md §5's among them — is editorial drift the ruling
+explicitly authorizes treating as drift. Assembly Mode *is* implemented, so the
+shortfall is three of nine rather than three of eight.
+
+§6.3 commits nine elements. Checked field by field against
 `src/ccf/products/contract.py` and `RegisteredProductClass`:
 
 | Element | Status |
@@ -78,6 +85,7 @@ saying explicitly in the revision so the analogy is not over-applied downstream.
 | TTL | present — `expires_at`, `ttl_anchor`, `max_ttl_key` |
 | policy binding | present — `lineage.policy_bundle_versions` |
 | lineage | present — `ProductLineage` |
+| assembly mode | present — `assembly_mode` (the ninth, per `D-IMPL-30`) |
 | **freshness SLA** | **absent** |
 | **discovery** | **absent** |
 | **addressability** | **absent** |

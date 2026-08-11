@@ -927,13 +927,13 @@ product.**
 **Success Criteria**
 
   1. Every Context Product delivered to a consumer carries its Context Debt, and no delivery path exists that drops it
-  2. All eight elements of the §6.3 contract are present in code, each verified by an executable assertion rather than by prose, so the class of defect that hid three of them cannot recur silently
+  2. All **nine** elements of the §6.3 contract are present in code, each verified by an executable assertion rather than by prose, so the class of defect that hid three of them cannot recur silently (`D-IMPL-30`, Dave, 2026-07-25, resolved reading (a): the contract has nine elements including Assembly Mode, and every "eight" reference — CLAUDE.md §5's included — is editorial drift the ruling explicitly authorizes treating as such; six are present today, freshness SLA / discovery / addressability are the three absent)
   3. `register_product_class` accepts a declared payload schema and a payload violating it is refused, reusing the JSON-Schema machinery already proven on eight artifact classes
   4. Perspective is derived from the verified identity at every exposed door and a caller cannot assert a role it was not granted, while `execute()` keeps taking a Perspective so replay determinism is untouched
   5. Per-product-class entitlement gates the egress door, reusing the shape `peering/trust_policy.py` already implements per peer
   6. The assembler exists as a Protocol whose implementation is a declared agent from the `context_assembly` archetype, binding sources, tools, enlisted agents and its debt profile through axes 4 and 5 and channel 2
   7. A product answers a runtime request — subject and instant are arguments, never artifact literals — and the question asked is pinned in replay through `graph_query_sequence` and `QueryPinWriter`
-  8. Aggregate products compose lineage by union, floor TTL at the stalest component, and are refused at class registration when a declared freshness SLA exceeds what their components can promise
+  8. Aggregate products compose lineage by union and implement `D-IMPL-31`'s already-resolved mixing-refusal rule — `expires_at = min(class MAX_TTL ceiling, derivation over constituent signal validities)`, with declarable constituent-validity floors whose breach **refuses assembly** rather than emitting a product labelled fresher than its stalest load-bearing constituent (ruled by Dave 2026-07-25 and never implemented; this criterion is implementation of a standing ruling, not a new design decision)
   9. The four anti-leakage lints stay green throughout: zero harness imports in `src/`, no LLM client in an `@algorithmic` module, no prompt or threshold literal outside an artifact, no substrate name outside the backend registry
   10. `examples/s1-01-hello-context-product` demonstrates an agent asking about any company at any time and is the shape every later example copies
 
