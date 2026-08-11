@@ -497,12 +497,22 @@ def _mcp_store() -> Any:
 #: exactly what moved. What would fail here: a contributor adding
 #: ``principal_id=`` to the engine "so the projection can filter" — the whole
 #: of Pitfall 3, caught here rather than in review.
+#:
+#: Moved once, deliberately, and the move is the decision this pin exists to
+#: force: ``seeds`` joined the signature under D-IMPL-111 limb (a) (Dave,
+#: 2026-08-11) so the request's entity **anchor** starts the walk. It is the
+#: opposite of Pitfall 3 rather than an instance of it — the anchor is *what*
+#: was asked about, never *who* asked, and the two are separated at the type
+#: level: :class:`~ccf.products.request.ProductRequest` has no role, principal
+#: or tenant field, and the door still resolves identity before the engine is
+#: reached. The engine takes an opaque URI set and interprets none of it.
 EXPECTED_EXECUTE_PARAMETERS: tuple[tuple[str, str], ...] = (
     ("self", "POSITIONAL_OR_KEYWORD"),
     ("plan", "KEYWORD_ONLY"),
     ("perspective", "KEYWORD_ONLY"),
     ("tenant_id", "KEYWORD_ONLY"),
     ("temporal_boundary", "KEYWORD_ONLY"),
+    ("seeds", "KEYWORD_ONLY"),
     ("recorded_acquisitions", "KEYWORD_ONLY"),
 )
 

@@ -493,6 +493,15 @@ def assemble_and_serve(
             ),
             assembly_mode=declared.assembly_mode,
             recorded_at=scenario.now,
+            # WHICH QUESTION THIS DECISION ANSWERED, in the record itself
+            # (D-IMPL-111 limb (b)). The pins below say what was asked of the
+            # GRAPH; this says what was asked of the PRODUCT — subject, intent,
+            # freshness and the instant it was asked as of. `intent` and
+            # `freshness` are in no other dimension, and replay reads the
+            # subject back off this field to re-seed the traversal, so the
+            # record is what makes the decision reproducible rather than
+            # merely described.
+            request=scenario.request,
         )
         # --8<-- [end:record]
 

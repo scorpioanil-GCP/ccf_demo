@@ -104,8 +104,17 @@ from ccf.products.contract import (
     NO_REQUEST_CONTRACT,
     ProductClassRegistrationError,
 )
-from ccf.products.payload import PayloadSchemaViolation, refuse_payload
-from ccf.skills.catalog import SkillArgumentSchema
+
+# `ccf.products.payload` and `ccf.skills.catalog` are imported at the BOTTOM of
+# this module, on the D-IMPL-56 pattern `ccf.skills.catalog` itself documents.
+# The reason is D-IMPL-111 limb (b): `ccf.replay.record` now names
+# :class:`ProductRequest` in dimension 5, and `ccf.skills.catalog` reaches
+# `ccf.agents.agent`, which reads two names out of `ccf.replay.record` — so
+# with those two imports at the top, first-import order would decide whether
+# the SDK imports at all. Deferring them makes :class:`ProductRequest` exist
+# before anything here can reach the replay plane, which closes the cycle in
+# both directions; the deferred annotations are resolved explicitly at the
+# bottom.
 
 __ccf_mode__ = "algorithmic"
 
@@ -552,3 +561,20 @@ def refuse_request_contract_pin(
             "wrong class is refused at wiring time rather than validating one "
             "class's questions against another's declaration (D-IMPL-98)"
         )
+
+
+# Imported at the bottom, deliberately (D-IMPL-56, as applied by
+# `ccf.skills.catalog` for the same class of cycle). `ccf.skills.catalog`
+# reaches `ccf.agents.agent`, which reads `NO_GRANTS_SET_HASH` and
+# `PerspectiveConditioning` out of `ccf.replay.record` — and since D-IMPL-111
+# limb (b) that module names :class:`ProductRequest` in dimension 5. By the
+# time this line runs every name the replay plane needs from *this* module
+# already exists, so the cycle closes safely in both import orders; the
+# deferred annotations above are then resolved explicitly.
+from ccf.products.payload import (  # noqa: E402
+    PayloadSchemaViolation,
+    refuse_payload,
+)
+from ccf.skills.catalog import SkillArgumentSchema  # noqa: E402
+
+ProductRequestContract.model_rebuild()

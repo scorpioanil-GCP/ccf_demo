@@ -193,9 +193,11 @@ def test_every_pre_change_field_is_byte_for_byte_unchanged() -> None:
     # survivor_cap, graph_query_sequence), the 15.2-11 sentinel field on
     # dimension 1 (D-09: source_attestation), the 15.4-08 adapter pin on
     # dimension 2 (D-IMPL-93: graph_adapter, graph_adapter_version,
-    # graph_secret_refs), and the 15.5-11 debt landing on dimension 5
-    # (D-IMPL-100: debt). Removing exactly those reproduces the captured
-    # literal — "byte-identical except for the sentinel fields".
+    # graph_secret_refs), the 15.5-11 debt landing on dimension 5
+    # (D-IMPL-100: debt), and the 15.5-13 question landing on the same
+    # dimension (D-IMPL-111 limb (b): request). Removing exactly those
+    # reproduces the captured literal — "byte-identical except for the
+    # sentinel fields".
     #
     # PRE_CHANGE_CANONICAL itself is never edited. Each extension adds one
     # `.replace()` here and leaves the captured literal alone, because the
@@ -227,6 +229,13 @@ def test_every_pre_change_field_is_byte_for_byte_unchanged() -> None:
         b"",
     ).replace(
         b'"debt":null,',
+        b"",
+    ).replace(
+        # 15.5-13, D-IMPL-111 limb (b): the question answered lands on
+        # dimension 5 under the same sentinel-default discipline, so a record
+        # built without one is byte-identical to a pre-ruling record once the
+        # sentinel key is removed.
+        b'"request":null,',
         b"",
     ).replace(
         # The one captured value D-IMPL-100 *moved*, normalized rather than
