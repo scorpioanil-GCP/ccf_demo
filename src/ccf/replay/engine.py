@@ -166,6 +166,20 @@ class ReplayEnvironment(Protocol):
         (schema, TTL anchor, expiry) comes from the deployment's product class.
         The engine checks the result's content address against the record, so
         an envelope reconstructed wrongly is caught rather than accepted.
+
+        **The debt in force comes off the record, and must not be re-measured**
+        (15.5-11, D-IMPL-100). ``ContextProductContract.debt`` is inside the
+        hashed body, so an implementation that omitted it — or recomputed it —
+        returns a product the engine's address check rejects. It is
+        reconstructible without a signature change because the record is
+        already a parameter here: read
+        ``record.content_generation_path.debt`` and carry it onto the rebuilt
+        product verbatim. Re-deriving it is not an option even in principle:
+        D_c is computed from observations and a ``now`` that neither the record
+        nor the projection re-derives, so a fresh assessment would be a
+        different decision wearing this one's identifier. A record carrying the
+        ``None`` sentinel asserts its decision had no assessment, and the
+        rebuilt product carries ``None`` in turn.
         """
         ...
 

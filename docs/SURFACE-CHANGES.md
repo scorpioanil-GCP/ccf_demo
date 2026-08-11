@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**481 entries**, of which **258** name a public Python surface.
+**500 entries**, of which **277** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-219 entries — 188 public Python surface, 31 not public Python API.
+228 entries — 197 public Python surface, 31 not public Python API.
 
 ### Public Python surface
 
@@ -3801,6 +3801,170 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.5-09-payload-bind.md`.*
 
+#### ccf.halflife.assessment.DebtAssessment
+
+- Surface: ccf.halflife.assessment.DebtAssessment
+- Public surface: true
+- Change type: added
+- Before: absent — the type lived only at `ccf.halflife.debt.DebtAssessment`
+- After: the same type, defined here and re-exported from
+  `ccf.halflife.debt`, with one further field: `scorers`
+- Why: D-IMPL-100 carries the assessment on `ContextProductContract`, and
+  `ccf.products.contract` **cannot** import `ccf.halflife.debt` — that module
+  reaches `ccf.controlplane.artifacts` (directly for `DebtProfile` and
+  `HalfLifeTable`, and again through `ccf.halflife.decay`), and
+  `ccf.controlplane.artifacts` imports `ccf.products.contract`. A top-level
+  import from the vessel would close a cycle at load time. The shape therefore
+  lives below both, depending on nothing but `CCFContract`; the computation
+  stays in `ccf.halflife.debt` with the Control Plane values it needs
+- Migration: **none.** Every existing `from ccf.halflife.debt import
+  DebtAssessment` keeps working, because the name is re-exported. Importing
+  from `ccf.halflife.assessment` is the lighter dependency and is what
+  `ccf.products.contract` itself does
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.assessment.DebtFactors
+
+- Surface: ccf.halflife.assessment.DebtFactors
+- Public surface: true
+- Change type: added
+- Before: absent — the type lived only at `ccf.halflife.debt.DebtFactors`
+- After: the same three `Decimal` factors, with a `float` now **refused at
+  construction** rather than silently coerced
+- Why: the same cycle-breaking split as `DebtAssessment`; plus T-15.5-48. These
+  values now sit inside the delivered product's content address, so a coerced
+  float would give the address a provenance that is a platform-dependent binary
+  expansion — the product would hash differently depending on where it was
+  assembled. Refusal is the honest reading of the module's own standing
+  "Decimal, never float" commitment
+- Migration: **none for a correct caller**, and a loud failure for an incorrect
+  one. Every construction site in this tree already passes `Decimal`, including
+  the fixture-driven ones, which quote their values as strings. A caller passing
+  a float now sees a `ValidationError` naming the reason instead of a plausible
+  number
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.assessment.DebtSignal
+
+- Surface: ccf.halflife.assessment.DebtSignal
+- Public surface: true
+- Change type: added
+- Before: absent — the enum lived only at `ccf.halflife.debt.DebtSignal`
+- After: the same three CAR routing states, `ok` / `forced_llm` /
+  `fail_closed`, unchanged in members and values
+- Why: it is a field type of `DebtAssessment`, so it moves with it under the
+  same import-cycle constraint
+- Migration: none — re-exported from `ccf.halflife.debt`
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.assessment.DebtFactorName
+
+- Surface: ccf.halflife.assessment.DebtFactorName
+- Public surface: true
+- Change type: added
+- Before: absent — the three factors were field names and nothing more, so
+  nothing could *refer* to one
+- After: `Literal["freshness", "completeness", "semantic_consistency"]`
+- Why: a scorer pin has to name the factor it accounts for, and a free `str`
+  would let a pin claim a factor the fabric does not compute. A closed
+  `Literal` refuses that at construction. The names are the SDK's own structure
+  drawn from whitepaper §7.7, never deployment vocabulary — which is what
+  `tests/halflife/test_debt_delivery.py` asserts against the module's string
+  constants, since the `cinv01b-numeric-table` lint sees a numeric map and not a
+  tuple of strings
+- Migration: new surface — none
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.assessment.ScorerPin
+
+- Surface: ccf.halflife.assessment.ScorerPin
+- Public surface: true
+- Change type: added
+- Before: absent. `DebtFactorScorerProtocol` has carried `scorer_id` and
+  `scorer_version` since I.1 *"because the ruling requires the scorer version in
+  force to be pinned into replay"* — and nothing ever pinned it
+- After: `factor`, `scorer_id` and `scorer_version`, plus
+  `ScorerPin.of(scorer, factor=...)`, which reads the identity off the scorer so
+  a pin cannot name a version its scorer does not claim
+- Why: D-IMPL-47, closed. A factor value is reproducible only alongside the
+  computation that produced it: a replay that resolved *today's* scorer would
+  re-derive a number under a different measurement and present it as the number
+  the decision was made with — the substitution the replay plane exists to
+  prevent
+- Migration: new surface — none required. A deployment that runs the reference
+  `FreshnessScorer` adopts the pin with
+  `assess_debt(factors, profile=profile, scorers=(ScorerPin.of(scorer, factor="freshness"),))`.
+  Pins are stored one-per-factor in a canonical order, on the `graph_secret_refs`
+  reasoning: declaration order is not a fact about the decision, and this value
+  is inside the product's content address
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.assessment.NO_SCORER_PINS
+
+- Surface: ccf.halflife.assessment.NO_SCORER_PINS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the empty tuple, as the positive assertion *no scorer declared itself
+  the producer of these factors* — in the `NO_GRAPH_QUERIES` voice and for its
+  reason
+- Why: only F has an SDK reference scorer, so an unpinned assessment is the
+  ordinary posture rather than a defect. Without a named sentinel an unpinned
+  assessment and one whose pins somebody dropped would be the same artifact,
+  which is the repudiation failure mode every sentinel in this fabric closes.
+  The empty tuple rather than a marker string because each element is a
+  structured pin and the field must stay one shape
+- Migration: new surface — none
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.debt.ScorerPin
+
+- Surface: ccf.halflife.debt.ScorerPin
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the re-export of `ccf.halflife.assessment.ScorerPin`
+- Why: `ccf.halflife.debt` is where an adopter already looks for everything
+  debt-shaped, and the module that owns `FreshnessScorer` is where a reader
+  reaches for the type that pins it. Re-exported rather than defined here, so
+  there is one definition
+- Migration: new surface — none
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.debt.NO_SCORER_PINS
+
+- Surface: ccf.halflife.debt.NO_SCORER_PINS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the re-export of `ccf.halflife.assessment.NO_SCORER_PINS`, which is
+  also `assess_debt`'s default for its `scorers` argument
+- Why: a caller reading `assess_debt`'s signature should be able to import its
+  default from the same module
+- Migration: new surface — none
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.debt.DebtFactorName
+
+- Surface: ccf.halflife.debt.DebtFactorName
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the re-export of `ccf.halflife.assessment.DebtFactorName`
+- Why: it is the type of `ScorerPin.of`'s `factor` keyword, and both are reached
+  from this module
+- Migration: new surface — none
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
 #### ccf.products.composition.compose_lineage
 
 - Surface: ccf.products.composition.compose_lineage
@@ -4482,7 +4646,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-227 entries — 44 public Python surface, 183 not public Python API.
+236 entries — 53 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -5598,6 +5762,174 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   calls it, and by nothing else
 
 *Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.halflife.debt.DebtAssessment
+
+- Surface: ccf.halflife.debt.DebtAssessment
+- Public surface: true
+- Change type: reshaped
+- Before: three fields — `debt`, `signal`, `factors` — defined in this module
+- After: a re-export of `ccf.halflife.assessment.DebtAssessment`, carrying a
+  fourth field `scorers`, defaulted to `NO_SCORER_PINS`. A `float` `debt` is
+  refused at construction, and a second pin for one factor is refused
+- Why: D-IMPL-47's pin (see `ScorerPin`) and D-IMPL-100's placement (see the
+  module split under `ccf.halflife.assessment.DebtAssessment`)
+- Migration: **none for construction** — the new field is defaulted, so all six
+  construction sites in this tree build unchanged. **The canonical bytes of an
+  assessment change**, because `scorers` is serialized whether or not it is
+  populated. Anything that content-addressed a `DebtAssessment` directly, or a
+  contract embedding one, re-records; inside this repository that is exactly the
+  `ccf.hitl` escalation records below
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.debt.assess_debt
+
+- Surface: ccf.halflife.debt.assess_debt
+- Public surface: true
+- Change type: reshaped
+- Before: `assess_debt(factors, *, profile) -> DebtAssessment`
+- After: `assess_debt(factors, *, profile, scorers=NO_SCORER_PINS) ->
+  DebtAssessment`. The pins are **carried, never consulted**: passing them
+  changes neither `debt` nor `signal`, asserted by test
+- Why: D-IMPL-47 requires the scorer in force to travel *with* the value, and
+  constructing the value and its pin in one place is what stops the two from
+  being assembled separately and disagreeing. **D-IMPL-105 is what the new
+  parameter is not**: no entitlement, principal or grant argument joins this
+  signature, and a structural test asserts the parameter set so that a later
+  addition is a decision somebody makes rather than one that happens. Under a
+  per-principal figure the completeness number would move when a source was
+  withheld, giving a caller an oracle over the entitlement configuration —
+  quieter than a refusal, because nothing in the response says a consultation
+  was declined
+- Migration: **none.** The parameter is keyword-only with a default, so all nine
+  call sites across three files are unchanged
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.products.contract.ContextProductContract
+
+- Surface: ccf.products.contract.ContextProductContract
+- Public surface: true
+- Change type: reshaped
+- Before: nine fields, none of them saying anything about how much to trust the
+  product's contents
+- After: one further field, `debt: DebtAssessment | None`, defaulted to `None`
+- Why: D-IMPL-100. Debt is carried **inside** the delivered bytes rather than
+  beside them, because every shipped delivery path serializes the vessel and
+  none reads `ServedProduct.replay_ref` — see the door table above. `None` is
+  the positive assertion *this product was assembled with no debt assessment*,
+  in the `NO_HITL_ACTIONS` voice: it is what every product shipped before this
+  field existed was in fact asserting, and it is what keeps all 42 existing
+  construction sites saying exactly what they always said
+- Migration: **nothing is required to keep constructing products**, and
+  **something is required if you recorded addresses outside the replay record**
+  — see "The content address moves" above. To adopt, pass
+  `debt=assess_debt(factors, profile=profile, scorers=...)` at assembly; the
+  value then reaches every door and lands on the record with no further wiring.
+  A custom `ReplayEnvironment` must read it back — see
+  `ccf.replay.engine.ReplayEnvironment` below
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: six fields, ending at the 15.2-08 query pins
+- After: one further field, `debt: DebtAssessment | None`, defaulted to `None`
+- Why: dimension 5 and not dimension 1, for two reasons pointing the same way.
+  D_c's routing band *is* a generation-path fact — a Forced-LLM signal invokes a
+  semantic stage and a Fail-Closed signal declines the decision outright — and
+  debt is a property of the delivered product, so it belongs beside
+  `product_content_address`: the field a rehydrator reads in order to reproduce
+  the address sits next to the address it must reproduce. Dimension 1 stays
+  exactly the four D-IMPL-06 constituents plus the attestation pin
+- Migration: none for construction. `None` is the positive assertion *this
+  decision carried no debt assessment*, on the `source_attestation` precedent,
+  so a record written before this seam parses and verifies unchanged
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: the record's dimension 5 said nothing about debt
+- After: dimension 5's `debt` is **derived from the `product` argument the
+  builder was already handed** — no new parameter
+- Why: derivation rather than threading is what keeps all 30 consumers,
+  including two conformance modules, byte-for-byte unchanged; and it makes a
+  record that pins a debt its product does not carry *unrepresentable* rather
+  than merely discouraged. It is the same rule that put the 15.2-08 seam facts
+  on `ExecutionResult` rather than in the signature: a fact already present is
+  read, never re-passed
+- Migration: **none.** No call site changes. A caller that wants debt on the
+  record puts it on the product
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.hitl.EscalationHandOff
+
+- Surface: ccf.hitl.EscalationHandOff
+- Public surface: true
+- Change type: reshaped
+- Before: unchanged in its own fields
+- After: still unchanged in its own fields; its `trigger` may be a
+  `DebtAssessment`, which gained `scorers`, so the hand-off's canonical bytes
+  move with it
+- Why: consequential, not deliberate. `EscalationTrigger` is
+  `ExplicitEscalation | DebtAssessment` by design — a debt-triggered escalation
+  carries the assessment that caused it, which is the whole point of routing on
+  D_c — so a change to the assessment's serialized shape is a change to this
+  type's
+- Migration: none for construction. Re-record any content address taken over a
+  debt-triggered hand-off
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.hitl.escalation.EscalationHandOff
+
+- Surface: ccf.hitl.escalation.EscalationHandOff
+- Public surface: true
+- Change type: reshaped
+- Before: as above — this is the defining module; `ccf.hitl` re-exports it
+- After: as above
+- Why: as above
+- Migration: as above
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.hitl.EscalationActionRecord
+
+- Surface: ccf.hitl.EscalationActionRecord
+- Public surface: true
+- Change type: reshaped
+- Before: unchanged in its own fields
+- After: still unchanged in its own fields; it records the hand-off's trigger,
+  so a debt-triggered escalation's action record moves with `DebtAssessment`
+- Why: consequential, not deliberate — the audit record carries what caused the
+  escalation, and what caused it now names the scorers in force. That is an
+  improvement in what an examiner can reconstruct, arriving as a side effect of
+  D-IMPL-47 rather than as its own change
+- Migration: none for construction. Re-record any content address taken over a
+  debt-triggered escalation action record
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.hitl.escalation.EscalationActionRecord
+
+- Surface: ccf.hitl.escalation.EscalationActionRecord
+- Public surface: true
+- Change type: reshaped
+- Before: as above — this is the defining module; `ccf.hitl` re-exports it
+- After: as above
+- Why: as above
+- Migration: as above
+
+*Recorded by `15.5-11-debt-delivery.md`.*
 
 ### Not public Python API
 
@@ -7876,7 +8208,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-35 entries — 26 public Python surface, 9 not public Python API.
+36 entries — 27 public Python surface, 9 not public Python API.
 
 ### Public Python surface
 
@@ -8489,6 +8821,40 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   `ccf.skills.toolsurface`, so none of them changes
 
 *Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.replay.engine.ReplayEnvironment
+
+- Surface: ccf.replay.engine.ReplayEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: `rehydrate_product(*, record, projection)` rebuilt the product's
+  envelope from the deployment's product class and its payload from the
+  re-executed projection
+- After: **the same signature** — which is why this is classified `behavior`
+  rather than `reshaped`, and it is the one place this plan came in under the
+  cost D-IMPL-100 authorized. The ruling priced a signature change; none was
+  needed, because `record` is already a parameter and the debt is on the record.
+  What changed is the **contract**: a conforming implementation must now carry
+  `record.content_generation_path.debt` onto the product it returns
+- Why: `ContextProductContract.debt` is inside the hashed body, so an
+  implementation that omits it returns a product the engine's address check at
+  `src/ccf/replay/engine.py:449-455` rejects with `ReplayDivergence`
+- Migration: **required for any adopter with a custom `ReplayEnvironment`,
+  and it is one line.** Add `debt=record.content_generation_path.debt` to the
+  `ContextProductContract(...)` your `rehydrate_product` returns. All seven
+  implementations across six files in this repository were updated in the same
+  commit (`src/ccf/replay/engine.py`, `tests/replay/test_engine_rehydration.py`,
+  `tests/replay/test_query_sequence_pin.py`, `perf/suites/replay/conftest.py`,
+  `examples/06-decision-replay/run.py`,
+  `examples/external/00-hello-context/run.py`).
+  **Do not re-assess the debt at replay.** `D_c` is computed from observations
+  and a `now` that neither the record nor the projection re-derives, so a fresh
+  assessment would be a different decision wearing this one's identifier — and
+  the address check would say so. An adopter who omits the line does not get a
+  silent wrong answer; they get `ReplayDivergence`, which is the failure mode
+  this fabric prefers
+
+*Recorded by `15.5-11-debt-delivery.md`.*
 
 ### Not public Python API
 

@@ -21,6 +21,7 @@ Field                                        Specification element
 ``lineage``                                  Lineage
 ``plan_id``                                  Π identity (binds product to plan)
 ``payload``                                  the class's declared payload
+``debt``                                     D_c in force (§7.7, D-IMPL-100)
 ===========================================  ================================
 
 On :class:`RegisteredProductClass`, the class-level governance a product is
@@ -88,6 +89,60 @@ three shipped validation gates stay at three.
 field on the instance and is never compared across classes, so a bump on one
 product never touches another.
 
+**Context Debt rides the vessel, and that is what makes it reach a consumer**
+(D-IMPL-100). D_c was computed by :mod:`ccf.halflife.debt` and then discarded:
+it appeared on neither the product nor the replay record, so five of the six
+axes of ``G(E, R, T, P, Π, L)`` reached the wire and the sixth — the one that
+says how much to trust the other five — did not. §7.7 and
+``docs/CCF_Whitepaper_1-2.md:2696`` are unambiguous that debt is *"a runtime
+signal the agent must consume as a first-class decision input, not a log-line
+to be read after the fact"*, so it is carried **here**, inside the delivered
+bytes, rather than beside them.
+
+**The three doors, and what a consumer at each receives.** Every shipped
+delivery path serializes ``servable.product`` and **none** reads
+``ServedProduct.replay_ref``, so a placement beside the vessel would have
+reached an in-process caller and no wire consumer at all. Because debt is on
+the vessel, all three carry it with **no code change at any door**:
+
+=================================================  ==============  ===========
+Door                                               Serializes      Carries D_c
+=================================================  ==============  ===========
+``ccf_runtime/mcp/egress.py:270``                  the vessel      yes
+``ccf_runtime/http_api/routes/product.py:112``     the vessel      yes
+``ccf_runtime/mcp/experience.py:632``              the vessel      yes
+=================================================  ==============  ===========
+
+No door is structurally unable to carry it, so nothing is carried forward as a
+residual on that account. ``tests/invariants/test_replay_by_construction.py``
+registers the claim as a CINV-04 check ranging over
+``tests/invariants/test_mcp_role_separation.py``'s exhaustive door enumeration —
+one enumeration, because this phase began by discovering that nobody had counted
+the doors.
+
+**The content address moves, and it moves reconstructibly.** ``debt`` is inside
+the hashed body — :func:`~ccf.contracts.canonical.canonical_bytes` walks a model
+field-by-field over ``type(value).model_fields`` — so every address recorded
+before this field existed differs from the one the same product produces now.
+That is authorized by D-IMPL-100 on one condition, which is structural rather
+than procedural: the *record* carries the same assessment on dimension 5, and
+:meth:`~ccf.replay.engine.ReplayEnvironment.rehydrate_product` reads it back, so
+the engine's check at ``src/ccf/replay/engine.py:449-455`` passes on identical
+bytes rather than on a re-measurement. Debt is **never** re-derived at replay:
+it is computed from observations and a ``now`` neither the record nor the
+projection re-derives, so a rehydrator that re-measured it would produce a
+different decision wearing this one's identifier.
+
+**One figure per product, not one per principal** (D-IMPL-105). Different
+principals legitimately receive different products, assembled from what each may
+consult — but debt is not one of the things that differs. A refused consultation
+is simply not part of ``C_required`` for that principal, so its absence is not a
+shortfall. Under the per-principal reading the completeness number would move
+when a source was withheld, and a caller could then infer *what they are not
+allowed to see* from the debt they were shown — an oracle over the entitlement
+configuration, quieter than a refusal because nothing in the response says a
+consultation was declined. There is no per-principal figure here to difference.
+
 **MAX_TTL has no SDK default** (D-IMPL-39). It is required Control Plane
 configuration per product class, and the absence of a registered value is a
 failure at *class registration* — before any product of that class can exist —
@@ -107,6 +162,7 @@ from typing import Any, Literal
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.graph.protocols import LineageMode, PolicyBindingMode
+from ccf.halflife.assessment import DebtAssessment
 
 __ccf_mode__ = "algorithmic"
 
@@ -440,6 +496,19 @@ class ContextProductContract(CCFContract):
     something servable. This type is the candidate; :class:`
     ~ccf.products.gates.ServableProduct` is the gated result, and only
     :mod:`ccf.products.gates` can mint one.
+
+    Attributes:
+        debt: The :class:`~ccf.halflife.assessment.DebtAssessment` in force
+            when this product was assembled (§7.7, D-IMPL-99/100) — per factor,
+            so a consumer can see *which* of freshness, completeness or
+            semantic consistency collapsed rather than only how far. ``None``
+            is the positive assertion *this product was assembled with no debt
+            assessment*, in the :data:`~ccf.replay.record.NO_HITL_ACTIONS`
+            voice: it is what every product shipped before this field existed
+            was in fact asserting, and an unassessed product and one whose
+            assessment somebody dropped would otherwise be the same artifact.
+            The default is what keeps all 42 existing construction sites saying
+            exactly what they always said.
     """
 
     schema_name: str
@@ -451,6 +520,7 @@ class ContextProductContract(CCFContract):
     ttl_anchor: TTLAnchor
     lineage: ProductLineage
     payload: Mapping[str, Any]
+    debt: DebtAssessment | None = None
 
 
 def register_product_class(

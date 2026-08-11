@@ -358,9 +358,22 @@ def _baseline_product() -> ContextProductContract:
 
 
 def _product_with_debt(debt: Decimal) -> _ProductWithDebt:
+    """The stand-in vessel, carrying the spike's own ``Decimal`` debt field.
+
+    ``debt`` is excluded from the spread because plan ``15.5-11`` landed a
+    field of that name on the shipped vessel under D-IMPL-100, and this
+    stand-in *overrides* it with the spike's narrower ``Decimal``. Excluding
+    the overridden name keeps the measurement what it always was — "adding a
+    field to the hashed body changes the hash" — rather than making it depend
+    on the shipped vessel's current field list.
+    """
     base = _baseline_product()
     return _ProductWithDebt(
-        **{name: getattr(base, name) for name in type(base).model_fields},
+        **{
+            name: getattr(base, name)
+            for name in type(base).model_fields
+            if name != "debt"
+        },
         debt=debt,
     )
 

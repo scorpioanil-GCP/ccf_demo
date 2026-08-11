@@ -29,6 +29,28 @@ never a bare contract. The two structural gates therefore compose — a delivere
 product has passed all three validation gates *and* has a replay record, and
 neither guarantee is reachable without the other.
 
+Where Context Debt travels on this seam
+---------------------------------------
+It travels **inside** :attr:`ServedProduct.product`, not beside it. The
+:class:`~ccf.halflife.assessment.DebtAssessment` in force is a field of
+:class:`~ccf.products.contract.ContextProductContract` under D-IMPL-100, so it
+crosses this seam as part of the vessel's own bytes and needs nothing from
+``serve()``.
+
+That placement was ruled against the alternative of a third field on
+:class:`ServedProduct`, and the reason is measured rather than aesthetic: all
+three shipped delivery paths serialize ``servable.product`` and **none** of them
+reads ``servable.replay_ref``, so debt hung beside the product would have
+reached an in-process caller and no wire consumer at any door. See
+:mod:`ccf.products.contract` for the per-door table.
+
+**``serve()`` gains no branch for it.** The whole invariant of this module is
+that the successful append *returns* the delivery capability and no branch
+reaches delivery; debt travels with the capability's payload or with the record,
+and it never becomes a condition. A ``serve()`` that inspected debt would be a
+second place a delivery could be refused, and the first one — the append — would
+stop being the only one.
+
 Algorithmic module (CINV-03).
 """
 
