@@ -29,6 +29,15 @@ from ccf.agents.archetypes import (
     monitoring_surveillance,
     workflow_task,
 )
+from ccf.agents.assembler import (
+    DETERMINISTIC_ASSEMBLER_ID,
+    DETERMINISTIC_ASSEMBLER_VERSION,
+    NO_CONSULTATIONS,
+    AssemblyOutcome,
+    ConsultationRecord,
+    ContextAssemblerProtocol,
+    DeterministicAssembler,
+)
 from ccf.agents.composition import (
     ComposedArchetype,
     CompositionContradiction,
@@ -47,15 +56,22 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ARCHETYPES",
+    "DETERMINISTIC_ASSEMBLER_ID",
+    "DETERMINISTIC_ASSEMBLER_VERSION",
+    "NO_CONSULTATIONS",
     "Agent",
     "AgentFactory",
     "AgentIdentity",
     "ArchetypeComponent",
+    "AssemblyOutcome",
     "ComposedArchetype",
     "CompositionContradiction",
     "ConfigurationDefault",
+    "ConsultationRecord",
+    "ContextAssemblerProtocol",
     "ControlPlaneResolution",
     "DefaultConflict",
+    "DeterministicAssembler",
     "EmittedEffect",
     "ReplayObligation",
     "Task",

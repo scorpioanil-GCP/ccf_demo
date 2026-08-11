@@ -17,6 +17,10 @@ context, never data). Three claims, held mechanically:
 3. **Consumption-only inputs.** The only fabric input an ``Agent`` method
    accepts is the typed Context Product contract — asserted over the
    method signatures of the public surface.
+4. **Bounded per-module widenings.** A module that has been argued a
+   narrower extra prefix (:data:`MODULE_CCF_PREFIXES`) names **no
+   capability symbol** from the modules it was admitted to — see that
+   entry, and :data:`FABRIC_CAPABILITY_NAMES` for the list.
 
 If a future change needs a new fabric import inside ``ccf.agents``, it
 must be argued into the allowlist below, in review — never slipped in.
@@ -93,6 +97,59 @@ ALLOWED_CCF_PREFIXES = (
     "ccf.skills.grants",
 )
 
+#: Per-module widenings of the surface above, argued **one module at a time**
+#: rather than added to :data:`ALLOWED_CCF_PREFIXES`, so a prefix admitted for
+#: one module does not silently become admissible for the whole package.
+#:
+#: ``assembler.py`` (plan ``15.5-10``; ``docs/DECISIONS.md`` D-IMPL-97 ruling 2)
+#: is the producer seam: an assembler is a Protocol whose implementation is a
+#: declared agent, so the surface has to be typed in the fabric's own value
+#: vocabulary or it cannot state what it produces. Three prefixes, and the
+#: argument is the same for each — **every symbol the module actually binds
+#: from them is a frozen value contract, never a capability**:
+#:
+#: * ``ccf.projection.plan`` supplies :class:`Perspective`, which is
+#:   specialization axis 3 itself — its own docstring says *"the agent
+#:   framework binds to it in I.2 rather than replacing it"* — and
+#:   ``ProjectionOutput``, a ``plan_id`` plus a payload.
+#: * ``ccf.projection.acquisition`` supplies ``AcquiredContent``, the frozen
+#:   content-addressed item that is the **only** route an enlisted agent's
+#:   output may travel back into an assembly (whitepaper §7.6.6). The
+#:   Alternation claim cannot be made without naming this exact type.
+#: * ``ccf.products.request`` supplies ``ProductRequest`` (D-IMPL-98), which
+#:   reaches no fabric layer at all: its own ``ccf`` imports are the products
+#:   contract, the payload comparison, the skill argument schema and the
+#:   Control Plane registry — every one of them already at or above L6.
+#:
+#: The widening is bounded rather than trusted: claim 4 asserts these modules
+#: name none of :data:`FABRIC_CAPABILITY_NAMES`, so admitting the module that
+#: *holds* ``ContentAcquirer`` and ``ProjectionPlan`` does not admit reaching
+#: for either. A capability arriving through one of these doors is a red build.
+MODULE_CCF_PREFIXES: dict[str, tuple[str, ...]] = {
+    "assembler.py": (
+        "ccf.projection.acquisition",
+        "ccf.projection.plan",
+        "ccf.products.request",
+    ),
+}
+
+#: The capability symbols reachable *from* the modules :data:`MODULE_CCF_PREFIXES`
+#: admits, which a widened module must not name. ``ContentAcquirer`` fetches,
+#: ``ContentAcquiringPlan`` and ``ProjectionPlan`` interpret a ``GraphView``,
+#: and ``GraphView``/``OperatorOutput`` are the L3/L4 values Π is handed. None
+#: of them may be named inside ``ccf.agents``: an assembler emits a value and
+#: never drives the stage that produced it.
+FABRIC_CAPABILITY_NAMES = frozenset(
+    {
+        "ContentAcquirer",
+        "ContentAcquiringPlan",
+        "GraphView",
+        "OperatorOutput",
+        "ProjectionEngine",
+        "ProjectionPlan",
+    }
+)
+
 #: I.1 write-surface / fabric-internal type names that must be unreachable
 #: from the Agent public surface (src/ccf/graph/_writer.py,
 #: src/ccf/assembly/worker.py, src/ccf/operators/).
@@ -131,12 +188,47 @@ def _ccf_imports(source: str) -> set[str]:
 def test_agents_modules_import_only_the_consumption_surface(
     module_path: Path,
 ) -> None:
+    permitted = ALLOWED_CCF_PREFIXES + MODULE_CCF_PREFIXES.get(module_path.name, ())
     for module in sorted(_ccf_imports(module_path.read_text())):
-        assert module.startswith(ALLOWED_CCF_PREFIXES), (
+        assert module.startswith(permitted), (
             f"{module_path} imports {module!r}, which is outside the agents"
             " package's permitted consumption surface — no path from Agent"
             " to L1–L5 (AGNT-01; CLAUDE.md §10; DESIGN.md §3.1)"
         )
+
+
+@pytest.mark.parametrize(
+    "module_path",
+    sorted(AGENTS_PACKAGE.glob("*.py")),
+    ids=lambda p: p.name,
+)
+def test_a_widened_module_names_no_fabric_capability(module_path: Path) -> None:
+    """Claim 4: a per-module widening admits values, never capabilities.
+
+    ``MODULE_CCF_PREFIXES`` admits the modules that *hold* ``ContentAcquirer``
+    and ``ProjectionPlan`` because the frozen value contracts an assembler has
+    to name live beside them. This is what keeps that from being a door: the
+    widened module may not name a capability from behind it, and the check runs
+    over every module in the package so the boundary cannot be crossed
+    elsewhere either (AGNT-01).
+    """
+    named = {
+        node.id
+        for node in ast.walk(ast.parse(module_path.read_text()))
+        if isinstance(node, ast.Name)
+    } | {
+        alias.asname or alias.name.rsplit(".", 1)[-1]
+        for node in ast.walk(ast.parse(module_path.read_text()))
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+        for alias in node.names
+    }
+    reached = sorted(named & FABRIC_CAPABILITY_NAMES)
+    assert reached == [], (
+        f"{module_path} names fabric capability symbol(s) {reached!r}; the"
+        " agents package binds L5 *values* and never the stage that produced"
+        " them — an assembler emits a value, it does not drive Π"
+        " (AGNT-01; CLAUDE.md §10; DESIGN.md §3.1)"
+    )
 
 
 def _constructed_fixture_agent() -> Agent:
