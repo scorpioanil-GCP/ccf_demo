@@ -26,6 +26,10 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ERROR_INVALID_GRANT",
+    "ERROR_PRINCIPAL_NOT_ENTITLED",
+    "ERROR_PRODUCT_CLASS_UNENTITLED",
+    "ERROR_PRODUCT_POLICY_ABSENT",
+    "ERROR_PRODUCT_ROLE_UNGRANTED",
     "ERROR_SIGNED_BINDING_INVALID",
     "ERROR_SIGNED_BINDING_REQUIRED",
     "ERROR_SUBJECT_CONFLICT",
@@ -59,6 +63,27 @@ ERROR_SIGNED_BINDING_INVALID: Final[str] = "signed-binding-invalid"
 #: action under the scope mapping in force (403; HARD-04; D-IMPL-68 —
 #: deny-by-default at the doors, one code for both renderings, D-08).
 ERROR_TENANT_UNAUTHORIZED: Final[str] = "tenant-unauthorized"
+
+#: The tenant has no registered ``ccf.product-entitlement-policy`` at all
+#: (403; 15.5-06). A deny rather than an error: a door whose governance
+#: configuration is absent must refuse, never answer everyone.
+ERROR_PRODUCT_POLICY_ABSENT: Final[str] = "product-policy-absent"
+
+#: The tenant's entitlement policy names no entry for the verified
+#: principal (403; 15.5-06). Distinct from a per-request refusal: an
+#: unconfigured principal is a caller the deployment never declared, not one
+#: overreaching a known grant, and an operator reading a refusal should not
+#: have to guess which they saw.
+ERROR_PRINCIPAL_NOT_ENTITLED: Final[str] = "principal-not-entitled"
+
+#: The verified principal's grant does not permit the requested Context
+#: Product class (403; 15.5-06 — ``P`` applied at delivery).
+ERROR_PRODUCT_CLASS_UNENTITLED: Final[str] = "product-class-unentitled"
+
+#: The role the resolved :class:`~ccf.projection.plan.Perspective` carries is
+#: outside the verified principal's grant (403; 15.5-06). A caller may
+#: request a role; only the grant decides whether it is received.
+ERROR_PRODUCT_ROLE_UNGRANTED: Final[str] = "product-role-ungranted"
 
 
 def refusal_detail(*, error_code: str, message: str) -> dict[str, str]:

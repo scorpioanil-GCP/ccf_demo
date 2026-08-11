@@ -117,8 +117,17 @@ from ccf.replay.record import (  # noqa: E402
     PolicyBinding,
     build_replay_record,
 )
+from ccf.products.entitlement import (  # noqa: E402
+    PRODUCT_ENTITLEMENT_POLICY,
+    ProductEntitlementGrant,
+    ProductEntitlementPolicy,
+    product_entitlement_key,
+)
 from ccf.replay.serve import ReplayWriter, serve  # noqa: E402
 
+from ccf_runtime.authz.product_entitlement import (  # noqa: E402
+    ControlPlaneProductEntitlementSource,
+)
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, TokenGrant  # noqa: E402
 from ccf_runtime.mcp.experience import (  # noqa: E402
     GET_CONTEXT_TOOL,
@@ -680,9 +689,72 @@ def main() -> None:
         # requires neither (D-03). A deployment that exposes agents
         # allowlists the tools and supplies the seams; this one does not
         # hand in dead callables to satisfy a signature.
+        # The front door's entitlement, from the artifact that declares it.
+        # Registration is adopter code: no deployment manifest can name
+        # `ccf.product-entitlement-policy`, so this composition root
+        # registers it against the real contract — which is what makes a
+        # near-miss a validation failure here rather than a refusal at the
+        # first served call. The permitted class is the one the fabric
+        # actually assembled, so the entitlement cannot name a class this
+        # deployment does not serve.
+        entitlement_values = experience["entitlement"]
+        door_perspective = cast(
+            PerspectiveArtifact, assembled.artifacts["perspective"]
+        )
+        # The same injected instant every other record in this process
+        # carries. Nothing here reads a wall clock (the audit-module
+        # discipline), so the authz events replay with the decision.
+        door_now = datetime.fromisoformat(
+            cast(
+                DeclaredArtifact, assembled.artifacts["decision"]
+            ).declaration["now"]
+        )
+        door_control_plane = ControlPlaneRegistry()
+        door_control_plane.register_typed(
+            product_entitlement_key(tenant_id=assembled.address.tenant),
+            ProductEntitlementPolicy(
+                tenant_id=assembled.address.tenant,
+                policy_version=entitlement_values["policy_version"],
+                principals={
+                    declared["client_id"]: ProductEntitlementGrant(
+                        permitted_schema_names=frozenset(
+                            {assembled.address.product_class}
+                        ),
+                        permitted_roles=frozenset(declared["roles"]),
+                    )
+                    for declared in entitlement_values["principals"]
+                },
+            ),
+            PRODUCT_ENTITLEMENT_POLICY,
+        )
+
+        def resolve_perspective(
+            *, grant: TokenGrant, tenant: str, requested_role: str | None
+        ) -> Perspective:
+            """This deployment's role derivation — its statement, not the SDK's.
+
+            The subject is the VERIFIED `client_id`, never a value the caller
+            supplied; the capacity is the one `perspective.yaml` declares.
+            Whatever this returns is still checked against the principal's
+            entitlement grant before a product is resolved, so widening it
+            here would not widen the door.
+            """
+            return Perspective(
+                principal_id=grant.client_id,
+                role=(
+                    requested_role
+                    if requested_role is not None
+                    else door_perspective.role
+                ),
+            )
+
         server = build_experience_server(
             server_name=experience["server_name"],
             product_resolver=resolve,
+            entitlement_source=ControlPlaneProductEntitlementSource(
+                control_plane=door_control_plane, clock=lambda: door_now
+            ),
+            perspective_resolver=resolve_perspective,
             context_provider=context_provider,
             lineage_provider=lineage_provider,
             replay_record_reader=replay_record_reader,

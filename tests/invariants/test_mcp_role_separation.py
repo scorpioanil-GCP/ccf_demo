@@ -479,3 +479,289 @@ def _mcp_store() -> Any:
                 )
 
     return running()
+
+
+# --- the doors decide, and the engine does not (15.5-06) --------------------
+#
+# Plan 15.5-06 bound authentication, per-principal entitlement and
+# grant-derived Perspective at every exposed product door. The risk that
+# creates is the one 15.5-RESEARCH.md names as Pitfall 3: the check sinking
+# BELOW the door — into ``run_gates``, into ``serve()``, or into the engine.
+# Then the gates are impure, the local and federated gate sequences drift,
+# and replay has to re-authenticate a principal who may no longer exist.
+#
+# These are the structural half of "the door decides".
+
+#: ``ProjectionEngine.execute``'s parameters, as names and kinds, pinned. An
+#: explicit expected tuple rather than a hash, so a diff shows a reader
+#: exactly what moved. What would fail here: a contributor adding
+#: ``principal_id=`` to the engine "so the projection can filter" — the whole
+#: of Pitfall 3, caught here rather than in review.
+EXPECTED_EXECUTE_PARAMETERS: tuple[tuple[str, str], ...] = (
+    ("self", "POSITIONAL_OR_KEYWORD"),
+    ("plan", "KEYWORD_ONLY"),
+    ("perspective", "KEYWORD_ONLY"),
+    ("tenant_id", "KEYWORD_ONLY"),
+    ("temporal_boundary", "KEYWORD_ONLY"),
+    ("recorded_acquisitions", "KEYWORD_ONLY"),
+)
+
+#: The one place in ``src/`` a ``principal_id`` parameter is legitimate below
+#: a door, with its reason. ``ProductEntitlementPolicy.grant_for`` is the
+#: ARTIFACT's lookup surface — *which entitlements did the deployment declare
+#: for this principal* — not a value threaded through assembly or delivery.
+#: Enumerated rather than pattern-matched so a second one cannot join it
+#: quietly; adding an entry is a decision a reviewer sees.
+PRINCIPAL_ID_EXEMPTIONS: frozenset[tuple[str, str]] = frozenset(
+    {("ccf/products/entitlement.py", "grant_for")}
+)
+
+#: The trees a principal must never reach as a function parameter.
+PRINCIPAL_FREE_PACKAGES: tuple[str, ...] = (
+    "ccf/products",
+    "ccf/projection",
+    "ccf/replay",
+)
+
+#: Every exposed Context Product door, named. The companion test below proves
+#: this list is exhaustive over ``runtime/``, because a hand-listed three that
+#: never checks it *is* three is how this defect happened once already: this
+#: phase's first plans covered two doors and missed
+#: ``ccf_runtime.mcp.experience`` — the external front door.
+PRODUCT_DOOR_MODULES: tuple[str, ...] = (
+    "ccf_runtime.mcp.egress",
+    "ccf_runtime.mcp.experience",
+    "ccf_runtime.http_api.routes.product",
+)
+
+SRC_ROOT = Path(__file__).resolve().parents[2] / "src"
+RUNTIME_ROOT = Path(__file__).resolve().parents[2] / "runtime" / "ccf_runtime"
+
+#: The two resolver seams a product door calls. A module that *calls* one is
+#: serving a product; a module that merely holds one in a field (the
+#: ``ApiDependencies`` bundle) or forwards one (``cli/local.py``) is not.
+PRODUCT_RESOLVER_PROTOCOLS: frozenset[str] = frozenset(
+    {"ProductResolverProtocol", "ExperienceProductResolverProtocol"}
+)
+
+
+def _calls_a_product_resolver(tree: ast.AST) -> bool:
+    """Whether this module *invokes* a product-resolver seam.
+
+    Two shapes, both drawn from what the three shipped doors actually do: a
+    parameter annotated with one of the resolver Protocols and then called,
+    or an attribute named ``product_resolver`` called on a dependency bundle.
+    Holding a seam is not serving through it — which is why
+    ``dependencies.py`` (a dataclass field) and ``cli/local.py`` (a keyword
+    argument) are correctly not doors.
+    """
+    seam_names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.arg) and node.annotation is not None:
+            annotation = ast.unparse(node.annotation)
+            if any(
+                protocol in annotation
+                for protocol in PRODUCT_RESOLVER_PROTOCOLS
+            ):
+                seam_names.add(node.arg)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name) and func.id in seam_names:
+            return True
+        if isinstance(func, ast.Attribute) and func.attr == "product_resolver":
+            return True
+    return False
+
+
+def _module_name_for(path: Path, root: Path, package: str) -> str:
+    """``<root>/a/b.py`` → ``<package>.a.b``."""
+    parts = list(path.relative_to(root).with_suffix("").parts)
+    if parts and parts[-1] == "__init__":
+        parts.pop()
+    return ".".join([package, *parts])
+
+
+def test_the_projection_engines_execute_signature_is_unchanged() -> None:
+    """Replay determinism rests on this signature; pin it explicitly.
+
+    What would fail here: any parameter added, removed, renamed, or moved
+    between keyword-only and positional. A door that wanted to push a
+    principal into the engine would have to change this line first, and the
+    change would then be a decision somebody made rather than one that
+    happened.
+    """
+    from ccf.projection.engine import ProjectionEngine
+
+    observed = tuple(
+        (name, parameter.kind.name)
+        for name, parameter in inspect.signature(
+            ProjectionEngine.execute
+        ).parameters.items()
+    )
+
+    assert observed == EXPECTED_EXECUTE_PARAMETERS
+
+
+@pytest.mark.parametrize("package", PRINCIPAL_FREE_PACKAGES)
+def test_no_principal_id_parameter_exists_below_the_door(package: str) -> None:
+    """Pitfall 3, as a test rather than as a warning sign.
+
+    An AST walk over every function in the assembly, delivery and replay
+    trees. What would fail here: ``run_gates(..., principal_id=...)``,
+    ``serve(..., principal_id=...)``, or a projection that filtered by
+    caller — at which point the gates become impure, the local and federated
+    gate sequences drift, and a replay of a departed principal cannot run.
+
+    ``Perspective.principal_id`` is a model FIELD, not a function parameter,
+    and is deliberately untouched: the door resolves it and the engine
+    receives it already resolved. That is the shape this test defends, not
+    the one it forbids.
+    """
+    offending: list[str] = []
+    for path in sorted((SRC_ROOT / package).rglob("*.py")):
+        relative = path.relative_to(SRC_ROOT).as_posix()
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            names = [
+                argument.arg
+                for argument in (
+                    *node.args.posonlyargs,
+                    *node.args.args,
+                    *node.args.kwonlyargs,
+                )
+            ]
+            if "principal_id" not in names:
+                continue
+            if (relative, node.name) in PRINCIPAL_ID_EXEMPTIONS:
+                continue
+            offending.append(f"{relative}::{node.name}")
+
+    assert not offending, (
+        f"a principal_id parameter appears below the door in {offending};"
+        " entitlement is decided at the door and the engine receives an"
+        " already-resolved Perspective (15.5-RESEARCH.md Pitfall 3)"
+    )
+
+
+def test_replay_feeds_the_recorded_perspective_and_resolves_none() -> None:
+    """A principal who no longer exists must still replay (T-15.5-25).
+
+    Two halves, and both are needed. The engine must CONSTRUCT its
+    ``Perspective`` from the record's dimension-4 content — the positive
+    claim — and no perspective resolver may be reachable from the replay tree
+    at all, the negative one. Either half alone passes against a module that
+    reads the record and then "refreshes" the role from somewhere current.
+    """
+    import importlib
+
+    import ccf.replay.engine as replay_engine
+
+    source = inspect.getsource(replay_engine)
+    assert "Perspective(" in source
+    assert "record.perspective_conditioning.principal_id" in source
+    assert "record.perspective_conditioning.role" in source
+
+    for path in sorted((SRC_ROOT / "ccf" / "replay").rglob("*.py")):
+        module = importlib.import_module(
+            _module_name_for(path, SRC_ROOT, "")[1:]
+        )
+        offending = [
+            name
+            for name in _imported_names(module)
+            if name.startswith("ccf_runtime")
+            or "product_entitlement" in name
+        ]
+        assert not offending, (
+            f"{path.name} reaches {offending}; replay resolves no"
+            " perspective and re-authenticates nobody"
+        )
+
+
+@pytest.mark.parametrize("module_name", PRODUCT_DOOR_MODULES)
+def test_every_product_door_entitles_after_it_authenticates(
+    module_name: str,
+) -> None:
+    """Each door reaches the shared decision, and each sits behind auth.
+
+    The entitlement claim is on the *shared* function rather than on each
+    door's own inlined checks, because that is the property worth defending:
+    three doors reaching one definition of "entitled". That the shared
+    function reaches the artifact's two raising checks is asserted once,
+    below.
+
+    The authentication claim differs by surface and says so. The two MCP
+    doors construct their own ``FastMCP`` with ``token_verifier`` and
+    ``auth``; the HTTP route sits behind ``create_app``'s ``auth=`` hook and
+    therefore asserts the composition it actually depends on — reading the
+    verified grant off the request through the shared, fail-closed helper.
+    """
+    import importlib
+
+    module = importlib.import_module(module_name)
+    source = inspect.getsource(module)
+
+    assert "entitled_perspective(" in source, (
+        f"{module_name} serves a product without reaching the shared"
+        " entitlement decision (15.5-06)"
+    )
+    assert "from ccf_runtime.authz.product_entitlement import" in source, (
+        f"{module_name} does not import the shared seams; three doors with"
+        " three readings of 'entitled' is the drift this import prevents"
+    )
+
+    if module_name.startswith("ccf_runtime.mcp."):
+        assert "token_verifier=token_verifier" in source
+        assert "auth=auth_settings" in source
+    else:
+        assert "grant_from_request(" in source
+
+
+def test_the_shared_decision_reaches_the_artifacts_two_raising_checks() -> None:
+    """The one place ``require_schema`` and ``require_role`` are called.
+
+    Asserted once, on the shared source, because that is where the order
+    lives. What would fail here: a refactor that "simplified" the source to
+    check the class and forget the role — which no door-side test would
+    catch, since every door would still be reaching the shared function.
+    """
+    import ccf_runtime.authz.product_entitlement as shared
+
+    source = inspect.getsource(shared)
+    assert "grant_for(" in source
+    assert "require_schema(" in source
+    assert "require_role(" in source
+
+
+def test_the_product_door_table_is_exhaustive_over_the_runtime_tree() -> None:
+    """A fourth door cannot ship ungated — it fails here instead.
+
+    This is the assertion this phase's own planning needed and did not have.
+    The first plans enumerated the doors by hand and missed
+    ``ccf_runtime.mcp.experience`` — the external front door, and the least
+    excusable one to miss. A hand-listed three that never checks it *is*
+    three is exactly how that happens, so the table above is checked against
+    the tree rather than trusted.
+
+    "Product-serving" is mechanical: a module that *calls* a product-resolver
+    seam. Merely holding one is not serving through it, which is why the
+    ``ApiDependencies`` bundle and the CLI's local composition are correctly
+    absent.
+    """
+    discovered = {
+        _module_name_for(path, RUNTIME_ROOT, "ccf_runtime")
+        for path in sorted(RUNTIME_ROOT.rglob("*.py"))
+        if _calls_a_product_resolver(
+            ast.parse(path.read_text(encoding="utf-8"))
+        )
+    }
+
+    assert discovered == set(PRODUCT_DOOR_MODULES), (
+        "the declared product-door table disagrees with the runtime tree;"
+        f" declared={sorted(PRODUCT_DOOR_MODULES)}"
+        f" discovered={sorted(discovered)} — a door added without an entry"
+        " would otherwise ship ungated (T-15.5-21b)"
+    )

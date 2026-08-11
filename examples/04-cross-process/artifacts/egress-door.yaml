@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The PRODUCER's L6 egress door: who it recognises, and what it may receive
+# (syndicated-lending domain, whitepaper §8.3 Pattern 3; CLAUDE.md §7.1).
+#
+# `build_egress_server` requires four governance seams and has no inert
+# configuration: a bearer-token verifier, its auth settings, a per-principal
+# entitlement source, and a perspective resolver. Every VALUE those seams need
+# is here rather than in `producer_child.py`, which is the No-Hardcoding Rule
+# (CLAUDE.md §6.4) applied to a security surface: an entitlement expressed as a
+# code constant is a defect of the same severity as a hardcoded half-life
+# table, and it is the one an auditor most needs to be able to read back.
+#
+# **What is deliberately NOT declared here.**
+#
+# * The *principal* and the *role*. Both live in `perspective.yaml` already,
+#   which is the document that says who this fabric assembles for and in what
+#   capacity. Restating them here would be two declarations of one fact, and
+#   the copy that drifted would be the one nobody was watching.
+# * The *product class*. It is `product-class.yaml`'s, and the door derives the
+#   permitted class from the product the fabric actually assembled — so an
+#   entitlement can never name a class this deployment does not serve.
+# * Any token VALUE. The example generates a throwaway credential per run into
+#   a temp directory, exactly as it does signing keys. A token in a repository
+#   is a token in every clone of it.
+#
+# Every value below is OBVIOUSLY SYNTHETIC — `.invalid` is reserved by
+# RFC 2606 and resolves nowhere.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: harborline-syndications.egress-door
+
+declaration:
+  # The scope this door requires of a presented token. FastMCP intersects it
+  # with the scopes the token grant carries, so the two halves of the coarse
+  # authorization decision both stay with the deployment.
+  required_scope: ccf:egress
+
+  # The resource-server identity this door advertises, and the issuer it names
+  # as the authority for tokens. Deployment values in their entirety — the SDK
+  # ships no issuer and would be picking an identity provider if it did.
+  issuer_url: https://issuer.harborline.invalid
+  resource_server_url: https://egress.harborline.invalid/mcp
+
+  # The entitlement policy's own version lane. Bumped by the author when the
+  # grant below changes; it is this artifact's lane and is never compared
+  # against another artifact class's.
+  policy_version: "1.0.0"

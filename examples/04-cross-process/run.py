@@ -202,6 +202,14 @@ def run(*, root: Path) -> CrossProcessResult:
         key_dir.mkdir()
         key = _write_key(key_dir, peering["producer_key_id"])
 
+        # The bearer credential this consumer will present at the producer's
+        # egress door. Minted per run into this temp root and handed to the
+        # child over the environment — a credential is never an artifact and
+        # never a repository file, exactly like the signing key above. What
+        # the *artifact* declares is who may be recognised; what proves it is
+        # generated here.
+        egress_token = f"ccf-example04-egress-{sha256(key_dir.name.encode()).hexdigest()[:16]}"
+
         # --8<-- [start:peer-trust-policy]
         # 2. Trust is declared, then pinned. The regime the consumer entitles
         #    the producer to claim is the version of the consumer's OWN policy
@@ -337,6 +345,12 @@ def run(*, root: Path) -> CrossProcessResult:
                                 + peering["receive_path"]
                             ),
                             producer.KEY_DIR_VAR: str(key_dir),
+                            # The credential this process will present to the
+                            # producer's egress door. Generated here, handed
+                            # over the process boundary, and never written to
+                            # the repository — the same discipline the signing
+                            # key gets, for the same reason.
+                            producer.EGRESS_TOKEN_VAR: egress_token,
                         },
                     )
                 if proc.stdout is None:
@@ -369,7 +383,16 @@ def run(*, root: Path) -> CrossProcessResult:
                 call_timeout_seconds=CALL_TIMEOUT_SECONDS
             ) as bridge:
                 mcp_client = McpResourceClient(
-                    url=f"http://127.0.0.1:{mcp_port}/mcp", bridge=bridge
+                    url=f"http://127.0.0.1:{mcp_port}/mcp",
+                    bridge=bridge,
+                    # The egress door is authenticated *and* entitled: it
+                    # verifies this bearer token, resolves what the
+                    # producer's `egress-door.yaml` says this principal may
+                    # receive, and refuses anything else. An unauthenticated
+                    # read of this URI gets 401, not a product.
+                    http_client_factory=lambda: httpx.AsyncClient(
+                        headers={"Authorization": f"Bearer {egress_token}"}
+                    ),
                 )
                 over_mcp = mcp_client.read_text(address.uri)
             mcp_product = ContextProductContract.model_validate_json(over_mcp)
