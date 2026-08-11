@@ -952,7 +952,7 @@ carry blocking checkpoints: 15.5-05 (the eight-question ruling package), 15.5-13
 **Wave 2** *(05 blocked on 01; 06 blocked on 03)*
 
 - [ ] 15.5-05-PLAN.md — The ruling package + CPS requirement minting (**checkpoint**)
-- [ ] 15.5-06-PLAN.md — Bind entitlement and resolve Perspective at the egress door
+- [ ] 15.5-06-PLAN.md — Authenticate, bind entitlement and resolve Perspective at all three exposed doors (MCP egress, HTTP product route, Experience front door)
 
 **Wave 3** *(blocked on the rulings)*
 
