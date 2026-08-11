@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **161** across **46** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **78** across **24** files
+- Coupling rows: **163** across **47** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **80** across **25** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **195**
 
 Rows by owning plan:
@@ -19,7 +19,7 @@ Rows by owning plan:
 | 16-02 | 8 |
 | 16-15 | 22 |
 | 16-17 | 31 |
-| 16-18 | 100 |
+| 16-18 | 102 |
 
 Rows by coupling shape:
 
@@ -35,7 +35,7 @@ Rows by coupling shape:
 | `makefile-recipe` | 14 |
 | `markdown-link` | 8 |
 | `path-construction` | 6 |
-| `prose` | 13 |
+| `prose` | 15 |
 | `snippet-include` | 53 |
 | `string-literal` | 4 |
 | `tmp_path-synthetic` | 4 |
@@ -52,30 +52,30 @@ Rows by coupling shape:
 | File | Line | Retiring path | Shape | Liveness | Witnesses | Intermediate | Owner | Note |
 | --- | ---: | --- | --- | --- | ---: | --- | --- | --- |
 | `.github/workflows/live-legs.yml` | 6 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 |  |
-| `Makefile` | 82 | `examples/00-quickstart` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 83 | `examples/00-quickstart` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 85 | `examples/01-agent-basics` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 86 | `examples/01-agent-basics` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 88 | `examples/02-skilling` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 89 | `examples/02-skilling` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 91 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 |  |
-| `Makefile` | 92 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
-| `Makefile` | 94 | `examples/04-cross-process` | `comment` | documentary | - | - | 16-17 |  |
-| `Makefile` | 95 | `examples/04-cross-process` | `makefile-recipe` | live | - | - | 16-17 |  |
-| `Makefile` | 97 | `examples/05-workflow-hitl` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 98 | `examples/05-workflow-hitl` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 100 | `examples/06-decision-replay` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 101 | `examples/06-decision-replay` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 103 | `examples/07-artifact-store-mcp` | `comment` | documentary | - | - | 16-17 |  |
-| `Makefile` | 104 | `examples/07-artifact-store-mcp` | `makefile-recipe` | live | - | - | 16-17 |  |
-| `Makefile` | 106 | `examples/08-e2e-demo` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 107 | `examples/08-e2e-demo` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 109 | `examples/external/00-hello-context` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 110 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 207 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
-| `Makefile` | 210 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
-| `Makefile` | 213 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 216 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 91 | `examples/00-quickstart` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 92 | `examples/00-quickstart` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 94 | `examples/01-agent-basics` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 95 | `examples/01-agent-basics` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 97 | `examples/02-skilling` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 98 | `examples/02-skilling` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 100 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 |  |
+| `Makefile` | 101 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
+| `Makefile` | 103 | `examples/04-cross-process` | `comment` | documentary | - | - | 16-17 |  |
+| `Makefile` | 104 | `examples/04-cross-process` | `makefile-recipe` | live | - | - | 16-17 |  |
+| `Makefile` | 106 | `examples/05-workflow-hitl` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 107 | `examples/05-workflow-hitl` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 109 | `examples/06-decision-replay` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 110 | `examples/06-decision-replay` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 112 | `examples/07-artifact-store-mcp` | `comment` | documentary | - | - | 16-17 |  |
+| `Makefile` | 113 | `examples/07-artifact-store-mcp` | `makefile-recipe` | live | - | - | 16-17 |  |
+| `Makefile` | 115 | `examples/08-e2e-demo` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 116 | `examples/08-e2e-demo` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 118 | `examples/external/00-hello-context` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 119 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 221 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
+| `Makefile` | 224 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
+| `Makefile` | 227 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 230 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
 | `README.md` | 45 | `examples/00-quickstart` | `prose` | documentary | - | - | 16-18 |  |
 | `README.md` | 58 | `examples/00-quickstart` | `markdown-link` | live | - | - | 16-18 |  |
 | `README.md` | 59 | `examples/01-agent-basics` | `markdown-link` | live | - | - | 16-18 |  |
@@ -85,6 +85,8 @@ Rows by coupling shape:
 | `README.md` | 63 | `examples/05-workflow-hitl` | `markdown-link` | live | - | - | 16-18 |  |
 | `README.md` | 64 | `examples/06-decision-replay` | `markdown-link` | live | - | - | 16-18 |  |
 | `README.md` | 65 | `examples/07-artifact-store-mcp` | `markdown-link` | live | - | - | 16-17 |  |
+| `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` | 161 | `examples/06-decision-replay` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` | 161 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 6 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 112 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 208 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
@@ -417,7 +419,13 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/15.4-backend-registration-seam-the-substrate-stops-naming-its-ada/15.4-RESEARCH.md` | 12 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.4-backend-registration-seam-the-substrate-stops-naming-its-ada/15.4-SECURITY.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-04-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-04-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-06-SUMMARY.md` | 10 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-10-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-11-SUMMARY.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-13-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-15-SUMMARY.md` | 6 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-PERF-D-IMPL-107.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-RESEARCH.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-01-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-01-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
@@ -451,14 +459,14 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-RESEARCH.md` | 59 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-VALIDATION.md` | 13 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
-| `docs/DECISIONS.md` | 20 | append-only decision log |
+| `docs/DECISIONS.md` | 22 | append-only decision log |
 | `docs/PHASE_I1_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I3_GATE.md` | 5 | append-only per-phase gate records |
 | `docs/PHASE_I4_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I5_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/ROADMAP.md` | 5 | append-only phase record |
 | `docs/SURFACE-AUDIT.md` | 43 | append-only audit record |
-| `docs/SURFACE-CHANGES.md` | 404 | append-only surface-change index |
+| `docs/SURFACE-CHANGES.md` | 413 | append-only surface-change index |
 | `docs/surface-changes/15-10-manifest.md` | 1 | append-only per-plan surface-change records |
 | `docs/surface-changes/15-11-operator-builder.md` | 2 | append-only per-plan surface-change records |
 | `docs/surface-changes/15-12-schema-export.md` | 2 | append-only per-plan surface-change records |
@@ -471,6 +479,10 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `docs/surface-changes/15-19-example-05.md` | 51 | append-only per-plan surface-change records |
 | `docs/surface-changes/15-20-external.md` | 44 | append-only per-plan surface-change records |
 | `docs/surface-changes/15.1-03-namespace-reservation.md` | 1 | append-only per-plan surface-change records |
+| `docs/surface-changes/15.5-06-egress-entitlement.md` | 3 | append-only per-plan surface-change records |
+| `docs/surface-changes/15.5-10-assembler.md` | 3 | append-only per-plan surface-change records |
+| `docs/surface-changes/15.5-11-debt-delivery.md` | 3 | append-only per-plan surface-change records |
+| `docs/surface-changes/15.5-15-resolver-seam.md` | 2 | append-only per-plan surface-change records |
 | `docs/surface-changes/README.md` | 1 | append-only per-plan surface-change records |
 | `docs/surface/examples/ERGO-03-FROZEN.md` | 27 | the frozen ERGO-03 record (D-15) |
 | `docs/surface/examples/after/examples__00-quickstart__run.json` | 1 | frozen ERGO-03 measurement (D-15) |

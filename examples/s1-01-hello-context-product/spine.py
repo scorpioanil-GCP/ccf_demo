@@ -8,6 +8,13 @@ This program assembles the chain into a graph, aggregates across the hops,
 applies the threshold the regime in force sets, and serves the result as a
 typed, gated, replay-ready Context Product.
 
+**The question is ASKED, not configured.** Which company and as of which
+instant arrive on a typed :class:`~ccf.products.request.ProductRequest` the
+caller hands in, validated at the door against the request surface the product
+class declared (whitepaper §6.3 *Addressability*, D-IMPL-98). One class, any
+company, any instant — which is the difference between the verb *aggregate* and
+the verb *assemble*, and the reason this file takes a ``request`` argument.
+
 **This file is the fabric's half of answering it.** [MECHANISM] The CCF call
 spine — every line here is a fabric call an adopter must make. Which company,
 at which instant, under which threshold, and which resolved class counts as a
@@ -36,14 +43,17 @@ boot    load the manifest, register what it puts in force, boot L2/L3
 ingest  hand L1 envelopes to the one writer (single-writer, CLAUDE.md §10)
 operators build the four-category L4 registry at a named boundary
 project bind the two authored operator sets, then run Π at L5
-gate    register the product class and run the three L6 gates
+gate    register the product class and its request surface, refuse a
+        question the class does not answer, run the three L6 gates
 record  build the five-dimension Decision Replay record
-serve   persist the record, then deliver (whitepaper §7.10)
+serve   persist the question's bytes, persist the record, then deliver
+        (whitepaper §7.10)
 ======  ==========================================================
 
-**What the deployment supplies.** Four ordinary arguments to
-:func:`assemble_and_serve` — the manifest, the connection values, the reader
-and Π — which is the call shape every other example in this suite makes.
+**What the deployment supplies.** Five ordinary arguments to
+:func:`assemble_and_serve` — the manifest, the connection values, the reader,
+Π, and the question being asked — which is the call shape every other example
+in this suite makes.
 :class:`Scenario` below is a Protocol, not a base class: it is the list of
 values the fabric reads off one run, stated as structure rather than as prose
 (CLAUDE.md §11, *Prefer Protocols over inheritance*). ``deployment.py`` imports
@@ -82,6 +92,8 @@ from ccf.deployment import (
     load_and_boot,
     refuse_operator_set_divergence,
 )
+from ccf.graph.protocols import GraphView
+from ccf.halflife.debt import DebtAssessment
 from ccf.products.contract import (
     ContextProductContract,
     MaxTTL,
@@ -89,10 +101,20 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.gates import ServableProduct, run_gates
+from ccf.products.request import (
+    ProductRequest,
+    ProductRequestContract,
+    refuse_request,
+)
 from ccf.projection.engine import ProjectionEngine
 from ccf.projection.plan import ProjectionPlan
 from ccf.replay.record import DecisionReplayRecord, PolicyBinding, build_replay_record
-from ccf.replay.serve import ReplayWriter, ServedProduct, serve
+from ccf.replay.serve import (
+    QueryPinWriter,
+    ReplayWriter,
+    ServedProduct,
+    serve,
+)
 from ccf.signal.envelope import SignalEnvelope
 
 
@@ -110,8 +132,28 @@ class Scenario(Protocol):
         """The L1 signal this run ingests."""
 
     @property
+    def request(self) -> ProductRequest:
+        """The question the caller asked. Not an artifact — an argument."""
+
+    @property
+    def request_contract(self) -> ProductRequestContract:
+        """The request surface the product class declares (D-IMPL-98)."""
+
+    @property
+    def request_contract_key(self) -> str:
+        """The Control Plane key the request contract is registered under."""
+
+    @property
+    def query_pin_class(self) -> str:
+        """The artifact class the executed graph queries are persisted under."""
+
+    @property
     def temporal_boundary(self) -> datetime:
-        """The instant the graph is read at. Data, never a clock read."""
+        """The instant the graph is read at. Data, never a clock read.
+
+        Read off :attr:`request` by the deployment, so replay feeds the
+        recorded boundary back through this same path.
+        """
 
     @property
     def now(self) -> datetime:
@@ -165,6 +207,16 @@ class Scenario(Protocol):
     def artifacts(self) -> Mapping[str, CCFContract]:
         """Every artifact the manifest named, parsed, under its own key."""
 
+    def debt(self, view: GraphView) -> DebtAssessment:
+        """D_c over what this question actually assembled (whitepaper §7.7).
+
+        A method rather than a property, and it takes the view, because debt is
+        MEASURED against the assembly rather than declared beside it. What
+        counts as an observation, what a complete assembly holds, and which
+        factors a declared scorer produced are the deployment's answers; the
+        curve, the scorer and the CAR bands are the SDK's.
+        """
+
 
 @dataclass(frozen=True)
 class Assembled:
@@ -188,13 +240,14 @@ def assemble_and_serve(
     *,
     manifest: Path,
     connection: Mapping[str, object],
-    read: Callable[[BootedFabric], Scenario],
+    read: Callable[[BootedFabric, ProductRequest], Scenario],
     plan_class: Callable[..., ProjectionPlan],
+    request: ProductRequest,
     root: Path,
 ) -> Assembled:
-    """Run the fabric once, end to end, against ``root`` as its scratch directory.
+    """Answer one question, end to end, against ``root`` as its scratch directory.
 
-    The four things the fabric asks a deployment to supply arrive as ordinary
+    The five things the fabric asks a deployment to supply arrive as ordinary
     arguments, and each is one line of the caller's wiring:
 
     ``manifest``
@@ -204,7 +257,15 @@ def assemble_and_serve(
         manifest — a connection string in a content-hashed artifact would be
         persisted into the audit plane forever.
     ``read``
-        Names the deployment's own artifact keys and reads the run's values.
+        Names the deployment's own artifact keys and reads the values for THIS
+        question — including the two instants, which it takes off ``request``
+        rather than off any document.
+    ``request``
+        The question: which entity, for what decision, under what temporal
+        requirement, as of when (whitepaper §6.3 *Addressability*). Validated
+        against the class's declared request contract before anything is
+        assembled, so a malformed question is refused rather than answered
+        approximately.
     ``plan_class``
         Π, as a class the fabric constructs rather than an object it is handed.
         A projection is deployment code and is never a rewrite target
@@ -231,9 +292,27 @@ def assemble_and_serve(
     # --8<-- [end:boot]
     try:
         # The one line that crosses the boundary this example is about: the
-        # deployment names its own artifact keys and hands back the run's
+        # deployment names its own artifact keys and hands back this question's
         # values. Everything below reads those values and nothing else.
-        scenario = read(booted)
+        scenario = read(booted, request)
+
+        # The door: is this a question this class answers? Checked BEFORE the
+        # graph is touched, because a malformed question deserves a refusal and
+        # not an approximate answer. The verdict is a RETURNED VALUE rather than
+        # a raised exception — a bad question is a bad question, not a broken
+        # deployment, and a refusal returned as data cannot be swallowed by a
+        # bare `except`. Nothing about the caller's identity is on the request:
+        # role and tenant are things a door ESTABLISHES from a verified grant,
+        # never things a request CLAIMS (D-IMPL-98, plan `15.5-06`).
+        match refuse_request(
+            request=scenario.request, declared=scenario.request_contract
+        ):
+            case None:
+                pass
+            case violation:
+                raise RuntimeError(
+                    f"the request surface refused this question: {violation}"
+                )
 
         # --8<-- [start:ingest]
         # 2. L1 → L2. `booted.handle.worker` is the ONLY write handle to L3 that
@@ -306,6 +385,17 @@ def assemble_and_serve(
         max_ttl_version = registry.register(
             declared.max_ttl_key, MaxTTL(seconds=scenario.max_ttl_seconds)
         )
+        #    The class's REQUEST SURFACE is registered on the same discipline,
+        #    and for the same reason: the pin is a content hash of what was
+        #    registered, so the contract document cannot declare it.
+        #    `register_product_class` resolves the pin and refuses a contract
+        #    declared for another class or another lane — a mis-wiring no shape
+        #    comparison could see (D-IMPL-98). The question itself was already
+        #    refused-or-admitted against this same contract, above, before the
+        #    graph was touched.
+        request_contract_version = registry.register(
+            scenario.request_contract_key, scenario.request_contract
+        )
         product_class = register_product_class(
             registry=registry,
             schema_name=declared.schema_name,
@@ -314,6 +404,8 @@ def assemble_and_serve(
             assembly_mode=declared.assembly_mode,
             max_ttl_key=declared.max_ttl_key,
             max_ttl_version=max_ttl_version,
+            request_contract_key=scenario.request_contract_key,
+            request_contract_version=request_contract_version,
         )
 
         # 7. The lineage the product CLAIMS, and the gates.
@@ -346,6 +438,16 @@ def assemble_and_serve(
                 graph_snapshot_at=scenario.temporal_boundary,
             ),
             payload=execution.projection.payload,
+            # HOW MUCH TO TRUST THE ANSWER, delivered WITH the answer
+            # (D-IMPL-100). D_c *"is a runtime signal the agent must consume as
+            # a first-class decision input, not a log-line to be read after the
+            # fact"* (`docs/CCF_Whitepaper_1-2.md:2696`), so it rides the vessel
+            # and is inside the product's content address — a delivered debt an
+            # auditor could not reconstruct would be a claim rather than a
+            # measurement. Measured against `execution.view`: what the
+            # operators actually left standing, not what the artifacts hoped
+            # for.
+            debt=scenario.debt(execution.view),
         )
         # A refusal is not a thing to proceed past: `ServableProduct` is not
         # constructible outside `run_gates`, so holding one IS the evidence the
@@ -388,6 +490,16 @@ def assemble_and_serve(
         # The record is persisted BEFORE the product is delivered, and delivery
         # is what the successful append returns — there is no branch that
         # reaches a served product without a recorded decision (INV-CH7-79).
+        #
+        # WHICH QUESTION THIS DECISION ANSWERED IS PINNED, not described. The
+        # record's `graph_query_sequence` is one content hash per graph query
+        # the engine actually issued; handing `serve` the queries themselves,
+        # with a writer to persist them, makes every pin RESOLVABLE — the
+        # canonical bytes land in the store BEFORE the record is appended, so
+        # no moment exists at which a recorded pin dangles (T-15.2-28). Without
+        # the writer the pins are still recorded and nothing can resolve them,
+        # which is the repudiation gap this example closed (plan `15.5-13`; the
+        # mechanism is plan `15.2-08`'s and had never been exercised).
         store = FileArtifactStore(root=root / scenario.artifact_store_dirname)
         served = serve(
             product=gated,
@@ -395,6 +507,10 @@ def assemble_and_serve(
             replay_writer=ReplayWriter(
                 store=store, artifact_class=scenario.replay_record_class
             ),
+            query_pin_writer=QueryPinWriter(
+                store=store, artifact_class=scenario.query_pin_class
+            ),
+            executed_queries=execution.executed_queries,
         )
         # --8<-- [end:serve]
 

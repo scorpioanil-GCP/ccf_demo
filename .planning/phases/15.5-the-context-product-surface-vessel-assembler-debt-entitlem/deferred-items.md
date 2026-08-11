@@ -214,3 +214,45 @@ already owns the retirement decision for the `15.5-01` spike module.
 - **Recommendation on record:** the orchestrator recommended fixing in-phase via
   `15.5-14`, which already owns the surface-manifest sweep. Dave ruled defer.
   The recommendation is preserved rather than dropped, per `D-IMPL-110`.
+
+## DI-15.5-02 — CLOSED by plan `15.5-13`
+
+`make example-s1-01` now exists (`Makefile:89`) and leads the `examples:`
+aggregate, so the example runs in CI. This **changes what `make ci` runs**,
+which was the reason `15.5-04` deferred it rather than a side effect discovered
+afterwards. `make examples` exits 0 with the new member; verified 2026-08-11.
+
+## DI-15.5-04 — the replay record pins the graph question, not the product question
+
+- **Found during:** plan `15.5-13`, task 2 (writing the two-subject pin
+  assertion the plan's `<behavior>` block asked for, and finding it false).
+- **What:** the plan's second behaviour reads *"Two different subjects produce
+  two different pinned query sequences — the pin distinguishes the questions
+  rather than the answers."* Measured, it does not. Questions 1 and 2 of
+  `examples/s1-01-hello-context-product/artifacts/questions.yaml` differ only in
+  subject and pin **identically**, because the subject enters at Π and is not
+  compiled into the graph query — `compile_segment_query` is called with
+  `seeds=None`, so both questions read the same typed neighbourhood and differ
+  only in what is projected out of it. Two different *instants* do pin
+  differently, because the boundary is inside the compiled query.
+- **Consequence:** `ContentGenerationPath.graph_query_sequence` answers *"what
+  did this decision ask the graph?"*. It does not answer *"which question did
+  this decision answer?"* — the `ProductRequest` is not carried in any of the
+  five dimensions. The product question is *recoverable* (the served payload
+  names its subject and dimension 1 carries the boundary) but the request's
+  `intent` and `freshness` are recorded nowhere, and recovery-by-inference is
+  not the same property as a pin.
+- **Why not fixed here:** two candidate fixes and both are out of this plan's
+  scope. (a) Seed the traversal from the request's subject, which is an operator
+  and query-compilation change with composition-preservation consequences.
+  (b) Carry the `ProductRequest` into the replay record, which is a
+  five-dimension shape change and therefore a `D-IMPL` ruling, not an executor's
+  call (CLAUDE.md §11, *surface gaps; do not paper over them*).
+- **What plan `15.5-13` did instead:** asserted what is true and said why in the
+  test itself
+  (`tests/examples/test_s1_01_output.py::test_a_later_instant_pins_a_different_question_to_the_graph`),
+  including a guard that fails loudly if questions 1 and 2 ever stop pinning
+  alike, so the caveat cannot silently rot into a false claim. The README states
+  the same caveat beside the same claim.
+- **Owner:** Dave, as a `D-IMPL` entry on whether the request surface joins the
+  replay record. Raised at plan `15.5-13`'s checkpoint.

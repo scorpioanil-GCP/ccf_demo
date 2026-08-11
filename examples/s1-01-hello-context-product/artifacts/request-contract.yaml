@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The QUESTIONS this product class answers — its request surface (D-IMPL-98,
+# whitepaper §6.3 *Addressability*; plan 15.5-13).
+#
+# §6.3 commits to this directly: *"Addressability gives every product a
+# well-defined interface the agent queries with intent, role, and freshness
+# parameters. Structured queries enable decision-time assembly rather than
+# pre-aggregated retrieval."* Four of the axes are on `ProductRequest` itself —
+# subject, intent, freshness and the instant being asked as of — and this
+# document declares the class's own remainder.
+#
+# **The declared world is CLOSED.** A parameter this document does not declare
+# is refused, not forwarded: a parameter that reaches plan selection without
+# having been declared is an argument nobody governed. That is why the demo
+# adding a stray key to `questions.yaml` fails at the door rather than being
+# silently ignored.
+#
+# `role: load`, and the reason mirrors `product-class.yaml`'s missing
+# `max_ttl_version`: the PIN that binds this contract to the class is minted by
+# REGISTERING it, and is a content hash of what was registered — so a document
+# declaring its own pin would be authoring a hash of something it does not
+# contain. `spine.py` registers this value and hands the resulting version to
+# `register_product_class`, which resolves it and refuses a contract pinned onto
+# another class or another lane.
+#
+# `arguments` is a `SkillArgumentSchema` — the same declaration type a skill
+# declares its arguments in and a product class declares its payload in
+# (D-IMPL-103, D-IMPL-98). One declaration machinery, not three.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id`, the parameter names and their descriptions are
+# [ADAPT]; the keys `semver`, `class_id`, `declaration`, `arguments`,
+# `properties`, `required`, `type` and `description`, and the JSON Schema type
+# values, are [MECHANISM].
+
+semver: "1.0.0"
+class_id: fibo-kyc.request-contract
+
+declaration:
+  # WHICH CLASS, AT WHICH LANE, this is the request surface of. Authored here
+  # rather than copied off the incoming request, and the difference is the whole
+  # value of the field: `refuse_request` compares the request's address against
+  # THIS, so a question sent to the wrong class is a mis-delivery caught before
+  # a single parameter is looked at. A contract that took its identity from the
+  # request it was validating would agree with every request by construction.
+  # `register_product_class` makes the same comparison at wiring time, against
+  # the class actually being registered.
+  schema_name: fibo-kyc.ultimate-beneficial-ownership
+  schema_version: "1.0.0"
+
+  arguments:
+    properties:
+      # The instant the answer is PRODUCED, which is what its TTL runs from —
+      # distinct from `ProductRequest.asked_at`, the instant the graph is read
+      # AS OF. Two different questions: "what was true on 1 August?" and "when
+      # am I answering?". Conflating them is what makes a product that cannot
+      # be replayed, because replay must feed the recorded boundary back
+      # through the same path and get the same answer.
+      #
+      # It is a REQUEST PARAMETER rather than a clock read anywhere in the
+      # fabric, deliberately: `ProjectionEngine.execute` reads no clock by
+      # design, and a driver that stamped `datetime.now()` here would produce a
+      # record that cannot be replayed bit for bit.
+      decision_instant:
+        type: string
+        description: >-
+          The instant the answer is produced, ISO-8601 with an explicit zone.
+          The product's TTL runs from it; replay feeds back the recorded value.
+    required:
+      - decision_instant

@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.debt-profile.json
+# Context Debt for this decision class — the CAR bands (whitepaper §7.7.4–§7.7.8;
+# KYC/UBO domain).
+#
+# D_c is *"a runtime signal the agent must consume as a first-class decision
+# input, not a log-line to be read after the fact"*
+# (`docs/CCF_Whitepaper_1-2.md:2696`), which is why it rides the delivered
+# product rather than a log (D-IMPL-100). This document is what turns the
+# measured number into a ROUTING STATE: OK, Forced-LLM, or Fail-Closed.
+#
+# **The three numbers are regulatory posture, not tuning.** A beneficial-owner
+# determination that a bank files against is a high-consequence decision, so
+# `risk_sensitivity` above 1 makes staleness bite harder than the raw λ_c curve
+# would, and both bands sit low: this deployment would rather escalate a
+# marginal answer than serve it. A deployment doing exploratory portfolio
+# analytics over the same graph writes looser numbers and changes nothing else.
+#
+# **The bands are calibrated so the demonstration crosses one, and that is
+# stated rather than hidden.** `artifacts/questions.yaml`'s third question asks
+# the same thing six weeks later against the same graph; the measured freshness
+# falls from 0.995 to 0.803 and D_c rises from ~0.035 to ~0.221, which is above
+# `forced_llm_threshold` and below `fail_closed_threshold`. The delivered
+# product therefore carries `signal: forced_llm` — the CAR routing state doing
+# its job on real measurement rather than being described in a comment. Move
+# this number and the demonstration changes with it, which is the correct
+# relationship between a calibration and an outcome.
+#
+# `role: register`. What debt the fabric tolerates before it refuses to answer
+# is exactly "what the fabric is permitted to do", so it is pinned and lands in
+# replay dimension 2.
+#
+# Values are QUOTED so they parse as text and are validated as decimals: these
+# figures reach the product's content address, and a float is not bit-stable
+# across platforms — the loader refuses one rather than converting it.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: every calibrated value is [ADAPT]; the profile keys
+# (`risk_sensitivity`, `forced_llm_threshold`, `fail_closed_threshold`) are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+risk_sensitivity: "1.2"
+forced_llm_threshold: "0.20"
+fail_closed_threshold: "0.60"
