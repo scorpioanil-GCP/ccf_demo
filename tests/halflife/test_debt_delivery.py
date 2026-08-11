@@ -303,22 +303,76 @@ def test_an_empty_observation_sequence_still_raises() -> None:
         _scorer().score((), now=NOW)
 
 
+def _identifiers(tree: ast.AST) -> set[str]:
+    """Every name this module *defines or reads* — prose excluded.
+
+    An AST walk rather than a text search, because a docstring that explains
+    *why* a shape was not built necessarily names it, and a text search cannot
+    tell that explanation apart from an implementation.
+    """
+    prose = {
+        id(statement.value)
+        for node in ast.walk(tree)
+        if isinstance(
+            node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+        )
+        for statement in node.body[:1]
+        if isinstance(statement, ast.Expr)
+        and isinstance(statement.value, ast.Constant)
+    }
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            found.add(node.name)
+        elif isinstance(node, ast.Name):
+            found.add(node.id)
+        elif isinstance(node, ast.Attribute):
+            found.add(node.attr)
+        elif isinstance(node, ast.arg):
+            found.add(node.arg)
+        elif isinstance(node, ast.keyword) and node.arg is not None:
+            found.add(node.arg)
+        elif (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and id(node) not in prose
+        ):
+            # A string *value* still counts — a factor name declared as a
+            # literal is an identifier in everything but syntax. Docstrings are
+            # excluded, because prose that explains what was not built is not
+            # the thing being built.
+            found.add(node.value)
+    return found
+
+
 def test_no_weighted_additive_combinator_was_introduced() -> None:
     """``context_debt``'s docstring forecloses the weighted-additive form.
 
     The whitepaper's own worked example — 0.955 multiplicative against 0.23
     additive on identical context — is the argument, and the masking is what
-    makes the additive form indefensible under an examiner's reading. The
-    check is on ``weight`` rather than on ``sum(``: the shipped mean of
-    per-observation decay ratios in :class:`FreshnessScorer` is an aggregation
-    *within* F, not a combinator across F/C/S.
+    makes the additive form indefensible under an examiner's reading.
+
+    Asserted two ways, neither of them a text grep. No identifier in either
+    module carries a weight; and ``context_debt``'s own expression tree is
+    multiplicative with no addition in it. A text search would fail on the
+    docstring that *forecloses* the additive form, and would also miss the
+    shipped mean of per-observation decay ratios in :class:`FreshnessScorer` —
+    an aggregation *within* F, not a combinator across F/C/S — being replaced
+    by something additive.
     """
     for module in (debt_module, assessment_module):
-        source = inspect.getsource(module)
-        assert "weight" not in source, module.__name__
+        tree = ast.parse(inspect.getsource(module))
+        weighted = {name for name in _identifiers(tree) if "weight" in name.lower()}
+        assert not weighted, f"{module.__name__}: {weighted}"
 
-    assert "*" in inspect.getsource(debt_module.context_debt)
-    assert "+" not in inspect.getsource(debt_module.context_debt)
+    combinator = ast.parse(inspect.getsource(debt_module.context_debt))
+    operators = {
+        type(node.op).__name__
+        for node in ast.walk(combinator)
+        if isinstance(node, ast.BinOp)
+    }
+    assert "Mult" in operators
+    assert "Add" not in operators
 
 
 # --- D-IMPL-105: pure over (factors, profile) ------------------------------
@@ -352,11 +406,18 @@ def test_no_salience_factor_or_scorer_exists() -> None:
     ``15.5-01`` measured salience as having **no producer anywhere** in
     ``src/`` or ``runtime/``, and D-IMPL-101 ruled option (d) on that
     measurement. Correct work here must not quietly build one.
+
+    An identifier walk, not a text search: the deferral is *documented* in
+    :mod:`ccf.halflife.assessment`'s docstring, and a check that could not tell
+    "we did not build this, and here is why" apart from having built it would
+    force the explanation out of the tree.
     """
     for module_path in sorted(HALFLIFE_DIR.glob("*.py")):
-        assert (
-            "salience" not in module_path.read_text(encoding="utf-8").lower()
-        ), module_path.name
+        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+        named = {
+            name for name in _identifiers(tree) if "salience" in name.lower()
+        }
+        assert not named, f"{module_path.name}: {named}"
 
 
 # --- CINV-01: no domain vocabulary, which the numeric-table lint misses ----
