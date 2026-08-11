@@ -78,7 +78,19 @@ from ccf.operators.params import (
     TemporalAsOfParameters,
     TraversalNeighborhoodParameters,
 )
-from ccf.products.contract import AssemblyMode, TTLAnchor
+from ccf.products.contract import (
+    NO_PAYLOAD_SCHEMA,
+    NO_VALIDITY_FLOORS,
+    NOT_ADDRESSABLE,
+    NOT_DISCOVERABLE,
+    UNMEASURED_FRESHNESS_SLA,
+    AssemblyMode,
+    ConstituentValidityFloors,
+    FreshnessSLA,
+    ProductAddress,
+    ProductDiscovery,
+    TTLAnchor,
+)
 from ccf.projection.plan import Perspective
 from ccf.signal.envelope import SignalEnvelope
 
@@ -597,6 +609,29 @@ class ProductClassDeclaration(VersionedArtifact):
             set, defaulting to the tier-1 ``{"graph-supplied"}`` posture, so
             ``product-carried`` lineage is deny-by-default until a class
             declares it (D-09).
+        freshness_sla: The §6.3 **Freshness SLA** element, per signal
+            (D-IMPL-106 option (b), which ruled it class-level and left the
+            per-signal shape to the implementing plan).
+        discovery: The §6.3 **Discovery** element — the registry facts a class
+            is located by (D-IMPL-98, under which discovery is not
+            declaration-only).
+        addressability: The §6.3 **Addressability** element, path half only.
+            The argument half is D-IMPL-98's typed request contract and is
+            deliberately not authored here.
+        constituent_validity_floors: D-IMPL-31's declarable floors, ruled
+            2026-07-25. Authored here; the refusal that reads them is plan
+            ``15.5-12``'s, at assembly, where the mix exists.
+        payload_schema_key: Control Plane key of the class's declared payload
+            schema (D-IMPL-97 ruling 1). **The key is authored; the version
+            pinning it is not** — see the class docstring's rule above, which
+            this field is the second instance of.
+
+    **The five governance fields above all default**, on the
+    ``accepted_policy_binding_modes`` precedent and for the same reason: an
+    artifact authored before they existed declared exactly what it declares
+    now, so no committed document is rewritten and no adopter's file becomes
+    invalid. Each default is a named positive assertion in
+    :mod:`ccf.products.contract`, not a blank.
     """
 
     schema_name: str
@@ -611,6 +646,11 @@ class ProductClassDeclaration(VersionedArtifact):
     accepted_lineage_modes: frozenset[LineageMode] = frozenset(
         {"graph-supplied"}
     )
+    freshness_sla: FreshnessSLA = UNMEASURED_FRESHNESS_SLA
+    discovery: ProductDiscovery = NOT_DISCOVERABLE
+    addressability: ProductAddress = NOT_ADDRESSABLE
+    constituent_validity_floors: ConstituentValidityFloors = NO_VALIDITY_FLOORS
+    payload_schema_key: str = NO_PAYLOAD_SCHEMA
 
 
 class ProjectionRequirements(VersionedArtifact):
