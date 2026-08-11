@@ -410,6 +410,7 @@ class ProjectionEngine:
         perspective: Perspective,
         tenant_id: str,
         temporal_boundary: datetime,
+        seeds: frozenset[str] | None = None,
         recorded_acquisitions: tuple[AcquiredContent, ...] | None = None,
     ) -> ExecutionResult:
         """Execute ``plan`` for ``perspective`` as of ``temporal_boundary``.
@@ -444,7 +445,43 @@ class ProjectionEngine:
         first would be cheaper and would be exactly wrong. Segmentation is
         internal to the operator stage and does not reorder around it.
 
+        **The caller's walk starting points** (D-IMPL-111 limb (a), Dave,
+        2026-08-11). ``seeds`` is where the *question* says the walk begins —
+        in the shipped path, the entity anchor of the
+        :class:`~ccf.products.request.ProductRequest` the caller asked, derived
+        by the single :func:`~ccf.products.request.request_seeds` reading. It
+        reaches **every pushable segment that carries a traverse family, and no
+        other**, because `GQ-03` at docs/GRAPH_QUERY_SEMANTICS.md:87 refuses
+        seeds with no walk to start: a plan whose segment walks nothing is
+        passed ``None`` rather than made unconstructible by the caller's
+        question. Which segment that is, is a property of the plan — in the
+        shipped reference example the traverse family lands in a *post*-
+        in-process segment, so a rule that seeded only the opening segment
+        would have seeded nothing at all.
+
+        **The anchor and the survivor set compose rather than compete.**
+        `GQ-17` at docs/GRAPH_QUERY_SEMANTICS.md:330 already fixes the
+        interaction: explicit seeds are intersected with the in-scope state, so
+        an anchor that did not survive the preceding segment starts no walk,
+        and the walk still may not cross outside the survivor set. This is
+        **not** the case
+        :func:`~ccf.projection.segmentation.compile_segment_query` refuses —
+        that refusal is about promoting *survivors* to walk starts, which would
+        make the walk begin everywhere the previous segment left something
+        standing. The caller's anchor is one named entity, stated in the
+        question rather than produced by a segment.
+
+        Seeds **widen** rather than narrow: `GQ-11` unions them into the
+        frontier the ``seed_entity_classes`` selection produced. That is a
+        change to *which view* the operators are handed, never to what an
+        operator computes over the view it is handed, so
+        composition-preservation ``(A∘B)(G) = A(B(G))`` is untouched — it is a
+        property of the operators, quantified over every view (CLAUDE.md §11).
+
         Args:
+            seeds: Explicit walk starting points, ``None`` for "the plan's own
+                seed classes and nothing else" — the pre-D-IMPL-111 posture and
+                what every replay of a record carrying no request runs under.
             recorded_acquisitions: Content a prior execution recorded. Supplied
                 by a replay, which re-feeds rather than re-acquires
                 (INV-CH7-31); when present the acquirer is not called at all.
@@ -520,11 +557,25 @@ class ProjectionEngine:
                     assert view is not None  # noqa: S101 - survivors imply a prior view
                     view = run_operators(segment.operator_keys, view)
                 else:
+                    # D-IMPL-111 limb (a): the question's anchor starts the
+                    # walk, on every segment that walks and on no segment that
+                    # does not (`GQ-03` refuses seeds with no walk to start).
+                    # Where a survivor set is also in force the two compose
+                    # under `GQ-17` — the anchor starts a walk only if it
+                    # survived, and the walk still may not cross outside the
+                    # set.
                     query = compile_segment_query(
                         segment,
                         tenant_id=tenant_id,
                         as_of=temporal_boundary,
-                        seeds=None,
+                        seeds=(
+                            seeds
+                            if any(
+                                fragment.traverse is not None
+                                for fragment in segment.fragments
+                            )
+                            else None
+                        ),
                         allowed_entities=survivors,
                     )
                     view = self._reader.query(query)

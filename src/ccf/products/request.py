@@ -118,6 +118,7 @@ __all__ = [
     "ProductRequestViolationReason",
     "refuse_request",
     "refuse_request_contract_pin",
+    "request_seeds",
 ]
 
 #: Re-exported from :mod:`ccf.products.contract`, where it is defined.
@@ -426,6 +427,51 @@ def refuse_request(
     if parameters is None:
         return None
     return _translate(parameters)
+
+
+def request_seeds(request: ProductRequest | None) -> frozenset[str] | None:
+    """The walk starting points a question implies — its subject, and nothing else.
+
+    D-IMPL-111 limb (a) (Dave, 2026-08-11): *the request seeds the traversal*.
+    The entity anchor of the whitepaper's address pattern
+    (``/context-products/…/{counterparty-id}?intent=…&freshness=…``,
+    ``docs/CCF_Whitepaper_1-2.md:1465``) is *which entity the question is
+    about*, so it is where a walk asked to answer that question begins. Before
+    this function existed the anchor entered only at Π, and two questions about
+    two different companies compiled to the **same** graph query and pinned
+    identically in replay dimension 5 — measured, reported and ruled on as
+    ``DI-15.5-07``.
+
+    **One reading, used on both paths, and that is the whole reason this is a
+    function rather than a set literal at two call sites.** The serving path
+    derives the seeds from the request it was handed; the replay path derives
+    them from the request the record carries
+    (:attr:`~ccf.replay.record.ContentGenerationPath.request`). Two derivations
+    could drift, and a drift here would replay a *different question* under the
+    original decision's identifier — the failure
+    :func:`~ccf.products.request.refuse_request` avoids on the door's side by
+    delegating rather than restating.
+
+    A deployment is free to pass
+    :meth:`~ccf.projection.engine.ProjectionEngine.execute` some other seed set,
+    or none: the parameter is optional and the SDK imposes no walk. What it does
+    not get is silence — the seeds are inside every issued
+    :class:`~ccf.graph.protocols.GraphQuery` and therefore inside the pins
+    dimension 5 records, so a serve path that seeded by another rule diverges
+    **loudly** at replay (``ReplayDivergence``) instead of quietly reproducing a
+    question the decision never asked.
+
+    Pure over its argument: no clock, no registry, no I/O, exactly as
+    :func:`refuse_request` is and for the same replay reason.
+
+    Returns:
+        The single-element set naming the request's subject, or ``None`` when
+        there is no request — the positive "this decision named no anchor"
+        value, which is also what every pre-D-IMPL-111 record replays under.
+    """
+    if request is None:
+        return None
+    return frozenset({request.subject})
 
 
 def refuse_request_contract_pin(

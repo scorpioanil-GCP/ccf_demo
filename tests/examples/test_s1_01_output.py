@@ -698,14 +698,20 @@ def test_a_later_instant_pins_a_different_question_to_the_graph(
     asking *"which question did this decision answer?"* gets a different answer
     for the two, from the record alone.
 
-    **What this does NOT show, stated because the distinction is load-bearing.**
-    Questions 1 and 2 pin IDENTICALLY: the subject enters at Π and not in the
-    graph query, so both read the same subgraph and differ only in what was
-    projected out of it. ``graph_query_sequence`` is a pin of the questions put
-    to the GRAPH, not of the question put to the PRODUCT — the latter is
-    recoverable from the served payload's subject and the record's boundary, and
-    is not itself a replay dimension. Asserting the two-subject case here would
-    be claiming a property the mechanism does not have.
+    **The two-subject guard, INVERTED (D-IMPL-111 limb (a)).** Until
+    2026-08-11 this test carried the opposite assertion, because the property
+    was the opposite: the subject entered only at Π, so questions 1 and 2
+    compiled to the same graph query and pinned identically, and this file said
+    so rather than claiming a property the mechanism did not have
+    (``DI-15.5-07``). The request's subject now seeds the traversal, so the two
+    pin **differently** — and the guard is kept, pointing the other way, so that
+    a regression which put the anchor back inside Π alone would fail here
+    loudly instead of quietly restoring a repudiation gap.
+
+    The **first** pin is still shared. That segment carries the policy family
+    and no walk, so there is nothing for an anchor to start in it (`GQ-03`) and
+    the engine hands it no seeds. Asserting both halves is what makes this a
+    statement about *where* the subject enters rather than a smoke test.
     """
     first, second, third = (
         answered.record.content_generation_path.graph_query_sequence
@@ -715,10 +721,14 @@ def test_a_later_instant_pins_a_different_question_to_the_graph(
         "two boundaries produced the same pinned query sequence; the request's"
         " instant is not reaching the compiled query"
     )
-    assert first == second, (
-        "questions 1 and 2 pinned different graph queries — if the subject has"
-        " become part of the compiled query this test's caveat is stale and"
-        " should be rewritten rather than relaxed"
+    assert first != second, (
+        "questions 1 and 2 pinned the same graph queries; the request's subject"
+        " is not reaching the compiled query and the record cannot say which"
+        " subject this decision was about (DI-15.5-07, D-IMPL-111 limb (a))"
+    )
+    assert first[0] == second[0], (
+        "the non-walking segment's pin moved with the subject; seeds are"
+        " reaching a segment that has no walk for them to start (`GQ-03`)"
     )
 
 

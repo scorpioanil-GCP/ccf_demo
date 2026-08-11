@@ -229,14 +229,21 @@ reading twice — she holds exactly the threshold *one hop down*, and 1.125%
 of the subject three hops down. A single-hop reading would report her as a
 beneficial owner. Depth is not significance, and the aggregation says so.
 
-**One caveat, stated because it would otherwise be assumed.** The record's
-`graph_query_sequence` pins the questions put to the **graph**, not the
-question put to the **product**. Questions 1 and 3 pin differently, because
-the boundary is compiled into the query. Questions 1 and 2 pin
-*identically*: the subject enters at Π, so both read the same subgraph and
-differ only in what was projected out of it. Which product question a
-decision answered is recoverable from the served payload's subject and the
-record's boundary — it is not itself a replay dimension.
+**Which question a decision answered is pinned, on both readings** — and
+until 2026-08-11 only one of the two was. The record's
+`graph_query_sequence` pins the questions put to the **graph**. Questions 1
+and 3 pin differently because the boundary is compiled into the query, and
+questions 1 and 2 now pin differently too, because the request's subject
+seeds the traversal (D-IMPL-111 limb (a)). Their *first* pin is still shared:
+that segment carries the policy family and no walk, and a query with seeds
+and no walk to start is not well formed.
+
+The question put to the **product** — subject, intent, freshness and the
+instant it was asked as of — is carried verbatim in replay dimension 5
+(D-IMPL-111 limb (b)). It was recorded nowhere before that ruling: the
+subject was *recoverable* from the served payload and the boundary from
+dimension 1, but `intent` and `freshness` were in no dimension at all, and
+recovery-by-inference is not the same property as a pin.
 
 ## Artifact-by-artifact
 
