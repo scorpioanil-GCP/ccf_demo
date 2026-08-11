@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**415 entries**, of which **194** name a public Python surface.
+**422 entries**, of which **200** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-165 entries — 135 public Python surface, 30 not public Python API.
+172 entries — 141 public Python surface, 31 not public Python API.
 
 ### Public Python surface
 
@@ -2877,6 +2877,123 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.4-09-backends-cli.md`.*
 
+#### ccf.products.entitlement.ProductEntitlementGrant
+
+- Surface: ccf.products.entitlement.ProductEntitlementGrant
+- Public surface: true
+- Change type: added
+- Before: absent — nothing in the fabric could say what one *local* principal
+  may receive. `ccf.peering.trust_policy.PeerTrustGrant` said it for a foreign
+  peer; the local egress door had server-wide scopes and no per-class notion at
+  all
+- After: a `CCFContract` with exactly two fields, `permitted_schema_names` and
+  `permitted_roles`, both `frozenset[str]` and **neither with a default**, plus
+  two checks that raise: `require_schema(schema_name=…)` and
+  `require_role(role=…)`. Empty is expressible and means "nothing of that kind",
+  never "anything"
+- Why: the two questions a door asks — *may this caller receive this product
+  class?* and *as whom?* — are answered by one lookup, for one subject, at one
+  moment. Two artifacts would make a door resolve twice and let the answers
+  drift. Roles sit here rather than on
+  `ccf.projection.plan.Perspective` because a perspective is a *statement*, not
+  a credential: a door checks the grant and then constructs the perspective,
+  and replay keeps feeding the recorded perspective
+- Migration: none — a new noun; nothing existing moved
+
+*Recorded by `15.5-03-product-entitlement.md`.*
+
+#### ccf.products.entitlement.ProductEntitlementPolicy
+
+- Surface: ccf.products.entitlement.ProductEntitlementPolicy
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `CCFContract` with `tenant_id`, `policy_version` (its own lane,
+  no default, validated through `ccf.controlplane.artifact_base.validate_semver`
+  — the one home of the semver grammar), and
+  `principals: Mapping[str, ProductEntitlementGrant]` with `min_length=1`, plus
+  `grant_for(principal_id=…)` raising `PrincipalNotEntitled`. `extra="forbid"`
+  is inherited from `CCFContract`
+- Why: the tenant is a field on the artifact rather than a lookup argument, so
+  two tenants naming the same principal hold two artifacts with two content
+  addresses and one tenant's grant cannot leak into another's lookup — not by
+  convention, but because there is no shared object to leak through.
+  `min_length=1` refuses an empty policy because it is indistinguishable from a
+  forgotten one, and a door that came up entitling nobody while looking
+  configured is the failure this catches at authoring time
+- Migration: none — a new noun; nothing existing moved
+
+*Recorded by `15.5-03-product-entitlement.md`.*
+
+#### ccf.products.entitlement.ProductEntitlementViolation
+
+- Surface: ccf.products.entitlement.ProductEntitlementViolation
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `LookupError` subclass raised by `require_schema` and `require_role`.
+  `LookupError` because that is literally what happened — the request was not
+  found among the principal's entitlements
+- Why: raised rather than softened to a boolean, so a delivery path cannot
+  treat "not entitled" as "not sure". This is the same raise-vs-return line
+  `ccf.peering.trust_policy.TrustPolicyViolation` draws, made consistently
+- Migration: none — a new noun; nothing existing moved
+
+*Recorded by `15.5-03-product-entitlement.md`.*
+
+#### ccf.products.entitlement.PrincipalNotEntitled
+
+- Surface: ccf.products.entitlement.PrincipalNotEntitled
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `ProductEntitlementViolation` subclass raised by `grant_for` when the
+  policy names no entry for a principal at all. A caller that wants to treat
+  every refusal alike catches the base; one that wants to tell them apart has
+  the precise type
+- Why: an unconfigured principal is a caller the deployment never declared, not
+  a caller overreaching a known grant, and an operator reading an audit log
+  should not have to guess which they saw. The alternative — returning an empty
+  grant — is deny-by-default only by accident, and reads as configuration
+  rather than as an omission
+- Migration: none — a new noun; nothing existing moved
+
+*Recorded by `15.5-03-product-entitlement.md`.*
+
+#### ccf.products.entitlement.PRODUCT_ENTITLEMENT_POLICY
+
+- Surface: ccf.products.entitlement.PRODUCT_ENTITLEMENT_POLICY
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: an `ArtifactClass` binding the class id `ccf.product-entitlement-policy`
+  to `ProductEntitlementPolicy`, so registering a bare mapping under an
+  entitlement key is a `TypeError` at registration rather than a plausible-
+  looking policy nobody notices until a caller is admitted against it
+- Why: the artifact class is what makes "registering the wrong thing" a
+  detectable error — the property `ccf.controlplane.artifacts` argues for and
+  the reason every Control Plane artifact in this tree is typed
+- Migration: none — a new noun; nothing existing moved. It joins neither SDK
+  class mapping, so no manifest can name it and no served schema set widens —
+  see the placement note above
+
+*Recorded by `15.5-03-product-entitlement.md`.*
+
+#### ccf.products.entitlement.product_entitlement_key
+
+- Surface: ccf.products.entitlement.product_entitlement_key
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `product_entitlement_key(*, tenant_id) -> str`, returning
+  `f"{PRODUCT_ENTITLEMENT_POLICY.class_id}/{tenant_id}"`
+- Why: a derivation rather than a table. The SDK supplies the *shape* of the key
+  so two components cannot disagree about where a tenant's policy lives, and
+  supplies no tenant, so it holds no deployment's vocabulary (CINV-01)
+- Migration: none — a new noun; nothing existing moved
+
+*Recorded by `15.5-03-product-entitlement.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -3342,6 +3459,22 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none — a new command
 
 *Recorded by `15.4-09-backends-cli.md`.*
+
+#### docs/schemas/ccf.product-entitlement-policy.json
+
+- Surface: docs/schemas/ccf.product-entitlement-policy.json
+- Public surface: false
+- Change type: added
+- Before: absent
+- After: the committed authoring schema for the new class, emitted by
+  `make schemas` and committed in the same commit as the contract
+- Why: the drift gate is bytes-equality in the always-on `test` job, so a schema
+  landing one commit later is a red build for that commit. The schema is also
+  what an adopter points a `# yaml-language-server: $schema=` header at, which
+  is the whole reason this tree commits generated schemas at all
+- Migration: none — a new file; no existing schema moved
+
+*Recorded by `15.5-03-product-entitlement.md`.*
 
 ## Reshaped
 

@@ -179,8 +179,13 @@ def unaddressable_classes() -> dict[str, Any]:
     That is the argument for the mechanism in one line — a hand-maintained third
     list would have carried two entries and been wrong the day it was written.
 
-    None is author-versioned (all carry ``semver``, not ``artifact_version``),
-    and none is manifest-addressable, for two different reasons:
+    None is author-versioned — none declares the ``artifact_version`` field
+    :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.register_versioned`
+    reads for its D-05 bump check, which is what "author-versioned" means.
+    Each carries a lane of its own instead, spelled ``semver`` on all but
+    ``ccf.product-entitlement-policy``, which spells it ``policy_version``; the
+    lane's *name* is the class's, and nothing in this tool reads it. None is
+    manifest-addressable either, for two different reasons:
 
     * ``ccf.scope-mapping`` lives in :mod:`ccf_runtime`, and
       :data:`~ccf.deployment.classes.SDK_ARTIFACT_CLASSES` lives in ``/src``.
