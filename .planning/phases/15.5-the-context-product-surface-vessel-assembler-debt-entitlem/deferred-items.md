@@ -180,7 +180,37 @@ already owns the retirement decision for the `15.5-01` spike module.
   a ruling on whether the frozen Phase-15 baseline is rewritten or the diff
   reconciled, the same question `test_every_public_log_entry_has_a_matching_diff_line`
   already carries one narrow reconciliation for.
-- **Owner:** unassigned — a phase-close or Phase-16 gate-tooling item. What
-  this plan did instead is pin the two seams with a dedicated invariant
+- **Owner:** **PHASE 17** (`D-IMPL-110`, Dave, 2026-08-11). Recorded as debt
+  rather than fixed in 15.5, on the grounds that the blind spot predates this
+  phase and was not caused by it. What this plan did instead is pin the two
+  seams with a dedicated invariant
   (`tests/invariants/test_mcp_role_separation.py`), which is a per-seam
   substitute for a gate and does not generalize.
+
+- **Measured inventory, taken by the orchestrator at `4d16cb9`** so Phase 17
+  inherits a number rather than an impression. Verified independently against
+  `docs/surface/v0.2-surface.json`, not accepted on the plan's report:
+
+  | Measure | Count |
+  |---|---|
+  | Manifest entries recording `"(*args, **kwargs)"` | **56** |
+  | …of which are named `*Protocol` | **30** |
+  | Total `Protocol` classes across `src/` + `runtime/` | **54** |
+
+  Confirmed blind, by name: `ArtifactStoreProtocol`, `ControlPlaneProtocol`,
+  `HarnessAdapterProtocol`, `OrchestrationProtocol`, `HITLTransportProtocol`,
+  `WebhookDeliveryProtocol`, `LLMClientProtocol`, `DebtFactorScorerProtocol`,
+  plus the two resolver seams and `ReplayEnvironment`.
+
+- **The two consequences of deferring, recorded so they are not rediscovered:**
+  1. **Phase 15.5 ships a breaking Protocol change its own drift gate cannot
+     see.** The surface manifest is therefore *not* evidence of surface
+     stability for this phase and must not be cited as such at the gate.
+  2. **The `behavior`-instead-of-`reshaped` classification stands as
+     precedent.** A later author reading the `15.5-11` and `15.5-15` fragments
+     will reasonably copy it. Phase 17 should expect to reclassify both entries
+     once the tooling can see them.
+
+- **Recommendation on record:** the orchestrator recommended fixing in-phase via
+  `15.5-14`, which already owns the surface-manifest sweep. Dave ruled defer.
+  The recommendation is preserved rather than dropped, per `D-IMPL-110`.
