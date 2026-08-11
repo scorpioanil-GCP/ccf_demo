@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**461 entries**, of which **239** name a public Python surface.
+**463 entries**, of which **241** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-201 entries — 170 public Python surface, 31 not public Python API.
+203 entries — 172 public Python surface, 31 not public Python API.
 
 ### Public Python surface
 
@@ -3537,6 +3537,68 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: new surface — none
 
 *Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.bind.refuse_bound_payload
+
+- Surface: ccf.products.bind.refuse_bound_payload
+- Public surface: true
+- Change type: added
+- Before: absent — a class could declare a payload schema (15.5-07) and pin it
+  at registration, and nothing anywhere held an actual payload to it. The
+  declaration was documentation
+- After:
+  `refuse_bound_payload(*, payload, product_class, registry) -> PayloadSchemaViolation | None`
+  — resolves the class's `(payload_schema_key, payload_schema_version)` pin
+  and delegates to `ccf.products.payload.refuse_payload`. Returns `None` for a
+  conforming payload **and for a class that declared no schema**; otherwise
+  the violation naming the first failure and carrying both sides of it
+- Why: D-IMPL-102 limb 2. Bind is where a payload meets its declared schema
+  because bind is where the class a request resolved to is in hand and its
+  pinned schema is therefore resolvable. It delegates rather than compares so
+  that registration-time binding and request-time checking cannot drift into
+  two readings of "conforms" — the reason `refuse_attestation` is one function
+  and not two
+- Migration: **new surface — nothing is required of an existing adopter, and
+  nothing changes for a class that has declared no payload schema.** A
+  deployment adopting the check registers its schema, pins it on the product
+  class, and calls this once on the bound path after the payload exists and
+  before it leaves that path. The refusal is a returned value — a caller that
+  ignores the return has not been refused, which is the same posture
+  `run_gates` takes and the same responsibility a caller carries there.
+  **Where the request surface joins:** D-IMPL-98's typed request contract
+  (plan 15.5-08) is what a request binds *through*, and D-IMPL-108 gave the
+  widening of the three-string resolver seam to plan 15.5-15. Neither a
+  request nor a door appears in this signature, deliberately — keeping them
+  out is what lets both of those land without reopening this one
+
+*Recorded by `15.5-09-payload-bind.md`.*
+
+#### ccf.products.bind.resolve_declared_payload_schema
+
+- Surface: ccf.products.bind.resolve_declared_payload_schema
+- Public surface: true
+- Change type: added
+- Before: absent — the pin `RegisteredProductClass` carries was resolved only
+  once, inside `register_product_class`, and no caller could read back the
+  schema a class had declared
+- After:
+  `resolve_declared_payload_schema(*, product_class, registry) -> ProductPayloadSchema | None`
+  — resolves the pin by **exact** version, never latest, and returns `None`
+  when the class declared none. Raises `ControlPlaneMissing` when the pin has
+  vanished since registration and `TypeError` when it now holds something that
+  is not a schema
+- Why: separated from the conformity check so a caller binding many requests
+  against one class can resolve once, and so the two failure modes stay
+  reported the way this tree reports them: a payload that misses its schema is
+  a bad **product** and comes back as a value; a pin that no longer resolves
+  is a broken **deployment** and is raised. That asymmetry is `run_gates`'s
+  own, kept for its MAX_TTL pin, and applied here to the second piece of
+  pinned governance
+- Migration: new surface — none. The `None` return is the positive assertion
+  *this class has not declared what its payload must look like* (the
+  `NO_PAYLOAD_SCHEMA` sentinel's reading), never *the lookup was skipped*
+
+*Recorded by `15.5-09-payload-bind.md`.*
 
 ### Not public Python API
 
