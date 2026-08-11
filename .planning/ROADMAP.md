@@ -937,6 +937,46 @@ product.**
   9. The four anti-leakage lints stay green throughout: zero harness imports in `src/`, no LLM client in an `@algorithmic` module, no prompt or threshold literal outside an artifact, no substrate name outside the backend registry
   10. `examples/s1-01-hello-context-product` demonstrates an agent asking about any company at any time and is the shape every later example copies
 
+**Plans:** 14 plans in 7 waves. Requirements `CPS-01`..`CPS-14` are minted by plan
+15.5-05 at execution and are not in `.planning/REQUIREMENTS.md` yet. Three plans
+carry blocking checkpoints: 15.5-05 (the eight-question ruling package), 15.5-13
+(Dave calls the product for two companies at two instants) and 15.5-14 (the gate).
+
+**Wave 1** *(no dependencies — none of these needs a ruling)*
+
+- [ ] 15.5-01-PLAN.md — Ruling evidence: measure what the eight questions cost
+- [ ] 15.5-02-PLAN.md — The nine-element executable enumeration (the anti-recurrence artifact)
+- [ ] 15.5-03-PLAN.md — Product-entitlement artifact, in the `PeerTrustGrant` shape
+- [ ] 15.5-04-PLAN.md — Delete `DeploymentBinding` from `s1-01`
+
+**Wave 2** *(05 blocked on 01; 06 blocked on 03)*
+
+- [ ] 15.5-05-PLAN.md — The ruling package + CPS requirement minting (**checkpoint**)
+- [ ] 15.5-06-PLAN.md — Bind entitlement and resolve Perspective at the egress door
+
+**Wave 3** *(blocked on the rulings)*
+
+- [ ] 15.5-07-PLAN.md — The three absent contract elements + the declared payload schema
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 15.5-08-PLAN.md — The typed request contract (addressability realized)
+
+**Wave 5** *(blocked on Waves 3-4)*
+
+- [ ] 15.5-09-PLAN.md — Payload validation enforcement
+- [ ] 15.5-10-PLAN.md — The assembler Protocol + reference implementation
+- [ ] 15.5-11-PLAN.md — Context Debt reaches the consumer
+- [ ] 15.5-12-PLAN.md — Aggregate composition: lineage union, TTL floor, `D-IMPL-31` refusal
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [ ] 15.5-13-PLAN.md — `s1-01` answers about any company at any time (**checkpoint**)
+
+**Wave 7** *(blocked on Wave 6)*
+
+- [ ] 15.5-14-PLAN.md — Phase close: full sweep, surface manifest, review, gate package (**checkpoint**)
+
 **Blocks**: Phase 16 — the documentation rewrite resumes against this surface, not the one it found
 
 ### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
@@ -1093,7 +1133,7 @@ Plans:
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
-| 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 0/? | Planned | — |
+| 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 0/14 | Planned | — |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Parked (resumes after 15.5) |  |
 
 ## Coverage
