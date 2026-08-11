@@ -30,18 +30,22 @@ from ccf.agents.assembler import (
     ContextAssemblerProtocol,
     DeterministicAssembler,
 )
+from ccf.agents.archetypes import ReplayObligation, context_assembly
 from ccf.agents.definitions import (
     AGENT_DEFINITION,
+    EMITS_NOTHING,
     PROMPT_ARTIFACT,
     AgentDefinition,
+    EmittedProduct,
     PromptArtifact,
 )
-from ccf.agents.errors import AssemblyRefused
+from ccf.agents.errors import AgentDefinitionError, AssemblyRefused
 from ccf.agents.factory import AgentFactory
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.projection.acquisition import AcquiredContent, ContentRequest
 from ccf.projection.plan import Perspective, ProjectionOutput
+from ccf.products.contract import RegisteredProductClass
 from ccf.products.request import ProductRequest
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
@@ -105,6 +109,21 @@ def _construct(
     return AgentFactory(control_plane=plane).construct(
         definition_key=key, definition_version=version
     )
+
+
+def _construct_with_classes(
+    plane: ControlPlaneRegistry,
+    document: dict[str, Any],
+    key: str,
+    product_classes: dict[str, RegisteredProductClass],
+) -> Agent:
+    """The same supported path, with the deployment's registered classes wired."""
+    definition = _definition(document)
+    version = plane.register_versioned(key, definition, AGENT_DEFINITION)
+    assert isinstance(version, str)
+    return AgentFactory(
+        control_plane=plane, product_classes=product_classes
+    ).construct(definition_key=key, definition_version=version)
 
 
 def _assembler_agent(plane: ControlPlaneRegistry) -> Agent:
@@ -339,3 +358,177 @@ def test_the_assembler_refuses_a_perspective_it_was_not_declared_under(
         )
     assert agent.definition.perspective.role in str(refusal.value)
     assert agent.definition.name in str(refusal.value)
+
+
+# --- axis 2's emission side ---------------------------------------------------
+
+
+def _emitting_document(
+    *, archetypes: tuple[str, ...] | None = None, artifact_version: str
+) -> dict[str, Any]:
+    """The fixture definition, mutated to declare an emission binding.
+
+    A fixture mutation registered under its own key, never an inline document
+    (the convention ``tests/agents/test_factory.py`` states). The emitted class
+    is the one the fixture already names under ``consumes``, so no product
+    identity is invented in test code (No-Hardcoding Rule §6.4).
+    """
+    document = dict(_assembler_fixture()["agent_definition"])
+    consumed = document["context_contract"]["consumes"][0]
+    document["context_contract"] = {
+        "consumes": document["context_contract"]["consumes"],
+        "emits": [
+            {
+                "product_class": consumed["product_class"],
+                "schema_version": consumed["schema_version"],
+            }
+        ],
+    }
+    if archetypes is not None:
+        document["archetypes"] = list(archetypes)
+    document["artifact_version"] = artifact_version
+    return document
+
+
+def _registered_class(document: dict[str, Any]) -> RegisteredProductClass:
+    """The deployment's registration of the class the mutant emits to."""
+    emitted = document["context_contract"]["emits"][0]
+    return RegisteredProductClass(
+        schema_name=emitted["product_class"],
+        schema_version=emitted["schema_version"],
+        ttl_anchor="from_decision",
+        assembly_mode="algorithmic",
+        max_ttl_key=emitted["product_class"],
+        max_ttl_version=emitted["schema_version"],
+    )
+
+
+def test_an_agent_declares_no_emission_by_default(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """*This agent emits nothing* is a claim, not an absence."""
+    agent = _assembler_agent(registry)
+    assert agent.definition.context_contract.emits == EMITS_NOTHING
+    assert EMITS_NOTHING == ()
+
+
+def test_the_emission_binding_lives_on_the_context_contract(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Axis 2 grew the side its own docstring said it was designed to grow."""
+    document = _emitting_document(artifact_version="1.1.0")
+    emitted = document["context_contract"]["emits"][0]
+    agent = _construct(
+        registry, document, _assembler_fixture()["keys"]["agent_definition"]
+    )
+    assert agent.definition.context_contract.emits == (
+        EmittedProduct(
+            product_class=emitted["product_class"],
+            schema_version=emitted["schema_version"],
+        ),
+    )
+    # The consuming side is untouched: additive means additive.
+    assert agent.definition.context_contract.consumes == (
+        _definition(_assembler_fixture()["agent_definition"])
+        .context_contract.consumes
+    )
+
+
+def test_the_factory_refuses_an_emitter_that_is_not_an_assembler(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Naming both sides, and not repairing either."""
+    fixture = _assembler_fixture()["agent_definition"]
+    monitoring_only = tuple(
+        a for a in fixture["archetypes"] if a != "context_assembly"
+    )
+    document = _emitting_document(
+        archetypes=monitoring_only, artifact_version="1.2.0"
+    )
+    with pytest.raises(AgentDefinitionError) as refusal:
+        _construct(
+            registry,
+            document,
+            _assembler_fixture()["keys"]["agent_definition"],
+        )
+    message = str(refusal.value)
+    assert "context_assembly" in message
+    assert repr(monitoring_only) in message or monitoring_only[0] in message
+
+
+def test_the_factory_refuses_an_emission_to_an_unregistered_class(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """A deployment finds out while wiring the fabric, not in front of a caller."""
+    document = _emitting_document(artifact_version="1.3.0")
+    emitted = document["context_contract"]["emits"][0]
+    with pytest.raises(AgentDefinitionError) as refusal:
+        _construct(
+            registry,
+            document,
+            _assembler_fixture()["keys"]["agent_definition"],
+        )
+    message = str(refusal.value)
+    assert emitted["product_class"] in message
+    assert emitted["schema_version"] in message
+
+
+def test_the_factory_refuses_an_emission_to_another_lane(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Lanes are per class and never compared across classes (INV-CH7-49)."""
+    document = _emitting_document(artifact_version="1.4.0")
+    registered = _registered_class(document)
+    other_lane = registered.model_copy(update={"schema_version": "9.0.0"})
+    with pytest.raises(AgentDefinitionError) as refusal:
+        _construct_with_classes(
+            registry,
+            document,
+            _assembler_fixture()["keys"]["agent_definition"],
+            {other_lane.schema_name: other_lane},
+        )
+    assert "9.0.0" in str(refusal.value)
+
+
+def test_the_factory_accepts_a_registered_emission(
+    registry: ControlPlaneRegistry,
+) -> None:
+    document = _emitting_document(artifact_version="1.5.0")
+    registered = _registered_class(document)
+    agent = _construct_with_classes(
+        registry,
+        document,
+        _assembler_fixture()["keys"]["agent_definition"],
+        {registered.schema_name: registered},
+    )
+    assert agent.definition.context_contract.emits[0].product_class == (
+        registered.schema_name
+    )
+
+
+# --- the archetype the Protocol attaches to is unchanged ----------------------
+
+
+def test_the_context_assembly_archetype_declares_what_it_always_declared() -> None:
+    """The Protocol attaches to the archetype's obligations, never replaces them."""
+    assert context_assembly.archetype_id == "context_assembly"
+    assert context_assembly.fabric_interaction_pattern() == "typed-product-emission"
+    assert context_assembly.replay_obligations() == (
+        ReplayObligation(
+            name="emitted-product-replay-envelope",
+            obligation=(
+                "the emitted product is itself a replayable artifact"
+                " bound to the five-dimension envelope, distinct from"
+                " any consumer's inference trace; emission routes"
+                " through the single-writer assembly mechanism"
+            ),
+        ),
+        ReplayObligation(
+            name="policy-before-similarity",
+            obligation=(
+                "policy composes before similarity at every assembly"
+                " step the archetype takes"
+            ),
+        ),
+    )
+    assert context_assembly.configuration_defaults() == ()
