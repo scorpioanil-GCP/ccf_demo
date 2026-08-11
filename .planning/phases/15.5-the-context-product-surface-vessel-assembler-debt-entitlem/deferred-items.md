@@ -93,6 +93,36 @@ already owns the retirement decision for the `15.5-01` spike module.
   request contract and the authorized `Perspective`, rather than being reshaped
   twice. Dave named this *"the highest-priority structural debt for the later
   waves"* on 2026-08-11.
+- **STATUS: CLOSED** by plan `15.5-15`, closing commit `c244400`
+  (`feat(15.5-15): widen the product resolver seam once, carrying perspective
+  and request`), with the supplying call sites in `685cbf0` and the structural
+  assertions in `1b2a5b3`.
+
+  What closed it, in the order the assertions run:
+
+  1. Both Protocols carry `perspective: Perspective` and
+     `request: ProductRequest | None`, keyword-only and **neither defaulted**.
+     A default would have recreated the ambiguity one layer down — a resolver
+     handed nothing and constructing its own is indistinguishable from one
+     honouring the door's — so the seam requires the value.
+  2. All three doors bind what `entitled_perspective` returns and pass it.
+     `tests/invariants/test_mcp_role_separation.py` walks each door's AST for
+     the shipped defect's exact shape (a bare `entitled_perspective(...)`
+     expression statement) and fails on it.
+  3. The property is asserted **by value**, not by parameter: the authenticated
+     egress server is stood up in process, one product is read as a verified
+     and entitled caller, and what the resolver received is compared against
+     what that deployment's perspective seam returned for that grant. A test
+     that only checked the parameter existed would have passed against a door
+     forwarding a freshly-constructed perspective, which is a different
+     security property and identical in every byte a consumer sees.
+
+  One behaviour change rode with it and is **not** a side effect but the
+  deferred item's own consequence: the HTTP door in the ungoverned posture can
+  name no perspective, so it refuses (503, `product-door-ungoverned`) rather
+  than serving. See `docs/surface-changes/15.5-15-resolver-seam.md` for the
+  trade and the two-line restoration. This supersedes T-07-24's preservation of
+  that posture and **wants Dave's ruling at the phase gate**.
 
 ## DI-15.5-04 — `IntermediateCache` computes a key for a cache that cannot hit
 
