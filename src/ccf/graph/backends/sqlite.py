@@ -499,6 +499,27 @@ def _translated_statements(
     text.append(")\n")
 
     if q.traverse is not None:
+        # hops: the crossable set stated ONCE per direction, so the walk's
+        # recursive term can find its next hops by EQUALITY on the walk row's
+        # own node. `GQ-10` at docs/GRAPH_QUERY_SEMANTICS.md:201 makes an edge
+        # crossable in either direction, and the natural rendering of that —
+        # `JOIN edges c ON (c.subject_uri = w.uri OR c.object_uri = w.uri)` —
+        # is a disjunction SQLite cannot serve from an index, so every step of
+        # the walk re-scanned the whole crossable set: |walk| x |edges| row
+        # comparisons, quadratic in the segment's own answer. Pre-symmetrizing
+        # is the same relation written so an equality join can index it; the
+        # UNION (never UNION ALL) makes a self-loop's two renderings one row,
+        # exactly as the disjunction's single match did. The reached-node
+        # expression below is unchanged and still reads as the general
+        # undirected step: under this join its CASE simply always takes the
+        # `object_uri` branch.
+        text.append(",\nhops(subject_uri, object_uri) AS MATERIALIZED (\n")
+        text.append(
+            "    SELECT c.subject_uri, c.object_uri FROM edges c\n"
+            "  UNION\n"
+            "    SELECT c.object_uri, c.subject_uri FROM edges c\n"
+            ")\n"
+        )
         # The bounded typed undirected walk (`GQ-10` at
         # docs/GRAPH_QUERY_SEMANTICS.md:201, INV-CH7-24). Walk starting
         # points are the union of seed-class selection and explicit seeds,
@@ -535,14 +556,17 @@ def _translated_statements(
         # types, and BOTH endpoints surviving — so an edge to an excluded
         # node is not a hop the walk can take, and a path through an
         # excluded node does not exist. Prune before walking, exactly the
-        # fallback's shape.
+        # fallback's shape. The expansion surface is reached through `hops`,
+        # which is that same set with each edge stated in both directions —
+        # every predicate above still governs it, because `hops` is derived
+        # from `edges` and adds no row of its own.
         text.append(
             "  UNION\n"
             "    SELECT " + _REACHED + ",\n"
             "           w.depth + 1\n"
             "    FROM walk w\n"
-            "    JOIN edges c\n"
-            "      ON (c.subject_uri = w.uri OR c.object_uri = w.uri)\n"
+            "    JOIN hops c\n"
+            "      ON c.subject_uri = w.uri\n"
             "    WHERE w.depth < ?\n"
         )
         # Depth is a bound parameter in SQL — the literal-inlining
