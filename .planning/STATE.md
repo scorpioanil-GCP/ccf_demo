@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-11T03:10:00.000Z"
-last_activity: 2026-08-10 -- Phase 15.5 planned (14 plans, 3 blockers fixed); Phase 16 parked
+last_updated: "2026-08-11T10:50:00.000Z"
+last_activity: 2026-08-11 -- Phase 15.5 execution started (14 plans, 7 waves); Phase 16 parked
 progress:
   total_phases: 16
   completed_phases: 14
@@ -24,12 +24,12 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 16 — documentation rewrite — the deterministic path & the adoption argument
+**Current focus:** Phase 15.5 — The Context Product Surface (vessel, assembler, debt, entitlement)
 
 ## Current Position
 
-Phase: 15.5 — The Context Product Surface (PLANNED, not started) · Phase 16 PARKED
-Plan: 15.5 is 0 of 14; Phase 16 is 6 of 21 (16-02 open at 2/3, 16-05 open at 2/3)
+Phase: 15.5 — The Context Product Surface (EXECUTING) · Phase 16 PARKED
+Plan: 15.5 is 0 of 14 (wave 1 of 7 dispatched); Phase 16 is 6 of 21 (16-02 open at 2/3, 16-05 open at 2/3)
 
 NEXT ACTION (2026-08-11 morning, Dave now on US Eastern): `/gsd:execute-phase 15.5`
   — `/clear` first. Wave 1 is four parallel plans and none needs a decision; the
