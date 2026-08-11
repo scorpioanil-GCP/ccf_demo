@@ -392,8 +392,10 @@ subject fully replayable. It is built and unused.
    domain values in the core. This is the hardest line in the whole design.
 4. **Whether the three validation gates become four** (payload-against-declared-schema),
    or whether that binds at class registration instead.
-5. ~~**Whether the assembler Protocol lands as the `ContextAssemblyAgent`~~ **RESOLVED** (`D-IMPL-97`): the agent is the implementation. What remains is the assembler's behavioural surface, which the declarative
-   archetype** — building an archetype committed since §6.3 and never built.
+5. ~~Whether the assembler Protocol lands as the `ContextAssemblyAgent`
+   archetype.~~ **RESOLVED** by `D-IMPL-97`: *"Agent becomes the implementation
+   protocol."* The archetype already ships and is declarative; what remains to
+   design is the assembler's **behavioural** surface, which attaches to it.
 6. **Whether the request surface is a typed request contract per class** —
    Dave's *"company name and top investors above 25%"*. This is what makes a
    product **callable** rather than configurable, and it is what turns the fixed
