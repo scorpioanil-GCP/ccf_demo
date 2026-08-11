@@ -418,8 +418,12 @@ def test_the_emission_binding_lives_on_the_context_contract(
     """Axis 2 grew the side its own docstring said it was designed to grow."""
     document = _emitting_document(artifact_version="1.1.0")
     emitted = document["context_contract"]["emits"][0]
-    agent = _construct(
-        registry, document, _assembler_fixture()["keys"]["agent_definition"]
+    registered = _registered_class(document)
+    agent = _construct_with_classes(
+        registry,
+        document,
+        _assembler_fixture()["keys"]["agent_definition"],
+        {registered.schema_name: registered},
     )
     assert agent.definition.context_contract.emits == (
         EmittedProduct(

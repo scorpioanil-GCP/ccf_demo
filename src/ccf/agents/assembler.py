@@ -68,7 +68,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from pydantic import model_validator
 
@@ -77,7 +77,19 @@ from ccf.agents.errors import AssemblyRefused
 from ccf.contracts.base import CCFContract
 from ccf.projection.acquisition import AcquiredContent
 from ccf.projection.plan import Perspective, ProjectionOutput
-from ccf.products.request import ProductRequest
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    # Deferred for the reason :mod:`ccf.agents.agent` defers
+    # ``ccf.skills.dispatch``, and against a cycle that is real rather than
+    # hypothetical: ``ccf.products.request`` imports
+    # :class:`~ccf.skills.catalog.SkillArgumentSchema`, and ``ccf.skills``
+    # imports ``ccf.agents.definitions`` — which initializes this package. A
+    # module-level import here would make the success of that graph depend on
+    # which module a caller reached first, the non-determinism D-IMPL-37
+    # rejects. ``ProductRequest`` appears only in annotations, which
+    # ``from __future__ import annotations`` leaves unevaluated, so nothing at
+    # runtime needs the name.
+    from ccf.products.request import ProductRequest
 
 __ccf_mode__ = "algorithmic"
 
