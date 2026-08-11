@@ -11,7 +11,7 @@ appear below and they are deliberately not blended:
 | --- | --- |
 | **RULED** | Dave's decision. Authority per CLAUDE.md §2. Already binding. |
 | **MEASURED** | Checked against the tree at `b771468`. Evidence, not opinion. |
-| **DERIVED** | Claude's interpretation of a ruling's consequence. **Needs Dave's confirmation** before it binds. |
+| **DERIVED** | Claude's interpretation of a ruling's consequence. Dave confirmed the set on 2026-08-10 ("Rest is good"); each is now binding unless re-opened. |
 
 ---
 
@@ -35,12 +35,12 @@ registry — plus a **declared payload schema** the class registers.
 > *"The Contract base is the typed scaffold every per-product subclass inherits
 > and extends; the per-product subclasses carry the domain-specific payload."*
 
-This should be restated as vessel + declared payload schema. **DERIVED:** the
-*intent* of that sentence — domain payload is typed, cross-cutting invariants
-live once on the base — is preserved, not reversed. A declared JSON Schema
-delivers a typed payload and keeps invariants on the base without Python
-inheritance. Recommend recording it as a **wording correction**, not a change of
-position, unless Dave reads it otherwise.
+Restated as vessel + declared payload schema. **RULED — this is a wording
+correction, not a reversal** (Dave, 2026-08-10: *"Vessel wording is not
+reversal"*). The *intent* of that sentence — domain payload is typed,
+cross-cutting invariants live once on the base — is preserved in full: a declared
+JSON Schema delivers a typed payload and keeps the invariants on the base,
+without Python inheritance.
 
 **Why the vessel is the stronger model** (arguments that survived scrutiny):
 
@@ -175,23 +175,58 @@ what to do with it for any request within the parameters it supports.
 - The calling agent invokes the product, not an MCP server in front of a
   database; the orchestration mess is handled inside.
 
-### 3.3 The archetype exists on paper only — **MEASURED**
+### 3.3 The archetype ships; the assembly behaviour does not — **MEASURED (corrects an earlier error in this document)**
 
-CLAUDE.md §6.3 already commits `ContextAssemblyAgent`: *"assembler agent producing
-Context Products for consumption by other agents… the recursive context enrichment
-case."* **It does not exist in `src/`.** The producer side has a designated home
-and the home is empty.
+> **Correction.** An earlier revision of this section asserted that
+> `ContextAssemblyAgent` *"does not exist in `src/`"* and that *"the producer side
+> has a designated home and the home is empty."* **That was false**, and the grep
+> behind it searched for the wrong symbol name. Recorded rather than quietly
+> edited, because an unverified finding acted on is worse than no finding.
 
-### 3.4 The assembler declaration as an artifact — **RULED (provisional)**
+**All six archetypes ship.** `src/ccf/agents/archetypes.py` registers `workflow`,
+`document_intelligence`, `analytics_insights`, `monitoring_surveillance`,
+`content_generation` and `context_assembly` in `ARCHETYPES`. The last is
+`_ContextAssemblyComponent`, declaring `fabric_interaction_pattern() ==
+"typed-product-emission"` and two replay obligations — an emitted-product replay
+envelope, and policy composing before similarity at every assembly step.
 
-Dave: *"I think so"* — to the proposal that the assembler's declaration lives as
-a versioned, content-hashed Control Plane artifact, with the Protocol
-implementation as its interpreter.
+**What is actually missing is narrower, and more useful to know.**
+`ArchetypeComponent` is a **declarative** Protocol — `archetype_id`,
+`fabric_interaction_pattern`, `replay_obligations`, `configuration_defaults`. It
+declares what the fabric *requires of* this class of agent and carries **no
+assembly behaviour**: no source binding, no tool or agent enlistment, no product
+emission. Its own docstring says so: *"The emission pattern is declared here… the
+transports (in-process, MCP egress, A2A) bind in I.3."*
 
-**DERIVED consequence, needs confirmation:** a product's identity becomes
-auditable. Replay answers not only *what it returned* but *what it was permitted
-to consult* — which sources, which tools, which agents, and what freshness it
-claimed it could promise.
+So the assembler Protocol is a **new behavioural surface**, not a fill-in-the-blank
+— and the archetype is the seam it attaches to.
+
+### 3.4 The agent is the assembler implementation — **RULED**
+
+> *"Agent becomes the implementation protocol."*
+
+The Protocol's implementation is a **declared agent** — a Control Plane artifact
+produced by the Agent Factory from the `context_assembly` archetype. Not SDK code,
+not a subclass.
+
+**MEASURED — the fit is confirmation, not convenience.** The six specialization
+axes of CLAUDE.md §6.2 already describe what an assembler needs, and one is
+decisive: **axis 5, the half-life and debt profile, is already a *required* field
+on agent definitions** — `halflife_debt_profile`, a pinned `ccf-artifact://`
+reference, with `DebtProfile` a shipped `VersionedArtifact`
+(`src/ccf/controlplane/artifacts.py:225`) and a published schema
+(`docs/schemas/ccf.debt-profile.json`). The home for a product's debt
+configuration already exists, on the agent, declared and version-pinned.
+
+The rest map cleanly: axis 2 binds which product schemas it emits, axis 3 its
+perspective, axis 4 the policy regime bounding what it may consult, axis 6 its
+instruction artifacts. **Channel 2 — skilling — governs which tools and peer
+agents it may enlist**, and every grant and revocation already lands in replay.
+
+**Consequence, now confirmed:** a product's identity becomes auditable. Replay
+answers not only *what it returned* but *what it was permitted to consult* —
+which sources, which tools, which agents, and what freshness it claimed it could
+promise.
 
 ### 3.5 Agent enlistment is constrained by Algorithmic ⇄ Semantic Alternation — **DERIVED**
 
@@ -357,7 +392,7 @@ subject fully replayable. It is built and unused.
    domain values in the core. This is the hardest line in the whole design.
 4. **Whether the three validation gates become four** (payload-against-declared-schema),
    or whether that binds at class registration instead.
-5. **Whether the assembler Protocol lands as the `ContextAssemblyAgent`
+5. ~~**Whether the assembler Protocol lands as the `ContextAssemblyAgent`~~ **RESOLVED** (`D-IMPL-97`): the agent is the implementation. What remains is the assembler's behavioural surface, which the declarative
    archetype** — building an archetype committed since §6.3 and never built.
 6. **Whether the request surface is a typed request contract per class** —
    Dave's *"company name and top investors above 25%"*. This is what makes a
