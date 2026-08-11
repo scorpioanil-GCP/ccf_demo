@@ -28,9 +28,11 @@ record  build the five-dimension Decision Replay record
 serve   persist the record, then deliver (whitepaper §7.10)
 ======  ==========================================================
 
-**What the deployment supplies.** :class:`DeploymentBinding` and
-:class:`Scenario` below are Protocols, not base classes: they are the list of
-things the fabric needs from you, stated as structure rather than as prose
+**What the deployment supplies.** Four ordinary arguments to
+:func:`assemble_and_serve` — the manifest, the connection values, the reader
+and Π — which is the call shape every other example in this suite makes.
+:class:`Scenario` below is a Protocol, not a base class: it is the list of
+values the fabric reads off one run, stated as structure rather than as prose
 (CLAUDE.md §11, *Prefer Protocols over inheritance*). ``deployment.py`` imports
 nothing from this module and this module imports nothing from it — the two are
 held together structurally, which is the same posture
@@ -151,39 +153,6 @@ class Scenario(Protocol):
         """Every artifact the manifest named, parsed, under its own key."""
 
 
-class DeploymentBinding(Protocol):
-    """The four things the fabric asks a deployment to supply.
-
-    Read this as the adoption checklist. Everything else in ``deployment.py``
-    is that deployment's own business.
-    """
-
-    @property
-    def manifest(self) -> Path:
-        """The one document naming every artifact in force."""
-
-    def connection(self, *, root: Path) -> Mapping[str, str]:
-        """Substrate connection values, supplied by the CALLER, never by the
-        manifest — a connection string in a content-hashed artifact would be
-        persisted into the audit plane forever."""
-
-    def read(self, booted: BootedFabric) -> Scenario:
-        """Name this deployment's own artifact keys and read the run's values."""
-
-    @property
-    def plan_class(self) -> Callable[..., ProjectionPlan]:
-        """Π, as a class the fabric constructs rather than an object it is handed.
-
-        A projection is deployment code and is never a rewrite target
-        (whitepaper §7.5) — but it is CONSTRUCTED in the ``project`` region
-        below, one statement before the binder, because the statement that binds
-        its authored operator set to the product class's claim has to be able to
-        see the object it binds (design E2, D-IMPL-86 as corrected 2026-08-05).
-        A plan handed over ready-made is a plan no binder can be shown to have
-        been given.
-        """
-
-
 @dataclass(frozen=True)
 class Assembled:
     """What one run of the spine produced, for a caller to inspect.
@@ -203,9 +172,36 @@ class Assembled:
 
 
 def assemble_and_serve(
-    deployment: DeploymentBinding, *, root: Path
+    *,
+    manifest: Path,
+    connection: Mapping[str, object],
+    read: Callable[[BootedFabric], Scenario],
+    plan_class: Callable[..., ProjectionPlan],
+    root: Path,
 ) -> Assembled:
-    """Run the fabric once, end to end, against ``root`` as its scratch directory."""
+    """Run the fabric once, end to end, against ``root`` as its scratch directory.
+
+    The four things the fabric asks a deployment to supply arrive as ordinary
+    arguments, and each is one line of the caller's wiring:
+
+    ``manifest``
+        The one document naming every artifact in force.
+    ``connection``
+        Substrate connection values, supplied by the CALLER, never by the
+        manifest — a connection string in a content-hashed artifact would be
+        persisted into the audit plane forever.
+    ``read``
+        Names the deployment's own artifact keys and reads the run's values.
+    ``plan_class``
+        Π, as a class the fabric constructs rather than an object it is handed.
+        A projection is deployment code and is never a rewrite target
+        (whitepaper §7.5) — but it is CONSTRUCTED in the ``project`` region
+        below, one statement before the binder, because the statement that binds
+        its authored operator set to the product class's claim has to be able to
+        see the object it binds (design E2, D-IMPL-86 as corrected 2026-08-05).
+        A plan handed over ready-made is a plan no binder can be shown to have
+        been given.
+    """
     registry = ControlPlaneRegistry()
 
     # --8<-- [start:boot]
@@ -215,16 +211,16 @@ def assemble_and_serve(
     #    Connection values arrive HERE, from the caller — never from the
     #    manifest, which declares the backend as a KIND only.
     booted = load_and_boot(
-        deployment.manifest,
+        manifest,
         registry=registry,
-        connection=deployment.connection(root=root),
+        connection=connection,
     )
     # --8<-- [end:boot]
     try:
         # The one line that crosses the boundary this example is about: the
         # deployment names its own artifact keys and hands back the run's
         # values. Everything below reads those values and nothing else.
-        scenario = deployment.read(booted)
+        scenario = read(booted)
 
         # --8<-- [start:ingest]
         # 2. L1 → L2. `booted.handle.worker` is the ONLY write handle to L3 that
@@ -267,7 +263,7 @@ def assemble_and_serve(
         #    The plan is a named local rather than an argument expression for
         #    exactly that reason — the binder has to be handed the same object
         #    the engine will run.
-        plan = deployment.plan_class(
+        plan = plan_class(
             plan_id=scenario.plan_id,
             required=scenario.required_operator_keys,
             scenario=scenario,

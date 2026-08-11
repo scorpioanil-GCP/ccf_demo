@@ -60,8 +60,21 @@ import spine  # noqa: E402
 
 
 def run(*, root: pathlib.Path) -> spine.Assembled:
-    """Assemble and serve one ultimate-beneficial-ownership Context Product."""
-    return spine.assemble_and_serve(deployment.KycDeployment(), root=root)
+    """Assemble and serve one ultimate-beneficial-ownership Context Product.
+
+    The wiring is four arguments, one per thing the fabric asks a deployment to
+    supply. Π is handed over as a CLASS rather than as a constructed object:
+    ``spine.py`` builds it one statement before it binds it, because a plan
+    handed over ready-made is a plan no binder can be shown to have been given
+    (design E2, D-IMPL-86 as corrected 2026-08-05).
+    """
+    return spine.assemble_and_serve(
+        manifest=deployment.MANIFEST,
+        connection=deployment.connection(root=root),
+        read=deployment.read,
+        plan_class=deployment.UltimateBeneficialOwnershipPlan,
+        root=root,
+    )
 
 
 def materialise_estate(*, root: pathlib.Path) -> dict[str, object]:

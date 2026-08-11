@@ -10,7 +10,7 @@ deployment has to supply and the SDK deliberately declines to own:
    and is never a rewrite target (whitepaper §7.5).
 2. **The artifact-key vocabulary** — the short names this deployment registered
    its documents under in ``artifacts/manifest.yaml``. They appear as literals
-   in :meth:`KycDeployment.read` because they are this deployment's own words:
+   in :func:`read` because they are this deployment's own words:
    configuration an adopter reads and edits, not type introspection.
 3. **Scenario setup** — turning the run's parsed artifacts into the values the
    fabric asks for.
@@ -24,11 +24,13 @@ the projection is an interpreter of ``ubo-question.yaml`` and
 ``manifest.yaml``.
 
 **It imports nothing from ``spine.py``, and ``spine.py`` imports nothing from
-it.** The two are held together structurally — ``spine.Scenario`` and
-``spine.DeploymentBinding`` are Protocols, and the classes below satisfy them by
-shape (CLAUDE.md §11, *Prefer Protocols over inheritance*). That is the same
-posture :class:`ccf.projection.plan.ProjectionPlan` takes toward the class you
-are reading.
+it.** The two are held together structurally — ``spine.Scenario`` is a Protocol
+and :class:`KycScenario` below satisfies it by shape (CLAUDE.md §11, *Prefer
+Protocols over inheritance*). That is the same posture
+:class:`ccf.projection.plan.ProjectionPlan` takes toward the class you are
+reading. Everything else this file supplies — :data:`MANIFEST`,
+:func:`connection`, :func:`read` and the projection class — is handed to
+``spine.assemble_and_serve`` as an ordinary argument by ``run.py``.
 
 **It holds no write handle to the graph.** The only one that exists in this
 process is ``booted.handle.worker``, and it never leaves ``spine.py``'s
@@ -338,92 +340,68 @@ class UltimateBeneficialOwnershipPlan:
         )
 
 
-class KycDeployment:
-    """The four things this deployment supplies the fabric.
+def connection(*, root: Path) -> Mapping[str, str]:
+    """Where the graph substrate lives, for this run.
 
-    Satisfies ``spine.DeploymentBinding`` structurally.
+    Supplied by the CALLER and never by the manifest. The manifest declares
+    the backend as a KIND (``backend: sqlite``); this is the only place a
+    location exists, and it is derived from a scratch root the caller
+    chose — so nothing that could identify a machine, a database or a
+    credential is ever content-hashed into the audit plane.
     """
+    return {CONNECTION_PATH_KEY: str(root / DATABASE_FILENAME)}
 
-    @property
-    def manifest(self) -> Path:
-        return MANIFEST
 
-    def connection(self, *, root: Path) -> Mapping[str, str]:
-        """Where the graph substrate lives, for this run.
+def read(booted: BootedFabric) -> KycScenario:
+    """Name this deployment's own artifact keys and read the run's values.
 
-        Supplied by the CALLER and never by the manifest. The manifest declares
-        the backend as a KIND (``backend: sqlite``); this is the only place a
-        location exists, and it is derived from a scratch root the caller
-        chose — so nothing that could identify a machine, a database or a
-        credential is ever content-hashed into the audit plane.
-        """
-        return {CONNECTION_PATH_KEY: str(root / DATABASE_FILENAME)}
+    Each artifact comes back under its own manifest key, already validated
+    against the class the manifest declared for it — so these casts restate
+    what ``load_and_boot`` already enforced. A wrong ``class_id`` in the
+    manifest fails at parse, before this function runs.
+    """
+    events = cast(SignalBatch, booted.artifacts[KEY_EVENTS])
+    decision = cast(DeclaredArtifact, booted.artifacts[KEY_DECISION]).declaration
+    governance = cast(
+        DeclaredArtifact, booted.artifacts[KEY_PRODUCT_GOVERNANCE]
+    ).declaration
+    policy = cast(DeclaredArtifact, booted.artifacts[KEY_POLICY_BUNDLE]).declaration
+    question = cast(DeclaredArtifact, booted.artifacts[KEY_UBO_QUESTION]).declaration
+    # The projection's own operator set, authored separately from the claim the
+    # product class carries. Design E2 keeps these two documents apart on
+    # purpose; the binder in `spine.py` is what keeps them in agreement.
+    requirements = cast(
+        ProjectionRequirements, booted.artifacts[KEY_PROJECTION_REQUIREMENTS]
+    )
 
-    def read(self, booted: BootedFabric) -> KycScenario:
-        """Name this deployment's own artifact keys and read the run's values.
-
-        Each artifact comes back under its own manifest key, already validated
-        against the class the manifest declared for it — so these casts restate
-        what ``load_and_boot`` already enforced. A wrong ``class_id`` in the
-        manifest fails at parse, before this method runs.
-        """
-        events = cast(SignalBatch, booted.artifacts[KEY_EVENTS])
-        decision = cast(DeclaredArtifact, booted.artifacts[KEY_DECISION]).declaration
-        governance = cast(
-            DeclaredArtifact, booted.artifacts[KEY_PRODUCT_GOVERNANCE]
-        ).declaration
-        policy = cast(
-            DeclaredArtifact, booted.artifacts[KEY_POLICY_BUNDLE]
-        ).declaration
-        question = cast(
-            DeclaredArtifact, booted.artifacts[KEY_UBO_QUESTION]
-        ).declaration
-        # The projection's own operator set, authored separately from the claim
-        # the product class carries. Design E2 keeps these two documents apart
-        # on purpose; the binder in `spine.py` is what keeps them in agreement.
-        requirements = cast(
-            ProjectionRequirements, booted.artifacts[KEY_PROJECTION_REQUIREMENTS]
-        )
-
-        now = datetime.fromisoformat(decision[DECISION_NOW])
-        return KycScenario(
-            artifacts=booted.artifacts,
-            envelopes=events.envelopes,
-            temporal_boundary=datetime.fromisoformat(
-                decision[DECISION_TEMPORAL_BOUNDARY]
-            ),
-            now=now,
-            expires_at=now
-            + timedelta(seconds=governance[GOVERNANCE_PRODUCT_TTL_SECONDS]),
-            operator_parameters={
-                key: cast(OperatorParametersArtifact, booted.artifacts[key])
-                for key in OPERATOR_KEYS
-            },
-            policy_bundle_key=KEY_POLICY_BUNDLE,
-            similarity_index_version=governance[
-                GOVERNANCE_SIMILARITY_INDEX_VERSION
-            ],
-            product_class=cast(
-                ProductClassDeclaration, booted.artifacts[KEY_PRODUCT_CLASS]
-            ),
-            plan_id=requirements.plan_id,
-            required_operator_keys=requirements.required_operator_keys,
-            perspective=cast(
-                PerspectiveArtifact, booted.artifacts[KEY_PERSPECTIVE]
-            ),
-            max_ttl_seconds=governance[GOVERNANCE_MAX_TTL_SECONDS],
-            replay_record_class=governance[GOVERNANCE_REPLAY_RECORD_CLASS],
-            artifact_store_dirname=governance[GOVERNANCE_ARTIFACT_STORE_DIRNAME],
-            question=question,
-            threshold_percent=Decimal(policy[POLICY_THRESHOLD_PERCENT]),
-            scale_places=policy[POLICY_SCALE_PLACES],
-        )
-
-    #: Π, as a class rather than as a constructed object. ``spine.py`` builds it
-    #: one statement before it binds it, because a plan handed over ready-made
-    #: is a plan no binder can be shown to have been given (design E2,
-    #: D-IMPL-86 as corrected 2026-08-05).
-    plan_class = UltimateBeneficialOwnershipPlan
+    now = datetime.fromisoformat(decision[DECISION_NOW])
+    return KycScenario(
+        artifacts=booted.artifacts,
+        envelopes=events.envelopes,
+        temporal_boundary=datetime.fromisoformat(
+            decision[DECISION_TEMPORAL_BOUNDARY]
+        ),
+        now=now,
+        expires_at=now + timedelta(seconds=governance[GOVERNANCE_PRODUCT_TTL_SECONDS]),
+        operator_parameters={
+            key: cast(OperatorParametersArtifact, booted.artifacts[key])
+            for key in OPERATOR_KEYS
+        },
+        policy_bundle_key=KEY_POLICY_BUNDLE,
+        similarity_index_version=governance[GOVERNANCE_SIMILARITY_INDEX_VERSION],
+        product_class=cast(
+            ProductClassDeclaration, booted.artifacts[KEY_PRODUCT_CLASS]
+        ),
+        plan_id=requirements.plan_id,
+        required_operator_keys=requirements.required_operator_keys,
+        perspective=cast(PerspectiveArtifact, booted.artifacts[KEY_PERSPECTIVE]),
+        max_ttl_seconds=governance[GOVERNANCE_MAX_TTL_SECONDS],
+        replay_record_class=governance[GOVERNANCE_REPLAY_RECORD_CLASS],
+        artifact_store_dirname=governance[GOVERNANCE_ARTIFACT_STORE_DIRNAME],
+        question=question,
+        threshold_percent=Decimal(policy[POLICY_THRESHOLD_PERCENT]),
+        scale_places=policy[POLICY_SCALE_PLACES],
+    )
 
 
 def expectation(artifacts: Mapping[str, CCFContract]) -> Mapping[str, Any]:
