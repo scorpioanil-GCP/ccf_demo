@@ -415,7 +415,7 @@ def measure_q3_placements() -> dict[str, Any]:
                 "hashed body is in the bytes and therefore in the address; "
                 "the record carries nothing to reconstruct it from, so "
                 "rehydrate_product cannot reproduce it and the engine's "
-                "check at src/ccf/replay/engine.py:449-455 raises"
+                "check at src/ccf/replay/engine.py:472-477 raises"
             ),
         },
         "record_only": {
@@ -907,7 +907,7 @@ def test_q3_product_only_changes_the_content_address() -> None:
 
     ``rehydrate_product`` rebuilds the product from ``(record, re-executed
     projection)`` and the engine hash-checks the result
-    (``src/ccf/replay/engine.py:449-455``). A field that is on the product and
+    (``src/ccf/replay/engine.py:472-477``). A field that is on the product and
     nowhere on the record is unreconstructible, so every replay of every
     product would raise ``ReplayDivergence``.
     """

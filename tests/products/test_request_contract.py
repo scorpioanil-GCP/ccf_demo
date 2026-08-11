@@ -54,6 +54,7 @@ from ccf.products.request import (
     ProductRequestViolation,
     refuse_request,
     refuse_request_contract_pin,
+    request_seeds,
 )
 from ccf.skills.catalog import (
     SkillArgumentElement,
@@ -341,6 +342,44 @@ def test_every_other_axis_also_reaches_the_content_address(
 
 def test_the_same_question_asked_twice_pins_identically() -> None:
     assert content_hash(_request()) == content_hash(_request())
+
+
+# --- (c2) the anchor starts the walk, D-IMPL-111 limb (a) --------------------
+
+
+def test_the_seeds_a_request_implies_are_its_subject_and_nothing_else() -> None:
+    """D-IMPL-111 limb (a): the entity anchor is where the walk begins.
+
+    One element, and it is the subject — not the intent, not a parameter, not
+    a derived neighbourhood. Anything else would be the SDK inventing a walk
+    on the deployment's behalf out of values it does not interpret.
+    """
+    assert request_seeds(_request(subject="fixture:subject/one")) == frozenset(
+        {"fixture:subject/one"}
+    )
+
+
+def test_two_subjects_imply_two_different_walks() -> None:
+    """The one derivation both the serve path and replay run through.
+
+    If this ever returned the same set for two subjects, two questions would
+    compile to the same graph query again and ``DI-15.5-07`` would be back
+    with a test asserting it was fixed.
+    """
+    assert request_seeds(_request(subject="fixture:subject/one")) != request_seeds(
+        _request(subject="fixture:subject/two")
+    )
+
+
+def test_no_request_implies_no_seeds() -> None:
+    """The pre-D-IMPL-111 posture, which every older record replays under.
+
+    ``None`` rather than the empty frozenset, and the difference is load
+    bearing at the seam: the empty set is a legal ``GraphQuery.seeds`` value
+    meaning *these zero entities start the walk*, while ``None`` means *the
+    plan's own seed classes and nothing else*.
+    """
+    assert request_seeds(None) is None
 
 
 # --- (d) the artifact class and its placement --------------------------------

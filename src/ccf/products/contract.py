@@ -127,7 +127,7 @@ before this field existed differs from the one the same product produces now.
 That is authorized by D-IMPL-100 on one condition, which is structural rather
 than procedural: the *record* carries the same assessment on dimension 5, and
 :meth:`~ccf.replay.engine.ReplayEnvironment.rehydrate_product` reads it back, so
-the engine's check at ``src/ccf/replay/engine.py:449-455`` passes on identical
+the engine's check at ``src/ccf/replay/engine.py:472-477`` passes on identical
 bytes rather than on a re-measurement. Debt is **never** re-derived at replay:
 it is computed from observations and a ``now`` neither the record nor the
 projection re-derives, so a rehydrator that re-measured it would produce a

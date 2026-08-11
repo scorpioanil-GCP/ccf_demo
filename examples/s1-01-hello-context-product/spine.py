@@ -105,6 +105,7 @@ from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
     refuse_request,
+    request_seeds,
 )
 from ccf.projection.engine import ProjectionEngine
 from ccf.projection.plan import ProjectionPlan
@@ -368,6 +369,15 @@ def assemble_and_serve(
             perspective=scenario.perspective,
             tenant_id=booted.tenant_id,
             temporal_boundary=scenario.temporal_boundary,
+            # WHERE THE WALK BEGINS IS PART OF THE QUESTION (D-IMPL-111 limb
+            # (a)). The request's subject is the entity anchor of the
+            # whitepaper's address pattern, so it seeds the traversal — which
+            # is what puts the *subject* inside the compiled graph query and
+            # therefore inside the pins replay dimension 5 records. Before
+            # this, two questions about two different companies pinned
+            # identically (`DI-15.5-07`). Derived through the SDK's one
+            # reading, the same one replay derives it through.
+            seeds=request_seeds(scenario.request),
         )
         # --8<-- [end:project]
 
@@ -483,6 +493,15 @@ def assemble_and_serve(
             ),
             assembly_mode=declared.assembly_mode,
             recorded_at=scenario.now,
+            # WHICH QUESTION THIS DECISION ANSWERED, in the record itself
+            # (D-IMPL-111 limb (b)). The pins below say what was asked of the
+            # GRAPH; this says what was asked of the PRODUCT — subject, intent,
+            # freshness and the instant it was asked as of. `intent` and
+            # `freshness` are in no other dimension, and replay reads the
+            # subject back off this field to re-seed the traversal, so the
+            # record is what makes the decision reproducible rather than
+            # merely described.
+            request=scenario.request,
         )
         # --8<-- [end:record]
 

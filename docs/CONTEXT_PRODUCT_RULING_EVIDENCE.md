@@ -122,9 +122,10 @@ producer anywhere in `src/` or `runtime/`** — see Q4.
 ## Q3 — Where does debt land?
 
 **This is the section the hard determinism constraint governs.**
-`ReplayEnvironment.rehydrate_product` (`src/ccf/replay/engine.py:160-170`)
+`ReplayEnvironment.rehydrate_product`
+(`src/ccf/replay/engine.py::ReplayEnvironment.rehydrate_product`)
 rebuilds the delivered product from `(record, re-executed projection)`, and the
-engine hash-checks the result at `src/ccf/replay/engine.py:449-455`, raising
+engine hash-checks the result at `src/ccf/replay/engine.py:472-477`, raising
 `ReplayDivergence`. `ProjectionOutput` carries exactly `plan_id` and `payload`
 (`src/ccf/projection/plan.py:75-86`).
 

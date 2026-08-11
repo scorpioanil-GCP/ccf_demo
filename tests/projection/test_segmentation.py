@@ -410,6 +410,90 @@ def test_the_second_query_carries_the_survivors_as_allowed_entities(
     assert execution.executed_queries == tuple(recording.queries)
 
 
+# --- the caller's seeds, D-IMPL-111 limb (a) ---------------------------------
+
+
+def test_the_callers_seeds_reach_the_walking_segment_and_no_other(
+    fabric: _Fabric,
+) -> None:
+    """D-IMPL-111 limb (a): the question's anchor starts the walk.
+
+    Observed at the seam, on the plan shape where it matters most: the
+    traverse family lands in the *second* segment, after an in-process
+    Similarity segment. A rule that seeded only the opening segment would
+    seed nothing here — which is exactly the shape the shipped reference
+    example has, so the distinction is not hypothetical.
+
+    The first query carries no seeds because it carries no walk (`GQ-03` at
+    docs/GRAPH_QUERY_SEMANTICS.md:87 refuses seeds without a traverse
+    family), and the second carries the caller's set verbatim beside the
+    survivor set — the two compose under `GQ-17` rather than competing.
+    """
+    registry = _operators(fabric)
+    recording = _RecordingReader(fabric.handle.reader)
+    anchor = frozenset({next(iter(_post_similarity_survivors(fabric, registry)))})
+
+    ProjectionEngine(reader=recording, registry=registry).execute(
+        plan=_plan(fabric, FOUR_OPERATORS),
+        perspective=_perspective(fabric),
+        tenant_id=fabric.tenant_id,
+        temporal_boundary=fabric.boundary,
+        seeds=anchor,
+    )
+
+    first, second = recording.queries
+    assert first.traverse is None
+    assert first.seeds is None, (
+        "a segment that walks nothing was handed walk starting points; `GQ-03`"
+        " refuses that query and the engine must not build it"
+    )
+    assert second.traverse is not None
+    assert second.seeds == anchor
+    assert second.allowed_entities is not None
+
+
+def test_two_anchors_compile_to_two_different_questions(fabric: _Fabric) -> None:
+    """The property ``DI-15.5-07`` recorded as FALSE, now true (D-IMPL-111).
+
+    Two callers asking about two different subjects, everything else held
+    identical, put **different questions** to the graph — so the per-round-trip
+    pins replay dimension 5 records distinguish them. Before limb (a) the two
+    compiled to the same bytes and pinned identically, and a decision's record
+    could not answer *which* subject it was about from the pins alone.
+
+    The walking segment's pin differs and the non-walking segment's pin does
+    not, which is the whole claim: the anchor enters where there is a walk for
+    it to start, and nowhere else.
+    """
+    registry = _operators(fabric)
+    survivors = sorted(_post_similarity_survivors(fabric, registry))
+    assert len(survivors) >= 2, "the fixture must offer two distinct anchors"
+
+    pins = []
+    for anchor in (frozenset({survivors[0]}), frozenset({survivors[1]})):
+        recording = _RecordingReader(fabric.handle.reader)
+        execution = ProjectionEngine(reader=recording, registry=registry).execute(
+            plan=_plan(fabric, FOUR_OPERATORS),
+            perspective=_perspective(fabric),
+            tenant_id=fabric.tenant_id,
+            temporal_boundary=fabric.boundary,
+            seeds=anchor,
+        )
+        pins.append(
+            tuple(content_hash(query) for query in execution.executed_queries)
+        )
+
+    first, second = pins
+    assert first[0] == second[0], (
+        "the non-walking segment's question changed with the anchor; the seeds"
+        " are leaking into a segment that has no walk to start"
+    )
+    assert first[1] != second[1], (
+        "two anchors compiled to the same walking question; the subject is not"
+        " reaching the graph query (DI-15.5-07, D-IMPL-111 limb (a))"
+    )
+
+
 # --- per-plan equivalence, Gate 2 pinned -------------------------------------
 
 
