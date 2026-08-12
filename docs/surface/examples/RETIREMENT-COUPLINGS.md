@@ -85,8 +85,8 @@ Rows by coupling shape:
 | `README.md` | 63 | `examples/05-workflow-hitl` | `markdown-link` | live | - | - | 16-18 |  |
 | `README.md` | 64 | `examples/06-decision-replay` | `markdown-link` | live | - | - | 16-18 |  |
 | `README.md` | 65 | `examples/07-artifact-store-mcp` | `markdown-link` | live | - | - | 16-17 |  |
-| `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` | 161 | `examples/06-decision-replay` | `prose` | documentary | - | - | 16-18 |  |
-| `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` | 161 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` | 162 | `examples/06-decision-replay` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` | 162 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 6 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 112 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 208 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
@@ -424,9 +424,11 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-10-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-11-SUMMARY.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-13-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-13-SUMMARY.md` | 6 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-15-SUMMARY.md` | 6 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-PERF-D-IMPL-107.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-RESEARCH.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/deferred-items.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-01-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-01-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-02-PLAN.md` | 12 | the phase's own planning tree — not shipped, not published |
@@ -482,6 +484,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `docs/surface-changes/15.5-06-egress-entitlement.md` | 3 | append-only per-plan surface-change records |
 | `docs/surface-changes/15.5-10-assembler.md` | 3 | append-only per-plan surface-change records |
 | `docs/surface-changes/15.5-11-debt-delivery.md` | 3 | append-only per-plan surface-change records |
+| `docs/surface-changes/15.5-13-request-in-replay.md` | 1 | append-only per-plan surface-change records |
 | `docs/surface-changes/15.5-15-resolver-seam.md` | 2 | append-only per-plan surface-change records |
 | `docs/surface-changes/README.md` | 1 | append-only per-plan surface-change records |
 | `docs/surface/examples/ERGO-03-FROZEN.md` | 27 | the frozen ERGO-03 record (D-15) |
