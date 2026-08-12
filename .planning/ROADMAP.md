@@ -1100,9 +1100,9 @@ measured at `29e1568`):
 Plans:
 **Wave 1** *(parallel — disjoint file sets)*
 
-- [ ] 15.6-01-PLAN.md — [Track B] The spike: four placements measured against the real rehydration tripwire, the record-only option's three-door reach, the entitlement question, the re-derived address census. Recommends nothing. Retiring owner: `15.6-12` task 1
+- [x] 15.6-01-PLAN.md — [Track B] The spike: four placements measured against the real rehydration tripwire, the record-only option's three-door reach, the entitlement question, the re-derived address census. Recommends nothing. Retiring owner: `15.6-12` task 1
 - [ ] 15.6-02-PLAN.md — [Track A] `DI-15.5-01` loosen-only perf band override + `DI-15.5-04` lazy `IntermediateCache` key + the `D-IMPL-36` witness-narrowing fragment
-- [ ] 15.6-03-PLAN.md — [Verify] `DCD-01..12` minted · `tests/invariants/test_no_obligation_vocabulary.py` (the hole no shipped lint reaches) · the `docs/schemas/` scan root wired into `docs-strict`
+- [x] 15.6-03-PLAN.md — [Verify] `DCD-01..12` minted · `tests/invariants/test_no_obligation_vocabulary.py` (the hole no shipped lint reaches) · the `docs/schemas/` scan root wired into `docs-strict`
 
 **Wave 2** *(blocked on 15.6-01 — checkpoint)*
 
@@ -1306,7 +1306,7 @@ Plans:
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
 | 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 15/15 | Complete | 2026-08-11 |
-| 15.6 Decision-Completeness and Defect Closure | 0/? | Planned | — |
+| 15.6 Decision-Completeness and Defect Closure | 2/12 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Parked (resumes after 15.6) |  |
 
 ## Coverage
