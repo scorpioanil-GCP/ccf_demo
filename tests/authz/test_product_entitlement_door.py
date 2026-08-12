@@ -297,6 +297,52 @@ def test_a_near_miss_artifact_is_audited_as_a_deny_before_it_raises() -> None:
     assert events[0].resolved is False
 
 
+def test_a_policy_declaring_another_tenant_is_refused_under_this_tenants_key() -> None:
+    """The key and the artifact's own ``tenant_id`` are compared, not assumed.
+
+    ``ProductEntitlementPolicy`` documents itself as *"tenant-scoped by
+    construction … not by convention"*, but the key
+    (:func:`product_entitlement_key`) and the ``tenant_id`` field are supplied
+    **independently** by whoever registers the policy, and nothing upstream
+    binds them. Without the door's own comparison, a policy whose content says
+    ``OTHER_TENANT`` — registered, whether by wiring error or by an attacker
+    with Control Plane write — authorizes ``TENANT``'s door with
+    ``OTHER_TENANT``'s grants, and every downstream refusal leg passes because
+    the *principal* and the *schema* match.
+
+    What would fail here: dropping the comparison at
+    ``ControlPlaneProductEntitlementSource.authorize``. The near-miss posture
+    is shared with the wrong-artifact-type leg above — audited as a deny first
+    (WR-04), then raised rather than refused, because a misregistered policy is
+    a deployment fact and not a statement about this caller.
+
+    Found by the Phase 15.5 close-time cross-AI panel
+    (`15.5-CLOSE-REVIEWS.md`, finding P1).
+    """
+    registry = _registry_with(_policy(tenant=OTHER_TENANT), tenant=TENANT)
+
+    with pytest.raises(TypeError, match=OTHER_TENANT):
+        _source(registry).authorize(
+            grant=_grant(),
+            tenant=TENANT,
+            product_class=PRODUCT_CLASS,
+            role=ROLE,
+        )
+
+    events = _authz_events(registry)
+    assert len(events) == 1
+    assert events[0].resolved is False
+
+    # The control: the identical policy under its *own* tenant's key is served.
+    permitted = _registry_with(_policy(tenant=OTHER_TENANT), tenant=OTHER_TENANT)
+    assert _source(permitted).authorize(
+        grant=_grant(),
+        tenant=OTHER_TENANT,
+        product_class=PRODUCT_CLASS,
+        role=ROLE,
+    )
+
+
 def test_the_policy_is_re_resolved_on_every_call_with_no_cache(
     caplog: pytest.LogCaptureFixture,
 ) -> None:

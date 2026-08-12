@@ -263,11 +263,24 @@ class ControlPlaneProductEntitlementSource:
         Raises:
             ProductEntitlementRefused: any of the four deny paths.
             TypeError: the artifact registered under the tenant's
-                entitlement key is not a ``ProductEntitlementPolicy`` — a
-                near-miss is refused, never interpreted (the
+                entitlement key is not a ``ProductEntitlementPolicy``, **or is
+                one whose own ``tenant_id`` is not the tenant whose key it was
+                found under** — a near-miss is refused, never interpreted (the
                 ``ControlPlaneTenantAuthorizer`` precedent). The attempt is
                 audited as a deny *before* the raise (WR-04), so even a
                 misregistered policy leaves a trace of who asked for what.
+
+                The second limb is what makes
+                :class:`~ccf.products.entitlement.ProductEntitlementPolicy`'s
+                *"tenant-scoped by construction"* claim true at the door
+                rather than at the artifact only. The key
+                (:func:`~ccf.products.entitlement.product_entitlement_key`)
+                and the artifact's ``tenant_id`` field are supplied
+                **independently** by whoever registers the policy, and nothing
+                upstream binds them; without this check a policy whose content
+                says tenant B, registered under tenant A's key, authorizes
+                A's door with B's grants. Found by the Phase 15.5 close-time
+                cross-AI panel (`15.5-CLOSE-REVIEWS.md`, finding P1).
         """
         key = product_entitlement_key(tenant_id=tenant)
         version = ""
@@ -297,6 +310,18 @@ class ControlPlaneProductEntitlementSource:
                     f" ProductEntitlementPolicy (got"
                     f" {type(resolved).__name__}); the delivery door refuses"
                     " to interpret a near-miss"
+                )
+            if resolved.tenant_id != tenant:
+                self._audit(
+                    grant=grant, tenant=tenant, version=version, allowed=False
+                )
+                raise TypeError(
+                    f"policy under {key!r} declares tenant"
+                    f" {resolved.tenant_id!r}, not {tenant!r}; the key and the"
+                    " artifact's own tenant are supplied independently, so the"
+                    " door compares them rather than trusting the lookup — a"
+                    " misregistered policy is a near-miss and is refused, never"
+                    " interpreted"
                 )
             try:
                 entitled = resolved.grant_for(principal_id=grant.client_id)
