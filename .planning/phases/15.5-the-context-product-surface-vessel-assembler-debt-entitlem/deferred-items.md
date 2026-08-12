@@ -3,6 +3,124 @@
 Out-of-scope discoveries logged rather than fixed, per the executor scope
 boundary (only issues *directly caused by* a task's own changes are auto-fixed).
 
+---
+
+## Dispositions at phase close (plan `15.5-14`, 2026-08-11)
+
+Every entry has one. None is carried into Phase 16 without a stated owner.
+
+| Entry | Disposition |
+|---|---|
+| `DI-15.5-01` | **OPEN — handed to the Phase 17 perf pass**, with `DI-15.5-04`. Ruled below rather than left unassigned |
+| `DI-15.5-02` | **CLOSED** by plan `15.5-13` — `make example-s1-01` exists (`Makefile:89`) and leads the eleven-member `examples:` aggregate |
+| `DI-15.5-03` | **CLOSED** by plan `15.5-15` (`D-IMPL-108`), commit `c244400` |
+| `DI-15.5-04` | **OPEN — Phase 17 perf pass**, per Dave's 2026-08-11 ruling. Unchanged |
+| `DI-15.5-05` | **NEW, WRITTEN AT CLOSE.** Was referenced in the phase's handoff notes but had no entry in this file. Recorded below; it is gate residual R1 and wants Dave's ruling |
+| `DI-15.5-06` | **OPEN — Phase 17** (`D-IMPL-110`). Carried, not re-litigated. The measured inventory stands |
+| `DI-15.5-07` | **CLOSED** by plan `15.5-13`'s continuation (`D-IMPL-111`, both limbs) |
+| `DI-15.5-08` | **OPEN — ruled below.** A decision, not a fix; put to Dave as gate residual R3 |
+
+### `DI-15.5-01` — the ruling
+
+**Handed to the Phase 17 perf pass, jointly with `DI-15.5-04`.** Not retained
+by this plan, and the reasoning is on the record rather than a shrug.
+
+Measured at phase close, `make perf-micro` **exits 0** and all twelve
+benchmarks PASS:
+
+| Benchmark | Median | Baseline | Δ | At phase base |
+|---|---|---|---|---|
+| `test_dispatch.py::test_run_coroutine_sync_overhead` | 2.95531e-05 s | 2.928e-05 s | **+0.93%** | +11.48% |
+| `test_operators.py::test_composed_chain` | 0.375303 s | 0.368903 s | **+1.73%** | +231.87% |
+
+`test_composed_chain` was **fixed in-phase** under `D-IMPL-107` — a real
+regression, really repaired. `test_run_coroutine_sync_overhead` was never a
+regression: it swung from +11.48% to +0.93% with no change to the code it
+measures, which is the definition of a benchmark whose variance exceeds its
+band. That is a **PERF-04 re-baseline-or-widen decision**, owned by whoever
+runs the battery on the machine of record, and it is not a Context Product
+question. Both remaining items — this and `DI-15.5-04`'s unconditional
+`IntermediateCache` hash — are perf-pass work against the same
+machine-specific `perf/baselines/local.json`, so they travel together.
+
+The contradiction the orchestrator recorded at wave-1 close — that `15.5-07`
+and `15.5-09` put `make perf-micro` inside `<automated>` blocks requiring
+exit 0 while their prose permitted recording an excess — **dissolved rather
+than being resolved**: the gate is green, so both readings agree. No
+re-baseline was performed, which both plans forbade.
+
+### `DI-15.5-08` — the ruling
+
+**Put to Dave as gate residual R3.** Both available remedies are decisions, not
+fixes: widen `cite02-anchor` to verify bare `path:START-END` ranges (which
+requires the checker to know what a range is *supposed* to contain — the reason
+it does not today), or rule that prose cites `path::Symbol` and stop citing
+ranges at all. An executor picking one at phase close would be choosing a
+project-wide citation convention on Dave's behalf.
+
+The three stale citations of `src/ccf/replay/engine.py:449-455` (now `:472-477`)
+in `docs/DECISIONS.md` (D-IMPL-100), `docs/SURFACE-CHANGES.md` and
+`docs/surface-changes/15.5-11-debt-delivery.md` are **deliberately still
+stale**: an append-only ruling record, a generated artifact, and a landed
+plan's historical fragment. Editing any of the three to chase a line number is
+the failure mode, not the repair. A fourth instance of the same rot was
+observed at this close and is on the record — `tools/retirement_sweep.py`
+reported `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` moving from line 161 to 162,
+where nothing about the citation changed except what was above it.
+
+---
+
+## DI-15.5-05 — two binder refusals ship with no calling code path
+
+**Found during:** the phase-close cross-AI panel (plan `15.5-14`), independently
+by two reviewers (`15.5-CLOSE-REVIEWS.md`, findings P3, C1 and C3). Written at
+close because the entry number was referenced in the phase's handoff notes and
+no entry existed behind it.
+
+**What.** Two shipped refusal functions have no caller on any shipped delivery
+path:
+
+| Function | Shipped at | Callers outside its own tests |
+|---|---|---|
+| `refuse_bound_payload` | `src/ccf/products/bind.py:145` | **one** — `examples/04-cross-process/producer_child.py:697`. Zero in `runtime/` |
+| `refuse_request` | `src/ccf/products/request.py:404` | **zero**. Its docstring at `:408-415` says *"Called by the door"* |
+
+Concretely: `runtime/ccf_runtime/http_api/routes/product.py:323-331` builds a
+`ProductRequest` with `parameters={}` unconditionally, so a class whose request
+contract declares required parameters crosses that door with an empty parameter
+map and never meets the conformity function. The reference MCP egress child
+runs `run_gates` and returns the `ServableProduct` with no bind call, and
+`examples/s1-01-hello-context-product/` names neither bind nor a payload
+schema. Example 04 records the gap in its own comment:
+*"`refuse_bound_payload`, shipped unwired by plan `15.5-09`"*.
+
+Its sibling leg **is** wired: `refuse_request_contract_pin`, the
+*registration-time* check, is called at `src/ccf/products/contract.py:662-664`.
+The unwired legs are request-time only.
+
+**Why it is deferred rather than fixed.** The placement is `D-IMPL-102`'s and
+is stated deliberately in `bind.py:40-48` — the module *"takes neither a
+request nor a door"* and the join is *"one call from the bound path"*, i.e. the
+deployment's own assembler. Wiring it into the three SDK doors makes each door
+resolve a `RegisteredProductClass` per serve and render a new refusal, and puts
+a **deployment-declared** verdict inside the SDK's delivery path, which is
+adjacent to the line limb 3 draws ("no fourth gate"; `run_gates` stays
+structural because every one of its verdicts depends only on the product's own
+shape). That is a design decision with Dave's name on it, not an executor's
+auto-fix.
+
+**Why it matters anyway.** This is convention-not-enforcement, and it is the
+**second instance of that class Phase 16 already carries**. A declared payload
+schema that nothing on a shipped path checks is indistinguishable, from an
+adopter's seat, from no schema at all — and `CPS-03`'s second clause ("a
+payload violating that declaration **is refused**") is left **Pending** at
+phase close because of it.
+
+**Owner:** Dave, at the Phase 15.5 gate — residual R1. The question is narrow:
+does a shipped door call the bind, or is the bind an adopter's obligation the
+SDK documents and does not enforce? Either answer closes it; the current state
+is neither.
+
 ## DI-15.5-01 — `make perf-micro` gate is red at the phase's base commit
 
 **Found during:** plan `15.5-01`, task 2 (assumption A8, the pre-change perf

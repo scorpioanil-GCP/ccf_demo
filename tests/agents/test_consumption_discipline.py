@@ -211,16 +211,45 @@ def test_a_widened_module_names_no_fabric_capability(module_path: Path) -> None:
     widened module may not name a capability from behind it, and the check runs
     over every module in the package so the boundary cannot be crossed
     elsewhere either (AGNT-01).
+
+    **Three node kinds, not one.** ``ast.Name`` alone was the shipped shape and
+    it is not sufficient, because ``MODULE_CCF_PREFIXES`` admits *module*
+    imports: ``import ccf.projection.acquisition as acquisition`` is permitted
+    for ``assembler.py``, and ``acquisition.ContentAcquirer`` after it is an
+    ``ast.Attribute`` that no ``ast.Name`` scan sees. ``getattr(acquisition,
+    "ContentAcquirer")`` is a third spelling of the same reach, invisible to
+    both. All three are collected here.
+
+    The ``getattr`` leg is deliberately narrow — only the literal second
+    argument of a ``getattr`` call, never every string constant in the module.
+    A module-wide constant scan would match this suite's own prose and the
+    capability names in :data:`FABRIC_CAPABILITY_NAMES`'s doc comment, which
+    would make the check fire on its own documentation rather than on a reach.
+
+    Found by the Phase 15.5 close-time cross-AI panel, independently by two
+    reviewers (`15.5-CLOSE-REVIEWS.md`, findings P2/C2). Plan `15.5-10`'s own
+    executor flagged this widening as the change deserving a reviewer's eye;
+    the widening stands and the check behind it is what changed.
     """
+    tree = ast.parse(module_path.read_text())
     named = {
-        node.id
-        for node in ast.walk(ast.parse(module_path.read_text()))
-        if isinstance(node, ast.Name)
+        node.id for node in ast.walk(tree) if isinstance(node, ast.Name)
     } | {
         alias.asname or alias.name.rsplit(".", 1)[-1]
-        for node in ast.walk(ast.parse(module_path.read_text()))
+        for node in ast.walk(tree)
         if isinstance(node, (ast.Import, ast.ImportFrom))
         for alias in node.names
+    } | {
+        node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
+    } | {
+        node.args[1].value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "getattr"
+        and len(node.args) >= 2
+        and isinstance(node.args[1], ast.Constant)
+        and isinstance(node.args[1].value, str)
     }
     reached = sorted(named & FABRIC_CAPABILITY_NAMES)
     assert reached == [], (
