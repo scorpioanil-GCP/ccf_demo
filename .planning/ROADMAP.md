@@ -980,6 +980,71 @@ carry blocking checkpoints: 15.5-05 (the eight-question ruling package), 15.5-13
 
 **Blocks**: Phase 16 — the documentation rewrite resumes against this surface, not the one it found
 
+### Phase 15.6: Decision-Completeness and Defect Closure
+
+**Why this phase exists.** `D-GATE-15.5` approved Phase 15.5 with debt
+*"informative and correctly attributed, and not yet decision-complete"*
+(`D-IMPL-112`, Dave's verdict at the `15.5-13` checkpoint). Phase 16's job is
+writing examples and the adoption argument — and an example demonstrating debt
+an analyst cannot act on teaches the wrong lesson. Dave ruled 2026-08-11 that
+15.6 runs **before** Phase 16 resumes.
+
+**The measured reason it goes first, and it is not the defects.** The five
+carried defects are API-neutral and could wait. The decision-completeness work
+is where every API change lives: `Observation` is public surface and gains an
+identity field; `DebtAssessment` gains evidence pointers; and because
+`debt: DebtAssessment | None` is a field on `ContextProductContract`
+(`src/ccf/products/contract.py::ContextProductContract`), **the product content
+address moves a third time**. Phase 16 writes examples, and examples encode
+expected outputs — moving the address after ten examples exist regenerates ten;
+moving it now regenerates **one**. Phase 16 has already been invalidated once by
+exactly this: 6 of 21 plans landed before 15.5 moved the surface, and 4 of the
+remainder name the product or door surface directly.
+
+**Two explicit tracks** (Dave, 2026-08-11). They differ in risk and must not be
+planned as one.
+
+**Track A — defect closure. API-neutral, bounded, mostly mechanical.**
+- `DI-15.5-01` — the `test_run_coroutine_sync_overhead` ±11% flake.
+- `DI-15.5-04` — `IntermediateCache` computes a `content_hash` key for a cache
+  that is unreachable by construction; ~0.20s of a 0.41s benchmark. Making it
+  lazy is behaviour-identical but narrows a `D-IMPL-36` contract.
+- `DI-15.5-05` — binder refusals with no calling code path. Rule it as
+  `D-IMPL-113` ruled the analogous bind case, or wire it.
+- `DI-15.5-06` — `tools/dump_surface.py` records a Protocol's `__init__`, never
+  its `__call__`; 56 manifest entries carry the information-free
+  `(*args, **kwargs)`, 30 of them `*Protocol`, against 54 Protocol classes. This
+  is an **audit** fix, not a surface change — it makes the already-shipped 3-arg
+  → 5-arg resolver break visible. `D-IMPL-110` carries the measured inventory.
+- `DI-15.5-08` + `D-IMPL-114` — the `path::Symbol` citation sweep. Known
+  population: this phase's 3 and `DI-15.4-02`'s 45; never measured tree-wide.
+
+**Track B — decision-completeness. API-affecting; scoped to `D-IMPL-112`'s
+three named gaps, NOT to the open question.**
+1. **Which observations contributed the decay.** `Observation` carries
+   `(observation_type, observed_at)` and no join key, which is exactly why
+   `D-IMPL-99` ruled per-subject and per-claim NOT MEASURABLE. **A build, not a
+   wiring task.** Dave ruled 2026-08-11: **research spike first, then plan** —
+   the `15.5-01` shape, which deleted an option from the decision space for
+   free. The spike measures what an `Observation` identity costs across its 10
+   files and the manifest, what it does to the content address, and whether
+   evidence pointers can ride the **record** rather than the product.
+2. **When the underlying source filings were last refreshed** — source-refresh
+   recency as a fact distinct from computed freshness. Nothing models it today.
+3. **What `forced_llm` obliges** — a declared obligation vocabulary per debt
+   signal. Mechanism ships; the vocabulary is user configuration, never `src/`
+   values (CLAUDE.md §11).
+
+**The standing test for this phase:** *"would someone act on this?"* rather than
+*"is this correct?"* Phase 15.5 answered the second. Only the first makes the
+examples honest.
+
+**Verification is `make ci`, not `make ci-core`.** Two 15.5 executors reported
+`docs-strict` unverified and both times it was the only thing broken. `make ci`
+costs ~75s more. Also sweep `docs/schemas/` and `openapi.json` for whitepaper
+shingles — they sit outside the D-20 scanner, and prose republished there fires
+no gate.
+
 ### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
 
 **Status**: discussed 2026-08-09. The scope was expanded at that discussion on
@@ -1135,7 +1200,8 @@ Plans:
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
 | 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 15/15 | Complete | 2026-08-11 |
-| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Parked (resumes after 15.5) |  |
+| 15.6 Decision-Completeness and Defect Closure | 0/? | Planned | — |
+| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Parked (resumes after 15.6) |  |
 
 ## Coverage
 

@@ -32,7 +32,15 @@ Phase: 15.5 — The Context Product Surface COMPLETE, D-GATE-15.5 APPROVED (Dave
   2026-08-11) · Phase 16 PARKED at 6 of 21 (16-02 open at 2/3, 16-05 open at 2/3)
 Plan: 15.5 is 15 of 15 (14 planned + 15.5-15 created mid-phase by D-IMPL-108)
 
-NEXT ACTION: merge `phase-16` → `main` with `--no-ff`. The branch carries BOTH
+NEXT ACTION: merge `phase-16` → `main` with `--no-ff`, then `/gsd:plan-phase 15.6`.
+  PHASE 15.6 RULED IN (Dave, 2026-08-11), BEFORE Phase 16 resumes: two explicit
+  tracks — A closes the five carried defects (API-neutral), B closes D-IMPL-112's
+  three named gaps (API-affecting; Observation gains identity, DebtAssessment
+  gains evidence pointers, and the product content address moves a THIRD time).
+  Gap 1 gets a RESEARCH SPIKE FIRST in the 15.5-01 shape. Scope B to the three
+  gaps, not to the open question. The reason 15.6 precedes 16 is the address
+  move, not the defects: moving it now regenerates ONE example artifact,
+  moving it after Phase 16 regenerates ten. The branch carries BOTH
   15.5's 15 plans AND Phase 16's completed 6 — they share the branch by design
   (forked from main @ 06fea5c per CLAUDE.md §2.2, merge at the gate not before).
   Then re-read Phase 16's 15 remaining plans BEFORE resuming: the ones
