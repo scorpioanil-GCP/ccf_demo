@@ -4,7 +4,7 @@ milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
 last_updated: "2026-08-12T17:58:00.000Z"
-last_activity: 2026-08-12 -- Phase 15.6 PLANNED (12 plans, 10 waves, branch phase-15.6); Phase 16 still parked at 6/21
+last_activity: 2026-08-12 -- Phase 15.6 EXECUTING (12 plans, 10 waves, branch phase-15.6); Phase 16 still parked at 6/21
 progress:
   total_phases: 17
   completed_phases: 14
@@ -24,7 +24,7 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 15.5 COMPLETE and gated — next is the merge to `main`, then Phase 16 resumes at 7/21
+**Current focus:** Phase 15.6 EXECUTING — 12 plans in 10 waves on `phase-15.6`; Phase 16 stays parked at 6/21 until 15.6 lands
 
 ## Current Position
 
