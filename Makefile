@@ -234,16 +234,42 @@ example-ext-00-live-adk: ## External example 00 ADK/Gemini leg live (opt-in, D-1
 docs: ## Build the documentation site with mkdocs (D-IMPL-71; built into site/, never hosted)
 	$(ENV) $(PYTHON) -m mkdocs build
 
-# The whole docs gate as one blocking target (D-IMPL-72), in three ordered
+# The whole docs gate as one blocking target (D-IMPL-72), in FOUR ordered
 # steps. The pre-build structural scan runs FIRST so a symlink or an escaping
-# include is reported before the build has a chance to copy it; then the strict
-# build; then the post-build content scan over the tree that would actually
-# ship (D-02). No `|| true`, no `-` prefix, no report-only flag anywhere in this
-# recipe: the exit code is the only gate signal, exactly as `tools/lints` and
-# `tools/publish_scan.py` both state — a non-blocking mode is how an invariant
-# quietly stops being one.
-docs-strict: ## Blocking docs gate: pre-build scan + strict build + site scan (D-IMPL-72, D-02)
+# include is reported before the build has a chance to copy it; then the
+# committed-schema content scan; then the strict build; then the post-build
+# content scan over the tree that would actually ship (D-02). No `|| true`, no
+# `-` prefix, no report-only flag anywhere in this recipe: the exit code is the
+# only gate signal, exactly as `tools/lints` and `tools/publish_scan.py` both
+# state — a non-blocking mode is how an invariant quietly stops being one.
+#
+# Step 2, added in plan 15.6-03 (DCD-11), and why it sits SECOND rather than
+# last. `docs/schemas/` was the one publication channel nothing scanned:
+# mkdocs never reads it (D-01 — `public/` is the only tree it reads), but
+# `tools/dump_schemas.py` copies class docstrings VERBATIM into `description`
+# fields, and those descriptions leave the repo through the committed tree
+# adopters author against and through `ccf schema export` (ERGO-12). Whitepaper
+# prose reaching a docstring is therefore published with no gate between.
+# `D-GATE-15.5` swept the tree by hand and recorded the verdict in its own
+# words — "which is clean but is not a gate."
+#
+# It is committed SOURCE rather than build output, so it does not depend on the
+# build and this recipe's own stated ordering principle applies: a check that
+# does not need the build should not wait for it, and a leaking schema should
+# fail before the build is spent. Placing it here also runs the scanner's
+# `self_test_fires()` guard — which reads `WHITEPAPER` independently of the
+# scanned tree — before mkdocs runs, so a dead shingle machinery is reported
+# early rather than at the end.
+#
+# It needs no new flag, no new module constant and no new function: `scan_tree`
+# reads every file with no suffix allowlist, and `require_populated` already
+# exits non-zero on a missing or empty root, so this root inherits the
+# fail-closed posture for free. `$(ENV_DOCS)`, not `$(ENV)`: publish_scan.py is
+# invoked AS A SCRIPT, so the repo root must be on PYTHONPATH for its
+# `from tools.lints import ...`.
+docs-strict: ## Blocking docs gate: pre-build scan + schema scan + strict build + site scan (D-IMPL-72, D-02, DCD-11)
 	$(ENV_DOCS) $(PYTHON) tools/publish_scan.py --pre-build
+	$(ENV_DOCS) $(PYTHON) tools/publish_scan.py docs/schemas
 	$(ENV_DOCS) $(PYTHON) -m mkdocs build --strict
 	$(ENV_DOCS) $(PYTHON) tools/publish_scan.py site
 
