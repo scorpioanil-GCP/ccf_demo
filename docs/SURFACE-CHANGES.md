@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**538 entries**, of which **312** name a public Python surface.
+**539 entries**, of which **313** name a public Python surface.
 
 ## Added
 
@@ -8787,7 +8787,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-44 entries — 33 public Python surface, 11 not public Python API.
+45 entries — 34 public Python surface, 11 not public Python API.
 
 ### Public Python surface
 
@@ -9596,6 +9596,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   same code path
 
 *Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf.operators.planner.IntermediateCache
+
+- Surface: ccf.operators.planner.IntermediateCache
+- Public surface: true
+- Change type: behavior
+- Before: `run` built the key `(operator.key, content_hash(operator.parameters), content_hash(view), content_hash(upstream))` on **every** invocation, then probed the memo with it. On the shipped engine path every one of those keys was built for a lookup that could not hit
+- After: the same four components, in the same order, built **only when a lookup could hit** — that is, when the cache already holds an intermediate for the same `operator.key`, which is the key tuple's first component and therefore a necessary condition for any match. An intermediate produced for an operator this cache has not seen is held un-keyed until a second call for that operator makes a key necessary. The value returned, and the `hits` accounting, are unchanged
+- Why: `D-IMPL-36` rules the key's **composition** — *"a deterministic key, so a cache hit is by construction the same value replay would produce"* — and says nothing about **when** the key is computed. So what narrows here is the guarantee's *witness*, not the guarantee. Until now the property *"the key is a total function of everything `Operator.apply` can observe"* was witnessed by execution on every call; it is now true by construction and witnessed by `tests/operators/test_planner.py`, whose two cache tests exercise the reachable path — a repeat invocation that hits, and two distinct upstream chains that must not collapse. Both pass unmodified, as do `tests/properties/test_composition.py` and `tests/conformance/test_similarity_index.py`, which construct `compose(..., cache=IntermediateCache())` and are the composition-preservation suites this change sits closest to. The instrumented unreachability probe reports the identical figures before and after — 192 engine-created caches, 640 `run` calls through them, 0 hits — so control flow did not move either. One consequence follows from the same narrowing and is stated rather than left to be discovered: a view with no canonical rendering (`ccf.contracts.canonical::CanonicalizationError`) used to surface on its first pass through this cache and now surfaces only where the key is actually built
+- Migration: **none.** No signature moves, no constructor argument appears, the key's composition is byte-for-byte what it was, and a hit still returns the value recomputation would produce with its provenance. An adopter constructing an `IntermediateCache` — directly or through `ccf.operators.planner::compose` — changes nothing and observes the same values and the same `hits` count. What an adopter may observe is that the fabric got faster: `perf/suites/micro/test_operators.py::test_composed_chain` moved from a 0.386391 s median to 0.178888 s on the `local` runner class, and `test_composed_ab` from 0.191451 s to 0.077345 s, against a `perf/baselines/local.json` this plan left byte-identical
+
+*Recorded by `15.6-02-intermediate-cache-key.md`.*
 
 ### Not public Python API
 

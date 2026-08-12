@@ -142,6 +142,21 @@ def build_operator_plan(
     )
 
 
+@dataclass
+class _Deferred:
+    """An intermediate held before its key has been materialized.
+
+    Everything :meth:`IntermediateCache._key` needs, kept so the key can be
+    built later — at the first moment a lookup for the same operator could
+    hit — rather than at the moment the intermediate was produced.
+    """
+
+    operator: Operator
+    view: GraphView
+    upstream: tuple[OperatorProvenance, ...]
+    output: OperatorOutput
+
+
 class IntermediateCache:
     """Per-execution memo of operator intermediates (D-IMPL-36, I.1 scope).
 
@@ -156,10 +171,43 @@ class IntermediateCache:
     upstream chain hash)`` — everything :meth:`Operator.apply` can observe. A
     hit therefore returns the value recomputation would produce, provenance
     included.
+
+    **The key's composition is D-IMPL-36's; *when* it is computed is not.**
+    The four components and their order are exactly what they have always
+    been. What this class no longer does is build that key on *every*
+    invocation. An intermediate is held un-keyed (:class:`_Deferred`) until a
+    later call arrives for the same ``operator.key``, which is the first
+    moment a lookup could hit: ``operator.key`` is the key tuple's first
+    component, so an operator with no stored intermediate cannot match one.
+    Hashing a graph view is the dominant cost of building the key, and
+    ``ProjectionEngine.execute`` invokes each operator key exactly once — so
+    on the shipped engine path every one of those hashes was being computed
+    for a lookup that could not happen (``DI-15.5-04``).
+
+    **What narrows, precisely.** Until now the key was computed on every
+    invocation, so the property *"the key is a total function of everything*
+    :meth:`Operator.apply` *can observe"* was witnessed by execution on every
+    call. Under the deferred scheme the property is **true by construction but
+    no longer witnessed on every call**: the key is materialized only where it
+    is consulted. The final value a caller receives is identical and the hit
+    accounting is identical; what changes is the *evidence class*. Its
+    remaining witness is ``tests/operators/test_planner.py``, whose two cache
+    tests exercise the reachable path — a repeat invocation that hits, and two
+    distinct upstream chains that must not collapse. D-IMPL-36's ruled text
+    says nothing about *when* the key is computed, so this narrows the
+    guarantee's witness, not the guarantee.
+
+    One consequence follows from the same narrowing and is stated rather than
+    discovered: a view that has no canonical rendering
+    (:class:`~ccf.contracts.canonical.CanonicalizationError`) used to surface
+    on its first pass through this cache. It now surfaces only where the key
+    is actually built. The key that *is* built is byte-for-byte the key that
+    was built before.
     """
 
     def __init__(self) -> None:
         self._entries: dict[tuple[str, str, str, str], OperatorOutput] = {}
+        self._deferred: dict[str, list[_Deferred]] = {}
         self._hits = 0
 
     @property
@@ -172,6 +220,20 @@ class IntermediateCache:
         """
         return self._hits
 
+    @staticmethod
+    def _key(
+        operator: Operator,
+        view: GraphView,
+        upstream: tuple[OperatorProvenance, ...],
+    ) -> tuple[str, str, str, str]:
+        """D-IMPL-36's key: the same four components, in the same order."""
+        return (
+            operator.key,
+            content_hash(operator.parameters),
+            content_hash(view),
+            content_hash(upstream),
+        )
+
     def run(
         self,
         operator: Operator,
@@ -181,13 +243,40 @@ class IntermediateCache:
         temporal_boundary: datetime,
         upstream: tuple[OperatorProvenance, ...],
     ) -> OperatorOutput:
-        """Return ``operator``'s intermediate, computing it at most once."""
-        key = (
-            operator.key,
-            content_hash(operator.parameters),
-            content_hash(view),
-            content_hash(upstream),
-        )
+        """Return ``operator``'s intermediate, computing it at most once.
+
+        The key is built only when a lookup could hit — that is, when this
+        cache already holds an intermediate for the same ``operator.key``.
+        See the class docstring for what that narrows in D-IMPL-36.
+        """
+        held = self._deferred.get(operator.key)
+        if held is None:
+            # First sighting of this operator in this execution. ``operator.key``
+            # is the key tuple's first component, so nothing already stored can
+            # match: there is no lookup to build a key for. The intermediate is
+            # held un-keyed until a second call for this operator makes one
+            # necessary.
+            output = operator.apply(
+                view=view,
+                tenant_id=tenant_id,
+                temporal_boundary=temporal_boundary,
+                upstream=upstream,
+            )
+            self._deferred[operator.key] = [
+                _Deferred(
+                    operator=operator, view=view, upstream=upstream, output=output
+                )
+            ]
+            return output
+        # A lookup could hit. Materialize the keys of anything held un-keyed for
+        # this operator, then probe on the key this call would have built all
+        # along.
+        for deferred in held:
+            self._entries[
+                self._key(deferred.operator, deferred.view, deferred.upstream)
+            ] = deferred.output
+        held.clear()
+        key = self._key(operator, view, upstream)
         cached = self._entries.get(key)
         if cached is not None:
             self._hits += 1
