@@ -60,6 +60,7 @@ package. No other plan owns it.
 from __future__ import annotations
 
 import ast
+import inspect
 import json
 import os
 import pathlib
@@ -73,15 +74,22 @@ from functools import lru_cache
 from typing import Any
 
 import pytest
+import yaml
+from pydantic import ValidationError
 
+from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
+from ccf.contracts.claims import EntityClaim, LineageEntry
 from ccf.halflife.assessment import (
     NO_SCORER_PINS,
     DebtAssessment,
     DebtFactors,
     DebtSignal,
 )
+from ccf.halflife.decay import Observation
+from ccf.operators.categories import PolicyFilter
 from ccf.products.contract import ContextProductContract, ProductLineage
+from ccf.projection.engine import ProjectionEngine
 from ccf.projection.plan import ProjectionOutput
 from ccf.replay.record import ContentGenerationPath
 from ccf.replay.serve import ServedProduct
@@ -155,6 +163,13 @@ DELIVERY_DOORS: tuple[tuple[str, str], ...] = (
     ("runtime/ccf_runtime/mcp/egress.py", "build_egress_server"),
     ("runtime/ccf_runtime/http_api/routes/product.py", "build_router"),
     ("runtime/ccf_runtime/mcp/experience.py", "build_experience_server"),
+)
+
+#: The three example artifacts an ``Observation.model_validate`` reads.
+OBSERVATION_ARTIFACTS: tuple[str, ...] = (
+    "examples/00-quickstart/artifacts/decision.yaml",
+    "examples/01-agent-basics/artifacts/debt-evaluation.yaml",
+    "examples/08-e2e-demo/artifacts/decision.yaml",
 )
 
 _HEX64 = re.compile(r"\b[0-9a-f]{64}\b")
@@ -921,6 +936,387 @@ def measure_qe_regeneration_surface() -> dict[str, Any]:
         ),
     }
 
+
+# --------------------------------------------------------------------------
+# Q-C — the Observation identity field's cost split. REPORTED.
+# --------------------------------------------------------------------------
+
+#: The positive sentinel an optional identity would carry, in the
+#: ``NO_SCORER_PINS`` voice. Owned by this module; nothing is proposed by it.
+_NO_SUBJECT = "no-subject"
+
+
+class _ObservationWithRequiredIdentity(Observation):
+    """Stand-in: the identity as a required field."""
+
+    subject_uri: str
+
+
+class _ObservationWithOptionalIdentity(Observation):
+    """Stand-in: the identity as an optional field behind a positive sentinel."""
+
+    subject_uri: str = _NO_SUBJECT
+
+
+def _observation_mappings(relative: str) -> tuple[Mapping[str, Any], ...]:
+    """Every mapping in a YAML artifact that carries ``observation_type``."""
+    document = yaml.safe_load(
+        (REPO_ROOT / relative).read_text(encoding="utf-8")
+    )
+    found: list[Mapping[str, Any]] = []
+
+    def walk(node: object) -> None:
+        if isinstance(node, Mapping):
+            if "observation_type" in node and "observed_at" in node:
+                found.append(node)
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, (list, tuple)):
+            for item in node:
+                walk(item)
+
+    walk(document)
+    return tuple(found)
+
+
+def measure_qc_observation_cost() -> dict[str, Any]:
+    """The required-versus-optional split, with the breakage executed.
+
+    Every count here is reported: plan ``15.6-05`` changes all of them.
+    """
+    constructions = count_call_sites("Observation", "name")
+    validations = count_receiver_calls("Observation", "model_validate")
+
+    executed: dict[str, Any] = {}
+    for relative in OBSERVATION_ARTIFACTS:
+        mappings = _observation_mappings(relative)
+        rows: list[dict[str, Any]] = []
+        for mapping in mappings:
+            payload = dict(mapping)
+            required_outcome: dict[str, Any]
+            try:
+                _ObservationWithRequiredIdentity.model_validate(payload)
+            except ValidationError as error:
+                required_outcome = {
+                    "raised": type(error).__name__,
+                    "error_count": error.error_count(),
+                    "error_types": sorted(
+                        {item["type"] for item in error.errors()}
+                    ),
+                    "missing_fields": sorted(
+                        {
+                            str(item["loc"][0])
+                            for item in error.errors()
+                            if item["loc"]
+                        }
+                    ),
+                }
+            else:
+                required_outcome = {"raised": None}
+
+            optional_outcome: dict[str, Any]
+            try:
+                validated = _ObservationWithOptionalIdentity.model_validate(
+                    payload
+                )
+            except ValidationError as error:
+                optional_outcome = {"raised": type(error).__name__}
+            else:
+                optional_outcome = {
+                    "raised": None,
+                    "subject_uri": validated.subject_uri,
+                }
+            rows.append(
+                {
+                    "keys_present": sorted(payload),
+                    "required_field": required_outcome,
+                    "optional_field": optional_outcome,
+                }
+            )
+        executed[relative] = {
+            "observation_mappings_found": len(mappings),
+            "outcomes": rows,
+        }
+
+    broken_by_required = sorted(
+        relative
+        for relative, row in executed.items()
+        if any(
+            outcome["required_field"]["raised"] is not None
+            for outcome in row["outcomes"]
+        )
+    )
+    broken_by_optional = sorted(
+        relative
+        for relative, row in executed.items()
+        if any(
+            outcome["optional_field"]["raised"] is not None
+            for outcome in row["outcomes"]
+        )
+    )
+    return {
+        "observation_fields_today": tuple(Observation.model_fields),
+        "construction_census": constructions,
+        "model_validate_census": validations,
+        "artifacts_examined": OBSERVATION_ARTIFACTS,
+        "executed_breakage": executed,
+        "artifacts_broken_by_a_required_field": broken_by_required,
+        "artifacts_broken_by_an_optional_field": broken_by_optional,
+        "code_files_touched_by_a_required_field": sorted(
+            set(constructions["by_file"]) | set(validations["by_file"])
+        ),
+        "code_files_touched_by_an_optional_field": sorted(
+            set(constructions["by_file"])
+        ),
+        "note": (
+            "the split is executed, not inferred from extra=forbid semantics: "
+            "each artifact's actual observation mapping is model_validate'd "
+            "against a stand-in carrying a required field and again against "
+            "one carrying an optional field, and what each raises is recorded"
+        ),
+    }
+
+
+# --------------------------------------------------------------------------
+# Q-D — the join key already in hand. REPORTED, with one asserted limb.
+# --------------------------------------------------------------------------
+
+_ASSEMBLER_SITE = "examples/s1-01-hello-context-product/deployment.py"
+
+
+def measure_qd_join_key() -> dict[str, Any]:
+    """Fields in hand at the assembler, against fields carried into Observation.
+
+    The asserted limb is that :class:`~ccf.contracts.claims.EntityClaim`
+    declares ``entity_uri`` and ``lineage`` among its fields — which no plan in
+    this phase changes and which the ``claims.py`` file-hash pin in
+    ``tests/peering/test_admission_record.py`` actively prevents changing.
+    Everything else here is reported.
+    """
+    return {
+        "call_site": f"{_ASSEMBLER_SITE}::KycScenario",
+        "fields_in_hand_on_record_claim": tuple(EntityClaim.model_fields),
+        "fields_on_each_lineage_entry": tuple(LineageEntry.model_fields),
+        "fields_carried_into_observation": tuple(Observation.model_fields),
+        "fields_available_and_discarded": tuple(
+            sorted(set(EntityClaim.model_fields) - set(Observation.model_fields))
+        ),
+        "consequence": (
+            "gap 1 is 'stop discarding the join key', not 'build one'. "
+            "D-IMPL-99's NOT MEASURABLE verdict was true of the TYPE — "
+            "Observation carries exactly (observation_type, observed_at) and "
+            "no identity — and was never true of the CALL SITE, where the "
+            "assembler holds the whole EntityClaim in the loop variable, reads "
+            "two of its fields and drops the rest"
+        ),
+        "observation_construction_sites_in_src_and_runtime": {
+            path: hits
+            for path, hits in count_call_sites("Observation", "name")[
+                "by_file"
+            ].items()
+            if path.startswith(("src/", "runtime/"))
+        },
+    }
+
+
+# --------------------------------------------------------------------------
+# Q-B2 — does an evidence pointer leak entitlement? REPORTED.
+# --------------------------------------------------------------------------
+#
+# Three measurements, each carrying the `path::Symbol` of the hop it read.
+# This module recommends nothing here, proposes no mitigation and reaches no
+# verdict: the Wave-2 checkpoint puts the question to Dave as a new D-IMPL
+# entry, and an executor's opinion in this section would be the thing that
+# launders a preference into a ruling.
+
+
+def _parameter_names(target: Any) -> tuple[str, ...]:
+    return tuple(inspect.signature(target).parameters)
+
+
+def measure_qb2_entitlement() -> dict[str, Any]:
+    """Three cited measurements of where entitlement reaches the assembly.
+
+    Executed by reading the shipped signatures rather than by describing them:
+    whether a stage takes a perspective at all is a fact about its parameter
+    list, and a parameter list is readable.
+    """
+    from ccf_runtime.authz.product_entitlement import entitled_perspective
+    from ccf.deployment import build_operator_registry
+
+    execute_parameters = _parameter_names(ProjectionEngine.execute)
+    registry_parameters = _parameter_names(build_operator_registry)
+    policy_filter_parameters = _parameter_names(PolicyFilter.__init__)
+    entitlement_parameters = _parameter_names(entitled_perspective)
+
+    hops = (
+        {
+            "hop": 1,
+            "symbol": "runtime/ccf_runtime/mcp/egress.py::build_egress_server",
+            "reading": (
+                "the door's handler calls entitled_perspective with the "
+                "verified grant and binds the return value to a local, then "
+                "passes it to the deployment's product resolver"
+            ),
+        },
+        {
+            "hop": 2,
+            "symbol": (
+                "runtime/ccf_runtime/authz/product_entitlement.py"
+                "::entitled_perspective"
+            ),
+            "reading": (
+                "resolves a Perspective from the verified grant, refuses a "
+                "subject conflict, and authorizes the (tenant, product_class, "
+                "role) triple. Its parameters are "
+                f"{entitlement_parameters}"
+            ),
+        },
+        {
+            "hop": 3,
+            "symbol": (
+                "examples/s1-01-hello-context-product/spine.py"
+                "::assemble_and_serve"
+            ),
+            "reading": (
+                "reads the graph with reader.as_of(tenant_id=..., at=...) — "
+                "tenant and instant, no principal — and builds the operator "
+                "registry from the deployment's operator-parameter artifacts"
+            ),
+        },
+        {
+            "hop": 4,
+            "symbol": (
+                "src/ccf/deployment/operators.py::build_operator_registry"
+            ),
+            "reading": (
+                "constructs every operator from artifacts. Its parameters are "
+                f"{registry_parameters}"
+            ),
+        },
+        {
+            "hop": 5,
+            "symbol": "src/ccf/operators/categories.py::PolicyFilter",
+            "reading": (
+                "the only admissibility narrowing in the operator chain. Its "
+                f"constructor parameters are {policy_filter_parameters}, and "
+                "its admission test reads policy_bundle_version and a "
+                "classification attribute off the entity record against "
+                "deployment-declared parameter values"
+            ),
+        },
+        {
+            "hop": 6,
+            "symbol": "src/ccf/projection/engine.py::ProjectionEngine",
+            "reading": (
+                "runs the operator chain to a surviving view, then invokes the "
+                "plan with the perspective. Its execute parameters are "
+                f"{execute_parameters}"
+            ),
+        },
+        {
+            "hop": 7,
+            "symbol": (
+                "examples/s1-01-hello-context-product/deployment.py"
+                "::KycScenario"
+            ),
+            "reading": (
+                "the assembler enumerates view.entities to build the "
+                "Observation sequence the freshness scorer consumes; the view "
+                "it is handed is the post-operator view, not a "
+                "principal-conditioned one"
+            ),
+        },
+    )
+
+    return {
+        "disclaimer": (
+            "This module recommends nothing, proposes no mitigation and "
+            "reaches no verdict in this section. The three findings below are "
+            "measurements; the ruling is Dave's, as a new D-IMPL entry at the "
+            "Wave-2 checkpoint"
+        ),
+        "prior_ruling_by_analogy": (
+            "D-IMPL-105 ruled the analogous question for completeness "
+            "precisely because a caller could infer what they are not allowed "
+            "to see. No shipped ruling covers evidence pointers"
+        ),
+        "finding_1_view_scoping": {
+            "question": (
+                "is the graph view the assembler enumerates to build "
+                "Observations perspective-scoped or tenant-scoped?"
+            ),
+            "answer": "tenant-scoped and operator-parameter-narrowed",
+            "call_chain": hops,
+            "evidence": {
+                "projection_engine_execute_parameters": execute_parameters,
+                "build_operator_registry_parameters": registry_parameters,
+                "policy_filter_init_parameters": policy_filter_parameters,
+                "perspective_reaches_the_operator_stage": (
+                    "perspective" in registry_parameters
+                    or "perspective" in policy_filter_parameters
+                ),
+                "perspective_reaches_the_projection_stage": (
+                    "perspective" in execute_parameters
+                ),
+            },
+        },
+        "finding_2_two_principals": {
+            "question": (
+                "would two principals with different product-class "
+                "entitlements, assembling the same product class over the same "
+                "graph state, enumerate the same set of entity_uri values?"
+            ),
+            "answer": (
+                "yes, as the shipped path stands: the operator stage that "
+                "produces the enumerated view takes no perspective, so the two "
+                "principals are handed the same view"
+            ),
+            "paths_converge_at": "src/ccf/projection/engine.py::ProjectionEngine",
+            "paths_diverge_at": "src/ccf/projection/plan.py::ProjectionPlan",
+            "evidence": (
+                "ProjectionEngine.execute threads perspective into the plan "
+                "invocation only; the operator chain that computes the "
+                "surviving view is built by build_operator_registry from "
+                "artifact-supplied parameters, whose parameter list carries no "
+                "principal and no perspective. Entitlement is decided before "
+                "assembly, at entitled_perspective, on the (tenant, "
+                "product_class, role) triple — a per-class decision, not a "
+                "per-entity one"
+            ),
+        },
+        "finding_3_exposure_delta": {
+            "question": (
+                "what would a pointer derived from the full graph expose that "
+                "a pointer derived from the perspective-scoped view would not?"
+            ),
+            "answer": (
+                "on the shipped path the two are the same set, so the delta is "
+                "empty — and that is the finding. There is no "
+                "perspective-scoped view to derive a narrower pointer from: "
+                "the narrowing that does happen is PolicyFilter's, keyed on "
+                "permitted policy-bundle versions and permitted "
+                "classifications declared per deployment, identically for "
+                "every principal of the class"
+            ),
+            "narrowing_symbol": "src/ccf/operators/categories.py::PolicyFilter",
+            "entity_fields_a_pointer_could_name": tuple(
+                EntityClaim.model_fields
+            ),
+            "evidence": (
+                "PolicyFilter's admission test reads the entity record's "
+                "policy_bundle_version and a per-class classification "
+                "attribute against parameter values supplied by the "
+                "deployment's operator-parameter artifacts. Nothing in that "
+                "test names the principal, so an evidence pointer derived from "
+                "the surviving view names whatever the class's policy "
+                "parameters admitted, for every caller entitled to the class"
+            ),
+        },
+    }
+
+
+# --------------------------------------------------------------------------
 # The report
 # --------------------------------------------------------------------------
 
@@ -949,6 +1345,9 @@ def measure_all() -> dict[str, Any]:
         "qa_tripwire_shapes": dict(TRIPWIRE_SHAPES),
         "qb_doors": measure_qb_doors(),
         "qb_in_process_reach": measure_qb_in_process_reach(),
+        "qb2_entitlement": measure_qb2_entitlement(),
+        "qc_observation_cost": measure_qc_observation_cost(),
+        "qd_join_key": measure_qd_join_key(),
         "qe_regeneration_surface": measure_qe_regeneration_surface(),
     }
 
@@ -980,6 +1379,9 @@ def test_the_report_is_producible_and_is_printed_for_the_evidence_document(
     assert set(figures) >= {
         "qa_placements",
         "qb_doors",
+        "qb2_entitlement",
+        "qc_observation_cost",
+        "qd_join_key",
         "qe_regeneration_surface",
     }
 
@@ -1084,3 +1486,67 @@ def test_every_shipped_door_serializes_the_product_and_none_reads_the_ref() -> (
         assert row["serializes_servable_product"] is True, relative
         assert row["reads_replay_ref"] is False, relative
     assert measured["door_count"] == len(DELIVERY_DOORS)
+
+
+# --- Q-D: the one stable limb. ASSERTED. ----------------------------------
+
+
+def test_entity_claim_declares_the_join_key_and_the_provenance() -> None:
+    """``EntityClaim`` carries ``entity_uri`` and ``lineage``.
+
+    Asserted because no plan in this phase edits ``src/ccf/contracts/claims.py``
+    — and because ``tests/peering/test_admission_record.py`` pins that file's
+    sha256, so an edit is a failing gate rather than a silent change. Every
+    count around this limb is reported.
+    """
+    declared = set(EntityClaim.model_fields)
+    assert "entity_uri" in declared
+    assert "lineage" in declared
+    assert "observed_at" in declared
+
+
+# --- Q-C: the stand-ins behave as stand-ins. ASSERTED. --------------------
+
+
+def test_a_required_identity_refuses_a_two_key_observation_mapping() -> None:
+    """The executed half of the Q-C split, over a mapping this module owns.
+
+    The same executed check runs over the three real artifacts in
+    :func:`measure_qc_observation_cost`, where its outcome is *reported* —
+    plan ``15.6-05`` edits those artifacts. What is asserted here is only that
+    the stand-in behaves as a stand-in: a required field refuses a mapping
+    that does not carry it, and an optional one does not.
+    """
+    mapping = {
+        "observation_type": "spike-observation",
+        "observed_at": "2026-03-15T00:00:00Z",
+    }
+    with pytest.raises(ValidationError):
+        _ObservationWithRequiredIdentity.model_validate(mapping)
+    validated = _ObservationWithOptionalIdentity.model_validate(mapping)
+    assert validated.subject_uri == _NO_SUBJECT
+
+
+# --- Q-B2: the section asserts nothing. -----------------------------------
+
+
+def test_the_entitlement_findings_are_three_cited_measurements() -> None:
+    """Structural only: three findings, each carrying the hop it read.
+
+    Nothing about the *answers* is asserted — the call chain runs through
+    ``examples/``, which this phase's later plans may move, and the question
+    itself is unruled. What is checked is that no finding reaches the Wave-2
+    checkpoint without a citation.
+    """
+    findings = measure_qb2_entitlement()
+    for key in ("finding_1_view_scoping", "finding_2_two_principals",
+                "finding_3_exposure_delta"):
+        row = findings[key]
+        assert row["question"].strip(), key
+        assert row["answer"].strip(), key
+    assert findings["finding_1_view_scoping"]["call_chain"]
+    for hop in findings["finding_1_view_scoping"]["call_chain"]:
+        assert "::" in hop["symbol"], hop
+    assert "::" in findings["finding_2_two_principals"]["paths_converge_at"]
+    assert "::" in findings["finding_2_two_principals"]["paths_diverge_at"]
+    assert "::" in findings["finding_3_exposure_delta"]["narrowing_symbol"]
