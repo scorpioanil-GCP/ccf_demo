@@ -128,6 +128,21 @@
 - [x] **CPS-13**: Micro-benchmark medians stay inside the 10% relative band after the field and gate additions, measured deliberately because `make perf` is not part of `make ci`, against a chain of baselines that starts before any change lands
 - [x] **CPS-14**: The eight open design questions are put to Dave with measured costs, ruled, and recorded as `D-IMPL` entries before the tracks they gate are implemented
 
+### Decision-Completeness and Defect Closure (DCD)
+
+- [ ] **DCD-01**: The fixed-versus-declared fork is measured rather than argued — every candidate placement for a debt-evidence carrier has a verdict produced by running the real `rehydrate_product` tripwire, the record-only placement's consumer reach is counted against the three shipped doors, and the spike recommends nothing
+- [ ] **DCD-02**: Debt points at what it summarises, and `Observation` carries an identity those pointers can name; the SDK enumerates no observation identity vocabulary and owes nothing about *which* observations matter (`D-IMPL-117`)
+- [ ] **DCD-03**: Source-refresh recency is a slot distinct from computed freshness, with no SDK definition of a source, no cadence, no staleness threshold and no default; an unpopulated slot is a positive assertion under a named sentinel
+- [ ] **DCD-04**: Each `DebtSignal` can carry a declared, **opaque** obligation reference bound through the Control Plane and resolved at replay to the binding in force at decision time, with **no obligation vocabulary anywhere in `src/`**, enforced by a structural assertion no shipped lint reaches
+- [ ] **DCD-05**: Every Track B contract change replays byte-exactly through the real serve path after the graph has moved on, and an adversarial twin diverges
+- [ ] **DCD-06**: `DI-15.5-01` — the noisy dispatch benchmark's band covers its measured variance across three consecutive runs, with no code change and no re-baseline
+- [ ] **DCD-07**: `DI-15.5-04` — the `IntermediateCache` key is computed only when a lookup could hit, with the composition-preservation suites passing unmodified and the `D-IMPL-36` witness narrowing recorded
+- [ ] **DCD-08**: `DI-15.5-05` — both resolver seams state, **at the seam**, what a resolver omitting each refusal is serving, under a recorded ruling
+- [ ] **DCD-09**: `DI-15.5-06` — the surface manifest records a Protocol's `__call__`, so the already-shipped resolver break becomes a visible `reshaped` diff line; the manifest's non-Protocol blind spot is closed or descoped with a recorded reason
+- [ ] **DCD-10**: `DI-15.5-08` — the `.py`-target unanchored citation population is reduced over the ruled scope and cannot regrow, gated in **both** directions
+- [ ] **DCD-11**: `docs/schemas/` is shingle-scanned by the shipped `publish_scan` machinery through a scan root wired into `docs-strict`, not by a one-time sweep
+- [ ] **DCD-12**: The phase gate is `make ci` exit 0, with the CLAUDE.md §3.1 close sequence run in its stated order
+
 ## Future Requirements (deferred)
 
 - Perf SaaS/dashboarding integration
@@ -229,6 +244,18 @@
 | CPS-12 | Phase 15.5 | Complete |
 | CPS-13 | Phase 15.5 | Complete |
 | CPS-14 | Phase 15.5 | Complete |
+| DCD-01 | Phase 15.6 | Pending |
+| DCD-02 | Phase 15.6 | Pending |
+| DCD-03 | Phase 15.6 | Pending |
+| DCD-04 | Phase 15.6 | Pending |
+| DCD-05 | Phase 15.6 | Pending |
+| DCD-06 | Phase 15.6 | Pending |
+| DCD-07 | Phase 15.6 | Pending |
+| DCD-08 | Phase 15.6 | Pending |
+| DCD-09 | Phase 15.6 | Pending |
+| DCD-10 | Phase 15.6 | Pending |
+| DCD-11 | Phase 15.6 | Pending |
+| DCD-12 | Phase 15.6 | Pending |
 
 **The CPS lane was verified clause by clause against the tree at Phase 15.5's
 close (plan `15.5-14`), not against any SUMMARY.** Phase 15.1's re-approval had
@@ -253,10 +280,34 @@ evidence per row:
 | CPS-13 | `make perf-micro` exit 0, all twelve benchmarks PASS. The three `test_gates.py` benchmarks — the ones a new contract field or the payload bind would move — are within ±1.8% of baseline |
 | CPS-14 | `docs/DECISIONS.md` `D-IMPL-98` .. `D-IMPL-106` (the eight questions, ruled with measured costs from `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md`), plus `D-IMPL-107` .. `D-IMPL-112` raised and ruled during execution |
 
-Coverage: 82/82 v0.2 requirements mapped, each to exactly one phase.
+Coverage: 94/94 v0.2 requirements mapped, each to exactly one phase.
 Counted from the traceability table above by counting its rows, not from the
 previous sentence: 56 rows before Phase 16's minting, 68 after, 82 after Phase
-15.5's.
+15.5's, 94 after Phase 15.6's.
+**DCD-01..DCD-12 were minted at execution rather than at planning**, by plan
+`15.6-03` task 1 (2026-08-12), under the same inserted-phase precedent
+CPS-01..14, DOCS-07..18, SUBQ-12..14 and ERGO-18..19 were minted under — an
+inserted phase mints its own requirement IDs rather than borrowing a
+predecessor's. Two things about this minting are worth stating because a later
+reader will otherwise reconstruct them wrongly. First, **the minting is at
+execution, not at planning**, which is a departure from the CPS precedent and a
+deliberate one recorded in `.planning/ROADMAP.md` § Phase 15.6: `grep -c "DCD-"
+.planning/REQUIREMENTS.md` returned **0** at `ef475e1`, the twelve IDs were
+claimed across the twelve plans' `requirements:` frontmatter meanwhile, and
+coverage was complete in substance and provisional until this plan landed.
+Second, **DCD opens a new lane rather than extending CPS**, on the same joint
+CPS was opened against SUBQ: Phase 15.5 established what a Context Product *is*
+on delivery, and 15.6 closes what a delivered debt assessment does not yet let
+an analyst *act on* — plus five carried, API-neutral defects that belong to no
+CPS clause. The mapping is one DCD ID per named roadmap work item: the five
+`DI-15.5-NN` defects are DCD-06 (`-01`), DCD-07 (`-04`), DCD-08 (`-05`),
+DCD-09 (`-06`) and DCD-10 (`-08`); the three Track B gaps are DCD-02 (gap 1,
+observation-contribution evidence), DCD-03 (gap 2, source-refresh recency) and
+DCD-04 (gap 3, the `forced_llm` obligation binding); and the four remaining IDs
+carry the phase's own machinery — DCD-01 the research spike, DCD-05 the standing
+replay obligation every Track B contract change is held to, DCD-11 the
+`docs/schemas/` scan root, and DCD-12 the `make ci` phase gate with the
+CLAUDE.md §3.1 close sequence.
 **CPS-01..CPS-14 were minted at Phase 15.5 planning and recorded here by plan
 15.5-05 (2026-08-11)**, under the same inserted-phase precedent DOCS-07..18,
 SUBQ-12..14 and ERGO-18..19 were minted under — an inserted phase mints its own
