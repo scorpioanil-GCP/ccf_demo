@@ -26,6 +26,7 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -35,6 +36,12 @@ from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.graph.protocols import GraphQuery, GraphView
+from ccf.halflife.assessment import (
+    DebtAssessment,
+    DebtFactors,
+    DebtSignal,
+    ScorerPin,
+)
 from ccf.operators.base import OperatorOutput
 from ccf.operators.categories import (
     TemporalAsOf,
@@ -50,6 +57,7 @@ from ccf.products.contract import (
     register_product_class,
 )
 from ccf.products.gates import ServableProduct, run_gates
+from ccf.products.request import ProductRequest, request_seeds
 from ccf.projection.engine import ExecutionResult, OperatorRegistry, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput, ProjectionPlan
 from ccf.replay import engine as engine_module
@@ -85,6 +93,33 @@ ARTIFACT_CLASS = "decision-replay-record"
 SCHEMA_NAME = "test.exposure-summary"
 SCHEMA_VERSION = "1.0.0"
 PRODUCT_TTL_SECONDS = 600
+
+#: The debt this fixture's decision was made with (D-IMPL-99/100). Test-owned
+#: values: the factors are a deployment measurement, never an SDK one. Carried
+#: on the product, so it is inside the content address the engine checks — which
+#: is the whole reason this module is the tripwire for the debt landing.
+DEBT = DebtAssessment(
+    debt=Decimal("0.28"),
+    signal=DebtSignal.OK,
+    factors=DebtFactors(
+        freshness=Decimal("0.90"),
+        completeness=Decimal("0.80"),
+        semantic_consistency=Decimal("1.0"),
+    ),
+    scorers=(
+        ScorerPin(
+            factor="freshness",
+            scorer_id="ccf.reference.freshness-from-decay",
+            scorer_version="1.0.0",
+        ),
+    ),
+)
+
+#: The intent and freshness this fixture's questions carry (D-IMPL-111 limb
+#: (b)). Test-owned tokens: the SDK enumerates neither, and the whole point of
+#: recording them is that they are values only the deployment knows.
+REQUEST_INTENT = "test-credit-review"
+REQUEST_FRESHNESS = "test-as-of-boundary"
 
 
 def _envelope(
@@ -171,7 +206,12 @@ class _Deployment:
     def perspective(self) -> Perspective:
         return Perspective(principal_id="analyst-7", role="credit-analyst")
 
-    def execute(self, *, registry: OperatorRegistry | None = None) -> ExecutionResult:
+    def execute(
+        self,
+        *,
+        registry: OperatorRegistry | None = None,
+        request: ProductRequest | None = None,
+    ) -> ExecutionResult:
         return ProjectionEngine(
             reader=self.handle.reader, registry=registry or self.operators()
         ).execute(
@@ -179,6 +219,8 @@ class _Deployment:
             perspective=self.perspective(),
             tenant_id=TENANT,
             temporal_boundary=BOUNDARY,
+            # D-IMPL-111 limb (a), through the one derivation replay also uses.
+            seeds=request_seeds(request),
         )
 
     def product_class(self) -> RegisteredProductClass:
@@ -208,6 +250,7 @@ class _Deployment:
                 graph_snapshot_at=BOUNDARY,
             ),
             payload=execution.projection.payload,
+            debt=DEBT,
         )
 
 
@@ -237,6 +280,15 @@ class _Environment:
     def rehydrate_product(
         self, *, record: DecisionReplayRecord, projection: ProjectionOutput
     ) -> ContextProductContract:
+        """Rebuild the product from the record and the re-executed projection.
+
+        ``debt`` comes off the record's dimension 5, never off a fresh
+        assessment: D_c is computed from observations and a ``now`` neither the
+        record nor the projection re-derives, so a rehydrator that re-measured
+        it would produce a *different* decision wearing this one's identifier.
+        Reading it back is what makes the D-IMPL-100 address move
+        reconstructible rather than merely authorized.
+        """
         return ContextProductContract(
             schema_name=SCHEMA_NAME,
             schema_version=SCHEMA_VERSION,
@@ -255,6 +307,7 @@ class _Environment:
                 graph_snapshot_at=record.context_fabric_snapshot.temporal_boundary,
             ),
             payload=projection.payload,
+            debt=record.content_generation_path.debt,
         )
 
 
@@ -287,9 +340,40 @@ def deployment(
     )
 
 
-def _serve(deployment: _Deployment) -> tuple[str, DecisionReplayRecord]:
+def _request(deployment: _Deployment, **overrides: Any) -> ProductRequest:
+    """A question anchored on an entity that is really in the substate.
+
+    The anchor is derived from the fixture's own executed view rather than
+    written down, because entity URIs here are content-addressed: a literal
+    would be a copy of a hash, and a copy of a hash is the kind of value that
+    rots into naming nothing without failing. An anchor naming nothing would
+    still *pin* differently — seeds are inside the query whether or not they
+    match — so a literal would make the walk-start half of limb (a) vacuous
+    while looking fine.
+    """
+    counterparty = min(
+        record.claim.entity_uri
+        for record in deployment.execute().view.entities
+        if record.claim.entity_class == "counterparty"
+    )
+    fields: dict[str, Any] = {
+        "schema_name": SCHEMA_NAME,
+        "schema_version": SCHEMA_VERSION,
+        "subject": counterparty,
+        "intent": REQUEST_INTENT,
+        "freshness": REQUEST_FRESHNESS,
+        "asked_at": BOUNDARY,
+        "parameters": {},
+    }
+    fields.update(overrides)
+    return ProductRequest(**fields)
+
+
+def _serve(
+    deployment: _Deployment, *, request: ProductRequest | None = None
+) -> tuple[str, DecisionReplayRecord]:
     """Run the real serve path; return the record's address and the record."""
-    execution = deployment.execute()
+    execution = deployment.execute(request=request)
     product_class = deployment.product_class()
     gated = run_gates(
         deployment.candidate(execution),
@@ -308,6 +392,7 @@ def _serve(deployment: _Deployment) -> tuple[str, DecisionReplayRecord]:
         ),
         assembly_mode="algorithmic",
         recorded_at=NOW,
+        request=request,
     )
     served = serve(
         product=gated,
@@ -421,6 +506,317 @@ def test_replay_is_idempotent(deployment: _Deployment) -> None:
     address, _record = _serve(deployment)
     assert content_hash(_replay(deployment, address)) == content_hash(
         _replay(deployment, address)
+    )
+
+
+# --- the debt landing, against this very tripwire (D-IMPL-100) -------------
+
+
+def test_the_delivered_product_carries_the_debt_it_was_assembled_with(
+    deployment: _Deployment,
+) -> None:
+    """Whitepaper ``:2696``: debt is a signal the agent consumes, per factor.
+
+    Asserted on the vessel rather than on the record, because the vessel is
+    what every door serializes — so this is the assertion that "a consuming
+    agent receives Context Debt with every delivered product" is about.
+    """
+    execution = deployment.execute()
+    product = deployment.candidate(execution)
+
+    assert product.debt == DEBT
+    assert product.debt is not None
+    assert product.debt.factors.completeness == Decimal("0.80")
+    assert product.debt.scorers[0].scorer_version == "1.0.0"
+
+
+def test_the_record_carries_the_debt_the_product_carries(
+    deployment: _Deployment,
+) -> None:
+    """Dimension 5, derived from the product the builder was handed.
+
+    Derived rather than passed: ``build_replay_record`` already receives the
+    gated product, so nothing new is threaded through its 30 call sites and
+    no caller can hand the record a debt the product does not carry.
+    """
+    _address, record = _serve(deployment)
+
+    assert record.content_generation_path.debt == DEBT
+
+
+def test_the_debt_the_decision_was_made_with_replays_byte_exactly(
+    deployment: _Deployment,
+) -> None:
+    """The D-IMPL-100 claim, executed: the address moves *and* reconstructs.
+
+    The ruling authorized the content address to move on condition that a
+    rehydrator reading debt back off the record reproduces the identical
+    bytes. This is that condition, run against the real serve path and the
+    real engine rather than against the spike's stand-in vessel — and run
+    after the graph has moved on, because a reproduction from unchanged state
+    proves almost nothing.
+    """
+    address, record = _serve(deployment)
+
+    deployment.handle.worker.ingest(
+        _envelope(
+            envelope_id="env-debt-later",
+            payload={
+                "counterparty_lei": "LEI-AAA",
+                "counterparty_name": "Northwind Logistics PLC",
+                "jurisdiction": "GB",
+            },
+            observed_time=T_JULY,
+        )
+    )
+
+    outcome = _replay(deployment, address)
+
+    assert outcome.product.debt == DEBT
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+
+
+def test_a_rehydration_that_drops_the_debt_is_divergence(
+    deployment: _Deployment,
+) -> None:
+    """The adversarial half: dropping debt is *detected*, not tolerated.
+
+    The field is inside the content address, so a rehydrator that returned
+    the vessel without its debt returns a different decision. That it fails
+    here is the reason the address move is safe: a silent drop would be
+    indistinguishable from a decision made with no assessment at all.
+    """
+
+    class _DebtBlind(_Environment):
+        def rehydrate_product(
+            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
+        ) -> ContextProductContract:
+            product = super().rehydrate_product(record=record, projection=projection)
+            return product.model_copy(update={"debt": None})
+
+    address, _record = _serve(deployment)
+    with pytest.raises(ReplayDivergence, match="product"):
+        _replay(deployment, address, environment=_DebtBlind(deployment))
+
+
+def test_a_record_written_before_the_debt_seam_still_replays(
+    deployment: _Deployment,
+) -> None:
+    """The sentinel's compatibility promise (D-IMPL-89 lineage).
+
+    A product assembled with no assessment, and a record that therefore pins
+    none, still reproduce: ``None`` on both sides is the positive claim "this
+    decision carried no debt assessment", and the two agree. A change that
+    made debt required would break every pre-seam record instead.
+    """
+    execution = deployment.execute()
+    product_class = deployment.product_class()
+    gated = run_gates(
+        deployment.candidate(execution).model_copy(update={"debt": None}),
+        engine_resolved=execution.operators_invoked,
+        now=NOW,
+        registry=deployment.registry,
+        product_class=product_class,
+    )
+    assert isinstance(gated, ServableProduct)
+    record = build_replay_record(
+        execution=execution,
+        product=gated.product,
+        perspective=deployment.perspective(),
+        policy_bindings=(
+            PolicyBinding(key=POLICY_BUNDLE_KEY, version=deployment.policy_version),
+        ),
+        assembly_mode="algorithmic",
+        recorded_at=NOW,
+    )
+    served = serve(
+        product=gated,
+        record=record,
+        replay_writer=ReplayWriter(
+            store=deployment.store, artifact_class=ARTIFACT_CLASS
+        ),
+    )
+
+    assert record.content_generation_path.debt is None
+
+    outcome = _replay(deployment, served.replay_ref.content_address)
+
+    assert outcome.product.debt is None
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+
+
+# --- the question answered, against this same tripwire (D-IMPL-111) --------
+
+
+def test_the_record_carries_the_question_the_decision_answered(
+    deployment: _Deployment,
+) -> None:
+    """The gap ``DI-15.5-07`` recorded, closed.
+
+    ``intent`` and ``freshness`` were in **no** dimension before this ruling.
+    They are not recoverable by inference from anything else the record holds:
+    the payload names a subject and dimension 1 names a boundary, but nothing
+    anywhere said *for what decision* or *under what temporal requirement* the
+    question was asked.
+    """
+    asked = _request(deployment)
+    _address, record = _serve(deployment, request=asked)
+
+    recorded = record.content_generation_path.request
+    assert recorded == asked
+    assert recorded is not None
+    assert recorded.intent == REQUEST_INTENT
+    assert recorded.freshness == REQUEST_FRESHNESS
+
+
+def test_the_question_lands_on_dimension_five_and_mints_no_sixth(
+    deployment: _Deployment,
+) -> None:
+    """INV-CH7-80: the five dimensions are inviolate.
+
+    The extension lands *inside* dimension 5, beside the ``graph_query_sequence``
+    it explains, and dimension 4 — *"for whom, with what authority?"* — is
+    untouched: a request asserts no role, no principal and no tenant, by
+    construction of :class:`~ccf.products.request.ProductRequest` itself.
+    """
+    _address, record = _serve(deployment, request=_request(deployment))
+
+    assert "request" in type(record.content_generation_path).model_fields
+    assert "request" not in type(record).model_fields
+    assert "request" not in type(record.perspective_conditioning).model_fields
+
+
+def test_the_question_the_decision_answered_replays_byte_exactly(
+    deployment: _Deployment,
+) -> None:
+    """The D-IMPL-111 condition, executed: the address moves *and* reconstructs.
+
+    Both limbs are under test at once, and they have to be. Limb (a) put the
+    request's subject inside the compiled query, so the pins in dimension 5
+    now depend on the question; limb (b) put the question in the record, which
+    is the only reason replay can re-derive those seeds. A record that carried
+    the pins without the question would be unreplayable *by construction* —
+    ``replay`` would re-execute with no seeds and diverge on the very pins it
+    recorded.
+
+    Run after the graph has moved on, on the module's standing rule: a
+    reproduction from unchanged state proves almost nothing.
+    """
+    asked = _request(deployment)
+    address, record = _serve(deployment, request=asked)
+
+    deployment.handle.worker.ingest(
+        _envelope(
+            envelope_id="env-request-later",
+            payload={
+                "counterparty_lei": "LEI-AAA",
+                "counterparty_name": "Northwind Logistics PLC",
+                "jurisdiction": "GB",
+            },
+            observed_time=T_JULY,
+        )
+    )
+
+    outcome = _replay(deployment, address)
+
+    assert outcome.record.content_generation_path.request == asked
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+    # The record's own address is the bytes the store holds, recomputed rather
+    # than trusted: this is where the D-IMPL-111 address move is *shown*
+    # reconstructible instead of asserted.
+    assert content_hash(record) == address
+
+
+def test_a_replay_that_re_seeds_from_another_question_diverges(
+    deployment: _Deployment,
+) -> None:
+    """The adversarial twin: the same decision asked about a different anchor.
+
+    Two records identical in every other field, differing only in the recorded
+    request's ``subject``. Replaying the second re-executes under the *other*
+    anchor's seeds, so the re-executed query sequence no longer matches the
+    pins the record carries and the divergence is caught — which is what makes
+    the pins meaningful rather than decorative. Before limb (a) both would have
+    replayed green, because both compiled the same question.
+    """
+    asked = _request(deployment)
+    address, record = _serve(deployment, request=asked)
+
+    twin = record.model_copy(
+        update={
+            "content_generation_path": record.content_generation_path.model_copy(
+                update={
+                    "request": asked.model_copy(
+                        update={"subject": f"{asked.subject}-not-this-one"}
+                    )
+                }
+            )
+        }
+    )
+    assert content_hash(twin) != address
+    ReplayWriter(
+        store=deployment.store, artifact_class=ARTIFACT_CLASS
+    ).write_replay_record(record=twin)
+
+    with pytest.raises(ReplayDivergence, match="questions asked of the substrate"):
+        _replay(deployment, content_hash(twin))
+
+
+def test_a_record_written_before_the_request_seam_still_replays(
+    deployment: _Deployment,
+) -> None:
+    """The sentinel's compatibility promise (D-IMPL-89 lineage).
+
+    A decision served with no request — every pre-D-IMPL-111 record, and every
+    fabric-direct decision that was never addressed — pins ``None``, replays
+    with no seeds, and reproduces. That is the whole cost argument for the
+    positive-sentinel default: 32 ``build_replay_record`` call sites across 28
+    files, and none of them had to move.
+    """
+    address, record = _serve(deployment)
+
+    assert record.content_generation_path.request is None
+
+    outcome = _replay(deployment, address)
+
+    assert outcome.record.content_generation_path.request is None
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+
+
+def test_omitting_the_question_is_indistinguishable_from_passing_none(
+    deployment: _Deployment,
+) -> None:
+    """The extension changes no existing behavior — the ``harness_trace`` claim."""
+    execution = deployment.execute()
+    product_class = deployment.product_class()
+    gated = run_gates(
+        deployment.candidate(execution),
+        engine_resolved=execution.operators_invoked,
+        now=NOW,
+        registry=deployment.registry,
+        product_class=product_class,
+    )
+    assert isinstance(gated, ServableProduct)
+    common: dict[str, Any] = {
+        "execution": execution,
+        "product": gated.product,
+        "perspective": deployment.perspective(),
+        "policy_bindings": (
+            PolicyBinding(key=POLICY_BUNDLE_KEY, version=deployment.policy_version),
+        ),
+        "assembly_mode": "algorithmic",
+        "recorded_at": NOW,
+    }
+    assert content_hash(build_replay_record(**common)) == content_hash(
+        build_replay_record(**common, request=None)
     )
 
 

@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The remaining governance values this deployment puts in force, in one
+# deployment-authored document (KYC/UBO domain, phase 16 CONTEXT D-03).
+#
+# Every value here is one the SDK deliberately declines to own:
+#
+#   * `max_ttl_seconds` — the per-class TTL ceiling (INV-CH7-48, D-IMPL-39).
+#     MAX_TTL has no SDK default. `spine.py` registers this number as a typed
+#     `MaxTTL` to MINT the pin `register_product_class` needs; the number and
+#     the pin are therefore two things, which is what leaves Gate 3 something
+#     real to compare against `product_ttl_seconds` below.
+#   * `product_ttl_seconds` — how long an individual product stays servable.
+#     A SEPARATELY authored number from the ceiling, on purpose. A UBO answer
+#     goes stale as ownership changes; ten minutes is this deployment's choice
+#     and not a recommendation.
+#   * `similarity_index_version` — the version identity this deployment assigns
+#     to the screening corpus at its named boundary (INV-CH7-27, D-IMPL-38). The
+#     builder does not mint one: a version derived from the parameters
+#     artifact's pin would be identical across two different boundaries, which
+#     is precisely the corpus identity the determinism contract distinguishes.
+#   * `request_contract_key` — the Control Plane key this deployment registers
+#     its class's request surface under (D-IMPL-98). The KEY is authored here;
+#     the VERSION pinning it is minted by registering the parsed contract, on
+#     exactly the `max_ttl_key` discipline above — which is why
+#     `request-contract.yaml` declares no version of its own.
+#   * `replay_record_class` — the artifact class the replay writer stores under.
+#   * `query_pin_class` — the artifact class the executed graph queries are
+#     stored under, so that every pin in the record's `graph_query_sequence`
+#     resolves to the canonical bytes it names (T-15.2-28). A separate class
+#     from the record's, because a record and the questions it pins are two
+#     kinds of thing an auditor retrieves separately.
+#   * `required_entity_classes` — what a COMPLETE assembly for this question
+#     contains. C in the D_c product is the fraction of these the assembled
+#     view actually holds, so a class the operators removed entirely shows up
+#     as a completeness shortfall in the delivered debt rather than as a
+#     quietly thinner answer (whitepaper §7.7.4). This deployment's list, not
+#     the SDK's: only the deployment knows what its own question needs.
+#   * `semantic_consistency` — S, DECLARED rather than measured, and the
+#     honesty matters. The SDK ships a reference scorer for F and none for S,
+#     so this number is a deployment assertion carried into the answer, and the
+#     assessment's `scorers` tuple pins F alone — an unpinned factor and a
+#     pinned one are different artifacts on purpose (D-IMPL-47, `NO_SCORER_PINS`).
+#   * `artifact_store_dirname` — where under the run root the file-backed
+#     ArtifactStore lives. A path relative to a caller-supplied root, so no
+#     absolute location enters a content-hashed artifact.
+#
+# `plan_id` is deliberately NOT here. It lives in
+# `projection-requirements.yaml`, the document that states the plan's operator
+# set, because a value authored in two places is a value that can drift.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: fibo-kyc.product-governance
+
+declaration:
+  max_ttl_seconds: 1200
+  product_ttl_seconds: 600
+  similarity_index_version: "fibo-kyc-screening-corpus@2026-08-01"
+  request_contract_key: fibo-kyc/product/ultimate-beneficial-ownership/requests
+  replay_record_class: decision-replay-record
+  query_pin_class: graph-query
+  artifact_store_dirname: replay
+
+  # What a complete UBO assembly holds. `registered_address` is deliberately
+  # NOT here: the traversal is never given `registered_at`, so an address has
+  # no business being counted as missing from an answer that does not need one.
+  required_entity_classes:
+    - party
+    - corporation
+    - ownership_stake
+    - screening_candidate
+
+  # Quoted, and validated as a decimal, for the reason `debt-profile.yaml`
+  # states: this figure reaches the product's content address.
+  semantic_consistency: "0.97"

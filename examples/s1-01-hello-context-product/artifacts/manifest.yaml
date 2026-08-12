@@ -1,0 +1,195 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.deployment-manifest.json
+# The one document naming what this deployment puts in force (D-06, D-08,
+# D-IMPL-80; KYC/UBO domain, phase 16 CONTEXT D-03).
+#
+# Every artifact is ENUMERATED, never globbed: the set of Control Plane
+# artifacts in force is dimension 2 of the five-dimension Decision Replay
+# record, and a pattern would make that set a function of directory contents at
+# boot time with no artifact recording that a dropped-in file changed what was
+# in force. `ManifestEntry` refuses a glob at parse.
+#
+# THE BACKEND IS DECLARED AS A KIND ONLY (D-08). There is no DSN, no host, no
+# database path and no credential here, deliberately: a connection value is a
+# deployment ENVIRONMENT value, and putting one in a versioned, content-hashed
+# artifact would persist it into the audit plane forever. Connection values
+# reach the fabric through the caller-supplied `connection=` mapping in
+# `spine.py`'s `boot` region. `load_and_boot` refuses loudly if the declared
+# kind and the supplied connection argument disagree.
+#
+# WHICH SUBSTRATE THIS RUNS ON IS A VALUE IN THIS DOCUMENT, NOT A FACT ABOUT
+# THE CODE. `backend: sqlite` below is the whole of the choice; neither
+# `spine.py` nor `deployment.py` names a substrate anywhere. Plan 16-07 adds the
+# per-backend siblings and the `backends.yaml` configuration document that makes
+# this one driver parameterized across all six. Until then this is one line to
+# edit, and it is the line.
+#
+# `tenant_id` lives here rather than in the resolution spec (D-03): the
+# resolution spec is closed-world over resolution rules only, and the manifest
+# is where this deployment's own identity already is.
+#
+# Each `key` is the Control Plane key its artifact is in force under AND the key
+# it comes back under on `BootedFabric.artifacts`. `deployment.py` names these
+# keys directly — they are this deployment's own vocabulary, so those lines are
+# configuration an adopter reads and edits, not type introspection. `spine.py`
+# names none of them, which is the split this example exists to show.
+#
+# NOT LISTED HERE: `source-estate.yaml`. That document declares the *enterprise
+# source estate* — the world that exists before any fabric does — and is read by
+# `../source_estate.py`, not by the fabric. It is not Control Plane state and it
+# has no business in replay dimension 2. See its own header, and the D-04
+# read-side/write-side split it records.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `tenant_id`, `backend`'s value, every `key`, every `path`, and
+# the non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
+# `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
+# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
+# `ccf.`-prefixed class ids, and the `role` and `registration` values are
+# [MECHANISM].
+
+semver: "1.0.0"
+
+tenant_id: meridian-bank
+backend: sqlite
+
+resolution_spec_key: resolution-spec
+policy_bundle_key: policy-bundle
+
+artifacts:
+  # --- role: register — into the registry, into the pin set, into replay
+  #     dimension 2. This is "what this fabric was permitted to do".
+  - path: resolution-spec.yaml
+    key: resolution-spec
+    class_id: ccf.resolution-spec
+    role: register
+    registration: typed
+
+  - path: policy-bundle.yaml
+    key: policy-bundle
+    class_id: fibo-kyc.policy-bundle
+    role: register
+    registration: typed
+
+  # λ_c and the CAR bands. `register`, because what the fabric treats as fresh
+  # and what debt it tolerates before it refuses to answer are both squarely
+  # "what this fabric is permitted to do" (whitepaper §7.7).
+  - path: half-life-table.yaml
+    key: half-life-table
+    class_id: ccf.half-life-table
+    role: register
+    registration: typed
+
+  - path: debt-profile.yaml
+    key: debt-profile
+    class_id: ccf.debt-profile
+    role: register
+    registration: typed
+
+  - path: operator-parameters-traversal.yaml
+    key: traversal
+    class_id: ccf.operator-parameters.traversal
+    role: register
+    registration: typed
+
+  - path: operator-parameters-temporal.yaml
+    key: temporal
+    class_id: ccf.operator-parameters.temporal
+    role: register
+    registration: typed
+
+  - path: operator-parameters-policy.yaml
+    key: policy
+    class_id: ccf.operator-parameters.policy
+    role: register
+    registration: typed
+
+  - path: operator-parameters-similarity.yaml
+    key: similarity
+    class_id: ccf.operator-parameters.similarity
+    role: register
+    registration: typed
+
+  - path: perspective.yaml
+    key: perspective
+    class_id: ccf.perspective
+    role: register
+    registration: typed
+
+  - path: product-class.yaml
+    key: product-class
+    class_id: ccf.product-class
+    role: register
+    registration: typed
+
+  # Design E2's second authored operator set (D-IMPL-86). `role: register`, not
+  # `load`, and the reason is the same one that puts `product-class.yaml` one
+  # entry above: this document governs WHAT THE PROJECTION DOES, which is
+  # Control Plane configuration — what this fabric is permitted to do — rather
+  # than an observation of one run.
+  - path: projection-requirements.yaml
+    key: projection-requirements
+    class_id: ccf.projection-requirements
+    role: register
+    registration: typed
+
+  - path: product-governance.yaml
+    key: product-governance
+    class_id: fibo-kyc.product-governance
+    role: register
+    registration: typed
+
+  # The VOCABULARY the question is asked in, as a Control Plane statement rather
+  # than as code. Which class is a natural person, which attribute carries a
+  # stake's percentage — that is governance, and it belongs in replay dimension
+  # 2. WHICH COMPANY is being asked about does not, and is no longer in this
+  # document: it arrives on the caller's `ProductRequest` (plan 15.5-13).
+  - path: ubo-question.yaml
+    key: ubo-question
+    class_id: fibo-kyc.ubo-question
+    role: register
+    registration: typed
+
+  # --- role: load — parsed and validated through the same seam as everything
+  #     above, then handed back on `BootedFabric.artifacts`. Never registered,
+  #     never pinned, never in replay dimension 2.
+
+  # The signal batch is `role: load` and the SDK FIXES it that way (D-IMPL-80,
+  # SDK_ARTIFACT_ROLES): registering a signal batch would content-hash raw event
+  # data into Control Plane state and therefore into Decision Replay dimension
+  # 2, so re-authoring this file would look like a change to what was in force.
+  # It is not. Events are what the fabric OBSERVED; the Control Plane is what
+  # the fabric was PERMITTED TO DO. Writing `role: register` here is refused
+  # before anything is read.
+  - path: events.yaml
+    key: events
+    class_id: ccf.signal-batch
+    role: load
+    registration: typed
+
+  # The request surface of the product class — WHICH QUESTIONS it answers
+  # (D-IMPL-98). `load` rather than `register` for the reason
+  # `product-class.yaml` carries no `max_ttl_version`: the pin binding this
+  # contract to the class is MINTED by registering it, so `spine.py` registers
+  # this parsed value and hands the resulting version to
+  # `register_product_class`, which refuses a pin onto another class or lane.
+  #
+  # NOT LISTED HERE: `questions.yaml`. That document holds the questions the
+  # bundled demonstration ASKS, which is caller input rather than Control Plane
+  # state — the same read-side/write-side split `source-estate.yaml` records
+  # (`D-04`). A question is not a permission and has no business in replay
+  # dimension 2. `../run.py` reads it directly.
+  - path: request-contract.yaml
+    key: request-contract
+    class_id: fibo-kyc.request-contract
+    role: load
+    registration: typed
+
+  # What the deployment expects the product to contain. An expectation is not a
+  # permission, so it is parsed and returned, never put in force.
+  - path: expected.yaml
+    key: expected
+    class_id: fibo-kyc.expected-product
+    role: load
+    registration: typed

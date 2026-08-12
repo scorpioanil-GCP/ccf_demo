@@ -33,7 +33,16 @@ DESIGN.md §2B.5. The dimensions, and what each holds in I.1:
    the pre-serialized ``workflow_step_sequence`` block the workflow engine
    reports, recorded verbatim. The per-round-trip query pins extend it as of
    15.2-08 (D-11): the ordered ``content_hash`` tuple of every ``GraphQuery``
-   the segmented engine issued, recorded from execution.
+   the segmented engine issued, recorded from execution. The Context Debt in
+   force extends it as of 15.5-11 (D-IMPL-100): the ``DebtAssessment`` the
+   product carries, derived from the product rather than passed beside it,
+   ``None`` asserting "this decision carried no debt assessment". Debt lands
+   here rather than on dimension 1 because its CAR band *is* a generation-path
+   fact — Forced-LLM invokes a semantic stage, Fail-Closed declines — and
+   because it is a property of the delivered product, which is what dimension 5
+   already records. The ``ProductRequest`` answered extends it as of 15.5-13
+   (D-IMPL-111 limb (b)): the question a decision answered, verbatim, ``None``
+   asserting "this decision recorded no request".
 
 The record is a frozen contract, so it is canonically serializable and
 content-addressable: a replay resolves the *exact* record, byte for byte,
@@ -56,9 +65,15 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.graph.protocols import SourceAttestation
 from ccf.graph.registry import AdapterPin
+from ccf.halflife.assessment import DebtAssessment
 from ccf.products.contract import AssemblyMode, ContextProductContract
 from ccf.projection.engine import ExecutionResult, ExecutionStep
 from ccf.projection.plan import Perspective
+
+# `ccf.products.request` is imported at the BOTTOM of this module (D-IMPL-56
+# pattern; see the note there). Dimension 5 names :class:`ProductRequest` as of
+# D-IMPL-111 limb (b), and that module's own dependencies reach `ccf.agents`,
+# which reads two names back out of this one.
 
 __ccf_mode__ = "algorithmic"
 
@@ -436,6 +451,67 @@ class ContentGenerationPath(CCFContract):
     Defaults to the positive :data:`NO_GRAPH_QUERIES` sentinel — the
     ``workflow_step_sequence`` precedent — so a record written before the
     query seam existed asserts so and still verifies (D-IMPL-89).
+
+    The Context Debt in force extends this dimension as of 15.5-11 (D-IMPL-100)
+    through ``debt``, under the same sentinel-default discipline as every
+    extension above it. **Dimension 5 and not dimension 1**, for two reasons
+    that point the same way. D_c's routing band *is* a fact about how the
+    content came to be — a Forced-LLM signal invokes a semantic stage and a
+    Fail-Closed signal declines the decision outright (§7.7 CAR), which is the
+    generation path rather than a description of the state read. And debt is a
+    property of the **delivered product**, so it belongs beside
+    ``product_content_address``, the record's other product-side fact: the
+    field a rehydrator reads in order to reproduce the address sits next to the
+    address it must reproduce. Dimension 1 stays exactly the four D-IMPL-06
+    constituents plus the attestation pin, which is what
+    ``tests/replay/test_engine_rehydration.py`` asserts on its field set.
+
+    ``None`` is the positive assertion *this decision carried no debt
+    assessment* — the ``source_attestation`` precedent, the same voice and the
+    same reason: a record written before the debt seam existed and a record
+    whose caller dropped the assessment would otherwise be the same artifact,
+    which is the repudiation failure mode every sentinel in this module closes.
+
+    The value is **derived from the product the builder was handed**, never
+    passed alongside it. That is what keeps all 30 ``build_replay_record``
+    consumers — including two conformance modules — byte-for-byte unchanged,
+    and it makes a record that pins a debt its product does not carry
+    unrepresentable rather than merely discouraged.
+
+    The **question answered** extends this dimension as of 15.5-13
+    (D-IMPL-111 limb (b)) through ``request``: the
+    :class:`~ccf.products.request.ProductRequest` the caller asked, recorded
+    verbatim.
+
+    **Dimension 5 and not dimension 4**, and the choice is the same shape as
+    debt's. Dimension 4 answers *"for whom, with what authority?"*
+    (``docs/CCF_Whitepaper_1-2.md:3266``) — principal, role, agent identity,
+    grants, delegation. A request asserts none of those: role and tenant are
+    deliberately absent from it, established by the door from a verified grant
+    rather than claimed in the body. What a request *does* determine is the
+    generation path — its ``parameters`` reach plan selection through
+    D-IMPL-49's ``selection_params`` slot, its ``subject`` seeds the traversal
+    (limb (a)), and its ``asked_at`` is the instant the caller asked as of. So
+    it belongs beside ``graph_query_sequence``, which it explains: the pins say
+    *what this decision asked the graph*, and this field says *which question
+    the decision answered*. Before it existed the second was answerable from no
+    dimension at all — ``intent`` and ``freshness`` were recorded nowhere, and
+    the subject was recoverable by inference from the payload, which is not the
+    same property as a pin (``DI-15.5-07``).
+
+    It is a **parameter** of :func:`build_replay_record` rather than a fact read
+    off ``execution`` or off ``product``, for the ``adapter`` reason: neither
+    has ever seen the request. The engine is handed a plan, a perspective, a
+    boundary and — since limb (a) — a seed set; it is never handed the question,
+    and L5 importing L6's request surface to carry one would invert the layering
+    (CLAUDE.md §10). The product carries the *answer*, not the question.
+
+    ``None`` is the positive assertion *this decision recorded no request* — the
+    ``debt`` and ``source_attestation`` voice, and the same reason: a record
+    written before this seam existed and one whose caller dropped the question
+    would otherwise be the same artifact. Every one of the 32
+    ``build_replay_record`` call sites across 28 files is byte-for-byte
+    unchanged under it.
     """
 
     plan_id: str
@@ -444,6 +520,8 @@ class ContentGenerationPath(CCFContract):
     product_content_address: str
     workflow_step_sequence: str = NO_WORKFLOW_TRACE
     graph_query_sequence: tuple[str, ...] = NO_GRAPH_QUERIES
+    debt: DebtAssessment | None = None
+    request: ProductRequest | None = None
 
 
 class DecisionReplayRecord(CCFContract):
@@ -476,6 +554,7 @@ def build_replay_record(
     hitl_actions: str | None = None,
     workflow_step_sequence: str | None = None,
     adapter: AdapterPin | None = None,
+    request: ProductRequest | None = None,
 ) -> DecisionReplayRecord:
     """Assemble the record from what the execution and the product already know.
 
@@ -553,6 +632,25 @@ def build_replay_record(
       execution recorded before the attestation seam existed, or one built
       by hand without the field, yields the ``None`` sentinel exactly as
       before.
+
+    ``request`` is the 15.5-13 addressability seam (D-IMPL-111 limb (b)),
+    threaded into dimension 5 exactly as ``adapter`` is threaded into
+    dimension 2 and for the same reason: the question is a property of the
+    *call*, and neither the execution nor the product has seen it. The caller
+    passes the :class:`~ccf.products.request.ProductRequest` it validated at
+    the door and it is recorded verbatim — never re-derived, because a question
+    reconstructed from the answer is not the question that was asked. When
+    ``None``, dimension 5 carries the positive "no request recorded" claim and
+    every field the builder wrote before this extension is byte-for-byte what
+    it was.
+
+    ``product.debt`` becomes dimension 5's ``debt`` (15.5-11, D-IMPL-100), on
+    the same "already here, so it is derived rather than threaded" reasoning:
+    the assessment is a property of the product, the product is already a
+    parameter, and reading it off the product is what makes a record pinning a
+    debt its product does not carry unrepresentable. A product assembled with
+    no assessment yields the ``None`` sentinel, so every call site written
+    before this extension is byte-for-byte what it was.
     """
     return DecisionReplayRecord(
         tenant_id=product.tenant_id,
@@ -604,5 +702,28 @@ def build_replay_record(
             graph_query_sequence=tuple(
                 content_hash(query) for query in execution.executed_queries
             ),
+            # D-IMPL-100: read off the product, not off a parameter. The
+            # product is already here, so no call site moves — and a record
+            # pinning a debt its product does not carry cannot be constructed.
+            debt=product.debt,
+            # D-IMPL-111 limb (b): the question, verbatim. A parameter and not
+            # a derivation — the answer does not contain the question that was
+            # asked, and inferring one from the other is what DI-15.5-07
+            # recorded as insufficient.
+            request=request,
         ),
     )
+
+
+# Imported at the bottom, deliberately (D-IMPL-56, the pattern
+# `ccf.skills.catalog` documents and `ccf.products.request` now applies for the
+# same reason). Dimension 5 names :class:`~ccf.products.request.ProductRequest`
+# as of D-IMPL-111 limb (b); that module reaches `ccf.skills.catalog`, which
+# reaches `ccf.agents.agent`, which reads `NO_GRANTS_SET_HASH` and
+# `PerspectiveConditioning` out of *this* module. Both of those exist above, so
+# by the time this line runs the cycle closes safely in either import order.
+# The deferred annotation on `ContentGenerationPath.request` is then resolved
+# explicitly.
+from ccf.products.request import ProductRequest  # noqa: E402
+
+ContentGenerationPath.model_rebuild()

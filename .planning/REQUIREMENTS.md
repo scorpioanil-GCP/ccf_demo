@@ -29,20 +29,40 @@
 - [ ] **DOCS-04**: How-to guides + concepts pages (pillars, invariants, replay anatomy, whitepaper cross-reference index)
 - [ ] **DOCS-05**: Security & deployment notes + OpenAPI polish with drift check
 - [ ] **DOCS-06**: `make docs --strict` builds in always-on CI (logged D-10 amendment); PERFORMANCE.md publishes measured baselines with methodology
+- [ ] **DOCS-07**: The Phase 16 ruling package — `D-IMPL-94` records the Mode 2 attachment point above `serve()` and what `assembly_mode` describes, plus the criterion-10 carve-out, the Gate-2 tripwire carry-forward with its two-limb bound, and the ERGO-03 freeze — with no accompanying source diff
+- [ ] **DOCS-08**: The three pre-existing gate-checker failures are green and `make ci` composes `tools/lints/tests`, `tools/publish_scan_tests` and `tools/docs_tests`, so its "full local reproduction of the always-on pipeline" claim is true rather than aspirational
+- [ ] **DOCS-09**: The KYC/UBO enterprise source estate carries corp→corp `hasOwnershipInterestIn` edges with per-edge `ownershipPercent`, generated deterministically from a definition artifact, written to the source estate and never to CCF's L3, so "Who ultimately owns Acme?" has a chain to traverse
+- [ ] **DOCS-10**: **One** example driver resolves its backend from a supplied configuration artifact — the substrate name from `DeploymentManifest.backend` and the `connection=` field/env-var shape from a declarative backends document, never from a per-backend code fork and never from a value baked into the driver — and a CI matrix asserts `content_hash` equality of the served Context Product across `sqlite`, `memory`, `postgres`, `neo4j`, `mongo` and `fluree`, with `sqlite`+`memory` always-on and network-free, the four DGX databases opt-in, and no credential in the tree
+- [ ] **DOCS-11**: Every example physically separates the CCF call spine from deployment code into distinct modules carrying the canonical ordered marker set, legible to a repository reader rather than only to the rendered site
+- [ ] **DOCS-12**: Section 1 ships agent-free deterministic examples and published pages teaching Context Products, the four Context Operator categories and the six axes of `G(E, R, T, P, Π, L)`, introducing `assembly_mode: algorithmic` as a governance choice with two siblings named as Phase 17's
+- [ ] **DOCS-13**: Section 2 ships external client legs for the Claude Agent SDK, Google ADK and LangGraph that import nothing from `ccf`, asserted by an AST matcher with a negative control and an exactly-three-harnesses assertion, plus their published pages
+- [ ] **DOCS-14**: Section 3 ships embedding CCF in a host application (in-process, MCP egress, A2A admission, ArtifactStore swap) and developing agentic skills within CCF, plus their published pages, stating plainly that SDK agents are governed identity and are structurally barred from calling a model
+- [ ] **DOCS-15**: An adoption-argument page names RAG over a vector store, hand-rolled context assembly, and a semantic layer plus prompt templates, and states what each lacks against cited shipped mechanism, with the UBO question as its worked demonstration and the passage-anchor honesty caveat carried
+- [ ] **DOCS-16**: Carried advisories A-1, A-2, A-3 and A-8 are discharged in the published tree with positive per-advisory evidence rather than a green build
+- [ ] **DOCS-17**: `examples/00`–`08` and `examples/external/00-hello-context` are retired with every published page that sourced from them re-cut, proven by standing gates for dangling includes, stale prose paths, Gate-2 wording and documented commands
+- [ ] **DOCS-18**: The phase closes with a mechanical no-fabric-change assertion carrying D-13's single enumerated exception, a full gate sweep, and a requirement ledger that matches the tree
 
 ### Demonstration (DEMO)
 
 - [x] **DEMO-01**: A synthetic fake data store — deterministic, multi-entity, domain values entirely in definition artifacts — ships as the demonstration substrate
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto `examples/s1-01-hello-context-product`'s deterministic source-estate generator. Not retired and not re-minted: the requirement is unchanged, the example carrying it moves.
 - [x] **DEMO-02**: An end-to-end runnable example: data ingested through L1→L2, folded into the Context Graph, projected into typed Context Products, consumed by an agent that solves a concrete reasoning problem it could not solve from raw data alone
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto `examples/s3-02-agentic-skills`, which is where an agent consuming typed Context Products against a real use case now lives.
 - [x] **DEMO-03**: A narrated walkthrough document in the docs site tracing the demo step-by-step ("how data folds into context"), literal-including the example's code and artifacts; demo runs in CI like the v0.1 examples
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto `public/tutorial/hello-ccf.md`, the narrated Section-1 walkthrough that replaces `demo-walkthrough.md`.
 
 ### Examples (EXAM)
 
 - [ ] **EXAM-01**: Every v0.1 example (00–07) has a detailed narrated README — what it demonstrates, artifact-by-artifact explanation, whitepaper/CLAUDE.md sections exercised, and "what to change first to adapt it"
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto the seven-heading README of every new Section-1/2/3 example. The examples `00`–`07` retire under `DOCS-17`; the narrated-README obligation travels with the suite rather than dying with it.
 - [ ] **EXAM-02**: Example scenarios are enriched to exercise more of the SDK surface (specialization axes, skilling, HITL, replay) through richer definition artifacts — example code stays thin and generic per No-Hardcoding
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto `examples/s3-02-agentic-skills`, the Section-3 example whose artifacts carry the specialization axes, skilling, HITL and replay surface.
 - [ ] **EXAM-03**: The upgraded suite stays CI-green with a single documented command per example; any expected-output change is a reviewed, deliberate event
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto the `make example-s*` target surface, which is the single documented command per example for the rebuilt suite.
 - [x] **EXAM-04**: An external agent with zero CCF imports client-side consumes typed Context Products, lineage, and the replay record over the authenticated MCP surface, deterministically in CI, across bare-MCP, Anthropic-SDK, and Google-ADK legs (family charter + `examples/external/00-hello-context`)
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto `examples/s2-01-external-consumers`, which carries the same zero-CCF-import claim across the three `D-09` harnesses.
 - [x] **EXAM-05**: The external-consumer example is hardened against the four-AI consensus concerns — live-captured diff-reviewed fixtures with a schema guard and request-fingerprint replay matching, a server-side tool allowlist, byte-path/README/duration assertion hardening — and the three external-consumption tools (`get_context`, `get_lineage`, `get_replay_record`) are promoted into the SDK Experience surface, enabled by default
+  - **[Phase 16 re-homing, `D-08`]** Re-homes onto `examples/s2-01-external-consumers`, alongside EXAM-04: the hardening obligations (diff-reviewed fixtures with a schema guard, request-fingerprint replay matching, a server-side tool allowlist, the three promoted Experience-surface tools) travel to the example that replaces `examples/external/00-hello-context`.
 
 ### SDK Ergonomics (ERGO)
 
@@ -91,6 +111,23 @@
 - [x] **SUBQ-13**: The JSON-LD buffered-batch write path — `_FlureeTxn` + `FlureeGraphWriter` in `ccf.graph._writer` — satisfies the nine typed `_GraphTxn` operations with **per-operation rowcounts resolved before commit** by read-before-buffer plus own-buffer merging, never from the single POST's aggregate `flakes_added`, committing as one ground `delete`+`insert` body; preserving single-writer (INV-CH7-10) and write confinement (CINV-02) with **no write code in `ccf.graph.backends.fluree`**, and adding no new Python dependency, no optional extra and no mypy override (Phase 15.3 D-01, D-02, D-03, D-12)
 - [x] **SUBQ-14**: The Phase 15.2 no-refactor claim is **mechanically demonstrated rather than narrated**: `make gate-15.3` enforces the `D-IMPL-92` permitted-change surface — a path allowlist, no existing backend name removed from any enumeration, per-file added-line budgets printed beside their measured mongo baselines, and an AST assertion that no pre-existing class or function body in `ccf.graph._writer` changed — and exits non-zero on anything outside it; the gate package is committed with the phase; and the `fluree` container leg is a fourth **always-on** blocking leg in `ci.yml`, green on `main` after merge (Phase 15.3 D-08, D-09, D-10, D-11 as amended by `D-IMPL-92`, D-12)
 
+### Context Product Surface (CPS)
+
+- [x] **CPS-01**: Every Context Product delivered to a consumer carries its Context Debt, and no delivery path exists that drops it — across all three delivery paths (`runtime/ccf_runtime/mcp/egress.py`, `runtime/ccf_runtime/http_api/routes/product.py`, `runtime/ccf_runtime/mcp/experience.py`) — registered as a CINV-04 `Check` row with an owning test and an adversarial case, not asserted in prose
+- [x] **CPS-02**: All **nine** §6.3 contract elements are present across the shipped product types (`D-IMPL-30`, Dave, 2026-07-25 — Assembly Mode included; every "eight" reference is editorial drift that ruling authorizes treating as such), each verified by a field-enumeration assertion that fails when one is unrepresented, so the defect class that hid three of them cannot recur silently
+- [ ] **CPS-03**: A product class declares its payload schema and a payload violating that declaration is refused, reusing the shipped declared-schema machinery rather than a second one — **PENDING at phase close on the second clause.** The declaration ships (`register_product_class` takes a payload schema, `src/ccf/products/contract.py`) and the refusal ships and is tested (`refuse_bound_payload`, `src/ccf/products/bind.py::refuse_bound_payload`, `tests/products/test_payload_bind.py`), reusing `refuse_payload` rather than a second comparison. But **no shipped delivery door calls it** — `runtime/` has zero imports of `refuse_bound_payload`, and its only caller outside its own tests is `examples/04-cross-process/producer_child.py:697`. So "is refused" is true of the mechanism and not yet of any door. Found independently by two close-time panel reviewers (`15.5-CLOSE-REVIEWS.md`, P3/C1/C3); the placement is `D-IMPL-102`'s and wiring it into the doors is a delivery-path change adjacent to limb 3's "no fourth gate", and it was put to Dave as residual R1. **RULED (`D-IMPL-113`, Dave, 2026-08-11): the bind is an adopter obligation the SDK documents and does not enforce.** The door cannot call it — `ProductResolverProtocol` resolves the `RegisteredProductClass` behind the seam, so the door never holds the object the refusal needs, and enforcing one layer out would put an SDK-owned payload verdict on the serve path that `D-IMPL-102` limb 3 declined. `CPS-03` is therefore **Pending by design, not by omission**; the obligation is stated at the seam in `src/ccf/products/bind.py`
+- [x] **CPS-04**: Perspective is derived from the verified grant at every exposed door, a caller cannot assert a role it was not granted, and `ProjectionEngine.execute` keeps taking a `Perspective` so replay feeds the recorded one
+- [x] **CPS-05**: Per-product-class entitlement gates every exposed door — the MCP egress door, the HTTP product route and the Experience front door — through a Control Plane artifact with no permissive default and no field able to express a bypass, enforced by field enumeration, and downstream of authentication at each
+- [x] **CPS-06**: The assembler is a Protocol with a shipped mechanism-only reference implementation whose production instance is a declared agent from the `context_assembly` archetype, binding sources, tools, enlisted agents and its debt profile through axes 4 and 5 and channel 2
+- [x] **CPS-07**: A product answers a runtime request — subject and instant are arguments, never artifact literals — and the question asked is pinned into replay through `graph_query_sequence` and `QueryPinWriter`
+- [x] **CPS-08**: Aggregate products compose lineage by union and implement `D-IMPL-31`'s mixing-refusal rule, with declarable constituent-validity floors whose breach refuses assembly
+- [x] **CPS-09**: The four anti-leakage lints stay green throughout: zero harness imports in `src/`, no LLM client in an `@algorithmic` module, no prompt or threshold literal outside an artifact, no substrate name outside the backend registry
+- [x] **CPS-10**: `examples/s1-01-hello-context-product` demonstrates an agent asking about any company at any time and is the shape every later example copies
+- [x] **CPS-11**: Replay reproduces byte-exactly after every contract change, with `rehydrate_product`'s content-address check run against each candidate field placement before the placement is committed, and re-run before the first edit and after every commit of any plan that changes a hashed contract
+- [x] **CPS-12**: No committed baseline drifts un-narrated
+- [x] **CPS-13**: Micro-benchmark medians stay inside the 10% relative band after the field and gate additions, measured deliberately because `make perf` is not part of `make ci`, against a chain of baselines that starts before any change lands
+- [x] **CPS-14**: The eight open design questions are put to Dave with measured costs, ruled, and recorded as `D-IMPL` entries before the tracks they gate are implemented
+
 ## Future Requirements (deferred)
 
 - Perf SaaS/dashboarding integration
@@ -133,6 +170,18 @@
 | DOCS-04 | Phase 14 | Pending |
 | DOCS-05 | Phase 14 | Pending |
 | DOCS-06 | Phase 14 | Pending |
+| DOCS-07 | Phase 16 | Pending |
+| DOCS-08 | Phase 16 | Pending |
+| DOCS-09 | Phase 16 | Pending |
+| DOCS-10 | Phase 16 | Pending |
+| DOCS-11 | Phase 16 | Pending |
+| DOCS-12 | Phase 16 | Pending |
+| DOCS-13 | Phase 16 | Pending |
+| DOCS-14 | Phase 16 | Pending |
+| DOCS-15 | Phase 16 | Pending |
+| DOCS-16 | Phase 16 | Pending |
+| DOCS-17 | Phase 16 | Pending |
+| DOCS-18 | Phase 16 | Pending |
 | ERGO-01 | Phase 15 | Complete |
 | ERGO-02 | Phase 15 | Complete |
 | ERGO-03 | Phase 15 | Complete |
@@ -166,8 +215,85 @@
 | SUBQ-12 | Phase 15.3 | Complete |
 | SUBQ-13 | Phase 15.3 | Complete |
 | SUBQ-14 | Phase 15.3 | Complete |
+| CPS-01 | Phase 15.5 | Complete |
+| CPS-02 | Phase 15.5 | Complete |
+| CPS-03 | Phase 15.5 | **Pending** |
+| CPS-04 | Phase 15.5 | Complete |
+| CPS-05 | Phase 15.5 | Complete |
+| CPS-06 | Phase 15.5 | Complete |
+| CPS-07 | Phase 15.5 | Complete |
+| CPS-08 | Phase 15.5 | Complete |
+| CPS-09 | Phase 15.5 | Complete |
+| CPS-10 | Phase 15.5 | Complete |
+| CPS-11 | Phase 15.5 | Complete |
+| CPS-12 | Phase 15.5 | Complete |
+| CPS-13 | Phase 15.5 | Complete |
+| CPS-14 | Phase 15.5 | Complete |
 
-Coverage: 56/56 v0.2 requirements mapped, each to exactly one phase.
+**The CPS lane was verified clause by clause against the tree at Phase 15.5's
+close (plan `15.5-14`), not against any SUMMARY.** Phase 15.1's re-approval had
+to re-verify every clause because the earlier verification's line numbers had
+moved; this was done once, by reading the code and running the named tests. The
+evidence per row:
+
+| Req | Evidence in the tree |
+|---|---|
+| CPS-01 | `tests/invariants/test_replay_by_construction.py:307` — the owning test, parametrized over `PRODUCT_DOOR_MODULES`, asserting both that the vessel carries `debt` and that every enumerated door serializes the *whole* vessel; `:337` is the adversarial companion, which runs the same predicate against a door engineered to serialize around the vessel |
+| CPS-02 | `tests/products/test_contract_elements.py:261` (nine), `:277` (each borne by a named field), `:319` (the pending set is empty — the ratchet's terminal state), `:359` (no two elements share a field), `:419` (present and pending partition the nine) |
+| CPS-03 | **Pending by design (`D-IMPL-113`).** Declaration and refusal both ship and are tested; calling the refusal is the adopter's obligation, documented at the seam in `src/ccf/products/bind.py`. Not an omission |
+| CPS-04 | `tests/invariants/test_mcp_role_separation.py:845` (no door discards what `entitled_perspective` returned) and `:879` (the perspective the door authorized is asserted *by value* against what the resolver received, not by parameter presence) |
+| CPS-05 | `tests/authz/test_product_entitlement_door.py`, `tests/http_api/test_product_entitlement.py`, `tests/crossproc/test_experience_edge.py` — all three doors; `docs/schemas/ccf.product-entitlement-policy.json` has `additionalProperties: false` at both levels with both grant sets `required` and undefaulted, so no field can express a bypass. Strengthened at close: the door now compares the lookup key's tenant against the policy's own `tenant_id` (`7453e87`) |
+| CPS-06 | `src/ccf/agents/assembler.py:242` (`ContextAssemblerProtocol`), `:292` (`DeterministicAssembler`, the mechanism-only reference), declared from the `context_assembly` archetype |
+| CPS-07 | `tests/products/test_request_contract.py`; `tests/examples/test_s1_01_output.py:691` — a later instant pins a *different* question, and the inverted guard fails loudly if two subjects ever start pinning alike again (`D-IMPL-111` limb (a)); `ContentGenerationPath.request` carries the `ProductRequest` verbatim (limb (b)) |
+| CPS-08 | `src/ccf/products/composition.py:322` (`compose_expiry` — ceiling, derivation, and the stalest constituent), `:327` (`refuse_mixing`); `tests/properties/test_aggregate_composition_laws.py:131-236` — order-independence on the set axes, monotone growth, and a refusal for any floor breach anywhere in the set |
+| CPS-09 | `python -m tools.lints --harness-imports --algorithmic --no-hardcoding --substrate-names`, each exit 0 individually and under `--all`. **Criterion 9 is exactly these four and carries no diff-size bound** — `D-IMPL-96` revoked that proxy |
+| CPS-10 | `make example-s1-01` (`Makefile:89`, added by `15.5-13`, leading the `examples:` aggregate so it runs in CI); three declared questions across two companies and two instants |
+| CPS-11 | `tests/replay/test_engine_rehydration.py:547` (the debt a decision was made with replays byte-exactly) and `:693` (the question it answered does, after four months of later state, with an adversarial twin that diverges when the recorded subject is swapped) |
+| CPS-12 | `tests/test_surface_completeness.py` passes in both directions against the regenerated manifest — every moved symbol has a fragment, every fragment names a moved symbol. `make schemas` and `make openapi` produce no diff. **With one stated exception:** the manifest cannot see a `Protocol.__call__`, so the two resolver seams' 3→5-argument break is narrated in `docs/surface-changes/15.5-15-resolver-seam.md` but produces no manifest line (`D-IMPL-110`) |
+| CPS-13 | `make perf-micro` exit 0, all twelve benchmarks PASS. The three `test_gates.py` benchmarks — the ones a new contract field or the payload bind would move — are within ±1.8% of baseline |
+| CPS-14 | `docs/DECISIONS.md` `D-IMPL-98` .. `D-IMPL-106` (the eight questions, ruled with measured costs from `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md`), plus `D-IMPL-107` .. `D-IMPL-112` raised and ruled during execution |
+
+Coverage: 82/82 v0.2 requirements mapped, each to exactly one phase.
+Counted from the traceability table above by counting its rows, not from the
+previous sentence: 56 rows before Phase 16's minting, 68 after, 82 after Phase
+15.5's.
+**CPS-01..CPS-14 were minted at Phase 15.5 planning and recorded here by plan
+15.5-05 (2026-08-11)**, under the same inserted-phase precedent DOCS-07..18,
+SUBQ-12..14 and ERGO-18..19 were minted under — an inserted phase mints its own
+requirement IDs at planning rather than borrowing a predecessor's. Two things
+about this minting are worth stating because a later reader will otherwise
+reconstruct them wrongly. First, **CPS opens a new lane rather than extending
+SUBQ or ERGO**, which is the opposite call from SUBQ-12..14's (Phase 15.3 D-12,
+where a sixth adapter was held to be the same requirement family as the first
+five). The reason the calls differ: 15.3 added a substrate to a surface that
+already existed, whereas 15.5 changes what a Context Product *is* on delivery —
+the vessel, its declared payload schema, the three absent §6.3 elements, debt
+reaching the consumer, entitlement at the door, and the request contract. That
+is a distinct surface, not another instance of one. Second, **CPS-01..CPS-13
+correspond one-to-one to the phase's ten ROADMAP success criteria plus its three
+standing verification obligations** (replay byte-exactness, baseline narration,
+micro-benchmark headroom), and **CPS-14 is the ruling package itself** — the
+requirement that the eight open questions are ruled *before* the tracks they
+gate are implemented, which is the one requirement whose failure mode is a plan
+guessing a design decision rather than a defect in shipped code.
+**DOCS-07..DOCS-18 were minted at Phase 16 planning and recorded here by plan
+16-01 (2026-08-10)**, under the same inserted-phase precedent SUBQ-12..14 and
+ERGO-18..19 were minted under — a phase mints its own requirement IDs at
+planning rather than borrowing a predecessor's. Three things about this minting
+are worth stating because a later reader will otherwise reconstruct them wrongly.
+First, **DEMO-01..03 and EXAM-01..05 re-home rather than retire** (Phase 16
+`D-08`): each of those eight rows now carries a bracketed re-homing note naming
+the new example or page that carries it, and no duplicate ID was minted for work
+that already has one. The suite those requirements were satisfied against is
+retired by DOCS-17; the requirements are not, and their Status column is
+untouched by the re-homing. Second, **DOCS-01..DOCS-06 stay Pending against
+Phase 14**, deliberately: Phase 16 rewrites what they delivered rather than
+reopening them, so re-pointing their Phase column at 16 would erase the record
+of which phase built the pages this one replaces. Third, Phase 16 is the largest
+single minting in this file (twelve IDs) because the phase absorbed Phase 14.1
+whole plus a scope expansion Dave ruled on 2026-08-09 — a greenfield examples
+suite, a four-section documentation rewrite, and a six-backend CI matrix — and
+the lane is sized to the phase rather than to the original roadmap sentence.
 ERGO-18 and ERGO-19 were minted during Phase 15.1 planning under the Phase 15/16
 precedent already stated in `.planning/ROADMAP.md` §Coverage — an inserted phase
 mints its own requirement IDs at planning rather than borrowing a predecessor's —

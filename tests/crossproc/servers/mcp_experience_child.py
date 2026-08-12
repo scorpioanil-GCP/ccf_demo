@@ -37,7 +37,7 @@ import json
 import socket
 import sys
 import tempfile
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple
 
@@ -71,6 +71,7 @@ from ccf.products.contract import (  # noqa: E402
     ProductLineage,
 )
 from ccf.products.gates import ServableProduct  # noqa: E402
+from ccf.products.request import ProductRequest  # noqa: E402
 from ccf.projection.engine import ExecutionResult, ExecutionStep  # noqa: E402
 from ccf.projection.plan import Perspective, ProjectionOutput  # noqa: E402
 from ccf.replay.record import PolicyBinding, build_replay_record  # noqa: E402
@@ -83,9 +84,19 @@ from ccf.skills.catalog import (  # noqa: E402
 )
 from ccf.skills.grants import GrantLedger, SkillGrant  # noqa: E402
 from ccf.agents.definitions import AGENT_DEFINITION, AgentDefinition  # noqa: E402
+from ccf.products.entitlement import (  # noqa: E402
+    PRODUCT_ENTITLEMENT_POLICY,
+    ProductEntitlementGrant,
+    ProductEntitlementPolicy,
+    product_entitlement_key,
+)
+from ccf_runtime.authz.product_entitlement import (  # noqa: E402
+    ControlPlaneProductEntitlementSource,
+)
 from ccf_runtime.mcp.auth import (  # noqa: E402
     FileTokenSource,
     SourceBackedTokenVerifier,
+    TokenGrant,
 )
 from ccf_runtime.mcp.experience import (  # noqa: E402
     ExperienceProductNotServable,
@@ -129,6 +140,20 @@ GET_CONTEXT_DESCRIPTION = "Serve this deployment's assembled banking product"
 GET_LINEAGE_DESCRIPTION = "Serve the assembled product's lineage"
 GET_REPLAY_RECORD_DESCRIPTION = "Serve the most recent decision replay record"
 
+#: The front door's entitlement policy version lane. A fixture value.
+ENTITLEMENT_POLICY_VERSION = "1.0.0"
+
+#: A second recognised credential whose principal the entitlement policy
+#: deliberately does not declare, so the parent can prove that a *verified*
+#: caller is still refused. Authentication is not entitlement, and a suite
+#: with only one token cannot show the difference.
+UNENTITLED_TOKEN = "ccf-experience-unentitled-token"
+UNENTITLED_CLIENT_ID = "ccf-experience-unentitled-client"
+
+#: The instant the child's authz audit events carry. Injected, never read
+#: from a wall clock.
+AUDIT_INSTANT = datetime(2026, 8, 11, tzinfo=UTC)
+
 
 def authorized_http_client(token: str = DEV_TOKEN) -> httpx.AsyncClient:
     """An HTTP client presenting ``token`` as a bearer credential."""
@@ -136,10 +161,24 @@ def authorized_http_client(token: str = DEV_TOKEN) -> httpx.AsyncClient:
 
 
 def write_token_file(*, workspace: Path) -> Path:
-    """Write the child's token file and return its path."""
+    """Write the child's token file and return its path.
+
+    Two credentials, both genuinely recognised: one whose principal the
+    entitlement policy declares, one whose principal it does not. The second
+    exists so the parent can show that verification and entitlement are two
+    different decisions.
+    """
     token_file = workspace / TOKEN_FILENAME
     token_file.write_text(
-        json.dumps({DEV_TOKEN: {"client_id": CLIENT_ID, "scopes": [SCOPE]}}),
+        json.dumps(
+            {
+                DEV_TOKEN: {"client_id": CLIENT_ID, "scopes": [SCOPE]},
+                UNENTITLED_TOKEN: {
+                    "client_id": UNENTITLED_CLIENT_ID,
+                    "scopes": [SCOPE],
+                },
+            }
+        ),
         encoding="utf-8",
     )
     return token_file
@@ -327,7 +366,12 @@ def build_server(
     latest_record: dict[str, str | None] = {"record": None}
 
     def resolve_product(
-        *, tenant: str, product_class: str, version: str
+        *,
+        tenant: str,
+        product_class: str,
+        version: str,
+        perspective: Perspective,
+        request: ProductRequest | None,
     ) -> ServableProduct:
         """Serve exactly the one assembled address; refuse anything else."""
         requested = ProductAddress(
@@ -433,9 +477,51 @@ def build_server(
             )
         return record
 
+    # The front door's governance. Registration is adopter code: no manifest
+    # can name ``ccf.product-entitlement-policy``, so this composition root
+    # registers it against the real contract. The permitted class is the one
+    # the fabric actually assembled and the permitted role is the one the
+    # assembly conditioned on, so an entitlement cannot name something this
+    # deployment does not serve.
+    door_registry = ControlPlaneRegistry()
+    door_registry.register_typed(
+        product_entitlement_key(tenant_id=assembled.address.tenant),
+        ProductEntitlementPolicy(
+            tenant_id=assembled.address.tenant,
+            policy_version=ENTITLEMENT_POLICY_VERSION,
+            principals={
+                CLIENT_ID: ProductEntitlementGrant(
+                    permitted_schema_names=frozenset(
+                        {assembled.address.product_class}
+                    ),
+                    permitted_roles=frozenset({assembled.role}),
+                )
+            },
+        ),
+        PRODUCT_ENTITLEMENT_POLICY,
+    )
+
+    def resolve_perspective(
+        *, grant: TokenGrant, tenant: str, requested_role: str | None
+    ) -> Perspective:
+        """This deployment's role derivation — its statement, not the SDK's.
+
+        The subject is the verified ``client_id``, never a caller's claim.
+        Whatever this returns is still checked against the principal's grant
+        before a product is resolved.
+        """
+        return Perspective(
+            principal_id=grant.client_id,
+            role=requested_role if requested_role is not None else assembled.role,
+        )
+
     return build_experience_server(
         server_name=SERVER_NAME,
         product_resolver=resolve_product,
+        entitlement_source=ControlPlaneProductEntitlementSource(
+            control_plane=door_registry, clock=lambda: AUDIT_INSTANT
+        ),
+        perspective_resolver=resolve_perspective,
         agent_directory=directory,
         agent_invoker=invoke,
         context_provider=provide_context,

@@ -237,9 +237,19 @@ class UnconsultedSink:
         raise AssertionError("tier-2 sink consulted in a grant-free example")
 
 
-def _no_product(*, tenant: str, product_class: str, version: str) -> Any:
+def _no_product(
+    *,
+    tenant: str,
+    product_class: str,
+    version: str,
+    perspective: Any,
+    request: Any,
+) -> Any:
     # This example serves no gated product through the door; the resolver
-    # honestly refuses rather than fabricating one.
+    # honestly refuses rather than fabricating one. It still carries the
+    # widened D-IMPL-108 signature — the authorized Perspective and the
+    # caller's typed request — because an honest empty form must still
+    # CONFORM to the seam it stands in for.
     raise ProductNotServable(
         f"no gate-admitted product at {tenant}/{product_class}/{version}"
     )

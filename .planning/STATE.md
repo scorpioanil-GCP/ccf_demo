@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-10T15:02:20.669Z"
-last_activity: 2026-08-10 -- Phase 16 planning complete
+last_updated: "2026-08-11T21:15:00.000Z"
+last_activity: 2026-08-11 -- Phase 15.5 COMPLETE, D-GATE-15.5 approved (15 plans, 18 rulings, make ci green); Phase 16 parked at 6/21
 progress:
   total_phases: 16
   completed_phases: 14
-  total_plans: 136
-  completed_plans: 115
-  percent: 88
+  total_plans: 152
+  completed_plans: 139
+  percent: 91
 stopped_at: PHASE 16 PLANNED (2026-08-10) — 21 plans in 12 waves, committed at 6c884f5. Artifacts: 16-CONTEXT.md (D-01..D-15), 16-DISCUSSION-LOG.md, 16-RESEARCH.md (1,616 lines), 16-PATTERNS.md (29 files, 26 analogs), 16-VALIDATION.md (V-1..V-10 + 55-row task map), 16-01..16-21-PLAN.md. NEXT ACTION — `/gsd:execute-phase 16`. THREE DAVE RULINGS AT PLANNING, recorded as D-13/D-14/D-15 in 16-CONTEXT.md: D-13 a docstring correction in src/ is NOT "the fabric changed" (ProductClassDeclaration in src/ccf/controlplane/artifacts.py trips the whitepaper shingle scan with 20 hits; criterion 10's `git diff --stat -- src/ runtime/` gate carries that ONE enumerated exception, allowlisted in gate_16.py as a LITERAL not a pattern). D-14 the four inherited Gate-2 tripwire residuals (R4-WR-03, R5-WR-01, augmented-assignment set opacity, attribute/subscript global/nonlocal) are NOT in Phase 16 — carried forward with an explicit entry, because a phase claiming "no fabric changed" that quietly absorbs tests/products/ mechanism work invites the criterion-10 argument D-13 settles. D-14 has a SECOND LIMB added in review: re-flooring a non-vacuity constant, or retiring an assertion whose sole in-tree witness a ruled deletion removes, is bookkeeping forced by the deletion and NOT one of the four carried residuals — without that limb the executor is blocked at waves 8 and 11. D-15 ERGO-03's surface-audit measurement is FROZEN as a historical record and the running test retires (Dave first ruled re-baseline, then reversed to freeze-and-retire on the second pass; ERGO-03 is a Complete requirement, its evidence is preserved not overwritten). Two discretionary calls made visibly, recorded under Claude's Discretion: KYC/UBO is the NARROW spine (Section 1 + the adoption argument carry banking where the FIBO data lives; Section 2 is atlas-commerce, Section 3 is northwind-logistics — three domains keeps D-IMPL-52 and CLAUDE.md §9's horizontal-mix ruling intact); and D-06's "always-on CI stays network-free" is a DELIBERATE distinction from ci.yml's test job, which already runs Postgres/Neo4j/Mongo/Fluree as blocking service containers — the example matrix is weaker on purpose, and adding containers to the examples job is a third option D-06 did not authorize. DAVE'S CRITERION-4 RULING (verbatim): "I like the example of sending in a configuration that tells the example driver which backend to use as opposed to creating six examples" — so ONE driver, backend resolved from artifacts/backends.yaml, connection.py a PURE INTERPRETER with no substrate name, no endpoint literal and no per-backend branch (delete the artifact and it refuses); memory declares an EMPTY field set as data, not a Python special case; 16-12's Makefile uses a BACKEND= variable, NOT a per-backend target family, because six targets would reintroduce the six-examples shape one layer down. THREE REVIEW ROUNDS, issue trajectory 4B+7W → 2B+6W → 2B+4W, all closed; every finding independently verified against the tree before being acted on. THE DEFECT CLASS THAT DOMINATED REVIEW: the retirement inventory in 16-RESEARCH.md §A.1/§A.2 swept examples/, tests/examples/ and public/ ONLY, and SEVEN gates outside those trees hard-couple to the retiring examples — test_artifact_schema_headers.py's named 10-tuple + PERMANENTLY_DEFERRED + >=100 floor; four headroom-free non-vacuity floors in tests/products/ (9/11/11/9, comment says "no headroom, on purpose"); tests/cli/test_schema_export.py's _QUICKSTART_ARTIFACTS; tools/publish_scan_tests/test_publish_scan.py reading public/tutorial/demo-walkthrough.md; test_gate_two_call_shape.py's plan-recognition tripwire whose SOLE witness is one required=True argparse flag at examples/03-harness-portability/run.py:694 (n=1); and tests/perf_smoke/test_smoke.py[crossproc] → perf/suites/crossproc/conftest.py → examples/04-cross-process/producer_child.py, an ALWAYS-ON execution coupling across three trees with no shared token, invisible to every static shape. MITIGATION SHIPPED: 16-21 is a dedicated wave-2 plan building tools/retirement_sweep.py, a re-runnable repo-wide sweep covering FOUR coupling shapes (path token, module-level scan/MINIMUM_* constant, inline tree-witness assertion, indirect execution), with UNASSIGNED rows a hard gate failure and a 14-file known-instances FLOOR not a ceiling; 16-15/16-17/16-18 re-run it before deleting rather than trusting a snapshot. METHOD WORTH REUSING IN PHASE 17: the last coupling was found by CLONING THE TREE, DELETING THE TEN EXAMPLES AND RUNNING THE ALWAYS-ON SUITE — seven failures, six owned, one orphan. For any phase whose central act is deletion, that rehearsal is strictly stronger than a static inventory and it is cheap; the sweep remains the standing CI gate, the rehearsal is the one-time proof the gate's shapes are complete. Floor arithmetic verified by importing the scan functions: with four new spines contributing one each, counts run 13→12→10 (floor 9) and 15→14→12 (floors 11) across waves 8 and 10, so all four floors SURVIVE to 16-18's wave-11 re-count — do not add headroom. WAVE SHAPE: waves 6–11 are single-plan by NECESSITY not decomposition — mkdocs.yml's nav: is an explicit enumeration with no globs and validation.nav.omitted_files + --strict fail BOTH a nav-less page and a file-less nav entry, so the six plans editing nav serialize; wave 4 carries five parallel plans to compensate. tutorial/adopters-guide.md (447 lines, 35 includes, six of ten examples) is TERMINAL in 16-18. Requirements: DOCS-07..DOCS-18 minted (12), written into REQUIREMENTS.md by 16-01 Task 2 at execution — they are NOT there yet, only DOCS-01..06 are; DEMO-01..03 and EXAM-01..05 re-home rather than retire per D-08; 20/20 IDs covered, no plan with empty requirements. Three plans carry checkpoint:human-verify — 16-01 (the ruling package incl. D-IMPL-94), 16-02 (the FIBO data extension, which WRITES TO FOUR LIVE DGX STORES outside the repo), 16-12 (CI + DGX job). KNOWN GAP AT PLANNING: the FIBO data CANNOT answer the adoption argument's own question — ownershipPercent is an attribute of the Party ENTITY not the ownership EDGE, and every hasOwnershipInterestIn runs Party→Corporation in exactly ONE hop, so "Who ultimately owns Acme?" has no chain to traverse; 16-02 (wave 2, DOCS-09) is the requirement-bearing corp→corp extension every KYC/UBO example and page depends on. Also missing at HEAD: the LangGraph and Claude-Agent-SDK client legs (16-03 spikes both in wave 2 against the EXISTING examples/external server so a transport surprise surfaces early); and three gate-checker suites fail at HEAD (453 passed / 3 failed), fixed by 16-04. WARNING, RE-CONFIRMED 2026-08-10 WITH A THIRD HANDLER: `gsd-sdk query state.planned-phase` returned {"updated":["Status","Last Activity"]} and STILL deleted stopped_at wholesale and corrupted the counters to 124/117 — note 117 is the IDENTICAL garbage value the earlier record-session and add-roadmap-evolution corruptions produced. It is not handler-specific; treat EVERY state.* writer as destructive. Backup STATE.md, run, diff, restore, then hand-edit the one intended line. TOOLING FINDING (gsd not ccf): ROADMAP Success Criteria parse ONE PER LINE — a line-wrapped criterion parses as a single entry and verify-phase turns each parsed entry into one verification truth (workflows/verify-phase.md:77-78); Phases 15.3 and 15.4 wrap theirs and were therefore verified against ONE truth instead of nine and five. Phase 16's ten criteria are authored UNWRAPPED and re-verified to parse as 10. Earlier phases' entries are worth an audit. ALSO: GSD's decision-coverage gate (check.decision-coverage-plan) returns {"passed":true,"skipped":true,"reason":"no trackable decisions"} against 16-CONTEXT.md — its parser does not recognize this file's decision format, so D-01..D-15 are NOT mechanically enforced; they are held by the plans, verified by review, not by a gate. PRIOR CONTEXT — Phase 15.4 COMPLETE, gated (D-GATE-15.4 + addendum), all review defects closed; make ci exit 0 at that point, 2457 passed / 81 skipped; pytest tools/lints/tests 400 passed SEPARATELY (testpaths=['tests'] keeps it out of ci-core; CI runs it as its own step). CLAUDE.md §3.1 was amended (Dave, 2026-08-09) to make the cross-AI panel unsubstitutable — panel IS the step, single-agent review is additive; at close the panel reviews SHIPPED CODE not plans; hand it known findings and tell it not to re-derive them; verify every finding against the tree and record rejections; ordering is execute → panel → single-agent → verify → fix blocking in-phase → present. OPEN DEBT: DI-15.4-01 duplicated Fluree admit prefixes; DI-15.4-02 line-anchored citation drift (45 anchors); DI-15.4-04 load_and_boot runs discovery 3x; DI-15.4-05 the public-vs-private adapter surface (narrowed not closed — GraphWriter now declares close(), the six private reader names stand) and its F2 rider, substrate_vocabulary deriving from in-tree adapters only so cinv04 enforces "no BUILT-IN substrate name in core" — Codex called the third-party zero-cost claim "partly true by construction of the measurement"; the obvious fix (derive from installed entry points) makes a structural invariant environment-dependent, green or red by virtualenv, so the ruling belongs with DI-15.4-05 and 16-06 must not publish the unruled surface (RESEARCH Q-7); the ccf name is taken on PyPI by an unrelated project at 7.0.12; 15.3 residuals WR-04/WR-06/IN-02/IN-03 and 2 GitHub-Actions UAT observations. OPERATIONAL: mongo container is on port 27019 not 27017 (wrong port HANGS — use CCF_TEST_MONGO_URI); fluree leg is 37 not 38; NEO4J_PASSWORD and PGPASSWORD for the DGX are NOT in this environment, so the opt-in live leg cannot be proven locally and must be dispatched in Actions with secrets configured — a Dave-facing prerequisite, not a code task. Dave's four-database FIBO harness is at /home/parkave/fluree/examples/fibo/ (192.168.4.76).
 ---
 
@@ -24,26 +24,135 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 16 — documentation rewrite — the deterministic path & the adoption argument
+**Current focus:** Phase 15.5 COMPLETE and gated — next is the merge to `main`, then Phase 16 resumes at 7/21
 
 ## Current Position
 
-Phase: 16
-Plan: Not started
-Status: Ready to execute
-  Commissioned by D-IMPL-93 (Dave, 2026-08-09): the substrate may evolve and
-  gain capability, but must never carry a unique dependency on a named adapter
-  and must never change per-adapter. Measured against that standard at
-  `773ed92`, tests (1) direction and (2) recurrence both FAIL — `boot.py` and
-  `_writer.py` import `ccf.graph.backends.*`, `_open_backend` carries 2-3
-  kwargs per substrate, and `artifacts.py` hand-maintains a six-name Literal.
-  D-IMPL-92's four corrections are the symptom of the missing seam, not a
-  documentation defect. Success is structural, not numeric: no backend import
-  outside `backends/`, no substrate name in core outside the registry, both
-  lint-enforced, replacing D-IMPL-92's admitted line-budget proxy. NOTE: the
-  handler auto-advanced to Phase 16; 15.4 precedes it per Dave's ruling.
-Progress: [##########] 100% (execution) — gate pending
-Last activity: 2026-08-10 -- Phase 16 planning complete
+Phase: 15.5 — The Context Product Surface COMPLETE, D-GATE-15.5 APPROVED (Dave,
+  2026-08-11) · Phase 16 PARKED at 6 of 21 (16-02 open at 2/3, 16-05 open at 2/3)
+Plan: 15.5 is 15 of 15 (14 planned + 15.5-15 created mid-phase by D-IMPL-108)
+
+NEXT ACTION: merge `phase-16` → `main` with `--no-ff`, then `/gsd:plan-phase 15.6`.
+  PHASE 15.6 RULED IN (Dave, 2026-08-11), BEFORE Phase 16 resumes: two explicit
+  tracks — A closes the five carried defects (API-neutral), B closes D-IMPL-112's
+  three named gaps (API-affecting; Observation gains identity, DebtAssessment
+  gains evidence pointers, and the product content address moves a THIRD time).
+  Gap 1 gets a RESEARCH SPIKE FIRST in the 15.5-01 shape. Scope B to the three
+  gaps, not to the open question. D-IMPL-117 (Dave): SURFACE IMPACT IS ACCEPTED
+  — the address move is an authorized cost, not a risk to design around — and
+  Track B ships CARRYING MECHANISM, not judgement: the context product creator
+  owns what a client needs, the SDK owes only the data structure and the API to
+  populate and extract it. THE SPIKE'S PRIMARY QUESTION is therefore not 'can we
+  avoid the address move' but 'are these fixed fields on the vessel, or declared
+  content in the payload-schema shape?' — D-IMPL-97 puts governance in fixed
+  structure and domain content in a declared schema, and debt evidence sits
+  across that line. The branch carries BOTH
+  15.5's 15 plans AND Phase 16's completed 6 — they share the branch by design
+  (forked from main @ 06fea5c per CLAUDE.md §2.2, merge at the gate not before).
+  Then re-read Phase 16's 15 remaining plans BEFORE resuming: the ones
+  documenting the product contract and the delivery doors describe a surface
+  that no longer exists. Resume Phase 16 at 7/21 against the corrected surface.
+Status: Phase 15.5 PLANNED and revised; Phase 16 PARKED at wave 3. Branch
+  `phase-16` carries both (forked from main @ 06fea5c per CLAUDE.md §2.2; merge at
+  the gate, not before). Pushed. Do NOT resume Phase 16 waves 4-12 until 15.5
+  lands — every example after 16-05 copies the shape 15.5 is changing.
+  WHY 15.5 EXISTS: Dave's 2026-08-10 review of `examples/s1-01-hello-context-product`
+  — *"today I would put an MCP server in front of the fluree database and run a
+  query and return the results. What is the benefit of using CCF?"* Measured behind
+  that: three of §6.3's NINE elements (freshness SLA, discovery, addressability)
+  unimplemented while `contract.py` claims they live on `RegisteredProductClass`;
+  `register_product_class` takes no payload schema so `payload` is an unchecked
+  dict; `DebtAssessment` computed by `ccf.halflife.debt` and delivered nowhere;
+  `Perspective` passed into `execute()` by the caller with nothing deriving it from
+  the verified grant, and `build_egress_server` binding no authenticator at all.
+  RULINGS RECORDED: `D-IMPL-95` (systems of record read-only to L1; CCF's graph is
+  CCF-owned on the same substrate), `D-IMPL-96` (revokes "no fabric changed",
+  withdrawing D-13, D-14 and 16-19's gate_16.py allowlist), `D-IMPL-97` (the vessel
+  model + the assembler Protocol implemented by a declared agent; a WORDING
+  correction to whitepaper §7.6, explicitly not a reversal). Dave separately ruled
+  entitlement requires a fabric change. Numbering continues from `D-IMPL-98`.
+  TWO STANDING RULINGS THE PHASE IMPLEMENTS RATHER THAN DECIDES, found by research
+  and easy to re-litigate by accident: `D-IMPL-30` already resolved the contract
+  element count as NINE (Assembly Mode included) and says every "eight" reference —
+  CLAUDE.md §5's included — is editorial drift; `D-IMPL-31` already ruled the
+  mixing-refusal rule (`expires_at = min(class MAX_TTL ceiling, derivation over
+  constituent signal validities)` with constituent-validity floors that refuse
+  assembly). Criterion 8 implements it; do not re-open either.
+  THE HARD CONSTRAINT ON THE DEBT TRACK: `src/ccf/replay/engine.py:449-455` raises
+  `ReplayDivergence` when the rehydrated product's content address differs from the
+  recorded one, and `ProjectionOutput` carries only `plan_id` and `payload`. Any
+  field added to `ContextProductContract` must be reconstructible from the record,
+  the class, or the projection output — debt is none of them, so debt-on-the-
+  product-only breaks every replay. Plan 15.5-01 measures all four placements
+  against the real tripwire BEFORE 15.5-05 asks Dave to choose.
+  EIGHT OPEN QUESTIONS reach 15.5-05 unruled, enumerated with options and
+  consequences in `docs/CONTEXT_PRODUCT_REVISION.md` §9-§10 and in the plan. Q1
+  (typed per-class request contract) gates the most — it collapses the fixed-subject
+  and fixed-instant defects into one design. Q3 (debt placement) and Q7 (whether
+  entitlement makes debt per-principal, or dissolves the coupling entirely) gate the
+  debt track. 15.5-05 presents all eight with a MEASURED COST column and recommends
+  nothing.
+  PLAN-CHECKER FOUND 3 BLOCKERS + 8 WARNINGS; all fixed at `6755fa8`, and all three
+  blockers were verified against the tree before being acted on. B1: criterion 4
+  says "every exposed door" but the plans missed
+  `runtime/ccf_runtime/mcp/experience.py:560-570`, the EXTERNAL front door serving
+  `context_product(tenant, product_class, version)` — a phase whose founding
+  complaint is "an MCP server in front of a database" was about to ship its own MCP
+  front door ungated. Now covered, and the invariant test asserts its three-door
+  table is EXHAUSTIVE over runtime's product-serving handlers, so a fourth door
+  fails the suite. B2: `build_egress_server(*, server_name, resolver)` binds no
+  `token_verifier` — while `experience.py:543-549` passes one INTO the FastMCP
+  constructor, so it cannot be retrofitted — meaning plan 06's entitlement check had
+  no verified grant to key off and its threat model's "Bearer-token-authenticated"
+  was false. Now a third required seam, with a behavioural acceptance criterion (a
+  tokenless call against a recording entitlement source must leave the recorder
+  empty) because a source-order assertion would pass against a server whose
+  middleware was never installed. B3: plan 01's spike asserted tree-derived counts
+  inside `testpaths=["tests"]`, which `make ci-core` must keep green from wave 1 —
+  over counts eight later plans change, with no owner. Now asserts only facts no
+  plan is scoped to change; 15.5-14 owns its retirement.
+Progress: [###░░░░░░░] 15.5 planned 0/14 · Phase 16 at 6/21, parked
+  OPEN, CI — FIRST CONTACT AFTER 826 UNPUSHED COMMITS. Pushing `phase-16` on
+  2026-08-10 was the first time Phases 9-15.4 ever ran in GitHub Actions. Run
+  31452318023 @ a328a1b9: 3 of 4 jobs GREEN (examples suite, lint+strict types,
+  docs gate). The `tests (python 3.12)` job fails at the step **"Quick suite (no
+  external substrates)"**. NOT YET DIAGNOSED — and note it does NOT reproduce
+  locally: that exact command passed here twice, 2464 passed / 2 skipped, both with
+  `CCF_REQUIRE_HARNESSES=1` alone and with CI's FULL substrate env
+  (CCF_TEST_POSTGRES_DSN / NEO4J_URI / MONGO_URI / FLUREE_URL plus all four
+  CCF_REQUIRE_*). Ruled out: harness-required flag turning skips into failures; the
+  `ccf-demo-adapter` entry point (installed here too, exposing backend `demo`).
+  Remaining candidates: a fresh `pip install -e ".[dev,neo4j,mongo]"` resolving
+  different versions than this venv, or a test that behaves differently when the
+  four service containers are actually REACHABLE (CI has them; this box does not).
+  NEXT STEP: read the log. `~/ci_diag.py <token>` prints the run, the failing step
+  and the log tail; it now strips the Authorization header on GitHub's redirect to
+  Azure blob storage, which was the 401 that blocked the log fetch. The token needs
+  BOTH repository access (Only select repositories -> ccf_code) AND Repository
+  permissions -> Actions: Read-only; they are separate sections and granting the
+  first does not imply the second.
+  SECURITY: three fine-grained PATs were pasted into the 2026-08-10 session
+  transcript. REVOKE ALL THREE at github.com/settings/personal-access-tokens.
+  OPEN, 16-02 (2/3): MongoDB, Neo4j and PostgreSQL on the DGX all carry 16
+  relationships with `ownershipPercent` on 9 EDGES (verified by direct query after
+  two out-of-tree loader patches; backups under
+  `/home/parkave/fluree/examples/fibo/.backups/`). FLUREE REMAINS UNLOADED at 4 of 9
+  ownership pairs — there is no Fluree loader in that harness and it is NOT a
+  missing line: RDF has nowhere to hang a qualifier on a triple, which is exactly
+  why the source modelled ownershipPercent on the Party and every chain was one hop.
+  CCF's own adapter solves it with the interposed-edge layout (`fluree_write.py`,
+  15.3 §R5). Dave has not ruled write / leave / defer.
+  OPEN, 16-05 (2/3): a human-verify gate on the spine/deployment split. Superseded
+  in practice by 15.5 — do not close it until the vessel work lands, since the
+  example's shape is what changes.
+  MEASURED, do not re-derive: the example's own algorithm is 125 executable lines
+  against 189 of spine choreography and 74 of wiring, and 55 of those 74 exist only
+  to satisfy `DeploymentBinding` — a Protocol the example invented, calls "the
+  adoption checklist", and CCF does not ship. All eight examples call
+  `load_and_boot` identically; seven differ only in a filename. Timings (not
+  regression-gated): boot 74.3 ms once per process; projection execute 8.68 ms per
+  question; the replay append that gates delivery 0.29 ms; full example 347 ms — so
+  a second question in a live service is ~10 ms, not 347.
 
 ## Performance Metrics
 

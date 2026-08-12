@@ -16,6 +16,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "AgentConstructionError",
     "AgentDefinitionError",
+    "AssemblyRefused",
     "ConsumptionRefused",
     "FalseGrantClaimError",
     "NotYetBound",
@@ -113,6 +114,22 @@ class FalseGrantClaimError(ValueError):
     cannot be true, so recording the claim would corrupt replay dimension 4
     at write time (WR-01; CLAUDE.md §6.2 — the skill-set in force at decision
     time lands in replay *by construction*, not by caller discipline).
+    """
+
+
+class AssemblyRefused(ValueError):
+    """An assembly was refused at the producer seam (D-IMPL-97 ruling 2).
+
+    Raised — never repaired — when what an assembler was asked to do disagrees
+    with what its declared agent says it is: a tenant that is not the agent's,
+    or a perspective that is not the axis-3 role it was declared under. Both
+    are channel-1 identity, so the disagreement describes a *different agent*
+    rather than a recoverable argument, and choosing which side was meant is
+    the deployment author's call, never the SDK's.
+
+    The sibling of :class:`ConsumptionRefused` on the other face of the fabric:
+    that one refuses a product an agent may not read, this one refuses an
+    assembly an agent may not perform (CLAUDE.md §6.2; §6.1).
     """
 
 

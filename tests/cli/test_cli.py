@@ -228,8 +228,20 @@ def test_read_verbs_dispatch(
     )
     assert code == 0 and json.loads(out)["tenant_id"] == "acme-bank"
 
+    # `product get` reaches the same HTTP door every other client reaches, and
+    # that door now refuses to serve a product it cannot name a Perspective for
+    # (D-IMPL-108, closing DI-15.5-03). `ccf`'s app is built with
+    # `acknowledge_insecure_default=True` and binds no entitlement seams, so
+    # the CLI is in exactly the posture the refusal describes.
+    #
+    # This assertion changed from `code == 0` deliberately, and the change is
+    # the honest report of a real consequence rather than a test being made to
+    # pass: reading a governed Context Product with no identity at all is the
+    # thing the fabric exists to refuse, and `--local` never served one anyway
+    # (`_no_products_resolver` refuses every address). What the CLI keeps is
+    # every other read verb above, unchanged.
     address = fabric.product_address
-    code, out, _ = run_cli(
+    code, out, err = run_cli(
         [
             "product",
             "get",
@@ -243,7 +255,8 @@ def test_read_verbs_dispatch(
         capsys,
         dependencies=deps,
     )
-    assert code == 0 and json.loads(out)["tenant_id"] == address.tenant
+    assert code != 0
+    assert "product-door-ungoverned" in (out + err)
 
 
 # --- workflow: invoke / status / resume ------------------------------------

@@ -75,11 +75,11 @@ from ccf.controlplane.artifacts import (
 from ccf.controlplane.audit import AuditLog
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import (
+    ResolvedPins,
     build_operator_registry,
     load_and_boot,
     refuse_operator_set_divergence,
 )
-from ccf.deployment.pins import ResolvedPins
 from ccf.graph.protocols import GraphReader, GraphView
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
 from ccf.hitl.approval_gate import HitlActionRecord
@@ -287,7 +287,16 @@ class UnconsultedSink:
         raise AssertionError("tier-2 sink consulted under an auto regime")
 
 
-def _no_product(*, tenant: str, product_class: str, version: str) -> Any:
+def _no_product(
+    *,
+    tenant: str,
+    product_class: str,
+    version: str,
+    perspective: Any,
+    request: Any,
+) -> Any:
+    # Carries the widened D-IMPL-108 signature even though it serves
+    # nothing: an empty form that did not conform would not be a template.
     raise ProductNotServable(
         f"no gate-admitted product at {tenant}/{product_class}/{version}"
     )
@@ -378,6 +387,11 @@ class GridReplayEnvironment:
     def rehydrate_product(
         self, *, record: DecisionReplayRecord, projection: ProjectionOutput
     ) -> ContextProductContract:
+        # `debt` is read back off dimension 5, never re-assessed (D-IMPL-100).
+        # It is inside the product's content address, and D_c is computed from
+        # observations and a `now` the replay does not re-derive — so a fresh
+        # assessment here would be a different decision wearing this one's
+        # identifier, and the engine's address check would say so.
         return ContextProductContract(
             schema_name=self._declared.schema_name,
             schema_version=self._declared.schema_version,
@@ -397,6 +411,7 @@ class GridReplayEnvironment:
                 graph_snapshot_at=record.context_fabric_snapshot.temporal_boundary,
             ),
             payload=projection.payload,
+            debt=record.content_generation_path.debt,
         )
 
 

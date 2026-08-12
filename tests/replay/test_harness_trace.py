@@ -23,7 +23,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from ccf.contracts.canonical import canonical_bytes
+from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.graph.protocols import GraphView
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.projection.engine import ExecutionResult, ExecutionStep
@@ -49,6 +49,16 @@ EXPIRES = datetime(2026, 4, 1, tzinfo=UTC)
 #: before the D-25 edit landed. Byte-identity is scoped honestly (D-21): this
 #: literal is what the builder emitted, and the post-change builder emits
 #: exactly these bytes plus dimension 3's one new ``harness_trace`` key.
+#: The content address :func:`_product` had **before** 15.5-11 landed
+#: ``debt`` on :class:`ContextProductContract` (D-IMPL-100). Named rather than
+#: only embedded below, because it is the one captured value that moved, and
+#: the ruling authorized the move on the condition that it stay
+#: reconstructible — which ``tests/replay/test_engine_rehydration.py`` proves
+#: on the real serve path.
+PRE_CHANGE_PRODUCT_ADDRESS = (
+    b"e1fa788d7346269d7cc89b47b01021d547382f3eb5b0bc2f3b00a5cf9ef8c05f"
+)
+
 PRE_CHANGE_CANONICAL = (
     b'{"content_generation_path":{"operator_plan":["traversal.neighbors"],'
     b'"plan_id":"plan-1","product_content_address":'
@@ -181,10 +191,13 @@ def test_every_pre_change_field_is_byte_for_byte_unchanged() -> None:
     # on dimensions 2 and 5 (07-05: hitl_actions, workflow_step_sequence),
     # the 15.2-08 sentinel fields on the same two dimensions (D-10/D-11:
     # survivor_cap, graph_query_sequence), the 15.2-11 sentinel field on
-    # dimension 1 (D-09: source_attestation), and the 15.4-08 adapter pin on
+    # dimension 1 (D-09: source_attestation), the 15.4-08 adapter pin on
     # dimension 2 (D-IMPL-93: graph_adapter, graph_adapter_version,
-    # graph_secret_refs). Removing exactly those reproduces the captured
-    # literal — "byte-identical except for the sentinel fields".
+    # graph_secret_refs), the 15.5-11 debt landing on dimension 5
+    # (D-IMPL-100: debt), and the 15.5-13 question landing on the same
+    # dimension (D-IMPL-111 limb (b): request). Removing exactly those
+    # reproduces the captured literal — "byte-identical except for the
+    # sentinel fields".
     #
     # PRE_CHANGE_CANONICAL itself is never edited. Each extension adds one
     # `.replace()` here and leaves the captured literal alone, because the
@@ -214,6 +227,27 @@ def test_every_pre_change_field_is_byte_for_byte_unchanged() -> None:
         b',"graph_adapter":"no-adapter","graph_adapter_version":"no-adapter"'
         b',"graph_secret_refs":[]',
         b"",
+    ).replace(
+        b'"debt":null,',
+        b"",
+    ).replace(
+        # 15.5-13, D-IMPL-111 limb (b): the question answered lands on
+        # dimension 5 under the same sentinel-default discipline, so a record
+        # built without one is byte-identical to a pre-ruling record once the
+        # sentinel key is removed.
+        b'"request":null,',
+        b"",
+    ).replace(
+        # The one captured value D-IMPL-100 *moved*, normalized rather than
+        # retouched. `debt` is a field of the hashed product body, so the
+        # address of `_product()` differs from the one this literal captured —
+        # by ruling, not by drift. Mapping the *live* address of this module's
+        # own product back to the captured one keeps the assertion honest: if
+        # the builder ever recorded a different product's address, this
+        # substitution would not match and the comparison would fail, which is
+        # the property the literal exists to hold.
+        content_hash(_product()).encode("utf-8"),
+        PRE_CHANGE_PRODUCT_ADDRESS,
     ) == PRE_CHANGE_CANONICAL
 
     # Dimension 3's two pre-existing fields are untouched by the extension.

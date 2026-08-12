@@ -26,6 +26,7 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 .DEFAULT_GOAL := help
 
 .PHONY: help install lint typecheck test ci-core ci examples \
+	example-s1-01 \
 	example-00 example-01 example-02 example-03 example-04 example-05 \
 	example-06 example-07 example-08 example-ext-00 \
 	example-03-live-ollama example-03-live-anthropic \
@@ -79,6 +80,14 @@ ci-core: lint typecheck test ## Mid-phase verification sweep — MUST stay green
 # joins `ci` here — never as a half-armed or dead target.
 ci: ci-core examples docs-strict ## Full local reproduction of the always-on pipeline (D-10)
 
+# Section 1's reference example. Its docstrings and `tests/examples/
+# test_s1_01_output.py` have referred to this target since phase 16; it did not
+# exist and the example therefore ran in no CI job (DI-15.5-02, closed by plan
+# 15.5-13). With no arguments it asks the three questions
+# `artifacts/questions.yaml` declares — two companies, two instants.
+example-s1-01: ## Run examples/s1-01-hello-context-product (three declared questions)
+	$(ENV) $(PYTHON) examples/s1-01-hello-context-product/run.py
+
 example-00: ## Run examples/00-quickstart (reference backends, D-13)
 	$(ENV) $(PYTHON) examples/00-quickstart/run.py
 
@@ -109,7 +118,12 @@ example-08: ## Run examples/08-e2e-demo (deterministic; --live is opt-in and nev
 example-ext-00: ## Run examples/external/00-hello-context — all legs deterministic via replay server
 	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py
 
-examples: example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 example-ext-00 ## Run all ten examples in order, stopping on first failure
+# `s1-01` leads deliberately: it is the smallest and the fastest, so a break in
+# the reference example fails the aggregate before ten minutes of the rest.
+# Adding it here CHANGES WHAT `make ci` RUNS, which is the intended effect and
+# not a side effect — the example was documented as CI-covered and was not
+# (DI-15.5-02).
+examples: example-s1-01 example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 example-ext-00 ## Run all eleven examples in order, stopping on first failure
 
 # Container-gated substrate legs (DI-15.2-04, D-GATE-15.2). These reproduce the
 # ci.yml service-container steps command-for-command, so a developer runs a leg

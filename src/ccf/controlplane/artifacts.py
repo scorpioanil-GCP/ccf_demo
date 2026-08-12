@@ -78,7 +78,20 @@ from ccf.operators.params import (
     TemporalAsOfParameters,
     TraversalNeighborhoodParameters,
 )
-from ccf.products.contract import AssemblyMode, TTLAnchor
+from ccf.products.contract import (
+    NO_PAYLOAD_SCHEMA,
+    NO_VALIDITY_FLOORS,
+    NOT_ADDRESSABLE,
+    NOT_DISCOVERABLE,
+    UNMEASURED_FRESHNESS_SLA,
+    AssemblyMode,
+    ConstituentValidityFloors,
+    FreshnessSLA,
+    ProductAddress,
+    ProductDiscovery,
+    TTLAnchor,
+)
+from ccf.products.request import NO_REQUEST_CONTRACT
 from ccf.projection.plan import Perspective
 from ccf.signal.envelope import SignalEnvelope
 
@@ -544,11 +557,14 @@ class ProductClassDeclaration(VersionedArtifact):
     projection that reads the operator registry's own keys — a tripwire over a
     convention list of receivers, not a wall.
 
-    ``min_length=1`` on the operator keys is the whitepaper's own posture, not an
-    ergonomics choice: §7.6 specifies the empty-operator guard as the first of
-    the three validation gates, and states that "a projection must have resolved
-    at least one operator to have meaningfully read the graph, and an empty set
-    indicates a misconfigured projection rather than a trivially-successful one."
+    ``min_length=1`` on the operator keys follows the whitepaper's own posture
+    rather than an ergonomics preference: §7.6 (*Context Products — System of
+    Delivery*) makes the empty-operator guard the first of the three validation
+    gates, and its reasoning — stated here in this project's words, because
+    CLAUDE.md §11 requires a citation by section number and title and not a
+    reproduction of the text — is that resolving no operator at all is evidence
+    the graph was never consulted, so a zero-length set reports a
+    misconfiguration rather than an assembly that legitimately needed nothing.
     A declaration of zero operators could only ever produce a resolved set of
     zero, which Gate 1 refuses at assembly time. Refusing it here refuses it
     where the author can still fix it. A deployment that serves no product simply
@@ -594,6 +610,46 @@ class ProductClassDeclaration(VersionedArtifact):
             set, defaulting to the tier-1 ``{"graph-supplied"}`` posture, so
             ``product-carried`` lineage is deny-by-default until a class
             declares it (D-09).
+        freshness_sla: The §6.3 **Freshness SLA** element, per signal
+            (D-IMPL-106 option (b), which ruled it class-level and left the
+            per-signal shape to the implementing plan).
+        discovery: The §6.3 **Discovery** element — the registry facts a class
+            is located by (D-IMPL-98, under which discovery is not
+            declaration-only).
+        addressability: The §6.3 **Addressability** element, path half only.
+            The argument half is D-IMPL-98's typed request contract and is
+            deliberately not authored here.
+        constituent_validity_floors: D-IMPL-31's declarable floors, ruled
+            2026-07-25. Authored here; the refusal that reads them is plan
+            ``15.5-12``'s, at assembly, where the mix exists.
+        payload_schema_key: Control Plane key of the class's declared payload
+            schema (D-IMPL-97 ruling 1). **The key is authored; the version
+            pinning it is not** — see the class docstring's rule above, which
+            this field is the second instance of.
+        request_contract_key: Control Plane key of the class's declared
+            **request contract** — the typed surface a caller's question is
+            validated against, so that the subject and the instant are
+            arguments the caller supplies rather than literals authored in this
+            document (D-IMPL-98, option (a)). The **third** instance of the
+            authored-key/derived-version rule, and ``request_contract_version``
+            is absent for exactly the reason ``max_ttl_version`` and
+            ``payload_schema_version`` are. The contract itself is
+            :class:`~ccf.products.request.ProductRequestContract`, a separately
+            authored ``ccf.product-request-contract`` document that names the
+            class and lane it serves, and
+            :func:`~ccf.products.request.refuse_request_contract_pin` refuses a
+            pin onto the wrong class at wiring time. **Nothing in this tree
+            resolves this key at a door yet**: D-IMPL-108 ruled that the
+            product-resolver seam is widened exactly once, by plan
+            ``15.5-15``, carrying the typed request and the authorized
+            perspective together rather than reshaping 24 files twice.
+
+    **The six governance fields above all default**, on the
+    ``accepted_policy_binding_modes`` precedent and for the same reason: an
+    artifact authored before they existed declared exactly what it declares
+    now, so no committed document is rewritten and no adopter's file becomes
+    invalid. Each default is a named positive assertion in
+    :mod:`ccf.products.contract`, not a blank.
     """
 
     schema_name: str
@@ -608,6 +664,12 @@ class ProductClassDeclaration(VersionedArtifact):
     accepted_lineage_modes: frozenset[LineageMode] = frozenset(
         {"graph-supplied"}
     )
+    freshness_sla: FreshnessSLA = UNMEASURED_FRESHNESS_SLA
+    discovery: ProductDiscovery = NOT_DISCOVERABLE
+    addressability: ProductAddress = NOT_ADDRESSABLE
+    constituent_validity_floors: ConstituentValidityFloors = NO_VALIDITY_FLOORS
+    payload_schema_key: str = NO_PAYLOAD_SCHEMA
+    request_contract_key: str = NO_REQUEST_CONTRACT
 
 
 class ProjectionRequirements(VersionedArtifact):

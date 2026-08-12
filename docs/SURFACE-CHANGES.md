@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**415 entries**, of which **194** name a public Python surface.
+**538 entries**, of which **312** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-165 entries — 135 public Python surface, 30 not public Python API.
+251 entries — 219 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -2877,6 +2877,1674 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.4-09-backends-cli.md`.*
 
+#### ccf.products.entitlement.ProductEntitlementGrant
+
+- Surface: ccf.products.entitlement.ProductEntitlementGrant
+- Public surface: true
+- Change type: added
+- Before: absent — nothing in the fabric could say what one *local* principal
+  may receive. `ccf.peering.trust_policy.PeerTrustGrant` said it for a foreign
+  peer; the local egress door had server-wide scopes and no per-class notion at
+  all
+- After: a `CCFContract` with exactly two fields, `permitted_schema_names` and
+  `permitted_roles`, both `frozenset[str]` and **neither with a default**, plus
+  two checks that raise: `require_schema(schema_name=…)` and
+  `require_role(role=…)`. Empty is expressible and means "nothing of that kind",
+  never "anything"
+- Why: the two questions a door asks — *may this caller receive this product
+  class?* and *as whom?* — are answered by one lookup, for one subject, at one
+  moment. Two artifacts would make a door resolve twice and let the answers
+  drift. Roles sit here rather than on
+  `ccf.projection.plan.Perspective` because a perspective is a *statement*, not
+  a credential: a door checks the grant and then constructs the perspective,
+  and replay keeps feeding the recorded perspective
+- Migration: none — a new noun; nothing existing moved
+
+*Recorded by `15.5-03-product-entitlement.md`.*
+
+#### ccf.products.entitlement.ProductEntitlementPolicy
+
+- Surface: ccf.products.entitlement.ProductEntitlementPolicy
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `CCFContract` with `tenant_id`, `policy_version` (its own lane,
+  no default, validated through `ccf.controlplane.artifact_base.validate_semver`
+  — the one home of the semver grammar), and
+  `principals: Mapping[str, ProductEntitlementGrant]` with `min_length=1`, plus
+  `grant_for(principal_id=…)` raising `PrincipalNotEntitled`. `extra="forbid"`
+  is inherited from `CCFContract`
+- Why: the tenant is a field on the artifact rather than a lookup argument, so
+  two tenants naming the same principal hold two artifacts with two content
+  addresses and one tenant's grant cannot leak into another's lookup — not by
+  convention, but because there is no shared object to leak through.
+  `min_length=1` refuses an empty policy because it is indistinguishable from a
+  forgotten one, and a door that came up entitling nobody while looking
+  configured is the failure this catches at authoring time
+- Migration: none — a new noun; nothing existing moved
+
+*Recorded by `15.5-03-product-entitlement.md`.*
+
+#### ccf.products.entitlement.ProductEntitlementViolation
+
+- Surface: ccf.products.entitlement.ProductEntitlementViolation
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `LookupError` subclass raised by `require_schema` and `require_role`.
+  `LookupError` because that is literally what happened — the request was not
+  found among the principal's entitlements
+- Why: raised rather than softened to a boolean, so a delivery path cannot
+  treat "not entitled" as "not sure". This is the same raise-vs-return line
+  `ccf.peering.trust_policy.TrustPolicyViolation` draws, made consistently
+- Migration: none — a new noun; nothing existing moved
+
+*Recorded by `15.5-03-product-entitlement.md`.*
+
+#### ccf.products.entitlement.PrincipalNotEntitled
+
+- Surface: ccf.products.entitlement.PrincipalNotEntitled
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `ProductEntitlementViolation` subclass raised by `grant_for` when the
+  policy names no entry for a principal at all. A caller that wants to treat
+  every refusal alike catches the base; one that wants to tell them apart has
+  the precise type
+- Why: an unconfigured principal is a caller the deployment never declared, not
+  a caller overreaching a known grant, and an operator reading an audit log
+  should not have to guess which they saw. The alternative — returning an empty
+  grant — is deny-by-default only by accident, and reads as configuration
+  rather than as an omission
+- Migration: none — a new noun; nothing existing moved
+
+*Recorded by `15.5-03-product-entitlement.md`.*
+
+#### ccf.products.entitlement.PRODUCT_ENTITLEMENT_POLICY
+
+- Surface: ccf.products.entitlement.PRODUCT_ENTITLEMENT_POLICY
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: an `ArtifactClass` binding the class id `ccf.product-entitlement-policy`
+  to `ProductEntitlementPolicy`, so registering a bare mapping under an
+  entitlement key is a `TypeError` at registration rather than a plausible-
+  looking policy nobody notices until a caller is admitted against it
+- Why: the artifact class is what makes "registering the wrong thing" a
+  detectable error — the property `ccf.controlplane.artifacts` argues for and
+  the reason every Control Plane artifact in this tree is typed
+- Migration: none — a new noun; nothing existing moved. It joins neither SDK
+  class mapping, so no manifest can name it and no served schema set widens —
+  see the placement note above
+
+*Recorded by `15.5-03-product-entitlement.md`.*
+
+#### ccf.products.entitlement.product_entitlement_key
+
+- Surface: ccf.products.entitlement.product_entitlement_key
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `product_entitlement_key(*, tenant_id) -> str`, returning
+  `f"{PRODUCT_ENTITLEMENT_POLICY.class_id}/{tenant_id}"`
+- Why: a derivation rather than a table. The SDK supplies the *shape* of the key
+  so two components cannot disagree about where a tenant's policy lives, and
+  supplies no tenant, so it holds no deployment's vocabulary (CINV-01)
+- Migration: none — a new noun; nothing existing moved
+
+*Recorded by `15.5-03-product-entitlement.md`.*
+
+#### ccf_runtime.authz.product_entitlement.PerspectiveResolverProtocol
+
+- Surface: ccf_runtime.authz.product_entitlement.PerspectiveResolverProtocol
+- Public surface: true
+- Change type: added
+- Before: absent — nothing in the tree derived a `Perspective` from a verified
+  identity; the caller passed one into `execute()` and the entire
+  content-shaping layer sat downstream of an unverified claim
+- After: a `@runtime_checkable` Protocol,
+  `(*, grant: TokenGrant, tenant: str, requested_role: str | None) ->
+  Perspective`, keyword-only
+- Why: which role a verified caller holds is the deployment's statement about
+  its own identity substrate — a Protocol rather than a base class, on
+  `ProductResolverProtocol`'s own reasoning (*"the SDK has no business owning
+  its shape — only its signature"*), and keyword-only for the same reason that
+  seam is. The resolver **proposes**; the entitlement decides. Whatever it
+  returns is checked against the principal's grant before anything is served,
+  so a resolver that ignores `requested_role` cannot mint a view nobody granted
+- Migration: none — a new Protocol. Deployments implement it; nothing existing
+  moved
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.authz.product_entitlement.ProductEntitlementSourceProtocol
+
+- Surface: ccf_runtime.authz.product_entitlement.ProductEntitlementSourceProtocol
+- Public surface: true
+- Change type: added
+- Before: absent — `TenantAuthorizerProtocol`'s action tuple is
+  `(grant, tenant, action_id)` with no product-class dimension, so no seam in
+  the tree could express "may this principal receive this class"
+- After: `authorize(*, grant, tenant, product_class, role) ->
+  ProductEntitlementGrant`, raising `ProductEntitlementRefused` rather than
+  returning a verdict
+- Why: the same Protocol-not-base-class reasoning
+  `TenantAuthorizerProtocol` carries. Raising rather than returning is the
+  artifact's own posture carried up to the door: a delivery path must not be
+  able to treat "not entitled" as "not sure"
+- Migration: none — a new Protocol.
+  `ControlPlaneProductEntitlementSource` is the shipped reference
+  implementation
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.authz.product_entitlement.ControlPlaneProductEntitlementSource
+
+- Surface: ccf_runtime.authz.product_entitlement.ControlPlaneProductEntitlementSource
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the reference `ProductEntitlementSourceProtocol` over a
+  `ControlPlaneRegistry` — resolves the tenant's `ProductEntitlementPolicy`
+  under `product_entitlement_key(tenant_id=...)` **per call, no cache, no
+  TTL**, runs the artifact's two raising checks, and appends exactly one
+  `authz_decision` event per decision to the Control Plane's own audit log
+- Why: the `ControlPlaneTenantAuthorizer` posture transplanted to the delivery
+  boundary. Per-call re-resolution (D-07) is what makes the version on the audit
+  record the *exact* one in force; both-outcomes auditing (D-09/D-10) is what
+  makes "who was served this class?" answerable at all; and the near-miss
+  posture (a misregistered policy is audited as a deny *before* the `TypeError`
+  is raised, WR-04) closes the misconfiguration window an examiner cares about
+  most. An absent policy is a **deny**, not "nothing to enforce"
+- Migration: none — a new reference implementation. A deployment substitutes by
+  conforming to the Protocol, never by subclassing
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.authz.product_entitlement.entitled_perspective
+
+- Surface: ccf_runtime.authz.product_entitlement.entitled_perspective
+- Public surface: true
+- Change type: added
+- Before: absent — each door would otherwise have had to spell the order out,
+  and three spellings would have drifted
+- After: the one resolution order every exposed door runs: resolve a
+  perspective from the verified grant, refuse a substituted subject, decide on
+  the **resolved** role and the requested class, and only then let the caller's
+  door reach its resolver
+- Why: the order *is* the security property, so it lives in one place. Checking
+  the resolved role rather than only a requested one is what closes the
+  resolver-mints-a-role hole; refusing a perspective whose `principal_id` is not
+  the verified `client_id` is D-IMPL-67 applied to delivery, and matters because
+  both of that perspective's strings land verbatim in replay dimension 4
+- Migration: none — a new function. A door that wants this behaviour calls it;
+  the three shipped doors do
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.authz.product_entitlement.verified_grant
+
+- Surface: ccf_runtime.authz.product_entitlement.verified_grant
+- Public surface: true
+- Change type: added
+- Before: absent — `hitl_server.py` inlined the same three lines
+- After: returns the in-flight caller's verified `TokenGrant` from
+  `get_access_token()`, or raises `UnverifiedProductCallerRefused`
+- Why: the A1 spike verdict
+  (`tests/crossproc/test_fastmcp_resource_token_spike.py`) is what makes this
+  usable inside an MCP *resource* handler and not only inside a tool, and both
+  product resources rely on it. Factored so the two MCP product doors cannot
+  disagree about what "unverified" means
+- Migration: none — a new function
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.authz.product_entitlement.ProductEntitlementRefused
+
+- Surface: ccf_runtime.authz.product_entitlement.ProductEntitlementRefused
+- Public surface: true
+- Change type: added
+- Before: absent — the artifact raises `ProductEntitlementViolation`, which
+  carries no code a door could render
+- After: a `ProductEntitlementViolation` subclass carrying `error_code` and
+  `message`, whose `str(...)` is the one refusal-body shape rendered as JSON
+- Why: D-08, one vocabulary and two renderings. The HTTP door renders the
+  decision as a typed 403 body and the MCP doors render it protocol-natively,
+  and neither invents a string. Subclassing the artifact's own type means a
+  deployment catching `ProductEntitlementViolation` catches the door's refusal
+  too
+- Migration: none — a new exception type
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.authz.product_entitlement.UnverifiedProductCallerRefused
+
+- Surface: ccf_runtime.authz.product_entitlement.UnverifiedProductCallerRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised when no verified access token accompanies a product call
+- Why: the counterpart of
+  `ccf_runtime.mcp.hitl_server.UnverifiedCallerRefused` on the product
+  surfaces. The D-26 middleware should make it unreachable, but the door
+  refuses rather than falling back to an anonymous read when the precondition
+  fails
+- Migration: none — a new exception type
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.authz.refusals.ACTION_PRODUCT_RETRIEVE
+
+- Surface: ccf_runtime.authz.refusals.ACTION_PRODUCT_RETRIEVE
+- Public surface: true
+- Change type: added
+- Before: the declared action vocabulary covered the two HITL doors only
+- After: `"product.retrieve"`, carried on the `authz_decision` event every
+  entitlement decision appends
+- Why: one action id for three doors, deliberately — an examiner asking "who
+  was served this class?" must not have to know which surface the caller
+  happened to reach. Like the other two, the value is **stable API surface**: a
+  deployment's registered artifacts may name it
+- Migration: none — a new constant
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_PRODUCT_POLICY_ABSENT
+
+- Surface: ccf_runtime.http_api.errors.ERROR_PRODUCT_POLICY_ABSENT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"product-policy-absent"` — the tenant has no registered
+  `ccf.product-entitlement-policy` at all
+- Why: a deny rather than an error, and its own code rather than a shared one,
+  because a door whose governance configuration is missing is a different
+  operational fact from a caller overreaching a declared grant, and an operator
+  reading a refusal should not have to guess which they saw
+- Migration: none — a new constant. Like every value in this module it is
+  stable API surface; renaming one is a breaking change to every consumer
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_PRINCIPAL_NOT_ENTITLED
+
+- Surface: ccf_runtime.http_api.errors.ERROR_PRINCIPAL_NOT_ENTITLED
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"principal-not-entitled"` — the tenant's policy names no entry for
+  the verified principal
+- Why: distinct from a per-request refusal, on the artifact's own reasoning: an
+  unconfigured principal is a caller the deployment never declared, not one
+  overreaching a known grant
+- Migration: none — a new constant
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_PRODUCT_CLASS_UNENTITLED
+
+- Surface: ccf_runtime.http_api.errors.ERROR_PRODUCT_CLASS_UNENTITLED
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"product-class-unentitled"` — the verified principal's grant does not
+  permit the requested Context Product class
+- Why: `P` applied at delivery, per class. This is the code T-15.5-20 is
+  mitigated by, and the refusal names the class so an operator can act on it
+- Migration: none — a new constant
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_PRODUCT_ROLE_UNGRANTED
+
+- Surface: ccf_runtime.http_api.errors.ERROR_PRODUCT_ROLE_UNGRANTED
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"product-role-ungranted"` — the role the resolved `Perspective`
+  carries is outside the verified principal's grant
+- Why: separate from the class code because the two are different decisions
+  about the same caller — *may you receive this* and *as whom* — and collapsing
+  them would make an audit log ambiguous exactly where T-15.5-19 needs it not
+  to be
+- Migration: none — a new constant
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.http_api.app.CcfDeadEntitlementWarning
+
+- Surface: ccf_runtime.http_api.app.CcfDeadEntitlementWarning
+- Public surface: true
+- Change type: added
+- Before: absent — `CcfDeadAuthorizerWarning` covered the HITL authorizer only
+- After: emitted when product entitlement seams are bound with no `auth=` hook
+- Why: its own class rather than a reuse of `CcfDeadAuthorizerWarning` because
+  the two name different dead configurations, and an operator reading a warning
+  should not have to work out which seam is the one that will never fire.
+  Exported so CI can escalate it and tests can target it. There is no
+  suppression kwarg: the fix is binding `auth=`, not accepting the dead
+  configuration
+- Migration: none — a new warning class. A deployment that escalates warnings
+  to errors in CI and binds the seams without `auth=` will now fail, which is
+  the intent
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.http_api.grants.grant_from_request
+
+- Surface: ccf_runtime.http_api.grants.grant_from_request
+- Public surface: true
+- Change type: added
+- Before: the same helper existed as a closure inside
+  `ccf_runtime.http_api.routes.hitl.build_router`, reachable by nothing else
+- After: a module-level function both the hitl and product routers import
+- Why: it was one helper while exactly one router needed it. Two doors reading
+  the same `request.state.token_grant` stash with two readings of "not a
+  `TokenGrant`" is the drift the shared comparison functions elsewhere in this
+  tree exist to prevent — and the fail-closed half (refuse rather than fall
+  back to the caller-supplied identity) is the Codex finding from 07-REVIEWS
+  round 2, which must not be re-derived per door
+- Migration: none for callers — `routes/hitl.py`'s behaviour is unchanged and
+  its tests pass unmodified. A deployment writing its own router can now import
+  the helper instead of copying it
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf.products.contract.FreshnessSLA
+
+- Surface: ccf.products.contract.FreshnessSLA
+- Public surface: true
+- Change type: added
+- Before: absent — the §6.3 Freshness SLA element had no representation
+  anywhere in `src/`, while `contract.py`'s docstring asserted it lived on the
+  registered product class
+- After: a contract carrying `max_age_seconds_by_signal: Mapping[str, int]` —
+  per signal type, the greatest age at which an observation still satisfies
+  the class's currency expectation
+- Why: §6.3 at `docs/CCF_Whitepaper_1-2.md:1453` says the SLA "varies by
+  signal and by decision" and that "a product that mixed the two without
+  surfacing the asymmetry would produce an unreliable agent input" — a scalar
+  is the weaker reading, and D-IMPL-106 ruled the *placement* while stating
+  that no scalar was ruled in by its silence on the shape. It is the sibling
+  of TTL, not a second spelling of it: expectation of currency versus bounded
+  validity once currency is no longer guaranteed
+- Migration: new surface — nothing required. Signal-type keys are the
+  deployment's own opaque identifiers and the SDK interprets none of them, so
+  a class that wants the element declares its own map and one that does not
+  keeps `UNMEASURED_FRESHNESS_SLA`
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.UNMEASURED_FRESHNESS_SLA
+
+- Surface: ccf.products.contract.UNMEASURED_FRESHNESS_SLA
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `FreshnessSLA(max_age_seconds_by_signal={})` — the positive assertion
+  *this class's freshness is bounded by its TTL alone and it measures no
+  signal separately*, in the `NO_HITL_ACTIONS` / `NO_ADAPTER` voice
+- Why: a required field with no default was measured at 29
+  `register_product_class` call sites across 26 files; a default was measured
+  at zero. The default is only admissible because it says something true —
+  every class registered before D-IMPL-106 was in exactly this posture, and a
+  class declaring only a TTL has made a smaller promise rather than no promise
+- Migration: new surface — none. An existing registration keeps asserting what
+  it always asserted
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.ProductDiscovery
+
+- Surface: ccf.products.contract.ProductDiscovery
+- Public surface: true
+- Change type: added
+- Before: absent — §6.3 Discovery was one of the two elements
+  `docs/CONTEXT_PRODUCT_REVISION.md` §1.2 measured as unrepresented in code
+- After: a contract carrying `domain: str`, `intents: frozenset[str]` and
+  `capabilities: frozenset[str]`
+- Why: §6.3 at `:1463` — "a registry exposes available products by intent,
+  domain, and capability" — with the worked entry carrying "a capability
+  manifest", which `capabilities` is. Every value is a deployment-declared
+  opaque identifier compared structurally; no intent vocabulary, domain
+  taxonomy or capability list exists in the SDK (CLAUDE.md §11)
+- Migration: new surface — none required to keep working. A deployment that
+  wants its classes discoverable declares the block on its
+  `ccf.product-class` document; one that does not keeps `NOT_DISCOVERABLE`
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.NOT_DISCOVERABLE
+
+- Surface: ccf.products.contract.NOT_DISCOVERABLE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ProductDiscovery(domain="not-discoverable", intents=frozenset(),
+  capabilities=frozenset())` — the positive assertion *this class is reached
+  by direct reference and is not offered for intent-, domain- or
+  capability-based lookup*
+- Why: a class with no registry entry is a real deployment choice — it is the
+  choice every class in this tree has made until now — and it is a different
+  statement from an entry nobody filled in
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.ProductAddress
+
+- Surface: ccf.products.contract.ProductAddress
+- Public surface: true
+- Change type: added
+- Before: absent — §6.3 Addressability was the other unrepresented element
+- After: a contract carrying `address_template: str`, the address pattern the
+  class answers at
+- Why: §6.3 at `:1465`, worked as
+  `/context-products/credit-risk/counterparty/{counterparty-id}?intent=…&freshness=…`.
+  **The path half only, deliberately**: D-IMPL-98 ruled that the request
+  surface is a typed request contract per product class and that addressability
+  and that contract are one commitment, so the query half — subject and instant
+  as typed *arguments* — is that ruling's surface, built by plan 15.5-08.
+  Modelling query parameters here would foreclose its shape
+- Migration: new surface — none. A deployment declaring an address declares the
+  template; the arguments it is called with arrive with 15.5-08
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.NOT_ADDRESSABLE
+
+- Surface: ccf.products.contract.NOT_ADDRESSABLE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ProductAddress(address_template="not-addressable")` — the positive
+  assertion *this class is served in process and publishes no address pattern*
+- Why: exactly what the in-process delivery path this tree ships has always
+  done, stated rather than left blank
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.ConstituentValidityFloors
+
+- Surface: ccf.products.contract.ConstituentValidityFloors
+- Public surface: true
+- Change type: added
+- Before: absent — D-IMPL-31 ruled the floors on 2026-07-25 and nothing
+  implemented them
+- After: a contract carrying `min_validity_seconds_by_signal: Mapping[str, int]`
+  — per signal type, the least remaining validity a load-bearing constituent
+  must have
+- Why: D-IMPL-31's mixing-refusal rule, verbatim: "Product classes may declare
+  constituent-validity floors whose breach refuses assembly rather than
+  emitting a product fresher-labeled than its stalest load-bearing
+  constituent." Distinct from `FreshnessSLA` and not a restatement of it — one
+  is the currency a class expects of a signal, the other a refusal condition on
+  remaining validity
+- Migration: new surface — none. **Declaration only in this plan**: nothing in
+  the registration path reads a floor, because a mixing-refusal enforced at
+  wiring time would be a rule applied at the wrong moment. The refusal that
+  reads them is plan 15.5-12's, at assembly, where the mix exists
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.NO_VALIDITY_FLOORS
+
+- Surface: ccf.products.contract.NO_VALIDITY_FLOORS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ConstituentValidityFloors(min_validity_seconds_by_signal={})` — the
+  positive assertion *no constituent of this class is load-bearing enough to
+  refuse assembly on its staleness alone*
+- Why: a governance statement rather than an omission, and what every class
+  shipped before the floors existed was in fact asserting
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.NO_PAYLOAD_SCHEMA
+
+- Surface: ccf.products.contract.NO_PAYLOAD_SCHEMA
+- Public surface: true
+- Change type: added
+- After: `"no-payload-schema"` — carried on **both** halves of the
+  payload-schema pin so that "no schema" is one visible state rather than a
+  key and a version disagreeing
+- Before: absent — there was no payload schema to pin
+- Why: honest about a gap rather than papering over it. Until a class declares
+  a schema its payload is the unchecked `Mapping[str, Any]` D-IMPL-97 named as
+  the substantive defect of the vessel model, and this sentinel makes that
+  visible in the registration rather than inferable from a missing field
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.payload.ProductPayloadSchema
+
+- Surface: ccf.products.payload.ProductPayloadSchema
+- Public surface: true
+- Change type: added
+- Before: absent — a product class had no way to declare what its payload must
+  look like, so `ContextProductContract.payload` was an unchecked
+  `Mapping[str, Any]`
+- After: the name a product class's declared payload schema is read under. **An
+  alias of `ccf.skills.catalog.SkillArgumentSchema`, not a copy** —
+  `ProductPayloadSchema is SkillArgumentSchema` is `True`, and a test asserts
+  it rather than a comment claiming it
+- Why: D-IMPL-103 branch (i) — extend in place. The declined alternative, a
+  nesting-capable sibling declared here, was measured at five duplicated
+  symbols, which is the second machinery D-IMPL-97 explicitly asked this work
+  not to invent
+- Migration: new surface — none. A class adopting a declared payload registers
+  a `SkillArgumentSchema` under its own Control Plane key and pins it from the
+  product class
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.payload.PayloadSchemaViolation
+
+- Surface: ccf.products.payload.PayloadSchemaViolation
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the returned refusal when a payload does not match its class's
+  declared schema, carrying both sides — `reason`, the dotted `key`,
+  `declared_type`, `presented_type`, `declared_keys`, `presented_keys` and a
+  human-readable `detail`
+- Why: the refusal-as-value posture `ccf.products.gates` states at its own head
+  — a refusal returned as data cannot be swallowed by a bare `except`, and a
+  payload that does not match its schema is a bad *product*, not a broken
+  deployment. It deliberately does **not** derive from `GateRefusal`: under
+  D-IMPL-102 no payload gate joins `run_gates`, and a violation that inherited
+  the gate refusal type could be returned from the gate path by a later caller
+  who assumed the type meant it belonged there
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.payload.PayloadViolationReason
+
+- Surface: ccf.products.payload.PayloadViolationReason
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["undeclared-key", "missing-required-key", "type-mismatch"]`
+- Why: three reasons because there are three ways a closed, typed, partially
+  required declaration can be missed, and naming which one happened is what
+  lets a caller act without re-deriving anything
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.payload.refuse_payload
+
+- Surface: ccf.products.payload.refuse_payload
+- Public surface: true
+- Change type: added
+- Before: absent — no payload was compared against anything anywhere
+- After: `refuse_payload(*, payload, declared) -> PayloadSchemaViolation | None`
+  — one pure comparison, returning `None` for a conforming payload and the
+  first violation otherwise, in the fixed undeclared-then-missing-then-mistyped
+  order over sorted keys so the verdict does not depend on the order a
+  payload's keys were built in
+- Why: one function for the same reason `refuse_attestation` is one function —
+  D-IMPL-102's two limbs, registration-time binding and bind-time conformity,
+  must not drift into two readings of "conforms". Pure over its arguments: a
+  conformity verdict that moved with the clock or with what was registered
+  elsewhere would not be reproducible at replay
+- Migration: new surface — none. Bind-time conformity is called by plan
+  15.5-09 on the request surface D-IMPL-98 creates
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.skills.catalog.SkillArgumentMember
+
+- Surface: ccf.skills.catalog.SkillArgumentMember
+- Public surface: true
+- Change type: added
+- Before: absent — nothing below the top level of an argument declaration was
+  expressible at all
+- After: a member of a nested object: `type` and `description`, and **no
+  nesting fields whatsoever**
+- Why: this is where D-IMPL-103's ceiling lives, and it lives here
+  *structurally*. A third level is not something a declaration can be refused
+  for — it is something a declaration cannot say. The alternative was one
+  self-referential type plus a depth validator, which was written first and
+  rejected on two counts: it expresses the ceiling as a rule a later author can
+  relax, and it made FastAPI split every model reaching it into `-Input` /
+  `-Output` variants in the published OpenAPI document, renaming
+  `SkillCatalogEntry` in a contract external integrators read
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.skills.catalog.SkillArgumentElement
+
+- Surface: ccf.skills.catalog.SkillArgumentElement
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: an array's element spec — `type`, `description`, and optionally
+  `properties` (a map of `SkillArgumentMember`) with `required`. It has **no**
+  `items` field, so a list of lists is not expressible
+- Why: the "lists-of-objects (sufficient for the UBO owner list)" half of
+  D-IMPL-103. An array is transparent to the depth count — a list of objects is
+  one level of nesting, not two, because the array is a container of the object
+  rather than a level of its own — which is why this type may declare members
+  where `SkillArgumentMember` may not, and why a second container level is
+  absent rather than validated against
+- Migration: new surface — none
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.request.ProductRequest
+
+- Surface: ccf.products.request.ProductRequest
+- Public surface: true
+- Change type: added
+- Before: absent — a Context Product had no surface for the question that
+  provoked it, so a class's subject and instant had nowhere to live but an
+  artifact, and one product class answered one question about one entity as of
+  one frozen moment
+- After: a frozen, `extra=forbid` contract carrying `schema_name`,
+  `schema_version`, `subject`, `intent`, `freshness`, `asked_at` and
+  `parameters` — none of them defaulted
+- Why: whitepaper §6.3 **Addressability** at `docs/CCF_Whitepaper_1-2.md:1465`,
+  whose worked address pattern
+  `/context-products/credit-risk/counterparty/{counterparty-id}?intent=…&freshness=…`
+  "encodes exactly what the agent needs: which entity, for what decision, under
+  what temporal requirement". The four axes are that sentence. `asked_at` is a
+  *field* rather than a clock read because the projection engine deliberately
+  reads no clock — the caller passes `now` at serve time and replay passes the
+  **recorded** boundary through the same code path, and a clock anywhere on
+  this path would make replay impossible. **There is no role field and no
+  tenant field**: both are established by the door from the caller's verified
+  entitlement grant (plan 15.5-06), and a request that could carry either would
+  be a claim rather than a question. The absence is asserted by field
+  enumeration in `tests/products/test_request_contract.py`, in the
+  `tests/peering/test_trust_policy.py:213` shape, because a docstring cannot
+  fail when someone adds `requested_role`
+- Migration: new surface — nothing required. No shipped call site constructs
+  one, because no door accepts one yet (D-IMPL-108). An adopter preparing for
+  15.5-15 can construct requests and validate them today with `refuse_request`
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: added
+- Before: absent — §6.3 Addressability's *query* half had no representation in
+  code. Plan 15.5-07 landed `ProductAddress`, the path half, and deliberately
+  modelled no query parameter so this shape would not be foreclosed
+- After: a `VersionedArtifact` carrying `schema_name`, `schema_version` and
+  `arguments: SkillArgumentSchema` — the questions one product class, at one
+  lane, answers
+- Why: D-IMPL-98 option (a), which ruled the request surface a *typed request
+  contract per product class, declared as a Control Plane artifact, in the
+  `SkillArgumentSchema` shape*. `arguments` is that type itself rather than a
+  copy or a sibling, which is D-IMPL-103 applied where it was written to apply
+  — the ruling declined a second machinery at five duplicated symbols. The
+  artifact **names the class and lane it serves**, which a payload schema
+  cannot: a `SkillArgumentSchema` is a shape and knows nothing about what
+  declared it, so a payload schema pinned onto the wrong product class is
+  undetectable, while a request contract so pinned is refused at wiring time
+- Migration: new surface — none. An adopter adopting it authors a
+  `ccf.product-request-contract` document, registers it, and pins it from the
+  product class by the `(key, version)` registration mints
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.request.PRODUCT_REQUEST_CONTRACT
+
+- Surface: ccf.products.request.PRODUCT_REQUEST_CONTRACT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ArtifactClass(class_id="ccf.product-request-contract",
+  contract=ProductRequestContract)`, with a committed
+  `docs/schemas/ccf.product-request-contract.json`
+- Why: the class joins **neither** `SDK_ARTIFACT_CLASSES` nor
+  `SDK_VERSIONED_ARTIFACT_CLASSES`, on the placement plan 15.5-03 established
+  for `ccf.product-entitlement-policy` and `ccf.peering-trust-policy`. The
+  first mapping *is* the set the HTTP `GET /schema` route and `ccf schema
+  export` enumerate, and widening it here would be an unruled runtime surface
+  change made incidentally; the second is closed to a contract declaring no
+  `artifact_version`. The schema still lands, because
+  `tools/dump_schemas.py::unaddressable_classes` **discovers** `ArtifactClass`
+  instances in neither mapping rather than reading a list. **Consequence for
+  `ccf schema export` and the HTTP route: none — the served set is
+  byte-unchanged at 12 entries**, asserted by test
+- Migration: new surface — none. Registration is adopter code: a deployment's
+  composition root registers its request contracts with `register_typed`
+  against this constant, exactly as it registers its entitlement policy. No
+  manifest can name the class
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.request.NO_REQUEST_CONTRACT
+
+- Surface: ccf.products.request.NO_REQUEST_CONTRACT
+- Public surface: true
+- Change type: added
+- Before: absent — there was no request contract to pin
+- After: `"no-request-contract"`, carried on **both** halves of the pin so that
+  "no contract" is one visible state rather than a key and a version
+  disagreeing
+- Why: the discipline `NO_PAYLOAD_SCHEMA` states for its own pin, and honest
+  about a gap rather than papering over it. Until a class declares a request
+  contract, its subject and its instant are whatever an artifact happened to
+  author — the defect this plan exists to close — and that is visible in the
+  declaration rather than inferable from a missing field
+- Migration: new surface — none
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.request.refuse_request
+
+- Surface: ccf.products.request.refuse_request
+- Public surface: true
+- Change type: added
+- Before: absent — no request was compared against anything anywhere, because
+  no request existed
+- After: `refuse_request(*, request, declared) -> ProductRequestViolation |
+  None` — address first (is this request even addressed to this contract?),
+  then the declared parameters
+- Why: one comparison, for the reason `refuse_attestation` is one function —
+  the door's check and any registration-time capability check must not drift
+  into two readings of "well-formed". It goes further than restating
+  `refuse_payload`'s logic: it **calls** it and translates the verdict, so
+  there is literally one reading of "conforms" across the payload and request
+  surfaces and D-IMPL-103's widening reaches both for free. The address check
+  runs first because comparing a request's arguments against another class's
+  declaration produces a confident verdict about the wrong question. Pure over
+  its arguments: no clock, no registry lookup, no I/O, so a verdict is
+  reproducible at replay
+- Migration: new surface — none. The call site at the door is plan 15.5-15's,
+  under D-IMPL-108
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.request.ProductRequestViolation
+
+- Surface: ccf.products.request.ProductRequestViolation
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the returned refusal when a request does not match its class's
+  declared contract, carrying both sides — `reason`, the dotted `key`,
+  `declared_type`, `presented_type`, `declared_keys`, `presented_keys` and a
+  human-readable `detail`
+- Why: the refusal-as-value posture `ccf.products.gates` states at its own head
+  — a refusal returned as data cannot be swallowed by a bare `except` — and a
+  malformed request is a bad *question*, not a broken deployment. It
+  deliberately does **not** derive from `PayloadSchemaViolation`, for the
+  reason that type does not derive from `GateRefusal`: the comparison beneath
+  the two is shared on purpose, and a shared *verdict type* would let a request
+  refusal be returned from the payload path by a later caller who assumed the
+  type meant it belonged there
+- Migration: new surface — none
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.request.ProductRequestViolationReason
+
+- Surface: ccf.products.request.ProductRequestViolationReason
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Literal["undeclared-parameter", "missing-required-parameter",
+  "type-mismatch", "class-mismatch"]`
+- Why: the first three are `PayloadViolationReason`'s three, spelled in the
+  request surface's own vocabulary (*parameter*, not *key*) so a caller reading
+  a refusal is not asked to translate. The fourth has no payload analogue: a
+  payload belongs to whatever product carried it, while a request is
+  **addressed**, and a request handed to the wrong class's contract is a
+  mis-delivery rather than a bad argument
+- Migration: new surface — none
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.request.refuse_request_contract_pin
+
+- Surface: ccf.products.request.refuse_request_contract_pin
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `refuse_request_contract_pin(*, registry, schema_name, schema_version,
+  request_contract_key, request_contract_version) -> None` — raising
+  `ProductClassRegistrationError`, naming both sides, when the pin is
+  half-declared, names nothing registered, names an artifact that is not a
+  request contract, or names a contract declared for another class or another
+  lane
+- Why: D-IMPL-39's reasoning applied to D-IMPL-98. A deployment that pinned a
+  contract that is not there — or pinned another class's — finds out **while
+  wiring the fabric**, rather than in front of a caller whose question it can
+  no longer answer. The shipped `ProductClassRegistrationError` is reused
+  rather than a new error type added, because from the adopter's point of view
+  a class whose governance configuration is absent or malformed fails for one
+  reason. The fourth refusal is the cross-check the payload-schema pin cannot
+  make
+- Migration: new surface — none, and one honest gap. **`register_product_class`
+  does not call this function yet.** `src/ccf/products/contract.py` is under
+  concurrent edit this wave by plan 15.5-11 (D-IMPL-100 puts `DebtAssessment`
+  on the vessel there), so the one-line call site and the two
+  `RegisteredProductClass` fields that mirror the authored key belong to the
+  plan that next opens that file — 15.5-15, which is already widening the
+  request path end to end. Until then the refusal is called directly by a
+  deployment's composition root, exactly as `ProductEntitlementPolicy`
+  resolution is
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.products.bind.refuse_bound_payload
+
+- Surface: ccf.products.bind.refuse_bound_payload
+- Public surface: true
+- Change type: added
+- Before: absent — a class could declare a payload schema (15.5-07) and pin it
+  at registration, and nothing anywhere held an actual payload to it. The
+  declaration was documentation
+- After:
+  `refuse_bound_payload(*, payload, product_class, registry) -> PayloadSchemaViolation | None`
+  — resolves the class's `(payload_schema_key, payload_schema_version)` pin
+  and delegates to `ccf.products.payload.refuse_payload`. Returns `None` for a
+  conforming payload **and for a class that declared no schema**; otherwise
+  the violation naming the first failure and carrying both sides of it
+- Why: D-IMPL-102 limb 2. Bind is where a payload meets its declared schema
+  because bind is where the class a request resolved to is in hand and its
+  pinned schema is therefore resolvable. It delegates rather than compares so
+  that registration-time binding and request-time checking cannot drift into
+  two readings of "conforms" — the reason `refuse_attestation` is one function
+  and not two
+- Migration: **new surface — nothing is required of an existing adopter, and
+  nothing changes for a class that has declared no payload schema.** A
+  deployment adopting the check registers its schema, pins it on the product
+  class, and calls this once on the bound path after the payload exists and
+  before it leaves that path. The refusal is a returned value — a caller that
+  ignores the return has not been refused, which is the same posture
+  `run_gates` takes and the same responsibility a caller carries there.
+  **Where the request surface joins:** D-IMPL-98's typed request contract
+  (plan 15.5-08) is what a request binds *through*, and D-IMPL-108 gave the
+  widening of the three-string resolver seam to plan 15.5-15. Neither a
+  request nor a door appears in this signature, deliberately — keeping them
+  out is what lets both of those land without reopening this one
+
+*Recorded by `15.5-09-payload-bind.md`.*
+
+#### ccf.products.bind.resolve_declared_payload_schema
+
+- Surface: ccf.products.bind.resolve_declared_payload_schema
+- Public surface: true
+- Change type: added
+- Before: absent — the pin `RegisteredProductClass` carries was resolved only
+  once, inside `register_product_class`, and no caller could read back the
+  schema a class had declared
+- After:
+  `resolve_declared_payload_schema(*, product_class, registry) -> ProductPayloadSchema | None`
+  — resolves the pin by **exact** version, never latest, and returns `None`
+  when the class declared none. Raises `ControlPlaneMissing` when the pin has
+  vanished since registration and `TypeError` when it now holds something that
+  is not a schema
+- Why: separated from the conformity check so a caller binding many requests
+  against one class can resolve once, and so the two failure modes stay
+  reported the way this tree reports them: a payload that misses its schema is
+  a bad **product** and comes back as a value; a pin that no longer resolves
+  is a broken **deployment** and is raised. That asymmetry is `run_gates`'s
+  own, kept for its MAX_TTL pin, and applied here to the second piece of
+  pinned governance
+- Migration: new surface — none. The `None` return is the positive assertion
+  *this class has not declared what its payload must look like* (the
+  `NO_PAYLOAD_SCHEMA` sentinel's reading), never *the lookup was skipped*
+
+*Recorded by `15.5-09-payload-bind.md`.*
+
+#### ccf.agents.assembler.ContextAssemblerProtocol
+
+- Surface: ccf.agents.assembler.ContextAssemblerProtocol
+- Public surface: true
+- Change type: added
+- Before: absent — the fabric had a delivered product (`ContextProductContract`)
+  and a declared emission *pattern* (`_ContextAssemblyComponent`), and nothing
+  in between. There was no surface on which "what produced this product" was a
+  question with an answer
+- After: a `@runtime_checkable` Protocol carrying `assembler_id`,
+  `assembler_version` and a keyword-only
+  `assemble(*, request, perspective, tenant_id) -> AssemblyOutcome`
+- Why: a Protocol rather than a base class for the reason
+  `DebtFactorScorerProtocol` gives for its own case — a deployment substitutes
+  its own assembler by **conforming**, never by inheriting, and the SDK's
+  reference implementation carries no privileged status. `assembler_id` and
+  `assembler_version` are on the surface for the reason
+  `scorer_id`/`scorer_version` are on theirs: what made a vessel this
+  particular product is *how it was assembled*, so the assembler in force must
+  be pinnable into replay. `assemble` is keyword-only because a three-value
+  call whose arguments could transpose would attribute an assembly to the wrong
+  tenant — the discipline `ProductResolverProtocol` already applies at egress.
+  **No reasoning loop is on this surface and none ships**: there is no `run`,
+  `step`, `plan` or `loop`, the loop belongs to the harness (CLAUDE.md §7.3),
+  and the module holds zero harness imports
+- Migration: new surface — nothing required. No shipped call site constructs
+  one. An adopter adopting it declares an agent from the `context_assembly`
+  archetype, declares what it emits on axis 2, and writes a conforming
+  assembler — a `@dataclass` with two properties and one method, with nothing
+  to inherit
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.assembler.AssemblyOutcome
+
+- Surface: ccf.agents.assembler.AssemblyOutcome
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a frozen, `extra=forbid` contract carrying `payload`,
+  `consultations`, `acquisitions`, `assembler_id`, `assembler_version`,
+  `skill_set_in_force` and `halflife_debt_profile`
+- Why: two structural invariants ride on this shape rather than on caller
+  discipline. **Single-writer** (CLAUDE.md §10): the whole effect of an
+  assembly is this return value — nothing here is a handle, a session or a
+  callback, and carrying an outcome into L3 stays L2's job, the shape
+  `Agent.emit_effect` already establishes. **Algorithmic ⇄ Semantic
+  Alternation** (whitepaper §7.6.6): `acquisitions` is the *only* field typed
+  to carry content an enlisted agent produced, so model-produced content
+  re-enters through `ProjectionEngine.execute(recorded_acquisitions=…)` with
+  the content address that makes a replay a re-feed, never as payload. That
+  one-route property is asserted by **field enumeration**, in the
+  `tests/products/test_request_contract.py` shape, because a docstring cannot
+  fail when somebody adds `generated_narrative`. `skill_set_in_force` is the
+  skill-set bound **at assembly time**, not a live query, so a decision
+  replays against the skills the agent actually had (D-07)
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.assembler.ConsultationRecord
+
+- Surface: ccf.agents.assembler.ConsultationRecord
+- Public surface: true
+- Change type: added
+- Before: absent — what a product had been *permitted to reach for* was
+  nowhere, so two products assembled under different policy regimes were
+  indistinguishable in the record
+- After: `permitted` and `refused` tuples of opaque consultation targets, held
+  sorted, unique and disjoint by validator
+- Why: *what a product was permitted to consult* is what makes a product's
+  identity auditable — replay answers not only what an assembly returned but
+  what it was allowed to reach for. Targets are **opaque identifiers the SDK
+  never interprets**, the posture `SkillRequirements` states verbatim for its
+  own module: no consultation vocabulary exists anywhere in `/src`. Sorted and
+  unique because both tuples participate in canonical serialization and
+  therefore in content identity, and a record whose ordering followed a
+  scheduler's visit order would hash two ways for one assembly; disjoint
+  because a target both permitted and refused describes no Control Plane
+  decision
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.assembler.DeterministicAssembler
+
+- Surface: ccf.agents.assembler.DeterministicAssembler
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the SDK's reference assembler — consults nothing, records
+  `NO_CONSULTATIONS`, returns Π's payload unchanged, and reads the governed
+  part (skill-set in force, pinned axis-5 ref) off the declared agent at
+  assembly time
+- Why: reference implementations ship alongside Protocols (CLAUDE.md §11). It
+  exists to prove the Protocol composes against a real factory-built agent and
+  to give a deployment something to diff its own against — **and for no third
+  reason**. It is deliberately not a worked assembler for any domain: a
+  product class named after a business process, or a reference assembler shaped
+  like one, is a defect of the same severity as a hard-coded half-life table
+  (CLAUDE.md §6.1). Its two refusals name both sides and repair neither, the
+  `refuse_operator_set_divergence` posture
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.assembler.NO_CONSULTATIONS
+
+- Surface: ccf.agents.assembler.NO_CONSULTATIONS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ConsultationRecord(permitted=(), refused=())`
+- Why: the `NO_GRANTS_SET_HASH` voice — *this assembly reached for nothing
+  outside itself* is a claim an auditor can read, and it is distinguishable
+  from a record somebody forgot to populate only because the claim is named
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.assembler.DETERMINISTIC_ASSEMBLER_ID
+
+- Surface: ccf.agents.assembler.DETERMINISTIC_ASSEMBLER_ID
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"ccf.reference.deterministic-assembler"`
+- Why: the identity `DeterministicAssembler` reports, named as a constant for
+  the reason `FRESHNESS_SCORER_ID` is — a value pinned into a record has to be
+  referable by the code that asserts against it, and a literal repeated at the
+  assertion site is a second spelling waiting to drift
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.assembler.DETERMINISTIC_ASSEMBLER_VERSION
+
+- Surface: ccf.agents.assembler.DETERMINISTIC_ASSEMBLER_VERSION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"1.0.0"`
+- Why: the version half of the pin, on the `FRESHNESS_SCORER_VERSION`
+  precedent: a payload is only reproducible alongside the version of the
+  computation that produced it
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.ContextAssemblerProtocol
+
+- Surface: ccf.agents.ContextAssemblerProtocol
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-exported at the `ccf.agents` package root
+- Why: the package root already re-exports `Agent`, `AgentFactory` and the
+  archetype bundles; an assembler surface reachable only by module path would
+  be the odd one out. See `ccf.agents.assembler.ContextAssemblerProtocol` above
+  for the substance
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.AssemblyOutcome
+
+- Surface: ccf.agents.AssemblyOutcome
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-exported at the `ccf.agents` package root
+- Why: as above. See `ccf.agents.assembler.AssemblyOutcome` for the substance
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.ConsultationRecord
+
+- Surface: ccf.agents.ConsultationRecord
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-exported at the `ccf.agents` package root
+- Why: as above. See `ccf.agents.assembler.ConsultationRecord` for the substance
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.DeterministicAssembler
+
+- Surface: ccf.agents.DeterministicAssembler
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-exported at the `ccf.agents` package root
+- Why: as above. See `ccf.agents.assembler.DeterministicAssembler` for the
+  substance
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.NO_CONSULTATIONS
+
+- Surface: ccf.agents.NO_CONSULTATIONS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-exported at the `ccf.agents` package root
+- Why: as above. See `ccf.agents.assembler.NO_CONSULTATIONS` for the substance
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.DETERMINISTIC_ASSEMBLER_ID
+
+- Surface: ccf.agents.DETERMINISTIC_ASSEMBLER_ID
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-exported at the `ccf.agents` package root
+- Why: as above. See `ccf.agents.assembler.DETERMINISTIC_ASSEMBLER_ID` for the
+  substance
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.DETERMINISTIC_ASSEMBLER_VERSION
+
+- Surface: ccf.agents.DETERMINISTIC_ASSEMBLER_VERSION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: re-exported at the `ccf.agents` package root
+- Why: as above. See `ccf.agents.assembler.DETERMINISTIC_ASSEMBLER_VERSION` for
+  the substance
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.errors.AssemblyRefused
+
+- Surface: ccf.agents.errors.AssemblyRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `ValueError` raised when an assembly is asked of an agent whose
+  declared tenant or axis-3 role is not the one asked for
+- Why: it lives in `errors.py` with the rest of the agent taxonomy rather than
+  beside the Protocol, because a stray error class in `assembler.py` would be
+  the drift. The sibling of `ConsumptionRefused` on the other face of the
+  fabric: that one refuses a product an agent may not read, this one refuses an
+  assembly an agent may not perform. Raised rather than returned, because both
+  conditions are channel-1 identity disagreements — they describe a *different
+  agent*, not a recoverable argument
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.definitions.EmittedProduct
+
+- Surface: ccf.agents.definitions.EmittedProduct
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `product_class` plus a semver-validated `schema_version`
+- Why: the producing counterpart of `ConsumedProduct`, pinned on the same
+  reasoning — a producer that named no version would claim to satisfy whatever
+  shape the class takes next, a contract drift replay cannot survive. A
+  separate contract rather than a reuse of `ConsumedProduct` because the two
+  are read by different mechanism and refused on different grounds: a consumed
+  class is checked at `Agent.consume`, an emitted class at construction against
+  what the deployment registered. Sharing the type would make "which side is
+  this?" a question the code could not answer
+- Migration: new surface — none beyond the `ContextContract` note above
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.definitions.EMITS_NOTHING
+
+- Surface: ccf.agents.definitions.EMITS_NOTHING
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the empty tuple, named
+- Why: the `NO_GRANTS_SET_HASH` voice again — *this agent emits nothing* is a
+  statement its author made, distinguishable from an emission binding somebody
+  dropped only because the claim is named. It is also what keeps the widening
+  additive
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.definitions.ASSEMBLY_ARCHETYPE_ID
+
+- Surface: ccf.agents.definitions.ASSEMBLY_ARCHETYPE_ID
+- Public surface: true
+- Change type: added
+- Before: absent — `"context_assembly"` was spelled in `ARCHETYPE_IDS` and
+  nowhere else needed it
+- After: `"context_assembly"`, named once
+- Why: the schema, the factory refusal and the archetype registry now all
+  depend on which archetype supplies the emission pattern, and three spellings
+  of one identifier is three places to drift
+- Migration: new surface — none
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.halflife.assessment.DebtAssessment
+
+- Surface: ccf.halflife.assessment.DebtAssessment
+- Public surface: true
+- Change type: added
+- Before: absent — the type lived only at `ccf.halflife.debt.DebtAssessment`
+- After: the same type, defined here and re-exported from
+  `ccf.halflife.debt`, with one further field: `scorers`
+- Why: D-IMPL-100 carries the assessment on `ContextProductContract`, and
+  `ccf.products.contract` **cannot** import `ccf.halflife.debt` — that module
+  reaches `ccf.controlplane.artifacts` (directly for `DebtProfile` and
+  `HalfLifeTable`, and again through `ccf.halflife.decay`), and
+  `ccf.controlplane.artifacts` imports `ccf.products.contract`. A top-level
+  import from the vessel would close a cycle at load time. The shape therefore
+  lives below both, depending on nothing but `CCFContract`; the computation
+  stays in `ccf.halflife.debt` with the Control Plane values it needs
+- Migration: **none.** Every existing `from ccf.halflife.debt import
+  DebtAssessment` keeps working, because the name is re-exported. Importing
+  from `ccf.halflife.assessment` is the lighter dependency and is what
+  `ccf.products.contract` itself does
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.assessment.DebtFactors
+
+- Surface: ccf.halflife.assessment.DebtFactors
+- Public surface: true
+- Change type: added
+- Before: absent — the type lived only at `ccf.halflife.debt.DebtFactors`
+- After: the same three `Decimal` factors, with a `float` now **refused at
+  construction** rather than silently coerced
+- Why: the same cycle-breaking split as `DebtAssessment`; plus T-15.5-48. These
+  values now sit inside the delivered product's content address, so a coerced
+  float would give the address a provenance that is a platform-dependent binary
+  expansion — the product would hash differently depending on where it was
+  assembled. Refusal is the honest reading of the module's own standing
+  "Decimal, never float" commitment
+- Migration: **none for a correct caller**, and a loud failure for an incorrect
+  one. Every construction site in this tree already passes `Decimal`, including
+  the fixture-driven ones, which quote their values as strings. A caller passing
+  a float now sees a `ValidationError` naming the reason instead of a plausible
+  number
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.assessment.DebtSignal
+
+- Surface: ccf.halflife.assessment.DebtSignal
+- Public surface: true
+- Change type: added
+- Before: absent — the enum lived only at `ccf.halflife.debt.DebtSignal`
+- After: the same three CAR routing states, `ok` / `forced_llm` /
+  `fail_closed`, unchanged in members and values
+- Why: it is a field type of `DebtAssessment`, so it moves with it under the
+  same import-cycle constraint
+- Migration: none — re-exported from `ccf.halflife.debt`
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.assessment.DebtFactorName
+
+- Surface: ccf.halflife.assessment.DebtFactorName
+- Public surface: true
+- Change type: added
+- Before: absent — the three factors were field names and nothing more, so
+  nothing could *refer* to one
+- After: `Literal["freshness", "completeness", "semantic_consistency"]`
+- Why: a scorer pin has to name the factor it accounts for, and a free `str`
+  would let a pin claim a factor the fabric does not compute. A closed
+  `Literal` refuses that at construction. The names are the SDK's own structure
+  drawn from whitepaper §7.7, never deployment vocabulary — which is what
+  `tests/halflife/test_debt_delivery.py` asserts against the module's string
+  constants, since the `cinv01b-numeric-table` lint sees a numeric map and not a
+  tuple of strings
+- Migration: new surface — none
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.assessment.ScorerPin
+
+- Surface: ccf.halflife.assessment.ScorerPin
+- Public surface: true
+- Change type: added
+- Before: absent. `DebtFactorScorerProtocol` has carried `scorer_id` and
+  `scorer_version` since I.1 *"because the ruling requires the scorer version in
+  force to be pinned into replay"* — and nothing ever pinned it
+- After: `factor`, `scorer_id` and `scorer_version`, plus
+  `ScorerPin.of(scorer, factor=...)`, which reads the identity off the scorer so
+  a pin cannot name a version its scorer does not claim
+- Why: D-IMPL-47, closed. A factor value is reproducible only alongside the
+  computation that produced it: a replay that resolved *today's* scorer would
+  re-derive a number under a different measurement and present it as the number
+  the decision was made with — the substitution the replay plane exists to
+  prevent
+- Migration: new surface — none required. A deployment that runs the reference
+  `FreshnessScorer` adopts the pin with
+  `assess_debt(factors, profile=profile, scorers=(ScorerPin.of(scorer, factor="freshness"),))`.
+  Pins are stored one-per-factor in a canonical order, on the `graph_secret_refs`
+  reasoning: declaration order is not a fact about the decision, and this value
+  is inside the product's content address
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.assessment.NO_SCORER_PINS
+
+- Surface: ccf.halflife.assessment.NO_SCORER_PINS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the empty tuple, as the positive assertion *no scorer declared itself
+  the producer of these factors* — in the `NO_GRAPH_QUERIES` voice and for its
+  reason
+- Why: only F has an SDK reference scorer, so an unpinned assessment is the
+  ordinary posture rather than a defect. Without a named sentinel an unpinned
+  assessment and one whose pins somebody dropped would be the same artifact,
+  which is the repudiation failure mode every sentinel in this fabric closes.
+  The empty tuple rather than a marker string because each element is a
+  structured pin and the field must stay one shape
+- Migration: new surface — none
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.debt.ScorerPin
+
+- Surface: ccf.halflife.debt.ScorerPin
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the re-export of `ccf.halflife.assessment.ScorerPin`
+- Why: `ccf.halflife.debt` is where an adopter already looks for everything
+  debt-shaped, and the module that owns `FreshnessScorer` is where a reader
+  reaches for the type that pins it. Re-exported rather than defined here, so
+  there is one definition
+- Migration: new surface — none
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.debt.NO_SCORER_PINS
+
+- Surface: ccf.halflife.debt.NO_SCORER_PINS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the re-export of `ccf.halflife.assessment.NO_SCORER_PINS`, which is
+  also `assess_debt`'s default for its `scorers` argument
+- Why: a caller reading `assess_debt`'s signature should be able to import its
+  default from the same module
+- Migration: new surface — none
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.debt.DebtFactorName
+
+- Surface: ccf.halflife.debt.DebtFactorName
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the re-export of `ccf.halflife.assessment.DebtFactorName`
+- Why: it is the type of `ScorerPin.of`'s `factor` keyword, and both are reached
+  from this module
+- Migration: new surface — none
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.products.composition.compose_lineage
+
+- Surface: ccf.products.composition.compose_lineage
+- Public surface: true
+- Change type: added
+- Before: absent — `ccf.peering.admission.union_lineage` composed a
+  producer/consumer **pair** across the peering boundary, and nothing composed
+  an N-way set of sibling constituents. A deployment aggregating three products
+  had no SDK answer for the composite's lineage
+- After: the N-way union. Both set axes are unioned so every constituent's
+  `operators_invoked` and `policy_bundle_versions` entries survive into the
+  composite; `graph_snapshot_at` is the earliest constituent's
+- Why: CLAUDE.md §7.2 makes lineage continuity a set-union rule, and D-14
+  requires every source signal stay resolvable. The union itself is
+  `union_lineage`, folded pairwise, rather than a second union written here —
+  a second union in the tree would be a second reading of what lineage
+  continuity means, and the shipped one is already property-tested. On exactly
+  two constituents this agrees with `union_lineage` **on the set axes**, so the
+  pairwise case has one behaviour and not two; it differs deliberately on the
+  anchor, for the reason above
+- Migration: none — a new function; `union_lineage` is unchanged and remains
+  the right call for the peering pair
+
+*Recorded by `15.5-12-aggregate-composition.md`.*
+
+#### ccf.products.composition.compose_expiry
+
+- Surface: ccf.products.composition.compose_expiry
+- Public surface: true
+- Change type: added
+- Before: absent — `D-IMPL-31` ruled
+  `expires_at = min(class MAX_TTL ceiling, derivation over constituent signal
+  validities)` on 2026-07-25 and it was never built, so a composite's expiry
+  was whatever an adopter's assembly code chose
+- After: the earliest of three terms — the class ceiling, the class's
+  configured derivation over constituent validities, and the stalest
+  constituent's own validity
+- Why: the first two terms are `D-IMPL-31` verbatim. The third makes the same
+  ruling's stated purpose structural: a class configuring something less
+  conservative than the reference `min` shape could otherwise produce exactly
+  the fresher-labelled composite the ruling exists to forbid. Under the
+  reference default the third term is an identity and changes nothing. The
+  module holds no TTL number; the ceiling arrives as a registered
+  `ccf.products.contract.MaxTTL` artifact and the anchor as a caller argument
+  (D-IMPL-39, CINV-01)
+- Migration: none — a new function
+
+*Recorded by `15.5-12-aggregate-composition.md`.*
+
+#### ccf.products.composition.refuse_mixing
+
+- Surface: ccf.products.composition.refuse_mixing
+- Public surface: true
+- Change type: added
+- Before: absent — `ccf.products.contract.ConstituentValidityFloors` could be
+  declared but **nothing in the tree read a floor**, so declaring one had no
+  effect at all
+- After: `D-IMPL-31`'s mixing-refusal rule, at assembly. Returns a
+  `MixingRefusal` for the first constituent whose remaining validity falls
+  below its declared floor, or `None` when every load-bearing constituent still
+  meets it
+- Why: the whitepaper commits the rule at §6.4 Lifecycle Step 4
+  (`docs/CCF_Whitepaper_1-2.md:1483`) — *"Temporal Validation refuses to
+  assemble a product that silently mixes the two"*, the ninety-day filing and
+  the fifteen-minute blotter entry. It runs at assembly rather than at
+  registration because the mix does not exist until assembly.
+  **Load-bearing is expressed by the declared floor, not by a second flag**:
+  `NO_VALIDITY_FLOORS` already means *no constituent of this class is
+  load-bearing enough to refuse assembly on its staleness alone*, and a second
+  way to say it could disagree with the first
+- Migration: none — a new function. A class that declared floors before this
+  landed now has them read; that is the behaviour the declaration always
+  described, and no floor changes meaning
+
+*Recorded by `15.5-12-aggregate-composition.md`.*
+
+#### ccf.products.composition.MixingRefusal
+
+- Surface: ccf.products.composition.MixingRefusal
+- Public surface: true
+- Change type: added
+- After: the returned verdict for a floor breach, carrying both sides of the
+  comparison — the constituent's identity and signal type, its `expires_at`,
+  the instant it was evaluated at, the declared floor in seconds, and an
+  operator-readable `detail`
+- Before: absent
+- Why: returned rather than raised, on this tree's standing distinction — a
+  composite whose constituent breached a floor is a bad *product*, not a broken
+  deployment. It deliberately does **not** derive from
+  `ccf.products.gates.GateRefusal`, and `ccf.products.composition` imports
+  nothing from `ccf.products.gates`: the three validation gates remain three,
+  on the `PayloadSchemaViolation` precedent. Remaining validity is carried as
+  its two instants rather than as a seconds figure, because a float duration on
+  a value that can reach the replay record is not bit-stable
+  (`src/ccf/halflife/debt.py`'s own reasoning)
+- Migration: none — a new type, returned only from a new function
+
+*Recorded by `15.5-12-aggregate-composition.md`.*
+
+#### ccf.products.composition.ConstituentValidity
+
+- Surface: ccf.products.composition.ConstituentValidity
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the input record `refuse_mixing` reads — a constituent's identifier,
+  its deployment-declared signal type, and its `expires_at`
+- Why: the minimum the refusal must be told, and deliberately no more.
+  `D-IMPL-104` records that an aggregate product *"has no representation in
+  this tree at all"*, and that is still true: this is not a Context Product,
+  not a contract element, and not a governance declaration. The
+  aggregate-product surface remains unbuilt
+- Migration: none — a new type
+
+*Recorded by `15.5-12-aggregate-composition.md`.*
+
+#### ccf.products.composition.EmptyCompositionError
+
+- Surface: ccf.products.composition.EmptyCompositionError
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised by all three composition functions when no constituents are
+  offered
+- Why: raised rather than returned — a caller that reached a composition
+  function with nothing to compose has a wiring defect, not a bad product.
+  Treating the empty case as a vacuous success would produce a composite with
+  no provenance, no constituent validity to floor against, and a mixing check
+  that could never refuse: all three limbs lost at once, silently
+- Migration: none — a new exception on new call paths
+
+*Recorded by `15.5-12-aggregate-composition.md`.*
+
+#### ccf.products.composition.ExpiryDerivation
+
+- Surface: ccf.products.composition.ExpiryDerivation
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the type of `D-IMPL-31`'s per-class derivation over constituent signal
+  validities, `Callable[[Sequence[datetime]], datetime]`
+- Why: the ruling names `min` as *"the reference default shape"* and puts the
+  choice per class under the D-IMPL-38 parameter discipline, so the SDK ships
+  the shape and never a class's choice of it. **The choice is passed, not
+  declared**: neither `RegisteredProductClass` nor `ProductClassDeclaration`
+  carries a derivation field today, and the field belongs on the declaration
+  when the deferred aggregate-product surface arrives. Recorded here rather
+  than added, because adding a governance field is a declaration change
+- Migration: none — a new alias; the default is the ruled reference shape, so
+  a caller that passes nothing gets `min`
+
+*Recorded by `15.5-12-aggregate-composition.md`.*
+
+#### ccf.deployment.binder.refuse_unpromisable_freshness_sla
+
+- Surface: ccf.deployment.binder.refuse_unpromisable_freshness_sla
+- Public surface: true
+- Change type: added
+- Before: absent — a product class's `freshness_sla` and its constituent
+  classes' were authored independently with nothing binding them, so a class
+  could declare a twenty-four-hour expectation on a signal its constituent only
+  offered at thirty days, and nothing would say so until an agent consumed a
+  product that quietly missed the SLA
+- After: a bind-time refusal, modelled clause for clause on
+  `refuse_operator_set_divergence`. It raises when a constituent class declares
+  a larger `max_age` than the composite promised on the same signal type; the
+  message names all three facts — the promise, the breaching constituent, and
+  its offer — and every non-raising path returns `None`
+- Why: this is the most valuable of criterion 8's three limbs, because it turns
+  freshness from a runtime surprise into a **structural refusal** checkable
+  before any product of the class exists. It refuses rather than repairing, on
+  the same posture: only the deployment's author knows which of the two
+  authored documents they meant, and silently preferring one would leave a
+  deployment whose declared freshness depends on which document the SDK
+  happened to trust. Silence on a signal is **not** read as a weak promise —
+  `UNMEASURED_FRESHNESS_SLA` is the positive assertion *this class measures no
+  signal separately*, and reading it as an unbounded offer would refuse every
+  class registered before `D-IMPL-106`. `ccf.deployment` still imports nothing
+  from `ccf.products.gates`; the comparison reads `ProductClassDeclaration`
+  only, so the no-allowlist `cinv02-deployment-gates` ban is unbroken
+- Migration: a deployment whose composite class declares a freshness SLA
+  stricter than one of its constituent classes offers on the same signal now
+  **fails at the call site instead of at nothing**. Two documents disagree and
+  the SDK will not choose between them: either weaken the composite class's
+  `freshness_sla` for that signal to what the constituent can actually offer,
+  or strengthen the constituent class's declaration if that is what its source
+  really delivers. Do **not** delete the constituent's declaration to silence
+  the refusal — a class that declares nothing for a signal is not compared on
+  it, so that suppresses the check rather than resolving it. Nothing existing
+  breaks until an adopter adds the call: no shipped code path invokes it, on
+  the same convention-not-enforcement residual `D-IMPL-86`'s correction names
+  for `refuse_operator_set_divergence`
+
+*Recorded by `15.5-12-aggregate-composition.md`.*
+
+#### ccf.products.request.request_seeds
+
+- Surface: ccf.products.request.request_seeds
+- Public surface: true
+- Change type: added
+- Before: absent. The request's subject reached Π and nothing else; the walk
+  started only from the entity classes the traversal operator's parameters
+  declared
+- After: `request_seeds(request: ProductRequest | None) -> frozenset[str] |
+  None` — the single-element set naming the request's subject, or `None` for no
+  request
+- Why: D-IMPL-111 limb (a). The entity anchor of the whitepaper's address
+  pattern (`docs/CCF_Whitepaper_1-2.md:1465`) is *which entity the question is
+  about*, so it is where a walk asked to answer that question begins. A function
+  rather than a set literal at two call sites because the **serving path and the
+  replay path must derive it identically**: two derivations could drift, and a
+  drift here would replay a different question under the original decision's
+  identifier
+- Migration: **none required.** To adopt, pass
+  `seeds=request_seeds(request)` to `ProjectionEngine.execute`. A deployment
+  that seeds by some other rule is not silently wrong — the seeds are inside
+  every issued `GraphQuery` and therefore inside the recorded pins, so the
+  divergence surfaces loudly at replay
+
+*Recorded by `15.5-13-request-in-replay.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_PRODUCT_DOOR_UNGOVERNED
+
+- Surface: ccf_runtime.http_api.errors.ERROR_PRODUCT_DOOR_UNGOVERNED
+- Public surface: true
+- Change type: added
+- Before: absent — the state it names could not arise, because the door served
+  in it
+- After: `"product-door-ungoverned"`, rendered in the one refusal-body shape at
+  503
+- Why: D-08's one-vocabulary posture. The typed constant is the contract and
+  the prose is human context; an operator handling this code programmatically
+  must not have to parse a sentence to learn that the deployment, not the
+  caller, is what needs fixing
+- Migration: new surface — nothing is required of a caller that never reached
+  the state. A client with exhaustive refusal-code handling adds one arm
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_PRODUCT_REQUEST_INCOMPLETE
+
+- Surface: ccf_runtime.http_api.errors.ERROR_PRODUCT_REQUEST_INCOMPLETE
+- Public surface: true
+- Change type: added
+- Before: absent — there were no request axes to supply partially
+- After: `"product-request-incomplete"`, rendered at 400
+- Why: the four §6.3 axes are supplied together or not at all. A defaulted axis
+  is a question nobody asked, answered anyway — which is precisely the literal
+  D-IMPL-98 removed from the artifact, and the door must not put it back
+- Migration: new surface — none
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf.products.contract.NO_REQUEST_CONTRACT
+
+- Surface: ccf.products.contract.NO_REQUEST_CONTRACT
+- Public surface: true
+- Change type: added
+- Before: the constant existed, defined in `ccf.products.request`
+- After: **defined here**, beside the `RegisteredProductClass` field it
+  defaults, and re-exported from `ccf.products.request` unchanged
+- Why: `ccf.products.request` imports `ProductClassRegistrationError` from this
+  module, so the dependency cannot run the other way — a `RegisteredProductClass`
+  field defaulting to a constant defined in `request.py` would close an import
+  cycle at load time. This is exactly where `NO_PAYLOAD_SCHEMA` already lives
+  and exactly how `ccf.products.bind` already reads it
+- Migration: **none.** `from ccf.products.request import NO_REQUEST_CONTRACT`
+  keeps working and returns the same object — asserted by identity, not
+  equality, because two equal strings is the state that assertion exists to
+  rule out
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -3343,11 +5011,57 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.4-09-backends-cli.md`.*
 
+#### docs/schemas/ccf.product-entitlement-policy.json
+
+- Surface: docs/schemas/ccf.product-entitlement-policy.json
+- Public surface: false
+- Change type: added
+- Before: absent
+- After: the committed authoring schema for the new class, emitted by
+  `make schemas` and committed in the same commit as the contract
+- Why: the drift gate is bytes-equality in the always-on `test` job, so a schema
+  landing one commit later is a red build for that commit. The schema is also
+  what an adopter points a `# yaml-language-server: $schema=` header at, which
+  is the whole reason this tree commits generated schemas at all
+- Migration: none — a new file; no existing schema moved
+
+*Recorded by `15.5-03-product-entitlement.md`.*
+
+#### src/ccf/agents/assembler.py
+
+- Surface: src/ccf/agents/assembler.py
+- Public surface: false
+- Change type: added
+- Before: the `ccf.agents` package's permitted `ccf` import surface
+  (`ALLOWED_CCF_PREFIXES` in `tests/agents/test_consumption_discipline.py`)
+  admitted no module under `ccf.projection`, and AGNT-01 held package-wide
+- After: a **per-module** widening, `MODULE_CCF_PREFIXES`, admitting
+  `ccf.projection.plan`, `ccf.projection.acquisition` and `ccf.products.request`
+  for `assembler.py` alone — plus a new fourth claim asserting that a widened
+  module names none of `FABRIC_CAPABILITY_NAMES`
+- Why: the file's own rule is that a new fabric import *"must be argued into
+  the allowlist, in review — never slipped in"*, so here is the argument. Every
+  symbol the module actually binds from those modules is a **frozen value
+  contract, never a capability**: `Perspective` is specialization axis 3 itself
+  (its docstring says *"the agent framework binds to it in I.2 rather than
+  replacing it"*), `ProjectionOutput` is a `plan_id` plus a payload,
+  `AcquiredContent` is the content-addressed item the Alternation claim cannot
+  be stated without naming, and `ccf.products.request` reaches no fabric layer
+  at all. The widening is **bounded rather than trusted**, which is the part
+  that matters: admitting the module that *holds* `ContentAcquirer` and
+  `ProjectionPlan` does not admit reaching for either, and the new claim runs
+  over every module in the package, so a capability arriving through one of
+  these doors is a red build. It is per-module rather than package-wide so the
+  prefix does not silently become admissible for `agent.py`
+- Migration: none — a test-scope invariant. An adopter is unaffected
+
+*Recorded by `15.5-10-assembler.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-217 entries — 34 public Python surface, 183 not public Python API.
+243 entries — 60 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -4175,6 +5889,626 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   records the positive `no-adapter` claim rather than falling silent
 
 *Recorded by `15.4-08-replay.md`.*
+
+#### ccf_runtime.mcp.egress.build_egress_server
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: reshaped
+- Before: `(*, server_name, resolver)` — the `FastMCP` constructor received
+  neither `token_verifier` nor `auth`, so this door was unauthenticated, and it
+  bound no authorizer of any kind
+- After: four further required keyword-only parameters — `token_verifier`,
+  `auth_settings`, `entitlement_source`, `perspective_resolver`. The verifier
+  pair reaches the `FastMCP` constructor; the governance pair is consulted
+  inside the product resource before the resolver is reached
+- Why: an entitlement check downstream of no authentication asks "may this
+  principal receive this class?" about a principal nobody verified, so
+  authentication had to come first — and `FastMCP` installs its authentication
+  middleware only at construction and only when both halves are present (D-26),
+  so it cannot be retrofitted onto the returned object. The governance pair is
+  required rather than optional-and-inert because this door is receiving its
+  first authentication *and* its first authorization at once: `hitl.py`'s
+  optional posture exists because it retrofits authorization onto a door that
+  had already shipped, whereas an optional seam here would ship exactly the gap
+  `docs/CONTEXT_PRODUCT_REVISION.md` §11.2 measured and would make
+  deny-by-default a deployment's choice rather than the SDK's
+- Migration: every existing caller breaks, and deliberately so — there is no
+  configuration of this builder that answers everyone. Supply (1) a
+  `TokenVerifier`: `SourceBackedTokenVerifier(source=...)` over a
+  `TokenSourceProtocol`; `FileTokenSource` is the development reference and a
+  production deployment substitutes its own identity infrastructure. (2) an
+  `AuthSettings` carrying the deployment's issuer, resource-server identity and
+  required scopes. (3) an `entitlement_source`:
+  `ControlPlaneProductEntitlementSource(control_plane=..., clock=...)` over a
+  registry holding a `ccf.product-entitlement-policy` registered under
+  `product_entitlement_key(tenant_id=...)`. (4) a `perspective_resolver`:
+  `(*, grant, tenant, requested_role) -> Perspective` deriving the role from the
+  verified grant — this surface's URI has three segments and no role among
+  them, so `requested_role` is always `None` here. Worked example:
+  `examples/04-cross-process/producer_child.py` with
+  `artifacts/egress-door.yaml`
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.mcp.experience.build_experience_server
+
+- Surface: ccf_runtime.mcp.experience.build_experience_server
+- Public surface: true
+- Change type: reshaped
+- Before: authenticated (`token_verifier` and `auth_settings` were already
+  required and already reached the `FastMCP` constructor), but its
+  `context_product` resource was entitlement-free and perspective-free exactly
+  like the other two doors
+- After: two further required keyword-only parameters — `entitlement_source`
+  and `perspective_resolver`, imported from
+  `ccf_runtime.authz.product_entitlement` and never re-declared here
+- Why: this is the surface external agent runtimes reach; egress is the
+  fabric-internal one. A fabric whose external door is less governed than its
+  internal one has its threat model backwards, and this phase's founding
+  complaint is *"an MCP server in front of a database"* — shipping the SDK's own
+  front door ungated would be that complaint, self-inflicted. The seams are
+  imported rather than re-declared because three doors with three readings of
+  "entitled" is the drift `run_gates`/`run_federated_gates` share their
+  comparison functions specifically to prevent
+- Migration: authentication is unchanged; existing callers add the two
+  governance seams on the same terms as the egress door above. The shared home
+  is `ccf_runtime.authz.product_entitlement`, not a sibling MCP module: the two
+  MCP roles may not import each other (`test_mcp_role_separation.py`), so the
+  seams live in a package neither owns — the resolution
+  `ccf_runtime.authz.protocol` already models for the two HITL doors. Worked
+  example: `examples/external/00-hello-context/serve.py` with the `entitlement`
+  block in `artifacts/experience.yaml`
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.http_api.routes.product.build_router
+
+- Surface: ccf_runtime.http_api.routes.product.build_router
+- Public surface: true
+- Change type: reshaped
+- Before: `build_router(deps)` — one GET route with no principal anywhere on it
+- After: `build_router(deps, *, entitlement_source=None,
+  perspective_resolver=None)`, and the route gains an optional `role` query
+  parameter and 403 responses carrying the shared typed constants. Supplying
+  exactly one of the two seams raises `ValueError`
+- Why: the seams are optional *here* and required on the two MCP doors, and the
+  asymmetry is deliberate: authentication on this surface is `create_app`'s
+  `auth=` hook, which is itself optional by ruling (D-IMPL-73, the
+  acknowledged insecure default), so a required seam would make a still-supported
+  posture unbuildable. `create_app` warns instead. The role is a query
+  parameter rather than a fourth path segment because the three path segments
+  are the product's *address* and a role is the caller's request about capacity
+- Migration: existing callers are unaffected — both parameters default to
+  `None` and the unbound route is byte-identical in behaviour to the recorded
+  T-07-24 posture. A deployment that wants delivery gated supplies **both**
+  seams and binds `auth=`; supplying one alone is refused at build time, and
+  supplying both without `auth=` emits `CcfDeadEntitlementWarning`
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf_runtime.http_api.app.create_app
+
+- Surface: ccf_runtime.http_api.app.create_app
+- Public surface: true
+- Change type: reshaped
+- Before: `(deps, *, auth=None, authorizer=None,
+  acknowledge_insecure_default=False)`
+- After: two further optional keyword-only parameters, `product_entitlement`
+  and `perspective_resolver`, threaded to the product router
+- Why: the composition root is where a deployment states its posture, and
+  `create_app` is where the WR-05 dead-configuration check already lives.
+  Binding the seams without `auth=` produces enforcement that can never run —
+  the same failure class the dead-authorizer warning covers, on a wider surface
+- Migration: existing callers are unaffected; both default to `None`
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf.mcp.client.McpResourceClient
+
+- Surface: ccf.mcp.client.McpResourceClient
+- Public surface: true
+- Change type: reshaped
+- Before: `(*, url, bridge=None)` — no way to present a credential, so an
+  authenticated MCP server could only be read by dropping to
+  `run_with_session` and re-implementing the three operations this class
+  already offers
+- After: an optional `http_client_factory` parameter, threaded to
+  `run_with_session` unchanged by all three async operations
+- Why: the egress door is now authenticated, and every SDK MCP server is. The
+  seam already existed one layer down (`run_with_session` has taken an
+  `HttpClientFactory` since D-26); this exposes it on the class consumers
+  actually use. A *factory* rather than a client instance for the reason the
+  type's own docstring gives: an `httpx.AsyncClient` binds to the event loop it
+  is used on, and the loop here is the bridge's background one
+- Migration: none — the parameter is optional and defaults to `None`, so an
+  unauthenticated endpoint needs nothing new. A caller reading an authenticated
+  server passes `http_client_factory=lambda: httpx.AsyncClient(headers={...})`;
+  `examples/04-cross-process/run.py` is the worked example
+
+*Recorded by `15.5-06-egress-entitlement.md`.*
+
+#### ccf.products.contract.RegisteredProductClass
+
+- Surface: ccf.products.contract.RegisteredProductClass
+- Public surface: true
+- Change type: reshaped
+- Before: eight fields — `schema_name`, `schema_version`, `ttl_anchor`,
+  `assembly_mode`, `max_ttl_key`, `max_ttl_version`,
+  `accepted_policy_binding_modes`, `accepted_lineage_modes`. Of the four §6.3
+  elements the module docstring placed here, only `assembly_mode` existed
+- After: six further fields, every one defaulted — `freshness_sla`,
+  `discovery`, `addressability`, `constituent_validity_floors`,
+  `payload_schema_key` and `payload_schema_version`. Between this class and
+  `ContextProductContract` all nine §6.3 elements are now borne by named
+  fields, asserted by `tests/products/test_contract_elements.py` with nothing
+  pending
+- Why: D-IMPL-106 (freshness), D-IMPL-98 (discovery and addressability, ruled
+  *not* declaration-only), D-IMPL-31 (the floors) and D-IMPL-97 ruling 1 (the
+  declared payload schema). Class-level throughout, because a product does not
+  carry a copy of its class's governance — it is governed by it — and because
+  that is the placement under which no recorded content address moves
+- Migration: **nothing is required of an existing adopter.** Every new field
+  defaults to a named positive sentinel, so a `register_product_class` call
+  written before this plan constructs unchanged and the resulting class states
+  what it always stated. To adopt: pass `freshness_sla=FreshnessSLA(...)` for
+  the per-signal currency expectation; `discovery=ProductDiscovery(...)` to
+  publish the class to a registry; `addressability=ProductAddress(...)` for the
+  address it answers at; `constituent_validity_floors=...` to declare the
+  D-IMPL-31 floors ahead of 15.5-12's refusal; and
+  `payload_schema_key=` / `payload_schema_version=` to pin a declared payload
+  schema, which must already be registered in the Control Plane
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.products.contract.register_product_class
+
+- Surface: ccf.products.contract.register_product_class
+- Public surface: true
+- Change type: reshaped
+- Before: eight keyword parameters; resolved and type-checked the class's
+  MAX_TTL and nothing else
+- After: six further keyword parameters carrying the fields above, all
+  defaulted. When a payload-schema pin is declared, the schema is **resolved at
+  registration** and refused — `ProductClassRegistrationError`, raised and
+  naming both sides — if the pin is half-declared, names nothing registered, or
+  names an artifact that is not a payload schema
+- Why: D-IMPL-102 limb 1, *schema validity at registration*: a deployment that
+  pinned a schema that is not there finds out while wiring the fabric rather
+  than when a request is about to be bound to it, which is the MAX_TTL
+  reasoning (D-IMPL-39) applied to the second piece of pinned governance. The
+  well-formedness half is structural rather than a check that could be
+  forgotten — a malformed schema cannot be constructed at all — so what remains
+  for registration is that the pinned artifact *is* one
+- Migration: none for an existing caller; every added parameter is
+  keyword-only with a default. A caller adopting the payload schema registers
+  the schema first and passes the `(key, version)` the registration minted.
+  **No fourth gate follows**: `ccf.products.gates.run_gates` is byte-untouched
+  and the three shipped validation gates stay at three (D-IMPL-102 limb 3)
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.controlplane.artifacts.ProductClassDeclaration
+
+- Surface: ccf.controlplane.artifacts.ProductClassDeclaration
+- Public surface: true
+- Change type: reshaped
+- Before: `semver`, `schema_name`, `schema_version`, `ttl_anchor`,
+  `assembly_mode`, `max_ttl_key`, `required_operator_keys`,
+  `accepted_policy_binding_modes`, `accepted_lineage_modes`
+- After: five further defaulted fields mirroring the registered class —
+  `freshness_sla`, `discovery`, `addressability`,
+  `constituent_validity_floors` and `payload_schema_key`.
+  `docs/schemas/ccf.product-class.json` regenerates accordingly, in the same
+  commit, under the bytes-equality drift gate
+- Why: the authored twin of `RegisteredProductClass`. **`payload_schema_version`
+  is deliberately absent**, on exactly the rule that keeps `max_ttl_version`
+  absent: that pin is a content hash minted by *registering* the schema, and an
+  artifact declaring it would be authoring a hash of something it does not
+  contain. Authored key, derived version — the second instance of the rule
+  rather than a new one
+- Migration: **no committed `ccf.product-class` document needs editing.** All
+  five fields default, on the `accepted_policy_binding_modes` precedent, so an
+  artifact authored before this plan parses unchanged and means what it meant.
+  To adopt, add any of `freshness_sla:`, `discovery:`, `addressability:`,
+  `constituent_validity_floors:` or `payload_schema_key:` to the document; an
+  editor pointed at the regenerated schema will complete them
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.skills.catalog.SkillArgumentProperty
+
+- Surface: ccf.skills.catalog.SkillArgumentProperty
+- Public surface: true
+- Change type: reshaped
+- Before: two required fields, `type` and `description`, and no way to describe
+  anything below the top level
+- After: three further fields, all defaulted to "not declared" — `properties`
+  (an object-typed property's own members), `items` (an array-typed property's
+  element spec) and `required` (which of its own members must be present).
+  Keyword agreement is validated: `properties` requires `type == "object"`,
+  `items` requires `type == "array"`, an array's element spec may not itself be
+  an array, and a nested `required` name must be declared
+- Why: D-IMPL-103, Dave 2026-08-11, branch (i). Flattening v0 payloads to one
+  level was measured as not surviving without loss — three declared fields in
+  `examples/s1-01-hello-context-product` lose a typed fact, and flattening a
+  beneficial-owner list into parallel arrays preserves the values while
+  degrading the pairing to an index convention the schema cannot state
+- Migration: **none — this is a widening, not a replacement.** Every existing
+  depth-1 property is still valid with the two fields it always had, and an
+  unset nesting field is not a declaration: a leaf renders exactly the two keys
+  it rendered before
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.controlplane.artifacts.ProductClassDeclaration
+
+- Surface: ccf.controlplane.artifacts.ProductClassDeclaration
+- Public surface: true
+- Change type: reshaped
+- Before: as plan 15.5-07 left it — `semver`, `schema_name`, `schema_version`,
+  `ttl_anchor`, `assembly_mode`, `max_ttl_key`, `required_operator_keys`,
+  `accepted_policy_binding_modes`, `accepted_lineage_modes`, `freshness_sla`,
+  `discovery`, `addressability`, `constituent_validity_floors` and
+  `payload_schema_key`
+- After: one further defaulted field, `request_contract_key`.
+  `docs/schemas/ccf.product-class.json` regenerates accordingly, in the same
+  commit, under the bytes-equality drift gate
+- Why: the authored half of the request-contract pin. **`request_contract_version`
+  is deliberately absent**, on exactly the rule that keeps `max_ttl_version`
+  and `payload_schema_version` absent: that pin is a content hash minted by
+  *registering* the contract, and an artifact declaring it would be authoring a
+  hash of something it does not contain. Authored key, derived version — the
+  **third** instance of the rule rather than a new one. Note the asymmetry this
+  plan leaves and does not hide: `RegisteredProductClass` gains **no** mirror
+  field, because `src/ccf/products/contract.py` is owned by a concurrent plan
+  this wave; the authored side lands now and the registered side lands with the
+  door wiring in 15.5-15
+- Migration: **this note composes with 15.5-07's rather than replacing it.**
+  15.5-07 said no committed `ccf.product-class` document needs editing and
+  listed five fields to add when adopting; this plan adds a sixth to that same
+  list and changes nothing about the first five. `request_contract_key`
+  defaults on the `accepted_policy_binding_modes` precedent, so an artifact
+  authored before either plan parses unchanged and means what it meant. To
+  adopt, add `request_contract_key:` to the document alongside
+  `payload_schema_key:`; an editor pointed at the regenerated schema will
+  complete both. Adopting it is inert until 15.5-15 wires the door — the
+  declaration is read by `refuse_request_contract_pin` when a composition root
+  calls it, and by nothing else
+
+*Recorded by `15.5-08-request-contract.md`.*
+
+#### ccf.agents.AgentFactory
+
+- Surface: ccf.agents.AgentFactory
+- Public surface: true
+- Change type: reshaped
+- Before: the package-root re-export of the four-keyword constructor
+- After: the package-root re-export of the five-keyword constructor, the fifth
+  being the defaulted `product_classes`
+- Why: the re-export follows the module surface. See
+  `ccf.agents.factory.AgentFactory` above for the substance and the migration
+  reasoning
+- Migration: existing call sites are unaffected — the new keyword defaults
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.definitions.ContextContract
+
+- Surface: ccf.agents.definitions.ContextContract
+- Public surface: true
+- Change type: reshaped
+- Before: `consumes: tuple[ConsumedProduct, ...]` alone, with a docstring
+  reserving the emission side: *"Emission bindings (which projection an
+  assembler emits to) extend this contract when the ContextAssembly
+  archetype's transport lands; the shape is additive by design"*
+- After: `consumes` unchanged, plus `emits: tuple[EmittedProduct, ...] =
+  EMITS_NOTHING`. `docs/schemas/ccf.agent-definition.json` regenerates
+  accordingly, in the same commit, under the bytes-equality drift gate
+- Why: that reserved sentence, followed literally — the binding extends axis 2
+  rather than becoming a parallel artifact beside it, because both directions
+  are one axis: what an agent's fabric relationship *is*. `emits` defaults to
+  the named positive `EMITS_NOTHING` claim so every shipped definition and
+  every fixture parses byte-unchanged. What is deliberately **not** checked
+  here is the coherence: the schema knows the shape of a document, and only
+  the factory holds the archetype bundles and the deployment's registered
+  classes — a check that cannot see both sides cannot name both sides
+- Migration: **an emission binding is two lines in an agent definition, and
+  adopting it is optional.** In the `context_contract:` block that today reads
+  only `consumes:`, add:
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.agents.factory.AgentFactory
+
+- Surface: ccf.agents.factory.AgentFactory
+- Public surface: true
+- Change type: reshaped
+- Before: constructor took `control_plane`, `callable_registry`, `mcp_skills`
+  and `peering_skills`; `construct` ran four steps
+- After: one further defaulted keyword, `product_classes: Mapping[str,
+  RegisteredProductClass] | None = None`, and a fifth construction step that
+  refuses an incoherent or unregistered axis-2 emission binding
+- Why: both refusals are the class of check `register_product_class` already
+  makes for `MAX_TTL` (D-IMPL-39) — a deployment finds out **while wiring the
+  fabric**, rather than when a product is about to be assembled. They are
+  raised, never returned or warned, and they name both sides without repairing
+  either. `product_classes` is constructor-injected on the `callable_registry`
+  precedent — the factory holds no registry of its own — and keyed by
+  `schema_name`, the shape `AdmissionGate` already takes for the same
+  population. `None` is the positive statement *this deployment registered no
+  product classes*, and it is fail-closed: an emitting definition is then
+  refused, naming the empty set
+- Migration: **existing call sites are unaffected.** The new keyword defaults,
+  and a definition that declares no emission binding reaches neither refusal —
+  every shipped `AgentFactory(control_plane=…)` construction is untouched, and
+  all 162 tests under `tests/agents` pass with no fixture edited. Wire
+  `product_classes` only when you declare an emission binding
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.halflife.debt.DebtAssessment
+
+- Surface: ccf.halflife.debt.DebtAssessment
+- Public surface: true
+- Change type: reshaped
+- Before: three fields — `debt`, `signal`, `factors` — defined in this module
+- After: a re-export of `ccf.halflife.assessment.DebtAssessment`, carrying a
+  fourth field `scorers`, defaulted to `NO_SCORER_PINS`. A `float` `debt` is
+  refused at construction, and a second pin for one factor is refused
+- Why: D-IMPL-47's pin (see `ScorerPin`) and D-IMPL-100's placement (see the
+  module split under `ccf.halflife.assessment.DebtAssessment`)
+- Migration: **none for construction** — the new field is defaulted, so all six
+  construction sites in this tree build unchanged. **The canonical bytes of an
+  assessment change**, because `scorers` is serialized whether or not it is
+  populated. Anything that content-addressed a `DebtAssessment` directly, or a
+  contract embedding one, re-records; inside this repository that is exactly the
+  `ccf.hitl` escalation records below
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.halflife.debt.assess_debt
+
+- Surface: ccf.halflife.debt.assess_debt
+- Public surface: true
+- Change type: reshaped
+- Before: `assess_debt(factors, *, profile) -> DebtAssessment`
+- After: `assess_debt(factors, *, profile, scorers=NO_SCORER_PINS) ->
+  DebtAssessment`. The pins are **carried, never consulted**: passing them
+  changes neither `debt` nor `signal`, asserted by test
+- Why: D-IMPL-47 requires the scorer in force to travel *with* the value, and
+  constructing the value and its pin in one place is what stops the two from
+  being assembled separately and disagreeing. **D-IMPL-105 is what the new
+  parameter is not**: no entitlement, principal or grant argument joins this
+  signature, and a structural test asserts the parameter set so that a later
+  addition is a decision somebody makes rather than one that happens. Under a
+  per-principal figure the completeness number would move when a source was
+  withheld, giving a caller an oracle over the entitlement configuration —
+  quieter than a refusal, because nothing in the response says a consultation
+  was declined
+- Migration: **none.** The parameter is keyword-only with a default, so all nine
+  call sites across three files are unchanged
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.products.contract.ContextProductContract
+
+- Surface: ccf.products.contract.ContextProductContract
+- Public surface: true
+- Change type: reshaped
+- Before: nine fields, none of them saying anything about how much to trust the
+  product's contents
+- After: one further field, `debt: DebtAssessment | None`, defaulted to `None`
+- Why: D-IMPL-100. Debt is carried **inside** the delivered bytes rather than
+  beside them, because every shipped delivery path serializes the vessel and
+  none reads `ServedProduct.replay_ref` — see the door table above. `None` is
+  the positive assertion *this product was assembled with no debt assessment*,
+  in the `NO_HITL_ACTIONS` voice: it is what every product shipped before this
+  field existed was in fact asserting, and it is what keeps all 42 existing
+  construction sites saying exactly what they always said
+- Migration: **nothing is required to keep constructing products**, and
+  **something is required if you recorded addresses outside the replay record**
+  — see "The content address moves" above. To adopt, pass
+  `debt=assess_debt(factors, profile=profile, scorers=...)` at assembly; the
+  value then reaches every door and lands on the record with no further wiring.
+  A custom `ReplayEnvironment` must read it back — see
+  `ccf.replay.engine.ReplayEnvironment` below
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: six fields, ending at the 15.2-08 query pins
+- After: one further field, `debt: DebtAssessment | None`, defaulted to `None`
+- Why: dimension 5 and not dimension 1, for two reasons pointing the same way.
+  D_c's routing band *is* a generation-path fact — a Forced-LLM signal invokes a
+  semantic stage and a Fail-Closed signal declines the decision outright — and
+  debt is a property of the delivered product, so it belongs beside
+  `product_content_address`: the field a rehydrator reads in order to reproduce
+  the address sits next to the address it must reproduce. Dimension 1 stays
+  exactly the four D-IMPL-06 constituents plus the attestation pin
+- Migration: none for construction. `None` is the positive assertion *this
+  decision carried no debt assessment*, on the `source_attestation` precedent,
+  so a record written before this seam parses and verifies unchanged
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: the record's dimension 5 said nothing about debt
+- After: dimension 5's `debt` is **derived from the `product` argument the
+  builder was already handed** — no new parameter
+- Why: derivation rather than threading is what keeps all 30 consumers,
+  including two conformance modules, byte-for-byte unchanged; and it makes a
+  record that pins a debt its product does not carry *unrepresentable* rather
+  than merely discouraged. It is the same rule that put the 15.2-08 seam facts
+  on `ExecutionResult` rather than in the signature: a fact already present is
+  read, never re-passed
+- Migration: **none.** No call site changes. A caller that wants debt on the
+  record puts it on the product
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.hitl.EscalationHandOff
+
+- Surface: ccf.hitl.EscalationHandOff
+- Public surface: true
+- Change type: reshaped
+- Before: unchanged in its own fields
+- After: still unchanged in its own fields; its `trigger` may be a
+  `DebtAssessment`, which gained `scorers`, so the hand-off's canonical bytes
+  move with it
+- Why: consequential, not deliberate. `EscalationTrigger` is
+  `ExplicitEscalation | DebtAssessment` by design — a debt-triggered escalation
+  carries the assessment that caused it, which is the whole point of routing on
+  D_c — so a change to the assessment's serialized shape is a change to this
+  type's
+- Migration: none for construction. Re-record any content address taken over a
+  debt-triggered hand-off
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.hitl.escalation.EscalationHandOff
+
+- Surface: ccf.hitl.escalation.EscalationHandOff
+- Public surface: true
+- Change type: reshaped
+- Before: as above — this is the defining module; `ccf.hitl` re-exports it
+- After: as above
+- Why: as above
+- Migration: as above
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.hitl.EscalationActionRecord
+
+- Surface: ccf.hitl.EscalationActionRecord
+- Public surface: true
+- Change type: reshaped
+- Before: unchanged in its own fields
+- After: still unchanged in its own fields; it records the hand-off's trigger,
+  so a debt-triggered escalation's action record moves with `DebtAssessment`
+- Why: consequential, not deliberate — the audit record carries what caused the
+  escalation, and what caused it now names the scorers in force. That is an
+  improvement in what an examiner can reconstruct, arriving as a side effect of
+  D-IMPL-47 rather than as its own change
+- Migration: none for construction. Re-record any content address taken over a
+  debt-triggered escalation action record
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.hitl.escalation.EscalationActionRecord
+
+- Surface: ccf.hitl.escalation.EscalationActionRecord
+- Public surface: true
+- Change type: reshaped
+- Before: as above — this is the defining module; `ccf.hitl` re-exports it
+- After: as above
+- Why: as above
+- Migration: as above
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: seven fields, ending at the 15.5-11 debt landing
+- After: one further field, `request: ProductRequest | None`, defaulted to
+  `None`
+- Why: D-IMPL-111 limb (b). **Dimension 5 and not dimension 4.** Dimension 4
+  answers *"for whom, with what authority?"* (`docs/CCF_Whitepaper_1-2.md:3266`)
+  — principal, role, agent identity, grants, delegation — and a request asserts
+  none of those. What a request *does* determine is the generation path: its
+  `parameters` reach plan selection through D-IMPL-49's `selection_params` slot,
+  its `subject` seeds the traversal, and its `asked_at` is the instant the
+  caller asked as of. So it sits beside `graph_query_sequence`, which it
+  explains. `None` is the positive assertion *this decision recorded no
+  request*, in the `debt` and `source_attestation` voice: a record written
+  before this seam and one whose caller dropped the question would otherwise be
+  the same artifact
+- Migration: none for construction; see "The record's content address moves"
+  above for the one thing that is required
+
+*Recorded by `15.5-13-request-in-replay.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: `build_replay_record(*, execution, product, perspective,
+  policy_bindings, assembly_mode, recorded_at, agent_conditioning=None,
+  harness_trace=None, hitl_actions=None, workflow_step_sequence=None,
+  adapter=None)`
+- After: one further keyword-only parameter, `request: ProductRequest | None =
+  None`, recorded verbatim on dimension 5
+- Why: a **parameter** rather than a derivation, which is the opposite of the
+  choice D-IMPL-100 made for `debt` — and for a reason that points the same way.
+  Debt is a property of the product, and the product was already a parameter, so
+  reading it off made a record pinning a debt its product does not carry
+  unrepresentable. The *question* is a property of the **call**: neither the
+  execution nor the product has ever seen it, the engine is handed a plan, a
+  perspective, a boundary and a seed set, and L5 importing L6's request surface
+  to carry one would invert the layering (CLAUDE.md §10). A question
+  reconstructed from its answer is not the question that was asked
+- Migration: **none.** All 32 call sites across 28 files are byte-for-byte
+  unchanged under the positive sentinel — the pattern this phase has now used
+  six times, priced at 0 forced repairs in
+  `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` § Q1
+
+*Recorded by `15.5-13-request-in-replay.md`.*
+
+#### ccf.products.contract.RegisteredProductClass
+
+- Surface: ccf.products.contract.RegisteredProductClass
+- Public surface: true
+- Change type: reshaped
+- Before: fourteen fields, ending at the payload-schema pin
+- After: two further fields — `request_contract_key` and
+  `request_contract_version`, both defaulted to `NO_REQUEST_CONTRACT`
+- Why: D-IMPL-98's request-contract pin, mirrored onto the registered value the
+  way every other piece of pinned governance already is. Plan `15.5-08` shipped
+  the refusal that guards it but could not wire it, because this file was owned
+  by concurrent plan `15.5-11` that wave
+- Migration: **none.** Both fields are defaulted to the positive sentinel, so
+  every existing registration keeps saying exactly what it always said.
+  **No content address moves**, and that is asserted rather than assumed:
+  `RegisteredProductClass` is reachable from no addressed contract — the check
+  walks `ContextProductContract`'s field graph — and `ContextProductContract`'s
+  own field set is pinned by test. `make schemas` produces no diff, because
+  this type is not an artifact class
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf.products.contract.register_product_class
+
+- Surface: ccf.products.contract.register_product_class
+- Public surface: true
+- Change type: reshaped
+- Before: the payload-schema pin was resolved at registration; the
+  request-contract pin was not resolved anywhere
+- After: two further keyword-only parameters, both defaulted, and one call to
+  `ccf.products.request.refuse_request_contract_pin` — so a class that pinned a
+  contract that is not there, or another class's, or another lane's, finds out
+  **while wiring the fabric** rather than in front of a caller whose question
+  it can no longer answer
+- Why: D-IMPL-102 limb 1's reasoning applied to D-IMPL-98's surface, and the
+  MAX_TTL voice throughout: raised, never returned or warned, naming both
+  sides. Until this plan the refusal existed, was fully tested, and was reached
+  by nobody
+- Migration: **none.** Both parameters are defaulted. A deployment adopting the
+  pin registers its `ProductRequestContract` and passes the `(key, version)`
+  pair, exactly as it does for a payload schema
+
+*Recorded by `15.5-15-resolver-seam.md`.*
 
 ### Not public Python API
 
@@ -6453,7 +8787,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-33 entries — 25 public Python surface, 8 not public Python API.
+44 entries — 33 public Python surface, 11 not public Python API.
 
 ### Public Python surface
 
@@ -7040,6 +9374,229 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `15.4-13-review-fixes.md`.*
 
+#### ccf.skills.catalog.SkillArgumentSchema
+
+- Surface: ccf.skills.catalog.SkillArgumentSchema
+- Public surface: true
+- Change type: behavior
+- Before: a flat declaration; `to_input_schema()` rendered one level with
+  `additionalProperties: false` at the root
+- After: **the same two fields, unchanged** — which is why this is classified
+  `behavior` rather than `reshaped`: the signature diff cannot see it, because
+  the change is entirely in what `properties`' member type may now declare and
+  in what the renderer emits. `to_input_schema()` renders nesting losslessly
+  with `additionalProperties: false` at **every** object level, not only the
+  root. `docs/schemas/ccf.skill-catalog-entry.json` and `openapi.json` both
+  regenerate accordingly, in the same commit, under their bytes-equality gates
+- Why: this is also the declared payload schema of a Context Product class
+  (D-IMPL-97 ruling 1), reached through the `ProductPayloadSchema` alias. A
+  nested object left open would be a hole in exactly the surface the widening
+  creates, which is why the closed world extends downward with it
+- Migration: **none.** A depth-1 declaration validates unchanged, hashes
+  unchanged, and renders byte-identically — asserted directly rather than
+  assumed, on the rendered surface every harness adapter consumes rather than
+  on the model. All three harness adapters (`adk`, `claude_agent`,
+  `langgraph`) reach this type through the one shared derivation in
+  `ccf.skills.toolsurface`, so none of them changes
+
+*Recorded by `15.5-07-contract-elements.md`.*
+
+#### ccf.replay.engine.ReplayEnvironment
+
+- Surface: ccf.replay.engine.ReplayEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: `rehydrate_product(*, record, projection)` rebuilt the product's
+  envelope from the deployment's product class and its payload from the
+  re-executed projection
+- After: **the same signature** — which is why this is classified `behavior`
+  rather than `reshaped`, and it is the one place this plan came in under the
+  cost D-IMPL-100 authorized. The ruling priced a signature change; none was
+  needed, because `record` is already a parameter and the debt is on the record.
+  What changed is the **contract**: a conforming implementation must now carry
+  `record.content_generation_path.debt` onto the product it returns
+- Why: `ContextProductContract.debt` is inside the hashed body, so an
+  implementation that omits it returns a product the engine's address check at
+  `src/ccf/replay/engine.py:449-455` rejects with `ReplayDivergence`
+- Migration: **required for any adopter with a custom `ReplayEnvironment`,
+  and it is one line.** Add `debt=record.content_generation_path.debt` to the
+  `ContextProductContract(...)` your `rehydrate_product` returns. All seven
+  implementations across six files in this repository were updated in the same
+  commit (`src/ccf/replay/engine.py`, `tests/replay/test_engine_rehydration.py`,
+  `tests/replay/test_query_sequence_pin.py`, `perf/suites/replay/conftest.py`,
+  `examples/06-decision-replay/run.py`,
+  `examples/external/00-hello-context/run.py`).
+  **Do not re-assess the debt at replay.** `D_c` is computed from observations
+  and a `now` that neither the record nor the projection re-derives, so a fresh
+  assessment would be a different decision wearing this one's identifier — and
+  the address check would say so. An adopter who omits the line does not get a
+  silent wrong answer; they get `ReplayDivergence`, which is the failure mode
+  this fabric prefers
+
+*Recorded by `15.5-11-debt-delivery.md`.*
+
+#### ccf.projection.engine.ProjectionEngine.execute
+
+- Surface: ccf.projection.engine.ProjectionEngine.execute
+- Public surface: true
+- Change type: behavior
+- Before: `execute(*, plan, perspective, tenant_id, temporal_boundary,
+  recorded_acquisitions=None)`. Every compiled segment query carried
+  `seeds=None`, a hardcoded literal
+- After: one further keyword-only parameter, `seeds: frozenset[str] | None =
+  None`, threaded to **every pushable segment that carries a traverse family and
+  no other**. `GQ-03` refuses seeds with no walk to start, so a segment that
+  walks nothing is passed `None`; where a survivor set is also in force the two
+  compose under `GQ-17` — the anchor starts a walk only if it survived, and the
+  walk still may not cross outside the set
+- Why: **classified `behavior` rather than `reshaped` under the `DI-15.5-06`
+  precedent**, and the classification is a tooling limit rather than a judgement
+  about the change: `tools/dump_surface.py` records module-level names, so a
+  **method** signature is invisible to the drift gate and a `reshaped` claim
+  here has no diff line to match. The 15.5-11 and 15.5-15 fragments classify
+  `ReplayEnvironment.rehydrate_product` and the two resolver Protocols the same
+  way for the same reason; Phase 17 should expect to reclassify all of them once
+  the manifest can see methods. This is a **parameter addition** in substance.
+  D-IMPL-111 limb (a). Note the rule is *every walking segment*, not *the
+  opening segment*: in the shipped reference example the traverse family lands
+  in a **post**-in-process segment, so an opening-segment-only rule would seed
+  nothing at all. This is deliberately the **opposite** of the pitfall
+  `tests/invariants/test_mcp_role_separation.py` pins this signature against —
+  the anchor is *what* was asked about, never *who* asked, and
+  `ProductRequest` has no role, principal or tenant field by construction
+- Migration: **none.** The parameter is keyword-only with a default, so every
+  existing call site is byte-for-byte unchanged in behaviour and in the queries
+  it issues
+
+*Recorded by `15.5-13-request-in-replay.md`.*
+
+#### ccf.replay.engine.replay
+
+- Surface: ccf.replay.engine.replay
+- Public surface: true
+- Change type: behavior
+- Before: re-executed the recorded plan with the recorded perspective, tenant,
+  boundary and D-10 survivor cap
+- After: **the same signature** — which is why this is `behavior` rather than
+  `reshaped` — re-executing additionally with the seeds the recorded question
+  implies, through `request_seeds(record.content_generation_path.request)`
+- Why: the walk starting points are compiled into the query, so a replay under
+  different seeds would ask a different question wearing the decision's
+  identifier. It is the `survivor_cap` argument one line above it, applied to
+  the other half of what shapes a query: replay resolves what the decision ran
+  under, never what the deployment is configured with now
+- Migration: **none.** A record carrying no request yields `None` and replays
+  exactly as it did before the ruling. A deployment whose serving path seeds by
+  a rule other than `request_seeds` will see `ReplayDivergence` on the pin
+  comparison — loudly, which is the intended failure mode: the record must
+  contain everything needed to reproduce the decision
+
+*Recorded by `15.5-13-request-in-replay.md`.*
+
+#### ccf.products.request — module import order
+
+- Surface: ccf.products.request
+- Public surface: true
+- Change type: behavior
+- Before: `ccf.products.payload` and `ccf.skills.catalog` were imported at the
+  top of the module
+- After: both are imported at the **bottom**, on the D-IMPL-56 pattern
+  `ccf.skills.catalog` itself documents, with an explicit
+  `ProductRequestContract.model_rebuild()`. `ccf.replay.record` defers its
+  import of this module the same way
+- Why: limb (b) makes `ccf.replay.record` name `ProductRequest`, and
+  `ccf.skills.catalog` reaches `ccf.agents.agent`, which reads
+  `NO_GRANTS_SET_HASH` and `PerspectiveConditioning` back out of
+  `ccf.replay.record`. With the imports at the top, first-import order would
+  decide whether the SDK imports at all. Deferring them makes `ProductRequest`
+  exist before anything here can reach the replay plane, so the cycle closes in
+  every order — asserted by importing each of the four modules first in turn
+- Migration: **none.** Every name this module exported still exports from it,
+  and no import statement anywhere else changes
+
+*Recorded by `15.5-13-request-in-replay.md`.*
+
+#### ccf_runtime.mcp.egress.ProductResolverProtocol
+
+- Surface: ccf_runtime.mcp.egress.ProductResolverProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `__call__(*, tenant: str, product_class: str, version: str) -> ServableProduct`
+- After:
+  `__call__(*, tenant, product_class, version, perspective: Perspective, request: ProductRequest | None) -> ServableProduct`
+- Why: D-IMPL-108, closing DI-15.5-03. The door resolves and authorizes a
+  `Perspective` and must be able to hand it to the path that shapes the
+  product, or the authorization is a refusal check and nothing more.
+  **Neither new argument is defaulted, and `perspective` is not nullable** —
+  that is the substance rather than a style choice. A resolver silently
+  constructing its own perspective is indistinguishable from one honouring the
+  door's, and a parameter defaulting to `None` would recreate exactly that
+  ambiguity one layer down. `request` is required-with-no-default but typed
+  `ProductRequest | None`, because a surface can honestly have **no way to
+  ask**: the `ccf-product://` template is three path segments with no query
+  among them, and manufacturing a subject, an intent, a freshness figure and
+  an instant would be the SDK holding deployment values (CINV-01) and reading
+  a clock — the literal-instead-of-argument defect D-IMPL-98 exists to remove,
+  reintroduced one layer up. That is the same voice `requested_role: str | None`
+  already carries on `PerspectiveResolverProtocol`
+- Migration: **required, and mechanical.** Every resolver a deployment supplies
+  gains two keyword-only parameters. Eleven definitions across `runtime/`,
+  `examples/` and `tests/` were updated in this plan's commits; an adopter's
+  own is the same edit. The minimum conforming change is to accept both and
+  ignore them, which type-checks and runs — but a resolver that ignores
+  `perspective` is asserting *the conditioning this door authorized does not
+  affect what I serve*, which is a claim worth making deliberately. The
+  reference deployments do not: `examples/04-cross-process/producer_child.py`
+  and `examples/external/00-hello-context/serve.py` both refuse to serve when
+  the authorized perspective is not the one their product was assembled under
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
+
+- Surface: ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
+- Public surface: true
+- Change type: behavior
+- Before: the same three-string signature as its egress twin
+- After: the same five-argument signature as its egress twin
+- Why: the two moved together deliberately. The seams are structurally
+  identical so that one deployment resolver can serve both roles, and a
+  deployment supplying one resolver to both doors must not discover that only
+  one of them forwards what it authorized. The two modules remain separate and
+  import neither each other nor a sibling —
+  `tests/invariants/test_mcp_role_separation.py` still asserts it, unrelaxed
+- Migration: as above
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf_runtime.http_api.routes.product — `GET /{tenant}/{product_class}/{version}`
+
+- Surface: ccf_runtime.http_api.routes.product.build_router
+- Public surface: true
+- Change type: behavior
+- Before: four query-free path parameters plus optional `?role=`; served
+  whatever the resolver returned, with entitlement enforcement **inert** when
+  the seams were unbound or no grant was present
+- After: four new optional query parameters — `subject`, `intent`, `freshness`,
+  `asked_at` — and the enforcement is no longer inert. The route refuses
+  (503, `product-door-ungoverned`) when it cannot produce an authorized
+  perspective, and refuses (400, `product-request-incomplete`) when a caller
+  supplies some but not all four address axes
+- Why: two reasons, one per half. The refusal is D-IMPL-108 (above). The query
+  axes are whitepaper §6.3 **Addressability**
+  (`docs/CCF_Whitepaper_1-2.md:1465`), whose worked pattern is literally
+  `/context-products/credit-risk/counterparty/{counterparty-id}?intent=…&freshness=…`
+  — path for *what*, query for *what is being asked of it*. This is the one
+  door with a query surface, so it is the one door that can carry a request,
+  which is where `15.5-08`'s must-have lands
+- Migration: an existing caller that passes none of the four query parameters
+  sees no change to the request it sends; what changes is whether the door it
+  reaches is governed. `asked_at` is ISO-8601 and is the caller's instant —
+  the door reads no clock, so replay feeds the *recorded* boundary through the
+  same code path
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
 ### Not public Python API
 
 #### tools/check_schema_headers.py
@@ -7242,3 +9799,66 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   only its second caller is new
 
 *Recorded by `15.4-03-write-modules.md`.*
+
+#### openapi.json
+
+- Surface: openapi.json
+- Public surface: false
+- Change type: behavior
+- Before: the published HTTP contract carried `ContextContract` with
+  `consumes` alone
+- After: it carries `ContextContract` with `consumes` and the defaulted
+  `emits`, plus the `EmittedProduct` schema it references — 29 added lines,
+  one changed description
+- Why: the HTTP API publishes the agent-definition shape, so an axis-2
+  widening reaches the committed spec by construction. Regenerated with `make
+  openapi` under the D-12 drift baseline, in the same commit as the schema
+- Migration: none — the added property is optional and defaulted, so a client
+  generated against the previous spec keeps working and a client regenerated
+  against this one gains the emission field
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### examples/08-e2e-demo/artifacts/expected_output.txt
+
+- Surface: examples/08-e2e-demo/artifacts/expected_output.txt
+- Public surface: false
+- Change type: behavior
+- Before: `replay record 27f35f7ad5eac7ac…` and `skill-set in force
+  6592ac147e297f35…`
+- After: `replay record 83d4e34178b9bcac…` and `skill-set in force
+  aafa91413bcd8b21…`
+- Why: the `ContextContract` consequence above, landing where it is visible.
+  **Two lines change and every other line of the transcript is byte-identical**
+  — every count, every resolved entity total, every detection outcome, every
+  label — and both changed lines are content addresses that derive from
+  `content_hash(AgentDefinition)`, which now walks one more field. The
+  transcript's own test warns that a failure here is *not* to be fixed by
+  regeneration until the diff has been read line by line and every changed line
+  traced to a deliberate change; that was done, and this entry is the trace
+- Migration: none for an adopter of the SDK. A deployment that keeps its own
+  pinned narration or replay fixtures regenerates them on the same reading
+
+*Recorded by `15.5-10-assembler.md`.*
+
+#### ccf.deployment.binder
+
+- Surface: ccf.deployment.binder
+- Public surface: false
+- Change type: behavior
+- Before: one refusal, over two separately authored operator sets. The module
+  docstring described itself as *"the refusal that binds two separately
+  authored operator sets"*
+- After: two refusals — over two separately authored operator sets, and over
+  two separately authored freshness promises. `__all__` grows to two names and
+  the docstring is restructured around the pair
+- Why: both compare two documents an author can make disagree, and both refuse
+  rather than repair; that shared posture is what makes them siblings rather
+  than an unrelated function parked in a convenient file. Recorded because the
+  module's stated scope changed — a reader who knew it as "the operator-set
+  binder" now finds something wider, and the docstring says so at the top
+  rather than in a footnote
+- Migration: none — `refuse_operator_set_divergence` is unchanged in signature,
+  in behaviour, and in message
+
+*Recorded by `15.5-12-aggregate-composition.md`.*

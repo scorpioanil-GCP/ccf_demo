@@ -1,6 +1,92 @@
 {
+  "$defs": {
+    "ConstituentValidityFloors": {
+      "additionalProperties": false,
+      "description": "D-IMPL-31's declarable floors, whose breach refuses assembly.\n\nRuled 2026-07-25 as part of the two-granularity TTL reading: *\"Product\nclasses may declare constituent-validity floors whose breach refuses\nassembly rather than emitting a product fresher-labeled than its stalest\nload-bearing constituent (the mixing-refusal rule, formally footed).\"*\nThe declaration is here; **the refusal that reads it is plan ``15.5-12``**,\nand nothing in the registration path consumes a floor, because a\nmixing-refusal enforced at wiring time would be a rule applied at the\nwrong moment \u2014 the mix does not exist until assembly.\n\nDistinct from :class:`FreshnessSLA` and not a restatement of it: the SLA\nis the currency the class *expects* of a signal, the floor is the\nremaining validity a constituent must still have for the product to be\nassemblable at all. One is an expectation, the other a refusal condition.\n\nAttributes:\n    min_validity_seconds_by_signal: Per signal type, the least remaining\n        validity a load-bearing constituent of that type must have.\n        Deployment-declared identifiers, never interpreted here.",
+      "properties": {
+        "min_validity_seconds_by_signal": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Min Validity Seconds By Signal",
+          "type": "object"
+        }
+      },
+      "required": [
+        "min_validity_seconds_by_signal"
+      ],
+      "title": "ConstituentValidityFloors",
+      "type": "object"
+    },
+    "FreshnessSLA": {
+      "additionalProperties": false,
+      "description": "\u00a76.3 **Freshness SLA** \u2014 the per-signal currency expectation (D-IMPL-106).\n\n\u00a76.3 (``docs/CCF_Whitepaper_1-2.md:1453``) separates two primitives that\nare easy to conflate. This one is an *expectation* \u2014 how recent a signal\nhas to be before the product may rest on it. :class:`MaxTTL` is a\n*bound* \u2014 how long the assembled product stays usable once that recency\ncan no longer be guaranteed. \u00a76.3 calls them siblings rather than\nduplicates, which is why both exist here and neither is a respelling of\nthe other.\n\n**Per signal, not a scalar.** \u00a76.3 makes the expectation vary by signal\nand by decision, and warns that collapsing signals of different currency\ninto one undeclared figure yields an input an agent cannot rely on. A\nsingle number for a product assembled from an end-of-day filing *and* an\nintraday blotter entry hides exactly that difference. D-IMPL-106 ruled\nthe *placement* and left the shape here, recording that no scalar was\nruled in by silence.\n\nThe mapping is keyed by the deployment's own signal-type identifiers and\nthe SDK never interprets one \u2014 the opaque-identifier discipline\n:class:`~ccf.skills.catalog.SkillRequirements` already holds. This class\ntherefore ships no signal name and no number (CLAUDE.md \u00a711, CINV-01).\n\nAttributes:\n    max_age_seconds_by_signal: Per signal type, the greatest age at which\n        an observation of it still satisfies this class's currency\n        expectation. An empty mapping is the positive statement\n        :data:`UNMEASURED_FRESHNESS_SLA` documents, not a silence.",
+      "properties": {
+        "max_age_seconds_by_signal": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Max Age Seconds By Signal",
+          "type": "object"
+        }
+      },
+      "required": [
+        "max_age_seconds_by_signal"
+      ],
+      "title": "FreshnessSLA",
+      "type": "object"
+    },
+    "ProductAddress": {
+      "additionalProperties": false,
+      "description": "\u00a76.3 **Addressability** \u2014 the address a class answers at.\n\n\u00a76.3 (``docs/CCF_Whitepaper_1-2.md:1465``) commits every product to an\ninterface an agent can query by name, parameterised by the intent, the\nrole and the freshness it needs. The section works that commitment as a\npath plus a query string, of the shape\n``/context-products/{domain}/{entity-kind}/{id}?intent=\u2026&freshness=\u2026``.\n\n**The path half only, deliberately.** D-IMPL-98 ruled that the request\nsurface is a *typed request contract per product class* and that\naddressability and that contract are the same commitment; the query half\nof the worked pattern \u2014 subject and instant as typed **arguments** rather\nthan artifact literals \u2014 is that ruling's own surface. Modelling query\nparameters here would foreclose its shape, so this class declares where a\nclass is reached and says nothing about what it is called with.\n\nAttributes:\n    address_template: The address pattern the class answers at. A\n        template rather than a resolved address, because the subject is\n        an argument of the request and not a property of the class.",
+      "properties": {
+        "address_template": {
+          "title": "Address Template",
+          "type": "string"
+        }
+      },
+      "required": [
+        "address_template"
+      ],
+      "title": "ProductAddress",
+      "type": "object"
+    },
+    "ProductDiscovery": {
+      "additionalProperties": false,
+      "description": "\u00a76.3 **Discovery** \u2014 the registry facts a class is located by.\n\n\u00a76.3 (``docs/CCF_Whitepaper_1-2.md:1463``) puts a registry in front of the\nfabric: products are located by the intent they serve, the domain they\nbelong to, and the capability they offer, and an agent turns a name into\nan endpoint at run time rather than at wiring time. The three fields below\nare those three axes. ``capabilities`` is the declared manifest \u00a76.3's\nworked registry entry carries.\n\nEvery value is a deployment-declared opaque identifier. The SDK matches\nthem structurally and interprets none, so no intent vocabulary, domain\ntaxonomy or capability list exists in this module (CLAUDE.md \u00a711).\n\nAttributes:\n    domain: The domain the class belongs to.\n    intents: The decision intents the class is registered as serving.\n    capabilities: The class's declared capability manifest.",
+      "properties": {
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capabilities",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "domain": {
+          "title": "Domain",
+          "type": "string"
+        },
+        "intents": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Intents",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "domain",
+        "intents",
+        "capabilities"
+      ],
+      "title": "ProductDiscovery",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
-  "description": "A product class's authored governance, minus the pin registration mints (\u00a77.6).\n\nWhitepaper \u00a77.6 (the delivery contract and its class-level governance);\nD-IMPL-31 for the TTL anchor, INV-CH7-55 for the assembly mode, INV-CH7-49\nfor the per-class schema lane. This is the artifact an adopter writes; the\nservable :class:`~ccf.products.contract.RegisteredProductClass` is what\n:func:`~ccf.products.contract.register_product_class` returns from it.\n\n**It deliberately does not declare** ``max_ttl_version``. That pin is minted\nby *registering* the :class:`~ccf.products.contract.MaxTTL` value, and it is\na content hash of what was registered \u2014 the same shape D-IMPL-76 ruled on for\nthe policy bundle's admitted-version set. An artifact that declared it would\nbe authoring a hash of something it does not contain. This is what keeps\nGate 3 (TTL bounds) meaningful: the ceiling stays an authored artifact value,\nthe pin is *derived* from registering it, and a product's own ``expires_at``\nremains a separately authored number. Gate 3 checks one against the other,\nwhich is only a check while the two come from independent places.\n\n**Why the operator set is declared here.** It lives on the product class\nbecause the product class is already the artifact that declares what the\nproduct *is*, and the operator set an interpretation requires is a property\nof the product, not of the code computing it.\n\n**What this field is, under design E2.** It is the Control Plane **claim**\n\u2014 the value a deployment transcribes into ``lineage.operators_invoked``,\nand never into ``execution``. The operator set the *projection* reads is a\nsecond, separately authored document, :class:`ProjectionRequirements`\n(``ccf.projection-requirements``), and the two are held together by\n:func:`ccf.deployment.binder.refuse_operator_set_divergence`, called\nbetween plan construction and\n:meth:`~ccf.projection.engine.ProjectionEngine.execute`. That binder is\nwhere **authorable** drift fails: a one-key edit to either document\nproduces a refusal, and it refuses rather than repairs, because only the\nauthor knows which of the two they meant. Gate 2 (lineage strict equality,\nINV-CH7-47) sits downstream of both, and what it verifies is\n**assembly-path integrity** \u2014 the claim as transcribed into the Contract\nagainst the engine's execution of the plan \u2014 not whether the claim was\nright in the first place.\n\nThis passage previously asserted that the projection's declaration and the\nengine's resolution were mutually independent. They never were, under any\ndesign considered: :meth:`~ccf.projection.engine.ProjectionEngine.execute`\nbuilds ``operators_invoked`` and ``steps`` in one loop over the same\noperator plan, so the engine is a faithful transcriber of the plan rather\nthan an independent witness of it. The ruling of record is\n``docs/DECISIONS.md`` **D-IMPL-86** (Dave, 2026-08-05) together with its\n**correction of 2026-08-05** for where the binder call belongs; CLAUDE.md\n\u00a711 requires an SDK extension to cite this project's own decision record\nrather than the whitepaper. The standing AST guard\n(``tests/products/test_required_operators_guard.py``) still refuses a\nprojection that reads the operator registry's own keys \u2014 a tripwire over a\nconvention list of receivers, not a wall.\n\n``min_length=1`` on the operator keys is the whitepaper's own posture, not an\nergonomics choice: \u00a77.6 specifies the empty-operator guard as the first of\nthe three validation gates, and states that \"a projection must have resolved\nat least one operator to have meaningfully read the graph, and an empty set\nindicates a misconfigured projection rather than a trivially-successful one.\"\nA declaration of zero operators could only ever produce a resolved set of\nzero, which Gate 1 refuses at assembly time. Refusing it here refuses it\nwhere the author can still fix it. A deployment that serves no product simply\nauthors no document of this class \u2014 that is a different thing from a product\nclass declaring it needs nothing.\n\nAttributes:\n    schema_name: Class identity.\n    schema_version: The product class's **own** semver lane (INV-CH7-49),\n        which is not the artifact's ``semver`` lane. Two lanes because they\n        version different things: how the product's schema evolved, and how\n        this declaration document evolved. Lanes are never compared across\n        classes.\n    ttl_anchor: Declared TTL derivation anchor (D-IMPL-31).\n    assembly_mode: Declared assembly mode (INV-CH7-55).\n    max_ttl_key: Control Plane key of the class's MAX_TTL artifact. The key\n        is authored; the version pinning it is not.\n    required_operator_keys: Registry keys of the operators the class's\n        interpretation depends on. Order is not significant \u2014 the engine\n        imposes the dependency order (INV-CH7-28).\n    accepted_policy_binding_modes: The **accepted modes** of the\n        ``policy_binding`` attestation dimension \u2014 an unordered set drawn\n        from the closed D-09 vocabulary\n        (:data:`~ccf.graph.protocols.PolicyBindingMode`), SDK-defined per\n        CLAUDE.md \u00a711. A source whose\n        :class:`~ccf.graph.protocols.SourceAttestation` reports a\n        ``policy_binding`` mode outside this set is refused for this\n        class. These are accepted-mode *sets*, not ordered minima: no\n        strength ordering exists between ``assembly-stamped`` and\n        ``admission-verified`` (D-09's word \"minima\" is realized as\n        unordered accepted-mode sets). The default \u2014\n        ``{\"assembly-stamped\"}`` \u2014 is the positive assertion of the\n        tier-1 posture every pre-attestation class already lived under\n        (the sentinel-default precedent): consuming a tier-2 source\n        requires the class to declare ``admission-verified`` explicitly,\n        so tier-2 consumption is deny-by-default until a class opts in\n        (D-09). ``peer`` is a reference, not a mode, and carries no\n        acceptance set \u2014 it is pinned into replay, never ranked.\n    accepted_lineage_modes: The **accepted modes** of the ``lineage``\n        attestation dimension (:data:`~ccf.graph.protocols.LineageMode`),\n        under exactly the discipline of\n        ``accepted_policy_binding_modes``: an unordered accepted-mode\n        set, defaulting to the tier-1 ``{\"graph-supplied\"}`` posture, so\n        ``product-carried`` lineage is deny-by-default until a class\n        declares it (D-09).",
+  "description": "A product class's authored governance, minus the pin registration mints (\u00a77.6).\n\nWhitepaper \u00a77.6 (the delivery contract and its class-level governance);\nD-IMPL-31 for the TTL anchor, INV-CH7-55 for the assembly mode, INV-CH7-49\nfor the per-class schema lane. This is the artifact an adopter writes; the\nservable :class:`~ccf.products.contract.RegisteredProductClass` is what\n:func:`~ccf.products.contract.register_product_class` returns from it.\n\n**It deliberately does not declare** ``max_ttl_version``. That pin is minted\nby *registering* the :class:`~ccf.products.contract.MaxTTL` value, and it is\na content hash of what was registered \u2014 the same shape D-IMPL-76 ruled on for\nthe policy bundle's admitted-version set. An artifact that declared it would\nbe authoring a hash of something it does not contain. This is what keeps\nGate 3 (TTL bounds) meaningful: the ceiling stays an authored artifact value,\nthe pin is *derived* from registering it, and a product's own ``expires_at``\nremains a separately authored number. Gate 3 checks one against the other,\nwhich is only a check while the two come from independent places.\n\n**Why the operator set is declared here.** It lives on the product class\nbecause the product class is already the artifact that declares what the\nproduct *is*, and the operator set an interpretation requires is a property\nof the product, not of the code computing it.\n\n**What this field is, under design E2.** It is the Control Plane **claim**\n\u2014 the value a deployment transcribes into ``lineage.operators_invoked``,\nand never into ``execution``. The operator set the *projection* reads is a\nsecond, separately authored document, :class:`ProjectionRequirements`\n(``ccf.projection-requirements``), and the two are held together by\n:func:`ccf.deployment.binder.refuse_operator_set_divergence`, called\nbetween plan construction and\n:meth:`~ccf.projection.engine.ProjectionEngine.execute`. That binder is\nwhere **authorable** drift fails: a one-key edit to either document\nproduces a refusal, and it refuses rather than repairs, because only the\nauthor knows which of the two they meant. Gate 2 (lineage strict equality,\nINV-CH7-47) sits downstream of both, and what it verifies is\n**assembly-path integrity** \u2014 the claim as transcribed into the Contract\nagainst the engine's execution of the plan \u2014 not whether the claim was\nright in the first place.\n\nThis passage previously asserted that the projection's declaration and the\nengine's resolution were mutually independent. They never were, under any\ndesign considered: :meth:`~ccf.projection.engine.ProjectionEngine.execute`\nbuilds ``operators_invoked`` and ``steps`` in one loop over the same\noperator plan, so the engine is a faithful transcriber of the plan rather\nthan an independent witness of it. The ruling of record is\n``docs/DECISIONS.md`` **D-IMPL-86** (Dave, 2026-08-05) together with its\n**correction of 2026-08-05** for where the binder call belongs; CLAUDE.md\n\u00a711 requires an SDK extension to cite this project's own decision record\nrather than the whitepaper. The standing AST guard\n(``tests/products/test_required_operators_guard.py``) still refuses a\nprojection that reads the operator registry's own keys \u2014 a tripwire over a\nconvention list of receivers, not a wall.\n\n``min_length=1`` on the operator keys follows the whitepaper's own posture\nrather than an ergonomics preference: \u00a77.6 (*Context Products \u2014 System of\nDelivery*) makes the empty-operator guard the first of the three validation\ngates, and its reasoning \u2014 stated here in this project's words, because\nCLAUDE.md \u00a711 requires a citation by section number and title and not a\nreproduction of the text \u2014 is that resolving no operator at all is evidence\nthe graph was never consulted, so a zero-length set reports a\nmisconfiguration rather than an assembly that legitimately needed nothing.\nA declaration of zero operators could only ever produce a resolved set of\nzero, which Gate 1 refuses at assembly time. Refusing it here refuses it\nwhere the author can still fix it. A deployment that serves no product simply\nauthors no document of this class \u2014 that is a different thing from a product\nclass declaring it needs nothing.\n\nAttributes:\n    schema_name: Class identity.\n    schema_version: The product class's **own** semver lane (INV-CH7-49),\n        which is not the artifact's ``semver`` lane. Two lanes because they\n        version different things: how the product's schema evolved, and how\n        this declaration document evolved. Lanes are never compared across\n        classes.\n    ttl_anchor: Declared TTL derivation anchor (D-IMPL-31).\n    assembly_mode: Declared assembly mode (INV-CH7-55).\n    max_ttl_key: Control Plane key of the class's MAX_TTL artifact. The key\n        is authored; the version pinning it is not.\n    required_operator_keys: Registry keys of the operators the class's\n        interpretation depends on. Order is not significant \u2014 the engine\n        imposes the dependency order (INV-CH7-28).\n    accepted_policy_binding_modes: The **accepted modes** of the\n        ``policy_binding`` attestation dimension \u2014 an unordered set drawn\n        from the closed D-09 vocabulary\n        (:data:`~ccf.graph.protocols.PolicyBindingMode`), SDK-defined per\n        CLAUDE.md \u00a711. A source whose\n        :class:`~ccf.graph.protocols.SourceAttestation` reports a\n        ``policy_binding`` mode outside this set is refused for this\n        class. These are accepted-mode *sets*, not ordered minima: no\n        strength ordering exists between ``assembly-stamped`` and\n        ``admission-verified`` (D-09's word \"minima\" is realized as\n        unordered accepted-mode sets). The default \u2014\n        ``{\"assembly-stamped\"}`` \u2014 is the positive assertion of the\n        tier-1 posture every pre-attestation class already lived under\n        (the sentinel-default precedent): consuming a tier-2 source\n        requires the class to declare ``admission-verified`` explicitly,\n        so tier-2 consumption is deny-by-default until a class opts in\n        (D-09). ``peer`` is a reference, not a mode, and carries no\n        acceptance set \u2014 it is pinned into replay, never ranked.\n    accepted_lineage_modes: The **accepted modes** of the ``lineage``\n        attestation dimension (:data:`~ccf.graph.protocols.LineageMode`),\n        under exactly the discipline of\n        ``accepted_policy_binding_modes``: an unordered accepted-mode\n        set, defaulting to the tier-1 ``{\"graph-supplied\"}`` posture, so\n        ``product-carried`` lineage is deny-by-default until a class\n        declares it (D-09).\n    freshness_sla: The \u00a76.3 **Freshness SLA** element, per signal\n        (D-IMPL-106 option (b), which ruled it class-level and left the\n        per-signal shape to the implementing plan).\n    discovery: The \u00a76.3 **Discovery** element \u2014 the registry facts a class\n        is located by (D-IMPL-98, under which discovery is not\n        declaration-only).\n    addressability: The \u00a76.3 **Addressability** element, path half only.\n        The argument half is D-IMPL-98's typed request contract and is\n        deliberately not authored here.\n    constituent_validity_floors: D-IMPL-31's declarable floors, ruled\n        2026-07-25. Authored here; the refusal that reads them is plan\n        ``15.5-12``'s, at assembly, where the mix exists.\n    payload_schema_key: Control Plane key of the class's declared payload\n        schema (D-IMPL-97 ruling 1). **The key is authored; the version\n        pinning it is not** \u2014 see the class docstring's rule above, which\n        this field is the second instance of.\n    request_contract_key: Control Plane key of the class's declared\n        **request contract** \u2014 the typed surface a caller's question is\n        validated against, so that the subject and the instant are\n        arguments the caller supplies rather than literals authored in this\n        document (D-IMPL-98, option (a)). The **third** instance of the\n        authored-key/derived-version rule, and ``request_contract_version``\n        is absent for exactly the reason ``max_ttl_version`` and\n        ``payload_schema_version`` are. The contract itself is\n        :class:`~ccf.products.request.ProductRequestContract`, a separately\n        authored ``ccf.product-request-contract`` document that names the\n        class and lane it serves, and\n        :func:`~ccf.products.request.refuse_request_contract_pin` refuses a\n        pin onto the wrong class at wiring time. **Nothing in this tree\n        resolves this key at a door yet**: D-IMPL-108 ruled that the\n        product-resolver seam is widened exactly once, by plan\n        ``15.5-15``, carrying the typed request and the authorized\n        perspective together rather than reshaping 24 files twice.\n\n**The six governance fields above all default**, on the\n``accepted_policy_binding_modes`` precedent and for the same reason: an\nartifact authored before they existed declared exactly what it declares\nnow, so no committed document is rewritten and no adopter's file becomes\ninvalid. Each default is a named positive assertion in\n:mod:`ccf.products.contract`, not a blank.",
   "properties": {
     "accepted_lineage_modes": {
       "default": [
@@ -34,6 +120,12 @@
       "type": "array",
       "uniqueItems": true
     },
+    "addressability": {
+      "$ref": "#/$defs/ProductAddress",
+      "default": {
+        "address_template": "not-addressable"
+      }
+    },
     "assembly_mode": {
       "enum": [
         "algorithmic",
@@ -43,8 +135,38 @@
       "title": "Assembly Mode",
       "type": "string"
     },
+    "constituent_validity_floors": {
+      "$ref": "#/$defs/ConstituentValidityFloors",
+      "default": {
+        "min_validity_seconds_by_signal": {}
+      }
+    },
+    "discovery": {
+      "$ref": "#/$defs/ProductDiscovery",
+      "default": {
+        "capabilities": [],
+        "domain": "not-discoverable",
+        "intents": []
+      }
+    },
+    "freshness_sla": {
+      "$ref": "#/$defs/FreshnessSLA",
+      "default": {
+        "max_age_seconds_by_signal": {}
+      }
+    },
     "max_ttl_key": {
       "title": "Max Ttl Key",
+      "type": "string"
+    },
+    "payload_schema_key": {
+      "default": "no-payload-schema",
+      "title": "Payload Schema Key",
+      "type": "string"
+    },
+    "request_contract_key": {
+      "default": "no-request-contract",
+      "title": "Request Contract Key",
       "type": "string"
     },
     "required_operator_keys": {

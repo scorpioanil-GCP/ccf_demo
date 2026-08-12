@@ -103,35 +103,43 @@ def test_health_answers(app: Any) -> None:
 # --- product: retrieval with the existing gate-admitted contract -----------
 
 
-def test_product_retrieval_serves_canonical_bytes(
+def test_an_ungoverned_product_door_refuses_rather_than_serving(
     app: Any, fabric: Fabric
 ) -> None:
+    """No perspective, no product — D-IMPL-108, closing DI-15.5-03.
+
+    **This test replaces two that asserted the opposite**, and the
+    supersession is the point rather than a casualty. Until plan ``15.5-15``
+    this route served a gate-admitted product with no entitlement seams bound
+    and no verified grant, which meant the served bytes carried no statement
+    at all about the Π conditioning they were shaped under. The resolver seam
+    now *requires* the authorized :class:`~ccf.projection.plan.Perspective`,
+    deliberately and with no default, so this posture is no longer
+    expressible: the door either names the conditioning it authorized or it
+    does not serve.
+
+    What would fail here: a future edit that restored service by defaulting
+    the perspective — at which point every product this route served would be
+    conditioned on a role nobody granted, indistinguishably from one the door
+    authorized. The two shipped happy-path assertions this replaces live on
+    at ``test_product_entitlement.py``, against the door's *governed*
+    configuration, where they assert something.
+
+    The refusal is a 503 and not a 403 because the fault is the deployment's:
+    ``create_app`` already warns about exactly this configuration, and the
+    typed code names which of the two states the operator is in.
+    """
     address = fabric.product_address
+
     response = call(
         app,
         "GET",
         f"/product/{address.tenant}/{address.product_class}/"
         f"{address.version}",
     )
-    assert response.status_code == 200
-    expected = canonical_bytes(
-        fabric.product_resolver(
-            tenant=address.tenant,
-            product_class=address.product_class,
-            version=address.version,
-        ).product
-    )
-    assert response.content == expected
 
-
-def test_product_absence_is_a_404(app: Any, fabric: Fabric) -> None:
-    address = fabric.product_address
-    response = call(
-        app,
-        "GET",
-        f"/product/{address.tenant}/{address.product_class}/9.9.9",
-    )
-    assert response.status_code == 404
+    assert response.status_code == 503
+    assert response.json()["detail"]["error_code"] == "product-door-ungoverned"
 
 
 # --- agent: declare takes an artifact payload, reads resolve it ------------

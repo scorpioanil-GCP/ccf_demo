@@ -322,6 +322,19 @@ class _ContextAssemblyComponent:
     §6.6/§7.4.9, INV-CH7-32). The emission *pattern* is declared here:
     products reach L3 only through L2 mechanism (single-writer, CLAUDE.md
     §10); the transports (in-process, MCP egress, A2A) bind in I.3.
+
+    **The behavioural surface has now attached to this seam, and it is not
+    here** (``docs/DECISIONS.md`` D-IMPL-97 ruling 2, plan ``15.5-10``).
+    :class:`~ccf.agents.assembler.ContextAssemblerProtocol` is the producer
+    Protocol and a *declared agent* implements it; what the agent emits to is
+    declared on axis 2
+    (:class:`~ccf.agents.definitions.EmittedProduct`), and
+    :class:`~ccf.agents.factory.AgentFactory` refuses an emission binding
+    declared without this archetype. Nothing about *this* bundle changed and
+    nothing should: an archetype is declarative — an identifier, a pattern
+    name, obligations, defaults — and the two obligations below are exactly
+    what an :class:`~ccf.agents.assembler.AssemblyOutcome` has to be able to
+    satisfy. The Protocol attaches to them; it does not replace them.
     """
 
     @property

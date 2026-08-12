@@ -35,6 +35,7 @@ and the upgraded examples.
 - [x] **Phase 15.2: Substrate Adapters and Query Pushdown** (INSERTED) - The fabric asks a substrate a question instead of loading its graph. `GraphReader.as_of()` today returns every entity and relationship for a tenant per read, which does not scale to a financial-services graph and lets a graph-native engine conform without ever being used as one. Introduces the read seam operators express intent against and the adapters that answer it — SQL, Cypher, Gremlin, aggregation pipelines, or client-side scan, each inside its own adapter. **Tier 1** storage adapters and **tier 2** Context-Product-as-a-source (in-process, MCP, or A2A — the §6.6 recursive-enrichment case, whose admission governance already exists in `ccf.peering.admission`) are in scope; **tier 3** raw external sources are deferred but must not require a refactor to add (Dave, 2026-08-07). Must preserve operator purity, as-of correctness (INV-CH7-14), single-writer (INV-CH7-10), and cross-substrate replay determinism (completed 2026-08-08)
 - [x] **Phase 15.3: Fluree Adapter (Tier-1 Substrate)** (INSERTED) - A Fluree v4 storage adapter behind the Phase 15.2 read/write seams — the substrate-consolidation option for deployments (notably a financial institution developing its KG on Fluree) that want CCF's Context Graph co-located on Fluree they already operate. openCypher-over-wire translation per the 15.2-12 template; httpx wire client, zero new packages; temporal fields encoded as properties (Fluree's native time travel is transaction-time and MUST NOT implement as-of, per D-IMPL-88); an adapter going green against the unchanged 15.2 conformance/differential suites is the 15.2 no-refactor claim demonstrated on a real substrate. Ruled by D-IMPL-88 (Dave, 2026-08-07); CCF stays substrate-neutral — the bank's KG itself is approached as an external *source* (MCP ingress now; tier 3 later), never CCF's foundation (completed 2026-08-09)
 - [x] **Phase 15.4: Backend Registration Seam — The Substrate Stops Naming Its Adapters** (INSERTED) - Commissioned by D-IMPL-93 (Dave, 2026-08-09). Today the dependency arrow points the wrong way: `src/ccf/boot.py` and `src/ccf/graph/_writer.py` **import** `ccf.graph.backends.*`, `_open_backend`/`_preflight_backend` carry two-to-three keyword arguments per substrate, and `controlplane/artifacts.py` hand-maintains a `Literal` naming all six — so adding an adapter costs ~96 added lines across three core files, and both remaining D-IMPL-92 budgets are now exhausted (`manifest.py` 24/25, `artifacts.py` 9/10, tied). Invert it: each backend declares itself (name → factory + required connection config + preflight rule), the core holds a registry and looks up instead of branching, per-substrate kwargs collapse into one config mapping, and the `Literal` derives from the registry. Success is **structural, not numeric** — no import of `ccf.graph.backends.*` from outside `backends/`, and no substrate name in core outside the registry, both lint-enforced in the same machinery as the existing harness-import lint, replacing the line budgets D-IMPL-92 itself calls an admitted proxy. Per-adapter substrate cost goes to zero, which is what "the SDK needs no refactor to accept a new substrate" was always trying to say. Migrates all six existing backends; D-IMPL-92's gate is superseded by the structural check, not deleted (completed 2026-08-09)
+- [x] **Phase 15.5: The Context Product Surface — Vessel, Assembler, Debt, Entitlement** (INSERTED) - Commissioned by Dave 2026-08-10, mid-Phase-16, on reading `examples/s1-01-hello-context-product`: *"today I would put an MCP server in front of the fluree database and run a query and return the results. What is the benefit of using CCF?"* The example precomputed one answer to one design-time question at one fixed instant — which Chapter 1 names as the thing CCF replaces, *"the difference between the verb aggregate and the verb assemble."* Measured behind that reaction: three of §6.3's eight committed contract elements (freshness SLA, discovery, addressability) are unimplemented while `contract.py` states they live on `RegisteredProductClass`, where only `assembly_mode` of the four actually is; `register_product_class` takes no payload schema so `payload` is an unchecked dict; `DebtAssessment` is computed by `ccf.halflife.debt`, exercised in five examples, and appears on neither the product nor the replay record; and `Perspective` is passed into `execute()` by the caller with nothing deriving it from the verified grant, so the whole content-shaping layer sits downstream of an unverified claim. Rulings in force: `D-IMPL-96` revokes the "no fabric changed" constraint that concealed this, `D-IMPL-97` rules the Context Product a single standardised vessel whose uniqueness is in how it was assembled and whose assembler is a Protocol implemented by a declared agent, and Dave ruled entitlement requires a fabric change. Phase 16 is parked at 6/21 and resumes against the corrected surface — documenting it first would have documented the defect (completed 2026-08-12)
 - [ ] **Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument** - One document, two sections (deterministic + external MCP consumption; CCF-agent assembly + MCP/A2A consumption), banking scenarios from the whitepaper, re-cut snippet markers so a reader can see which code is CCF and which is theirs
 
 ## Phase Details
@@ -862,6 +863,215 @@ Plans:
 
 - [x] 15.4-12-PLAN.md — Surface record, citations, full sweep, gate package (**checkpoint**)
 
+### Phase 15.5: The Context Product Surface — Vessel, Assembler, Debt, Entitlement
+
+**Status**: planned 2026-08-10, commissioned mid-Phase-16. Phase 16 is parked at
+6/21 and resumes against the surface this phase corrects.
+
+**Why it exists.** Dave read `examples/s1-01-hello-context-product` and asked the
+question the whole SDK has to answer: *"today I would put an MCP server in front
+of the fluree database and run a query and return the results. What is the
+benefit of using CCF?"* The example pinned its subject, its temporal boundary and
+its `now` as literals in artifacts — one company, one frozen instant, one answer.
+Chapter 1 already names that as the thing CCF replaces: *"assembled at decision
+time, not precomputed against design-time queries… the difference between the two
+is the difference between the verb aggregate and the verb assemble."* By the
+whitepaper's own vocabulary the reference example aggregates.
+
+**What was measured behind that reaction** (at `b771468`, field by field, not
+inferred):
+
+- Three of §6.3's eight committed elements — **freshness SLA, discovery,
+  addressability** — are unimplemented, while `contract.py` states all four
+  class-level elements *"live"* on `RegisteredProductClass`, where only
+  `assembly_mode` of the four actually is.
+- `register_product_class` accepts **no payload schema**, so `payload:
+  Mapping[str, Any]` is an unchecked dict — the substantive gap under the vessel
+  model, whose entire discipline is the declared schema.
+- `DebtAssessment` is computed by `ccf.halflife.debt`, exercised in five shipped
+  examples, and appears on **neither** `ContextProductContract` **nor**
+  `DecisionReplayRecord`. Five of the six axes reach the wire; the sixth — the one
+  saying how much to trust the other five — does not.
+- `Perspective` is passed **into** `execute()` by the caller and nothing derives
+  it from the verified grant, so Π conditioning and the policy operators both key
+  off an unverified claim. `build_egress_server` binds no authorizer at all.
+- The `context_assembly` archetype ships but `ArchetypeComponent` is declarative
+  — `archetype_id`, `fabric_interaction_pattern`, `replay_obligations`,
+  `configuration_defaults` — so it declares the emission *pattern* and carries no
+  assembly behaviour. The assembler is a new surface, not a fill-in-the-blank.
+
+**Rulings in force.** `D-IMPL-96` revokes the "no fabric changed" constraint that
+concealed all of this — it was an anti-leakage rule that became a no-change rule,
+policed by a `git diff --stat` that cannot tell an adapter leaking in from a
+defect being fixed. `D-IMPL-97` rules the Context Product **one standardised
+vessel**, not a class hierarchy: identity is `schema_name` plus a declared payload
+schema, uniqueness is in **how it was assembled**, and the assembler is a Protocol
+whose implementation is a **declared agent** from the `context_assembly`
+archetype. Dave ruled separately that entitlement requires a fabric change.
+
+**The design agenda, carried from `docs/CONTEXT_PRODUCT_REVISION.md` §9–§10.**
+Seven open questions reach planning unresolved, and one gates the others: whether
+the **request surface is a typed request contract per class** — Dave's *"company
+name and top investors above 25%"* — because that is what makes a product
+**callable** rather than configurable, and it collapses the fixed-subject and
+fixed-instant defects into one design instead of two patches. The rest: debt's
+shape on the wire and whether recency and salience are one field or two; whether
+debt lands on the product, the replay record, or both; what *"a material event
+transpired"* means mechanically without domain values in the core; whether payload
+validation is a fourth gate or a registration-time bind; debt composition
+weighting for aggregate products; and the unruled coupling — **if entitlement
+bounds what an assembler may consult on a caller's behalf, completeness and
+therefore debt differ per principal, so debt cannot be computed once per
+product.**
+
+**Success Criteria**
+
+  1. Every Context Product delivered to a consumer carries its Context Debt, and no delivery path exists that drops it
+  2. All **nine** elements of the §6.3 contract are present in code, each verified by an executable assertion rather than by prose, so the class of defect that hid three of them cannot recur silently (`D-IMPL-30`, Dave, 2026-07-25, resolved reading (a): the contract has nine elements including Assembly Mode, and every "eight" reference — CLAUDE.md §5's included — is editorial drift the ruling explicitly authorizes treating as such; six are present today, freshness SLA / discovery / addressability are the three absent)
+  3. `register_product_class` accepts a declared payload schema and a payload violating it is refused, reusing the JSON-Schema machinery already proven on eight artifact classes
+  4. Perspective is derived from the verified identity at every exposed door and a caller cannot assert a role it was not granted, while `execute()` keeps taking a Perspective so replay determinism is untouched
+  5. Per-product-class entitlement gates the egress door, reusing the shape `peering/trust_policy.py` already implements per peer
+  6. The assembler exists as a Protocol whose implementation is a declared agent from the `context_assembly` archetype, binding sources, tools, enlisted agents and its debt profile through axes 4 and 5 and channel 2
+  7. A product answers a runtime request — subject and instant are arguments, never artifact literals — and the question asked is pinned in replay through `graph_query_sequence` and `QueryPinWriter`
+  8. Aggregate products compose lineage by union and implement `D-IMPL-31`'s already-resolved mixing-refusal rule — `expires_at = min(class MAX_TTL ceiling, derivation over constituent signal validities)`, with declarable constituent-validity floors whose breach **refuses assembly** rather than emitting a product labelled fresher than its stalest load-bearing constituent (ruled by Dave 2026-07-25 and never implemented; this criterion is implementation of a standing ruling, not a new design decision)
+  9. The four anti-leakage lints stay green throughout: zero harness imports in `src/`, no LLM client in an `@algorithmic` module, no prompt or threshold literal outside an artifact, no substrate name outside the backend registry
+  10. `examples/s1-01-hello-context-product` demonstrates an agent asking about any company at any time and is the shape every later example copies
+
+**Plans:** 15/15 complete. 15 plans in 7 waves (15.5-15 added at wave 3 by D-IMPL-108). Requirements `CPS-01`..`CPS-14` were minted by plan
+15.5-05 at execution (commit `e18f4bf`) and are now present in `.planning/REQUIREMENTS.md`. Three plans
+carry blocking checkpoints: 15.5-05 (the eight-question ruling package), 15.5-13
+(Dave calls the product for two companies at two instants) and 15.5-14 (the gate).
+
+**Wave 1** *(no dependencies — none of these needs a ruling)*
+
+- [x] 15.5-01-PLAN.md — Ruling evidence: measure what the eight questions cost
+- [x] 15.5-02-PLAN.md — The nine-element executable enumeration (the anti-recurrence artifact)
+- [x] 15.5-03-PLAN.md — Product-entitlement artifact, in the `PeerTrustGrant` shape
+- [x] 15.5-04-PLAN.md — Delete `DeploymentBinding` from `s1-01`
+
+**Wave 2** *(05 blocked on 01; 06 blocked on 03)*
+
+- [x] 15.5-05-PLAN.md — The ruling package + CPS requirement minting (**checkpoint**)
+- [x] 15.5-06-PLAN.md — Authenticate, bind entitlement and resolve Perspective at all three exposed doors (MCP egress, HTTP product route, Experience front door)
+
+**Wave 3** *(blocked on the rulings)*
+
+- [x] 15.5-07-PLAN.md — The three absent contract elements + the declared payload schema
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [x] 15.5-08-PLAN.md — The typed request contract (addressability realized)
+
+**Wave 5** *(blocked on Waves 3-4)*
+
+- [x] 15.5-09-PLAN.md — Payload validation enforcement
+- [x] 15.5-10-PLAN.md — The assembler Protocol + reference implementation
+- [x] 15.5-11-PLAN.md — Context Debt reaches the consumer
+- [x] 15.5-12-PLAN.md — Aggregate composition: lineage union, TTL floor, `D-IMPL-31` refusal
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [x] 15.5-13-PLAN.md — `s1-01` answers about any company at any time (**checkpoint**)
+
+**Wave 7** *(blocked on Wave 6)*
+
+- [x] 15.5-15-PLAN.md — Widen the product resolver seam once, carrying the typed request and the authorized Perspective (closes DI-15.5-03)
+- [x] 15.5-14-PLAN.md — Phase close: full sweep, surface manifest, review, gate package (**checkpoint**)
+
+**Blocks**: Phase 16 — the documentation rewrite resumes against this surface, not the one it found
+
+### Phase 15.6: Decision-Completeness and Defect Closure
+
+**Why this phase exists.** `D-GATE-15.5` approved Phase 15.5 with debt
+*"informative and correctly attributed, and not yet decision-complete"*
+(`D-IMPL-112`, Dave's verdict at the `15.5-13` checkpoint). Phase 16's job is
+writing examples and the adoption argument — and an example demonstrating debt
+an analyst cannot act on teaches the wrong lesson. Dave ruled 2026-08-11 that
+15.6 runs **before** Phase 16 resumes.
+
+**The measured reason it goes first, and it is not the defects.** The five
+carried defects are API-neutral and could wait. The decision-completeness work
+is where every API change lives: `Observation` is public surface and gains an
+identity field; `DebtAssessment` gains evidence pointers; and because
+`debt: DebtAssessment | None` is a field on `ContextProductContract`
+(`src/ccf/products/contract.py::ContextProductContract`), **the product content
+address moves a third time**. Phase 16 writes examples, and examples encode
+expected outputs — moving the address after ten examples exist regenerates ten;
+moving it now regenerates **one**. Phase 16 has already been invalidated once by
+exactly this: 6 of 21 plans landed before 15.5 moved the surface, and 4 of the
+remainder name the product or door surface directly.
+
+**Two explicit tracks** (Dave, 2026-08-11). They differ in risk and must not be
+planned as one.
+
+**Track A — defect closure. API-neutral, bounded, mostly mechanical.**
+- `DI-15.5-01` — the `test_run_coroutine_sync_overhead` ±11% flake.
+- `DI-15.5-04` — `IntermediateCache` computes a `content_hash` key for a cache
+  that is unreachable by construction; ~0.20s of a 0.41s benchmark. Making it
+  lazy is behaviour-identical but narrows a `D-IMPL-36` contract.
+- `DI-15.5-05` — binder refusals with no calling code path. Rule it as
+  `D-IMPL-113` ruled the analogous bind case, or wire it.
+- `DI-15.5-06` — `tools/dump_surface.py` records a Protocol's `__init__`, never
+  its `__call__`; 56 manifest entries carry the information-free
+  `(*args, **kwargs)`, 30 of them `*Protocol`, against 54 Protocol classes. This
+  is an **audit** fix, not a surface change — it makes the already-shipped 3-arg
+  → 5-arg resolver break visible. `D-IMPL-110` carries the measured inventory.
+- `DI-15.5-08` + `D-IMPL-114` — the `path::Symbol` citation sweep. Known
+  population: this phase's 3 and `DI-15.4-02`'s 45; never measured tree-wide.
+
+**Track B — decision-completeness. API-affecting; scoped to `D-IMPL-112`'s
+three named gaps, NOT to the open question.**
+1. **Which observations contributed the decay.** `Observation` carries
+   `(observation_type, observed_at)` and no join key, which is exactly why
+   `D-IMPL-99` ruled per-subject and per-claim NOT MEASURABLE. **A build, not a
+   wiring task.** Dave ruled 2026-08-11: **research spike first, then plan** —
+   the `15.5-01` shape, which deleted an option from the decision space for
+   free. The spike measures what an `Observation` identity costs across its 10
+   files and the manifest, what it does to the content address, and whether
+   evidence pointers can ride the **record** rather than the product.
+2. **When the underlying source filings were last refreshed** — source-refresh
+   recency as a fact distinct from computed freshness. Nothing models it today.
+3. **What `forced_llm` obliges** — a declared obligation vocabulary per debt
+   signal. Mechanism ships; the vocabulary is user configuration, never `src/`
+   values (CLAUDE.md §11).
+
+**Track B ships CARRYING MECHANISM, not judgement (`D-IMPL-117`, Dave,
+2026-08-11).** Surface impact is **accepted** — the `Observation` identity
+field, the `DebtAssessment` evidence pointers and the third content-address
+move are authorized costs, not risks to design around. The judgement about what
+a client needs belongs to the **context product creator**, expressed through the
+product's evolutionary capability; the SDK owes the **data structure and the API
+to populate and extract**, and owes none of the content. So: an `Observation`
+identity and a way for debt to point at what it summarises, owing nothing about
+*which* observations matter; a slot for source-refresh recency, owing no
+definition of a source or a cadence; a signal-to-obligation binding that
+survives replay, owing **no obligation vocabulary** (user configuration —
+CLAUDE.md §11, the posture `D-IMPL-101` took on salience).
+
+**The spike's primary question, which `D-IMPL-117` reframes.** Not *"can we
+avoid the address move"* — that cost is accepted. It is: **are these three
+things fixed fields on the vessel, or declared content in the shape the payload
+schema already uses?** `D-IMPL-97` puts cross-cutting governance in fixed
+structure and domain content in a declared schema, and debt evidence sits across
+that line — the *pointer mechanism* is governance, but *what evidence is worth
+carrying* is the creator judgement this phase assigns away from the SDK. Fixed
+wrongly, every deployment carries a shape someone else chose; declared wrongly,
+debt evidence is unvalidated free-form and replay cannot reason over it. Measure
+it against the vessel model and against `D-IMPL-100`'s constraint: every added
+field must be reconstructible from the record, the class, or the projection
+output, or `src/ccf/replay/engine.py::ReplayEnvironment` raises.
+
+**The standing test for this phase:** *"would someone act on this?"* rather than
+*"is this correct?"* Phase 15.5 answered the second. Only the first makes the
+examples honest — and under `D-IMPL-117` the SDK answers it by making the
+content *carriable*, not by choosing it.
+
+**Verification is `make ci`, not `make ci-core`.** Two 15.5 executors reported
+`docs-strict` unverified and both times it was the only thing broken. `make ci`
+costs ~75s more. Also sweep `docs/schemas/` and `openapi.json` for whitepaper
+shingles — they sit outside the D-20 scanner, and prose republished there fires
+no gate.
+
 ### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
 
 **Status**: discussed 2026-08-09. The scope was expanded at that discussion on
@@ -922,19 +1132,19 @@ which is theirs."*
 **Requirements**: mints its own DOCS-07..NN at planning; not counted in Coverage
 below. DEMO-01..03 and EXAM-01..05 re-home onto the new suite rather than being
 retired (`D-08`).
-**Plans:** 21 plans in 12 waves
+**Plans:** 4/21 plans executed (16-02 at 2/3, paused at its DGX checkpoint)
 
 Plans:
 **Wave 1**
 
-- [ ] 16-01-PLAN.md — ruling package (`D-IMPL-94`), DOCS-07..18 minted, ERGO-03 measurement frozen
+- [x] 16-01-PLAN.md — ruling package (`D-IMPL-94`), DOCS-07..18 minted, ERGO-03 measurement frozen
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 16-02-PLAN.md — FIBO source-estate extension: corp→corp ownership edges with per-edge percentages
-- [ ] 16-03-PLAN.md — Section-2 client-leg transport spike: LangGraph + Claude Agent SDK
-- [ ] 16-04-PLAN.md — gate-checker unblock, three standing docs tripwires
-- [ ] 16-21-PLAN.md — repo-wide retirement-coupling sweep, its inventory and its gate (split from 16-04)
+- [ ] 16-02-PLAN.md — FIBO source-estate extension: corp→corp ownership edges with per-edge percentages *(2/3 — Task 3 loads the four DGX stores and needs operator credentials; `roadmap.update-plan-progress` marked this `[x]` because it counts SUMMARY files, and 16-02's SUMMARY is `status: paused-at-checkpoint`)*
+- [x] 16-03-PLAN.md — Section-2 client-leg transport spike: LangGraph + Claude Agent SDK
+- [x] 16-04-PLAN.md — gate-checker unblock, three standing docs tripwires
+- [x] 16-21-PLAN.md — repo-wide retirement-coupling sweep, its inventory and its gate (split from 16-04)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -998,7 +1208,7 @@ Plans:
   7. An adoption-argument page names what teams build instead — RAG over a vector store, hand-rolled context assembly, a semantic layer plus prompt templates — and states what each lacks: no replay, no policy binding at assembly, no lineage to a passage, no staleness measure; its worked demonstration is the UBO question, "Who ultimately owns Acme?" (`D-10`)
   8. Gate 2 (INV-CH7-47) is documented as **assembly-path integrity** and nowhere as a comparison of two independently authored sets, and the `tests/examples/test_*_output.py` checks that compare `required_operator_keys` against `operators_invoked` are not promoted as independence proofs (`D-IMPL-86`, SURFACE-AUDIT §5.3 A-4)
   9. The carried advisories this phase owns are discharged in the published tree: A-1 (`from ccf.deployment import …` as the single preferred day-1 import), A-2 (a maintainer page for the surface toolchain), A-3 (the pre-15 surface described in the shipped docs), A-8 (`role: load` artifacts reachable on `BootedFabric.artifacts` and absent from the replay pin set)
-  10. No fabric changed: the only fabric-adjacent act is `D-02`, a `D-IMPL-NN` ruling with no diff confirming that Mode 2 packaging attaches **above** `serve()` rather than within it, and there is no Mode 2 packaging stage, no Mode 3 coordinator, no `src/ccf/unstructured/`, and no tier-3 external sources
+  10. Nothing leaks into the core: zero harness imports in `src/`, no LLM client in any `@algorithmic` module, no prompt/agent/task/threshold literal outside an artifact, and no substrate name outside the backend registry — all four CI-enforced — while changes to the fabric itself are permitted and expected where this phase finds a defect (`D-IMPL-96`, Dave, 2026-08-10, revoking the former "no fabric changed" wording and with it `D-13`'s docstring carve-out, `D-14`'s two-limb bound, and plan 16-19's `gate_16.py` allowlist; Mode 2 packaging still attaches **above** `serve()` per `D-IMPL-94`, and there is still no Mode 2 packaging stage, no Mode 3 coordinator, no `src/ccf/unstructured/`, and no tier-3 external sources)
 
 ## Progress
 
@@ -1016,7 +1226,9 @@ Plans:
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
-| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 0/19 | Planned   | — |
+| 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 15/15 | Complete | 2026-08-11 |
+| 15.6 Decision-Completeness and Defect Closure | 0/? | Planned | — |
+| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Parked (resumes after 15.6) |  |
 
 ## Coverage
 

@@ -41,6 +41,10 @@ from typing import Awaitable, Callable
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, params
 
+from ccf_runtime.authz.product_entitlement import (
+    PerspectiveResolverProtocol,
+    ProductEntitlementSourceProtocol,
+)
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
 from ccf_runtime.http_api.auth import HttpAuthProtocol
 from ccf_runtime.http_api.dependencies import ApiDependencies
@@ -63,6 +67,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "AUTH_POSTURE_SENTENCE",
     "CcfDeadAuthorizerWarning",
+    "CcfDeadEntitlementWarning",
     "CcfInsecureDefaultWarning",
     "create_app",
 ]
@@ -98,6 +103,22 @@ class CcfDeadAuthorizerWarning(UserWarning):
     """
 
 
+class CcfDeadEntitlementWarning(UserWarning):
+    """Product entitlement was bound with no auth hook — it can never run.
+
+    The WR-05 shape, applied to the third exposed product door (15.5-06).
+    Entitlement decides *per principal*, and a principal only exists here
+    once a bound auth hook has verified one, so an entitlement source
+    without ``auth=`` is inert by construction. Its own class rather than a
+    reuse of :class:`CcfDeadAuthorizerWarning` because the two name
+    different dead configurations and an operator reading a warning should
+    not have to work out which seam is the one that will never fire.
+    Exported so CI can escalate it and tests can target it; there is no
+    suppression kwarg — the fix is binding ``auth=``, not accepting the
+    dead configuration.
+    """
+
+
 #: The WR-05 dead-authorizer message: authorizer bound, auth unbound,
 #: enforcement structurally unreachable (D-06).
 _DEAD_AUTHORIZER_MESSAGE = (
@@ -106,6 +127,17 @@ _DEAD_AUTHORIZER_MESSAGE = (
     " bound auth hook produces (D-06), so the supplied authorizer can"
     " never run and the HITL routes enforce nothing. Bind auth= to make"
     " the authorizer effective (WR-05; D-IMPL-68)."
+)
+
+
+#: The 15.5-06 dead-entitlement message: entitlement seams bound, auth
+#: unbound, per-principal enforcement structurally unreachable.
+_DEAD_ENTITLEMENT_MESSAGE = (
+    "create_app() was called with product entitlement seams but no auth= hook:"
+    " per-principal product entitlement decides about a verified TokenGrant,"
+    " which only a bound auth hook produces, so the supplied seams can never"
+    " run and GET /product/... serves every class to every caller. Bind"
+    " auth= to make them effective (15.5-06; the WR-05 shape)."
 )
 
 
@@ -155,6 +187,8 @@ def create_app(
     *,
     auth: HttpAuthProtocol | None = None,
     authorizer: TenantAuthorizerProtocol | None = None,
+    product_entitlement: ProductEntitlementSourceProtocol | None = None,
+    perspective_resolver: PerspectiveResolverProtocol | None = None,
     acknowledge_insecure_default: bool = False,
 ) -> FastAPI:
     """Build the skeleton over ``deps`` — built, never hosted.
@@ -179,6 +213,20 @@ def create_app(
             byte-identical to the unauthorized-posture routes. Binding
             an authorizer *without* ``auth`` leaves it structurally
             inert and emits a :class:`CcfDeadAuthorizerWarning` (WR-05).
+        product_entitlement: Optional 15.5-06 per-principal product
+            entitlement seam. Supplied *together* with
+            ``perspective_resolver``; when both are bound **and** the
+            request carries a verified ``TokenGrant`` (i.e. ``auth`` is also
+            bound), ``GET /product/...`` refuses an unentitled class or an
+            ungranted role with a typed 403. Optional here — unlike on the
+            two MCP product doors, where it is required — because
+            authentication on this surface is itself optional by ruling
+            (D-IMPL-73), so a required seam would make the acknowledged
+            insecure posture unbuildable. Binding it *without* ``auth``
+            leaves it structurally inert and emits a
+            :class:`CcfDeadEntitlementWarning`.
+        perspective_resolver: Optional 15.5-06 role-derivation seam,
+            supplied together with ``product_entitlement``.
         acknowledge_insecure_default: Explicit acceptance of the
             unauthenticated posture (D-IMPL-73). When ``auth`` is
             ``None`` and this is ``False`` — the default — the SDK
@@ -207,6 +255,18 @@ def create_app(
         # while believing it is tenant-scoped.
         warnings.warn(
             CcfDeadAuthorizerWarning(_DEAD_AUTHORIZER_MESSAGE),
+            stacklevel=2,
+        )
+
+    if (
+        product_entitlement is not None or perspective_resolver is not None
+    ) and auth is None:
+        # 15.5-06, the WR-05 shape: the operator expressed intent to gate
+        # delivery per principal and wired a configuration in which there is
+        # no principal to gate on. A dead entitlement with zero signal ships
+        # every product class to every caller while believing it is gated.
+        warnings.warn(
+            CcfDeadEntitlementWarning(_DEAD_ENTITLEMENT_MESSAGE),
             stacklevel=2,
         )
 
@@ -280,7 +340,13 @@ def create_app(
         artifact.build_router(deps), prefix="/artifact", dependencies=guarded
     )
     app.include_router(
-        product.build_router(deps), prefix="/product", dependencies=guarded
+        product.build_router(
+            deps,
+            entitlement_source=product_entitlement,
+            perspective_resolver=perspective_resolver,
+        ),
+        prefix="/product",
+        dependencies=guarded,
     )
     app.include_router(
         config.build_router(deps), prefix="/config", dependencies=guarded

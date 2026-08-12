@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The policy bundle in force (KYC/UBO domain, phase 16 CONTEXT D-03).
+#
+# A *version* of this bundle is resolved from the Control Plane, stamped onto
+# every claim at assembly, and carried into the product's policy binding and
+# into replay dimension 2.
+#
+# A policy bundle's SCHEMA is the deployment's, not the SDK's — the SDK never
+# invents a policy-bundle schema on a user's behalf (CLAUDE.md §11). So this
+# document uses the open `DeclaredArtifact` envelope: the SDK fixes `semver`,
+# `class_id` and canonical serializability, and everything under `declaration:`
+# is this deployment's own. The `$schema` header above names that envelope,
+# which is the only schema the SDK owns here; `class_id` below is what says what
+# kind of thing this actually is, and the manifest entry must agree with it.
+#
+# THE THRESHOLD IS JURISDICTION-CONDITIONED, WHICH IS WHY IT IS HERE.
+# 25.0% is the FinCEN CDD beneficial-ownership threshold, and it is the
+# threshold *because of* the `jurisdiction` two lines above it. A deployment
+# operating under a different regime writes a different number here and gets a
+# different answer out of the same graph and the same code. That is the whole of
+# the arrangement: the projection reads the threshold from this document and
+# holds none of its own (CLAUDE.md §6.4).
+#
+# Quantities are QUOTED so they parse as text and are validated as decimals: the
+# canonical serializer refuses floats (not bit-stable across platforms), and the
+# artifact loader refuses a YAML float rather than silently converting one.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and everything under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: fibo-kyc.policy-bundle
+
+declaration:
+  regime: meridian-bank-kyc-cdd
+  jurisdiction: US-DE
+
+  # The beneficial-ownership threshold this regime applies, as a percentage.
+  # Read by the projection; written nowhere in code.
+  beneficial_ownership_threshold_percent: "25.0"
+
+  # How many decimal places aggregated ownership is reported to. Three, because
+  # a three-hop chain of two-place percentages lands on a third place
+  # (25.0% x 15.0% x 30.0% = 1.125%) and rounding it away would hide exactly the
+  # arithmetic this product exists to perform.
+  ownership_percent_scale_places: 3
+
+  permitted_classifications:
+    - kyc-disclosable

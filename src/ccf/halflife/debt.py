@@ -44,6 +44,26 @@ every λ_c are Control Plane values resolved by pinned version
 (:mod:`ccf.controlplane.artifacts`); this module holds none of them
 (CLAUDE.md §11, CINV-01; D-IMPL-38).
 
+Where the shape lives
+---------------------
+:class:`DebtAssessment`, :class:`DebtFactors`, :class:`DebtSignal` and
+:class:`ScorerPin` are defined in :mod:`ccf.halflife.assessment` and re-exported
+here, so every existing import of them from this module keeps working. The split
+is not cosmetic: D-IMPL-100 carries the assessment on
+:class:`~ccf.products.contract.ContextProductContract`, and the vessel cannot
+import *this* module — it reaches :mod:`ccf.controlplane.artifacts`, which
+imports the vessel. The shape therefore lives below both; the computation stays
+here, with the Control Plane values it needs.
+
+**What computing debt is now for** (D-IMPL-100). Until this phase D_c was
+computed and discarded: it appeared on neither the product nor the replay
+record, so five of the six axes of ``G(E, R, T, P, Π, L)`` reached the wire and
+the sixth — the one that says how much to trust the other five — did not.
+:func:`assess_debt`'s result is now carried on the delivered product and on the
+Decision Replay record, which is what whitepaper ``:2696`` asks for: debt as *"a
+runtime signal the agent must consume as a first-class decision input, not a
+log-line to be read after the fact"*.
+
 Algorithmic module (CINV-03).
 """
 
@@ -53,22 +73,30 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
-from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import DebtProfile, HalfLifeTable
+from ccf.halflife.assessment import (
+    NO_SCORER_PINS,
+    DebtAssessment,
+    DebtFactorName,
+    DebtFactors,
+    DebtSignal,
+    ScorerPin,
+)
 from ccf.halflife.decay import Observation, freshness
-from pydantic import field_validator
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "NO_SCORER_PINS",
     "DebtAssessment",
+    "DebtFactorName",
     "DebtFactorScorerProtocol",
     "DebtFactors",
     "DebtSignal",
     "FreshnessScorer",
+    "ScorerPin",
     "assess_debt",
     "basic_debt",
     "context_debt",
@@ -82,87 +110,6 @@ _UNIT = Decimal(1)
 #: ran under rather than the one installed today (D-IMPL-47).
 FRESHNESS_SCORER_ID = "ccf.reference.freshness-from-decay"
 FRESHNESS_SCORER_VERSION = "1.0.0"
-
-
-class DebtSignal(StrEnum):
-    """The routing state an assessed D_c falls into (whitepaper §7.7 CAR).
-
-    Members:
-        OK: D_c sits below both configured bands. Nothing about debt changes
-            the decision path; this is not an assertion that context is
-            perfect, only that its shortfall is within the class's declared
-            tolerance.
-        FORCED_LLM: D_c is above the class's Forced-LLM threshold — context is
-            partial or stale, and a semantic stage must be invoked *with
-            explicit awareness of the debt*.
-        FAIL_CLOSED: D_c is above the class's Fail-Closed threshold. The fabric
-            does not know enough to support the decision. §7.7 reads missing
-            counter-evidence as grounds for caution rather than reassurance, so
-            this state escalates and never quietly proceeds.
-
-    The two escalation states are deliberately distinct: Forced-LLM is *more*
-    reasoning, Fail-Closed is *no* decision. Collapsing them would make an
-    outage indistinguishable from a hard question.
-    """
-
-    OK = "ok"
-    FORCED_LLM = "forced_llm"
-    FAIL_CLOSED = "fail_closed"
-
-
-class DebtFactors(CCFContract):
-    """The three quality factors of the extended form (whitepaper §7.7).
-
-    Attributes:
-        freshness: F — the composition of per-observation decay curves against
-            the class's ``λ_c × Risk Sensitivity`` budget
-            (:class:`FreshnessScorer`).
-        completeness: C — the fraction of required fields actually populated
-            across the assembled sources.
-        semantic_consistency: S — the fraction of assembled sources whose
-            structured assertions agree on the entities, relationships and
-            magnitudes the decision cares about.
-
-    Each lies in ``[0, 1]``; a factor outside that interval is refused rather
-    than clipped, because a clipped factor is a measurement error rendered as a
-    plausible number. Decimal throughout: these values reach the replay record,
-    and floats are not bit-stable.
-
-    Only F has an SDK reference scorer in I.1. C and S are supplied by the
-    caller until their scorers ship (DESIGN.md §2B.4, D-IMPL-47) — the SDK
-    would otherwise have to invent a required-field vocabulary and a
-    contradiction detector, both of which are deployment knowledge.
-    """
-
-    freshness: Decimal
-    completeness: Decimal
-    semantic_consistency: Decimal
-
-    @field_validator("freshness", "completeness", "semantic_consistency")
-    @classmethod
-    def _factor_is_in_the_unit_interval(cls, value: Decimal) -> Decimal:
-        if not _ZERO <= value <= _UNIT:
-            raise ValueError("debt factors must lie in [0, 1]")
-        return value
-
-
-class DebtAssessment(CCFContract):
-    """One D_c computation and the routing state it lands in.
-
-    Carries the factors it was computed from, not just the scalar: an examiner
-    asking *why* a decision was escalated needs to see which of the three
-    dimensions collapsed, and the multiplicative form makes that question
-    answerable only if the inputs travel with the answer.
-
-    Attributes:
-        debt: D_c in ``[0, 1]``.
-        signal: The CAR state (:class:`DebtSignal`).
-        factors: The F/C/S inputs.
-    """
-
-    debt: Decimal
-    signal: DebtSignal
-    factors: DebtFactors
 
 
 @runtime_checkable
@@ -300,7 +247,12 @@ def context_debt(factors: DebtFactors) -> Decimal:
     )
 
 
-def assess_debt(factors: DebtFactors, *, profile: DebtProfile) -> DebtAssessment:
+def assess_debt(
+    factors: DebtFactors,
+    *,
+    profile: DebtProfile,
+    scorers: tuple[ScorerPin, ...] = NO_SCORER_PINS,
+) -> DebtAssessment:
     """Compute D_c and the CAR routing state under ``profile``.
 
     Bands are read strictly: the whitepaper routes on D_c "above the
@@ -312,12 +264,30 @@ def assess_debt(factors: DebtFactors, *, profile: DebtProfile) -> DebtAssessment
     The returned signal is a value. Nothing here escalates, invokes, or logs —
     see the module docstring.
 
+    **Pure over** ``(factors, profile)`` **, and it stays that way** (D-IMPL-105).
+    No entitlement, principal or grant argument joins this signature. Under a
+    per-principal debt figure the completeness number *moves when a source is
+    withheld*, so a caller could infer what they are not allowed to see from
+    the debt they are shown — an oracle over the entitlement configuration,
+    reachable with ordinary delivery access and quieter than a refusal, because
+    nothing in the response says a consultation was declined. A refused
+    consultation is simply not part of ``C_required`` for that principal, so
+    there is no per-principal figure to differ and nothing to difference. The
+    ruling dissolves the coupling rather than redacting it.
+
     Args:
         factors: The F/C/S measurements.
         profile: The decision class's resolved, versioned debt profile. Passed
             in already resolved so that the caller's pinning of ``(key,
             version)`` is explicit and lands in the replay record; this
             function never reaches for a Control Plane "latest".
+        scorers: The scorers in force, one per accounted factor (D-IMPL-47).
+            **Carried, never consulted** — the pins do not participate in the
+            computation, so passing them changes neither ``debt`` nor
+            ``signal``; they travel so that a factor value is reproducible
+            alongside what produced it. Defaults to :data:`NO_SCORER_PINS`, so
+            every call site written before the pin existed asserts exactly what
+            it always asserted.
     """
     debt = context_debt(factors)
     if debt > profile.fail_closed_threshold:
@@ -326,4 +296,6 @@ def assess_debt(factors: DebtFactors, *, profile: DebtProfile) -> DebtAssessment
         signal = DebtSignal.FORCED_LLM
     else:
         signal = DebtSignal.OK
-    return DebtAssessment(debt=debt, signal=signal, factors=factors)
+    return DebtAssessment(
+        debt=debt, signal=signal, factors=factors, scorers=scorers
+    )

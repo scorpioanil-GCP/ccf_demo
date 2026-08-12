@@ -27,6 +27,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "ACTION_HITL_ACTION_SUBMIT",
     "ACTION_HITL_QUEUE_READ",
+    "ACTION_PRODUCT_RETRIEVE",
 ]
 
 #: Reading one tenant's pending HITL queue — declared by the HTTP door's
@@ -36,3 +37,12 @@ ACTION_HITL_QUEUE_READ: Final[str] = "hitl.queue.read"
 #: Submitting one human action — declared by the HTTP door's
 #: ``POST /hitl/actions`` and the MCP door's action tool (D-02).
 ACTION_HITL_ACTION_SUBMIT: Final[str] = "hitl.action.submit"
+
+#: Receiving one Context Product — declared by all **three** exposed product
+#: doors (the MCP egress resource, the Experience front-door resource, and
+#: the HTTP ``GET /product/...`` route) and carried on the
+#: ``authz_decision`` event every entitlement decision appends. One action
+#: id for three doors, deliberately: an examiner asking "who was served this
+#: class?" must not have to know which surface the caller happened to reach
+#: (D-02; D-08).
+ACTION_PRODUCT_RETRIEVE: Final[str] = "product.retrieve"

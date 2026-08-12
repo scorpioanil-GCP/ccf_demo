@@ -76,6 +76,7 @@ from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.graph.protocols import GraphReader
 from ccf.products.contract import ContextProductContract
+from ccf.products.request import request_seeds
 from ccf.projection.engine import OperatorRegistry, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionOutput, ProjectionPlan
 from ccf.replay.record import NO_GRAPH_QUERIES, DecisionReplayRecord
@@ -166,6 +167,20 @@ class ReplayEnvironment(Protocol):
         (schema, TTL anchor, expiry) comes from the deployment's product class.
         The engine checks the result's content address against the record, so
         an envelope reconstructed wrongly is caught rather than accepted.
+
+        **The debt in force comes off the record, and must not be re-measured**
+        (15.5-11, D-IMPL-100). ``ContextProductContract.debt`` is inside the
+        hashed body, so an implementation that omitted it — or recomputed it —
+        returns a product the engine's address check rejects. It is
+        reconstructible without a signature change because the record is
+        already a parameter here: read
+        ``record.content_generation_path.debt`` and carry it onto the rebuilt
+        product verbatim. Re-deriving it is not an option even in principle:
+        D_c is computed from observations and a ``now`` that neither the record
+        nor the projection re-derives, so a fresh assessment would be a
+        different decision wearing this one's identifier. A record carrying the
+        ``None`` sentinel asserts its decision had no assessment, and the
+        rebuilt product carries ``None`` in turn.
         """
         ...
 
@@ -402,6 +417,14 @@ def replay(
         ),
         tenant_id=snapshot.tenant_id,
         temporal_boundary=snapshot.temporal_boundary,
+        # The recorded question's anchor, not the deployment's current one
+        # (D-IMPL-111): the walk starting points are compiled into the query,
+        # so a replay under different seeds would ask a different question
+        # wearing the decision's identifier — the ``survivor_cap`` argument
+        # one line up, applied to the other half of what shapes a query. A
+        # record carrying no request yields ``None`` and replays exactly as
+        # it did before the ruling.
+        seeds=request_seeds(path.request),
     )
 
     if execution.steps != path.steps:

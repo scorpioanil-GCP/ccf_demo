@@ -1,0 +1,60 @@
+{
+  "$defs": {
+    "ProductEntitlementGrant": {
+      "additionalProperties": false,
+      "description": "What one principal may receive, and as whom.\n\nTwo declared sets, neither with a default. Empty is expressible and means\nexactly what it says \u2014 this principal may receive nothing of that kind \u2014\nbecause a grant that quietly defaulted to \"anything\" would be the bypass\nthis contract exists to make unreachable.\n\nAttributes:\n    permitted_schema_names: The Context Product classes this principal may\n        be served. Class names are the deployment's vocabulary; the SDK\n        enumerates none of them.\n    permitted_roles: The roles this principal may assert. A door resolves a\n        requested role against this set *before* constructing a\n        :class:`~ccf.projection.plan.Perspective`, so a caller cannot\n        receive a view conditioned on a role nobody granted it. Both of\n        that perspective's strings land verbatim in replay dimension 4,\n        which is why the grant belongs upstream of it rather than inside\n        it.",
+      "properties": {
+        "permitted_roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Permitted Roles",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "permitted_schema_names": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Permitted Schema Names",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "permitted_schema_names",
+        "permitted_roles"
+      ],
+      "title": "ProductEntitlementGrant",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One tenant's product entitlements, as a versioned Control Plane artifact.\n\nTenant-scoped by construction (D-IMPL-05): the tenant is a field on the\nartifact and part of its content, so two tenants naming the same principal\nhold two different artifacts with two different content addresses. One\ntenant's grant to a principal therefore cannot serve that principal under\nanother \u2014 not by convention, but because there is no shared object for it\nto leak through.\n\n``principals`` requires at least one entry: an empty policy is\nindistinguishable from a deployment that forgot to configure one, and\nregistering it would let a door come up entitling nobody while looking\nconfigured.\n\nAttributes:\n    tenant_id: The tenant this policy governs delivery for.\n    policy_version: This artifact's own lane. No default \u2014 see the module\n        docstring.\n    principals: Principal identifier to its entitlements.",
+  "properties": {
+    "policy_version": {
+      "title": "Policy Version",
+      "type": "string"
+    },
+    "principals": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ProductEntitlementGrant"
+      },
+      "minProperties": 1,
+      "title": "Principals",
+      "type": "object"
+    },
+    "tenant_id": {
+      "title": "Tenant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "policy_version",
+    "principals"
+  ],
+  "title": "ProductEntitlementPolicy",
+  "type": "object",
+  "x-ccf-class-id": "ccf.product-entitlement-policy"
+}

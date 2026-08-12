@@ -117,6 +117,17 @@ artifacts:
     role: register
     registration: typed
 
+  # Who the L6 egress door recognises and what it may receive. A second
+  # governance statement beside `producer-peering.yaml`, and deliberately so:
+  # that one governs what crosses an ORGANISATIONAL boundary, this one governs
+  # what crosses the LOCAL delivery boundary, and a deployment can tighten
+  # either without touching the other.
+  - path: egress-door.yaml
+    key: egress-door
+    class_id: harborline-syndications.egress-door
+    role: register
+    registration: typed
+
   # The agent's axis-4 and axis-5 targets. Their keys are LONG because a key
   # here is the Control Plane key, and the agent definition's versioned-URI
   # refs resolve to exactly `{tenant}/{artifact_class}/{name}` — the manifest

@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The questions the bundled demonstration asks (plan 15.5-13).
+#
+# **This document is NOT in `manifest.yaml`, and that is the whole point.**
+# It is not Control Plane state, it is not registered, it is not pinned, and it
+# has no business in Decision Replay dimension 2 — dimension 2 records what the
+# fabric was PERMITTED to do, and a question is not a permission. It is *caller
+# input*: the stand-in, in a keyless offline example, for a KYC analyst typing
+# at a prompt. `../run.py` reads it directly and turns each entry into a typed
+# `ProductRequest`, exactly as `source-estate.yaml` is read directly by
+# `../source_estate.py` and for the same reason (phase 16 CONTEXT `D-04`).
+#
+# `../run.py --subject … --as-of … --decision-instant …` asks a question that is
+# in NO artifact at all. That is the proof the product is callable rather than
+# configured: nothing in this file, and nothing in the fabric, has to be edited
+# to ask about a company nobody anticipated.
+#
+# **THE THREE ENTRIES ARE A CONTROLLED EXPERIMENT.** Read them as pairs:
+#
+#   1 vs 2  same instant, different SUBJECT  — the fabric assembles a different
+#           ownership chain and returns a different set of beneficial owners.
+#   1 vs 3  same subject, different INSTANT  — a share transfer recorded before
+#           1 August but not legally EFFECTIVE until September is invisible in
+#           1 and visible in 3, so the same company has two different ultimate
+#           owners on two different dates, from one graph, with no re-ingest.
+#
+# A vector store over chunked filings cannot produce either difference, because
+# neither answer is stated in any passage of any document.
+#
+# Every timestamp is quoted and states its zone. Quoted because this document is
+# read with `yaml.safe_load`, which would otherwise resolve a bare timestamp to
+# a `datetime` and rob the request contract of a string to validate; zoned
+# because a zone-less instant is a silent default (D-IMPL-38).
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id` and every value under `declaration:` is [ADAPT]; the
+# keys `semver`, `class_id` and `declaration` are [MECHANISM].
+
+semver: "1.0.0"
+class_id: fibo-kyc.question-batch
+
+declaration:
+  # The ADDRESS every question below is sent to: which product class, at which
+  # of its own semver lanes (INV-CH7-49). A request is addressed, so the class
+  # travels on it — `refuse_request` checks the address before it looks at a
+  # single parameter, because comparing a question against another class's
+  # declaration produces a confident verdict about the wrong question.
+  schema_name: fibo-kyc.ultimate-beneficial-ownership
+  schema_version: "1.0.0"
+
+  # What `--subject` uses when a reader asks an ad-hoc question from the command
+  # line and does not say why or how current. Defaults for a demonstration, not
+  # for a deployment: an exposed door reads intent and freshness off the
+  # caller's own request and never substitutes its own.
+  default_intent: kyc-periodic-review
+  default_freshness: as-of-boundary
+
+  questions:
+    # 1 — the original question this example has always answered, unchanged, so
+    #     that the served product and its replay record are byte-comparable
+    #     against every expectation recorded before plan 15.5-13.
+    - subject: "http://example.org/fibo/AcmeCorp"
+      intent: kyc-periodic-review
+      freshness: as-of-boundary
+      asked_at: "2026-08-01T00:00:00Z"
+      parameters:
+        decision_instant: "2026-08-01T00:05:00Z"
+
+    # 2 — a DIFFERENT COMPANY at the same instant. Beta Holdings is a step on
+    #     Acme's own ownership chain, so this is the same graph read from a
+    #     different anchor, and the aggregation lands somewhere else.
+    - subject: "http://example.org/fibo/BetaHoldings"
+      intent: kyc-onboarding
+      freshness: as-of-boundary
+      asked_at: "2026-08-01T00:00:00Z"
+      parameters:
+        decision_instant: "2026-08-01T00:05:00Z"
+
+    # 3 — the SAME COMPANY at a LATER INSTANT. Nothing is re-ingested between
+    #     this and question 1; the September transfer was already in the graph
+    #     on 1 August and simply was not yet legally effective.
+    - subject: "http://example.org/fibo/AcmeCorp"
+      intent: kyc-periodic-review
+      freshness: as-of-boundary
+      asked_at: "2026-09-15T00:00:00Z"
+      parameters:
+        decision_instant: "2026-09-15T00:05:00Z"

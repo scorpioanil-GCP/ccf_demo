@@ -26,6 +26,12 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ERROR_INVALID_GRANT",
+    "ERROR_PRINCIPAL_NOT_ENTITLED",
+    "ERROR_PRODUCT_CLASS_UNENTITLED",
+    "ERROR_PRODUCT_DOOR_UNGOVERNED",
+    "ERROR_PRODUCT_POLICY_ABSENT",
+    "ERROR_PRODUCT_REQUEST_INCOMPLETE",
+    "ERROR_PRODUCT_ROLE_UNGRANTED",
     "ERROR_SIGNED_BINDING_INVALID",
     "ERROR_SIGNED_BINDING_REQUIRED",
     "ERROR_SUBJECT_CONFLICT",
@@ -59,6 +65,54 @@ ERROR_SIGNED_BINDING_INVALID: Final[str] = "signed-binding-invalid"
 #: action under the scope mapping in force (403; HARD-04; D-IMPL-68 —
 #: deny-by-default at the doors, one code for both renderings, D-08).
 ERROR_TENANT_UNAUTHORIZED: Final[str] = "tenant-unauthorized"
+
+#: The tenant has no registered ``ccf.product-entitlement-policy`` at all
+#: (403; 15.5-06). A deny rather than an error: a door whose governance
+#: configuration is absent must refuse, never answer everyone.
+ERROR_PRODUCT_POLICY_ABSENT: Final[str] = "product-policy-absent"
+
+#: The tenant's entitlement policy names no entry for the verified
+#: principal (403; 15.5-06). Distinct from a per-request refusal: an
+#: unconfigured principal is a caller the deployment never declared, not one
+#: overreaching a known grant, and an operator reading a refusal should not
+#: have to guess which they saw.
+ERROR_PRINCIPAL_NOT_ENTITLED: Final[str] = "principal-not-entitled"
+
+#: The verified principal's grant does not permit the requested Context
+#: Product class (403; 15.5-06 — ``P`` applied at delivery).
+ERROR_PRODUCT_CLASS_UNENTITLED: Final[str] = "product-class-unentitled"
+
+#: The role the resolved :class:`~ccf.projection.plan.Perspective` carries is
+#: outside the verified principal's grant (403; 15.5-06). A caller may
+#: request a role; only the grant decides whether it is received.
+ERROR_PRODUCT_ROLE_UNGRANTED: Final[str] = "product-role-ungranted"
+
+#: This door cannot name the :class:`~ccf.projection.plan.Perspective` a
+#: product would be shaped under, so it does not serve one (503; D-IMPL-108,
+#: closing DI-15.5-03).
+#:
+#: Reached when the entitlement seams are unbound, or when they are bound but
+#: no verified grant accompanies the call. Both are configuration states, which
+#: is why this is a 503 and not a 403: nothing is wrong with the *caller*, and
+#: telling them they are forbidden would misattribute the fault. It is the
+#: HTTP counterpart of ``build_egress_server`` refusing to build an ungoverned
+#: door at all — that builder can raise because its surface is authenticated by
+#: construction, whereas this one must still *build* in the acknowledged
+#: insecure posture (D-IMPL-73) and therefore refuses per call instead.
+#:
+#: The perspective is required rather than defaulted at the resolver seam
+#: precisely so this state is loud: a door that manufactured a perspective here
+#: would serve a product conditioned on a role nobody granted, which is
+#: indistinguishable at the wire from one the door authorized.
+ERROR_PRODUCT_DOOR_UNGOVERNED: Final[str] = "product-door-ungoverned"
+
+#: A partial §6.3 request address reached the product route (400; D-IMPL-98).
+#:
+#: The four address axes — subject, intent, freshness and the instant — are
+#: supplied together or not at all. A defaulted axis is a question nobody
+#: asked, answered anyway, so the door refuses the partial address rather than
+#: filling one in.
+ERROR_PRODUCT_REQUEST_INCOMPLETE: Final[str] = "product-request-incomplete"
 
 
 def refusal_detail(*, error_code: str, message: str) -> dict[str, str]:

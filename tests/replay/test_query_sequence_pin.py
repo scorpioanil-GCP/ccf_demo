@@ -278,7 +278,10 @@ class _Environment:
                 ),
                 graph_snapshot_at=record.context_fabric_snapshot.temporal_boundary,
             ),
+            # Read back off dimension 5, never re-assessed: `debt` is inside
+            # the product's content address (D-IMPL-100).
             payload=projection.payload,
+            debt=record.content_generation_path.debt,
         )
 
 

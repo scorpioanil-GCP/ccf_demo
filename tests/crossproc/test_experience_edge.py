@@ -259,8 +259,15 @@ def _builder_kwargs(tmp_path: Path) -> dict[str, Any]:
     from mcp.server.auth.settings import AuthSettings
     from pydantic import AnyHttpUrl
 
+    from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf_runtime.authz.product_entitlement import (
+        ControlPlaneProductEntitlementSource,
+    )
     from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
 
+    from crossproc.servers.mcp_experience_child import (
+        AUDIT_INSTANT as ENTITLEMENT_AUDIT_INSTANT,
+    )
     from crossproc.servers.mcp_experience_child import (
         ISSUER_URL,
         RESOURCE_SERVER_URL,
@@ -286,6 +293,17 @@ def _builder_kwargs(tmp_path: Path) -> dict[str, Any]:
             resource_server_url=AnyHttpUrl(RESOURCE_SERVER_URL),
             required_scopes=[SCOPE],
         ),
+        # Unconditionally required from 15.5-06 on, like the auth pair and
+        # for the same reason: the product resource is not allowlist-gated,
+        # so its governance seams are never dead configuration. These are
+        # deliberately not `unreachable` — a construction-time test never
+        # reaches them either, but a builder that quietly accepted `None`
+        # here would produce a front door answering every verified caller.
+        "entitlement_source": ControlPlaneProductEntitlementSource(
+            control_plane=ControlPlaneRegistry(),
+            clock=lambda: ENTITLEMENT_AUDIT_INSTANT,
+        ),
+        "perspective_resolver": unreachable,
     }
 
 
@@ -606,3 +624,185 @@ def test_an_unrecognised_credential_is_refused(
                 ),
             )
         )
+
+
+# --- the front door is entitled, not merely authenticated (15.5-06) ---------
+#
+# Deliberately asserted here rather than by importing the egress suite: the
+# two files assert the same property about two different servers, and they
+# must be able to fail independently. A shared test module would report one
+# failure for two doors and hide which one regressed.
+
+
+def test_the_front_door_imports_the_seams_rather_than_re_declaring_them() -> None:
+    """One definition of "entitled", three doors — asserted, not reviewed.
+
+    What would fail here: this module growing its own
+    ``PerspectiveResolverProtocol``, or its own ordering of the two raising
+    checks. Two readings of the phase's central security property would then
+    exist, and the one that drifted would be the one nobody was watching.
+
+    Note the *shape* of the shared home. The seams live in
+    :mod:`ccf_runtime.authz.product_entitlement` — a package neither MCP role
+    owns — rather than in one door imported by the other, because
+    ``tests/invariants/test_mcp_role_separation.py`` asserts that these
+    modules import none of their siblings. Sharing through a third module is
+    the resolution :mod:`ccf_runtime.authz.protocol` already models for the
+    two HITL doors.
+    """
+    import ccf_runtime.mcp.experience as experience
+
+    source = inspect.getsource(experience)
+    assert "from ccf_runtime.authz.product_entitlement import" in source
+    assert "entitled_perspective" in source
+    assert "class PerspectiveResolverProtocol" not in source
+    assert "class ProductEntitlementSourceProtocol" not in source
+    assert "require_schema" not in source
+    assert "require_role" not in source
+    # And it did not reach the shared home by importing a sibling role. The
+    # assertion is on *import statements* rather than on the text, because a
+    # docstring may name a sibling's type in a cross-reference — naming is
+    # not importing, and the role-separation invariant is about the latter.
+    assert "from ccf_runtime.mcp.egress import" not in source
+    assert "import ccf_runtime.mcp.egress" not in source
+
+
+def test_the_front_door_refuses_to_build_without_its_governance_seams(
+    tmp_path: Path,
+) -> None:
+    """T-15.5-21: no inert configuration, on the same terms as the egress door.
+
+    What would fail here: either seam acquiring a ``None`` default "for
+    compatibility", which would let the SDK's *external* front door ship
+    answering every verified caller with every class its resolver holds.
+    """
+    from ccf_runtime.mcp.experience import build_experience_server
+
+    for omitted in ("entitlement_source", "perspective_resolver"):
+        kwargs = _builder_kwargs(tmp_path)
+        del kwargs[omitted]
+        with pytest.raises(TypeError, match=omitted):
+            build_experience_server(**kwargs)
+
+
+@with_child
+def test_a_verified_but_undeclared_principal_is_refused_at_the_front_door(
+    child_server_port: int, bridge: SyncMcpBridge, tmp_path: Path
+) -> None:
+    """Authentication is not entitlement, on the surface that matters most.
+
+    The credential is genuinely recognised — the handshake succeeds and the
+    caller is verified — and the principal is simply not one the tenant's
+    policy declares. Without this case the round-trip test above would pass
+    against a door that gated on nothing at all.
+    """
+    import httpx
+
+    from ccf_runtime.http_api.errors import ERROR_PRINCIPAL_NOT_ENTITLED
+    from ccf_runtime.mcp.experience import experience_product_uri
+
+    from crossproc.servers.mcp_experience_child import UNENTITLED_TOKEN
+
+    url = f"http://127.0.0.1:{child_server_port}/mcp"
+    assembled = build_servable_product(
+        database_path=tmp_path / "experience-unentitled.sqlite3"
+    )
+    uri = experience_product_uri(
+        tenant=assembled.address.tenant,
+        product_class=assembled.address.product_class,
+        version=assembled.address.version,
+    )
+
+    async def operation(session: ClientSession) -> str:
+        result = await session.read_resource(AnyUrl(uri))
+        return "".join(
+            contents.text
+            for contents in result.contents
+            if isinstance(contents, TextResourceContents)
+        )
+
+    with pytest.raises(McpServerUnreachable) as refused:
+        bridge.run(
+            run_with_session(
+                url=url,
+                operation=operation,
+                http_client_factory=lambda: httpx.AsyncClient(
+                    headers={"Authorization": f"Bearer {UNENTITLED_TOKEN}"}
+                ),
+            )
+        )
+
+    # The typed constant, not the prose: the same vocabulary the HTTP door
+    # renders as a 403 body (D-08 — one vocabulary, two renderings).
+    assert ERROR_PRINCIPAL_NOT_ENTITLED in _causes(refused.value)
+
+
+@with_child
+def test_a_class_outside_the_grant_is_refused_at_the_front_door(
+    child_server_port: int, bridge: SyncMcpBridge, tmp_path: Path
+) -> None:
+    """T-15.5-20 on the external surface: entitlement is per class.
+
+    The entitled principal asks for a class the child's policy does not name.
+    What would fail here: a door that checked only that the principal exists,
+    which is authentication wearing an entitlement's name.
+    """
+    import httpx
+
+    from ccf_runtime.http_api.errors import ERROR_PRODUCT_CLASS_UNENTITLED
+    from ccf_runtime.mcp.experience import experience_product_uri
+
+    url = f"http://127.0.0.1:{child_server_port}/mcp"
+    assembled = build_servable_product(
+        database_path=tmp_path / "experience-other-class.sqlite3"
+    )
+    uri = experience_product_uri(
+        tenant=assembled.address.tenant,
+        product_class=f"{assembled.address.product_class}-not-this-one",
+        version=assembled.address.version,
+    )
+
+    async def operation(session: ClientSession) -> str:
+        result = await session.read_resource(AnyUrl(uri))
+        return "".join(
+            contents.text
+            for contents in result.contents
+            if isinstance(contents, TextResourceContents)
+        )
+
+    with pytest.raises(McpServerUnreachable) as refused:
+        bridge.run(
+            run_with_session(
+                url=url,
+                operation=operation,
+                http_client_factory=authorized_http_client,
+            )
+        )
+
+    detail = _causes(refused.value)
+    assert ERROR_PRODUCT_CLASS_UNENTITLED in detail
+    # The refusal names the class, and it is the entitlement speaking rather
+    # than the resolver: an unentitled class must never reach the resolver's
+    # own "no such product" path.
+    assert "-not-this-one" in detail
+
+
+def _causes(error: BaseException, _seen: frozenset[int] = frozenset()) -> str:
+    """Every message in an exception's cause chain and group tree, joined.
+
+    ``run_with_session`` renders whatever the transport raised, and anyio
+    renders a task group's failure as ``unhandled errors in a TaskGroup`` with
+    the real cause nested below. Asserting on the top-level string would
+    assert on anyio's wording rather than on the door's refusal — the
+    difference between "it failed" and "it refused for the stated reason".
+    """
+    if id(error) in _seen:
+        return ""
+    seen = _seen | {id(error)}
+    parts = [f"{type(error).__name__}: {error}"]
+    if isinstance(error, BaseExceptionGroup):
+        parts.extend(_causes(inner, seen) for inner in error.exceptions)
+    for chained in (error.__cause__, error.__context__):
+        if chained is not None:
+            parts.append(_causes(chained, seen))
+    return " | ".join(part for part in parts if part)

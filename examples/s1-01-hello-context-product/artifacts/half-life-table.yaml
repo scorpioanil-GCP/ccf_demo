@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.half-life-table.json
+# λ_c — how fast each kind of observation stops being decision-grade
+# (whitepaper §7.7.1–§7.7.2, INV-CH7-58/59; KYC/UBO domain).
+#
+# **These rates are this deployment's calibration and nothing else.** The SDK
+# ships the curve and the scorer; it ships no rates and has no fallback — an
+# observation type with no declared λ_c raises rather than decaying at some
+# invented default (INV-CH7-58, D-IMPL-38). A bank with a different filing
+# regime writes different numbers here and changes nothing else.
+#
+# **The type vocabulary is the resolved entity class**, which is this
+# deployment's mapping and not the SDK's: §7.7 binds λ_c to the observation
+# TYPE and explicitly not to the individual document, and this deployment's
+# answer to "what type is this observation?" is "the class the resolution spec
+# resolved it to". A deployment that types observations by source system, or by
+# filing category, writes those names here instead.
+#
+# The bands say something about ownership data specifically. A registered
+# beneficial-ownership stake changes when a transfer is filed and is otherwise
+# stable for years; a screening candidate is a search artefact that goes stale
+# as fast as the watchlist behind it; a corporation's registry record sits in
+# between. Every value states its own decay driver and its own supersession
+# event, because supersession COLLAPSES the curve rather than continuing it
+# (INV-CH7-60) and an entry that never names its supersession event cannot
+# participate in that.
+#
+# `role: register`. What the fabric treats as fresh is what the fabric is
+# permitted to treat as fresh, so it belongs in the pin set and in replay
+# dimension 2.
+#
+# Values are integers, never YAML floats: the loader refuses a float rather
+# than silently converting one.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: observation-type names and every calibrated value are [ADAPT];
+# the row shape (`half_life_seconds`, `decay_driver`, `supersession_event`) is
+# [MECHANISM].
+
+semver: "1.0.0"
+
+entries:
+  party:
+    half_life_seconds: 31536000
+    decay_driver: identity re-verification cycles
+    supersession_event: refreshed customer due-diligence record
+  corporation:
+    half_life_seconds: 7776000
+    decay_driver: company-registry filings
+    supersession_event: republished registry extract
+  ownership_stake:
+    half_life_seconds: 15552000
+    decay_driver: share transfers and capital events
+    supersession_event: filed transfer superseding the stake
+  registered_address:
+    half_life_seconds: 15552000
+    decay_driver: registered-office changes
+    supersession_event: filed change of registered office
+  screening_candidate:
+    half_life_seconds: 604800
+    decay_driver: watchlist republication
+    supersession_event: rescreening against a newer list

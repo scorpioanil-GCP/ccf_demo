@@ -71,13 +71,43 @@ __all__ = [
 
 _TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
+#: Exact scalar types that render as themselves. Membership is tested on the
+#: value's own ``__class__``, never with ``isinstance``, so this set decides
+#: nothing about subclasses — a ``str`` subclass misses it and falls through to
+#: the ``isinstance`` chain below, which renders it exactly as it always did.
+#: This is a dispatch shortcut for the overwhelmingly common case, not a second
+#: rule about what is canonically encodable.
+_EXACT_SCALARS: frozenset[type] = frozenset({str, int, bool, type(None)})
+
+#: Field names per model class, memoized. ``BaseModel.model_fields`` is a
+#: class-level property reached through a Pydantic deprecation shim, and a
+#: graph view hashes hundreds of thousands of model fields; the names are fixed
+#: once a class is built, so resolving them once per class is the same answer
+#: for strictly less work. Keyed by class, which outlives any value.
+_MODEL_FIELD_NAMES: dict[type, tuple[str, ...]] = {}
+
 
 class CanonicalizationError(TypeError):
     """A value has no canonical rendering and must not be silently encoded."""
 
 
+def _field_names(model_type: type) -> tuple[str, ...]:
+    """The declared field names of ``model_type``, in declaration order."""
+    names = _MODEL_FIELD_NAMES.get(model_type)
+    if names is None:
+        names = tuple(model_type.model_fields)  # type: ignore[attr-defined]
+        _MODEL_FIELD_NAMES[model_type] = names
+    return names
+
+
 def _normalize(value: object) -> Any:
     """Recursively rewrite ``value`` into the JSON-safe canonical shape."""
+    if value.__class__ in _EXACT_SCALARS:
+        # The exact-type shortcut for the same three scalars (and ``None``) the
+        # isinstance chain below admits — checked first because it is what a
+        # graph view is mostly made of. Subclasses miss it deliberately and are
+        # decided by the chain.
+        return value
     if value is None or isinstance(value, (bool, int, str)):
         # Checked before float: bool and int are exact, float never reaches here.
         return value
@@ -107,7 +137,7 @@ def _normalize(value: object) -> Any:
         # keeps each nested model a model until this function renders it.
         return {
             name: _normalize(getattr(value, name))
-            for name in type(value).model_fields
+            for name in _field_names(value.__class__)
         }
     if isinstance(value, Mapping):
         normalized: dict[str, Any] = {}
@@ -121,10 +151,26 @@ def _normalize(value: object) -> Any:
     if isinstance(value, Set):
         # Sets are unordered by definition; a deterministic array requires a
         # total order, and each element's own canonical bytes supply one.
+        #
+        # Each element is normalized ONCE and the same normalized value is both
+        # sorted on and returned. The rendering is unchanged — the sort key is
+        # still the element's own canonical bytes — but a `frozenset` field is
+        # the shape every claim in the fabric carries its lineage in, so
+        # normalizing each element a second time to return it doubled the cost
+        # of hashing a graph view.
+        #
+        # A set of fewer than two elements has exactly one ordering, so the
+        # total order is not consulted for it and no sort key is rendered. The
+        # array is the same array either way; what is skipped is the work of
+        # proving an ordering that has no alternative. This is the common case
+        # by a wide margin — a claim observed once carries one lineage entry.
+        normalized_elements = [_normalize(element) for element in value]
+        if len(normalized_elements) < 2:
+            return normalized_elements
         return [
             element
             for _, element in sorted(
-                ((_dumps(_normalize(e)), _normalize(e)) for e in value),
+                ((_dumps(element), element) for element in normalized_elements),
                 key=lambda pair: pair[0],
             )
         ]

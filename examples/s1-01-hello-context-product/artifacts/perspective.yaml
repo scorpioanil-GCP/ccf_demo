@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.perspective.json
+# The Π role-conditioning this product is served under (whitepaper §7.5;
+# INV-CH7-43; KYC/UBO domain, phase 16 CONTEXT D-03).
+#
+# Both values land verbatim in replay dimension 4, so a decision is re-readable
+# against the viewpoint that produced it. A different role is a different view
+# of the same graph, and the policy classification map is where that difference
+# is expressed — not in the projection's code.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: the principal id and the role name are [ADAPT]; the keys
+# `principal_id` and `role` are [MECHANISM].
+
+semver: "1.0.0"
+
+principal_id: kyc-analyst-4471
+role: kyc-analyst

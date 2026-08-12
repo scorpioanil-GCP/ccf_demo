@@ -36,8 +36,20 @@ import sys
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 #: The source the guide includes from, and one region marker inside it.
+#:
+#: These two constants are a COUPLING to a real file in the tree, not a fixture
+#: this module owns: both the clean control and the deleted-marker case read
+#: `SNIPPET_SOURCE` from disk and assert `[start:SECTION]` is present. `SECTION`
+#: was `ontology` until the marker was removed from the source, at which point
+#: all three tests using it failed with "fixture drifted from its source" —
+#: which is the coupling reporting itself correctly. `boot`
+#: (`examples/00-quickstart/run.py:156`) is the marker verified present today.
+#:
+#: Plan 16-18 repoints BOTH constants again at the Section-1 spine when
+#: `examples/00-quickstart` retires. Recorded here so the terminal plan does not
+#: have to rediscover the coupling from a failing assertion.
 SNIPPET_SOURCE = REPO_ROOT / "examples" / "00-quickstart" / "run.py"
-SECTION = "ontology"
+SECTION = "boot"
 
 #: Subprocess bound — a hung mkdocs must fail the suite, not stall CI.
 BUILD_TIMEOUT_SECONDS = 180
