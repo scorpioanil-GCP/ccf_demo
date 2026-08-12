@@ -38,9 +38,15 @@ NEXT ACTION: merge `phase-16` → `main` with `--no-ff`, then `/gsd:plan-phase 1
   three named gaps (API-affecting; Observation gains identity, DebtAssessment
   gains evidence pointers, and the product content address moves a THIRD time).
   Gap 1 gets a RESEARCH SPIKE FIRST in the 15.5-01 shape. Scope B to the three
-  gaps, not to the open question. The reason 15.6 precedes 16 is the address
-  move, not the defects: moving it now regenerates ONE example artifact,
-  moving it after Phase 16 regenerates ten. The branch carries BOTH
+  gaps, not to the open question. D-IMPL-117 (Dave): SURFACE IMPACT IS ACCEPTED
+  — the address move is an authorized cost, not a risk to design around — and
+  Track B ships CARRYING MECHANISM, not judgement: the context product creator
+  owns what a client needs, the SDK owes only the data structure and the API to
+  populate and extract it. THE SPIKE'S PRIMARY QUESTION is therefore not 'can we
+  avoid the address move' but 'are these fixed fields on the vessel, or declared
+  content in the payload-schema shape?' — D-IMPL-97 puts governance in fixed
+  structure and domain content in a declared schema, and debt evidence sits
+  across that line. The branch carries BOTH
   15.5's 15 plans AND Phase 16's completed 6 — they share the branch by design
   (forked from main @ 06fea5c per CLAUDE.md §2.2, merge at the gate not before).
   Then re-read Phase 16's 15 remaining plans BEFORE resuming: the ones

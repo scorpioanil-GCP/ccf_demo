@@ -1035,9 +1035,36 @@ three named gaps, NOT to the open question.**
    signal. Mechanism ships; the vocabulary is user configuration, never `src/`
    values (CLAUDE.md §11).
 
+**Track B ships CARRYING MECHANISM, not judgement (`D-IMPL-117`, Dave,
+2026-08-11).** Surface impact is **accepted** — the `Observation` identity
+field, the `DebtAssessment` evidence pointers and the third content-address
+move are authorized costs, not risks to design around. The judgement about what
+a client needs belongs to the **context product creator**, expressed through the
+product's evolutionary capability; the SDK owes the **data structure and the API
+to populate and extract**, and owes none of the content. So: an `Observation`
+identity and a way for debt to point at what it summarises, owing nothing about
+*which* observations matter; a slot for source-refresh recency, owing no
+definition of a source or a cadence; a signal-to-obligation binding that
+survives replay, owing **no obligation vocabulary** (user configuration —
+CLAUDE.md §11, the posture `D-IMPL-101` took on salience).
+
+**The spike's primary question, which `D-IMPL-117` reframes.** Not *"can we
+avoid the address move"* — that cost is accepted. It is: **are these three
+things fixed fields on the vessel, or declared content in the shape the payload
+schema already uses?** `D-IMPL-97` puts cross-cutting governance in fixed
+structure and domain content in a declared schema, and debt evidence sits across
+that line — the *pointer mechanism* is governance, but *what evidence is worth
+carrying* is the creator judgement this phase assigns away from the SDK. Fixed
+wrongly, every deployment carries a shape someone else chose; declared wrongly,
+debt evidence is unvalidated free-form and replay cannot reason over it. Measure
+it against the vessel model and against `D-IMPL-100`'s constraint: every added
+field must be reconstructible from the record, the class, or the projection
+output, or `src/ccf/replay/engine.py::ReplayEnvironment` raises.
+
 **The standing test for this phase:** *"would someone act on this?"* rather than
 *"is this correct?"* Phase 15.5 answered the second. Only the first makes the
-examples honest.
+examples honest — and under `D-IMPL-117` the SDK answers it by making the
+content *carriable*, not by choosing it.
 
 **Verification is `make ci`, not `make ci-core`.** Two 15.5 executors reported
 `docs-strict` unverified and both times it was the only thing broken. `make ci`
