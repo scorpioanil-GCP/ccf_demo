@@ -36,8 +36,8 @@ prevent. Every figure below was produced on the machine of record at this plan's
 
 | Gate | Command | Result |
 |---|---|---|
-| Full pipeline | `make ci` | **exit 0** — see §7 for the final run's counts |
-| Test suite | (inside `make ci`) | **2869 passed, 81 skipped**, 105 warnings, 352.75 s |
+| Full pipeline | `make ci` | **exit 0**, run twice — at this plan's base and again at its HEAD |
+| Test suite | (inside `make ci`) | **2858 passed, 81 skipped**, 105 warnings, 345.15 s — at HEAD |
 | Types | `make typecheck` (inside `ci-core`) | `Success: no issues found in 195 source files` |
 | Invariant lints | `python -m tools.lints --all` | **exit 0** |
 | Examples | `make examples` | **eleven examples**, all OK, `s1-01` leading |
@@ -46,6 +46,19 @@ prevent. Every figure below was produced on the machine of record at this plan's
 | Committed schemas | `make schemas` then `git diff` | **no diff** (26 schemas) |
 | HTTP contract | `make openapi` then `git diff` | **no diff** |
 | Surface manifest | `tools/dump_surface.py` + `tests/test_surface_completeness.py` | 84 added, 0 removed, 21 reshaped; **14 passed**, both directions |
+
+**The test count moved during this plan, and the whole delta is accounted for** — Phase I.2's gate
+document was caught shipping a point-in-time count that had gone stale, and this one states its
+arithmetic instead. `make ci` was green at this plan's base commit `01c471e` at **2869 passed / 81
+skipped**, and is green at its HEAD at **2858 / 81**:
+
+> 2869 − **12** + **1** = 2858
+
+The 12 are the retired `15.5-01` spike module's cases — seven test functions plus
+`test_the_ast_walk_finds_the_symbol_at_all` parametrized over five `MEASURED_SYMBOLS` (§4.4). The 1
+is `test_a_policy_declaring_another_tenant_is_refused_under_this_tenants_key`, the blocking
+entitlement fix's owning test (§3.1). Skips are unchanged at 81, so nothing was quietly skipped
+into green.
 
 ### 1.1 The four anti-leakage lints, named individually
 
