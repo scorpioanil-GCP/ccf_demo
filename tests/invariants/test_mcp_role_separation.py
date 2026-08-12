@@ -852,19 +852,35 @@ def test_no_door_discards_what_entitled_perspective_returned(
     answer thrown away. This walks each door's AST for that shape rather than
     grepping for prose, so the assertion is about the code and not about the
     comment above it.
+
+    **Both spellings of the callee.** The three shipped doors import the name,
+    so an ``ast.Name``-only match holds on today's shape and only on today's
+    shape: a door written ``product_entitlement.entitled_perspective(...)`` —
+    an ``ast.Attribute`` callee — discards exactly as much and would not have
+    tripped. A guard whose subject can be rewritten without changing what the
+    guard observes is the defect class ``DI-15.5-06`` names for the surface
+    manifest; it is cheaper to close here than to record. Found by the Phase
+    15.5 close-time cross-AI panel (`15.5-CLOSE-REVIEWS.md`, finding C4).
     """
     import importlib
 
     module = importlib.import_module(module_name)
     tree = ast.parse(inspect.getsource(module))
 
+    def _callee_name(call: ast.Call) -> str | None:
+        function = call.func
+        if isinstance(function, ast.Name):
+            return function.id
+        if isinstance(function, ast.Attribute):
+            return function.attr
+        return None
+
     discarded = [
         node.lineno
         for node in ast.walk(tree)
         if isinstance(node, ast.Expr)
         and isinstance(node.value, ast.Call)
-        and isinstance(node.value.func, ast.Name)
-        and node.value.func.id == "entitled_perspective"
+        and _callee_name(node.value) == "entitled_perspective"
     ]
 
     assert not discarded, (
