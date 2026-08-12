@@ -46,6 +46,25 @@ after the payload exists and before it leaves the bind. Keeping the request
 contract out of this signature is what lets ``15.5-08`` and ``15.5-15`` land
 their surfaces without reopening this one.
 
+**Calling this is the deployment's obligation, and the SDK does not discharge
+it for you (``D-IMPL-113``, Dave, 2026-08-11).** No shipped door calls
+:func:`refuse_bound_payload`, and that is a ruling rather than an omission.
+The door cannot: ``ProductResolverProtocol`` hands a deployment a tenant, a
+class name, a version, a perspective and a request, and the
+:class:`~ccf.products.contract.RegisteredProductClass` is resolved *behind*
+that seam — so the door never holds the object this function needs. Enforcing
+the check one layer further out would place an SDK-owned payload verdict on
+the serve path, which is the shape ``D-IMPL-102`` limb 3 declined when it kept
+the gate sequence structural.
+
+**The consequence, stated plainly because it is the adopter's to carry: a
+resolver that does not call this function serves an unvalidated payload
+against a schema its own product class declared.** The declaration is then a
+promise nothing checks. If you implement
+:class:`~ccf_runtime.mcp.egress.ProductResolverProtocol`, call
+:func:`refuse_bound_payload` inside it. Requirement ``CPS-03`` is recorded as
+Pending **by design** for this reason, not by oversight.
+
 **Why this is not simply inlined at the call site.** A conformity check
 written at each bound path would be as many readings of "conforms" as there
 are paths. There is one comparison —
