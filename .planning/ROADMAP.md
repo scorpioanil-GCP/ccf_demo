@@ -937,7 +937,7 @@ product.**
   9. The four anti-leakage lints stay green throughout: zero harness imports in `src/`, no LLM client in an `@algorithmic` module, no prompt or threshold literal outside an artifact, no substrate name outside the backend registry
   10. `examples/s1-01-hello-context-product` demonstrates an agent asking about any company at any time and is the shape every later example copies
 
-**Plans:** 13/15 executed. 15 plans in 7 waves (15.5-15 added at wave 3 by D-IMPL-108). Requirements `CPS-01`..`CPS-14` were minted by plan
+**Plans:** 14/15 executed. 15 plans in 7 waves (15.5-15 added at wave 3 by D-IMPL-108). Requirements `CPS-01`..`CPS-14` were minted by plan
 15.5-05 at execution (commit `e18f4bf`) and are now present in `.planning/REQUIREMENTS.md`. Three plans
 carry blocking checkpoints: 15.5-05 (the eight-question ruling package), 15.5-13
 (Dave calls the product for two companies at two instants) and 15.5-14 (the gate).
@@ -971,7 +971,7 @@ carry blocking checkpoints: 15.5-05 (the eight-question ruling package), 15.5-13
 
 **Wave 6** *(blocked on Wave 5)*
 
-- [ ] 15.5-13-PLAN.md — `s1-01` answers about any company at any time (**checkpoint**)
+- [x] 15.5-13-PLAN.md — `s1-01` answers about any company at any time (**checkpoint**)
 
 **Wave 7** *(blocked on Wave 6)*
 
@@ -1134,7 +1134,7 @@ Plans:
 | 15.1. Ergonomics Gap Closure — Governance Enforced, Not Conventional | 20/10 | Complete    | 2026-08-07 |
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
-| 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 13/15 | In Progress | — |
+| 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 14/15 | In Progress | — |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Parked (resumes after 15.5) |  |
 
 ## Coverage
