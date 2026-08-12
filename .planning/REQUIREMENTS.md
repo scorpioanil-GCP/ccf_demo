@@ -113,20 +113,20 @@
 
 ### Context Product Surface (CPS)
 
-- [ ] **CPS-01**: Every Context Product delivered to a consumer carries its Context Debt, and no delivery path exists that drops it — across all three delivery paths (`runtime/ccf_runtime/mcp/egress.py`, `runtime/ccf_runtime/http_api/routes/product.py`, `runtime/ccf_runtime/mcp/experience.py`) — registered as a CINV-04 `Check` row with an owning test and an adversarial case, not asserted in prose
-- [ ] **CPS-02**: All **nine** §6.3 contract elements are present across the shipped product types (`D-IMPL-30`, Dave, 2026-07-25 — Assembly Mode included; every "eight" reference is editorial drift that ruling authorizes treating as such), each verified by a field-enumeration assertion that fails when one is unrepresented, so the defect class that hid three of them cannot recur silently
-- [ ] **CPS-03**: A product class declares its payload schema and a payload violating that declaration is refused, reusing the shipped declared-schema machinery rather than a second one
-- [ ] **CPS-04**: Perspective is derived from the verified grant at every exposed door, a caller cannot assert a role it was not granted, and `ProjectionEngine.execute` keeps taking a `Perspective` so replay feeds the recorded one
-- [ ] **CPS-05**: Per-product-class entitlement gates every exposed door — the MCP egress door, the HTTP product route and the Experience front door — through a Control Plane artifact with no permissive default and no field able to express a bypass, enforced by field enumeration, and downstream of authentication at each
-- [ ] **CPS-06**: The assembler is a Protocol with a shipped mechanism-only reference implementation whose production instance is a declared agent from the `context_assembly` archetype, binding sources, tools, enlisted agents and its debt profile through axes 4 and 5 and channel 2
-- [ ] **CPS-07**: A product answers a runtime request — subject and instant are arguments, never artifact literals — and the question asked is pinned into replay through `graph_query_sequence` and `QueryPinWriter`
-- [ ] **CPS-08**: Aggregate products compose lineage by union and implement `D-IMPL-31`'s mixing-refusal rule, with declarable constituent-validity floors whose breach refuses assembly
-- [ ] **CPS-09**: The four anti-leakage lints stay green throughout: zero harness imports in `src/`, no LLM client in an `@algorithmic` module, no prompt or threshold literal outside an artifact, no substrate name outside the backend registry
-- [ ] **CPS-10**: `examples/s1-01-hello-context-product` demonstrates an agent asking about any company at any time and is the shape every later example copies
-- [ ] **CPS-11**: Replay reproduces byte-exactly after every contract change, with `rehydrate_product`'s content-address check run against each candidate field placement before the placement is committed, and re-run before the first edit and after every commit of any plan that changes a hashed contract
-- [ ] **CPS-12**: No committed baseline drifts un-narrated
-- [ ] **CPS-13**: Micro-benchmark medians stay inside the 10% relative band after the field and gate additions, measured deliberately because `make perf` is not part of `make ci`, against a chain of baselines that starts before any change lands
-- [ ] **CPS-14**: The eight open design questions are put to Dave with measured costs, ruled, and recorded as `D-IMPL` entries before the tracks they gate are implemented
+- [x] **CPS-01**: Every Context Product delivered to a consumer carries its Context Debt, and no delivery path exists that drops it — across all three delivery paths (`runtime/ccf_runtime/mcp/egress.py`, `runtime/ccf_runtime/http_api/routes/product.py`, `runtime/ccf_runtime/mcp/experience.py`) — registered as a CINV-04 `Check` row with an owning test and an adversarial case, not asserted in prose
+- [x] **CPS-02**: All **nine** §6.3 contract elements are present across the shipped product types (`D-IMPL-30`, Dave, 2026-07-25 — Assembly Mode included; every "eight" reference is editorial drift that ruling authorizes treating as such), each verified by a field-enumeration assertion that fails when one is unrepresented, so the defect class that hid three of them cannot recur silently
+- [ ] **CPS-03**: A product class declares its payload schema and a payload violating that declaration is refused, reusing the shipped declared-schema machinery rather than a second one — **PENDING at phase close on the second clause.** The declaration ships (`register_product_class` takes a payload schema, `src/ccf/products/contract.py`) and the refusal ships and is tested (`refuse_bound_payload`, `src/ccf/products/bind.py:145`, `tests/products/test_payload_bind.py`), reusing `refuse_payload` rather than a second comparison. But **no shipped delivery door calls it** — `runtime/` has zero imports of `refuse_bound_payload`, and its only caller outside its own tests is `examples/04-cross-process/producer_child.py:697`. So "is refused" is true of the mechanism and not yet of any door. Found independently by two close-time panel reviewers (`15.5-CLOSE-REVIEWS.md`, P3/C1/C3); the placement is `D-IMPL-102`'s and wiring it into the doors is a delivery-path change adjacent to limb 3's "no fourth gate", so it is put to Dave as residual R1 rather than closed by an executor
+- [x] **CPS-04**: Perspective is derived from the verified grant at every exposed door, a caller cannot assert a role it was not granted, and `ProjectionEngine.execute` keeps taking a `Perspective` so replay feeds the recorded one
+- [x] **CPS-05**: Per-product-class entitlement gates every exposed door — the MCP egress door, the HTTP product route and the Experience front door — through a Control Plane artifact with no permissive default and no field able to express a bypass, enforced by field enumeration, and downstream of authentication at each
+- [x] **CPS-06**: The assembler is a Protocol with a shipped mechanism-only reference implementation whose production instance is a declared agent from the `context_assembly` archetype, binding sources, tools, enlisted agents and its debt profile through axes 4 and 5 and channel 2
+- [x] **CPS-07**: A product answers a runtime request — subject and instant are arguments, never artifact literals — and the question asked is pinned into replay through `graph_query_sequence` and `QueryPinWriter`
+- [x] **CPS-08**: Aggregate products compose lineage by union and implement `D-IMPL-31`'s mixing-refusal rule, with declarable constituent-validity floors whose breach refuses assembly
+- [x] **CPS-09**: The four anti-leakage lints stay green throughout: zero harness imports in `src/`, no LLM client in an `@algorithmic` module, no prompt or threshold literal outside an artifact, no substrate name outside the backend registry
+- [x] **CPS-10**: `examples/s1-01-hello-context-product` demonstrates an agent asking about any company at any time and is the shape every later example copies
+- [x] **CPS-11**: Replay reproduces byte-exactly after every contract change, with `rehydrate_product`'s content-address check run against each candidate field placement before the placement is committed, and re-run before the first edit and after every commit of any plan that changes a hashed contract
+- [x] **CPS-12**: No committed baseline drifts un-narrated
+- [x] **CPS-13**: Micro-benchmark medians stay inside the 10% relative band after the field and gate additions, measured deliberately because `make perf` is not part of `make ci`, against a chain of baselines that starts before any change lands
+- [x] **CPS-14**: The eight open design questions are put to Dave with measured costs, ruled, and recorded as `D-IMPL` entries before the tracks they gate are implemented
 
 ## Future Requirements (deferred)
 
@@ -215,20 +215,43 @@
 | SUBQ-12 | Phase 15.3 | Complete |
 | SUBQ-13 | Phase 15.3 | Complete |
 | SUBQ-14 | Phase 15.3 | Complete |
-| CPS-01 | Phase 15.5 | Pending |
-| CPS-02 | Phase 15.5 | Pending |
-| CPS-03 | Phase 15.5 | Pending |
-| CPS-04 | Phase 15.5 | Pending |
-| CPS-05 | Phase 15.5 | Pending |
-| CPS-06 | Phase 15.5 | Pending |
-| CPS-07 | Phase 15.5 | Pending |
-| CPS-08 | Phase 15.5 | Pending |
-| CPS-09 | Phase 15.5 | Pending |
-| CPS-10 | Phase 15.5 | Pending |
-| CPS-11 | Phase 15.5 | Pending |
-| CPS-12 | Phase 15.5 | Pending |
-| CPS-13 | Phase 15.5 | Pending |
-| CPS-14 | Phase 15.5 | Pending |
+| CPS-01 | Phase 15.5 | Complete |
+| CPS-02 | Phase 15.5 | Complete |
+| CPS-03 | Phase 15.5 | **Pending** |
+| CPS-04 | Phase 15.5 | Complete |
+| CPS-05 | Phase 15.5 | Complete |
+| CPS-06 | Phase 15.5 | Complete |
+| CPS-07 | Phase 15.5 | Complete |
+| CPS-08 | Phase 15.5 | Complete |
+| CPS-09 | Phase 15.5 | Complete |
+| CPS-10 | Phase 15.5 | Complete |
+| CPS-11 | Phase 15.5 | Complete |
+| CPS-12 | Phase 15.5 | Complete |
+| CPS-13 | Phase 15.5 | Complete |
+| CPS-14 | Phase 15.5 | Complete |
+
+**The CPS lane was verified clause by clause against the tree at Phase 15.5's
+close (plan `15.5-14`), not against any SUMMARY.** Phase 15.1's re-approval had
+to re-verify every clause because the earlier verification's line numbers had
+moved; this was done once, by reading the code and running the named tests. The
+evidence per row:
+
+| Req | Evidence in the tree |
+|---|---|
+| CPS-01 | `tests/invariants/test_replay_by_construction.py:307` — the owning test, parametrized over `PRODUCT_DOOR_MODULES`, asserting both that the vessel carries `debt` and that every enumerated door serializes the *whole* vessel; `:337` is the adversarial companion, which runs the same predicate against a door engineered to serialize around the vessel |
+| CPS-02 | `tests/products/test_contract_elements.py:261` (nine), `:277` (each borne by a named field), `:319` (the pending set is empty — the ratchet's terminal state), `:359` (no two elements share a field), `:419` (present and pending partition the nine) |
+| CPS-03 | **Pending — see the clause above.** Declaration and refusal both ship and are tested; no shipped door calls the refusal. Residual R1 |
+| CPS-04 | `tests/invariants/test_mcp_role_separation.py:845` (no door discards what `entitled_perspective` returned) and `:879` (the perspective the door authorized is asserted *by value* against what the resolver received, not by parameter presence) |
+| CPS-05 | `tests/authz/test_product_entitlement_door.py`, `tests/http_api/test_product_entitlement.py`, `tests/crossproc/test_experience_edge.py` — all three doors; `docs/schemas/ccf.product-entitlement-policy.json` has `additionalProperties: false` at both levels with both grant sets `required` and undefaulted, so no field can express a bypass. Strengthened at close: the door now compares the lookup key's tenant against the policy's own `tenant_id` (`7453e87`) |
+| CPS-06 | `src/ccf/agents/assembler.py:242` (`ContextAssemblerProtocol`), `:292` (`DeterministicAssembler`, the mechanism-only reference), declared from the `context_assembly` archetype |
+| CPS-07 | `tests/products/test_request_contract.py`; `tests/examples/test_s1_01_output.py:691` — a later instant pins a *different* question, and the inverted guard fails loudly if two subjects ever start pinning alike again (`D-IMPL-111` limb (a)); `ContentGenerationPath.request` carries the `ProductRequest` verbatim (limb (b)) |
+| CPS-08 | `src/ccf/products/composition.py:322` (`compose_expiry` — ceiling, derivation, and the stalest constituent), `:327` (`refuse_mixing`); `tests/properties/test_aggregate_composition_laws.py:131-236` — order-independence on the set axes, monotone growth, and a refusal for any floor breach anywhere in the set |
+| CPS-09 | `python -m tools.lints --harness-imports --algorithmic --no-hardcoding --substrate-names`, each exit 0 individually and under `--all`. **Criterion 9 is exactly these four and carries no diff-size bound** — `D-IMPL-96` revoked that proxy |
+| CPS-10 | `make example-s1-01` (`Makefile:89`, added by `15.5-13`, leading the `examples:` aggregate so it runs in CI); three declared questions across two companies and two instants |
+| CPS-11 | `tests/replay/test_engine_rehydration.py:547` (the debt a decision was made with replays byte-exactly) and `:693` (the question it answered does, after four months of later state, with an adversarial twin that diverges when the recorded subject is swapped) |
+| CPS-12 | `tests/test_surface_completeness.py` passes in both directions against the regenerated manifest — every moved symbol has a fragment, every fragment names a moved symbol. `make schemas` and `make openapi` produce no diff. **With one stated exception:** the manifest cannot see a `Protocol.__call__`, so the two resolver seams' 3→5-argument break is narrated in `docs/surface-changes/15.5-15-resolver-seam.md` but produces no manifest line (`D-IMPL-110`) |
+| CPS-13 | `make perf-micro` exit 0, all twelve benchmarks PASS. The three `test_gates.py` benchmarks — the ones a new contract field or the payload bind would move — are within ±1.8% of baseline |
+| CPS-14 | `docs/DECISIONS.md` `D-IMPL-98` .. `D-IMPL-106` (the eight questions, ruled with measured costs from `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md`), plus `D-IMPL-107` .. `D-IMPL-112` raised and ruled during execution |
 
 Coverage: 82/82 v0.2 requirements mapped, each to exactly one phase.
 Counted from the traceability table above by counting its rows, not from the
