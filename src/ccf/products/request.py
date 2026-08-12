@@ -6,13 +6,14 @@ product class, declared as a Control Plane artifact, in the*
 :class:`~ccf.skills.catalog.SkillArgumentSchema` *shape*. CLAUDE.md §11
 requires an SDK extension to cite this project's own record; what the
 whitepaper does commit to is §6.3 **Addressability**
-(``docs/CCF_Whitepaper_1-2.md:1465``): *"Addressability gives every product a
-well-defined interface the agent queries with intent, role, and freshness
-parameters. Structured queries enable decision-time assembly rather than
-pre-aggregated retrieval."* Its worked address pattern —
-``/context-products/credit-risk/counterparty/{counterparty-id}?intent=…&freshness=…``
-— *"encodes exactly what the agent needs: which entity, for what decision,
-under what temporal requirement."*
+(``docs/CCF_Whitepaper_1-2.md:1465``), which gives each product an interface an
+agent queries by name, parameterised by intent, role and freshness — the point
+being that a structured query lets the product be assembled at decision time
+instead of retrieved pre-aggregated. §6.3 works the address as a path plus a
+query string, of the shape
+``/context-products/{domain}/{entity-kind}/{id}?intent=…&freshness=…``,
+carrying the three things the agent has to name: which entity, for which
+decision, and under what temporal requirement.
 
 **What was wrong, stated precisely, because half of it was right.** A Context
 Product was *configurable* rather than *callable*: its subject and its instant

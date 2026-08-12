@@ -64,10 +64,10 @@ seven fields" differ by exactly one element — the Fig-CH07-13 sidebar at
 class-level **promise the product was assembled under**, so both enumerations
 are consistent, nothing is missing, and ``plan_id`` keeps its place on the
 vessel. It is also the only placement that moves no recorded content address.
-Its *shape* is per-signal rather than scalar, following §6.3 at ``:1453``
-(*"Freshness SLA varies by signal and by decision"*); D-IMPL-106 ruled the
-placement and left the shape to this plan, stating that no scalar is ruled in
-by silence.
+Its *shape* is per-signal rather than scalar, following §6.3 at ``:1453``,
+which makes the expectation vary with the signal and with the decision;
+D-IMPL-106 ruled the placement and left the shape to this plan, stating that
+no scalar is ruled in by silence.
 
 **Discovery and Addressability land for real, not declaration-only.**
 D-IMPL-98 ruled that the request surface is a typed request contract per
@@ -94,10 +94,10 @@ product never touches another.
 it appeared on neither the product nor the replay record, so five of the six
 axes of ``G(E, R, T, P, Π, L)`` reached the wire and the sixth — the one that
 says how much to trust the other five — did not. §7.7 and
-``docs/CCF_Whitepaper_1-2.md:2696`` are unambiguous that debt is *"a runtime
-signal the agent must consume as a first-class decision input, not a log-line
-to be read after the fact"*, so it is carried **here**, inside the delivered
-bytes, rather than beside them.
+``docs/CCF_Whitepaper_1-2.md:2696`` are unambiguous that debt is something the
+agent has to consume while deciding — a first-class input, not an audit trace
+read afterwards — so it is carried **here**, inside the delivered bytes,
+rather than beside them.
 
 **The three doors, and what a consumer at each receives.** Every shipped
 delivery path serializes ``servable.product`` and **none** reads
@@ -224,20 +224,21 @@ class MaxTTL(CCFContract):
 class FreshnessSLA(CCFContract):
     """§6.3 **Freshness SLA** — the per-signal currency expectation (D-IMPL-106).
 
-    *"Freshness SLA specifies how current the underlying signals must be for
-    the product to be valid at decision time. It is the expectation of
-    currency; TTL is the bounded validity after currency is no longer
-    guaranteed — sibling primitives, not duplicates"* is §6.3's own
-    distinction (``docs/CCF_Whitepaper_1-2.md:1453``), and it is why this is
-    not a second spelling of :class:`MaxTTL`.
+    §6.3 (``docs/CCF_Whitepaper_1-2.md:1453``) separates two primitives that
+    are easy to conflate. This one is an *expectation* — how recent a signal
+    has to be before the product may rest on it. :class:`MaxTTL` is a
+    *bound* — how long the assembled product stays usable once that recency
+    can no longer be guaranteed. §6.3 calls them siblings rather than
+    duplicates, which is why both exist here and neither is a respelling of
+    the other.
 
-    **Per signal, not a scalar.** The same passage: *"Freshness SLA varies by
-    signal and by decision"*, and immediately before it: *"a product that
-    mixed the two without surfacing the asymmetry would produce an unreliable
-    agent input"*. A single number for a product assembled from an end-of-day
-    filing and an intraday blotter entry is precisely the asymmetry §6.3 says
-    a product must not hide. D-IMPL-106 ruled the *placement* and left the
-    shape here, recording that no scalar was ruled in by silence.
+    **Per signal, not a scalar.** §6.3 makes the expectation vary by signal
+    and by decision, and warns that collapsing signals of different currency
+    into one undeclared figure yields an input an agent cannot rely on. A
+    single number for a product assembled from an end-of-day filing *and* an
+    intraday blotter entry hides exactly that difference. D-IMPL-106 ruled
+    the *placement* and left the shape here, recording that no scalar was
+    ruled in by silence.
 
     The mapping is keyed by the deployment's own signal-type identifiers and
     the SDK never interprets one — the opaque-identifier discipline
@@ -300,12 +301,12 @@ class ConstituentValidityFloors(CCFContract):
 class ProductDiscovery(CCFContract):
     """§6.3 **Discovery** — the registry facts a class is located by.
 
-    *"A registry exposes available products by intent, domain, and
-    capability; agents resolve names to endpoints at runtime"*
-    (``docs/CCF_Whitepaper_1-2.md:1463``). The three fields are that sentence,
-    and the worked example is a registry entry *"with a capability manifest"*
-    — a manifest of declared capability tokens, which is what
-    ``capabilities`` is.
+    §6.3 (``docs/CCF_Whitepaper_1-2.md:1463``) puts a registry in front of the
+    fabric: products are located by the intent they serve, the domain they
+    belong to, and the capability they offer, and an agent turns a name into
+    an endpoint at run time rather than at wiring time. The three fields below
+    are those three axes. ``capabilities`` is the declared manifest §6.3's
+    worked registry entry carries.
 
     Every value is a deployment-declared opaque identifier. The SDK matches
     them structurally and interprets none, so no intent vocabulary, domain
@@ -325,10 +326,11 @@ class ProductDiscovery(CCFContract):
 class ProductAddress(CCFContract):
     """§6.3 **Addressability** — the address a class answers at.
 
-    *"Addressability gives every product a well-defined interface the agent
-    queries with intent, role, and freshness parameters"*
-    (``docs/CCF_Whitepaper_1-2.md:1465``), worked there as
-    ``/context-products/credit-risk/counterparty/{counterparty-id}?intent=…&freshness=…``.
+    §6.3 (``docs/CCF_Whitepaper_1-2.md:1465``) commits every product to an
+    interface an agent can query by name, parameterised by the intent, the
+    role and the freshness it needs. The section works that commitment as a
+    path plus a query string, of the shape
+    ``/context-products/{domain}/{entity-kind}/{id}?intent=…&freshness=…``.
 
     **The path half only, deliberately.** D-IMPL-98 ruled that the request
     surface is a *typed request contract per product class* and that
