@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**541 entries**, of which **315** name a public Python surface.
+**551 entries**, of which **325** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-252 entries — 220 public Python surface, 32 not public Python API.
+258 entries — 226 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -4573,6 +4573,119 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.6-05-observation-identity.md`.*
 
+#### ccf.halflife.assessment.DebtEvidencePointer
+
+- Surface: ccf.halflife.assessment.DebtEvidencePointer
+- Public surface: true
+- Before: absent — debt reached a consumer as a scalar, three factors and a set
+  of scorer pins, with no way to say what any of it summarised
+- After: a `CCFContract` with one field, `handle: str` — an opaque identifier
+  for the thing pointed at, in the `ccf.skills.catalog.SkillRequirements` voice:
+  *opaque to the SDK; declared by the deployment*. The SDK validates structure
+  (type, uniqueness, canonical order) and validates nothing about meaning; it
+  ships no entity-URI type, no claim-id type, no vocabulary and no default. A
+  `float` is refused at construction by the module's shared `_refuse_float`
+  rather than coerced
+- Change type: added
+- Why: `D-IMPL-112` named *which observations contributed the decay* as the
+  first thing a reader of a debt figure cannot get at, and `D-IMPL-117` scoped
+  the SDK's obligation to the carrying structure alone. A single opaque field
+  is the whole structure that obligation supports; anything richer would be the
+  vocabulary that ruling assigns away from the SDK
+- Migration: none — new name, nothing referenced it. **Read
+  `D-IMPL-119` before populating one:** until the assembly path is
+  principal-scoped, a handle a reading principal can interpret is refused by
+  that entry, whatever the deployment's own judgement
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.halflife.assessment.DebtEvidence
+
+- Surface: ccf.halflife.assessment.DebtEvidence
+- Public surface: true
+- Before: absent
+- After: the annotated carrier type — a `tuple[DebtEvidencePointer, ...]`
+  validated to be **handle-unique** and **canonically ordered**. A repeated
+  handle is refused at construction with a message saying why two pointers to
+  one thing is an incoherent record rather than a stricter one
+- Change type: added
+- Why: an alias rather than a field-by-field re-declaration because the carrier
+  lands in **two** places — the product vessel and replay dimension 5 — and one
+  validated shape is what keeps those from drifting apart. A sorted tuple rather
+  than a `frozenset`, deliberately and against the `SkillRequirements`
+  precedent: the value is inside a content address, so it must be
+  order-insensitive in its bytes (which sorting gives, and
+  `tests/halflife/test_debt.py::test_declaration_order_does_not_move_the_bytes`
+  asserts), but a set would additionally collapse a repeated handle **silently**
+  — and the repetition is exactly the incoherence worth naming out loud. This is
+  `DebtAssessment.scorers`' own resolution, applied for its own reason
+- Migration: none — new name
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.halflife.assessment.NO_DEBT_EVIDENCE
+
+- Surface: ccf.halflife.assessment.NO_DEBT_EVIDENCE
+- Public surface: true
+- Before: absent
+- After: the empty tuple, as a named module-level constant whose docstring
+  states the positive claim *this assessment was computed without evidence
+  pointers*
+- Change type: added
+- Why: `D-IMPL-38`, and the reason this fabric's own
+  `docs/surface-changes/15.5-11-debt-delivery.md` gives for
+  `NO_SCORER_PINS`: without a named sentinel, a product that pointed at nothing
+  and one whose pointers somebody dropped in transit would be **the same
+  artifact**, which is the repudiation failure mode every sentinel here closes.
+  Never `None` meaning "unknown"
+- Migration: none — it is the default on both fields that carry the carrier, so
+  every construction site written before this plan asserts exactly what it
+  always asserted
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.halflife.debt.DebtEvidencePointer
+
+- Surface: ccf.halflife.debt.DebtEvidencePointer
+- Public surface: true
+- Before: absent
+- After: the same class, re-exported
+- Change type: added
+- Why: `ccf.halflife.debt` re-exports every name defined in
+  `ccf.halflife.assessment` — the split exists only to break an import cycle
+  (`ccf.products.contract` cannot import `ccf.halflife.debt`), and a name
+  reachable at one spelling and not the other would make that internal detail an
+  adopter's problem
+- Migration: none
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.halflife.debt.DebtEvidence
+
+- Surface: ccf.halflife.debt.DebtEvidence
+- Public surface: true
+- Before: absent
+- After: the same annotated carrier type, re-exported
+- Change type: added
+- Why: the same re-export discipline
+- Migration: none
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.halflife.debt.NO_DEBT_EVIDENCE
+
+- Surface: ccf.halflife.debt.NO_DEBT_EVIDENCE
+- Public surface: true
+- Before: absent
+- After: the same sentinel, re-exported
+- Change type: added
+- Why: the same re-export discipline. This is the spelling a deployment
+  assembling products will already be importing from, since `assess_debt` lives
+  here
+- Migration: none
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -5089,7 +5202,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-244 entries — 61 public Python surface, 183 not public Python API.
+246 entries — 63 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -6583,6 +6696,54 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   `record.claim.entity_uri`, a value its loop variable already held
 
 *Recorded by `15.6-05-observation-identity.md`.*
+
+#### ccf.products.contract.ContextProductContract
+
+- Surface: ccf.products.contract.ContextProductContract
+- Public surface: true
+- Before: ten fields, ending at 15.5-11's `debt` — which said how much to trust
+  the product's contents and nothing about what that judgement rested on
+- After: one further field, `debt_evidence: DebtEvidence`, defaulted to
+  `NO_DEBT_EVIDENCE`. A **sibling** of `debt`, not a member of it
+- Change type: reshaped
+- Why: `D-IMPL-118`, which chose `qa-toplevel` over the cheaper nested placement
+  and recorded the reason — the field buys *"its own identity on the vessel
+  rather than [being] a rider on debt"*. On the vessel rather than beside it for
+  15.5-11's door reason, unchanged: all three shipped delivery paths serialize
+  `servable.product` and none reads `ServedProduct.replay_ref`, so a placement
+  beside the vessel would reach an in-process caller and no wire consumer at all
+- Migration: **nothing is required to keep constructing products** — the
+  sentinel default keeps every existing site saying what it always said — and
+  **something is required if you recorded addresses outside the replay record**;
+  see "The content address moves" above. A custom `ReplayEnvironment` **must**
+  be updated regardless of whether you populate the field; see
+  `ccf.replay.engine.ReplayEnvironment` below
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Before: eight fields, ending at 15.5-13's `request`
+- After: one further field, `debt_evidence: DebtEvidence`, defaulted to
+  `NO_DEBT_EVIDENCE`
+- Change type: reshaped
+- Why: this member is **the price of the ruled placement**, not a symmetry.
+  Because the carrier is top-level on the vessel rather than nested inside the
+  assessment, it does not ride `debt` back through replay; `ProjectionOutput`
+  carries exactly `(plan_id, payload)`, so without this field no implementation
+  of the `(record, projection)` signature can produce the value and every replay
+  of every product raises `ReplayDivergence`. Dimension 5 and not a sixth
+  dimension: `INV-CH7-80` holds, asserted by field enumeration in
+  `test_the_evidence_lands_on_dimension_five_and_mints_no_sixth`. Beside the
+  `debt` it explains, for that field's own reason — the value a rehydrator reads
+  in order to reproduce the address sits next to the address it must reproduce
+- Migration: none for construction. `NO_DEBT_EVIDENCE` is the positive
+  assertion *this decision pointed at nothing*, so a record written before this
+  seam parses and verifies unchanged
+
+*Recorded by `15.6-06-debt-evidence.md`.*
 
 ### Not public Python API
 
@@ -8861,7 +9022,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-45 entries — 34 public Python surface, 11 not public Python API.
+47 entries — 36 public Python surface, 11 not public Python API.
 
 ### Public Python surface
 
@@ -9682,6 +9843,57 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: **none.** No signature moves, no constructor argument appears, the key's composition is byte-for-byte what it was, and a hit still returns the value recomputation would produce with its provenance. An adopter constructing an `IntermediateCache` — directly or through `ccf.operators.planner::compose` — changes nothing and observes the same values and the same `hits` count. What an adopter may observe is that the fabric got faster: `perf/suites/micro/test_operators.py::test_composed_chain` moved from a 0.386391 s median to 0.178888 s on the `local` runner class, and `test_composed_ab` from 0.191451 s to 0.077345 s, against a `perf/baselines/local.json` this plan left byte-identical
 
 *Recorded by `15.6-02-intermediate-cache-key.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: behavior
+- Before: the record's dimension 5 said nothing about what a debt pointed at
+- After: **the same signature.** Dimension 5's `debt_evidence` is *derived from
+  the `product` argument the builder was already handed* — no new parameter
+- Why: derivation rather than threading is what keeps every
+  `build_replay_record` consumer byte-for-byte unchanged, and it makes a record
+  pinning evidence its product does not carry **unrepresentable** rather than
+  merely discouraged. It is exactly the rule 15.5-11 applied to `debt`: a fact
+  already present is read, never re-passed
+- Migration: **none.** No call site changes. A caller that wants evidence on the
+  record puts it on the product
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.replay.engine.ReplayEnvironment
+
+- Surface: ccf.replay.engine.ReplayEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: a conforming `rehydrate_product(*, record, projection)` had to carry
+  `record.content_generation_path.debt` onto the product it returned (15.5-11)
+- After: **the same signature** — which is why this is `behavior` rather than
+  `reshaped`. What changed is the **contract**: it must now *also* carry
+  `record.content_generation_path.debt_evidence`
+- Why: `ContextProductContract.debt_evidence` is inside the hashed body, and it
+  is **not** reachable through `debt` — the ruled placement made it a sibling of
+  the assessment, not a member. `canonical_bytes` walks a model field-by-field
+  over `type(value).model_fields`, so an implementation that omits it returns a
+  product `ccf.replay.engine::replay`'s address check rejects with
+  `ReplayDivergence`
+- Migration: **required for any adopter with a custom `ReplayEnvironment`, even
+  if you never populate the field, and it is one line.** Add
+  `debt_evidence=record.content_generation_path.debt_evidence` to the
+  `ContextProductContract(...)` your `rehydrate_product` returns. All seven
+  implementations across six files in this repository were updated in the same
+  commit (`src/ccf/replay/engine.py`, `tests/replay/test_engine_rehydration.py`,
+  `tests/replay/test_query_sequence_pin.py`, `perf/suites/replay/conftest.py`,
+  `examples/06-decision-replay/run.py`,
+  `examples/external/00-hello-context/run.py`). **Do not re-derive the pointers
+  at replay** — they are a deployment's judgement about a particular assembly,
+  not a function of the record, so a rehydrator that rebuilt them would be
+  returning a different decision wearing this one's identifier. An adopter who
+  omits the line does not get a silent wrong answer; they get
+  `ReplayDivergence`, which is the failure mode this fabric prefers
+
+*Recorded by `15.6-06-debt-evidence.md`.*
 
 ### Not public Python API
 
