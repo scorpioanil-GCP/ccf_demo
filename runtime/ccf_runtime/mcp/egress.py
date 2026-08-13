@@ -152,6 +152,42 @@ class ProductResolverProtocol(Protocol):
     undeliverable *"the request surface is validated where it crosses the
     door"*. Both were blocked on the same missing parameters, so both were
     added together rather than reshaping the same call sites twice.
+
+    **TWO REFUSALS THIS DOOR DOES NOT CALL, AND YOUR RESOLVER MUST.** The SDK
+    ships both comparisons complete and tested, and no shipped door invokes
+    either one. That is a ruling (``D-IMPL-113``, extended to the second
+    refusal by ``D-IMPL-121``, Dave), not an omission, and the consequences
+    fall on the resolver you are about to write:
+
+    - A resolver that does not call
+      :func:`~ccf.products.request.refuse_request` **serves against an
+      unchecked request** — the question is answered without ever being
+      compared to the surface the product class declared it accepts, so a
+      request addressed elsewhere, or carrying undeclared, missing or
+      mistyped parameters, is answered rather than refused.
+    - A resolver that does not call
+      :func:`~ccf.products.bind.refuse_bound_payload` **serves an unvalidated
+      payload against a schema its own class declared** — the declaration
+      ships, and nothing on the path checks it, which from a consumer's seat
+      is indistinguishable from there being no schema at all.
+
+    **Why the SDK does not do this for you, stated so it reads as a boundary
+    rather than a gap.** This door never holds the
+    :class:`~ccf.products.contract.RegisteredProductClass`. It hands you a
+    tenant, a class name, a version, a perspective and a request; the
+    registered class — which is what both refusals compare against — is
+    resolved *behind* this seam, inside your resolver. The SDK cannot call a
+    comparison whose second operand it does not have, and reaching for it
+    here would put an SDK-owned verdict on the serve path that ``D-IMPL-102``
+    limb 3 declined.
+
+    **Where a working example is.** The request refusal is called at
+    ``examples/s1-01-hello-context-product/spine.py::assemble_and_serve``;
+    the payload bind is called at
+    ``examples/04-cross-process/producer_child.py::resolve``. Both are
+    shipped, both run in CI, and both are this obligation discharged rather
+    than described. ``CPS-03`` is recorded **Pending by design** under those
+    two rulings for exactly this reason.
     """
 
     def __call__(
