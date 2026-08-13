@@ -1376,6 +1376,30 @@ def test_the_obligation_lands_on_dimension_five_and_mints_no_sixth(
     )
 
 
+@pytest.mark.parametrize(
+    "blank", ["", "   ", "\t"], ids=["empty", "spaces", "tab"]
+)
+def test_a_blank_obligation_is_refused_on_dimension_five(
+    deployment: _Deployment, blank: str
+) -> None:
+    """The record is the other door into the vessel's third state.
+
+    The close-time cross-AI panel found ``ContextProductContract`` admitting a
+    blank obligation; dimension 5 carries the same field, and
+    ``replay_product`` reads it back off *this* structure. A gate on the vessel
+    alone would leave a stored record admissible and hand the blank to the
+    rehydrated product from the one side that was never checked — which is the
+    deferral CLAUDE.md §11 refuses. Asserted through ``model_validate``, the
+    door a record on disk actually comes through.
+    """
+    _address, record = _serve(deployment)
+    payload = record.content_generation_path.model_dump()
+    payload["obligation_in_force"] = blank
+
+    with pytest.raises(ValueError, match="obligation in force must be"):
+        ContentGenerationPath.model_validate(payload)
+
+
 def test_what_the_signal_obliged_replays_byte_exactly(
     deployment: _Deployment,
 ) -> None:

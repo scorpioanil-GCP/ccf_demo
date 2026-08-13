@@ -120,6 +120,7 @@ __all__ = [
     "DebtFactorName",
     "DebtFactors",
     "DebtSignal",
+    "ObligationInForce",
     "ScorerPin",
     "SignalObligation",
     "SignalObligations",
@@ -591,6 +592,53 @@ NO_SOURCE_REFRESH_RECENCY: Final[SourceRefreshWindow | None] = None
 #: module-level string in this package — and so a deployment cannot collide with
 #: it by accident while reaching for an ordinary phrase.
 NO_OBLIGATION_IN_FORCE: Final[str] = "ccf.no-obligation-in-force"
+
+
+def _the_obligation_carried_is_declared_or_is_the_sentinel(value: str) -> str:
+    """Admit the sentinel or a declared reference — and nothing between them.
+
+    The **carrying** side's rule, and deliberately not
+    :meth:`SignalObligation._the_obligation_is_declared_and_is_not_the_sentinel`.
+    A *binding* refuses the sentinel spelling, because a declared obligation
+    wearing it would impersonate the absence. A *carrier* requires it, because
+    it is the carrier's own default and the positive assertion an unobliged
+    decision is spelled with. One string, two positions, two rules — and both
+    rules exist to keep the same two claims apart.
+
+    What is refused here is the third state neither rule has a name for: a blank
+    (``D-IMPL-38``). A carrier holding ``""`` asserts neither *no obligation was
+    bound* nor *this obligation was bound*, and because it sits inside the
+    delivered product's content address and inside dimension 5 of the replay
+    record, the ambiguity is **replay-stable** — it reproduces exactly, forever,
+    and no reader can tell it from either legitimate claim. Refusing it at the
+    boundary rather than downstream is CLAUDE.md §11.
+
+    Nothing about *meaning* is judged. Any other string is admitted verbatim,
+    however unfamiliar: the SDK ships no obligation vocabulary (``D-IMPL-117``).
+    """
+    if not value.strip():
+        raise ValueError(
+            "the obligation in force must be either a declared reference or"
+            f" exactly {NO_OBLIGATION_IN_FORCE!r}: a blank is a third state"
+            " that asserts neither, and it would reproduce inside the"
+            " product's content address and dimension 5 of the replay record"
+            " as if it did (D-IMPL-38, D-IMPL-118)"
+        )
+    return value
+
+
+#: What a decision was obliged to do, as it travels on a carrier.
+#:
+#: An alias rather than a field-by-field re-declaration, in :data:`DebtEvidence`'
+#: shape and for its reason: the value lands in **two** places — on
+#: :class:`~ccf.products.contract.ContextProductContract` and on replay
+#: dimension 5 — and one validated shape is what keeps those two from drifting
+#: apart. Before this alias existed the vessel field was a bare ``str`` with no
+#: validator at all, which Phase 15.6's close-time cross-AI panel found by
+#: inspection.
+ObligationInForce = Annotated[
+    str, AfterValidator(_the_obligation_carried_is_declared_or_is_the_sentinel)
+]
 
 
 class SignalObligation(CCFContract):

@@ -2215,6 +2215,7 @@
       "NO_SCORER_PINS",
       "NO_SIGNAL_OBLIGATIONS",
       "NO_SOURCE_REFRESH_RECENCY",
+      "ObligationInForce",
       "ScorerPin",
       "SignalObligation",
       "SignalObligations",
@@ -2276,6 +2277,10 @@
       "NO_SOURCE_REFRESH_RECENCY": {
         "kind": "constant",
         "shape": "NoneType"
+      },
+      "ObligationInForce": {
+        "kind": "function",
+        "shape": "typing.Annotated[str, AfterValidator(func=<function _the_obligation_carried_is_declared_or_is_the_sentinel>)]"
       },
       "ScorerPin": {
         "kind": "contract",

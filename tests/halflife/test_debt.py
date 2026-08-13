@@ -1206,3 +1206,60 @@ def test_an_unobliged_decision_is_a_positive_claim_and_not_a_silence() -> None:
     """
     assert _product().obligation_in_force == NO_OBLIGATION_IN_FORCE
     assert NO_OBLIGATION_IN_FORCE is not None
+
+
+@pytest.mark.parametrize(
+    "blank", ["", "   ", "\t"], ids=["empty", "spaces", "tab"]
+)
+def test_a_blank_obligation_is_refused_on_the_vessel(blank: str) -> None:
+    """The vessel admits two states, not three.
+
+    The profile side has refused a blank reference since `15.6-08`; the vessel
+    field shipped as a bare `str` with no validator, which the close-time
+    cross-AI panel found by inspection. A product carrying `""` asserts a third
+    state that is neither *no obligation was bound* — which
+    `NO_OBLIGATION_IN_FORCE` already says, positively — nor *this obligation was
+    bound*. Because the field is inside the content address, that third state is
+    **replay-stable**: it reproduces exactly, forever, and a reader has no way
+    to tell it from either legitimate claim.
+    """
+    with pytest.raises(ValueError, match="obligation in force must be"):
+        _product(obligation=blank)
+
+
+@pytest.mark.parametrize(
+    "blank", ["", "   ", "\t"], ids=["empty", "spaces", "tab"]
+)
+def test_a_blank_obligation_is_refused_on_rehydration(blank: str) -> None:
+    """Rehydration is the other door into the same state, so it is the same gate.
+
+    D-IMPL-118's own harm statement is a product *constructed or rehydrated*
+    with a blank. `model_validate` is the rehydration path every
+    `rehydrate_product` call takes, and a validator that fired only at
+    construction would leave the stored artifact admissible — which is the
+    deferral CLAUDE.md §11 refuses.
+    """
+    payload = _product().model_dump()
+    payload["obligation_in_force"] = blank
+
+    with pytest.raises(ValueError, match="obligation in force must be"):
+        ContextProductContract.model_validate(payload)
+
+
+def test_the_sentinel_is_admissible_on_the_vessel_it_is_the_default_of() -> None:
+    """The widening control: the vessel's rule is not the profile's rule.
+
+    `SignalObligation` **refuses** the sentinel spelling, because a declared
+    obligation wearing it would impersonate the absence. The vessel **requires**
+    it to be admissible, because it is the vessel's own default and the positive
+    assertion the absence is spelled with. A fix that copied the profile's
+    refusal wholesale would pass every test above and fail this one, having made
+    every unobliged product in the tree unconstructable.
+    """
+    assert (
+        _product(obligation=NO_OBLIGATION_IN_FORCE).obligation_in_force
+        == NO_OBLIGATION_IN_FORCE
+    )
+    assert _product(obligation=" ccf.leading-space").obligation_in_force == (
+        " ccf.leading-space"
+    )

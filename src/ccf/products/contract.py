@@ -232,6 +232,7 @@ from ccf.halflife.assessment import (
     NO_SOURCE_REFRESH_RECENCY,
     DebtAssessment,
     DebtEvidence,
+    ObligationInForce,
     SourceRefreshRecency,
 )
 
@@ -653,7 +654,11 @@ class ContextProductContract(CCFContract):
             Defaults to
             :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`, the
             positive assertion *no obligation was bound to the state this
-            decision landed in*.
+            decision landed in*. Carried as
+            :data:`~ccf.halflife.assessment.ObligationInForce`, which admits
+            that sentinel or a declared reference and refuses a blank — the
+            third state that asserts neither and would reproduce inside this
+            product's content address as if it did.
     """
 
     schema_name: str
@@ -668,7 +673,7 @@ class ContextProductContract(CCFContract):
     debt: DebtAssessment | None = None
     debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
     source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY
-    obligation_in_force: str = NO_OBLIGATION_IN_FORCE
+    obligation_in_force: ObligationInForce = NO_OBLIGATION_IN_FORCE
 
 
 def register_product_class(

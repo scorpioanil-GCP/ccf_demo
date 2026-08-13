@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**603 entries**, of which **375** name a public Python surface.
+**604 entries**, of which **376** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-273 entries — 240 public Python surface, 33 not public Python API.
+274 entries — 241 public Python surface, 33 not public Python API.
 
 ### Public Python surface
 
@@ -4898,6 +4898,41 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none
 
 *Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.assessment.ObligationInForce
+
+- Surface: ccf.halflife.assessment.ObligationInForce
+- Public surface: true
+- Change type: added
+- Before: absent. `ContextProductContract.obligation_in_force` and
+  `ContentGenerationPath.obligation_in_force` were each a bare `str =
+  NO_OBLIGATION_IN_FORCE` with **no validator on either**, while the profile
+  side (`SignalObligation.obligation_ref`) had refused blanks since `15.6-08`
+- After: an `Annotated[str, AfterValidator(...)]` alias admitting **either** the
+  `NO_OBLIGATION_IN_FORCE` sentinel exactly **or** a non-blank declared
+  reference, and refusing a blank or whitespace-only value at both carriers. An
+  alias rather than two validators, in `ccf.halflife.assessment.DebtEvidence`'s
+  shape and for its stated reason: the value lands in two places and one
+  validated shape is what keeps them from drifting apart
+- Why: the close-time panel found the vessel field unvalidated by inspection. A
+  product constructed **or rehydrated** with `""` carries a third state that is
+  neither *no obligation was bound* — which the sentinel already asserts,
+  positively — nor *this obligation was bound*, and the field is inside the
+  product's content address, so the ambiguity is replay-stable rather than
+  transient. `ContentGenerationPath` carries the same field and
+  `replay_product` reads the obligation back off *it*, so a gate on the vessel
+  alone would have left a stored record admissible and handed the blank to the
+  rehydrated product through the one door never checked. CLAUDE.md §11:
+  validation is at the boundary, never deferred
+- Migration: **none** for any correct caller. The default is unchanged, every
+  declared reference in the tree is non-blank, and the sentinel remains
+  admissible on the carriers — which is deliberately **not** the profile side's
+  rule, where the sentinel spelling stays reserved. One string, two positions,
+  two rules, both protecting the same distinction. A deployment that was
+  populating either field with `""` was asserting nothing; it now fails at the
+  boundary and must choose the sentinel or a reference
+
+*Recorded by `15.6-12-close-panel-refusals.md`.*
 
 #### ccf.halflife.assessment.SourceRefreshWindow
 

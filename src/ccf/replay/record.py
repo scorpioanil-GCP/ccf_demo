@@ -71,6 +71,7 @@ from ccf.halflife.assessment import (
     NO_SOURCE_REFRESH_RECENCY,
     DebtAssessment,
     DebtEvidence,
+    ObligationInForce,
     SourceRefreshRecency,
 )
 from ccf.products.contract import AssemblyMode, ContextProductContract
@@ -536,7 +537,10 @@ class ContentGenerationPath(CCFContract):
     exact-version rule forbids, and pinning the resolved value here is what
     makes it unavailable rather than merely discouraged. It is derived from the
     product for ``debt``'s reason and defaults to
-    :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`.
+    :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`. It is carried as
+    :data:`~ccf.halflife.assessment.ObligationInForce` — the same validated
+    shape the vessel carries, so a record on disk cannot be rehydrated into a
+    blank the vessel would have refused.
 
     The **question answered** extends this dimension as of 15.5-13
     (D-IMPL-111 limb (b)) through ``request``: the
@@ -583,7 +587,7 @@ class ContentGenerationPath(CCFContract):
     debt: DebtAssessment | None = None
     debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
     source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY
-    obligation_in_force: str = NO_OBLIGATION_IN_FORCE
+    obligation_in_force: ObligationInForce = NO_OBLIGATION_IN_FORCE
     request: ProductRequest | None = None
 
 
