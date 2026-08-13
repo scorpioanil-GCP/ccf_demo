@@ -242,6 +242,17 @@ class KycScenario:
             Observation(
                 observation_type=record.claim.entity_class,
                 observed_at=record.claim.observed_at,
+                # [ADAPT] This deployment identifies an observation by the
+                # canonical entity URI, because that is the key its own graph
+                # is indexed on — so a debt figure can later be attributed back
+                # to the entity whose staleness produced it. The SDK chose
+                # nothing here: `subject` is an opaque string and `record.claim`
+                # also offers `lineage`, whose `LineageEntry.envelope_id` would
+                # identify the *source envelope* instead. Either is a legitimate
+                # subject; which one you want depends on whether you attribute
+                # decay to entities or to feeds (D-IMPL-117 — the SDK owes the
+                # structure and none of the judgement).
+                subject=record.claim.entity_uri,
             )
             for record in view.entities
         )
