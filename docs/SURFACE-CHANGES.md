@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**538 entries**, of which **312** name a public Python surface.
+**614 entries**, of which **385** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-251 entries — 219 public Python surface, 32 not public Python API.
+274 entries — 241 public Python surface, 33 not public Python API.
 
 ### Public Python surface
 
@@ -4545,6 +4545,444 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.5-15-resolver-seam.md`.*
 
+#### ccf.halflife.decay.NO_SUBJECT_IDENTITY
+
+- Surface: ccf.halflife.decay.NO_SUBJECT_IDENTITY
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the marker string `"no-subject-identity"`, as the positive assertion
+  *this observation was recorded without a subject identity* — in the
+  `ccf.halflife.assessment.NO_SCORER_PINS` and `ccf.replay.record.NO_GRAPH_QUERIES`
+  voice, and for their reason. It is the default of `Observation.subject`
+- Why: `D-IMPL-120` accepted a governance cost when it ruled the identity
+  optional, and stated it rather than eliding it: `D-IMPL-97`'s *"every subclass
+  is a place to forget"* argument cuts toward required, so an assembler that
+  could populate the identity and does not is indistinguishable, from the type,
+  from one that has none. What makes that bearable is `D-IMPL-38`'s
+  no-silent-defaults discipline — the absent value is **a named positive
+  assertion, not `None`-as-unknown**, so an omitted identity and a dropped one are
+  not the same artifact. The ruling is explicit that *"an implementation that
+  expresses the absence as `None` has not implemented this ruling."* A marker
+  string rather than an empty container because the field is one opaque string and
+  must stay one shape
+- Migration: new surface — none. A deployment that has no identity to carry
+  gets the sentinel without writing anything; one that wants to say so explicitly
+  writes `subject=NO_SUBJECT_IDENTITY`, which is the same value and the louder
+  statement
+
+*Recorded by `15.6-05-observation-identity.md`.*
+
+#### ccf.halflife.assessment.DebtEvidencePointer
+
+- Surface: ccf.halflife.assessment.DebtEvidencePointer
+- Public surface: true
+- Before: absent — debt reached a consumer as a scalar, three factors and a set
+  of scorer pins, with no way to say what any of it summarised
+- After: a `CCFContract` with one field, `handle: str` — an opaque identifier
+  for the thing pointed at, in the `ccf.skills.catalog.SkillRequirements` voice:
+  *opaque to the SDK; declared by the deployment*. The SDK validates structure
+  (type, uniqueness, canonical order) and validates nothing about meaning; it
+  ships no entity-URI type, no claim-id type, no vocabulary and no default. A
+  `float` is refused at construction by the module's shared `_refuse_float`
+  rather than coerced
+- Change type: added
+- Why: `D-IMPL-112` named *which observations contributed the decay* as the
+  first thing a reader of a debt figure cannot get at, and `D-IMPL-117` scoped
+  the SDK's obligation to the carrying structure alone. A single opaque field
+  is the whole structure that obligation supports; anything richer would be the
+  vocabulary that ruling assigns away from the SDK
+- Migration: none — new name, nothing referenced it. **Read
+  `D-IMPL-119` before populating one:** until the assembly path is
+  principal-scoped, a handle a reading principal can interpret is refused by
+  that entry, whatever the deployment's own judgement
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.halflife.assessment.DebtEvidence
+
+- Surface: ccf.halflife.assessment.DebtEvidence
+- Public surface: true
+- Before: absent
+- After: the annotated carrier type — a `tuple[DebtEvidencePointer, ...]`
+  validated to be **handle-unique** and **canonically ordered**. A repeated
+  handle is refused at construction with a message saying why two pointers to
+  one thing is an incoherent record rather than a stricter one
+- Change type: added
+- Why: an alias rather than a field-by-field re-declaration because the carrier
+  lands in **two** places — the product vessel and replay dimension 5 — and one
+  validated shape is what keeps those from drifting apart. A sorted tuple rather
+  than a `frozenset`, deliberately and against the `SkillRequirements`
+  precedent: the value is inside a content address, so it must be
+  order-insensitive in its bytes (which sorting gives, and
+  `tests/halflife/test_debt.py::test_declaration_order_does_not_move_the_bytes`
+  asserts), but a set would additionally collapse a repeated handle **silently**
+  — and the repetition is exactly the incoherence worth naming out loud. This is
+  `DebtAssessment.scorers`' own resolution, applied for its own reason
+- Migration: none — new name
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.halflife.assessment.NO_DEBT_EVIDENCE
+
+- Surface: ccf.halflife.assessment.NO_DEBT_EVIDENCE
+- Public surface: true
+- Before: absent
+- After: the empty tuple, as a named module-level constant whose docstring
+  states the positive claim *this assessment was computed without evidence
+  pointers*
+- Change type: added
+- Why: `D-IMPL-38`, and the reason this fabric's own
+  `docs/surface-changes/15.5-11-debt-delivery.md` gives for
+  `NO_SCORER_PINS`: without a named sentinel, a product that pointed at nothing
+  and one whose pointers somebody dropped in transit would be **the same
+  artifact**, which is the repudiation failure mode every sentinel here closes.
+  Never `None` meaning "unknown"
+- Migration: none — it is the default on both fields that carry the carrier, so
+  every construction site written before this plan asserts exactly what it
+  always asserted
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.halflife.debt.DebtEvidencePointer
+
+- Surface: ccf.halflife.debt.DebtEvidencePointer
+- Public surface: true
+- Before: absent
+- After: the same class, re-exported
+- Change type: added
+- Why: `ccf.halflife.debt` re-exports every name defined in
+  `ccf.halflife.assessment` — the split exists only to break an import cycle
+  (`ccf.products.contract` cannot import `ccf.halflife.debt`), and a name
+  reachable at one spelling and not the other would make that internal detail an
+  adopter's problem
+- Migration: none
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.halflife.debt.DebtEvidence
+
+- Surface: ccf.halflife.debt.DebtEvidence
+- Public surface: true
+- Before: absent
+- After: the same annotated carrier type, re-exported
+- Change type: added
+- Why: the same re-export discipline
+- Migration: none
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.halflife.debt.NO_DEBT_EVIDENCE
+
+- Surface: ccf.halflife.debt.NO_DEBT_EVIDENCE
+- Public surface: true
+- Before: absent
+- After: the same sentinel, re-exported
+- Change type: added
+- Why: the same re-export discipline. This is the spelling a deployment
+  assembling products will already be importing from, since `assess_debt` lives
+  here
+- Migration: none
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.halflife.assessment.SourceRefreshRecency
+
+- Surface: ccf.halflife.assessment.SourceRefreshRecency
+- Public surface: true
+- Before: absent
+- After: the annotated carrier type — a `tuple[SourceRefresh, ...]` validated to
+  be **source-unique** and **canonically ordered**. A repeated `source_ref` is
+  refused at construction with a message saying that two refresh instants for
+  one source describe two facts claiming to be one
+- Change type: added
+- Why: an alias rather than a field-by-field re-declaration for
+  `ccf.halflife.assessment.DebtEvidence`'s reason — the carrier lands in **two**
+  places, the product vessel and replay dimension 5, and one validated shape is
+  what keeps those from drifting apart. A sorted tuple rather than a
+  `frozenset`: the value is inside a content address, so it must be
+  order-insensitive in its bytes, and a set keyed on the whole entry would keep
+  both halves of a contradiction while one keyed on the reference would drop a
+  half silently. **This description is of what plan 15.6-07 shipped and is
+  superseded by `D-IMPL-124`** — plan 15.6-13 replaced the per-source tuple
+  with a two-instant `ccf.halflife.assessment.SourceRefreshWindow`, so the
+  order-insensitivity assertion this entry originally cited was retired with
+  the collection it guarded. See
+  `docs/surface-changes/15.6-13-source-refresh-window.md`
+- Migration: none — new name
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY
+
+- Surface: ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY
+- Public surface: true
+- Before: absent
+- After: the empty tuple, as a named module-level constant whose docstring
+  states the positive claim *this product records nothing about when its
+  sources last refreshed*
+- Change type: added
+- Why: `D-IMPL-38`, and the reason `NO_SCORER_PINS` and `NO_DEBT_EVIDENCE` each
+  give: without a named sentinel, a product assembled by a deployment that
+  knows nothing about its sources' publication schedule and one whose recency
+  somebody dropped in transit would be **the same artifact**, which is the
+  repudiation failure mode every sentinel here closes. Never `None` meaning
+  "unknown"
+- Migration: none — it is the default on both fields that carry the carrier, so
+  every construction site written before this plan asserts exactly what it
+  always asserted
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.halflife.debt.SourceRefreshRecency
+
+- Surface: ccf.halflife.debt.SourceRefreshRecency
+- Public surface: true
+- Before: absent
+- After: the same annotated carrier type, re-exported
+- Change type: added
+- Why: the same re-export discipline
+- Migration: none
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.halflife.debt.NO_SOURCE_REFRESH_RECENCY
+
+- Surface: ccf.halflife.debt.NO_SOURCE_REFRESH_RECENCY
+- Public surface: true
+- Before: absent
+- After: the same sentinel, re-exported
+- Change type: added
+- Why: the same re-export discipline. This is the spelling a deployment
+  assembling products will already be importing from, since `assess_debt` lives
+  here
+- Migration: none
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.halflife.assessment.SignalObligation
+
+- Surface: ccf.halflife.assessment.SignalObligation
+- Public surface: true
+- Before: absent — a consumer could read a routing state and had no way to learn
+  what that state required of them
+- After: a `CCFContract` with exactly two fields — `signal: DebtSignal`, the key
+  the SDK owns and therefore validates, and `obligation_ref: str`, opaque in the
+  `ccf.skills.catalog.SkillRequirements` voice. A key that is not a `DebtSignal`
+  member is refused at construction **with the offending key named**; a blank
+  reference is refused, because a binding that obliges nothing must not be
+  confusable with no binding; the sentinel's own spelling is refused, so nothing
+  can impersonate it; a `float` is refused by the module's shared `_refuse_float`
+- Change type: added
+- Why: `D-IMPL-112` gap 3 named *what operational obligation `forced_llm`
+  actually imposes* as the third thing a reader of a debt figure cannot get at,
+  and `D-IMPL-117` scoped the SDK's obligation to the binding alone. Two fields
+  are the whole structure that obligation supports
+- Migration: none — new name, nothing referenced it. Note that the SDK never
+  parses, checks or acts on `obligation_ref`, so whatever should *happen* when a
+  decision carries one is yours to write
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.assessment.SignalObligations
+
+- Surface: ccf.halflife.assessment.SignalObligations
+- Public surface: true
+- Before: absent
+- After: the annotated carrier type — a `tuple[SignalObligation, ...]` validated
+  to be **signal-unique** and **canonically ordered**. A signal bound twice is
+  refused with a message saying that two obligations for one state describe two
+  duties claiming to be the single thing that state requires
+- Change type: added
+- Why: an alias rather than a field-by-field re-declaration, for
+  `ccf.halflife.assessment.DebtEvidence`'s reason. A sorted tuple rather than a
+  **mapping**, and the reason is this field's own: a YAML mapping keeps the last
+  of two duplicate keys **silently**, and a signal bound twice is exactly the
+  contradiction a profile author needs told about. Sorting also keeps the
+  profile order-insensitive in its bytes, asserted by
+  `tests/halflife/test_debt.py::test_binding_declaration_order_does_not_move_the_profile_bytes`
+- Migration: none — new name
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.assessment.NO_SIGNAL_OBLIGATIONS
+
+- Surface: ccf.halflife.assessment.NO_SIGNAL_OBLIGATIONS
+- Public surface: true
+- Before: absent
+- After: the empty tuple, as a named module-level constant whose docstring
+  states the positive claim *this profile binds no obligation to any routing
+  state*
+- Change type: added
+- Why: `D-IMPL-38`, and the reason `NO_SCORER_PINS`, `NO_DEBT_EVIDENCE` and
+  `NO_SOURCE_REFRESH_RECENCY` each give: without a named sentinel, a deployment
+  that deliberately declared no obligations and one whose bindings somebody
+  dropped would be **the same artifact**. Never `None` meaning "unknown"
+- Migration: none — it is the default on `DebtProfile.signal_obligations`, so
+  every profile artifact written before this plan parses unchanged and asserts
+  exactly what it always asserted
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE
+
+- Surface: ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE
+- Public surface: true
+- Before: absent
+- After: the marker string `ccf.no-obligation-in-force`, whose docstring states
+  the positive claim *no obligation was bound to the state this decision landed
+  in*
+- Change type: added
+- Why: a marker rather than an empty tuple because the field it defaults holds
+  **one** reference and must stay one shape — the `ccf.products.contract
+  .NO_PAYLOAD_SCHEMA` precedent. A marker rather than `""` because an empty
+  string is what a half-finished profile edit leaves behind, and the two claims
+  are different. `ccf.`-namespaced so it reads as SDK structure rather than as a
+  word from somebody's domain, and so a deployment cannot collide with it by
+  accident; `SignalObligation` refuses the spelling outright
+- Migration: none — it is the default on both fields that carry a resolved
+  obligation
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.debt.SignalObligation
+
+- Surface: ccf.halflife.debt.SignalObligation
+- Public surface: true
+- Before: absent
+- After: the same class, re-exported
+- Change type: added
+- Why: `ccf.halflife.debt` re-exports every name defined in
+  `ccf.halflife.assessment` — the split exists only to break an import cycle
+  (`ccf.products.contract` cannot import `ccf.halflife.debt`), and a name
+  reachable at one spelling and not the other would make that internal detail an
+  adopter's problem
+- Migration: none
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.debt.SignalObligations
+
+- Surface: ccf.halflife.debt.SignalObligations
+- Public surface: true
+- Before: absent
+- After: the same annotated carrier type, re-exported
+- Change type: added
+- Why: the same re-export discipline
+- Migration: none
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.debt.NO_SIGNAL_OBLIGATIONS
+
+- Surface: ccf.halflife.debt.NO_SIGNAL_OBLIGATIONS
+- Public surface: true
+- Before: absent
+- After: the same sentinel, re-exported
+- Change type: added
+- Why: the same re-export discipline
+- Migration: none
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.debt.NO_OBLIGATION_IN_FORCE
+
+- Surface: ccf.halflife.debt.NO_OBLIGATION_IN_FORCE
+- Public surface: true
+- Before: absent
+- After: the same marker, re-exported
+- Change type: added
+- Why: the same re-export discipline. This is the spelling a deployment
+  assembling products will already be importing from, since `assess_debt` lives
+  here
+- Migration: none
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.assessment.ObligationInForce
+
+- Surface: ccf.halflife.assessment.ObligationInForce
+- Public surface: true
+- Change type: added
+- Before: absent. `ContextProductContract.obligation_in_force` and
+  `ContentGenerationPath.obligation_in_force` were each a bare `str =
+  NO_OBLIGATION_IN_FORCE` with **no validator on either**, while the profile
+  side (`SignalObligation.obligation_ref`) had refused blanks since `15.6-08`
+- After: an `Annotated[str, AfterValidator(...)]` alias admitting **either** the
+  `NO_OBLIGATION_IN_FORCE` sentinel exactly **or** a non-blank declared
+  reference, and refusing a blank or whitespace-only value at both carriers. An
+  alias rather than two validators, in `ccf.halflife.assessment.DebtEvidence`'s
+  shape and for its stated reason: the value lands in two places and one
+  validated shape is what keeps them from drifting apart
+- Why: the close-time panel found the vessel field unvalidated by inspection. A
+  product constructed **or rehydrated** with `""` carries a third state that is
+  neither *no obligation was bound* — which the sentinel already asserts,
+  positively — nor *this obligation was bound*, and the field is inside the
+  product's content address, so the ambiguity is replay-stable rather than
+  transient. `ContentGenerationPath` carries the same field and
+  `replay_product` reads the obligation back off *it*, so a gate on the vessel
+  alone would have left a stored record admissible and handed the blank to the
+  rehydrated product through the one door never checked. CLAUDE.md §11:
+  validation is at the boundary, never deferred
+- Migration: **none** for any correct caller. The default is unchanged, every
+  declared reference in the tree is non-blank, and the sentinel remains
+  admissible on the carriers — which is deliberately **not** the profile side's
+  rule, where the sentinel spelling stays reserved. One string, two positions,
+  two rules, both protecting the same distinction. A deployment that was
+  populating either field with `""` was asserting nothing; it now fails at the
+  boundary and must choose the sentinel or a reference
+
+*Recorded by `15.6-12-close-panel-refusals.md`.*
+
+#### ccf.halflife.assessment.SourceRefreshWindow
+
+- Surface: ccf.halflife.assessment.SourceRefreshWindow
+- Public surface: true
+- Before: absent
+- After: a `CCFContract` with exactly two fields —
+  `oldest_source_refresh_at: datetime` and
+  `newest_source_refresh_at: datetime`, the earliest and latest of the refresh
+  instants the assembling deployment declared. Both are timezone-aware; a naive
+  instant on either is **refused at construction** rather than coerced. One
+  coherence validator refuses a window whose oldest end is after its newest;
+  equality is legal, because one source — or several that published together —
+  is a window of zero span. No `source_ref`, no count, no cadence, no staleness
+  threshold and no default
+- Change type: added
+- Why: `D-IMPL-124` Shape B. It replaces the per-source map plan 15.6-07
+  shipped, because the field's purpose is freshness rather than source
+  enumeration and a per-source map published the deployment's inventory of
+  systems to every principal who could reach the product. The
+  oldest-versus-newest check is **not** the comparison `D-IMPL-101` deferred:
+  the forbidden comparisons are against `now`, against a threshold and against
+  a cadence, each of which draws a conclusion about whether a value is
+  acceptable; this one checks that a single declared fact is internally
+  coherent, exactly as the duplicate-reference refusal it replaces did
+- Migration: none — new name. Note that the SDK compares these instants to
+  nothing outside themselves, so if your deployment wants "are my sources
+  overdue?", that comparison is yours to write against your own cadence. Note
+  also that the SDK ships **no reducer** from per-source instants to a window:
+  that reduction belongs in your deployment, because only your deployment knows
+  its set of sources is complete
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
+
+#### ccf.halflife.debt.SourceRefreshWindow
+
+- Surface: ccf.halflife.debt.SourceRefreshWindow
+- Public surface: true
+- Before: absent
+- After: the same class, re-exported
+- Change type: added
+- Why: consequential, not deliberate. `ccf.halflife.debt` re-exports every name
+  defined in `ccf.halflife.assessment` — the split exists only to break an
+  import cycle (`ccf.products.contract` cannot import `ccf.halflife.debt`), and
+  a name reachable at one spelling and not the other would make that internal
+  detail an adopter's problem
+- Migration: none
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -5057,11 +5495,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.5-10-assembler.md`.*
 
+#### tests/test_surface_shape_capture.py
+
+- Surface: tests/test_surface_shape_capture.py
+- Public surface: false
+- Change type: added
+- Before: absent — `dump_surface` had no dedicated test module, and what it
+  could and could not see about a shape was pinned nowhere
+- After: fifteen assertions covering the capture, the structural detection, the
+  alias rendering, manifest determinism, the narrowness of the change, and the
+  descope
+- Why: a descope that is not asserted is a descope that quietly becomes a
+  regression. The module lives in `tests/` rather than beside the tool because
+  `pyproject.toml` sets `testpaths = ["tests"]`, so a module under `tools/` runs
+  only in CI's separate step and not under `make ci-core` — the wrong gate for a
+  change to the surface record's own generator
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-243 entries — 60 public Python surface, 183 not public Python API.
+282 entries — 99 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -6466,6 +6923,75 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `15.5-13-request-in-replay.md`.*
 
+#### ccf_runtime.mcp.egress.ProductResolverProtocol
+
+- Surface: ccf_runtime.mcp.egress.ProductResolverProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `__call__(*, tenant: str, product_class: str, version: str) -> ServableProduct`
+- After:
+  `__call__(*, tenant, product_class, version, perspective: Perspective, request: ProductRequest | None) -> ServableProduct`
+- Why: D-IMPL-108, closing DI-15.5-03. The door resolves and authorizes a
+  `Perspective` and must be able to hand it to the path that shapes the
+  product, or the authorization is a refusal check and nothing more.
+  **Neither new argument is defaulted, and `perspective` is not nullable** —
+  that is the substance rather than a style choice. A resolver silently
+  constructing its own perspective is indistinguishable from one honouring the
+  door's, and a parameter defaulting to `None` would recreate exactly that
+  ambiguity one layer down. `request` is required-with-no-default but typed
+  `ProductRequest | None`, because a surface can honestly have **no way to
+  ask**: the `ccf-product://` template is three path segments with no query
+  among them, and manufacturing a subject, an intent, a freshness figure and
+  an instant would be the SDK holding deployment values (CINV-01) and reading
+  a clock — the literal-instead-of-argument defect D-IMPL-98 exists to remove,
+  reintroduced one layer up. That is the same voice `requested_role: str | None`
+  already carries on `PerspectiveResolverProtocol`.
+  **Reclassified from `behavior` to `reshaped` by plan `15.6-10`**, under the
+  authorization `D-IMPL-110` recorded by name and `D-IMPL-122` implemented.
+  Editing a landed fragment is otherwise forbidden; this edit exists only
+  because that ruling anticipated it. **The original `behavior` classification
+  was correct when it was made** — `reshaped` fails
+  `tests/test_surface_completeness.py` when the manifest shows no diff line to
+  point at, and at the time it could show none: `inspect.signature` on a
+  `Protocol` resolves `__init__`, so this seam's widening from three arguments
+  to five was byte-invisible in `docs/surface/v0.2-surface.json`. `15.6-10`
+  taught the tool to read a Protocol's `__call__`, the manifest now shows this
+  name under `reshaped`, and the honest classification and the representable one
+  have converged
+- Migration: **required, and mechanical.** Every resolver a deployment supplies
+  gains two keyword-only parameters. Eleven definitions across `runtime/`,
+  `examples/` and `tests/` were updated in this plan's commits; an adopter's
+  own is the same edit. The minimum conforming change is to accept both and
+  ignore them, which type-checks and runs — but a resolver that ignores
+  `perspective` is asserting *the conditioning this door authorized does not
+  affect what I serve*, which is a claim worth making deliberately. The
+  reference deployments do not: `examples/04-cross-process/producer_child.py`
+  and `examples/external/00-hello-context/serve.py` both refuse to serve when
+  the authorized perspective is not the one their product was assembled under
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
+
+- Surface: ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: the same three-string signature as its egress twin
+- After: the same five-argument signature as its egress twin
+- Why: the two moved together deliberately. The seams are structurally
+  identical so that one deployment resolver can serve both roles, and a
+  deployment supplying one resolver to both doors must not discover that only
+  one of them forwards what it authorized. The two modules remain separate and
+  import neither each other nor a sibling —
+  `tests/invariants/test_mcp_role_separation.py` still asserts it, unrelaxed.
+  **Reclassified from `behavior` to `reshaped` by plan `15.6-10`** on the same
+  authorization and for the same reason as its egress twin above: the original
+  classification was correct when made, because the manifest could show no diff
+  line for a `Protocol` until `15.6-10` taught it to read `__call__`
+- Migration: as above
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
 #### ccf.products.contract.RegisteredProductClass
 
 - Surface: ccf.products.contract.RegisteredProductClass
@@ -6509,6 +7035,654 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   pair, exactly as it does for a payload schema
 
 *Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf.halflife.decay.Observation
+
+- Surface: ccf.halflife.decay.Observation
+- Public surface: true
+- Change type: reshaped
+- Before: two fields — `observation_type` and `observed_at`. An observation could
+  say what kind of thing it was and when it was made, and nothing about what it
+  was an observation *of*
+- After: one further field, `subject: str`, defaulted to
+  `ccf.halflife.decay.NO_SUBJECT_IDENTITY`. An opaque identifier the deployment
+  chooses; the SDK never enumerates it, never parses it and never compares it.
+  It is **carried, never consumed** — no function in `ccf.halflife.decay` reads
+  it, and `ccf.halflife.debt.FreshnessScorer.score` returns the same figure for
+  the same types and instants whether it is populated or not, asserted by
+  `tests/halflife/test_debt.py::test_the_freshness_figure_is_unmoved_by_the_subject_identity`
+- Why: `D-IMPL-112` gap 1 — a debt figure an analyst can act on has to be able to
+  point at the observations whose decay it summarises, and `D-IMPL-99` ruled that
+  unbuildable because the join key existed on no structure in this tree.
+  `D-IMPL-117` scopes what the SDK owes for it: the data structure and the API to
+  populate and extract, and none of the judgement about which observations
+  matter — so the field is an opaque string and the choice of what to put in it
+  belongs to the context product creator. `D-IMPL-120` ruled the field
+  **optional** (`qc-optional`) rather than required, measured against the three
+  shipped example artifacts: required cost 6 code files **plus all 3 artifacts,
+  each of which raises**; optional costs 3 code files and **0 artifacts**.
+  Whitepaper §7.7 binds λ_c to the observation *type* and says nothing about
+  subject identity, so the field is an SDK extension and its docstring is labelled
+  as one (CLAUDE.md §11)
+- Migration: **none.** The field is defaulted, so every existing construction site
+  and every `Observation.model_validate` over a two-key mapping keeps working and
+  keeps saying exactly what it always said — asserted by
+  `tests/halflife/test_decay.py::test_a_two_key_observation_mapping_still_validates`,
+  and demonstrated by the three example artifacts
+  (`examples/00-quickstart/artifacts/decision.yaml`,
+  `examples/01-agent-basics/artifacts/debt-evaluation.yaml`,
+  `examples/08-e2e-demo/artifacts/decision.yaml`), which are **unchanged by this
+  plan**. **The canonical bytes of an `Observation` do change**, because `subject`
+  is serialized whether or not it is populated: anything that content-addressed an
+  `Observation` directly re-records. Nothing in this repository does, and no
+  product address moves, because `Observation` is an input to debt computation and
+  not a member of `ContextProductContract`. To adopt, pass `subject=` at
+  construction — `examples/s1-01-hello-context-product/deployment.py` carries
+  `record.claim.entity_uri`, a value its loop variable already held
+
+*Recorded by `15.6-05-observation-identity.md`.*
+
+#### ccf.products.contract.ContextProductContract
+
+- Surface: ccf.products.contract.ContextProductContract
+- Public surface: true
+- Before: ten fields, ending at 15.5-11's `debt` — which said how much to trust
+  the product's contents and nothing about what that judgement rested on
+- After: one further field, `debt_evidence: DebtEvidence`, defaulted to
+  `NO_DEBT_EVIDENCE`. A **sibling** of `debt`, not a member of it
+- Change type: reshaped
+- Why: `D-IMPL-118`, which chose `qa-toplevel` over the cheaper nested placement
+  and recorded the reason — the field buys *"its own identity on the vessel
+  rather than [being] a rider on debt"*. On the vessel rather than beside it for
+  15.5-11's door reason, unchanged: all three shipped delivery paths serialize
+  `servable.product` and none reads `ServedProduct.replay_ref`, so a placement
+  beside the vessel would reach an in-process caller and no wire consumer at all
+- Migration: **nothing is required to keep constructing products** — the
+  sentinel default keeps every existing site saying what it always said — and
+  **something is required if you recorded addresses outside the replay record**;
+  see "The content address moves" above. A custom `ReplayEnvironment` **must**
+  be updated regardless of whether you populate the field; see
+  `ccf.replay.engine.ReplayEnvironment` below
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Before: eight fields, ending at 15.5-13's `request`
+- After: one further field, `debt_evidence: DebtEvidence`, defaulted to
+  `NO_DEBT_EVIDENCE`
+- Change type: reshaped
+- Why: this member is **the price of the ruled placement**, not a symmetry.
+  Because the carrier is top-level on the vessel rather than nested inside the
+  assessment, it does not ride `debt` back through replay; `ProjectionOutput`
+  carries exactly `(plan_id, payload)`, so without this field no implementation
+  of the `(record, projection)` signature can produce the value and every replay
+  of every product raises `ReplayDivergence`. Dimension 5 and not a sixth
+  dimension: `INV-CH7-80` holds, asserted by field enumeration in
+  `test_the_evidence_lands_on_dimension_five_and_mints_no_sixth`. Beside the
+  `debt` it explains, for that field's own reason — the value a rehydrator reads
+  in order to reproduce the address sits next to the address it must reproduce
+- Migration: none for construction. `NO_DEBT_EVIDENCE` is the positive
+  assertion *this decision pointed at nothing*, so a record written before this
+  seam parses and verifies unchanged
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.products.contract.ContextProductContract
+
+- Surface: ccf.products.contract.ContextProductContract
+- Public surface: true
+- Before: eleven fields, ending at 15.6-06's `debt_evidence`
+- After: one further field, `source_refresh_recency: SourceRefreshRecency`,
+  defaulted to `NO_SOURCE_REFRESH_RECENCY`. A **second sibling of** `debt`, not
+  a member of it and not a member of `DebtFactors`
+- Change type: reshaped
+- Why: `D-IMPL-118`, which is explicit that its four measured placements
+  *"price all three Track B vessel-carried members identically"* — so this
+  member takes the same branch 15.6-06's carrier took, on the vessel rather
+  than nested inside the assessment. Not folded into `DebtFactors` for a
+  further reason that is this field's own: a factor is an input to a number the
+  SDK computes, and the SDK computes nothing from this. On the vessel rather
+  than beside it for 15.5-11's door reason, unchanged: all three shipped
+  delivery paths serialize `servable.product` and none reads
+  `ServedProduct.replay_ref`
+- Migration: **nothing is required to keep constructing products** — the
+  sentinel default keeps every existing site saying what it always said — and
+  **something is required if you recorded addresses outside the replay record**;
+  see "The content address moves" above. A custom `ReplayEnvironment` **must**
+  be updated regardless of whether you populate the field; see
+  `ccf.replay.engine.ReplayEnvironment` below
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Before: nine fields, ending at 15.6-06's `debt_evidence`
+- After: one further field, `source_refresh_recency: SourceRefreshRecency`,
+  defaulted to `NO_SOURCE_REFRESH_RECENCY`, placed beside the `debt` whose
+  freshness factor it is deliberately not
+- Change type: reshaped
+- Why: this member is **the price of the ruled placement**, not a symmetry.
+  Because the carrier is top-level on the vessel rather than nested inside the
+  assessment, it does not ride `debt` back through replay; `ProjectionOutput`
+  carries exactly `(plan_id, payload)`, so without this field no implementation
+  of the `(record, projection)` signature can produce the value and every
+  replay of every product raises `ReplayDivergence`. Dimension 5 and not a
+  sixth dimension: `INV-CH7-80` holds, asserted by field enumeration in
+  `test_the_recency_lands_on_dimension_five_and_mints_no_sixth`
+- Migration: none for construction. `NO_SOURCE_REFRESH_RECENCY` is the positive
+  assertion *this decision recorded no refresh instants*, so a record written
+  before this seam parses and verifies unchanged
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.controlplane.artifacts.DebtProfile
+
+- Surface: ccf.controlplane.artifacts.DebtProfile
+- Public surface: true
+- Before: three declared values, none with a default — `risk_sensitivity`,
+  `forced_llm_threshold`, `fail_closed_threshold`
+- After: one further field, `signal_obligations: SignalObligations`, defaulted
+  to `NO_SIGNAL_OBLIGATIONS`; plus one method,
+  `obligation_for(signal) -> str`, returning the reference bound to that state
+  or the sentinel
+- Change type: reshaped
+- Why: the calibration half belongs here because the calibration already is
+  here. This artifact owns the two bands that decide *which* state a decision
+  lands in; it is a `VersionedArtifact` with a published schema; and it is
+  already pinned per-agent as `halflife_debt_profile: VersionedRef`, which
+  `D-IMPL-97` named as *"axis 5 … the home for a product's debt configuration
+  already exists, on the agent, declared and version-pinned."* Binding elsewhere
+  would split one calibration across two documents and two version lanes.
+  `D-IMPL-118`'s Q-A fork does not reach this half: a Control Plane artifact is
+  not the product vessel. `obligation_for` resolves off the **resolved,
+  version-pinned instance** the caller already holds and never reaches the
+  Control Plane for a `@latest` (`D-IMPL-26`)
+- Migration: **none to keep an existing profile working** — the sentinel default
+  means every `debt-profile.yaml` in existence parses and means what it always
+  meant. To bind obligations, add a `signal_obligations` list of
+  `{signal, obligation_ref}` entries; bind only the states you have an answer
+  for. `docs/schemas/ccf.debt-profile.json` was regenerated in the same commit
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.products.contract.ContextProductContract
+
+- Surface: ccf.products.contract.ContextProductContract
+- Public surface: true
+- Before: twelve fields, ending at 15.6-07's `source_refresh_recency`
+- After: one further field, `obligation_in_force: str`, defaulted to
+  `NO_OBLIGATION_IN_FORCE`. A **third sibling of** `debt`, not a member of it
+- Change type: reshaped
+- Why: `D-IMPL-118`, which is explicit that its four measured placements
+  *"price all three Track B vessel-carried members identically"* — so this
+  member takes the same branch its two siblings took. It carries the **resolved**
+  reference for the state *this* decision landed in and not the profile's
+  mapping: a consumer handed the mapping would be holding the calibration rather
+  than the decision, and a consumer handed nothing would have to resolve the
+  profile again at read time, which is the substitution `D-IMPL-26` forbids
+- Migration: **nothing is required to keep constructing products** — the
+  sentinel default keeps every existing site saying what it always said — and
+  **something is required if you recorded addresses outside the replay record**;
+  see "The content address moves" above. A custom `ReplayEnvironment` **must** be
+  updated regardless of whether you populate the field; see
+  `ccf.replay.engine.ReplayEnvironment` below
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Before: ten fields, ending at 15.6-07's `source_refresh_recency`
+- After: one further field, `obligation_in_force: str`, defaulted to
+  `NO_OBLIGATION_IN_FORCE`, placed beside the `debt` whose routing state it
+  answers to
+- Change type: reshaped
+- Why: this member is **the price of the ruled placement**, and it buys more
+  here than for either sibling. Because the value is top-level on the vessel it
+  does not ride `debt` back through replay; and unlike the other two, a
+  rehydrator *can* obtain a plausible substitute by re-resolving the
+  deployment's current `DebtProfile`. Pinning it here is what makes the
+  decision's own answer the only answer. Dimension 5 and not a sixth dimension:
+  `INV-CH7-80` holds, asserted by field enumeration in
+  `test_the_obligation_lands_on_dimension_five_and_mints_no_sixth`
+- Migration: none for construction. `NO_OBLIGATION_IN_FORCE` is the positive
+  assertion *this decision was under no bound obligation*, so a record written
+  before this seam parses and verifies unchanged
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf_runtime.mcp.experience.AgentDirectoryProtocol
+
+- Surface: ccf_runtime.mcp.experience.AgentDirectoryProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)` — the manifest recorded `__init__`, which is what
+  `inspect.signature` returns for a Protocol
+- After: `(*, tenant: str) -> tuple[ExposedAgent, ...]`
+- Why: `D-IMPL-122` limb 2. The seam is unchanged; the manifest can now see it,
+  so a future change to it will produce a diff line where before it produced
+  silence
+- Migration: none — the Protocol is unchanged; an existing implementation
+  already satisfies the recorded shape
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.mcp.experience.AgentInvokerProtocol
+
+- Surface: ccf_runtime.mcp.experience.AgentInvokerProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `(*, tenant: str, definition_key: str, definition_version: str, skill: str, arguments: Mapping[str, str]) -> str`
+- Why: `D-IMPL-122` limb 2 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.mcp.experience.ContextProviderProtocol
+
+- Surface: ccf_runtime.mcp.experience.ContextProviderProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `(*, tenant: str, entity: str) -> str`
+- Why: `D-IMPL-122` limb 2 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.mcp.experience.LineageProviderProtocol
+
+- Surface: ccf_runtime.mcp.experience.LineageProviderProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `() -> str`
+- Why: `D-IMPL-122` limb 2 — audit capture, not a code change. The recorded
+  shape is genuinely nullary; the previous rendering suggested it took
+  arbitrary arguments, which was the misinformation the fix removes
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.mcp.experience.ReplayRecordReaderProtocol
+
+- Surface: ccf_runtime.mcp.experience.ReplayRecordReaderProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `() -> str`
+- Why: `D-IMPL-122` limb 2 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.mcp.hitl_server.HitlActionRouteProtocol
+
+- Surface: ccf_runtime.mcp.hitl_server.HitlActionRouteProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `(*, submission: HitlActionSubmission) -> str`
+- Why: `D-IMPL-122` limb 2 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.mcp.hitl_server.HitlQueueViewProtocol
+
+- Surface: ccf_runtime.mcp.hitl_server.HitlQueueViewProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `(*, tenant: str) -> tuple[PendingHitlEvent, ...]`
+- Why: `D-IMPL-122` limb 2 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.peering.lf_a2a.PeerCardResolver
+
+- Surface: ccf_runtime.peering.lf_a2a.PeerCardResolver
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `(*, peer: PeerRef) -> str`
+- Why: `D-IMPL-122` limb 2. This name is also the reason detection keys on the
+  runtime `_is_protocol` marker rather than on a `Protocol` name suffix — a
+  name-based rule would have missed this Protocol and its `typed_http` twin
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.peering.typed_http.PeerEndpointResolver
+
+- Surface: ccf_runtime.peering.typed_http.PeerEndpointResolver
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `(*, peer: PeerRef) -> str`
+- Why: `D-IMPL-122` limb 2 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.controlplane.audit.AuditAction
+
+- Surface: ccf.controlplane.audit.AuditAction
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: the 21-member `Literal` of audit action names, from `register` through
+  `authz_decision`
+- Why: `D-IMPL-122` limb 3. This is the alias whose invisibility cost the most:
+  the audit vocabulary grew repeatedly across Phases 15 through 15.6 and not
+  one of those additions produced a manifest diff line
+- Migration: none — the alias is unchanged by this plan; a `match` over it that
+  was exhaustive before is exhaustive now
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.harness.EffectCapability
+
+- Surface: ccf.harness.EffectCapability
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `typing.Literal['governed', 'unsupported']`
+- Why: `D-IMPL-122` limb 3 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.harness.protocol.EffectCapability
+
+- Surface: ccf.harness.protocol.EffectCapability
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `typing.Literal['governed', 'unsupported']`
+- Why: the defining module's entry for the same alias `ccf.harness` re-exports.
+  Both are in `__all__`, so both are manifest entries and both move
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.mcp.client.HttpClientFactory
+
+- Surface: ccf.mcp.client.HttpClientFactory
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `collections.abc.Callable[[], httpx.AsyncClient]`
+- Why: `D-IMPL-122` limb 3. A `Callable` alias is exactly the case where the old
+  rendering was actively misleading — it looked like a signature and was not one
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.operators.base.OperatorCategory
+
+- Surface: ccf.operators.base.OperatorCategory
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `typing.Literal['policy', 'similarity', 'temporal', 'traversal']`
+- Why: `D-IMPL-122` limb 3. The four canonical operator categories the
+  whitepaper §7.4 commits to are now visible in the manifest, so adding a fifth
+  would produce a diff line rather than passing silently
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.peering.identity.JsonWebKey
+
+- Surface: ccf.peering.identity.JsonWebKey
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `collections.abc.Mapping[str, str]`
+- Why: `D-IMPL-122` limb 3 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.products.contract.AssemblyMode
+
+- Surface: ccf.products.contract.AssemblyMode
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `typing.Literal['algorithmic', 'llm_packaged', 'swarm_assembled']`
+- Why: `D-IMPL-122` limb 3 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.products.contract.TTLAnchor
+
+- Surface: ccf.products.contract.TTLAnchor
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `typing.Literal['from_decision', 'from_entity_freshness']`
+- Why: `D-IMPL-122` limb 3 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.skills.callables.SkillCallable
+
+- Surface: ccf.skills.callables.SkillCallable
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `collections.abc.Callable[[collections.abc.Mapping[str, str]], collections.abc.Mapping[str, str]]`
+- Why: `D-IMPL-122` limb 3. The skilling seam's callable contract is now legible
+  from the manifest alone
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.skills.grants.GrantState
+
+- Surface: ccf.skills.grants.GrantState
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `typing.Literal['requested', 'pending-approval', 'effective', 'refused', 'revoked']`
+- Why: `D-IMPL-122` limb 3. The grant lifecycle's five states are the vocabulary
+  a Control Plane integration switches on, and they were invisible
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowOutcome
+
+- Surface: ccf_runtime.workflow.engine.WorkflowOutcome
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: the `Union` of `WorkflowSuspended`, `WorkflowCompleted`,
+  `WorkflowExceptionRouted` and `WorkflowResumeRefused`
+- Why: `D-IMPL-122` limb 3. A union member added or removed is a break for any
+  exhaustive handler, and no such change would have produced a diff line
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.signal.mcp_envelope_map.ResourceContents
+
+- Surface: ccf.signal.mcp_envelope_map.ResourceContents
+- Public surface: true
+- Change type: reshaped
+- Before: `UnionType` — the manifest recorded the *name of the type of the
+  object*, which is a fact about Python rather than about the surface
+- After: `mcp.types.TextResourceContents | mcp.types.BlobResourceContents`
+- Why: the alias branch is now consulted for every export rather than only for
+  a callable one. The alias itself is unchanged and predates this phase; what
+  changed is that a member added to or removed from it will now produce a diff
+  line where before it produced silence
+- Migration: none — the alias is unchanged
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
+#### ccf.halflife.assessment.SourceRefreshRecency
+
+- Surface: ccf.halflife.assessment.SourceRefreshRecency
+- Public surface: true
+- Change type: reshaped
+- Before: `UnionType`
+- After: `ccf.halflife.assessment.SourceRefreshWindow | None`
+- Why: the same fix, on the alias that exposed the blind spot. `15.6-13`
+  reshaped what this alias points at, from a per-source map to a two-instant
+  window, and the manifest recorded the identical five characters across that
+  change
+- Migration: none — the alias is what `15.6-13` already documented; only the
+  record of it moved
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
+#### ccf.halflife.debt.SourceRefreshRecency
+
+- Surface: ccf.halflife.debt.SourceRefreshRecency
+- Public surface: true
+- Change type: reshaped
+- Before: `UnionType`
+- After: `ccf.halflife.assessment.SourceRefreshWindow | None`
+- Why: the defining module's entry for the same alias `ccf.halflife.debt`
+  re-exports. Both are in `__all__`, so both are manifest entries and both move
+- Migration: none
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
+#### ccf.halflife.assessment.SourceRefreshRecency
+
+- Surface: ccf.halflife.assessment.SourceRefreshRecency
+- Public surface: true
+- Before: the annotated carrier type plan 15.6-07 shipped — a
+  `tuple[SourceRefresh, ...]` validated to be source-unique and canonically
+  ordered
+- After: `SourceRefreshWindow | None`. The ordering and uniqueness validators
+  are gone with the collection: a two-field contract has no declaration order,
+  so there is nothing to canonicalise
+- Change type: reshaped
+- Why: `D-IMPL-124`. **Replace, not parallel** — the ruling's operative
+  sentence is *"no `source_ref` strings leave the vessel"* and *"the inference
+  channel is closed"*, and a parallel shape would leave the per-source map on
+  the vessel, which is the rejected Shape A wearing a second field. It keeps
+  its **name** for `ccf.halflife.assessment.DebtEvidence`'s recorded reason:
+  the carrier lands in **two** places, the vessel and replay dimension 5, and
+  one named shape is what keeps those two from drifting apart
+- Migration: nothing is required to keep constructing products — the sentinel
+  default covers every existing site. An adopter who **populated** this alias
+  under 15.6-07 supplies a `SourceRefreshWindow` instead of a
+  `tuple[SourceRefresh, ...]`; the change on your side is the one-line
+  reduction `min`/`max` over the instants you were already declaring
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
+
+#### ccf.halflife.debt.SourceRefreshRecency
+
+- Surface: ccf.halflife.debt.SourceRefreshRecency
+- Public surface: true
+- Before: the annotated tuple carrier, re-exported
+- After: the re-pointed alias, re-exported
+- Change type: reshaped
+- Why: consequential, not deliberate — the same re-export discipline
+- Migration: the same as the `ccf.halflife.assessment` spelling
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
+
+#### ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY
+
+- Surface: ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY
+- Public surface: true
+- Before: the empty tuple, as a named module-level constant
+- After: `None`, under the **same name** and making the **same positive claim**
+  — *this product records nothing about when its sources last refreshed*
+- Change type: reshaped
+- Why: the value moved because `()` is the empty case of a *collection*, and a
+  window is not a collection. There is no empty window that does not require
+  inventing an instant, and an invented instant is the silent default
+  `D-IMPL-38` forbids. The same-vessel precedent is exact:
+  `ContextProductContract.debt` and `.request` are both optional *structures*
+  whose `None` is documented as a positive assertion in the same voice. What
+  the **name** buys, and why it is kept rather than replaced by a bare `None`
+  at each site, is unchanged: every construction site and every default still
+  spells the claim, so a deployment that knows nothing about its sources'
+  publication schedule and one whose recency somebody dropped in transit remain
+  different artifacts
+- Migration: none for construction — it remains the default on both fields that
+  carry the alias, so every existing construction site asserts exactly what it
+  always asserted. If your code compared this constant to `()`, compare it to
+  `None`, or better, compare against the named constant
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
+
+#### ccf.halflife.debt.NO_SOURCE_REFRESH_RECENCY
+
+- Surface: ccf.halflife.debt.NO_SOURCE_REFRESH_RECENCY
+- Public surface: true
+- Before: the empty-tuple sentinel, re-exported
+- After: the `None` sentinel, re-exported under the same name
+- Change type: reshaped
+- Why: consequential, not deliberate — the same re-export discipline. This is
+  the spelling a deployment assembling products will already be importing from,
+  since `assess_debt` lives here
+- Migration: the same as the `ccf.halflife.assessment` spelling
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
+
+#### ccf.products.contract.ContextProductContract
+
+- Surface: ccf.products.contract.ContextProductContract
+- Public surface: true
+- Before: `source_refresh_recency` carried a source-unique, canonically ordered
+  tuple of `SourceRefresh` entries, each naming a source and an instant
+- After: **the same field name**, carrying a `SourceRefreshWindow | None`. The
+  field count is unchanged; no member is added and none is removed
+- Change type: reshaped
+- Why: `D-IMPL-124`. The vessel is what both shipped delivery paths serialize
+  verbatim to every principal who can reach the product, so the vessel is
+  precisely where a source identity must not be. `D-IMPL-118`'s `qa-toplevel`
+  placement is unamended — this is a change of contents, not of placement
+- Migration: **nothing is required to keep constructing products.** The
+  sentinel default keeps every existing construction site saying exactly what
+  it always said, and the field name did not move, so code that reads
+  `product.source_refresh_recency` still compiles. **An adopter who populated
+  the field under 15.6-07 must now supply a window instead of a per-source
+  tuple** — a one-line reduction on your side, `min`/`max` over the instants
+  you already declare. Anything of yours that read a `source_ref` off a
+  delivered product must instead read it from your own deployment
+  configuration, which is where `D-IMPL-124` rules that knowledge belongs
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Before: dimension 5's `source_refresh_recency` twin carried the per-source
+  tuple
+- After: **the same field name**, carrying the same `SourceRefreshWindow | None`
+  as the vessel. Still derived from the product `build_replay_record` was
+  already handed, so **no `build_replay_record` call site moves**
+- Change type: reshaped
+- Why: the twin exists because `D-IMPL-118` rules the carrier top-level on the
+  vessel rather than nested inside `debt`, so it does not ride the assessment
+  back and dimension 5 is the only place a `(record, projection)` rehydrator
+  can read it from. Reshaping the vessel's member without reshaping this one
+  would make every replay of every product raise `ReplayDivergence`
+- Migration: none — the derivation and the field name are both unchanged
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
 
 ### Not public Python API
 
@@ -8787,7 +9961,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-44 entries — 33 public Python surface, 11 not public Python API.
+58 entries — 45 public Python surface, 13 not public Python API.
 
 ### Public Python surface
 
@@ -9414,7 +10588,17 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   cost D-IMPL-100 authorized. The ruling priced a signature change; none was
   needed, because `record` is already a parameter and the debt is on the record.
   What changed is the **contract**: a conforming implementation must now carry
-  `record.content_generation_path.debt` onto the product it returns
+  `record.content_generation_path.debt` onto the product it returns.
+  **This classification is NOT reclassified by plan `15.6-10`, and the reason is
+  worth having on the record.** `D-IMPL-110` anticipated that a later phase
+  would reclassify this entry once the manifest could see a Protocol's shape.
+  `15.6-10` taught it to read a Protocol's `__call__` — but `ReplayEnvironment`
+  defines no `__call__`; its whole contract is a method set, and `D-IMPL-122`
+  descoped method-set capture on a measured cost (65 new `reshaped` diff lines
+  against 11). So the manifest still shows nothing for this name, `behavior`
+  remains the only honest classification available, and the reclassification
+  `D-IMPL-110` anticipated needs the wider fix that has not been taken. This
+  entry is one of 39 Protocols in that position
 - Why: `ContextProductContract.debt` is inside the hashed body, so an
   implementation that omits it returns a product the engine's address check at
   `src/ccf/replay/engine.py:449-455` rejects with `ReplayDivergence`
@@ -9516,59 +10700,6 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `15.5-13-request-in-replay.md`.*
 
-#### ccf_runtime.mcp.egress.ProductResolverProtocol
-
-- Surface: ccf_runtime.mcp.egress.ProductResolverProtocol
-- Public surface: true
-- Change type: behavior
-- Before: `__call__(*, tenant: str, product_class: str, version: str) -> ServableProduct`
-- After:
-  `__call__(*, tenant, product_class, version, perspective: Perspective, request: ProductRequest | None) -> ServableProduct`
-- Why: D-IMPL-108, closing DI-15.5-03. The door resolves and authorizes a
-  `Perspective` and must be able to hand it to the path that shapes the
-  product, or the authorization is a refusal check and nothing more.
-  **Neither new argument is defaulted, and `perspective` is not nullable** —
-  that is the substance rather than a style choice. A resolver silently
-  constructing its own perspective is indistinguishable from one honouring the
-  door's, and a parameter defaulting to `None` would recreate exactly that
-  ambiguity one layer down. `request` is required-with-no-default but typed
-  `ProductRequest | None`, because a surface can honestly have **no way to
-  ask**: the `ccf-product://` template is three path segments with no query
-  among them, and manufacturing a subject, an intent, a freshness figure and
-  an instant would be the SDK holding deployment values (CINV-01) and reading
-  a clock — the literal-instead-of-argument defect D-IMPL-98 exists to remove,
-  reintroduced one layer up. That is the same voice `requested_role: str | None`
-  already carries on `PerspectiveResolverProtocol`
-- Migration: **required, and mechanical.** Every resolver a deployment supplies
-  gains two keyword-only parameters. Eleven definitions across `runtime/`,
-  `examples/` and `tests/` were updated in this plan's commits; an adopter's
-  own is the same edit. The minimum conforming change is to accept both and
-  ignore them, which type-checks and runs — but a resolver that ignores
-  `perspective` is asserting *the conditioning this door authorized does not
-  affect what I serve*, which is a claim worth making deliberately. The
-  reference deployments do not: `examples/04-cross-process/producer_child.py`
-  and `examples/external/00-hello-context/serve.py` both refuse to serve when
-  the authorized perspective is not the one their product was assembled under
-
-*Recorded by `15.5-15-resolver-seam.md`.*
-
-#### ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
-
-- Surface: ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
-- Public surface: true
-- Change type: behavior
-- Before: the same three-string signature as its egress twin
-- After: the same five-argument signature as its egress twin
-- Why: the two moved together deliberately. The seams are structurally
-  identical so that one deployment resolver can serve both roles, and a
-  deployment supplying one resolver to both doors must not discover that only
-  one of them forwards what it authorized. The two modules remain separate and
-  import neither each other nor a sibling —
-  `tests/invariants/test_mcp_role_separation.py` still asserts it, unrelaxed
-- Migration: as above
-
-*Recorded by `15.5-15-resolver-seam.md`.*
-
 #### ccf_runtime.http_api.routes.product — `GET /{tenant}/{product_class}/{version}`
 
 - Surface: ccf_runtime.http_api.routes.product.build_router
@@ -9596,6 +10727,353 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   same code path
 
 *Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf.operators.planner.IntermediateCache
+
+- Surface: ccf.operators.planner.IntermediateCache
+- Public surface: true
+- Change type: behavior
+- Before: `run` built the key `(operator.key, content_hash(operator.parameters), content_hash(view), content_hash(upstream))` on **every** invocation, then probed the memo with it. On the shipped engine path every one of those keys was built for a lookup that could not hit
+- After: the same four components, in the same order, built **only when a lookup could hit** — that is, when the cache already holds an intermediate for the same `operator.key`, which is the key tuple's first component and therefore a necessary condition for any match. An intermediate produced for an operator this cache has not seen is held un-keyed until a second call for that operator makes a key necessary. The value returned, and the `hits` accounting, are unchanged
+- Why: `D-IMPL-36` rules the key's **composition** — *"a deterministic key, so a cache hit is by construction the same value replay would produce"* — and says nothing about **when** the key is computed. So what narrows here is the guarantee's *witness*, not the guarantee. Until now the property *"the key is a total function of everything `Operator.apply` can observe"* was witnessed by execution on every call; it is now true by construction and witnessed by `tests/operators/test_planner.py`, whose two cache tests exercise the reachable path — a repeat invocation that hits, and two distinct upstream chains that must not collapse. Both pass unmodified, as do `tests/properties/test_composition.py` and `tests/conformance/test_similarity_index.py`, which construct `compose(..., cache=IntermediateCache())` and are the composition-preservation suites this change sits closest to. The instrumented unreachability probe reports the identical figures before and after — 192 engine-created caches, 640 `run` calls through them, 0 hits — so control flow did not move either. One consequence follows from the same narrowing and is stated rather than left to be discovered: a view with no canonical rendering (`ccf.contracts.canonical::CanonicalizationError`) used to surface on its first pass through this cache and now surfaces only where the key is actually built
+- Migration: **none.** No signature moves, no constructor argument appears, the key's composition is byte-for-byte what it was, and a hit still returns the value recomputation would produce with its provenance. An adopter constructing an `IntermediateCache` — directly or through `ccf.operators.planner::compose` — changes nothing and observes the same values and the same `hits` count. What an adopter may observe is that the fabric got faster: `perf/suites/micro/test_operators.py::test_composed_chain` moved from a 0.386391 s median to 0.178888 s on the `local` runner class, and `test_composed_ab` from 0.191451 s to 0.077345 s, against a `perf/baselines/local.json` this plan left byte-identical
+
+*Recorded by `15.6-02-intermediate-cache-key.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: behavior
+- Before: the record's dimension 5 said nothing about what a debt pointed at
+- After: **the same signature.** Dimension 5's `debt_evidence` is *derived from
+  the `product` argument the builder was already handed* — no new parameter
+- Why: derivation rather than threading is what keeps every
+  `build_replay_record` consumer byte-for-byte unchanged, and it makes a record
+  pinning evidence its product does not carry **unrepresentable** rather than
+  merely discouraged. It is exactly the rule 15.5-11 applied to `debt`: a fact
+  already present is read, never re-passed
+- Migration: **none.** No call site changes. A caller that wants evidence on the
+  record puts it on the product
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.replay.engine.ReplayEnvironment
+
+- Surface: ccf.replay.engine.ReplayEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: a conforming `rehydrate_product(*, record, projection)` had to carry
+  `record.content_generation_path.debt` onto the product it returned (15.5-11)
+- After: **the same signature** — which is why this is `behavior` rather than
+  `reshaped`. What changed is the **contract**: it must now *also* carry
+  `record.content_generation_path.debt_evidence`
+- Why: `ContextProductContract.debt_evidence` is inside the hashed body, and it
+  is **not** reachable through `debt` — the ruled placement made it a sibling of
+  the assessment, not a member. `canonical_bytes` walks a model field-by-field
+  over `type(value).model_fields`, so an implementation that omits it returns a
+  product `ccf.replay.engine::replay`'s address check rejects with
+  `ReplayDivergence`
+- Migration: **required for any adopter with a custom `ReplayEnvironment`, even
+  if you never populate the field, and it is one line.** Add
+  `debt_evidence=record.content_generation_path.debt_evidence` to the
+  `ContextProductContract(...)` your `rehydrate_product` returns. All seven
+  implementations across six files in this repository were updated in the same
+  commit (`src/ccf/replay/engine.py`, `tests/replay/test_engine_rehydration.py`,
+  `tests/replay/test_query_sequence_pin.py`, `perf/suites/replay/conftest.py`,
+  `examples/06-decision-replay/run.py`,
+  `examples/external/00-hello-context/run.py`). **Do not re-derive the pointers
+  at replay** — they are a deployment's judgement about a particular assembly,
+  not a function of the record, so a rehydrator that rebuilt them would be
+  returning a different decision wearing this one's identifier. An adopter who
+  omits the line does not get a silent wrong answer; they get
+  `ReplayDivergence`, which is the failure mode this fabric prefers
+
+*Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: behavior
+- Before: the record's dimension 5 said nothing about when the assembled
+  sources had last published
+- After: **the same signature.** Dimension 5's `source_refresh_recency` is
+  *derived from the `product` argument the builder was already handed* — no new
+  parameter
+- Why: derivation rather than threading is what keeps every
+  `build_replay_record` consumer byte-for-byte unchanged, and it makes a record
+  pinning refresh instants its product does not carry **unrepresentable** rather
+  than merely discouraged. It is the rule 15.5-11 applied to `debt` and 15.6-06
+  applied to `debt_evidence`: a fact already present is read, never re-passed
+- Migration: **none.** No call site changes. A caller that wants recency on the
+  record puts it on the product
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.replay.engine.ReplayEnvironment
+
+- Surface: ccf.replay.engine.ReplayEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: a conforming `rehydrate_product(*, record, projection)` had to carry
+  `record.content_generation_path.debt` (15.5-11) and
+  `record.content_generation_path.debt_evidence` (15.6-06) onto the product it
+  returned
+- After: **the same signature** — which is why this is `behavior` rather than
+  `reshaped`. What changed is the **contract**: it must now *also* carry
+  `record.content_generation_path.source_refresh_recency`
+- Why: `ContextProductContract.source_refresh_recency` is inside the hashed
+  body and is **not** reachable through `debt` — the ruled placement made it a
+  sibling of the assessment, not a member. `canonical_bytes` walks a model
+  field-by-field over `type(value).model_fields`, so an implementation that
+  omits it returns a product `ccf.replay.engine::replay`'s address check
+  rejects with `ReplayDivergence`
+- Migration: **required for any adopter with a custom `ReplayEnvironment`, even
+  if you never populate the field, and it is one line.** Add
+  `source_refresh_recency=record.content_generation_path.source_refresh_recency`
+  to the `ContextProductContract(...)` your `rehydrate_product` returns. All
+  seven implementations across six files in this repository were updated in the
+  same commit (`src/ccf/replay/engine.py`,
+  `tests/replay/test_engine_rehydration.py`,
+  `tests/replay/test_query_sequence_pin.py`, `perf/suites/replay/conftest.py`,
+  `examples/06-decision-replay/run.py`,
+  `examples/external/00-hello-context/run.py`). **Do not re-acquire the refresh
+  instants at replay** — a refresh instant is what the deployment declared about
+  a source at assembly time, so a rehydrator that asked the source again would
+  be recording today's answer against yesterday's decision. An adopter who omits
+  the line does not get a silent wrong answer; they get `ReplayDivergence`,
+  which is the failure mode this fabric prefers
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: behavior
+- Before: the record's dimension 5 said nothing about what the routing state
+  obliged
+- After: **the same signature.** Dimension 5's `obligation_in_force` is *derived
+  from the `product` argument the builder was already handed* — no new parameter
+- Why: derivation rather than threading is what keeps every
+  `build_replay_record` consumer byte-for-byte unchanged, and it makes a record
+  pinning an obligation its product does not carry **unrepresentable** rather
+  than merely discouraged. It is the rule 15.5-11 applied to `debt`, 15.6-06 to
+  `debt_evidence` and 15.6-07 to `source_refresh_recency`: a fact already present
+  is read, never re-passed
+- Migration: **none.** No call site changes. A caller that wants the obligation
+  on the record puts it on the product
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.replay.engine.ReplayEnvironment
+
+- Surface: ccf.replay.engine.ReplayEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: a conforming `rehydrate_product(*, record, projection)` had to carry
+  `record.content_generation_path.debt` (15.5-11), `.debt_evidence` (15.6-06)
+  and `.source_refresh_recency` (15.6-07) onto the product it returned
+- After: **the same signature** — which is why this is `behavior` rather than
+  `reshaped`. What changed is the **contract**: it must now *also* carry
+  `record.content_generation_path.obligation_in_force`
+- Why: `ContextProductContract.obligation_in_force` is inside the hashed body and
+  is **not** reachable through `debt`. `canonical_bytes` walks a model
+  field-by-field over `type(value).model_fields`, so an implementation that omits
+  it returns a product `ccf.replay.engine::replay`'s address check rejects with
+  `ReplayDivergence`
+- Migration: **required for any adopter with a custom `ReplayEnvironment`, even
+  if you never populate the field, and it is one line.** Add
+  `obligation_in_force=record.content_generation_path.obligation_in_force` to the
+  `ContextProductContract(...)` your `rehydrate_product` returns. All seven
+  implementations across six files in this repository were updated in the same
+  commit (`src/ccf/replay/engine.py`,
+  `tests/replay/test_engine_rehydration.py`,
+  `tests/replay/test_query_sequence_pin.py`, `perf/suites/replay/conftest.py`,
+  `examples/06-decision-replay/run.py`,
+  `examples/external/00-hello-context/run.py`). **Do not resolve the obligation
+  from your current `DebtProfile`** — that is the one substitution this field
+  exists to make impossible, and it is the failure a plausible-looking
+  implementation will produce. An adopter who omits the line does not get a
+  silent wrong answer; they get `ReplayDivergence`, which is the failure mode
+  this fabric prefers
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.decay.NO_SUBJECT_IDENTITY
+
+- Surface: ccf.halflife.decay.NO_SUBJECT_IDENTITY
+- Public surface: true
+- Change type: behavior
+- Before: the marker string `"no-subject-identity"` — un-namespaced — and
+  `Observation` carried **no validator refusing it as a declared subject**. The
+  panel confirmed by execution that
+  `Observation(..., subject=NO_SUBJECT_IDENTITY).subject` was indistinguishable
+  from an omitted subject
+- After: the marker string `"ccf.no-subject-identity"`, SDK-namespaced in
+  `ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`'s style, plus a validator on
+  `Observation.subject` that refuses **a blank or whitespace-only subject** and
+  refuses **any subject inside the reserved `ccf.` namespace other than the
+  sentinel itself**
+- Why: `D-IMPL-120` ruled the identity optional and ruled out expressing its
+  absence as `None`, in its own words because *"an omitted identity and a
+  dropped one are not the same artifact."* A deployment whose real opaque
+  subject happened to be spelled `no-subject-identity` produced exactly the
+  artifact that ruling forbids — a fidelity defect against a ruling made in this
+  same phase. Namespacing alone makes an accidental collision unlikely;
+  **reserving the namespace makes impersonation unavailable**, which is the
+  property that was missing. The blank refusal closes the half-finished-edit
+  case, for the reason `SignalObligation.obligation_ref` already states
+- Migration: **none** for a deployment that populates `subject` with its own
+  identifiers, and none for one that omits it — the default moved, but a
+  defaulted `Observation` is still a defaulted `Observation` and still says
+  exactly what it always said. The one behaviour to know about: `subject` values
+  beginning `ccf.` are now refused, and the previously-sentinel spelling
+  `"no-subject-identity"` is now an **ordinary deployment string** carrying no
+  SDK meaning, admitted verbatim. A deployment that hardcoded that literal to
+  mean *absent* must import `NO_SUBJECT_IDENTITY` or omit the field — it will
+  not fail, it will simply be saying something else. **No product content
+  address moves**, measured rather than assumed: `Observation` is an input to
+  debt computation and not a member of `ContextProductContract`, and
+  `examples/08-e2e-demo`'s pinned replay address is byte-identical across the
+  change at `75365e18f4a1a675…`
+
+*Recorded by `15.6-12-close-panel-refusals.md`.*
+
+#### ccf.halflife.assessment.SourceRefreshWindow
+
+- Surface: ccf.halflife.assessment.SourceRefreshWindow
+- Public surface: true
+- Change type: behavior
+- Before: both members accepted an `int`, a `float`, a `Decimal` or a numeric
+  string as the instant. Pydantic's lax mode turned each into a timezone-aware
+  UTC `datetime` **before** the class's `_the_instant_names_its_zone` validator
+  ran, so a naive ISO string was refused for carrying an *implicit* zone while
+  `1767225600` — which carries none at all — was accepted with UTC supplied by
+  the framework. `1767225600.5` therefore became a hashed instant in the module
+  whose headline discipline is *Decimal, never float*
+- After: a `mode="before"` validator on both members refusing a `float` through
+  the module's own `_refuse_float` — the same helper wired onto `DebtFactors`,
+  `DebtEvidencePointer.handle`, `SignalObligation.obligation_ref` and
+  `DebtAssessment.debt` — and refusing any bare number, in any spelling, as an
+  instant that named no zone
+- Why: this value is inside the delivered product's content address
+  (`D-IMPL-118`), so a zone the SDK supplied rather than the deployment
+  declared is a silent default (`D-IMPL-38`) that reproduces exactly, forever
+- Migration: **none** for a deployment supplying a timezone-aware `datetime` or
+  a string carrying an explicit offset — the two spellings
+  `examples/s1-01-hello-context-product` uses, both asserted. A deployment
+  passing an epoch must name the zone: `datetime.fromtimestamp(ts, tz=UTC)`
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
+#### ccf.halflife.decay.Observation
+
+- Surface: ccf.halflife.decay.Observation
+- Public surface: true
+- Change type: behavior
+- Before: `observed_at` had **no validator**, while this class's own attribute
+  docstring said *"Timezone-aware; a naive instant is rejected"*. A naive
+  observation was constructible, serialisable and storable, and the failure
+  arrived at whatever call site first computed decay. `subject`'s namespace
+  reservation compared the raw string, so `" ccf.no-subject-identity"`,
+  the non-breaking-space spelling and `"CCF.no-subject-identity"` all walked
+  past a reservation whose entire purpose is that a reader cannot tell them
+  from the marker
+- After: `observed_at` refuses a naive instant and a bare epoch at
+  construction, which is where the docstring always said the refusal was;
+  `subject`'s reservation reads the value as a reader sees it — NFKC, Unicode
+  `Cf` format characters dropped, stripped and case-folded
+- Why: CLAUDE.md §11 — validation is at the boundary, never deferred; and
+  `D-IMPL-120`'s *"an omitted identity and a dropped one are not the same
+  artifact"* is not held by a check a leading space defeats
+- Migration: a deployment constructing `Observation` with a naive `datetime`
+  now fails at construction rather than at first decay computation — the same
+  failure, moved to the boundary. A deployment whose subjects begin `ccf.` in
+  any rendering was already refused for the unspaced spelling and is now
+  refused for the rest. Script confusables are **not** folded and are admitted;
+  the limit is documented at the helper and asserted
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
+#### ccf.halflife.assessment.DebtEvidencePointer
+
+- Surface: ccf.halflife.assessment.DebtEvidencePointer
+- Public surface: true
+- Change type: behavior
+- Before: `handle='ccf.fabricated-marker'` was accepted
+- After: refused. The field has no sentinel of its own — an assessment that
+  points at nothing carries the empty `NO_DEBT_EVIDENCE` tuple — so the whole
+  `ccf.` namespace is reserved with nothing carved out of it
+- Why: the close-panel's B1 reserved the namespace on `Observation.subject` on
+  the argument that a deployment must not be able to write a value that
+  impersonates a fabric marker. Three sibling opaque strings shipped in the same
+  phase, all inside the same content address, none of them reserved. A property
+  worth enforcing on one field of four is either a rule or a coincidence
+- Migration: none unless a deployment's evidence handles begin `ccf.`
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
+#### ccf.halflife.assessment.SignalObligation
+
+- Surface: ccf.halflife.assessment.SignalObligation
+- Public surface: true
+- Change type: behavior
+- Before: `obligation_ref` refused the **exact** sentinel string only, so
+  `" ccf.no-obligation-in-force"` was declarable in a profile and travelled to
+  the vessel through `DebtProfile.obligation_for` unchanged
+- After: the whole `ccf.` namespace is refused, with nothing carved out — a
+  binding is not a carrier and has no sentinel of its own
+- Why: as above; the exact-match refusal held the distinction against one
+  spelling of the impersonation and not the others
+- Migration: none unless a deployment's obligation references begin `ccf.`
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
+#### ccf.halflife.assessment.ObligationInForce
+
+- Surface: ccf.halflife.assessment.ObligationInForce
+- Public surface: true
+- Change type: behavior
+- Before: the alias `15.6-12`'s first round added refused a blank and admitted
+  everything else, including `ccf.`-namespaced values that render identically to
+  the marker asserting that no obligation was bound
+- After: the sentinel `NO_OBLIGATION_IN_FORCE` is admitted, compared **exactly**
+  because it is this field's own default; nothing else in the namespace is
+- Why: one string, two positions, two rules — and both rules exist to keep the
+  same two claims apart. That argument only holds if neither position can be
+  impersonated
+- Migration: none. The default is unchanged and every declared reference in the
+  tree is outside the namespace
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
+#### ccf.replay.engine.ReplayEnvironment
+
+- Surface: ccf.replay.engine.ReplayEnvironment
+- Public surface: true
+- Before: `rehydrate_product`'s contract required the per-source tuple to be
+  read off `record.content_generation_path.source_refresh_recency` and carried
+  onto the rebuilt product verbatim
+- After: **the same signature**, and the same requirement over the reshaped
+  value. A conforming implementation copies the window exactly as it copied the
+  map
+- Change type: behavior
+- Why: the Protocol's contract text is where the read-back obligation is
+  stated, and the obligation's *subject* changed type even though its
+  *signature* did not — which is the class of change a signature diff cannot
+  see, and the reason the `behavior` change type exists
+- Migration: **none — the read-back line is unchanged in spelling** and is
+  required exactly as before. Its necessity was re-measured against the
+  reshaped fixture in both directions: deleting it over a sentinel-carrying
+  fixture costs nothing (0 red), and over a populated window it turns 13 of
+  `tests/replay/test_engine_rehydration.py`'s 44 cases red with
+  `ReplayDivergence`. Both figures are recorded in a comment at the read-back
+  line, because reporting only the populated one would hide the reason the
+  measurement is taken twice
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
 
 ### Not public Python API
 
@@ -9862,3 +11340,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   in behaviour, and in message
 
 *Recorded by `15.5-12-aggregate-composition.md`.*
+
+#### tools/dump_surface.py
+
+- Surface: tools/dump_surface.py
+- Public surface: false
+- Change type: behavior
+- Before: `_shape_of` resolved every class with `inspect.signature` on the
+  class, returning `__init__` — `(*args, **kwargs)` for every Protocol — and
+  applied the same signature rendering to type aliases
+- After: a Protocol's own `__call__` is resolved through the MRO and rendered
+  with `self` elided; a type alias renders its type, scrubbed of the
+  process-local memory address an `Annotated` alias would otherwise embed;
+  everything else is untouched
+- Why: `DI-15.5-06`, ruled by `D-IMPL-122`. The manifest could not see the
+  three-to-five argument widening `15.5-15` shipped, so it was reporting a
+  surface stability it had never verified
+- Migration: none for adopters. Maintainers should expect `make surface` to
+  produce a one-time 36-entry reshape on first run after this change, and
+  should read it as the tool's field of view widening rather than as the
+  surface moving
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### tools/dump_surface.py
+
+- Surface: tools/dump_surface.py
+- Public surface: false
+- Change type: behavior
+- Before: `_shape_of` consulted `_is_type_alias` only inside the branch guarded
+  by `kind in ("class", "function")`, so the alias rendering was unreachable for
+  any alias `_kind_of` classified as a `constant` — which is every PEP-604 union
+- After: the alias test is asked of every export. `kind` is untouched, so an
+  alias keeps whatever kind it was recorded under and only the shape moves
+- Why: `DI-15.5-06`'s blind spot was narrowed by `D-IMPL-122` and this is a
+  piece of it the narrowing missed, in the same plan that measured the rest
+- Migration: none for adopters. Maintainers should expect `make surface` to
+  produce a one-time three-entry reshape on first run after this change
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*

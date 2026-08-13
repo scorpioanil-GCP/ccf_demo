@@ -26,8 +26,18 @@ from typing import Any
 import pytest
 import yaml
 
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import DEBT_PROFILE, DebtProfile, parse_artifact
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneRegistry
+from ccf.halflife.assessment import (
+    NO_DEBT_EVIDENCE,
+    NO_OBLIGATION_IN_FORCE,
+    NO_SIGNAL_OBLIGATIONS,
+    NO_SOURCE_REFRESH_RECENCY,
+    DebtEvidencePointer,
+    SignalObligation,
+    SourceRefreshWindow,
+)
 from ccf.halflife.debt import (
     DebtAssessment,
     DebtFactors,
@@ -38,10 +48,22 @@ from ccf.halflife.debt import (
     context_debt,
 )
 from ccf.halflife.decay import HalfLifeTable, Observation
+from ccf.products.contract import ContextProductContract, ProductLineage
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "banking" / "halflife.yaml"
 
 NOW = datetime(2026, 3, 1, 10, 0, 0, tzinfo=UTC)
+
+#: A subject identity owned by this test module. **Deployment-side**: the SDK
+#: enumerates no identifier scheme and never interprets the value
+#: (D-IMPL-117, CLAUDE.md §11). Named here so the suite's identities are a
+#: visible test-fixture choice rather than an SDK vocabulary (CINV-01's scope
+#: reaches ``tests/``).
+SUBJECT = "test-subject-alpha"
+
+#: A second deployment-side identity, on the same discipline, for the scorer
+#: assertion that two differently-identified observations still score alike.
+OTHER_SUBJECT = "test-subject-beta"
 
 
 @pytest.fixture(scope="module")
@@ -152,7 +174,12 @@ def test_freshness_scorer_is_whole_for_a_just_made_observation(
     scorer = FreshnessScorer(table=table, risk_sensitivity=profile.risk_sensitivity)
     name = next(iter(table.entries))
     score = scorer.score(
-        (Observation(observation_type=name, observed_at=NOW),), now=NOW
+        (
+            Observation(
+                observation_type=name, observed_at=NOW, subject=SUBJECT
+            ),
+        ),
+        now=NOW,
     )
     assert score == Decimal(1)
 
@@ -162,12 +189,47 @@ def test_freshness_scorer_aggregates_every_observation(
 ) -> None:
     scorer = FreshnessScorer(table=table, risk_sensitivity=profile.risk_sensitivity)
     name = min(table.entries, key=lambda n: table.entries[n].half_life_seconds)
-    fresh = Observation(observation_type=name, observed_at=NOW)
+    fresh = Observation(
+        observation_type=name, observed_at=NOW, subject=SUBJECT
+    )
     stale = Observation(
-        observation_type=name, observed_at=NOW - timedelta(days=365)
+        observation_type=name,
+        observed_at=NOW - timedelta(days=365),
+        subject=OTHER_SUBJECT,
     )
     both = scorer.score((fresh, stale), now=NOW)
     assert scorer.score((stale,), now=NOW) < both < scorer.score((fresh,), now=NOW)
+
+
+def test_the_freshness_figure_is_unmoved_by_the_subject_identity(
+    table: HalfLifeTable, profile: DebtProfile
+) -> None:
+    """The identity is carried through the debt path, never consumed by it.
+
+    Same types, same instants, three different identity states — one populated,
+    one populated differently, one absent and carrying the sentinel — and one
+    freshness figure. A scorer that read the identity would be re-deriving F
+    from something whitepaper §7.7 does not bind λ_c to.
+    """
+    scorer = FreshnessScorer(table=table, risk_sensitivity=profile.risk_sensitivity)
+    name = min(table.entries, key=lambda n: table.entries[n].half_life_seconds)
+    observed_at = NOW - timedelta(days=30)
+    figures = {
+        scorer.score(
+            (
+                Observation(
+                    observation_type=name, observed_at=observed_at, **identity
+                ),
+            ),
+            now=NOW,
+        )
+        for identity in (
+            {"subject": SUBJECT},
+            {"subject": OTHER_SUBJECT},
+            {},
+        )
+    }
+    assert len(figures) == 1
 
 
 def test_freshness_scorer_refuses_an_empty_observation_set(
@@ -265,3 +327,1165 @@ def test_module_is_tagged_algorithmic() -> None:
     import ccf.halflife.debt as debt_mod
 
     assert debt_mod.__ccf_mode__ == "algorithmic"
+
+
+# --- what the debt points at (D-IMPL-118, D-IMPL-119) ----------------------
+#
+# The carrier is a TOP-LEVEL field on `ContextProductContract`, a sibling of
+# `debt` rather than a member of `DebtAssessment` — which is what D-IMPL-118
+# ruled and what makes these assertions about the *delivered bytes* rather than
+# about a nested value that would have ridden the assessment for free. The
+# vessel is therefore what these cases construct.
+
+
+#: Handles this test owns. Deployment-side by construction: the SDK enumerates
+#: none of them and interprets none of them, and their opacity is the point —
+#: under D-IMPL-119 limb 4 a handle a reading principal could interpret is
+#: refused outright until the assembly path is principal-scoped.
+_HANDLE_A = DebtEvidencePointer(handle="handle-a")
+_HANDLE_B = DebtEvidencePointer(handle="handle-b")
+
+
+def _product(
+    evidence: tuple[DebtEvidencePointer, ...] = NO_DEBT_EVIDENCE,
+    *,
+    recency: SourceRefreshWindow | None = NO_SOURCE_REFRESH_RECENCY,
+    obligation: str = NO_OBLIGATION_IN_FORCE,
+) -> ContextProductContract:
+    """The vessel as every construction site builds it, plus the carrier."""
+    return ContextProductContract(
+        schema_name="test.debt-evidence",
+        schema_version="1.0.0",
+        plan_id="test/plan",
+        tenant_id="tenant-debt",
+        temporal_boundary=NOW,
+        expires_at=NOW + timedelta(seconds=600),
+        ttl_anchor="from_decision",
+        lineage=ProductLineage(
+            operators_invoked=frozenset({"temporal.as-of-boundary"}),
+            policy_bundle_versions=frozenset({"policy-v1"}),
+            graph_snapshot_at=NOW,
+        ),
+        payload={"answer": "42"},
+        debt_evidence=evidence,
+        source_refresh_recency=recency,
+        obligation_in_force=obligation,
+    )
+
+
+def test_the_carrier_round_trips_unchanged() -> None:
+    """Populate and extract — exactly and only what D-IMPL-117 says is owed.
+
+    The pair is the whole SDK obligation for this gap: a way to put pointers on
+    the delivered product, and a way to read them back off it. There is no
+    third thing here, because *which* observations are worth pointing at is
+    the context product creator's judgement, not the SDK's.
+    """
+    product = _product((_HANDLE_A, _HANDLE_B))
+
+    assert product.debt_evidence == (_HANDLE_A, _HANDLE_B)
+    rebuilt = ContextProductContract.model_validate(product.model_dump())
+    assert rebuilt.debt_evidence == (_HANDLE_A, _HANDLE_B)
+    assert content_hash(rebuilt) == content_hash(product)
+
+
+def test_an_unpopulated_carrier_is_a_positive_claim_and_not_a_silence() -> None:
+    """D-IMPL-38: the absent value is an assertion, never `None`-as-unknown.
+
+    What this rules out that nothing else does: a nullable carrier. Under one,
+    a product that pointed at nothing and a product whose pointers somebody
+    dropped in transit would be the same artifact — the repudiation failure
+    mode every sentinel in this fabric closes.
+    """
+    assert _product().debt_evidence == NO_DEBT_EVIDENCE
+    assert NO_DEBT_EVIDENCE is not None
+    assert NO_DEBT_EVIDENCE == ()
+
+
+def test_the_carrier_is_inside_the_delivered_content_address() -> None:
+    """D-IMPL-118's authorized cost, executed rather than asserted.
+
+    `canonical_bytes` walks a model field-by-field over `model_fields`, so a
+    top-level field is in the address by construction. This is the case that
+    would fail if a later change moved the carrier off the vessel and left the
+    ruling's reconstruction obligation looking gratuitous.
+    """
+    assert content_hash(_product((_HANDLE_A,))) != content_hash(_product())
+    assert content_hash(_product((_HANDLE_A,))) != content_hash(
+        _product((_HANDLE_B,))
+    )
+
+
+def test_declaration_order_does_not_move_the_bytes() -> None:
+    """Order-insensitive inside a content address (the `scorers` precedent).
+
+    Declaration order is not a fact about the decision. The field is inside the
+    delivered product's address, so an order-sensitive carrier would make two
+    identical products hash differently — which is the defect
+    `_pins_are_one_per_factor_in_canonical_order` already exists to prevent for
+    the scorer pins, restated here because the reason is identical.
+    """
+    forward = _product((_HANDLE_A, _HANDLE_B))
+    reversed_ = _product((_HANDLE_B, _HANDLE_A))
+
+    assert forward.debt_evidence == reversed_.debt_evidence
+    assert content_hash(forward) == content_hash(reversed_)
+
+
+def test_a_repeated_handle_is_refused_at_construction() -> None:
+    """Two pointers to one thing is incoherent, not stricter.
+
+    Refused rather than collapsed, which is why the carrier is a sorted tuple
+    and not a `frozenset`: a set would have deduplicated the repetition
+    silently, and the repetition is exactly the thing worth naming.
+    """
+    with pytest.raises(ValueError, match="at most once"):
+        _product((_HANDLE_A, DebtEvidencePointer(handle=_HANDLE_A.handle)))
+
+
+def test_a_float_handle_is_refused_rather_than_coerced() -> None:
+    """The `_refuse_float` discipline extends to the new member.
+
+    Shared with every other debt value for the same reason, stated once in
+    `ccf.halflife.assessment`: these bytes are inside a content address and
+    floats are not bit-stable across platforms.
+    """
+    with pytest.raises(ValueError, match="never float"):
+        DebtEvidencePointer(handle=1.0)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "blank",
+    ["", "   ", "\t", "\n "],
+    ids=["empty", "spaces", "tab", "newline-and-space"],
+)
+def test_a_blank_handle_is_refused_at_construction(blank: str) -> None:
+    """A pointer that points at nothing is not a pointer.
+
+    The `SignalObligation.obligation_ref` refusal, restated here because the
+    reason is identical and the phase's close-time cross-AI panel measured this
+    sibling as the one that had not adopted it. A blank handle is what a
+    half-finished assembler edit leaves behind, and accepting it would make
+    *pointed at something unnameable* and *pointed at nothing* two spellings of
+    one claim — while only the second has a sentinel saying so
+    (`NO_DEBT_EVIDENCE`, D-IMPL-38). Refused at the boundary rather than
+    tolerated downstream (CLAUDE.md §11).
+
+    Whitespace is refused with the empty string because a handle of spaces is
+    the empty string wearing a costume, and this field is inside the delivered
+    product's content address (D-IMPL-118) — so the ambiguity would be
+    replay-stable rather than transient.
+    """
+    with pytest.raises(ValueError, match="evidence handle must be declared"):
+        DebtEvidencePointer(handle=blank)
+
+
+def test_a_handle_the_sdk_has_never_seen_is_still_accepted() -> None:
+    """The blank refusal is structural and is not a judgement about meaning.
+
+    The widening control for the test above: any non-blank string is accepted
+    verbatim, however unfamiliar, because which handles are worth pointing at is
+    the context product creator's judgement (D-IMPL-117, D-IMPL-118) and the SDK
+    ships no handle vocabulary. A refusal that had widened into a format check
+    would pass the test above and fail this one.
+    """
+    assert DebtEvidencePointer(handle=" leading-space-is-content").handle == (
+        " leading-space-is-content"
+    )
+    assert DebtEvidencePointer(handle="0").handle == "0"
+
+
+def test_assess_debt_is_unchanged_by_the_carrier(profile: DebtProfile) -> None:
+    """The carrier landed on the vessel, so the pure function did not move.
+
+    D-IMPL-118 placed the carrier top-level on `ContextProductContract`, not
+    inside `DebtAssessment`, so `assess_debt` gains no parameter and stays pure
+    over `(factors, profile)` — the D-IMPL-105 posture. This asserts the
+    consequence directly: `debt` and `signal` are what they were.
+    """
+    factors = _whole(freshness=Decimal("0.8"))
+    assessment = assess_debt(factors, profile=profile)
+
+    assert assessment.debt == context_debt(factors)
+    assert assessment.signal is DebtSignal.OK
+    assert set(DebtAssessment.model_fields) == {
+        "debt",
+        "signal",
+        "factors",
+        "scorers",
+    }
+    assert "evidence" not in DebtAssessment.model_fields
+    assert "debt_evidence" not in DebtAssessment.model_fields
+
+
+# --- when the source was last refreshed (D-IMPL-117, D-IMPL-118) -----------
+#
+# `D-IMPL-112` gap 2, in Dave's own framing: computed freshness says how much
+# the fabric's own decay curve has eaten and says NOTHING about when the
+# upstream registry last published. This slot records the second fact. It is a
+# TOP-LEVEL field on `ContextProductContract` — `D-IMPL-118` `qa-toplevel`, the
+# same branch the evidence carrier above took, and the entry says explicitly
+# that it "price[s] all three Track B vessel-carried members identically".
+#
+# `D-IMPL-101` bounds it: recency ships, salience defers. Nothing below ranks,
+# weights or scores anything, and the SDK compares a refresh instant to nothing
+# at all — asserted structurally by
+# `test_the_recency_is_carried_and_never_consumed`.
+
+
+#: The repo root, anchored on this file rather than on `Path.cwd()`: a
+#: structural check whose scan root depends on the working directory passes or
+#: fails for reasons that have nothing to do with the tree.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+#: The freshness window this test module owns.
+#: **Deployment-side by construction**: the SDK enumerates no source vocabulary
+#: and declares no cadence (`D-IMPL-117` — *"a slot for source-refresh recency,
+#: owing no definition of a source or a cadence"*), and under `D-IMPL-124` it
+#: publishes no source identity either. The two instants are deliberately
+#: unrelated to `NOW`, because nothing here is allowed to be computed from the
+#: fabric's own clock.
+_WINDOW = SourceRefreshWindow(
+    oldest_source_refresh_at=datetime(2026, 1, 9, 6, 30, tzinfo=UTC),
+    newest_source_refresh_at=datetime(2026, 2, 17, 22, 0, tzinfo=UTC),
+)
+
+
+def test_the_recency_slot_round_trips_unchanged() -> None:
+    """Populate and extract — exactly and only what D-IMPL-117 says is owed.
+
+    The pair is the whole SDK obligation for this gap: a way to record when the
+    deployment's sources were last refreshed on the delivered product, and a
+    way to read it back off it. There is no third thing, because whether a
+    September refresh is recent enough for this decision is the context product
+    creator's judgement.
+    """
+    product = _product(recency=_WINDOW)
+
+    assert product.source_refresh_recency == _WINDOW
+    rebuilt = ContextProductContract.model_validate(product.model_dump())
+    assert rebuilt.source_refresh_recency == _WINDOW
+    assert content_hash(rebuilt) == content_hash(product)
+
+
+def test_the_window_carries_two_instants_and_nothing_else() -> None:
+    """D-IMPL-117's and D-IMPL-124's boundary, asserted on the field set.
+
+    No source reference, no count, no source type, no cadence, no refresh
+    interval, no staleness threshold and no default. What the *absent
+    reference* rules out is D-IMPL-124's whole subject: a reader entitled to
+    the product must not learn which upstream systems the deployment operates.
+    What the *absent count* rules out is source enumeration in aggregate — how
+    many systems exist is not freshness, so it is outside what this slot is
+    for. And what the absent interval rules out is a slot that grew a second
+    opinion: the moment it carries one, the SDK has declared what "overdue"
+    means for somebody else's registry.
+    """
+    assert set(SourceRefreshWindow.model_fields) == {
+        "oldest_source_refresh_at",
+        "newest_source_refresh_at",
+    }
+    assert SourceRefreshWindow.model_fields["oldest_source_refresh_at"].is_required()
+    assert SourceRefreshWindow.model_fields["newest_source_refresh_at"].is_required()
+
+
+def test_the_deleted_per_source_entry_is_unimportable_at_both_spellings() -> None:
+    """D-IMPL-124 deletes `SourceRefresh` rather than deprecating it.
+
+    A class kept "for compatibility" would leave a `source_ref`-bearing type on
+    the public surface that an adopter could still put in a payload, which
+    defeats the ruling by leaving the shape available. Asserted at both
+    re-export spellings because the name was published at both.
+    """
+    with pytest.raises(ImportError):
+        from ccf.halflife.assessment import (  # noqa: F401, PLC0415
+            SourceRefresh,  # type: ignore[attr-defined]
+        )
+
+    with pytest.raises(ImportError):
+        from ccf.halflife.debt import (  # noqa: F401, PLC0415
+            SourceRefresh,  # type: ignore[attr-defined]
+        )
+
+
+def test_a_naive_oldest_instant_is_refused_rather_than_coerced() -> None:
+    """`Observation.observed_at`'s discipline, restated (D-IMPL-38).
+
+    An implicit timezone is a silent default, and this value is inside the
+    delivered product's content address — so a coerced zone would make the same
+    refresh fact hash differently depending on where the product was assembled.
+    Refused at construction, not at first use.
+    """
+    with pytest.raises(ValueError, match="zone"):
+        SourceRefreshWindow(
+            oldest_source_refresh_at=datetime(2026, 1, 9, 6, 30),
+            newest_source_refresh_at=_WINDOW.newest_source_refresh_at,
+        )
+
+
+def test_a_naive_newest_instant_is_refused_rather_than_coerced() -> None:
+    """The same discipline on the other member, asserted separately.
+
+    Two tests rather than one parameterised case because a validator wired to
+    only one of the two members would pass a test that constructed both naive.
+    """
+    with pytest.raises(ValueError, match="zone"):
+        SourceRefreshWindow(
+            oldest_source_refresh_at=_WINDOW.oldest_source_refresh_at,
+            newest_source_refresh_at=datetime(2026, 2, 17, 22, 0),
+        )
+
+
+@pytest.mark.parametrize(
+    "member",
+    ["oldest_source_refresh_at", "newest_source_refresh_at"],
+)
+@pytest.mark.parametrize(
+    "unzoned",
+    [1767225600, Decimal("1767225600"), "1767225600", b"1767225600"],
+    ids=["int epoch", "Decimal epoch", "epoch as text", "epoch as bytes"],
+)
+def test_a_bare_epoch_is_refused_rather_than_read_as_utc(
+    member: str, unzoned: object
+) -> None:
+    """The half of "the instant names its zone" that an after-validator cannot see.
+
+    Phase 15.6's single-agent review demonstrated the asymmetry by execution:
+    `"2026-01-01T00:00:00"` was refused for carrying an *implicit* timezone
+    while `1767225600` — which carries **none** — was accepted, with UTC
+    supplied by the framework, into a field that is inside the delivered
+    product's content address (D-IMPL-118). Pydantic's lax mode coerces the
+    number before any after-validator runs, so the rule has to be stated in the
+    `mode="before"` position or it is a rule about the coercion rather than
+    about what the deployment supplied.
+
+    Parametrized over both members because a validator wired to one of the two
+    would pass a test that supplied the epoch to only the other.
+    """
+    kwargs: dict[str, object] = {
+        "oldest_source_refresh_at": _WINDOW.oldest_source_refresh_at,
+        "newest_source_refresh_at": _WINDOW.newest_source_refresh_at,
+        member: unzoned,
+    }
+    with pytest.raises(ValueError, match="bare number"):
+        SourceRefreshWindow(**kwargs)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "member",
+    ["oldest_source_refresh_at", "newest_source_refresh_at"],
+)
+def test_a_float_instant_is_refused_by_the_module_s_own_float_discipline(
+    member: str,
+) -> None:
+    """`_refuse_float`, on the one class in this module that was outside it.
+
+    The module's headline rule is *Decimal, never float* — these values are
+    inside the product's content address and floats are not bit-stable. It is
+    wired onto `DebtFactors`, `DebtEvidencePointer.handle`,
+    `SignalObligation.obligation_ref` and `DebtAssessment.debt`, and was wired
+    onto **neither** member of this class, so `1767225600.5` became a hashed
+    instant. The refusal is the module's own helper rather than a bespoke check
+    here, so the message an author meets is the same message every other float
+    refusal in this module gives.
+    """
+    kwargs: dict[str, object] = {
+        "oldest_source_refresh_at": _WINDOW.oldest_source_refresh_at,
+        "newest_source_refresh_at": _WINDOW.newest_source_refresh_at,
+        member: 1767225600.5,
+    }
+    with pytest.raises(ValueError, match="never float"):
+        SourceRefreshWindow(**kwargs)  # type: ignore[arg-type]
+
+
+def test_an_instant_that_names_its_zone_in_text_is_still_accepted() -> None:
+    """The refusal is of *unzoned* input, not of every spelling but one.
+
+    A widening that refused an ISO-8601 string carrying an explicit offset
+    would pass every refusal test above and break every deployment that reads
+    its instants out of a document — which is exactly what
+    `examples/s1-01-hello-context-product` does. The two spellings must land on
+    the same instant, and this asserts they do rather than assuming it.
+    """
+    window = SourceRefreshWindow(
+        oldest_source_refresh_at="2026-01-09T06:30:00+00:00",  # type: ignore[arg-type]
+        newest_source_refresh_at="2026-02-17T22:00:00Z",  # type: ignore[arg-type]
+    )
+    assert window.oldest_source_refresh_at == datetime(2026, 1, 9, 6, 30, tzinfo=UTC)
+    assert window.newest_source_refresh_at == datetime(2026, 2, 17, 22, 0, tzinfo=UTC)
+
+
+def test_an_unrecorded_recency_is_a_positive_claim_and_not_a_silence() -> None:
+    """D-IMPL-38: the absent value is an assertion, never `None`-as-unknown.
+
+    What this rules out that nothing else does: an *unnamed* nullable slot.
+    The value is `None` under D-IMPL-124 because a window is not a collection
+    and there is no empty window that does not require inventing an instant —
+    but it is reached through a **named** sentinel at every construction site
+    and every default, so what a product asserts by carrying it is spelled
+    rather than left for a reader to interpret. Without that, a product whose
+    deployment knows nothing about its sources' publication schedule and a
+    product whose recency somebody dropped in transit would be the same
+    artifact — the repudiation failure mode every sentinel in this fabric
+    closes.
+    """
+    assert _product().source_refresh_recency == NO_SOURCE_REFRESH_RECENCY
+    assert NO_SOURCE_REFRESH_RECENCY is None
+
+
+def test_a_changed_refresh_instant_moves_the_delivered_bytes() -> None:
+    """The slot is inside the content address, so the instants are load-bearing.
+
+    A decision made against sources last refreshed in January is not the
+    decision made against ones refreshed in February. This is the case that
+    would fail if a later change moved the slot off the vessel and left
+    D-IMPL-118's reconstruction obligation looking gratuitous.
+    """
+    later = SourceRefreshWindow(
+        oldest_source_refresh_at=_WINDOW.oldest_source_refresh_at,
+        newest_source_refresh_at=_WINDOW.newest_source_refresh_at
+        + timedelta(days=40),
+    )
+
+    assert content_hash(_product(recency=_WINDOW)) != content_hash(_product())
+    assert content_hash(_product(recency=_WINDOW)) != content_hash(
+        _product(recency=later)
+    )
+
+
+def test_a_window_that_ends_before_it_begins_is_refused() -> None:
+    """An oldest instant after its newest is incoherent, not stricter.
+
+    The duplicate-reference refusal this replaces, in the same voice: it
+    describes two facts claiming to be one. **Not** the forbidden comparison of
+    D-IMPL-101 — nothing here is compared against `now`, a threshold or a
+    cadence, and no conclusion is drawn about whether either instant is
+    acceptable. One declared fact is checked against itself.
+    """
+    with pytest.raises(ValueError, match="may not end before it begins"):
+        SourceRefreshWindow(
+            oldest_source_refresh_at=_WINDOW.newest_source_refresh_at,
+            newest_source_refresh_at=_WINDOW.oldest_source_refresh_at,
+        )
+
+
+def test_a_window_of_zero_span_is_accepted() -> None:
+    """One source, or several that published together, is a legal window.
+
+    Pinned by its own test rather than left incidental, because the coherence
+    check above is one `>` away from refusing the commonest real case: a
+    deployment reading a single source, whose oldest and newest instants are
+    necessarily the same.
+    """
+    instant = _WINDOW.newest_source_refresh_at
+    window = SourceRefreshWindow(
+        oldest_source_refresh_at=instant,
+        newest_source_refresh_at=instant,
+    )
+
+    assert window.oldest_source_refresh_at == window.newest_source_refresh_at
+    assert _product(recency=window).source_refresh_recency == window
+
+
+def test_the_recency_is_carried_and_never_consumed() -> None:
+    """The SDK stores the fact and draws no conclusion from it (D-IMPL-101).
+
+    `Observation.subject`'s *"carried, never consumed"* discipline, restated
+    structurally rather than described. The moment the SDK compares a refresh
+    instant to `now`, to a cadence or to a threshold, it has decided which
+    sources matter — which is salience, which D-IMPL-101 deferred and for which
+    *"no mechanism ... lands in this phase"*.
+
+    Asserted as a scan rather than as a unit test because the property is an
+    absence: there is no call to make and no value to compare, so the only
+    honest assertion is that no module reads the members at all. The token
+    scanned for moved with D-IMPL-124's reshape — `refreshed_at` is gone — but
+    the claim did not, so the scan is re-pointed at the two new member names
+    rather than retired.
+    """
+    root = REPO_ROOT / "src" / "ccf"
+    readers = sorted(
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*.py")
+        if "oldest_source_refresh_at" in path.read_text(encoding="utf-8")
+        or "newest_source_refresh_at" in path.read_text(encoding="utf-8")
+    )
+
+    assert readers == ["halflife/assessment.py"]
+
+    declaring = (root / "halflife" / "assessment.py").read_text(encoding="utf-8")
+    assert "datetime.now" not in declaring
+    assert "utcnow" not in declaring
+
+
+def test_assess_debt_is_unchanged_by_the_recency_slot(profile: DebtProfile) -> None:
+    """The slot landed on the vessel, so the pure function did not move.
+
+    D-IMPL-118 placed all three Track B members top-level on
+    `ContextProductContract`, so `assess_debt` gains no parameter and stays
+    pure over `(factors, profile)` — the D-IMPL-105 posture. Asserted on the
+    consequence directly: `debt` and `signal` are byte-for-byte what they were
+    for the same factors and the same profile, and the assessment's field set
+    is untouched.
+    """
+    factors = _whole(freshness=Decimal("0.8"))
+    assessment = assess_debt(factors, profile=profile)
+
+    assert assessment.debt == context_debt(factors)
+    assert assessment.signal is DebtSignal.OK
+    assert set(DebtAssessment.model_fields) == {
+        "debt",
+        "signal",
+        "factors",
+        "scorers",
+    }
+    assert "source_refresh_recency" not in DebtAssessment.model_fields
+    assert "oldest_source_refresh_at" not in DebtAssessment.model_fields
+    assert "newest_source_refresh_at" not in DebtAssessment.model_fields
+
+
+# --- what a debt signal obliges (D-IMPL-112 gap 3, D-IMPL-117, D-IMPL-118) --
+#
+# `D-IMPL-112` recorded the analyst's third missing item — what operational
+# obligation `forced_llm` actually imposes. `15.6-RESEARCH.md` § B4 measured the
+# asymmetry that makes it a gap: `DebtSignal.FORCED_LLM` is produced at exactly
+# one site and consumed nowhere, while `OK` and `FAIL_CLOSED` each have one
+# consumer.
+#
+# The SDK's whole obligation here is a BINDING MECHANISM. `D-IMPL-117`:
+# *"a signal-to-obligation binding that survives replay, and owes no obligation
+# vocabulary (that is user configuration ...)"*. Every obligation token below is
+# owned by this test module; the SDK enumerates none of them, and
+# `tests/invariants/test_no_obligation_vocabulary.py` is the standing gate that
+# keeps it that way.
+#
+# The binding's calibration half lives on `DebtProfile`, which already owns
+# `forced_llm_threshold` and `fail_closed_threshold` and is already pinned
+# per-agent — so the calibration stays in one artifact. The RESOLVED value rides
+# the product vessel as a top-level field under `D-IMPL-118` `qa-toplevel`, the
+# same branch the two members above took.
+
+
+#: Obligation references this test module owns. **Deployment-side by
+#: construction**: the SDK enumerates no obligation vocabulary and interprets no
+#: obligation reference (`D-IMPL-117`, CLAUDE.md §11). Deliberately not words an
+#: analyst used, so nothing here can be mistaken for a recommended set.
+_OBLIGATION_FOR_FORCED = "test-obligation-alpha"
+_OBLIGATION_FOR_FAILED = "test-obligation-beta"
+
+
+def _profile_binding(*bindings: SignalObligation) -> DebtProfile:
+    """A profile as every artifact declares one, plus the bindings under test."""
+    return DebtProfile(
+        semver="1.0.0",
+        risk_sensitivity=Decimal("1.2"),
+        forced_llm_threshold=Decimal("0.20"),
+        fail_closed_threshold=Decimal("0.60"),
+        signal_obligations=bindings,
+    )
+
+
+def test_a_bound_obligation_round_trips_through_the_profile() -> None:
+    """Populate and extract — exactly and only what D-IMPL-117 says is owed.
+
+    The pair is the whole SDK obligation for this gap: a way for a deployment to
+    say what a signal obliges, and a way to read that back. There is no third
+    thing, because what the obligation *means* is the context product creator's
+    judgement and the SDK never interprets it.
+    """
+    binding = SignalObligation(
+        signal=DebtSignal.FORCED_LLM, obligation_ref=_OBLIGATION_FOR_FORCED
+    )
+    profile = _profile_binding(binding)
+
+    assert profile.signal_obligations == (binding,)
+    rebuilt = DebtProfile.model_validate(profile.model_dump())
+    assert rebuilt.signal_obligations == (binding,)
+    assert content_hash(rebuilt) == content_hash(profile)
+
+
+def test_the_sdk_accepts_an_obligation_string_it_has_never_seen() -> None:
+    """Structure is validated; meaning is not (D-IMPL-117, D-IMPL-29).
+
+    The claim this case exists to assert rather than leave implied: the SDK
+    holds no list of permitted obligations, so an arbitrary token no shipped
+    module has ever seen is accepted verbatim. A validator that refused it would
+    have made the SDK the arbiter of a vocabulary it does not own.
+    """
+    arbitrary = "urn:acme:obligation:9f2c-never-seen-by-the-sdk"
+    profile = _profile_binding(
+        SignalObligation(signal=DebtSignal.FAIL_CLOSED, obligation_ref=arbitrary)
+    )
+
+    assert profile.obligation_for(DebtSignal.FAIL_CLOSED) == arbitrary
+
+
+def test_a_key_that_is_not_a_debt_signal_is_refused_and_named() -> None:
+    """Keys are the SDK's type, so keys are the SDK's business.
+
+    `DebtSignal` is a whitepaper §7.7 CAR routing state the SDK owns, ships and
+    branches on — so a binding naming a state the fabric never produces is
+    refused rather than carried, and the offending key is named so the profile
+    author is not left diffing against an enum they cannot see.
+    """
+    with pytest.raises(ValueError, match="not-a-signal"):
+        SignalObligation(
+            signal="not-a-signal",  # type: ignore[arg-type]
+            obligation_ref=_OBLIGATION_FOR_FORCED,
+        )
+
+
+def test_a_duplicate_signal_binding_is_refused_at_construction() -> None:
+    """Two obligations for one signal is incoherent, not stricter.
+
+    Refused rather than collapsed, which is why the binding is a sorted tuple
+    and not a mapping: a mapping loaded from YAML keeps the last duplicate
+    **silently**, and a signal bound twice is exactly the contradiction a
+    profile author needs told about.
+    """
+    with pytest.raises(ValueError, match="at most one obligation"):
+        _profile_binding(
+            SignalObligation(
+                signal=DebtSignal.FORCED_LLM, obligation_ref=_OBLIGATION_FOR_FORCED
+            ),
+            SignalObligation(
+                signal=DebtSignal.FORCED_LLM, obligation_ref=_OBLIGATION_FOR_FAILED
+            ),
+        )
+
+
+def test_a_partial_binding_is_accepted_and_the_rest_read_the_sentinel() -> None:
+    """"Some signals bound" is the common real case, so it has one reading.
+
+    Pinned by a test rather than left incidental: a deployment that has an
+    answer for Fail-Closed and none for Ok is not a malformed deployment, and
+    the unbound signal resolves to the named positive sentinel rather than to a
+    borrowed neighbour's obligation or to an error.
+    """
+    profile = _profile_binding(
+        SignalObligation(
+            signal=DebtSignal.FAIL_CLOSED, obligation_ref=_OBLIGATION_FOR_FAILED
+        )
+    )
+
+    assert profile.obligation_for(DebtSignal.FAIL_CLOSED) == _OBLIGATION_FOR_FAILED
+    assert profile.obligation_for(DebtSignal.OK) == NO_OBLIGATION_IN_FORCE
+    assert profile.obligation_for(DebtSignal.FORCED_LLM) == NO_OBLIGATION_IN_FORCE
+
+
+def test_a_profile_that_binds_nothing_is_a_positive_claim_not_a_silence() -> None:
+    """D-IMPL-38: the absent value is an assertion, never `None`-as-unknown.
+
+    What this rules out that nothing else does: a nullable binding. Under one, a
+    deployment that deliberately declared no obligations and one whose bindings
+    somebody dropped in transit would be the same artifact — the repudiation
+    failure mode every sentinel in this fabric closes. It is also exactly what
+    every profile written before this field existed was already asserting.
+    """
+    profile = _profile_binding()
+
+    assert profile.signal_obligations == NO_SIGNAL_OBLIGATIONS
+    assert NO_SIGNAL_OBLIGATIONS is not None
+    assert NO_SIGNAL_OBLIGATIONS == ()
+    assert profile.obligation_for(DebtSignal.FORCED_LLM) == NO_OBLIGATION_IN_FORCE
+    assert NO_OBLIGATION_IN_FORCE is not None
+
+
+def test_two_profiles_differing_only_in_a_binding_have_different_bytes() -> None:
+    """The binding is part of the calibration, so it is part of its identity.
+
+    A profile that obliges one thing on Forced-LLM is not the profile that
+    obliges another, and the Control Plane addresses artifacts by content — so
+    rebinding mints a new address rather than mutating an old one in place,
+    which is what D-IMPL-26's exact-version rule then lets replay resolve
+    against.
+    """
+    one = _profile_binding(
+        SignalObligation(
+            signal=DebtSignal.FORCED_LLM, obligation_ref=_OBLIGATION_FOR_FORCED
+        )
+    )
+    other = _profile_binding(
+        SignalObligation(
+            signal=DebtSignal.FORCED_LLM, obligation_ref=_OBLIGATION_FOR_FAILED
+        )
+    )
+
+    assert content_hash(one) != content_hash(other)
+    assert content_hash(one) != content_hash(_profile_binding())
+
+
+def test_binding_declaration_order_does_not_move_the_profile_bytes() -> None:
+    """Order-insensitive inside a content address (the `scorers` precedent).
+
+    Declaration order is not a fact about the calibration. The profile is
+    content-addressed and version-pinned per agent, so an order-sensitive
+    collection would make two identical calibrations resolve as two artifacts —
+    the defect `_pins_are_one_per_factor_in_canonical_order` already exists to
+    prevent, restated here because the reason is identical.
+    """
+    forced = SignalObligation(
+        signal=DebtSignal.FORCED_LLM, obligation_ref=_OBLIGATION_FOR_FORCED
+    )
+    failed = SignalObligation(
+        signal=DebtSignal.FAIL_CLOSED, obligation_ref=_OBLIGATION_FOR_FAILED
+    )
+
+    forward = _profile_binding(forced, failed)
+    reversed_ = _profile_binding(failed, forced)
+
+    assert forward.signal_obligations == reversed_.signal_obligations
+    assert content_hash(forward) == content_hash(reversed_)
+
+
+def test_a_half_declared_binding_is_refused() -> None:
+    """A signal named with nothing bound to it is not a binding.
+
+    A blank reference is the shape a half-finished profile edit leaves behind,
+    and accepting it would make "declared, with nothing to do" and "not
+    declared" two spellings of one claim — while only the second has a sentinel
+    saying so.
+    """
+    with pytest.raises(ValueError, match="obligation reference"):
+        SignalObligation(signal=DebtSignal.FORCED_LLM, obligation_ref="   ")
+
+
+def test_the_sentinel_spelling_is_refused_as_a_declared_obligation() -> None:
+    """The sentinel keeps one meaning, so nothing may impersonate it.
+
+    Without this, a deployment could declare the sentinel's own spelling and
+    make "bound to this" indistinguishable from "bound to nothing" — collapsing
+    the very distinction D-IMPL-38 requires the sentinel to hold open.
+    """
+    with pytest.raises(ValueError, match="reserved"):
+        SignalObligation(
+            signal=DebtSignal.FORCED_LLM, obligation_ref=NO_OBLIGATION_IN_FORCE
+        )
+
+
+def test_a_float_obligation_reference_is_refused_rather_than_coerced() -> None:
+    """The `_refuse_float` discipline extends to the new member.
+
+    Shared with every other value in `ccf.halflife.assessment` for the reason
+    stated once there: these bytes reach a content address and floats are not
+    bit-stable across platforms.
+    """
+    with pytest.raises(ValueError, match="never float"):
+        SignalObligation(
+            signal=DebtSignal.FORCED_LLM,
+            obligation_ref=1.0,  # type: ignore[arg-type]
+        )
+
+
+def test_a_declared_profile_parses_its_bindings_through_the_loader(
+    document: Any,
+) -> None:
+    """The binding arrives the way every Control Plane value arrives.
+
+    Through `parse_artifact`, off a declared document, rather than through a
+    constructor a test wrote — a field that only ever round-trips in-process has
+    not been shown to be declarable (CLAUDE.md §6.4).
+    """
+    declared = dict(document["debt_profile"])
+    declared["signal_obligations"] = [
+        {"signal": "forced_llm", "obligation_ref": _OBLIGATION_FOR_FORCED}
+    ]
+    artifact = parse_artifact(declared, DEBT_PROFILE)
+
+    assert isinstance(artifact, DebtProfile)
+    assert artifact.obligation_for(DebtSignal.FORCED_LLM) == _OBLIGATION_FOR_FORCED
+    assert artifact.obligation_for(DebtSignal.OK) == NO_OBLIGATION_IN_FORCE
+
+
+def test_a_declared_profile_naming_an_unknown_signal_is_refused(
+    document: Any,
+) -> None:
+    """The key check fires where a profile author actually meets it."""
+    declared = dict(document["debt_profile"])
+    declared["signal_obligations"] = [
+        {"signal": "forced-llm", "obligation_ref": _OBLIGATION_FOR_FORCED}
+    ]
+    with pytest.raises(ValueError, match="forced-llm"):
+        parse_artifact(declared, DEBT_PROFILE)
+
+
+def test_the_sdk_names_no_obligation_and_takes_no_action_on_one() -> None:
+    """CLAUDE.md §11, asserted structurally rather than promised.
+
+    Two absences, and they are different absences. The first is **surface**:
+    the obligation reference is declared in one module and resolved in one
+    other, and reaches no third — so there is nowhere for a default mapping, a
+    reference constant or a permitted set to have been quietly parked.
+    `tests/invariants/test_no_obligation_vocabulary.py` holds the syntactic
+    half of the vocabulary claim, and does it as an AST walk for the reason its
+    own control records: a grep-shaped gate fails on `D-IMPL-112`'s quoted
+    words wherever they appear in prose, and a gate that cries wolf gets
+    switched off. This module deliberately does not restate that check as a
+    word search.
+
+    The second is **behaviour**, and it is the one a reviewer is most likely to
+    misread. `FORCED_LLM` had zero consumers before this plan and still has zero
+    across `src/` and `runtime/`: the fabric carries the binding into the record
+    and branches on it nowhere, because branching on it would mean deciding what
+    an obligation means — the judgement `D-IMPL-117` assigns to the context
+    product creator. The two branches asserted below are the two that predate
+    this plan (`D-IMPL-65`/INV-CH7-68 and CINV-01), and the producer is still
+    the single site `15.6-RESEARCH.md` § B4 counted.
+    """
+    src_root = REPO_ROOT / "src"
+    runtime_root = REPO_ROOT / "runtime"
+
+    writers = sorted(
+        path.relative_to(src_root).as_posix()
+        for path in (src_root / "ccf").rglob("*.py")
+        if "obligation_ref" in path.read_text(encoding="utf-8")
+    )
+    assert writers == [
+        "ccf/controlplane/artifacts.py",
+        "ccf/halflife/assessment.py",
+    ]
+
+    branches = sorted(
+        f"{path.relative_to(root).as_posix()}:{line.strip()}"
+        for root in (src_root, runtime_root)
+        for path in root.rglob("*.py")
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if "DebtSignal." in line and not line.lstrip().startswith(("#", "*", ":"))
+    )
+
+    assert branches == [
+        "ccf/halflife/debt.py:signal = DebtSignal.FAIL_CLOSED",
+        "ccf/halflife/debt.py:signal = DebtSignal.FORCED_LLM",
+        "ccf/halflife/debt.py:signal = DebtSignal.OK",
+        "ccf/hitl/escalation.py:and trigger.signal is DebtSignal.OK",
+        "ccf_runtime/workflow/engine.py:"
+        "if assessment.signal is DebtSignal.FAIL_CLOSED:",
+    ], (
+        "a DebtSignal branch was added or removed. Producing the signal is"
+        " assess_debt's job and consuming OK/FAIL_CLOSED predates this plan;"
+        " a new branch on FORCED_LLM would mean the SDK had decided what an"
+        " obligation means (D-IMPL-117, CLAUDE.md §11)"
+    )
+
+
+def test_assess_debt_is_unchanged_by_the_obligation_binding(
+    profile: DebtProfile,
+) -> None:
+    """The resolved value landed on the vessel, so the pure function did not move.
+
+    D-IMPL-118 placed all three Track B members top-level on
+    `ContextProductContract`, so `assess_debt` gains no parameter and stays pure
+    over `(factors, profile)` — the D-IMPL-105 posture. Asserted on the
+    consequence directly: `debt` and `signal` are byte-for-byte what they were
+    for the same factors and the same profile, even when the profile they were
+    computed from now carries bindings, and the assessment's field set is
+    untouched.
+
+    What this rules out that the two sibling cases do not: an implementation
+    that resolved the obligation *inside* `assess_debt` and hung it on the
+    assessment. That is the plan's literal reading, and it would have moved
+    `DebtAssessment`'s bytes — reshaping everything that carries one, for a
+    member the ruling put somewhere else.
+    """
+    bound = profile.model_copy(
+        update={
+            "signal_obligations": (
+                SignalObligation(
+                    signal=DebtSignal.OK, obligation_ref=_OBLIGATION_FOR_FORCED
+                ),
+            )
+        }
+    )
+    factors = _whole(freshness=Decimal("0.8"))
+
+    plain = assess_debt(factors, profile=profile)
+    against_bindings = assess_debt(factors, profile=bound)
+
+    assert against_bindings.debt == plain.debt == context_debt(factors)
+    assert against_bindings.signal is plain.signal is DebtSignal.OK
+    assert content_hash(against_bindings) == content_hash(plain)
+    assert set(DebtAssessment.model_fields) == {
+        "debt",
+        "signal",
+        "factors",
+        "scorers",
+    }
+    assert "obligation_in_force" not in DebtAssessment.model_fields
+    assert "signal_obligations" not in DebtAssessment.model_fields
+
+
+def test_the_obligation_resolved_is_the_one_the_computed_signal_bound() -> None:
+    """The decision records its own duty, not the whole calibration.
+
+    Two signals bound to two different obligations; the assessment lands in one
+    of them and the value that resolves is that one. This is the case that would
+    fail if the resolution read a fixed member, took the first binding, or
+    handed back the mapping whole — and the mapping is the failure worth naming,
+    because a consumer holding it would be holding the calibration rather than
+    the decision.
+    """
+    profile = _profile_binding(
+        SignalObligation(
+            signal=DebtSignal.OK, obligation_ref=_OBLIGATION_FOR_FORCED
+        ),
+        SignalObligation(
+            signal=DebtSignal.FAIL_CLOSED, obligation_ref=_OBLIGATION_FOR_FAILED
+        ),
+    )
+
+    nominal = assess_debt(_whole(), profile=profile)
+    collapsed = assess_debt(
+        DebtFactors(
+            freshness=Decimal("0.01"),
+            completeness=Decimal("0.5"),
+            semantic_consistency=Decimal("1"),
+        ),
+        profile=profile,
+    )
+
+    assert nominal.signal is DebtSignal.OK
+    assert collapsed.signal is DebtSignal.FAIL_CLOSED
+    assert profile.obligation_for(nominal.signal) == _OBLIGATION_FOR_FORCED
+    assert profile.obligation_for(collapsed.signal) == _OBLIGATION_FOR_FAILED
+
+
+def test_the_delivered_vessel_carries_the_resolved_obligation() -> None:
+    """The vessel is the populate site, and the value is inside its address.
+
+    `canonical_bytes` walks a model field-by-field over `model_fields`, so a
+    top-level field is in the address by construction. This is the case that
+    would fail if a later change moved the member off the vessel and left
+    D-IMPL-118's reconstruction obligation looking gratuitous.
+    """
+    profile = _profile_binding(
+        SignalObligation(
+            signal=DebtSignal.OK, obligation_ref=_OBLIGATION_FOR_FORCED
+        )
+    )
+    assessment = assess_debt(_whole(), profile=profile)
+    product = _product(obligation=profile.obligation_for(assessment.signal))
+
+    assert product.obligation_in_force == _OBLIGATION_FOR_FORCED
+    rebuilt = ContextProductContract.model_validate(product.model_dump())
+    assert rebuilt.obligation_in_force == _OBLIGATION_FOR_FORCED
+    assert content_hash(rebuilt) == content_hash(product)
+    assert content_hash(product) != content_hash(_product())
+    assert content_hash(product) != content_hash(
+        _product(obligation=_OBLIGATION_FOR_FAILED)
+    )
+
+
+def test_an_unobliged_decision_is_a_positive_claim_and_not_a_silence() -> None:
+    """D-IMPL-38 on the vessel side, in the two siblings' voice.
+
+    A decision made under a calibration that bound nothing for its signal and a
+    decision whose obligation somebody dropped in transit must not be the same
+    artifact — which is what the named sentinel default holds apart, and what
+    every product assembled before this field existed was already asserting.
+    """
+    assert _product().obligation_in_force == NO_OBLIGATION_IN_FORCE
+    assert NO_OBLIGATION_IN_FORCE is not None
+
+
+@pytest.mark.parametrize(
+    "blank", ["", "   ", "\t"], ids=["empty", "spaces", "tab"]
+)
+def test_a_blank_obligation_is_refused_on_the_vessel(blank: str) -> None:
+    """The vessel admits two states, not three.
+
+    The profile side has refused a blank reference since `15.6-08`; the vessel
+    field shipped as a bare `str` with no validator, which the close-time
+    cross-AI panel found by inspection. A product carrying `""` asserts a third
+    state that is neither *no obligation was bound* — which
+    `NO_OBLIGATION_IN_FORCE` already says, positively — nor *this obligation was
+    bound*. Because the field is inside the content address, that third state is
+    **replay-stable**: it reproduces exactly, forever, and a reader has no way
+    to tell it from either legitimate claim.
+    """
+    with pytest.raises(ValueError, match="obligation in force must be"):
+        _product(obligation=blank)
+
+
+@pytest.mark.parametrize(
+    "blank", ["", "   ", "\t"], ids=["empty", "spaces", "tab"]
+)
+def test_a_blank_obligation_is_refused_on_rehydration(blank: str) -> None:
+    """Rehydration is the other door into the same state, so it is the same gate.
+
+    D-IMPL-118's own harm statement is a product *constructed or rehydrated*
+    with a blank. `model_validate` is the rehydration path every
+    `rehydrate_product` call takes, and a validator that fired only at
+    construction would leave the stored artifact admissible — which is the
+    deferral CLAUDE.md §11 refuses.
+    """
+    payload = _product().model_dump()
+    payload["obligation_in_force"] = blank
+
+    with pytest.raises(ValueError, match="obligation in force must be"):
+        ContextProductContract.model_validate(payload)
+
+
+def test_the_sentinel_is_admissible_on_the_vessel_it_is_the_default_of() -> None:
+    """The widening control: the vessel's rule is not the profile's rule.
+
+    `SignalObligation` **refuses** the sentinel spelling, because a declared
+    obligation wearing it would impersonate the absence. The vessel **requires**
+    it to be admissible, because it is the vessel's own default and the positive
+    assertion the absence is spelled with. A fix that copied the profile's
+    refusal wholesale would pass every test above and fail this one, having made
+    every unobliged product in the tree unconstructable.
+
+    The second assertion changed at Phase 15.6's close and the change is the
+    point of WR-02: it used to assert that ``" ccf.leading-space"`` — a value
+    that renders as the SDK's own namespace with an invisible character in front
+    of it — was admitted here. It is now refused
+    (`test_a_carried_obligation_impersonating_a_marker_is_refused`), so what
+    this control asserts is the thing it was always for: an **ordinary**
+    deployment reference is admitted verbatim, however unfamiliar.
+    """
+    assert (
+        _product(obligation=NO_OBLIGATION_IN_FORCE).obligation_in_force
+        == NO_OBLIGATION_IN_FORCE
+    )
+    assert _product(obligation="escalate-to-credit-officer").obligation_in_force == (
+        "escalate-to-credit-officer"
+    )
+
+
+# --- WR-02: one marker-impersonation rule, not one field's coincidence ------
+
+
+@pytest.mark.parametrize(
+    "impersonation",
+    [
+        "ccf.fabricated-marker",
+        "ccf.no-obligation-in-force ",
+        " ccf.no-obligation-in-force",
+        "CCF.no-obligation-in-force",
+        "ccf.",
+    ],
+    ids=[
+        "sdk-shaped",
+        "trailing space",
+        "leading space",
+        "upper case",
+        "bare prefix",
+    ],
+)
+def test_a_carried_obligation_impersonating_a_marker_is_refused(
+    impersonation: str,
+) -> None:
+    """The carrier admits its own sentinel and nothing else in the namespace.
+
+    Phase 15.6's close-time panel reserved `ccf.` on `Observation.subject` on
+    the argument that a deployment must not be able to write a value that
+    impersonates a fabric marker. The single-agent review then found the
+    property enforced on that field and on none of the three siblings the same
+    phase shipped, and demonstrated by execution that
+    `" ccf.no-obligation-in-force"` reached this carrier through
+    `DebtProfile.obligation_for` unchanged and was admitted — a declared
+    obligation rendering identically to the marker that says none was declared.
+
+    The sentinel itself stays admissible, compared exactly
+    (`test_the_sentinel_is_admissible_on_the_vessel_it_is_the_default_of`),
+    because it is this field's own default.
+    """
+    with pytest.raises(ValueError, match="reserved"):
+        _product(obligation=impersonation)
+
+
+def test_a_carried_obligation_impersonating_a_marker_is_refused_on_rehydration() -> None:
+    """Rehydration is the other door into the same state, so it is the same gate.
+
+    The shape `test_a_blank_obligation_is_refused_on_rehydration` already takes:
+    a validator that fired only at construction would leave the stored artifact
+    admissible, which is the deferral CLAUDE.md §11 refuses.
+    """
+    payload = _product().model_dump()
+    payload["obligation_in_force"] = " ccf.no-obligation-in-force"
+
+    with pytest.raises(ValueError, match="reserved"):
+        ContextProductContract.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "impersonation",
+    ["ccf.fabricated-marker", " ccf.anything", "CCF.ANYTHING", "ccf."],
+    ids=["sdk-shaped", "leading space", "upper case", "bare prefix"],
+)
+def test_an_evidence_handle_impersonating_a_marker_is_refused(
+    impersonation: str,
+) -> None:
+    """The same rule on the second of the four fields.
+
+    `DebtEvidencePointer(handle='ccf.fabricated-marker')` was accepted before
+    this fix. Unlike the carrier this field has **no sentinel of its own** — an
+    assessment that points at nothing carries the empty `NO_DEBT_EVIDENCE`
+    tuple — so the whole namespace is reserved with nothing carved out of it.
+    """
+    with pytest.raises(ValueError, match="reserved"):
+        DebtEvidencePointer(handle=impersonation)
+
+
+@pytest.mark.parametrize(
+    "impersonation",
+    [
+        "ccf.anything-at-all",
+        " ccf.no-obligation-in-force",
+        "CCF.no-obligation-in-force",
+        "ccf.",
+    ],
+    ids=["sdk-shaped", "leading space", "upper case", "bare prefix"],
+)
+def test_a_declared_obligation_impersonating_a_marker_is_refused(
+    impersonation: str,
+) -> None:
+    """The same rule on the third field, widened from an exact-match refusal.
+
+    `SignalObligation` refused only the *exact* sentinel string, so
+    `" ccf.no-obligation-in-force"` was declarable in a profile and travelled
+    to the carrier unchanged. A binding has no sentinel of its own to carve
+    out — the sentinel is the *carrier's* default — so the whole namespace is
+    the deployment's to stay out of.
+    """
+    with pytest.raises(ValueError, match="reserved"):
+        SignalObligation(
+            signal=DebtSignal.FORCED_LLM, obligation_ref=impersonation
+        )
+
+
+@pytest.mark.parametrize(
+    "ordinary",
+    [
+        "re-pull-and-resynthesize",
+        "escalate-to-credit-officer",
+        "urn:example:obligation/17",
+        "no-obligation-in-force",
+    ],
+    ids=["a phrase", "another phrase", "a URN", "the un-namespaced phrase"],
+)
+def test_an_ordinary_reference_is_still_admitted_on_every_field(
+    ordinary: str,
+) -> None:
+    """The widening control across all four fields at once.
+
+    A reservation that had widened into a format check would pass every refusal
+    above and fail here. The SDK enumerates no identifier scheme and interprets
+    nothing it is handed (D-IMPL-117, CLAUDE.md §11): everything outside the
+    reserved namespace is admitted exactly as written, including the
+    un-namespaced phrase the sentinel used to be spelled with.
+    """
+    assert DebtEvidencePointer(handle=ordinary).handle == ordinary
+    assert (
+        SignalObligation(
+            signal=DebtSignal.FORCED_LLM, obligation_ref=ordinary
+        ).obligation_ref
+        == ordinary
+    )
+    assert _product(obligation=ordinary).obligation_in_force == ordinary
+    assert (
+        Observation(
+            observation_type="a-declared-type", observed_at=NOW, subject=ordinary
+        ).subject
+        == ordinary
+    )

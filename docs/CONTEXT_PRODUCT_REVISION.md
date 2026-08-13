@@ -222,7 +222,7 @@ axes of CLAUDE.md §6.2 already describe what an assembler needs, and one is
 decisive: **axis 5, the half-life and debt profile, is already a *required* field
 on agent definitions** — `halflife_debt_profile`, a pinned `ccf-artifact://`
 reference, with `DebtProfile` a shipped `VersionedArtifact`
-(`src/ccf/controlplane/artifacts.py:225`) and a published schema
+(`src/ccf/controlplane/artifacts.py::DebtProfile`) and a published schema
 (`docs/schemas/ccf.debt-profile.json`). The home for a product's debt
 configuration already exists, on the agent, declared and version-pinned.
 

@@ -6,7 +6,7 @@ must be claimed by a ``docs/surface-changes/15*-*.md`` fragment. This module
 lives in ``tests/`` rather than in a bespoke CI job because ``tests/`` is the
 already-always-on ``test`` job — so a surface change fails CI on the same
 commit that causes it, with no new CI wiring (the reasoning transferred
-verbatim from ``tests/http_api/test_openapi.py:9-14``).
+verbatim from ``tests/http_api/test_openapi.py``'s own module docstring).
 
 Why documented-drift rather than bare bytes-equality
 ----------------------------------------------------
@@ -209,18 +209,29 @@ def test_no_export_resolves_to_nothing() -> None:
     """The manifest must not depend on what the process imported first.
 
     A package listing submodules in ``__all__`` only binds them as attributes
-    once something imports them, so a bare ``getattr`` records ``NoneType``
-    when ``build_surface`` runs alone and ``module`` when the full suite has
-    already pulled the submodule in — drift with no source change. A
-    ``NoneType`` shape is the fingerprint of that failure mode, and there is
-    no legitimate reason for a declared export to resolve to nothing.
+    once something imports them, so a bare ``getattr`` records nothing when
+    ``build_surface`` runs alone and ``module`` when the full suite has already
+    pulled the submodule in — drift with no source change. There is no
+    legitimate reason for a declared export to resolve to nothing, and this is
+    the assertion that says so.
+
+    **The fingerprint is now a positive marker rather than an inferred type
+    name, and the change strengthens this gate rather than relaxing it.** It
+    used to read ``shape == "NoneType"``, which was exact only for as long as
+    no export's *value* was ``None``. Plan `15.6-07` ended that:
+    ``NO_SOURCE_REFRESH_RECENCY`` is a legitimate ``Final[... | None] = None``
+    sentinel that resolved perfectly well and recorded ``NoneType`` anyway, so
+    the old fingerprint had started reporting a real export as a resolution
+    failure. ``tools/dump_surface.py`` now returns its own ``UNRESOLVED``
+    marker, which ``None`` can never be mistaken for, and the two cases are
+    distinguishable again.
     """
     document = json.loads(_LIVE_MANIFEST.read_text(encoding="utf-8"))
     unresolved = [
         f"{module}.{name}"
         for module, record in document.items()
         for name, entry in record["exports"].items()
-        if entry["shape"] == "NoneType"
+        if entry["kind"] == "unresolved" or entry["shape"] == "unresolved"
     ]
     assert not unresolved, unresolved
 

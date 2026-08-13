@@ -73,6 +73,12 @@ from ccf.controlplane.artifact_base import (
     VersionedArtifact,
     validate_semver,
 )
+from ccf.halflife.assessment import (
+    NO_OBLIGATION_IN_FORCE,
+    NO_SIGNAL_OBLIGATIONS,
+    DebtSignal,
+    SignalObligations,
+)
 from ccf.operators.params import (
     SimilaritySelectParameters,
     TemporalAsOfParameters,
@@ -256,11 +262,58 @@ class DebtProfile(VersionedArtifact):
 
     Thresholds are :class:`~decimal.Decimal` in ``[0, 1]``, matching the D_c
     codomain, and are refused as floats upstream by the loader.
+
+    A fourth declared value, ``signal_obligations``, says what each routing
+    state *obliges* the deployment to do (D-IMPL-112 gap 3, D-IMPL-117;
+    SDK-defined per CLAUDE.md §11). It belongs here because the calibration
+    already lives here: this artifact owns the two bands that decide which state
+    a decision lands in, and it is already version-pinned per agent, so putting
+    the binding anywhere else would split one calibration across two documents
+    and two version lanes.
+
+    **The SDK owes the binding and none of its content.** Each entry names a
+    routing state — a type the SDK owns, ships and validates — and one opaque
+    reference the SDK never parses, never checks against a permitted set and
+    never acts on. Which operational duty a decision class attaches to a state
+    is user configuration; a list of duty names in this file would be the
+    CLAUDE.md §11 defect, and ``D-IMPL-117`` says so directly:
+    *"a signal-to-obligation binding that survives replay, and owes no
+    obligation vocabulary (that is user configuration ...)"*.
+
+    Unlike the three numbers it does carry a default, and the default is the
+    named positive sentinel rather than a value nobody chose: a profile that
+    binds nothing asserts so, which is exactly what every profile written before
+    this field existed was already asserting (D-IMPL-38).
     """
 
     risk_sensitivity: Decimal
     forced_llm_threshold: Decimal
     fail_closed_threshold: Decimal
+    signal_obligations: SignalObligations = NO_SIGNAL_OBLIGATIONS
+
+    def obligation_for(self, signal: DebtSignal) -> str:
+        """The obligation this profile binds to ``signal``, or the sentinel.
+
+        The *extract* half of what D-IMPL-117 says the SDK owes, and the whole
+        of it: the caller receives one reference and decides what to do with it,
+        because deciding here would be deciding what an obligation means.
+
+        Returns the reference bound to ``signal``, or
+        :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE` when no binding
+        covers it — never a neighbour's obligation, and never an error. A
+        partly-bound profile is the ordinary case rather than a defect, so an
+        unbound state resolves to the positive claim that nothing was bound.
+
+        Resolved from *this* profile instance, which is a resolved, versioned
+        artifact the caller pinned. Nothing here reaches the Control Plane for a
+        "latest" — that is precisely the substitution D-IMPL-26's exact-version
+        rule forbids, and it is why the resolved value travels on the product
+        rather than being looked up again at replay.
+        """
+        for binding in self.signal_obligations:
+            if binding.signal == signal:
+                return binding.obligation_ref
+        return NO_OBLIGATION_IN_FORCE
 
     @field_validator("risk_sensitivity")
     @classmethod

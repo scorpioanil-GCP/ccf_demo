@@ -43,6 +43,33 @@
 #   * `artifact_store_dirname` — where under the run root the file-backed
 #     ArtifactStore lives. A path relative to a caller-supplied root, so no
 #     absolute location enters a content-hashed artifact.
+#   * `source_refresh_recency` — WHEN EACH UPSTREAM SOURCE LAST PUBLISHED, and
+#     this deployment declares it because nobody else can. D-IMPL-112 recorded
+#     the gap in a KYC analyst's own terms: the delivered `debt.factors
+#     .freshness` says how much of the fabric's decay budget has been eaten,
+#     and says NOTHING about when the corporate registry last filed. The two
+#     are different facts and the second is not derivable from the first — a
+#     registry that publishes annually and filed last week is current, and one
+#     that publishes nightly and filed last week is three hundred and sixty
+#     four days of nothing.
+#
+#     DECLARED, not derived, and deliberately not read off any clock. Deriving
+#     it from `observed_time` on an envelope would collapse it back into the
+#     fact it exists to be distinct from — that is when the FABRIC learned
+#     something, not when the SOURCE published it — and computing it from the
+#     decision instant would make it a restatement of `now`. So it is authored
+#     here, by the only party that knows: the deployment that operates the
+#     feeds. The three references are this estate's own source system ids, the
+#     same ones `events.yaml` stamps on every envelope, so an auditor can join
+#     a refresh instant to the envelopes it covers by eye.
+#
+#     The SDK stores the pair and draws NO conclusion from it: no cadence, no
+#     staleness threshold, no comparison against anything (D-IMPL-117 — *"a
+#     slot for source-refresh recency, owing no definition of a source or a
+#     cadence"*; D-IMPL-101, which deferred salience). Whether a registry that
+#     last published in July is recent enough for a UBO decision taken in
+#     August is this deployment's judgement to express in its own reporting,
+#     and it is deliberately not expressed here.
 #
 # `plan_id` is deliberately NOT here. It lives in
 # `projection-requirements.yaml`, the document that states the plan's operator
@@ -78,3 +105,64 @@ declaration:
   # Quoted, and validated as a decimal, for the reason `debt-profile.yaml`
   # states: this figure reaches the product's content address.
   semantic_consistency: "0.97"
+
+  # [ADAPT] One entry per upstream source this deployment reads, keyed by the
+  # source system id `events.yaml` stamps on its envelopes. Every instant names
+  # its zone: the artifact loader refuses a zone-less timestamp rather than
+  # guessing one, and so does `SourceRefreshWindow` (D-IMPL-38). Quoted so the
+  # loader hands back text and `deployment.py` parses it explicitly — an
+  # implicit YAML timestamp would be a conversion nobody wrote down.
+  #
+  # A source may appear at most once. Two refresh instants for one source
+  # describe two facts claiming to be one, and this deployment does not author
+  # the pair rather than authoring it and picking a winner later.
+  #
+  # [ADAPT] THESE REFERENCES STOP HERE (D-IMPL-124).
+  #
+  # They are THIS DEPLOYMENT'S OWN RECORDS, and a deployment is entitled to
+  # know which of its sources published when — that is why they survive in this
+  # document with their human-interpretable names intact. What changed under
+  # `D-IMPL-124` is where they stop. `deployment.py` reads these three entries,
+  # reduces them to a single `SourceRefreshWindow` — the oldest and the newest
+  # of the instants below — and it is the WINDOW that crosses onto the
+  # delivered product.
+  #
+  # So a consumer of the delivered product learns when the oldest and the
+  # newest of this estate's sources published, and learns NOTHING about which
+  # systems those are, nor how many there are. The reason, in this deployment's
+  # own voice: a reader entitled to the answer is not thereby entitled to the
+  # inventory of systems that produced it. Both shipped delivery paths
+  # serialize the whole vessel verbatim to every principal who can reach the
+  # product, and nothing in the assembly path is principal-scoped — so a
+  # reference left on the vessel would tell every such reader that a system
+  # called `name-screening` exists and when it last published, with no check
+  # that they were entitled to that system's contents. Dave's ruling: *"the
+  # field's purpose is freshness, not source enumeration."*
+  #
+  # The COUNT stops here too, and deliberately: the window carries no
+  # cardinality, because how many systems this estate reads is source
+  # enumeration in aggregate — it names none of them and still discloses the
+  # size of the inventory — and it is not freshness.
+  #
+  # The reduction lives in `deployment.py` and NOT in the SDK. The SDK ships no
+  # reducer taking per-source instants, because a reducer there would put a
+  # source-bearing input type back on the public surface and would make the SDK
+  # the party deciding which of a deployment's sources count toward the window.
+  # The completeness of the set below is a fact only this deployment can
+  # vouch for.
+  source_refresh_recency:
+    # The company registry the entity and stake records come from. Batch-filed
+    # a week before the decision instant.
+    - source_ref: corporate-registry
+      refreshed_at: "2026-08-04T02:00:00+00:00"
+
+    # The KYC master file. Refreshed nightly, so the most current of the three.
+    - source_ref: kyc-registry
+      refreshed_at: "2026-08-10T23:45:00+00:00"
+
+    # The sanctions/PEP screening corpus, cut at the same boundary the
+    # similarity index version above names. The oldest of the three, and the
+    # one whose age a reader is most likely to want to know about — which is
+    # exactly the judgement this document declines to make for them.
+    - source_ref: name-screening
+      refreshed_at: "2026-08-01T00:00:00+00:00"

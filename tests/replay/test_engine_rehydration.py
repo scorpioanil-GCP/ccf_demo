@@ -28,19 +28,27 @@ from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.graph.protocols import GraphQuery, GraphView
+from ccf.controlplane.artifacts import DebtProfile
 from ccf.halflife.assessment import (
+    NO_DEBT_EVIDENCE,
+    NO_OBLIGATION_IN_FORCE,
+    NO_SOURCE_REFRESH_RECENCY,
     DebtAssessment,
+    DebtEvidencePointer,
     DebtFactors,
     DebtSignal,
     ScorerPin,
+    SignalObligation,
+    SourceRefreshWindow,
 )
 from ccf.operators.base import OperatorOutput
 from ccf.operators.categories import (
@@ -69,6 +77,7 @@ from ccf.replay.engine import (
     replay,
 )
 from ccf.replay.record import (
+    ContentGenerationPath,
     DecisionReplayRecord,
     PolicyBinding,
     build_replay_record,
@@ -114,6 +123,76 @@ DEBT = DebtAssessment(
         ),
     ),
 )
+
+#: What this fixture's debt points at (D-IMPL-118). Test-owned handles: the SDK
+#: enumerates none of them and interprets none of them. They are deliberately
+#: unreadable as identities — under D-IMPL-119 limb 4 a pointer a reading
+#: principal could interpret is refused outright until the assembly path is
+#: principal-scoped, so a fixture whose handles spelled entity URIs would be
+#: modelling the forbidden shape. Carried on the product, so it is inside the
+#: content address the engine checks — which is what makes this module the
+#: tripwire for the evidence landing as well as for the debt landing.
+EVIDENCE = (
+    DebtEvidencePointer(handle="h-7f3a"),
+    DebtEvidencePointer(handle="h-c105"),
+)
+
+#: The window this fixture's decision believed its sources last published in
+#: (D-IMPL-112 gap 2, D-IMPL-117, D-IMPL-124). Test-owned: the SDK enumerates
+#: no source vocabulary and declares no cadence, and these instants are
+#: deliberately unrelated to ``NOW`` — nothing about this fact may be computed
+#: from the fabric's clock, which is the whole reason it is a fact distinct
+#: from the freshness figure in ``DEBT`` above. Carried on the product, so it
+#: is inside the content address the engine checks, which is what makes this
+#: module the tripwire for the recency landing as well as for the debt and
+#: evidence landings.
+#:
+#: **Populated on purpose, and the population is load-bearing.** Plan 15.6-07
+#: measured that deleting this member's read-back over a *sentinel-only*
+#: fixture costs nothing, because sentinel-to-sentinel agrees; only a populated
+#: fixture makes the omission detectable. The two counts recorded at the
+#: read-back line below are what that measurement produced against this shape.
+RECENCY = SourceRefreshWindow(
+    oldest_source_refresh_at=datetime(2026, 1, 20, 4, 0, tzinfo=UTC),
+    newest_source_refresh_at=datetime(2026, 2, 28, 19, 30, tzinfo=UTC),
+)
+
+#: The calibration this fixture's decision was made under (D-IMPL-112 gap 3,
+#: D-IMPL-117). Test-owned: the SDK enumerates no obligation vocabulary, so
+#: every reference below is a token this module invented and the fabric never
+#: interprets. Both bands are bound, because the case that matters most —
+#: replay substitution — needs a second obligation to substitute *with*.
+PROFILE = DebtProfile(
+    semver="1.0.0",
+    risk_sensitivity=Decimal("1.0"),
+    forced_llm_threshold=Decimal("0.50"),
+    fail_closed_threshold=Decimal("0.90"),
+    signal_obligations=(
+        SignalObligation(signal=DebtSignal.OK, obligation_ref="test-duty-alpha"),
+        SignalObligation(
+            signal=DebtSignal.FORCED_LLM, obligation_ref="test-duty-beta"
+        ),
+    ),
+)
+
+#: The calibration as somebody later rebound it. Same bands, different duty on
+#: the state ``DEBT`` lands in — which is the whole substitution threat: a replay
+#: that resolved *this* profile rather than the one in force at decision time
+#: would reproduce a decision nobody made (D-IMPL-26's exact-version rule).
+REBOUND_PROFILE = PROFILE.model_copy(
+    update={
+        "signal_obligations": (
+            SignalObligation(
+                signal=DebtSignal.OK, obligation_ref="test-duty-rebound"
+            ),
+        )
+    }
+)
+
+#: The obligation in force when this fixture's decision was made — resolved off
+#: the pinned profile for the signal ``DEBT`` actually carries, never chosen by
+#: hand, so the fixture cannot drift from the mechanism it is testing.
+OBLIGATION = PROFILE.obligation_for(DEBT.signal)
 
 #: The intent and freshness this fixture's questions carry (D-IMPL-111 limb
 #: (b)). Test-owned tokens: the SDK enumerates neither, and the whole point of
@@ -251,6 +330,9 @@ class _Deployment:
             ),
             payload=execution.projection.payload,
             debt=DEBT,
+            debt_evidence=EVIDENCE,
+            source_refresh_recency=RECENCY,
+            obligation_in_force=OBLIGATION,
         )
 
 
@@ -308,6 +390,67 @@ class _Environment:
             ),
             payload=projection.payload,
             debt=record.content_generation_path.debt,
+            # And what that debt pointed at, for a harder reason (D-IMPL-118):
+            # the carrier is a top-level vessel field, sibling to `debt` rather
+            # than a member of it, so it does NOT ride the assessment back.
+            # `ProjectionOutput` carries exactly `(plan_id, payload)`, so
+            # dimension 5 is the only place a `(record, projection)` rehydrator
+            # can read it from — and omitting it diverges every replay.
+            #
+            # MEASURED, not inferred (plan 15.6-06 task 2): deleting this one
+            # line turns 8 of this module's 30 cases red with
+            # `ReplayDivergence`, including the three landings that predate it.
+            debt_evidence=record.content_generation_path.debt_evidence,
+            # And when its sources last published, for the same reason again
+            # (D-IMPL-117 gap 2, plan 15.6-07): the second Track B member takes
+            # the same top-level placement `D-IMPL-118` ruled for all three, so
+            # it does not ride `debt` back either and dimension 5 is the only
+            # place a `(record, projection)` rehydrator can read it from.
+            #
+            # MEASURED, not inferred, and the measurement has a precondition
+            # worth recording (plan 15.6-07, RE-MEASURED against the reshaped
+            # window by plan 15.6-13 under D-IMPL-124 — the earlier figures
+            # were taken against a per-source tuple and are superseded).
+            #
+            # Deleted while the fixture product carried the SENTINEL, this line
+            # costs NOTHING — **0 of 39 red** (39 passed, 0 failed; the 5 cases
+            # that assert a populated value were deselected) — because
+            # sentinel-to-sentinel agrees. It is the fixture's POPULATED
+            # `RECENCY` above that makes the omission detectable: with the
+            # window populated, deleting this line turns **13 of this module's
+            # 44 cases red** with `ReplayDivergence`, including the `debt`,
+            # `debt_evidence`, `obligation_in_force` and `request` landings
+            # that predate it. A read-back seam is only ever proven by a
+            # populated value, and reporting only the populated figure would
+            # hide the reason the discipline exists.
+            source_refresh_recency=(
+                record.content_generation_path.source_refresh_recency
+            ),
+            # And what the signal obliged, for the same reason a third time
+            # (D-IMPL-112 gap 3, D-IMPL-117, plan 15.6-08): the third Track B
+            # member takes the same top-level placement `D-IMPL-118` ruled for
+            # all three, so it does not ride `debt` back either.
+            #
+            # This one is the seam that matters most, because the alternative
+            # is not "omit it" but "resolve it again". A rehydrator that read
+            # today's `DebtProfile` instead of this line would reproduce the
+            # obligation in force NOW against a decision made under the one in
+            # force THEN — the substitution `D-IMPL-26`'s exact-version rule
+            # forbids, and the reason the resolved value travels on the product
+            # rather than being looked up a second time.
+            #
+            # MEASURED, not inferred, with the precondition plan 15.6-07
+            # recorded and confirmed a second time here. Deleted while the
+            # vessel carried the sentinel, this line costs NOTHING — 37 passed
+            # and 0 failed (the 6 cases that assert a populated value were
+            # deselected), because sentinel-to-sentinel agrees. It is the
+            # populated `OBLIGATION` above that makes the omission detectable:
+            # with a real binding in force, deleting this line turns 13 of this
+            # module's 43 cases red with `ReplayDivergence`, including the
+            # `debt`, `debt_evidence`, `source_refresh_recency` and `request`
+            # landings that predate it. A read-back seam is only ever proven by
+            # a populated value.
+            obligation_in_force=record.content_generation_path.obligation_in_force,
         )
 
 
@@ -644,6 +787,802 @@ def test_a_record_written_before_the_debt_seam_still_replays(
     outcome = _replay(deployment, served.replay_ref.content_address)
 
     assert outcome.product.debt is None
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+
+
+# --- what the debt points at, against this same tripwire (D-IMPL-118) ------
+
+
+def test_the_delivered_product_carries_what_its_debt_points_at(
+    deployment: _Deployment,
+) -> None:
+    """D-IMPL-118 `qa-toplevel`: on the vessel, and beside `debt` not inside it.
+
+    Asserted on the vessel because the vessel is what every door serializes.
+    The second assertion is the one that rules out the placement the ruling
+    forwent: under `qa-nested` the pointers would be reachable at
+    ``product.debt.<member>`` and would have ridden the assessment into the
+    record for free. They are not, and that is why the reconstruction seam
+    below has to exist at all.
+    """
+    execution = deployment.execute()
+    product = deployment.candidate(execution)
+
+    assert product.debt_evidence == EVIDENCE
+    assert "debt_evidence" in type(product).model_fields
+    assert product.debt is not None
+    assert "debt_evidence" not in type(product.debt).model_fields
+
+
+def test_the_evidence_lands_on_dimension_five_and_mints_no_sixth(
+    deployment: _Deployment,
+) -> None:
+    """INV-CH7-80: the five dimensions are inviolate.
+
+    The extension lands *inside* dimension 5, beside the ``debt`` it explains,
+    and neither the record nor dimension 4 gains a member. What this case and
+    only this case rules out: a reconstruction seam bolted on as a sixth
+    dimension, which would have satisfied replay and broken the invariant.
+    """
+    _address, record = _serve(deployment)
+
+    assert record.content_generation_path.debt_evidence == EVIDENCE
+    assert "debt_evidence" in type(record.content_generation_path).model_fields
+    assert "debt_evidence" not in type(record).model_fields
+    assert "debt_evidence" not in type(record.perspective_conditioning).model_fields
+
+
+def test_what_the_debt_pointed_at_replays_byte_exactly(
+    deployment: _Deployment,
+) -> None:
+    """The D-IMPL-118 obligation, executed: the address moves *and* rebuilds.
+
+    The ruling authorized a third content-address move on the express
+    condition that the vessel field be carried on dimension 5 and read back by
+    every rehydrator — without which *"every replay of every product raises
+    `ReplayDivergence`"*. This is that condition, run against the real serve
+    path and the real engine, and run after the graph has moved on, because a
+    reproduction from unchanged state proves almost nothing.
+
+    Both recomputations are asserted rather than trusted: the product against
+    the address the record names, and the record against the address the store
+    resolved it from. The second is where the move is *shown* reconstructible
+    instead of asserted.
+    """
+    address, record = _serve(deployment)
+
+    deployment.handle.worker.ingest(
+        _envelope(
+            envelope_id="env-evidence-later",
+            payload={
+                "counterparty_lei": "LEI-AAA",
+                "counterparty_name": "Northwind Holdings SA",
+                "jurisdiction": "CH",
+            },
+            observed_time=T_JULY,
+        )
+    )
+
+    outcome = _replay(deployment, address)
+
+    assert outcome.product.debt_evidence == EVIDENCE
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+    assert content_hash(record) == address
+
+
+def test_a_rehydration_that_drops_the_evidence_is_divergence(
+    deployment: _Deployment,
+) -> None:
+    """The adversarial half: dropping the pointers is *detected*, not tolerated.
+
+    The field is inside the content address, so a rehydrator that returned the
+    vessel without it returns a different decision. A silent drop would be
+    indistinguishable from a decision made with no evidence at all — which is
+    exactly the artifact the ``NO_DEBT_EVIDENCE`` sentinel exists to keep
+    distinct.
+    """
+
+    class _EvidenceBlind(_Environment):
+        def rehydrate_product(
+            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
+        ) -> ContextProductContract:
+            product = super().rehydrate_product(record=record, projection=projection)
+            return product.model_copy(update={"debt_evidence": NO_DEBT_EVIDENCE})
+
+    address, _record = _serve(deployment)
+    with pytest.raises(ReplayDivergence, match="product"):
+        _replay(deployment, address, environment=_EvidenceBlind(deployment))
+
+
+def test_a_rehydration_that_swaps_one_pointer_is_divergence(
+    deployment: _Deployment,
+) -> None:
+    """One handle changed is a different decision, and is caught as one.
+
+    Stronger than the drop case and not implied by it: a rehydrator that
+    returned the right *number* of pointers would satisfy any cardinality
+    check. What this rules out is an implementation that treats the carrier as
+    a count or a presence flag rather than as bytes inside the address.
+    """
+    swapped = (EVIDENCE[0], DebtEvidencePointer(handle="h-not-the-one"))
+
+    class _EvidenceSwapped(_Environment):
+        def rehydrate_product(
+            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
+        ) -> ContextProductContract:
+            product = super().rehydrate_product(record=record, projection=projection)
+            return product.model_copy(update={"debt_evidence": swapped})
+
+    address, _record = _serve(deployment)
+    with pytest.raises(ReplayDivergence, match="product"):
+        _replay(deployment, address, environment=_EvidenceSwapped(deployment))
+
+
+def test_a_record_written_before_the_evidence_seam_still_replays(
+    deployment: _Deployment,
+) -> None:
+    """The sentinel's compatibility promise (the ``debt`` case's lineage).
+
+    A product assembled with no pointers, and a record that therefore pins
+    none, still reproduce: ``NO_DEBT_EVIDENCE`` on both sides is the same
+    positive claim and the two agree. A change that made the carrier required
+    would break every pre-seam record instead — which is the cost this case
+    prices and the reason the field defaults rather than demands.
+    """
+    execution = deployment.execute()
+    product_class = deployment.product_class()
+    gated = run_gates(
+        deployment.candidate(execution).model_copy(
+            update={"debt_evidence": NO_DEBT_EVIDENCE}
+        ),
+        engine_resolved=execution.operators_invoked,
+        now=NOW,
+        registry=deployment.registry,
+        product_class=product_class,
+    )
+    assert isinstance(gated, ServableProduct)
+    record = build_replay_record(
+        execution=execution,
+        product=gated.product,
+        perspective=deployment.perspective(),
+        policy_bindings=(
+            PolicyBinding(key=POLICY_BUNDLE_KEY, version=deployment.policy_version),
+        ),
+        assembly_mode="algorithmic",
+        recorded_at=NOW,
+    )
+    served = serve(
+        product=gated,
+        record=record,
+        replay_writer=ReplayWriter(
+            store=deployment.store, artifact_class=ARTIFACT_CLASS
+        ),
+    )
+
+    assert record.content_generation_path.debt_evidence == NO_DEBT_EVIDENCE
+
+    outcome = _replay(deployment, served.replay_ref.content_address)
+
+    assert outcome.product.debt_evidence == NO_DEBT_EVIDENCE
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+
+
+# --- when the sources last published, same tripwire (D-IMPL-117 gap 2) -----
+
+
+def test_the_delivered_product_carries_when_its_sources_last_published(
+    deployment: _Deployment,
+) -> None:
+    """D-IMPL-118 again: on the vessel, and beside `debt` rather than inside it.
+
+    The ruling is explicit that its four measured placements *"price all three
+    Track B vessel-carried members identically"*, so this member takes the same
+    branch the evidence carrier took one plan earlier. The second and third
+    assertions rule out the two placements that would have been cheaper: nested
+    inside `DebtAssessment`, where it would have ridden the assessment into the
+    record for free, and folded into `DebtFactors`, where it would have become
+    an input to a number the SDK computes rather than a fact it merely carries.
+    """
+    execution = deployment.execute()
+    product = deployment.candidate(execution)
+
+    assert product.source_refresh_recency == RECENCY
+    assert "source_refresh_recency" in type(product).model_fields
+    assert product.debt is not None
+    assert "source_refresh_recency" not in type(product.debt).model_fields
+    assert "source_refresh_recency" not in type(product.debt.factors).model_fields
+
+
+def test_the_recency_lands_on_dimension_five_and_mints_no_sixth(
+    deployment: _Deployment,
+) -> None:
+    """INV-CH7-80: the five dimensions are inviolate.
+
+    The extension lands *inside* dimension 5, beside the ``debt`` whose
+    freshness factor it is deliberately not, and neither the record nor
+    dimension 4 gains a member. What this case and only this case rules out: a
+    second reconstruction seam bolted on as a sixth dimension, which would have
+    satisfied replay and broken the invariant.
+    """
+    _address, record = _serve(deployment)
+
+    assert record.content_generation_path.source_refresh_recency == RECENCY
+    assert (
+        "source_refresh_recency"
+        in type(record.content_generation_path).model_fields
+    )
+    assert "source_refresh_recency" not in type(record).model_fields
+    assert (
+        "source_refresh_recency"
+        not in type(record.perspective_conditioning).model_fields
+    )
+
+
+def test_when_the_sources_last_published_replays_byte_exactly(
+    deployment: _Deployment,
+) -> None:
+    """The D-IMPL-118 obligation, executed a second time.
+
+    The ruling authorized the address move on the express condition that the
+    vessel field be carried on dimension 5 and read back by every rehydrator —
+    without which *"every replay of every product raises `ReplayDivergence`"*.
+    This is that condition for the recency slot, run against the real serve
+    path and the real engine, and run **after the graph has moved on four
+    months**, because a reproduction from unchanged state proves almost
+    nothing.
+
+    The staleness of the *graph* moving is what makes this case pointed for
+    this field in particular: the fabric's own decay has advanced, and the
+    recorded refresh instants have not — which is exactly the independence
+    between the two facts that the slot exists to express.
+
+    Both recomputations are asserted rather than trusted: the product against
+    the address the record names, and the record against the address the store
+    resolved it from.
+    """
+    address, record = _serve(deployment)
+
+    deployment.handle.worker.ingest(
+        _envelope(
+            envelope_id="env-recency-later",
+            payload={
+                "counterparty_lei": "LEI-AAA",
+                "counterparty_name": "Northwind Holdings SA",
+                "jurisdiction": "CH",
+            },
+            observed_time=T_JULY,
+        )
+    )
+
+    outcome = _replay(deployment, address)
+
+    assert outcome.product.source_refresh_recency == RECENCY
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+    assert content_hash(record) == address
+
+
+def test_a_rehydration_that_drops_the_recency_is_divergence(
+    deployment: _Deployment,
+) -> None:
+    """The adversarial half: dropping the instants is *detected*, not tolerated.
+
+    The field is inside the content address, so a rehydrator that returned the
+    vessel without it returns a different decision. A silent drop would be
+    indistinguishable from a decision made by a deployment that knew nothing
+    about its sources' publication schedule — which is exactly the artifact the
+    ``NO_SOURCE_REFRESH_RECENCY`` sentinel exists to keep distinct.
+    """
+
+    class _RecencyBlind(_Environment):
+        def rehydrate_product(
+            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
+        ) -> ContextProductContract:
+            product = super().rehydrate_product(record=record, projection=projection)
+            return product.model_copy(
+                update={"source_refresh_recency": NO_SOURCE_REFRESH_RECENCY}
+            )
+
+    address, _record = _serve(deployment)
+    with pytest.raises(ReplayDivergence, match="product"):
+        _replay(deployment, address, environment=_RecencyBlind(deployment))
+
+
+def test_a_rehydration_that_moves_one_refresh_instant_is_divergence(
+    deployment: _Deployment,
+) -> None:
+    """A decision made against a January filing is not one made against February.
+
+    Stronger than the drop case and not implied by it: a rehydrator that
+    returned a window of the right *shape* — two tz-aware instants, oldest not
+    after newest — would satisfy any structural check. What this rules out is
+    an implementation that treats the slot as a shape to be reproduced rather
+    than a value to be carried, and it is the case that makes each instant
+    load-bearing rather than decorative. Only the oldest end moves, so a
+    rehydrator that carried the newest instant and re-derived the other is
+    caught too.
+    """
+    moved = SourceRefreshWindow(
+        oldest_source_refresh_at=(
+            RECENCY.oldest_source_refresh_at + timedelta(days=30)
+        ),
+        newest_source_refresh_at=RECENCY.newest_source_refresh_at,
+    )
+
+    class _RecencyMoved(_Environment):
+        def rehydrate_product(
+            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
+        ) -> ContextProductContract:
+            product = super().rehydrate_product(record=record, projection=projection)
+            return product.model_copy(update={"source_refresh_recency": moved})
+
+    address, _record = _serve(deployment)
+    with pytest.raises(ReplayDivergence, match="product"):
+        _replay(deployment, address, environment=_RecencyMoved(deployment))
+
+
+#: The s1-01 governance artifact, read rather than transcribed. The three
+#: human-interpretable references it declares are the exact strings D-IMPL-124
+#: rules must not leave the vessel, and reading them from the artifact is what
+#: keeps the case below honest: transcribing them here would make it assert
+#: that this module agrees with itself, and would leave a renamed source
+#: silently unchecked (CLAUDE.md §6.4).
+_S1_01_GOVERNANCE = (
+    Path(__file__).resolve().parents[2]
+    / "examples"
+    / "s1-01-hello-context-product"
+    / "artifacts"
+    / "product-governance.yaml"
+)
+
+
+def _declared_source_references_and_window() -> tuple[
+    tuple[str, ...], SourceRefreshWindow
+]:
+    """Read s1-01's declared per-source entries; return its names and its window."""
+    import yaml  # noqa: PLC0415
+
+    declaration = yaml.safe_load(_S1_01_GOVERNANCE.read_text(encoding="utf-8"))
+    entries = declaration["declaration"]["source_refresh_recency"]
+    instants = [datetime.fromisoformat(entry["refreshed_at"]) for entry in entries]
+    return (
+        tuple(entry["source_ref"] for entry in entries),
+        SourceRefreshWindow(
+            oldest_source_refresh_at=min(instants),
+            newest_source_refresh_at=max(instants),
+        ),
+    )
+
+
+def test_no_source_identity_reaches_the_delivered_product(
+    deployment: _Deployment,
+) -> None:
+    """D-IMPL-124's operative sentence, as a property rather than a promise.
+
+    Dave's ruling: *"no `source_ref` strings leave the vessel."* Asserted
+    mechanically, in both the directions that can fail.
+
+    The **value** direction: this case populates the vessel with the window
+    reduced from s1-01's own three declared entries — `corporate-registry`,
+    `kyc-registry`, `name-screening` — serves it through the real gate-and-
+    serve path, and asserts that none of those three references appears
+    anywhere in the delivered `canonical_bytes`. Both shipped delivery surfaces
+    return exactly these bytes, so what this checks is what every principal who
+    can reach the product actually receives. The references are read out of the
+    artifact rather than transcribed, so renaming a source in the deployment
+    cannot quietly retire the assertion.
+
+    The **type** direction: no field reachable from the vessel or from replay
+    dimension 5 is *typed* to carry a source reference at all. This is the half
+    a value check cannot give, because a product that merely happened not to
+    populate an identity-bearing member would pass the first assertion while
+    leaving the channel open. Walking the reachable contract types is what
+    makes the closure structural — the shape is unavailable, not merely
+    unused, which is why D-IMPL-124 deleted `SourceRefresh` rather than
+    deprecating it.
+
+    **What this does not claim.** Two instants are still information: a reader
+    still learns that *some* source published at each end of the window. What
+    is closed is the identity channel — after this, no reader can learn that a
+    system called `name-screening` exists, nor when that system in particular
+    last published.
+    """
+    references, window = _declared_source_references_and_window()
+    assert len(references) == 3
+
+    execution = deployment.execute()
+    gated = run_gates(
+        deployment.candidate(execution).model_copy(
+            update={"source_refresh_recency": window}
+        ),
+        engine_resolved=execution.operators_invoked,
+        now=NOW,
+        registry=deployment.registry,
+        product_class=deployment.product_class(),
+    )
+    assert isinstance(gated, ServableProduct)
+
+    delivered = canonical_bytes(gated.product)
+    assert gated.product.source_refresh_recency == window
+    for reference in references:
+        assert reference.encode() not in delivered
+
+    identity_bearing = {
+        f"{model.__name__}.{name}"
+        for model in _reachable_contract_types(
+            ContextProductContract, ContentGenerationPath
+        )
+        for name in model.model_fields
+        if "source_ref" == name or name.endswith("_source_ref")
+    }
+    assert identity_bearing == set()
+
+    assert set(SourceRefreshWindow.model_fields) == {
+        "oldest_source_refresh_at",
+        "newest_source_refresh_at",
+    }
+
+
+def _reachable_contract_types(*roots: type[CCFContract]) -> set[type[CCFContract]]:
+    """Every contract type reachable from these roots through their annotations.
+
+    A shallow field scan would miss an identity nested one structure down,
+    which is precisely where the deleted per-source entry used to live — so the
+    walk is transitive, and it reads annotations rather than values because a
+    slot nobody populated is still a slot.
+    """
+    seen: set[type[CCFContract]] = set()
+    pending = list(roots)
+    while pending:
+        model = pending.pop()
+        if model in seen:
+            continue
+        seen.add(model)
+        for field in model.model_fields.values():
+            for candidate in _annotation_types(field.annotation):
+                if (
+                    isinstance(candidate, type)
+                    and issubclass(candidate, CCFContract)
+                    and candidate not in seen
+                ):
+                    pending.append(candidate)
+    return seen
+
+
+def _annotation_types(annotation: Any) -> Iterator[Any]:
+    """Flatten an annotation into the concrete types it can resolve to."""
+    yield annotation
+    for argument in get_args(annotation):
+        yield from _annotation_types(argument)
+
+
+def test_a_record_written_before_the_recency_seam_still_replays(
+    deployment: _Deployment,
+) -> None:
+    """The sentinel's compatibility promise (the ``debt_evidence`` lineage).
+
+    A product assembled with no refresh instants, and a record that therefore
+    pins none, still reproduce: ``NO_SOURCE_REFRESH_RECENCY`` on both sides is
+    the same positive claim and the two agree. A change that made the slot
+    required would break every pre-seam record instead — which is the cost this
+    case prices and the reason the field defaults rather than demands.
+    """
+    execution = deployment.execute()
+    product_class = deployment.product_class()
+    gated = run_gates(
+        deployment.candidate(execution).model_copy(
+            update={"source_refresh_recency": NO_SOURCE_REFRESH_RECENCY}
+        ),
+        engine_resolved=execution.operators_invoked,
+        now=NOW,
+        registry=deployment.registry,
+        product_class=product_class,
+    )
+    assert isinstance(gated, ServableProduct)
+    record = build_replay_record(
+        execution=execution,
+        product=gated.product,
+        perspective=deployment.perspective(),
+        policy_bindings=(
+            PolicyBinding(key=POLICY_BUNDLE_KEY, version=deployment.policy_version),
+        ),
+        assembly_mode="algorithmic",
+        recorded_at=NOW,
+    )
+    served = serve(
+        product=gated,
+        record=record,
+        replay_writer=ReplayWriter(
+            store=deployment.store, artifact_class=ARTIFACT_CLASS
+        ),
+    )
+
+    assert (
+        record.content_generation_path.source_refresh_recency
+        == NO_SOURCE_REFRESH_RECENCY
+    )
+
+    outcome = _replay(deployment, served.replay_ref.content_address)
+
+    assert outcome.product.source_refresh_recency == NO_SOURCE_REFRESH_RECENCY
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+
+
+# --- what the signal obliged, same tripwire (D-IMPL-112 gap 3) -------------
+
+
+def test_the_delivered_product_carries_what_its_signal_obliged(
+    deployment: _Deployment,
+) -> None:
+    """D-IMPL-118 a third time: on the vessel, and beside `debt` not inside it.
+
+    The ruling's four measured placements *"price all three Track B
+    vessel-carried members identically"*, so this member takes the branch its
+    two siblings took. The later assertions rule out the placements that would
+    have been cheaper or more obvious: nested inside `DebtAssessment`, where it
+    would have ridden the assessment into the record for free, and on
+    `DebtProfile` alone, where the *calibration* legitimately lives but the
+    resolved value would then have to be looked up again at replay.
+
+    The last assertion is this field's own: the vessel carries the obligation
+    for the signal the decision actually landed in, and **not** the mapping. A
+    consumer holding the whole mapping would be holding the calibration rather
+    than the decision.
+    """
+    execution = deployment.execute()
+    product = deployment.candidate(execution)
+
+    assert product.obligation_in_force == OBLIGATION
+    assert "obligation_in_force" in type(product).model_fields
+    assert product.debt is not None
+    assert "obligation_in_force" not in type(product.debt).model_fields
+    assert "signal_obligations" not in type(product).model_fields
+    assert product.obligation_in_force == PROFILE.obligation_for(DebtSignal.OK)
+    assert product.obligation_in_force != PROFILE.obligation_for(
+        DebtSignal.FORCED_LLM
+    )
+
+
+def test_the_obligation_lands_on_dimension_five_and_mints_no_sixth(
+    deployment: _Deployment,
+) -> None:
+    """INV-CH7-80: the five dimensions are inviolate.
+
+    The extension lands *inside* dimension 5, beside the ``debt`` whose routing
+    state it answers to, and neither the record nor dimension 4 gains a member.
+    What this case and only this case rules out: a second reconstruction seam
+    bolted on as a sixth dimension, which would have satisfied replay and
+    broken the invariant.
+    """
+    _address, record = _serve(deployment)
+
+    assert record.content_generation_path.obligation_in_force == OBLIGATION
+    assert (
+        "obligation_in_force" in type(record.content_generation_path).model_fields
+    )
+    assert "obligation_in_force" not in type(record).model_fields
+    assert (
+        "obligation_in_force"
+        not in type(record.perspective_conditioning).model_fields
+    )
+
+
+@pytest.mark.parametrize(
+    "blank", ["", "   ", "\t"], ids=["empty", "spaces", "tab"]
+)
+def test_a_blank_obligation_is_refused_on_dimension_five(
+    deployment: _Deployment, blank: str
+) -> None:
+    """The record is the other door into the vessel's third state.
+
+    The close-time cross-AI panel found ``ContextProductContract`` admitting a
+    blank obligation; dimension 5 carries the same field, and
+    ``replay_product`` reads it back off *this* structure. A gate on the vessel
+    alone would leave a stored record admissible and hand the blank to the
+    rehydrated product from the one side that was never checked — which is the
+    deferral CLAUDE.md §11 refuses. Asserted through ``model_validate``, the
+    door a record on disk actually comes through.
+    """
+    _address, record = _serve(deployment)
+    payload = record.content_generation_path.model_dump()
+    payload["obligation_in_force"] = blank
+
+    with pytest.raises(ValueError, match="obligation in force must be"):
+        ContentGenerationPath.model_validate(payload)
+
+
+def test_what_the_signal_obliged_replays_byte_exactly(
+    deployment: _Deployment,
+) -> None:
+    """The D-IMPL-118 obligation, executed a third time.
+
+    The ruling authorized the address move on the express condition that the
+    vessel field be carried on dimension 5 and read back by every rehydrator —
+    without which *"every replay of every product raises `ReplayDivergence`"*.
+    This is that condition for the obligation, run against the real serve path
+    and the real engine, and run **after the graph has moved on four months**,
+    because a reproduction from unchanged state proves almost nothing.
+
+    Both recomputations are asserted rather than trusted: the product against
+    the address the record names, and the record against the address the store
+    resolved it from.
+    """
+    address, record = _serve(deployment)
+
+    deployment.handle.worker.ingest(
+        _envelope(
+            envelope_id="env-obligation-later",
+            payload={
+                "counterparty_lei": "LEI-AAA",
+                "counterparty_name": "Northwind Holdings SA",
+                "jurisdiction": "CH",
+            },
+            observed_time=T_JULY,
+        )
+    )
+
+    outcome = _replay(deployment, address)
+
+    assert outcome.product.obligation_in_force == OBLIGATION
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+    assert content_hash(record) == address
+
+
+def test_a_replay_reproduces_the_obligation_in_force_at_decision_time(
+    deployment: _Deployment,
+) -> None:
+    """**The case this whole task exists for.** Rebinding does not rewrite history.
+
+    A decision is served under one calibration; somebody then rebinds the
+    profile so the same signal obliges something else. The replay must
+    reproduce what the decision was actually under — `D-IMPL-26`: replay
+    resolves *exact* artifact versions, never "latest". Anything else is a
+    tampering-and-repudiation failure: the record would answer *"this decision
+    was obliged to do X"* with today's X.
+
+    The rebound profile is registered into the deployment's Control Plane, so
+    the substitution is available to be made and is measurably not made. Both
+    obligations are asserted — the recorded one reproduces AND the current one
+    does not — because asserting only the first would pass against a rebinding
+    that never took effect.
+    """
+    address, record = _serve(deployment)
+    rebound_version = deployment.registry.register(
+        "test/debt-profile", REBOUND_PROFILE.model_dump()
+    )
+
+    outcome = _replay(deployment, address)
+
+    assert rebound_version
+    assert REBOUND_PROFILE.obligation_for(DEBT.signal) != OBLIGATION
+    assert outcome.product.obligation_in_force == OBLIGATION
+    assert outcome.product.obligation_in_force != REBOUND_PROFILE.obligation_for(
+        DEBT.signal
+    )
+    assert record.content_generation_path.obligation_in_force == OBLIGATION
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+
+
+def test_a_rehydration_that_resolves_todays_binding_is_divergence(
+    deployment: _Deployment,
+) -> None:
+    """The substitution attempted, and refused by the address check.
+
+    Stronger than the drop case below and not implied by it: this rehydrator
+    returns a *plausible* obligation — the one the current calibration binds to
+    the very same signal — rather than an empty one. Nothing about the returned
+    product looks wrong on its face; only the content address does. That is the
+    property `D-IMPL-100` bought by putting the value inside the address, and
+    this is the case that shows it catching a substitution rather than a typo.
+    """
+
+    class _ResolvesToday(_Environment):
+        def rehydrate_product(
+            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
+        ) -> ContextProductContract:
+            product = super().rehydrate_product(record=record, projection=projection)
+            assert product.debt is not None
+            return product.model_copy(
+                update={
+                    "obligation_in_force": REBOUND_PROFILE.obligation_for(
+                        product.debt.signal
+                    )
+                }
+            )
+
+    address, _record = _serve(deployment)
+    with pytest.raises(ReplayDivergence, match="product"):
+        _replay(deployment, address, environment=_ResolvesToday(deployment))
+
+
+def test_a_rehydration_that_drops_the_obligation_is_divergence(
+    deployment: _Deployment,
+) -> None:
+    """The adversarial half: dropping it is *detected*, not tolerated.
+
+    The field is inside the content address, so a rehydrator that returned the
+    vessel without it returns a different decision. A silent drop would be
+    indistinguishable from a decision made under a calibration that bound
+    nothing — which is exactly the artifact the ``NO_OBLIGATION_IN_FORCE``
+    sentinel exists to keep distinct.
+    """
+
+    class _ObligationBlind(_Environment):
+        def rehydrate_product(
+            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
+        ) -> ContextProductContract:
+            product = super().rehydrate_product(record=record, projection=projection)
+            return product.model_copy(
+                update={"obligation_in_force": NO_OBLIGATION_IN_FORCE}
+            )
+
+    address, _record = _serve(deployment)
+    with pytest.raises(ReplayDivergence, match="product"):
+        _replay(deployment, address, environment=_ObligationBlind(deployment))
+
+
+def test_a_record_written_before_the_obligation_seam_still_replays(
+    deployment: _Deployment,
+) -> None:
+    """The sentinel's compatibility promise (the ``debt_evidence`` lineage).
+
+    A product assembled under a calibration that bound nothing, and a record
+    that therefore pins nothing, still reproduce: ``NO_OBLIGATION_IN_FORCE`` on
+    both sides is the same positive claim and the two agree. A change that made
+    the field required would break every pre-seam record instead — which is the
+    cost this case prices and the reason the field defaults rather than demands.
+    """
+    execution = deployment.execute()
+    product_class = deployment.product_class()
+    gated = run_gates(
+        deployment.candidate(execution).model_copy(
+            update={"obligation_in_force": NO_OBLIGATION_IN_FORCE}
+        ),
+        engine_resolved=execution.operators_invoked,
+        now=NOW,
+        registry=deployment.registry,
+        product_class=product_class,
+    )
+    assert isinstance(gated, ServableProduct)
+    record = build_replay_record(
+        execution=execution,
+        product=gated.product,
+        perspective=deployment.perspective(),
+        policy_bindings=(
+            PolicyBinding(key=POLICY_BUNDLE_KEY, version=deployment.policy_version),
+        ),
+        assembly_mode="algorithmic",
+        recorded_at=NOW,
+    )
+    served = serve(
+        product=gated,
+        record=record,
+        replay_writer=ReplayWriter(
+            store=deployment.store, artifact_class=ARTIFACT_CLASS
+        ),
+    )
+
+    assert (
+        record.content_generation_path.obligation_in_force
+        == NO_OBLIGATION_IN_FORCE
+    )
+
+    outcome = _replay(deployment, served.replay_ref.content_address)
+
+    assert outcome.product.obligation_in_force == NO_OBLIGATION_IN_FORCE
     assert content_hash(outcome.product) == (
         record.content_generation_path.product_content_address
     )

@@ -105,13 +105,13 @@ delivery path serializes ``servable.product`` and **none** reads
 reached an in-process caller and no wire consumer at all. Because debt is on
 the vessel, all three carry it with **no code change at any door**:
 
-=================================================  ==============  ===========
-Door                                               Serializes      Carries D_c
-=================================================  ==============  ===========
-``ccf_runtime/mcp/egress.py:270``                  the vessel      yes
-``ccf_runtime/http_api/routes/product.py:112``     the vessel      yes
-``ccf_runtime/mcp/experience.py:632``              the vessel      yes
-=================================================  ==============  ===========
+==================================================================  ==============  ===========
+Door                                                                Serializes      Carries D_c
+==================================================================  ==============  ===========
+``runtime/ccf_runtime/mcp/egress.py::build_egress_server``          the vessel      yes
+``runtime/ccf_runtime/http_api/routes/product.py::build_router``    the vessel      yes
+``runtime/ccf_runtime/mcp/experience.py::build_experience_server``  the vessel      yes
+==================================================================  ==============  ===========
 
 No door is structurally unable to carry it, so nothing is carried forward as a
 residual on that account. ``tests/invariants/test_replay_by_construction.py``
@@ -127,11 +127,75 @@ before this field existed differs from the one the same product produces now.
 That is authorized by D-IMPL-100 on one condition, which is structural rather
 than procedural: the *record* carries the same assessment on dimension 5, and
 :meth:`~ccf.replay.engine.ReplayEnvironment.rehydrate_product` reads it back, so
-the engine's check at ``src/ccf/replay/engine.py:472-477`` passes on identical
+the engine's check inside ``src/ccf/replay/engine.py::replay`` passes on
+identical
 bytes rather than on a re-measurement. Debt is **never** re-derived at replay:
 it is computed from observations and a ``now`` neither the record nor the
 projection re-derives, so a rehydrator that re-measured it would produce a
 different decision wearing this one's identifier.
+
+**What debt points at rides beside it, and the address moves a second time**
+(D-IMPL-118). ``debt_evidence`` is a *top-level* field, a sibling of ``debt``
+rather than a member of the assessment. The nested placement was the cheaper
+measured option — it would have ridden ``ContentGenerationPath.debt`` and
+reconstructed for nothing — and was declined, so the sibling pays for its own
+identity: dimension 5 carries a matching member, and every implementation of
+:meth:`~ccf.replay.engine.ReplayEnvironment.rehydrate_product` reads it back.
+Without both halves every replay of every product would raise
+``ReplayDivergence``, because
+:func:`~ccf.contracts.canonical.canonical_bytes` walks a model field-by-field
+over ``type(value).model_fields`` and the new field is therefore in the
+address. D-IMPL-117 authorized that move in advance — *"surface impact is
+accepted"* — so it is a ruled cost rather than a defect.
+
+**When the sources last published rides beside both, and the address moves a
+third time** (D-IMPL-112 gap 2, D-IMPL-117, D-IMPL-118).
+``source_refresh_recency`` is the second sibling of ``debt`` and takes the same
+ruled placement, which D-IMPL-118 says *"price[s] all three Track B
+vessel-carried members identically"* — so it pays the same price: a matching
+member on dimension 5 and the same read-back in every ``rehydrate_product``.
+It is here rather than folded into ``debt.factors.freshness`` because the two
+are different facts. F is a *derived* figure — how much of a decay budget the
+fabric's own curve has eaten — while this is an *observed* one about the world
+outside the fabric. A consumer shown only F cannot tell a source that publishes
+daily and is two days late from one that publishes annually and is current.
+The SDK stores the instants and draws no conclusion from them; comparing a
+refresh against a cadence or a threshold would be salience, which D-IMPL-101
+deferred.
+
+**And it names no source** (D-IMPL-124, revising what 15.6-07 shipped). The
+member carried a per-source map whose entries named the source each instant
+belonged to, and both delivery paths serialise this vessel verbatim to every
+principal who can reach the product — so a reader entitled to the product could
+learn that a given upstream system exists and when it last published, with no
+check that they were entitled to that system's contents. The member now carries
+a :class:`~ccf.halflife.assessment.SourceRefreshWindow`: the oldest and the
+newest of the deployment's declared refresh instants, with no source identity
+and no count. The placement is unchanged — D-IMPL-118's ruling is not amended,
+only the member's contents are — so dimension 5 and the read-backs stay exactly
+as they were.
+
+**What the signal obliged rides beside all three, and the address moves a
+fourth time** (D-IMPL-112 gap 3, D-IMPL-117, D-IMPL-118).
+``obligation_in_force`` is the third sibling of ``debt`` and takes the same
+ruled placement, so it pays the same price: a matching member on dimension 5
+and the same read-back in every ``rehydrate_product``. It carries the
+obligation the deployment's :class:`~ccf.controlplane.artifacts.DebtProfile`
+bound to the routing state *this* decision landed in — the resolved value, not
+the mapping. A consumer handed the mapping would be holding the calibration
+rather than the decision, and a consumer handed nothing would have to resolve
+the profile again at read time, which is the substitution D-IMPL-26's
+exact-version rule forbids. **The SDK carries it and acts on it nowhere**:
+what an obligation requires is user configuration (CLAUDE.md §11), and a
+module that branched on the value would have chosen the vocabulary.
+
+**What may be put in it is constrained, and the constraint is standing**
+(D-IMPL-119). Evidence pointers are entitlement-sensitive, and the shipped
+assembly path is not principal-scoped: :class:`ccf.halflife.assessment
+.DebtEvidencePointer` documents what that refuses until the gap is closed.
+Nothing carried here varies by principal, which is what keeps a field inside
+the content address compatible with D-IMPL-105's one-figure-per-product
+reading.
 
 **One figure per product, not one per principal** (D-IMPL-105). Different
 principals legitimately receive different products, assembled from what each may
@@ -162,7 +226,15 @@ from typing import Any, Literal
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.graph.protocols import LineageMode, PolicyBindingMode
-from ccf.halflife.assessment import DebtAssessment
+from ccf.halflife.assessment import (
+    NO_DEBT_EVIDENCE,
+    NO_OBLIGATION_IN_FORCE,
+    NO_SOURCE_REFRESH_RECENCY,
+    DebtAssessment,
+    DebtEvidence,
+    ObligationInForce,
+    SourceRefreshRecency,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -547,6 +619,46 @@ class ContextProductContract(CCFContract):
             assessment somebody dropped would otherwise be the same artifact.
             The default is what keeps all 42 existing construction sites saying
             exactly what they always said.
+        debt_evidence: What that assessment points at (D-IMPL-118) — the
+            handles for the things whose decay it summarises. A **sibling of**
+            ``debt`` rather than a member of it, which is the ruled placement
+            and not a convenience: see the note below for what the sibling
+            costs and why the cost was authorized. Defaults to
+            :data:`~ccf.halflife.assessment.NO_DEBT_EVIDENCE`, the positive
+            assertion *this product was assembled with no evidence pointers*,
+            so every construction site written before this field existed says
+            exactly what it always said.
+        source_refresh_recency: When the oldest and the newest of the
+            assembling deployment's sources last refreshed, as that deployment
+            declares it (D-IMPL-112 gap 2, D-IMPL-117, D-IMPL-124). A **second
+            sibling of** ``debt`` under the same ruled placement, and a fact
+            distinct from the ``debt.factors.freshness`` beside it: F says how
+            much of a decay budget has been spent, and says nothing about when
+            the upstream registry last published. It is a
+            :class:`~ccf.halflife.assessment.SourceRefreshWindow` and **not** a
+            per-source map: D-IMPL-124 ruled that the field's purpose is
+            freshness rather than source enumeration, so no source identity and
+            no count crosses onto the vessel. Reducing a deployment's declared
+            per-source instants to this window is the deployment's work — it is
+            the only party that knows its own set is complete. Defaults to
+            :data:`~ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY`, the
+            positive assertion *this product records nothing about when its
+            sources last refreshed*.
+        obligation_in_force: What the deployment's debt profile bound to the
+            routing state this decision landed in (D-IMPL-112 gap 3,
+            D-IMPL-117). A **third sibling of** ``debt`` under the same ruled
+            placement. The *resolved* reference for this decision's signal, not
+            the profile's whole mapping — the vessel records what this decision
+            was obliged to do, and the calibration stays on the artifact that
+            owns it. Opaque: the SDK never parses it and never acts on it.
+            Defaults to
+            :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`, the
+            positive assertion *no obligation was bound to the state this
+            decision landed in*. Carried as
+            :data:`~ccf.halflife.assessment.ObligationInForce`, which admits
+            that sentinel or a declared reference and refuses a blank — the
+            third state that asserts neither and would reproduce inside this
+            product's content address as if it did.
     """
 
     schema_name: str
@@ -559,6 +671,9 @@ class ContextProductContract(CCFContract):
     lineage: ProductLineage
     payload: Mapping[str, Any]
     debt: DebtAssessment | None = None
+    debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
+    source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY
+    obligation_in_force: ObligationInForce = NO_OBLIGATION_IN_FORCE
 
 
 def register_product_class(

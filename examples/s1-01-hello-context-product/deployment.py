@@ -61,10 +61,14 @@ from ccf.controlplane.artifacts import DebtProfile, HalfLifeTable
 from ccf.deployment import BootedFabric
 from ccf.graph.protocols import GraphView
 from ccf.halflife.debt import (
+    NO_DEBT_EVIDENCE,
     DebtAssessment,
+    DebtEvidence,
     DebtFactors,
     FreshnessScorer,
     ScorerPin,
+    SourceRefreshRecency,
+    SourceRefreshWindow,
     assess_debt,
 )
 from ccf.halflife.decay import Observation
@@ -125,6 +129,9 @@ GOVERNANCE_ARTIFACT_STORE_DIRNAME = "artifact_store_dirname"
 GOVERNANCE_REQUEST_CONTRACT_KEY = "request_contract_key"
 GOVERNANCE_REQUIRED_ENTITY_CLASSES = "required_entity_classes"
 GOVERNANCE_SEMANTIC_CONSISTENCY = "semantic_consistency"
+GOVERNANCE_SOURCE_REFRESH_RECENCY = "source_refresh_recency"
+GOVERNANCE_SOURCE_REF = "source_ref"
+GOVERNANCE_REFRESHED_AT = "refreshed_at"
 
 KEY_HALF_LIFE_TABLE = "half-life-table"
 KEY_DEBT_PROFILE = "debt-profile"
@@ -212,6 +219,25 @@ class KycScenario:
     required_entity_classes: tuple[str, ...]
     semantic_consistency: Decimal
 
+    #: When the oldest and the newest of this estate's sources last published,
+    #: reduced from ``artifacts/product-governance.yaml`` by
+    #: :func:`_declared_refresh_window` (D-IMPL-112 gap 2, D-IMPL-117,
+    #: D-IMPL-124).
+    #:
+    #: A **field and not a method**, unlike ``debt`` and ``debt_evidence``
+    #: beside it, and the difference is the point: those two are measured
+    #: against the assembled view, and this one is *declared*. A refresh
+    #: instant is not a property of what the operators left standing — it is a
+    #: fact about the world upstream of the fabric, which the deployment
+    #: knows and the fabric cannot observe. Giving it a view parameter it would
+    #: not read would suggest otherwise.
+    #:
+    #: **The per-source references are already gone by the time a value reaches
+    #: this field** (D-IMPL-124). The artifact keeps them; this scenario carries
+    #: only the window they span, and the window is what the spine puts on the
+    #: delivered product.
+    source_refresh_recency: SourceRefreshRecency
+
     # --- not read by the fabric: the question and how to report its answer ---
     question: Mapping[str, Any]
     threshold_percent: Decimal
@@ -242,6 +268,17 @@ class KycScenario:
             Observation(
                 observation_type=record.claim.entity_class,
                 observed_at=record.claim.observed_at,
+                # [ADAPT] This deployment identifies an observation by the
+                # canonical entity URI, because that is the key its own graph
+                # is indexed on — so a debt figure can later be attributed back
+                # to the entity whose staleness produced it. The SDK chose
+                # nothing here: `subject` is an opaque string and `record.claim`
+                # also offers `lineage`, whose `LineageEntry.envelope_id` would
+                # identify the *source envelope* instead. Either is a legitimate
+                # subject; which one you want depends on whether you attribute
+                # decay to entities or to feeds (D-IMPL-117 — the SDK owes the
+                # structure and none of the judgement).
+                subject=record.claim.entity_uri,
             )
             for record in view.entities
         )
@@ -264,6 +301,43 @@ class KycScenario:
             profile=self.debt_profile,
             scorers=(ScorerPin.of(scorer, factor=FRESHNESS_FACTOR),),
         )
+
+    def debt_evidence(self, view: GraphView) -> DebtEvidence:
+        """What the debt points at — and why this deployment points at nothing.
+
+        **D-IMPL-119, limb 3(b) — the omission path, taken explicitly.** The
+        ruling gives plan ``15.6-06`` exactly two paths and this deployment
+        takes the second, quoted verbatim: *"(b) **omit evidence pointers
+        entirely** until a later phase adds principal scoping to the assembly
+        path."*
+
+        Why (b) rather than (a). The ruling's limb 1 makes the safety property
+        **the SDK's**, not the adopter's — it declined ``qb2-opaque`` precisely
+        because that *"moves a real disclosure question onto every adopter, and
+        the SDK cannot then say the surface is safe by construction"*. Limb 4
+        then refuses a handle that is *merely encoded* rather than genuinely
+        non-revealing: *"an obfuscated `entity_uri` is an interpretable pointer
+        with an extra step"*. The only inputs in hand at this call site are the
+        assembled ``EntityClaim``s, and limb 2 puts principal scoping of the
+        assembly path explicitly out of scope for this phase — so every handle
+        derivable here is either interpretable (refused by limb 4) or has had
+        its referent discarded, which is a pointer that points at nothing
+        dressed as one that does. Emitting the named sentinel says the same
+        thing without the costume.
+
+        What is NOT being asserted: that scoped derivation is unwanted. The
+        ruling forecloses that reading — *"it does not license a later plan
+        inferring, from limb 2, that scoped derivation is unwanted; limb 1 says
+        the opposite."* The carrier ships (D-IMPL-118) and the replay seam that
+        makes it reconstructible ships with it, so the phase that closes the
+        scoping gap populates this method and changes no surface.
+
+        ``view`` is taken and unread, deliberately: the signature is the one a
+        populating deployment needs, so closing the gap is a body change rather
+        than a call-site change.
+        """
+        del view  # See above: the omission is the ruling's, not the shape's.
+        return NO_DEBT_EVIDENCE
 
 
 class UltimateBeneficialOwnershipPlan:
@@ -557,6 +631,54 @@ def ad_hoc_question(
     )
 
 
+def _declared_refresh_window(
+    entries: Sequence[Mapping[str, str]],
+) -> SourceRefreshWindow:
+    """Reduce this estate's declared per-source instants to the window they span.
+
+    **[ADAPT] This function is the D-IMPL-124 boundary, and it lives here
+    rather than in the SDK on purpose.** ``product-governance.yaml`` declares
+    one entry per upstream source with a human-interpretable reference; those
+    references reach this function and go no further. What leaves is a
+    :class:`~ccf.halflife.assessment.SourceRefreshWindow` carrying two
+    instants, no reference and no count — so a consumer of the delivered
+    product learns when the oldest and the newest of this estate's sources
+    published, and learns nothing about which systems they are or how many
+    there are.
+
+    Why not an SDK helper: a reducer in ``src/`` would take a source-bearing
+    input type, putting the shape D-IMPL-124 removed back on the public
+    surface, and it would make the SDK the party deciding which of a
+    deployment's sources count toward the window. Whether the entries below are
+    this estate's *complete* set is a deployment fact the SDK cannot verify,
+    which is exactly why the reduction is the deployment's work.
+
+    Every instant is parsed from authored text, never read off a clock, and
+    ``min``/``max`` select among facts this deployment already stated rather
+    than deriving a new one.
+
+    A duplicate reference is refused here rather than silently collapsed: two
+    refresh instants for one source describe two facts claiming to be one, and
+    with the per-source map gone from the vessel this deployment is the last
+    party in a position to notice.
+    """
+    references = [entry[GOVERNANCE_SOURCE_REF] for entry in entries]
+    if len(set(references)) != len(references):
+        raise ValueError(
+            "a source reference may carry at most one refresh instant; two "
+            "instants for one source describe two facts claiming to be one, "
+            "which is an incoherent declaration rather than a stricter one"
+        )
+
+    instants = [
+        datetime.fromisoformat(entry[GOVERNANCE_REFRESHED_AT]) for entry in entries
+    ]
+    return SourceRefreshWindow(
+        oldest_source_refresh_at=min(instants),
+        newest_source_refresh_at=max(instants),
+    )
+
+
 def read(booted: BootedFabric, request: ProductRequest) -> KycScenario:
     """Name this deployment's own artifact keys and read this question's values.
 
@@ -636,6 +758,37 @@ def read(booted: BootedFabric, request: ProductRequest) -> KycScenario:
         ),
         semantic_consistency=Decimal(
             governance[GOVERNANCE_SEMANTIC_CONSISTENCY]
+        ),
+        # [ADAPT] Read from the document, never from a clock. Each instant is
+        # authored text in `product-governance.yaml`, parsed here exactly as
+        # `decision_instant` is parsed above and for the same reason: an
+        # implicit YAML timestamp conversion is one nobody wrote down. The
+        # zone is in the text; `SourceRefreshWindow` refuses the value outright
+        # if it is not (D-IMPL-38).
+        #
+        # [ADAPT] THIS LINE IS WHERE THE SOURCE IDENTITIES STOP (D-IMPL-124).
+        #
+        # The artifact declares three entries with human-interpretable
+        # references; what crosses onto the product is the WINDOW those three
+        # instants span, and nothing else. No reference and no count reaches
+        # the vessel, because the field's purpose is freshness rather than
+        # source enumeration.
+        #
+        # `min` and `max` over the declared instants SELECT AMONG FACTS THIS
+        # DEPLOYMENT ALREADY STATED. They manufacture nothing: no formula is
+        # derived, no instant is invented, and no clock is read — which is what
+        # keeps this a reduction rather than a silent default (D-IMPL-38).
+        #
+        # THE SDK SHIPS NO REDUCER FOR THIS, and it is not an omission. A
+        # `SourceRefreshWindow.from_sources(...)` helper — or any `src/`
+        # function taking per-source instants — would put a source-bearing
+        # input type back on the public surface, and would make the SDK the
+        # party deciding which of a deployment's sources count toward the
+        # window. That the three entries below are this estate's COMPLETE set
+        # is a fact only this deployment can vouch for and the SDK cannot
+        # verify, so the reduction belongs here.
+        source_refresh_recency=_declared_refresh_window(
+            governance[GOVERNANCE_SOURCE_REFRESH_RECENCY]
         ),
         question=question,
         threshold_percent=Decimal(policy[POLICY_THRESHOLD_PERCENT]),

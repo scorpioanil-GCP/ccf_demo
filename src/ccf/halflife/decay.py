@@ -44,13 +44,23 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal, localcontext
+from typing import Final
+
+from pydantic import field_validator
 
 from ccf.controlplane.artifacts import HalfLifeEntry, HalfLifeTable
 from ccf.contracts.base import CCFContract
+from ccf.halflife.assessment import (
+    _SDK_NAMESPACE,
+    _as_a_reader_sees_it,
+    _refuse_an_impersonation_of_an_sdk_marker,
+    _refuse_an_instant_that_named_no_zone,
+)
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "NO_SUBJECT_IDENTITY",
     "HalfLifeEntry",
     "HalfLifeTable",
     "MissingHalfLife",
@@ -94,25 +104,202 @@ class TemporalOrderError(ValueError):
     """
 
 
+#: The positive assertion that an observation was recorded **without** a subject
+#: identity — *this observation names nothing it is an observation of* — in the
+#: voice of :data:`~ccf.halflife.assessment.NO_SCORER_PINS` and
+#: :data:`~ccf.replay.record.NO_GRAPH_QUERIES`, and for their reason.
+#:
+#: ``D-IMPL-120`` ruled the identity **optional** (``qc-optional``) and ruled out
+#: expressing its absence as ``None``: an assembler that had no identity to
+#: carry and one that dropped the identity it held would then be the same
+#: artifact, which is the repudiation failure mode every sentinel in this fabric
+#: closes (``D-IMPL-38``'s no-silent-defaults discipline). A marker string rather
+#: than an empty container because the field is one opaque string and must stay
+#: one shape.
+#:
+#: **SDK-namespaced on purpose**, in
+#: :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`'s style and for its
+#: stated reason: the marker must read as SDK structure rather than as a word
+#: from somebody's domain, and a deployment must not be able to collide with it
+#: by accident while reaching for an ordinary phrase. Phase 15.6's close-time
+#: cross-AI panel found this constant spelled ``"no-subject-identity"`` — bare —
+#: and demonstrated by execution that an observation whose real opaque subject
+#: happened to be spelled that way was indistinguishable from one recorded with
+#: no subject at all, which is exactly the artifact ``D-IMPL-120`` forbids.
+#: :data:`_SUBJECT_NAMESPACE` closes the deliberate case as well as the
+#: accidental one.
+NO_SUBJECT_IDENTITY: Final[str] = "ccf.no-subject-identity"
+
+#: The reservation, shared with every other opaque string this package puts
+#: inside a content address.
+#:
+#: **Both names moved to** :mod:`ccf.halflife.assessment` **at Phase 15.6's
+#: close.** They were written module-private here on the stated ground that "a
+#: public constant would promise a tree-wide rule this commit does not ship" —
+#: and the single-agent review then found the rule shipped on this field and on
+#: none of the three siblings the same phase gave the same kind of value. One
+#: rule needs one implementation; the import direction is safe because
+#: ``assessment`` depends on nothing but
+#: :class:`~ccf.contracts.base.CCFContract`, which is why it holds them.
+_SUBJECT_NAMESPACE: Final[str] = _SDK_NAMESPACE
+
+
 class Observation(CCFContract):
     """One dated observation, typed by the vocabulary λ_c is configured against.
 
     Whitepaper §7.7 binds λ_c to the observation *type* in Control Plane
-    configuration and explicitly not to the individual document, so decay needs
+    configuration and explicitly not to the individual document, so decay reads
     exactly two things from an observation — which type it is, and when it was
     made. Nothing about the rate travels on the observation itself.
+
+    The third field is **carried, never consumed**: no function in this module
+    reads ``subject``, and the freshness figure is identical whether it is
+    populated or not. It exists so that a downstream consumer of D_c can say
+    *which* observations a debt figure summarises (CLAUDE.md §11 — an SDK
+    extension; see below).
 
     Attributes:
         observation_type: The deployment's observation-type name. Its
             vocabulary is user configuration; the SDK never enumerates it.
         observed_at: When the fabric learned the observation (the T axis's
             ``observed_at``, :mod:`ccf.contracts.claims`). Timezone-aware; a
-            naive instant is rejected, because an implicit timezone is a silent
-            default (D-IMPL-38).
+            naive instant is rejected **at construction**, because an implicit
+            timezone is a silent default (D-IMPL-38) — see
+            :meth:`_the_instant_names_its_zone`.
+        subject: What this observation is an observation *of*. An opaque
+            identifier the deployment chooses — an entity URI, a claim id, a
+            document id, or something else again. Its scheme is user
+            configuration; the SDK never enumerates it, never parses it and
+            never compares it to anything. Optional (D-IMPL-120), defaulting to
+            :data:`NO_SUBJECT_IDENTITY` rather than to ``None``. Two values are
+            refused and only two: a blank, and anything inside the SDK's own
+            :data:`_SUBJECT_NAMESPACE` other than the sentinel — see
+            :meth:`_the_subject_is_declared_and_stays_out_of_the_sdk_namespace`.
+
+            **SDK extension (CLAUDE.md §11), not whitepaper-derived.** Whitepaper
+            §7.7 binds λ_c to the observation *type* and says nothing about
+            subject identity; this field is the carrying structure D-IMPL-117
+            assigns to the SDK, and none of the judgement about which
+            observations matter, which D-IMPL-117 assigns away from it.
     """
 
     observation_type: str
     observed_at: datetime
+    subject: str = NO_SUBJECT_IDENTITY
+
+    @field_validator("observed_at", mode="before")
+    @classmethod
+    def _the_supplied_instant_names_its_own_zone(cls, value: object) -> object:
+        return _refuse_an_instant_that_named_no_zone(value)
+
+    @field_validator("observed_at")
+    @classmethod
+    def _the_instant_names_its_zone(cls, value: datetime) -> datetime:
+        """Refuse a naive instant at construction, as this class documents.
+
+        **The refusal this docstring described and did not have.** The attribute
+        docstring above has always read *"a naive instant is rejected"*; there
+        was no validator, and Phase 15.6's single-agent review demonstrated that
+        a naive ``Observation`` was constructible, serialisable and storable,
+        with the failure arriving at whatever call site first computed decay.
+        That is the deferral CLAUDE.md §11 refuses (*"Validation is at the
+        boundary, never deferred"*), and it also broke a citation:
+        :meth:`~ccf.halflife.assessment.SourceRefreshWindow._the_instant_names_its_zone`
+        names this field as the precedent it restates at construction, and a
+        reader following the citation found nothing here.
+
+        The pair is that class's pair, for its reasons: this after-validator
+        refuses the naive ``datetime``, and
+        :func:`~ccf.halflife.assessment._refuse_an_instant_that_named_no_zone`
+        runs before validation, where a bare epoch — which names no zone at all
+        and which Pydantic silently reads as UTC — is still visible as what the
+        caller supplied.
+
+        :func:`~ccf.halflife.debt.freshness`'s own refusal **stays**. It is not
+        redundant: it also guards ``now``, which no contract validates, and it
+        is the only thing standing between a ``model_construct``-built
+        observation and a freshness figure computed against an implicit zone.
+        """
+        if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
+            raise ValueError(
+                "an observation must name its instant's zone; a naive datetime "
+                "carries an implicit timezone, which is a silent default "
+                "(D-IMPL-38), and decay is computed from this value"
+            )
+        return value
+
+    @field_validator("subject")
+    @classmethod
+    def _the_subject_is_declared_and_stays_out_of_the_sdk_namespace(
+        cls, value: str
+    ) -> str:
+        """Refuse a blank subject, and refuse one inside the SDK's namespace.
+
+        Both refusals protect one distinction — the distinction ``D-IMPL-120``
+        made the whole field for: *"an omitted identity and a dropped one are
+        not the same artifact."*
+
+        A **blank** subject is what a half-finished assembler edit leaves
+        behind, and admitting it would make *recorded with an unnameable
+        identity* and *recorded without one* two spellings of one claim, while
+        only the second has a sentinel that says so. This is
+        :meth:`~ccf.halflife.assessment.SignalObligation._the_obligation_is_declared_and_is_not_the_sentinel`'s
+        first limb, restated because the reason is identical.
+
+        A subject inside :data:`_SUBJECT_NAMESPACE` is refused because that
+        prefix is the SDK's own. Namespacing the sentinel makes an accidental
+        collision unlikely; reserving the namespace makes impersonation
+        **unavailable** — which is the property Phase 15.6's close-time panel
+        found missing, having demonstrated by execution that a real subject
+        could wear the sentinel's spelling and be indistinguishable from
+        absence.
+
+        **The sentinel itself is carved out**, and this is where the shape
+        departs from ``SignalObligation``'s. There, the sentinel lives on a
+        *different* field and can be refused outright. Here it is this field's
+        own default, so a flat refusal would make
+        ``Observation.model_validate(Observation(...).model_dump())`` raise for
+        every unpopulated observation — ``subject`` is serialized whether or not
+        it is populated — and a contract that cannot re-validate its own dump is
+        not a stricter contract. Writing ``subject=NO_SUBJECT_IDENTITY``
+        deliberately therefore stays legal: it is the same claim as omission,
+        said louder.
+
+        **Both checks read the value as a reader would see it**
+        (:func:`_as_a_reader_sees_it`), not as bytes. The blank check always
+        stripped; the namespace check did not, and Phase 15.6's single-agent
+        review demonstrated by execution that ``" ccf.no-subject-identity"``,
+        the non-breaking-space spelling and ``"CCF.no-subject-identity"`` all
+        walked past a reservation whose entire purpose is that a reader cannot
+        tell them from the marker. The sentinel carve-out stays an **exact**
+        comparison, so a near-miss spelling of it is refused rather than
+        silently treated as the sentinel.
+
+        **The refusal itself is the package's shared one**
+        (:func:`~ccf.halflife.assessment._refuse_an_impersonation_of_an_sdk_marker`),
+        not a rule this field holds alone. It was this field's alone until Phase
+        15.6's close, and the single-agent review's WR-02 is exactly that
+        asymmetry: three sibling opaque strings shipped in the same phase, all
+        inside the same content address, none of them reserved. The shared
+        helper also records the known cost of a bare ``ccf.`` prefix — a
+        deployment whose subjects are domain-shaped is refused — and why
+        narrowing it is a ruling rather than a repair.
+
+        No judgement about *meaning* is made. Every string outside the reserved
+        namespace is admitted verbatim, however unfamiliar, because the SDK
+        enumerates no identifier scheme and interprets nothing it is handed
+        (D-IMPL-117, CLAUDE.md §11).
+        """
+        if not _as_a_reader_sees_it(value):
+            raise ValueError(
+                "a subject identity must be declared: a blank subject names"
+                " nothing while claiming to name something, which is what"
+                f" {NO_SUBJECT_IDENTITY!r} already asserts positively"
+                " (D-IMPL-38, D-IMPL-120)"
+            )
+        return _refuse_an_impersonation_of_an_sdk_marker(
+            value, field="a subject identity", admitted=NO_SUBJECT_IDENTITY
+        )
 
 
 def half_life_of(table: HalfLifeTable, observation_type: str) -> timedelta:

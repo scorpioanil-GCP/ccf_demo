@@ -65,7 +65,15 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.graph.protocols import SourceAttestation
 from ccf.graph.registry import AdapterPin
-from ccf.halflife.assessment import DebtAssessment
+from ccf.halflife.assessment import (
+    NO_DEBT_EVIDENCE,
+    NO_OBLIGATION_IN_FORCE,
+    NO_SOURCE_REFRESH_RECENCY,
+    DebtAssessment,
+    DebtEvidence,
+    ObligationInForce,
+    SourceRefreshRecency,
+)
 from ccf.products.contract import AssemblyMode, ContextProductContract
 from ccf.projection.engine import ExecutionResult, ExecutionStep
 from ccf.projection.plan import Perspective
@@ -478,6 +486,76 @@ class ContentGenerationPath(CCFContract):
     and it makes a record that pins a debt its product does not carry
     unrepresentable rather than merely discouraged.
 
+    **What that debt points at extends the same dimension as of 15.6-06**
+    (D-IMPL-118) through ``debt_evidence``, and it is here because the ruling
+    *obliged* it rather than because it was tidy. The carrier is a top-level
+    field on :class:`~ccf.products.contract.ContextProductContract`, a sibling
+    of ``debt`` rather than a member of the assessment, so it does **not**
+    inherit the reconstruction ride the nested placement would have had:
+    :class:`~ccf.projection.plan.ProjectionOutput` carries exactly
+    ``(plan_id, payload)``, so a rehydrator handed ``(record, projection)`` can
+    produce the value only if this dimension carries it. Without this member,
+    every replay of every product raises
+    :class:`~ccf.replay.engine.ReplayDivergence`.
+
+    Its value is **derived from the product the builder was handed**, exactly
+    as ``debt`` is and for the same reason: the product is already a parameter,
+    so no call site moves, and a record pinning evidence its product does not
+    carry is unrepresentable rather than merely discouraged.
+    :data:`~ccf.halflife.assessment.NO_DEBT_EVIDENCE` is the positive assertion
+    *this decision pointed at nothing*, so a record written before this seam
+    existed asserts so and still verifies.
+
+    **When the sources last published extends the same dimension as of 15.6-07**
+    (D-IMPL-112 gap 2, D-IMPL-117) through ``source_refresh_recency``, for
+    exactly the reason ``debt_evidence`` is here: D-IMPL-118 rules all three
+    Track B members onto the vessel as top-level fields, so none of them rides
+    ``debt`` back and each needs its own member here or every replay diverges.
+    It is derived from the product for that field's reason, defaults to
+    :data:`~ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY`, and belongs
+    beside the ``debt`` whose freshness factor it is deliberately *not* — F is
+    a measurement of decay against a budget, and this is a fact about when the
+    world outside the fabric last spoke. As of 15.6-13 it carries a
+    :class:`~ccf.halflife.assessment.SourceRefreshWindow` — the oldest and the
+    newest of the deployment's declared refresh instants — rather than the
+    per-source map 15.6-07 shipped, because D-IMPL-124 ruled the field's
+    purpose to be freshness rather than source enumeration and took the source
+    identities off the vessel. The placement is untouched by that revision: the
+    member's spelling, its derivation and its read-back are all exactly what
+    they were, and only its type changed.
+
+    **What the signal obliged extends the same dimension as of 15.6-08**
+    (D-IMPL-112 gap 3, D-IMPL-117) through ``obligation_in_force``, for the
+    reason both members above are here and for one more that is this member's
+    own. The shared reason: D-IMPL-118 rules all three Track B members onto the
+    vessel as top-level fields, so none rides ``debt`` back and each needs its
+    own member here. The extra one: the alternative for *this* value is not
+    omission but **re-resolution** — a rehydrator could read the deployment's
+    current :class:`~ccf.controlplane.artifacts.DebtProfile` and look the
+    obligation up again, which would answer *"what was this decision obliged to
+    do?"* with today's answer. That is the substitution D-IMPL-26's
+    exact-version rule forbids, and pinning the resolved value here is what
+    makes it unavailable rather than merely discouraged. It is derived from the
+    product for ``debt``'s reason and defaults to
+    :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`. It is carried as
+    :data:`~ccf.halflife.assessment.ObligationInForce` — the same validated
+    shape the vessel carries, so a record on disk cannot be rehydrated into a
+    blank the vessel would have refused.
+
+    **The scope of that last sentence, since a reader will generalise it.** It
+    is a claim about the *validation boundaries* — construction and
+    ``model_validate``, which is every deserialisation path — and Phase 15.6's
+    single-agent review verified it holds at both. It is **not** a claim that
+    the field cannot hold a blank: ``model_construct`` and
+    ``model_copy(update=…)`` skip validation, as they do for every Pydantic
+    contract in this tree, so either would seat a value this field's validator
+    refuses. That is latent rather than live — no site in ``src/``, ``runtime/``
+    or ``examples/`` applies either idiom to this field or to its two siblings —
+    and it is recorded here rather than closed, because closing it means
+    forbidding ``model_construct`` on the contract, which is a change to how
+    every carrier in the fabric is built and therefore a ruling rather than a
+    repair.
+
     The **question answered** extends this dimension as of 15.5-13
     (D-IMPL-111 limb (b)) through ``request``: the
     :class:`~ccf.products.request.ProductRequest` the caller asked, recorded
@@ -521,6 +599,9 @@ class ContentGenerationPath(CCFContract):
     workflow_step_sequence: str = NO_WORKFLOW_TRACE
     graph_query_sequence: tuple[str, ...] = NO_GRAPH_QUERIES
     debt: DebtAssessment | None = None
+    debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
+    source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY
+    obligation_in_force: ObligationInForce = NO_OBLIGATION_IN_FORCE
     request: ProductRequest | None = None
 
 
@@ -651,6 +732,33 @@ def build_replay_record(
     debt its product does not carry unrepresentable. A product assembled with
     no assessment yields the ``None`` sentinel, so every call site written
     before this extension is byte-for-byte what it was.
+
+    ``product.debt_evidence`` becomes dimension 5's ``debt_evidence``
+    (15.6-06, D-IMPL-118), on the same derivation reasoning — and it is
+    load-bearing rather than symmetrical. The carrier is a top-level field on
+    the vessel, so it is in the product's content address and *nothing else*
+    reaching a rehydrator names it; carrying it here is what makes the address
+    move reconstructible instead of merely authorized. A product assembled with
+    no pointers yields :data:`~ccf.halflife.assessment.NO_DEBT_EVIDENCE`, so
+    every call site written before this extension is byte-for-byte what it was.
+
+    ``product.source_refresh_recency`` becomes dimension 5's
+    ``source_refresh_recency`` (15.6-07, D-IMPL-118), on the same derivation
+    reasoning and load-bearing for the same reason: it is a top-level vessel
+    field, so nothing else reaching a rehydrator names it. A product recording
+    no refresh instants yields
+    :data:`~ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY`, so every call
+    site written before this extension is byte-for-byte what it was.
+
+    ``product.obligation_in_force`` becomes dimension 5's
+    ``obligation_in_force`` (15.6-08, D-IMPL-118), on the same derivation
+    reasoning and load-bearing for a stronger reason than either: it is a
+    top-level vessel field, so nothing else reaching a rehydrator names it —
+    and the deployment's *current* debt profile does, which is precisely the
+    substitution this pin makes unavailable. A decision made under a
+    calibration that bound nothing yields
+    :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`, so every call site
+    written before this extension is byte-for-byte what it was.
     """
     return DecisionReplayRecord(
         tenant_id=product.tenant_id,
@@ -706,6 +814,22 @@ def build_replay_record(
             # product is already here, so no call site moves — and a record
             # pinning a debt its product does not carry cannot be constructed.
             debt=product.debt,
+            # D-IMPL-118: read off the product for debt's reason, and carried
+            # at all for a harder one — the carrier is a top-level vessel
+            # field, so `(record, projection)` cannot rebuild it from anywhere
+            # else and every replay would diverge without this line.
+            debt_evidence=product.debt_evidence,
+            # D-IMPL-117 gap 2, under the same D-IMPL-118 placement and for
+            # the same two reasons: read off the product so no call site
+            # moves, and carried at all because a top-level vessel field is
+            # reconstructible from nowhere else.
+            source_refresh_recency=product.source_refresh_recency,
+            # D-IMPL-117 gap 3, under the same D-IMPL-118 placement, and
+            # carried for a reason the other two do not have: without this
+            # line a rehydrator's only route to the value is the deployment's
+            # CURRENT debt profile, which would answer "what was this decision
+            # obliged to do?" with today's binding (D-IMPL-26).
+            obligation_in_force=product.obligation_in_force,
             # D-IMPL-111 limb (b): the question, verbatim. A parameter and not
             # a derivation — the answer does not contain the question that was
             # asked, and inferring one from the other is what DI-15.5-07

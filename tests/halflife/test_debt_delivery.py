@@ -441,7 +441,7 @@ def _module_level_strings(module_path: Path) -> dict[str, str]:
     return found
 
 
-@pytest.mark.parametrize("module", ["debt.py", "assessment.py"])
+@pytest.mark.parametrize("module", ["debt.py", "assessment.py", "decay.py"])
 def test_every_module_level_string_constant_is_structural(module: str) -> None:
     """``cinv01b-numeric-table`` catches a numeric map and nothing else.
 
@@ -449,6 +449,14 @@ def test_every_module_level_string_constant_is_structural(module: str) -> None:
     not save this module: the warning sign is any string literal in ``src/``
     that a banker would recognize. Each constant here must be an SDK-namespaced
     identifier, a semver lane, or the CINV-03 mode token — nothing else.
+
+    ``decay.py`` joined the parametrization at Phase 15.6's close. It was left
+    out when the module was written, and plan ``15.6-05`` then added
+    ``NO_SUBJECT_IDENTITY = "no-subject-identity"`` — an un-namespaced marker —
+    into the one file in this package this check could not see. The close-time
+    cross-AI panel found it by reading the constant; this parametrization is
+    what would have found it first, so the scope is widened rather than the
+    single constant fixed.
     """
     for name, value in _module_level_strings(HALFLIFE_DIR / module).items():
         assert (
@@ -458,7 +466,129 @@ def test_every_module_level_string_constant_is_structural(module: str) -> None:
         ), f"{module}:{name} = {value!r} is not a structural identifier"
 
 
-@pytest.mark.parametrize("module", ["debt.py", "assessment.py"])
+#: The builders that close a collection, for :func:`_closed_string_members`.
+#: ``dict`` is included for the keyword form — ``dict(a="x", b="y")`` contains
+#: no collection node at all.
+_COLLECTION_BUILDERS = frozenset({"frozenset", "set", "tuple", "list", "dict"})
+
+#: How deep a nest of containers the reader descends. Bounded for the reason
+#: the guard's own bound exists: an unbounded walk over a file anyone may edit
+#: is a denial-of-service surface on the suite itself.
+_MAX_NESTING_DEPTH = 8
+
+
+def _called_name(node: ast.Call) -> str:
+    """The bare name a call names, for ``frozenset(…)`` and ``builtins.frozenset(…)``."""
+    origin = node.func
+    if isinstance(origin, ast.Name):
+        return origin.id
+    if isinstance(origin, ast.Attribute):
+        return origin.attr
+    return ""
+
+
+def _closed_string_members(node: ast.AST | None, depth: int = 0) -> list[str]:
+    """Every string constant a closed container declares, in any spelling.
+
+    **Deliberately a second, independent implementation** of the shape
+    ``tests/invariants/test_no_obligation_vocabulary.py::_members_of`` reads.
+    Importing that one would give the tree a single point of failure for two
+    checks that exist to catch each other's misses — which is exactly what
+    happened at Phase 15.6's close, where this check caught a tuple the guard
+    could not see, and then **both** missed a dict, because both read the same
+    three node types (``ast.Tuple``, ``ast.List``, ``ast.Set``).
+
+    Every container form the language offers is read: the four literal displays
+    (a mapping on **both** halves), the five builder calls including the
+    keyword form, comprehensions over a closed display, and nesting.
+
+    Read from the assigned *value* rather than from every descendant of the
+    statement, which keeps this check narrower than the guard on purpose: an
+    annotation is a type, and ``DebtFactorName = Literal[…]`` is SDK structure
+    the guard exempts by name and this module has never claimed to judge.
+    """
+    if node is None or depth > _MAX_NESTING_DEPTH:
+        return []
+    if isinstance(node, ast.Constant):
+        return [node.value] if isinstance(node.value, str) else []
+    if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+        return [
+            member
+            for element in node.elts
+            for member in _closed_string_members(element, depth + 1)
+        ]
+    if isinstance(node, ast.Dict):
+        return [
+            member
+            for element in [*node.keys, *node.values]
+            for member in _closed_string_members(element, depth + 1)
+        ]
+    if isinstance(node, ast.Call):
+        if _called_name(node) not in _COLLECTION_BUILDERS:
+            return []
+        found = [
+            member
+            for argument in node.args
+            for member in _closed_string_members(argument, depth + 1)
+        ]
+        found.extend(
+            keyword.arg for keyword in node.keywords if keyword.arg is not None
+        )
+        found.extend(
+            member
+            for keyword in node.keywords
+            for member in _closed_string_members(keyword.value, depth + 1)
+        )
+        return found
+    if isinstance(node, (ast.SetComp, ast.ListComp, ast.DictComp, ast.GeneratorExp)):
+        return [
+            member
+            for generator in node.generators
+            for member in _closed_string_members(generator.iter, depth + 1)
+        ]
+    return []
+
+
+#: The node types that make an assigned value a *collection* rather than a
+#: scalar. A lone ``NAME = "literal"`` is
+#: :func:`test_every_module_level_string_constant_is_structural`'s subject, not
+#: this one's, and the two checks stay disjoint.
+_CONTAINER_NODES = (
+    ast.Tuple,
+    ast.List,
+    ast.Set,
+    ast.Dict,
+    ast.Call,
+    ast.SetComp,
+    ast.ListComp,
+    ast.DictComp,
+    ast.GeneratorExp,
+)
+
+
+def _module_level_string_collections(source: str) -> dict[str, list[str]]:
+    """``bound name -> the strings its module-level collection declares``.
+
+    Factored out of the assertion so the refusal controls below can drive the
+    real predicate over injected source rather than restating it.
+    """
+    found: dict[str, list[str]] = {}
+    for node in ast.parse(source).body:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        names = {t.id for t in targets if isinstance(t, ast.Name)}
+        if names == {"__all__"}:
+            continue
+        if not isinstance(node.value, _CONTAINER_NODES):
+            continue
+        members = _closed_string_members(node.value)
+        if members:
+            found[", ".join(sorted(names))] = members
+    return found
+
+
+@pytest.mark.parametrize("module", ["debt.py", "assessment.py", "decay.py"])
 def test_no_module_level_collection_of_string_literals_exists(
     module: str,
 ) -> None:
@@ -466,19 +596,98 @@ def test_no_module_level_collection_of_string_literals_exists(
 
     ``__all__`` is the one legitimate module-level string collection — it
     names this module's own exports, which are code, not values.
-    """
-    tree = ast.parse((HALFLIFE_DIR / module).read_text(encoding="utf-8"))
 
-    for node in tree.body:
-        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
-            continue
-        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-        names = {t.id for t in targets if isinstance(t, ast.Name)}
-        if names == {"__all__"}:
-            continue
-        if not isinstance(node.value, (ast.Tuple, ast.List, ast.Set)):
-            continue
-        assert not any(
-            isinstance(element, ast.Constant) and isinstance(element.value, str)
-            for element in node.value.elts
-        ), f"{module}: {names} is a module-level collection of string literals"
+    **Widened at Phase 15.6's close from three node types to every container
+    form.** The single-agent review injected a two-member ``dict`` mapping a
+    debt signal to an obligation into ``debt.py`` and watched this check and its
+    sibling guard both stay green — a mapping is what ``D-IMPL-117`` gap 3
+    actually is, and a mapping was the one shape neither read.
+    """
+    source = (HALFLIFE_DIR / module).read_text(encoding="utf-8")
+    declared = _module_level_string_collections(source)
+    assert not declared, (
+        f"{module}: {sorted(declared)} is a module-level collection of string"
+        f" literals — {declared}"
+    )
+
+
+@pytest.mark.parametrize(
+    "injected",
+    [
+        pytest.param('_T = ("re-pull", "escalate")', id="tuple-display"),
+        pytest.param('_T = ["re-pull", "escalate"]', id="list-display"),
+        pytest.param('_T = {"re-pull", "escalate"}', id="set-display"),
+        pytest.param(
+            '_T: dict[str, str] = {"forced_llm": "re-pull",'
+            ' "fail_closed": "escalate"}',
+            id="dict-display (the single-agent injection)",
+        ),
+        pytest.param(
+            '_T: dict[str, int] = {"re-pull": 0, "escalate": 1}',
+            id="dict-display, keys only",
+        ),
+        pytest.param('_T = frozenset({"re-pull", "escalate"})', id="frozenset-builder"),
+        pytest.param('_T = set(["re-pull", "escalate"])', id="set-builder"),
+        pytest.param('_T = tuple(["re-pull", "escalate"])', id="tuple-builder"),
+        pytest.param('_T = list(("re-pull", "escalate"))', id="list-builder"),
+        pytest.param(
+            '_T = dict(forced_llm="re-pull", fail_closed="escalate")',
+            id="dict-builder, keyword form (no ast.Dict node in it)",
+        ),
+        pytest.param(
+            '_T = {name for name in ("re-pull", "escalate")}',
+            id="set-comprehension over a display",
+        ),
+        pytest.param(
+            '_T = {name: name for name in ("re-pull", "escalate")}',
+            id="dict-comprehension over a display",
+        ),
+        pytest.param(
+            '_T = frozenset(name for name in ("re-pull", "escalate"))',
+            id="generator laundered through a builder",
+        ),
+        pytest.param(
+            '_T = (("re-pull", "escalate"), ("fail-closed",))',
+            id="a container of containers",
+        ),
+    ],
+)
+def test_the_module_level_collection_check_refuses_every_container_form(
+    injected: str,
+) -> None:
+    """This check is verified to REFUSE, form by form.
+
+    It had no negative control at all before Phase 15.6's close, which is why
+    nobody noticed it read three node types: it passed for eleven waves because
+    the tree was clean, not because the predicate was complete. The parameter
+    list is the coverage claim; re-narrowing the reader turns a named case red.
+    """
+    assert _module_level_string_collections(injected), (
+        f"{injected!r} declares a closed table of strings at module scope and"
+        " this check did not see it"
+    )
+
+
+@pytest.mark.parametrize(
+    "benign",
+    [
+        pytest.param('__all__ = ["a", "b"]', id="__all__ names exports, not values"),
+        pytest.param("_LIMITS = (1, 2, 3)", id="a numeric table is cinv01b's job"),
+        pytest.param("_LIMITS = {1: 2, 3: 4}", id="a numeric mapping likewise"),
+        pytest.param("_BY_REF = {_NAME: _VALUE}", id="references declare no strings"),
+        pytest.param('_EMPTY: dict[str, str] = {}', id="an empty mapping"),
+        pytest.param(
+            '_TYPE = Literal["re-pull", "escalate"]',
+            id="an annotation is a type, and this check reads values",
+        ),
+    ],
+)
+def test_the_module_level_collection_check_did_not_widen(benign: str) -> None:
+    """The opposite direction. A widening that refuses the tree is not a fix.
+
+    The ``Literal`` case is the boundary between this check and its sibling
+    guard, asserted rather than assumed: ``DebtFactorName = Literal[…]`` is real
+    module-level code in ``assessment.py``, it is SDK structure the guard
+    exempts by name, and this check has never claimed to judge annotations.
+    """
+    assert not _module_level_string_collections(benign)

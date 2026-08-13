@@ -112,8 +112,8 @@ this phase asked Dave to accept.
   three.
 - **CLOSED 2026-08-06 by plan 15.1-11** (verified against the tree at the
   re-approval, not taken from the SUMMARY): all three sites now take
-  `register_versioned` — `examples/05-workflow-hitl/run.py:416`,
-  `examples/06-decision-replay/run.py:666`, `examples/08-e2e-demo/run.py:970` —
+  `register_versioned` — `examples/05-workflow-hitl/run.py::run`,
+  `examples/06-decision-replay/run.py::run`, `examples/08-e2e-demo/run.py::run` —
   each handling the returned `RegistrationRefusal`, and
   `tests/examples/test_workflow_hitl_output.py::test_the_author_versioned_definitions_kept_their_bump_check`
   now asserts over **four** keys including `prompt_artifact_key`. Closure
@@ -190,11 +190,11 @@ this phase asked Dave to accept.
      The 8 was correct before wave 5 and propagated three documents deep without
      re-measurement. **Re-measured a third time at the gate (2026-08-05), by the
      orchestrator on `main` and again by the executor writing this line — 5 both
-     times**, at `examples/03-harness-portability/run.py:480`,
-     `examples/04-cross-process/producer_child.py:438`,
-     `examples/06-decision-replay/run.py:1109`,
-     `examples/07-artifact-store-mcp/run.py:494`, and
-     `examples/08-e2e-demo/run.py:1102`. Recorded in `D-GATE-15.1` as well, so
+     times**, at `examples/03-harness-portability/run.py::decision`,
+     `examples/04-cross-process/producer_child.py::build_covenant_slice_product`,
+     `examples/06-decision-replay/run.py::run`,
+     `examples/07-artifact-store-mcp/run.py::workload`, and
+     `examples/08-e2e-demo/run.py::run`. Recorded in `D-GATE-15.1` as well, so
      the correction survives outside this phase's own directory.
   2. `grep -c "independent witness" src/ccf/products/gates.py == 0` — it is 3,
      all negations or a quoted-then-answered superseded claim, and
@@ -227,8 +227,10 @@ this phase asked Dave to accept.
 - **What**, in the four parts the binder's module docstring carries:
   1. The binder sits **between plan construction and `ProjectionEngine.execute`**,
      in adopter code, because `load_and_boot` has no `ProjectionPlan` in scope at
-     any of its preflights (`src/ccf/deployment/manifest.py:177` as the correction
-     cites it; the signature now spans `:181-188`). The SDK never invokes it.
+     any of its preflights (`src/ccf/deployment/manifest.py::_resolve_tenant` as the
+     correction cites it — it named a line inside that helper, where it stood in
+     the tree the correction was written against; the durable reference is the
+     symbol, not the line). The SDK never invokes it.
   2. It **returns `None`**, so nothing observable at runtime proves it was called
      — no product field, no pin, no audit event. A deployment that omits it
      produces byte-identical output.
@@ -486,15 +488,16 @@ this phase asked Dave to accept.
      name all six author-versioned classes as `registration: versioned`, and
      `refuse_registration_the_sdk_fixes` refuses `typed` for them at preflight.
      Surviving in `examples/` at:
-     - `examples/01-agent-basics/run.py:36`
-     - `examples/01-agent-basics/run.py:249-252` — *"A manifest entry for either
-       would drop that check silently."* **(added 2026-08-06; the register
-       carried `run.py:36` only)**
+     - `examples/01-agent-basics/run.py`'s module docstring — *"Routing them
+       through the manifest would silently drop that check"*
+     - `examples/01-agent-basics/run.py::run`, the `[start:agent-artifacts]`
+       block — *"A manifest entry for either would drop that check silently."*
+       **(added 2026-08-06; the register carried the module docstring only)**
      - `examples/01-agent-basics/README.md:126-128`
      - `examples/01-agent-basics/artifacts/manifest.yaml:18`
      - `examples/01-agent-basics/artifacts/agent-registration.yaml:10`
      - `examples/02-skilling/artifacts/manifest.yaml:23-25`
-     - `examples/03-harness-portability/run.py:247`
+     - `examples/03-harness-portability/run.py::decision`
      - `examples/03-harness-portability/artifacts/manifest.yaml:21-25`
      - `examples/03-harness-portability/artifacts/prompt.yaml:15-20`
        **(added 2026-08-06)**
@@ -502,9 +505,9 @@ this phase asked Dave to accept.
        **(added 2026-08-06)**
      - `examples/04-cross-process/artifacts/producer-manifest.yaml:23`
      - `examples/04-cross-process/artifacts/agent-registration.yaml:10`
-     - `examples/04-cross-process/producer_child.py:113-115` — *"which
-       `load_and_boot` does not do"*, unqualified, and therefore false
-     - ~~`examples/04-cross-process/producer_child.py:268-270`~~ **REMOVED
+     - `examples/04-cross-process/producer_child.py::AGENT_DEFINITION_DOCUMENT`
+       — *"which `load_and_boot` does not do"*, unqualified, and therefore false
+     - ~~`examples/04-cross-process/producer_child.py::build_covenant_slice_product`~~ **REMOVED
        2026-08-06, plan 15.1-17 (fourth review, IN-02.1): as written it is
        TRUE.** It says *"`load_and_boot`'s `register_typed` path does not"* —
        scoped to `register_typed`, which is exactly the wording
@@ -512,12 +515,13 @@ this phase asked Dave to accept.
        not be edited to match the pattern. Verified against the file
        2026-08-06. Moved to the checked-and-left set below, so the follow-up
        does not "fix" a correct sentence into a wrong one
-     - `examples/01-agent-basics/run.py:103-104` — **added 2026-08-06, plan
+     - `examples/01-agent-basics/run.py::AGENT_DEFINITION_DOCUMENT` — **added 2026-08-06, plan
        15.1-17 (IN-02.2), and added as a NAVIGATION site rather than a false
        one.** *"the manifest deliberately does not carry … See the module
        docstring"* is true as written and is the **seventh phrasing** below; it
-       forwards to `run.py:36`, which is listed above and is false. Its exact
-       analogue `04-cross-process/producer_child.py:113-115` appeared in both
+       forwards to the module docstring, which is listed above and is false. Its
+       exact analogue `examples/04-cross-process/producer_child.py::AGENT_DEFINITION_DOCUMENT`
+       appeared in both
        the site list and the seventh-phrasing sentence while this one appeared
        in neither, and the asymmetry is what a follow-up working from this list
        trips over. Nothing is lost by leaving the line itself alone; it is
@@ -582,8 +586,8 @@ this phase asked Dave to accept.
   true lines a sweep could wrongly "fix" were unlisted. Each was read against
   the file on 2026-08-06 rather than carried over from the review:
 
-  - `examples/04-cross-process/producer_child.py:268-270` — moved here from the
-    false-claim list; scoped to `register_typed`, and true.
+  - `examples/04-cross-process/producer_child.py::build_covenant_slice_product`
+    — moved here from the false-claim list; scoped to `register_typed`, and true.
   - `examples/01-agent-basics/artifacts/policy-bundle.yaml:10`
   - `examples/01-agent-basics/artifacts/agent-debt-profile.yaml:13`
   - `examples/02-skilling/artifacts/policy-bundle.yaml:12`
@@ -601,8 +605,8 @@ this phase asked Dave to accept.
   not contain:** *"the manifest deliberately does not name"* /
   *"Not a manifest entry, deliberately"* / *"absent from `SDK_ARTIFACT_CLASSES`"*
   / *"`load_and_boot` … does not"*. It is how
-  `examples/04-cross-process/producer_child.py:113-115`,
-  `examples/01-agent-basics/run.py:103-104` **(added 2026-08-06, plan 15.1-17 —
+  `examples/04-cross-process/producer_child.py::AGENT_DEFINITION_DOCUMENT`,
+  `examples/01-agent-basics/run.py::AGENT_DEFINITION_DOCUMENT` **(added 2026-08-06, plan 15.1-17 —
   IN-02.2; the exact analogue of the `producer_child.py` line beside it, and
   absent here as well as from the site list)**,
   `examples/03-harness-portability/artifacts/manifest.yaml:16` and both example-03
@@ -802,7 +806,7 @@ this phase asked Dave to accept.
 ## Attribute and subscript targets are unfollowed — never misfollowed, except from a nested body
 
 - **Source review documents:** stated as a module limit at
-  `tests/products/test_gate_two_call_shape.py:128-135`; the exception found by
+  `tests/products/test_gate_two_call_shape.py`'s module docstring; the exception found by
   `15.1-REVIEW-FIXES-4.md` **IN-02** (round 5). Excluded from re-report by rounds
   4 and 5 as a standing item (`15.1-REVIEW-FIXES-3.md:561`,
   `15.1-REVIEW-FIXES-4.md:502`). **OPEN.**
@@ -895,24 +899,29 @@ this phase asked Dave to accept.
   three times and swept the citers zero times.**
 - **The seven instances, all corrected by plan 15.1-19:**
   - `src/ccf/deployment/binder.py` — *"the signature spans lines 181-188 in the
-    tree as it now stands"* for `load_and_boot`, which spans `manifest.py:248-255`;
-    181-188 is inside `_document_inside_the_deployment`. **The only one in shipped
+    tree as it now stands"* for `load_and_boot`, which spanned `manifest.py:248-255`
+    where it stood in the tree the correction was written against; 181-188 was
+    inside `_document_inside_the_deployment`. **The only one in shipped
     `src/` phrased in the present tense** (W-1).
   - `src/ccf/deployment/__init__.py` — cited
-    `src/ccf/controlplane/artifacts.py:47` for the `__ccf_mode__` tag, which is at
-    `:84`. **A second false citation in shipped `src/`; the verification report
+    `src/ccf/controlplane/artifacts.py:47` for the `__ccf_mode__` tag — both
+    numbers as they stood in the tree the wrong citation was written against,
+    where the tag was in fact at `:84`. **A second false citation in shipped `src/`; the verification report
     states binder.py was the only one, and that was itself an under-count.**
     (Found by plan 15.1-19.)
   - `tests/products/test_gate_two_call_shape.py`, `tests/deployment/test_binder.py`,
     `tests/deployment/test_class_lookup.py` — all three cited
     `test_gate_independence.py:184-187` (the `_candidate` helper's signature) for a
-    discipline sentence at `:213-215` (W-5).
+    discipline sentence at `:213-215` — both as they stood in the tree the wrong
+    citation was written against (W-5).
   - `tests/examples/test_gate_two_divergence.py` — cited
     `test_gate_independence.py:179` (an `assembly_mode=` keyword argument) for a
-    perturbation at `:208-232` (W-5).
+    perturbation at `:208-232` — both as they stood in the tree the wrong
+    citation was written against (W-5).
   - `tests/products/test_gate_two_call_shape.py` — cited
     `test_required_operators_guard.py:260-262` (about which *spellings* are
-    exercised) for the probe-assembly discipline at `:264-267`. (Found by plan
+    exercised) for the probe-assembly discipline at `:264-267` — both as they
+    stood in the tree the wrong citation was written against. (Found by plan
     15.1-19; not in W-5.)
 - **A citation was falsified by the act of fixing another one.** Plan 15.1-19's
   two-line docstring addition to `binder.py` moved the binder's comparison from
@@ -923,7 +932,7 @@ this phase asked Dave to accept.
 - **Mitigation applied, short of tooling:** every corrected citation now names a
   **symbol or a pytest node id** (`module.py::test_name`,
   ``refuse_operator_set_divergence``'s comparison) instead of a line number. This
-  is not a new convention — `tests/products/test_required_operators_guard.py:147`
+  is not a new convention — `tests/products/test_required_operators_guard.py::_refused_names`
   already cited a sibling test by name. Symbol citations break loudly under rename
   (grep finds zero hits) rather than silently under insertion.
 - **A FOURTH reproduction, and it is what closed this entry.** Verification

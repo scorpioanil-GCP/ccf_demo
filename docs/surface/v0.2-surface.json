@@ -1014,7 +1014,7 @@
       },
       "ArtifactRole": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['register', 'load']"
       },
       "DEBT_PROFILE": {
         "kind": "constant",
@@ -1030,7 +1030,8 @@
           "fail_closed_threshold": "<class 'decimal.Decimal'>",
           "forced_llm_threshold": "<class 'decimal.Decimal'>",
           "risk_sensitivity": "<class 'decimal.Decimal'>",
-          "semver": "<class 'str'>"
+          "semver": "<class 'str'>",
+          "signal_obligations": "tuple[ccf.halflife.assessment.SignalObligation, ...]"
         }
       },
       "DeclaredArtifact": {
@@ -1167,7 +1168,7 @@
       },
       "RegistrationMode": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['typed', 'versioned']"
       },
       "SIGNAL_BATCH": {
         "kind": "constant",
@@ -1248,7 +1249,7 @@
     "exports": {
       "AuditAction": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision']"
       },
       "AuditEvent": {
         "kind": "contract",
@@ -2025,11 +2026,11 @@
       },
       "LineageMode": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['graph-supplied', 'product-carried', 'none']"
       },
       "PolicyBindingMode": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['assembly-stamped', 'admission-verified', 'none']"
       },
       "QueryFragment": {
         "kind": "contract",
@@ -2204,11 +2205,22 @@
   "ccf.halflife.assessment": {
     "__all__": [
       "DebtAssessment",
+      "DebtEvidence",
+      "DebtEvidencePointer",
       "DebtFactorName",
       "DebtFactors",
       "DebtSignal",
+      "NO_DEBT_EVIDENCE",
+      "NO_OBLIGATION_IN_FORCE",
       "NO_SCORER_PINS",
-      "ScorerPin"
+      "NO_SIGNAL_OBLIGATIONS",
+      "NO_SOURCE_REFRESH_RECENCY",
+      "ObligationInForce",
+      "ScorerPin",
+      "SignalObligation",
+      "SignalObligations",
+      "SourceRefreshRecency",
+      "SourceRefreshWindow"
     ],
     "exports": {
       "DebtAssessment": {
@@ -2220,9 +2232,19 @@
           "signal": "<enum 'DebtSignal'>"
         }
       },
+      "DebtEvidence": {
+        "kind": "function",
+        "shape": "typing.Annotated[tuple[ccf.halflife.assessment.DebtEvidencePointer, ...], AfterValidator(func=<function _pointers_are_unique_and_canonically_ordered>)]"
+      },
+      "DebtEvidencePointer": {
+        "kind": "contract",
+        "shape": {
+          "handle": "<class 'str'>"
+        }
+      },
       "DebtFactorName": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['freshness', 'completeness', 'semantic_consistency']"
       },
       "DebtFactors": {
         "kind": "contract",
@@ -2236,9 +2258,29 @@
         "kind": "class",
         "shape": "(*values)"
       },
+      "NO_DEBT_EVIDENCE": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "NO_OBLIGATION_IN_FORCE": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "NO_SCORER_PINS": {
         "kind": "constant",
         "shape": "tuple"
+      },
+      "NO_SIGNAL_OBLIGATIONS": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "NO_SOURCE_REFRESH_RECENCY": {
+        "kind": "constant",
+        "shape": "NoneType"
+      },
+      "ObligationInForce": {
+        "kind": "function",
+        "shape": "typing.Annotated[str, AfterValidator(func=<function _the_obligation_carried_is_declared_or_is_the_sentinel>)]"
       },
       "ScorerPin": {
         "kind": "contract",
@@ -2247,19 +2289,51 @@
           "scorer_id": "<class 'str'>",
           "scorer_version": "<class 'str'>"
         }
+      },
+      "SignalObligation": {
+        "kind": "contract",
+        "shape": {
+          "obligation_ref": "<class 'str'>",
+          "signal": "<enum 'DebtSignal'>"
+        }
+      },
+      "SignalObligations": {
+        "kind": "function",
+        "shape": "typing.Annotated[tuple[ccf.halflife.assessment.SignalObligation, ...], AfterValidator(func=<function _obligations_are_one_per_signal_in_canonical_order>)]"
+      },
+      "SourceRefreshRecency": {
+        "kind": "constant",
+        "shape": "ccf.halflife.assessment.SourceRefreshWindow | None"
+      },
+      "SourceRefreshWindow": {
+        "kind": "contract",
+        "shape": {
+          "newest_source_refresh_at": "<class 'datetime.datetime'>",
+          "oldest_source_refresh_at": "<class 'datetime.datetime'>"
+        }
       }
     }
   },
   "ccf.halflife.debt": {
     "__all__": [
       "DebtAssessment",
+      "DebtEvidence",
+      "DebtEvidencePointer",
       "DebtFactorName",
       "DebtFactorScorerProtocol",
       "DebtFactors",
       "DebtSignal",
       "FreshnessScorer",
+      "NO_DEBT_EVIDENCE",
+      "NO_OBLIGATION_IN_FORCE",
       "NO_SCORER_PINS",
+      "NO_SIGNAL_OBLIGATIONS",
+      "NO_SOURCE_REFRESH_RECENCY",
       "ScorerPin",
+      "SignalObligation",
+      "SignalObligations",
+      "SourceRefreshRecency",
+      "SourceRefreshWindow",
       "assess_debt",
       "basic_debt",
       "context_debt"
@@ -2274,9 +2348,19 @@
           "signal": "<enum 'DebtSignal'>"
         }
       },
+      "DebtEvidence": {
+        "kind": "function",
+        "shape": "typing.Annotated[tuple[ccf.halflife.assessment.DebtEvidencePointer, ...], AfterValidator(func=<function _pointers_are_unique_and_canonically_ordered>)]"
+      },
+      "DebtEvidencePointer": {
+        "kind": "contract",
+        "shape": {
+          "handle": "<class 'str'>"
+        }
+      },
       "DebtFactorName": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['freshness', 'completeness', 'semantic_consistency']"
       },
       "DebtFactorScorerProtocol": {
         "kind": "class",
@@ -2298,9 +2382,25 @@
         "kind": "class",
         "shape": "(table: 'HalfLifeTable', risk_sensitivity: 'Decimal') -> None"
       },
+      "NO_DEBT_EVIDENCE": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "NO_OBLIGATION_IN_FORCE": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "NO_SCORER_PINS": {
         "kind": "constant",
         "shape": "tuple"
+      },
+      "NO_SIGNAL_OBLIGATIONS": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "NO_SOURCE_REFRESH_RECENCY": {
+        "kind": "constant",
+        "shape": "NoneType"
       },
       "ScorerPin": {
         "kind": "contract",
@@ -2308,6 +2408,28 @@
           "factor": "typing.Literal['freshness', 'completeness', 'semantic_consistency']",
           "scorer_id": "<class 'str'>",
           "scorer_version": "<class 'str'>"
+        }
+      },
+      "SignalObligation": {
+        "kind": "contract",
+        "shape": {
+          "obligation_ref": "<class 'str'>",
+          "signal": "<enum 'DebtSignal'>"
+        }
+      },
+      "SignalObligations": {
+        "kind": "function",
+        "shape": "typing.Annotated[tuple[ccf.halflife.assessment.SignalObligation, ...], AfterValidator(func=<function _obligations_are_one_per_signal_in_canonical_order>)]"
+      },
+      "SourceRefreshRecency": {
+        "kind": "constant",
+        "shape": "ccf.halflife.assessment.SourceRefreshWindow | None"
+      },
+      "SourceRefreshWindow": {
+        "kind": "contract",
+        "shape": {
+          "newest_source_refresh_at": "<class 'datetime.datetime'>",
+          "oldest_source_refresh_at": "<class 'datetime.datetime'>"
         }
       },
       "assess_debt": {
@@ -2329,6 +2451,7 @@
       "HalfLifeEntry",
       "HalfLifeTable",
       "MissingHalfLife",
+      "NO_SUBJECT_IDENTITY",
       "Observation",
       "TemporalOrderError",
       "effective_half_life",
@@ -2356,11 +2479,16 @@
         "kind": "class",
         "shape": "type"
       },
+      "NO_SUBJECT_IDENTITY": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "Observation": {
         "kind": "contract",
         "shape": {
           "observation_type": "<class 'str'>",
-          "observed_at": "<class 'datetime.datetime'>"
+          "observed_at": "<class 'datetime.datetime'>",
+          "subject": "<class 'str'>"
         }
       },
       "TemporalOrderError": {
@@ -2395,7 +2523,7 @@
     "exports": {
       "EffectCapability": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['governed', 'unsupported']"
       },
       "EffectRefusal": {
         "kind": "contract",
@@ -2433,7 +2561,7 @@
       },
       "EffectCapability": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['governed', 'unsupported']"
       },
       "EffectRefusal": {
         "kind": "contract",
@@ -3314,7 +3442,7 @@
     "exports": {
       "HttpClientFactory": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "collections.abc.Callable[[], httpx.AsyncClient]"
       },
       "McpResourceClient": {
         "kind": "class",
@@ -3379,7 +3507,7 @@
       },
       "OperatorCategory": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['policy', 'similarity', 'temporal', 'traversal']"
       },
       "OperatorOutput": {
         "kind": "contract",
@@ -3816,7 +3944,7 @@
       },
       "JsonWebKey": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "collections.abc.Mapping[str, str]"
       },
       "KeyUnavailable": {
         "kind": "class",
@@ -3982,7 +4110,7 @@
       },
       "ExpiryDerivation": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "collections.abc.Callable[[collections.abc.Sequence[datetime.datetime]], datetime.datetime]"
       },
       "MixingRefusal": {
         "kind": "contract",
@@ -4033,7 +4161,7 @@
     "exports": {
       "AssemblyMode": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['algorithmic', 'llm_packaged', 'swarm_assembled']"
       },
       "ConstituentValidityFloors": {
         "kind": "contract",
@@ -4045,12 +4173,15 @@
         "kind": "contract",
         "shape": {
           "debt": "ccf.halflife.assessment.DebtAssessment | None",
+          "debt_evidence": "tuple[ccf.halflife.assessment.DebtEvidencePointer, ...]",
           "expires_at": "<class 'datetime.datetime'>",
           "lineage": "<class 'ccf.products.contract.ProductLineage'>",
+          "obligation_in_force": "<class 'str'>",
           "payload": "collections.abc.Mapping[str, typing.Any]",
           "plan_id": "<class 'str'>",
           "schema_name": "<class 'str'>",
           "schema_version": "<class 'str'>",
+          "source_refresh_recency": "ccf.halflife.assessment.SourceRefreshWindow | None",
           "temporal_boundary": "<class 'datetime.datetime'>",
           "tenant_id": "<class 'str'>",
           "ttl_anchor": "typing.Literal['from_decision', 'from_entity_freshness']"
@@ -4137,7 +4268,7 @@
       },
       "TTLAnchor": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['from_decision', 'from_entity_freshness']"
       },
       "UNMEASURED_FRESHNESS_SLA": {
         "kind": "constant",
@@ -4329,7 +4460,7 @@
       },
       "PayloadViolationReason": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['undeclared-key', 'missing-required-key', 'type-mismatch']"
       },
       "ProductPayloadSchema": {
         "kind": "contract",
@@ -4400,7 +4531,7 @@
       },
       "ProductRequestViolationReason": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch']"
       },
       "refuse_request": {
         "kind": "function",
@@ -4711,11 +4842,14 @@
         "kind": "contract",
         "shape": {
           "debt": "ccf.halflife.assessment.DebtAssessment | None",
+          "debt_evidence": "tuple[ccf.halflife.assessment.DebtEvidencePointer, ...]",
           "graph_query_sequence": "tuple[str, ...]",
+          "obligation_in_force": "<class 'str'>",
           "operator_plan": "tuple[str, ...]",
           "plan_id": "<class 'str'>",
           "product_content_address": "<class 'str'>",
           "request": "ccf.products.request.ProductRequest | None",
+          "source_refresh_recency": "ccf.halflife.assessment.SourceRefreshWindow | None",
           "steps": "tuple[ccf.projection.engine.ExecutionStep, ...]",
           "workflow_step_sequence": "<class 'str'>"
         }
@@ -4963,7 +5097,7 @@
       },
       "ResourceContents": {
         "kind": "constant",
-        "shape": "UnionType"
+        "shape": "mcp.types.TextResourceContents | mcp.types.BlobResourceContents"
       },
       "envelope_id_for": {
         "kind": "function",
@@ -5317,7 +5451,7 @@
       },
       "SkillCallable": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "collections.abc.Callable[[collections.abc.Mapping[str, str]], collections.abc.Mapping[str, str]]"
       }
     }
   },
@@ -5602,7 +5736,7 @@
       },
       "GrantState": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Literal['requested', 'pending-approval', 'effective', 'refused', 'revoked']"
       },
       "GrantStateRecord": {
         "kind": "contract",
@@ -6101,7 +6235,7 @@
       },
       "PerspectiveResolverProtocol": {
         "kind": "class",
-        "shape": "(*args, **kwargs)"
+        "shape": "(*, grant: 'TokenGrant', tenant: 'str', requested_role: 'str | None') -> 'Perspective'"
       },
       "ProductEntitlementRefused": {
         "kind": "class",
@@ -6953,7 +7087,7 @@
       },
       "ProductResolverProtocol": {
         "kind": "class",
-        "shape": "(*args, **kwargs)"
+        "shape": "(*, tenant: 'str', product_class: 'str', version: 'str', perspective: 'Perspective', request: 'ProductRequest | None') -> 'ServableProduct'"
       },
       "build_egress_server": {
         "kind": "function",
@@ -6996,11 +7130,11 @@
     "exports": {
       "AgentDirectoryProtocol": {
         "kind": "class",
-        "shape": "(*args, **kwargs)"
+        "shape": "(*, tenant: 'str') -> 'tuple[ExposedAgent, ...]'"
       },
       "AgentInvokerProtocol": {
         "kind": "class",
-        "shape": "(*args, **kwargs)"
+        "shape": "(*, tenant: 'str', definition_key: 'str', definition_version: 'str', skill: 'str', arguments: 'Mapping[str, str]') -> 'str'"
       },
       "AgentToolCatalog": {
         "kind": "contract",
@@ -7031,7 +7165,7 @@
       },
       "ContextProviderProtocol": {
         "kind": "class",
-        "shape": "(*args, **kwargs)"
+        "shape": "(*, tenant: 'str', entity: 'str') -> 'str'"
       },
       "DEFAULT_INVOKE_AGENT_DESCRIPTION": {
         "kind": "constant",
@@ -7063,7 +7197,7 @@
       },
       "ExperienceProductResolverProtocol": {
         "kind": "class",
-        "shape": "(*args, **kwargs)"
+        "shape": "(*, tenant: 'str', product_class: 'str', version: 'str', perspective: 'Perspective', request: 'ProductRequest | None') -> 'ServableProduct'"
       },
       "ExposedAgent": {
         "kind": "contract",
@@ -7098,11 +7232,11 @@
       },
       "LineageProviderProtocol": {
         "kind": "class",
-        "shape": "(*args, **kwargs)"
+        "shape": "() -> 'str'"
       },
       "ReplayRecordReaderProtocol": {
         "kind": "class",
-        "shape": "(*args, **kwargs)"
+        "shape": "() -> 'str'"
       },
       "agent_tool_listing": {
         "kind": "function",
@@ -7143,7 +7277,7 @@
       },
       "HitlActionRouteProtocol": {
         "kind": "class",
-        "shape": "(*args, **kwargs)"
+        "shape": "(*, submission: 'HitlActionSubmission') -> 'str'"
       },
       "HitlQueueView": {
         "kind": "contract",
@@ -7154,7 +7288,7 @@
       },
       "HitlQueueViewProtocol": {
         "kind": "class",
-        "shape": "(*args, **kwargs)"
+        "shape": "(*, tenant: 'str') -> 'tuple[PendingHitlEvent, ...]'"
       },
       "NaiveActionTimeRefused": {
         "kind": "class",
@@ -7341,7 +7475,7 @@
       },
       "PeerCardResolver": {
         "kind": "class",
-        "shape": "(*args, **kwargs)"
+        "shape": "(*, peer: 'PeerRef') -> 'str'"
       },
       "SIGNED_PRODUCT_MEDIA_TYPE": {
         "kind": "constant",
@@ -7384,7 +7518,7 @@
       },
       "PeerEndpointResolver": {
         "kind": "class",
-        "shape": "(*args, **kwargs)"
+        "shape": "(*, peer: 'PeerRef') -> 'str'"
       },
       "PeerUnreachable": {
         "kind": "class",
@@ -7481,7 +7615,7 @@
       },
       "WorkflowOutcome": {
         "kind": "function",
-        "shape": "(*args, **kwargs)"
+        "shape": "typing.Union[ccf_runtime.workflow.engine.WorkflowSuspended, ccf_runtime.workflow.engine.WorkflowCompleted, ccf_runtime.workflow.engine.WorkflowExceptionRouted, ccf_runtime.workflow.engine.WorkflowResumeRefused]"
       },
       "WorkflowResumeRefused": {
         "kind": "contract",

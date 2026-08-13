@@ -22,7 +22,9 @@ security property.**
   resolves the role from the verified
   :class:`~ccf.products.entitlement.ProductEntitlementGrant` before it
   constructs a :class:`~ccf.projection.plan.Perspective`. Enforced by field
-  enumeration in the ``tests/peering/test_trust_policy.py:213`` shape, because
+  enumeration in the
+  ``tests/peering/test_trust_policy.py::test_no_field_on_the_contract_could_express_a_verification_skip``
+  shape, because
   a docstring cannot fail when a later contributor adds one.
 * **No clock.** The caller supplies the instant at serve time and replay feeds
   the *recorded* boundary through the same code path — which is the whole
@@ -182,7 +184,8 @@ def test_no_address_axis_has_a_default(field: str) -> None:
 
 
 def test_no_field_on_the_request_could_assert_who_is_asking() -> None:
-    """T-15.5-32 made structural, in the ``test_trust_policy.py:213`` shape.
+    """T-15.5-32 made structural, in the shape of
+    ``tests/peering/test_trust_policy.py::test_no_field_on_the_contract_could_express_a_verification_skip``.
 
     Role is resolved at the door from the verified grant (plan ``15.5-06``).
     A role in the request body is an unverified claim, and a docstring saying
@@ -426,7 +429,9 @@ def test_the_request_contract_does_not_widen_the_http_schema_served_set() -> Non
 
 
 def test_the_class_declaration_authors_the_key_and_not_the_version() -> None:
-    """Authored key, derived version — ``artifacts.py:502-510``, third instance.
+    """Authored key, derived version —
+    ``src/ccf/controlplane/artifacts.py::ProductClassDeclaration``, third
+    instance.
 
     The version pinning a request contract is minted by *registering* it and is
     a content hash of what was registered. An artifact declaring it would be
@@ -630,6 +635,13 @@ def test_no_content_address_moves_because_of_the_pin() -> None:
     product, at which point every address recorded before it would differ from
     the one the same product produced after, and D-IMPL-100's ruling for the
     debt field would have been needed for this one too.
+
+    ``debt_evidence`` joined the enumeration under D-IMPL-118 (plan 15.6-06),
+    ``source_refresh_recency`` under the same ruling (plan 15.6-07) and
+    ``obligation_in_force`` under it again (plan 15.6-08) — the third and last
+    of the Track B members the ruling prices identically. That is what this
+    assertion is *for*: a field landing inside the delivered bytes is a
+    reviewable event with a ruling behind it, never a quiet edit.
     """
     from ccf.contracts.base import CCFContract
     from ccf.products.contract import (
@@ -648,6 +660,9 @@ def test_no_content_address_moves_because_of_the_pin() -> None:
         "lineage",
         "payload",
         "debt",
+        "debt_evidence",
+        "source_refresh_recency",
+        "obligation_in_force",
     }
 
     def _reaches(model: type[CCFContract], seen: set[type]) -> bool:

@@ -37,3 +37,36 @@ default = 0.15
 #
 # [override."perf/suites/crossproc/test_roundtrip.py::test_mcp_egress_roundtrip"]
 # threshold = 0.35
+
+# --- DI-15.5-01: the dispatch micro-benchmark's variance exceeds its band ---
+#
+# `test_run_coroutine_sync_overhead` measures a ~29 µs operation (coroutine
+# construction + one loop-aware dispatch). The micro suite's 10% default is
+# therefore a 2.9 µs band, which is inside ordinary scheduler and CPU-frequency
+# noise on a non-isolated machine. D-IMPL-107's close-out table records the
+# benchmark swinging from +11.48% to +0.93% against the same approved baseline
+# **with no change to the code it measures** — variance, not regression. That
+# is DI-15.5-01, ruled a PERF-04 widen-or-re-baseline decision; this entry is
+# the widen limb. The approved baseline (perf/baselines/local.json, "Dave,
+# 2026-08-03, phase-14 wave-2 gate") is deliberately untouched.
+#
+# Where 0.1246 comes from — the record, not a round number. Five medians of
+# this benchmark against the approved 2.9279995942488313e-05 s:
+#
+#   3.264e-05  +11.48%  D-IMPL-107 close-out, at the 15.5 phase base
+#   2.95531e-05 +0.93%  D-IMPL-107 close-out, at the 15.5 phase close
+#   2.98399e-05 +1.91%  15.6-02 task 1, pre-override run
+#   2.9617e-05  +1.15%  15.6-02 task 1, pre-override run
+#   2.9712e-05  +1.48%  15.6-02 task 1, pre-override run
+#
+# The band is the largest recorded excursion (+11.48%) plus the widest spread
+# among the quiet-machine readings (+1.91% − +0.93% = 0.98 points) as headroom:
+# 11.48 + 0.98 = 12.46%. That is the smallest band covering every observation
+# on the record with margin — loosening past it would discard real signal.
+#
+# LOOSEN-ONLY (D-22): this entry cannot weaken any other benchmark. An override
+# applies to exactly the one id it names, and perf/gate.py::resolve_threshold
+# raises ThresholdConfigError on any override below its suite default, so the
+# reviewed [suite.micro] default = 0.10 remains the floor for everything else.
+[override."suites/micro/test_dispatch.py::test_run_coroutine_sync_overhead"]
+threshold = 0.1246

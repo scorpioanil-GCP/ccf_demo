@@ -59,7 +59,8 @@ from typing import NamedTuple
 #: The repo root, resolved from this file rather than from the process CWD.
 #: A CWD-relative walk yields zero pages off-root and turns every gate built on
 #: this module into a test that passes over nothing — WR-04's exact failure,
-#: recorded at `tools/publish_scan_tests/test_docstring_leaks.py:143-163`.
+#: recorded at
+#: `tools/publish_scan_tests/test_docstring_leaks.py::test_the_walk_does_not_depend_on_the_process_cwd`.
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 #: The published tree. D-01: `public/` is the only tree mkdocs reads, so it is

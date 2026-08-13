@@ -81,6 +81,7 @@ from typing import Protocol
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
+    DebtProfile,
     OperatorParametersArtifact,
     PerspectiveArtifact,
     ProductClassDeclaration,
@@ -207,6 +208,18 @@ class Scenario(Protocol):
     @property
     def artifacts(self) -> Mapping[str, CCFContract]:
         """Every artifact the manifest named, parsed, under its own key."""
+
+    @property
+    def debt_profile(self) -> DebtProfile:
+        """The resolved, version-pinned CAR calibration for this class.
+
+        Read for two things and only two: the risk-sensitivity multiplier the
+        freshness scorer runs under, and — since gap 3 — the obligation this
+        deployment bound to whichever routing state the assessment lands in.
+        Both are declared in ``artifacts/debt-profile.yaml``. The artifact is
+        already resolved and pinned by the time it arrives here, so nothing on
+        this path ever reaches the Control Plane for a "latest" (D-IMPL-26).
+        """
 
     def debt(self, view: GraphView) -> DebtAssessment:
         """D_c over what this question actually assembled (whitepaper §7.7).
@@ -434,6 +447,11 @@ def assemble_and_serve(
         #    catch a producer misdeclaring. Authorable drift fails upstream
         #    instead, at the binder call in step 5.
         policy_version = booted.pins.version_for(scenario.policy_bundle_key)
+        # Measured ONCE, then used twice. The obligation the deployment declared
+        # answers to the routing state THIS assessment landed in, so resolving
+        # it from a second `scenario.debt(...)` call would risk binding the
+        # obligation of a signal the delivered product does not carry.
+        assessment = scenario.debt(execution.view)
         candidate = ContextProductContract(
             schema_name=product_class.schema_name,
             schema_version=product_class.schema_version,
@@ -457,7 +475,58 @@ def assemble_and_serve(
             # measurement. Measured against `execution.view`: what the
             # operators actually left standing, not what the artifacts hoped
             # for.
-            debt=scenario.debt(execution.view),
+            debt=assessment,
+            # WHAT THE DEBT POINTS AT, beside the debt rather than inside it
+            # (D-IMPL-118 `qa-toplevel`) — so it is in the product's content
+            # address on its own account, and dimension 5 carries a matching
+            # member that every `rehydrate_product` reads back.
+            #
+            # This deployment emits NOTHING into it, and that is a ruling
+            # rather than an oversight: D-IMPL-119 limb 3(b), *"omit evidence
+            # pointers entirely until a later phase adds principal scoping to
+            # the assembly path"*. `KycScenario.debt_evidence` carries the full
+            # reasoning and is the one place a later phase edits.
+            debt_evidence=scenario.debt_evidence(execution.view),
+            # WHEN THE SOURCES LAST PUBLISHED, beside the freshness factor it
+            # is deliberately not (D-IMPL-112 gap 2, D-IMPL-117), under the
+            # same `qa-toplevel` placement D-IMPL-118 ruled for all three Track
+            # B members.
+            #
+            # DECLARED by the deployment rather than measured off the view —
+            # which is why this reads a scenario attribute where the two lines
+            # above call a method taking `execution.view`. `debt.factors
+            # .freshness` is a number the fabric computed about its own decay;
+            # this is a fact about the world upstream, and the fabric has no
+            # way to observe it. `artifacts/product-governance.yaml` is where
+            # it is authored and where an adopter changes it.
+            #
+            # AND IT NAMES NO SOURCE (D-IMPL-124). The artifact declares three
+            # per-source entries with human-interpretable references;
+            # `deployment.py::_declared_refresh_window` reduced them to the
+            # window they span before this line ever saw a value, so what goes
+            # on the product is two instants — no reference, no count. The
+            # boundary is in the deployment and not in the SDK because only the
+            # deployment knows its own set of sources is complete.
+            source_refresh_recency=scenario.source_refresh_recency,
+            # WHAT THE SIGNAL OBLIGES THIS DEPLOYMENT TO DO, under the same
+            # `qa-toplevel` placement again (D-IMPL-112 gap 3, D-IMPL-117,
+            # D-IMPL-118).
+            #
+            # The SDK carried the binding mechanism and NOT ONE WORD of the
+            # vocabulary: `artifacts/debt-profile.yaml` is where a KYC
+            # deployment says what Forced-LLM and Fail-Closed require of it, and
+            # `DebtProfile.obligation_for` is the whole of what the fabric
+            # supplies. Nothing in CCF reads this string and acts on it —
+            # acting on it would mean the SDK had chosen the vocabulary.
+            #
+            # Resolved for the signal THIS assessment carries, so the delivered
+            # product records what this decision was obliged to do rather than
+            # the whole calibration. It is inside the content address, so the
+            # replay engine reproduces the obligation in force at decision time
+            # even if this artifact is rebound tomorrow (D-IMPL-26).
+            obligation_in_force=scenario.debt_profile.obligation_for(
+                assessment.signal
+            ),
         )
         # A refusal is not a thing to proceed past: `ServableProduct` is not
         # constructible outside `run_gates`, so holding one IS the evidence the

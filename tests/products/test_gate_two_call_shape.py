@@ -338,8 +338,9 @@ carried to Phase 16 rather than closed here.
 Why ``tests/`` is excluded from both scans
 -------------------------------------------
 
-``SCANNED_TREES`` omits ``tests``, copying ``test_required_operators_guard.py:77-79``
-and for its reason: a test may legitimately build a deliberately-tautological
+``SCANNED_TREES`` omits ``tests``, copying
+``tests/products/test_required_operators_guard.py::SCANNED_TREES`` and its
+stated reason: a test may legitimately build a deliberately-tautological
 construction in order to prove that a guard fires.
 ``tests/examples/test_gate_two_divergence.py`` — this plan's third module — is
 one of the places that happens, and ``tests/products/test_gate_independence.py``
@@ -3157,7 +3158,8 @@ def test_the_plan_recognition_refuses_an_unrelated_required_keyword() -> None:
     **The evidence base is n = 1, stated rather than left to be discovered**
     (IN-02). Measured 2026-08-06: twelve calls under ``examples/`` pass
     ``required=``, eleven of them are plan constructions, and the twelfth is
-    ``examples/03-harness-portability/run.py:693``'s ``add_argument``. So making
+    ``examples/03-harness-portability/run.py::main``'s ``--mode``
+    ``add_argument``. So making
     that one CLI flag optional, or retiring example 03, turns a
     ``tests/products/`` Gate-2 test red for a reason with nothing to do with
     Gate 2. That is the deliberate trade above — a loud, self-explaining failure

@@ -212,8 +212,8 @@ def test_the_reference_implementation_conforms_structurally(
     assert isinstance(assembler, ContextAssemblerProtocol)
     # Structural, never nominal: the reference implementation inherits nothing
     # from the Protocol, so the SDK's own assembler carries no privileged status
-    # that a deployment's could not reproduce (the DebtFactorScorerProtocol
-    # posture at src/ccf/halflife/debt.py:115-127).
+    # that a deployment's could not reproduce (the
+    # src/ccf/halflife/debt.py::DebtFactorScorerProtocol posture).
     assert ContextAssemblerProtocol not in DeterministicAssembler.__mro__
 
 

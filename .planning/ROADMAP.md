@@ -36,6 +36,7 @@ and the upgraded examples.
 - [x] **Phase 15.3: Fluree Adapter (Tier-1 Substrate)** (INSERTED) - A Fluree v4 storage adapter behind the Phase 15.2 read/write seams — the substrate-consolidation option for deployments (notably a financial institution developing its KG on Fluree) that want CCF's Context Graph co-located on Fluree they already operate. openCypher-over-wire translation per the 15.2-12 template; httpx wire client, zero new packages; temporal fields encoded as properties (Fluree's native time travel is transaction-time and MUST NOT implement as-of, per D-IMPL-88); an adapter going green against the unchanged 15.2 conformance/differential suites is the 15.2 no-refactor claim demonstrated on a real substrate. Ruled by D-IMPL-88 (Dave, 2026-08-07); CCF stays substrate-neutral — the bank's KG itself is approached as an external *source* (MCP ingress now; tier 3 later), never CCF's foundation (completed 2026-08-09)
 - [x] **Phase 15.4: Backend Registration Seam — The Substrate Stops Naming Its Adapters** (INSERTED) - Commissioned by D-IMPL-93 (Dave, 2026-08-09). Today the dependency arrow points the wrong way: `src/ccf/boot.py` and `src/ccf/graph/_writer.py` **import** `ccf.graph.backends.*`, `_open_backend`/`_preflight_backend` carry two-to-three keyword arguments per substrate, and `controlplane/artifacts.py` hand-maintains a `Literal` naming all six — so adding an adapter costs ~96 added lines across three core files, and both remaining D-IMPL-92 budgets are now exhausted (`manifest.py` 24/25, `artifacts.py` 9/10, tied). Invert it: each backend declares itself (name → factory + required connection config + preflight rule), the core holds a registry and looks up instead of branching, per-substrate kwargs collapse into one config mapping, and the `Literal` derives from the registry. Success is **structural, not numeric** — no import of `ccf.graph.backends.*` from outside `backends/`, and no substrate name in core outside the registry, both lint-enforced in the same machinery as the existing harness-import lint, replacing the line budgets D-IMPL-92 itself calls an admitted proxy. Per-adapter substrate cost goes to zero, which is what "the SDK needs no refactor to accept a new substrate" was always trying to say. Migrates all six existing backends; D-IMPL-92's gate is superseded by the structural check, not deleted (completed 2026-08-09)
 - [x] **Phase 15.5: The Context Product Surface — Vessel, Assembler, Debt, Entitlement** (INSERTED) - Commissioned by Dave 2026-08-10, mid-Phase-16, on reading `examples/s1-01-hello-context-product`: *"today I would put an MCP server in front of the fluree database and run a query and return the results. What is the benefit of using CCF?"* The example precomputed one answer to one design-time question at one fixed instant — which Chapter 1 names as the thing CCF replaces, *"the difference between the verb aggregate and the verb assemble."* Measured behind that reaction: three of §6.3's eight committed contract elements (freshness SLA, discovery, addressability) are unimplemented while `contract.py` states they live on `RegisteredProductClass`, where only `assembly_mode` of the four actually is; `register_product_class` takes no payload schema so `payload` is an unchecked dict; `DebtAssessment` is computed by `ccf.halflife.debt`, exercised in five examples, and appears on neither the product nor the replay record; and `Perspective` is passed into `execute()` by the caller with nothing deriving it from the verified grant, so the whole content-shaping layer sits downstream of an unverified claim. Rulings in force: `D-IMPL-96` revokes the "no fabric changed" constraint that concealed this, `D-IMPL-97` rules the Context Product a single standardised vessel whose uniqueness is in how it was assembled and whose assembler is a Protocol implemented by a declared agent, and Dave ruled entitlement requires a fabric change. Phase 16 is parked at 6/21 and resumes against the corrected surface — documenting it first would have documented the defect (completed 2026-08-12)
+- [x] **Phase 15.6: Decision-Completeness and Defect Closure** (INSERTED, COMPLETE 2026-08-13, D-GATE-15.6) - Commissioned by `D-IMPL-116`/`D-IMPL-117` (Dave, 2026-08-11), before Phase 16 resumes. Two explicit tracks that must not be planned as one: **Track A** closes the five carried, API-neutral defects (`DI-15.5-01`, `-04`, `-05`, `-06`, `-08`); **Track B** closes `D-IMPL-112`'s three named gaps — which observations contributed the decay, when the underlying sources were last refreshed, and what `forced_llm` obliges — shipping **carrying mechanism, not judgement**, with the surface impact and the third product-content-address move accepted as authorized costs. Gap 1 gets a research spike first, in the `15.5-01` shape. Requirements `DCD-01..DCD-12`, **minted at execution in plan `15.6-03` task 1** (no `DCD-` row exists in `REQUIREMENTS.md` until that plan lands; the IDs are claimed across the plans' `requirements:` frontmatter meanwhile). Verification is `make ci`, not `make ci-core`
 - [ ] **Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument** - One document, two sections (deterministic + external MCP consumption; CCF-agent assembly + MCP/A2A consumption), banking scenarios from the whitepaper, re-cut snippet markers so a reader can see which code is CCF and which is theirs
 
 ## Phase Details
@@ -473,7 +474,7 @@ governance-sensitive the artifact, the *less* declarative Phase 15 made it.
   2. The registration mode is declared per entry in the manifest and dispatched by `load_and_boot`; the artifact author does not have to know which of two registration paths their class belongs to
   3. `lineage.operators_invoked` is filled from the product-class declaration — never from `execution.operators_invoked` — in every example that runs Gate 2, and the projection's required operator set comes from its own Control Plane artifact rather than from the product-class artifact, so the declared and executed sets are separately authored (D-IMPL-86, design E2)
   4. A binder **refuses** when `product_class.required_operator_keys != frozenset(plan.required_operators())`, placed where a plan exists — between plan construction and `ProjectionEngine.execute`, **not** inside `load_and_boot`, which has no plan in scope (D-IMPL-86 correction, 2026-08-05) — and a test proves the refusal fires when the two artifacts are edited into disagreement. This is where authorable drift fails, and it is reachable by editing an artifact rather than only by writing a bug. The residual the placement creates — nothing outside `examples/` holds a deployment to calling the binder — is named in the deliverables and surfaced at the gate, not left in a docstring
-  5. Gate 2 is documented for what it verifies — **assembly-path integrity**, the claim transcribed into the Contract equalling the engine's execution of the plan — and every site asserting that it compares two independently authored sets is corrected, including `src/ccf/products/gates.py:14-17` and `:244-250`, the `ProductClassDeclaration` docstring at `src/ccf/controlplane/artifacts.py::ProductClassDeclaration`, and `docs/SURFACE-AUDIT.md` §3.1 item 1. D-IMPL-57's intra-fabric "the engine's resolution is an independent witness" premise is corrected with it: the engine is a faithful transcriber of the plan, which holds under every design considered
+  5. Gate 2 is documented for what it verifies — **assembly-path integrity**, the claim transcribed into the Contract equalling the engine's execution of the plan — and every site asserting that it compares two independently authored sets is corrected, including `src/ccf/products/gates.py`'s module docstring and `:244-250`, the `ProductClassDeclaration` docstring at `src/ccf/controlplane/artifacts.py::ProductClassDeclaration`, and `docs/SURFACE-AUDIT.md` §3.1 item 1. D-IMPL-57's intra-fabric "the engine's resolution is an independent witness" premise is corrected with it: the engine is a faithful transcriber of the plan, which holds under every design considered
   6. A tripwire refuses any call site filling both of Gate 2's arguments from `execution`, closing the shape CR-2 found
   7. `docs/SURFACE-AUDIT.md` §4.1 is corrected: "eight instances" is an undercount, and the ninth (the Gate 2 call-site pattern) is entered with the same accounting discipline
   8. The new AST gates are restated as **tripwires** — they catch known patterns — rather than as structural enforcement on par with single-writer DI, strengthened by D-IMPL-86's finding that no AST gate can distinguish an authored literal from a transcribed one
@@ -1072,6 +1073,85 @@ costs ~75s more. Also sweep `docs/schemas/` and `openapi.json` for whitepaper
 shingles — they sit outside the D-20 scanner, and prose republished there fires
 no gate.
 
+**Requirements**: DCD-01..DCD-12 — **minted at execution in plan `15.6-03` task 1**, not at
+planning: `grep -c "DCD-" .planning/REQUIREMENTS.md` returns **0** at `ef475e1`, and no row exists
+until that plan lands. All twelve IDs are claimed across the plans' `requirements:` frontmatter,
+so coverage is complete in substance and **provisional until Wave 1 lands**. No requirement IDs
+were mapped to this phase at insertion, so coverage is driven by the roadmap's named work items
+and every one maps to exactly one DCD ID.
+
+**Three figures in this entry are stale and the plans use re-measured ones** (`15.6-RESEARCH.md`,
+measured at `29e1568`):
+
+  - `DI-15.5-06`'s manifest inventory is **60 / 34 / 56**, not `D-IMPL-110`'s 56 / 30 / 54, and
+    **five** of the information-free entries are `Literal` type aliases rather than Protocols —
+    teaching `dump_surface.py` to read `__call__` will not fix those.
+  - `DI-15.5-08`'s citation population is **717 total / 245 checked / 0 findings / 434
+    unanchored**, of which the actionable `.py`-target subset is **125 across 31 files** — not
+    3 + 45. **The gate is GREEN**; this is elective hardening, not a broken invariant. And
+    `cite03-node-id` already exists, so `D-IMPL-114`'s consequence (1) is already discharged.
+  - `openapi.json` is **not** fully outside the D-20 scanner — it is snippet-included at
+    `public/reference/http-api.md` and lands in the scanned `site/` tree. **`docs/schemas/`
+    (26 files) is the standing gap**, and it is the one that matters, because
+    `tools/dump_schemas.py` copies docstrings verbatim into schema `description` fields.
+
+**Plans**: 12 plans in 10 waves
+
+Plans:
+**Wave 1** *(parallel — disjoint file sets)*
+
+- [x] 15.6-01-PLAN.md — [Track B] The spike: four placements measured against the real rehydration tripwire, the record-only option's three-door reach, the entitlement question, the re-derived address census. Recommends nothing. Retiring owner: `15.6-12` task 1
+- [x] 15.6-02-PLAN.md — [Track A] `DI-15.5-01` loosen-only perf band override + `DI-15.5-04` lazy `IntermediateCache` key + the `D-IMPL-36` witness-narrowing fragment
+- [x] 15.6-03-PLAN.md — [Verify] `DCD-01..12` minted · `tests/invariants/test_no_obligation_vocabulary.py` (the hole no shipped lint reaches) · the `docs/schemas/` scan root wired into `docs-strict`
+
+**Wave 2** *(blocked on 15.6-01 — checkpoint)*
+
+- [x] 15.6-04-PLAN.md — [Track B] Ruling gate: the fixed-versus-declared fork, **the unruled entitlement-leak question**, and required-versus-optional on `Observation`. New `D-IMPL` entries
+
+**Wave 3** *(blocked on Wave 2 — Track B serializes; each plan moves a hashed contract)*
+
+- [x] 15.6-05-PLAN.md — [Track B] Gap 1a: `Observation` gains its identity; the s1-01 assembler stops discarding the join key it already holds
+
+**Wave 4**
+
+- [x] 15.6-06-PLAN.md — [Track B] Gap 1b: `DebtAssessment` gains the evidence carrier; the replay quartet; address move 1 of 3
+
+**Wave 5**
+
+- [x] 15.6-07-PLAN.md — [Track B] Gap 2: the source-refresh recency slot (`LineageEntry` is blocked — `D-IMPL-58` plus a `sha256` file pin); address move 2 of 3
+
+**Wave 6**
+
+- [x] 15.6-08-PLAN.md — [Track B] Gap 3: `DebtProfile` binds an opaque obligation per `DebtSignal`, resolved at replay to the binding in force; address move 3 of 3. The vocabulary ships in an example artifact, never in `src/`
+
+**Wave 7** *(checkpoint)*
+
+- [x] 15.6-09-PLAN.md — [Track A] `DI-15.5-05` ruled + the seam obligation discharged and asserted + the two Track A scoping rulings Waves 8 and 9 need
+
+**Wave 8** — ordered: `15.6-13` then `15.6-10`. Not concurrent.
+
+- [x] 15.6-13-PLAN.md — [Track B] `D-IMPL-124` Shape B: the source-refresh map becomes a non-identifying freshness window (`oldest_source_refresh_at` / `newest_source_refresh_at`); `SourceRefresh` deleted; address move 4. **Must precede 15.6-10's manifest regeneration**
+- [x] 15.6-10-PLAN.md — [Track A] `DI-15.5-06`: `dump_surface` reads a Protocol's `__call__`; **the phase's single manifest regeneration**, after the last Track B `src/` edit
+
+**Wave 9**
+
+- [x] 15.6-11-PLAN.md — [Track A] `DI-15.5-08`: the scoped citation sweep + a two-direction ratchet (the tree's first ceiling; its floor named `MINIMUM_*` so the retirement sweep can see it)
+
+**Wave 10** *(checkpoint)*
+
+- [x] 15.6-12-PLAN.md — [Close] Retire the spike, `make ci`, cross-AI panel `--all` against shipped code, single-agent review, verify every finding, gate package, present to Dave
+
+**Sequencing constraints that are rulings, not optimizations:** Track A and Track B
+are planned separately (`D-IMPL-116`); Wave 3–6 serialize because 15.6-06 and
+15.6-07 both edit `DebtAssessment`, all three move the product content address, and
+each needs its own fragment and its own `expected_output.txt` regeneration;
+`DI-15.5-06` and `DI-15.5-08` go **last**, in that order, because both are
+instruments Track B's own `src/` edits perturb — `DI-15.5-06` and Track B both
+produce `docs/surface-changes/` fragments and both regenerate the surface manifest,
+so a `DI-15.5-06` landing first would leave every Track B fragment authored against
+a manifest it was about to move again.
+
+
 ### Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument
 
 **Status**: discussed 2026-08-09. The scope was expanded at that discussion on
@@ -1227,7 +1307,7 @@ Plans:
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
 | 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 15/15 | Complete | 2026-08-11 |
-| 15.6 Decision-Completeness and Defect Closure | 0/? | Planned | — |
+| 15.6 Decision-Completeness and Defect Closure | 13/13 | Complete | 2026-08-13 |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Parked (resumes after 15.6) |  |
 
 ## Coverage

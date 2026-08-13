@@ -406,9 +406,23 @@ def refuse_request(
 ) -> ProductRequestViolation | None:
     """The one request-conformity comparison — address first, then parameters.
 
-    Called by the door, once the seam that can carry a typed request exists
-    (D-IMPL-108, plan ``15.5-15``), and by any registration-time capability
-    check that needs to know what a class accepts. One function, so the two
+    **Called by the deployment's own resolver, not by any door**
+    (``D-IMPL-121``, Dave, 2026-08-12, extending ``D-IMPL-113``). This
+    docstring previously claimed it was *called by the door*; the seam that
+    can carry a typed request has existed since plan ``15.5-15``
+    (``D-IMPL-108``) and no shipped door calls this function, so the claim was
+    false as written and is corrected here rather than left to rot. The join
+    point is the resolver behind
+    :class:`~ccf_runtime.mcp.egress.ProductResolverProtocol` and
+    :class:`~ccf_runtime.mcp.experience.ExperienceProductResolverProtocol`,
+    whose docstrings state what a resolver omitting this call serves and why
+    the door cannot make it: the door never holds the
+    :class:`~ccf.products.contract.RegisteredProductClass` this comparison
+    needs. ``examples/s1-01-hello-context-product/spine.py::assemble_and_serve``
+    is the shipped worked example.
+
+    Also called by any registration-time capability check that needs to know
+    what a class accepts. One function, so the two
     cannot drift into two readings of "well-formed" — the reason
     :func:`~ccf.products.gates.refuse_attestation` is one function and the
     reason this one delegates its parameter comparison to

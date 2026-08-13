@@ -2,7 +2,8 @@
 
 Plan 15.3-01, D-06. Everything here runs in an environment with **no extra
 installed at all**, which is the exact inversion of what
-``test_neo4j_backend.py:1-10`` says about itself: ``httpx==0.28.1`` is a direct
+``tests/graph/test_neo4j_backend.py``'s own module docstring says about itself:
+``httpx==0.28.1`` is a direct
 core pin (``pyproject.toml:44``), so this substrate needs no
 ``[project.optional-dependencies]`` entry, no lazy import guard and no
 ``[[tool.mypy.overrides]]`` block. That absence is itself SUBQ-14 evidence —
@@ -445,7 +446,8 @@ def test_fa1_container_round_trip(fluree_url: str) -> None:
 
     Assertions (8) and (9) are additions this plan makes to the research's
     seven, recorded as assumptions **A11** and **A12**: every one of the five
-    acquisition statements plan 15.3-02 copies from ``backends/neo4j.py:519-565``
+    acquisition statements plan 15.3-02 copies from
+    ``src/ccf/graph/backends/neo4j.py::Neo4jGraphReader``
     orders on *two* keys and matches with an inline map pattern, and neither
     shape appears in §R1's confirm/refute table. Probed, not assumed.
     """
@@ -531,7 +533,8 @@ def test_fa1_container_round_trip(fluree_url: str) -> None:
         # `_GraphTxn` per-operation rowcount contract rests entirely on
         # read-before-buffer plus own-buffer — which is what `_MongoTxn`
         # already does, and which the contract was written to permit
-        # (`_writer.py:333-338`). Nothing depends on the cross-check.
+        # (`src/ccf/graph/_writer.py::_claim_payload`). Nothing depends on
+        # the cross-check.
         assert "flakes_added" not in receipt, (
             "flakes_added reappeared — re-cost the F-A4(d) cross-check: " f"{receipt}"
         )
@@ -901,7 +904,8 @@ def test_fa4_ground_batch_semantics(fluree_url: str) -> None:
     ruling gate and is deliberately NOT worked around here.
 
     **What these assertions do NOT establish.** The ``_GraphTxn`` contract
-    needs **per-operation** rowcounts (``_writer.py:333-338``) and one POST
+    needs **per-operation** rowcounts
+    (``src/ccf/graph/_writer.py::_claim_payload``) and one POST
     yields at most **one** aggregate receipt, so a receipt field could only
     ever cross-check the sum — it could never implement the contract. On this
     build it cannot even do that: the receipt carries ``ledger_id``, ``t``,
@@ -1589,7 +1593,8 @@ def test_url_userinfo_becomes_a_basic_credential_not_a_discarded_string() -> Non
     stays true if the pin moves). A credentialed URL therefore connected
     **anonymously** — the one outcome that must not remain.
 
-    The rule now is `neo4j.py:151-165`'s: userinfo a caller supplied is used.
+    The rule now is `src/ccf/graph/backends/neo4j.py::_split_credentials`'s:
+    userinfo a caller supplied is used.
     """
     from ccf.graph.backends.fluree import _authorization
 

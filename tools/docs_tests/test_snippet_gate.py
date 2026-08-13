@@ -43,7 +43,8 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 #: was `ontology` until the marker was removed from the source, at which point
 #: all three tests using it failed with "fixture drifted from its source" —
 #: which is the coupling reporting itself correctly. `boot`
-#: (`examples/00-quickstart/run.py:156`) is the marker verified present today.
+#: (the `[start:boot]` marker inside `examples/00-quickstart/run.py::run`) is
+#: the marker verified present today.
 #:
 #: Plan 16-18 repoints BOTH constants again at the Section-1 spine when
 #: `examples/00-quickstart` retires. Recorded here so the terminal plan does not

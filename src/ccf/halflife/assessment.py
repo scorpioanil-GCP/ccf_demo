@@ -37,6 +37,54 @@ producer anywhere in the SDK, and none is invented here — the two shapes a
 later cycle may choose between are recorded in the ruling, not anticipated in
 this module.
 
+**Evidence points beside debt, not from inside it** (D-IMPL-118).
+:class:`DebtEvidencePointer` is defined here, beside the assessment it
+explains, but the *carrier* is a *top-level* field on
+:class:`~ccf.products.contract.ContextProductContract` — a sibling of ``debt``
+rather than a member of :class:`DebtAssessment`. Nesting was the cheaper
+measured option and was declined: it would have inherited replay
+reconstructibility for nothing, because the shipped rehydrators already carry
+``record.content_generation_path.debt`` verbatim. The ruling forwent that free
+ride deliberately, buying the field its own identity on the vessel, and paid
+for it with a matching member on
+:class:`~ccf.replay.record.ContentGenerationPath` plus an edit to every
+implementation of
+:meth:`~ccf.replay.engine.ReplayEnvironment.rehydrate_product` — without both,
+every replay of every product raises ``ReplayDivergence``.
+
+**When a source last published is a different fact from how much decay the
+fabric has measured** (D-IMPL-112 gap 2, D-IMPL-117).
+:class:`SourceRefreshWindow` is defined here for
+:class:`DebtEvidencePointer`'s reason — beside the debt figure it stands apart
+from — and its carrier is a *top-level* field on
+:class:`~ccf.products.contract.ContextProductContract` under the same
+D-IMPL-118 branch, with the same matching member on
+:class:`~ccf.replay.record.ContentGenerationPath` and the same read-back in
+every rehydrator. The SDK records the instants and reads them back; it defines
+no source, no cadence and no threshold, and it compares them to nothing outside
+themselves — which is where recency would otherwise become salience, deferred
+by D-IMPL-101. **It names no source** (D-IMPL-124): the window summarises when
+the oldest and the newest of a deployment's sources last published without
+publishing which systems those are, because the field's purpose is freshness
+rather than source enumeration.
+
+**What a signal obliges is bound by the deployment and named by nobody here**
+(D-IMPL-112 gap 3, D-IMPL-117). :class:`SignalObligation` binds one
+:class:`DebtSignal` to one *opaque* obligation reference; the calibration lives
+on :class:`~ccf.controlplane.artifacts.DebtProfile`, and the reference resolved
+for the signal a decision actually landed in rides
+:class:`~ccf.products.contract.ContextProductContract` as a top-level field
+under the same D-IMPL-118 branch as the two members above, with the same
+matching member on :class:`~ccf.replay.record.ContentGenerationPath` and the
+same read-back in every rehydrator. **The SDK ships no obligation vocabulary
+and takes no action on one.** It validates the *key*, which is a type it owns,
+and validates nothing whatever about the *value*: which operational duty a
+given decision class attaches to a routing state is the context product
+creator's judgement, and a closed set of duty names in this file would be the
+CLAUDE.md §11 defect rather than a convenience.
+``tests/invariants/test_no_obligation_vocabulary.py`` is the standing gate over
+that claim.
+
 **Decimal, never float.** These values reach the replay record and are inside
 the product's content address under D-IMPL-100; floats are not bit-stable, so a
 float is *refused at construction* rather than coerced. Coercion would be the
@@ -49,23 +97,36 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import unicodedata
+from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Final, Literal, Protocol
+from typing import Annotated, Final, Literal, Protocol
 
-from pydantic import field_validator
+from pydantic import AfterValidator, field_validator, model_validator
 
 from ccf.contracts.base import CCFContract
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "NO_DEBT_EVIDENCE",
+    "NO_OBLIGATION_IN_FORCE",
     "NO_SCORER_PINS",
+    "NO_SIGNAL_OBLIGATIONS",
+    "NO_SOURCE_REFRESH_RECENCY",
     "DebtAssessment",
+    "DebtEvidence",
+    "DebtEvidencePointer",
     "DebtFactorName",
     "DebtFactors",
     "DebtSignal",
+    "ObligationInForce",
     "ScorerPin",
+    "SignalObligation",
+    "SignalObligations",
+    "SourceRefreshRecency",
+    "SourceRefreshWindow",
 ]
 
 _ZERO = Decimal(0)
@@ -89,6 +150,181 @@ def _refuse_float(value: object) -> object:
             "debt values are Decimal, never float: they reach the replay "
             "record and sit inside the delivered product's content address "
             "(D-IMPL-100), and floats are not bit-stable across platforms"
+        )
+    return value
+
+
+#: The identifier namespace the SDK reserves for itself in **every** opaque
+#: string this package puts inside a content address.
+#:
+#: Not a vocabulary and not a scheme: one prefix, which a deployment's own
+#: identifiers may not occupy. ``tests/halflife/test_debt_delivery.py`` already
+#: enforces that every module-level string constant in this package lives here
+#: (or is a semver lane, or the CINV-03 mode token); this constant is the
+#: reading half of that discipline, applied to values arriving from outside.
+#:
+#: **It moved here from** :mod:`ccf.halflife.decay` **at Phase 15.6's close.**
+#: It was written module-private there, on the stated ground that "a public
+#: constant would promise a tree-wide rule this commit does not ship" — and the
+#: single-agent review then found the promise being kept in one of the four
+#: places this phase gave an opaque string inside a content address to. Sharing
+#: the constant and the refusal is what makes the rule one rule rather than
+#: four; this module is the lowest in the package's import order, which is why
+#: it holds them.
+_SDK_NAMESPACE: Final[str] = "ccf."
+
+
+def _as_a_reader_sees_it(value: str) -> str:
+    """``value`` reduced to what a reader of a rendered product would see.
+
+    The reservation's argument is that a deployment value must not be
+    *"indistinguishable, to a reader, from a marker the fabric itself wrote"*.
+    Comparing raw strings breaks that argument on every spelling that renders
+    identically and compares differently — Phase 15.6's single-agent review
+    walked three of them past :attr:`~ccf.halflife.decay.Observation.subject`'s
+    reservation by execution: ``" ccf.no-subject-identity"`` (leading space),
+    the non-breaking-space form, and ``"CCF.no-subject-identity"``.
+
+    Three reductions, each closing a family of those:
+
+    * ``NFKC`` folds the compatibility forms — full-width ``ｃｃｆ．``, the
+      non-breaking space — onto their ordinary spellings.
+    * Format characters (Unicode category ``Cf``: zero-width space, joiners,
+      bidi controls) are dropped, because a character with no glyph cannot be
+      part of what a reader distinguishes.
+    * Surrounding whitespace is stripped and the result case-folded — the pair
+      every blank check in this package already applied and no namespace check
+      did.
+
+    **What this does not fold, stated rather than implied**: script confusables.
+    ``сcf.`` with a Cyrillic ``с`` renders like ``ccf.``, normalizes to itself,
+    and is accepted. Folding confusables needs a confusable table and a policy
+    about which scripts a deployment may write, which is deployment knowledge
+    the SDK does not hold (CLAUDE.md §11). This closes the spellings that are
+    *mechanically* identical to a reader, not every spelling that is visually
+    similar to one.
+
+    The reduction is used for the **checks only**. Every value is stored
+    verbatim: the SDK parses none of these strings and rewrites none of them
+    (D-IMPL-117).
+    """
+    folded = unicodedata.normalize("NFKC", value)
+    visible = "".join(
+        character
+        for character in folded
+        if unicodedata.category(character) != "Cf"
+    )
+    return visible.strip().casefold()
+
+
+def _refuse_an_impersonation_of_an_sdk_marker(
+    value: str, *, field: str, admitted: str | None = None
+) -> str:
+    """Refuse a value inside :data:`_SDK_NAMESPACE`, `admitted` excepted.
+
+    **One rule for four fields.** Phase 15.6 gave four opaque strings a place
+    inside the delivered product's content address —
+    :attr:`~ccf.halflife.decay.Observation.subject`,
+    :attr:`DebtEvidencePointer.handle`,
+    :attr:`SignalObligation.obligation_ref`, and :data:`ObligationInForce` on
+    both of its carriers — and the close-time panel's B1 fix reserved the
+    namespace on exactly one of them. The single-agent review then demonstrated
+    the asymmetry by execution: ``DebtEvidencePointer(handle='ccf.fabricated
+    -marker')``, ``SignalObligation(obligation_ref='ccf.anything-at-all')`` and
+    ``ContextProductContract(obligation_in_force='ccf.fabricated')`` were all
+    accepted. A property worth enforcing on one field of four is either a rule
+    or a coincidence; this makes it a rule.
+
+    `admitted` is the one value a *carrier* must still accept: its own
+    sentinel, which is SDK structure the fabric wrote and the positive
+    assertion an unmarked value is spelled with. It is compared **exactly**, so
+    a near-miss spelling of a sentinel is an impersonation rather than a
+    sentinel. Fields with no sentinel of their own pass ``None`` and reserve
+    the whole namespace.
+
+    **A known cost, recorded rather than fixed.** The reservation is a bare
+    ``ccf.`` prefix with no delimiter discipline, so a deployment whose opaque
+    identifiers are domain-shaped — ``ccf.example.com/entity/42``, or any URI
+    under a ``ccf.*`` host — is refused outright, and §11's posture is that
+    these values are opaque strings the SDK "never enumerates… never parses".
+    Narrowing the reservation (to a ``ccf:`` scheme, say) would change the
+    shipped sentinels' values, which are inside shipped content addresses —
+    a ruling, not a repair, and it goes to the gate rather than being taken
+    silently in either direction.
+    """
+    if admitted is not None and value == admitted:
+        return value
+    if _as_a_reader_sees_it(value).startswith(_SDK_NAMESPACE.casefold()):
+        raise ValueError(
+            f"the {_SDK_NAMESPACE!r} prefix is reserved for SDK structure:"
+            f" {value!r} would be indistinguishable, to a reader, from a marker"
+            f" the fabric itself wrote, and {field} is inside the delivered"
+            " product's content address (D-IMPL-38, D-IMPL-118). These values"
+            " are the deployment's own and carry the deployment's own scheme"
+            " (D-IMPL-117)"
+        )
+    return value
+
+
+def _is_a_bare_number(value: object) -> bool:
+    """True for a value that is a number, or is text spelling one.
+
+    ``"1767225600"`` is the epoch as text and ``1767225600`` is the epoch as an
+    integer; both are the same claim, and neither of them names a timezone.
+    Parsed with :func:`float` rather than matched with a pattern because the
+    question is exactly *"would a reader take this for a number"*, and the
+    language's own answer is the one that matters.
+    """
+    if isinstance(value, (int, float, Decimal)):
+        return True
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", "replace")
+    if not isinstance(value, str):
+        return False
+    try:
+        float(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _refuse_an_instant_that_named_no_zone(value: object) -> object:
+    """Refuse a bare number where an instant naming its zone is required.
+
+    Runs **before** validation, which is the only position from which the zone
+    rule can see what the deployment actually supplied. Pydantic's lax mode
+    turns ``1767225600``, ``1767225600.5`` and ``"1767225600"`` into a
+    timezone-aware UTC ``datetime`` *before* any after-validator is reached, so
+    a rule written there is a rule about what the framework made of the input
+    rather than about the input — and it passed every one of those spellings
+    while refusing ``"2026-01-01T00:00:00"`` for carrying an implicit zone. The
+    naive datetime and the bare epoch are the same defect: the deployment never
+    wrote the zone down, and this value is inside the delivered product's
+    content address (D-IMPL-118).
+
+    :func:`_refuse_float` first, and by call rather than by restatement. The
+    module has **one** float discipline (see the module docstring), it is wired
+    onto four other fields, and :class:`SourceRefreshWindow` was outside it —
+    so ``1767225600.5`` reached a hashed field in the module whose headline
+    rule is that floats are not bit-stable. A bespoke float check here would
+    have closed the hole and left the asymmetry.
+
+    Text that is *not* a number passes through untouched: an ISO-8601 string
+    either carries an offset, in which case it named its zone, or it does not,
+    in which case :meth:`SourceRefreshWindow._the_instant_names_its_zone`
+    refuses the naive ``datetime`` Pydantic parses it into. Nothing here judges
+    the *format* of an instant — that is Pydantic's job and duplicating it
+    would give the tree two parsers.
+    """
+    value = _refuse_float(value)
+    if _is_a_bare_number(value):
+        raise ValueError(
+            "a source refresh instant must name its zone, and a bare number "
+            "names none: an epoch — as an int, a Decimal or as text — is "
+            "silently read as UTC, which is a default the deployment never "
+            "declared (D-IMPL-38), and this value is inside the delivered "
+            "product's content address (D-IMPL-118). Supply a timezone-aware "
+            "datetime, or a string carrying an explicit offset"
         )
     return value
 
@@ -228,6 +464,560 @@ class ScorerPin(CCFContract):
 #: empty tuple rather than a marker string because each element is a structured
 #: pin and the field must stay one shape.
 NO_SCORER_PINS: Final[tuple[ScorerPin, ...]] = ()
+
+
+class DebtEvidencePointer(CCFContract):
+    """One handle to something a debt assessment summarises (D-IMPL-118).
+
+    SDK-defined (CLAUDE.md §11). D-IMPL-112 recorded that a bare
+    ``D_c``/signal/``F`` triple is not enough to act on, and named *which
+    observations contributed the decay* as the first thing missing. D-IMPL-117
+    then scoped what the SDK owes about it: *"the structure and the API to
+    populate and extract"*, and **none of the content**. This class is that
+    structure. Which observations are worth pointing at is the context product
+    creator's judgement, expressed through the product's evolutionary
+    capability rather than through SDK code.
+
+    Attributes:
+        handle: The identifier of the thing pointed at. **Opaque to the SDK;
+            declared by the deployment** — the discipline
+            :class:`~ccf.skills.catalog.SkillRequirements` already holds. The
+            SDK validates structure (type, non-blankness, uniqueness, canonical
+            order) and validates nothing about meaning: it ships no entity-URI
+            type, no claim-id type, no vocabulary and no default.
+
+    **The handle carries nothing a reading principal can interpret**
+    (D-IMPL-119 limbs 3 and 4). That ruling found evidence pointers
+    entitlement-sensitive and the shipped assembly path *not* principal-scoped,
+    and it therefore refuses a pointer naming any of ``EntityClaim``'s fields in
+    an interpretable form until the scoping gap is closed. It also refuses a
+    handle that is *merely encoded* rather than genuinely non-revealing — an
+    obfuscated entity URI is an interpretable pointer with an extra step. Until
+    a later phase adds principal scoping to the assembly path, a populated
+    handle must be resolvable only through a privileged side channel inside the
+    trust boundary, never by the principal reading the product.
+
+    **Nothing here varies by principal**, which is what keeps this field's
+    presence inside the product's content address compatible with D-IMPL-105:
+    principal-dependent contents would give two differently-entitled principals
+    different addresses for the same assembly, which is the coupling that
+    ruling dissolved.
+    """
+
+    handle: str
+
+    @field_validator("handle", mode="before")
+    @classmethod
+    def _handle_is_not_a_float(cls, value: object) -> object:
+        return _refuse_float(value)
+
+    @field_validator("handle")
+    @classmethod
+    def _the_handle_is_declared(cls, value: str) -> str:
+        """Refuse a blank handle, in
+        :meth:`SignalObligation._the_obligation_is_declared_and_is_not_the_sentinel`'s
+        first limb and for its reason.
+
+        A pointer that points at nothing is not a stricter pointer, it is one
+        wearing the costume of a pointer that points at something. Accepting it
+        would make *pointed at something* and *pointed at nothing* two spellings
+        of one claim, while only the second has a sentinel that says so
+        (:data:`NO_DEBT_EVIDENCE`), which is the repudiation failure mode
+        ``D-IMPL-38`` closes. And because this value sits inside the delivered
+        product's content address (``D-IMPL-118``), the ambiguity would be
+        replay-stable rather than transient: the blank would reproduce exactly,
+        forever, as evidence.
+
+        Whitespace is refused with the empty string because a handle of spaces
+        is the empty string with a costume on, and the deferred alternative —
+        letting a consumer discover it — is the deferral CLAUDE.md §11 refuses.
+
+        **A handle inside the SDK's namespace is refused too**
+        (:func:`_refuse_an_impersonation_of_an_sdk_marker`), on the reasoning
+        the close-time panel's B1 applied to
+        :attr:`~ccf.halflife.decay.Observation.subject` and the single-agent
+        review then found applied to that field alone:
+        ``handle='ccf.fabricated-marker'`` was accepted, and a pointer that
+        reads as SDK structure is a deployment value wearing the fabric's
+        clothes. This field has **no sentinel of its own** — an assessment that
+        points at nothing carries the empty :data:`NO_DEBT_EVIDENCE` tuple, not
+        a marker string — so the whole namespace is reserved with nothing
+        carved out of it.
+
+        No judgement about *meaning* is made here. Any other string is accepted
+        verbatim, however unfamiliar: which handles are worth pointing at is the
+        context product creator's judgement (``D-IMPL-117``), and the SDK ships
+        no handle vocabulary, no format and no default.
+        """
+        if not _as_a_reader_sees_it(value):
+            raise ValueError(
+                "an evidence handle must be declared: a blank handle points at"
+                " nothing while claiming to point at something, which is what"
+                " an empty NO_DEBT_EVIDENCE carrier already asserts, and it"
+                " would sit inside the product's content address as evidence"
+                " (D-IMPL-38, D-IMPL-118)"
+            )
+        return _refuse_an_impersonation_of_an_sdk_marker(
+            value, field="an evidence handle"
+        )
+
+
+def _pointers_are_unique_and_canonically_ordered(
+    value: tuple[DebtEvidencePointer, ...],
+) -> tuple[DebtEvidencePointer, ...]:
+    """Refuse a repeated handle; store the rest in one order.
+
+    Both halves follow
+    :meth:`DebtAssessment._pins_are_one_per_factor_in_canonical_order` exactly,
+    and for its reasons. Two pointers carrying one handle describe one thing
+    claimed twice, which is not a stricter record but an incoherent one.
+    And declaration order is not a fact about the decision, while this value
+    *is* inside the delivered product's content address (D-IMPL-118), so an
+    order-sensitive field would make two identical assessments hash
+    differently.
+
+    A ``tuple`` sorted here rather than a ``frozenset``: a set is order-free for
+    nothing, but it would also collapse a repeated handle **silently**, and the
+    repetition is exactly the incoherence worth naming out loud.
+    """
+    handles = [pointer.handle for pointer in value]
+    if len(set(handles)) != len(handles):
+        raise ValueError(
+            "an evidence handle may appear at most once; two pointers "
+            "carrying one handle describe a single thing claimed twice, "
+            "which is an incoherent record rather than a stricter one "
+            "(D-IMPL-118)"
+        )
+    return tuple(sorted(value, key=lambda pointer: pointer.handle))
+
+
+#: What a debt assessment points at, canonically ordered and handle-unique.
+#:
+#: An alias rather than a field-by-field re-declaration because the carrier
+#: lands in **two** places — on the vessel and on replay dimension 5 — and one
+#: validated shape is what keeps those two from drifting apart.
+DebtEvidence = Annotated[
+    tuple[DebtEvidencePointer, ...],
+    AfterValidator(_pointers_are_unique_and_canonically_ordered),
+]
+
+#: An assessment that points at nothing.
+#:
+#: The positive assertion, in :data:`NO_SCORER_PINS`' voice and for its reason:
+#: *this assessment was computed without evidence pointers*. Never ``None``
+#: meaning "unknown" (D-IMPL-38) — without a named sentinel, an assessment that
+#: pointed at nothing and one whose pointers somebody dropped would be the same
+#: artifact, which is the repudiation failure mode every sentinel in this
+#: fabric closes. The empty tuple rather than a marker string because each
+#: element is a structured pointer and the field must stay one shape.
+NO_DEBT_EVIDENCE: Final[tuple[DebtEvidencePointer, ...]] = ()
+
+
+class SourceRefreshWindow(CCFContract):
+    """When the oldest and the newest of a deployment's sources last published.
+
+    SDK-defined (CLAUDE.md §11), attached to the whitepaper §7.7 freshness
+    hook rather than derived from it. D-IMPL-112 recorded that a reader shown a
+    computed freshness figure still cannot tell when the underlying source last
+    published, and D-IMPL-117 scoped what the SDK owes about it to *"a slot for
+    source-refresh recency, owing no definition of a source or a cadence"*.
+    This class is that slot.
+
+    **What this fact is not**, stated so the next reader does not collapse it
+    into the number beside it: it is not computed freshness
+    (:class:`~ccf.halflife.debt.FreshnessScorer`'s output, which measures how
+    much of a decay budget has been spent), it is not the fabric's own clock
+    (:attr:`~ccf.halflife.decay.Observation.observed_at`, which records when
+    the fabric *learned* something), and it is not an attestation dimension
+    (:class:`~ccf.graph.protocols.SourceAttestation`, whose own scoping note
+    puts temporal correctness outside what a source attests).
+
+    **What this deliberately does not carry** (D-IMPL-124). No source
+    identity, and no count. The predecessor of this class was a per-source map
+    whose entries named the source each instant belonged to, and a reader
+    entitled to the product could therefore learn that a given upstream system
+    *exists* and *when it last published* with no check that they were entitled
+    to that system's contents. Dave's ruling: *"the field's purpose is
+    freshness, not source enumeration. Publish the freshness signal without
+    human-interpretable source identities."* A count is source enumeration in
+    aggregate — it says how many systems a deployment reads even while naming
+    none — and it is not freshness, so it is outside what this slot exists for.
+    Reducing a deployment's declared per-source instants to this window is the
+    **deployment's** work, not the SDK's: the deployment is the only party that
+    knows its own set is complete, so no reducer taking per-source instants
+    ships here.
+
+    Attributes:
+        oldest_source_refresh_at: The earliest of the refresh instants the
+            deployment declared. Timezone-aware; a naive instant is refused at
+            construction rather than coerced, because an implicit timezone is a
+            silent default (D-IMPL-38) and this value is inside the delivered
+            product's content address. **A bare number is refused for the same
+            reason and a float for the module's own reason** — see
+            :func:`_refuse_an_instant_that_named_no_zone`.
+        newest_source_refresh_at: The latest of those same instants, under the
+            same discipline.
+
+    **Why *oldest* and *newest* rather than *stalest* and *freshest***, which
+    is the naming a later contributor will be tempted to "improve" toward.
+    *Stale* and *fresh* are judgement words: a member named
+    ``sources_stalest_at`` asserts that the SDK holds a notion of staleness,
+    which D-IMPL-117 says it owes nothing of (*"no staleness threshold"*) and
+    which D-IMPL-101 deferred as salience. *Oldest* and *newest* describe the
+    ordering of two declared instants and assert nothing about whether either
+    is acceptable.
+
+    **Two instants rather than one** because a single instant cannot express
+    the span. With sources on different cadences a lone "newest" hides the
+    oldest and a lone "oldest" hides the newest, and D-IMPL-112 gap 2's whole
+    complaint was that a reader could not tell how old the underlying filings
+    were.
+
+    **Recorded, never judged** (D-IMPL-101). No function in the SDK compares a
+    window instant to ``now``, to a cadence or to a threshold, and no such
+    comparison may be added: deciding that one refresh matters more than
+    another is salience, which that ruling deferred and for which no mechanism
+    lands in this phase. Whether a January refresh is recent enough for a
+    particular decision is the context product creator's judgement, expressed
+    through the product's evolutionary capability rather than through SDK code.
+    The one comparison this class does make is ``oldest`` against ``newest``,
+    which draws no conclusion — it checks that a single declared fact is
+    internally coherent.
+    """
+
+    oldest_source_refresh_at: datetime
+    newest_source_refresh_at: datetime
+
+    @field_validator(
+        "oldest_source_refresh_at", "newest_source_refresh_at", mode="before"
+    )
+    @classmethod
+    def _the_supplied_instant_is_not_a_float_and_names_its_zone(
+        cls, value: object
+    ) -> object:
+        return _refuse_an_instant_that_named_no_zone(value)
+
+    @field_validator("oldest_source_refresh_at", "newest_source_refresh_at")
+    @classmethod
+    def _the_instant_names_its_zone(cls, value: datetime) -> datetime:
+        """Refuse a naive instant rather than reading a zone into it.
+
+        :attr:`~ccf.halflife.decay.Observation.observed_at`'s discipline,
+        restated at construction because this value is hashed: a coerced zone
+        would make the same refresh fact produce different bytes depending on
+        where the product happened to be assembled.
+
+        **Its other half runs before validation.** This validator only ever
+        sees a ``datetime``, so it cannot tell an instant that named UTC from a
+        bare epoch the framework read as UTC;
+        :func:`_refuse_an_instant_that_named_no_zone` is the half that can, and
+        the two together are the whole rule.
+        """
+        if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
+            raise ValueError(
+                "a source refresh instant must name its zone; a naive datetime "
+                "carries an implicit timezone, which is a silent default "
+                "(D-IMPL-38), and this value is inside the delivered product's "
+                "content address"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _the_window_does_not_end_before_it_begins(self) -> SourceRefreshWindow:
+        """Refuse a window whose oldest end is after its newest end.
+
+        The duplicate-reference refusal this class replaces, in the same voice
+        and for its reason: a window ending before it begins describes two
+        facts claiming to be one, which is an incoherent record rather than a
+        stricter one. Equality is legal — one source, or several that published
+        together, is a window of zero span.
+
+        **This is not the forbidden comparison** (D-IMPL-101). The forbidden
+        comparisons are against ``now``, against a threshold and against a
+        cadence, each of which draws a conclusion about whether a value is
+        acceptable. This one draws none; it checks one declared fact against
+        itself.
+        """
+        if self.oldest_source_refresh_at > self.newest_source_refresh_at:
+            raise ValueError(
+                "a source refresh window may not end before it begins; an "
+                "oldest instant after its newest describes two facts claiming "
+                "to be one, which is an incoherent record rather than a "
+                "stricter one (D-IMPL-117, D-IMPL-124)"
+            )
+        return self
+
+
+#: The freshness window a product publishes, or nothing.
+#:
+#: An alias rather than a field-by-field re-declaration for
+#: :data:`DebtEvidence`'s reason: the slot lands in **two** places — on the
+#: vessel and on replay dimension 5 — and one named shape is what keeps those
+#: two from drifting apart. It keeps the name it had when it carried a
+#: per-source map (D-IMPL-124 reshapes what it carries, not where it lands).
+SourceRefreshRecency = SourceRefreshWindow | None
+
+#: A product that records no source-refresh recency.
+#:
+#: The positive assertion, in :data:`NO_SCORER_PINS`' voice and for its reason:
+#: *this product records nothing about when its sources last refreshed*. Never
+#: a bare ``None`` meaning "unknown" (D-IMPL-38) — without a named sentinel, a
+#: deployment that knows nothing about its sources' publication schedule and one
+#: whose recency somebody dropped in transit would be the same artifact, which
+#: is the repudiation failure mode every sentinel in this fabric closes. What
+#: the name buys is that every construction site and every default **spells the
+#: claim** rather than leaving a bare ``None`` for a reader to interpret.
+#:
+#: **Its value moved from** ``()`` **to** ``None`` **under D-IMPL-124**, and the
+#: reason is recorded here so a reviewer does not read it as drift: ``()`` is
+#: the empty case of a *collection*, and a window is not a collection. There is
+#: no empty window that does not require inventing an instant, and an invented
+#: instant is the silent default D-IMPL-38 forbids. The same-vessel precedent is
+#: exact — :attr:`~ccf.products.contract.ContextProductContract.debt` and
+#: ``.request`` are both optional *structures* whose ``None`` is documented as a
+#: positive assertion in the same voice.
+NO_SOURCE_REFRESH_RECENCY: Final[SourceRefreshWindow | None] = None
+
+
+#: The obligation a decision was under when no binding covered its signal.
+#:
+#: The positive assertion, in :data:`~ccf.products.contract.NO_PAYLOAD_SCHEMA`'s
+#: voice and for :data:`NO_SCORER_PINS`' reason: *no obligation was bound to the
+#: state this decision landed in*. Never ``None`` meaning "unknown"
+#: (D-IMPL-38) — without a named sentinel, a decision whose deployment bound
+#: nothing and one whose obligation somebody dropped in transit would be the
+#: same artifact, which is the repudiation failure mode every sentinel in this
+#: fabric closes. A marker string rather than an empty tuple because the field
+#: holds one reference and must stay one shape; a marker rather than ``""``
+#: because an empty string is what a half-finished edit leaves behind, and the
+#: two claims are different. It is **not** an obligation and no deployment may
+#: declare it as one — :class:`SignalObligation` refuses the spelling.
+#:
+#: **SDK-namespaced on purpose.** ``ccf.``-prefixed so the marker reads as SDK
+#: structure rather than as a word from somebody's domain — the discipline
+#: ``tests/halflife/test_debt_delivery.py`` already enforces over every
+#: module-level string in this package — and so a deployment cannot collide with
+#: it by accident while reaching for an ordinary phrase.
+NO_OBLIGATION_IN_FORCE: Final[str] = "ccf.no-obligation-in-force"
+
+
+def _the_obligation_carried_is_declared_or_is_the_sentinel(value: str) -> str:
+    """Admit the sentinel or a declared reference — and nothing between them.
+
+    The **carrying** side's rule, and deliberately not
+    :meth:`SignalObligation._the_obligation_is_declared_and_is_not_the_sentinel`.
+    A *binding* refuses the sentinel spelling, because a declared obligation
+    wearing it would impersonate the absence. A *carrier* requires it, because
+    it is the carrier's own default and the positive assertion an unobliged
+    decision is spelled with. One string, two positions, two rules — and both
+    rules exist to keep the same two claims apart.
+
+    What is refused here is the third state neither rule has a name for: a blank
+    (``D-IMPL-38``). A carrier holding ``""`` asserts neither *no obligation was
+    bound* nor *this obligation was bound*, and because it sits inside the
+    delivered product's content address and inside dimension 5 of the replay
+    record, the ambiguity is **replay-stable** — it reproduces exactly, forever,
+    and no reader can tell it from either legitimate claim. Refusing it at the
+    boundary rather than downstream is CLAUDE.md §11.
+
+    The fourth state is refused for the same reason from the other side: a
+    value *inside the SDK's namespace* that is not exactly the sentinel
+    (:func:`_refuse_an_impersonation_of_an_sdk_marker`). The single-agent
+    review demonstrated by execution that ``" ccf.no-obligation-in-force"``
+    reached this carrier through ``DebtProfile.obligation_for`` unchanged and
+    was admitted — a declared obligation rendering identically to the marker
+    that says none was declared. The sentinel is compared **exactly**, so it
+    stays admissible (it is this field's own default) while nothing else in the
+    namespace does.
+
+    Nothing about *meaning* is judged. Any other string is admitted verbatim,
+    however unfamiliar: the SDK ships no obligation vocabulary (``D-IMPL-117``).
+    """
+    if not _as_a_reader_sees_it(value):
+        raise ValueError(
+            "the obligation in force must be either a declared reference or"
+            f" exactly {NO_OBLIGATION_IN_FORCE!r}: a blank is a third state"
+            " that asserts neither, and it would reproduce inside the"
+            " product's content address and dimension 5 of the replay record"
+            " as if it did (D-IMPL-38, D-IMPL-118)"
+        )
+    return _refuse_an_impersonation_of_an_sdk_marker(
+        value,
+        field="the obligation in force",
+        admitted=NO_OBLIGATION_IN_FORCE,
+    )
+
+
+#: What a decision was obliged to do, as it travels on a carrier.
+#:
+#: An alias rather than a field-by-field re-declaration, in :data:`DebtEvidence`'
+#: shape and for its reason: the value lands in **two** places — on
+#: :class:`~ccf.products.contract.ContextProductContract` and on replay
+#: dimension 5 — and one validated shape is what keeps those two from drifting
+#: apart. Before this alias existed the vessel field was a bare ``str`` with no
+#: validator at all, which Phase 15.6's close-time cross-AI panel found by
+#: inspection.
+ObligationInForce = Annotated[
+    str, AfterValidator(_the_obligation_carried_is_declared_or_is_the_sentinel)
+]
+
+
+class SignalObligation(CCFContract):
+    """What one routing state obliges, as the deployment declares it.
+
+    SDK-defined (CLAUDE.md §11), attached to the whitepaper §7.7 CAR hook rather
+    than derived from it. D-IMPL-112 recorded that a reader shown a routing
+    state still cannot tell what that state *requires of them*, and D-IMPL-117
+    scoped what the SDK owes about it to *"a signal-to-obligation binding that
+    survives replay, and owes no obligation vocabulary"*. This class is that
+    binding's element.
+
+    **The asymmetry that makes this a gap, rather than a nicety.**
+    :attr:`DebtSignal.FORCED_LLM` is produced at one site and consumed at none,
+    while the other two states each have exactly one consumer in the shipped
+    tree. The SDK already acts on two thirds of its own enum, so it is entitled
+    to ship the *mechanism* by which a deployment says what the third means —
+    and entitled to nothing beyond that.
+
+    Attributes:
+        signal: Which routing state this binding answers to. The **one half the
+            SDK owns**, so it is the one half the SDK validates: a binding
+            naming a state the fabric never produces is refused at construction
+            with the offending key in the message.
+        obligation_ref: What that state obliges. **Opaque to the SDK; declared
+            by the deployment** — the discipline
+            :class:`~ccf.skills.catalog.SkillRequirements` already holds. The
+            SDK ships no obligation type, no obligation vocabulary and no
+            default; it never parses the value, never compares it against a
+            permitted set, and never branches on it.
+
+    **Carried, never acted on.** Binding an obligation does not make the fabric
+    perform it. Nothing in the SDK reads this reference and does something: a
+    module that branched on it would have decided what an obligation *means*,
+    which is the judgement D-IMPL-117 assigns to the context product creator and
+    which ``tests/invariants/test_no_obligation_vocabulary.py`` exists to keep
+    out of this file.
+    """
+
+    signal: DebtSignal
+    obligation_ref: str
+
+    @field_validator("signal", mode="before")
+    @classmethod
+    def _the_key_names_a_routing_state(cls, value: object) -> object:
+        """Refuse an unknown key by name rather than by enum-membership error.
+
+        A profile author meets this validator through a YAML document, where
+        the natural failure — a near-miss spelling of a state — is best
+        answered with the offending key and the set it had to come from. The
+        SDK is entitled to this check precisely because the key type is its
+        own; the value beside it gets no such treatment.
+        """
+        if isinstance(value, DebtSignal):
+            return value
+        known = tuple(member.value for member in DebtSignal)
+        if not isinstance(value, str) or value not in known:
+            raise ValueError(
+                f"{value!r} is not a debt signal: an obligation binds to one of"
+                f" {known}, the routing states the fabric actually produces"
+                " (whitepaper §7.7 CAR). The SDK validates the key because the"
+                " key is its own type, and validates nothing about what the"
+                " obligation means (D-IMPL-117)"
+            )
+        return value
+
+    @field_validator("obligation_ref", mode="before")
+    @classmethod
+    def _obligation_ref_is_not_a_float(cls, value: object) -> object:
+        return _refuse_float(value)
+
+    @field_validator("obligation_ref")
+    @classmethod
+    def _the_obligation_is_declared_and_is_not_the_sentinel(cls, value: str) -> str:
+        """Refuse a blank reference and refuse the sentinel's own spelling.
+
+        Both refusals protect one distinction. A blank reference is what a
+        half-finished profile edit leaves behind, and accepting it would make
+        *declared, obliging nothing* and *not declared* two spellings of one
+        claim — while only the second has a sentinel that says so. The sentinel
+        spelling is refused for the same reason from the other direction: a
+        binding that impersonated it would collapse the distinction D-IMPL-38
+        requires it to hold open.
+
+        **The sentinel refusal is a namespace refusal**
+        (:func:`_refuse_an_impersonation_of_an_sdk_marker`, with nothing
+        admitted). Refusing only the exact spelling left
+        ``" ccf.no-obligation-in-force"`` — and every other ``ccf.``-prefixed
+        reference — declarable, which the single-agent review demonstrated by
+        execution; a binding is not a carrier and has no sentinel of its own to
+        carve out, so the whole namespace is the deployment's to stay out of.
+
+        Neither refusal is a judgement about *meaning*. Any other string is
+        accepted verbatim, however unfamiliar.
+        """
+        if not _as_a_reader_sees_it(value):
+            raise ValueError(
+                "an obligation reference must be declared: a blank reference"
+                " makes a binding that obliges nothing indistinguishable from"
+                f" no binding at all, which is what {NO_OBLIGATION_IN_FORCE!r}"
+                " already asserts (D-IMPL-38)"
+            )
+        return _refuse_an_impersonation_of_an_sdk_marker(
+            value, field="an obligation reference"
+        )
+
+
+def _obligations_are_one_per_signal_in_canonical_order(
+    value: tuple[SignalObligation, ...],
+) -> tuple[SignalObligation, ...]:
+    """Refuse a second obligation for a signal; store the rest in one order.
+
+    Both halves follow
+    :meth:`DebtAssessment._pins_are_one_per_factor_in_canonical_order` exactly,
+    and for its reasons. Two obligations for one state describe two duties
+    claiming to be the one thing that state requires, which is not a stricter
+    calibration but an incoherent one. And declaration order is not a fact about
+    the calibration, while the profile carrying it *is* content-addressed and
+    version-pinned per agent, so an order-sensitive collection would make two
+    identical calibrations resolve as two artifacts.
+
+    A ``tuple`` sorted here rather than a mapping: a YAML mapping keeps the
+    **last** of two duplicate keys silently, and a signal bound twice is exactly
+    the contradiction a profile author needs told about.
+    """
+    signals = [binding.signal for binding in value]
+    if len(set(signals)) != len(signals):
+        raise ValueError(
+            "a debt signal may carry at most one obligation; two bindings for "
+            "one signal describe two duties claiming to be the single thing "
+            "that state requires, which is an incoherent calibration rather "
+            "than a stricter one (D-IMPL-117)"
+        )
+    return tuple(sorted(value, key=lambda binding: binding.signal.value))
+
+
+#: What each routing state obliges, canonically ordered and signal-unique.
+#:
+#: An alias rather than a field-by-field re-declaration for
+#: :data:`DebtEvidence`'s reason: one validated shape is what keeps the
+#: declaration and everything downstream of it from drifting apart.
+SignalObligations = Annotated[
+    tuple[SignalObligation, ...],
+    AfterValidator(_obligations_are_one_per_signal_in_canonical_order),
+]
+
+#: A calibration that binds no obligation to any signal.
+#:
+#: The positive assertion, in :data:`NO_SCORER_PINS`' voice and for its reason:
+#: *this profile binds no obligation to any routing state*. Never ``None``
+#: meaning "unknown" (D-IMPL-38) — without a named sentinel, a deployment that
+#: deliberately declared no obligations and one whose bindings somebody dropped
+#: would be the same artifact. It is also exactly what every profile written
+#: before this field existed was already asserting, which is why the field
+#: defaults rather than demands. The empty tuple rather than a marker string
+#: because each element is a structured binding and the field must stay one
+#: shape.
+NO_SIGNAL_OBLIGATIONS: Final[tuple[SignalObligation, ...]] = ()
 
 
 class DebtAssessment(CCFContract):

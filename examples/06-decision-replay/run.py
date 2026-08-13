@@ -412,6 +412,24 @@ class GridReplayEnvironment:
             ),
             payload=projection.payload,
             debt=record.content_generation_path.debt,
+            # And what that debt pointed at, for a harder reason (D-IMPL-118):
+            # the carrier is a top-level vessel field, so `(record, projection)`
+            # names it nowhere else and omitting it diverges every replay.
+            debt_evidence=record.content_generation_path.debt_evidence,
+            # And when its sources last published, for the same reason again
+            # (D-IMPL-117 gap 2): the second Track B member takes the same
+            # top-level placement, so dimension 5 is the only place a
+            # `(record, projection)` rehydrator can read it back from.
+            source_refresh_recency=(
+                record.content_generation_path.source_refresh_recency
+            ),
+            # And what the signal obliged, for a stronger reason again
+            # (D-IMPL-117 gap 3): this deployment holds a `DebtProfile` and
+            # could look the obligation up again for the same signal — which
+            # would answer with TODAY's binding for a decision made under the
+            # one in force then. D-IMPL-26 forbids it; dimension 5 is where the
+            # decision's own answer lives.
+            obligation_in_force=record.content_generation_path.obligation_in_force,
         )
 
 

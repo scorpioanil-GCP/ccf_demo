@@ -231,6 +231,43 @@ def test_every_pre_change_field_is_byte_for_byte_unchanged() -> None:
         b'"debt":null,',
         b"",
     ).replace(
+        # 15.6-06, D-IMPL-118: what the debt pointed at lands on dimension 5
+        # under the same sentinel-default discipline, so a record built by a
+        # caller that pointed at nothing is byte-identical to a pre-ruling
+        # record once the sentinel key is removed. The sentinel renders as `[]`
+        # because `NO_DEBT_EVIDENCE` is the empty tuple — a positive claim in
+        # one shape, not a `null` standing for "unknown" (D-IMPL-38).
+        b'"debt_evidence":[],',
+        b"",
+    ).replace(
+        # 15.6-07, D-IMPL-117 gap 2 under the same D-IMPL-118 placement: when
+        # the sources last published lands on dimension 5 beside the debt it is
+        # deliberately not a factor of, under the same sentinel-default
+        # discipline.
+        #
+        # 15.6-13, D-IMPL-124: the rendering moved from `[]` to `null` when the
+        # member's per-source map became a `SourceRefreshWindow`. This is a
+        # normalization step over the *current* builder's output, not captured
+        # evidence, so it is re-pointed rather than duplicated — leaving the
+        # `[]` spelling here would be a step matching nothing beside a comment
+        # asserting a rendering the tree no longer has.
+        # `NO_SOURCE_REFRESH_RECENCY` renders as `null` because a window is not
+        # a collection and there is no empty window that does not require
+        # inventing an instant; it is still reached through a **named**
+        # sentinel at every default, so it is still a positive claim and never
+        # a bare `null` standing for "unknown" (D-IMPL-38).
+        b'"source_refresh_recency":null,',
+        b"",
+    ).replace(
+        # 15.6-08, D-IMPL-117 gap 3 under the same D-IMPL-118 placement: what
+        # the signal obliged lands on dimension 5 under the same
+        # sentinel-default discipline. `NO_OBLIGATION_IN_FORCE` renders as a
+        # named marker rather than `[]` because the field holds one reference
+        # and not a collection — still a positive claim in one shape, and still
+        # never a `null` standing for "unknown" (D-IMPL-38).
+        b'"obligation_in_force":"ccf.no-obligation-in-force",',
+        b"",
+    ).replace(
         # 15.5-13, D-IMPL-111 limb (b): the question answered lands on
         # dimension 5 under the same sentinel-default discipline, so a record
         # built without one is byte-identical to a pre-ruling record once the

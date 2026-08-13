@@ -181,6 +181,57 @@ class ReplayEnvironment(Protocol):
         different decision wearing this one's identifier. A record carrying the
         ``None`` sentinel asserts its decision had no assessment, and the
         rebuilt product carries ``None`` in turn.
+
+        **What the debt pointed at comes off the record too, and an
+        implementation that omits it diverges** (15.6-06, D-IMPL-118).
+        ``ContextProductContract.debt_evidence`` is a *top-level* vessel field
+        rather than a member of the assessment, so it does not ride ``debt``
+        back: read ``record.content_generation_path.debt_evidence`` and carry
+        it onto the rebuilt product verbatim. It is reconstructible without a
+        signature change for the same reason ``debt`` is — the record is
+        already a parameter here — but only because dimension 5 was given a
+        matching member; :class:`~ccf.projection.plan.ProjectionOutput` carries
+        exactly ``(plan_id, payload)`` and names no evidence at all. A record
+        carrying :data:`~ccf.halflife.assessment.NO_DEBT_EVIDENCE` asserts its
+        decision pointed at nothing, and the rebuilt product asserts the same.
+
+        **When the sources last published comes off the record too** (15.6-07,
+        D-IMPL-117 gap 2; reshaped by 15.6-13 under D-IMPL-124).
+        ``ContextProductContract.source_refresh_recency`` is the second
+        top-level vessel field under the same D-IMPL-118 placement, so it does
+        not ride ``debt`` back either: read
+        ``record.content_generation_path.source_refresh_recency`` and carry it
+        onto the rebuilt product verbatim. Re-deriving it is not an option even
+        in principle — a refresh instant is a fact the deployment declared
+        about its sources at assembly time, and a rehydrator that asked those
+        sources again would be recording today's answer against a decision made
+        against yesterday's. A record carrying
+        :data:`~ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY` asserts its
+        decision recorded no refresh instants, and the rebuilt product asserts
+        the same. **The read-back line is unchanged in spelling** by D-IMPL-124:
+        the member now carries a
+        :class:`~ccf.halflife.assessment.SourceRefreshWindow` rather than a
+        per-source map, and a conforming implementation copies it exactly as it
+        copied the map.
+
+        **What the signal obliged comes off the record too — and re-resolving
+        it is the failure this one guards** (15.6-08, D-IMPL-117 gap 3).
+        ``ContextProductContract.obligation_in_force`` is the third top-level
+        vessel field under the same D-IMPL-118 placement: read
+        ``record.content_generation_path.obligation_in_force`` and carry it onto
+        the rebuilt product verbatim. Unlike the two members above, an
+        implementation *can* obtain a plausible value elsewhere — the
+        deployment's current :class:`~ccf.controlplane.artifacts.DebtProfile`
+        binds an obligation to the very same signal — and that is exactly what
+        must not be done. A profile rebound since the decision would reproduce
+        the obligation in force **now** against a decision made under the one in
+        force **then**, which is the substitution CLAUDE.md §7.4 and D-IMPL-26
+        forbid: replay resolves exact versions, never "latest". The engine's
+        address check catches it, because the value is inside the hashed body.
+        A record carrying
+        :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE` asserts its
+        decision was under no bound obligation, and the rebuilt product asserts
+        the same.
         """
         ...
 

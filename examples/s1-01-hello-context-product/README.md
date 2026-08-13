@@ -262,7 +262,7 @@ recovery-by-inference is not the same property as a pin.
 | `product-governance.yaml` | register | TTL ceiling and product TTL in seconds, the similarity index version, the replay and query-pin artifact classes and store directory, the request-contract key, what a complete assembly holds, and the declared S factor. |
 | `ubo-question.yaml` | register | The **vocabulary** the question is asked in: which class is a natural person, which attribute carries a stake's percentage. The subject is *not* here — that is the caller's. |
 | `half-life-table.yaml` | register | λ_c per observation type. This deployment types observations by resolved entity class; a share transfer decays over months, a screening hit over a week. |
-| `debt-profile.yaml` | register | The CAR bands — risk sensitivity, and the D_c thresholds at which the answer routes to Forced-LLM or Fail-Closed. |
+| `debt-profile.yaml` | register | The CAR bands — risk sensitivity, and the D_c thresholds at which the answer routes to Forced-LLM or Fail-Closed — plus what each of those states obliges this deployment to do. The obligations are this bank's words; the SDK ships none. |
 | `events.yaml` | load | The L1 signal batch — the selection of the source estate this product needs. Fixed to `role: load` by the SDK. |
 | `request-contract.yaml` | load | The class's **request surface**: which questions it answers, and the class-declared parameters beyond the four address axes. `load`, because the pin binding it to the class is minted by registering it. |
 | `expected.yaml` | load | What the deployment declares the served products should contain, for the test module to assert against — all three questions. |
@@ -335,6 +335,18 @@ Then, in order:
 9. `artifacts/half-life-table.yaml` and `artifacts/debt-profile.yaml` — your
    λ_c rates and your CAR bands. These are regulatory posture, not tuning:
    they decide when your fabric escalates instead of answering.
+   **`signal_obligations` in the same document is `[ADAPT]` in the strongest
+   sense the No-Hardcoding Rule has** — it is what each routing state
+   *obliges you to do*, and no CCF release contains any of those words. The
+   SDK validates the keys, because `DebtSignal` is its own type; it never
+   parses, checks or acts on the values. Bind the states you have an answer
+   for and leave the rest unbound: the delivered product then carries a named
+   sentinel saying so, which is a positive claim rather than a silence. What
+   the product carries is the obligation in force **at the time** — rebind
+   these tomorrow and yesterday's replay still reproduces yesterday's
+   obligation. Whether anything then *happens* is your code's job; wiring an
+   action is exactly the step CCF leaves to you, because taking it would mean
+   the SDK had chosen your escalation policy.
 10. `artifacts/manifest.yaml` — `tenant_id`, and any `class_id` you renamed.
 11. `artifacts/expected.yaml` — last, after one reviewed run.
 

@@ -65,6 +65,18 @@ promise nothing checks. If you implement
 :func:`refuse_bound_payload` inside it. Requirement ``CPS-03`` is recorded as
 Pending **by design** for this reason, not by oversight.
 
+**The shipped worked example, and the sibling refusal this ruling now covers
+(``D-IMPL-121``, Dave, 2026-08-12).** ``D-IMPL-113``'s reasoning is about the
+*seam* rather than about this function, so it extends to
+:func:`~ccf.products.request.refuse_request`: both request-time refusals are
+adopter obligations the SDK states at the seam and does not enforce, and both
+resolver Protocol docstrings now name both. Each has one shipped call site to
+read — ``examples/04-cross-process/producer_child.py::resolve`` for this
+payload bind, and
+``examples/s1-01-hello-context-product/spine.py::assemble_and_serve`` for the
+request refusal. They are what turns *shipped unwired* into *shipped with a
+documented adopter join point and a working demonstration*.
+
 **Why this is not simply inlined at the call site.** A conformity check
 written at each bound path would be as many readings of "conforms" as there
 are paths. There is one comparison —
