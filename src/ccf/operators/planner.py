@@ -149,6 +149,19 @@ class _Deferred:
     Everything :meth:`IntermediateCache._key` needs, kept so the key can be
     built later — at the first moment a lookup for the same operator could
     hit — rather than at the moment the intermediate was produced.
+
+    **What this costs in memory, measured rather than characterised.** The
+    deferral retains the *input* ``view`` for the life of the cache. It does
+    **not** introduce view retention where there was none: ``output`` is an
+    :class:`~ccf.operators.base.OperatorOutput`, whose ``view`` field the eager
+    scheme already retained per entry, and which
+    :meth:`ComposedOperator.apply` reads back as ``inner.view``. So the delta is
+    **one additional view per deferred operator**, not "views retained where
+    none were before" — a materially smaller number than the close-time panel's
+    advisory recorded, corrected by the single-agent pass that read
+    ``OperatorOutput``. Recorded here so that a re-baselining of
+    ``perf/baselines/local.json`` measures against the right expectation. The
+    direction is still up.
     """
 
     operator: Operator

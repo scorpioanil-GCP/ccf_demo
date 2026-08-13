@@ -542,6 +542,20 @@ class ContentGenerationPath(CCFContract):
     shape the vessel carries, so a record on disk cannot be rehydrated into a
     blank the vessel would have refused.
 
+    **The scope of that last sentence, since a reader will generalise it.** It
+    is a claim about the *validation boundaries* — construction and
+    ``model_validate``, which is every deserialisation path — and Phase 15.6's
+    single-agent review verified it holds at both. It is **not** a claim that
+    the field cannot hold a blank: ``model_construct`` and
+    ``model_copy(update=…)`` skip validation, as they do for every Pydantic
+    contract in this tree, so either would seat a value this field's validator
+    refuses. That is latent rather than live — no site in ``src/``, ``runtime/``
+    or ``examples/`` applies either idiom to this field or to its two siblings —
+    and it is recorded here rather than closed, because closing it means
+    forbidding ``model_construct`` on the contract, which is a change to how
+    every carrier in the fabric is built and therefore a ruling rather than a
+    repair.
+
     The **question answered** extends this dimension as of 15.5-13
     (D-IMPL-111 limb (b)) through ``request``: the
     :class:`~ccf.products.request.ProductRequest` the caller asked, recorded
