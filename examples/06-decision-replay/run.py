@@ -416,6 +416,13 @@ class GridReplayEnvironment:
             # the carrier is a top-level vessel field, so `(record, projection)`
             # names it nowhere else and omitting it diverges every replay.
             debt_evidence=record.content_generation_path.debt_evidence,
+            # And when its sources last published, for the same reason again
+            # (D-IMPL-117 gap 2): the second Track B member takes the same
+            # top-level placement, so dimension 5 is the only place a
+            # `(record, projection)` rehydrator can read it back from.
+            source_refresh_recency=(
+                record.content_generation_path.source_refresh_recency
+            ),
         )
 
 

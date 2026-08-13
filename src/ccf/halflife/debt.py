@@ -79,6 +79,7 @@ from ccf.controlplane.artifacts import DebtProfile, HalfLifeTable
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
     NO_SCORER_PINS,
+    NO_SOURCE_REFRESH_RECENCY,
     DebtAssessment,
     DebtEvidence,
     DebtEvidencePointer,
@@ -86,6 +87,8 @@ from ccf.halflife.assessment import (
     DebtFactors,
     DebtSignal,
     ScorerPin,
+    SourceRefresh,
+    SourceRefreshRecency,
 )
 from ccf.halflife.decay import Observation, freshness
 
@@ -94,6 +97,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "NO_DEBT_EVIDENCE",
     "NO_SCORER_PINS",
+    "NO_SOURCE_REFRESH_RECENCY",
     "DebtAssessment",
     "DebtEvidence",
     "DebtEvidencePointer",
@@ -103,6 +107,8 @@ __all__ = [
     "DebtSignal",
     "FreshnessScorer",
     "ScorerPin",
+    "SourceRefresh",
+    "SourceRefreshRecency",
     "assess_debt",
     "basic_debt",
     "context_debt",

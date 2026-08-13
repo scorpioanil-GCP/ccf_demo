@@ -52,6 +52,17 @@ implementation of
 :meth:`~ccf.replay.engine.ReplayEnvironment.rehydrate_product` — without both,
 every replay of every product raises ``ReplayDivergence``.
 
+**When a source last published is a different fact from how much decay the
+fabric has measured** (D-IMPL-112 gap 2, D-IMPL-117). :class:`SourceRefresh` is
+defined here for :class:`DebtEvidencePointer`'s reason — beside the debt figure
+it stands apart from — and its carrier is a *top-level* field on
+:class:`~ccf.products.contract.ContextProductContract` under the same
+D-IMPL-118 branch, with the same matching member on
+:class:`~ccf.replay.record.ContentGenerationPath` and the same read-back in
+every rehydrator. The SDK records the instant and reads it back; it defines no
+source, no cadence and no threshold, and it compares the instant to nothing —
+which is where recency would otherwise become salience, deferred by D-IMPL-101.
+
 **Decimal, never float.** These values reach the replay record and are inside
 the product's content address under D-IMPL-100; floats are not bit-stable, so a
 float is *refused at construction* rather than coerced. Coercion would be the
@@ -64,6 +75,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Annotated, Final, Literal, Protocol
@@ -77,6 +89,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "NO_DEBT_EVIDENCE",
     "NO_SCORER_PINS",
+    "NO_SOURCE_REFRESH_RECENCY",
     "DebtAssessment",
     "DebtEvidence",
     "DebtEvidencePointer",
@@ -84,6 +97,8 @@ __all__ = [
     "DebtFactors",
     "DebtSignal",
     "ScorerPin",
+    "SourceRefresh",
+    "SourceRefreshRecency",
 ]
 
 _ZERO = Decimal(0)
@@ -343,6 +358,129 @@ DebtEvidence = Annotated[
 #: fabric closes. The empty tuple rather than a marker string because each
 #: element is a structured pointer and the field must stay one shape.
 NO_DEBT_EVIDENCE: Final[tuple[DebtEvidencePointer, ...]] = ()
+
+
+class SourceRefresh(CCFContract):
+    """When one upstream source last refreshed, as the deployment declares it.
+
+    SDK-defined (CLAUDE.md §11), attached to the whitepaper §7.7 freshness
+    hook rather than derived from it. D-IMPL-112 recorded that a reader shown a
+    computed freshness figure still cannot tell when the underlying source last
+    published, and D-IMPL-117 scoped what the SDK owes about it to *"a slot for
+    source-refresh recency, owing no definition of a source or a cadence"*.
+    This class is that slot's element.
+
+    **What this fact is not**, stated so the next reader does not collapse it
+    into the number beside it: it is not computed freshness
+    (:class:`~ccf.halflife.debt.FreshnessScorer`'s output, which measures how
+    much of a decay budget has been spent), it is not the fabric's own clock
+    (:attr:`~ccf.halflife.decay.Observation.observed_at`, which records when
+    the fabric *learned* something), and it is not an attestation dimension
+    (:class:`~ccf.graph.protocols.SourceAttestation`, whose own scoping note
+    puts temporal correctness outside what a source attests).
+
+    Attributes:
+        source_ref: Which source this is a statement about. **Opaque to the
+            SDK; declared by the deployment** — the discipline
+            :class:`~ccf.skills.catalog.SkillRequirements` already holds. The
+            SDK ships no source type, no source vocabulary and no default, and
+            it never parses the value.
+        refreshed_at: When that source was last refreshed. Timezone-aware; a
+            naive instant is refused at construction rather than coerced,
+            because an implicit timezone is a silent default (D-IMPL-38) and
+            this value is inside the delivered product's content address.
+
+    **Recorded, never judged** (D-IMPL-101). No function in the SDK compares a
+    refresh instant to ``now``, to a cadence or to a threshold, and no such
+    comparison may be added here: deciding that one source's refresh matters
+    more than another's is salience, which that ruling deferred and for which
+    no mechanism lands in this phase. Whether a January refresh is recent
+    enough for a particular decision is the context product creator's
+    judgement, expressed through the product's evolutionary capability rather
+    than through SDK code.
+    """
+
+    source_ref: str
+    refreshed_at: datetime
+
+    @field_validator("source_ref", mode="before")
+    @classmethod
+    def _source_ref_is_not_a_float(cls, value: object) -> object:
+        return _refuse_float(value)
+
+    @field_validator("refreshed_at")
+    @classmethod
+    def _the_instant_names_its_zone(cls, value: datetime) -> datetime:
+        """Refuse a naive instant rather than reading a zone into it.
+
+        :attr:`~ccf.halflife.decay.Observation.observed_at`'s discipline,
+        restated at construction because this value is hashed: a coerced zone
+        would make the same refresh fact produce different bytes depending on
+        where the product happened to be assembled.
+        """
+        if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
+            raise ValueError(
+                "a source refresh instant must name its zone; a naive datetime "
+                "carries an implicit timezone, which is a silent default "
+                "(D-IMPL-38), and this value is inside the delivered product's "
+                "content address"
+            )
+        return value
+
+
+def _refreshes_are_one_per_source_in_canonical_order(
+    value: tuple[SourceRefresh, ...],
+) -> tuple[SourceRefresh, ...]:
+    """Refuse a repeated source reference; store the rest in one order.
+
+    Both halves follow
+    :meth:`DebtAssessment._pins_are_one_per_factor_in_canonical_order` exactly,
+    and for its reasons. Two refresh instants for one source describe two facts
+    claiming to be one, which is not a stricter record but an incoherent one.
+    And declaration order is not a fact about the decision, while this value
+    *is* inside the delivered product's content address (D-IMPL-118), so an
+    order-sensitive field would make two products recording the same refresh
+    facts hash differently.
+
+    A ``tuple`` sorted here rather than a ``frozenset``: a set keyed on the
+    whole entry would keep both halves of the contradiction, and one keyed on
+    the reference would drop a half **silently** — and a source refreshed at
+    two different instants is exactly the incoherence worth naming out loud.
+    """
+    references = [entry.source_ref for entry in value]
+    if len(set(references)) != len(references):
+        raise ValueError(
+            "a source reference may carry at most one refresh instant; two "
+            "instants for one source describe two facts claiming to be one, "
+            "which is an incoherent record rather than a stricter one "
+            "(D-IMPL-117)"
+        )
+    return tuple(sorted(value, key=lambda entry: entry.source_ref))
+
+
+#: When each upstream source last refreshed, canonically ordered and
+#: source-unique.
+#:
+#: An alias rather than a field-by-field re-declaration for
+#: :data:`DebtEvidence`'s reason: the slot lands in **two** places — on the
+#: vessel and on replay dimension 5 — and one validated shape is what keeps
+#: those two from drifting apart.
+SourceRefreshRecency = Annotated[
+    tuple[SourceRefresh, ...],
+    AfterValidator(_refreshes_are_one_per_source_in_canonical_order),
+]
+
+#: A product that records no source-refresh recency.
+#:
+#: The positive assertion, in :data:`NO_SCORER_PINS`' voice and for its reason:
+#: *this product records nothing about when its sources last refreshed*. Never
+#: ``None`` meaning "unknown" (D-IMPL-38) — without a named sentinel, a
+#: deployment that knows nothing about its sources' publication schedule and one
+#: whose recency somebody dropped in transit would be the same artifact, which
+#: is the repudiation failure mode every sentinel in this fabric closes. The
+#: empty tuple rather than a marker string because each element is a structured
+#: entry and the field must stay one shape.
+NO_SOURCE_REFRESH_RECENCY: Final[tuple[SourceRefresh, ...]] = ()
 
 
 class DebtAssessment(CCFContract):

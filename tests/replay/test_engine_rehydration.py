@@ -335,6 +335,24 @@ class _Environment:
             # line turns 8 of this module's 30 cases red with
             # `ReplayDivergence`, including the three landings that predate it.
             debt_evidence=record.content_generation_path.debt_evidence,
+            # And when its sources last published, for the same reason again
+            # (D-IMPL-117 gap 2, plan 15.6-07): the second Track B member takes
+            # the same top-level placement `D-IMPL-118` ruled for all three, so
+            # it does not ride `debt` back either and dimension 5 is the only
+            # place a `(record, projection)` rehydrator can read it from.
+            #
+            # MEASURED, not inferred, and the measurement has a precondition
+            # worth recording (plan 15.6-07). Deleted while the fixture product
+            # carried no refresh instants, this line costs **nothing** — all 30
+            # cases still passed, because sentinel-to-sentinel agrees. It is
+            # the fixture's populated `RECENCY` below that makes the omission
+            # detectable: with the slot populated, deleting this line turns 10
+            # of this module's 35 cases red with `ReplayDivergence`, including
+            # the `debt`, `debt_evidence` and `request` landings that predate
+            # it. A read-back seam is only ever proven by a populated value.
+            source_refresh_recency=(
+                record.content_generation_path.source_refresh_recency
+            ),
         )
 
 
