@@ -636,6 +636,85 @@ def test_a_naive_newest_instant_is_refused_rather_than_coerced() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "member",
+    ["oldest_source_refresh_at", "newest_source_refresh_at"],
+)
+@pytest.mark.parametrize(
+    "unzoned",
+    [1767225600, Decimal("1767225600"), "1767225600", b"1767225600"],
+    ids=["int epoch", "Decimal epoch", "epoch as text", "epoch as bytes"],
+)
+def test_a_bare_epoch_is_refused_rather_than_read_as_utc(
+    member: str, unzoned: object
+) -> None:
+    """The half of "the instant names its zone" that an after-validator cannot see.
+
+    Phase 15.6's single-agent review demonstrated the asymmetry by execution:
+    `"2026-01-01T00:00:00"` was refused for carrying an *implicit* timezone
+    while `1767225600` — which carries **none** — was accepted, with UTC
+    supplied by the framework, into a field that is inside the delivered
+    product's content address (D-IMPL-118). Pydantic's lax mode coerces the
+    number before any after-validator runs, so the rule has to be stated in the
+    `mode="before"` position or it is a rule about the coercion rather than
+    about what the deployment supplied.
+
+    Parametrized over both members because a validator wired to one of the two
+    would pass a test that supplied the epoch to only the other.
+    """
+    kwargs: dict[str, object] = {
+        "oldest_source_refresh_at": _WINDOW.oldest_source_refresh_at,
+        "newest_source_refresh_at": _WINDOW.newest_source_refresh_at,
+        member: unzoned,
+    }
+    with pytest.raises(ValueError, match="bare number"):
+        SourceRefreshWindow(**kwargs)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "member",
+    ["oldest_source_refresh_at", "newest_source_refresh_at"],
+)
+def test_a_float_instant_is_refused_by_the_module_s_own_float_discipline(
+    member: str,
+) -> None:
+    """`_refuse_float`, on the one class in this module that was outside it.
+
+    The module's headline rule is *Decimal, never float* — these values are
+    inside the product's content address and floats are not bit-stable. It is
+    wired onto `DebtFactors`, `DebtEvidencePointer.handle`,
+    `SignalObligation.obligation_ref` and `DebtAssessment.debt`, and was wired
+    onto **neither** member of this class, so `1767225600.5` became a hashed
+    instant. The refusal is the module's own helper rather than a bespoke check
+    here, so the message an author meets is the same message every other float
+    refusal in this module gives.
+    """
+    kwargs: dict[str, object] = {
+        "oldest_source_refresh_at": _WINDOW.oldest_source_refresh_at,
+        "newest_source_refresh_at": _WINDOW.newest_source_refresh_at,
+        member: 1767225600.5,
+    }
+    with pytest.raises(ValueError, match="never float"):
+        SourceRefreshWindow(**kwargs)  # type: ignore[arg-type]
+
+
+def test_an_instant_that_names_its_zone_in_text_is_still_accepted() -> None:
+    """The refusal is of *unzoned* input, not of every spelling but one.
+
+    A widening that refused an ISO-8601 string carrying an explicit offset
+    would pass every refusal test above and break every deployment that reads
+    its instants out of a document — which is exactly what
+    `examples/s1-01-hello-context-product` does. The two spellings must land on
+    the same instant, and this asserts they do rather than assuming it.
+    """
+    window = SourceRefreshWindow(
+        oldest_source_refresh_at="2026-01-09T06:30:00+00:00",  # type: ignore[arg-type]
+        newest_source_refresh_at="2026-02-17T22:00:00Z",  # type: ignore[arg-type]
+    )
+    assert window.oldest_source_refresh_at == datetime(2026, 1, 9, 6, 30, tzinfo=UTC)
+    assert window.newest_source_refresh_at == datetime(2026, 2, 17, 22, 0, tzinfo=UTC)
+
+
 def test_an_unrecorded_recency_is_a_positive_claim_and_not_a_silence() -> None:
     """D-IMPL-38: the absent value is an assertion, never `None`-as-unknown.
 

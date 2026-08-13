@@ -153,6 +153,69 @@ def _refuse_float(value: object) -> object:
     return value
 
 
+def _is_a_bare_number(value: object) -> bool:
+    """True for a value that is a number, or is text spelling one.
+
+    ``"1767225600"`` is the epoch as text and ``1767225600`` is the epoch as an
+    integer; both are the same claim, and neither of them names a timezone.
+    Parsed with :func:`float` rather than matched with a pattern because the
+    question is exactly *"would a reader take this for a number"*, and the
+    language's own answer is the one that matters.
+    """
+    if isinstance(value, (int, float, Decimal)):
+        return True
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", "replace")
+    if not isinstance(value, str):
+        return False
+    try:
+        float(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _refuse_an_instant_that_named_no_zone(value: object) -> object:
+    """Refuse a bare number where an instant naming its zone is required.
+
+    Runs **before** validation, which is the only position from which the zone
+    rule can see what the deployment actually supplied. Pydantic's lax mode
+    turns ``1767225600``, ``1767225600.5`` and ``"1767225600"`` into a
+    timezone-aware UTC ``datetime`` *before* any after-validator is reached, so
+    a rule written there is a rule about what the framework made of the input
+    rather than about the input — and it passed every one of those spellings
+    while refusing ``"2026-01-01T00:00:00"`` for carrying an implicit zone. The
+    naive datetime and the bare epoch are the same defect: the deployment never
+    wrote the zone down, and this value is inside the delivered product's
+    content address (D-IMPL-118).
+
+    :func:`_refuse_float` first, and by call rather than by restatement. The
+    module has **one** float discipline (see the module docstring), it is wired
+    onto four other fields, and :class:`SourceRefreshWindow` was outside it —
+    so ``1767225600.5`` reached a hashed field in the module whose headline
+    rule is that floats are not bit-stable. A bespoke float check here would
+    have closed the hole and left the asymmetry.
+
+    Text that is *not* a number passes through untouched: an ISO-8601 string
+    either carries an offset, in which case it named its zone, or it does not,
+    in which case :meth:`SourceRefreshWindow._the_instant_names_its_zone`
+    refuses the naive ``datetime`` Pydantic parses it into. Nothing here judges
+    the *format* of an instant — that is Pydantic's job and duplicating it
+    would give the tree two parsers.
+    """
+    value = _refuse_float(value)
+    if _is_a_bare_number(value):
+        raise ValueError(
+            "a source refresh instant must name its zone, and a bare number "
+            "names none: an epoch — as an int, a Decimal or as text — is "
+            "silently read as UTC, which is a default the deployment never "
+            "declared (D-IMPL-38), and this value is inside the delivered "
+            "product's content address (D-IMPL-118). Supply a timezone-aware "
+            "datetime, or a string carrying an explicit offset"
+        )
+    return value
+
+
 class DebtSignal(StrEnum):
     """The routing state an assessed D_c falls into (whitepaper §7.7 CAR).
 
@@ -462,7 +525,9 @@ class SourceRefreshWindow(CCFContract):
             deployment declared. Timezone-aware; a naive instant is refused at
             construction rather than coerced, because an implicit timezone is a
             silent default (D-IMPL-38) and this value is inside the delivered
-            product's content address.
+            product's content address. **A bare number is refused for the same
+            reason and a float for the module's own reason** — see
+            :func:`_refuse_an_instant_that_named_no_zone`.
         newest_source_refresh_at: The latest of those same instants, under the
             same discipline.
 
@@ -496,6 +561,15 @@ class SourceRefreshWindow(CCFContract):
     oldest_source_refresh_at: datetime
     newest_source_refresh_at: datetime
 
+    @field_validator(
+        "oldest_source_refresh_at", "newest_source_refresh_at", mode="before"
+    )
+    @classmethod
+    def _the_supplied_instant_is_not_a_float_and_names_its_zone(
+        cls, value: object
+    ) -> object:
+        return _refuse_an_instant_that_named_no_zone(value)
+
     @field_validator("oldest_source_refresh_at", "newest_source_refresh_at")
     @classmethod
     def _the_instant_names_its_zone(cls, value: datetime) -> datetime:
@@ -505,6 +579,12 @@ class SourceRefreshWindow(CCFContract):
         restated at construction because this value is hashed: a coerced zone
         would make the same refresh fact produce different bytes depending on
         where the product happened to be assembled.
+
+        **Its other half runs before validation.** This validator only ever
+        sees a ``datetime``, so it cannot tell an instant that named UTC from a
+        bare epoch the framework read as UTC;
+        :func:`_refuse_an_instant_that_named_no_zone` is the half that can, and
+        the two together are the whole rule.
         """
         if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
             raise ValueError(
