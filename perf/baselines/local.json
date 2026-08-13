@@ -3,7 +3,31 @@
     "date": "2026-08-03",
     "commit": "8aefb2ad18b17c0596d0124378c0d40548cfc623",
     "runner_class": "local",
-    "approved": "Dave, 2026-08-03, phase-14 wave-2 gate"
+    "approved": "Dave, 2026-08-03, phase-14 wave-2 gate",
+    "revisions": [
+      {
+        "date": "2026-08-13",
+        "commit": "69dd41537bcd757de4f1cf424774894eb24c7a11",
+        "runner_class": "local",
+        "approved": "Dave, 2026-08-13, D-GATE-15.6 — PERF-04 partial re-baseline of two micro benchmarks",
+        "runs": 4,
+        "scope": "Only the two ids listed below were revised. Every other median in this file is the 2026-08-03 approved value, unchanged.",
+        "why": "Plan 15.6-02 made the operator intermediate cache build its key only where a lookup could hit, which removed a graph-view hash from every composed run. Both benchmarks then ran roughly half their approved medians and emitted a speed-up WARN on every battery run. Re-baselining ends a permanent WARN that would otherwise train readers to ignore the gate.",
+        "memory_note": "The same change defers one graph view per deferred operator for the life of the cache. The eager scheme already retained one view per entry, so the delta is one extra view per deferred operator, not view retention where there was none. Recorded so a later memory measurement starts from the right expectation.",
+        "benchmarks_revised": {
+          "suites/micro/test_operators.py::test_composed_chain": {
+            "prior": 0.36890328499430325,
+            "new": 0.18434432451613247,
+            "observed_medians": [0.181368, 0.177702, 0.183730, 0.18434432451613247]
+          },
+          "suites/micro/test_operators.py::test_composed_ab": {
+            "prior": 0.23092777200508863,
+            "new": 0.07992877601645887,
+            "observed_medians": [0.0786458, 0.0765576, 0.0800131, 0.07992877601645887]
+          }
+        }
+      }
+    ]
   },
   "benchmarks": {
     "suites/crossproc/test_mcp_egress.py::test_mcp_egress_roundtrip": 0.019081171492871363,
@@ -14,8 +38,8 @@
     "suites/micro/test_gates.py::test_gate_empty_operator_guard": 8.00006091594696e-07,
     "suites/micro/test_gates.py::test_gate_lineage_strict_equality": 1.8239952623844147e-06,
     "suites/micro/test_gates.py::test_gate_ttl_bounds": 4.592002369463444e-06,
-    "suites/micro/test_operators.py::test_composed_ab": 0.23092777200508863,
-    "suites/micro/test_operators.py::test_composed_chain": 0.36890328499430325,
+    "suites/micro/test_operators.py::test_composed_ab": 0.07992877601645887,
+    "suites/micro/test_operators.py::test_composed_chain": 0.18434432451613247,
     "suites/micro/test_operators.py::test_policy_operator": 0.0006969729947741143,
     "suites/micro/test_operators.py::test_sequential_ab": 0.0011980884955846705,
     "suites/micro/test_operators.py::test_similarity_operator": 0.00046995500451885164,
