@@ -171,6 +171,8 @@ def iter_public_modules() -> list[str]:
 
 def _kind_of(obj: Any) -> str:
     """Classify an exported object for the manifest."""
+    if obj is UNRESOLVED:
+        return "unresolved"
     if inspect.isclass(obj):
         try:
             from ccf.contracts.base import CCFContract
@@ -262,6 +264,8 @@ def _shape_of(obj: Any, kind: str) -> Any:
     The Protocol and alias branches are `D-IMPL-122`'s scope, and the module
     docstring records what they deliberately leave uncovered.
     """
+    if kind == "unresolved":
+        return "unresolved"
     if kind == "contract":
         fields = getattr(obj, "model_fields", {})
         return {
@@ -282,6 +286,27 @@ def _shape_of(obj: Any, kind: str) -> Any:
     return type(obj).__name__
 
 
+class _Unresolved:
+    """A declared export that resolves to nothing at all.
+
+    Distinct from ``None`` **because an export's value may legitimately be
+    ``None``**: ``ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY`` is a
+    ``Final[SourceRefreshWindow | None] = None`` sentinel, and before this
+    marker existed it was indistinguishable from a name that could not be
+    resolved. Both recorded the shape ``"NoneType"``, which is the fingerprint
+    ``tests/test_surface_drift.py::test_no_export_resolves_to_nothing`` reads —
+    so a legitimate sentinel tripped a gate whose whole point is to catch
+    import-order sensitivity. Making the failure a positive marker rather than
+    an inferred type name keeps the gate exact in both directions.
+    """
+
+    __slots__ = ()
+
+
+#: The one instance. Compared by identity, never by truthiness.
+UNRESOLVED = _Unresolved()
+
+
 def _resolve_export(module: Any, module_name: str, name: str) -> Any:
     """The object ``name`` denotes on ``module``, import-order independently.
 
@@ -292,14 +317,18 @@ def _resolve_export(module: Any, module_name: str, name: str) -> Any:
     manifest changes depending on what else ran first — deterministic when
     ``build_surface`` runs alone, drifting under the full test suite. Import
     the submodule explicitly so the answer is the same either way.
+
+    Returns :data:`UNRESOLVED` — never ``None`` — when the name denotes
+    nothing, so that an export whose *value* is ``None`` is recorded as the
+    ``None`` it is rather than as a resolution failure.
     """
-    obj = getattr(module, name, None)
-    if obj is not None:
+    obj = getattr(module, name, UNRESOLVED)
+    if obj is not UNRESOLVED:
         return obj
     try:
         return importlib.import_module(f"{module_name}.{name}")
     except ImportError:
-        return None
+        return UNRESOLVED
 
 
 def build_surface() -> dict[str, Any]:

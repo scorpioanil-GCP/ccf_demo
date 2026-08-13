@@ -372,7 +372,54 @@ def test_no_committed_plain_class_or_function_shape_is_disturbed() -> None:
     assert not differing, differing
 
 
-# --- 5. The whole point: the diff can finally see it ------------------------
+# --- 5. An export whose value is None is not a resolution failure ----------
+
+
+def test_an_export_valued_none_is_distinguishable_from_an_unresolved_one() -> None:
+    """The collision this plan's regeneration exposed, closed in both directions.
+
+    ``_resolve_export`` used to return ``None`` for a name it could not resolve,
+    which was exact only while no export's *value* was ``None``. Plan `15.6-07`
+    ended that: ``NO_SOURCE_REFRESH_RECENCY`` is a legitimate
+    ``Final[SourceRefreshWindow | None] = None`` sentinel that resolved
+    perfectly well and recorded the same ``"NoneType"`` shape a failure did — so
+    ``tests/test_surface_drift.py::test_no_export_resolves_to_nothing`` reported
+    a real export as a failure. It now returns its own marker, which ``None``
+    can never be mistaken for.
+    """
+    import ccf.halflife.assessment as assessment
+
+    resolved = dump_surface._resolve_export(
+        assessment, "ccf.halflife.assessment", "NO_SOURCE_REFRESH_RECENCY"
+    )
+    assert resolved is None
+    assert resolved is not dump_surface.UNRESOLVED
+    assert dump_surface._kind_of(resolved) == "constant"
+
+    missing = dump_surface._resolve_export(
+        assessment, "ccf.halflife.assessment", "no_such_name_exists"
+    )
+    assert missing is dump_surface.UNRESOLVED
+    assert dump_surface._kind_of(missing) == "unresolved"
+    assert dump_surface._shape_of(missing, "unresolved") == "unresolved"
+
+
+def test_the_manifest_records_the_none_sentinel_rather_than_a_failure() -> None:
+    """Asserted against the real export, not only against the resolver."""
+    live = _flat(build_surface())
+    entry = live["ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY"]
+    assert entry["kind"] == "constant", entry
+    assert entry["shape"] != "unresolved", entry
+
+    unresolved = sorted(
+        name
+        for name, record in live.items()
+        if record["kind"] == "unresolved" or record["shape"] == "unresolved"
+    )
+    assert not unresolved, unresolved
+
+
+# --- 6. The whole point: the diff can finally see it ------------------------
 
 
 def test_diff_surfaces_now_reports_the_resolver_seams_as_reshaped(
