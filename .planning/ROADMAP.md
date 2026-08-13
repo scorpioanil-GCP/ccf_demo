@@ -1135,7 +1135,7 @@ Plans:
 
 **Wave 9**
 
-- [ ] 15.6-11-PLAN.md — [Track A] `DI-15.5-08`: the scoped citation sweep + a two-direction ratchet (the tree's first ceiling; its floor named `MINIMUM_*` so the retirement sweep can see it)
+- [x] 15.6-11-PLAN.md — [Track A] `DI-15.5-08`: the scoped citation sweep + a two-direction ratchet (the tree's first ceiling; its floor named `MINIMUM_*` so the retirement sweep can see it)
 
 **Wave 10** *(checkpoint)*
 
@@ -1307,7 +1307,7 @@ Plans:
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
 | 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 15/15 | Complete | 2026-08-11 |
-| 15.6 Decision-Completeness and Defect Closure | 11/13 | In Progress|  |
+| 15.6 Decision-Completeness and Defect Closure | 12/13 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Parked (resumes after 15.6) |  |
 
 ## Coverage
