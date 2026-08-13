@@ -63,6 +63,23 @@ every rehydrator. The SDK records the instant and reads it back; it defines no
 source, no cadence and no threshold, and it compares the instant to nothing —
 which is where recency would otherwise become salience, deferred by D-IMPL-101.
 
+**What a signal obliges is bound by the deployment and named by nobody here**
+(D-IMPL-112 gap 3, D-IMPL-117). :class:`SignalObligation` binds one
+:class:`DebtSignal` to one *opaque* obligation reference; the calibration lives
+on :class:`~ccf.controlplane.artifacts.DebtProfile`, and the reference resolved
+for the signal a decision actually landed in rides
+:class:`~ccf.products.contract.ContextProductContract` as a top-level field
+under the same D-IMPL-118 branch as the two members above, with the same
+matching member on :class:`~ccf.replay.record.ContentGenerationPath` and the
+same read-back in every rehydrator. **The SDK ships no obligation vocabulary
+and takes no action on one.** It validates the *key*, which is a type it owns,
+and validates nothing whatever about the *value*: which operational duty a
+given decision class attaches to a routing state is the context product
+creator's judgement, and a closed set of duty names in this file would be the
+CLAUDE.md §11 defect rather than a convenience.
+``tests/invariants/test_no_obligation_vocabulary.py`` is the standing gate over
+that claim.
+
 **Decimal, never float.** These values reach the replay record and are inside
 the product's content address under D-IMPL-100; floats are not bit-stable, so a
 float is *refused at construction* rather than coerced. Coercion would be the
@@ -88,7 +105,9 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "NO_DEBT_EVIDENCE",
+    "NO_OBLIGATION_IN_FORCE",
     "NO_SCORER_PINS",
+    "NO_SIGNAL_OBLIGATIONS",
     "NO_SOURCE_REFRESH_RECENCY",
     "DebtAssessment",
     "DebtEvidence",
@@ -97,6 +116,8 @@ __all__ = [
     "DebtFactors",
     "DebtSignal",
     "ScorerPin",
+    "SignalObligation",
+    "SignalObligations",
     "SourceRefresh",
     "SourceRefreshRecency",
 ]
@@ -481,6 +502,183 @@ SourceRefreshRecency = Annotated[
 #: empty tuple rather than a marker string because each element is a structured
 #: entry and the field must stay one shape.
 NO_SOURCE_REFRESH_RECENCY: Final[tuple[SourceRefresh, ...]] = ()
+
+
+#: The obligation a decision was under when no binding covered its signal.
+#:
+#: The positive assertion, in :data:`~ccf.products.contract.NO_PAYLOAD_SCHEMA`'s
+#: voice and for :data:`NO_SCORER_PINS`' reason: *no obligation was bound to the
+#: state this decision landed in*. Never ``None`` meaning "unknown"
+#: (D-IMPL-38) — without a named sentinel, a decision whose deployment bound
+#: nothing and one whose obligation somebody dropped in transit would be the
+#: same artifact, which is the repudiation failure mode every sentinel in this
+#: fabric closes. A marker string rather than an empty tuple because the field
+#: holds one reference and must stay one shape; a marker rather than ``""``
+#: because an empty string is what a half-finished edit leaves behind, and the
+#: two claims are different. It is **not** an obligation and no deployment may
+#: declare it as one — :class:`SignalObligation` refuses the spelling.
+#:
+#: **SDK-namespaced on purpose.** ``ccf.``-prefixed so the marker reads as SDK
+#: structure rather than as a word from somebody's domain — the discipline
+#: ``tests/halflife/test_debt_delivery.py`` already enforces over every
+#: module-level string in this package — and so a deployment cannot collide with
+#: it by accident while reaching for an ordinary phrase.
+NO_OBLIGATION_IN_FORCE: Final[str] = "ccf.no-obligation-in-force"
+
+
+class SignalObligation(CCFContract):
+    """What one routing state obliges, as the deployment declares it.
+
+    SDK-defined (CLAUDE.md §11), attached to the whitepaper §7.7 CAR hook rather
+    than derived from it. D-IMPL-112 recorded that a reader shown a routing
+    state still cannot tell what that state *requires of them*, and D-IMPL-117
+    scoped what the SDK owes about it to *"a signal-to-obligation binding that
+    survives replay, and owes no obligation vocabulary"*. This class is that
+    binding's element.
+
+    **The asymmetry that makes this a gap, rather than a nicety.**
+    :attr:`DebtSignal.FORCED_LLM` is produced at one site and consumed at none,
+    while the other two states each have exactly one consumer in the shipped
+    tree. The SDK already acts on two thirds of its own enum, so it is entitled
+    to ship the *mechanism* by which a deployment says what the third means —
+    and entitled to nothing beyond that.
+
+    Attributes:
+        signal: Which routing state this binding answers to. The **one half the
+            SDK owns**, so it is the one half the SDK validates: a binding
+            naming a state the fabric never produces is refused at construction
+            with the offending key in the message.
+        obligation_ref: What that state obliges. **Opaque to the SDK; declared
+            by the deployment** — the discipline
+            :class:`~ccf.skills.catalog.SkillRequirements` already holds. The
+            SDK ships no obligation type, no obligation vocabulary and no
+            default; it never parses the value, never compares it against a
+            permitted set, and never branches on it.
+
+    **Carried, never acted on.** Binding an obligation does not make the fabric
+    perform it. Nothing in the SDK reads this reference and does something: a
+    module that branched on it would have decided what an obligation *means*,
+    which is the judgement D-IMPL-117 assigns to the context product creator and
+    which ``tests/invariants/test_no_obligation_vocabulary.py`` exists to keep
+    out of this file.
+    """
+
+    signal: DebtSignal
+    obligation_ref: str
+
+    @field_validator("signal", mode="before")
+    @classmethod
+    def _the_key_names_a_routing_state(cls, value: object) -> object:
+        """Refuse an unknown key by name rather than by enum-membership error.
+
+        A profile author meets this validator through a YAML document, where
+        the natural failure — a near-miss spelling of a state — is best
+        answered with the offending key and the set it had to come from. The
+        SDK is entitled to this check precisely because the key type is its
+        own; the value beside it gets no such treatment.
+        """
+        if isinstance(value, DebtSignal):
+            return value
+        known = tuple(member.value for member in DebtSignal)
+        if not isinstance(value, str) or value not in known:
+            raise ValueError(
+                f"{value!r} is not a debt signal: an obligation binds to one of"
+                f" {known}, the routing states the fabric actually produces"
+                " (whitepaper §7.7 CAR). The SDK validates the key because the"
+                " key is its own type, and validates nothing about what the"
+                " obligation means (D-IMPL-117)"
+            )
+        return value
+
+    @field_validator("obligation_ref", mode="before")
+    @classmethod
+    def _obligation_ref_is_not_a_float(cls, value: object) -> object:
+        return _refuse_float(value)
+
+    @field_validator("obligation_ref")
+    @classmethod
+    def _the_obligation_is_declared_and_is_not_the_sentinel(cls, value: str) -> str:
+        """Refuse a blank reference and refuse the sentinel's own spelling.
+
+        Both refusals protect one distinction. A blank reference is what a
+        half-finished profile edit leaves behind, and accepting it would make
+        *declared, obliging nothing* and *not declared* two spellings of one
+        claim — while only the second has a sentinel that says so. The sentinel
+        spelling is refused for the same reason from the other direction: a
+        binding that impersonated it would collapse the distinction D-IMPL-38
+        requires it to hold open.
+
+        Neither refusal is a judgement about *meaning*. Any other string is
+        accepted verbatim, however unfamiliar.
+        """
+        if not value.strip():
+            raise ValueError(
+                "an obligation reference must be declared: a blank reference"
+                " makes a binding that obliges nothing indistinguishable from"
+                f" no binding at all, which is what {NO_OBLIGATION_IN_FORCE!r}"
+                " already asserts (D-IMPL-38)"
+            )
+        if value == NO_OBLIGATION_IN_FORCE:
+            raise ValueError(
+                f"{NO_OBLIGATION_IN_FORCE!r} is reserved: it is the positive"
+                " assertion that no obligation was bound, and a declared"
+                " obligation wearing that spelling would collapse the"
+                " distinction the sentinel exists to hold open (D-IMPL-38)"
+            )
+        return value
+
+
+def _obligations_are_one_per_signal_in_canonical_order(
+    value: tuple[SignalObligation, ...],
+) -> tuple[SignalObligation, ...]:
+    """Refuse a second obligation for a signal; store the rest in one order.
+
+    Both halves follow
+    :meth:`DebtAssessment._pins_are_one_per_factor_in_canonical_order` exactly,
+    and for its reasons. Two obligations for one state describe two duties
+    claiming to be the one thing that state requires, which is not a stricter
+    calibration but an incoherent one. And declaration order is not a fact about
+    the calibration, while the profile carrying it *is* content-addressed and
+    version-pinned per agent, so an order-sensitive collection would make two
+    identical calibrations resolve as two artifacts.
+
+    A ``tuple`` sorted here rather than a mapping: a YAML mapping keeps the
+    **last** of two duplicate keys silently, and a signal bound twice is exactly
+    the contradiction a profile author needs told about.
+    """
+    signals = [binding.signal for binding in value]
+    if len(set(signals)) != len(signals):
+        raise ValueError(
+            "a debt signal may carry at most one obligation; two bindings for "
+            "one signal describe two duties claiming to be the single thing "
+            "that state requires, which is an incoherent calibration rather "
+            "than a stricter one (D-IMPL-117)"
+        )
+    return tuple(sorted(value, key=lambda binding: binding.signal.value))
+
+
+#: What each routing state obliges, canonically ordered and signal-unique.
+#:
+#: An alias rather than a field-by-field re-declaration for
+#: :data:`DebtEvidence`'s reason: one validated shape is what keeps the
+#: declaration and everything downstream of it from drifting apart.
+SignalObligations = Annotated[
+    tuple[SignalObligation, ...],
+    AfterValidator(_obligations_are_one_per_signal_in_canonical_order),
+]
+
+#: A calibration that binds no obligation to any signal.
+#:
+#: The positive assertion, in :data:`NO_SCORER_PINS`' voice and for its reason:
+#: *this profile binds no obligation to any routing state*. Never ``None``
+#: meaning "unknown" (D-IMPL-38) — without a named sentinel, a deployment that
+#: deliberately declared no obligations and one whose bindings somebody dropped
+#: would be the same artifact. It is also exactly what every profile written
+#: before this field existed was already asserting, which is why the field
+#: defaults rather than demands. The empty tuple rather than a marker string
+#: because each element is a structured binding and the field must stay one
+#: shape.
+NO_SIGNAL_OBLIGATIONS: Final[tuple[SignalObligation, ...]] = ()
 
 
 class DebtAssessment(CCFContract):

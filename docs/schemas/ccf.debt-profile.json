@@ -1,6 +1,37 @@
 {
+  "$defs": {
+    "DebtSignal": {
+      "description": "The routing state an assessed D_c falls into (whitepaper \u00a77.7 CAR).\n\nMembers:\n    OK: D_c sits below both configured bands. Nothing about debt changes\n        the decision path; this is not an assertion that context is\n        perfect, only that its shortfall is within the class's declared\n        tolerance.\n    FORCED_LLM: D_c is above the class's Forced-LLM threshold \u2014 context is\n        partial or stale, and a semantic stage must be invoked *with\n        explicit awareness of the debt*.\n    FAIL_CLOSED: D_c is above the class's Fail-Closed threshold. The fabric\n        does not know enough to support the decision. \u00a77.7 reads missing\n        counter-evidence as grounds for caution rather than reassurance, so\n        this state escalates and never quietly proceeds.\n\nThe two escalation states are deliberately distinct: Forced-LLM is *more*\nreasoning, Fail-Closed is *no* decision. Collapsing them would make an\noutage indistinguishable from a hard question.",
+      "enum": [
+        "ok",
+        "forced_llm",
+        "fail_closed"
+      ],
+      "title": "DebtSignal",
+      "type": "string"
+    },
+    "SignalObligation": {
+      "additionalProperties": false,
+      "description": "What one routing state obliges, as the deployment declares it.\n\nSDK-defined (CLAUDE.md \u00a711), attached to the whitepaper \u00a77.7 CAR hook rather\nthan derived from it. D-IMPL-112 recorded that a reader shown a routing\nstate still cannot tell what that state *requires of them*, and D-IMPL-117\nscoped what the SDK owes about it to *\"a signal-to-obligation binding that\nsurvives replay, and owes no obligation vocabulary\"*. This class is that\nbinding's element.\n\n**The asymmetry that makes this a gap, rather than a nicety.**\n:attr:`DebtSignal.FORCED_LLM` is produced at one site and consumed at none,\nwhile the other two states each have exactly one consumer in the shipped\ntree. The SDK already acts on two thirds of its own enum, so it is entitled\nto ship the *mechanism* by which a deployment says what the third means \u2014\nand entitled to nothing beyond that.\n\nAttributes:\n    signal: Which routing state this binding answers to. The **one half the\n        SDK owns**, so it is the one half the SDK validates: a binding\n        naming a state the fabric never produces is refused at construction\n        with the offending key in the message.\n    obligation_ref: What that state obliges. **Opaque to the SDK; declared\n        by the deployment** \u2014 the discipline\n        :class:`~ccf.skills.catalog.SkillRequirements` already holds. The\n        SDK ships no obligation type, no obligation vocabulary and no\n        default; it never parses the value, never compares it against a\n        permitted set, and never branches on it.\n\n**Carried, never acted on.** Binding an obligation does not make the fabric\nperform it. Nothing in the SDK reads this reference and does something: a\nmodule that branched on it would have decided what an obligation *means*,\nwhich is the judgement D-IMPL-117 assigns to the context product creator and\nwhich ``tests/invariants/test_no_obligation_vocabulary.py`` exists to keep\nout of this file.",
+      "properties": {
+        "obligation_ref": {
+          "title": "Obligation Ref",
+          "type": "string"
+        },
+        "signal": {
+          "$ref": "#/$defs/DebtSignal"
+        }
+      },
+      "required": [
+        "signal",
+        "obligation_ref"
+      ],
+      "title": "SignalObligation",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
-  "description": "A decision class's D_c calibration (whitepaper \u00a77.7 CAR; INV-CH7-65).\n\nThree declared values, none with a default:\n\n* ``risk_sensitivity`` \u2014 the ``\u03bb_c \u00d7 Risk Sensitivity`` Freshness Budget\n  multiplier for this class.\n* ``forced_llm_threshold`` \u2014 D_c above which the assessment is routed to\n  Forced LLM: \"context is partial or stale; the LLM must be invoked with\n  explicit awareness of the debt.\"\n* ``fail_closed_threshold`` \u2014 D_c above which the class fails closed rather\n  than deciding at all. The whitepaper's conservative bias is architectural:\n  elevated debt \"biases urgency upward, not downward\", so this band exists\n  to escalate, never to smooth.\n\nThe fail-closed band must sit at or above the Forced-LLM band; a profile\nthat inverts them describes a class that fails closed *before* it escalates,\nwhich is not a stricter policy but an incoherent one.\n\nThresholds are :class:`~decimal.Decimal` in ``[0, 1]``, matching the D_c\ncodomain, and are refused as floats upstream by the loader.",
+  "description": "A decision class's D_c calibration (whitepaper \u00a77.7 CAR; INV-CH7-65).\n\nThree declared values, none with a default:\n\n* ``risk_sensitivity`` \u2014 the ``\u03bb_c \u00d7 Risk Sensitivity`` Freshness Budget\n  multiplier for this class.\n* ``forced_llm_threshold`` \u2014 D_c above which the assessment is routed to\n  Forced LLM: \"context is partial or stale; the LLM must be invoked with\n  explicit awareness of the debt.\"\n* ``fail_closed_threshold`` \u2014 D_c above which the class fails closed rather\n  than deciding at all. The whitepaper's conservative bias is architectural:\n  elevated debt \"biases urgency upward, not downward\", so this band exists\n  to escalate, never to smooth.\n\nThe fail-closed band must sit at or above the Forced-LLM band; a profile\nthat inverts them describes a class that fails closed *before* it escalates,\nwhich is not a stricter policy but an incoherent one.\n\nThresholds are :class:`~decimal.Decimal` in ``[0, 1]``, matching the D_c\ncodomain, and are refused as floats upstream by the loader.\n\nA fourth declared value, ``signal_obligations``, says what each routing\nstate *obliges* the deployment to do (D-IMPL-112 gap 3, D-IMPL-117;\nSDK-defined per CLAUDE.md \u00a711). It belongs here because the calibration\nalready lives here: this artifact owns the two bands that decide which state\na decision lands in, and it is already version-pinned per agent, so putting\nthe binding anywhere else would split one calibration across two documents\nand two version lanes.\n\n**The SDK owes the binding and none of its content.** Each entry names a\nrouting state \u2014 a type the SDK owns, ships and validates \u2014 and one opaque\nreference the SDK never parses, never checks against a permitted set and\nnever acts on. Which operational duty a decision class attaches to a state\nis user configuration; a list of duty names in this file would be the\nCLAUDE.md \u00a711 defect, and ``D-IMPL-117`` says so directly:\n*\"a signal-to-obligation binding that survives replay, and owes no\nobligation vocabulary (that is user configuration ...)\"*.\n\nUnlike the three numbers it does carry a default, and the default is the\nnamed positive sentinel rather than a value nobody chose: a profile that\nbinds nothing asserts so, which is exactly what every profile written before\nthis field existed was already asserting (D-IMPL-38).",
   "properties": {
     "fail_closed_threshold": {
       "anyOf": [
@@ -41,6 +72,14 @@
     "semver": {
       "title": "Semver",
       "type": "string"
+    },
+    "signal_obligations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SignalObligation"
+      },
+      "title": "Signal Obligations",
+      "type": "array"
     }
   },
   "required": [

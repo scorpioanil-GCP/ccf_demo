@@ -960,30 +960,57 @@ def test_a_declared_profile_naming_an_unknown_signal_is_refused(
 def test_the_sdk_names_no_obligation_and_takes_no_action_on_one() -> None:
     """CLAUDE.md §11, asserted structurally rather than promised.
 
-    Two absences, and they are different absences. The first is vocabulary: no
-    module under `src/` writes an obligation reference, so the only string a
-    replay can carry is one a deployment declared.
-    `tests/invariants/test_no_obligation_vocabulary.py` holds the syntactic half
-    of that claim; this holds the textual one.
+    Two absences, and they are different absences. The first is **surface**:
+    the obligation reference is declared in one module and resolved in one
+    other, and reaches no third — so there is nowhere for a default mapping, a
+    reference constant or a permitted set to have been quietly parked.
+    `tests/invariants/test_no_obligation_vocabulary.py` holds the syntactic
+    half of the vocabulary claim, and does it as an AST walk for the reason its
+    own control records: a grep-shaped gate fails on `D-IMPL-112`'s quoted
+    words wherever they appear in prose, and a gate that cries wolf gets
+    switched off. This module deliberately does not restate that check as a
+    word search.
 
-    The second is behaviour, and it is the one a reviewer is most likely to
+    The second is **behaviour**, and it is the one a reviewer is most likely to
     misread. `FORCED_LLM` had zero consumers before this plan and still has zero
-    **in the SDK**: the fabric carries the binding into the record and branches
-    on it nowhere, because branching on it would mean deciding what an
-    obligation means — the judgement `D-IMPL-117` assigns to the context product
-    creator.
+    across `src/` and `runtime/`: the fabric carries the binding into the record
+    and branches on it nowhere, because branching on it would mean deciding what
+    an obligation means — the judgement `D-IMPL-117` assigns to the context
+    product creator. The two branches asserted below are the two that predate
+    this plan (`D-IMPL-65`/INV-CH7-68 and CINV-01), and the producer is still
+    the single site `15.6-RESEARCH.md` § B4 counted.
     """
-    root = REPO_ROOT / "src" / "ccf"
+    src_root = REPO_ROOT / "src"
+    runtime_root = REPO_ROOT / "runtime"
+
     writers = sorted(
-        path.relative_to(root).as_posix()
-        for path in root.rglob("*.py")
+        path.relative_to(src_root).as_posix()
+        for path in (src_root / "ccf").rglob("*.py")
         if "obligation_ref" in path.read_text(encoding="utf-8")
     )
+    assert writers == [
+        "ccf/controlplane/artifacts.py",
+        "ccf/halflife/assessment.py",
+    ]
 
-    assert writers == ["controlplane/artifacts.py", "halflife/assessment.py"]
+    branches = sorted(
+        f"{path.relative_to(root).as_posix()}:{line.strip()}"
+        for root in (src_root, runtime_root)
+        for path in root.rglob("*.py")
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if "DebtSignal." in line and not line.lstrip().startswith(("#", "*", ":"))
+    )
 
-    for module in writers:
-        source = (root / module).read_text(encoding="utf-8")
-        assert "re-pull" not in source
-        assert "escalate" not in source
-        assert "supervised" not in source
+    assert branches == [
+        "ccf/halflife/debt.py:signal = DebtSignal.FAIL_CLOSED",
+        "ccf/halflife/debt.py:signal = DebtSignal.FORCED_LLM",
+        "ccf/halflife/debt.py:signal = DebtSignal.OK",
+        "ccf/hitl/escalation.py:and trigger.signal is DebtSignal.OK",
+        "ccf_runtime/workflow/engine.py:"
+        "if assessment.signal is DebtSignal.FAIL_CLOSED:",
+    ], (
+        "a DebtSignal branch was added or removed. Producing the signal is"
+        " assess_debt's job and consuming OK/FAIL_CLOSED predates this plan;"
+        " a new branch on FORCED_LLM would mean the SDK had decided what an"
+        " obligation means (D-IMPL-117, CLAUDE.md §11)"
+    )
