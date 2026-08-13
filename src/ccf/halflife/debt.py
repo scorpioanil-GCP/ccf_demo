@@ -91,8 +91,8 @@ from ccf.halflife.assessment import (
     ScorerPin,
     SignalObligation,
     SignalObligations,
-    SourceRefresh,
     SourceRefreshRecency,
+    SourceRefreshWindow,
 )
 from ccf.halflife.decay import Observation, freshness
 
@@ -115,8 +115,8 @@ __all__ = [
     "ScorerPin",
     "SignalObligation",
     "SignalObligations",
-    "SourceRefresh",
     "SourceRefreshRecency",
+    "SourceRefreshWindow",
     "assess_debt",
     "basic_debt",
     "context_debt",

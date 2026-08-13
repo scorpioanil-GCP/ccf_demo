@@ -514,7 +514,14 @@ class ContentGenerationPath(CCFContract):
     :data:`~ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY`, and belongs
     beside the ``debt`` whose freshness factor it is deliberately *not* — F is
     a measurement of decay against a budget, and this is a fact about when the
-    world outside the fabric last spoke.
+    world outside the fabric last spoke. As of 15.6-13 it carries a
+    :class:`~ccf.halflife.assessment.SourceRefreshWindow` — the oldest and the
+    newest of the deployment's declared refresh instants — rather than the
+    per-source map 15.6-07 shipped, because D-IMPL-124 ruled the field's
+    purpose to be freshness rather than source enumeration and took the source
+    identities off the vessel. The placement is untouched by that revision: the
+    member's spelling, its derivation and its read-back are all exactly what
+    they were, and only its type changed.
 
     **What the signal obliged extends the same dimension as of 15.6-08**
     (D-IMPL-112 gap 3, D-IMPL-117) through ``obligation_in_force``, for the

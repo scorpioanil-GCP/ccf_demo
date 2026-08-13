@@ -499,6 +499,14 @@ def assemble_and_serve(
             # this is a fact about the world upstream, and the fabric has no
             # way to observe it. `artifacts/product-governance.yaml` is where
             # it is authored and where an adopter changes it.
+            #
+            # AND IT NAMES NO SOURCE (D-IMPL-124). The artifact declares three
+            # per-source entries with human-interpretable references;
+            # `deployment.py::_declared_refresh_window` reduced them to the
+            # window they span before this line ever saw a value, so what goes
+            # on the product is two instants — no reference, no count. The
+            # boundary is in the deployment and not in the SDK because only the
+            # deployment knows its own set of sources is complete.
             source_refresh_recency=scenario.source_refresh_recency,
             # WHAT THE SIGNAL OBLIGES THIS DEPLOYMENT TO DO, under the same
             # `qa-toplevel` placement again (D-IMPL-112 gap 3, D-IMPL-117,

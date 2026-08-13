@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**574 entries**, of which **348** name a public Python surface.
+**581 entries**, of which **355** name a public Python surface.
 
 ## Added
 
@@ -4686,32 +4686,6 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.6-06-debt-evidence.md`.*
 
-#### ccf.halflife.assessment.SourceRefresh
-
-- Surface: ccf.halflife.assessment.SourceRefresh
-- Public surface: true
-- Before: absent — a consumer could see how much decay the fabric had measured
-  and had no way to learn when the source it measured had last published
-- After: a `CCFContract` with exactly two fields — `source_ref: str`, an opaque
-  identifier for the source in the `ccf.skills.catalog.SkillRequirements`
-  voice, and `refreshed_at: datetime`, when that source was last refreshed. A
-  naive instant is **refused at construction** rather than coerced, and a
-  `float` reference is refused by the module's shared `_refuse_float`
-- Change type: added
-- Why: `D-IMPL-112` gap 2 named *when the underlying source filings were last
-  refreshed* as the second thing a reader of a debt figure cannot get at, and
-  `D-IMPL-117` scoped the SDK's obligation to the carrying structure alone —
-  *"owing no definition of a source or a cadence"*. Two fields are the whole
-  structure that obligation supports. **What this fact is not**, and the
-  sentence an adopter most needs: it is not computed freshness, it is not the
-  fabric's own clock, and it is not an attestation dimension — the three things
-  already in the tree that a reader would otherwise collapse it into
-- Migration: none — new name, nothing referenced it. Note that the SDK compares
-  a refresh instant to nothing, so if your deployment wants "is this source
-  overdue?", that comparison is yours to write against your own cadence
-
-*Recorded by `15.6-07-source-refresh-recency.md`.*
-
 #### ccf.halflife.assessment.SourceRefreshRecency
 
 - Surface: ccf.halflife.assessment.SourceRefreshRecency
@@ -4727,10 +4701,14 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   places, the product vessel and replay dimension 5, and one validated shape is
   what keeps those from drifting apart. A sorted tuple rather than a
   `frozenset`: the value is inside a content address, so it must be
-  order-insensitive in its bytes (asserted by
-  `tests/halflife/test_debt.py::test_recency_declaration_order_does_not_move_the_bytes`),
-  and a set keyed on the whole entry would keep both halves of a contradiction
-  while one keyed on the reference would drop a half silently
+  order-insensitive in its bytes, and a set keyed on the whole entry would keep
+  both halves of a contradiction while one keyed on the reference would drop a
+  half silently. **This description is of what plan 15.6-07 shipped and is
+  superseded by `D-IMPL-124`** — plan 15.6-13 replaced the per-source tuple
+  with a two-instant `ccf.halflife.assessment.SourceRefreshWindow`, so the
+  order-insensitivity assertion this entry originally cited was retired with
+  the collection it guarded. See
+  `docs/surface-changes/15.6-13-source-refresh-window.md`
 - Migration: none — new name
 
 *Recorded by `15.6-07-source-refresh-recency.md`.*
@@ -4753,22 +4731,6 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none — it is the default on both fields that carry the carrier, so
   every construction site written before this plan asserts exactly what it
   always asserted
-
-*Recorded by `15.6-07-source-refresh-recency.md`.*
-
-#### ccf.halflife.debt.SourceRefresh
-
-- Surface: ccf.halflife.debt.SourceRefresh
-- Public surface: true
-- Before: absent
-- After: the same class, re-exported
-- Change type: added
-- Why: `ccf.halflife.debt` re-exports every name defined in
-  `ccf.halflife.assessment` — the split exists only to break an import cycle
-  (`ccf.products.contract` cannot import `ccf.halflife.debt`), and a name
-  reachable at one spelling and not the other would make that internal detail
-  an adopter's problem
-- Migration: none
 
 *Recorded by `15.6-07-source-refresh-recency.md`.*
 
@@ -4936,6 +4898,55 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none
 
 *Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.assessment.SourceRefreshWindow
+
+- Surface: ccf.halflife.assessment.SourceRefreshWindow
+- Public surface: true
+- Before: absent
+- After: a `CCFContract` with exactly two fields —
+  `oldest_source_refresh_at: datetime` and
+  `newest_source_refresh_at: datetime`, the earliest and latest of the refresh
+  instants the assembling deployment declared. Both are timezone-aware; a naive
+  instant on either is **refused at construction** rather than coerced. One
+  coherence validator refuses a window whose oldest end is after its newest;
+  equality is legal, because one source — or several that published together —
+  is a window of zero span. No `source_ref`, no count, no cadence, no staleness
+  threshold and no default
+- Change type: added
+- Why: `D-IMPL-124` Shape B. It replaces the per-source map plan 15.6-07
+  shipped, because the field's purpose is freshness rather than source
+  enumeration and a per-source map published the deployment's inventory of
+  systems to every principal who could reach the product. The
+  oldest-versus-newest check is **not** the comparison `D-IMPL-101` deferred:
+  the forbidden comparisons are against `now`, against a threshold and against
+  a cadence, each of which draws a conclusion about whether a value is
+  acceptable; this one checks that a single declared fact is internally
+  coherent, exactly as the duplicate-reference refusal it replaces did
+- Migration: none — new name. Note that the SDK compares these instants to
+  nothing outside themselves, so if your deployment wants "are my sources
+  overdue?", that comparison is yours to write against your own cadence. Note
+  also that the SDK ships **no reducer** from per-source instants to a window:
+  that reduction belongs in your deployment, because only your deployment knows
+  its set of sources is complete
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
+
+#### ccf.halflife.debt.SourceRefreshWindow
+
+- Surface: ccf.halflife.debt.SourceRefreshWindow
+- Public surface: true
+- Before: absent
+- After: the same class, re-exported
+- Change type: added
+- Why: consequential, not deliberate. `ccf.halflife.debt` re-exports every name
+  defined in `ccf.halflife.assessment` — the split exists only to break an
+  import cycle (`ccf.products.contract` cannot import `ccf.halflife.debt`), and
+  a name reachable at one spelling and not the other would make that internal
+  detail an adopter's problem
+- Migration: none
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
 
 ### Not public Python API
 
@@ -5453,7 +5464,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-251 entries — 68 public Python surface, 183 not public Python API.
+257 entries — 74 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -7122,6 +7133,128 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   before this seam parses and verifies unchanged
 
 *Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.assessment.SourceRefreshRecency
+
+- Surface: ccf.halflife.assessment.SourceRefreshRecency
+- Public surface: true
+- Before: the annotated carrier type plan 15.6-07 shipped — a
+  `tuple[SourceRefresh, ...]` validated to be source-unique and canonically
+  ordered
+- After: `SourceRefreshWindow | None`. The ordering and uniqueness validators
+  are gone with the collection: a two-field contract has no declaration order,
+  so there is nothing to canonicalise
+- Change type: reshaped
+- Why: `D-IMPL-124`. **Replace, not parallel** — the ruling's operative
+  sentence is *"no `source_ref` strings leave the vessel"* and *"the inference
+  channel is closed"*, and a parallel shape would leave the per-source map on
+  the vessel, which is the rejected Shape A wearing a second field. It keeps
+  its **name** for `ccf.halflife.assessment.DebtEvidence`'s recorded reason:
+  the carrier lands in **two** places, the vessel and replay dimension 5, and
+  one named shape is what keeps those two from drifting apart
+- Migration: nothing is required to keep constructing products — the sentinel
+  default covers every existing site. An adopter who **populated** this alias
+  under 15.6-07 supplies a `SourceRefreshWindow` instead of a
+  `tuple[SourceRefresh, ...]`; the change on your side is the one-line
+  reduction `min`/`max` over the instants you were already declaring
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
+
+#### ccf.halflife.debt.SourceRefreshRecency
+
+- Surface: ccf.halflife.debt.SourceRefreshRecency
+- Public surface: true
+- Before: the annotated tuple carrier, re-exported
+- After: the re-pointed alias, re-exported
+- Change type: reshaped
+- Why: consequential, not deliberate — the same re-export discipline
+- Migration: the same as the `ccf.halflife.assessment` spelling
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
+
+#### ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY
+
+- Surface: ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY
+- Public surface: true
+- Before: the empty tuple, as a named module-level constant
+- After: `None`, under the **same name** and making the **same positive claim**
+  — *this product records nothing about when its sources last refreshed*
+- Change type: reshaped
+- Why: the value moved because `()` is the empty case of a *collection*, and a
+  window is not a collection. There is no empty window that does not require
+  inventing an instant, and an invented instant is the silent default
+  `D-IMPL-38` forbids. The same-vessel precedent is exact:
+  `ContextProductContract.debt` and `.request` are both optional *structures*
+  whose `None` is documented as a positive assertion in the same voice. What
+  the **name** buys, and why it is kept rather than replaced by a bare `None`
+  at each site, is unchanged: every construction site and every default still
+  spells the claim, so a deployment that knows nothing about its sources'
+  publication schedule and one whose recency somebody dropped in transit remain
+  different artifacts
+- Migration: none for construction — it remains the default on both fields that
+  carry the alias, so every existing construction site asserts exactly what it
+  always asserted. If your code compared this constant to `()`, compare it to
+  `None`, or better, compare against the named constant
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
+
+#### ccf.halflife.debt.NO_SOURCE_REFRESH_RECENCY
+
+- Surface: ccf.halflife.debt.NO_SOURCE_REFRESH_RECENCY
+- Public surface: true
+- Before: the empty-tuple sentinel, re-exported
+- After: the `None` sentinel, re-exported under the same name
+- Change type: reshaped
+- Why: consequential, not deliberate — the same re-export discipline. This is
+  the spelling a deployment assembling products will already be importing from,
+  since `assess_debt` lives here
+- Migration: the same as the `ccf.halflife.assessment` spelling
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
+
+#### ccf.products.contract.ContextProductContract
+
+- Surface: ccf.products.contract.ContextProductContract
+- Public surface: true
+- Before: `source_refresh_recency` carried a source-unique, canonically ordered
+  tuple of `SourceRefresh` entries, each naming a source and an instant
+- After: **the same field name**, carrying a `SourceRefreshWindow | None`. The
+  field count is unchanged; no member is added and none is removed
+- Change type: reshaped
+- Why: `D-IMPL-124`. The vessel is what both shipped delivery paths serialize
+  verbatim to every principal who can reach the product, so the vessel is
+  precisely where a source identity must not be. `D-IMPL-118`'s `qa-toplevel`
+  placement is unamended — this is a change of contents, not of placement
+- Migration: **nothing is required to keep constructing products.** The
+  sentinel default keeps every existing construction site saying exactly what
+  it always said, and the field name did not move, so code that reads
+  `product.source_refresh_recency` still compiles. **An adopter who populated
+  the field under 15.6-07 must now supply a window instead of a per-source
+  tuple** — a one-line reduction on your side, `min`/`max` over the instants
+  you already declare. Anything of yours that read a `source_ref` off a
+  delivered product must instead read it from your own deployment
+  configuration, which is where `D-IMPL-124` rules that knowledge belongs
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Before: dimension 5's `source_refresh_recency` twin carried the per-source
+  tuple
+- After: **the same field name**, carrying the same `SourceRefreshWindow | None`
+  as the vessel. Still derived from the product `build_replay_record` was
+  already handed, so **no `build_replay_record` call site moves**
+- Change type: reshaped
+- Why: the twin exists because `D-IMPL-118` rules the carrier top-level on the
+  vessel rather than nested inside `debt`, so it does not ride the assessment
+  back and dimension 5 is the only place a `(record, projection)` rehydrator
+  can read it from. Reshaping the vessel's member without reshaping this one
+  would make every replay of every product raise `ReplayDivergence`
+- Migration: none — the derivation and the field name are both unchanged
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
 
 ### Not public Python API
 
@@ -9400,7 +9533,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-51 entries — 40 public Python surface, 11 not public Python API.
+52 entries — 41 public Python surface, 11 not public Python API.
 
 ### Public Python surface
 
@@ -10382,6 +10515,32 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   this fabric prefers
 
 *Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.replay.engine.ReplayEnvironment
+
+- Surface: ccf.replay.engine.ReplayEnvironment
+- Public surface: true
+- Before: `rehydrate_product`'s contract required the per-source tuple to be
+  read off `record.content_generation_path.source_refresh_recency` and carried
+  onto the rebuilt product verbatim
+- After: **the same signature**, and the same requirement over the reshaped
+  value. A conforming implementation copies the window exactly as it copied the
+  map
+- Change type: behavior
+- Why: the Protocol's contract text is where the read-back obligation is
+  stated, and the obligation's *subject* changed type even though its
+  *signature* did not — which is the class of change a signature diff cannot
+  see, and the reason the `behavior` change type exists
+- Migration: **none — the read-back line is unchanged in spelling** and is
+  required exactly as before. Its necessity was re-measured against the
+  reshaped fixture in both directions: deleting it over a sentinel-carrying
+  fixture costs nothing (0 red), and over a populated window it turns 13 of
+  `tests/replay/test_engine_rehydration.py`'s 44 cases red with
+  `ReplayDivergence`. Both figures are recorded in a comment at the read-back
+  line, because reporting only the populated one would hide the reason the
+  measurement is taken twice
+
+*Recorded by `15.6-13-source-refresh-window.md`.*
 
 ### Not public Python API
 

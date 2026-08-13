@@ -28,12 +28,13 @@ from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, get_args
 
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.graph.protocols import GraphQuery, GraphView
 from ccf.controlplane.artifacts import DebtProfile
@@ -47,7 +48,7 @@ from ccf.halflife.assessment import (
     DebtSignal,
     ScorerPin,
     SignalObligation,
-    SourceRefresh,
+    SourceRefreshWindow,
 )
 from ccf.operators.base import OperatorOutput
 from ccf.operators.categories import (
@@ -76,6 +77,7 @@ from ccf.replay.engine import (
     replay,
 )
 from ccf.replay.record import (
+    ContentGenerationPath,
     DecisionReplayRecord,
     PolicyBinding,
     build_replay_record,
@@ -135,23 +137,24 @@ EVIDENCE = (
     DebtEvidencePointer(handle="h-c105"),
 )
 
-#: When this fixture's decision believed its sources last published (D-IMPL-112
-#: gap 2, D-IMPL-117). Test-owned: the SDK enumerates no source vocabulary and
-#: declares no cadence, and these instants are deliberately unrelated to
-#: ``NOW`` — nothing about this fact may be computed from the fabric's clock,
-#: which is the whole reason it is a fact distinct from the freshness figure in
-#: ``DEBT`` above. Carried on the product, so it is inside the content address
-#: the engine checks, which is what makes this module the tripwire for the
-#: recency landing as well as for the debt and evidence landings.
-RECENCY = (
-    SourceRefresh(
-        source_ref="src-registry",
-        refreshed_at=datetime(2026, 1, 20, 4, 0, tzinfo=UTC),
-    ),
-    SourceRefresh(
-        source_ref="src-screening",
-        refreshed_at=datetime(2026, 2, 28, 19, 30, tzinfo=UTC),
-    ),
+#: The window this fixture's decision believed its sources last published in
+#: (D-IMPL-112 gap 2, D-IMPL-117, D-IMPL-124). Test-owned: the SDK enumerates
+#: no source vocabulary and declares no cadence, and these instants are
+#: deliberately unrelated to ``NOW`` — nothing about this fact may be computed
+#: from the fabric's clock, which is the whole reason it is a fact distinct
+#: from the freshness figure in ``DEBT`` above. Carried on the product, so it
+#: is inside the content address the engine checks, which is what makes this
+#: module the tripwire for the recency landing as well as for the debt and
+#: evidence landings.
+#:
+#: **Populated on purpose, and the population is load-bearing.** Plan 15.6-07
+#: measured that deleting this member's read-back over a *sentinel-only*
+#: fixture costs nothing, because sentinel-to-sentinel agrees; only a populated
+#: fixture makes the omission detectable. The two counts recorded at the
+#: read-back line below are what that measurement produced against this shape.
+RECENCY = SourceRefreshWindow(
+    oldest_source_refresh_at=datetime(2026, 1, 20, 4, 0, tzinfo=UTC),
+    newest_source_refresh_at=datetime(2026, 2, 28, 19, 30, tzinfo=UTC),
 )
 
 #: The calibration this fixture's decision was made under (D-IMPL-112 gap 3,
@@ -405,14 +408,21 @@ class _Environment:
             # place a `(record, projection)` rehydrator can read it from.
             #
             # MEASURED, not inferred, and the measurement has a precondition
-            # worth recording (plan 15.6-07). Deleted while the fixture product
-            # carried no refresh instants, this line costs **nothing** — all 30
-            # cases still passed, because sentinel-to-sentinel agrees. It is
-            # the fixture's populated `RECENCY` above that makes the omission
-            # detectable: with the slot populated, deleting this line turns 10
-            # of this module's 36 cases red with `ReplayDivergence`, including
-            # the `debt`, `debt_evidence` and `request` landings that predate
-            # it. A read-back seam is only ever proven by a populated value.
+            # worth recording (plan 15.6-07, RE-MEASURED against the reshaped
+            # window by plan 15.6-13 under D-IMPL-124 — the earlier figures
+            # were taken against a per-source tuple and are superseded).
+            #
+            # Deleted while the fixture product carried the SENTINEL, this line
+            # costs NOTHING — **0 of 39 red** (39 passed, 0 failed; the 5 cases
+            # that assert a populated value were deselected) — because
+            # sentinel-to-sentinel agrees. It is the fixture's POPULATED
+            # `RECENCY` above that makes the omission detectable: with the
+            # window populated, deleting this line turns **13 of this module's
+            # 44 cases red** with `ReplayDivergence`, including the `debt`,
+            # `debt_evidence`, `obligation_in_force` and `request` landings
+            # that predate it. A read-back seam is only ever proven by a
+            # populated value, and reporting only the populated figure would
+            # hide the reason the discipline exists.
             source_refresh_recency=(
                 record.content_generation_path.source_refresh_recency
             ),
@@ -1088,21 +1098,22 @@ def test_a_rehydration_that_drops_the_recency_is_divergence(
 def test_a_rehydration_that_moves_one_refresh_instant_is_divergence(
     deployment: _Deployment,
 ) -> None:
-    """A decision made against a March filing is not one made against September.
+    """A decision made against a January filing is not one made against February.
 
     Stronger than the drop case and not implied by it: a rehydrator that
-    returned the right *sources* would satisfy any check over the reference
-    set. What this rules out is an implementation that treats the slot as a
-    list of source names — as *which* sources were read rather than *when* each
-    last published — and it is the case that makes the instant load-bearing
-    rather than decorative.
+    returned a window of the right *shape* — two tz-aware instants, oldest not
+    after newest — would satisfy any structural check. What this rules out is
+    an implementation that treats the slot as a shape to be reproduced rather
+    than a value to be carried, and it is the case that makes each instant
+    load-bearing rather than decorative. Only the oldest end moves, so a
+    rehydrator that carried the newest instant and re-derived the other is
+    caught too.
     """
-    moved = (
-        SourceRefresh(
-            source_ref=RECENCY[0].source_ref,
-            refreshed_at=RECENCY[0].refreshed_at + timedelta(days=240),
+    moved = SourceRefreshWindow(
+        oldest_source_refresh_at=(
+            RECENCY.oldest_source_refresh_at + timedelta(days=30)
         ),
-        RECENCY[1],
+        newest_source_refresh_at=RECENCY.newest_source_refresh_at,
     )
 
     class _RecencyMoved(_Environment):
@@ -1115,6 +1126,141 @@ def test_a_rehydration_that_moves_one_refresh_instant_is_divergence(
     address, _record = _serve(deployment)
     with pytest.raises(ReplayDivergence, match="product"):
         _replay(deployment, address, environment=_RecencyMoved(deployment))
+
+
+#: The s1-01 governance artifact, read rather than transcribed. The three
+#: human-interpretable references it declares are the exact strings D-IMPL-124
+#: rules must not leave the vessel, and reading them from the artifact is what
+#: keeps the case below honest: transcribing them here would make it assert
+#: that this module agrees with itself, and would leave a renamed source
+#: silently unchecked (CLAUDE.md §6.4).
+_S1_01_GOVERNANCE = (
+    Path(__file__).resolve().parents[2]
+    / "examples"
+    / "s1-01-hello-context-product"
+    / "artifacts"
+    / "product-governance.yaml"
+)
+
+
+def _declared_source_references_and_window() -> tuple[
+    tuple[str, ...], SourceRefreshWindow
+]:
+    """Read s1-01's declared per-source entries; return its names and its window."""
+    import yaml  # noqa: PLC0415
+
+    declaration = yaml.safe_load(_S1_01_GOVERNANCE.read_text(encoding="utf-8"))
+    entries = declaration["declaration"]["source_refresh_recency"]
+    instants = [datetime.fromisoformat(entry["refreshed_at"]) for entry in entries]
+    return (
+        tuple(entry["source_ref"] for entry in entries),
+        SourceRefreshWindow(
+            oldest_source_refresh_at=min(instants),
+            newest_source_refresh_at=max(instants),
+        ),
+    )
+
+
+def test_no_source_identity_reaches_the_delivered_product(
+    deployment: _Deployment,
+) -> None:
+    """D-IMPL-124's operative sentence, as a property rather than a promise.
+
+    Dave's ruling: *"no `source_ref` strings leave the vessel."* Asserted
+    mechanically, in both the directions that can fail.
+
+    The **value** direction: this case populates the vessel with the window
+    reduced from s1-01's own three declared entries — `corporate-registry`,
+    `kyc-registry`, `name-screening` — serves it through the real gate-and-
+    serve path, and asserts that none of those three references appears
+    anywhere in the delivered `canonical_bytes`. Both shipped delivery surfaces
+    return exactly these bytes, so what this checks is what every principal who
+    can reach the product actually receives. The references are read out of the
+    artifact rather than transcribed, so renaming a source in the deployment
+    cannot quietly retire the assertion.
+
+    The **type** direction: no field reachable from the vessel or from replay
+    dimension 5 is *typed* to carry a source reference at all. This is the half
+    a value check cannot give, because a product that merely happened not to
+    populate an identity-bearing member would pass the first assertion while
+    leaving the channel open. Walking the reachable contract types is what
+    makes the closure structural — the shape is unavailable, not merely
+    unused, which is why D-IMPL-124 deleted `SourceRefresh` rather than
+    deprecating it.
+
+    **What this does not claim.** Two instants are still information: a reader
+    still learns that *some* source published at each end of the window. What
+    is closed is the identity channel — after this, no reader can learn that a
+    system called `name-screening` exists, nor when that system in particular
+    last published.
+    """
+    references, window = _declared_source_references_and_window()
+    assert len(references) == 3
+
+    execution = deployment.execute()
+    gated = run_gates(
+        deployment.candidate(execution).model_copy(
+            update={"source_refresh_recency": window}
+        ),
+        engine_resolved=execution.operators_invoked,
+        now=NOW,
+        registry=deployment.registry,
+        product_class=deployment.product_class(),
+    )
+    assert isinstance(gated, ServableProduct)
+
+    delivered = canonical_bytes(gated.product)
+    assert gated.product.source_refresh_recency == window
+    for reference in references:
+        assert reference.encode() not in delivered
+
+    identity_bearing = {
+        f"{model.__name__}.{name}"
+        for model in _reachable_contract_types(
+            ContextProductContract, ContentGenerationPath
+        )
+        for name in model.model_fields
+        if "source_ref" == name or name.endswith("_source_ref")
+    }
+    assert identity_bearing == set()
+
+    assert set(SourceRefreshWindow.model_fields) == {
+        "oldest_source_refresh_at",
+        "newest_source_refresh_at",
+    }
+
+
+def _reachable_contract_types(*roots: type[CCFContract]) -> set[type[CCFContract]]:
+    """Every contract type reachable from these roots through their annotations.
+
+    A shallow field scan would miss an identity nested one structure down,
+    which is precisely where the deleted per-source entry used to live — so the
+    walk is transitive, and it reads annotations rather than values because a
+    slot nobody populated is still a slot.
+    """
+    seen: set[type[CCFContract]] = set()
+    pending = list(roots)
+    while pending:
+        model = pending.pop()
+        if model in seen:
+            continue
+        seen.add(model)
+        for field in model.model_fields.values():
+            for candidate in _annotation_types(field.annotation):
+                if (
+                    isinstance(candidate, type)
+                    and issubclass(candidate, CCFContract)
+                    and candidate not in seen
+                ):
+                    pending.append(candidate)
+    return seen
+
+
+def _annotation_types(annotation: Any) -> Iterator[Any]:
+    """Flatten an annotation into the concrete types it can resolve to."""
+    yield annotation
+    for argument in get_args(annotation):
+        yield from _annotation_types(argument)
 
 
 def test_a_record_written_before_the_recency_seam_still_replays(

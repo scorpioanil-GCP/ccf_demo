@@ -109,13 +109,47 @@ declaration:
   # [ADAPT] One entry per upstream source this deployment reads, keyed by the
   # source system id `events.yaml` stamps on its envelopes. Every instant names
   # its zone: the artifact loader refuses a zone-less timestamp rather than
-  # guessing one, and so does `SourceRefresh` (D-IMPL-38). Quoted so the loader
-  # hands back text and `deployment.py` parses it explicitly — an implicit YAML
-  # timestamp would be a conversion nobody wrote down.
+  # guessing one, and so does `SourceRefreshWindow` (D-IMPL-38). Quoted so the
+  # loader hands back text and `deployment.py` parses it explicitly — an
+  # implicit YAML timestamp would be a conversion nobody wrote down.
   #
   # A source may appear at most once. Two refresh instants for one source
-  # describe two facts claiming to be one, and the SDK refuses the pair at
-  # construction rather than picking a winner.
+  # describe two facts claiming to be one, and this deployment does not author
+  # the pair rather than authoring it and picking a winner later.
+  #
+  # [ADAPT] THESE REFERENCES STOP HERE (D-IMPL-124).
+  #
+  # They are THIS DEPLOYMENT'S OWN RECORDS, and a deployment is entitled to
+  # know which of its sources published when — that is why they survive in this
+  # document with their human-interpretable names intact. What changed under
+  # `D-IMPL-124` is where they stop. `deployment.py` reads these three entries,
+  # reduces them to a single `SourceRefreshWindow` — the oldest and the newest
+  # of the instants below — and it is the WINDOW that crosses onto the
+  # delivered product.
+  #
+  # So a consumer of the delivered product learns when the oldest and the
+  # newest of this estate's sources published, and learns NOTHING about which
+  # systems those are, nor how many there are. The reason, in this deployment's
+  # own voice: a reader entitled to the answer is not thereby entitled to the
+  # inventory of systems that produced it. Both shipped delivery paths
+  # serialize the whole vessel verbatim to every principal who can reach the
+  # product, and nothing in the assembly path is principal-scoped — so a
+  # reference left on the vessel would tell every such reader that a system
+  # called `name-screening` exists and when it last published, with no check
+  # that they were entitled to that system's contents. Dave's ruling: *"the
+  # field's purpose is freshness, not source enumeration."*
+  #
+  # The COUNT stops here too, and deliberately: the window carries no
+  # cardinality, because how many systems this estate reads is source
+  # enumeration in aggregate — it names none of them and still discloses the
+  # size of the inventory — and it is not freshness.
+  #
+  # The reduction lives in `deployment.py` and NOT in the SDK. The SDK ships no
+  # reducer taking per-source instants, because a reducer there would put a
+  # source-bearing input type back on the public surface and would make the SDK
+  # the party deciding which of a deployment's sources count toward the window.
+  # The completeness of the set below is a fact only this deployment can
+  # vouch for.
   source_refresh_recency:
     # The company registry the entity and stake records come from. Batch-filed
     # a week before the decision instant.

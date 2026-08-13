@@ -196,18 +196,23 @@ class ReplayEnvironment(Protocol):
         decision pointed at nothing, and the rebuilt product asserts the same.
 
         **When the sources last published comes off the record too** (15.6-07,
-        D-IMPL-117 gap 2). ``ContextProductContract.source_refresh_recency`` is
-        the second top-level vessel field under the same D-IMPL-118 placement,
-        so it does not ride ``debt`` back either: read
+        D-IMPL-117 gap 2; reshaped by 15.6-13 under D-IMPL-124).
+        ``ContextProductContract.source_refresh_recency`` is the second
+        top-level vessel field under the same D-IMPL-118 placement, so it does
+        not ride ``debt`` back either: read
         ``record.content_generation_path.source_refresh_recency`` and carry it
         onto the rebuilt product verbatim. Re-deriving it is not an option even
         in principle — a refresh instant is a fact the deployment declared
-        about a source at assembly time, and a rehydrator that asked the source
-        again would be recording today's answer against a decision made against
-        yesterday's. A record carrying
+        about its sources at assembly time, and a rehydrator that asked those
+        sources again would be recording today's answer against a decision made
+        against yesterday's. A record carrying
         :data:`~ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY` asserts its
         decision recorded no refresh instants, and the rebuilt product asserts
-        the same.
+        the same. **The read-back line is unchanged in spelling** by D-IMPL-124:
+        the member now carries a
+        :class:`~ccf.halflife.assessment.SourceRefreshWindow` rather than a
+        per-source map, and a conforming implementation copies it exactly as it
+        copied the map.
 
         **What the signal obliged comes off the record too — and re-resolving
         it is the failure this one guards** (15.6-08, D-IMPL-117 gap 3).
