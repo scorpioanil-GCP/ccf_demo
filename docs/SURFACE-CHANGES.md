@@ -4727,10 +4727,14 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   places, the product vessel and replay dimension 5, and one validated shape is
   what keeps those from drifting apart. A sorted tuple rather than a
   `frozenset`: the value is inside a content address, so it must be
-  order-insensitive in its bytes (asserted by
-  `tests/halflife/test_debt.py::test_recency_declaration_order_does_not_move_the_bytes`),
-  and a set keyed on the whole entry would keep both halves of a contradiction
-  while one keyed on the reference would drop a half silently
+  order-insensitive in its bytes, and a set keyed on the whole entry would keep
+  both halves of a contradiction while one keyed on the reference would drop a
+  half silently. **This description is of what plan 15.6-07 shipped and is
+  superseded by `D-IMPL-124`** — plan 15.6-13 replaced the per-source tuple
+  with a two-instant `ccf.halflife.assessment.SourceRefreshWindow`, so the
+  order-insensitivity assertion this entry originally cited was retired with
+  the collection it guarded. See
+  `docs/surface-changes/15.6-13-source-refresh-window.md`
 - Migration: none — new name
 
 *Recorded by `15.6-07-source-refresh-recency.md`.*

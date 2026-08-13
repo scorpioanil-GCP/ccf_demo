@@ -158,9 +158,21 @@ are different facts. F is a *derived* figure — how much of a decay budget the
 fabric's own curve has eaten — while this is an *observed* one about the world
 outside the fabric. A consumer shown only F cannot tell a source that publishes
 daily and is two days late from one that publishes annually and is current.
-The SDK stores the instant and the reference and draws no conclusion from
-either; comparing a refresh against a cadence or a threshold would be salience,
-which D-IMPL-101 deferred.
+The SDK stores the instants and draws no conclusion from them; comparing a
+refresh against a cadence or a threshold would be salience, which D-IMPL-101
+deferred.
+
+**And it names no source** (D-IMPL-124, revising what 15.6-07 shipped). The
+member carried a per-source map whose entries named the source each instant
+belonged to, and both delivery paths serialise this vessel verbatim to every
+principal who can reach the product — so a reader entitled to the product could
+learn that a given upstream system exists and when it last published, with no
+check that they were entitled to that system's contents. The member now carries
+a :class:`~ccf.halflife.assessment.SourceRefreshWindow`: the oldest and the
+newest of the deployment's declared refresh instants, with no source identity
+and no count. The placement is unchanged — D-IMPL-118's ruling is not amended,
+only the member's contents are — so dimension 5 and the read-backs stay exactly
+as they were.
 
 **What the signal obliged rides beside all three, and the address moves a
 fourth time** (D-IMPL-112 gap 3, D-IMPL-117, D-IMPL-118).
@@ -614,13 +626,19 @@ class ContextProductContract(CCFContract):
             assertion *this product was assembled with no evidence pointers*,
             so every construction site written before this field existed says
             exactly what it always said.
-        source_refresh_recency: When each upstream source last refreshed, as
-            the assembling deployment declares it (D-IMPL-112 gap 2,
-            D-IMPL-117). A **second sibling of** ``debt`` under the same ruled
-            placement, and a fact distinct from the ``debt.factors.freshness``
-            beside it: F says how much of a decay budget has been spent, and
-            says nothing about when the upstream registry last published.
-            Defaults to
+        source_refresh_recency: When the oldest and the newest of the
+            assembling deployment's sources last refreshed, as that deployment
+            declares it (D-IMPL-112 gap 2, D-IMPL-117, D-IMPL-124). A **second
+            sibling of** ``debt`` under the same ruled placement, and a fact
+            distinct from the ``debt.factors.freshness`` beside it: F says how
+            much of a decay budget has been spent, and says nothing about when
+            the upstream registry last published. It is a
+            :class:`~ccf.halflife.assessment.SourceRefreshWindow` and **not** a
+            per-source map: D-IMPL-124 ruled that the field's purpose is
+            freshness rather than source enumeration, so no source identity and
+            no count crosses onto the vessel. Reducing a deployment's declared
+            per-source instants to this window is the deployment's work — it is
+            the only party that knows its own set is complete. Defaults to
             :data:`~ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY`, the
             positive assertion *this product records nothing about when its
             sources last refreshed*.

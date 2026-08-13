@@ -53,15 +53,20 @@ implementation of
 every replay of every product raises ``ReplayDivergence``.
 
 **When a source last published is a different fact from how much decay the
-fabric has measured** (D-IMPL-112 gap 2, D-IMPL-117). :class:`SourceRefresh` is
-defined here for :class:`DebtEvidencePointer`'s reason — beside the debt figure
-it stands apart from — and its carrier is a *top-level* field on
+fabric has measured** (D-IMPL-112 gap 2, D-IMPL-117).
+:class:`SourceRefreshWindow` is defined here for
+:class:`DebtEvidencePointer`'s reason — beside the debt figure it stands apart
+from — and its carrier is a *top-level* field on
 :class:`~ccf.products.contract.ContextProductContract` under the same
 D-IMPL-118 branch, with the same matching member on
 :class:`~ccf.replay.record.ContentGenerationPath` and the same read-back in
-every rehydrator. The SDK records the instant and reads it back; it defines no
-source, no cadence and no threshold, and it compares the instant to nothing —
-which is where recency would otherwise become salience, deferred by D-IMPL-101.
+every rehydrator. The SDK records the instants and reads them back; it defines
+no source, no cadence and no threshold, and it compares them to nothing outside
+themselves — which is where recency would otherwise become salience, deferred
+by D-IMPL-101. **It names no source** (D-IMPL-124): the window summarises when
+the oldest and the newest of a deployment's sources last published without
+publishing which systems those are, because the field's purpose is freshness
+rather than source enumeration.
 
 **What a signal obliges is bound by the deployment and named by nobody here**
 (D-IMPL-112 gap 3, D-IMPL-117). :class:`SignalObligation` binds one
@@ -97,7 +102,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Annotated, Final, Literal, Protocol
 
-from pydantic import AfterValidator, field_validator
+from pydantic import AfterValidator, field_validator, model_validator
 
 from ccf.contracts.base import CCFContract
 
@@ -118,8 +123,8 @@ __all__ = [
     "ScorerPin",
     "SignalObligation",
     "SignalObligations",
-    "SourceRefresh",
     "SourceRefreshRecency",
+    "SourceRefreshWindow",
 ]
 
 _ZERO = Decimal(0)
@@ -381,15 +386,15 @@ DebtEvidence = Annotated[
 NO_DEBT_EVIDENCE: Final[tuple[DebtEvidencePointer, ...]] = ()
 
 
-class SourceRefresh(CCFContract):
-    """When one upstream source last refreshed, as the deployment declares it.
+class SourceRefreshWindow(CCFContract):
+    """When the oldest and the newest of a deployment's sources last published.
 
     SDK-defined (CLAUDE.md §11), attached to the whitepaper §7.7 freshness
     hook rather than derived from it. D-IMPL-112 recorded that a reader shown a
     computed freshness figure still cannot tell when the underlying source last
     published, and D-IMPL-117 scoped what the SDK owes about it to *"a slot for
     source-refresh recency, owing no definition of a source or a cadence"*.
-    This class is that slot's element.
+    This class is that slot.
 
     **What this fact is not**, stated so the next reader does not collapse it
     into the number beside it: it is not computed freshness
@@ -400,36 +405,61 @@ class SourceRefresh(CCFContract):
     (:class:`~ccf.graph.protocols.SourceAttestation`, whose own scoping note
     puts temporal correctness outside what a source attests).
 
+    **What this deliberately does not carry** (D-IMPL-124). No source
+    identity, and no count. The predecessor of this class was a per-source map
+    whose entries named the source each instant belonged to, and a reader
+    entitled to the product could therefore learn that a given upstream system
+    *exists* and *when it last published* with no check that they were entitled
+    to that system's contents. Dave's ruling: *"the field's purpose is
+    freshness, not source enumeration. Publish the freshness signal without
+    human-interpretable source identities."* A count is source enumeration in
+    aggregate — it says how many systems a deployment reads even while naming
+    none — and it is not freshness, so it is outside what this slot exists for.
+    Reducing a deployment's declared per-source instants to this window is the
+    **deployment's** work, not the SDK's: the deployment is the only party that
+    knows its own set is complete, so no reducer taking per-source instants
+    ships here.
+
     Attributes:
-        source_ref: Which source this is a statement about. **Opaque to the
-            SDK; declared by the deployment** — the discipline
-            :class:`~ccf.skills.catalog.SkillRequirements` already holds. The
-            SDK ships no source type, no source vocabulary and no default, and
-            it never parses the value.
-        refreshed_at: When that source was last refreshed. Timezone-aware; a
-            naive instant is refused at construction rather than coerced,
-            because an implicit timezone is a silent default (D-IMPL-38) and
-            this value is inside the delivered product's content address.
+        oldest_source_refresh_at: The earliest of the refresh instants the
+            deployment declared. Timezone-aware; a naive instant is refused at
+            construction rather than coerced, because an implicit timezone is a
+            silent default (D-IMPL-38) and this value is inside the delivered
+            product's content address.
+        newest_source_refresh_at: The latest of those same instants, under the
+            same discipline.
+
+    **Why *oldest* and *newest* rather than *stalest* and *freshest***, which
+    is the naming a later contributor will be tempted to "improve" toward.
+    *Stale* and *fresh* are judgement words: a member named
+    ``sources_stalest_at`` asserts that the SDK holds a notion of staleness,
+    which D-IMPL-117 says it owes nothing of (*"no staleness threshold"*) and
+    which D-IMPL-101 deferred as salience. *Oldest* and *newest* describe the
+    ordering of two declared instants and assert nothing about whether either
+    is acceptable.
+
+    **Two instants rather than one** because a single instant cannot express
+    the span. With sources on different cadences a lone "newest" hides the
+    oldest and a lone "oldest" hides the newest, and D-IMPL-112 gap 2's whole
+    complaint was that a reader could not tell how old the underlying filings
+    were.
 
     **Recorded, never judged** (D-IMPL-101). No function in the SDK compares a
-    refresh instant to ``now``, to a cadence or to a threshold, and no such
-    comparison may be added here: deciding that one source's refresh matters
-    more than another's is salience, which that ruling deferred and for which
-    no mechanism lands in this phase. Whether a January refresh is recent
-    enough for a particular decision is the context product creator's
-    judgement, expressed through the product's evolutionary capability rather
-    than through SDK code.
+    window instant to ``now``, to a cadence or to a threshold, and no such
+    comparison may be added: deciding that one refresh matters more than
+    another is salience, which that ruling deferred and for which no mechanism
+    lands in this phase. Whether a January refresh is recent enough for a
+    particular decision is the context product creator's judgement, expressed
+    through the product's evolutionary capability rather than through SDK code.
+    The one comparison this class does make is ``oldest`` against ``newest``,
+    which draws no conclusion — it checks that a single declared fact is
+    internally coherent.
     """
 
-    source_ref: str
-    refreshed_at: datetime
+    oldest_source_refresh_at: datetime
+    newest_source_refresh_at: datetime
 
-    @field_validator("source_ref", mode="before")
-    @classmethod
-    def _source_ref_is_not_a_float(cls, value: object) -> object:
-        return _refuse_float(value)
-
-    @field_validator("refreshed_at")
+    @field_validator("oldest_source_refresh_at", "newest_source_refresh_at")
     @classmethod
     def _the_instant_names_its_zone(cls, value: datetime) -> datetime:
         """Refuse a naive instant rather than reading a zone into it.
@@ -448,60 +478,61 @@ class SourceRefresh(CCFContract):
             )
         return value
 
+    @model_validator(mode="after")
+    def _the_window_does_not_end_before_it_begins(self) -> SourceRefreshWindow:
+        """Refuse a window whose oldest end is after its newest end.
 
-def _refreshes_are_one_per_source_in_canonical_order(
-    value: tuple[SourceRefresh, ...],
-) -> tuple[SourceRefresh, ...]:
-    """Refuse a repeated source reference; store the rest in one order.
+        The duplicate-reference refusal this class replaces, in the same voice
+        and for its reason: a window ending before it begins describes two
+        facts claiming to be one, which is an incoherent record rather than a
+        stricter one. Equality is legal — one source, or several that published
+        together, is a window of zero span.
 
-    Both halves follow
-    :meth:`DebtAssessment._pins_are_one_per_factor_in_canonical_order` exactly,
-    and for its reasons. Two refresh instants for one source describe two facts
-    claiming to be one, which is not a stricter record but an incoherent one.
-    And declaration order is not a fact about the decision, while this value
-    *is* inside the delivered product's content address (D-IMPL-118), so an
-    order-sensitive field would make two products recording the same refresh
-    facts hash differently.
-
-    A ``tuple`` sorted here rather than a ``frozenset``: a set keyed on the
-    whole entry would keep both halves of the contradiction, and one keyed on
-    the reference would drop a half **silently** — and a source refreshed at
-    two different instants is exactly the incoherence worth naming out loud.
-    """
-    references = [entry.source_ref for entry in value]
-    if len(set(references)) != len(references):
-        raise ValueError(
-            "a source reference may carry at most one refresh instant; two "
-            "instants for one source describe two facts claiming to be one, "
-            "which is an incoherent record rather than a stricter one "
-            "(D-IMPL-117)"
-        )
-    return tuple(sorted(value, key=lambda entry: entry.source_ref))
+        **This is not the forbidden comparison** (D-IMPL-101). The forbidden
+        comparisons are against ``now``, against a threshold and against a
+        cadence, each of which draws a conclusion about whether a value is
+        acceptable. This one draws none; it checks one declared fact against
+        itself.
+        """
+        if self.oldest_source_refresh_at > self.newest_source_refresh_at:
+            raise ValueError(
+                "a source refresh window may not end before it begins; an "
+                "oldest instant after its newest describes two facts claiming "
+                "to be one, which is an incoherent record rather than a "
+                "stricter one (D-IMPL-117, D-IMPL-124)"
+            )
+        return self
 
 
-#: When each upstream source last refreshed, canonically ordered and
-#: source-unique.
+#: The freshness window a product publishes, or nothing.
 #:
 #: An alias rather than a field-by-field re-declaration for
 #: :data:`DebtEvidence`'s reason: the slot lands in **two** places — on the
-#: vessel and on replay dimension 5 — and one validated shape is what keeps
-#: those two from drifting apart.
-SourceRefreshRecency = Annotated[
-    tuple[SourceRefresh, ...],
-    AfterValidator(_refreshes_are_one_per_source_in_canonical_order),
-]
+#: vessel and on replay dimension 5 — and one named shape is what keeps those
+#: two from drifting apart. It keeps the name it had when it carried a
+#: per-source map (D-IMPL-124 reshapes what it carries, not where it lands).
+SourceRefreshRecency = SourceRefreshWindow | None
 
 #: A product that records no source-refresh recency.
 #:
 #: The positive assertion, in :data:`NO_SCORER_PINS`' voice and for its reason:
 #: *this product records nothing about when its sources last refreshed*. Never
-#: ``None`` meaning "unknown" (D-IMPL-38) — without a named sentinel, a
+#: a bare ``None`` meaning "unknown" (D-IMPL-38) — without a named sentinel, a
 #: deployment that knows nothing about its sources' publication schedule and one
 #: whose recency somebody dropped in transit would be the same artifact, which
-#: is the repudiation failure mode every sentinel in this fabric closes. The
-#: empty tuple rather than a marker string because each element is a structured
-#: entry and the field must stay one shape.
-NO_SOURCE_REFRESH_RECENCY: Final[tuple[SourceRefresh, ...]] = ()
+#: is the repudiation failure mode every sentinel in this fabric closes. What
+#: the name buys is that every construction site and every default **spells the
+#: claim** rather than leaving a bare ``None`` for a reader to interpret.
+#:
+#: **Its value moved from** ``()`` **to** ``None`` **under D-IMPL-124**, and the
+#: reason is recorded here so a reviewer does not read it as drift: ``()`` is
+#: the empty case of a *collection*, and a window is not a collection. There is
+#: no empty window that does not require inventing an instant, and an invented
+#: instant is the silent default D-IMPL-38 forbids. The same-vessel precedent is
+#: exact — :attr:`~ccf.products.contract.ContextProductContract.debt` and
+#: ``.request`` are both optional *structures* whose ``None`` is documented as a
+#: positive assertion in the same voice.
+NO_SOURCE_REFRESH_RECENCY: Final[SourceRefreshWindow | None] = None
 
 
 #: The obligation a decision was under when no binding covered its signal.
