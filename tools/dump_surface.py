@@ -90,7 +90,17 @@ things move, and one explicitly does not:
 2. **A type alias records its rendered type** rather than a signature. A
    ``Literal`` alias gaining or losing a member is a real surface change; before
    this, every alias rendered ``"(*args, **kwargs)"`` and no such change
-   produced a diff line at all. The rendering is scrubbed of memory addresses
+   produced a diff line at all. **The alias branch is consulted for every
+   export, not only for a callable one** — see :func:`_shape_of`. It was
+   originally reachable only from the ``class``/``function`` branch, and
+   :func:`_kind_of` classifies by ``callable(obj)``: ``typing.Literal[…]`` and
+   ``typing.Annotated[…]`` are callable and rendered correctly, while a PEP-604
+   union — ``X | None``, a ``types.UnionType`` — is **not**, so it fell through
+   to ``constant`` and recorded the information-free ``"UnionType"``. Phase
+   15.6's single-agent review found the alias this phase itself shipped sitting
+   in that blind spot: ``SourceRefreshRecency`` recorded
+   ``{"kind": "constant", "shape": "UnionType"}`` and did not move when the
+   union was widened. The rendering is scrubbed of memory addresses
    (:func:`_render_alias`) — ``str()`` of an ``Annotated`` alias carrying a
    Pydantic validator embeds ``<function ... at 0x...>``, and committing that
    verbatim would make the manifest differ between two runs on an unchanged
@@ -263,6 +273,16 @@ def _shape_of(obj: Any, kind: str) -> Any:
 
     The Protocol and alias branches are `D-IMPL-122`'s scope, and the module
     docstring records what they deliberately leave uncovered.
+
+    **The alias test is asked of every export, not only of a callable one.**
+    Guarding it behind ``kind in ("class", "function")`` made it unreachable for
+    exactly the aliases :func:`_kind_of` cannot recognise — a PEP-604 union is
+    not ``callable``, so it is classified ``constant`` and never reached the
+    branch that would have rendered it. That is a blind spot the fix itself
+    introduced, and it swallowed `15.6-07`'s own ``SourceRefreshRecency``.
+    ``kind`` is left alone: an alias keeps whatever kind it was recorded under,
+    so this widens what the manifest *sees* without moving what it *calls*
+    things.
     """
     if kind == "unresolved":
         return "unresolved"
@@ -271,14 +291,14 @@ def _shape_of(obj: Any, kind: str) -> Any:
         return {
             name: str(field.annotation) for name, field in sorted(fields.items())
         }
+    if _is_type_alias(obj):
+        return _render_alias(obj)
     if kind in ("class", "function"):
         call = _protocol_call(obj)
         if call is not None:
             shape = _call_shape(call)
             if shape is not None:
                 return shape
-        if _is_type_alias(obj):
-            return _render_alias(obj)
         try:
             return str(inspect.signature(obj))
         except (TypeError, ValueError):

@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**605 entries**, of which **377** name a public Python surface.
+**614 entries**, of which **385** name a public Python surface.
 
 ## Added
 
@@ -5518,7 +5518,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-279 entries — 96 public Python surface, 183 not public Python API.
+282 entries — 99 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -7516,6 +7516,51 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none
 
 *Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.signal.mcp_envelope_map.ResourceContents
+
+- Surface: ccf.signal.mcp_envelope_map.ResourceContents
+- Public surface: true
+- Change type: reshaped
+- Before: `UnionType` — the manifest recorded the *name of the type of the
+  object*, which is a fact about Python rather than about the surface
+- After: `mcp.types.TextResourceContents | mcp.types.BlobResourceContents`
+- Why: the alias branch is now consulted for every export rather than only for
+  a callable one. The alias itself is unchanged and predates this phase; what
+  changed is that a member added to or removed from it will now produce a diff
+  line where before it produced silence
+- Migration: none — the alias is unchanged
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
+#### ccf.halflife.assessment.SourceRefreshRecency
+
+- Surface: ccf.halflife.assessment.SourceRefreshRecency
+- Public surface: true
+- Change type: reshaped
+- Before: `UnionType`
+- After: `ccf.halflife.assessment.SourceRefreshWindow | None`
+- Why: the same fix, on the alias that exposed the blind spot. `15.6-13`
+  reshaped what this alias points at, from a per-source map to a two-instant
+  window, and the manifest recorded the identical five characters across that
+  change
+- Migration: none — the alias is what `15.6-13` already documented; only the
+  record of it moved
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
+#### ccf.halflife.debt.SourceRefreshRecency
+
+- Surface: ccf.halflife.debt.SourceRefreshRecency
+- Public surface: true
+- Change type: reshaped
+- Before: `UnionType`
+- After: `ccf.halflife.assessment.SourceRefreshWindow | None`
+- Why: the defining module's entry for the same alias `ccf.halflife.debt`
+  re-exports. Both are in `__all__`, so both are manifest entries and both move
+- Migration: none
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
 
 #### ccf.halflife.assessment.SourceRefreshRecency
 
@@ -9916,7 +9961,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-52 entries — 40 public Python surface, 12 not public Python API.
+58 entries — 45 public Python surface, 13 not public Python API.
 
 ### Public Python surface
 
@@ -10896,6 +10941,114 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `15.6-12-close-panel-refusals.md`.*
 
+#### ccf.halflife.assessment.SourceRefreshWindow
+
+- Surface: ccf.halflife.assessment.SourceRefreshWindow
+- Public surface: true
+- Change type: behavior
+- Before: both members accepted an `int`, a `float`, a `Decimal` or a numeric
+  string as the instant. Pydantic's lax mode turned each into a timezone-aware
+  UTC `datetime` **before** the class's `_the_instant_names_its_zone` validator
+  ran, so a naive ISO string was refused for carrying an *implicit* zone while
+  `1767225600` — which carries none at all — was accepted with UTC supplied by
+  the framework. `1767225600.5` therefore became a hashed instant in the module
+  whose headline discipline is *Decimal, never float*
+- After: a `mode="before"` validator on both members refusing a `float` through
+  the module's own `_refuse_float` — the same helper wired onto `DebtFactors`,
+  `DebtEvidencePointer.handle`, `SignalObligation.obligation_ref` and
+  `DebtAssessment.debt` — and refusing any bare number, in any spelling, as an
+  instant that named no zone
+- Why: this value is inside the delivered product's content address
+  (`D-IMPL-118`), so a zone the SDK supplied rather than the deployment
+  declared is a silent default (`D-IMPL-38`) that reproduces exactly, forever
+- Migration: **none** for a deployment supplying a timezone-aware `datetime` or
+  a string carrying an explicit offset — the two spellings
+  `examples/s1-01-hello-context-product` uses, both asserted. A deployment
+  passing an epoch must name the zone: `datetime.fromtimestamp(ts, tz=UTC)`
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
+#### ccf.halflife.decay.Observation
+
+- Surface: ccf.halflife.decay.Observation
+- Public surface: true
+- Change type: behavior
+- Before: `observed_at` had **no validator**, while this class's own attribute
+  docstring said *"Timezone-aware; a naive instant is rejected"*. A naive
+  observation was constructible, serialisable and storable, and the failure
+  arrived at whatever call site first computed decay. `subject`'s namespace
+  reservation compared the raw string, so `" ccf.no-subject-identity"`,
+  the non-breaking-space spelling and `"CCF.no-subject-identity"` all walked
+  past a reservation whose entire purpose is that a reader cannot tell them
+  from the marker
+- After: `observed_at` refuses a naive instant and a bare epoch at
+  construction, which is where the docstring always said the refusal was;
+  `subject`'s reservation reads the value as a reader sees it — NFKC, Unicode
+  `Cf` format characters dropped, stripped and case-folded
+- Why: CLAUDE.md §11 — validation is at the boundary, never deferred; and
+  `D-IMPL-120`'s *"an omitted identity and a dropped one are not the same
+  artifact"* is not held by a check a leading space defeats
+- Migration: a deployment constructing `Observation` with a naive `datetime`
+  now fails at construction rather than at first decay computation — the same
+  failure, moved to the boundary. A deployment whose subjects begin `ccf.` in
+  any rendering was already refused for the unspaced spelling and is now
+  refused for the rest. Script confusables are **not** folded and are admitted;
+  the limit is documented at the helper and asserted
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
+#### ccf.halflife.assessment.DebtEvidencePointer
+
+- Surface: ccf.halflife.assessment.DebtEvidencePointer
+- Public surface: true
+- Change type: behavior
+- Before: `handle='ccf.fabricated-marker'` was accepted
+- After: refused. The field has no sentinel of its own — an assessment that
+  points at nothing carries the empty `NO_DEBT_EVIDENCE` tuple — so the whole
+  `ccf.` namespace is reserved with nothing carved out of it
+- Why: the close-panel's B1 reserved the namespace on `Observation.subject` on
+  the argument that a deployment must not be able to write a value that
+  impersonates a fabric marker. Three sibling opaque strings shipped in the same
+  phase, all inside the same content address, none of them reserved. A property
+  worth enforcing on one field of four is either a rule or a coincidence
+- Migration: none unless a deployment's evidence handles begin `ccf.`
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
+#### ccf.halflife.assessment.SignalObligation
+
+- Surface: ccf.halflife.assessment.SignalObligation
+- Public surface: true
+- Change type: behavior
+- Before: `obligation_ref` refused the **exact** sentinel string only, so
+  `" ccf.no-obligation-in-force"` was declarable in a profile and travelled to
+  the vessel through `DebtProfile.obligation_for` unchanged
+- After: the whole `ccf.` namespace is refused, with nothing carved out — a
+  binding is not a carrier and has no sentinel of its own
+- Why: as above; the exact-match refusal held the distinction against one
+  spelling of the impersonation and not the others
+- Migration: none unless a deployment's obligation references begin `ccf.`
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
+#### ccf.halflife.assessment.ObligationInForce
+
+- Surface: ccf.halflife.assessment.ObligationInForce
+- Public surface: true
+- Change type: behavior
+- Before: the alias `15.6-12`'s first round added refused a blank and admitted
+  everything else, including `ccf.`-namespaced values that render identically to
+  the marker asserting that no obligation was bound
+- After: the sentinel `NO_OBLIGATION_IN_FORCE` is admitted, compared **exactly**
+  because it is this field's own default; nothing else in the namespace is
+- Why: one string, two positions, two rules — and both rules exist to keep the
+  same two claims apart. That argument only holds if neither position can be
+  impersonated
+- Migration: none. The default is unchanged and every declared reference in the
+  tree is outside the namespace
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*
+
 #### ccf.replay.engine.ReplayEnvironment
 
 - Surface: ccf.replay.engine.ReplayEnvironment
@@ -11209,3 +11362,20 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   surface moving
 
 *Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### tools/dump_surface.py
+
+- Surface: tools/dump_surface.py
+- Public surface: false
+- Change type: behavior
+- Before: `_shape_of` consulted `_is_type_alias` only inside the branch guarded
+  by `kind in ("class", "function")`, so the alias rendering was unreachable for
+  any alias `_kind_of` classified as a `constant` — which is every PEP-604 union
+- After: the alias test is asked of every export. `kind` is untouched, so an
+  alias keeps whatever kind it was recorded under and only the shape moves
+- Why: `DI-15.5-06`'s blind spot was narrowed by `D-IMPL-122` and this is a
+  piece of it the narrowing missed, in the same plan that measured the rest
+- Migration: none for adopters. Maintainers should expect `make surface` to
+  produce a one-time three-entry reshape on first run after this change
+
+*Recorded by `15.6-12-single-agent-review-fixes.md`.*

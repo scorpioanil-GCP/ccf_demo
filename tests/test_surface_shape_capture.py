@@ -205,40 +205,111 @@ def test_a_protocol_with_no_call_keeps_the_information_free_shape() -> None:
 # --- 3. Type aliases (`D-IMPL-122` limb 3) ----------------------------------
 
 
+def _manifest_shape_of(obj: Any) -> Any:
+    """The shape the manifest would record, ``kind`` and all.
+
+    **Every alias assertion routes through this, and none passes a hardcoded
+    ``kind``.** They used to call ``_shape_of(alias, "function")`` directly,
+    which meant `_kind_of` — the function that actually decides whether the
+    alias branch is reached — was never exercised on an alias. That is exactly
+    how a PEP-604 union stayed invisible: it is not ``callable``, so `_kind_of`
+    calls it a ``constant``, and the alias branch guarded by
+    ``kind in ("class", "function")`` never ran. Every assertion below passed
+    while the shipped manifest recorded ``"UnionType"``.
+    """
+    return _shape_of(obj, dump_surface._kind_of(obj))
+
+
 def test_type_aliases_record_their_type_rather_than_a_call_signature() -> None:
     """An alias is a type, and ``inspect.signature`` on one is meaningless.
 
     A ``Literal`` alias gaining or losing a member is a real surface change an
     adopter must act on; before the fix every one of them rendered
     ``(*args, **kwargs)`` and no such change produced a diff line.
+
+    The PEP-604 case is the one the tests could not previously see, and it is
+    parametrized here beside the callable forms rather than in a case of its
+    own: the point is that the *same* function has to answer for both.
     """
     cases = {
         Literal["a", "b"]: "typing.Literal['a', 'b']",
         Union[int, str]: "typing.Union[int, str]",
         Mapping[str, str]: "collections.abc.Mapping[str, str]",
+        int | None: "int | None",
+        int | str | None: "int | str | None",
     }
     for alias, expected in cases.items():
-        assert _shape_of(alias, "function") == expected, alias
+        assert _manifest_shape_of(alias) == expected, alias
 
-    callable_alias = _shape_of(Callable[[int], str], "function")
+    callable_alias = _manifest_shape_of(Callable[[int], str])
     assert callable_alias == "collections.abc.Callable[[int], str]", callable_alias
 
 
 def test_a_literal_alias_losing_a_member_moves_its_shape() -> None:
     """The property the alias half of the fix exists for."""
-    before = _shape_of(Literal["a", "b"], "function")
-    after = _shape_of(Literal["a"], "function")
+    before = _manifest_shape_of(Literal["a", "b"])
+    after = _manifest_shape_of(Literal["a"])
     assert before != after
+
+
+def test_a_pep604_union_alias_moves_when_it_is_widened() -> None:
+    """The same property for the form `_kind_of` calls a ``constant``.
+
+    Reproduced from the single-agent review, on the alias **this phase
+    shipped**: `SourceRefreshRecency` recorded
+    ``{"kind": "constant", "shape": "UnionType"}`` and widening it produced no
+    diff line at all — a manifest blind spot introduced by `15.6-10`'s own fix,
+    in a plan whose subject (`D-IMPL-122`/`123`) is manifest fidelity.
+    """
+    from ccf.halflife.assessment import SourceRefreshRecency, SourceRefreshWindow
+
+    shipped = _manifest_shape_of(SourceRefreshRecency)
+    assert shipped != _INFORMATION_FREE
+    assert shipped != "UnionType", (
+        "the alias branch is unreachable for a PEP-604 union again — the"
+        " manifest is recording the type's name instead of the type"
+    )
+    assert "SourceRefreshWindow" in shipped, shipped
+
+    widened = _manifest_shape_of(SourceRefreshWindow | str | None)
+    assert widened != shipped, (
+        "widening the union produced no shape movement, so the manifest would"
+        " record no diff line for it"
+    )
 
 
 def test_the_shipped_literal_aliases_render_their_members() -> None:
     from ccf.operators.base import OperatorCategory
     from ccf.products.contract import TTLAnchor
 
-    category = _shape_of(OperatorCategory, "function")
+    category = _manifest_shape_of(OperatorCategory)
     assert "traversal" in category and "similarity" in category, category
-    anchor = _shape_of(TTLAnchor, "function")
+    anchor = _manifest_shape_of(TTLAnchor)
     assert "from_decision" in anchor, anchor
+
+
+def test_no_shipped_alias_export_records_an_information_free_shape() -> None:
+    """The whole-tree form of the claim, so a third alias form cannot hide.
+
+    The two cases above name aliases; this one ranges over **every** export the
+    manifest resolves to a type alias and asserts none of them records a bare
+    type name (``UnionType``, ``_LiteralGenericAlias``) or the information-free
+    signature. A future alias spelling that `_kind_of` classifies in some third
+    way fails here rather than being found by a fourth reviewer.
+    """
+    import importlib
+
+    offenders: list[str] = []
+    for module_name, record in build_surface().items():
+        module = importlib.import_module(module_name)
+        for name, entry in record.get("exports", {}).items():
+            obj = dump_surface._resolve_export(module, module_name, name)
+            if not dump_surface._is_type_alias(obj):
+                continue
+            shape = entry["shape"]
+            if shape in (_INFORMATION_FREE, type(obj).__name__):
+                offenders.append(f"{module_name}.{name} -> {shape}")
+    assert not offenders, offenders
 
 
 def test_an_annotated_alias_renders_without_a_memory_address() -> None:
@@ -250,7 +321,7 @@ def test_an_annotated_alias_renders_without_a_memory_address() -> None:
     """
     from ccf.halflife.assessment import DebtEvidence
 
-    shape = _shape_of(DebtEvidence, "function")
+    shape = _manifest_shape_of(DebtEvidence)
     assert shape != _INFORMATION_FREE
     assert "0x" not in shape, shape
     assert "DebtEvidencePointer" in shape, shape
@@ -271,12 +342,37 @@ def test_the_manifest_is_byte_stable_across_two_builds() -> None:
 # --- 4. Narrowness: nothing else moved --------------------------------------
 
 
+def _is_a_bare_type_name(dotted: str, shape: Any) -> bool:
+    """True if `shape` is just the export's own ``type(obj).__name__``.
+
+    The second of the pre-fix tool's two uninformative renderings: a
+    non-callable export fell through to its type's name, so a PEP-604 union
+    recorded ``"UnionType"`` — a fact about Python, not about the surface.
+    """
+    import importlib
+
+    module_name, attribute = dotted.rsplit(".", 1)
+    obj = dump_surface._resolve_export(
+        importlib.import_module(module_name), module_name, attribute
+    )
+    return shape == type(obj).__name__
+
+
 def test_no_plain_class_or_function_shape_moved(monkeypatch: Any) -> None:
     """The fix is narrow, proven against the whole tree rather than a sample.
 
     Every name whose shape differs from the pre-fix rendering must be either a
     Protocol defining ``__call__`` or a type alias. A plain class or function
     moving here would mean the change reached past its scope.
+
+    **Two uninformative renderings, not one.** The pre-fix tool rendered a
+    callable it could not read as ``(*args, **kwargs)`` and a *non*-callable as
+    its bare type name — ``"UnionType"`` for a PEP-604 union. Both are the
+    absence of information about the shape, and the first version of this
+    assertion admitted only the first, which is why the three unions the alias
+    branch now reaches are named here rather than treated as scope creep. What
+    the assertion still forbids is the thing it was written for: a name that
+    carried a *real* shape before and carries a different one now.
     """
     after = _flat(build_surface())
     before = _flat(_legacy_surface(monkeypatch))
@@ -289,10 +385,13 @@ def test_no_plain_class_or_function_shape_moved(monkeypatch: Any) -> None:
     assert moved, "the fix moved nothing — it is not wired into build_surface"
 
     unexpected = [
-        name for name in moved if before[name]["shape"] != _INFORMATION_FREE
+        name
+        for name in moved
+        if before[name]["shape"] != _INFORMATION_FREE
+        and not _is_a_bare_type_name(name, before[name]["shape"])
     ]
     assert not unexpected, (
-        "these names moved but were not information-free before the fix, so"
+        "these names moved but carried a real shape before the fix, so"
         f" the change reached past its scope: {unexpected}"
     )
 

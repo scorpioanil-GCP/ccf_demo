@@ -2303,7 +2303,7 @@
       },
       "SourceRefreshRecency": {
         "kind": "constant",
-        "shape": "UnionType"
+        "shape": "ccf.halflife.assessment.SourceRefreshWindow | None"
       },
       "SourceRefreshWindow": {
         "kind": "contract",
@@ -2423,7 +2423,7 @@
       },
       "SourceRefreshRecency": {
         "kind": "constant",
-        "shape": "UnionType"
+        "shape": "ccf.halflife.assessment.SourceRefreshWindow | None"
       },
       "SourceRefreshWindow": {
         "kind": "contract",
@@ -5097,7 +5097,7 @@
       },
       "ResourceContents": {
         "kind": "constant",
-        "shape": "UnionType"
+        "shape": "mcp.types.TextResourceContents | mcp.types.BlobResourceContents"
       },
       "envelope_id_for": {
         "kind": "function",
