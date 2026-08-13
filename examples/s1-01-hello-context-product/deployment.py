@@ -67,6 +67,8 @@ from ccf.halflife.debt import (
     DebtFactors,
     FreshnessScorer,
     ScorerPin,
+    SourceRefresh,
+    SourceRefreshRecency,
     assess_debt,
 )
 from ccf.halflife.decay import Observation
@@ -127,6 +129,9 @@ GOVERNANCE_ARTIFACT_STORE_DIRNAME = "artifact_store_dirname"
 GOVERNANCE_REQUEST_CONTRACT_KEY = "request_contract_key"
 GOVERNANCE_REQUIRED_ENTITY_CLASSES = "required_entity_classes"
 GOVERNANCE_SEMANTIC_CONSISTENCY = "semantic_consistency"
+GOVERNANCE_SOURCE_REFRESH_RECENCY = "source_refresh_recency"
+GOVERNANCE_SOURCE_REF = "source_ref"
+GOVERNANCE_REFRESHED_AT = "refreshed_at"
 
 KEY_HALF_LIFE_TABLE = "half-life-table"
 KEY_DEBT_PROFILE = "debt-profile"
@@ -213,6 +218,18 @@ class KycScenario:
     debt_profile: DebtProfile
     required_entity_classes: tuple[str, ...]
     semantic_consistency: Decimal
+
+    #: When each upstream source last published, read straight out of
+    #: ``artifacts/product-governance.yaml`` (D-IMPL-112 gap 2, D-IMPL-117).
+    #:
+    #: A **field and not a method**, unlike ``debt`` and ``debt_evidence``
+    #: beside it, and the difference is the point: those two are measured
+    #: against the assembled view, and this one is *declared*. A refresh
+    #: instant is not a property of what the operators left standing — it is a
+    #: fact about the world upstream of the fabric, which the deployment
+    #: knows and the fabric cannot observe. Giving it a view parameter it would
+    #: not read would suggest otherwise.
+    source_refresh_recency: SourceRefreshRecency
 
     # --- not read by the fabric: the question and how to report its answer ---
     question: Mapping[str, Any]
@@ -686,6 +703,21 @@ def read(booted: BootedFabric, request: ProductRequest) -> KycScenario:
         ),
         semantic_consistency=Decimal(
             governance[GOVERNANCE_SEMANTIC_CONSISTENCY]
+        ),
+        # [ADAPT] Read from the document, never from a clock. Each instant is
+        # authored text in `product-governance.yaml`, parsed here exactly as
+        # `decision_instant` is parsed above and for the same reason: an
+        # implicit YAML timestamp conversion is one nobody wrote down. The
+        # zone is in the text; `SourceRefresh` refuses the value outright if it
+        # is not (D-IMPL-38).
+        source_refresh_recency=tuple(
+            SourceRefresh(
+                source_ref=entry[GOVERNANCE_SOURCE_REF],
+                refreshed_at=datetime.fromisoformat(
+                    entry[GOVERNANCE_REFRESHED_AT]
+                ),
+            )
+            for entry in governance[GOVERNANCE_SOURCE_REFRESH_RECENCY]
         ),
         question=question,
         threshold_percent=Decimal(policy[POLICY_THRESHOLD_PERCENT]),
