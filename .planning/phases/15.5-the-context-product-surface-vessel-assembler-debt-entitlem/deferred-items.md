@@ -58,8 +58,9 @@ it does not today), or rule that prose cites `path::Symbol` and stop citing
 ranges at all. An executor picking one at phase close would be choosing a
 project-wide citation convention on Dave's behalf.
 
-The three stale citations of `src/ccf/replay/engine.py:449-455` (now `:472-477`)
-in `docs/DECISIONS.md` (D-IMPL-100), `docs/SURFACE-CHANGES.md` and
+The three stale citations of `src/ccf/replay/engine.py:449-455` — the check has
+since moved, and now lives inside `src/ccf/replay/engine.py::replay` — in
+`docs/DECISIONS.md` (D-IMPL-100), `docs/SURFACE-CHANGES.md` and
 `docs/surface-changes/15.5-11-debt-delivery.md` are **deliberately still
 stale**: an append-only ruling record, a generated artifact, and a landed
 plan's historical fragment. Editing any of the three to chase a line number is
@@ -89,8 +90,8 @@ path:
 
 | Function | Shipped at | Callers outside its own tests |
 |---|---|---|
-| `refuse_bound_payload` | `src/ccf/products/bind.py:145` | **one** — `examples/04-cross-process/producer_child.py:697`. Zero in `runtime/` |
-| `refuse_request` | `src/ccf/products/request.py:404` | **zero**. Its docstring at `:408-415` says *"Called by the door"* |
+| `refuse_bound_payload` | `src/ccf/products/bind.py::refuse_bound_payload` | **one** — `examples/04-cross-process/producer_child.py::main`. Zero in `runtime/` |
+| `refuse_request` | `src/ccf/products/request.py::refuse_request` | **zero**. Its docstring says *"Called by the door"* |
 
 ### The correction, re-measured at `4b407e0` (plan `15.6-09`)
 
@@ -149,7 +150,7 @@ since `git grep` for either refusal name across all of `runtime/` returned
 and asserted by `tools/docs_tests/test_resolver_seam_obligations.py`.
 `CPS-03` remains **Pending by design** and its row now names both rulings.
 
-Concretely: `runtime/ccf_runtime/http_api/routes/product.py:323-331` builds a
+Concretely: `runtime/ccf_runtime/http_api/routes/product.py::build_router` builds a
 `ProductRequest` with `parameters={}` unconditionally, so a class whose request
 contract declares required parameters crosses that door with an empty parameter
 map and never meets the conformity function. The reference MCP egress child
@@ -159,11 +160,12 @@ schema. Example 04 records the gap in its own comment:
 *"`refuse_bound_payload`, shipped unwired by plan `15.5-09`"*.
 
 Its sibling leg **is** wired: `refuse_request_contract_pin`, the
-*registration-time* check, is called at `src/ccf/products/contract.py:662-664`.
+*registration-time* check, is called inside `src/ccf/products/contract.py::register_product_class`.
 The unwired legs are request-time only.
 
 **Why it is deferred rather than fixed.** The placement is `D-IMPL-102`'s and
-is stated deliberately in `bind.py:40-48` — the module *"takes neither a
+is stated deliberately in `src/ccf/products/bind.py`'s module docstring — the
+module *"takes neither a
 request nor a door"* and the join is *"one call from the bound path"*, i.e. the
 deployment's own assembler. Wiring it into the three SDK doors makes each door
 resolve a `RegisteredProductClass` per serve and render a new refusal, and puts
@@ -479,8 +481,8 @@ was recorded and the ruling exists because of it.
   **symbol name**; a bare range that now points at the wrong lines is invisible
   to it.
 - **What this plan did:** refreshed the four live citations of
-  `src/ccf/replay/engine.py:449-455` (now `:472-477`) in
-  `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md`, `src/ccf/products/contract.py` and
+  `src/ccf/replay/engine.py:449-455` — the check has since moved into
+  `src/ccf/replay/engine.py::replay` — in `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md`, `src/ccf/products/contract.py` and
   `tests/spikes/test_contract_field_addition_cost.py`, and re-cited the
   lint-flagged one in the `path::Symbol` form the checker itself recommends.
   **Deliberately not touched:** the same range in `docs/DECISIONS.md`

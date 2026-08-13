@@ -170,10 +170,13 @@ CHECKER_OWN_FILES: tuple[str, ...] = (
 #: 13 / 101; the one-citation difference is drift between the two commits and is
 #: recorded in plan ``15.6-11``'s SUMMARY rather than smoothed over.
 #:
-#: **This is the PRE-sweep value.** The ceiling ships before the sweep that
-#: lowers it, so the sweep is measured against a gate rather than against a
-#: hope; plan ``15.6-11`` task 2 lowers it in the same commit as the sweep.
-MAXIMUM_UNANCHORED_PY_CITATIONS = 100
+#: **Post-sweep: 0.** Plan ``15.6-11`` task 2 converted all 100 and lowered this
+#: constant in the same commit, so the ruled scope is not merely bounded — it is
+#: empty, and the ceiling now says the *next* one is a regression rather than a
+#: budget. The 13 held back by :data:`HELD_BACK_HOSTS` are unchanged and are not
+#: counted here; ``python3 -m tools.lints --report`` still shows them among the
+#: unanchored total, which is correct and is what ``D-IMPL-123`` ruled.
+MAXIMUM_UNANCHORED_PY_CITATIONS = 0
 
 #: Non-vacuity, half one: the walk read files. Named ``MINIMUM_*`` so
 #: ``tools/retirement_sweep.py::_floors`` can see this module at all — a gate
@@ -196,11 +199,15 @@ MINIMUM_SCANNED_CITATION_HOSTS = 954
 #: ``prose_lines`` that returned an empty set. Both halves together are what
 #: makes a ceiling of zero mean *swept* rather than *unread*.
 #:
-#: Measured at ``962e75d`` **with this module present**: ``scan_tree`` reports
-#: 808 citations matched (801 before this module, which itself cites seven).
-#: ``D-IMPL-123`` recorded 762 at ``4b407e0``; the tree gained citations between
-#: the two commits, which is why this is a floor and not an equality.
-MINIMUM_CITATIONS_READ = 808
+#: Measured at ``962e75d`` **after plan ``15.6-11``'s sweep**: ``scan_tree``
+#: reports 797 citations matched, down from 808 before it. The drop is expected
+#: and is not lost coverage: most conversions are one-for-one, but a citation of
+#: a module docstring — where the cited region belongs to no ``def``, ``class``
+#: or module-level binding — becomes a bare path the ``CITATION`` pattern does
+#: not match at all, and several sibling citations of one file collapsed into a
+#: single reference. Checked rose 331 → 418 over the same edit, which is the
+#: number that says coverage went up. ``D-IMPL-123`` recorded 762 at ``4b407e0``.
+MINIMUM_CITATIONS_READ = 797
 
 #: The counterpart of ``tests/products/test_gate_two_call_shape.py``'s
 #: ``FLOOR_REMOVAL_INSTRUCTION``, for a ceiling's opposite case. Raising a

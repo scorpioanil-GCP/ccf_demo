@@ -51,7 +51,8 @@ Five node labels and **one** predicate:
   to live on the edge either. Interposing a node moves every hop predicate
   onto **node** properties, where Cypher reads them reliably, and reduces
   admissibility to membership in a set the adapter already computed. This is
-  Mongo's move (``backends/mongo.py:33-42``) with one strict simplification:
+  Mongo's move (``src/ccf/graph/backends/mongo.py::TRAVERSAL_EDGES``, whose
+  module docstring states the doubling) with one strict simplification:
   Cypher's ``-[:T]-`` is first-class undirected, so the model is written
   **once** and needs none of Mongo's forward/reverse doubling.
 
@@ -103,8 +104,9 @@ and then *discarded*: httpx 0.28.1 derives no ``Authorization`` header from a
 ``base_url``'s userinfo (measured), and ``bearer_token`` was reachable from no
 supported boot path. A credentialed URL therefore connected **anonymously**
 while three documents presented one channel or the other as the credential.
-The rule now enforced is the ``neo4j.py:151-165`` precedent this module always
-cited: userinfo a caller supplied is *used*, never silently dropped.
+The rule now enforced is the
+``src/ccf/graph/backends/neo4j.py::_split_credentials`` precedent this module
+always cited: userinfo a caller supplied is *used*, never silently dropped.
 
 **No artifact-authored string ever occupies an IRI position.** This is
 Fluree's slot for Mongo's :func:`~ccf.graph.backends.mongo.attribute_field_path`
@@ -376,7 +378,8 @@ MAX_QUERY_BODY_BYTES = 900_000
 
 #: Mechanism safety bound on the ONE value a translated statement inlines into
 #: query text: the validated traversal-depth literal. Declared here on the
-#: Neo4j precedent (``backends/neo4j.py:292-306``) so the read translation
+#: Neo4j precedent (``src/ccf/graph/backends/neo4j.py::MAX_DEPTH_CEILING``,
+#: whose own comment states the bound) so the read translation
 #: lands against a bound that already exists. A ``depth_limit`` above the
 #: ceiling is still answered by the fallback (D-04); the ceiling bounds Cypher
 #: text, never the query vocabulary. **Applied to the CCF depth, before
@@ -921,7 +924,8 @@ class FlureeGraphStore:
 
 # --- GraphQuery translation, stage 1 (plan 15.3-03) --------------------------
 #
-# The Cypher half of the pushdown story, on the shape ``backends/neo4j.py:276-290``
+# The Cypher half of the pushdown story, on the shape
+# ``src/ccf/graph/backends/neo4j.py::_SURVIVORS_MATCH`` and its siblings
 # established: statements composed exclusively of code-authored fragments, with
 # every value travelling as a named request parameter. The hook contract is
 # all-or-nothing (`GQ-32` at docs/GRAPH_QUERY_SEMANTICS.md:583); the surviving
@@ -977,12 +981,14 @@ _ENTITY_VALIDITY = (
 
 #: Policy admissibility, all three cuts of `GQ-08` at
 #: docs/GRAPH_QUERY_SEMANTICS.md:163 (INV-CH7-26) — as **pure membership**,
-#: which is this backend's whole departure from ``backends/neo4j.py:335-340``.
+#: which is this backend's whole departure from
+#: ``src/ccf/graph/backends/neo4j.py::_ENTITY_POLICY``.
 #:
 #: Neo4j reads the classification through dynamic property access — ``c[$key]``
 #: with the attribute name supplied as map-parameter content
-#: (``backends/neo4j.py:335-340``). Probe F-A6 measured that expression on this
-#: engine: it **parses, returns 200 and evaluates to null**. Ported verbatim it
+#: (``src/ccf/graph/backends/neo4j.py::_ENTITY_POLICY``). Probe F-A6 measured
+#: that expression on this engine: it **parses, returns 200 and evaluates to
+#: null**. Ported verbatim it
 #: would have excluded every claim while reporting success, on the predicate
 #: family that gates the majority of real queries — a wrong answer no status
 #: check would catch, which is why the verdict was taken by comparison against
@@ -1126,7 +1132,8 @@ _EDGES_RETURN = (
 # The resolution is Mongo's, in a different physical model: move the
 # information onto NODE properties and reduce every hop predicate to
 # **membership in a set the adapter already computed**
-# (``backends/mongo.py:862-873``). Crossability — type, temporal, policy,
+# (``src/ccf/graph/backends/mongo.py::MongoGraphReader``'s ``_walk``
+# docstring). Crossability — type, temporal, policy,
 # validity, `allowed_entities` on both endpoints, endpoint closure — is
 # already fully decided by the edges statement that computes the crossable
 # set; the walk re-states nothing, because a re-derivation is a second place
@@ -1140,7 +1147,8 @@ _EDGES_RETURN = (
 #: (F-A3(f)). The scope also rides inside the path predicate below, so the
 #: confinement is a property of the statement rather than a side effect of how
 #: `$admissible` happens to be computed elsewhere (threats T-15.2-03 /
-#: T-15.2-26), exactly as ``backends/neo4j.py:411-427`` states it.
+#: T-15.2-26), exactly as
+#: ``src/ccf/graph/backends/neo4j.py::_WALK_NODES_ALL`` states it.
 _WALK_MATCH_PREFIX = (
     "MATCH p = (seed:CcfEntity {ccf_partition: $partition,"
     " ccf_tenant_id: $tenant})"
@@ -1239,7 +1247,8 @@ class FlureeGraphReader(BaseGraphReader):
     sharing one ``ccf_observed_at`` arrive in ``ccf_seq`` order, and the inline
     form returns the same count as the ``WHERE``-clause form of the same query.
     So the statements order on both keys with no Python-side stable sort, and
-    use the inline form as copied from ``backends/neo4j.py:519-565``.
+    use the inline form as copied from the five fixed statements on
+    ``src/ccf/graph/backends/neo4j.py::Neo4jGraphReader``.
 
     The reader holds the Cypher ``GraphQuery`` translation:
     :meth:`_translate_query` answers **every** predicate family natively — the
@@ -1489,7 +1498,8 @@ class FlureeGraphReader(BaseGraphReader):
             starts |= set(q.seeds) & survivor_uris
         # Seeds are IN the answer. `*1..N` starts at one hop, so this
         # correction transfers verbatim from the Neo4j template
-        # (``backends/neo4j.py:714``) — it is really Neo4j's correction, not
+        # (``src/ccf/graph/backends/neo4j.py::answer_whole_query``, which seeds
+        # `reached` the same way) — it is really Neo4j's correction, not
         # Mongo's `$graphLookup` seed exclusion.
         reached = set(starts)
         if starts and q.traverse.depth_limit >= 1:
@@ -1505,7 +1515,8 @@ class FlureeGraphReader(BaseGraphReader):
                 # Survivors are already restricted to the set by
                 # `_ENTITY_ALLOWED`, so this is a closure rather than a new
                 # cut — the D-IMPL-87 resurrection defect held shut in the
-                # term that could reopen it (``backends/neo4j.py:429-434``).
+                # term that could reopen it
+                # (``src/ccf/graph/backends/neo4j.py::_WALK_NODES_ALLOWED``).
                 reachable = survivor_uris & q.allowed_entities
             admissible = {ENTITY_ADMIT_PREFIX + uri for uri in reachable} | {
                 RELATIONSHIP_ADMIT_PREFIX + row["relationship_key"]

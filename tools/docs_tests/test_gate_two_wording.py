@@ -137,8 +137,9 @@ def paragraphs_asserting_independence(
 # --------------------------------------------------------------------------
 # Preconditions — a vacuous pass is the failure this module exists to prevent.
 # WR-04: a CWD-relative walk scanned zero files and the gate passed over
-# nothing. `tools/publish_scan_tests/test_docstring_leaks.py:143-163` is the
-# model.
+# nothing.
+# `tools/publish_scan_tests/test_docstring_leaks.py::test_the_walk_does_not_depend_on_the_process_cwd`
+# is the model.
 # --------------------------------------------------------------------------
 
 

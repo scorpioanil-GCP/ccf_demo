@@ -118,7 +118,8 @@ invariant identifier that resolves to two invariants makes every gate table,
 traceability row and `D-GATE` citation using it ambiguous.
 
 **One correction to the finding as written.** It suggests
-`tests/invariants/test_single_writer_boot.py:1` is a *third* meaning. It is
+`tests/invariants/test_single_writer_boot.py`'s module docstring is a *third*
+meaning. It is
 not: `tests/invariants/test_replay_by_construction.py` names single-writer as
 one of CINV-04's own legs, so that module's "CINV-04, single-writer leg" is the
 established meaning used correctly. There are two meanings, not three.

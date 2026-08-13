@@ -105,13 +105,13 @@ delivery path serializes ``servable.product`` and **none** reads
 reached an in-process caller and no wire consumer at all. Because debt is on
 the vessel, all three carry it with **no code change at any door**:
 
-=================================================  ==============  ===========
-Door                                               Serializes      Carries D_c
-=================================================  ==============  ===========
-``ccf_runtime/mcp/egress.py:270``                  the vessel      yes
-``ccf_runtime/http_api/routes/product.py:112``     the vessel      yes
-``ccf_runtime/mcp/experience.py:632``              the vessel      yes
-=================================================  ==============  ===========
+==================================================================  ==============  ===========
+Door                                                                Serializes      Carries D_c
+==================================================================  ==============  ===========
+``runtime/ccf_runtime/mcp/egress.py::build_egress_server``          the vessel      yes
+``runtime/ccf_runtime/http_api/routes/product.py::build_router``    the vessel      yes
+``runtime/ccf_runtime/mcp/experience.py::build_experience_server``  the vessel      yes
+==================================================================  ==============  ===========
 
 No door is structurally unable to carry it, so nothing is carried forward as a
 residual on that account. ``tests/invariants/test_replay_by_construction.py``
@@ -127,7 +127,8 @@ before this field existed differs from the one the same product produces now.
 That is authorized by D-IMPL-100 on one condition, which is structural rather
 than procedural: the *record* carries the same assessment on dimension 5, and
 :meth:`~ccf.replay.engine.ReplayEnvironment.rehydrate_product` reads it back, so
-the engine's check at ``src/ccf/replay/engine.py:472-477`` passes on identical
+the engine's check inside ``src/ccf/replay/engine.py::replay`` passes on
+identical
 bytes rather than on a re-measurement. Debt is **never** re-derived at replay:
 it is computed from observations and a ``now`` neither the record nor the
 projection re-derives, so a rehydrator that re-measured it would produce a
