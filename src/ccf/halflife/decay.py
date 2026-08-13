@@ -42,6 +42,7 @@ clock, no LLM dependency ever.
 
 from __future__ import annotations
 
+import unicodedata
 from datetime import datetime, timedelta
 from decimal import Decimal, localcontext
 from typing import Final
@@ -137,6 +138,49 @@ NO_SUBJECT_IDENTITY: Final[str] = "ccf.no-subject-identity"
 _SUBJECT_NAMESPACE: Final[str] = "ccf."
 
 
+def _as_a_reader_sees_it(value: str) -> str:
+    """``value`` reduced to what a reader of a rendered product would see.
+
+    The reservation's own argument is that a deployment value must not be
+    *"indistinguishable, to a reader, from a marker the fabric itself wrote"*.
+    Comparing the raw string breaks that argument on every spelling that renders
+    identically and compares differently — Phase 15.6's single-agent review
+    walked three of them straight past the reservation by execution:
+    ``" ccf.no-subject-identity"`` (leading space), ``"\\xa0ccf.…"``
+    (non-breaking space) and ``"CCF.no-subject-identity"`` (case). A leading
+    space renders invisibly in most consumers of a JSON product, which is
+    exactly the state the refusal's own message names.
+
+    Three reductions, each closing a family of those:
+
+    * ``NFKC`` folds the compatibility forms — full-width ``ｃｃｆ．``, the
+      non-breaking space — onto their ordinary spellings.
+    * Format characters (Unicode category ``Cf``: zero-width space, joiners,
+      bidi controls) are dropped, because a character with no glyph cannot be
+      part of what a reader distinguishes.
+    * Surrounding whitespace is stripped and the result case-folded — the pair
+      the blank check already applied and the namespace check did not.
+
+    **What this does not fold, stated rather than implied**: script confusables.
+    ``сcf.`` with a Cyrillic ``с`` renders like ``ccf.``, normalizes to itself,
+    and is accepted. Folding confusables needs a confusable table and a policy
+    about which scripts a deployment may write, which is deployment knowledge
+    the SDK does not hold (CLAUDE.md §11). This closes the spellings that are
+    *mechanically* identical to a reader, not every spelling that is visually
+    similar to one.
+
+    The reduction is used for the **checks only**. The value is stored verbatim:
+    the SDK never parses a subject and never rewrites one (D-IMPL-117).
+    """
+    folded = unicodedata.normalize("NFKC", value)
+    visible = "".join(
+        character
+        for character in folded
+        if unicodedata.category(character) != "Cf"
+    )
+    return visible.strip().casefold()
+
+
 class Observation(CCFContract):
     """One dated observation, typed by the vocabulary λ_c is configured against.
 
@@ -216,19 +260,42 @@ class Observation(CCFContract):
         deliberately therefore stays legal: it is the same claim as omission,
         said louder.
 
+        **Both checks read the value as a reader would see it**
+        (:func:`_as_a_reader_sees_it`), not as bytes. The blank check always
+        stripped; the namespace check did not, and Phase 15.6's single-agent
+        review demonstrated by execution that ``" ccf.no-subject-identity"``,
+        the non-breaking-space spelling and ``"CCF.no-subject-identity"`` all
+        walked past a reservation whose entire purpose is that a reader cannot
+        tell them from the marker. The sentinel carve-out stays an **exact**
+        comparison, so a near-miss spelling of it is refused rather than
+        silently treated as the sentinel.
+
+        **A known cost, recorded rather than fixed here.** The reservation is a
+        bare ``ccf.`` prefix with no delimiter discipline, so a deployment whose
+        opaque subjects are domain-shaped — ``ccf.example.com/entity/42``, or
+        any URI under a ``ccf.*`` host — is refused outright, and §11's posture
+        is that a subject *"is an opaque string… the SDK never enumerates it,
+        never parses it"*. Narrowing the reservation (to a ``ccf:`` scheme, say)
+        would change :data:`NO_SUBJECT_IDENTITY`'s value, which is inside
+        shipped content addresses — a ruling, not a repair. It is left for the
+        gate rather than taken silently in either direction.
+
         No judgement about *meaning* is made. Every string outside the reserved
         namespace is admitted verbatim, however unfamiliar, because the SDK
         enumerates no identifier scheme and interprets nothing it is handed
         (D-IMPL-117, CLAUDE.md §11).
         """
-        if not value.strip():
+        visible = _as_a_reader_sees_it(value)
+        if not visible:
             raise ValueError(
                 "a subject identity must be declared: a blank subject names"
                 " nothing while claiming to name something, which is what"
                 f" {NO_SUBJECT_IDENTITY!r} already asserts positively"
                 " (D-IMPL-38, D-IMPL-120)"
             )
-        if value != NO_SUBJECT_IDENTITY and value.startswith(_SUBJECT_NAMESPACE):
+        if value != NO_SUBJECT_IDENTITY and visible.startswith(
+            _SUBJECT_NAMESPACE.casefold()
+        ):
             raise ValueError(
                 f"the {_SUBJECT_NAMESPACE!r} prefix is reserved for SDK"
                 f" structure: {value!r} would be indistinguishable, to a"

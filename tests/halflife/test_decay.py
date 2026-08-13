@@ -367,6 +367,89 @@ def test_a_subject_in_the_sdk_namespace_is_refused(reserved: str) -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "impersonation",
+    [
+        " ccf.no-subject-identity",
+        "ccf.no-subject-identity ",
+        "\xa0ccf.no-subject-identity",
+        "CCF.no-subject-identity",
+        "Ccf.No-Subject-Identity",
+        "​ccf.no-subject-identity",
+        "ｃｃｆ．no-subject-identity",
+    ],
+    ids=[
+        "leading space",
+        "trailing space",
+        "non-breaking space",
+        "upper case",
+        "mixed case",
+        "zero-width space",
+        "full-width compatibility form",
+    ],
+)
+def test_a_marker_impersonation_that_renders_identically_is_refused(
+    impersonation: str,
+) -> None:
+    """The reservation reads the value as a reader sees it, not as bytes.
+
+    The refusal's own message says the offending value *"would be
+    indistinguishable, to a reader, from a marker the fabric itself wrote"* —
+    and Phase 15.6's single-agent review demonstrated by execution that the
+    check compared raw bytes, so every spelling that renders identically and
+    compares differently walked past it. A leading space renders invisibly in
+    most consumers of a JSON product; so does a zero-width space; and case is
+    not a distinction a reader draws in a marker.
+
+    None of these is the sentinel — the carve-out is an exact comparison — so
+    each is a deployment value wearing SDK structure's clothes, which is
+    precisely what the reservation exists to make unavailable (D-IMPL-120).
+    """
+    with pytest.raises(ValueError, match="reserved"):
+        Observation(
+            observation_type="a-declared-type",
+            observed_at=NOW,
+            subject=impersonation,
+        )
+
+
+def test_a_subject_of_invisible_characters_is_blank_rather_than_declared() -> None:
+    """A zero-width space is not an identity, for the whitespace reason.
+
+    `str.strip()` does not remove U+200B, so before the reader-visible
+    reduction a subject of nothing but zero-width spaces was *declared* — a
+    value that names nothing while claiming to name something, which is the
+    exact state the blank refusal exists to close.
+    """
+    with pytest.raises(ValueError, match="subject identity must be declared"):
+        Observation(
+            observation_type="a-declared-type",
+            observed_at=NOW,
+            subject="​​",
+        )
+
+
+def test_a_confusable_subject_is_accepted_and_the_limit_is_deliberate() -> None:
+    """The reservation's stated boundary, asserted so it cannot drift silently.
+
+    `сcf.something` with a Cyrillic `с` renders like the reserved namespace and
+    is **accepted**: folding confusables needs a confusable table and a policy
+    about which scripts a deployment may write, which is deployment knowledge
+    the SDK does not hold (CLAUDE.md §11). The reduction closes the spellings
+    that are mechanically identical to a reader, not every spelling that is
+    visually similar to one — and that limit is documented on
+    `_as_a_reader_sees_it` rather than left for a reader to discover.
+    """
+    confusable = "сcf.something"  # Cyrillic es, then "cf."
+
+    observation = Observation(
+        observation_type="a-declared-type", observed_at=NOW, subject=confusable
+    )
+
+    assert observation.subject == confusable
+    assert confusable != "ccf.something"
+
+
 def test_the_sentinel_itself_stays_admissible_and_round_trips() -> None:
     """The widening control, and the constraint that shapes this fix.
 
