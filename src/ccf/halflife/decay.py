@@ -46,6 +46,8 @@ from datetime import datetime, timedelta
 from decimal import Decimal, localcontext
 from typing import Final
 
+from pydantic import field_validator
+
 from ccf.controlplane.artifacts import HalfLifeEntry, HalfLifeTable
 from ccf.contracts.base import CCFContract
 
@@ -108,7 +110,31 @@ class TemporalOrderError(ValueError):
 #: closes (``D-IMPL-38``'s no-silent-defaults discipline). A marker string rather
 #: than an empty container because the field is one opaque string and must stay
 #: one shape.
-NO_SUBJECT_IDENTITY: Final[str] = "no-subject-identity"
+#:
+#: **SDK-namespaced on purpose**, in
+#: :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`'s style and for its
+#: stated reason: the marker must read as SDK structure rather than as a word
+#: from somebody's domain, and a deployment must not be able to collide with it
+#: by accident while reaching for an ordinary phrase. Phase 15.6's close-time
+#: cross-AI panel found this constant spelled ``"no-subject-identity"`` — bare —
+#: and demonstrated by execution that an observation whose real opaque subject
+#: happened to be spelled that way was indistinguishable from one recorded with
+#: no subject at all, which is exactly the artifact ``D-IMPL-120`` forbids.
+#: :data:`_SUBJECT_NAMESPACE` closes the deliberate case as well as the
+#: accidental one.
+NO_SUBJECT_IDENTITY: Final[str] = "ccf.no-subject-identity"
+
+#: The identifier namespace the SDK reserves for itself in this field.
+#:
+#: Not a vocabulary and not a scheme: one prefix, which a deployment's own
+#: identifiers may not occupy. ``tests/halflife/test_debt_delivery.py`` already
+#: enforces that every module-level string constant in this package lives here
+#: (or is a semver lane, or the CINV-03 mode token); this constant is the
+#: reading half of that same discipline, applied to values arriving from
+#: outside. Module-private: the reservation is a property of
+#: :attr:`Observation.subject`, and a public constant would promise a
+#: tree-wide rule this commit does not ship.
+_SUBJECT_NAMESPACE: Final[str] = "ccf."
 
 
 class Observation(CCFContract):
@@ -137,7 +163,10 @@ class Observation(CCFContract):
             document id, or something else again. Its scheme is user
             configuration; the SDK never enumerates it, never parses it and
             never compares it to anything. Optional (D-IMPL-120), defaulting to
-            :data:`NO_SUBJECT_IDENTITY` rather than to ``None``.
+            :data:`NO_SUBJECT_IDENTITY` rather than to ``None``. Two values are
+            refused and only two: a blank, and anything inside the SDK's own
+            :data:`_SUBJECT_NAMESPACE` other than the sentinel — see
+            :meth:`_the_subject_is_declared_and_stays_out_of_the_sdk_namespace`.
 
             **SDK extension (CLAUDE.md §11), not whitepaper-derived.** Whitepaper
             §7.7 binds λ_c to the observation *type* and says nothing about
@@ -149,6 +178,65 @@ class Observation(CCFContract):
     observation_type: str
     observed_at: datetime
     subject: str = NO_SUBJECT_IDENTITY
+
+    @field_validator("subject")
+    @classmethod
+    def _the_subject_is_declared_and_stays_out_of_the_sdk_namespace(
+        cls, value: str
+    ) -> str:
+        """Refuse a blank subject, and refuse one inside the SDK's namespace.
+
+        Both refusals protect one distinction — the distinction ``D-IMPL-120``
+        made the whole field for: *"an omitted identity and a dropped one are
+        not the same artifact."*
+
+        A **blank** subject is what a half-finished assembler edit leaves
+        behind, and admitting it would make *recorded with an unnameable
+        identity* and *recorded without one* two spellings of one claim, while
+        only the second has a sentinel that says so. This is
+        :meth:`~ccf.halflife.assessment.SignalObligation._the_obligation_is_declared_and_is_not_the_sentinel`'s
+        first limb, restated because the reason is identical.
+
+        A subject inside :data:`_SUBJECT_NAMESPACE` is refused because that
+        prefix is the SDK's own. Namespacing the sentinel makes an accidental
+        collision unlikely; reserving the namespace makes impersonation
+        **unavailable** — which is the property Phase 15.6's close-time panel
+        found missing, having demonstrated by execution that a real subject
+        could wear the sentinel's spelling and be indistinguishable from
+        absence.
+
+        **The sentinel itself is carved out**, and this is where the shape
+        departs from ``SignalObligation``'s. There, the sentinel lives on a
+        *different* field and can be refused outright. Here it is this field's
+        own default, so a flat refusal would make
+        ``Observation.model_validate(Observation(...).model_dump())`` raise for
+        every unpopulated observation — ``subject`` is serialized whether or not
+        it is populated — and a contract that cannot re-validate its own dump is
+        not a stricter contract. Writing ``subject=NO_SUBJECT_IDENTITY``
+        deliberately therefore stays legal: it is the same claim as omission,
+        said louder.
+
+        No judgement about *meaning* is made. Every string outside the reserved
+        namespace is admitted verbatim, however unfamiliar, because the SDK
+        enumerates no identifier scheme and interprets nothing it is handed
+        (D-IMPL-117, CLAUDE.md §11).
+        """
+        if not value.strip():
+            raise ValueError(
+                "a subject identity must be declared: a blank subject names"
+                " nothing while claiming to name something, which is what"
+                f" {NO_SUBJECT_IDENTITY!r} already asserts positively"
+                " (D-IMPL-38, D-IMPL-120)"
+            )
+        if value != NO_SUBJECT_IDENTITY and value.startswith(_SUBJECT_NAMESPACE):
+            raise ValueError(
+                f"the {_SUBJECT_NAMESPACE!r} prefix is reserved for SDK"
+                f" structure: {value!r} would be indistinguishable, to a"
+                " reader, from a marker the fabric itself wrote. Subject"
+                " identities are the deployment's own and carry the"
+                " deployment's own scheme (D-IMPL-117, D-IMPL-120)"
+            )
+        return value
 
 
 def half_life_of(table: HalfLifeTable, observation_type: str) -> timedelta:

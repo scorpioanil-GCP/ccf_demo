@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**604 entries**, of which **376** name a public Python surface.
+**605 entries**, of which **377** name a public Python surface.
 
 ## Added
 
@@ -9916,7 +9916,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-51 entries — 39 public Python surface, 12 not public Python API.
+52 entries — 40 public Python surface, 12 not public Python API.
 
 ### Public Python surface
 
@@ -10855,6 +10855,46 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   this fabric prefers
 
 *Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.decay.NO_SUBJECT_IDENTITY
+
+- Surface: ccf.halflife.decay.NO_SUBJECT_IDENTITY
+- Public surface: true
+- Change type: behavior
+- Before: the marker string `"no-subject-identity"` — un-namespaced — and
+  `Observation` carried **no validator refusing it as a declared subject**. The
+  panel confirmed by execution that
+  `Observation(..., subject=NO_SUBJECT_IDENTITY).subject` was indistinguishable
+  from an omitted subject
+- After: the marker string `"ccf.no-subject-identity"`, SDK-namespaced in
+  `ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`'s style, plus a validator on
+  `Observation.subject` that refuses **a blank or whitespace-only subject** and
+  refuses **any subject inside the reserved `ccf.` namespace other than the
+  sentinel itself**
+- Why: `D-IMPL-120` ruled the identity optional and ruled out expressing its
+  absence as `None`, in its own words because *"an omitted identity and a
+  dropped one are not the same artifact."* A deployment whose real opaque
+  subject happened to be spelled `no-subject-identity` produced exactly the
+  artifact that ruling forbids — a fidelity defect against a ruling made in this
+  same phase. Namespacing alone makes an accidental collision unlikely;
+  **reserving the namespace makes impersonation unavailable**, which is the
+  property that was missing. The blank refusal closes the half-finished-edit
+  case, for the reason `SignalObligation.obligation_ref` already states
+- Migration: **none** for a deployment that populates `subject` with its own
+  identifiers, and none for one that omits it — the default moved, but a
+  defaulted `Observation` is still a defaulted `Observation` and still says
+  exactly what it always said. The one behaviour to know about: `subject` values
+  beginning `ccf.` are now refused, and the previously-sentinel spelling
+  `"no-subject-identity"` is now an **ordinary deployment string** carrying no
+  SDK meaning, admitted verbatim. A deployment that hardcoded that literal to
+  mean *absent* must import `NO_SUBJECT_IDENTITY` or omit the field — it will
+  not fail, it will simply be saying something else. **No product content
+  address moves**, measured rather than assumed: `Observation` is an input to
+  debt computation and not a member of `ContextProductContract`, and
+  `examples/08-e2e-demo`'s pinned replay address is byte-identical across the
+  change at `75365e18f4a1a675…`
+
+*Recorded by `15.6-12-close-panel-refusals.md`.*
 
 #### ccf.replay.engine.ReplayEnvironment
 

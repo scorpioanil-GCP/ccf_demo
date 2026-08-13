@@ -302,6 +302,117 @@ def test_an_unpopulated_subject_hashes_differently_from_a_populated_one() -> Non
     assert content_hash(absent) != content_hash(present)
 
 
+def test_the_sentinel_is_sdk_namespaced() -> None:
+    """The marker reads as SDK structure, not as a word from somebody's domain.
+
+    Phase 15.6's close-time cross-AI panel found this sentinel spelled
+    `"no-subject-identity"` — a bare phrase — while its sibling
+    `ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE` was `ccf.`-prefixed *and*
+    said in its own comment why: so a deployment cannot collide with it by
+    accident while reaching for an ordinary phrase. A deployment whose real
+    opaque subject was spelled `no-subject-identity` produced an artifact
+    indistinguishable from one with no subject at all, which is precisely what
+    D-IMPL-120 exists to prevent — *"an omitted identity and a dropped one are
+    not the same artifact."*
+
+    `tests/halflife/test_debt_delivery.py::test_every_module_level_string_constant_is_structural`
+    is the standing check; `decay.py` is added to its parametrization in the
+    same commit as this test, which is why the defect survived plan `15.6-05`.
+    """
+    assert NO_SUBJECT_IDENTITY.startswith("ccf.")
+    assert NO_SUBJECT_IDENTITY == "ccf.no-subject-identity"
+
+
+@pytest.mark.parametrize(
+    "blank", ["", "   ", "\t", "\n "], ids=["empty", "spaces", "tab", "newline"]
+)
+def test_a_blank_subject_is_refused(blank: str) -> None:
+    """A blank identity names nothing while claiming to name something.
+
+    `ccf.halflife.assessment.SignalObligation.obligation_ref`'s refusal,
+    restated here for its reason. A blank is what a half-finished assembler edit
+    leaves behind, and accepting it would make *recorded without an identity* —
+    which `NO_SUBJECT_IDENTITY` already asserts, positively — and *recorded with
+    an unnameable one* two spellings of one claim. Whitespace goes with the
+    empty string because a subject of spaces is the empty string in a costume,
+    and the value is inside the observation's canonical bytes either way.
+    """
+    with pytest.raises(ValueError, match="subject identity must be declared"):
+        Observation(
+            observation_type="a-declared-type", observed_at=NOW, subject=blank
+        )
+
+
+@pytest.mark.parametrize(
+    "reserved",
+    ["ccf.subject", "ccf.no-subject-identity-2", "ccf."],
+    ids=["sdk-shaped", "near-miss-of-the-sentinel", "bare-prefix"],
+)
+def test_a_subject_in_the_sdk_namespace_is_refused(reserved: str) -> None:
+    """`ccf.` is reserved, so nothing a deployment declares can live in it.
+
+    This is the reservation limb, and it is what actually closes the
+    impersonation channel the panel found. Namespacing the sentinel alone would
+    make collision unlikely; reserving the namespace makes it **unavailable**,
+    so a subject that could be mistaken for SDK structure is refused at the
+    boundary rather than discovered by a reader who cannot tell the two apart.
+
+    The tree already names this namespace as the SDK's own:
+    `tests/halflife/test_debt_delivery.py::_SDK_NAMESPACE` is `"ccf."`, and
+    `NO_OBLIGATION_IN_FORCE`'s comment states the discipline outright.
+    """
+    with pytest.raises(ValueError, match="reserved"):
+        Observation(
+            observation_type="a-declared-type", observed_at=NOW, subject=reserved
+        )
+
+
+def test_the_sentinel_itself_stays_admissible_and_round_trips() -> None:
+    """The widening control, and the constraint that shapes this fix.
+
+    The sentinel is this field's **own default**, so it is not the same case as
+    `SignalObligation.obligation_ref` — where the sentinel lives on a different
+    field and can therefore be refused outright. Here, refusing the sentinel
+    spelling would make `Observation.model_validate(Observation(...).model_dump())`
+    raise for every unpopulated observation, because `subject` is serialized
+    whether or not it is populated (recorded in
+    `docs/surface-changes/15.6-05-observation-identity.md`). A contract that
+    cannot re-validate its own dump is not a stricter contract.
+
+    So the reservation is over the **namespace**, with the sentinel carved out
+    of it: `subject=NO_SUBJECT_IDENTITY` remains, in the words of the `15.6-05`
+    fragment, *"the same value and the louder statement"*. A future re-narrowing
+    to a flat refusal of the sentinel turns this test red rather than turning
+    the round trip quietly impossible.
+    """
+    explicit = Observation(
+        observation_type="a-declared-type",
+        observed_at=NOW,
+        subject=NO_SUBJECT_IDENTITY,
+    )
+    omitted = Observation(observation_type="a-declared-type", observed_at=NOW)
+
+    assert explicit == omitted
+    assert content_hash(explicit) == content_hash(omitted)
+    assert Observation.model_validate(omitted.model_dump()) == omitted
+
+
+def test_an_ordinary_deployment_subject_is_still_accepted_verbatim() -> None:
+    """The other half of the widening control: this is not a format check.
+
+    The SDK enumerates no identifier scheme and interprets nothing it is handed
+    (D-IMPL-117, CLAUDE.md §11). Everything outside the reserved namespace is
+    admitted exactly as written — including the now-ordinary phrase the sentinel
+    used to be spelled with, which after namespacing carries no SDK meaning at
+    all and is therefore a deployment's to use.
+    """
+    for value in ("no-subject-identity", "borrower://x", "0", " leading-space"):
+        observation = Observation(
+            observation_type="a-declared-type", observed_at=NOW, subject=value
+        )
+        assert observation.subject == value
+
+
 def test_a_naive_timestamp_is_still_refused_on_a_subject_bearing_observation(
     table: HalfLifeTable,
 ) -> None:

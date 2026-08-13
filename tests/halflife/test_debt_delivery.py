@@ -441,7 +441,7 @@ def _module_level_strings(module_path: Path) -> dict[str, str]:
     return found
 
 
-@pytest.mark.parametrize("module", ["debt.py", "assessment.py"])
+@pytest.mark.parametrize("module", ["debt.py", "assessment.py", "decay.py"])
 def test_every_module_level_string_constant_is_structural(module: str) -> None:
     """``cinv01b-numeric-table`` catches a numeric map and nothing else.
 
@@ -449,6 +449,14 @@ def test_every_module_level_string_constant_is_structural(module: str) -> None:
     not save this module: the warning sign is any string literal in ``src/``
     that a banker would recognize. Each constant here must be an SDK-namespaced
     identifier, a semver lane, or the CINV-03 mode token — nothing else.
+
+    ``decay.py`` joined the parametrization at Phase 15.6's close. It was left
+    out when the module was written, and plan ``15.6-05`` then added
+    ``NO_SUBJECT_IDENTITY = "no-subject-identity"`` — an un-namespaced marker —
+    into the one file in this package this check could not see. The close-time
+    cross-AI panel found it by reading the constant; this parametrization is
+    what would have found it first, so the scope is widened rather than the
+    single constant fixed.
     """
     for name, value in _module_level_strings(HALFLIFE_DIR / module).items():
         assert (
@@ -458,7 +466,7 @@ def test_every_module_level_string_constant_is_structural(module: str) -> None:
         ), f"{module}:{name} = {value!r} is not a structural identifier"
 
 
-@pytest.mark.parametrize("module", ["debt.py", "assessment.py"])
+@pytest.mark.parametrize("module", ["debt.py", "assessment.py", "decay.py"])
 def test_no_module_level_collection_of_string_literals_exists(
     module: str,
 ) -> None:
