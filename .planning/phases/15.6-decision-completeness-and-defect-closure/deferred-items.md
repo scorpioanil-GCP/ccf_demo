@@ -41,3 +41,39 @@ boundary (only issues *directly caused by* a task's own changes are auto-fixed).
 - **Owner:** unassigned. Wants a ruling at the Phase 15.6 gate on whether the
   retirement report is regenerated in-phase or carried, and on whether
   `example-s1-01` gets a published page.
+
+---
+
+## `DI-15.6-02` — the citation ratchet's two floors are outside `COUNT_COUPLING_TREES`
+
+- **Raised by:** plan `15.6-11` (the citation sweep and its ratchet), 2026-08-12.
+- **What.** `tests/invariants/test_citation_coverage.py` carries two
+  `MINIMUM_*` floors — `MINIMUM_SCANNED_CITATION_HOSTS` (954) and
+  `MINIMUM_CITATIONS_READ` (797). Both are shaped so
+  `tools/retirement_sweep.py::_floors` recognises them, and **it does**: run
+  against the module it reports both, each paired with the scan function
+  feeding it, and `count_coupling_rows(roots=[tests/invariants])` emits **four
+  live rows** owned by `16-18`. What the sweep's *default* walk does not reach
+  is the tree: `tools/retirement_sweep.py::COUNT_COUPLING_TREES` is
+  `("tests/products",)`.
+- **The coupling those four rows report, which is real and is why this is
+  recorded rather than dropped.** Both scans walk `examples/`, so
+  `MINIMUM_SCANNED_CITATION_HOSTS` has **headroom 0** and **first breaks at
+  wave 8**, when `16-15` retires `examples/03-harness-portability` (27 hosts).
+  `MINIMUM_CITATIONS_READ` has headroom 6 against
+  `tests/examples/test_ext00_serve_output.py`.
+- **Why plan `15.6-11` did not widen it.** Widening is one line of data — the
+  sweep's own docstring invites exactly that (*"Data, so a later plan widens
+  the search without editing the detector"*) — but it changes
+  `docs/surface/examples/RETIREMENT-COUPLINGS.md`, which
+  `tools/docs_tests/test_retirement_sweep.py::test_the_committed_report_is_current`
+  already reports **stale at this phase's base** under `DI-15.6-01`.
+  Regenerating it inside this plan would silently discharge a deferred item
+  owned elsewhere and fold an 18-row pre-existing drift into a citation-sweep
+  commit.
+- **What closing it costs.** Add `"tests/invariants"` to `COUNT_COUPLING_TREES`,
+  re-run `python tools/retirement_sweep.py --report`, commit the regenerated
+  report. Measured: **4 new rows, all owned by `16-18` from the schedule**, so
+  `test_the_committed_report_carries_no_unowned_row` stays green.
+- **Owner:** whoever closes `DI-15.6-01`, since both want the same report
+  regenerated in the same commit.
