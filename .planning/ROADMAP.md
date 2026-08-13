@@ -1128,8 +1128,9 @@ Plans:
 
 - [x] 15.6-09-PLAN.md — [Track A] `DI-15.5-05` ruled + the seam obligation discharged and asserted + the two Track A scoping rulings Waves 8 and 9 need
 
-**Wave 8**
+**Wave 8** — ordered: `15.6-13` then `15.6-10`. Not concurrent.
 
+- [ ] 15.6-13-PLAN.md — [Track B] `D-IMPL-124` Shape B: the source-refresh map becomes a non-identifying freshness window (`oldest_source_refresh_at` / `newest_source_refresh_at`); `SourceRefresh` deleted; address move 4. **Must precede 15.6-10's manifest regeneration**
 - [ ] 15.6-10-PLAN.md — [Track A] `DI-15.5-06`: `dump_surface` reads a Protocol's `__call__`; **the phase's single manifest regeneration**, after the last Track B `src/` edit
 
 **Wave 9**
@@ -1306,7 +1307,7 @@ Plans:
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
 | 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 15/15 | Complete | 2026-08-11 |
-| 15.6 Decision-Completeness and Defect Closure | 9/12 | In Progress|  |
+| 15.6 Decision-Completeness and Defect Closure | 9/13 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Parked (resumes after 15.6) |  |
 
 ## Coverage
