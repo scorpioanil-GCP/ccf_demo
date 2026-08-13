@@ -31,8 +31,11 @@ from ccf.controlplane.artifacts import DEBT_PROFILE, DebtProfile, parse_artifact
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneRegistry
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
+    NO_OBLIGATION_IN_FORCE,
+    NO_SIGNAL_OBLIGATIONS,
     NO_SOURCE_REFRESH_RECENCY,
     DebtEvidencePointer,
+    SignalObligation,
     SourceRefresh,
 )
 from ccf.halflife.debt import (
@@ -687,3 +690,300 @@ def test_assess_debt_is_unchanged_by_the_recency_slot(profile: DebtProfile) -> N
     }
     assert "source_refresh_recency" not in DebtAssessment.model_fields
     assert "refreshed_at" not in DebtAssessment.model_fields
+
+
+# --- what a debt signal obliges (D-IMPL-112 gap 3, D-IMPL-117, D-IMPL-118) --
+#
+# `D-IMPL-112` recorded the analyst's third missing item — what operational
+# obligation `forced_llm` actually imposes. `15.6-RESEARCH.md` § B4 measured the
+# asymmetry that makes it a gap: `DebtSignal.FORCED_LLM` is produced at exactly
+# one site and consumed nowhere, while `OK` and `FAIL_CLOSED` each have one
+# consumer.
+#
+# The SDK's whole obligation here is a BINDING MECHANISM. `D-IMPL-117`:
+# *"a signal-to-obligation binding that survives replay, and owes no obligation
+# vocabulary (that is user configuration ...)"*. Every obligation token below is
+# owned by this test module; the SDK enumerates none of them, and
+# `tests/invariants/test_no_obligation_vocabulary.py` is the standing gate that
+# keeps it that way.
+#
+# The binding's calibration half lives on `DebtProfile`, which already owns
+# `forced_llm_threshold` and `fail_closed_threshold` and is already pinned
+# per-agent — so the calibration stays in one artifact. The RESOLVED value rides
+# the product vessel as a top-level field under `D-IMPL-118` `qa-toplevel`, the
+# same branch the two members above took.
+
+
+#: Obligation references this test module owns. **Deployment-side by
+#: construction**: the SDK enumerates no obligation vocabulary and interprets no
+#: obligation reference (`D-IMPL-117`, CLAUDE.md §11). Deliberately not words an
+#: analyst used, so nothing here can be mistaken for a recommended set.
+_OBLIGATION_FOR_FORCED = "test-obligation-alpha"
+_OBLIGATION_FOR_FAILED = "test-obligation-beta"
+
+
+def _profile_binding(*bindings: SignalObligation) -> DebtProfile:
+    """A profile as every artifact declares one, plus the bindings under test."""
+    return DebtProfile(
+        semver="1.0.0",
+        risk_sensitivity=Decimal("1.2"),
+        forced_llm_threshold=Decimal("0.20"),
+        fail_closed_threshold=Decimal("0.60"),
+        signal_obligations=bindings,
+    )
+
+
+def test_a_bound_obligation_round_trips_through_the_profile() -> None:
+    """Populate and extract — exactly and only what D-IMPL-117 says is owed.
+
+    The pair is the whole SDK obligation for this gap: a way for a deployment to
+    say what a signal obliges, and a way to read that back. There is no third
+    thing, because what the obligation *means* is the context product creator's
+    judgement and the SDK never interprets it.
+    """
+    binding = SignalObligation(
+        signal=DebtSignal.FORCED_LLM, obligation_ref=_OBLIGATION_FOR_FORCED
+    )
+    profile = _profile_binding(binding)
+
+    assert profile.signal_obligations == (binding,)
+    rebuilt = DebtProfile.model_validate(profile.model_dump())
+    assert rebuilt.signal_obligations == (binding,)
+    assert content_hash(rebuilt) == content_hash(profile)
+
+
+def test_the_sdk_accepts_an_obligation_string_it_has_never_seen() -> None:
+    """Structure is validated; meaning is not (D-IMPL-117, D-IMPL-29).
+
+    The claim this case exists to assert rather than leave implied: the SDK
+    holds no list of permitted obligations, so an arbitrary token no shipped
+    module has ever seen is accepted verbatim. A validator that refused it would
+    have made the SDK the arbiter of a vocabulary it does not own.
+    """
+    arbitrary = "urn:acme:obligation:9f2c-never-seen-by-the-sdk"
+    profile = _profile_binding(
+        SignalObligation(signal=DebtSignal.FAIL_CLOSED, obligation_ref=arbitrary)
+    )
+
+    assert profile.obligation_for(DebtSignal.FAIL_CLOSED) == arbitrary
+
+
+def test_a_key_that_is_not_a_debt_signal_is_refused_and_named() -> None:
+    """Keys are the SDK's type, so keys are the SDK's business.
+
+    `DebtSignal` is a whitepaper §7.7 CAR routing state the SDK owns, ships and
+    branches on — so a binding naming a state the fabric never produces is
+    refused rather than carried, and the offending key is named so the profile
+    author is not left diffing against an enum they cannot see.
+    """
+    with pytest.raises(ValueError, match="not-a-signal"):
+        SignalObligation(
+            signal="not-a-signal",  # type: ignore[arg-type]
+            obligation_ref=_OBLIGATION_FOR_FORCED,
+        )
+
+
+def test_a_duplicate_signal_binding_is_refused_at_construction() -> None:
+    """Two obligations for one signal is incoherent, not stricter.
+
+    Refused rather than collapsed, which is why the binding is a sorted tuple
+    and not a mapping: a mapping loaded from YAML keeps the last duplicate
+    **silently**, and a signal bound twice is exactly the contradiction a
+    profile author needs told about.
+    """
+    with pytest.raises(ValueError, match="at most one obligation"):
+        _profile_binding(
+            SignalObligation(
+                signal=DebtSignal.FORCED_LLM, obligation_ref=_OBLIGATION_FOR_FORCED
+            ),
+            SignalObligation(
+                signal=DebtSignal.FORCED_LLM, obligation_ref=_OBLIGATION_FOR_FAILED
+            ),
+        )
+
+
+def test_a_partial_binding_is_accepted_and_the_rest_read_the_sentinel() -> None:
+    """"Some signals bound" is the common real case, so it has one reading.
+
+    Pinned by a test rather than left incidental: a deployment that has an
+    answer for Fail-Closed and none for Ok is not a malformed deployment, and
+    the unbound signal resolves to the named positive sentinel rather than to a
+    borrowed neighbour's obligation or to an error.
+    """
+    profile = _profile_binding(
+        SignalObligation(
+            signal=DebtSignal.FAIL_CLOSED, obligation_ref=_OBLIGATION_FOR_FAILED
+        )
+    )
+
+    assert profile.obligation_for(DebtSignal.FAIL_CLOSED) == _OBLIGATION_FOR_FAILED
+    assert profile.obligation_for(DebtSignal.OK) == NO_OBLIGATION_IN_FORCE
+    assert profile.obligation_for(DebtSignal.FORCED_LLM) == NO_OBLIGATION_IN_FORCE
+
+
+def test_a_profile_that_binds_nothing_is_a_positive_claim_not_a_silence() -> None:
+    """D-IMPL-38: the absent value is an assertion, never `None`-as-unknown.
+
+    What this rules out that nothing else does: a nullable binding. Under one, a
+    deployment that deliberately declared no obligations and one whose bindings
+    somebody dropped in transit would be the same artifact — the repudiation
+    failure mode every sentinel in this fabric closes. It is also exactly what
+    every profile written before this field existed was already asserting.
+    """
+    profile = _profile_binding()
+
+    assert profile.signal_obligations == NO_SIGNAL_OBLIGATIONS
+    assert NO_SIGNAL_OBLIGATIONS is not None
+    assert NO_SIGNAL_OBLIGATIONS == ()
+    assert profile.obligation_for(DebtSignal.FORCED_LLM) == NO_OBLIGATION_IN_FORCE
+    assert NO_OBLIGATION_IN_FORCE is not None
+
+
+def test_two_profiles_differing_only_in_a_binding_have_different_bytes() -> None:
+    """The binding is part of the calibration, so it is part of its identity.
+
+    A profile that obliges one thing on Forced-LLM is not the profile that
+    obliges another, and the Control Plane addresses artifacts by content — so
+    rebinding mints a new address rather than mutating an old one in place,
+    which is what D-IMPL-26's exact-version rule then lets replay resolve
+    against.
+    """
+    one = _profile_binding(
+        SignalObligation(
+            signal=DebtSignal.FORCED_LLM, obligation_ref=_OBLIGATION_FOR_FORCED
+        )
+    )
+    other = _profile_binding(
+        SignalObligation(
+            signal=DebtSignal.FORCED_LLM, obligation_ref=_OBLIGATION_FOR_FAILED
+        )
+    )
+
+    assert content_hash(one) != content_hash(other)
+    assert content_hash(one) != content_hash(_profile_binding())
+
+
+def test_binding_declaration_order_does_not_move_the_profile_bytes() -> None:
+    """Order-insensitive inside a content address (the `scorers` precedent).
+
+    Declaration order is not a fact about the calibration. The profile is
+    content-addressed and version-pinned per agent, so an order-sensitive
+    collection would make two identical calibrations resolve as two artifacts —
+    the defect `_pins_are_one_per_factor_in_canonical_order` already exists to
+    prevent, restated here because the reason is identical.
+    """
+    forced = SignalObligation(
+        signal=DebtSignal.FORCED_LLM, obligation_ref=_OBLIGATION_FOR_FORCED
+    )
+    failed = SignalObligation(
+        signal=DebtSignal.FAIL_CLOSED, obligation_ref=_OBLIGATION_FOR_FAILED
+    )
+
+    forward = _profile_binding(forced, failed)
+    reversed_ = _profile_binding(failed, forced)
+
+    assert forward.signal_obligations == reversed_.signal_obligations
+    assert content_hash(forward) == content_hash(reversed_)
+
+
+def test_a_half_declared_binding_is_refused() -> None:
+    """A signal named with nothing bound to it is not a binding.
+
+    A blank reference is the shape a half-finished profile edit leaves behind,
+    and accepting it would make "declared, with nothing to do" and "not
+    declared" two spellings of one claim — while only the second has a sentinel
+    saying so.
+    """
+    with pytest.raises(ValueError, match="obligation reference"):
+        SignalObligation(signal=DebtSignal.FORCED_LLM, obligation_ref="   ")
+
+
+def test_the_sentinel_spelling_is_refused_as_a_declared_obligation() -> None:
+    """The sentinel keeps one meaning, so nothing may impersonate it.
+
+    Without this, a deployment could declare the sentinel's own spelling and
+    make "bound to this" indistinguishable from "bound to nothing" — collapsing
+    the very distinction D-IMPL-38 requires the sentinel to hold open.
+    """
+    with pytest.raises(ValueError, match="reserved"):
+        SignalObligation(
+            signal=DebtSignal.FORCED_LLM, obligation_ref=NO_OBLIGATION_IN_FORCE
+        )
+
+
+def test_a_float_obligation_reference_is_refused_rather_than_coerced() -> None:
+    """The `_refuse_float` discipline extends to the new member.
+
+    Shared with every other value in `ccf.halflife.assessment` for the reason
+    stated once there: these bytes reach a content address and floats are not
+    bit-stable across platforms.
+    """
+    with pytest.raises(ValueError, match="never float"):
+        SignalObligation(
+            signal=DebtSignal.FORCED_LLM,
+            obligation_ref=1.0,  # type: ignore[arg-type]
+        )
+
+
+def test_a_declared_profile_parses_its_bindings_through_the_loader(
+    document: Any,
+) -> None:
+    """The binding arrives the way every Control Plane value arrives.
+
+    Through `parse_artifact`, off a declared document, rather than through a
+    constructor a test wrote — a field that only ever round-trips in-process has
+    not been shown to be declarable (CLAUDE.md §6.4).
+    """
+    declared = dict(document["debt_profile"])
+    declared["signal_obligations"] = [
+        {"signal": "forced_llm", "obligation_ref": _OBLIGATION_FOR_FORCED}
+    ]
+    artifact = parse_artifact(declared, DEBT_PROFILE)
+
+    assert isinstance(artifact, DebtProfile)
+    assert artifact.obligation_for(DebtSignal.FORCED_LLM) == _OBLIGATION_FOR_FORCED
+    assert artifact.obligation_for(DebtSignal.OK) == NO_OBLIGATION_IN_FORCE
+
+
+def test_a_declared_profile_naming_an_unknown_signal_is_refused(
+    document: Any,
+) -> None:
+    """The key check fires where a profile author actually meets it."""
+    declared = dict(document["debt_profile"])
+    declared["signal_obligations"] = [
+        {"signal": "forced-llm", "obligation_ref": _OBLIGATION_FOR_FORCED}
+    ]
+    with pytest.raises(ValueError, match="forced-llm"):
+        parse_artifact(declared, DEBT_PROFILE)
+
+
+def test_the_sdk_names_no_obligation_and_takes_no_action_on_one() -> None:
+    """CLAUDE.md §11, asserted structurally rather than promised.
+
+    Two absences, and they are different absences. The first is vocabulary: no
+    module under `src/` writes an obligation reference, so the only string a
+    replay can carry is one a deployment declared.
+    `tests/invariants/test_no_obligation_vocabulary.py` holds the syntactic half
+    of that claim; this holds the textual one.
+
+    The second is behaviour, and it is the one a reviewer is most likely to
+    misread. `FORCED_LLM` had zero consumers before this plan and still has zero
+    **in the SDK**: the fabric carries the binding into the record and branches
+    on it nowhere, because branching on it would mean deciding what an
+    obligation means — the judgement `D-IMPL-117` assigns to the context product
+    creator.
+    """
+    root = REPO_ROOT / "src" / "ccf"
+    writers = sorted(
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*.py")
+        if "obligation_ref" in path.read_text(encoding="utf-8")
+    )
+
+    assert writers == ["controlplane/artifacts.py", "halflife/assessment.py"]
+
+    for module in writers:
+        source = (root / module).read_text(encoding="utf-8")
+        assert "re-pull" not in source
+        assert "escalate" not in source
+        assert "supervised" not in source
