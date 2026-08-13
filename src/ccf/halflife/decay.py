@@ -42,7 +42,6 @@ clock, no LLM dependency ever.
 
 from __future__ import annotations
 
-import unicodedata
 from datetime import datetime, timedelta
 from decimal import Decimal, localcontext
 from typing import Final
@@ -51,6 +50,11 @@ from pydantic import field_validator
 
 from ccf.controlplane.artifacts import HalfLifeEntry, HalfLifeTable
 from ccf.contracts.base import CCFContract
+from ccf.halflife.assessment import (
+    _SDK_NAMESPACE,
+    _as_a_reader_sees_it,
+    _refuse_an_impersonation_of_an_sdk_marker,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -125,60 +129,18 @@ class TemporalOrderError(ValueError):
 #: accidental one.
 NO_SUBJECT_IDENTITY: Final[str] = "ccf.no-subject-identity"
 
-#: The identifier namespace the SDK reserves for itself in this field.
+#: The reservation, shared with every other opaque string this package puts
+#: inside a content address.
 #:
-#: Not a vocabulary and not a scheme: one prefix, which a deployment's own
-#: identifiers may not occupy. ``tests/halflife/test_debt_delivery.py`` already
-#: enforces that every module-level string constant in this package lives here
-#: (or is a semver lane, or the CINV-03 mode token); this constant is the
-#: reading half of that same discipline, applied to values arriving from
-#: outside. Module-private: the reservation is a property of
-#: :attr:`Observation.subject`, and a public constant would promise a
-#: tree-wide rule this commit does not ship.
-_SUBJECT_NAMESPACE: Final[str] = "ccf."
-
-
-def _as_a_reader_sees_it(value: str) -> str:
-    """``value`` reduced to what a reader of a rendered product would see.
-
-    The reservation's own argument is that a deployment value must not be
-    *"indistinguishable, to a reader, from a marker the fabric itself wrote"*.
-    Comparing the raw string breaks that argument on every spelling that renders
-    identically and compares differently — Phase 15.6's single-agent review
-    walked three of them straight past the reservation by execution:
-    ``" ccf.no-subject-identity"`` (leading space), ``"\\xa0ccf.…"``
-    (non-breaking space) and ``"CCF.no-subject-identity"`` (case). A leading
-    space renders invisibly in most consumers of a JSON product, which is
-    exactly the state the refusal's own message names.
-
-    Three reductions, each closing a family of those:
-
-    * ``NFKC`` folds the compatibility forms — full-width ``ｃｃｆ．``, the
-      non-breaking space — onto their ordinary spellings.
-    * Format characters (Unicode category ``Cf``: zero-width space, joiners,
-      bidi controls) are dropped, because a character with no glyph cannot be
-      part of what a reader distinguishes.
-    * Surrounding whitespace is stripped and the result case-folded — the pair
-      the blank check already applied and the namespace check did not.
-
-    **What this does not fold, stated rather than implied**: script confusables.
-    ``сcf.`` with a Cyrillic ``с`` renders like ``ccf.``, normalizes to itself,
-    and is accepted. Folding confusables needs a confusable table and a policy
-    about which scripts a deployment may write, which is deployment knowledge
-    the SDK does not hold (CLAUDE.md §11). This closes the spellings that are
-    *mechanically* identical to a reader, not every spelling that is visually
-    similar to one.
-
-    The reduction is used for the **checks only**. The value is stored verbatim:
-    the SDK never parses a subject and never rewrites one (D-IMPL-117).
-    """
-    folded = unicodedata.normalize("NFKC", value)
-    visible = "".join(
-        character
-        for character in folded
-        if unicodedata.category(character) != "Cf"
-    )
-    return visible.strip().casefold()
+#: **Both names moved to** :mod:`ccf.halflife.assessment` **at Phase 15.6's
+#: close.** They were written module-private here on the stated ground that "a
+#: public constant would promise a tree-wide rule this commit does not ship" —
+#: and the single-agent review then found the rule shipped on this field and on
+#: none of the three siblings the same phase gave the same kind of value. One
+#: rule needs one implementation; the import direction is safe because
+#: ``assessment`` depends on nothing but
+#: :class:`~ccf.contracts.base.CCFContract`, which is why it holds them.
+_SUBJECT_NAMESPACE: Final[str] = _SDK_NAMESPACE
 
 
 class Observation(CCFContract):
@@ -270,40 +232,31 @@ class Observation(CCFContract):
         comparison, so a near-miss spelling of it is refused rather than
         silently treated as the sentinel.
 
-        **A known cost, recorded rather than fixed here.** The reservation is a
-        bare ``ccf.`` prefix with no delimiter discipline, so a deployment whose
-        opaque subjects are domain-shaped — ``ccf.example.com/entity/42``, or
-        any URI under a ``ccf.*`` host — is refused outright, and §11's posture
-        is that a subject *"is an opaque string… the SDK never enumerates it,
-        never parses it"*. Narrowing the reservation (to a ``ccf:`` scheme, say)
-        would change :data:`NO_SUBJECT_IDENTITY`'s value, which is inside
-        shipped content addresses — a ruling, not a repair. It is left for the
-        gate rather than taken silently in either direction.
+        **The refusal itself is the package's shared one**
+        (:func:`~ccf.halflife.assessment._refuse_an_impersonation_of_an_sdk_marker`),
+        not a rule this field holds alone. It was this field's alone until Phase
+        15.6's close, and the single-agent review's WR-02 is exactly that
+        asymmetry: three sibling opaque strings shipped in the same phase, all
+        inside the same content address, none of them reserved. The shared
+        helper also records the known cost of a bare ``ccf.`` prefix — a
+        deployment whose subjects are domain-shaped is refused — and why
+        narrowing it is a ruling rather than a repair.
 
         No judgement about *meaning* is made. Every string outside the reserved
         namespace is admitted verbatim, however unfamiliar, because the SDK
         enumerates no identifier scheme and interprets nothing it is handed
         (D-IMPL-117, CLAUDE.md §11).
         """
-        visible = _as_a_reader_sees_it(value)
-        if not visible:
+        if not _as_a_reader_sees_it(value):
             raise ValueError(
                 "a subject identity must be declared: a blank subject names"
                 " nothing while claiming to name something, which is what"
                 f" {NO_SUBJECT_IDENTITY!r} already asserts positively"
                 " (D-IMPL-38, D-IMPL-120)"
             )
-        if value != NO_SUBJECT_IDENTITY and visible.startswith(
-            _SUBJECT_NAMESPACE.casefold()
-        ):
-            raise ValueError(
-                f"the {_SUBJECT_NAMESPACE!r} prefix is reserved for SDK"
-                f" structure: {value!r} would be indistinguishable, to a"
-                " reader, from a marker the fabric itself wrote. Subject"
-                " identities are the deployment's own and carry the"
-                " deployment's own scheme (D-IMPL-117, D-IMPL-120)"
-            )
-        return value
+        return _refuse_an_impersonation_of_an_sdk_marker(
+            value, field="a subject identity", admitted=NO_SUBJECT_IDENTITY
+        )
 
 
 def half_life_of(table: HalfLifeTable, observation_type: str) -> timedelta:

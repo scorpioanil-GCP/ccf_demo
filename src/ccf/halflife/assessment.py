@@ -97,6 +97,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import unicodedata
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
@@ -149,6 +150,118 @@ def _refuse_float(value: object) -> object:
             "debt values are Decimal, never float: they reach the replay "
             "record and sit inside the delivered product's content address "
             "(D-IMPL-100), and floats are not bit-stable across platforms"
+        )
+    return value
+
+
+#: The identifier namespace the SDK reserves for itself in **every** opaque
+#: string this package puts inside a content address.
+#:
+#: Not a vocabulary and not a scheme: one prefix, which a deployment's own
+#: identifiers may not occupy. ``tests/halflife/test_debt_delivery.py`` already
+#: enforces that every module-level string constant in this package lives here
+#: (or is a semver lane, or the CINV-03 mode token); this constant is the
+#: reading half of that discipline, applied to values arriving from outside.
+#:
+#: **It moved here from** :mod:`ccf.halflife.decay` **at Phase 15.6's close.**
+#: It was written module-private there, on the stated ground that "a public
+#: constant would promise a tree-wide rule this commit does not ship" — and the
+#: single-agent review then found the promise being kept in one of the four
+#: places this phase gave an opaque string inside a content address to. Sharing
+#: the constant and the refusal is what makes the rule one rule rather than
+#: four; this module is the lowest in the package's import order, which is why
+#: it holds them.
+_SDK_NAMESPACE: Final[str] = "ccf."
+
+
+def _as_a_reader_sees_it(value: str) -> str:
+    """``value`` reduced to what a reader of a rendered product would see.
+
+    The reservation's argument is that a deployment value must not be
+    *"indistinguishable, to a reader, from a marker the fabric itself wrote"*.
+    Comparing raw strings breaks that argument on every spelling that renders
+    identically and compares differently — Phase 15.6's single-agent review
+    walked three of them past :attr:`~ccf.halflife.decay.Observation.subject`'s
+    reservation by execution: ``" ccf.no-subject-identity"`` (leading space),
+    the non-breaking-space form, and ``"CCF.no-subject-identity"``.
+
+    Three reductions, each closing a family of those:
+
+    * ``NFKC`` folds the compatibility forms — full-width ``ｃｃｆ．``, the
+      non-breaking space — onto their ordinary spellings.
+    * Format characters (Unicode category ``Cf``: zero-width space, joiners,
+      bidi controls) are dropped, because a character with no glyph cannot be
+      part of what a reader distinguishes.
+    * Surrounding whitespace is stripped and the result case-folded — the pair
+      every blank check in this package already applied and no namespace check
+      did.
+
+    **What this does not fold, stated rather than implied**: script confusables.
+    ``сcf.`` with a Cyrillic ``с`` renders like ``ccf.``, normalizes to itself,
+    and is accepted. Folding confusables needs a confusable table and a policy
+    about which scripts a deployment may write, which is deployment knowledge
+    the SDK does not hold (CLAUDE.md §11). This closes the spellings that are
+    *mechanically* identical to a reader, not every spelling that is visually
+    similar to one.
+
+    The reduction is used for the **checks only**. Every value is stored
+    verbatim: the SDK parses none of these strings and rewrites none of them
+    (D-IMPL-117).
+    """
+    folded = unicodedata.normalize("NFKC", value)
+    visible = "".join(
+        character
+        for character in folded
+        if unicodedata.category(character) != "Cf"
+    )
+    return visible.strip().casefold()
+
+
+def _refuse_an_impersonation_of_an_sdk_marker(
+    value: str, *, field: str, admitted: str | None = None
+) -> str:
+    """Refuse a value inside :data:`_SDK_NAMESPACE`, `admitted` excepted.
+
+    **One rule for four fields.** Phase 15.6 gave four opaque strings a place
+    inside the delivered product's content address —
+    :attr:`~ccf.halflife.decay.Observation.subject`,
+    :attr:`DebtEvidencePointer.handle`,
+    :attr:`SignalObligation.obligation_ref`, and :data:`ObligationInForce` on
+    both of its carriers — and the close-time panel's B1 fix reserved the
+    namespace on exactly one of them. The single-agent review then demonstrated
+    the asymmetry by execution: ``DebtEvidencePointer(handle='ccf.fabricated
+    -marker')``, ``SignalObligation(obligation_ref='ccf.anything-at-all')`` and
+    ``ContextProductContract(obligation_in_force='ccf.fabricated')`` were all
+    accepted. A property worth enforcing on one field of four is either a rule
+    or a coincidence; this makes it a rule.
+
+    `admitted` is the one value a *carrier* must still accept: its own
+    sentinel, which is SDK structure the fabric wrote and the positive
+    assertion an unmarked value is spelled with. It is compared **exactly**, so
+    a near-miss spelling of a sentinel is an impersonation rather than a
+    sentinel. Fields with no sentinel of their own pass ``None`` and reserve
+    the whole namespace.
+
+    **A known cost, recorded rather than fixed.** The reservation is a bare
+    ``ccf.`` prefix with no delimiter discipline, so a deployment whose opaque
+    identifiers are domain-shaped — ``ccf.example.com/entity/42``, or any URI
+    under a ``ccf.*`` host — is refused outright, and §11's posture is that
+    these values are opaque strings the SDK "never enumerates… never parses".
+    Narrowing the reservation (to a ``ccf:`` scheme, say) would change the
+    shipped sentinels' values, which are inside shipped content addresses —
+    a ruling, not a repair, and it goes to the gate rather than being taken
+    silently in either direction.
+    """
+    if admitted is not None and value == admitted:
+        return value
+    if _as_a_reader_sees_it(value).startswith(_SDK_NAMESPACE.casefold()):
+        raise ValueError(
+            f"the {_SDK_NAMESPACE!r} prefix is reserved for SDK structure:"
+            f" {value!r} would be indistinguishable, to a reader, from a marker"
+            f" the fabric itself wrote, and {field} is inside the delivered"
+            " product's content address (D-IMPL-38, D-IMPL-118). These values"
+            " are the deployment's own and carry the deployment's own scheme"
+            " (D-IMPL-117)"
         )
     return value
 
@@ -419,12 +532,24 @@ class DebtEvidencePointer(CCFContract):
         is the empty string with a costume on, and the deferred alternative —
         letting a consumer discover it — is the deferral CLAUDE.md §11 refuses.
 
+        **A handle inside the SDK's namespace is refused too**
+        (:func:`_refuse_an_impersonation_of_an_sdk_marker`), on the reasoning
+        the close-time panel's B1 applied to
+        :attr:`~ccf.halflife.decay.Observation.subject` and the single-agent
+        review then found applied to that field alone:
+        ``handle='ccf.fabricated-marker'`` was accepted, and a pointer that
+        reads as SDK structure is a deployment value wearing the fabric's
+        clothes. This field has **no sentinel of its own** — an assessment that
+        points at nothing carries the empty :data:`NO_DEBT_EVIDENCE` tuple, not
+        a marker string — so the whole namespace is reserved with nothing
+        carved out of it.
+
         No judgement about *meaning* is made here. Any other string is accepted
         verbatim, however unfamiliar: which handles are worth pointing at is the
         context product creator's judgement (``D-IMPL-117``), and the SDK ships
         no handle vocabulary, no format and no default.
         """
-        if not value.strip():
+        if not _as_a_reader_sees_it(value):
             raise ValueError(
                 "an evidence handle must be declared: a blank handle points at"
                 " nothing while claiming to point at something, which is what"
@@ -432,7 +557,9 @@ class DebtEvidencePointer(CCFContract):
                 " would sit inside the product's content address as evidence"
                 " (D-IMPL-38, D-IMPL-118)"
             )
-        return value
+        return _refuse_an_impersonation_of_an_sdk_marker(
+            value, field="an evidence handle"
+        )
 
 
 def _pointers_are_unique_and_canonically_ordered(
@@ -693,10 +820,20 @@ def _the_obligation_carried_is_declared_or_is_the_sentinel(value: str) -> str:
     and no reader can tell it from either legitimate claim. Refusing it at the
     boundary rather than downstream is CLAUDE.md §11.
 
+    The fourth state is refused for the same reason from the other side: a
+    value *inside the SDK's namespace* that is not exactly the sentinel
+    (:func:`_refuse_an_impersonation_of_an_sdk_marker`). The single-agent
+    review demonstrated by execution that ``" ccf.no-obligation-in-force"``
+    reached this carrier through ``DebtProfile.obligation_for`` unchanged and
+    was admitted — a declared obligation rendering identically to the marker
+    that says none was declared. The sentinel is compared **exactly**, so it
+    stays admissible (it is this field's own default) while nothing else in the
+    namespace does.
+
     Nothing about *meaning* is judged. Any other string is admitted verbatim,
     however unfamiliar: the SDK ships no obligation vocabulary (``D-IMPL-117``).
     """
-    if not value.strip():
+    if not _as_a_reader_sees_it(value):
         raise ValueError(
             "the obligation in force must be either a declared reference or"
             f" exactly {NO_OBLIGATION_IN_FORCE!r}: a blank is a third state"
@@ -704,7 +841,11 @@ def _the_obligation_carried_is_declared_or_is_the_sentinel(value: str) -> str:
             " product's content address and dimension 5 of the replay record"
             " as if it did (D-IMPL-38, D-IMPL-118)"
         )
-    return value
+    return _refuse_an_impersonation_of_an_sdk_marker(
+        value,
+        field="the obligation in force",
+        admitted=NO_OBLIGATION_IN_FORCE,
+    )
 
 
 #: What a decision was obliged to do, as it travels on a carrier.
@@ -803,24 +944,27 @@ class SignalObligation(CCFContract):
         binding that impersonated it would collapse the distinction D-IMPL-38
         requires it to hold open.
 
+        **The sentinel refusal is a namespace refusal**
+        (:func:`_refuse_an_impersonation_of_an_sdk_marker`, with nothing
+        admitted). Refusing only the exact spelling left
+        ``" ccf.no-obligation-in-force"`` — and every other ``ccf.``-prefixed
+        reference — declarable, which the single-agent review demonstrated by
+        execution; a binding is not a carrier and has no sentinel of its own to
+        carve out, so the whole namespace is the deployment's to stay out of.
+
         Neither refusal is a judgement about *meaning*. Any other string is
         accepted verbatim, however unfamiliar.
         """
-        if not value.strip():
+        if not _as_a_reader_sees_it(value):
             raise ValueError(
                 "an obligation reference must be declared: a blank reference"
                 " makes a binding that obliges nothing indistinguishable from"
                 f" no binding at all, which is what {NO_OBLIGATION_IN_FORCE!r}"
                 " already asserts (D-IMPL-38)"
             )
-        if value == NO_OBLIGATION_IN_FORCE:
-            raise ValueError(
-                f"{NO_OBLIGATION_IN_FORCE!r} is reserved: it is the positive"
-                " assertion that no obligation was bound, and a declared"
-                " obligation wearing that spelling would collapse the"
-                " distinction the sentinel exists to hold open (D-IMPL-38)"
-            )
-        return value
+        return _refuse_an_impersonation_of_an_sdk_marker(
+            value, field="an obligation reference"
+        )
 
 
 def _obligations_are_one_per_signal_in_canonical_order(

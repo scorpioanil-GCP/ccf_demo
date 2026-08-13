@@ -1334,11 +1334,158 @@ def test_the_sentinel_is_admissible_on_the_vessel_it_is_the_default_of() -> None
     assertion the absence is spelled with. A fix that copied the profile's
     refusal wholesale would pass every test above and fail this one, having made
     every unobliged product in the tree unconstructable.
+
+    The second assertion changed at Phase 15.6's close and the change is the
+    point of WR-02: it used to assert that ``" ccf.leading-space"`` — a value
+    that renders as the SDK's own namespace with an invisible character in front
+    of it — was admitted here. It is now refused
+    (`test_a_carried_obligation_impersonating_a_marker_is_refused`), so what
+    this control asserts is the thing it was always for: an **ordinary**
+    deployment reference is admitted verbatim, however unfamiliar.
     """
     assert (
         _product(obligation=NO_OBLIGATION_IN_FORCE).obligation_in_force
         == NO_OBLIGATION_IN_FORCE
     )
-    assert _product(obligation=" ccf.leading-space").obligation_in_force == (
-        " ccf.leading-space"
+    assert _product(obligation="escalate-to-credit-officer").obligation_in_force == (
+        "escalate-to-credit-officer"
+    )
+
+
+# --- WR-02: one marker-impersonation rule, not one field's coincidence ------
+
+
+@pytest.mark.parametrize(
+    "impersonation",
+    [
+        "ccf.fabricated-marker",
+        "ccf.no-obligation-in-force ",
+        " ccf.no-obligation-in-force",
+        "CCF.no-obligation-in-force",
+        "ccf.",
+    ],
+    ids=[
+        "sdk-shaped",
+        "trailing space",
+        "leading space",
+        "upper case",
+        "bare prefix",
+    ],
+)
+def test_a_carried_obligation_impersonating_a_marker_is_refused(
+    impersonation: str,
+) -> None:
+    """The carrier admits its own sentinel and nothing else in the namespace.
+
+    Phase 15.6's close-time panel reserved `ccf.` on `Observation.subject` on
+    the argument that a deployment must not be able to write a value that
+    impersonates a fabric marker. The single-agent review then found the
+    property enforced on that field and on none of the three siblings the same
+    phase shipped, and demonstrated by execution that
+    `" ccf.no-obligation-in-force"` reached this carrier through
+    `DebtProfile.obligation_for` unchanged and was admitted — a declared
+    obligation rendering identically to the marker that says none was declared.
+
+    The sentinel itself stays admissible, compared exactly
+    (`test_the_sentinel_is_admissible_on_the_vessel_it_is_the_default_of`),
+    because it is this field's own default.
+    """
+    with pytest.raises(ValueError, match="reserved"):
+        _product(obligation=impersonation)
+
+
+def test_a_carried_obligation_impersonating_a_marker_is_refused_on_rehydration() -> None:
+    """Rehydration is the other door into the same state, so it is the same gate.
+
+    The shape `test_a_blank_obligation_is_refused_on_rehydration` already takes:
+    a validator that fired only at construction would leave the stored artifact
+    admissible, which is the deferral CLAUDE.md §11 refuses.
+    """
+    payload = _product().model_dump()
+    payload["obligation_in_force"] = " ccf.no-obligation-in-force"
+
+    with pytest.raises(ValueError, match="reserved"):
+        ContextProductContract.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "impersonation",
+    ["ccf.fabricated-marker", " ccf.anything", "CCF.ANYTHING", "ccf."],
+    ids=["sdk-shaped", "leading space", "upper case", "bare prefix"],
+)
+def test_an_evidence_handle_impersonating_a_marker_is_refused(
+    impersonation: str,
+) -> None:
+    """The same rule on the second of the four fields.
+
+    `DebtEvidencePointer(handle='ccf.fabricated-marker')` was accepted before
+    this fix. Unlike the carrier this field has **no sentinel of its own** — an
+    assessment that points at nothing carries the empty `NO_DEBT_EVIDENCE`
+    tuple — so the whole namespace is reserved with nothing carved out of it.
+    """
+    with pytest.raises(ValueError, match="reserved"):
+        DebtEvidencePointer(handle=impersonation)
+
+
+@pytest.mark.parametrize(
+    "impersonation",
+    [
+        "ccf.anything-at-all",
+        " ccf.no-obligation-in-force",
+        "CCF.no-obligation-in-force",
+        "ccf.",
+    ],
+    ids=["sdk-shaped", "leading space", "upper case", "bare prefix"],
+)
+def test_a_declared_obligation_impersonating_a_marker_is_refused(
+    impersonation: str,
+) -> None:
+    """The same rule on the third field, widened from an exact-match refusal.
+
+    `SignalObligation` refused only the *exact* sentinel string, so
+    `" ccf.no-obligation-in-force"` was declarable in a profile and travelled
+    to the carrier unchanged. A binding has no sentinel of its own to carve
+    out — the sentinel is the *carrier's* default — so the whole namespace is
+    the deployment's to stay out of.
+    """
+    with pytest.raises(ValueError, match="reserved"):
+        SignalObligation(
+            signal=DebtSignal.FORCED_LLM, obligation_ref=impersonation
+        )
+
+
+@pytest.mark.parametrize(
+    "ordinary",
+    [
+        "re-pull-and-resynthesize",
+        "escalate-to-credit-officer",
+        "urn:example:obligation/17",
+        "no-obligation-in-force",
+    ],
+    ids=["a phrase", "another phrase", "a URN", "the un-namespaced phrase"],
+)
+def test_an_ordinary_reference_is_still_admitted_on_every_field(
+    ordinary: str,
+) -> None:
+    """The widening control across all four fields at once.
+
+    A reservation that had widened into a format check would pass every refusal
+    above and fail here. The SDK enumerates no identifier scheme and interprets
+    nothing it is handed (D-IMPL-117, CLAUDE.md §11): everything outside the
+    reserved namespace is admitted exactly as written, including the
+    un-namespaced phrase the sentinel used to be spelled with.
+    """
+    assert DebtEvidencePointer(handle=ordinary).handle == ordinary
+    assert (
+        SignalObligation(
+            signal=DebtSignal.FORCED_LLM, obligation_ref=ordinary
+        ).obligation_ref
+        == ordinary
+    )
+    assert _product(obligation=ordinary).obligation_in_force == ordinary
+    assert (
+        Observation(
+            observation_type="a-declared-type", observed_at=NOW, subject=ordinary
+        ).subject
+        == ordinary
     )
