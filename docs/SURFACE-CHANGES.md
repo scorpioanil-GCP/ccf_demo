@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**551 entries**, of which **325** name a public Python surface.
+**561 entries**, of which **335** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-258 entries — 226 public Python surface, 32 not public Python API.
+264 entries — 232 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -4686,6 +4686,118 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.6-06-debt-evidence.md`.*
 
+#### ccf.halflife.assessment.SourceRefresh
+
+- Surface: ccf.halflife.assessment.SourceRefresh
+- Public surface: true
+- Before: absent — a consumer could see how much decay the fabric had measured
+  and had no way to learn when the source it measured had last published
+- After: a `CCFContract` with exactly two fields — `source_ref: str`, an opaque
+  identifier for the source in the `ccf.skills.catalog.SkillRequirements`
+  voice, and `refreshed_at: datetime`, when that source was last refreshed. A
+  naive instant is **refused at construction** rather than coerced, and a
+  `float` reference is refused by the module's shared `_refuse_float`
+- Change type: added
+- Why: `D-IMPL-112` gap 2 named *when the underlying source filings were last
+  refreshed* as the second thing a reader of a debt figure cannot get at, and
+  `D-IMPL-117` scoped the SDK's obligation to the carrying structure alone —
+  *"owing no definition of a source or a cadence"*. Two fields are the whole
+  structure that obligation supports. **What this fact is not**, and the
+  sentence an adopter most needs: it is not computed freshness, it is not the
+  fabric's own clock, and it is not an attestation dimension — the three things
+  already in the tree that a reader would otherwise collapse it into
+- Migration: none — new name, nothing referenced it. Note that the SDK compares
+  a refresh instant to nothing, so if your deployment wants "is this source
+  overdue?", that comparison is yours to write against your own cadence
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.halflife.assessment.SourceRefreshRecency
+
+- Surface: ccf.halflife.assessment.SourceRefreshRecency
+- Public surface: true
+- Before: absent
+- After: the annotated carrier type — a `tuple[SourceRefresh, ...]` validated to
+  be **source-unique** and **canonically ordered**. A repeated `source_ref` is
+  refused at construction with a message saying that two refresh instants for
+  one source describe two facts claiming to be one
+- Change type: added
+- Why: an alias rather than a field-by-field re-declaration for
+  `ccf.halflife.assessment.DebtEvidence`'s reason — the carrier lands in **two**
+  places, the product vessel and replay dimension 5, and one validated shape is
+  what keeps those from drifting apart. A sorted tuple rather than a
+  `frozenset`: the value is inside a content address, so it must be
+  order-insensitive in its bytes (asserted by
+  `tests/halflife/test_debt.py::test_recency_declaration_order_does_not_move_the_bytes`),
+  and a set keyed on the whole entry would keep both halves of a contradiction
+  while one keyed on the reference would drop a half silently
+- Migration: none — new name
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY
+
+- Surface: ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY
+- Public surface: true
+- Before: absent
+- After: the empty tuple, as a named module-level constant whose docstring
+  states the positive claim *this product records nothing about when its
+  sources last refreshed*
+- Change type: added
+- Why: `D-IMPL-38`, and the reason `NO_SCORER_PINS` and `NO_DEBT_EVIDENCE` each
+  give: without a named sentinel, a product assembled by a deployment that
+  knows nothing about its sources' publication schedule and one whose recency
+  somebody dropped in transit would be **the same artifact**, which is the
+  repudiation failure mode every sentinel here closes. Never `None` meaning
+  "unknown"
+- Migration: none — it is the default on both fields that carry the carrier, so
+  every construction site written before this plan asserts exactly what it
+  always asserted
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.halflife.debt.SourceRefresh
+
+- Surface: ccf.halflife.debt.SourceRefresh
+- Public surface: true
+- Before: absent
+- After: the same class, re-exported
+- Change type: added
+- Why: `ccf.halflife.debt` re-exports every name defined in
+  `ccf.halflife.assessment` — the split exists only to break an import cycle
+  (`ccf.products.contract` cannot import `ccf.halflife.debt`), and a name
+  reachable at one spelling and not the other would make that internal detail
+  an adopter's problem
+- Migration: none
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.halflife.debt.SourceRefreshRecency
+
+- Surface: ccf.halflife.debt.SourceRefreshRecency
+- Public surface: true
+- Before: absent
+- After: the same annotated carrier type, re-exported
+- Change type: added
+- Why: the same re-export discipline
+- Migration: none
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.halflife.debt.NO_SOURCE_REFRESH_RECENCY
+
+- Surface: ccf.halflife.debt.NO_SOURCE_REFRESH_RECENCY
+- Public surface: true
+- Before: absent
+- After: the same sentinel, re-exported
+- Change type: added
+- Why: the same re-export discipline. This is the spelling a deployment
+  assembling products will already be importing from, since `assess_debt` lives
+  here
+- Migration: none
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -5202,7 +5314,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-246 entries — 63 public Python surface, 183 not public Python API.
+248 entries — 65 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -6744,6 +6856,56 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   seam parses and verifies unchanged
 
 *Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.products.contract.ContextProductContract
+
+- Surface: ccf.products.contract.ContextProductContract
+- Public surface: true
+- Before: eleven fields, ending at 15.6-06's `debt_evidence`
+- After: one further field, `source_refresh_recency: SourceRefreshRecency`,
+  defaulted to `NO_SOURCE_REFRESH_RECENCY`. A **second sibling of** `debt`, not
+  a member of it and not a member of `DebtFactors`
+- Change type: reshaped
+- Why: `D-IMPL-118`, which is explicit that its four measured placements
+  *"price all three Track B vessel-carried members identically"* — so this
+  member takes the same branch 15.6-06's carrier took, on the vessel rather
+  than nested inside the assessment. Not folded into `DebtFactors` for a
+  further reason that is this field's own: a factor is an input to a number the
+  SDK computes, and the SDK computes nothing from this. On the vessel rather
+  than beside it for 15.5-11's door reason, unchanged: all three shipped
+  delivery paths serialize `servable.product` and none reads
+  `ServedProduct.replay_ref`
+- Migration: **nothing is required to keep constructing products** — the
+  sentinel default keeps every existing site saying what it always said — and
+  **something is required if you recorded addresses outside the replay record**;
+  see "The content address moves" above. A custom `ReplayEnvironment` **must**
+  be updated regardless of whether you populate the field; see
+  `ccf.replay.engine.ReplayEnvironment` below
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Before: nine fields, ending at 15.6-06's `debt_evidence`
+- After: one further field, `source_refresh_recency: SourceRefreshRecency`,
+  defaulted to `NO_SOURCE_REFRESH_RECENCY`, placed beside the `debt` whose
+  freshness factor it is deliberately not
+- Change type: reshaped
+- Why: this member is **the price of the ruled placement**, not a symmetry.
+  Because the carrier is top-level on the vessel rather than nested inside the
+  assessment, it does not ride `debt` back through replay; `ProjectionOutput`
+  carries exactly `(plan_id, payload)`, so without this field no implementation
+  of the `(record, projection)` signature can produce the value and every
+  replay of every product raises `ReplayDivergence`. Dimension 5 and not a
+  sixth dimension: `INV-CH7-80` holds, asserted by field enumeration in
+  `test_the_recency_lands_on_dimension_five_and_mints_no_sixth`
+- Migration: none for construction. `NO_SOURCE_REFRESH_RECENCY` is the positive
+  assertion *this decision recorded no refresh instants*, so a record written
+  before this seam parses and verifies unchanged
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
 
 ### Not public Python API
 
@@ -9022,7 +9184,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-47 entries — 36 public Python surface, 11 not public Python API.
+49 entries — 38 public Python surface, 11 not public Python API.
 
 ### Public Python surface
 
@@ -9894,6 +10056,62 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   `ReplayDivergence`, which is the failure mode this fabric prefers
 
 *Recorded by `15.6-06-debt-evidence.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: behavior
+- Before: the record's dimension 5 said nothing about when the assembled
+  sources had last published
+- After: **the same signature.** Dimension 5's `source_refresh_recency` is
+  *derived from the `product` argument the builder was already handed* — no new
+  parameter
+- Why: derivation rather than threading is what keeps every
+  `build_replay_record` consumer byte-for-byte unchanged, and it makes a record
+  pinning refresh instants its product does not carry **unrepresentable** rather
+  than merely discouraged. It is the rule 15.5-11 applied to `debt` and 15.6-06
+  applied to `debt_evidence`: a fact already present is read, never re-passed
+- Migration: **none.** No call site changes. A caller that wants recency on the
+  record puts it on the product
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.replay.engine.ReplayEnvironment
+
+- Surface: ccf.replay.engine.ReplayEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: a conforming `rehydrate_product(*, record, projection)` had to carry
+  `record.content_generation_path.debt` (15.5-11) and
+  `record.content_generation_path.debt_evidence` (15.6-06) onto the product it
+  returned
+- After: **the same signature** — which is why this is `behavior` rather than
+  `reshaped`. What changed is the **contract**: it must now *also* carry
+  `record.content_generation_path.source_refresh_recency`
+- Why: `ContextProductContract.source_refresh_recency` is inside the hashed
+  body and is **not** reachable through `debt` — the ruled placement made it a
+  sibling of the assessment, not a member. `canonical_bytes` walks a model
+  field-by-field over `type(value).model_fields`, so an implementation that
+  omits it returns a product `ccf.replay.engine::replay`'s address check
+  rejects with `ReplayDivergence`
+- Migration: **required for any adopter with a custom `ReplayEnvironment`, even
+  if you never populate the field, and it is one line.** Add
+  `source_refresh_recency=record.content_generation_path.source_refresh_recency`
+  to the `ContextProductContract(...)` your `rehydrate_product` returns. All
+  seven implementations across six files in this repository were updated in the
+  same commit (`src/ccf/replay/engine.py`,
+  `tests/replay/test_engine_rehydration.py`,
+  `tests/replay/test_query_sequence_pin.py`, `perf/suites/replay/conftest.py`,
+  `examples/06-decision-replay/run.py`,
+  `examples/external/00-hello-context/run.py`). **Do not re-acquire the refresh
+  instants at replay** — a refresh instant is what the deployment declared about
+  a source at assembly time, so a rehydrator that asked the source again would
+  be recording today's answer against yesterday's decision. An adopter who omits
+  the line does not get a silent wrong answer; they get `ReplayDivergence`,
+  which is the failure mode this fabric prefers
+
+*Recorded by `15.6-07-source-refresh-recency.md`.*
 
 ### Not public Python API
 
