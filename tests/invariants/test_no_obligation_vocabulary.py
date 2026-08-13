@@ -28,14 +28,32 @@ close-time cross-AI panel (CLAUDE.md §3.1) injected
 into ``src/ccf/halflife/debt.py`` — inside this guard's own scan root — and the
 module stayed **green at 14 passed**. A tuple is the most natural alternative
 spelling of the exact thing this module refuses, and it costs a plan nothing to
-reach for instead of a ``StrEnum``. :func:`_string_table_members` closes it, and
-the injection is now a parametrized control below so a future re-narrowing turns
-red rather than quietly permissive. (The full ``make ci`` did not go green on
+reach for instead of a ``StrEnum``. (The full ``make ci`` did not go green on
 that injection —
 ``tests/halflife/test_debt_delivery.py::test_no_module_level_collection_of_string_literals_exists``
 caught it — but that sibling reads two module *bodies* in one package, while
 this guard reads five modules plus class scope plus ``artifacts.py``. The
 narrower check catching one case is not the wider claim being true.)
+
+**Why the fix for that hole is an enumeration and not another node type.**
+The tuple patch admitted ``ast.Tuple``, ``ast.List``, ``ast.Set`` and four
+builder calls — and the single-agent review that followed it injected an
+``ast.Dict`` and watched both this guard and its sibling stay green at
+**47 passed** with a two-member signal→obligation mapping shipped in ``src/``.
+That was the guard's *third* one-shape-short miss: the original could not see a
+``Literal`` in an annotation, the tuple patch could not see a ``dict``, and a
+dict is a strictly more natural spelling of a **mapping** — which is what
+``D-IMPL-117`` gap 3 actually is — than a tuple ever was. Patching ``ast.Dict``
+would have closed a third instance of one class.
+
+So the shapes are **enumerated once, exhaustively**, in
+:data:`CONTAINER_FORMS`, and every one of them is a parametrized refusal
+control below. The enumeration is the claim: literal displays (including a
+dict's keys *and* its values), builder calls including ``dict(a="x", b="y")``
+whose keyword form has no ``ast.Dict`` node at all, comprehensions over a
+closed display, nesting, and the annotated spellings of each. What the
+enumeration does not cover is listed in the non-claims below rather than left
+for a fourth reviewer to find.
 
 Why this lives in ``tests/invariants/`` and not in ``tools/lints/``
 ------------------------------------------------------------------
@@ -64,8 +82,8 @@ What this check does NOT claim
 
 * It does **not** claim that every domain value in ``src/`` is caught. It reads
   two named roots and three syntactic shapes — an ``Enum``-family class, a
-  ``Literal`` over strings, and a closed table of string constants in
-  tuple/list/set/``frozenset`` form.
+  ``Literal`` over strings, and a closed table of string constants in any of
+  the container forms enumerated in :data:`CONTAINER_FORMS`.
 * It does **not** catch a closed table of **fewer than
   :data:`MINIMUM_TABLE_MEMBERS`** strings. A one-member collection is a default,
   not a choice among alternatives, and this scan root contains two legitimate
@@ -73,6 +91,16 @@ What this check does NOT claim
   for a reader to discover.
 * It does **not** read function bodies for tables. A tuple of strings inside a
   function is a local; ``Literal`` keeps its wider walk.
+* It does **not** see a table **assembled at run time** rather than written as
+  a literal: ``_A + _B``, ``dict(**_OTHER)``, a ``.update()`` call, a table read
+  out of a file, or a table returned by a call this module does not model. The
+  guard reads *declarations*, and a value that is not written down is not one.
+  This is the honest boundary of an AST rule and is stated rather than left as a
+  fourth silent gap — the run-time-assembled case is what ``cinv01a``/``cinv01b``
+  and code review are for.
+* It does **not** read tables nested more than :data:`MAX_NESTING_DEPTH`
+  containers deep. The bound exists so a pathological literal cannot make the
+  scan quadratic; the depth is far past any spelling a plan would write.
 * It does **not** replace CINV-01. ``cinv01a``/``cinv01b``/``cinv01c`` keep their
   jobs; this is the shape they were measured not to reach.
 * It makes **no** statement about ``runtime/``, about ``examples/``, or about any
@@ -181,8 +209,182 @@ ENUM_BASE_NAMES: frozenset[str] = frozenset({"Enum", "StrEnum", "IntEnum"})
 #: Builders that turn a literal collection into a closed one. ``frozenset({…})``
 #: is a ``Call``, not a collection literal, so without these the most idiomatic
 #: spelling of an immutable table would walk straight past the AST predicate.
+#: ``dict`` is here for the form that has no collection node at *all* —
+#: ``dict(forced_llm="re-pull", fail_closed="escalate")`` parses as a ``Call``
+#: with keywords and nothing else.
 COLLECTION_BUILDERS: frozenset[str] = frozenset(
-    {"frozenset", "set", "tuple", "list"}
+    {"frozenset", "set", "tuple", "list", "dict"}
+)
+
+#: The literal displays. ``ast.Dict`` is read on **both halves** — a mapping's
+#: keys are as much a closed vocabulary as its values, and D-IMPL-117 gap 3 is a
+#: mapping.
+DISPLAY_NODES: tuple[type[ast.AST], ...] = (ast.Tuple, ast.List, ast.Set, ast.Dict)
+
+#: The comprehension forms. A closed table laundered through a comprehension —
+#: ``frozenset({name for name in ("re-pull", "escalate")})`` — is still a closed
+#: table, and the members are still written down in the iterable.
+COMPREHENSION_NODES: tuple[type[ast.AST], ...] = (
+    ast.SetComp,
+    ast.ListComp,
+    ast.DictComp,
+    ast.GeneratorExp,
+)
+
+#: Statements that carry a body without binding a name. Recursed into so that a
+#: table written inside ``if TYPE_CHECKING:`` or a ``try:`` at module scope is
+#: read exactly as one written beside it. The single-agent review demonstrated
+#: the omission: ``_bound_name`` returns ``None`` for an ``ast.If``, so before
+#: this recursion the whole subtree's tables were unnamed and therefore unread.
+COMPOUND_STATEMENTS: tuple[type[ast.AST], ...] = (
+    ast.If,
+    ast.Try,
+    ast.With,
+    ast.AsyncWith,
+    ast.For,
+    ast.AsyncFor,
+    ast.While,
+    ast.Match,
+)
+
+#: How deep a nest of containers the reader descends before giving up.
+#:
+#: A bound rather than unbounded recursion, because the input is a file anyone
+#: may edit and an AST walk with no depth limit is a denial-of-service surface
+#: on the test suite itself. Eight is far past any spelling a plan would write —
+#: a table of tables of tables is already two levels — and the cost of the bound
+#: is recorded in the "does NOT claim" contract rather than left implicit.
+MAX_NESTING_DEPTH = 8
+
+#: **Every container form the language offers for writing a closed table**, each
+#: with the source that spells it. This tuple *is* the guard's coverage claim:
+#: it is the parameter list of
+#: :func:`test_the_guard_refuses_an_injected_obligation_vocabulary`, so every
+#: form here is proven refused on every run, and re-narrowing the reader to any
+#: one node type turns a named case red rather than turning the guard quietly
+#: permissive.
+#:
+#: It is an enumeration rather than a growing list of patches because the guard
+#: has been one shape short three times (module docstring). A form judged out of
+#: scope belongs in the "does NOT claim" contract with its reason — never in
+#: neither place.
+CONTAINER_FORMS: tuple[tuple[str, str], ...] = (
+    (
+        "tuple-display (the close-panel injection, verbatim)",
+        '_OBLIGATION_TABLE: tuple[str, ...] = ("re-pull", "escalate", "fail-closed")',
+    ),
+    ("list-display", '_OBLIGATION_TABLE = ["re-pull", "escalate", "fail-closed"]'),
+    ("set-display", '_OBLIGATION_TABLE = {"re-pull", "escalate"}'),
+    (
+        "dict-display, values (the single-agent injection — the mapping gap 3 IS)",
+        '_SIGNAL_OBLIGATIONS: dict[str, str] = {\n'
+        '    "forced_llm": "re-pull-and-resynthesize",\n'
+        '    "fail_closed": "escalate-to-credit-officer",\n'
+        '}',
+    ),
+    (
+        "dict-display, keys (a vocabulary can live in either half)",
+        '_OBLIGATION_ORDER: dict[str, int] = {"re-pull": 0, "escalate": 1}',
+    ),
+    ("frozenset-builder", '_OBLIGATION_TABLE = frozenset({"re-pull", "escalate"})'),
+    ("set-builder", '_OBLIGATION_TABLE = set(["re-pull", "escalate"])'),
+    ("tuple-builder", '_OBLIGATION_TABLE = tuple(["re-pull", "escalate"])'),
+    ("list-builder", '_OBLIGATION_TABLE = list(("re-pull", "escalate"))'),
+    (
+        "dict-builder, keyword form (no ast.Dict node exists in it at all)",
+        '_SIGNAL_OBLIGATIONS = dict(forced_llm="re-pull", fail_closed="escalate")',
+    ),
+    (
+        "dict-builder, positional form",
+        '_SIGNAL_OBLIGATIONS = dict({"forced_llm": "re-pull", "fail_closed": "escalate"})',
+    ),
+    (
+        "set-comprehension over a closed display",
+        '_OBLIGATION_TABLE = {name for name in ("re-pull", "escalate")}',
+    ),
+    (
+        "list-comprehension over a closed display",
+        '_OBLIGATION_TABLE = [name for name in ("re-pull", "escalate")]',
+    ),
+    (
+        "dict-comprehension over a closed display",
+        '_SIGNAL_OBLIGATIONS = {name: name for name in ("re-pull", "escalate")}',
+    ),
+    (
+        "generator expression laundered through a builder",
+        '_OBLIGATION_TABLE = frozenset(name for name in ("re-pull", "escalate"))',
+    ),
+    (
+        "a container of containers",
+        '_OBLIGATION_TABLE = (("re-pull", "escalate"), ("fail-closed", "accept"))',
+    ),
+    (
+        "Final[...] annotation wrapper",
+        '_OBLIGATION_TABLE: Final[tuple[str, ...]] = ("re-pull", "escalate")',
+    ),
+    (
+        "Mapping[str, str] annotation",
+        '_SIGNAL_OBLIGATIONS: Mapping[str, str] = {"forced_llm": "re-pull",'
+        ' "fail_closed": "escalate"}',
+    ),
+    (
+        "frozenset[str] annotation",
+        '_OBLIGATION_TABLE: frozenset[str] = frozenset({"re-pull", "escalate"})',
+    ),
+    (
+        "PEP-604 union annotation",
+        '_SIGNAL_OBLIGATIONS: dict[str, str] | None = {"forced_llm": "re-pull",'
+        ' "fail_closed": "escalate"}',
+    ),
+    (
+        "Annotated[...] wrapper around a Literal",
+        '_ObligationRef = Annotated[Literal["re-pull", "escalate"], "opaque"]',
+    ),
+    (
+        "Sequence[Literal[...]] annotation with an empty value",
+        '_OBLIGATION_TABLE: Sequence[Literal["re-pull", "escalate"]] = ()',
+    ),
+    (
+        "a table as a class attribute",
+        'class _Binding:\n    obligations = ("re-pull", "escalate", "fail-closed")',
+    ),
+    (
+        "a table inside an if-block at module scope",
+        'if True:\n    _SIGNAL_OBLIGATIONS = {"forced_llm": "re-pull",'
+        ' "fail_closed": "escalate"}',
+    ),
+    (
+        "a table inside a try-block at module scope",
+        'try:\n    _OBLIGATION_TABLE = ("re-pull", "escalate")\n'
+        'except Exception:\n    _OBLIGATION_TABLE = ()',
+    ),
+)
+
+#: The declaration forms that are not containers — the three this guard was
+#: written for. Kept separate from :data:`CONTAINER_FORMS` because the
+#: enumeration claim above is specifically about container shapes.
+CLASS_AND_ALIAS_FORMS: tuple[tuple[str, str], ...] = (
+    (
+        "strenum-of-obligation-names (Pitfall 4)",
+        'class ForcedLlmObligation(StrEnum):\n'
+        '    REPULL = "re-pull"\n'
+        '    ESCALATE = "escalate"\n'
+        '    SUPERVISED = "accept-supervised-synthesis"',
+    ),
+    (
+        "literal-alias-of-obligation-names",
+        'ObligationName = Literal["re-pull", "escalate"]',
+    ),
+    (
+        "literal-in-a-field-annotation (the DebtProfile spelling)",
+        'class _Binding:\n'
+        '    obligation: Literal["re-pull", "escalate"] = "re-pull"',
+    ),
+)
+
+#: Every shape this guard claims to refuse, in one list.
+REFUSED_FORMS: tuple[tuple[str, str], ...] = (
+    CLASS_AND_ALIAS_FORMS + CONTAINER_FORMS
 )
 
 #: How many string members make a *table* rather than a value.
@@ -297,54 +499,153 @@ def _is_string_literal_subscript(node: ast.AST) -> bool:
     )
 
 
-def _string_table_members(node: ast.AST) -> list[str] | None:
-    """The members of a closed table of string constants, or ``None``.
+def _called_name(node: ast.Call) -> str:
+    """The bare name a call names, for ``frozenset(…)`` and ``builtins.frozenset(…)``."""
+    origin = node.func
+    if isinstance(origin, ast.Name):
+        return origin.id
+    if isinstance(origin, ast.Attribute):
+        return origin.attr
+    return ""
 
-    The shape the guard could not see until Phase 15.6's close-time cross-AI
-    panel injected it. ``_OBLIGATION_TABLE: tuple[str, ...] = ("re-pull",
-    "escalate", "fail-closed")`` in ``src/ccf/halflife/debt.py`` — inside this
-    guard's own scan root — left the module at **14 passed**. A tuple is the
-    most natural alternative spelling of the exact thing this module exists to
-    refuse, and it costs a plan nothing to reach for instead of a ``StrEnum``.
 
-    Both the literal forms (``(…)``, ``[…]``, ``{…}``) and the builder form
-    (``frozenset({…})`` and friends, which parse as a ``Call`` and not as a
-    collection) are read, because an immutable table is the one a plan is most
-    likely to write and ``frozenset`` is how it would write it.
+def _every_member(nodes: list[ast.expr | None], depth: int) -> list[str] | None:
+    """Members of every node in `nodes`, or ``None`` if any one is not a table.
+
+    All-or-nothing on purpose. ``("re-pull", 3)`` is a mixed collection and not
+    a closed string vocabulary — the boundary this module has always deferred to
+    ``cinv01b-numeric-table`` — and a partial read would turn that deferral into
+    a double claim. A ``None`` entry is the ``**expansion`` form of a dict key,
+    which is a run-time assembly rather than a declaration.
+    """
+    members: list[str] = []
+    for node in nodes:
+        if node is None:
+            return None
+        found = _members_of(node, depth + 1)
+        if found is None:
+            return None
+        members.extend(found)
+    return members
+
+
+def _two_halves(
+    first: list[str] | None, second: list[str] | None, depth: int
+) -> list[str] | None:
+    """The members of a two-halved container — a mapping's keys and its values.
+
+    A mapping is two candidate vocabularies in one node, and reading only one
+    half is how the dict shape survived the sibling check that already read
+    three node types. Both are read.
+
+    :data:`MINIMUM_TABLE_MEMBERS` is applied **per half, and only at the top of
+    a read** (``depth == 0``). Per half, because ``{"assembly-stamped": "x"}``
+    is a one-member mapping — a default, not a choice among alternatives, which
+    is exactly what that constant's reasoning exempts — and summing its two
+    halves to two would refuse the shape the threshold exists to permit. Only at
+    the top, because a sub-minimum mapping *nested* inside a container is not
+    itself the declaration: ``({"a": "b"}, {"c": "d"})`` is a four-member table
+    spelled in two-halves, and the enclosing read is where its members count.
+    """
+    halves = [half for half in (first, second) if half is not None]
+    if not halves:
+        return None
+    if depth == 0 and not any(
+        len(half) >= MINIMUM_TABLE_MEMBERS for half in halves
+    ):
+        return None
+    return [member for half in halves for member in half]
+
+
+def _members_of(node: ast.AST, depth: int = 0) -> list[str] | None:
+    """Every string constant `node` closes over as a table, or ``None``.
+
+    One reader for every container form the language offers, enumerated in
+    :data:`CONTAINER_FORMS` and controlled case by case below. It is written
+    once and recursively, rather than as a widening list of node types, because
+    the guard has now been one shape short **three times** — a ``Literal`` in an
+    annotation, then a tuple, then a dict — and each patch closed an instance of
+    the same class (see the module docstring).
 
     A table of **non-strings** is left alone, on
     :func:`_is_string_literal_subscript`'s reasoning: a numeric table is
     ``cinv01b-numeric-table``'s job and two definitions of one rule is worse
     than one.
     """
-    if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
-        elements = node.elts
-    elif isinstance(node, ast.Call):
-        origin = node.func
-        named = (
-            origin.id
-            if isinstance(origin, ast.Name)
-            else origin.attr
-            if isinstance(origin, ast.Attribute)
-            else ""
-        )
-        if named not in COLLECTION_BUILDERS or len(node.args) != 1:
-            return None
-        inner = node.args[0]
-        if not isinstance(inner, (ast.Tuple, ast.List, ast.Set)):
-            return None
-        elements = inner.elts
-    else:
+    if depth > MAX_NESTING_DEPTH:
         return None
 
-    if len(elements) < MINIMUM_TABLE_MEMBERS:
+    # A bare string is a one-member table. It is admitted here rather than
+    # refused so that nesting composes; MINIMUM_TABLE_MEMBERS is applied once,
+    # at the top, by _string_table_members.
+    if isinstance(node, ast.Constant):
+        return [node.value] if isinstance(node.value, str) else None
+
+    if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+        return _every_member(list(node.elts), depth)
+
+    if isinstance(node, ast.Dict):
+        # `{"forced_llm": "re-pull", …}` is a vocabulary in its values;
+        # `{"forced_llm": 1, "fail_closed": 2}` is one in its keys.
+        return _two_halves(
+            _every_member(list(node.keys), depth),
+            _every_member(list(node.values), depth),
+            depth,
+        )
+
+    if isinstance(node, ast.Call):
+        if _called_name(node) not in COLLECTION_BUILDERS:
+            return None
+        if len(node.args) > 1:
+            return None
+        members: list[str] = []
+        if node.args:
+            members.extend(_members_of(node.args[0], depth + 1) or [])
+        if node.keywords:
+            # `dict(forced_llm="re-pull", fail_closed="escalate")` has no
+            # ast.Dict node anywhere in it: the keys are keyword *identifiers*
+            # and the values are the only constants. Both halves are read, for
+            # the ast.Dict reason.
+            names = [
+                keyword.arg
+                for keyword in node.keywords
+                if keyword.arg is not None
+            ]
+            members.extend(
+                _two_halves(
+                    names if len(names) == len(node.keywords) else None,
+                    _every_member(
+                        [keyword.value for keyword in node.keywords], depth
+                    ),
+                    depth,
+                )
+                or []
+            )
+        return members or None
+
+    if isinstance(node, COMPREHENSION_NODES):
+        # A comprehension over a closed display is a closed table with a step
+        # in front of it; the members are still written down, in the iterable.
+        for generator in node.generators:
+            found = _members_of(generator.iter, depth + 1)
+            if found is not None:
+                return found
         return None
-    if not all(
-        isinstance(element, ast.Constant) and isinstance(element.value, str)
-        for element in elements
-    ):
+
+    return None
+
+
+def _string_table_members(node: ast.AST) -> list[str] | None:
+    """The members of a closed table of string constants, or ``None``.
+
+    :func:`_members_of` with :data:`MINIMUM_TABLE_MEMBERS` applied once, at the
+    top — so that a nested table's inner one-member leg composes rather than
+    disqualifying the whole read.
+    """
+    members = _members_of(node)
+    if members is None or len(members) < MINIMUM_TABLE_MEMBERS:
         return None
-    return [str(element.value) for element in elements]  # type: ignore[attr-defined]
+    return members
 
 
 def _bound_name(node: ast.AST, qualifier: str) -> str | None:
@@ -400,11 +701,21 @@ def _declarations(
 
     **Closed string tables** (:func:`_string_table_members`) are read in the same
     two-reading style, because the statement — annotation and value together —
-    is what gets walked. They are read at **module and class scope only**. A
-    tuple of strings inside a function body is a local, not a declaration, and
-    scanning function bodies for them would flood the guard with findings that
-    are not the defect and get it switched off. ``Literal`` keeps its wider walk
-    unchanged, so no existing coverage narrows.
+    is what gets walked. That is also what keeps every *annotated* spelling from
+    laundering a table: ``_T: Final[tuple[str, ...]] = (…)``,
+    ``_T: Mapping[str, str] = {…}`` and ``_T: dict[str, str] | None = {…}`` all
+    put the members in the statement, and the statement is what is read. They
+    are read at **module and class scope only**. A tuple of strings inside a
+    function body is a local, not a declaration, and scanning function bodies
+    for them would flood the guard with findings that are not the defect and get
+    it switched off. ``Literal`` keeps its wider walk unchanged, so no existing
+    coverage narrows.
+
+    **Compound statements are recursed into** rather than walked flat, so a
+    table inside ``if TYPE_CHECKING:`` or a ``try:`` at module scope is read
+    under the name it binds. Walking them flat was the second hole the
+    single-agent review demonstrated: :func:`_bound_name` binds nothing for an
+    ``ast.If``, so every table in its body was anonymous and therefore skipped.
     """
     found: list[tuple[str, str, int]] = []
     for child in ast.iter_child_nodes(node):
@@ -423,6 +734,11 @@ def _declarations(
                 _declarations(child, qualifier, inside_function=True)
             )
             continue
+        if isinstance(child, COMPOUND_STATEMENTS):
+            found.extend(
+                _declarations(child, qualifier, inside_function=inside_function)
+            )
+            continue
         bound = _bound_name(child, qualifier)
         for descendant in ast.walk(child):
             if _is_string_literal_subscript(descendant):
@@ -433,7 +749,13 @@ def _declarations(
                 continue
             if _string_table_members(descendant) is not None:
                 found.append((bound, "table", descendant.lineno))
-    return found
+    # A nested table reports at every level it is read, and one statement should
+    # produce one finding per (name, kind, line) rather than one per container.
+    deduplicated: list[tuple[str, str, int]] = []
+    for finding in found:
+        if finding not in deduplicated:
+            deduplicated.append(finding)
+    return deduplicated
 
 
 def declared_vocabularies(path: pathlib.Path) -> list[tuple[str, str, int]]:
@@ -597,60 +919,28 @@ def _copied_roots(tmp_path: pathlib.Path) -> pathlib.Path:
 
 @pytest.mark.parametrize(
     "injected",
-    [
-        pytest.param(
-            '\n\nclass ForcedLlmObligation(StrEnum):\n'
-            '    REPULL = "re-pull"\n'
-            '    ESCALATE = "escalate"\n'
-            '    SUPERVISED = "accept-supervised-synthesis"\n',
-            id="strenum-of-obligation-names (Pitfall 4)",
-        ),
-        pytest.param(
-            '\n\nObligationName = Literal["re-pull", "escalate"]\n',
-            id="literal-alias-of-obligation-names",
-        ),
-        pytest.param(
-            '\n\nclass _Binding:\n'
-            '    obligation: Literal["re-pull", "escalate"] = "re-pull"\n',
-            id="literal-in-a-field-annotation (the DebtProfile spelling)",
-        ),
-        pytest.param(
-            '\n\n_OBLIGATION_TABLE: tuple[str, ...] = '
-            '("re-pull", "escalate", "fail-closed")\n',
-            id="tuple-table (the close-panel injection, verbatim)",
-        ),
-        pytest.param(
-            '\n\n_OBLIGATION_TABLE = ["re-pull", "escalate", "fail-closed"]\n',
-            id="list-table",
-        ),
-        pytest.param(
-            '\n\n_OBLIGATION_TABLE = frozenset({"re-pull", "escalate"})\n',
-            id="frozenset-builder-table",
-        ),
-        pytest.param(
-            '\n\nclass _Binding:\n'
-            '    obligations = ("re-pull", "escalate", "fail-closed")\n',
-            id="table-as-a-class-attribute",
-        ),
-    ],
+    [pytest.param(source, id=name) for name, source in REFUSED_FORMS],
 )
 def test_the_guard_refuses_an_injected_obligation_vocabulary(
     tmp_path: pathlib.Path, injected: str
 ) -> None:
-    """The guard is verified to REFUSE, not merely to pass.
+    """The guard is verified to REFUSE, not merely to pass — form by form.
 
-    The three cases are the three spellings ``15.6-RESEARCH.md`` § B4 and
-    Pitfall 4 name between them. The third is the one a plan is most likely to
-    write by accident — a field on ``DebtProfile`` whose strings live in the
-    *annotation* and never in a value — and it is parametrized separately so
-    that narrowing the walk to alias values turns this case red rather than
-    turning the whole guard quietly permissive.
+    **The parameter list is the coverage claim** (:data:`REFUSED_FORMS`): three
+    class-and-alias spellings from ``15.6-RESEARCH.md`` § B4 and Pitfall 4, plus
+    :data:`CONTAINER_FORMS` — every container shape the language offers for
+    writing a closed table. Two of those cases are the two injections that
+    actually beat this guard in review: the close-panel's tuple and the
+    single-agent pass's dict. Narrowing the reader to any one node type turns a
+    *named* case red instead of turning the guard quietly permissive, which is
+    the failure mode that let the same defect class survive three fixes.
 
     The text is APPENDED rather than prepended: the scanned modules open with a
     docstring followed by ``from __future__ import annotations``, and only a
     docstring and comments may precede a ``__future__`` import, so a prepended
     line would be a syntax error masquerading as a caught violation.
     """
+    injected = f"\n\n{injected}\n"
     base = _copied_roots(tmp_path)
 
     # The copies alone still pass — so the refusal below is the injection.
@@ -667,6 +957,51 @@ def test_the_guard_refuses_an_injected_obligation_vocabulary(
     assert "D-IMPL-117" in message, "the failure must name its ruling"
     assert "CLAUDE.md §11" in message, "the failure must name the rule"
     assert "opaque" in message, "the failure must state the remedy"
+
+
+def test_the_enumeration_exercises_every_form_the_reader_models() -> None:
+    """The coverage claim is checked against the reader, not just asserted.
+
+    :data:`CONTAINER_FORMS` says it enumerates every container form. This test
+    is what makes that a claim with a failure mode: every node type in
+    :data:`DISPLAY_NODES` and :data:`COMPREHENSION_NODES`, and every builder in
+    :data:`COLLECTION_BUILDERS`, must appear in at least one enumerated form.
+    Adding a node type to the reader without adding the form that spells it
+    fails here — which is precisely the "one shape short" mistake this rewrite
+    exists to stop repeating.
+    """
+    parsed = [ast.parse(source) for _name, source in CONTAINER_FORMS]
+    node_types = {
+        type(node) for tree in parsed for node in ast.walk(tree)
+    }
+    called = {
+        _called_name(node)
+        for tree in parsed
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+    }
+
+    missing_nodes = sorted(
+        kind.__name__
+        for kind in DISPLAY_NODES + COMPREHENSION_NODES
+        if kind not in node_types
+    )
+    assert not missing_nodes, (
+        f"{missing_nodes} are read by _members_of but no form in"
+        " CONTAINER_FORMS spells them — the enumeration is not the coverage"
+        " claim it says it is"
+    )
+
+    missing_builders = sorted(COLLECTION_BUILDERS - called)
+    assert not missing_builders, (
+        f"{missing_builders} are in COLLECTION_BUILDERS but no form in"
+        " CONTAINER_FORMS calls them"
+    )
+
+    assert len({name for name, _source in REFUSED_FORMS}) == len(REFUSED_FORMS), (
+        "two enumerated forms share an id, so one of them is not reported"
+        " separately when it fails"
+    )
 
 
 def test_the_guard_ignores_obligation_words_in_prose(
@@ -758,12 +1093,33 @@ def test_the_guard_did_not_widen_into_a_ban_on_debt_signal() -> None:
             '\n\n_MIXED = ("re-pull", 3)\n',
             id="a mixed table is not a closed string vocabulary",
         ),
+        pytest.param(
+            '\n\n_ONE_ENTRY: dict[str, str] = {"assembly-stamped": "assembly"}\n',
+            id="a one-entry mapping is a default in both halves, not a choice",
+        ),
+        pytest.param(
+            '\n\n_LIMITS = {1: 2, 3: 4}\n',
+            id="a numeric mapping is cinv01b-numeric-table's job, in both halves",
+        ),
+        pytest.param(
+            '\n\n_BY_TYPE = {_NAME: _VALUE, _OTHER: _SECOND}\n',
+            id="a mapping of references declares no strings at all",
+        ),
+        pytest.param(
+            '\n\n_EMPTY: dict[str, str] = {}\n',
+            id="an empty mapping is not a vocabulary",
+        ),
+        pytest.param(
+            '\n\ndef _local() -> dict[str, str]:\n'
+            '    return {"forced_llm": "re-pull", "fail_closed": "escalate"}\n',
+            id="a mapping inside a function body is still not a declaration",
+        ),
     ],
 )
 def test_the_table_shape_did_not_widen_into_a_ban_on_every_collection(
     tmp_path: pathlib.Path, benign: str
 ) -> None:
-    """The opposite direction, for the shape added at Phase 15.6's close.
+    """The opposite direction, for every shape the reader now covers.
 
     Widening a structural invariant is only an improvement if it refuses more of
     the defect and none of the tree. Each case here is a collection of constants
@@ -771,8 +1127,11 @@ def test_the_table_shape_did_not_widen_into_a_ban_on_every_collection(
     to a real shape in the scan roots: ``__all__`` in all five modules,
     ``ProductClassDeclaration``'s one-member ``frozenset`` field defaults, and
     the numeric-table boundary this module has always deferred to
-    ``cinv01b-numeric-table``. A guard that had widened into a ban on tuples
-    would pass every refusal test and fail here.
+    ``cinv01b-numeric-table``. A guard that had widened into a ban on tuples —
+    or, after this rewrite, on **mappings** — would pass every refusal test and
+    fail here. The one-entry mapping is the case the mapping widening most
+    easily gets wrong: summing a one-key, one-value dict to two members would
+    refuse exactly the shape :data:`MINIMUM_TABLE_MEMBERS` exists to permit.
     """
     base = _copied_roots(tmp_path)
     target = base / "src/ccf/halflife/assessment.py"
