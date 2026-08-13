@@ -77,8 +77,11 @@ from typing import Protocol, runtime_checkable
 
 from ccf.controlplane.artifacts import DebtProfile, HalfLifeTable
 from ccf.halflife.assessment import (
+    NO_DEBT_EVIDENCE,
     NO_SCORER_PINS,
     DebtAssessment,
+    DebtEvidence,
+    DebtEvidencePointer,
     DebtFactorName,
     DebtFactors,
     DebtSignal,
@@ -89,8 +92,11 @@ from ccf.halflife.decay import Observation, freshness
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "NO_DEBT_EVIDENCE",
     "NO_SCORER_PINS",
     "DebtAssessment",
+    "DebtEvidence",
+    "DebtEvidencePointer",
     "DebtFactorName",
     "DebtFactorScorerProtocol",
     "DebtFactors",

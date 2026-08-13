@@ -458,6 +458,17 @@ def assemble_and_serve(
             # operators actually left standing, not what the artifacts hoped
             # for.
             debt=scenario.debt(execution.view),
+            # WHAT THE DEBT POINTS AT, beside the debt rather than inside it
+            # (D-IMPL-118 `qa-toplevel`) — so it is in the product's content
+            # address on its own account, and dimension 5 carries a matching
+            # member that every `rehydrate_product` reads back.
+            #
+            # This deployment emits NOTHING into it, and that is a ruling
+            # rather than an oversight: D-IMPL-119 limb 3(b), *"omit evidence
+            # pointers entirely until a later phase adds principal scoping to
+            # the assembly path"*. `KycScenario.debt_evidence` carries the full
+            # reasoning and is the one place a later phase edits.
+            debt_evidence=scenario.debt_evidence(execution.view),
         )
         # A refusal is not a thing to proceed past: `ServableProduct` is not
         # constructible outside `run_gates`, so holding one IS the evidence the

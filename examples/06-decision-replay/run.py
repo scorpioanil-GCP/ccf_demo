@@ -412,6 +412,10 @@ class GridReplayEnvironment:
             ),
             payload=projection.payload,
             debt=record.content_generation_path.debt,
+            # And what that debt pointed at, for a harder reason (D-IMPL-118):
+            # the carrier is a top-level vessel field, so `(record, projection)`
+            # names it nowhere else and omitting it diverges every replay.
+            debt_evidence=record.content_generation_path.debt_evidence,
         )
 
 

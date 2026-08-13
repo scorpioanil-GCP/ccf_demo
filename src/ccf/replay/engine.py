@@ -181,6 +181,19 @@ class ReplayEnvironment(Protocol):
         different decision wearing this one's identifier. A record carrying the
         ``None`` sentinel asserts its decision had no assessment, and the
         rebuilt product carries ``None`` in turn.
+
+        **What the debt pointed at comes off the record too, and an
+        implementation that omits it diverges** (15.6-06, D-IMPL-118).
+        ``ContextProductContract.debt_evidence`` is a *top-level* vessel field
+        rather than a member of the assessment, so it does not ride ``debt``
+        back: read ``record.content_generation_path.debt_evidence`` and carry
+        it onto the rebuilt product verbatim. It is reconstructible without a
+        signature change for the same reason ``debt`` is — the record is
+        already a parameter here — but only because dimension 5 was given a
+        matching member; :class:`~ccf.projection.plan.ProjectionOutput` carries
+        exactly ``(plan_id, payload)`` and names no evidence at all. A record
+        carrying :data:`~ccf.halflife.assessment.NO_DEBT_EVIDENCE` asserts its
+        decision pointed at nothing, and the rebuilt product asserts the same.
         """
         ...
 

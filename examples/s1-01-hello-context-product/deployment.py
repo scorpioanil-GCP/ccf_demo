@@ -61,7 +61,9 @@ from ccf.controlplane.artifacts import DebtProfile, HalfLifeTable
 from ccf.deployment import BootedFabric
 from ccf.graph.protocols import GraphView
 from ccf.halflife.debt import (
+    NO_DEBT_EVIDENCE,
     DebtAssessment,
+    DebtEvidence,
     DebtFactors,
     FreshnessScorer,
     ScorerPin,
@@ -275,6 +277,43 @@ class KycScenario:
             profile=self.debt_profile,
             scorers=(ScorerPin.of(scorer, factor=FRESHNESS_FACTOR),),
         )
+
+    def debt_evidence(self, view: GraphView) -> DebtEvidence:
+        """What the debt points at — and why this deployment points at nothing.
+
+        **D-IMPL-119, limb 3(b) — the omission path, taken explicitly.** The
+        ruling gives plan ``15.6-06`` exactly two paths and this deployment
+        takes the second, quoted verbatim: *"(b) **omit evidence pointers
+        entirely** until a later phase adds principal scoping to the assembly
+        path."*
+
+        Why (b) rather than (a). The ruling's limb 1 makes the safety property
+        **the SDK's**, not the adopter's — it declined ``qb2-opaque`` precisely
+        because that *"moves a real disclosure question onto every adopter, and
+        the SDK cannot then say the surface is safe by construction"*. Limb 4
+        then refuses a handle that is *merely encoded* rather than genuinely
+        non-revealing: *"an obfuscated `entity_uri` is an interpretable pointer
+        with an extra step"*. The only inputs in hand at this call site are the
+        assembled ``EntityClaim``s, and limb 2 puts principal scoping of the
+        assembly path explicitly out of scope for this phase — so every handle
+        derivable here is either interpretable (refused by limb 4) or has had
+        its referent discarded, which is a pointer that points at nothing
+        dressed as one that does. Emitting the named sentinel says the same
+        thing without the costume.
+
+        What is NOT being asserted: that scoped derivation is unwanted. The
+        ruling forecloses that reading — *"it does not license a later plan
+        inferring, from limb 2, that scoped derivation is unwanted; limb 1 says
+        the opposite."* The carrier ships (D-IMPL-118) and the replay seam that
+        makes it reconstructible ships with it, so the phase that closes the
+        scoping gap populates this method and changes no surface.
+
+        ``view`` is taken and unread, deliberately: the signature is the one a
+        populating deployment needs, so closing the gap is a body change rather
+        than a call-site change.
+        """
+        del view  # See above: the omission is the ruling's, not the shape's.
+        return NO_DEBT_EVIDENCE
 
 
 class UltimateBeneficialOwnershipPlan:

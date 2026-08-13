@@ -37,7 +37,9 @@ from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.graph.protocols import GraphQuery, GraphView
 from ccf.halflife.assessment import (
+    NO_DEBT_EVIDENCE,
     DebtAssessment,
+    DebtEvidencePointer,
     DebtFactors,
     DebtSignal,
     ScorerPin,
@@ -113,6 +115,19 @@ DEBT = DebtAssessment(
             scorer_version="1.0.0",
         ),
     ),
+)
+
+#: What this fixture's debt points at (D-IMPL-118). Test-owned handles: the SDK
+#: enumerates none of them and interprets none of them. They are deliberately
+#: unreadable as identities — under D-IMPL-119 limb 4 a pointer a reading
+#: principal could interpret is refused outright until the assembly path is
+#: principal-scoped, so a fixture whose handles spelled entity URIs would be
+#: modelling the forbidden shape. Carried on the product, so it is inside the
+#: content address the engine checks — which is what makes this module the
+#: tripwire for the evidence landing as well as for the debt landing.
+EVIDENCE = (
+    DebtEvidencePointer(handle="h-7f3a"),
+    DebtEvidencePointer(handle="h-c105"),
 )
 
 #: The intent and freshness this fixture's questions carry (D-IMPL-111 limb
@@ -251,6 +266,7 @@ class _Deployment:
             ),
             payload=execution.projection.payload,
             debt=DEBT,
+            debt_evidence=EVIDENCE,
         )
 
 
@@ -308,6 +324,17 @@ class _Environment:
             ),
             payload=projection.payload,
             debt=record.content_generation_path.debt,
+            # And what that debt pointed at, for a harder reason (D-IMPL-118):
+            # the carrier is a top-level vessel field, sibling to `debt` rather
+            # than a member of it, so it does NOT ride the assessment back.
+            # `ProjectionOutput` carries exactly `(plan_id, payload)`, so
+            # dimension 5 is the only place a `(record, projection)` rehydrator
+            # can read it from — and omitting it diverges every replay.
+            #
+            # MEASURED, not inferred (plan 15.6-06 task 2): deleting this one
+            # line turns 8 of this module's 30 cases red with
+            # `ReplayDivergence`, including the three landings that predate it.
+            debt_evidence=record.content_generation_path.debt_evidence,
         )
 
 
@@ -644,6 +671,187 @@ def test_a_record_written_before_the_debt_seam_still_replays(
     outcome = _replay(deployment, served.replay_ref.content_address)
 
     assert outcome.product.debt is None
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+
+
+# --- what the debt points at, against this same tripwire (D-IMPL-118) ------
+
+
+def test_the_delivered_product_carries_what_its_debt_points_at(
+    deployment: _Deployment,
+) -> None:
+    """D-IMPL-118 `qa-toplevel`: on the vessel, and beside `debt` not inside it.
+
+    Asserted on the vessel because the vessel is what every door serializes.
+    The second assertion is the one that rules out the placement the ruling
+    forwent: under `qa-nested` the pointers would be reachable at
+    ``product.debt.<member>`` and would have ridden the assessment into the
+    record for free. They are not, and that is why the reconstruction seam
+    below has to exist at all.
+    """
+    execution = deployment.execute()
+    product = deployment.candidate(execution)
+
+    assert product.debt_evidence == EVIDENCE
+    assert "debt_evidence" in type(product).model_fields
+    assert product.debt is not None
+    assert "debt_evidence" not in type(product.debt).model_fields
+
+
+def test_the_evidence_lands_on_dimension_five_and_mints_no_sixth(
+    deployment: _Deployment,
+) -> None:
+    """INV-CH7-80: the five dimensions are inviolate.
+
+    The extension lands *inside* dimension 5, beside the ``debt`` it explains,
+    and neither the record nor dimension 4 gains a member. What this case and
+    only this case rules out: a reconstruction seam bolted on as a sixth
+    dimension, which would have satisfied replay and broken the invariant.
+    """
+    _address, record = _serve(deployment)
+
+    assert record.content_generation_path.debt_evidence == EVIDENCE
+    assert "debt_evidence" in type(record.content_generation_path).model_fields
+    assert "debt_evidence" not in type(record).model_fields
+    assert "debt_evidence" not in type(record.perspective_conditioning).model_fields
+
+
+def test_what_the_debt_pointed_at_replays_byte_exactly(
+    deployment: _Deployment,
+) -> None:
+    """The D-IMPL-118 obligation, executed: the address moves *and* rebuilds.
+
+    The ruling authorized a third content-address move on the express
+    condition that the vessel field be carried on dimension 5 and read back by
+    every rehydrator — without which *"every replay of every product raises
+    `ReplayDivergence`"*. This is that condition, run against the real serve
+    path and the real engine, and run after the graph has moved on, because a
+    reproduction from unchanged state proves almost nothing.
+
+    Both recomputations are asserted rather than trusted: the product against
+    the address the record names, and the record against the address the store
+    resolved it from. The second is where the move is *shown* reconstructible
+    instead of asserted.
+    """
+    address, record = _serve(deployment)
+
+    deployment.handle.worker.ingest(
+        _envelope(
+            envelope_id="env-evidence-later",
+            payload={
+                "counterparty_lei": "LEI-AAA",
+                "counterparty_name": "Northwind Holdings SA",
+                "jurisdiction": "CH",
+            },
+            observed_time=T_JULY,
+        )
+    )
+
+    outcome = _replay(deployment, address)
+
+    assert outcome.product.debt_evidence == EVIDENCE
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+    assert content_hash(record) == address
+
+
+def test_a_rehydration_that_drops_the_evidence_is_divergence(
+    deployment: _Deployment,
+) -> None:
+    """The adversarial half: dropping the pointers is *detected*, not tolerated.
+
+    The field is inside the content address, so a rehydrator that returned the
+    vessel without it returns a different decision. A silent drop would be
+    indistinguishable from a decision made with no evidence at all — which is
+    exactly the artifact the ``NO_DEBT_EVIDENCE`` sentinel exists to keep
+    distinct.
+    """
+
+    class _EvidenceBlind(_Environment):
+        def rehydrate_product(
+            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
+        ) -> ContextProductContract:
+            product = super().rehydrate_product(record=record, projection=projection)
+            return product.model_copy(update={"debt_evidence": NO_DEBT_EVIDENCE})
+
+    address, _record = _serve(deployment)
+    with pytest.raises(ReplayDivergence, match="product"):
+        _replay(deployment, address, environment=_EvidenceBlind(deployment))
+
+
+def test_a_rehydration_that_swaps_one_pointer_is_divergence(
+    deployment: _Deployment,
+) -> None:
+    """One handle changed is a different decision, and is caught as one.
+
+    Stronger than the drop case and not implied by it: a rehydrator that
+    returned the right *number* of pointers would satisfy any cardinality
+    check. What this rules out is an implementation that treats the carrier as
+    a count or a presence flag rather than as bytes inside the address.
+    """
+    swapped = (EVIDENCE[0], DebtEvidencePointer(handle="h-not-the-one"))
+
+    class _EvidenceSwapped(_Environment):
+        def rehydrate_product(
+            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
+        ) -> ContextProductContract:
+            product = super().rehydrate_product(record=record, projection=projection)
+            return product.model_copy(update={"debt_evidence": swapped})
+
+    address, _record = _serve(deployment)
+    with pytest.raises(ReplayDivergence, match="product"):
+        _replay(deployment, address, environment=_EvidenceSwapped(deployment))
+
+
+def test_a_record_written_before_the_evidence_seam_still_replays(
+    deployment: _Deployment,
+) -> None:
+    """The sentinel's compatibility promise (the ``debt`` case's lineage).
+
+    A product assembled with no pointers, and a record that therefore pins
+    none, still reproduce: ``NO_DEBT_EVIDENCE`` on both sides is the same
+    positive claim and the two agree. A change that made the carrier required
+    would break every pre-seam record instead — which is the cost this case
+    prices and the reason the field defaults rather than demands.
+    """
+    execution = deployment.execute()
+    product_class = deployment.product_class()
+    gated = run_gates(
+        deployment.candidate(execution).model_copy(
+            update={"debt_evidence": NO_DEBT_EVIDENCE}
+        ),
+        engine_resolved=execution.operators_invoked,
+        now=NOW,
+        registry=deployment.registry,
+        product_class=product_class,
+    )
+    assert isinstance(gated, ServableProduct)
+    record = build_replay_record(
+        execution=execution,
+        product=gated.product,
+        perspective=deployment.perspective(),
+        policy_bindings=(
+            PolicyBinding(key=POLICY_BUNDLE_KEY, version=deployment.policy_version),
+        ),
+        assembly_mode="algorithmic",
+        recorded_at=NOW,
+    )
+    served = serve(
+        product=gated,
+        record=record,
+        replay_writer=ReplayWriter(
+            store=deployment.store, artifact_class=ARTIFACT_CLASS
+        ),
+    )
+
+    assert record.content_generation_path.debt_evidence == NO_DEBT_EVIDENCE
+
+    outcome = _replay(deployment, served.replay_ref.content_address)
+
+    assert outcome.product.debt_evidence == NO_DEBT_EVIDENCE
     assert content_hash(outcome.product) == (
         record.content_generation_path.product_content_address
     )

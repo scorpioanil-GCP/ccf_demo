@@ -37,6 +37,21 @@ producer anywhere in the SDK, and none is invented here — the two shapes a
 later cycle may choose between are recorded in the ruling, not anticipated in
 this module.
 
+**Evidence points beside debt, not from inside it** (D-IMPL-118).
+:class:`DebtEvidencePointer` is defined here, beside the assessment it
+explains, but the *carrier* is a *top-level* field on
+:class:`~ccf.products.contract.ContextProductContract` — a sibling of ``debt``
+rather than a member of :class:`DebtAssessment`. Nesting was the cheaper
+measured option and was declined: it would have inherited replay
+reconstructibility for nothing, because the shipped rehydrators already carry
+``record.content_generation_path.debt`` verbatim. The ruling forwent that free
+ride deliberately, buying the field its own identity on the vessel, and paid
+for it with a matching member on
+:class:`~ccf.replay.record.ContentGenerationPath` plus an edit to every
+implementation of
+:meth:`~ccf.replay.engine.ReplayEnvironment.rehydrate_product` — without both,
+every replay of every product raises ``ReplayDivergence``.
+
 **Decimal, never float.** These values reach the replay record and are inside
 the product's content address under D-IMPL-100; floats are not bit-stable, so a
 float is *refused at construction* rather than coerced. Coercion would be the
@@ -51,17 +66,20 @@ from __future__ import annotations
 
 from decimal import Decimal
 from enum import StrEnum
-from typing import Final, Literal, Protocol
+from typing import Annotated, Final, Literal, Protocol
 
-from pydantic import field_validator
+from pydantic import AfterValidator, field_validator
 
 from ccf.contracts.base import CCFContract
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "NO_DEBT_EVIDENCE",
     "NO_SCORER_PINS",
     "DebtAssessment",
+    "DebtEvidence",
+    "DebtEvidencePointer",
     "DebtFactorName",
     "DebtFactors",
     "DebtSignal",
@@ -228,6 +246,103 @@ class ScorerPin(CCFContract):
 #: empty tuple rather than a marker string because each element is a structured
 #: pin and the field must stay one shape.
 NO_SCORER_PINS: Final[tuple[ScorerPin, ...]] = ()
+
+
+class DebtEvidencePointer(CCFContract):
+    """One handle to something a debt assessment summarises (D-IMPL-118).
+
+    SDK-defined (CLAUDE.md §11). D-IMPL-112 recorded that a bare
+    ``D_c``/signal/``F`` triple is not enough to act on, and named *which
+    observations contributed the decay* as the first thing missing. D-IMPL-117
+    then scoped what the SDK owes about it: *"the structure and the API to
+    populate and extract"*, and **none of the content**. This class is that
+    structure. Which observations are worth pointing at is the context product
+    creator's judgement, expressed through the product's evolutionary
+    capability rather than through SDK code.
+
+    Attributes:
+        handle: The identifier of the thing pointed at. **Opaque to the SDK;
+            declared by the deployment** — the discipline
+            :class:`~ccf.skills.catalog.SkillRequirements` already holds. The
+            SDK validates structure (type, uniqueness, canonical order) and
+            validates nothing about meaning: it ships no entity-URI type, no
+            claim-id type, no vocabulary and no default.
+
+    **The handle carries nothing a reading principal can interpret**
+    (D-IMPL-119 limbs 3 and 4). That ruling found evidence pointers
+    entitlement-sensitive and the shipped assembly path *not* principal-scoped,
+    and it therefore refuses a pointer naming any of ``EntityClaim``'s fields in
+    an interpretable form until the scoping gap is closed. It also refuses a
+    handle that is *merely encoded* rather than genuinely non-revealing — an
+    obfuscated entity URI is an interpretable pointer with an extra step. Until
+    a later phase adds principal scoping to the assembly path, a populated
+    handle must be resolvable only through a privileged side channel inside the
+    trust boundary, never by the principal reading the product.
+
+    **Nothing here varies by principal**, which is what keeps this field's
+    presence inside the product's content address compatible with D-IMPL-105:
+    principal-dependent contents would give two differently-entitled principals
+    different addresses for the same assembly, which is the coupling that
+    ruling dissolved.
+    """
+
+    handle: str
+
+    @field_validator("handle", mode="before")
+    @classmethod
+    def _handle_is_not_a_float(cls, value: object) -> object:
+        return _refuse_float(value)
+
+
+def _pointers_are_unique_and_canonically_ordered(
+    value: tuple[DebtEvidencePointer, ...],
+) -> tuple[DebtEvidencePointer, ...]:
+    """Refuse a repeated handle; store the rest in one order.
+
+    Both halves follow
+    :meth:`DebtAssessment._pins_are_one_per_factor_in_canonical_order` exactly,
+    and for its reasons. Two pointers carrying one handle describe one thing
+    claimed twice, which is not a stricter record but an incoherent one.
+    And declaration order is not a fact about the decision, while this value
+    *is* inside the delivered product's content address (D-IMPL-118), so an
+    order-sensitive field would make two identical assessments hash
+    differently.
+
+    A ``tuple`` sorted here rather than a ``frozenset``: a set is order-free for
+    nothing, but it would also collapse a repeated handle **silently**, and the
+    repetition is exactly the incoherence worth naming out loud.
+    """
+    handles = [pointer.handle for pointer in value]
+    if len(set(handles)) != len(handles):
+        raise ValueError(
+            "an evidence handle may appear at most once; two pointers "
+            "carrying one handle describe a single thing claimed twice, "
+            "which is an incoherent record rather than a stricter one "
+            "(D-IMPL-118)"
+        )
+    return tuple(sorted(value, key=lambda pointer: pointer.handle))
+
+
+#: What a debt assessment points at, canonically ordered and handle-unique.
+#:
+#: An alias rather than a field-by-field re-declaration because the carrier
+#: lands in **two** places — on the vessel and on replay dimension 5 — and one
+#: validated shape is what keeps those two from drifting apart.
+DebtEvidence = Annotated[
+    tuple[DebtEvidencePointer, ...],
+    AfterValidator(_pointers_are_unique_and_canonically_ordered),
+]
+
+#: An assessment that points at nothing.
+#:
+#: The positive assertion, in :data:`NO_SCORER_PINS`' voice and for its reason:
+#: *this assessment was computed without evidence pointers*. Never ``None``
+#: meaning "unknown" (D-IMPL-38) — without a named sentinel, an assessment that
+#: pointed at nothing and one whose pointers somebody dropped would be the same
+#: artifact, which is the repudiation failure mode every sentinel in this
+#: fabric closes. The empty tuple rather than a marker string because each
+#: element is a structured pointer and the field must stay one shape.
+NO_DEBT_EVIDENCE: Final[tuple[DebtEvidencePointer, ...]] = ()
 
 
 class DebtAssessment(CCFContract):

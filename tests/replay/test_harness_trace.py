@@ -231,6 +231,15 @@ def test_every_pre_change_field_is_byte_for_byte_unchanged() -> None:
         b'"debt":null,',
         b"",
     ).replace(
+        # 15.6-06, D-IMPL-118: what the debt pointed at lands on dimension 5
+        # under the same sentinel-default discipline, so a record built by a
+        # caller that pointed at nothing is byte-identical to a pre-ruling
+        # record once the sentinel key is removed. The sentinel renders as `[]`
+        # because `NO_DEBT_EVIDENCE` is the empty tuple — a positive claim in
+        # one shape, not a `null` standing for "unknown" (D-IMPL-38).
+        b'"debt_evidence":[],',
+        b"",
+    ).replace(
         # 15.5-13, D-IMPL-111 limb (b): the question answered lands on
         # dimension 5 under the same sentinel-default discipline, so a record
         # built without one is byte-identical to a pre-ruling record once the
