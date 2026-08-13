@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**539 entries**, of which **313** name a public Python surface.
+**541 entries**, of which **315** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-251 entries — 219 public Python surface, 32 not public Python API.
+252 entries — 220 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -4545,6 +4545,34 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.5-15-resolver-seam.md`.*
 
+#### ccf.halflife.decay.NO_SUBJECT_IDENTITY
+
+- Surface: ccf.halflife.decay.NO_SUBJECT_IDENTITY
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the marker string `"no-subject-identity"`, as the positive assertion
+  *this observation was recorded without a subject identity* — in the
+  `ccf.halflife.assessment.NO_SCORER_PINS` and `ccf.replay.record.NO_GRAPH_QUERIES`
+  voice, and for their reason. It is the default of `Observation.subject`
+- Why: `D-IMPL-120` accepted a governance cost when it ruled the identity
+  optional, and stated it rather than eliding it: `D-IMPL-97`'s *"every subclass
+  is a place to forget"* argument cuts toward required, so an assembler that
+  could populate the identity and does not is indistinguishable, from the type,
+  from one that has none. What makes that bearable is `D-IMPL-38`'s
+  no-silent-defaults discipline — the absent value is **a named positive
+  assertion, not `None`-as-unknown**, so an omitted identity and a dropped one are
+  not the same artifact. The ruling is explicit that *"an implementation that
+  expresses the absence as `None` has not implemented this ruling."* A marker
+  string rather than an empty container because the field is one opaque string and
+  must stay one shape
+- Migration: new surface — none. A deployment that has no identity to carry
+  gets the sentinel without writing anything; one that wants to say so explicitly
+  writes `subject=NO_SUBJECT_IDENTITY`, which is the same value and the louder
+  statement
+
+*Recorded by `15.6-05-observation-identity.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -5061,7 +5089,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-243 entries — 60 public Python surface, 183 not public Python API.
+244 entries — 61 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -6509,6 +6537,52 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   pair, exactly as it does for a payload schema
 
 *Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf.halflife.decay.Observation
+
+- Surface: ccf.halflife.decay.Observation
+- Public surface: true
+- Change type: reshaped
+- Before: two fields — `observation_type` and `observed_at`. An observation could
+  say what kind of thing it was and when it was made, and nothing about what it
+  was an observation *of*
+- After: one further field, `subject: str`, defaulted to
+  `ccf.halflife.decay.NO_SUBJECT_IDENTITY`. An opaque identifier the deployment
+  chooses; the SDK never enumerates it, never parses it and never compares it.
+  It is **carried, never consumed** — no function in `ccf.halflife.decay` reads
+  it, and `ccf.halflife.debt.FreshnessScorer.score` returns the same figure for
+  the same types and instants whether it is populated or not, asserted by
+  `tests/halflife/test_debt.py::test_the_freshness_figure_is_unmoved_by_the_subject_identity`
+- Why: `D-IMPL-112` gap 1 — a debt figure an analyst can act on has to be able to
+  point at the observations whose decay it summarises, and `D-IMPL-99` ruled that
+  unbuildable because the join key existed on no structure in this tree.
+  `D-IMPL-117` scopes what the SDK owes for it: the data structure and the API to
+  populate and extract, and none of the judgement about which observations
+  matter — so the field is an opaque string and the choice of what to put in it
+  belongs to the context product creator. `D-IMPL-120` ruled the field
+  **optional** (`qc-optional`) rather than required, measured against the three
+  shipped example artifacts: required cost 6 code files **plus all 3 artifacts,
+  each of which raises**; optional costs 3 code files and **0 artifacts**.
+  Whitepaper §7.7 binds λ_c to the observation *type* and says nothing about
+  subject identity, so the field is an SDK extension and its docstring is labelled
+  as one (CLAUDE.md §11)
+- Migration: **none.** The field is defaulted, so every existing construction site
+  and every `Observation.model_validate` over a two-key mapping keeps working and
+  keeps saying exactly what it always said — asserted by
+  `tests/halflife/test_decay.py::test_a_two_key_observation_mapping_still_validates`,
+  and demonstrated by the three example artifacts
+  (`examples/00-quickstart/artifacts/decision.yaml`,
+  `examples/01-agent-basics/artifacts/debt-evaluation.yaml`,
+  `examples/08-e2e-demo/artifacts/decision.yaml`), which are **unchanged by this
+  plan**. **The canonical bytes of an `Observation` do change**, because `subject`
+  is serialized whether or not it is populated: anything that content-addressed an
+  `Observation` directly re-records. Nothing in this repository does, and no
+  product address moves, because `Observation` is an input to debt computation and
+  not a member of `ContextProductContract`. To adopt, pass `subject=` at
+  construction — `examples/s1-01-hello-context-product/deployment.py` carries
+  `record.claim.entity_uri`, a value its loop variable already held
+
+*Recorded by `15.6-05-observation-identity.md`.*
 
 ### Not public Python API
 
