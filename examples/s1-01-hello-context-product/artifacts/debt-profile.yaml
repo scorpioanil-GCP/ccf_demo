@@ -36,12 +36,50 @@
 # [ADAPT] domain vocabulary — safe to change for your domain
 # [MECHANISM] structural keys interpreted by the factory — do not rename
 #
-# In this file: every calibrated value is [ADAPT]; the profile keys
-# (`risk_sensitivity`, `forced_llm_threshold`, `fail_closed_threshold`) are
-# [MECHANISM].
+# In this file: every calibrated value is [ADAPT], and so is every word of
+# `signal_obligations` below; the profile keys (`risk_sensitivity`,
+# `forced_llm_threshold`, `fail_closed_threshold`, `signal_obligations`,
+# `signal`, `obligation_ref`) are [MECHANISM].
 
 semver: "1.0.0"
 
 risk_sensitivity: "1.2"
 forced_llm_threshold: "0.20"
 fail_closed_threshold: "0.60"
+
+# WHAT EACH ROUTING STATE OBLIGES THIS DEPLOYMENT TO DO.
+#
+# **Read this block if you read nothing else in this file.** Every word to the
+# right of `obligation_ref` was written by this deployment. The CCF SDK ships
+# the binding — a mapping whose keys it validates because `DebtSignal` is its
+# own type, and whose values it never parses, never checks against a permitted
+# list, and never acts on. It ships no list of obligations, no default, and no
+# opinion about whether these three are the right ones.
+#
+# That division is the whole demonstration. `D-IMPL-112` recorded a real
+# analyst asking what `forced_llm` actually *requires* of them; the SDK's
+# answer is "whatever your Control Plane says", and this is the Control Plane
+# saying it. A CCF release that shipped these strings would have made a KYC
+# team's escalation policy into everybody's escalation policy.
+#
+# The strings below are `obligation_ref`s, not instructions: the fabric hands
+# them to the consumer on the delivered product and takes no action itself.
+# Wiring an action to one is the deployment's job, in the deployment's code —
+# which is exactly why the fabric can stay silent about what it means.
+#
+# **`ok` is deliberately left unbound.** A partly-bound profile is legal, and
+# the delivered product then carries the SDK's named `no obligation in force`
+# sentinel — a positive claim that nothing was bound, never a null standing
+# for "we forgot" (`D-IMPL-38`). The demonstration turns on this: question 1
+# routes to `ok` and carries the sentinel, question 3 routes to `forced_llm`
+# six weeks later against the same graph and carries the obligation below.
+#
+# What the decision carries is the obligation in force AT THE TIME. Rebind
+# these values tomorrow and yesterday's replay still reproduces yesterday's
+# obligation, because the resolved value is inside the product's content
+# address (`D-IMPL-26`, `D-IMPL-118`).
+signal_obligations:
+  - signal: "forced_llm"
+    obligation_ref: "kyc/re-pull-registry-then-restate-with-debt-disclosed"
+  - signal: "fail_closed"
+    obligation_ref: "kyc/route-to-named-officer-for-manual-determination"

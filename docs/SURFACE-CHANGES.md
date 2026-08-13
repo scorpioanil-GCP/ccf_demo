@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**561 entries**, of which **335** name a public Python surface.
+**574 entries**, of which **348** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-264 entries — 232 public Python surface, 32 not public Python API.
+272 entries — 240 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -4798,6 +4798,145 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.6-07-source-refresh-recency.md`.*
 
+#### ccf.halflife.assessment.SignalObligation
+
+- Surface: ccf.halflife.assessment.SignalObligation
+- Public surface: true
+- Before: absent — a consumer could read a routing state and had no way to learn
+  what that state required of them
+- After: a `CCFContract` with exactly two fields — `signal: DebtSignal`, the key
+  the SDK owns and therefore validates, and `obligation_ref: str`, opaque in the
+  `ccf.skills.catalog.SkillRequirements` voice. A key that is not a `DebtSignal`
+  member is refused at construction **with the offending key named**; a blank
+  reference is refused, because a binding that obliges nothing must not be
+  confusable with no binding; the sentinel's own spelling is refused, so nothing
+  can impersonate it; a `float` is refused by the module's shared `_refuse_float`
+- Change type: added
+- Why: `D-IMPL-112` gap 3 named *what operational obligation `forced_llm`
+  actually imposes* as the third thing a reader of a debt figure cannot get at,
+  and `D-IMPL-117` scoped the SDK's obligation to the binding alone. Two fields
+  are the whole structure that obligation supports
+- Migration: none — new name, nothing referenced it. Note that the SDK never
+  parses, checks or acts on `obligation_ref`, so whatever should *happen* when a
+  decision carries one is yours to write
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.assessment.SignalObligations
+
+- Surface: ccf.halflife.assessment.SignalObligations
+- Public surface: true
+- Before: absent
+- After: the annotated carrier type — a `tuple[SignalObligation, ...]` validated
+  to be **signal-unique** and **canonically ordered**. A signal bound twice is
+  refused with a message saying that two obligations for one state describe two
+  duties claiming to be the single thing that state requires
+- Change type: added
+- Why: an alias rather than a field-by-field re-declaration, for
+  `ccf.halflife.assessment.DebtEvidence`'s reason. A sorted tuple rather than a
+  **mapping**, and the reason is this field's own: a YAML mapping keeps the last
+  of two duplicate keys **silently**, and a signal bound twice is exactly the
+  contradiction a profile author needs told about. Sorting also keeps the
+  profile order-insensitive in its bytes, asserted by
+  `tests/halflife/test_debt.py::test_binding_declaration_order_does_not_move_the_profile_bytes`
+- Migration: none — new name
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.assessment.NO_SIGNAL_OBLIGATIONS
+
+- Surface: ccf.halflife.assessment.NO_SIGNAL_OBLIGATIONS
+- Public surface: true
+- Before: absent
+- After: the empty tuple, as a named module-level constant whose docstring
+  states the positive claim *this profile binds no obligation to any routing
+  state*
+- Change type: added
+- Why: `D-IMPL-38`, and the reason `NO_SCORER_PINS`, `NO_DEBT_EVIDENCE` and
+  `NO_SOURCE_REFRESH_RECENCY` each give: without a named sentinel, a deployment
+  that deliberately declared no obligations and one whose bindings somebody
+  dropped would be **the same artifact**. Never `None` meaning "unknown"
+- Migration: none — it is the default on `DebtProfile.signal_obligations`, so
+  every profile artifact written before this plan parses unchanged and asserts
+  exactly what it always asserted
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE
+
+- Surface: ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE
+- Public surface: true
+- Before: absent
+- After: the marker string `ccf.no-obligation-in-force`, whose docstring states
+  the positive claim *no obligation was bound to the state this decision landed
+  in*
+- Change type: added
+- Why: a marker rather than an empty tuple because the field it defaults holds
+  **one** reference and must stay one shape — the `ccf.products.contract
+  .NO_PAYLOAD_SCHEMA` precedent. A marker rather than `""` because an empty
+  string is what a half-finished profile edit leaves behind, and the two claims
+  are different. `ccf.`-namespaced so it reads as SDK structure rather than as a
+  word from somebody's domain, and so a deployment cannot collide with it by
+  accident; `SignalObligation` refuses the spelling outright
+- Migration: none — it is the default on both fields that carry a resolved
+  obligation
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.debt.SignalObligation
+
+- Surface: ccf.halflife.debt.SignalObligation
+- Public surface: true
+- Before: absent
+- After: the same class, re-exported
+- Change type: added
+- Why: `ccf.halflife.debt` re-exports every name defined in
+  `ccf.halflife.assessment` — the split exists only to break an import cycle
+  (`ccf.products.contract` cannot import `ccf.halflife.debt`), and a name
+  reachable at one spelling and not the other would make that internal detail an
+  adopter's problem
+- Migration: none
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.debt.SignalObligations
+
+- Surface: ccf.halflife.debt.SignalObligations
+- Public surface: true
+- Before: absent
+- After: the same annotated carrier type, re-exported
+- Change type: added
+- Why: the same re-export discipline
+- Migration: none
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.debt.NO_SIGNAL_OBLIGATIONS
+
+- Surface: ccf.halflife.debt.NO_SIGNAL_OBLIGATIONS
+- Public surface: true
+- Before: absent
+- After: the same sentinel, re-exported
+- Change type: added
+- Why: the same re-export discipline
+- Migration: none
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.halflife.debt.NO_OBLIGATION_IN_FORCE
+
+- Surface: ccf.halflife.debt.NO_OBLIGATION_IN_FORCE
+- Public surface: true
+- Before: absent
+- After: the same marker, re-exported
+- Change type: added
+- Why: the same re-export discipline. This is the spelling a deployment
+  assembling products will already be importing from, since `assess_debt` lives
+  here
+- Migration: none
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -5314,7 +5453,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-248 entries — 65 public Python surface, 183 not public Python API.
+251 entries — 68 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -6906,6 +7045,83 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   before this seam parses and verifies unchanged
 
 *Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.controlplane.artifacts.DebtProfile
+
+- Surface: ccf.controlplane.artifacts.DebtProfile
+- Public surface: true
+- Before: three declared values, none with a default — `risk_sensitivity`,
+  `forced_llm_threshold`, `fail_closed_threshold`
+- After: one further field, `signal_obligations: SignalObligations`, defaulted
+  to `NO_SIGNAL_OBLIGATIONS`; plus one method,
+  `obligation_for(signal) -> str`, returning the reference bound to that state
+  or the sentinel
+- Change type: reshaped
+- Why: the calibration half belongs here because the calibration already is
+  here. This artifact owns the two bands that decide *which* state a decision
+  lands in; it is a `VersionedArtifact` with a published schema; and it is
+  already pinned per-agent as `halflife_debt_profile: VersionedRef`, which
+  `D-IMPL-97` named as *"axis 5 … the home for a product's debt configuration
+  already exists, on the agent, declared and version-pinned."* Binding elsewhere
+  would split one calibration across two documents and two version lanes.
+  `D-IMPL-118`'s Q-A fork does not reach this half: a Control Plane artifact is
+  not the product vessel. `obligation_for` resolves off the **resolved,
+  version-pinned instance** the caller already holds and never reaches the
+  Control Plane for a `@latest` (`D-IMPL-26`)
+- Migration: **none to keep an existing profile working** — the sentinel default
+  means every `debt-profile.yaml` in existence parses and means what it always
+  meant. To bind obligations, add a `signal_obligations` list of
+  `{signal, obligation_ref}` entries; bind only the states you have an answer
+  for. `docs/schemas/ccf.debt-profile.json` was regenerated in the same commit
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.products.contract.ContextProductContract
+
+- Surface: ccf.products.contract.ContextProductContract
+- Public surface: true
+- Before: twelve fields, ending at 15.6-07's `source_refresh_recency`
+- After: one further field, `obligation_in_force: str`, defaulted to
+  `NO_OBLIGATION_IN_FORCE`. A **third sibling of** `debt`, not a member of it
+- Change type: reshaped
+- Why: `D-IMPL-118`, which is explicit that its four measured placements
+  *"price all three Track B vessel-carried members identically"* — so this
+  member takes the same branch its two siblings took. It carries the **resolved**
+  reference for the state *this* decision landed in and not the profile's
+  mapping: a consumer handed the mapping would be holding the calibration rather
+  than the decision, and a consumer handed nothing would have to resolve the
+  profile again at read time, which is the substitution `D-IMPL-26` forbids
+- Migration: **nothing is required to keep constructing products** — the
+  sentinel default keeps every existing site saying what it always said — and
+  **something is required if you recorded addresses outside the replay record**;
+  see "The content address moves" above. A custom `ReplayEnvironment` **must** be
+  updated regardless of whether you populate the field; see
+  `ccf.replay.engine.ReplayEnvironment` below
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Before: ten fields, ending at 15.6-07's `source_refresh_recency`
+- After: one further field, `obligation_in_force: str`, defaulted to
+  `NO_OBLIGATION_IN_FORCE`, placed beside the `debt` whose routing state it
+  answers to
+- Change type: reshaped
+- Why: this member is **the price of the ruled placement**, and it buys more
+  here than for either sibling. Because the value is top-level on the vessel it
+  does not ride `debt` back through replay; and unlike the other two, a
+  rehydrator *can* obtain a plausible substitute by re-resolving the
+  deployment's current `DebtProfile`. Pinning it here is what makes the
+  decision's own answer the only answer. Dimension 5 and not a sixth dimension:
+  `INV-CH7-80` holds, asserted by field enumeration in
+  `test_the_obligation_lands_on_dimension_five_and_mints_no_sixth`
+- Migration: none for construction. `NO_OBLIGATION_IN_FORCE` is the positive
+  assertion *this decision was under no bound obligation*, so a record written
+  before this seam parses and verifies unchanged
+
+*Recorded by `15.6-08-obligation-binding.md`.*
 
 ### Not public Python API
 
@@ -9184,7 +9400,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-49 entries — 38 public Python surface, 11 not public Python API.
+51 entries — 40 public Python surface, 11 not public Python API.
 
 ### Public Python surface
 
@@ -10112,6 +10328,60 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   which is the failure mode this fabric prefers
 
 *Recorded by `15.6-07-source-refresh-recency.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: behavior
+- Before: the record's dimension 5 said nothing about what the routing state
+  obliged
+- After: **the same signature.** Dimension 5's `obligation_in_force` is *derived
+  from the `product` argument the builder was already handed* — no new parameter
+- Why: derivation rather than threading is what keeps every
+  `build_replay_record` consumer byte-for-byte unchanged, and it makes a record
+  pinning an obligation its product does not carry **unrepresentable** rather
+  than merely discouraged. It is the rule 15.5-11 applied to `debt`, 15.6-06 to
+  `debt_evidence` and 15.6-07 to `source_refresh_recency`: a fact already present
+  is read, never re-passed
+- Migration: **none.** No call site changes. A caller that wants the obligation
+  on the record puts it on the product
+
+*Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf.replay.engine.ReplayEnvironment
+
+- Surface: ccf.replay.engine.ReplayEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: a conforming `rehydrate_product(*, record, projection)` had to carry
+  `record.content_generation_path.debt` (15.5-11), `.debt_evidence` (15.6-06)
+  and `.source_refresh_recency` (15.6-07) onto the product it returned
+- After: **the same signature** — which is why this is `behavior` rather than
+  `reshaped`. What changed is the **contract**: it must now *also* carry
+  `record.content_generation_path.obligation_in_force`
+- Why: `ContextProductContract.obligation_in_force` is inside the hashed body and
+  is **not** reachable through `debt`. `canonical_bytes` walks a model
+  field-by-field over `type(value).model_fields`, so an implementation that omits
+  it returns a product `ccf.replay.engine::replay`'s address check rejects with
+  `ReplayDivergence`
+- Migration: **required for any adopter with a custom `ReplayEnvironment`, even
+  if you never populate the field, and it is one line.** Add
+  `obligation_in_force=record.content_generation_path.obligation_in_force` to the
+  `ContextProductContract(...)` your `rehydrate_product` returns. All seven
+  implementations across six files in this repository were updated in the same
+  commit (`src/ccf/replay/engine.py`,
+  `tests/replay/test_engine_rehydration.py`,
+  `tests/replay/test_query_sequence_pin.py`, `perf/suites/replay/conftest.py`,
+  `examples/06-decision-replay/run.py`,
+  `examples/external/00-hello-context/run.py`). **Do not resolve the obligation
+  from your current `DebtProfile`** — that is the one substitution this field
+  exists to make impossible, and it is the failure a plausible-looking
+  implementation will produce. An adopter who omits the line does not get a
+  silent wrong answer; they get `ReplayDivergence`, which is the failure mode
+  this fabric prefers
+
+*Recorded by `15.6-08-obligation-binding.md`.*
 
 ### Not public Python API
 

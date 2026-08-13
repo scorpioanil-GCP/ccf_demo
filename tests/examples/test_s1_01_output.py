@@ -68,6 +68,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
+import yaml
 
 from ccf.contracts.canonical import content_hash
 from ccf.replay.record import NO_GRAPH_QUERIES, DecisionReplayRecord
@@ -100,6 +101,8 @@ EXPECTED_NEWLY_VISIBLE = "newly_visible"
 EXPECTED_DEBT_SIGNAL_FIRST = "debt_signal_first_question"
 EXPECTED_DEBT_SIGNAL_THIRD = "debt_signal_third_question"
 EXPECTED_DEBT_WEAK_FACTOR = "debt_weak_factor"
+EXPECTED_OBLIGATION_FIRST = "obligation_first_question"
+EXPECTED_OBLIGATION_THIRD = "obligation_third_question"
 
 #: Every ``absent_by_*`` block is a witness: a reference the pipeline must have
 #: removed, and the operator that removed it. Prefix-matched rather than listed,
@@ -788,6 +791,76 @@ def test_the_debt_figure_is_measured_and_not_constant(
             f"{factor} moved as well as {weak}; the contrast no longer isolates"
             " a single dimension"
         )
+
+
+def test_the_routing_state_carries_what_this_deployment_says_it_obliges(
+    expected: Any, answers: Any
+) -> None:
+    """**The demonstration of `D-IMPL-112` gap 3, and the closing of it.**
+
+    Before this, a consumer shown `signal: forced_llm` learned that the fabric
+    had escalated and nothing about what escalation *required of them* —
+    `15.6-RESEARCH.md` § B4 measured `FORCED_LLM` as produced at one site and
+    consumed at none. Now the delivered product answers, in the deployment's
+    own words, and the fabric still takes no action on it.
+
+    Both halves are asserted because either alone is misleading. Question 1
+    routes to `ok`, which `artifacts/debt-profile.yaml` deliberately leaves
+    unbound, so its product carries the SDK's named sentinel: a partly-bound
+    calibration is legal and an unbound state is a positive claim rather than a
+    silence (`D-IMPL-38`). Question 3 routes to `forced_llm` six weeks later
+    against the same graph, and carries the obligation the artifact declares.
+
+    The last assertion is the one that matters for CLAUDE.md §11: the obligation
+    the consumer reads is byte-identical to the string in the artifact, so no
+    part of it came from CCF. The SDK supplied the binding and the carrying;
+    the deployment supplied every word.
+    """
+    fresh, stale = answers[0], answers[2]
+
+    assert fresh.product.debt.signal.value == expected[EXPECTED_DEBT_SIGNAL_FIRST]
+    assert fresh.product.obligation_in_force == expected[EXPECTED_OBLIGATION_FIRST]
+
+    assert stale.product.debt.signal.value == expected[EXPECTED_DEBT_SIGNAL_THIRD]
+    assert stale.product.obligation_in_force == expected[EXPECTED_OBLIGATION_THIRD]
+    assert stale.product.obligation_in_force != fresh.product.obligation_in_force
+
+    declared = yaml.safe_load(
+        (EXAMPLE_DIR / "artifacts" / "debt-profile.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    bound = {
+        entry["signal"]: entry["obligation_ref"]
+        for entry in declared["signal_obligations"]
+    }
+    assert bound[expected[EXPECTED_DEBT_SIGNAL_THIRD]] == (
+        stale.product.obligation_in_force
+    ), (
+        "the delivered obligation is not the artifact's — some part of it came"
+        " from somewhere other than this deployment's Control Plane"
+    )
+    assert expected[EXPECTED_DEBT_SIGNAL_FIRST] not in bound
+
+
+def test_the_obligation_in_force_is_pinned_into_the_replay_record(
+    expected: Any, answers: Any
+) -> None:
+    """Dimension 5 records the obligation, so a rebinding cannot rewrite it.
+
+    The audit question is *"what was this decision obliged to do?"*, and the
+    only defensible answer resolves the binding in force **then**. The record
+    carries it rather than pointing at the profile, which is what makes the
+    answer survive `artifacts/debt-profile.yaml` being edited tomorrow —
+    `D-IMPL-26`: replay resolves exact versions, never "latest".
+    """
+    for answered in answers:
+        path = answered.record.content_generation_path
+        assert path.obligation_in_force == answered.product.obligation_in_force
+
+    assert answers[2].record.content_generation_path.obligation_in_force == (
+        expected[EXPECTED_OBLIGATION_THIRD]
+    )
 
 
 def _owners(payload: Any) -> list[tuple[str, str]]:
