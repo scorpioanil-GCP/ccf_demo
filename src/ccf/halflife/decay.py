@@ -54,6 +54,7 @@ from ccf.halflife.assessment import (
     _SDK_NAMESPACE,
     _as_a_reader_sees_it,
     _refuse_an_impersonation_of_an_sdk_marker,
+    _refuse_an_instant_that_named_no_zone,
 )
 
 __ccf_mode__ = "algorithmic"
@@ -162,8 +163,9 @@ class Observation(CCFContract):
             vocabulary is user configuration; the SDK never enumerates it.
         observed_at: When the fabric learned the observation (the T axis's
             ``observed_at``, :mod:`ccf.contracts.claims`). Timezone-aware; a
-            naive instant is rejected, because an implicit timezone is a silent
-            default (D-IMPL-38).
+            naive instant is rejected **at construction**, because an implicit
+            timezone is a silent default (D-IMPL-38) — see
+            :meth:`_the_instant_names_its_zone`.
         subject: What this observation is an observation *of*. An opaque
             identifier the deployment chooses — an entity URI, a claim id, a
             document id, or something else again. Its scheme is user
@@ -184,6 +186,47 @@ class Observation(CCFContract):
     observation_type: str
     observed_at: datetime
     subject: str = NO_SUBJECT_IDENTITY
+
+    @field_validator("observed_at", mode="before")
+    @classmethod
+    def _the_supplied_instant_names_its_own_zone(cls, value: object) -> object:
+        return _refuse_an_instant_that_named_no_zone(value)
+
+    @field_validator("observed_at")
+    @classmethod
+    def _the_instant_names_its_zone(cls, value: datetime) -> datetime:
+        """Refuse a naive instant at construction, as this class documents.
+
+        **The refusal this docstring described and did not have.** The attribute
+        docstring above has always read *"a naive instant is rejected"*; there
+        was no validator, and Phase 15.6's single-agent review demonstrated that
+        a naive ``Observation`` was constructible, serialisable and storable,
+        with the failure arriving at whatever call site first computed decay.
+        That is the deferral CLAUDE.md §11 refuses (*"Validation is at the
+        boundary, never deferred"*), and it also broke a citation:
+        :meth:`~ccf.halflife.assessment.SourceRefreshWindow._the_instant_names_its_zone`
+        names this field as the precedent it restates at construction, and a
+        reader following the citation found nothing here.
+
+        The pair is that class's pair, for its reasons: this after-validator
+        refuses the naive ``datetime``, and
+        :func:`~ccf.halflife.assessment._refuse_an_instant_that_named_no_zone`
+        runs before validation, where a bare epoch — which names no zone at all
+        and which Pydantic silently reads as UTC — is still visible as what the
+        caller supplied.
+
+        :func:`~ccf.halflife.debt.freshness`'s own refusal **stays**. It is not
+        redundant: it also guards ``now``, which no contract validates, and it
+        is the only thing standing between a ``model_construct``-built
+        observation and a freshness figure computed against an implicit zone.
+        """
+        if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
+            raise ValueError(
+                "an observation must name its instant's zone; a naive datetime "
+                "carries an implicit timezone, which is a silent default "
+                "(D-IMPL-38), and decay is computed from this value"
+            )
+        return value
 
     @field_validator("subject")
     @classmethod

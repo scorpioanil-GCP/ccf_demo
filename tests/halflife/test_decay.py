@@ -208,14 +208,64 @@ def test_an_observation_from_the_future_is_refused(table: HalfLifeTable) -> None
 
 
 def test_a_naive_observation_timestamp_is_refused(table: HalfLifeTable) -> None:
+    """At **construction**, which is what this class has always documented.
+
+    The attribute docstring has always read *"a naive instant is rejected"* and
+    there was no validator until Phase 15.6's close; this test asserted the
+    refusal at *computation* time, which is where it actually lived. A naive
+    observation was therefore constructible, serialisable and storable — the
+    deferral CLAUDE.md §11 refuses — and the citation
+    `SourceRefreshWindow._the_instant_names_its_zone` makes to this field as
+    the precedent it restates pointed at nothing.
+    """
     name = _type_with_shortest_half_life(table)
-    observation = Observation(
+    with pytest.raises(ValueError, match="zone"):
+        Observation(
+            observation_type=name,
+            observed_at=datetime(2026, 3, 1, 9, 0, 0),
+            subject=SUBJECT,
+        )
+
+
+def test_a_bare_epoch_observation_timestamp_is_refused(
+    table: HalfLifeTable,
+) -> None:
+    """CR-01's correction, on the field that precedent cites.
+
+    Pydantic's lax mode reads `1772359200` as a tz-aware UTC instant before any
+    after-validator runs, so a rule stated only after validation passes on an
+    input that named no zone at all. Same helper, same position, as
+    `SourceRefreshWindow`.
+    """
+    name = _type_with_shortest_half_life(table)
+    with pytest.raises(ValueError, match="bare number"):
+        Observation(
+            observation_type=name,
+            observed_at=1772359200,  # type: ignore[arg-type]
+            subject=SUBJECT,
+        )
+
+
+def test_the_computation_still_refuses_a_naive_instant_it_is_handed(
+    table: HalfLifeTable,
+) -> None:
+    """The construction-time gate does not make `freshness`' own check dead.
+
+    `model_construct` skips validation, and `now` is an argument no contract
+    validates at all — so the computation is the only thing standing between an
+    implicit zone and a freshness figure on both of those paths. Asserted so a
+    later reader does not delete the check as redundant.
+    """
+    name = _type_with_shortest_half_life(table)
+    unvalidated = Observation.model_construct(
         observation_type=name,
         observed_at=datetime(2026, 3, 1, 9, 0, 0),
         subject=SUBJECT,
     )
-    with pytest.raises(ValueError):
-        freshness(observation, now=NOW, table=table, risk_sensitivity=Decimal(1))
+
+    assert unvalidated.observed_at.tzinfo is None
+    with pytest.raises(ValueError, match="timezone-aware"):
+        freshness(unvalidated, now=NOW, table=table, risk_sensitivity=Decimal(1))
 
 
 def test_non_positive_risk_sensitivity_is_refused(table: HalfLifeTable) -> None:
@@ -499,15 +549,20 @@ def test_an_ordinary_deployment_subject_is_still_accepted_verbatim() -> None:
 def test_a_naive_timestamp_is_still_refused_on_a_subject_bearing_observation(
     table: HalfLifeTable,
 ) -> None:
-    """The existing discipline is unchanged by the new field (D-IMPL-38)."""
+    """The existing discipline is unchanged by the new field (D-IMPL-38).
+
+    Moved to construction at Phase 15.6's close along with the refusal itself;
+    what this case adds over its sibling is that the instant rule and the
+    subject rule are independent — a naive instant is refused whether or not
+    the observation carries an identity.
+    """
     name = _type_with_shortest_half_life(table)
-    observation = Observation(
-        observation_type=name,
-        observed_at=datetime(2026, 3, 1, 9, 0, 0),
-        subject=SUBJECT,
-    )
-    with pytest.raises(ValueError):
-        freshness(observation, now=NOW, table=table, risk_sensitivity=Decimal(1))
+    with pytest.raises(ValueError, match="zone"):
+        Observation(
+            observation_type=name,
+            observed_at=datetime(2026, 3, 1, 9, 0, 0),
+            subject=SUBJECT,
+        )
 
 
 def test_freshness_ignores_the_subject_entirely(table: HalfLifeTable) -> None:
