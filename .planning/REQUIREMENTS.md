@@ -131,17 +131,17 @@
 ### Decision-Completeness and Defect Closure (DCD)
 
 - [x] **DCD-01**: The fixed-versus-declared fork is measured rather than argued — every candidate placement for a debt-evidence carrier has a verdict produced by running the real `rehydrate_product` tripwire, the record-only placement's consumer reach is counted against the three shipped doors, and the spike recommends nothing
-- [ ] **DCD-02**: Debt points at what it summarises, and `Observation` carries an identity those pointers can name; the SDK enumerates no observation identity vocabulary and owes nothing about *which* observations matter (`D-IMPL-117`)
-- [ ] **DCD-03**: Source-refresh recency is a slot distinct from computed freshness, with no SDK definition of a source, no cadence, no staleness threshold and no default; an unpopulated slot is a positive assertion under a named sentinel
-- [ ] **DCD-04**: Each `DebtSignal` can carry a declared, **opaque** obligation reference bound through the Control Plane and resolved at replay to the binding in force at decision time, with **no obligation vocabulary anywhere in `src/`**, enforced by a structural assertion no shipped lint reaches
-- [ ] **DCD-05**: Every Track B contract change replays byte-exactly through the real serve path after the graph has moved on, and an adversarial twin diverges
-- [ ] **DCD-06**: `DI-15.5-01` — the noisy dispatch benchmark's band covers its measured variance across three consecutive runs, with no code change and no re-baseline
-- [ ] **DCD-07**: `DI-15.5-04` — the `IntermediateCache` key is computed only when a lookup could hit, with the composition-preservation suites passing unmodified and the `D-IMPL-36` witness narrowing recorded
+- [ ] **DCD-02**: Debt points at what it summarises, and `Observation` carries an identity those pointers can name; the SDK enumerates no observation identity vocabulary and owes nothing about *which* observations matter (`D-IMPL-117`) — **PARTIAL, and the partiality is by ruling.** The *carrying mechanism* is COMPLETE: `src/ccf/halflife/decay.py::Observation` gained an optional subject behind a named positive sentinel (plan `15.6-05`, `D-IMPL-120`), and `src/ccf/products/contract.py::ContextProductContract` gained `debt_evidence` with its dimension-5 twin and 7 rehydrator edits (plan `15.6-06`, `D-IMPL-118`), exercised with populated values in `tests/replay/test_engine_rehydration.py::test_a_rehydration_that_swaps_one_pointer_is_divergence` and its siblings. What is **Pending by design** is the *population* on the delivered product: `D-IMPL-119` limb 3(b) rules that until the assembly path is principal-scoped an evidence pointer is an opaque handle or is not emitted at all, so `examples/s1-01-hello-context-product/deployment.py::KycScenario` returns the sentinel unconditionally. The slot and its replay plumbing exist so a later phase fills a slot rather than rebuilding one
+- [x] **DCD-03**: Source-refresh recency is a slot distinct from computed freshness, with no SDK definition of a source, no cadence, no staleness threshold and no default; an unpopulated slot is a positive assertion under a named sentinel — **COMPLETE** (plans `15.6-07` and `15.6-13`). `src/ccf/products/contract.py::ContextProductContract` carries `source_refresh_recency`, whose type is `src/ccf/halflife/assessment.py::SourceRefreshWindow` after `D-IMPL-124` Shape B replaced the per-source map: a freshness window with **no human-interpretable source identities and no count**. Divergence asserted by `tests/replay/test_engine_rehydration.py::test_a_rehydration_that_drops_the_recency_is_divergence` and `::test_a_rehydration_that_moves_one_refresh_instant_is_divergence`
+- [x] **DCD-04**: Each `DebtSignal` can carry a declared, **opaque** obligation reference bound through the Control Plane and resolved at replay to the binding in force at decision time, with **no obligation vocabulary anywhere in `src/`**, enforced by a structural assertion no shipped lint reaches — **COMPLETE** (plan `15.6-08`, ruled by `D-IMPL-118`). Replay-at-decision-time is asserted by `tests/replay/test_engine_rehydration.py::test_a_replay_reproduces_the_obligation_in_force_at_decision_time` and its negative twin `::test_a_rehydration_that_resolves_todays_binding_is_divergence`; the anti-vocabulary invariant is `tests/invariants/test_no_obligation_vocabulary.py`, whose `CONTAINER_FORMS` enumerates **24** container forms after the close-review round closed the `dict` shape it originally missed
+- [x] **DCD-05**: Every Track B contract change replays byte-exactly through the real serve path after the graph has moved on, and an adversarial twin diverges — **COMPLETE**, and re-run per change rather than once: `tests/replay/test_engine_rehydration.py` carries a drop-and-perturb divergence case for each of the three carried members (`::test_a_rehydration_that_drops_the_evidence_is_divergence`, `::test_a_rehydration_that_drops_the_recency_is_divergence`, `::test_a_rehydration_that_drops_the_obligation_is_divergence`), plus `::test_a_record_written_before_the_obligation_seam_still_replays` for the pre-seam shape
+- [x] **DCD-06**: `DI-15.5-01` — the noisy dispatch benchmark's band covers its measured variance across three consecutive runs, with no code change and no re-baseline — **COMPLETE** (plan `15.6-02`). One loosen-only `[override]` at `threshold = 0.1246`, derived from five recorded medians, verified in force by reading the gate's *resolved* threshold rather than the TOML, with two separate sets of three consecutive green runs. **The gate-time PERF-04 re-baseline of 2026-08-13 does not touch this clause**: it revised two `test_operators.py` ids under Dave's explicit approval and left this benchmark's approved median and its override unchanged
+- [x] **DCD-07**: `DI-15.5-04` — the `IntermediateCache` key is computed only when a lookup could hit, with the composition-preservation suites passing unmodified and the `D-IMPL-36` witness narrowing recorded — **COMPLETE** (plan `15.6-02`). `src/ccf/operators/planner.py::IntermediateCache` defers key materialization to the first call that could hit; the unreachability probe is identical before and after (640 engine runs, 0 engine hits, 1 other hit); `tests/properties/test_composition.py` and two sibling suites pass with `git diff --exit-code` clean; the narrowing is recorded in the class docstring and in `docs/surface-changes/15.6-02-intermediate-cache-key.md`
 - [x] **DCD-08**: `DI-15.5-05` — both resolver seams state, **at the seam**, what a resolver omitting each refusal is serving, under a recorded ruling — **COMPLETE** (plan `15.6-09`). The ruling is `D-IMPL-121` (Dave, 2026-08-12), extending `D-IMPL-113`; the statement lands in both `runtime/ccf_runtime/mcp/egress.py::ProductResolverProtocol` and `runtime/ccf_runtime/mcp/experience.py::ExperienceProductResolverProtocol`; and `tools/docs_tests/test_resolver_seam_obligations.py` asserts it rather than trusting it
-- [ ] **DCD-09**: `DI-15.5-06` — the surface manifest records a Protocol's `__call__`, so the already-shipped resolver break becomes a visible `reshaped` diff line; the manifest's non-Protocol blind spot is closed or descoped with a recorded reason
-- [ ] **DCD-10**: `DI-15.5-08` — the `.py`-target unanchored citation population is reduced over the ruled scope and cannot regrow, gated in **both** directions
-- [ ] **DCD-11**: `docs/schemas/` is shingle-scanned by the shipped `publish_scan` machinery through a scan root wired into `docs-strict`, not by a one-time sweep
-- [ ] **DCD-12**: The phase gate is `make ci` exit 0, with the CLAUDE.md §3.1 close sequence run in its stated order
+- [x] **DCD-09**: `DI-15.5-06` — the surface manifest records a Protocol's `__call__`, so the already-shipped resolver break becomes a visible `reshaped` diff line; the manifest's non-Protocol blind spot is closed or descoped with a recorded reason — **COMPLETE as ruled** (plan `15.6-10`, `D-IMPL-122`). `tools/dump_surface.py` reads a Protocol's `__call__` and type aliases; the frozen baseline stayed frozen and the diff was reconciled; the phase's single manifest regeneration landed here. **The descoping is the recorded half and must travel with the requirement:** 39 multi-method Protocols remain information-free, including all seven `D-IMPL-110` names, so the manifest is **not** evidence of surface stability for them
+- [x] **DCD-10**: `DI-15.5-08` — the `.py`-target unanchored citation population is reduced over the ruled scope and cannot regrow, gated in **both** directions — **COMPLETE over the ruled scope** (plan `15.6-11`, `D-IMPL-123`: 101 of 114, holding back the 13 records `D-IMPL-114` names). `tests/invariants/test_citation_coverage.py::MAXIMUM_UNANCHORED_PY_CITATIONS` is **0** — the tree's first ceiling — with `::MINIMUM_SCANNED_CITATION_HOSTS` and `::MINIMUM_CITATIONS_READ` as the floors. It fired at this very gate, on the gate package itself
+- [x] **DCD-11**: `docs/schemas/` is shingle-scanned by the shipped `publish_scan` machinery through a scan root wired into `docs-strict`, not by a one-time sweep — **COMPLETE** (plan `15.6-03`). `make docs-strict` now runs **four** steps, the third being the `docs/schemas` scan root; 0 findings over 26 files. **Known-blind, recorded rather than implied:** this scanner and `tools/publish_scan_tests/test_docstring_leaks.py::test_no_docstring_reproduces_whitepaper_body_text` disagree about the same tree, because `tools/dump_schemas.py::emit` copies docstrings verbatim into schema `description` fields and only one of the two blocks. That is `DI-15.6-01`(b), Dave's *"real coverage hole"*, owned by Phase 16
+- [x] **DCD-12**: The phase gate is `make ci` exit 0, with the CLAUDE.md §3.1 close sequence run in its stated order — **COMPLETE** (plan `15.6-12`, `D-GATE-15.6`, Dave 2026-08-13). `make ci` exit 0 observed at the gate HEAD: **3086 passed / 81 skipped**. The sequence ran in order — execute → cross-AI panel `--all` against shipped code → single-agent review → verify every finding → fix every blocking finding in-phase → present — and produced **three** rounds of findings, the third being the observed gate catching five citation defects in the gate package itself
 
 **DCD-01 is discharged across its two owning plans, with one stated exception.**
 Plan `15.6-01` produced `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` and
@@ -158,6 +158,18 @@ top-level placements are marked **NOT EXERCISABLE** in the evidence document,
 each naming the exact source changes that would have to land first, with their
 verdicts produced instead by an executed round trip carried through the **real**
 `ContentGenerationPath.debt` field. No later plan carries `DCD-01`.
+
+**DCD status at `D-GATE-15.6` (Dave, 2026-08-13): eleven Complete, one Partial.**
+The one Partial is `DCD-02`, and it is partial **by ruling rather than by
+omission** — `D-IMPL-119` limb 3(b) forbids emitting an evidence pointer until
+the assembly path is principal-scoped, so the phase shipped the carrier, the
+dimension-5 twin and the seven rehydrator edits and left the delivered field
+holding its sentinel. Three of the eleven Complete rows carry a scope that must
+travel with them and is stated in the row rather than left for a later reader to
+discover: `DCD-09` descopes 39 multi-method Protocols, `DCD-10` holds back the
+13 citation sites `D-IMPL-114` names, and `DCD-11` ships a scan root beside a
+known coverage hole (`DI-15.6-01`(b)) that Phase 16 owns. No DCD row is Pending
+by omission.
 
 ## Future Requirements (deferred)
 
@@ -261,17 +273,17 @@ verdicts produced instead by an executed round trip carried through the **real**
 | CPS-13 | Phase 15.5 | Complete |
 | CPS-14 | Phase 15.5 | Complete |
 | DCD-01 | Phase 15.6 | Complete |
-| DCD-02 | Phase 15.6 | Pending |
-| DCD-03 | Phase 15.6 | Pending |
-| DCD-04 | Phase 15.6 | Pending |
-| DCD-05 | Phase 15.6 | Pending |
-| DCD-06 | Phase 15.6 | Pending |
-| DCD-07 | Phase 15.6 | Pending |
+| DCD-02 | Phase 15.6 | **Partial** (plans `15.6-05`, `15.6-06`) — carrier and replay plumbing Complete; pointer population **Pending by design** under `D-IMPL-119` limb 3(b), until the assembly path is principal-scoped |
+| DCD-03 | Phase 15.6 | **Complete** (plans `15.6-07`, `15.6-13`, `D-IMPL-124` Shape B) |
+| DCD-04 | Phase 15.6 | **Complete** (plan `15.6-08`, `D-IMPL-118`) |
+| DCD-05 | Phase 15.6 | **Complete** (plans `15.6-06`, `15.6-07`, `15.6-08`, `15.6-13`) |
+| DCD-06 | Phase 15.6 | **Complete** (plan `15.6-02`) — unaffected by the 2026-08-13 PERF-04 re-baseline, which revised two other ids |
+| DCD-07 | Phase 15.6 | **Complete** (plan `15.6-02`) |
 | DCD-08 | Phase 15.6 | **Complete** (plan `15.6-09`, `D-IMPL-121`) |
-| DCD-09 | Phase 15.6 | Pending |
-| DCD-10 | Phase 15.6 | Pending |
-| DCD-11 | Phase 15.6 | Pending |
-| DCD-12 | Phase 15.6 | Pending |
+| DCD-09 | Phase 15.6 | **Complete as ruled** (plan `15.6-10`, `D-IMPL-122`) — 39 multi-method Protocols descoped with a recorded reason, which travels with the requirement |
+| DCD-10 | Phase 15.6 | **Complete over the ruled scope** (plan `15.6-11`, `D-IMPL-123`) — 101 of 114; the 13 `D-IMPL-114` names are held back by ruling |
+| DCD-11 | Phase 15.6 | **Complete** (plan `15.6-03`) — with `DI-15.6-01`(b), the schema-description channel, recorded as a known coverage hole owned by Phase 16 |
+| DCD-12 | Phase 15.6 | **Complete** (plan `15.6-12`, `D-GATE-15.6`, Dave 2026-08-13) |
 
 **The CPS lane was verified clause by clause against the tree at Phase 15.5's
 close (plan `15.5-14`), not against any SUMMARY.** Phase 15.1's re-approval had
