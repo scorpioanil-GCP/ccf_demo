@@ -1110,7 +1110,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 — Track B serializes; each plan moves a hashed contract)*
 
-- [ ] 15.6-05-PLAN.md — [Track B] Gap 1a: `Observation` gains its identity; the s1-01 assembler stops discarding the join key it already holds
+- [x] 15.6-05-PLAN.md — [Track B] Gap 1a: `Observation` gains its identity; the s1-01 assembler stops discarding the join key it already holds
 
 **Wave 4**
 
@@ -1306,7 +1306,7 @@ Plans:
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
 | 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 15/15 | Complete | 2026-08-11 |
-| 15.6 Decision-Completeness and Defect Closure | 4/12 | In Progress|  |
+| 15.6 Decision-Completeness and Defect Closure | 5/12 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Parked (resumes after 15.6) |  |
 
 ## Coverage
