@@ -22,6 +22,21 @@ be the CLAUDE.md §11 defect** ``D-IMPL-117`` says the SDK owes nothing of.
 This module is armed **before** the work it guards, so it is a gate rather than a
 post-mortem.
 
+**The hole the guard itself had, measured the same way.** Phase 15.6's
+close-time cross-AI panel (CLAUDE.md §3.1) injected
+``_OBLIGATION_TABLE: tuple[str, ...] = ("re-pull", "escalate", "fail-closed")``
+into ``src/ccf/halflife/debt.py`` — inside this guard's own scan root — and the
+module stayed **green at 14 passed**. A tuple is the most natural alternative
+spelling of the exact thing this module refuses, and it costs a plan nothing to
+reach for instead of a ``StrEnum``. :func:`_string_table_members` closes it, and
+the injection is now a parametrized control below so a future re-narrowing turns
+red rather than quietly permissive. (The full ``make ci`` did not go green on
+that injection —
+``tests/halflife/test_debt_delivery.py::test_no_module_level_collection_of_string_literals_exists``
+caught it — but that sibling reads two module *bodies* in one package, while
+this guard reads five modules plus class scope plus ``artifacts.py``. The
+narrower check catching one case is not the wider claim being true.)
+
 Why this lives in ``tests/invariants/`` and not in ``tools/lints/``
 ------------------------------------------------------------------
 
@@ -48,7 +63,16 @@ What this check does NOT claim
 ------------------------------
 
 * It does **not** claim that every domain value in ``src/`` is caught. It reads
-  two named roots and two syntactic shapes.
+  two named roots and three syntactic shapes — an ``Enum``-family class, a
+  ``Literal`` over strings, and a closed table of string constants in
+  tuple/list/set/``frozenset`` form.
+* It does **not** catch a closed table of **fewer than
+  :data:`MINIMUM_TABLE_MEMBERS`** strings. A one-member collection is a default,
+  not a choice among alternatives, and this scan root contains two legitimate
+  ones. The threshold and its cost are stated at that constant rather than left
+  for a reader to discover.
+* It does **not** read function bodies for tables. A tuple of strings inside a
+  function is a local; ``Literal`` keeps its wider walk.
 * It does **not** replace CINV-01. ``cinv01a``/``cinv01b``/``cinv01c`` keep their
   jobs; this is the shape they were measured not to reach.
 * It makes **no** statement about ``runtime/``, about ``examples/``, or about any
@@ -129,6 +153,18 @@ EXEMPT_DECLARATIONS: tuple[tuple[str, str], ...] = (
         "RegistrationMode",
         "D-IMPL-85 — names two SDK registration paths, not deployment values",
     ),
+    # The three characters that make a path a glob rather than a name, used by
+    # `ManifestEntry._path_is_a_name_not_a_pattern`. Added when the table shape
+    # was brought into scope at Phase 15.6's close; it is the **only** finding
+    # the widening produced in either scan root, and it is not a vocabulary at
+    # all: the set is closed by `fnmatch`'s syntax — Python's, not any
+    # deployment's — and no deployment can add a fourth member to it. Removing
+    # this exemption would ban a syntax check, not protect gap 3.
+    (
+        "_GLOB_CHARACTERS",
+        "fnmatch's own metacharacters; closed by Python's syntax, not by a"
+        " deployment's values",
+    ),
 )
 
 #: The exempted names alone, for the membership test.
@@ -141,6 +177,29 @@ EXEMPT_NAMES: frozenset[str] = frozenset(
 #: same defect in different clothes, and ``str, Enum`` is the pre-3.11 spelling
 #: that still parses.
 ENUM_BASE_NAMES: frozenset[str] = frozenset({"Enum", "StrEnum", "IntEnum"})
+
+#: Builders that turn a literal collection into a closed one. ``frozenset({…})``
+#: is a ``Call``, not a collection literal, so without these the most idiomatic
+#: spelling of an immutable table would walk straight past the AST predicate.
+COLLECTION_BUILDERS: frozenset[str] = frozenset(
+    {"frozenset", "set", "tuple", "list"}
+)
+
+#: How many string members make a *table* rather than a value.
+#:
+#: Two. A vocabulary is a **choice among alternatives**; a one-member collection
+#: is a default, and this scan root contains two of those —
+#: ``ProductClassDeclaration``'s ``accepted_policy_binding_modes`` and
+#: ``accepted_lineage_modes``, each a ``frozenset`` of one mode carried as a
+#: field default. Exempting them by name would put two entries on the review
+#: seam that are not vocabularies at all and would teach the next reader that
+#: the seam is where inconvenient findings go.
+#:
+#: **Stated as a limitation rather than elided** (this module's "What this check
+#: does NOT claim" contract): a deliberately-written one-member obligation table
+#: passes. That shape is not what ``15.6-RESEARCH.md`` § B4 measured as the risk,
+#: and the cost of catching it is a seam that stops meaning anything.
+MINIMUM_TABLE_MEMBERS = 2
 
 #: The remedy, stated in every failure message so the reader is not left to infer
 #: it. ``src/ccf/skills/catalog.py::SkillRequirements`` is the shipped precedent
@@ -238,6 +297,56 @@ def _is_string_literal_subscript(node: ast.AST) -> bool:
     )
 
 
+def _string_table_members(node: ast.AST) -> list[str] | None:
+    """The members of a closed table of string constants, or ``None``.
+
+    The shape the guard could not see until Phase 15.6's close-time cross-AI
+    panel injected it. ``_OBLIGATION_TABLE: tuple[str, ...] = ("re-pull",
+    "escalate", "fail-closed")`` in ``src/ccf/halflife/debt.py`` — inside this
+    guard's own scan root — left the module at **14 passed**. A tuple is the
+    most natural alternative spelling of the exact thing this module exists to
+    refuse, and it costs a plan nothing to reach for instead of a ``StrEnum``.
+
+    Both the literal forms (``(…)``, ``[…]``, ``{…}``) and the builder form
+    (``frozenset({…})`` and friends, which parse as a ``Call`` and not as a
+    collection) are read, because an immutable table is the one a plan is most
+    likely to write and ``frozenset`` is how it would write it.
+
+    A table of **non-strings** is left alone, on
+    :func:`_is_string_literal_subscript`'s reasoning: a numeric table is
+    ``cinv01b-numeric-table``'s job and two definitions of one rule is worse
+    than one.
+    """
+    if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+        elements = node.elts
+    elif isinstance(node, ast.Call):
+        origin = node.func
+        named = (
+            origin.id
+            if isinstance(origin, ast.Name)
+            else origin.attr
+            if isinstance(origin, ast.Attribute)
+            else ""
+        )
+        if named not in COLLECTION_BUILDERS or len(node.args) != 1:
+            return None
+        inner = node.args[0]
+        if not isinstance(inner, (ast.Tuple, ast.List, ast.Set)):
+            return None
+        elements = inner.elts
+    else:
+        return None
+
+    if len(elements) < MINIMUM_TABLE_MEMBERS:
+        return None
+    if not all(
+        isinstance(element, ast.Constant) and isinstance(element.value, str)
+        for element in elements
+    ):
+        return None
+    return [str(element.value) for element in elements]  # type: ignore[attr-defined]
+
+
 def _bound_name(node: ast.AST, qualifier: str) -> str | None:
     """The name a statement binds, qualified by its enclosing class if any.
 
@@ -258,7 +367,24 @@ def _bound_name(node: ast.AST, qualifier: str) -> str | None:
     return f"{qualifier}.{bound}" if qualifier else bound
 
 
-def _declarations(node: ast.AST, qualifier: str) -> list[tuple[str, str, int]]:
+def _is_dunder(name: str) -> bool:
+    """True for ``__all__`` and its kin — a language construct, not a table.
+
+    ``__all__`` is a list of string constants in every scanned module, and it
+    names the module's own **exports**, which are code. Skipping it structurally
+    rather than exempting it by name keeps :data:`EXEMPT_DECLARATIONS` a list of
+    *judgements* — the shape
+    ``tests/halflife/test_debt_delivery.py::test_no_module_level_collection_of_string_literals_exists``
+    already takes for the same construct, in the same package, for the same
+    reason.
+    """
+    final = name.rsplit(".", 1)[-1]
+    return final.startswith("__") and final.endswith("__")
+
+
+def _declarations(
+    node: ast.AST, qualifier: str, *, inside_function: bool = False
+) -> list[tuple[str, str, int]]:
     """``(name, kind, lineno)`` for every closed vocabulary under `node`.
 
     Recursive rather than a flat :func:`ast.walk` because the name a
@@ -271,6 +397,14 @@ def _declarations(node: ast.AST, qualifier: str) -> list[tuple[str, str, int]]:
     annotation form is deliberately in scope even though it is the less obvious
     one: the most natural way to write this defect is a field on ``DebtProfile``,
     where the strings live in the annotation and never in a value.
+
+    **Closed string tables** (:func:`_string_table_members`) are read in the same
+    two-reading style, because the statement — annotation and value together —
+    is what gets walked. They are read at **module and class scope only**. A
+    tuple of strings inside a function body is a local, not a declaration, and
+    scanning function bodies for them would flood the guard with findings that
+    are not the defect and get it switched off. ``Literal`` keeps its wider walk
+    unchanged, so no existing coverage narrows.
     """
     found: list[tuple[str, str, int]] = []
     for child in ast.iter_child_nodes(node):
@@ -278,10 +412,16 @@ def _declarations(node: ast.AST, qualifier: str) -> list[tuple[str, str, int]]:
             if _base_names(child) & ENUM_BASE_NAMES:
                 name = f"{qualifier}.{child.name}" if qualifier else child.name
                 found.append((name, "enum", child.lineno))
-            found.extend(_declarations(child, child.name))
+            found.extend(
+                _declarations(
+                    child, child.name, inside_function=inside_function
+                )
+            )
             continue
         if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            found.extend(_declarations(child, qualifier))
+            found.extend(
+                _declarations(child, qualifier, inside_function=True)
+            )
             continue
         bound = _bound_name(child, qualifier)
         for descendant in ast.walk(child):
@@ -289,6 +429,10 @@ def _declarations(node: ast.AST, qualifier: str) -> list[tuple[str, str, int]]:
                 found.append(
                     (bound or "<unbound Literal>", "literal", descendant.lineno)
                 )
+            if inside_function or bound is None or _is_dunder(bound):
+                continue
+            if _string_table_members(descendant) is not None:
+                found.append((bound, "table", descendant.lineno))
     return found
 
 
@@ -470,6 +614,24 @@ def _copied_roots(tmp_path: pathlib.Path) -> pathlib.Path:
             '    obligation: Literal["re-pull", "escalate"] = "re-pull"\n',
             id="literal-in-a-field-annotation (the DebtProfile spelling)",
         ),
+        pytest.param(
+            '\n\n_OBLIGATION_TABLE: tuple[str, ...] = '
+            '("re-pull", "escalate", "fail-closed")\n',
+            id="tuple-table (the close-panel injection, verbatim)",
+        ),
+        pytest.param(
+            '\n\n_OBLIGATION_TABLE = ["re-pull", "escalate", "fail-closed"]\n',
+            id="list-table",
+        ),
+        pytest.param(
+            '\n\n_OBLIGATION_TABLE = frozenset({"re-pull", "escalate"})\n',
+            id="frozenset-builder-table",
+        ),
+        pytest.param(
+            '\n\nclass _Binding:\n'
+            '    obligations = ("re-pull", "escalate", "fail-closed")\n',
+            id="table-as-a-class-attribute",
+        ),
     ],
 )
 def test_the_guard_refuses_an_injected_obligation_vocabulary(
@@ -568,3 +730,79 @@ def test_the_guard_did_not_widen_into_a_ban_on_debt_signal() -> None:
         "forced_llm",
         "fail_closed",
     ], "DebtSignal's members changed; the exemption's reason needs re-reading"
+
+
+@pytest.mark.parametrize(
+    "benign",
+    [
+        pytest.param(
+            '\n\n__all__ = ["re_pull", "escalate", "fail_closed"]\n',
+            id="__all__ names exports, which are code",
+        ),
+        pytest.param(
+            '\n\nclass _Default:\n'
+            '    accepted: frozenset[str] = frozenset({"assembly-stamped"})\n',
+            id="a one-member field default is a default, not a choice",
+        ),
+        pytest.param(
+            '\n\ndef _local() -> str:\n'
+            '    order = ("freshness", "completeness", "semantic_consistency")\n'
+            '    return order[0]\n',
+            id="a local inside a function body is not a declaration",
+        ),
+        pytest.param(
+            '\n\n_LIMITS = (1, 2, 3)\n',
+            id="a numeric table is cinv01b-numeric-table's job",
+        ),
+        pytest.param(
+            '\n\n_MIXED = ("re-pull", 3)\n',
+            id="a mixed table is not a closed string vocabulary",
+        ),
+    ],
+)
+def test_the_table_shape_did_not_widen_into_a_ban_on_every_collection(
+    tmp_path: pathlib.Path, benign: str
+) -> None:
+    """The opposite direction, for the shape added at Phase 15.6's close.
+
+    Widening a structural invariant is only an improvement if it refuses more of
+    the defect and none of the tree. Each case here is a collection of constants
+    that is emphatically **not** an obligation vocabulary, and each corresponds
+    to a real shape in the scan roots: ``__all__`` in all five modules,
+    ``ProductClassDeclaration``'s one-member ``frozenset`` field defaults, and
+    the numeric-table boundary this module has always deferred to
+    ``cinv01b-numeric-table``. A guard that had widened into a ban on tuples
+    would pass every refusal test and fail here.
+    """
+    base = _copied_roots(tmp_path)
+    target = base / "src/ccf/halflife/assessment.py"
+    target.write_text(target.read_text(encoding="utf-8") + benign, "utf-8")
+
+    refuse_obligation_vocabulary(base)
+
+
+def test_the_walk_sees_the_glob_table_the_exemption_covers() -> None:
+    """``_GLOB_CHARACTERS`` must be alive, or its exemption is a named hole.
+
+    :func:`test_the_guard_did_not_widen_into_a_ban_on_debt_signal`'s argument,
+    applied to the one exemption the table widening added. The point of asserting
+    the walk *does* see it is that the exemption — not a gap in the predicate —
+    is what keeps it green. If the predicate later stopped recognizing tuple
+    tables, every test above would still pass and the widening would be
+    silently undone; this is the case that would not.
+    """
+    assert "_GLOB_CHARACTERS" in EXEMPT_NAMES
+
+    source = (REPO_ROOT / "src/ccf/controlplane/artifacts.py").read_text("utf-8")
+    raw = _declarations(ast.parse(source), "")
+    assert any(
+        name == "_GLOB_CHARACTERS" and kind == "table" for name, kind, _ in raw
+    ), (
+        "the walk no longer sees _GLOB_CHARACTERS as a table — the exemption is"
+        " not what is keeping it green, so the tuple-shape widening has been"
+        " undone and the close-panel B4 injection would pass again"
+    )
+
+    assert not declared_vocabularies(
+        REPO_ROOT / "src/ccf/controlplane/artifacts.py"
+    ), "the exemption stopped covering _GLOB_CHARACTERS — the rule has widened"
