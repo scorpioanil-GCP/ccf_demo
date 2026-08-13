@@ -305,9 +305,9 @@ class DebtEvidencePointer(CCFContract):
         handle: The identifier of the thing pointed at. **Opaque to the SDK;
             declared by the deployment** — the discipline
             :class:`~ccf.skills.catalog.SkillRequirements` already holds. The
-            SDK validates structure (type, uniqueness, canonical order) and
-            validates nothing about meaning: it ships no entity-URI type, no
-            claim-id type, no vocabulary and no default.
+            SDK validates structure (type, non-blankness, uniqueness, canonical
+            order) and validates nothing about meaning: it ships no entity-URI
+            type, no claim-id type, no vocabulary and no default.
 
     **The handle carries nothing a reading principal can interpret**
     (D-IMPL-119 limbs 3 and 4). That ruling found evidence pointers
@@ -333,6 +333,42 @@ class DebtEvidencePointer(CCFContract):
     @classmethod
     def _handle_is_not_a_float(cls, value: object) -> object:
         return _refuse_float(value)
+
+    @field_validator("handle")
+    @classmethod
+    def _the_handle_is_declared(cls, value: str) -> str:
+        """Refuse a blank handle, in
+        :meth:`SignalObligation._the_obligation_is_declared_and_is_not_the_sentinel`'s
+        first limb and for its reason.
+
+        A pointer that points at nothing is not a stricter pointer, it is one
+        wearing the costume of a pointer that points at something. Accepting it
+        would make *pointed at something* and *pointed at nothing* two spellings
+        of one claim, while only the second has a sentinel that says so
+        (:data:`NO_DEBT_EVIDENCE`), which is the repudiation failure mode
+        ``D-IMPL-38`` closes. And because this value sits inside the delivered
+        product's content address (``D-IMPL-118``), the ambiguity would be
+        replay-stable rather than transient: the blank would reproduce exactly,
+        forever, as evidence.
+
+        Whitespace is refused with the empty string because a handle of spaces
+        is the empty string with a costume on, and the deferred alternative —
+        letting a consumer discover it — is the deferral CLAUDE.md §11 refuses.
+
+        No judgement about *meaning* is made here. Any other string is accepted
+        verbatim, however unfamiliar: which handles are worth pointing at is the
+        context product creator's judgement (``D-IMPL-117``), and the SDK ships
+        no handle vocabulary, no format and no default.
+        """
+        if not value.strip():
+            raise ValueError(
+                "an evidence handle must be declared: a blank handle points at"
+                " nothing while claiming to point at something, which is what"
+                " an empty NO_DEBT_EVIDENCE carrier already asserts, and it"
+                " would sit inside the product's content address as evidence"
+                " (D-IMPL-38, D-IMPL-118)"
+            )
+        return value
 
 
 def _pointers_are_unique_and_canonically_ordered(

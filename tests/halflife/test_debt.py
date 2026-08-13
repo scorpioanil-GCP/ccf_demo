@@ -454,6 +454,47 @@ def test_a_float_handle_is_refused_rather_than_coerced() -> None:
         DebtEvidencePointer(handle=1.0)  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize(
+    "blank",
+    ["", "   ", "\t", "\n "],
+    ids=["empty", "spaces", "tab", "newline-and-space"],
+)
+def test_a_blank_handle_is_refused_at_construction(blank: str) -> None:
+    """A pointer that points at nothing is not a pointer.
+
+    The `SignalObligation.obligation_ref` refusal, restated here because the
+    reason is identical and the phase's close-time cross-AI panel measured this
+    sibling as the one that had not adopted it. A blank handle is what a
+    half-finished assembler edit leaves behind, and accepting it would make
+    *pointed at something unnameable* and *pointed at nothing* two spellings of
+    one claim — while only the second has a sentinel saying so
+    (`NO_DEBT_EVIDENCE`, D-IMPL-38). Refused at the boundary rather than
+    tolerated downstream (CLAUDE.md §11).
+
+    Whitespace is refused with the empty string because a handle of spaces is
+    the empty string wearing a costume, and this field is inside the delivered
+    product's content address (D-IMPL-118) — so the ambiguity would be
+    replay-stable rather than transient.
+    """
+    with pytest.raises(ValueError, match="evidence handle must be declared"):
+        DebtEvidencePointer(handle=blank)
+
+
+def test_a_handle_the_sdk_has_never_seen_is_still_accepted() -> None:
+    """The blank refusal is structural and is not a judgement about meaning.
+
+    The widening control for the test above: any non-blank string is accepted
+    verbatim, however unfamiliar, because which handles are worth pointing at is
+    the context product creator's judgement (D-IMPL-117, D-IMPL-118) and the SDK
+    ships no handle vocabulary. A refusal that had widened into a format check
+    would pass the test above and fail this one.
+    """
+    assert DebtEvidencePointer(handle=" leading-space-is-content").handle == (
+        " leading-space-is-content"
+    )
+    assert DebtEvidencePointer(handle="0").handle == "0"
+
+
 def test_assess_debt_is_unchanged_by_the_carrier(profile: DebtProfile) -> None:
     """The carrier landed on the vessel, so the pure function did not move.
 
