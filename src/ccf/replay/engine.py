@@ -208,6 +208,25 @@ class ReplayEnvironment(Protocol):
         :data:`~ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY` asserts its
         decision recorded no refresh instants, and the rebuilt product asserts
         the same.
+
+        **What the signal obliged comes off the record too — and re-resolving
+        it is the failure this one guards** (15.6-08, D-IMPL-117 gap 3).
+        ``ContextProductContract.obligation_in_force`` is the third top-level
+        vessel field under the same D-IMPL-118 placement: read
+        ``record.content_generation_path.obligation_in_force`` and carry it onto
+        the rebuilt product verbatim. Unlike the two members above, an
+        implementation *can* obtain a plausible value elsewhere — the
+        deployment's current :class:`~ccf.controlplane.artifacts.DebtProfile`
+        binds an obligation to the very same signal — and that is exactly what
+        must not be done. A profile rebound since the decision would reproduce
+        the obligation in force **now** against a decision made under the one in
+        force **then**, which is the substitution CLAUDE.md §7.4 and D-IMPL-26
+        forbid: replay resolves exact versions, never "latest". The engine's
+        address check catches it, because the value is inside the hashed body.
+        A record carrying
+        :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE` asserts its
+        decision was under no bound obligation, and the rebuilt product asserts
+        the same.
         """
         ...
 

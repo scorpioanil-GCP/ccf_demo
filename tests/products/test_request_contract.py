@@ -631,10 +631,12 @@ def test_no_content_address_moves_because_of_the_pin() -> None:
     the one the same product produced after, and D-IMPL-100's ruling for the
     debt field would have been needed for this one too.
 
-    ``debt_evidence`` joined the enumeration under D-IMPL-118 (plan 15.6-06)
-    and ``source_refresh_recency`` under the same ruling (plan 15.6-07), which
-    is what this assertion is *for*: a field landing inside the delivered bytes
-    is a reviewable event with a ruling behind it, never a quiet edit.
+    ``debt_evidence`` joined the enumeration under D-IMPL-118 (plan 15.6-06),
+    ``source_refresh_recency`` under the same ruling (plan 15.6-07) and
+    ``obligation_in_force`` under it again (plan 15.6-08) — the third and last
+    of the Track B members the ruling prices identically. That is what this
+    assertion is *for*: a field landing inside the delivered bytes is a
+    reviewable event with a ruling behind it, never a quiet edit.
     """
     from ccf.contracts.base import CCFContract
     from ccf.products.contract import (
@@ -655,6 +657,7 @@ def test_no_content_address_moves_because_of_the_pin() -> None:
         "debt",
         "debt_evidence",
         "source_refresh_recency",
+        "obligation_in_force",
     }
 
     def _reaches(model: type[CCFContract], seen: set[type]) -> bool:

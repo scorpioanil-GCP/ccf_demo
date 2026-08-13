@@ -430,13 +430,16 @@ class _Environment:
             # rather than being looked up a second time.
             #
             # MEASURED, not inferred, with the precondition plan 15.6-07
-            # recorded. Deleted while the fixture carried the sentinel, this
-            # line costs NOTHING — all 36 cases still passed, because
-            # sentinel-to-sentinel agrees. It is the populated `OBLIGATION`
-            # above that makes the omission detectable: with a real binding in
-            # force, deleting this line turns 15 of this module's 42 cases red
-            # with `ReplayDivergence`, including the `debt`, `debt_evidence`,
-            # `source_refresh_recency` and `request` landings that predate it.
+            # recorded and confirmed a second time here. Deleted while the
+            # vessel carried the sentinel, this line costs NOTHING — 37 passed
+            # and 0 failed (the 6 cases that assert a populated value were
+            # deselected), because sentinel-to-sentinel agrees. It is the
+            # populated `OBLIGATION` above that makes the omission detectable:
+            # with a real binding in force, deleting this line turns 13 of this
+            # module's 43 cases red with `ReplayDivergence`, including the
+            # `debt`, `debt_evidence`, `source_refresh_recency` and `request`
+            # landings that predate it. A read-back seam is only ever proven by
+            # a populated value.
             obligation_in_force=record.content_generation_path.obligation_in_force,
         )
 

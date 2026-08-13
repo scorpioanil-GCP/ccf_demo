@@ -162,6 +162,20 @@ The SDK stores the instant and the reference and draws no conclusion from
 either; comparing a refresh against a cadence or a threshold would be salience,
 which D-IMPL-101 deferred.
 
+**What the signal obliged rides beside all three, and the address moves a
+fourth time** (D-IMPL-112 gap 3, D-IMPL-117, D-IMPL-118).
+``obligation_in_force`` is the third sibling of ``debt`` and takes the same
+ruled placement, so it pays the same price: a matching member on dimension 5
+and the same read-back in every ``rehydrate_product``. It carries the
+obligation the deployment's :class:`~ccf.controlplane.artifacts.DebtProfile`
+bound to the routing state *this* decision landed in — the resolved value, not
+the mapping. A consumer handed the mapping would be holding the calibration
+rather than the decision, and a consumer handed nothing would have to resolve
+the profile again at read time, which is the substitution D-IMPL-26's
+exact-version rule forbids. **The SDK carries it and acts on it nowhere**:
+what an obligation requires is user configuration (CLAUDE.md §11), and a
+module that branched on the value would have chosen the vocabulary.
+
 **What may be put in it is constrained, and the constraint is standing**
 (D-IMPL-119). Evidence pointers are entitlement-sensitive, and the shipped
 assembly path is not principal-scoped: :class:`ccf.halflife.assessment
@@ -201,6 +215,7 @@ from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.graph.protocols import LineageMode, PolicyBindingMode
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
+    NO_OBLIGATION_IN_FORCE,
     NO_SOURCE_REFRESH_RECENCY,
     DebtAssessment,
     DebtEvidence,
@@ -609,6 +624,17 @@ class ContextProductContract(CCFContract):
             :data:`~ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY`, the
             positive assertion *this product records nothing about when its
             sources last refreshed*.
+        obligation_in_force: What the deployment's debt profile bound to the
+            routing state this decision landed in (D-IMPL-112 gap 3,
+            D-IMPL-117). A **third sibling of** ``debt`` under the same ruled
+            placement. The *resolved* reference for this decision's signal, not
+            the profile's whole mapping — the vessel records what this decision
+            was obliged to do, and the calibration stays on the artifact that
+            owns it. Opaque: the SDK never parses it and never acts on it.
+            Defaults to
+            :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`, the
+            positive assertion *no obligation was bound to the state this
+            decision landed in*.
     """
 
     schema_name: str
@@ -623,6 +649,7 @@ class ContextProductContract(CCFContract):
     debt: DebtAssessment | None = None
     debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
     source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY
+    obligation_in_force: str = NO_OBLIGATION_IN_FORCE
 
 
 def register_product_class(
