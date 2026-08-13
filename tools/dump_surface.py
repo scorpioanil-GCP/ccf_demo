@@ -64,6 +64,56 @@ version-sensitive. That diff is desirable and reviewable — it is precisely the
 moment a maintainer should look at what the dependency changed about the
 public surface — and the correct response is to run ``make surface`` and read
 the diff, never to relax the check.
+
+What a shape can and cannot see (`DI-15.5-06`, ruled by `D-IMPL-122`)
+---------------------------------------------------------------------
+
+``inspect.signature`` on a **class** resolves ``__init__``, which for a
+``Protocol`` is universally ``"(*args, **kwargs)"``. The manifest therefore
+recorded nothing about what a Protocol actually takes. `D-IMPL-110` proved the
+cost by demonstration rather than by argument: plan `15.5-15` widened both
+resolver seams from three arguments to five — a break for every adopter
+implementing them — and this manifest was **byte-identical across that
+change**. Two plans hit the wall independently and both were forced to classify
+their change ``behavior`` rather than ``reshaped``, because ``reshaped`` fails
+``tests/test_surface_completeness.py`` when there is no diff line to point at.
+
+`D-IMPL-122` ruled the fix and, just as deliberately, ruled its limit. Two
+things move, and one explicitly does not:
+
+1. **A ``Protocol`` defining ``__call__`` records that ``__call__``**, with
+   ``self`` elided because ``self`` is not part of the contract an adopter
+   implements against. Detection is **structural** — the runtime ``_is_protocol``
+   marker — never the class name: two of the capture targets
+   (``PeerCardResolver``, ``PeerEndpointResolver``) carry no ``Protocol``
+   suffix, and a plain class can be named ``...Protocol`` without being one.
+2. **A type alias records its rendered type** rather than a signature. A
+   ``Literal`` alias gaining or losing a member is a real surface change; before
+   this, every alias rendered ``"(*args, **kwargs)"`` and no such change
+   produced a diff line at all. The rendering is scrubbed of memory addresses
+   (:func:`_render_alias`) — ``str()`` of an ``Annotated`` alias carrying a
+   Pydantic validator embeds ``<function ... at 0x...>``, and committing that
+   verbatim would make the manifest differ between two runs on an unchanged
+   tree, which is a worse defect than the blind spot being fixed.
+
+3. **A ``Protocol`` with named methods but no ``__call__`` is left recording
+   ``"(*args, **kwargs)"``, deliberately.** This is a **descope, not an
+   oversight**, and it is written here rather than left to be rediscovered.
+   Rendering a Protocol's method set is the shape that actually closes the
+   blind spot; `D-IMPL-122` declined it on a measured cost — 65 new ``reshaped``
+   diff lines against 11 — and Dave chose the smaller fix knowingly. Measured
+   at that ruling: ``__call__`` capture reaches **12 of 51** information-free
+   Protocol classes, leaving **39 whose entire public contract is a method set
+   still invisible to this manifest**, including every one of the seven
+   `D-IMPL-110` names by name (``ArtifactStoreProtocol``,
+   ``ControlPlaneProtocol``, ``HarnessAdapterProtocol``,
+   ``OrchestrationProtocol``, ``HITLTransportProtocol``, ``LLMClientProtocol``,
+   ``DebtFactorScorerProtocol``). **The consequence, stated so no gate cites
+   this file for more than it proves: after this fix the manifest is still not
+   evidence of surface stability for a multi-method Protocol.** A signature
+   change to any of their methods still produces no diff line.
+   ``tests/test_surface_shape_capture.py`` asserts the descope so that closing
+   it is a deliberate scope change with a ruling behind it, not a silent one.
 """
 
 from __future__ import annotations
@@ -74,7 +124,9 @@ import inspect
 import json
 import pathlib
 import pkgutil
+import re
 import sys
+import typing
 from typing import Any
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -133,12 +185,82 @@ def _kind_of(obj: Any) -> str:
     return "constant"
 
 
+#: Matches the ``at 0x7f...`` tail CPython appends to a default ``repr``.
+#: Scrubbed rather than tolerated — see :func:`_render_alias`.
+_ADDRESS = re.compile(r" at 0x[0-9a-fA-F]+")
+
+
+def _protocol_call(obj: Any) -> Any | None:
+    """A ``Protocol``'s own ``__call__``, or ``None`` if it defines none.
+
+    Structural on two counts. The class is recognised as a Protocol by the
+    runtime ``_is_protocol`` marker rather than by its name — see the module
+    docstring for why a name-based rule is wrong in both directions. And
+    ``__call__`` is looked up through ``__mro__`` ``__dict__``s rather than with
+    ``getattr``, because ``getattr(cls, "__call__")`` finds ``type.__call__``
+    on the metaclass for *every* class and would report a signature for
+    Protocols that define none.
+    """
+    if not inspect.isclass(obj) or not getattr(obj, "_is_protocol", False):
+        return None
+    for klass in getattr(obj, "__mro__", ()):
+        found = klass.__dict__.get("__call__")
+        if found is not None:
+            return found
+    return None
+
+
+def _call_shape(function: Any) -> str | None:
+    """``function``'s signature with the leading ``self`` elided."""
+    try:
+        signature = inspect.signature(function)
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        return None
+    parameters = list(signature.parameters.values())
+    if parameters and parameters[0].name == "self":
+        signature = signature.replace(parameters=parameters[1:])
+    return str(signature)
+
+
+def _is_type_alias(obj: Any) -> bool:
+    """True for ``Literal[...]``, ``Union[...]``, ``Callable[...]`` and friends.
+
+    ``typing.get_origin`` is the structural test: it is non-``None`` for every
+    subscripted typing form and ``None`` for a plain function, a class, or a
+    ``functools.partial``. That keeps the alias branch from reaching anything
+    whose signature is meaningful.
+    """
+    return not inspect.isclass(obj) and typing.get_origin(obj) is not None
+
+
+def _render_alias(obj: Any) -> str:
+    """An alias's type, rendered deterministically.
+
+    ``str()`` is the right rendering — it is what the contract branch already
+    records for a field annotation — except that an ``Annotated`` alias
+    carrying a Pydantic validator renders the validator's function as
+    ``<function name at 0x...>``. The address is process-local, so committing
+    it would make two runs on an unchanged tree disagree. Scrubbing just the
+    address keeps the informative part (the validator's name) and drops the
+    only non-deterministic part.
+    ``tests/test_surface_shape_capture.py`` asserts the whole serialized
+    manifest carries no address, so a future alias form that leaks one fails
+    rather than silently destabilising the gate.
+    """
+    return _ADDRESS.sub("", str(obj))
+
+
 def _shape_of(obj: Any, kind: str) -> Any:
     """The version-sensitive detail a reshape has to move.
 
-    Contracts record their fields (name → annotation repr); callables record
-    their signature; everything else records only its type name, because a
-    constant's *value* is a deployment concern, not a surface one.
+    Contracts record their fields (name → annotation repr); a ``Protocol``
+    defining ``__call__`` records that ``__call__``; a type alias records its
+    rendered type; other callables record their signature; everything else
+    records only its type name, because a constant's *value* is a deployment
+    concern, not a surface one.
+
+    The Protocol and alias branches are `D-IMPL-122`'s scope, and the module
+    docstring records what they deliberately leave uncovered.
     """
     if kind == "contract":
         fields = getattr(obj, "model_fields", {})
@@ -146,6 +268,13 @@ def _shape_of(obj: Any, kind: str) -> Any:
             name: str(field.annotation) for name, field in sorted(fields.items())
         }
     if kind in ("class", "function"):
+        call = _protocol_call(obj)
+        if call is not None:
+            shape = _call_shape(call)
+            if shape is not None:
+                return shape
+        if _is_type_alias(obj):
+            return _render_alias(obj)
         try:
             return str(inspect.signature(obj))
         except (TypeError, ValueError):
