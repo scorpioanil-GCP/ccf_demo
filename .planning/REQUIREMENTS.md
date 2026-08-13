@@ -130,7 +130,7 @@
 
 ### Decision-Completeness and Defect Closure (DCD)
 
-- [ ] **DCD-01**: The fixed-versus-declared fork is measured rather than argued — every candidate placement for a debt-evidence carrier has a verdict produced by running the real `rehydrate_product` tripwire, the record-only placement's consumer reach is counted against the three shipped doors, and the spike recommends nothing
+- [x] **DCD-01**: The fixed-versus-declared fork is measured rather than argued — every candidate placement for a debt-evidence carrier has a verdict produced by running the real `rehydrate_product` tripwire, the record-only placement's consumer reach is counted against the three shipped doors, and the spike recommends nothing
 - [ ] **DCD-02**: Debt points at what it summarises, and `Observation` carries an identity those pointers can name; the SDK enumerates no observation identity vocabulary and owes nothing about *which* observations matter (`D-IMPL-117`)
 - [ ] **DCD-03**: Source-refresh recency is a slot distinct from computed freshness, with no SDK definition of a source, no cadence, no staleness threshold and no default; an unpopulated slot is a positive assertion under a named sentinel
 - [ ] **DCD-04**: Each `DebtSignal` can carry a declared, **opaque** obligation reference bound through the Control Plane and resolved at replay to the binding in force at decision time, with **no obligation vocabulary anywhere in `src/`**, enforced by a structural assertion no shipped lint reaches
@@ -142,6 +142,22 @@
 - [ ] **DCD-10**: `DI-15.5-08` — the `.py`-target unanchored citation population is reduced over the ruled scope and cannot regrow, gated in **both** directions
 - [ ] **DCD-11**: `docs/schemas/` is shingle-scanned by the shipped `publish_scan` machinery through a scan root wired into `docs-strict`, not by a one-time sweep
 - [ ] **DCD-12**: The phase gate is `make ci` exit 0, with the CLAUDE.md §3.1 close sequence run in its stated order
+
+**DCD-01 is discharged across its two owning plans, with one stated exception.**
+Plan `15.6-01` produced `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` and
+`tests/spikes/test_debt_evidence_placement_cost.py` — four placement verdicts by
+executed round trip, the record-only placement's reach counted at **0** wire
+consumers against all three shipped doors, and no recommendation anywhere in the
+document. Plan `15.6-04` converted the measurement into rulings `D-IMPL-118`,
+`D-IMPL-119` and `D-IMPL-120`. **The exception, stated rather than elided:** the
+clause reads *"a verdict produced by running the real `rehydrate_product`
+tripwire"*, and only **2 of the 4** placements were exercisable end to end
+against it — `tests/replay/test_engine_rehydration.py` ran at **exit 0, 24
+passed** for the declared and record-only placements, while the nested and
+top-level placements are marked **NOT EXERCISABLE** in the evidence document,
+each naming the exact source changes that would have to land first, with their
+verdicts produced instead by an executed round trip carried through the **real**
+`ContentGenerationPath.debt` field. No later plan carries `DCD-01`.
 
 ## Future Requirements (deferred)
 
@@ -244,7 +260,7 @@
 | CPS-12 | Phase 15.5 | Complete |
 | CPS-13 | Phase 15.5 | Complete |
 | CPS-14 | Phase 15.5 | Complete |
-| DCD-01 | Phase 15.6 | Pending |
+| DCD-01 | Phase 15.6 | Complete |
 | DCD-02 | Phase 15.6 | Pending |
 | DCD-03 | Phase 15.6 | Pending |
 | DCD-04 | Phase 15.6 | Pending |
