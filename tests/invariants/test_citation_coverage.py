@@ -191,7 +191,17 @@ MAXIMUM_UNANCHORED_PY_CITATIONS = 0
 #: 954 scanned and 465 exempt. No headroom, following
 #: ``tests/products/test_gate_two_call_shape.py``'s stated convention that a
 #: floor is the count observed in the tree.
-MINIMUM_SCANNED_CITATION_HOSTS = 954
+#:
+#: **Re-floored 954 → 953 by plan ``15.6-12`` task 1**, which retired
+#: ``tests/spikes/test_debt_evidence_placement_cost.py`` — the plan-``15.6-01``
+#: measurement instrument whose docstring named that task as its retiring owner.
+#: One file was removed and the walk read one fewer, exactly as the assertion
+#: message anticipates (*"if the latter, lower this constant in the same commit
+#: and name the removal in the commit message"*). This is bookkeeping forced by
+#: an owned deletion, not a relaxation: nothing else moved, and
+#: :data:`MINIMUM_CITATIONS_READ` was unaffected because the retired module's
+#: citations were within that floor's headroom.
+MINIMUM_SCANNED_CITATION_HOSTS = 953
 
 #: Non-vacuity, half two: the files the walk read actually contained citations.
 #: Half one alone passes over a walk that found 953 files and matched nothing in
