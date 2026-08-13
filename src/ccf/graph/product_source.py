@@ -111,8 +111,9 @@ class ProductMountRefusal(GateRefusal):
     A returned value, never an exception — the refusal-value discipline of
     the fabric's gates, derived from
     :class:`~ccf.products.gates.GateRefusal` rather than paralleling it
-    (the `AdmissionRefusal` derivation style at
-    src/ccf/peering/admission.py:266): a product that cannot mount meets the
+    (the derivation style of
+    `src/ccf/peering/admission.py::AdmissionRefusal`): a product that cannot
+    mount meets the
     same gate discipline every other refused product meets, and a caller
     inspecting ``gate`` and ``detail`` reads this refusal exactly as it
     reads an admission or TTL refusal.

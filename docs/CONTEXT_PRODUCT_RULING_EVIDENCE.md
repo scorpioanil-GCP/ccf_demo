@@ -107,14 +107,14 @@ are measured there.
 | Option | Consequence (from RESEARCH) | **Measured Cost** |
 |---|---|---|
 | **Scalar `D_c` only** | Cheapest; loses which of F/C/S collapsed, which `DebtAssessment`'s own docstring argues against | One `Decimal` field, wherever Q3 puts it. Q3's placement cost is the whole cost; the shape adds nothing. |
-| **Per-factor** (the shipped `DebtAssessment`: `debt` + `signal` + F/C/S) | Free — the type exists and is already `Decimal`-safe for replay | The type already ships (`src/ccf/halflife/debt.py:149-165`) with **6** construction sites in 6 files and **9** `assess_debt` sites in 3 files. Adding it to a contract costs Q3's placement cost and **0** new type work. |
+| **Per-factor** (the shipped `DebtAssessment`: `debt` + `signal` + F/C/S) | Free — the type exists and is already `Decimal`-safe for replay | The type already ships (`src/ccf/halflife/assessment.py::DebtAssessment`) with **6** construction sites in 6 files and **9** `assess_debt` sites in 3 files. Adding it to a contract costs Q3's placement cost and **0** new type work. |
 | **Per-subject recency** in addition | Expresses Dave's Acme case | **NOT MEASURABLE from this tree** — no per-entity last-observed structure exists to count against. `Observation` (`src/ccf/halflife/decay.py::Observation`) carried `(observation_type, observed_at)` and **no entity identity** when this was measured, so the per-subject key did not exist anywhere on the debt path. (Closed later: plan `15.6-05` added the optional `subject` identity under `D-IMPL-120`. The measurement stands as the record of what was true at ruling time; the line-anchored citation is re-cited by symbol per `DI-15.5-08`.) This is the same missing link A3 reports under Q4; building it is a precondition, and its cost is Q4 option (c)'s cost. |
 | **Per-claim** | Maximum fidelity, maximum size | **NOT MEASURABLE from this tree** — same missing link as per-subject, at finer grain. |
 
 **Sub-question — are recency and salience one field or two?** Mechanically
 distinct and measured as such: recency is computable today by
 `FreshnessScorer.score(observations, *, now)`
-(`src/ccf/halflife/debt.py:233-262`, signature measured); salience has **no
+(`src/ccf/halflife/debt.py::FreshnessScorer`, signature measured); salience has **no
 producer anywhere in `src/` or `runtime/`** — see Q4.
 
 ---
@@ -125,9 +125,9 @@ producer anywhere in `src/` or `runtime/`** — see Q4.
 `ReplayEnvironment.rehydrate_product`
 (`src/ccf/replay/engine.py::ReplayEnvironment.rehydrate_product`)
 rebuilds the delivered product from `(record, re-executed projection)`, and the
-engine hash-checks the result at `src/ccf/replay/engine.py:472-477`, raising
+engine hash-checks the result inside `src/ccf/replay/engine.py::replay`, raising
 `ReplayDivergence`. `ProjectionOutput` carries exactly `plan_id` and `payload`
-(`src/ccf/projection/plan.py:75-86`).
+(`src/ccf/projection/plan.py::ProjectionOutput`).
 
 **Measured baseline content address of the spike's stand-in vessel:**
 `14217148e333aee2004640a66f5bdcfff609cbd808753c49ce9fa94af6c50372`.
@@ -144,9 +144,9 @@ serialize `servable.product`, and **none of them touches
 
 | # | Path | `file:line` | What it serializes |
 |---|---|---|---|
-| 1 | Fabric-internal MCP egress resource | `runtime/ccf_runtime/mcp/egress.py:152-163` | `canonical_bytes(servable.product)` |
-| 2 | HTTP API `retrieve` route | `runtime/ccf_runtime/http_api/routes/product.py:35-42` | `canonical_response(servable.product)` |
-| 3 | **External front door** — Experience server `context_product` resource | `runtime/ccf_runtime/mcp/experience.py:560-570` | `canonical_bytes(servable.product)` |
+| 1 | Fabric-internal MCP egress resource | `runtime/ccf_runtime/mcp/egress.py::ProductResolverProtocol` | `canonical_bytes(servable.product)` |
+| 2 | HTTP API `retrieve` route | `runtime/ccf_runtime/http_api/routes/product.py::build_router` | `canonical_response(servable.product)` |
+| 3 | **External front door** — Experience server `context_product` resource | `runtime/ccf_runtime/mcp/experience.py::build_experience_server` | `canonical_bytes(servable.product)` |
 
 Paths 1 and 3 carry the identical three-string signature
 `context_product(tenant, product_class, version)` and the identical body. Path 3
@@ -174,7 +174,7 @@ exists, with its cost measured, and with no preference expressed.
 | Option | Consequence (from RESEARCH) | **Measured Cost** |
 |---|---|---|
 | **(a)** Opaque salience identifiers declared per class, compared structurally, never interpreted | The shipped `SkillRequirements` precedent (D-IMPL-29) | One declaration field on the product class or the debt profile; the fabric compares strings. `register_product_class` has **29** call sites / 26 files, or **0** under a default. No new producer needed — the deployment supplies the identifiers. |
-| **(b)** A `SalienceScorerProtocol` alongside `DebtFactorScorerProtocol` | Consistent with D-IMPL-47's pattern for C and S | One new Protocol beside the shipped one (`src/ccf/halflife/debt.py:168-196`, which already carries `scorer_id`/`scorer_version` for replay pinning). **No reference implementation ships for C or S today**, so a third unimplemented scorer is consistent with the tree; the reference example must supply one. Touches **0** existing `assess_debt` call sites if the factor is optional. |
+| **(b)** A `SalienceScorerProtocol` alongside `DebtFactorScorerProtocol` | Consistent with D-IMPL-47's pattern for C and S | One new Protocol beside the shipped one (`src/ccf/halflife/debt.py::FreshnessScorer`, which already carries `scorer_id`/`scorer_version` for replay pinning). **No reference implementation ships for C or S today**, so a third unimplemented scorer is consistent with the tree; the reference example must supply one. Touches **0** existing `assess_debt` call sites if the factor is optional. |
 | **(c)** Supersession-as-Policy-event, reusing the §7.7 mechanism | Most whitepaper-faithful | **This option is larger than it looks, and the missing link is now named.** See below. |
 | **(d)** Defer salience entirely to Phase 17; ship recency only | Halves the debt work | **0** — recency is already computable by `FreshnessScorer.score`, whose signature was read: `(self, observations: Sequence[Observation], *, now: datetime) -> Decimal`. |
 
@@ -186,8 +186,8 @@ RESEARCH.md rated A3 MEDIUM-HIGH and explicitly did not trace it. Traced now:
 |---|---|
 | Verdict | **No — not reachable** |
 | The missing link | `src/ccf/halflife/decay.py::Observation` — carried exactly `("observation_type", "observed_at")` when measured. **No claim id, no entity URI, no join key.** (Closed later by plan `15.6-05`'s optional `subject` under `D-IMPL-120`.) |
-| The consumer that would need it | `src/ccf/halflife/debt.py:233-262` — `FreshnessScorer.score(self, observations: Sequence[Observation], *, now: datetime) -> Decimal` |
-| Where supersession actually lives | `src/ccf/graph/protocols.py:132-133` — `ClaimRecord.superseded_by` / `superseded_at` |
+| The consumer that would need it | `src/ccf/halflife/debt.py::FreshnessScorer` — `FreshnessScorer.score(self, observations: Sequence[Observation], *, now: datetime) -> Decimal` |
+| Where supersession actually lives | `src/ccf/graph/protocols.py::EntityRecord` and `src/ccf/graph/protocols.py::RelationshipRecord` — `superseded_by` / `superseded_at` on each. (This row named `ClaimRecord`; `git log -S` confirms no such class has ever existed in that module, so the type name was wrong when written while the cited lines were right.) |
 | Occurrences of `supersed` in `src/ccf/halflife/` | **0** |
 | Occurrences in `src/ccf/projection/` | **0** |
 | Occurrences in `src/ccf/products/` | **0** |
@@ -212,15 +212,15 @@ to survive here, in the evidence, not in a gate.
 
 | Option | Consequence (from RESEARCH) | **Measured Cost** |
 |---|---|---|
-| **(a)** A fourth validation gate in `run_gates` | Follows the shipped additive-gate posture; every product checked on the governed path | `run_gates` has **43** call sites across 22 files, but the `source_attestation` precedent (`src/ccf/products/gates.py:306`, keyword-only, `None`-passes) means a keyword-only defaulted parameter moves **0** of them. Serve-time cost lands on the three `test_gates.py` micro benchmarks — margins measured below. |
-| **(b)** A bind at class registration | Cheaper at serve time; validates a capability, not an instance | **29** `register_product_class` call sites / 26 files, or **0** under a default (the `accepted_policy_binding_modes` precedent at `contract.py:193-198` is exactly this). **0** serve-time benchmark cost. |
+| **(a)** A fourth validation gate in `run_gates` | Follows the shipped additive-gate posture; every product checked on the governed path | `run_gates` has **43** call sites across 22 files, but the `source_attestation` precedent (`src/ccf/products/gates.py::run_gates`, keyword-only, `None`-passes) means a keyword-only defaulted parameter moves **0** of them. Serve-time cost lands on the three `test_gates.py` micro benchmarks — margins measured below. |
+| **(b)** A bind at class registration | Cheaper at serve time; validates a capability, not an instance | **29** `register_product_class` call sites / 26 files, or **0** under a default (the `accepted_policy_binding_modes` precedent on `src/ccf/products/contract.py::RegisteredProductClass` is exactly this). **0** serve-time benchmark cost. |
 | **(c)** Both | Registration catches misconfiguration at wiring time; the gate catches drift at serve time | The sum of (a) and (b): **0** forced call-site repairs under defaults on both sides, and (a)'s serve-time benchmark cost. |
 
 ### The unavoidable sub-question — one-level schema vs. the reference payload
 
 `SkillArgumentProperty` declares `("type", "description")`;
 `SkillArgumentSchema` declares `("properties", "required")`. Depth is **1**, by
-ruling at `src/ccf/skills/catalog.py:194-206`.
+ruling at `src/ccf/skills/catalog.py::SkillArgumentSchema`.
 
 | Branch | **Measured Cost** |
 |---|---|
@@ -235,9 +235,9 @@ ruling at `src/ccf/skills/catalog.py:194-206`.
 | Option | Consequence (from RESEARCH) | **Measured Cost** |
 |---|---|---|
 | **(a)** The class declares which components are decision-critical; debt weights accordingly | Keeps values in artifacts | **NOT MEASURABLE from this tree** — no aggregate-product surface exists to count against. What *does* exist and would be reused: `union_lineage` with **10** call sites across 3 files (`src/ccf/peering`, `tests/peering`, `tests/properties`, already property-tested). The declaration itself lands on `register_product_class` (**29** sites / 26 files, or **0** under a default). |
-| **(b)** Conjunctive over critical components (worst debt among the class's critical set) | Consistent with the multiplicative-conjunctive F·C·S commitment (INV-CH7-62/63) | **NOT MEASURABLE** — same reason. Adds **0** new weights, so it does not touch the `src/ccf/halflife/debt.py:16-22` foreclosure of the additive form. Combinator cost is one pure function beside `context_debt`. |
+| **(b)** Conjunctive over critical components (worst debt among the class's critical set) | Consistent with the multiplicative-conjunctive F·C·S commitment (INV-CH7-62/63) | **NOT MEASURABLE** — same reason. Adds **0** new weights, so it does not touch the foreclosure of the additive form stated in `src/ccf/halflife/debt.py`'s module docstring. Combinator cost is one pure function beside `context_debt`. |
 | **(c)** Multiplicative over all components | An aggregate of ten components drives `D_c`→1 mechanically | **NOT MEASURABLE** — same reason. Same zero-weight property as (b). |
-| **(d)** Defer aggregates' debt to Phase 17; ship lineage union + TTL floor + SLA refusal only | ROADMAP criterion 8 as written does not mention debt composition | **0** for the debt limb. The three named limbs of criterion 8 reuse `union_lineage` (**10** sites / 3 files) and the `refuse_operator_set_divergence` bind-time-refusal posture (`src/ccf/deployment/binder.py:123-155`). |
+| **(d)** Defer aggregates' debt to Phase 17; ship lineage union + TTL floor + SLA refusal only | ROADMAP criterion 8 as written does not mention debt composition | **0** for the debt limb. The three named limbs of criterion 8 reuse `union_lineage` (**10** sites / 3 files) and the `refuse_operator_set_divergence` bind-time-refusal posture (`src/ccf/deployment/binder.py::refuse_operator_set_divergence`). |
 
 **Why the three are NOT MEASURABLE and what would make them measurable:** an
 aggregate product — a `ContextProductContract` composed from constituent

@@ -6,7 +6,7 @@ must be claimed by a ``docs/surface-changes/15*-*.md`` fragment. This module
 lives in ``tests/`` rather than in a bespoke CI job because ``tests/`` is the
 already-always-on ``test`` job — so a surface change fails CI on the same
 commit that causes it, with no new CI wiring (the reasoning transferred
-verbatim from ``tests/http_api/test_openapi.py:9-14``).
+verbatim from ``tests/http_api/test_openapi.py``'s own module docstring).
 
 Why documented-drift rather than bare bytes-equality
 ----------------------------------------------------

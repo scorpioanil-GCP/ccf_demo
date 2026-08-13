@@ -274,7 +274,8 @@ class TestTheAuthoredTwinMirrorsTheClass:
         assert field in ProductClassDeclaration.model_fields
 
     def test_the_artifact_declares_a_key_and_never_a_derived_version(self) -> None:
-        """``artifacts.py:502-510``, applied to the new pin.
+        """``src/ccf/controlplane/artifacts.py::ProductClassDeclaration``'s
+        authored-key/derived-version rule, applied to the new pin.
 
         The payload-schema version is a content hash minted by *registering*
         the schema. An artifact declaring it would be authoring a hash of
