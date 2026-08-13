@@ -43,6 +43,17 @@ FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "banking" / "halfli
 
 NOW = datetime(2026, 3, 1, 10, 0, 0, tzinfo=UTC)
 
+#: A subject identity owned by this test module. **Deployment-side**: the SDK
+#: enumerates no identifier scheme and never interprets the value
+#: (D-IMPL-117, CLAUDE.md §11). Named here so the suite's identities are a
+#: visible test-fixture choice rather than an SDK vocabulary (CINV-01's scope
+#: reaches ``tests/``).
+SUBJECT = "test-subject-alpha"
+
+#: A second deployment-side identity, on the same discipline, for the scorer
+#: assertion that two differently-identified observations still score alike.
+OTHER_SUBJECT = "test-subject-beta"
+
 
 @pytest.fixture(scope="module")
 def document() -> Any:
@@ -152,7 +163,12 @@ def test_freshness_scorer_is_whole_for_a_just_made_observation(
     scorer = FreshnessScorer(table=table, risk_sensitivity=profile.risk_sensitivity)
     name = next(iter(table.entries))
     score = scorer.score(
-        (Observation(observation_type=name, observed_at=NOW),), now=NOW
+        (
+            Observation(
+                observation_type=name, observed_at=NOW, subject=SUBJECT
+            ),
+        ),
+        now=NOW,
     )
     assert score == Decimal(1)
 
@@ -162,12 +178,47 @@ def test_freshness_scorer_aggregates_every_observation(
 ) -> None:
     scorer = FreshnessScorer(table=table, risk_sensitivity=profile.risk_sensitivity)
     name = min(table.entries, key=lambda n: table.entries[n].half_life_seconds)
-    fresh = Observation(observation_type=name, observed_at=NOW)
+    fresh = Observation(
+        observation_type=name, observed_at=NOW, subject=SUBJECT
+    )
     stale = Observation(
-        observation_type=name, observed_at=NOW - timedelta(days=365)
+        observation_type=name,
+        observed_at=NOW - timedelta(days=365),
+        subject=OTHER_SUBJECT,
     )
     both = scorer.score((fresh, stale), now=NOW)
     assert scorer.score((stale,), now=NOW) < both < scorer.score((fresh,), now=NOW)
+
+
+def test_the_freshness_figure_is_unmoved_by_the_subject_identity(
+    table: HalfLifeTable, profile: DebtProfile
+) -> None:
+    """The identity is carried through the debt path, never consumed by it.
+
+    Same types, same instants, three different identity states — one populated,
+    one populated differently, one absent and carrying the sentinel — and one
+    freshness figure. A scorer that read the identity would be re-deriving F
+    from something whitepaper §7.7 does not bind λ_c to.
+    """
+    scorer = FreshnessScorer(table=table, risk_sensitivity=profile.risk_sensitivity)
+    name = min(table.entries, key=lambda n: table.entries[n].half_life_seconds)
+    observed_at = NOW - timedelta(days=30)
+    figures = {
+        scorer.score(
+            (
+                Observation(
+                    observation_type=name, observed_at=observed_at, **identity
+                ),
+            ),
+            now=NOW,
+        )
+        for identity in (
+            {"subject": SUBJECT},
+            {"subject": OTHER_SUBJECT},
+            {},
+        )
+    }
+    assert len(figures) == 1
 
 
 def test_freshness_scorer_refuses_an_empty_observation_set(
