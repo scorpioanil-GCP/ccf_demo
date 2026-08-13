@@ -1126,7 +1126,7 @@ Plans:
 
 **Wave 7** *(checkpoint)*
 
-- [ ] 15.6-09-PLAN.md — [Track A] `DI-15.5-05` ruled + the seam obligation discharged and asserted + the two Track A scoping rulings Waves 8 and 9 need
+- [x] 15.6-09-PLAN.md — [Track A] `DI-15.5-05` ruled + the seam obligation discharged and asserted + the two Track A scoping rulings Waves 8 and 9 need
 
 **Wave 8**
 
@@ -1306,7 +1306,7 @@ Plans:
 | 15.2. Substrate Adapters and Query Pushdown | 14/14 | Complete    | 2026-08-08 |
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
 | 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 15/15 | Complete | 2026-08-11 |
-| 15.6 Decision-Completeness and Defect Closure | 8/12 | In Progress|  |
+| 15.6 Decision-Completeness and Defect Closure | 9/12 | In Progress|  |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Parked (resumes after 15.6) |  |
 
 ## Coverage
