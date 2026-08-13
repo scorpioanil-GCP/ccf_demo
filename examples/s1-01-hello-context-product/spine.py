@@ -469,6 +469,19 @@ def assemble_and_serve(
             # the assembly path"*. `KycScenario.debt_evidence` carries the full
             # reasoning and is the one place a later phase edits.
             debt_evidence=scenario.debt_evidence(execution.view),
+            # WHEN THE SOURCES LAST PUBLISHED, beside the freshness factor it
+            # is deliberately not (D-IMPL-112 gap 2, D-IMPL-117), under the
+            # same `qa-toplevel` placement D-IMPL-118 ruled for all three Track
+            # B members.
+            #
+            # DECLARED by the deployment rather than measured off the view —
+            # which is why this reads a scenario attribute where the two lines
+            # above call a method taking `execution.view`. `debt.factors
+            # .freshness` is a number the fabric computed about its own decay;
+            # this is a fact about the world upstream, and the fabric has no
+            # way to observe it. `artifacts/product-governance.yaml` is where
+            # it is authored and where an adopter changes it.
+            source_refresh_recency=scenario.source_refresh_recency,
         )
         # A refusal is not a thing to proceed past: `ServableProduct` is not
         # constructible outside `run_gates`, so holding one IS the evidence the

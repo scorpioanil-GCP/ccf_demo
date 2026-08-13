@@ -38,11 +38,13 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.graph.protocols import GraphQuery, GraphView
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
+    NO_SOURCE_REFRESH_RECENCY,
     DebtAssessment,
     DebtEvidencePointer,
     DebtFactors,
     DebtSignal,
     ScorerPin,
+    SourceRefresh,
 )
 from ccf.operators.base import OperatorOutput
 from ccf.operators.categories import (
@@ -128,6 +130,25 @@ DEBT = DebtAssessment(
 EVIDENCE = (
     DebtEvidencePointer(handle="h-7f3a"),
     DebtEvidencePointer(handle="h-c105"),
+)
+
+#: When this fixture's decision believed its sources last published (D-IMPL-112
+#: gap 2, D-IMPL-117). Test-owned: the SDK enumerates no source vocabulary and
+#: declares no cadence, and these instants are deliberately unrelated to
+#: ``NOW`` — nothing about this fact may be computed from the fabric's clock,
+#: which is the whole reason it is a fact distinct from the freshness figure in
+#: ``DEBT`` above. Carried on the product, so it is inside the content address
+#: the engine checks, which is what makes this module the tripwire for the
+#: recency landing as well as for the debt and evidence landings.
+RECENCY = (
+    SourceRefresh(
+        source_ref="src-registry",
+        refreshed_at=datetime(2026, 1, 20, 4, 0, tzinfo=UTC),
+    ),
+    SourceRefresh(
+        source_ref="src-screening",
+        refreshed_at=datetime(2026, 2, 28, 19, 30, tzinfo=UTC),
+    ),
 )
 
 #: The intent and freshness this fixture's questions carry (D-IMPL-111 limb
@@ -267,6 +288,7 @@ class _Deployment:
             payload=execution.projection.payload,
             debt=DEBT,
             debt_evidence=EVIDENCE,
+            source_refresh_recency=RECENCY,
         )
 
 
@@ -335,6 +357,24 @@ class _Environment:
             # line turns 8 of this module's 30 cases red with
             # `ReplayDivergence`, including the three landings that predate it.
             debt_evidence=record.content_generation_path.debt_evidence,
+            # And when its sources last published, for the same reason again
+            # (D-IMPL-117 gap 2, plan 15.6-07): the second Track B member takes
+            # the same top-level placement `D-IMPL-118` ruled for all three, so
+            # it does not ride `debt` back either and dimension 5 is the only
+            # place a `(record, projection)` rehydrator can read it from.
+            #
+            # MEASURED, not inferred, and the measurement has a precondition
+            # worth recording (plan 15.6-07). Deleted while the fixture product
+            # carried no refresh instants, this line costs **nothing** — all 30
+            # cases still passed, because sentinel-to-sentinel agrees. It is
+            # the fixture's populated `RECENCY` above that makes the omission
+            # detectable: with the slot populated, deleting this line turns 10
+            # of this module's 36 cases red with `ReplayDivergence`, including
+            # the `debt`, `debt_evidence` and `request` landings that predate
+            # it. A read-back seam is only ever proven by a populated value.
+            source_refresh_recency=(
+                record.content_generation_path.source_refresh_recency
+            ),
         )
 
 
@@ -852,6 +892,214 @@ def test_a_record_written_before_the_evidence_seam_still_replays(
     outcome = _replay(deployment, served.replay_ref.content_address)
 
     assert outcome.product.debt_evidence == NO_DEBT_EVIDENCE
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+
+
+# --- when the sources last published, same tripwire (D-IMPL-117 gap 2) -----
+
+
+def test_the_delivered_product_carries_when_its_sources_last_published(
+    deployment: _Deployment,
+) -> None:
+    """D-IMPL-118 again: on the vessel, and beside `debt` rather than inside it.
+
+    The ruling is explicit that its four measured placements *"price all three
+    Track B vessel-carried members identically"*, so this member takes the same
+    branch the evidence carrier took one plan earlier. The second and third
+    assertions rule out the two placements that would have been cheaper: nested
+    inside `DebtAssessment`, where it would have ridden the assessment into the
+    record for free, and folded into `DebtFactors`, where it would have become
+    an input to a number the SDK computes rather than a fact it merely carries.
+    """
+    execution = deployment.execute()
+    product = deployment.candidate(execution)
+
+    assert product.source_refresh_recency == RECENCY
+    assert "source_refresh_recency" in type(product).model_fields
+    assert product.debt is not None
+    assert "source_refresh_recency" not in type(product.debt).model_fields
+    assert "source_refresh_recency" not in type(product.debt.factors).model_fields
+
+
+def test_the_recency_lands_on_dimension_five_and_mints_no_sixth(
+    deployment: _Deployment,
+) -> None:
+    """INV-CH7-80: the five dimensions are inviolate.
+
+    The extension lands *inside* dimension 5, beside the ``debt`` whose
+    freshness factor it is deliberately not, and neither the record nor
+    dimension 4 gains a member. What this case and only this case rules out: a
+    second reconstruction seam bolted on as a sixth dimension, which would have
+    satisfied replay and broken the invariant.
+    """
+    _address, record = _serve(deployment)
+
+    assert record.content_generation_path.source_refresh_recency == RECENCY
+    assert (
+        "source_refresh_recency"
+        in type(record.content_generation_path).model_fields
+    )
+    assert "source_refresh_recency" not in type(record).model_fields
+    assert (
+        "source_refresh_recency"
+        not in type(record.perspective_conditioning).model_fields
+    )
+
+
+def test_when_the_sources_last_published_replays_byte_exactly(
+    deployment: _Deployment,
+) -> None:
+    """The D-IMPL-118 obligation, executed a second time.
+
+    The ruling authorized the address move on the express condition that the
+    vessel field be carried on dimension 5 and read back by every rehydrator —
+    without which *"every replay of every product raises `ReplayDivergence`"*.
+    This is that condition for the recency slot, run against the real serve
+    path and the real engine, and run **after the graph has moved on four
+    months**, because a reproduction from unchanged state proves almost
+    nothing.
+
+    The staleness of the *graph* moving is what makes this case pointed for
+    this field in particular: the fabric's own decay has advanced, and the
+    recorded refresh instants have not — which is exactly the independence
+    between the two facts that the slot exists to express.
+
+    Both recomputations are asserted rather than trusted: the product against
+    the address the record names, and the record against the address the store
+    resolved it from.
+    """
+    address, record = _serve(deployment)
+
+    deployment.handle.worker.ingest(
+        _envelope(
+            envelope_id="env-recency-later",
+            payload={
+                "counterparty_lei": "LEI-AAA",
+                "counterparty_name": "Northwind Holdings SA",
+                "jurisdiction": "CH",
+            },
+            observed_time=T_JULY,
+        )
+    )
+
+    outcome = _replay(deployment, address)
+
+    assert outcome.product.source_refresh_recency == RECENCY
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+    assert content_hash(record) == address
+
+
+def test_a_rehydration_that_drops_the_recency_is_divergence(
+    deployment: _Deployment,
+) -> None:
+    """The adversarial half: dropping the instants is *detected*, not tolerated.
+
+    The field is inside the content address, so a rehydrator that returned the
+    vessel without it returns a different decision. A silent drop would be
+    indistinguishable from a decision made by a deployment that knew nothing
+    about its sources' publication schedule — which is exactly the artifact the
+    ``NO_SOURCE_REFRESH_RECENCY`` sentinel exists to keep distinct.
+    """
+
+    class _RecencyBlind(_Environment):
+        def rehydrate_product(
+            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
+        ) -> ContextProductContract:
+            product = super().rehydrate_product(record=record, projection=projection)
+            return product.model_copy(
+                update={"source_refresh_recency": NO_SOURCE_REFRESH_RECENCY}
+            )
+
+    address, _record = _serve(deployment)
+    with pytest.raises(ReplayDivergence, match="product"):
+        _replay(deployment, address, environment=_RecencyBlind(deployment))
+
+
+def test_a_rehydration_that_moves_one_refresh_instant_is_divergence(
+    deployment: _Deployment,
+) -> None:
+    """A decision made against a March filing is not one made against September.
+
+    Stronger than the drop case and not implied by it: a rehydrator that
+    returned the right *sources* would satisfy any check over the reference
+    set. What this rules out is an implementation that treats the slot as a
+    list of source names — as *which* sources were read rather than *when* each
+    last published — and it is the case that makes the instant load-bearing
+    rather than decorative.
+    """
+    moved = (
+        SourceRefresh(
+            source_ref=RECENCY[0].source_ref,
+            refreshed_at=RECENCY[0].refreshed_at + timedelta(days=240),
+        ),
+        RECENCY[1],
+    )
+
+    class _RecencyMoved(_Environment):
+        def rehydrate_product(
+            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
+        ) -> ContextProductContract:
+            product = super().rehydrate_product(record=record, projection=projection)
+            return product.model_copy(update={"source_refresh_recency": moved})
+
+    address, _record = _serve(deployment)
+    with pytest.raises(ReplayDivergence, match="product"):
+        _replay(deployment, address, environment=_RecencyMoved(deployment))
+
+
+def test_a_record_written_before_the_recency_seam_still_replays(
+    deployment: _Deployment,
+) -> None:
+    """The sentinel's compatibility promise (the ``debt_evidence`` lineage).
+
+    A product assembled with no refresh instants, and a record that therefore
+    pins none, still reproduce: ``NO_SOURCE_REFRESH_RECENCY`` on both sides is
+    the same positive claim and the two agree. A change that made the slot
+    required would break every pre-seam record instead — which is the cost this
+    case prices and the reason the field defaults rather than demands.
+    """
+    execution = deployment.execute()
+    product_class = deployment.product_class()
+    gated = run_gates(
+        deployment.candidate(execution).model_copy(
+            update={"source_refresh_recency": NO_SOURCE_REFRESH_RECENCY}
+        ),
+        engine_resolved=execution.operators_invoked,
+        now=NOW,
+        registry=deployment.registry,
+        product_class=product_class,
+    )
+    assert isinstance(gated, ServableProduct)
+    record = build_replay_record(
+        execution=execution,
+        product=gated.product,
+        perspective=deployment.perspective(),
+        policy_bindings=(
+            PolicyBinding(key=POLICY_BUNDLE_KEY, version=deployment.policy_version),
+        ),
+        assembly_mode="algorithmic",
+        recorded_at=NOW,
+    )
+    served = serve(
+        product=gated,
+        record=record,
+        replay_writer=ReplayWriter(
+            store=deployment.store, artifact_class=ARTIFACT_CLASS
+        ),
+    )
+
+    assert (
+        record.content_generation_path.source_refresh_recency
+        == NO_SOURCE_REFRESH_RECENCY
+    )
+
+    outcome = _replay(deployment, served.replay_ref.content_address)
+
+    assert outcome.product.source_refresh_recency == NO_SOURCE_REFRESH_RECENCY
     assert content_hash(outcome.product) == (
         record.content_generation_path.product_content_address
     )

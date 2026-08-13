@@ -29,7 +29,12 @@ import yaml
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import DEBT_PROFILE, DebtProfile, parse_artifact
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneRegistry
-from ccf.halflife.assessment import NO_DEBT_EVIDENCE, DebtEvidencePointer
+from ccf.halflife.assessment import (
+    NO_DEBT_EVIDENCE,
+    NO_SOURCE_REFRESH_RECENCY,
+    DebtEvidencePointer,
+    SourceRefresh,
+)
 from ccf.halflife.debt import (
     DebtAssessment,
     DebtFactors,
@@ -340,6 +345,8 @@ _HANDLE_B = DebtEvidencePointer(handle="handle-b")
 
 def _product(
     evidence: tuple[DebtEvidencePointer, ...] = NO_DEBT_EVIDENCE,
+    *,
+    recency: tuple[SourceRefresh, ...] = NO_SOURCE_REFRESH_RECENCY,
 ) -> ContextProductContract:
     """The vessel as every construction site builds it, plus the carrier."""
     return ContextProductContract(
@@ -357,6 +364,7 @@ def _product(
         ),
         payload={"answer": "42"},
         debt_evidence=evidence,
+        source_refresh_recency=recency,
     )
 
 
@@ -462,3 +470,220 @@ def test_assess_debt_is_unchanged_by_the_carrier(profile: DebtProfile) -> None:
     }
     assert "evidence" not in DebtAssessment.model_fields
     assert "debt_evidence" not in DebtAssessment.model_fields
+
+
+# --- when the source was last refreshed (D-IMPL-117, D-IMPL-118) -----------
+#
+# `D-IMPL-112` gap 2, in Dave's own framing: computed freshness says how much
+# the fabric's own decay curve has eaten and says NOTHING about when the
+# upstream registry last published. This slot records the second fact. It is a
+# TOP-LEVEL field on `ContextProductContract` — `D-IMPL-118` `qa-toplevel`, the
+# same branch the evidence carrier above took, and the entry says explicitly
+# that it "price[s] all three Track B vessel-carried members identically".
+#
+# `D-IMPL-101` bounds it: recency ships, salience defers. Nothing below ranks,
+# weights or scores anything, and the SDK compares a refresh instant to nothing
+# at all — asserted structurally by
+# `test_the_recency_is_carried_and_never_consumed`.
+
+
+#: The repo root, anchored on this file rather than on `Path.cwd()`: a
+#: structural check whose scan root depends on the working directory passes or
+#: fails for reasons that have nothing to do with the tree.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+#: Source references and refresh instants this test module owns.
+#: **Deployment-side by construction**: the SDK enumerates no source vocabulary
+#: and declares no cadence (`D-IMPL-117` — *"a slot for source-refresh recency,
+#: owing no definition of a source or a cadence"*). The two instants are
+#: deliberately unrelated to `NOW`, because nothing here is allowed to be
+#: computed from the fabric's own clock.
+_REFRESH_A = SourceRefresh(
+    source_ref="test-source-alpha",
+    refreshed_at=datetime(2026, 1, 9, 6, 30, tzinfo=UTC),
+)
+_REFRESH_B = SourceRefresh(
+    source_ref="test-source-beta",
+    refreshed_at=datetime(2026, 2, 17, 22, 0, tzinfo=UTC),
+)
+
+
+def test_the_recency_slot_round_trips_unchanged() -> None:
+    """Populate and extract — exactly and only what D-IMPL-117 says is owed.
+
+    The pair is the whole SDK obligation for this gap: a way to record when an
+    upstream source was last refreshed on the delivered product, and a way to
+    read it back off it. There is no third thing, because whether a September
+    refresh is recent enough for this decision is the context product creator's
+    judgement.
+    """
+    product = _product(recency=(_REFRESH_A, _REFRESH_B))
+
+    assert product.source_refresh_recency == (_REFRESH_A, _REFRESH_B)
+    rebuilt = ContextProductContract.model_validate(product.model_dump())
+    assert rebuilt.source_refresh_recency == (_REFRESH_A, _REFRESH_B)
+    assert content_hash(rebuilt) == content_hash(product)
+
+
+def test_a_refresh_entry_carries_a_reference_and_an_instant_and_nothing_else() -> None:
+    """D-IMPL-117's boundary, asserted on the field set rather than described.
+
+    No source type, no cadence, no refresh interval, no staleness threshold and
+    no default. What this rules out that nothing else does: a slot that grew a
+    second opinion — the moment the entry carries an interval, the SDK has
+    declared what "overdue" means for somebody else's registry.
+    """
+    assert set(SourceRefresh.model_fields) == {"source_ref", "refreshed_at"}
+    assert SourceRefresh.model_fields["source_ref"].is_required()
+    assert SourceRefresh.model_fields["refreshed_at"].is_required()
+
+
+def test_a_naive_refresh_instant_is_refused_rather_than_coerced() -> None:
+    """`Observation.observed_at`'s discipline, restated (D-IMPL-38).
+
+    An implicit timezone is a silent default, and this value is inside the
+    delivered product's content address — so a coerced zone would make the same
+    refresh fact hash differently depending on where the product was assembled.
+    Refused at construction, not at first use.
+    """
+    with pytest.raises(ValueError, match="zone"):
+        SourceRefresh(
+            source_ref="test-source-alpha",
+            refreshed_at=datetime(2026, 1, 9, 6, 30),
+        )
+
+
+def test_an_unrecorded_recency_is_a_positive_claim_and_not_a_silence() -> None:
+    """D-IMPL-38: the absent value is an assertion, never `None`-as-unknown.
+
+    What this rules out that nothing else does: a nullable slot. Under one, a
+    product whose deployment knows nothing about its sources' publication
+    schedule and a product whose recency somebody dropped in transit would be
+    the same artifact — the repudiation failure mode every sentinel in this
+    fabric closes.
+    """
+    assert _product().source_refresh_recency == NO_SOURCE_REFRESH_RECENCY
+    assert NO_SOURCE_REFRESH_RECENCY is not None
+    assert NO_SOURCE_REFRESH_RECENCY == ()
+
+
+def test_a_changed_refresh_instant_moves_the_delivered_bytes() -> None:
+    """The slot is inside the content address, so the instant is load-bearing.
+
+    A decision made against a source refreshed in January is not the decision
+    made against one refreshed in February. This is the case that would fail if
+    a later change moved the slot off the vessel and left D-IMPL-118's
+    reconstruction obligation looking gratuitous.
+    """
+    later = SourceRefresh(
+        source_ref=_REFRESH_A.source_ref,
+        refreshed_at=_REFRESH_A.refreshed_at + timedelta(days=40),
+    )
+
+    assert content_hash(_product(recency=(_REFRESH_A,))) != content_hash(_product())
+    assert content_hash(_product(recency=(_REFRESH_A,))) != content_hash(
+        _product(recency=(later,))
+    )
+
+
+def test_recency_declaration_order_does_not_move_the_bytes() -> None:
+    """Order-insensitive inside a content address (the `scorers` precedent).
+
+    Declaration order is not a fact about the decision. The slot is inside the
+    delivered product's address, so an order-sensitive collection would make
+    two products recording the same refresh facts hash differently — which is
+    the defect `_pins_are_one_per_factor_in_canonical_order` already exists to
+    prevent for the scorer pins, restated here because the reason is identical.
+    """
+    forward = _product(recency=(_REFRESH_A, _REFRESH_B))
+    reversed_ = _product(recency=(_REFRESH_B, _REFRESH_A))
+
+    assert forward.source_refresh_recency == reversed_.source_refresh_recency
+    assert content_hash(forward) == content_hash(reversed_)
+
+
+def test_a_repeated_source_reference_is_refused_at_construction() -> None:
+    """Two refresh instants for one source is incoherent, not stricter.
+
+    Refused rather than collapsed, which is why the slot is a sorted tuple and
+    not a `frozenset`: a set keyed on the whole entry would keep both, and a
+    set keyed on the reference would drop one **silently** — and a source that
+    was refreshed at two different instants is exactly the incoherence worth
+    naming out loud.
+    """
+    with pytest.raises(ValueError, match="at most one refresh instant"):
+        _product(
+            recency=(
+                _REFRESH_A,
+                SourceRefresh(
+                    source_ref=_REFRESH_A.source_ref,
+                    refreshed_at=_REFRESH_B.refreshed_at,
+                ),
+            )
+        )
+
+
+def test_a_float_source_reference_is_refused_rather_than_coerced() -> None:
+    """The `_refuse_float` discipline extends to the new member.
+
+    Shared with every other value in `ccf.halflife.assessment` for the reason
+    stated once there: these bytes are inside a content address and floats are
+    not bit-stable across platforms.
+    """
+    with pytest.raises(ValueError, match="never float"):
+        SourceRefresh(
+            source_ref=1.0,  # type: ignore[arg-type]
+            refreshed_at=NOW,
+        )
+
+
+def test_the_recency_is_carried_and_never_consumed() -> None:
+    """The SDK stores the fact and draws no conclusion from it (D-IMPL-101).
+
+    `Observation.subject`'s *"carried, never consumed"* discipline, restated
+    structurally rather than described. The moment the SDK compares a refresh
+    instant to `now`, to a cadence or to a threshold, it has decided which
+    sources matter — which is salience, which D-IMPL-101 deferred and for which
+    *"no mechanism ... lands in this phase"*.
+
+    Asserted as a scan rather than as a unit test because the property is an
+    absence: there is no call to make and no value to compare, so the only
+    honest assertion is that no module reads the member at all.
+    """
+    root = REPO_ROOT / "src" / "ccf"
+    readers = sorted(
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*.py")
+        if "refreshed_at" in path.read_text(encoding="utf-8")
+    )
+
+    assert readers == ["halflife/assessment.py"]
+
+    declaring = (root / "halflife" / "assessment.py").read_text(encoding="utf-8")
+    assert "datetime.now" not in declaring
+    assert "utcnow" not in declaring
+
+
+def test_assess_debt_is_unchanged_by_the_recency_slot(profile: DebtProfile) -> None:
+    """The slot landed on the vessel, so the pure function did not move.
+
+    D-IMPL-118 placed all three Track B members top-level on
+    `ContextProductContract`, so `assess_debt` gains no parameter and stays
+    pure over `(factors, profile)` — the D-IMPL-105 posture. Asserted on the
+    consequence directly: `debt` and `signal` are byte-for-byte what they were
+    for the same factors and the same profile, and the assessment's field set
+    is untouched.
+    """
+    factors = _whole(freshness=Decimal("0.8"))
+    assessment = assess_debt(factors, profile=profile)
+
+    assert assessment.debt == context_debt(factors)
+    assert assessment.signal is DebtSignal.OK
+    assert set(DebtAssessment.model_fields) == {
+        "debt",
+        "signal",
+        "factors",
+        "scorers",
+    }
+    assert "source_refresh_recency" not in DebtAssessment.model_fields
+    assert "refreshed_at" not in DebtAssessment.model_fields

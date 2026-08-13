@@ -147,6 +147,21 @@ over ``type(value).model_fields`` and the new field is therefore in the
 address. D-IMPL-117 authorized that move in advance — *"surface impact is
 accepted"* — so it is a ruled cost rather than a defect.
 
+**When the sources last published rides beside both, and the address moves a
+third time** (D-IMPL-112 gap 2, D-IMPL-117, D-IMPL-118).
+``source_refresh_recency`` is the second sibling of ``debt`` and takes the same
+ruled placement, which D-IMPL-118 says *"price[s] all three Track B
+vessel-carried members identically"* — so it pays the same price: a matching
+member on dimension 5 and the same read-back in every ``rehydrate_product``.
+It is here rather than folded into ``debt.factors.freshness`` because the two
+are different facts. F is a *derived* figure — how much of a decay budget the
+fabric's own curve has eaten — while this is an *observed* one about the world
+outside the fabric. A consumer shown only F cannot tell a source that publishes
+daily and is two days late from one that publishes annually and is current.
+The SDK stores the instant and the reference and draws no conclusion from
+either; comparing a refresh against a cadence or a threshold would be salience,
+which D-IMPL-101 deferred.
+
 **What may be put in it is constrained, and the constraint is standing**
 (D-IMPL-119). Evidence pointers are entitlement-sensitive, and the shipped
 assembly path is not principal-scoped: :class:`ccf.halflife.assessment
@@ -186,8 +201,10 @@ from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.graph.protocols import LineageMode, PolicyBindingMode
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
+    NO_SOURCE_REFRESH_RECENCY,
     DebtAssessment,
     DebtEvidence,
+    SourceRefreshRecency,
 )
 
 __ccf_mode__ = "algorithmic"
@@ -582,6 +599,16 @@ class ContextProductContract(CCFContract):
             assertion *this product was assembled with no evidence pointers*,
             so every construction site written before this field existed says
             exactly what it always said.
+        source_refresh_recency: When each upstream source last refreshed, as
+            the assembling deployment declares it (D-IMPL-112 gap 2,
+            D-IMPL-117). A **second sibling of** ``debt`` under the same ruled
+            placement, and a fact distinct from the ``debt.factors.freshness``
+            beside it: F says how much of a decay budget has been spent, and
+            says nothing about when the upstream registry last published.
+            Defaults to
+            :data:`~ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY`, the
+            positive assertion *this product records nothing about when its
+            sources last refreshed*.
     """
 
     schema_name: str
@@ -595,6 +622,7 @@ class ContextProductContract(CCFContract):
     payload: Mapping[str, Any]
     debt: DebtAssessment | None = None
     debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
+    source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY
 
 
 def register_product_class(

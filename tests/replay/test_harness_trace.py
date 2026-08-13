@@ -240,6 +240,15 @@ def test_every_pre_change_field_is_byte_for_byte_unchanged() -> None:
         b'"debt_evidence":[],',
         b"",
     ).replace(
+        # 15.6-07, D-IMPL-117 gap 2 under the same D-IMPL-118 placement: when
+        # the sources last published lands on dimension 5 beside the debt it is
+        # deliberately not a factor of, under the same sentinel-default
+        # discipline. `NO_SOURCE_REFRESH_RECENCY` renders as `[]` for
+        # `NO_DEBT_EVIDENCE`'s reason — a positive claim in one shape, not a
+        # `null` standing for "unknown" (D-IMPL-38).
+        b'"source_refresh_recency":[],',
+        b"",
+    ).replace(
         # 15.5-13, D-IMPL-111 limb (b): the question answered lands on
         # dimension 5 under the same sentinel-default discipline, so a record
         # built without one is byte-identical to a pre-ruling record once the

@@ -67,8 +67,10 @@ from ccf.graph.protocols import SourceAttestation
 from ccf.graph.registry import AdapterPin
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
+    NO_SOURCE_REFRESH_RECENCY,
     DebtAssessment,
     DebtEvidence,
+    SourceRefreshRecency,
 )
 from ccf.products.contract import AssemblyMode, ContextProductContract
 from ccf.projection.engine import ExecutionResult, ExecutionStep
@@ -502,6 +504,17 @@ class ContentGenerationPath(CCFContract):
     *this decision pointed at nothing*, so a record written before this seam
     existed asserts so and still verifies.
 
+    **When the sources last published extends the same dimension as of 15.6-07**
+    (D-IMPL-112 gap 2, D-IMPL-117) through ``source_refresh_recency``, for
+    exactly the reason ``debt_evidence`` is here: D-IMPL-118 rules all three
+    Track B members onto the vessel as top-level fields, so none of them rides
+    ``debt`` back and each needs its own member here or every replay diverges.
+    It is derived from the product for that field's reason, defaults to
+    :data:`~ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY`, and belongs
+    beside the ``debt`` whose freshness factor it is deliberately *not* — F is
+    a measurement of decay against a budget, and this is a fact about when the
+    world outside the fabric last spoke.
+
     The **question answered** extends this dimension as of 15.5-13
     (D-IMPL-111 limb (b)) through ``request``: the
     :class:`~ccf.products.request.ProductRequest` the caller asked, recorded
@@ -546,6 +559,7 @@ class ContentGenerationPath(CCFContract):
     graph_query_sequence: tuple[str, ...] = NO_GRAPH_QUERIES
     debt: DebtAssessment | None = None
     debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
+    source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY
     request: ProductRequest | None = None
 
 
@@ -685,6 +699,14 @@ def build_replay_record(
     move reconstructible instead of merely authorized. A product assembled with
     no pointers yields :data:`~ccf.halflife.assessment.NO_DEBT_EVIDENCE`, so
     every call site written before this extension is byte-for-byte what it was.
+
+    ``product.source_refresh_recency`` becomes dimension 5's
+    ``source_refresh_recency`` (15.6-07, D-IMPL-118), on the same derivation
+    reasoning and load-bearing for the same reason: it is a top-level vessel
+    field, so nothing else reaching a rehydrator names it. A product recording
+    no refresh instants yields
+    :data:`~ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY`, so every call
+    site written before this extension is byte-for-byte what it was.
     """
     return DecisionReplayRecord(
         tenant_id=product.tenant_id,
@@ -745,6 +767,11 @@ def build_replay_record(
             # field, so `(record, projection)` cannot rebuild it from anywhere
             # else and every replay would diverge without this line.
             debt_evidence=product.debt_evidence,
+            # D-IMPL-117 gap 2, under the same D-IMPL-118 placement and for
+            # the same two reasons: read off the product so no call site
+            # moves, and carried at all because a top-level vessel field is
+            # reconstructible from nowhere else.
+            source_refresh_recency=product.source_refresh_recency,
             # D-IMPL-111 limb (b): the question, verbatim. A parameter and not
             # a derivation — the answer does not contain the question that was
             # asked, and inferring one from the other is what DI-15.5-07
