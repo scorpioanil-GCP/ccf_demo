@@ -15,10 +15,10 @@ Every entry has one. None is carried into Phase 16 without a stated owner.
 | `DI-15.5-02` | **CLOSED** by plan `15.5-13` — `make example-s1-01` exists (`Makefile:89`) and leads the eleven-member `examples:` aggregate |
 | `DI-15.5-03` | **CLOSED** by plan `15.5-15` (`D-IMPL-108`), commit `c244400` |
 | `DI-15.5-04` | **OPEN — Phase 17 perf pass**, per Dave's 2026-08-11 ruling. Unchanged |
-| `DI-15.5-05` | **NEW, WRITTEN AT CLOSE.** Was referenced in the phase's handoff notes but had no entry in this file. Recorded below; it is gate residual R1 and wants Dave's ruling |
-| `DI-15.5-06` | **OPEN — Phase 17** (`D-IMPL-110`). Carried, not re-litigated. The measured inventory stands |
+| `DI-15.5-05` | **CLOSED** by plan `15.6-09` (`D-IMPL-121`, Dave, 2026-08-12) — `D-IMPL-113` extends to `refuse_request`; the seam obligation is discharged and asserted. **Its recorded population was WRONG WHEN WRITTEN, not stale**; corrected in place below |
+| `DI-15.5-06` | **SCOPED** by plan `15.6-09` (`D-IMPL-122`, Dave, 2026-08-12) and owned by plan `15.6-10`: frozen baseline stays frozen, `__call__`-only capture, type aliases in scope. **The measured inventory did NOT stand** — re-measured at `4b407e0` as 80/34/56 against the recorded 56/30/54, and the `__call__` fix reaches 12 of 51 Protocols rather than *"every Protocol entry"*. **39 multi-method Protocols stay information-free, descoped with reason** |
 | `DI-15.5-07` | **CLOSED** by plan `15.5-13`'s continuation (`D-IMPL-111`, both limbs) |
-| `DI-15.5-08` | **OPEN — ruled below.** A decision, not a fix; put to Dave as gate residual R3 |
+| `DI-15.5-08` | **SCOPED** by plan `15.6-09` (`D-IMPL-123`, Dave, 2026-08-12) and owned by plan `15.6-11`: sweep 101 of the 114 unanchored `.py`-target citations, holding back the 13 in the records `D-IMPL-114` names. Re-measured at `4b407e0`; the carried figure of 125 across 31 files was 114 across 27 |
 
 ### `DI-15.5-01` — the ruling
 
@@ -77,6 +77,13 @@ by two reviewers (`15.5-CLOSE-REVIEWS.md`, findings P3, C1 and C3). Written at
 close because the entry number was referenced in the phase's handoff notes and
 no entry existed behind it.
 
+> **CORRECTED 2026-08-12 by plan `15.6-09`. The table below was WRONG WHEN
+> WRITTEN, not stale by drift, and it is corrected visibly rather than
+> replaced — the original claim stays legible because the process finding is
+> the useful part.** Read the correction block after the table before using
+> any figure here. **Disposition: RULED — `D-IMPL-121` (Dave, 2026-08-12),**
+> extending `D-IMPL-113` to `refuse_request`. This entry is CLOSED.
+
 **What.** Two shipped refusal functions have no caller on any shipped delivery
 path:
 
@@ -84,6 +91,63 @@ path:
 |---|---|---|
 | `refuse_bound_payload` | `src/ccf/products/bind.py:145` | **one** — `examples/04-cross-process/producer_child.py:697`. Zero in `runtime/` |
 | `refuse_request` | `src/ccf/products/request.py:404` | **zero**. Its docstring at `:408-415` says *"Called by the door"* |
+
+### The correction, re-measured at `4b407e0` (plan `15.6-09`)
+
+**The population, as it stands in the tree.** Measured by `git grep` across
+`src runtime tests examples tools perf`, hand-classified into *invocation*
+versus *mention*:
+
+| Function | Defined at | Invocations outside its own tests | Invocations in `runtime/` |
+|---|---|---|---|
+| `refuse_bound_payload` | `src/ccf/products/bind.py::refuse_bound_payload` | **one** — `examples/04-cross-process/producer_child.py::resolve` | **zero** |
+| `refuse_request` | `src/ccf/products/request.py::refuse_request` | **one** — `examples/s1-01-hello-context-product/spine.py::assemble_and_serve` | **zero** |
+
+The correct statement is narrower than the original table and narrower than
+the phrase *"no caller on any shipped delivery path"*: **no `runtime/` door
+calls either function; one shipped, CI-run example calls each.** Under
+`D-IMPL-121` those two call sites are the ruling's worked demonstration, not
+counterexamples to it.
+
+**Correction 1 — `refuse_request`'s "zero" was false at the moment it was
+written, and git says so.** The call site landed in commit `e4db82c` at
+**2026-08-11 11:46:21 -0700** (*feat(15.5-13): the subject and both instants
+become request arguments*). The entry claiming zero landed in commit `9fd6c12`
+at **2026-08-11 20:54:59 -0700** (*docs(15.5-14): give every deferred item a
+disposition, and write the missing DI-15.5-05*). The gap is **9 h 08 m 38 s,
+the same day, inside the same phase.**
+
+**Why that distinction is recorded rather than quietly fixed.** Drift is
+normal, expected, and is what `D-IMPL-114` addresses. A figure that was
+**false when authored** is a different thing: it means the close-time sweep
+recorded a population it had not measured against the tree it was closing, and
+any plan built on the figure re-commits the error. Phase 15.6 exists partly to
+close defects of this class, and this is its cleanest specimen.
+
+**Correction 2 — two of this entry's own line anchors have rotted, which is
+`DI-15.5-08` demonstrated inside `DI-15.5-05`.** Measured at `4b407e0`:
+
+| Cited above as | Where it actually is | Drift |
+|---|---|---|
+| `bind.py:145` | `src/ccf/products/bind.py::refuse_bound_payload` begins at line 164 | the lines have since moved by 19 |
+| `contract.py:662-664` (the wired sibling) | the call in `src/ccf/products/contract.py::register_product_class` is at lines 753-755 | the lines have since moved by 91 |
+| `request.py:404` | still accurate | none |
+| `runtime/ccf_runtime/http_api/routes/product.py:323-331` | still accurate — `ProductRequest(` at `:323`, `parameters={}` at `:330` | none |
+
+The `refuse_request` docstring cited above as `:408-415` — *"Called by the
+door"* — was **false as written** and has been corrected under `D-IMPL-121` to
+say what is true: it is called by the deployment's own resolver.
+
+**The disposition.** `D-IMPL-121` (Dave, 2026-08-12) extends `D-IMPL-113` to
+`refuse_request`: both request-time refusals are adopter obligations the SDK
+states **at the seam** and does not enforce. The obligation `D-IMPL-113`
+created — and which, measured at `4b407e0`, was still entirely undischarged,
+since `git grep` for either refusal name across all of `runtime/` returned
+**zero hits of any kind** — is now discharged at both
+`runtime/ccf_runtime/mcp/egress.py::ProductResolverProtocol` and
+`runtime/ccf_runtime/mcp/experience.py::ExperienceProductResolverProtocol`,
+and asserted by `tools/docs_tests/test_resolver_seam_obligations.py`.
+`CPS-03` remains **Pending by design** and its row now names both rulings.
 
 Concretely: `runtime/ccf_runtime/http_api/routes/product.py:323-331` builds a
 `ProductRequest` with `parameters={}` unconditionally, so a class whose request
