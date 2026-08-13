@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**581 entries**, of which **355** name a public Python surface.
+**603 entries**, of which **375** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-272 entries — 240 public Python surface, 32 not public Python API.
+273 entries — 240 public Python surface, 33 not public Python API.
 
 ### Public Python surface
 
@@ -5460,11 +5460,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.5-10-assembler.md`.*
 
+#### tests/test_surface_shape_capture.py
+
+- Surface: tests/test_surface_shape_capture.py
+- Public surface: false
+- Change type: added
+- Before: absent — `dump_surface` had no dedicated test module, and what it
+  could and could not see about a shape was pinned nowhere
+- After: fifteen assertions covering the capture, the structural detection, the
+  alias rendering, manifest determinism, the narrowness of the change, and the
+  descope
+- Why: a descope that is not asserted is a descope that quietly becomes a
+  regression. The module lives in `tests/` rather than beside the tool because
+  `pyproject.toml` sets `testpaths = ["tests"]`, so a module under `tools/` runs
+  only in CI's separate step and not under `make ci-core` — the wrong gate for a
+  change to the surface record's own generator
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-257 entries — 74 public Python surface, 183 not public Python API.
+279 entries — 96 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -6869,6 +6888,75 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `15.5-13-request-in-replay.md`.*
 
+#### ccf_runtime.mcp.egress.ProductResolverProtocol
+
+- Surface: ccf_runtime.mcp.egress.ProductResolverProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `__call__(*, tenant: str, product_class: str, version: str) -> ServableProduct`
+- After:
+  `__call__(*, tenant, product_class, version, perspective: Perspective, request: ProductRequest | None) -> ServableProduct`
+- Why: D-IMPL-108, closing DI-15.5-03. The door resolves and authorizes a
+  `Perspective` and must be able to hand it to the path that shapes the
+  product, or the authorization is a refusal check and nothing more.
+  **Neither new argument is defaulted, and `perspective` is not nullable** —
+  that is the substance rather than a style choice. A resolver silently
+  constructing its own perspective is indistinguishable from one honouring the
+  door's, and a parameter defaulting to `None` would recreate exactly that
+  ambiguity one layer down. `request` is required-with-no-default but typed
+  `ProductRequest | None`, because a surface can honestly have **no way to
+  ask**: the `ccf-product://` template is three path segments with no query
+  among them, and manufacturing a subject, an intent, a freshness figure and
+  an instant would be the SDK holding deployment values (CINV-01) and reading
+  a clock — the literal-instead-of-argument defect D-IMPL-98 exists to remove,
+  reintroduced one layer up. That is the same voice `requested_role: str | None`
+  already carries on `PerspectiveResolverProtocol`.
+  **Reclassified from `behavior` to `reshaped` by plan `15.6-10`**, under the
+  authorization `D-IMPL-110` recorded by name and `D-IMPL-122` implemented.
+  Editing a landed fragment is otherwise forbidden; this edit exists only
+  because that ruling anticipated it. **The original `behavior` classification
+  was correct when it was made** — `reshaped` fails
+  `tests/test_surface_completeness.py` when the manifest shows no diff line to
+  point at, and at the time it could show none: `inspect.signature` on a
+  `Protocol` resolves `__init__`, so this seam's widening from three arguments
+  to five was byte-invisible in `docs/surface/v0.2-surface.json`. `15.6-10`
+  taught the tool to read a Protocol's `__call__`, the manifest now shows this
+  name under `reshaped`, and the honest classification and the representable one
+  have converged
+- Migration: **required, and mechanical.** Every resolver a deployment supplies
+  gains two keyword-only parameters. Eleven definitions across `runtime/`,
+  `examples/` and `tests/` were updated in this plan's commits; an adopter's
+  own is the same edit. The minimum conforming change is to accept both and
+  ignore them, which type-checks and runs — but a resolver that ignores
+  `perspective` is asserting *the conditioning this door authorized does not
+  affect what I serve*, which is a claim worth making deliberately. The
+  reference deployments do not: `examples/04-cross-process/producer_child.py`
+  and `examples/external/00-hello-context/serve.py` both refuse to serve when
+  the authorized perspective is not the one their product was assembled under
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
+#### ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
+
+- Surface: ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: the same three-string signature as its egress twin
+- After: the same five-argument signature as its egress twin
+- Why: the two moved together deliberately. The seams are structurally
+  identical so that one deployment resolver can serve both roles, and a
+  deployment supplying one resolver to both doors must not discover that only
+  one of them forwards what it authorized. The two modules remain separate and
+  import neither each other nor a sibling —
+  `tests/invariants/test_mcp_role_separation.py` still asserts it, unrelaxed.
+  **Reclassified from `behavior` to `reshaped` by plan `15.6-10`** on the same
+  authorization and for the same reason as its egress twin above: the original
+  classification was correct when made, because the manifest could show no diff
+  line for a `Protocol` until `15.6-10` taught it to read `__call__`
+- Migration: as above
+
+*Recorded by `15.5-15-resolver-seam.md`.*
+
 #### ccf.products.contract.RegisteredProductClass
 
 - Surface: ccf.products.contract.RegisteredProductClass
@@ -7133,6 +7221,266 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   before this seam parses and verifies unchanged
 
 *Recorded by `15.6-08-obligation-binding.md`.*
+
+#### ccf_runtime.mcp.experience.AgentDirectoryProtocol
+
+- Surface: ccf_runtime.mcp.experience.AgentDirectoryProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)` — the manifest recorded `__init__`, which is what
+  `inspect.signature` returns for a Protocol
+- After: `(*, tenant: str) -> tuple[ExposedAgent, ...]`
+- Why: `D-IMPL-122` limb 2. The seam is unchanged; the manifest can now see it,
+  so a future change to it will produce a diff line where before it produced
+  silence
+- Migration: none — the Protocol is unchanged; an existing implementation
+  already satisfies the recorded shape
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.mcp.experience.AgentInvokerProtocol
+
+- Surface: ccf_runtime.mcp.experience.AgentInvokerProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `(*, tenant: str, definition_key: str, definition_version: str, skill: str, arguments: Mapping[str, str]) -> str`
+- Why: `D-IMPL-122` limb 2 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.mcp.experience.ContextProviderProtocol
+
+- Surface: ccf_runtime.mcp.experience.ContextProviderProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `(*, tenant: str, entity: str) -> str`
+- Why: `D-IMPL-122` limb 2 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.mcp.experience.LineageProviderProtocol
+
+- Surface: ccf_runtime.mcp.experience.LineageProviderProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `() -> str`
+- Why: `D-IMPL-122` limb 2 — audit capture, not a code change. The recorded
+  shape is genuinely nullary; the previous rendering suggested it took
+  arbitrary arguments, which was the misinformation the fix removes
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.mcp.experience.ReplayRecordReaderProtocol
+
+- Surface: ccf_runtime.mcp.experience.ReplayRecordReaderProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `() -> str`
+- Why: `D-IMPL-122` limb 2 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.mcp.hitl_server.HitlActionRouteProtocol
+
+- Surface: ccf_runtime.mcp.hitl_server.HitlActionRouteProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `(*, submission: HitlActionSubmission) -> str`
+- Why: `D-IMPL-122` limb 2 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.mcp.hitl_server.HitlQueueViewProtocol
+
+- Surface: ccf_runtime.mcp.hitl_server.HitlQueueViewProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `(*, tenant: str) -> tuple[PendingHitlEvent, ...]`
+- Why: `D-IMPL-122` limb 2 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.peering.lf_a2a.PeerCardResolver
+
+- Surface: ccf_runtime.peering.lf_a2a.PeerCardResolver
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `(*, peer: PeerRef) -> str`
+- Why: `D-IMPL-122` limb 2. This name is also the reason detection keys on the
+  runtime `_is_protocol` marker rather than on a `Protocol` name suffix — a
+  name-based rule would have missed this Protocol and its `typed_http` twin
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.peering.typed_http.PeerEndpointResolver
+
+- Surface: ccf_runtime.peering.typed_http.PeerEndpointResolver
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `(*, peer: PeerRef) -> str`
+- Why: `D-IMPL-122` limb 2 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.controlplane.audit.AuditAction
+
+- Surface: ccf.controlplane.audit.AuditAction
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: the 21-member `Literal` of audit action names, from `register` through
+  `authz_decision`
+- Why: `D-IMPL-122` limb 3. This is the alias whose invisibility cost the most:
+  the audit vocabulary grew repeatedly across Phases 15 through 15.6 and not
+  one of those additions produced a manifest diff line
+- Migration: none — the alias is unchanged by this plan; a `match` over it that
+  was exhaustive before is exhaustive now
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.harness.EffectCapability
+
+- Surface: ccf.harness.EffectCapability
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `typing.Literal['governed', 'unsupported']`
+- Why: `D-IMPL-122` limb 3 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.harness.protocol.EffectCapability
+
+- Surface: ccf.harness.protocol.EffectCapability
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `typing.Literal['governed', 'unsupported']`
+- Why: the defining module's entry for the same alias `ccf.harness` re-exports.
+  Both are in `__all__`, so both are manifest entries and both move
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.mcp.client.HttpClientFactory
+
+- Surface: ccf.mcp.client.HttpClientFactory
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `collections.abc.Callable[[], httpx.AsyncClient]`
+- Why: `D-IMPL-122` limb 3. A `Callable` alias is exactly the case where the old
+  rendering was actively misleading — it looked like a signature and was not one
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.operators.base.OperatorCategory
+
+- Surface: ccf.operators.base.OperatorCategory
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `typing.Literal['policy', 'similarity', 'temporal', 'traversal']`
+- Why: `D-IMPL-122` limb 3. The four canonical operator categories the
+  whitepaper §7.4 commits to are now visible in the manifest, so adding a fifth
+  would produce a diff line rather than passing silently
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.peering.identity.JsonWebKey
+
+- Surface: ccf.peering.identity.JsonWebKey
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `collections.abc.Mapping[str, str]`
+- Why: `D-IMPL-122` limb 3 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.products.contract.AssemblyMode
+
+- Surface: ccf.products.contract.AssemblyMode
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `typing.Literal['algorithmic', 'llm_packaged', 'swarm_assembled']`
+- Why: `D-IMPL-122` limb 3 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.products.contract.TTLAnchor
+
+- Surface: ccf.products.contract.TTLAnchor
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `typing.Literal['from_decision', 'from_entity_freshness']`
+- Why: `D-IMPL-122` limb 3 — audit capture, not a code change
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.skills.callables.SkillCallable
+
+- Surface: ccf.skills.callables.SkillCallable
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `collections.abc.Callable[[collections.abc.Mapping[str, str]], collections.abc.Mapping[str, str]]`
+- Why: `D-IMPL-122` limb 3. The skilling seam's callable contract is now legible
+  from the manifest alone
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf.skills.grants.GrantState
+
+- Surface: ccf.skills.grants.GrantState
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: `typing.Literal['requested', 'pending-approval', 'effective', 'refused', 'revoked']`
+- Why: `D-IMPL-122` limb 3. The grant lifecycle's five states are the vocabulary
+  a Control Plane integration switches on, and they were invisible
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowOutcome
+
+- Surface: ccf_runtime.workflow.engine.WorkflowOutcome
+- Public surface: true
+- Change type: reshaped
+- Before: `(*args, **kwargs)`
+- After: the `Union` of `WorkflowSuspended`, `WorkflowCompleted`,
+  `WorkflowExceptionRouted` and `WorkflowResumeRefused`
+- Why: `D-IMPL-122` limb 3. A union member added or removed is a break for any
+  exhaustive handler, and no such change would have produced a diff line
+- Migration: none
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
 
 #### ccf.halflife.assessment.SourceRefreshRecency
 
@@ -9533,7 +9881,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-52 entries — 41 public Python surface, 11 not public Python API.
+51 entries — 39 public Python surface, 12 not public Python API.
 
 ### Public Python surface
 
@@ -10160,7 +10508,17 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   cost D-IMPL-100 authorized. The ruling priced a signature change; none was
   needed, because `record` is already a parameter and the debt is on the record.
   What changed is the **contract**: a conforming implementation must now carry
-  `record.content_generation_path.debt` onto the product it returns
+  `record.content_generation_path.debt` onto the product it returns.
+  **This classification is NOT reclassified by plan `15.6-10`, and the reason is
+  worth having on the record.** `D-IMPL-110` anticipated that a later phase
+  would reclassify this entry once the manifest could see a Protocol's shape.
+  `15.6-10` taught it to read a Protocol's `__call__` — but `ReplayEnvironment`
+  defines no `__call__`; its whole contract is a method set, and `D-IMPL-122`
+  descoped method-set capture on a measured cost (65 new `reshaped` diff lines
+  against 11). So the manifest still shows nothing for this name, `behavior`
+  remains the only honest classification available, and the reclassification
+  `D-IMPL-110` anticipated needs the wider fix that has not been taken. This
+  entry is one of 39 Protocols in that position
 - Why: `ContextProductContract.debt` is inside the hashed body, so an
   implementation that omits it returns a product the engine's address check at
   `src/ccf/replay/engine.py:449-455` rejects with `ReplayDivergence`
@@ -10261,59 +10619,6 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   and no import statement anywhere else changes
 
 *Recorded by `15.5-13-request-in-replay.md`.*
-
-#### ccf_runtime.mcp.egress.ProductResolverProtocol
-
-- Surface: ccf_runtime.mcp.egress.ProductResolverProtocol
-- Public surface: true
-- Change type: behavior
-- Before: `__call__(*, tenant: str, product_class: str, version: str) -> ServableProduct`
-- After:
-  `__call__(*, tenant, product_class, version, perspective: Perspective, request: ProductRequest | None) -> ServableProduct`
-- Why: D-IMPL-108, closing DI-15.5-03. The door resolves and authorizes a
-  `Perspective` and must be able to hand it to the path that shapes the
-  product, or the authorization is a refusal check and nothing more.
-  **Neither new argument is defaulted, and `perspective` is not nullable** —
-  that is the substance rather than a style choice. A resolver silently
-  constructing its own perspective is indistinguishable from one honouring the
-  door's, and a parameter defaulting to `None` would recreate exactly that
-  ambiguity one layer down. `request` is required-with-no-default but typed
-  `ProductRequest | None`, because a surface can honestly have **no way to
-  ask**: the `ccf-product://` template is three path segments with no query
-  among them, and manufacturing a subject, an intent, a freshness figure and
-  an instant would be the SDK holding deployment values (CINV-01) and reading
-  a clock — the literal-instead-of-argument defect D-IMPL-98 exists to remove,
-  reintroduced one layer up. That is the same voice `requested_role: str | None`
-  already carries on `PerspectiveResolverProtocol`
-- Migration: **required, and mechanical.** Every resolver a deployment supplies
-  gains two keyword-only parameters. Eleven definitions across `runtime/`,
-  `examples/` and `tests/` were updated in this plan's commits; an adopter's
-  own is the same edit. The minimum conforming change is to accept both and
-  ignore them, which type-checks and runs — but a resolver that ignores
-  `perspective` is asserting *the conditioning this door authorized does not
-  affect what I serve*, which is a claim worth making deliberately. The
-  reference deployments do not: `examples/04-cross-process/producer_child.py`
-  and `examples/external/00-hello-context/serve.py` both refuse to serve when
-  the authorized perspective is not the one their product was assembled under
-
-*Recorded by `15.5-15-resolver-seam.md`.*
-
-#### ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
-
-- Surface: ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
-- Public surface: true
-- Change type: behavior
-- Before: the same three-string signature as its egress twin
-- After: the same five-argument signature as its egress twin
-- Why: the two moved together deliberately. The seams are structurally
-  identical so that one deployment resolver can serve both roles, and a
-  deployment supplying one resolver to both doors must not discover that only
-  one of them forwards what it authorized. The two modules remain separate and
-  import neither each other nor a sibling —
-  `tests/invariants/test_mcp_role_separation.py` still asserts it, unrelaxed
-- Migration: as above
-
-*Recorded by `15.5-15-resolver-seam.md`.*
 
 #### ccf_runtime.http_api.routes.product — `GET /{tenant}/{product_class}/{version}`
 
@@ -10807,3 +11112,25 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   in behaviour, and in message
 
 *Recorded by `15.5-12-aggregate-composition.md`.*
+
+#### tools/dump_surface.py
+
+- Surface: tools/dump_surface.py
+- Public surface: false
+- Change type: behavior
+- Before: `_shape_of` resolved every class with `inspect.signature` on the
+  class, returning `__init__` — `(*args, **kwargs)` for every Protocol — and
+  applied the same signature rendering to type aliases
+- After: a Protocol's own `__call__` is resolved through the MRO and rendered
+  with `self` elided; a type alias renders its type, scrubbed of the
+  process-local memory address an `Annotated` alias would otherwise embed;
+  everything else is untouched
+- Why: `DI-15.5-06`, ruled by `D-IMPL-122`. The manifest could not see the
+  three-to-five argument widening `15.5-15` shipped, so it was reporting a
+  surface stability it had never verified
+- Migration: none for adopters. Maintainers should expect `make surface` to
+  produce a one-time 36-entry reshape on first run after this change, and
+  should read it as the tool's field of view widening rather than as the
+  surface moving
+
+*Recorded by `15.6-10-protocol-call-capture.md`.*
