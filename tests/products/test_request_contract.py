@@ -630,6 +630,10 @@ def test_no_content_address_moves_because_of_the_pin() -> None:
     product, at which point every address recorded before it would differ from
     the one the same product produced after, and D-IMPL-100's ruling for the
     debt field would have been needed for this one too.
+
+    ``debt_evidence`` joined the enumeration under D-IMPL-118 (plan 15.6-06),
+    which is what this assertion is *for*: a field landing inside the delivered
+    bytes is a reviewable event with a ruling behind it, never a quiet edit.
     """
     from ccf.contracts.base import CCFContract
     from ccf.products.contract import (
@@ -648,6 +652,7 @@ def test_no_content_address_moves_because_of_the_pin() -> None:
         "lineage",
         "payload",
         "debt",
+        "debt_evidence",
     }
 
     def _reaches(model: type[CCFContract], seen: set[type]) -> bool:

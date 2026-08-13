@@ -133,6 +133,28 @@ it is computed from observations and a ``now`` neither the record nor the
 projection re-derives, so a rehydrator that re-measured it would produce a
 different decision wearing this one's identifier.
 
+**What debt points at rides beside it, and the address moves a second time**
+(D-IMPL-118). ``debt_evidence`` is a *top-level* field, a sibling of ``debt``
+rather than a member of the assessment. The nested placement was the cheaper
+measured option — it would have ridden ``ContentGenerationPath.debt`` and
+reconstructed for nothing — and was declined, so the sibling pays for its own
+identity: dimension 5 carries a matching member, and every implementation of
+:meth:`~ccf.replay.engine.ReplayEnvironment.rehydrate_product` reads it back.
+Without both halves every replay of every product would raise
+``ReplayDivergence``, because
+:func:`~ccf.contracts.canonical.canonical_bytes` walks a model field-by-field
+over ``type(value).model_fields`` and the new field is therefore in the
+address. D-IMPL-117 authorized that move in advance — *"surface impact is
+accepted"* — so it is a ruled cost rather than a defect.
+
+**What may be put in it is constrained, and the constraint is standing**
+(D-IMPL-119). Evidence pointers are entitlement-sensitive, and the shipped
+assembly path is not principal-scoped: :class:`ccf.halflife.assessment
+.DebtEvidencePointer` documents what that refuses until the gap is closed.
+Nothing carried here varies by principal, which is what keeps a field inside
+the content address compatible with D-IMPL-105's one-figure-per-product
+reading.
+
 **One figure per product, not one per principal** (D-IMPL-105). Different
 principals legitimately receive different products, assembled from what each may
 consult — but debt is not one of the things that differs. A refused consultation
@@ -162,7 +184,11 @@ from typing import Any, Literal
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.graph.protocols import LineageMode, PolicyBindingMode
-from ccf.halflife.assessment import DebtAssessment
+from ccf.halflife.assessment import (
+    NO_DEBT_EVIDENCE,
+    DebtAssessment,
+    DebtEvidence,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -547,6 +573,15 @@ class ContextProductContract(CCFContract):
             assessment somebody dropped would otherwise be the same artifact.
             The default is what keeps all 42 existing construction sites saying
             exactly what they always said.
+        debt_evidence: What that assessment points at (D-IMPL-118) — the
+            handles for the things whose decay it summarises. A **sibling of**
+            ``debt`` rather than a member of it, which is the ruled placement
+            and not a convenience: see the note below for what the sibling
+            costs and why the cost was authorized. Defaults to
+            :data:`~ccf.halflife.assessment.NO_DEBT_EVIDENCE`, the positive
+            assertion *this product was assembled with no evidence pointers*,
+            so every construction site written before this field existed says
+            exactly what it always said.
     """
 
     schema_name: str
@@ -559,6 +594,7 @@ class ContextProductContract(CCFContract):
     lineage: ProductLineage
     payload: Mapping[str, Any]
     debt: DebtAssessment | None = None
+    debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
 
 
 def register_product_class(

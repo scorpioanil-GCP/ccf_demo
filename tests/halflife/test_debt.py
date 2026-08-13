@@ -26,8 +26,10 @@ from typing import Any
 import pytest
 import yaml
 
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import DEBT_PROFILE, DebtProfile, parse_artifact
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneRegistry
+from ccf.halflife.assessment import NO_DEBT_EVIDENCE, DebtEvidencePointer
 from ccf.halflife.debt import (
     DebtAssessment,
     DebtFactors,
@@ -38,6 +40,7 @@ from ccf.halflife.debt import (
     context_debt,
 )
 from ccf.halflife.decay import HalfLifeTable, Observation
+from ccf.products.contract import ContextProductContract, ProductLineage
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "banking" / "halflife.yaml"
 
@@ -316,3 +319,146 @@ def test_module_is_tagged_algorithmic() -> None:
     import ccf.halflife.debt as debt_mod
 
     assert debt_mod.__ccf_mode__ == "algorithmic"
+
+
+# --- what the debt points at (D-IMPL-118, D-IMPL-119) ----------------------
+#
+# The carrier is a TOP-LEVEL field on `ContextProductContract`, a sibling of
+# `debt` rather than a member of `DebtAssessment` — which is what D-IMPL-118
+# ruled and what makes these assertions about the *delivered bytes* rather than
+# about a nested value that would have ridden the assessment for free. The
+# vessel is therefore what these cases construct.
+
+
+#: Handles this test owns. Deployment-side by construction: the SDK enumerates
+#: none of them and interprets none of them, and their opacity is the point —
+#: under D-IMPL-119 limb 4 a handle a reading principal could interpret is
+#: refused outright until the assembly path is principal-scoped.
+_HANDLE_A = DebtEvidencePointer(handle="handle-a")
+_HANDLE_B = DebtEvidencePointer(handle="handle-b")
+
+
+def _product(
+    evidence: tuple[DebtEvidencePointer, ...] = NO_DEBT_EVIDENCE,
+) -> ContextProductContract:
+    """The vessel as every construction site builds it, plus the carrier."""
+    return ContextProductContract(
+        schema_name="test.debt-evidence",
+        schema_version="1.0.0",
+        plan_id="test/plan",
+        tenant_id="tenant-debt",
+        temporal_boundary=NOW,
+        expires_at=NOW + timedelta(seconds=600),
+        ttl_anchor="from_decision",
+        lineage=ProductLineage(
+            operators_invoked=frozenset({"temporal.as-of-boundary"}),
+            policy_bundle_versions=frozenset({"policy-v1"}),
+            graph_snapshot_at=NOW,
+        ),
+        payload={"answer": "42"},
+        debt_evidence=evidence,
+    )
+
+
+def test_the_carrier_round_trips_unchanged() -> None:
+    """Populate and extract — exactly and only what D-IMPL-117 says is owed.
+
+    The pair is the whole SDK obligation for this gap: a way to put pointers on
+    the delivered product, and a way to read them back off it. There is no
+    third thing here, because *which* observations are worth pointing at is
+    the context product creator's judgement, not the SDK's.
+    """
+    product = _product((_HANDLE_A, _HANDLE_B))
+
+    assert product.debt_evidence == (_HANDLE_A, _HANDLE_B)
+    rebuilt = ContextProductContract.model_validate(product.model_dump())
+    assert rebuilt.debt_evidence == (_HANDLE_A, _HANDLE_B)
+    assert content_hash(rebuilt) == content_hash(product)
+
+
+def test_an_unpopulated_carrier_is_a_positive_claim_and_not_a_silence() -> None:
+    """D-IMPL-38: the absent value is an assertion, never `None`-as-unknown.
+
+    What this rules out that nothing else does: a nullable carrier. Under one,
+    a product that pointed at nothing and a product whose pointers somebody
+    dropped in transit would be the same artifact — the repudiation failure
+    mode every sentinel in this fabric closes.
+    """
+    assert _product().debt_evidence == NO_DEBT_EVIDENCE
+    assert NO_DEBT_EVIDENCE is not None
+    assert NO_DEBT_EVIDENCE == ()
+
+
+def test_the_carrier_is_inside_the_delivered_content_address() -> None:
+    """D-IMPL-118's authorized cost, executed rather than asserted.
+
+    `canonical_bytes` walks a model field-by-field over `model_fields`, so a
+    top-level field is in the address by construction. This is the case that
+    would fail if a later change moved the carrier off the vessel and left the
+    ruling's reconstruction obligation looking gratuitous.
+    """
+    assert content_hash(_product((_HANDLE_A,))) != content_hash(_product())
+    assert content_hash(_product((_HANDLE_A,))) != content_hash(
+        _product((_HANDLE_B,))
+    )
+
+
+def test_declaration_order_does_not_move_the_bytes() -> None:
+    """Order-insensitive inside a content address (the `scorers` precedent).
+
+    Declaration order is not a fact about the decision. The field is inside the
+    delivered product's address, so an order-sensitive carrier would make two
+    identical products hash differently — which is the defect
+    `_pins_are_one_per_factor_in_canonical_order` already exists to prevent for
+    the scorer pins, restated here because the reason is identical.
+    """
+    forward = _product((_HANDLE_A, _HANDLE_B))
+    reversed_ = _product((_HANDLE_B, _HANDLE_A))
+
+    assert forward.debt_evidence == reversed_.debt_evidence
+    assert content_hash(forward) == content_hash(reversed_)
+
+
+def test_a_repeated_handle_is_refused_at_construction() -> None:
+    """Two pointers to one thing is incoherent, not stricter.
+
+    Refused rather than collapsed, which is why the carrier is a sorted tuple
+    and not a `frozenset`: a set would have deduplicated the repetition
+    silently, and the repetition is exactly the thing worth naming.
+    """
+    with pytest.raises(ValueError, match="at most once"):
+        _product((_HANDLE_A, DebtEvidencePointer(handle=_HANDLE_A.handle)))
+
+
+def test_a_float_handle_is_refused_rather_than_coerced() -> None:
+    """The `_refuse_float` discipline extends to the new member.
+
+    Shared with every other debt value for the same reason, stated once in
+    `ccf.halflife.assessment`: these bytes are inside a content address and
+    floats are not bit-stable across platforms.
+    """
+    with pytest.raises(ValueError, match="never float"):
+        DebtEvidencePointer(handle=1.0)  # type: ignore[arg-type]
+
+
+def test_assess_debt_is_unchanged_by_the_carrier(profile: DebtProfile) -> None:
+    """The carrier landed on the vessel, so the pure function did not move.
+
+    D-IMPL-118 placed the carrier top-level on `ContextProductContract`, not
+    inside `DebtAssessment`, so `assess_debt` gains no parameter and stays pure
+    over `(factors, profile)` — the D-IMPL-105 posture. This asserts the
+    consequence directly: `debt` and `signal` are what they were.
+    """
+    factors = _whole(freshness=Decimal("0.8"))
+    assessment = assess_debt(factors, profile=profile)
+
+    assert assessment.debt == context_debt(factors)
+    assert assessment.signal is DebtSignal.OK
+    assert set(DebtAssessment.model_fields) == {
+        "debt",
+        "signal",
+        "factors",
+        "scorers",
+    }
+    assert "evidence" not in DebtAssessment.model_fields
+    assert "debt_evidence" not in DebtAssessment.model_fields

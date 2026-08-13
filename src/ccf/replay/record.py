@@ -65,7 +65,11 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.graph.protocols import SourceAttestation
 from ccf.graph.registry import AdapterPin
-from ccf.halflife.assessment import DebtAssessment
+from ccf.halflife.assessment import (
+    NO_DEBT_EVIDENCE,
+    DebtAssessment,
+    DebtEvidence,
+)
 from ccf.products.contract import AssemblyMode, ContextProductContract
 from ccf.projection.engine import ExecutionResult, ExecutionStep
 from ccf.projection.plan import Perspective
@@ -478,6 +482,26 @@ class ContentGenerationPath(CCFContract):
     and it makes a record that pins a debt its product does not carry
     unrepresentable rather than merely discouraged.
 
+    **What that debt points at extends the same dimension as of 15.6-06**
+    (D-IMPL-118) through ``debt_evidence``, and it is here because the ruling
+    *obliged* it rather than because it was tidy. The carrier is a top-level
+    field on :class:`~ccf.products.contract.ContextProductContract`, a sibling
+    of ``debt`` rather than a member of the assessment, so it does **not**
+    inherit the reconstruction ride the nested placement would have had:
+    :class:`~ccf.projection.plan.ProjectionOutput` carries exactly
+    ``(plan_id, payload)``, so a rehydrator handed ``(record, projection)`` can
+    produce the value only if this dimension carries it. Without this member,
+    every replay of every product raises
+    :class:`~ccf.replay.engine.ReplayDivergence`.
+
+    Its value is **derived from the product the builder was handed**, exactly
+    as ``debt`` is and for the same reason: the product is already a parameter,
+    so no call site moves, and a record pinning evidence its product does not
+    carry is unrepresentable rather than merely discouraged.
+    :data:`~ccf.halflife.assessment.NO_DEBT_EVIDENCE` is the positive assertion
+    *this decision pointed at nothing*, so a record written before this seam
+    existed asserts so and still verifies.
+
     The **question answered** extends this dimension as of 15.5-13
     (D-IMPL-111 limb (b)) through ``request``: the
     :class:`~ccf.products.request.ProductRequest` the caller asked, recorded
@@ -521,6 +545,7 @@ class ContentGenerationPath(CCFContract):
     workflow_step_sequence: str = NO_WORKFLOW_TRACE
     graph_query_sequence: tuple[str, ...] = NO_GRAPH_QUERIES
     debt: DebtAssessment | None = None
+    debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
     request: ProductRequest | None = None
 
 
@@ -651,6 +676,15 @@ def build_replay_record(
     debt its product does not carry unrepresentable. A product assembled with
     no assessment yields the ``None`` sentinel, so every call site written
     before this extension is byte-for-byte what it was.
+
+    ``product.debt_evidence`` becomes dimension 5's ``debt_evidence``
+    (15.6-06, D-IMPL-118), on the same derivation reasoning — and it is
+    load-bearing rather than symmetrical. The carrier is a top-level field on
+    the vessel, so it is in the product's content address and *nothing else*
+    reaching a rehydrator names it; carrying it here is what makes the address
+    move reconstructible instead of merely authorized. A product assembled with
+    no pointers yields :data:`~ccf.halflife.assessment.NO_DEBT_EVIDENCE`, so
+    every call site written before this extension is byte-for-byte what it was.
     """
     return DecisionReplayRecord(
         tenant_id=product.tenant_id,
@@ -706,6 +740,11 @@ def build_replay_record(
             # product is already here, so no call site moves — and a record
             # pinning a debt its product does not carry cannot be constructed.
             debt=product.debt,
+            # D-IMPL-118: read off the product for debt's reason, and carried
+            # at all for a harder one — the carrier is a top-level vessel
+            # field, so `(record, projection)` cannot rebuild it from anywhere
+            # else and every replay would diverge without this line.
+            debt_evidence=product.debt_evidence,
             # D-IMPL-111 limb (b): the question, verbatim. A parameter and not
             # a derivation — the answer does not contain the question that was
             # asked, and inferring one from the other is what DI-15.5-07

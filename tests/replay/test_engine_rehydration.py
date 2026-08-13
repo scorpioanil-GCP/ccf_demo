@@ -308,6 +308,13 @@ class _Environment:
             ),
             payload=projection.payload,
             debt=record.content_generation_path.debt,
+            # And what that debt pointed at, for a harder reason (D-IMPL-118):
+            # the carrier is a top-level vessel field, sibling to `debt` rather
+            # than a member of it, so it does NOT ride the assessment back.
+            # `ProjectionOutput` carries exactly `(plan_id, payload)`, so
+            # dimension 5 is the only place a `(record, projection)` rehydrator
+            # can read it from — and omitting it diverges every replay.
+            debt_evidence=record.content_generation_path.debt_evidence,
         )
 
 
