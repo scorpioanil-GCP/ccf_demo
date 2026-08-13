@@ -78,7 +78,9 @@ from typing import Protocol, runtime_checkable
 from ccf.controlplane.artifacts import DebtProfile, HalfLifeTable
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
+    NO_OBLIGATION_IN_FORCE,
     NO_SCORER_PINS,
+    NO_SIGNAL_OBLIGATIONS,
     NO_SOURCE_REFRESH_RECENCY,
     DebtAssessment,
     DebtEvidence,
@@ -87,6 +89,8 @@ from ccf.halflife.assessment import (
     DebtFactors,
     DebtSignal,
     ScorerPin,
+    SignalObligation,
+    SignalObligations,
     SourceRefresh,
     SourceRefreshRecency,
 )
@@ -96,7 +100,9 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "NO_DEBT_EVIDENCE",
+    "NO_OBLIGATION_IN_FORCE",
     "NO_SCORER_PINS",
+    "NO_SIGNAL_OBLIGATIONS",
     "NO_SOURCE_REFRESH_RECENCY",
     "DebtAssessment",
     "DebtEvidence",
@@ -107,6 +113,8 @@ __all__ = [
     "DebtSignal",
     "FreshnessScorer",
     "ScorerPin",
+    "SignalObligation",
+    "SignalObligations",
     "SourceRefresh",
     "SourceRefreshRecency",
     "assess_debt",

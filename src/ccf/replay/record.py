@@ -67,6 +67,7 @@ from ccf.graph.protocols import SourceAttestation
 from ccf.graph.registry import AdapterPin
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
+    NO_OBLIGATION_IN_FORCE,
     NO_SOURCE_REFRESH_RECENCY,
     DebtAssessment,
     DebtEvidence,
@@ -515,6 +516,21 @@ class ContentGenerationPath(CCFContract):
     a measurement of decay against a budget, and this is a fact about when the
     world outside the fabric last spoke.
 
+    **What the signal obliged extends the same dimension as of 15.6-08**
+    (D-IMPL-112 gap 3, D-IMPL-117) through ``obligation_in_force``, for the
+    reason both members above are here and for one more that is this member's
+    own. The shared reason: D-IMPL-118 rules all three Track B members onto the
+    vessel as top-level fields, so none rides ``debt`` back and each needs its
+    own member here. The extra one: the alternative for *this* value is not
+    omission but **re-resolution** — a rehydrator could read the deployment's
+    current :class:`~ccf.controlplane.artifacts.DebtProfile` and look the
+    obligation up again, which would answer *"what was this decision obliged to
+    do?"* with today's answer. That is the substitution D-IMPL-26's
+    exact-version rule forbids, and pinning the resolved value here is what
+    makes it unavailable rather than merely discouraged. It is derived from the
+    product for ``debt``'s reason and defaults to
+    :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`.
+
     The **question answered** extends this dimension as of 15.5-13
     (D-IMPL-111 limb (b)) through ``request``: the
     :class:`~ccf.products.request.ProductRequest` the caller asked, recorded
@@ -560,6 +576,7 @@ class ContentGenerationPath(CCFContract):
     debt: DebtAssessment | None = None
     debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
     source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY
+    obligation_in_force: str = NO_OBLIGATION_IN_FORCE
     request: ProductRequest | None = None
 
 
@@ -707,6 +724,16 @@ def build_replay_record(
     no refresh instants yields
     :data:`~ccf.halflife.assessment.NO_SOURCE_REFRESH_RECENCY`, so every call
     site written before this extension is byte-for-byte what it was.
+
+    ``product.obligation_in_force`` becomes dimension 5's
+    ``obligation_in_force`` (15.6-08, D-IMPL-118), on the same derivation
+    reasoning and load-bearing for a stronger reason than either: it is a
+    top-level vessel field, so nothing else reaching a rehydrator names it —
+    and the deployment's *current* debt profile does, which is precisely the
+    substitution this pin makes unavailable. A decision made under a
+    calibration that bound nothing yields
+    :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`, so every call site
+    written before this extension is byte-for-byte what it was.
     """
     return DecisionReplayRecord(
         tenant_id=product.tenant_id,
@@ -772,6 +799,12 @@ def build_replay_record(
             # moves, and carried at all because a top-level vessel field is
             # reconstructible from nowhere else.
             source_refresh_recency=product.source_refresh_recency,
+            # D-IMPL-117 gap 3, under the same D-IMPL-118 placement, and
+            # carried for a reason the other two do not have: without this
+            # line a rehydrator's only route to the value is the deployment's
+            # CURRENT debt profile, which would answer "what was this decision
+            # obliged to do?" with today's binding (D-IMPL-26).
+            obligation_in_force=product.obligation_in_force,
             # D-IMPL-111 limb (b): the question, verbatim. A parameter and not
             # a derivation — the answer does not contain the question that was
             # asked, and inferring one from the other is what DI-15.5-07

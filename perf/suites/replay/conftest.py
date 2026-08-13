@@ -166,6 +166,12 @@ class PerfReplayEnvironment:
             source_refresh_recency=(
                 record.content_generation_path.source_refresh_recency
             ),
+            # And what the signal obliged, for a stronger reason again
+            # (D-IMPL-117 gap 3): a rehydrator could resolve the deployment's
+            # CURRENT debt profile for the same signal and get a plausible
+            # answer, which is the substitution D-IMPL-26 forbids. The value in
+            # force at decision time lives on dimension 5 and nowhere else.
+            obligation_in_force=record.content_generation_path.obligation_in_force,
         )
 
 

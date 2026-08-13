@@ -249,6 +249,15 @@ def test_every_pre_change_field_is_byte_for_byte_unchanged() -> None:
         b'"source_refresh_recency":[],',
         b"",
     ).replace(
+        # 15.6-08, D-IMPL-117 gap 3 under the same D-IMPL-118 placement: what
+        # the signal obliged lands on dimension 5 under the same
+        # sentinel-default discipline. `NO_OBLIGATION_IN_FORCE` renders as a
+        # named marker rather than `[]` because the field holds one reference
+        # and not a collection — still a positive claim in one shape, and still
+        # never a `null` standing for "unknown" (D-IMPL-38).
+        b'"obligation_in_force":"ccf.no-obligation-in-force",',
+        b"",
+    ).replace(
         # 15.5-13, D-IMPL-111 limb (b): the question answered lands on
         # dimension 5 under the same sentinel-default discipline, so a record
         # built without one is byte-identical to a pre-ruling record once the

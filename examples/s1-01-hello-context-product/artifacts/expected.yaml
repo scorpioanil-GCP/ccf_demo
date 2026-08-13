@@ -180,3 +180,16 @@ declaration:
   # consistency do not, so an examiner reading the assessment can see WHICH of
   # the three collapsed rather than only that D_c rose (D-IMPL-99).
   debt_weak_factor: freshness
+
+  # --- what the routing state obliges ----------------------------------------
+  # The two halves of `D-IMPL-112` gap 3, expressed as an expectation rather
+  # than described. Question 1 routes to `ok`, which `debt-profile.yaml`
+  # deliberately leaves unbound, so the delivered product carries the SDK's
+  # named sentinel — a positive claim that nothing was bound. Question 3 routes
+  # to `forced_llm`, which IS bound, so it carries the deployment's own words.
+  #
+  # The obligation below is quoted from `debt-profile.yaml`, not from any SDK
+  # module: no CCF release contains this string, or any obligation string. That
+  # is the claim this pair of expectations exists to make checkable.
+  obligation_first_question: "ccf.no-obligation-in-force"
+  obligation_third_question: "kyc/re-pull-registry-then-restate-with-debt-disclosed"

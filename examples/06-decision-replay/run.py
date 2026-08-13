@@ -423,6 +423,13 @@ class GridReplayEnvironment:
             source_refresh_recency=(
                 record.content_generation_path.source_refresh_recency
             ),
+            # And what the signal obliged, for a stronger reason again
+            # (D-IMPL-117 gap 3): this deployment holds a `DebtProfile` and
+            # could look the obligation up again for the same signal — which
+            # would answer with TODAY's binding for a decision made under the
+            # one in force then. D-IMPL-26 forbids it; dimension 5 is where the
+            # decision's own answer lives.
+            obligation_in_force=record.content_generation_path.obligation_in_force,
         )
 
 
