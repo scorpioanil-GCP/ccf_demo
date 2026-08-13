@@ -44,6 +44,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal, localcontext
+from typing import Final
 
 from ccf.controlplane.artifacts import HalfLifeEntry, HalfLifeTable
 from ccf.contracts.base import CCFContract
@@ -51,6 +52,7 @@ from ccf.contracts.base import CCFContract
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "NO_SUBJECT_IDENTITY",
     "HalfLifeEntry",
     "HalfLifeTable",
     "MissingHalfLife",
@@ -94,13 +96,34 @@ class TemporalOrderError(ValueError):
     """
 
 
+#: The positive assertion that an observation was recorded **without** a subject
+#: identity — *this observation names nothing it is an observation of* — in the
+#: voice of :data:`~ccf.halflife.assessment.NO_SCORER_PINS` and
+#: :data:`~ccf.replay.record.NO_GRAPH_QUERIES`, and for their reason.
+#:
+#: ``D-IMPL-120`` ruled the identity **optional** (``qc-optional``) and ruled out
+#: expressing its absence as ``None``: an assembler that had no identity to
+#: carry and one that dropped the identity it held would then be the same
+#: artifact, which is the repudiation failure mode every sentinel in this fabric
+#: closes (``D-IMPL-38``'s no-silent-defaults discipline). A marker string rather
+#: than an empty container because the field is one opaque string and must stay
+#: one shape.
+NO_SUBJECT_IDENTITY: Final[str] = "no-subject-identity"
+
+
 class Observation(CCFContract):
     """One dated observation, typed by the vocabulary λ_c is configured against.
 
     Whitepaper §7.7 binds λ_c to the observation *type* in Control Plane
-    configuration and explicitly not to the individual document, so decay needs
+    configuration and explicitly not to the individual document, so decay reads
     exactly two things from an observation — which type it is, and when it was
     made. Nothing about the rate travels on the observation itself.
+
+    The third field is **carried, never consumed**: no function in this module
+    reads ``subject``, and the freshness figure is identical whether it is
+    populated or not. It exists so that a downstream consumer of D_c can say
+    *which* observations a debt figure summarises (CLAUDE.md §11 — an SDK
+    extension; see below).
 
     Attributes:
         observation_type: The deployment's observation-type name. Its
@@ -109,10 +132,23 @@ class Observation(CCFContract):
             ``observed_at``, :mod:`ccf.contracts.claims`). Timezone-aware; a
             naive instant is rejected, because an implicit timezone is a silent
             default (D-IMPL-38).
+        subject: What this observation is an observation *of*. An opaque
+            identifier the deployment chooses — an entity URI, a claim id, a
+            document id, or something else again. Its scheme is user
+            configuration; the SDK never enumerates it, never parses it and
+            never compares it to anything. Optional (D-IMPL-120), defaulting to
+            :data:`NO_SUBJECT_IDENTITY` rather than to ``None``.
+
+            **SDK extension (CLAUDE.md §11), not whitepaper-derived.** Whitepaper
+            §7.7 binds λ_c to the observation *type* and says nothing about
+            subject identity; this field is the carrying structure D-IMPL-117
+            assigns to the SDK, and none of the judgement about which
+            observations matter, which D-IMPL-117 assigns away from it.
     """
 
     observation_type: str
     observed_at: datetime
+    subject: str = NO_SUBJECT_IDENTITY
 
 
 def half_life_of(table: HalfLifeTable, observation_type: str) -> timedelta:

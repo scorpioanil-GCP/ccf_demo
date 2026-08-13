@@ -108,7 +108,7 @@ are measured there.
 |---|---|---|
 | **Scalar `D_c` only** | Cheapest; loses which of F/C/S collapsed, which `DebtAssessment`'s own docstring argues against | One `Decimal` field, wherever Q3 puts it. Q3's placement cost is the whole cost; the shape adds nothing. |
 | **Per-factor** (the shipped `DebtAssessment`: `debt` + `signal` + F/C/S) | Free — the type exists and is already `Decimal`-safe for replay | The type already ships (`src/ccf/halflife/debt.py:149-165`) with **6** construction sites in 6 files and **9** `assess_debt` sites in 3 files. Adding it to a contract costs Q3's placement cost and **0** new type work. |
-| **Per-subject recency** in addition | Expresses Dave's Acme case | **NOT MEASURABLE from this tree** — no per-entity last-observed structure exists to count against. `Observation` (`src/ccf/halflife/decay.py:97-115`) carries `(observation_type, observed_at)` and **no entity identity**, so the per-subject key does not exist anywhere on the debt path. This is the same missing link A3 reports under Q4; building it is a precondition, and its cost is Q4 option (c)'s cost. |
+| **Per-subject recency** in addition | Expresses Dave's Acme case | **NOT MEASURABLE from this tree** — no per-entity last-observed structure exists to count against. `Observation` (`src/ccf/halflife/decay.py::Observation`) carried `(observation_type, observed_at)` and **no entity identity** when this was measured, so the per-subject key did not exist anywhere on the debt path. (Closed later: plan `15.6-05` added the optional `subject` identity under `D-IMPL-120`. The measurement stands as the record of what was true at ruling time; the line-anchored citation is re-cited by symbol per `DI-15.5-08`.) This is the same missing link A3 reports under Q4; building it is a precondition, and its cost is Q4 option (c)'s cost. |
 | **Per-claim** | Maximum fidelity, maximum size | **NOT MEASURABLE from this tree** — same missing link as per-subject, at finer grain. |
 
 **Sub-question — are recency and salience one field or two?** Mechanically
@@ -185,7 +185,7 @@ RESEARCH.md rated A3 MEDIUM-HIGH and explicitly did not trace it. Traced now:
 | Measurement | Value |
 |---|---|
 | Verdict | **No — not reachable** |
-| The missing link | `src/ccf/halflife/decay.py:97-115` — `Observation` carries exactly `("observation_type", "observed_at")`. **No claim id, no entity URI, no join key.** |
+| The missing link | `src/ccf/halflife/decay.py::Observation` — carried exactly `("observation_type", "observed_at")` when measured. **No claim id, no entity URI, no join key.** (Closed later by plan `15.6-05`'s optional `subject` under `D-IMPL-120`.) |
 | The consumer that would need it | `src/ccf/halflife/debt.py:233-262` — `FreshnessScorer.score(self, observations: Sequence[Observation], *, now: datetime) -> Decimal` |
 | Where supersession actually lives | `src/ccf/graph/protocols.py:132-133` — `ClaimRecord.superseded_by` / `superseded_at` |
 | Occurrences of `supersed` in `src/ccf/halflife/` | **0** |
