@@ -36,14 +36,17 @@ from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.graph.protocols import GraphQuery, GraphView
+from ccf.controlplane.artifacts import DebtProfile
 from ccf.halflife.assessment import (
     NO_DEBT_EVIDENCE,
+    NO_OBLIGATION_IN_FORCE,
     NO_SOURCE_REFRESH_RECENCY,
     DebtAssessment,
     DebtEvidencePointer,
     DebtFactors,
     DebtSignal,
     ScorerPin,
+    SignalObligation,
     SourceRefresh,
 )
 from ccf.operators.base import OperatorOutput
@@ -150,6 +153,43 @@ RECENCY = (
         refreshed_at=datetime(2026, 2, 28, 19, 30, tzinfo=UTC),
     ),
 )
+
+#: The calibration this fixture's decision was made under (D-IMPL-112 gap 3,
+#: D-IMPL-117). Test-owned: the SDK enumerates no obligation vocabulary, so
+#: every reference below is a token this module invented and the fabric never
+#: interprets. Both bands are bound, because the case that matters most —
+#: replay substitution — needs a second obligation to substitute *with*.
+PROFILE = DebtProfile(
+    semver="1.0.0",
+    risk_sensitivity=Decimal("1.0"),
+    forced_llm_threshold=Decimal("0.50"),
+    fail_closed_threshold=Decimal("0.90"),
+    signal_obligations=(
+        SignalObligation(signal=DebtSignal.OK, obligation_ref="test-duty-alpha"),
+        SignalObligation(
+            signal=DebtSignal.FORCED_LLM, obligation_ref="test-duty-beta"
+        ),
+    ),
+)
+
+#: The calibration as somebody later rebound it. Same bands, different duty on
+#: the state ``DEBT`` lands in — which is the whole substitution threat: a replay
+#: that resolved *this* profile rather than the one in force at decision time
+#: would reproduce a decision nobody made (D-IMPL-26's exact-version rule).
+REBOUND_PROFILE = PROFILE.model_copy(
+    update={
+        "signal_obligations": (
+            SignalObligation(
+                signal=DebtSignal.OK, obligation_ref="test-duty-rebound"
+            ),
+        )
+    }
+)
+
+#: The obligation in force when this fixture's decision was made — resolved off
+#: the pinned profile for the signal ``DEBT`` actually carries, never chosen by
+#: hand, so the fixture cannot drift from the mechanism it is testing.
+OBLIGATION = PROFILE.obligation_for(DEBT.signal)
 
 #: The intent and freshness this fixture's questions carry (D-IMPL-111 limb
 #: (b)). Test-owned tokens: the SDK enumerates neither, and the whole point of
@@ -289,6 +329,7 @@ class _Deployment:
             debt=DEBT,
             debt_evidence=EVIDENCE,
             source_refresh_recency=RECENCY,
+            obligation_in_force=OBLIGATION,
         )
 
 
@@ -375,6 +416,28 @@ class _Environment:
             source_refresh_recency=(
                 record.content_generation_path.source_refresh_recency
             ),
+            # And what the signal obliged, for the same reason a third time
+            # (D-IMPL-112 gap 3, D-IMPL-117, plan 15.6-08): the third Track B
+            # member takes the same top-level placement `D-IMPL-118` ruled for
+            # all three, so it does not ride `debt` back either.
+            #
+            # This one is the seam that matters most, because the alternative
+            # is not "omit it" but "resolve it again". A rehydrator that read
+            # today's `DebtProfile` instead of this line would reproduce the
+            # obligation in force NOW against a decision made under the one in
+            # force THEN — the substitution `D-IMPL-26`'s exact-version rule
+            # forbids, and the reason the resolved value travels on the product
+            # rather than being looked up a second time.
+            #
+            # MEASURED, not inferred, with the precondition plan 15.6-07
+            # recorded. Deleted while the fixture carried the sentinel, this
+            # line costs NOTHING — all 36 cases still passed, because
+            # sentinel-to-sentinel agrees. It is the populated `OBLIGATION`
+            # above that makes the omission detectable: with a real binding in
+            # force, deleting this line turns 15 of this module's 42 cases red
+            # with `ReplayDivergence`, including the `debt`, `debt_evidence`,
+            # `source_refresh_recency` and `request` landings that predate it.
+            obligation_in_force=record.content_generation_path.obligation_in_force,
         )
 
 
@@ -1100,6 +1163,253 @@ def test_a_record_written_before_the_recency_seam_still_replays(
     outcome = _replay(deployment, served.replay_ref.content_address)
 
     assert outcome.product.source_refresh_recency == NO_SOURCE_REFRESH_RECENCY
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+
+
+# --- what the signal obliged, same tripwire (D-IMPL-112 gap 3) -------------
+
+
+def test_the_delivered_product_carries_what_its_signal_obliged(
+    deployment: _Deployment,
+) -> None:
+    """D-IMPL-118 a third time: on the vessel, and beside `debt` not inside it.
+
+    The ruling's four measured placements *"price all three Track B
+    vessel-carried members identically"*, so this member takes the branch its
+    two siblings took. The later assertions rule out the placements that would
+    have been cheaper or more obvious: nested inside `DebtAssessment`, where it
+    would have ridden the assessment into the record for free, and on
+    `DebtProfile` alone, where the *calibration* legitimately lives but the
+    resolved value would then have to be looked up again at replay.
+
+    The last assertion is this field's own: the vessel carries the obligation
+    for the signal the decision actually landed in, and **not** the mapping. A
+    consumer holding the whole mapping would be holding the calibration rather
+    than the decision.
+    """
+    execution = deployment.execute()
+    product = deployment.candidate(execution)
+
+    assert product.obligation_in_force == OBLIGATION
+    assert "obligation_in_force" in type(product).model_fields
+    assert product.debt is not None
+    assert "obligation_in_force" not in type(product.debt).model_fields
+    assert "signal_obligations" not in type(product).model_fields
+    assert product.obligation_in_force == PROFILE.obligation_for(DebtSignal.OK)
+    assert product.obligation_in_force != PROFILE.obligation_for(
+        DebtSignal.FORCED_LLM
+    )
+
+
+def test_the_obligation_lands_on_dimension_five_and_mints_no_sixth(
+    deployment: _Deployment,
+) -> None:
+    """INV-CH7-80: the five dimensions are inviolate.
+
+    The extension lands *inside* dimension 5, beside the ``debt`` whose routing
+    state it answers to, and neither the record nor dimension 4 gains a member.
+    What this case and only this case rules out: a second reconstruction seam
+    bolted on as a sixth dimension, which would have satisfied replay and
+    broken the invariant.
+    """
+    _address, record = _serve(deployment)
+
+    assert record.content_generation_path.obligation_in_force == OBLIGATION
+    assert (
+        "obligation_in_force" in type(record.content_generation_path).model_fields
+    )
+    assert "obligation_in_force" not in type(record).model_fields
+    assert (
+        "obligation_in_force"
+        not in type(record.perspective_conditioning).model_fields
+    )
+
+
+def test_what_the_signal_obliged_replays_byte_exactly(
+    deployment: _Deployment,
+) -> None:
+    """The D-IMPL-118 obligation, executed a third time.
+
+    The ruling authorized the address move on the express condition that the
+    vessel field be carried on dimension 5 and read back by every rehydrator —
+    without which *"every replay of every product raises `ReplayDivergence`"*.
+    This is that condition for the obligation, run against the real serve path
+    and the real engine, and run **after the graph has moved on four months**,
+    because a reproduction from unchanged state proves almost nothing.
+
+    Both recomputations are asserted rather than trusted: the product against
+    the address the record names, and the record against the address the store
+    resolved it from.
+    """
+    address, record = _serve(deployment)
+
+    deployment.handle.worker.ingest(
+        _envelope(
+            envelope_id="env-obligation-later",
+            payload={
+                "counterparty_lei": "LEI-AAA",
+                "counterparty_name": "Northwind Holdings SA",
+                "jurisdiction": "CH",
+            },
+            observed_time=T_JULY,
+        )
+    )
+
+    outcome = _replay(deployment, address)
+
+    assert outcome.product.obligation_in_force == OBLIGATION
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+    assert content_hash(record) == address
+
+
+def test_a_replay_reproduces_the_obligation_in_force_at_decision_time(
+    deployment: _Deployment,
+) -> None:
+    """**The case this whole task exists for.** Rebinding does not rewrite history.
+
+    A decision is served under one calibration; somebody then rebinds the
+    profile so the same signal obliges something else. The replay must
+    reproduce what the decision was actually under — `D-IMPL-26`: replay
+    resolves *exact* artifact versions, never "latest". Anything else is a
+    tampering-and-repudiation failure: the record would answer *"this decision
+    was obliged to do X"* with today's X.
+
+    The rebound profile is registered into the deployment's Control Plane, so
+    the substitution is available to be made and is measurably not made. Both
+    obligations are asserted — the recorded one reproduces AND the current one
+    does not — because asserting only the first would pass against a rebinding
+    that never took effect.
+    """
+    address, record = _serve(deployment)
+    rebound_version = deployment.registry.register(
+        "test/debt-profile", REBOUND_PROFILE.model_dump()
+    )
+
+    outcome = _replay(deployment, address)
+
+    assert rebound_version
+    assert REBOUND_PROFILE.obligation_for(DEBT.signal) != OBLIGATION
+    assert outcome.product.obligation_in_force == OBLIGATION
+    assert outcome.product.obligation_in_force != REBOUND_PROFILE.obligation_for(
+        DEBT.signal
+    )
+    assert record.content_generation_path.obligation_in_force == OBLIGATION
+    assert content_hash(outcome.product) == (
+        record.content_generation_path.product_content_address
+    )
+
+
+def test_a_rehydration_that_resolves_todays_binding_is_divergence(
+    deployment: _Deployment,
+) -> None:
+    """The substitution attempted, and refused by the address check.
+
+    Stronger than the drop case below and not implied by it: this rehydrator
+    returns a *plausible* obligation — the one the current calibration binds to
+    the very same signal — rather than an empty one. Nothing about the returned
+    product looks wrong on its face; only the content address does. That is the
+    property `D-IMPL-100` bought by putting the value inside the address, and
+    this is the case that shows it catching a substitution rather than a typo.
+    """
+
+    class _ResolvesToday(_Environment):
+        def rehydrate_product(
+            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
+        ) -> ContextProductContract:
+            product = super().rehydrate_product(record=record, projection=projection)
+            assert product.debt is not None
+            return product.model_copy(
+                update={
+                    "obligation_in_force": REBOUND_PROFILE.obligation_for(
+                        product.debt.signal
+                    )
+                }
+            )
+
+    address, _record = _serve(deployment)
+    with pytest.raises(ReplayDivergence, match="product"):
+        _replay(deployment, address, environment=_ResolvesToday(deployment))
+
+
+def test_a_rehydration_that_drops_the_obligation_is_divergence(
+    deployment: _Deployment,
+) -> None:
+    """The adversarial half: dropping it is *detected*, not tolerated.
+
+    The field is inside the content address, so a rehydrator that returned the
+    vessel without it returns a different decision. A silent drop would be
+    indistinguishable from a decision made under a calibration that bound
+    nothing — which is exactly the artifact the ``NO_OBLIGATION_IN_FORCE``
+    sentinel exists to keep distinct.
+    """
+
+    class _ObligationBlind(_Environment):
+        def rehydrate_product(
+            self, *, record: DecisionReplayRecord, projection: ProjectionOutput
+        ) -> ContextProductContract:
+            product = super().rehydrate_product(record=record, projection=projection)
+            return product.model_copy(
+                update={"obligation_in_force": NO_OBLIGATION_IN_FORCE}
+            )
+
+    address, _record = _serve(deployment)
+    with pytest.raises(ReplayDivergence, match="product"):
+        _replay(deployment, address, environment=_ObligationBlind(deployment))
+
+
+def test_a_record_written_before_the_obligation_seam_still_replays(
+    deployment: _Deployment,
+) -> None:
+    """The sentinel's compatibility promise (the ``debt_evidence`` lineage).
+
+    A product assembled under a calibration that bound nothing, and a record
+    that therefore pins nothing, still reproduce: ``NO_OBLIGATION_IN_FORCE`` on
+    both sides is the same positive claim and the two agree. A change that made
+    the field required would break every pre-seam record instead — which is the
+    cost this case prices and the reason the field defaults rather than demands.
+    """
+    execution = deployment.execute()
+    product_class = deployment.product_class()
+    gated = run_gates(
+        deployment.candidate(execution).model_copy(
+            update={"obligation_in_force": NO_OBLIGATION_IN_FORCE}
+        ),
+        engine_resolved=execution.operators_invoked,
+        now=NOW,
+        registry=deployment.registry,
+        product_class=product_class,
+    )
+    assert isinstance(gated, ServableProduct)
+    record = build_replay_record(
+        execution=execution,
+        product=gated.product,
+        perspective=deployment.perspective(),
+        policy_bindings=(
+            PolicyBinding(key=POLICY_BUNDLE_KEY, version=deployment.policy_version),
+        ),
+        assembly_mode="algorithmic",
+        recorded_at=NOW,
+    )
+    served = serve(
+        product=gated,
+        record=record,
+        replay_writer=ReplayWriter(
+            store=deployment.store, artifact_class=ARTIFACT_CLASS
+        ),
+    )
+
+    assert (
+        record.content_generation_path.obligation_in_force
+        == NO_OBLIGATION_IN_FORCE
+    )
+
+    outcome = _replay(deployment, served.replay_ref.content_address)
+
+    assert outcome.product.obligation_in_force == NO_OBLIGATION_IN_FORCE
     assert content_hash(outcome.product) == (
         record.content_generation_path.product_content_address
     )

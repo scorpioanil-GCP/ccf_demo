@@ -350,6 +350,7 @@ def _product(
     evidence: tuple[DebtEvidencePointer, ...] = NO_DEBT_EVIDENCE,
     *,
     recency: tuple[SourceRefresh, ...] = NO_SOURCE_REFRESH_RECENCY,
+    obligation: str = NO_OBLIGATION_IN_FORCE,
 ) -> ContextProductContract:
     """The vessel as every construction site builds it, plus the carrier."""
     return ContextProductContract(
@@ -368,6 +369,7 @@ def _product(
         payload={"answer": "42"},
         debt_evidence=evidence,
         source_refresh_recency=recency,
+        obligation_in_force=obligation,
     )
 
 
@@ -1014,3 +1016,122 @@ def test_the_sdk_names_no_obligation_and_takes_no_action_on_one() -> None:
         " a new branch on FORCED_LLM would mean the SDK had decided what an"
         " obligation means (D-IMPL-117, CLAUDE.md §11)"
     )
+
+
+def test_assess_debt_is_unchanged_by_the_obligation_binding(
+    profile: DebtProfile,
+) -> None:
+    """The resolved value landed on the vessel, so the pure function did not move.
+
+    D-IMPL-118 placed all three Track B members top-level on
+    `ContextProductContract`, so `assess_debt` gains no parameter and stays pure
+    over `(factors, profile)` — the D-IMPL-105 posture. Asserted on the
+    consequence directly: `debt` and `signal` are byte-for-byte what they were
+    for the same factors and the same profile, even when the profile they were
+    computed from now carries bindings, and the assessment's field set is
+    untouched.
+
+    What this rules out that the two sibling cases do not: an implementation
+    that resolved the obligation *inside* `assess_debt` and hung it on the
+    assessment. That is the plan's literal reading, and it would have moved
+    `DebtAssessment`'s bytes — reshaping everything that carries one, for a
+    member the ruling put somewhere else.
+    """
+    bound = profile.model_copy(
+        update={
+            "signal_obligations": (
+                SignalObligation(
+                    signal=DebtSignal.OK, obligation_ref=_OBLIGATION_FOR_FORCED
+                ),
+            )
+        }
+    )
+    factors = _whole(freshness=Decimal("0.8"))
+
+    plain = assess_debt(factors, profile=profile)
+    against_bindings = assess_debt(factors, profile=bound)
+
+    assert against_bindings.debt == plain.debt == context_debt(factors)
+    assert against_bindings.signal is plain.signal is DebtSignal.OK
+    assert content_hash(against_bindings) == content_hash(plain)
+    assert set(DebtAssessment.model_fields) == {
+        "debt",
+        "signal",
+        "factors",
+        "scorers",
+    }
+    assert "obligation_in_force" not in DebtAssessment.model_fields
+    assert "signal_obligations" not in DebtAssessment.model_fields
+
+
+def test_the_obligation_resolved_is_the_one_the_computed_signal_bound() -> None:
+    """The decision records its own duty, not the whole calibration.
+
+    Two signals bound to two different obligations; the assessment lands in one
+    of them and the value that resolves is that one. This is the case that would
+    fail if the resolution read a fixed member, took the first binding, or
+    handed back the mapping whole — and the mapping is the failure worth naming,
+    because a consumer holding it would be holding the calibration rather than
+    the decision.
+    """
+    profile = _profile_binding(
+        SignalObligation(
+            signal=DebtSignal.OK, obligation_ref=_OBLIGATION_FOR_FORCED
+        ),
+        SignalObligation(
+            signal=DebtSignal.FAIL_CLOSED, obligation_ref=_OBLIGATION_FOR_FAILED
+        ),
+    )
+
+    nominal = assess_debt(_whole(), profile=profile)
+    collapsed = assess_debt(
+        DebtFactors(
+            freshness=Decimal("0.01"),
+            completeness=Decimal("0.5"),
+            semantic_consistency=Decimal("1"),
+        ),
+        profile=profile,
+    )
+
+    assert nominal.signal is DebtSignal.OK
+    assert collapsed.signal is DebtSignal.FAIL_CLOSED
+    assert profile.obligation_for(nominal.signal) == _OBLIGATION_FOR_FORCED
+    assert profile.obligation_for(collapsed.signal) == _OBLIGATION_FOR_FAILED
+
+
+def test_the_delivered_vessel_carries_the_resolved_obligation() -> None:
+    """The vessel is the populate site, and the value is inside its address.
+
+    `canonical_bytes` walks a model field-by-field over `model_fields`, so a
+    top-level field is in the address by construction. This is the case that
+    would fail if a later change moved the member off the vessel and left
+    D-IMPL-118's reconstruction obligation looking gratuitous.
+    """
+    profile = _profile_binding(
+        SignalObligation(
+            signal=DebtSignal.OK, obligation_ref=_OBLIGATION_FOR_FORCED
+        )
+    )
+    assessment = assess_debt(_whole(), profile=profile)
+    product = _product(obligation=profile.obligation_for(assessment.signal))
+
+    assert product.obligation_in_force == _OBLIGATION_FOR_FORCED
+    rebuilt = ContextProductContract.model_validate(product.model_dump())
+    assert rebuilt.obligation_in_force == _OBLIGATION_FOR_FORCED
+    assert content_hash(rebuilt) == content_hash(product)
+    assert content_hash(product) != content_hash(_product())
+    assert content_hash(product) != content_hash(
+        _product(obligation=_OBLIGATION_FOR_FAILED)
+    )
+
+
+def test_an_unobliged_decision_is_a_positive_claim_and_not_a_silence() -> None:
+    """D-IMPL-38 on the vessel side, in the two siblings' voice.
+
+    A decision made under a calibration that bound nothing for its signal and a
+    decision whose obligation somebody dropped in transit must not be the same
+    artifact — which is what the named sentinel default holds apart, and what
+    every product assembled before this field existed was already asserting.
+    """
+    assert _product().obligation_in_force == NO_OBLIGATION_IN_FORCE
+    assert NO_OBLIGATION_IN_FORCE is not None
