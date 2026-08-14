@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**622 entries**, of which **393** name a public Python surface.
+**624 entries**, of which **395** name a public Python surface.
 
 ## Added
 
@@ -5662,7 +5662,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-284 entries — 101 public Python surface, 183 not public Python API.
+286 entries — 103 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -7895,6 +7895,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   parameter is not reachable through the tool
 
 *Recorded by `16-23-mcp-product-tool.md`.*
+
+#### ccf_runtime.mcp.experience.build_experience_server
+
+- Surface: ccf_runtime.mcp.experience.build_experience_server
+- Public surface: true
+- Change type: reshaped
+- Before: nine optional seam/prose parameters plus the two required governance seams; the gated consumption tools had no declared address, so `get_context` and `get_lineage` registered handlers that reached their providers with no entitlement decision
+- After: two additional keyword-only parameters, `entitled_product_class` and `lineage_tenant`, both `str | None = None` and both required conditionally on exposure — and refused when supplied for a tool the allowlist does not admit
+- Why: `D-IMPL-128` limb 1 ruled the ungated `get_context` a defect in the SDK's external front door, and an entitlement decides on a *(tenant, class)* pair the deployment must supply — the class because check and serve would otherwise be free to diverge, the tenant because `get_lineage` carries no wire arguments at all and inventing one would be the SDK holding a deployment value (CINV-01). A second entry for this name after `15.5-06-egress-entitlement.md` is deliberate: that fragment recorded the arrival of the governance seams, this one records the declared address the two now-gated tools are decided against
+- Migration: supply `entitled_product_class` when either gated tool is allowlisted and `lineage_tenant` when `get_lineage` is; both are ordinary deployment values and the shipped example binds them to `assembled.address.product_class` and `assembled.address.tenant`. A deployment whose entitlement policy does not name the class its context provider serves will now be refused at its own front door — that is the gate working
+
+*Recorded by `16-24-experience-door-entitlement.md`.*
+
+#### ccf_runtime.mcp.experience.ContextProviderProtocol
+
+- Surface: ccf_runtime.mcp.experience.ContextProviderProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `__call__(*, tenant: str, entity: str) -> str` — the provider received no conditioning, because the door that calls it computed none
+- After: `__call__(*, tenant: str, entity: str, perspective: Perspective) -> str` — required, no default, carrying the perspective the door's entitlement authorized
+- Why: `D-IMPL-108`'s reasoning applied to the newly gated tool: a door that computes an authorized perspective and discards it is `DI-15.5-03` reintroduced one layer down, where nothing on the wire would show it. No default, because a defaulted governance argument is one an implementor can be written without noticing. A second entry for this name after `15.6-10-protocol-call-capture.md` is deliberate: that fragment recorded a different change to the same Protocol
+- Migration: add `perspective: Perspective` to your provider's signature — and **use it**. Compare its `role` against the capacity your product was assembled under and refuse a mismatch; a provider that accepts the conditioning and serves regardless has moved the defect one layer down rather than closing it. `LineageProviderProtocol` is unchanged and needs no edit
+
+*Recorded by `16-24-experience-door-entitlement.md`.*
 
 ### Not public Python API
 
