@@ -392,7 +392,14 @@ def test_an_allowlisted_agent_tool_without_its_provider_is_refused(
 def test_a_server_exposing_no_agent_tools_needs_no_agent_seams(
     tmp_path: Path,
 ) -> None:
-    """The other half of D-03: omission is legal when nothing is exposed."""
+    """The other half of D-03: omission is legal when nothing is exposed.
+
+    The two ``entitled_product_class`` / ``lineage_tenant`` keywords appear
+    here because ``get_lineage`` **is** exposed on this server, and 16-24
+    gated it: its declared address is required exactly when the tool is
+    admitted. The test's own claim — that omitting the *agent* seams is legal
+    when no agent tool is exposed — is untouched.
+    """
     from ccf_runtime.mcp.experience import (
         GET_LINEAGE_TOOL,
         build_experience_server,
@@ -405,6 +412,8 @@ def test_a_server_exposing_no_agent_tools_needs_no_agent_seams(
         tool_allowlist=frozenset({GET_LINEAGE_TOOL}),
         lineage_provider=provide_lineage,
         get_lineage_description="served for this test only",
+        entitled_product_class="served-for-this-test-only",
+        lineage_tenant="served-for-this-test-only",
         **_builder_kwargs(tmp_path),
     )
 
@@ -840,6 +849,92 @@ def test_a_verified_but_undeclared_principal_is_refused_by_the_context_tool(
 
     assert is_error, body
     assert ERROR_PRINCIPAL_NOT_ENTITLED in body
+
+
+@with_child
+def test_the_agent_and_replay_tools_are_authenticated_but_not_entitled_open_gap(
+    child_server_port: int, bridge: SyncMcpBridge
+) -> None:
+    """D-IMPL-129: a known gap, pinned open by an assertion rather than prose.
+
+    **This is not a property the SDK wants.** ``list_agents``,
+    ``invoke_agent`` and ``get_replay_record`` are served to a verified caller
+    the tenant's entitlement policy does not declare — the same credential the
+    two gated tools refuse three tests above. Each of the three asserts
+    verified identity and decides nothing.
+
+    Why they are not gated: the artifact they would be decided against is
+    ``ProductEntitlementPolicy``, whose grants are ``permitted_schema_names``
+    and ``permitted_roles``
+    (``runtime/ccf_runtime/authz/product_entitlement.py:198-212``) and which
+    says nothing about agents and nothing about replay records. Gating
+    ``invoke_agent`` on it would assert that entitlement to receive a product
+    class implies permission to invoke any agent in the tenant — a semantic
+    the SDK would be inventing, which CLAUDE.md §11 forbids in those words.
+    Closing it needs
+    :class:`~ccf_runtime.authz.protocol.TenantAuthorizerProtocol` plus new
+    action ids, which ``D-IMPL-129`` ruled out of this plan's scope and
+    assigned to no owner.
+
+    **The signature of the fix is that this test inverts.** Whoever closes the
+    gap will find these three assertions failing; that is the intended
+    collision, and flipping them to refusals is the correct repair. A gap held
+    open by an executable assertion cannot rot the way a paragraph in a
+    deferred-items file can.
+    """
+    from ccf_runtime.mcp.experience import (
+        GET_REPLAY_RECORD_TOOL,
+        INVOKE_AGENT_TOOL,
+        LIST_AGENTS_TOOL,
+    )
+
+    from crossproc.servers.mcp_experience_child import UNENTITLED_TOKEN
+
+    url = f"http://127.0.0.1:{child_server_port}/mcp"
+    world = build_world()
+
+    is_error, body = _call_tool(
+        bridge,
+        url,
+        LIST_AGENTS_TOOL,
+        {"tenant": world.tenant},
+        token=UNENTITLED_TOKEN,
+    )
+    assert not is_error, body
+    # Not merely "it returned": the undeclared caller received the tenant's
+    # actual agent population, versions and bound skill surfaces.
+    (listing,) = json.loads(body)["agents"]
+    assert listing["definition_key"] == world.definition_key
+    assert listing["tools"], listing
+
+    is_error, body = _call_tool(
+        bridge,
+        url,
+        INVOKE_AGENT_TOOL,
+        {
+            "tenant": world.tenant,
+            "definition_key": world.definition_key,
+            "definition_version": world.definition_version,
+            "skill": world.skill_entry.name,
+            "arguments": {"entity_name": "hollis-industrial"},
+        },
+        token=UNENTITLED_TOKEN,
+    )
+    assert not is_error, body
+    # The undeclared caller dispatched a governed bound skill.
+    assert json.loads(body)["invocation"]["invoked"] == "covenant-metrics"
+
+    is_error, body = _call_tool(
+        bridge,
+        url,
+        GET_REPLAY_RECORD_TOOL,
+        {},
+        token=UNENTITLED_TOKEN,
+    )
+    assert not is_error, body
+    # And read back the five-dimension record of a decision, dimension 4
+    # included — the widest disclosure on this server.
+    assert json.loads(body)["perspective_conditioning"]
 
 
 def _causes(error: BaseException, _seen: frozenset[int] = frozenset()) -> str:

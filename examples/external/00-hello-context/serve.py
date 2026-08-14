@@ -661,12 +661,29 @@ def main() -> None:
             )
             return assembled.servable
 
-        def context_provider(*, tenant: str, entity: str) -> str:
+        def context_provider(
+            *, tenant: str, entity: str, perspective: Perspective
+        ) -> str:
+            # `perspective` arrives because D-IMPL-128 limb 1 gated this tool
+            # and forwards what the entitlement authorized. Accepting it is
+            # not the obligation — using it is. This is the same comparison
+            # `resolve` performs above for the resource leg: the product was
+            # assembled under one declared capacity, and a provider that
+            # served under another would leave DI-15.5-03's gap intact one
+            # layer down, where nothing on the wire would show it.
             if (
                 tenant != assembled.address.tenant
                 or entity != focus["entity_ref"]
             ):
                 raise ExperienceProductNotServable(f"{tenant}/{entity}")
+            provider_role = cast(
+                PerspectiveArtifact, assembled.artifacts["perspective"]
+            ).role
+            if perspective.role != provider_role:
+                raise ExperienceProductNotServable(
+                    f"{tenant}/{entity}: assembled for {provider_role!r}, the"
+                    f" door authorized {perspective.role!r}"
+                )
             return _serve_recorded(
                 get_context_request_label(tenant=tenant, entity=entity)
             ).decode("utf-8")
@@ -775,6 +792,13 @@ def main() -> None:
                 control_plane=door_control_plane, clock=lambda: door_now
             ),
             perspective_resolver=resolve_perspective,
+            # The gated consumption tools' declared address (D-IMPL-128 limb
+            # 1). Both are the fabric's own assembled address, never literals
+            # (CLAUDE.md §6.4): the entitlement is decided against the class
+            # this deployment actually serves, so check and serve cannot
+            # diverge.
+            entitled_product_class=assembled.address.product_class,
+            lineage_tenant=assembled.address.tenant,
             context_provider=context_provider,
             lineage_provider=lineage_provider,
             replay_record_reader=replay_record_reader,
