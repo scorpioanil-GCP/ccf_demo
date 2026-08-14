@@ -457,6 +457,18 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf_runtime.mcp.egress.build_egress_server": (
         "16-23-mcp-product-tool.md"
     ),
+    # D-IMPL-128 limb 1: the experience builder gained two keyword-only
+    # arguments, `entitled_product_class` and `lineage_tenant`, both
+    # defaulting to `None` and both required conditionally on exposure. The
+    # same additive-and-defaulted case as its egress sibling above — every
+    # existing call site reads identically at the signature — with the
+    # difference that a deployment exposing either gated consumption tool now
+    # has to supply the declared address the entitlement decides against, and
+    # the fragment says so under Adopter migration. It claims the name as
+    # `reshaped`.
+    "ccf_runtime.mcp.experience.build_experience_server": (
+        "16-24-experience-door-entitlement.md"
+    ),
 }
 
 

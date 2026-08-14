@@ -104,8 +104,8 @@ tool carries no arguments at all its address is deployment-declared
 **Why the other three are not, stated unhedged.** The artifact these doors
 would be decided against is ``ProductEntitlementPolicy``, whose grants are
 ``permitted_schema_names`` and ``permitted_roles``
-(:class:`~ccf_runtime.authz.product_entitlement.ProductEntitlementSourceProtocol`,
-``runtime/ccf_runtime/authz/product_entitlement.py:198-212``) and which says
+(``runtime/ccf_runtime/authz/product_entitlement.py::ProductEntitlementSourceProtocol``)
+and which says
 nothing about agents and nothing about replay records. Deciding an agent
 invocation against it would assert *entitlement to receive product class C
 implies permission to invoke any agent in tenant T* — a semantic the SDK would
@@ -123,11 +123,12 @@ three asserts verified identity and decides nothing:
 
 **What would close them, named so a later phase completes a design rather than
 reopening one:**
-:class:`~ccf_runtime.authz.protocol.TenantAuthorizerProtocol`
-(``runtime/ccf_runtime/authz/protocol.py:78``) with new action ids beside the
-three at ``runtime/ccf_runtime/authz/refusals.py:35-48``
+``runtime/ccf_runtime/authz/protocol.py::TenantAuthorizerProtocol``
+with new action ids beside
+``runtime/ccf_runtime/authz/refusals.py::ACTION_PRODUCT_RETRIEVE``
 and an adopter-registered policy artifact — the shape the HITL door already
-carries at ``runtime/ccf_runtime/mcp/hitl_server.py:267-290``. That is a new
+carries at ``runtime/ccf_runtime/mcp/hitl_server.py::_enforce_tenant_authz``.
+That is a new
 required builder seam and a new artifact type; ``D-IMPL-129`` assigns no owner,
 and until a concrete harm or an authorised authorization workstream opens it,
 **no plan may cite these three tools' shipping as evidence that agent-scoped
@@ -478,9 +479,9 @@ class ContextProviderProtocol(Protocol):
     door authorized and served regardless — the same defect, one layer
     further down. This product was assembled under some capacity; compare it
     with the one you are handed and refuse a mismatch. The shipped example
-    performs exactly that comparison at
-    ``examples/external/00-hello-context/serve.py:664-696``, beside a resolver
-    doing the same thing for the resource leg.
+    performs exactly that comparison in
+    ``examples/external/00-hello-context/serve.py::context_provider``, beside a
+    resolver doing the same thing for the resource leg.
     """
 
     def __call__(

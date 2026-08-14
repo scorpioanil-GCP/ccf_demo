@@ -25,7 +25,7 @@ door moved. On the resource path it did not.
 
 ## The defect, quoted rather than paraphrased
 
-At the phase base, `runtime/ccf_runtime/mcp/experience.py:775-777` was:
+At the phase base, `runtime/ccf_runtime/mcp/experience.py::get_context` was:
 
 ```python
 def get_context(tenant: str, entity: str) -> str:
@@ -138,7 +138,7 @@ What each discloses to any verified caller:
 
 **Why this plan did not gate them.** The artifact they would be decided against
 is `ProductEntitlementPolicy`, whose grants are `permitted_schema_names` and
-`permitted_roles` (`runtime/ccf_runtime/authz/product_entitlement.py:198-212`)
+`permitted_roles` (`runtime/ccf_runtime/authz/product_entitlement.py::ProductEntitlementSourceProtocol`)
 and which says nothing about agents and nothing about replay records. Deciding
 an agent invocation against it would assert *entitlement to receive product
 class C implies permission to invoke any agent in tenant T* — a semantic the
@@ -147,10 +147,10 @@ the three therefore gained `verified_grant` as its first statement:
 authentication, deciding nothing, and labelled as such in its own docstring.
 
 **What would close it.** `TenantAuthorizerProtocol`
-(`runtime/ccf_runtime/authz/protocol.py:78`) with new action ids beside the
-three at `runtime/ccf_runtime/authz/refusals.py:35-48`, plus an
+(`runtime/ccf_runtime/authz/protocol.py::TenantAuthorizerProtocol`) with new action ids beside the
+three at `runtime/ccf_runtime/authz/refusals.py::ACTION_PRODUCT_RETRIEVE`, plus an
 adopter-registered policy artifact — the shape the HITL door already carries at
-`runtime/ccf_runtime/mcp/hitl_server.py:267-290`. `D-IMPL-129` records that
+`runtime/ccf_runtime/mcp/hitl_server.py::_enforce_tenant_authz`. `D-IMPL-129` records that
 precedent under a path that does not exist; the correct one is the `mcp/` path
 above. That is a new required builder seam and a new artifact type, authorised
 by nothing so far, and **no owner is assigned**.
@@ -174,7 +174,7 @@ that **inverting it is the signature of the fix**.
 
 Restated as ruled, not re-argued. Client-chosen `entity` / `subject` is **not
 entitlement-scoped**: `entitled_perspective`
-(`runtime/ccf_runtime/authz/product_entitlement.py:386-445`) decides on
+(`runtime/ccf_runtime/authz/product_entitlement.py::entitled_perspective`) decides on
 `(grant, tenant, product_class, resolved role)` and carries no subject
 dimension, while `subject` becomes the traversal seed and therefore selects
 what is assembled.

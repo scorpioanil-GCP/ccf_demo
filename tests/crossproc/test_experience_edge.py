@@ -1055,7 +1055,7 @@ def test_a_foreign_tenant_is_refused_by_the_context_tool(
     only "it errored" would pass identically before and after the gate
     existed and would prove nothing. The discriminator is **which** typed
     refusal: ``ERROR_PRODUCT_POLICY_ABSENT`` is the entitlement's
-    deny-by-default path (``product_entitlement.py:285-302``) and a bare
+    deny-by-default path (``runtime/ccf_runtime/authz/product_entitlement.py::ControlPlaneProductEntitlementSource``) and a bare
     ``LookupError`` from the provider cannot produce it. The companion
     discriminator — that the provider was never entered at all — is asserted
     in the counter test below.
@@ -1212,7 +1212,7 @@ def test_the_agent_and_replay_tools_are_authenticated_but_not_entitled_open_gap(
     Why they are not gated: the artifact they would be decided against is
     ``ProductEntitlementPolicy``, whose grants are ``permitted_schema_names``
     and ``permitted_roles``
-    (``runtime/ccf_runtime/authz/product_entitlement.py:198-212``) and which
+    (``runtime/ccf_runtime/authz/product_entitlement.py::ProductEntitlementSourceProtocol``) and which
     says nothing about agents and nothing about replay records. Gating
     ``invoke_agent`` on it would assert that entitlement to receive a product
     class implies permission to invoke any agent in the tenant — a semantic
