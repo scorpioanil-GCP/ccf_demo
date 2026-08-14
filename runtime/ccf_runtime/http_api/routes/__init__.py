@@ -15,8 +15,9 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import hashlib
 import json
-from typing import TypeVar
+from typing import Final, TypeVar
 
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse, Response
@@ -30,9 +31,20 @@ from ccf_runtime.http_api.errors import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["canonical_response", "refusal_response"]
+__all__ = [
+    "CONTENT_ADDRESS_HEADER",
+    "canonical_response",
+    "refusal_response",
+]
 
 _JSON = "application/json"
+
+#: The response header every canonical body publishes its own content address
+#: under (``D-IMPL-126`` item (4); the address primitive is ``D-IMPL-26``).
+#:
+#: Named here rather than spelled at the one site that sets it, so a test and an
+#: adopter's client reach for the same constant and a rename is one edit.
+CONTENT_ADDRESS_HEADER: Final[str] = "X-CCF-Content-Address"
 
 _Handle = TypeVar("_Handle")
 
@@ -55,8 +67,9 @@ def _required_handle(
     rather than a latent ``AttributeError`` on ``None`` in production.
 
     Called **once per handler body**, binding a non-``Optional`` local the rest
-    of the body uses (the ``context_seam = context_provider`` pattern at
-    ``runtime/ccf_runtime/mcp/experience.py:770``), never once per read.
+    of the body uses (the ``context_seam = context_provider`` pattern in
+    ``runtime/ccf_runtime/mcp/experience.py::build_experience_server``), never
+    once per read.
 
     Deliberately **not** called at ``build_router`` time. A router must stay
     mountable so the OpenAPI document is complete and this refusal is reachable;
@@ -96,10 +109,72 @@ def _required_handle(
 
 
 def canonical_response(payload: object) -> Response:
-    """Serve ``payload`` as its canonical bytes — the same serialization the
-    content address and the A2A signature are computed over, so a consumer
-    that hashes what it received gets the address the producer would."""
-    return Response(content=canonical_bytes(payload), media_type=_JSON)
+    """Serve ``payload`` as its canonical bytes, and publish their address.
+
+    The bytes are the same serialization the content address and the A2A
+    signature are computed over, so a consumer that hashes what it received
+    gets the address the producer would. That claim was true before
+    ``D-IMPL-126`` item (4) and merely unverifiable from outside: a consumer had
+    to already own a CCF canonicalizer to check it. The address now travels on
+    the response under :data:`CONTENT_ADDRESS_HEADER`, so a zero-``ccf`` client
+    verifies it in one stdlib line —
+    ``hashlib.sha256(response.content).hexdigest() ==
+    response.headers["X-CCF-Content-Address"]``.
+
+    **Serialized once.** The body and the digest are derived from one
+    ``canonical_bytes`` call, never two: two serializations of the same object
+    are two chances to disagree, and the whole value of the header is that it
+    cannot. (A consequence worth stating because it looks like an omission:
+    this function does not call
+    :func:`~ccf.contracts.canonical.content_hash`. That function serializes and
+    hashes; calling it here would be the second serialization. The equivalence
+    to it is asserted in ``tests/http_api/test_content_address_header.py``,
+    which is where an equivalence belongs.)
+
+    **Why an ``X-CCF-*`` name and not ``ETag``.** Both were available and
+    ``ETag`` was rejected; recorded here so it is not re-proposed as an
+    oversight.
+
+    1. **A CCF content address is an identity, not a cache validator.** It is
+       the ``D-IMPL-26`` primitive the ArtifactStore resolves and replay pins
+       against. RFC 9110 permits an intermediary to weaken a strong ``ETag`` to
+       ``W/"..."`` or rewrite it across a content-coding transformation. An
+       identity a proxy may legally alter is not an identity.
+    2. **``ETag`` advertises cacheability on an entitlement-scoped body.** These
+       responses are per-principal and per-perspective — ``entitled_perspective``
+       decides before the resolver runs — and an ``ETag`` invites an
+       intermediary to hold and re-serve a governed product. An ``X-CCF-*``
+       header carries no HTTP caching semantics and issues no such invitation,
+       which is also why no ``Cache-Control`` change is owed: the hazard is
+       avoided by the header choice rather than papered over with a second
+       header.
+    3. **``ETag`` is per-representation; the address is per-object.** The moment
+       this door gains content negotiation or compression the two must diverge,
+       and an ``ETag`` set to the content address would then be lying.
+    4. Implementing ``ETag`` honestly means ``If-None-Match`` and a 304 path —
+       real behaviour on a shipped door, outside what ``D-IMPL-126`` ruled.
+
+    Both were not shipped: two headers carrying the same hex string, one of
+    which a proxy may rewrite, is a guarantee that fails silently.
+
+    **The MCP doors are deliberately untouched.** They have no header channel,
+    and their bodies *are* the product — so carrying the address inside the body
+    would change the body and therefore change the address it claims. The
+    asymmetry is a property of the transports, not an oversight.
+
+    All five call sites — ``agent.py:74``, ``config.py:98``, ``replay.py:47``,
+    ``replay.py:65`` and ``product.py:154`` — pass a
+    :class:`~ccf.contracts.base.CCFContract`, so the claim is uniformly true at
+    every one. :func:`refusal_response` sets no such header: a refusal is not a
+    content-addressed artifact and stamping every response would make the
+    header meaningless.
+    """
+    body = canonical_bytes(payload)
+    return Response(
+        content=body,
+        media_type=_JSON,
+        headers={CONTENT_ADDRESS_HEADER: hashlib.sha256(body).hexdigest()},
+    )
 
 
 def refusal_response(refusal: CCFContract, *, status_code: int) -> JSONResponse:

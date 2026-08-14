@@ -41,6 +41,9 @@
 - [ ] **DOCS-16**: Carried advisories A-1, A-2, A-3 and A-8 are discharged in the published tree with positive per-advisory evidence rather than a green build
 - [ ] **DOCS-17**: `examples/00`–`08` and `examples/external/00-hello-context` are retired with every published page that sourced from them re-cut, proven by standing gates for dangling includes, stale prose paths, Gate-2 wording and documented commands
 - [ ] **DOCS-18**: The phase closes with a mechanical no-fabric-change assertion carrying D-13's single enumerated exception, a full gate sweep, and a requirement ledger that matches the tree
+- [ ] **DOCS-19**: The four `D-IMPL-126` consumption papercuts are closed in the fabric — a `ProductRequestContract` is reachable from a manifest-returned `DeclaredArtifact` by one named call, `ServableProduct` states why it is unconstructible on both attribute channels while leaving `hasattr` returning `False`, a product-only deployment constructs `ApiDependencies` with three handles and gets a typed 503 naming the absent field on every route it did not wire, and every canonical HTTP body publishes its own content address under `X-CCF-Content-Address`
+- [ ] **DOCS-20**: The MCP egress door carries a parameterised tool alongside its unchanged resource
+- [ ] **DOCS-21**: The Experience MCP server's client-parameterised handlers are gated, or their ungated status is pinned
 
 ### Demonstration (DEMO)
 
@@ -225,6 +228,9 @@ by omission.
 | DOCS-16 | Phase 16 | Pending |
 | DOCS-17 | Phase 16 | Pending |
 | DOCS-18 | Phase 16 | Pending |
+| DOCS-19 | Phase 16 | Pending |
+| DOCS-20 | Phase 16 | Pending |
+| DOCS-21 | Phase 16 | Pending |
 | ERGO-01 | Phase 15 | Complete |
 | ERGO-02 | Phase 15 | Complete |
 | ERGO-03 | Phase 15 | Complete |

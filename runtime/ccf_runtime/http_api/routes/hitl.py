@@ -122,8 +122,9 @@ def build_router(
         # check: a deployment that routes no HITL traffic here wired no
         # transport, which is a fault of the deployment rather than of the
         # caller — telling the caller they are forbidden would misattribute it
-        # (the ERROR_PRODUCT_DOOR_UNGOVERNED reasoning at
-        # routes/product.py:179-184).
+        # (the ERROR_PRODUCT_DOOR_UNGOVERNED reasoning in
+        # runtime/ccf_runtime/http_api/routes/product.py::build_router's
+        # _authorized_perspective).
         transport = _required_handle(
             deps.hitl_transport,
             field="hitl_transport",

@@ -424,6 +424,33 @@ def test_every_moved_name_is_a_call_protocol_or_a_type_alias(
     assert not misfits, misfits
 
 
+#: ``class``/``function``-kind entries whose shape legitimately moved *after*
+#: this module was written, each mapped to the surface-change fragment that
+#: records why.
+#:
+#: This is a **named** allowance, in the spirit of the ``contract``-kind
+#: exclusion below rather than a widening of it, and it is not a dumping
+#: ground: :func:`test_no_committed_plain_class_or_function_shape_is_disturbed`
+#: requires each entry here to be claimed by name in the fragment it cites, so
+#: an unexplained shape move still fails. The surface machinery's own gates
+#: (``tests/test_surface_completeness.py``) independently require a matching
+#: ``reshaped`` entry for the same name.
+#:
+#: Why it exists at all: this module's audit claim — *the shapes that moved
+#: moved because the tool can now see them, not because anything about them
+#: changed* — was written inside Phase 15.6, where no plan was permitted to
+#: reshape a signature. `D-IMPL-96` (Dave, 2026-08-10) revoked that wording for
+#: Phase 16 *"precisely so Phase 16 could repair defects it finds"*, and
+#: `D-IMPL-126` item (3) is the first such repair to move a plain class's
+#: ``__init__``. The claim is therefore amended in reach rather than withdrawn:
+#: every *unlisted* shape must still read identically.
+_SHAPE_MOVED_BY_FRAGMENT = {
+    "ccf_runtime.http_api.dependencies.ApiDependencies": (
+        "16-22-consumption-papercuts.md"
+    ),
+}
+
+
 def test_no_committed_plain_class_or_function_shape_is_disturbed() -> None:
     """Regression over what is actually committed, not over a fixture.
 
@@ -438,6 +465,11 @@ def test_no_committed_plain_class_or_function_shape_is_disturbed() -> None:
     and left the regeneration to this plan. Those are genuine Track B moves
     with their own fragments, so a contract difference here is expected; a
     ``class`` or ``function`` difference would not be.
+
+    **Entries in :data:`_SHAPE_MOVED_BY_FRAGMENT` are excluded too**, and each
+    must earn it: the fragment it names must exist and must claim the name. See
+    that constant for why the original claim needed amending in Phase 16 and
+    for what it still asserts about every other entry.
     """
     import importlib
     import typing
@@ -468,7 +500,19 @@ def test_no_committed_plain_class_or_function_shape_is_disturbed() -> None:
             differing.append(name)
 
     assert checked >= 200, checked
-    assert not differing, differing
+
+    # The named allowance, and the price of being on it: the fragment cited
+    # must exist and must claim the name. An entry added here without a
+    # fragment fails, which is what keeps this from becoming a mute list.
+    fragments = _REPO_ROOT / "docs" / "surface-changes"
+    for allowed, fragment in _SHAPE_MOVED_BY_FRAGMENT.items():
+        path = fragments / fragment
+        assert path.is_file(), path
+        assert allowed in path.read_text(encoding="utf-8"), (allowed, fragment)
+
+    assert not [
+        name for name in differing if name not in _SHAPE_MOVED_BY_FRAGMENT
+    ], differing
 
 
 # --- 5. An export whose value is None is not a resolution failure ----------

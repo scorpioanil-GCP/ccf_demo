@@ -4,7 +4,7 @@ D-15 asks for two halves of one guarantee. ``tools/dump_surface.py`` is the
 *generated* half: a machine-derived manifest of every public name in ``/src``
 and ``/runtime``, so a removed or reshaped export cannot slip through
 unnoticed. This module is the *curated* half's assembler: it concatenates the
-``docs/surface-changes/15*-*.md`` fragments each plan wrote as it landed into
+``docs/surface-changes/[0-9]*-*.md`` fragments each plan wrote as it landed into
 one ``docs/SURFACE-CHANGES.md`` — the migration note D-15B promises anyone
 building against v0.1/v0.2, and the document Phase 16 consumes directly.
 
@@ -109,7 +109,9 @@ _SECTION_BLURBS: dict[str, str] = {
 
 _FRAGMENT_HEADING = re.compile(r"^## +(?P<title>.+?)\s*$")
 _FIELD_BULLET = re.compile(r"^- +(?P<field>[A-Z][A-Za-z ]*?): *(?P<value>.*)$")
-_PLAN_NUMBER = re.compile(r"^15(?:\.(?P<minor>\d+))?-(?P<plan>\d+)-")
+_PLAN_NUMBER = re.compile(
+    r"^(?P<major>\d+)(?:\.(?P<minor>\d+))?-(?P<plan>\d+)-"
+)
 
 REGENERATION_COMMAND = "make surface-changes"
 
@@ -125,30 +127,43 @@ def fragment_paths() -> list[pathlib.Path]:
     three-digit plan set would not interleave, and so the assembled document's
     order matches the order the phase actually executed in.
 
-    The glob is ``15*-*.md`` rather than ``15-*.md`` so it matches both
+    The glob was ``15*-*.md`` rather than ``15-*.md`` so it matched both
     ``15-NN-`` and ``15.1-NN-`` names. Phase 15.1 is a gap-closure cycle against
     Phase 15's own deliverables and its fragments are *its* audit trail, so they
     carry its number; filing them as ``15-22-…`` would file 15.1's work under
-    Phase 15 permanently. This widens what the assembler **reads**, never what
-    it **permits** — the ``15`` prefix is still required and every entry still
-    passes the same seven-field refusal. ``15.1-RESEARCH.md`` recommended
-    *against* this option ("touches two gate modules for a naming convenience;
-    not recommended") and preferred per-plan regeneration of the live manifest;
-    it was taken anyway because the alternative trades a two-module edit for a
-    permanently wrong audit trail, and because keeping
-    ``docs/surface/v0.2-surface.json`` under a single owner (plan 15.1-10 at
-    phase close) already requires per-plan fragments to carry the drift in the
-    meantime. It is the regeneration posture, not the naming convenience, that
-    reverses research's recommendation.
+    Phase 15 permanently. ``15.1-RESEARCH.md`` recommended *against* that option
+    ("touches two gate modules for a naming convenience; not recommended") and
+    preferred per-plan regeneration of the live manifest; it was taken anyway
+    because the alternative trades a two-module edit for a permanently wrong
+    audit trail, and because keeping ``docs/surface/v0.2-surface.json`` under a
+    single owner (plan 15.1-10 at phase close) already requires per-plan
+    fragments to carry the drift in the meantime. It is the regeneration
+    posture, not the naming convenience, that reverses research's
+    recommendation.
+
+    **The glob is no longer phase-anchored** (plan ``16-22``). ``15*-*.md`` and
+    a ``^15``-anchored :data:`_PLAN_NUMBER` made every ``16-*`` fragment
+    **invisible to this assembler and to the drift gate that shares its
+    reading** — measured at the time: 60 of the 61 files in
+    ``docs/surface-changes/`` began with ``15``, so a Phase 16 plan could file a
+    fragment and still fail ``tests/test_surface_drift.py`` as an *undocumented*
+    change, because the fragment was never read. Both gates were green while
+    blind, which is why the widening is asserted by a **positive read** — that
+    :func:`fragment_paths` contains a named ``16-*`` file and that the drift
+    gate's ``_fragment_text()`` contains that fragment's own ``Surface:`` line —
+    rather than by a green build. ``[0-9]*-*.md`` still widens only what is
+    **read**, never what is **permitted**: every entry passes the same
+    seven-field refusal, and every claim is still matched by literal substring.
 
     **The glob is not sufficient on its own.** :data:`_PLAN_NUMBER` has to widen
-    with it: a ``15.1-01-….md`` name that does not match the sort regex falls
-    through to the ``else`` branch and sorts *ahead of* every Phase 15 fragment,
-    which contradicts this function's own order contract and produces a silently
-    mis-ordered document — worse than not matching at all. ``major`` is ``15``
-    for every current fragment, but naming it keeps the key honest if this tool
-    ever assembles another phase; ``minor`` is ``0`` when the group is absent, so
-    ``15-NN-`` sorts before ``15.1-NN-``.
+    with it: a name that does not match the sort regex falls through to the
+    ``else`` branch and sorts *ahead of* every other fragment, which contradicts
+    this function's own order contract and produces a silently mis-ordered
+    document — worse than not matching at all. That is why ``major`` is now read
+    from the name rather than hardcoded to ``15``: with the glob widened and the
+    regex left anchored, every ``16-*`` fragment would have sorted to the front.
+    ``minor`` is ``0`` when the group is absent, so ``15-NN-`` sorts before
+    ``15.1-NN-`` and both sort before ``16-NN-``.
     """
     if not FRAGMENT_DIR.is_dir():
         return []
@@ -158,9 +173,14 @@ def fragment_paths() -> list[pathlib.Path]:
         if match is None:
             return (0, 0, 0, path.name)
         minor = match.group("minor")
-        return (15, int(minor) if minor else 0, int(match.group("plan")), path.name)
+        return (
+            int(match.group("major")),
+            int(minor) if minor else 0,
+            int(match.group("plan")),
+            path.name,
+        )
 
-    return sorted(FRAGMENT_DIR.glob("15*-*.md"), key=key)
+    return sorted(FRAGMENT_DIR.glob("[0-9]*-*.md"), key=key)
 
 
 def _split_sections(text: str) -> list[tuple[str, list[str]]]:
@@ -325,7 +345,7 @@ def serialize(entries: list[dict[str, object]] | None = None) -> str:
         "",
         "<!--",
         "  GENERATED — do not edit this file by hand.",
-        "  Assembled from docs/surface-changes/15*-*.md by",
+        "  Assembled from docs/surface-changes/[0-9]*-*.md by",
         "  tools/assemble_surface_changes.py. To change anything here, edit the",
         f"  owning fragment and re-run `{REGENERATION_COMMAND}`.",
         "-->",

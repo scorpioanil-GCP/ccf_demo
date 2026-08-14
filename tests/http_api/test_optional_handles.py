@@ -277,8 +277,9 @@ def test_an_unwired_route_refuses_with_a_typed_503_naming_its_field(
     """503 and not 500, and the absent field named in the message.
 
     503 because the fault is the *deployment's*, not the caller's — the
-    ``ERROR_PRODUCT_DOOR_UNGOVERNED`` reasoning at
-    ``routes/product.py:179-184``, applied to the same class of state. Telling
+    ``ERROR_PRODUCT_DOOR_UNGOVERNED`` reasoning in
+    ``runtime/ccf_runtime/http_api/routes/product.py::build_router``, applied to
+    the same class of state. Telling
     a caller they are forbidden would misattribute it.
     """
     app = _app(fabric, tmp_path, _partial_deps(fabric))
@@ -344,8 +345,9 @@ def test_the_class_docstring_names_every_field_and_the_router_it_gates() -> None
 def test_the_module_docstring_no_longer_claims_every_handle_is_required() -> None:
     """The falsified sentence is gone, and what replaced it is true.
 
-    ``dependencies.py:13`` claimed *"no default for anything (CINV-01):
-    construction requires every handle"*. That sentence became false the moment
+    The module docstring of
+    ``runtime/ccf_runtime/http_api/dependencies.py`` claimed *"no default for
+    anything (CINV-01): construction requires every handle"*. That sentence became false the moment
     five defaults landed, and a module docstring that contradicts its own
     module is worse than no docstring.
     """

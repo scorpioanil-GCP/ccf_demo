@@ -689,7 +689,7 @@ def test_no_content_address_moves_because_of_the_pin() -> None:
 # `D-IMPL-126` item (1): a request contract is reachable from the
 # `DeclaredArtifact` a manifest returns by one named call, rather than by the
 # four-field hand-build every adopter would otherwise copy out of
-# `examples/s1-01-hello-context-product/deployment.py`.
+# `examples/s1-01-hello-context-product/deployment.py::read`.
 
 #: The committed artifact the equivalence case reads. Read from disk rather
 #: than inlined, so the assertion is against the document an adopter actually
@@ -737,7 +737,7 @@ def test_from_declared_reads_the_document_lane_and_the_three_keys() -> None:
 def test_from_declared_equals_the_hand_build_for_the_committed_artifact() -> None:
     """The equivalence that makes this a replacement, not a second way.
 
-    ``examples/s1-01-hello-context-product/deployment.py:867-880`` hand-builds
+    ``examples/s1-01-hello-context-product/deployment.py::read`` hand-builds
     a :class:`ProductRequestContract` field by field from the committed
     ``request-contract.yaml``. This asserts ``from_declared`` produces a model
     **equal** to that build from the same document on disk — so plan ``16-05``
@@ -755,7 +755,7 @@ def test_from_declared_equals_the_hand_build_for_the_committed_artifact() -> Non
         declaration=document["declaration"],
     )
 
-    # The hand-build, transcribed from deployment.py:867-880 rather than
+    # The hand-build, transcribed from deployment.py::read rather than
     # imported: importing it would make this test agree with the example by
     # construction, which is the one thing it must not do.
     declaration = artifact.declaration
