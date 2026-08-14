@@ -19,8 +19,9 @@ out of that reading; HW-1 is their first discharge.
 | Adopter Python (statements) | 3 | 253 | 5 | 707 | **2.8×** |
 | Scenario Python (statements) | 1 | 55 | — | — | — |
 
-**17 files in the whole example**, of which **10 are the ones you would author
-for your own product** and 3 more you would delete outright.
+**19 files in the whole example** — 17 of code and config, plus this document
+and the README. Of those 17, **10 are the ones you would author for your own
+product**, 4 you would delete outright (`scenario/`), and 3 are Python.
 
 The `D-IMPL-131` limb-2 split is why two of those rows exist at all: s1-01 mixes
 config and fixtures in one `artifacts/` directory, so its 1060 lines cannot be
