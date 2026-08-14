@@ -150,6 +150,7 @@ def _app(fabric: Fabric, tmp_path: Path, deps: ApiDependencies) -> Any:
     """
     from ccf_runtime.http_api.auth import BearerTokenAuth
 
+    tmp_path.mkdir(parents=True, exist_ok=True)
     token_file = tmp_path / "optional-handles-tokens.json"
     token_file.write_text(
         json.dumps({TOKEN: {"client_id": PRINCIPAL, "scopes": [SCOPE]}}),

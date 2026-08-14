@@ -58,6 +58,7 @@ from ccf_runtime.authz.refusals import (
     ACTION_HITL_QUEUE_READ,
 )
 from ccf_runtime.http_api.dependencies import ApiDependencies
+from ccf_runtime.http_api.routes import _required_handle
 from ccf_runtime.http_api.errors import (
     ERROR_SIGNED_BINDING_INVALID,
     ERROR_SIGNED_BINDING_REQUIRED,
@@ -117,12 +118,23 @@ def build_router(
         summary="HITL queue view (D-IMPL-23)",
     )
     def queue(tenant: str, request: Request) -> list[PendingHitlEvent]:
+        # Narrowed once per body (D-IMPL-126 item (3)), and BEFORE the authz
+        # check: a deployment that routes no HITL traffic here wired no
+        # transport, which is a fault of the deployment rather than of the
+        # caller — telling the caller they are forbidden would misattribute it
+        # (the ERROR_PRODUCT_DOOR_UNGOVERNED reasoning at
+        # routes/product.py:179-184).
+        transport = _required_handle(
+            deps.hitl_transport,
+            field="hitl_transport",
+            routes="HITL queue view or action submission",
+        )
         _enforce_tenant_authz(
             grant_from_request(request),
             tenant=tenant,
             action_id=ACTION_HITL_QUEUE_READ,
         )
-        return list(deps.hitl_transport.pending(tenant=tenant))
+        return list(transport.pending(tenant=tenant))
 
     @router.post(
         "/actions",
@@ -132,6 +144,13 @@ def build_router(
     def act(
         submission: HitlActionSubmission, request: Request
     ) -> HitlActionReceipt:
+        # One narrowing for this whole body — the three reads below share it
+        # (D-IMPL-126 item (3)).
+        transport = _required_handle(
+            deps.hitl_transport,
+            field="hitl_transport",
+            routes="HITL queue view or action submission",
+        )
         grant = grant_from_request(request)
         _enforce_tenant_authz(
             grant,
@@ -170,7 +189,7 @@ def build_router(
             )
             submission = submission.model_copy(update={"principal": derived})
         try:
-            deps.hitl_transport.submit(submission=submission)
+            transport.submit(submission=submission)
         except SignedBindingRequiredRefused as error:
             # D-16 door mapping (08-03): the transport's typed refusal
             # surfaces as the shared error-code constant, never prose-only.
@@ -189,8 +208,8 @@ def build_router(
                     message=str(error),
                 ),
             ) from error
-        pending = deps.hitl_transport.pending(tenant=submission.tenant)
-        recorded = deps.hitl_transport.submissions(tenant=submission.tenant)
+        pending = transport.pending(tenant=submission.tenant)
+        recorded = transport.submissions(tenant=submission.tenant)
         return HitlActionReceipt(
             status="submitted",
             submission=submission,

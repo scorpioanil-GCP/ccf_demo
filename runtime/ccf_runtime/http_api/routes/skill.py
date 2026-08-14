@@ -25,6 +25,7 @@ from ccf.controlplane.registry import ControlPlaneMissing, RegistrationRefusal
 from ccf.skills.catalog import SkillCatalogEntry
 from ccf.skills.grants import GrantRefusal, GrantTransitionError, SkillGrant
 from ccf_runtime.http_api.dependencies import ApiDependencies
+from ccf_runtime.http_api.routes import _required_handle
 
 __ccf_mode__ = "algorithmic"
 
@@ -75,7 +76,15 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         summary="Skill catalog (D-IMPL-23)",
     )
     def catalog() -> list[SkillCatalogEntry]:
-        return list(deps.skill_catalog.discover())
+        # Narrowed once per body (D-IMPL-126 item (3)): a deployment that
+        # publishes no skill catalog wired none, and this route refuses with a
+        # typed 503 naming the field rather than dereferencing `None`.
+        catalog_handle = _required_handle(
+            deps.skill_catalog,
+            field="skill_catalog",
+            routes="skill catalog discovery",
+        )
+        return list(catalog_handle.discover())
 
     @router.post(
         "/catalog",
@@ -84,7 +93,12 @@ def build_router(deps: ApiDependencies) -> APIRouter:
     def register_entry(
         entry: SkillCatalogEntry,
     ) -> JSONResponse:
-        outcome = deps.skill_catalog.register(entry)
+        catalog_handle = _required_handle(
+            deps.skill_catalog,
+            field="skill_catalog",
+            routes="skill catalog registration",
+        )
+        outcome = catalog_handle.register(entry)
         if isinstance(outcome, RegistrationRefusal):
             return JSONResponse(
                 status_code=409,
@@ -102,6 +116,11 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         summary="Skill grant (D-IMPL-23)",
     )
     def grant(request: GrantRequest) -> GrantIssued | JSONResponse:
+        ledger = _required_handle(
+            deps.grant_ledger,
+            field="grant_ledger",
+            routes="skill grant issuance",
+        )
         try:
             artifact = deps.control_plane.resolve(
                 request.definition_key, request.definition_version
@@ -110,7 +129,7 @@ def build_router(deps: ApiDependencies) -> APIRouter:
             raise HTTPException(status_code=404, detail=str(absent)) from absent
         definition = AGENT_DEFINITION.validate(artifact)
         assert isinstance(definition, AgentDefinition)
-        outcome = deps.grant_ledger.request(
+        outcome = ledger.request(
             request.grant, definition=definition, actor=request.actor
         )
         if isinstance(outcome, (GrantRefusal, RegistrationRefusal)):
@@ -135,8 +154,13 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         summary="Skill revoke (D-IMPL-22)",
     )
     def revoke(request: GrantRevocationRequest) -> GrantRevocationRequest:
+        ledger = _required_handle(
+            deps.grant_ledger,
+            field="grant_ledger",
+            routes="skill grant revocation",
+        )
         try:
-            deps.grant_ledger.revoke(request.grant_hash, actor=request.actor)
+            ledger.revoke(request.grant_hash, actor=request.actor)
         except GrantTransitionError as refused:
             raise HTTPException(
                 status_code=409, detail=str(refused)

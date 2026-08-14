@@ -32,6 +32,7 @@ __all__ = [
     "ERROR_PRODUCT_POLICY_ABSENT",
     "ERROR_PRODUCT_REQUEST_INCOMPLETE",
     "ERROR_PRODUCT_ROLE_UNGRANTED",
+    "ERROR_ROUTE_HANDLE_ABSENT",
     "ERROR_SIGNED_BINDING_INVALID",
     "ERROR_SIGNED_BINDING_REQUIRED",
     "ERROR_SUBJECT_CONFLICT",
@@ -113,6 +114,24 @@ ERROR_PRODUCT_DOOR_UNGOVERNED: Final[str] = "product-door-ungoverned"
 #: asked, answered anyway, so the door refuses the partial address rather than
 #: filling one in.
 ERROR_PRODUCT_REQUEST_INCOMPLETE: Final[str] = "product-request-incomplete"
+
+#: This deployment did not wire the handle this route needs, so the route
+#: refuses rather than serving half-wired (503; ``D-IMPL-126`` item (3)).
+#:
+#: A 503 and not a 500 for the ``ERROR_PRODUCT_DOOR_UNGOVERNED`` reason: the
+#: fault is the deployment's, not the caller's, and an opaque 500 would say
+#: nothing about which of eight handles is absent. A 503 and not a 404 because
+#: the route *exists* — it is mounted, it is in the OpenAPI document, and it
+#: will answer the moment the handle is supplied; making it vanish instead
+#: would be a different and unruled behaviour.
+#:
+#: The five handles that can be absent — ``workflow_factory``,
+#: ``workflow_engine``, ``hitl_transport``, ``skill_catalog`` and
+#: ``grant_ledger`` — default to ``None`` so a deployment exposing one noun
+#: does not have to fabricate seven. The message names the absent field and the
+#: ``create_app`` argument to supply, which is what keeps the boot-time
+#: ``TypeError`` this replaces from being a diagnostic that was simply lost.
+ERROR_ROUTE_HANDLE_ABSENT: Final[str] = "route-handle-absent"
 
 
 def refusal_detail(*, error_code: str, message: str) -> dict[str, str]:
