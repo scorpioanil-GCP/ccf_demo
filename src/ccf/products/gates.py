@@ -81,7 +81,7 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Literal, Never
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
@@ -101,6 +101,7 @@ __all__ = [
     "GATE_LINEAGE_EQUALITY",
     "GATE_SOURCE_ATTESTATION",
     "GATE_TTL_BOUNDS",
+    "PYDANTIC_MODEL_FORMS",
     "AttestationRefusal",
     "EmptyOperatorRefusal",
     "GateBypassError",
@@ -108,6 +109,7 @@ __all__ = [
     "LineageAttributionRefusal",
     "LineageMismatchRefusal",
     "ServableProduct",
+    "ServableProductNotAModel",
     "TTLRefusal",
     "refuse_attestation",
     "run_federated_gates",
@@ -271,14 +273,139 @@ def refuse_attestation(
 _GATE_TOKEN = object()
 
 
-class ServableProduct:
+#: Every pydantic model spelling :class:`ServableProduct` deliberately does not
+#: have — enumerated **once**, exhaustively, rather than discovered one instance
+#: at a time (the ``CONTAINER_FORMS`` precedent from Phase 15.6's
+#: ``tests/invariants/test_no_obligation_vocabulary.py``).
+#:
+#: Both v1 and v2 spellings, and both the construction and the dump halves: a
+#: reader who has just been handed one of these reaches for ``model_dump`` as
+#: readily as for ``model_copy``, and a v1-era reader reaches for ``parse_obj``.
+#: Closing them on different days would leave the papercut open at whichever
+#: spelling was not thought of.
+#:
+#: Public rather than private because it is the machine-readable statement of
+#: what this type is not, and because a test that parametrizes over it is
+#: non-vacuous in a way a hand-listed test is not. Adding a spelling here adds
+#: the refusal on both channels at once (D-IMPL-126 item (2)).
+PYDANTIC_MODEL_FORMS = frozenset(
+    {
+        "construct",
+        "from_orm",
+        "model_construct",
+        "model_copy",
+        "model_dump",
+        "model_dump_json",
+        "model_json_schema",
+        "model_validate",
+        "model_validate_json",
+        "model_validate_strings",
+        "parse_file",
+        "parse_obj",
+        "parse_raw",
+    }
+)
+
+
+class ServableProductNotAModel(GateBypassError, AttributeError):
+    """A pydantic spelling was reached for on a type that is not a model.
+
+    SDK-defined per CLAUDE.md §11 (``D-IMPL-126`` item (2)). It exists for its
+    **inheritance**, which is the whole of its reason:
+
+    * ``GateBypassError`` — so a caller already writing
+      ``except GateBypassError`` around the gate path catches this too, and so
+      the refusal reads as what it is: a report about the gate discipline, not
+      a report about pydantic.
+    * ``AttributeError`` — because ``GateBypassError`` subclasses ``TypeError``
+      and nothing else, so a refusal deriving from it alone would make
+      ``hasattr(ServableProduct, "model_construct")`` **raise** instead of
+      returning ``False``, and ``getattr(servable, "model_copy", None)`` raise
+      instead of defaulting. A duck-type probe must degrade rather than
+      explode; that hazard is created by this fix, so it is closed by it.
+    """
+
+
+def _not_a_model(owner: str, name: str) -> ServableProductNotAModel:
+    """The one refusal message, three statements in a fixed order.
+
+    Deliberately one message for both channels and for both halves of
+    :data:`PYDANTIC_MODEL_FORMS`: what a reader needs to learn is the same
+    whichever spelling they reached for and whichever channel they reached it
+    on — that this type is not a pydantic model, that the gate sequence is the
+    only way to hold one, and that the validated contract they actually want is
+    one attribute away.
+    """
+    return ServableProductNotAModel(
+        f"{owner}.{name} does not exist: ServableProduct is not a pydantic "
+        "model and is deliberately unconstructible. The only construction "
+        "path is ccf.products.gates.run_gates, because holding a "
+        "ServableProduct *is* the evidence that the three validation gates "
+        "ran. This is INV-CH7-52 (whitepaper §7.6) working as specified, not "
+        "a pydantic version problem. The validated contract is at "
+        "`.product` — that one *is* a pydantic model, so "
+        f"`servable.product.{name}` is very likely what you meant."
+    )
+
+
+class _ServableProductMeta(type):
+    """The **class** channel of the refusal — and only that channel.
+
+    ``ServableProduct.model_construct(...)`` is a lookup on the class, so it
+    misses the class and its bases and lands on the metaclass. Measured: a
+    metaclass ``__getattr__`` covers this channel and leaves the instance
+    channel bare, which is why :meth:`ServableProduct.__getattr__` exists
+    alongside it reading the same frozenset.
+
+    This adds no construction path. Attribute *lookup* only: ``__call__`` is
+    not overridden and :meth:`ServableProduct.__init__`'s gate-token check is
+    untouched.
+    """
+
+    def __getattr__(cls, name: str) -> Never:
+        if name in PYDANTIC_MODEL_FORMS:
+            raise _not_a_model(cls.__name__, name)
+        # Outside the enumerated set the default behaviour is restored
+        # verbatim. The scoping is the point: a refusal that swallowed a typo
+        # would replace one confusing error with a more confident one.
+        raise AttributeError(
+            f"type object {cls.__name__!r} has no attribute {name!r}"
+        )
+
+
+class ServableProduct(metaclass=_ServableProductMeta):
     """A product that passed all three gates — the only servable form.
 
     Not constructible outside this module: :meth:`__init__` requires the
     module-private gate token. Holding one of these *is* the evidence that the
     gates ran, which is why the delivery path takes this type and not a bare
     :class:`~ccf.products.contract.ContextProductContract`.
+
+    **It is not a pydantic model, and it now says so** (``D-IMPL-126`` item
+    (2)). Every spelling in :data:`PYDANTIC_MODEL_FORMS` is refused with a
+    message naming ``run_gates`` and INV-CH7-52, on *both* attribute channels —
+    the class, through :class:`_ServableProductMeta`, and the instance, through
+    :meth:`__getattr__` below. Any other name still raises a plain
+    ``AttributeError``.
     """
+
+    def __getattr__(self, name: str) -> Never:
+        """The **instance** channel — the one a reader is most likely to hit.
+
+        A metaclass ``__getattr__`` does not run for instance attribute lookup,
+        and ``model_copy``, ``model_dump`` and ``parse_obj`` are *instance*
+        methods in pydantic: they are exactly what someone holding a returned
+        object reaches for. Without this the fix would cover only the channel a
+        reader is least likely to use.
+
+        Runs only on a miss, so ``.product`` and ``._product`` resolve normally
+        and nothing about the type's real surface changes.
+        """
+        if name in PYDANTIC_MODEL_FORMS:
+            raise _not_a_model(type(self).__name__, name)
+        raise AttributeError(
+            f"{type(self).__name__!r} object has no attribute {name!r}"
+        )
 
     def __init__(self, product: ContextProductContract, token: object) -> None:
         if token is not _GATE_TOKEN:
