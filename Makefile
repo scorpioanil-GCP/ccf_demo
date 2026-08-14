@@ -26,7 +26,7 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 .DEFAULT_GOAL := help
 
 .PHONY: help install lint typecheck test ci-core ci examples \
-	example-s1-01 \
+	example-s1-01 example-s1-00 \
 	example-00 example-01 example-02 example-03 example-04 example-05 \
 	example-06 example-07 example-08 example-ext-00 \
 	example-03-live-ollama example-03-live-anthropic \
@@ -173,6 +173,17 @@ leg-fluree: ## Fluree leg against a real server — Cypher pushdown byte-identic
 example-s1-01: ## Run examples/s1-01-hello-context-product (three declared questions; needs a Fluree server)
 	$(ENV) CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
 		$(PYTHON) examples/s1-01-hello-context-product/run.py
+
+# HW-1 — the first example a newcomer runs. Same reasoning as `example-s1-01`
+# above for why it is NOT in the `examples:` aggregate: it declares a networked
+# substrate. It needs no server of its own, though — `scenario/provision.py`
+# starts a postgres:16 container when CCF_TEST_POSTGRES_DSN is unset, so the
+# default path needs Docker and nothing else. MIN_REVENUE is the caller's
+# question and has no default here, because the example declares none either.
+example-s1-00: ## Run examples/s1-00-companies-over-revenue (MIN_REVENUE=<n>; needs Docker or CCF_TEST_POSTGRES_DSN)
+	$(ENV) CCF_TEST_POSTGRES_DSN=$(CCF_TEST_POSTGRES_DSN) \
+		$(PYTHON) examples/s1-00-companies-over-revenue/consume.py \
+		--min-revenue $(MIN_REVENUE)
 
 # The Phase 15.3 permitted-change-surface gate and its `tools/gates/` package
 # were RETIRED by plan 15.4-07, in the same commit that registered the two

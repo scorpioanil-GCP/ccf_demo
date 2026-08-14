@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.perspective.json
+# Π role-conditioning: whose view of the graph this product is served under.
+# `ProjectionEngine.execute` takes it, so a product cannot be assembled without
+# a deployment having said who it is for.
+semver: "1.0.0"
+principal_id: revenue-screening-desk-1
+role: analyst

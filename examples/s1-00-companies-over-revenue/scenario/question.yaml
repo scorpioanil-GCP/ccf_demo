@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# The caller's own vocabulary — read-side, so NOT in `manifest.yaml`.
+# A question is not a permission and has no business in replay dimension 2.
+# The threshold is deliberately absent: the caller supplies it at call time.
+semver: "1.0.0"
+class_id: hw1.question
+declaration:
+  subject: http://example.org/hw1/companies
+  intent: revenue-screening
+  freshness: as-of-boundary

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.declared-artifact.json
+# HOW the declared backend kind's connection settings are COMPOSED. Not in
+# `manifest.yaml`: connection material is deployment environment, not Control
+# Plane state, and a DSN in a content-hashed artifact is a DSN persisted into
+# the audit plane forever.
+#
+# NO CONNECTION VALUE APPEARS HERE — no host, no port, no credential. This
+# document holds the variable's NAME; `scenario/provision.py` sets its value.
+# `schema_name` is minted fresh per run, so the CCF graph and the `companies`
+# table are visibly separate objects inside one Postgres.
+semver: "1.0.0"
+class_id: hw1.backend-profiles
+declaration:
+  profiles:
+    postgres:
+      settings:
+        dsn:
+          from_env: CCF_S1_00_POSTGRES_DSN
+          remedy: run `make example-s1-00`, which provisions one and exports it
+        schema_name: {per_run: identifier, prefix: s1_00}
