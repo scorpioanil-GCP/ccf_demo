@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**619 entries**, of which **390** name a public Python surface.
+**622 entries**, of which **393** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-278 entries — 245 public Python surface, 33 not public Python API.
+280 entries — 247 public Python surface, 33 not public Python API.
 
 ### Public Python surface
 
@@ -5084,6 +5084,49 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `16-22-consumption-papercuts.md`.*
 
+#### ccf_runtime.mcp.egress.PRODUCT_REQUEST_TOOL
+
+- Surface: ccf_runtime.mcp.egress.PRODUCT_REQUEST_TOOL
+- Public surface: true
+- Before: absent
+- After: a module-level `str` constant naming the one parameterised Tool this
+  server can register, exported in `__all__`. Named once here rather than at
+  each use site for the reason `product_uri` exists: the server, the tests and
+  the docs must agree what the surface *is* rather than each spelling it
+- Change type: added
+- Why: `D-IMPL-126` item 5. A tool name repeated as a literal at the
+  registration, in every test and in the docs is three places to drift; the
+  resource address already solved this with `product_uri`
+- Migration: none — new name. Read the tool's name from this constant rather
+  than hard-coding the string, so a rename reaches your call sites
+
+*Recorded by `16-23-mcp-product-tool.md`.*
+
+#### ccf_runtime.mcp.egress.NaiveAskedAtRefused
+
+- Surface: ccf_runtime.mcp.egress.NaiveAskedAtRefused
+- Public surface: true
+- Before: absent
+- After: a named `ValueError` subclass raised as the **first statement** of the
+  product tool's body when `asked_at` carries no UTC offset, before any
+  governance seam is consulted. Exported in `__all__`
+- Change type: added
+- Why: `ProductRequest` *accepts* a naive instant and the failure surfaces later
+  inside `canonical_bytes` (`D-IMPL-38`), which would convert a client's
+  malformed argument into an opaque server error and an unpinnable replay
+  record — `asked_at` is the boundary a replay resolves against. A **named**
+  subclass rather than a bare `ValueError` follows the shipped
+  `ccf_runtime.mcp.hitl_server.NaiveActionTimeRefused` precedent, so a
+  deployment can catch this specific refusal. It is a `ValueError` rather than a
+  typed `ERROR_*` code because it is a malformed argument and not a governance
+  decision — the same line `NaiveActionTimeRefused` sits on, and not an
+  inconsistency with `D-08`
+- Migration: none — new name. If you call the tool, send a timezone-aware
+  `asked_at`; if you wrap the door, `except NaiveAskedAtRefused` distinguishes a
+  malformed instant from an entitlement refusal
+
+*Recorded by `16-23-mcp-product-tool.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -5619,7 +5662,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-283 entries — 100 public Python surface, 183 not public Python API.
+284 entries — 101 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -7814,6 +7857,44 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   expose
 
 *Recorded by `16-22-consumption-papercuts.md`.*
+
+#### ccf_runtime.mcp.egress.build_egress_server
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Before: six required keyword-only arguments — `server_name`, `resolver`,
+  `token_verifier`, `auth_settings`, `entitlement_source`,
+  `perspective_resolver`
+- After: the same six, unchanged and still required, plus two keyword-only
+  arguments **both defaulting closed**: `expose_product_tool: bool = False` and
+  `product_tool_description: str | None = None`. Supplied together or not at
+  all — either without the other raises `ValueError` naming both, in the `D-03`
+  requiredness-conditional-on-exposure voice. With the pair supplied the builder
+  registers exactly one Tool, named by `PRODUCT_REQUEST_TOOL`, whose advertised
+  `inputSchema` requires exactly `tenant`, `product_class`, `version`,
+  `subject`, `intent`, `freshness` and `asked_at` and carries no `role`, no
+  `schema_name`, no `schema_version` and no `parameters`. The resource, the URI
+  template and the resolver Protocol are untouched
+- Change type: reshaped
+- Why: `D-IMPL-126` item 5, gating HW-2 in `D-IMPL-127`. A resource-only door
+  cannot refute the reading that a Context Product is a precalculated static
+  object, because a caller with no way to ask a question cannot demonstrate that
+  the answer depends on one. Opt-in rather than on-by-default because a
+  deployment that reviewed and approved a resource-only door must not acquire a
+  parameterised authorization surface it never assessed merely by upgrading —
+  deny-by-default, this module's stated posture, applied to exposure. Two
+  arguments rather than one because *is this door open?* must be answerable by
+  grepping for a boolean. No `DEFAULT_*` description constant ships, unlike the
+  Experience server's tools: the prose an adopter's consumers read is not the
+  SDK's to write (CINV-01)
+- Migration: **none required.** Every existing call site keeps working
+  unchanged and registers no tool, which is the whole point of the default. To
+  open the door, pass `expose_product_tool=True` **and**
+  `product_tool_description="…"` together; see *Adopter migration* above,
+  including the measured constraint that a class declaring any required request
+  parameter is not reachable through the tool
+
+*Recorded by `16-23-mcp-product-tool.md`.*
 
 ### Not public Python API
 

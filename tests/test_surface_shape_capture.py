@@ -448,6 +448,15 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf_runtime.http_api.dependencies.ApiDependencies": (
         "16-22-consumption-papercuts.md"
     ),
+    # D-IMPL-126 item (5): the egress builder gained two keyword-only
+    # arguments, both defaulting closed, that register an opt-in
+    # parameterised Tool beside the unchanged resource. A signature widened
+    # by additive, defaulted parameters is exactly the case this allowance
+    # was written for — every existing call site reads identically, and the
+    # fragment claims the name as `reshaped`.
+    "ccf_runtime.mcp.egress.build_egress_server": (
+        "16-23-mcp-product-tool.md"
+    ),
 }
 
 
