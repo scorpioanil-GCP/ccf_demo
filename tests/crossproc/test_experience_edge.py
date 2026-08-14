@@ -53,6 +53,7 @@ from ccf.mcp.errors import McpServerUnreachable
 from ccf.skills.toolsurface import render_tool_surface
 
 from crossproc.servers.mcp_experience_child import (
+    DEV_TOKEN,
     authorized_http_client,
     build_servable_product,
     build_world,
@@ -111,9 +112,20 @@ def _list_tool_names(bridge: SyncMcpBridge, url: str) -> set[str]:
 
 
 def _call_tool(
-    bridge: SyncMcpBridge, url: str, name: str, arguments: dict[str, Any]
+    bridge: SyncMcpBridge,
+    url: str,
+    name: str,
+    arguments: dict[str, Any],
+    token: str = DEV_TOKEN,
 ) -> tuple[bool, str]:
-    """Call one tool; return ``(is_error, first text content)``."""
+    """Call one tool; return ``(is_error, first text content)``.
+
+    ``token`` defaults to the entitled credential, so every pre-existing
+    caller is unaffected. It exists because 16-24 has to drive the *same*
+    tool with a second, genuinely-recognised credential the tenant's policy
+    does not declare: authentication and entitlement are two decisions, and a
+    helper that could only present one credential could not tell them apart.
+    """
 
     async def operation(session: ClientSession) -> tuple[bool, str]:
         result = await session.call_tool(name, arguments)
@@ -128,7 +140,7 @@ def _call_tool(
         run_with_session(
             url=url,
             operation=operation,
-            http_client_factory=authorized_http_client,
+            http_client_factory=lambda: authorized_http_client(token),
         )
     )
 
@@ -785,6 +797,49 @@ def test_a_class_outside_the_grant_is_refused_at_the_front_door(
     # than the resolver: an unentitled class must never reach the resolver's
     # own "no such product" path.
     assert "-not-this-one" in detail
+
+
+# --- the tools are entitled too, not merely authenticated (D-IMPL-128) ------
+#
+# The resource above was gated by 15.5-06 and the tool beside it was not, so
+# every assertion in this section is about the *tool's own* surface. A source
+# assertion cannot see a check bypassed on one branch; these go over the wire.
+
+
+@with_child
+def test_a_verified_but_undeclared_principal_is_refused_by_the_context_tool(
+    child_server_port: int, bridge: SyncMcpBridge
+) -> None:
+    """D-IMPL-128 limb 1, the headline: the tool refuses what the resource refuses.
+
+    The credential is genuinely recognised — the handshake succeeds — and the
+    principal is simply not one the tenant's policy declares. What would fail
+    here is the handler this plan replaced: ``return context_seam(tenant=
+    tenant, entity=entity)``, which reached Context Product assembly with no
+    grant check at all and served this caller a product.
+
+    The typed constant, not the prose (D-08): the refusal has to be the
+    entitlement's, in the same vocabulary the resource path and the HTTP door
+    already speak.
+    """
+    from ccf_runtime.http_api.errors import ERROR_PRINCIPAL_NOT_ENTITLED
+    from ccf_runtime.mcp.experience import GET_CONTEXT_TOOL
+
+    from crossproc.servers.mcp_experience_child import UNENTITLED_TOKEN
+
+    url = f"http://127.0.0.1:{child_server_port}/mcp"
+    world = build_world()
+
+    is_error, body = _call_tool(
+        bridge,
+        url,
+        GET_CONTEXT_TOOL,
+        {"tenant": world.tenant, "entity": "hollis-industrial"},
+        token=UNENTITLED_TOKEN,
+    )
+
+    assert is_error, body
+    assert ERROR_PRINCIPAL_NOT_ENTITLED in body
 
 
 def _causes(error: BaseException, _seen: frozenset[int] = frozenset()) -> str:
