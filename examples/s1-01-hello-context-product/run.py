@@ -25,10 +25,16 @@ with no arguments and it asks the three questions
 controlled experiment; run it with ``--subject`` and it asks one that is in no
 artifact at all.
 
-**It asserts nothing and prints nothing** (`D-09`). Its assertions live in
+**It asserts nothing, and it prints its work.** The assertions live in
 ``tests/examples/test_s1_01_output.py``, where a test runner will run them and a
-failure can fail a build. ``make example-s1-01`` exiting 0 means the spine
-executed; it is not a correctness result.
+failure can fail a build; ``make example-s1-01`` exiting 0 means the spine
+executed, and is not a correctness result. The printed output lives in
+``report.py`` beside this file, which carries **no ``--8<--`` marker regions**
+and is therefore not published-snippet surface. The Phase 14.1 finding at
+``16-CONTEXT.md:392-397`` — that assertion and print lines inflate an example's
+apparent integration cost — is about *snippets*, and this design keeps them out
+of snippets rather than out of the program. ``--quiet`` restores the silent
+path for a caller that wants it.
 
 **Every domain value is loaded from ``artifacts/*.yaml``** and enumerated by
 ``artifacts/manifest.yaml`` — entity classes, source systems, identifiers, the
@@ -40,13 +46,18 @@ and it has no business in Decision Replay dimension 2 — the same read-side /
 write-side split ``artifacts/source-estate.yaml`` records (phase 16 CONTEXT
 `D-04`).
 
-**The substrate is a value in a configuration document, not a fact about this
-code.** ``artifacts/manifest.yaml`` says ``backend: sqlite`` — a kind, with no
-DSN, host, path or credential anywhere near it. Change the document, not the
-code.
+**The substrate is a value in two configuration documents, not a fact about
+this code.** ``artifacts/manifest.yaml`` declares the backend KIND — with no
+DSN, host, path or credential anywhere near it — and
+``artifacts/backends.yaml`` declares how that kind's connection settings are
+composed, from an environment variable's name or from a per-run rule and never
+from a value written down. Change the documents, not the code.
 
 Run it: ``make example-s1-01`` (or
 ``PYTHONPATH=src:runtime python examples/s1-01-hello-context-product/run.py``).
+It needs a reachable server for the declared kind; ``artifacts/backends.yaml``
+names the environment variable, and a run that cannot resolve it refuses rather
+than falling back.
 
 ``--estate`` materialises the declared enterprise source estate instead — the
 world that exists before any fabric does, which ``artifacts/events.yaml``
@@ -71,6 +82,7 @@ EXAMPLE_DIR = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(EXAMPLE_DIR))
 
 import deployment  # noqa: E402
+import report  # noqa: E402
 import source_estate  # noqa: E402
 import spine  # noqa: E402
 
@@ -149,6 +161,14 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help=(
+            "print nothing; assemble and serve the products and exit. The"
+            " default is to print what the fabric did"
+        ),
+    )
+    parser.add_argument(
         "--estate",
         type=pathlib.Path,
         default=None,
@@ -207,7 +227,16 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     with tempfile.TemporaryDirectory(prefix="ccf-s1-01-") as scratch:
-        ask_all(root=pathlib.Path(scratch), requests=requests)
+        answers = ask_all(root=pathlib.Path(scratch), requests=requests)
+        # Rendered INSIDE the `with` block, deliberately: the file-backed
+        # ArtifactStore lives under this root, and the report resolves the
+        # replay record and the pinned graph queries out of it. Rendering after
+        # the directory is removed would report an unresolvable pin as a
+        # missing one.
+        if not arguments.quiet:
+            for index, answered in enumerate(answers, start=1):
+                print(report.render(answered, index=index, total=len(answers)))
+            print(report.render_contrast(answers))
     return 0
 
 

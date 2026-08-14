@@ -49,6 +49,23 @@ SECTION_ONE_GLOB = "s1-*"
 #: exactly the drift criterion 6 is about.
 SPINE_MODULE = "spine.py"
 
+#: The presentation module (plan 16-05). A THIRD category beside the spine and
+#: the deployment: what the run prints. Named for the same reason the spine is
+#: — a reader looks for it by name — and gated separately, because the property
+#: that matters about it is the opposite one: it must carry no canonical
+#: region, so that not one printed line is publication surface.
+REPORT_MODULE = "report.py"
+
+#: The modules that print, and the modules that must not. `spine.py` is the CCF
+#: call spine and `deployment.py` is the adopter's own fabric-facing code;
+#: neither writes to a terminal. The driver does, which is what makes the
+#: example's output a property of the deployment rather than of the fabric.
+SILENT_MODULES = (SPINE_MODULE, "deployment.py")
+PRINTING_MODULE = "run.py"
+
+#: How a module writes to the terminal, in the two forms this repository uses.
+PRINT_RE = re.compile(r"print\(|sys\.stdout\.write")
+
 #: The seven `D-07` names, in the order the fabric is called in. Ordered, so
 #: this is a sequence rather than a set: a spine that gates before it projects
 #: is not a spine a beginner can read.
@@ -287,6 +304,79 @@ def test_the_shipped_example_satisfies_the_whole_contract(
     assert not problems, f"{directory.name}: " + "; ".join(problems)
 
 
+@pytest.mark.parametrize(
+    "directory",
+    split_examples(EXAMPLES_ROOT),
+    ids=lambda path: path.name,
+)
+def test_every_section_one_example_ships_a_report_module(
+    directory: pathlib.Path,
+) -> None:
+    """Presentation is a named third file, not a habit of the driver.
+
+    Dave's ruling of 2026-08-13 is that the example prints its work. Where the
+    printing LIVES is what keeps that compatible with the Phase 14.1 finding
+    that print lines inside published snippets inflate an example's apparent
+    integration cost: a separate module, carrying no region, is not snippet
+    surface. A report folded back into the driver or the spine would be.
+    """
+    assert (directory / REPORT_MODULE).is_file(), (
+        f"{directory.name} has no {REPORT_MODULE}. Section 1's shape is three"
+        " files: the fabric's calls, the adopter's code, and what the run"
+        " prints."
+    )
+
+
+@pytest.mark.parametrize(
+    "directory",
+    split_examples(EXAMPLES_ROOT),
+    ids=lambda path: path.name,
+)
+def test_the_report_module_opens_no_canonical_region(
+    directory: pathlib.Path,
+) -> None:
+    """Not one printed line is publication surface.
+
+    The sibling rule already refuses a canonical region outside the spine; this
+    states the property for the module it exists to protect, so the reason is
+    on the record beside the assertion rather than only in a plan.
+    """
+    report = directory / REPORT_MODULE
+    shared = sorted(set(opened(report)) & set(CANONICAL_MARKERS))
+    assert not shared, f"{directory.name}/{REPORT_MODULE} opens {shared}"
+    assert not unbalanced(report), unbalanced(report)
+
+
+@pytest.mark.parametrize(
+    "directory",
+    split_examples(EXAMPLES_ROOT),
+    ids=lambda path: path.name,
+)
+def test_the_fabric_facing_modules_stay_silent_and_the_driver_prints(
+    directory: pathlib.Path,
+) -> None:
+    """Which side of the split writes to a terminal, asserted.
+
+    Always-on and substrate-free by construction — it reads files. Both halves
+    are needed: without the first, printing creeps back into the spine and the
+    published snippets grow lines an adopter would never write; without the
+    second, this passes just as happily against the silent example the ruling
+    of 2026-08-13 rejected.
+    """
+    for name in SILENT_MODULES:
+        module = directory / name
+        assert module.is_file(), module
+        assert not PRINT_RE.search(module.read_text(encoding="utf-8")), (
+            f"{directory.name}/{name} writes to the terminal; presentation"
+            f" belongs in {REPORT_MODULE} and printing in {PRINTING_MODULE}"
+        )
+    driver = directory / PRINTING_MODULE
+    assert PRINT_RE.search(driver.read_text(encoding="utf-8")), (
+        f"{directory.name}/{PRINTING_MODULE} prints nothing — the example"
+        " runs and shows a reader nothing (Dave's ruling, 2026-08-13)"
+    )
+
+
 def test_discovery_is_independent_of_the_working_directory(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -389,6 +479,30 @@ def test_the_gate_refuses_marker_vocabulary_outside_the_seven(
     )
 
     assert spine_problems(example)
+
+
+def test_the_gate_refuses_a_canonical_marker_in_the_report_module(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The control for the property ``report.py`` exists to hold.
+
+    A canonical region injected into the presentation module would publish a
+    printed line as a snippet — the exact cost the Phase 14.1 finding measured.
+    The scan root is repointed at the copy so the real predicate runs against a
+    real spine and a real report.
+    """
+    example = _copied_example(tmp_path)
+    report = example / REPORT_MODULE
+    assert report.is_file(), report
+    name = CANONICAL_MARKERS[0]
+    report.write_text(
+        report.read_text(encoding="utf-8")
+        + f"\n# --8<-- [start:{name}]\n# --8<-- [end:{name}]\n",
+        "utf-8",
+    )
+
+    problems = spine_problems(example)
+    assert any(REPORT_MODULE in problem for problem in problems), problems
 
 
 def test_the_gate_refuses_a_region_that_spans_both_modules(

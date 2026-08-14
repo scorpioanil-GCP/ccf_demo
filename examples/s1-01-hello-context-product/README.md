@@ -100,6 +100,14 @@ before plan 15.5-13.
 
 ## Run it
 
+**Prerequisite: a reachable Fluree server.** `artifacts/manifest.yaml` declares
+`backend: fluree`, and a run that cannot reach one **refuses** rather than
+falling back to anything.
+
+```sh
+docker run --rm -p 8090:8090 fluree/server:4.1.4
+```
+
 ```sh
 make example-s1-01                       # the three declared questions
 ```
@@ -107,8 +115,20 @@ make example-s1-01                       # the three declared questions
 or, directly:
 
 ```sh
-PYTHONPATH=src:runtime python examples/s1-01-hello-context-product/run.py
+CCF_TEST_FLUREE_URL=http://localhost:8090 \
+  PYTHONPATH=src:runtime python examples/s1-01-hello-context-product/run.py
 ```
+
+`CCF_TEST_FLUREE_URL` is the variable `artifacts/backends.yaml` names — the same
+one `tests/conftest.py` gates the Fluree test leg on, so one export configures
+both. `make example-s1-01` defaults it to `http://localhost:8090`. Unset it and
+the run stops with a message naming the variable and the container to start.
+
+Each run attaches to a **fresh graph inside one CCF-owned ledger**, so repeated
+runs accumulate graphs in a long-lived container. That is the deliberate trade
+for a single Fluree lane; discarding the container discards them all.
+
+`--quiet` suppresses all output and exits 0. The **default is to print**.
 
 With no arguments it asks the three questions `artifacts/questions.yaml`
 declares. With `--subject`, `--as-of` and `--decision-instant` — supplied
@@ -120,20 +140,28 @@ clock or takes the instant as an argument, and the fabric never does either
 the same code path and get the same answer).
 
 `run.py` is a thin driver and not a second spine: it wires `deployment.py`
-into `spine.py` and exits. It **asserts nothing and prints nothing**. Exit
-code 0 means the spine executed.
+into `spine.py`, prints, and exits. It **asserts nothing**, and what it prints
+is composed by `report.py` — a presentation-only sibling that returns strings,
+carries no snippet marker region, and therefore puts not one printed line into
+the published documentation. Exit code 0 means the spine executed.
 
-Its assertions live in `tests/examples/test_s1_01_output.py`. The split is
+The assertions live in `tests/examples/test_s1_01_output.py`. The split is
 deliberate and it matters when you read `make ci`:
 
 ```sh
-make examples                        # proves the spine RUNS
-pytest tests/examples/               # proves it is CORRECT
+make example-s1-01                   # proves the spine RUNS, and shows its work
+make leg-fluree                      # proves it is CORRECT
 ```
 
-Both are part of `make ci`, so nothing is unguarded — but a green
-`make example-s1-01` on its own is not a correctness result, and the
-invariants in the "What would fail" table below are checked by the test
+This example is **not** in the always-on `make examples` aggregate, and that is
+a rule rather than an oversight: always-on CI is deterministic and network-free,
+and a job that ran this target would need a service container. `make leg-fluree`
+is what exercises it in CI. Three gates over this example do stay always-on,
+because they need no substrate: the agent-free AST guard, the spine/deployment
+separation gate, and the artifact-header check.
+
+A green `make example-s1-01` on its own is still not a correctness result, and
+the invariants in the "What would fail" table below are checked by the test
 modules, not by the example.
 
 To materialise the enterprise source estate this example reads from —
@@ -159,6 +187,136 @@ A KYC analyst at a fictional bank has to name the ultimate beneficial
 owners of a corporate customer before onboarding it. The artifacts declare
 everything the fabric needs; the code only interprets them.
 
+**What you will see.** Abridged from an actual run — three questions, six
+sections each, 337 lines in full:
+
+```text
+QUESTION 1 of 3 — asked, not configured
+--------------------------------------------------------------------------
+  subject                     http://example.org/fibo/AcmeCorp
+  intent                      kyc-periodic-review
+  freshness                   as-of-boundary
+  as-of instant               2026-08-01 00:00:00+00:00   the graph is read here
+  decision instant            2026-08-01 00:05:00+00:00   the TTL runs from here
+
+  Subject and instant are arguments on a typed request.
+  One product class answers about any company at any time.
+
+WHAT WAS ASSEMBLED
+--------------------------------------------------------------------------
+  L1 envelopes ingested       19
+  entities in the view        17
+    class corporation         5
+    class ownership_stake     8
+    class party               3
+    class screening_candidate 1
+  relationship types          holds_stake, screened_against, stake_incident_to
+  graph substrate             fluree   artifacts/manifest.yaml
+
+  The substrate is one line in artifacts/manifest.yaml.
+  artifacts/backends.yaml says how that kind's connection is composed.
+  No Python module under this example names a substrate.
+
+WHAT THE FABRIC DID
+--------------------------------------------------------------------------
+  policy operator             policy.principal-subgraph
+      permitted_classifications = [kyc-disclosable]
+  similarity operator         similarity.corpus-select
+      minimum_score_percent = 40
+  ... (each operator's own parameters, four categories) ...
+  projection                  fibo-kyc.ultimate-beneficial-ownership.plan
+  perspective role            kyc-analyst
+
+  Algorithmic stages narrow the graph; the projection reads it.
+  No model saw raw signal, and no model was called at all.
+
+THE ANSWER
+--------------------------------------------------------------------------
+  subject                     http://example.org/fibo/AcmeCorp
+  threshold                   25.000 percent   policy-bundle.yaml
+
+  At or above the threshold — the beneficial owners:
+    Jane Elizabeth Doe        30.000 percent   http://example.org/fibo/JaneDoe
+    John Michael Smith        45.000 percent   http://example.org/fibo/JohnSmith
+
+  Below the threshold — the near miss the threshold removed:
+    short by 23.875           1.125 percent   http://example.org/fibo/SarahChen
+
+  Each percent above is a SUM OVER OWNERSHIP PATHS.
+  A direct holding, plus a fraction of an intermediary's holding.
+  Composed over: 5 corporation, 8 ownership_stake, 3 party, 1 screening_candidate.
+  Aggregates: JaneDoe 30.000, JohnSmith 45.000, SarahChen 1.125.
+  No record of any source system states any of those numbers.
+  That is the difference between assembling and looking up.
+
+WHAT TRAVELS WITH THE ANSWER
+--------------------------------------------------------------------------
+  content address             19b230aca20349d216384b12b4309a958f0b21285f9820d373eac67e89bef536
+  schema                      fibo-kyc.ultimate-beneficial-ownership 1.0.0
+  expires at                  2026-08-01 00:15:00+00:00
+  TTL anchor                  from_decision
+  operators invoked           policy.principal-subgraph, similarity.corpus-select, temporal.as-of-boundary, traversal.typed-neighborhood
+  policy bundle versions      5520f88f7b9ee813008800e52e097cea128479d58162b785aa48e23dbec3eff8
+  graph snapshot at           2026-08-01 00:00:00+00:00
+  context debt D_c            0.0348251467461090910588235294
+  routing signal              ok
+    freshness                 0.9950256219112277411764705882
+    completeness              1
+    semantic consistency      0.97
+    scorer for freshness      ccf.reference.freshness-from-decay@1.0.0
+  obligation in force         ccf.no-obligation-in-force
+      what this deployment said this signal obliges it to do
+      CCF supplies the binding and none of the vocabulary
+      whitepaper §7.7 Context Debt and Context Half-life
+  debt evidence               0 pointers
+      omitted by ruling, D-IMPL-119 limb 3(b), until a later phase
+      adds principal scoping to the assembly path
+  oldest source refresh       2026-08-01 00:00:00+00:00
+  newest source refresh       2026-08-10 23:45:00+00:00
+      two instants, D-IMPL-124: no system is named here
+      and no count of them is given either
+  replay record class         decision-replay-record
+  replay record address       28af74697b53c819275e9e5d506b2e26c608453ce7b8bc2c6126c7807ba13880
+  graph queries pinned        2 of 2 resolvable
+
+  REPLAY IT — the record resolves, by exact version:
+    the graph snapshot instant and the policy bundle version;
+    the perspective, the request, and the operator plan;
+    and every graph query, pinned by its own content address.
+  Nothing above was read from a clock.
+  Whitepaper §7.10 Decision Replay.
+
+... QUESTION 2 of 3 and QUESTION 3 of 3, in the same six sections ...
+
+WHAT THE THREE QUESTIONS SHOW
+--------------------------------------------------------------------------
+  Read artifacts/questions.yaml as pairs, not as a list.
+
+  Same instant, different subject:
+      A asked about           http://example.org/fibo/AcmeCorp   2026-08-01 00:00:00+00:00
+      A answered              http://example.org/fibo/JaneDoe, http://example.org/fibo/JohnSmith
+      A address               19b230aca20349d216384b12b4309a958f0b21285f9820d373eac67e89bef536
+      B asked about           http://example.org/fibo/BetaHoldings   2026-08-01 00:00:00+00:00
+      B answered              http://example.org/fibo/JaneDoe
+      B address               c9df093534f1ed5e85bd0b4955fba80ed25ab9bb16af784f264843cedbc9d734
+
+  Same subject, different instant:
+      A asked about           http://example.org/fibo/AcmeCorp   2026-08-01 00:00:00+00:00
+      A answered              http://example.org/fibo/JaneDoe, http://example.org/fibo/JohnSmith
+      A address               19b230aca20349d216384b12b4309a958f0b21285f9820d373eac67e89bef536
+      B asked about           http://example.org/fibo/AcmeCorp   2026-09-15 00:00:00+00:00
+      B answered              http://example.org/fibo/JaneDoe, http://example.org/fibo/JohnSmith, http://example.org/fibo/MarcusVale
+      B address               d49f4b869aefd5a3b6b992659c69bbf625d0493e2e3d332a9964fc6ff07803ec
+
+  Same product class, same code, same artifacts.
+  A different question, therefore a different answer.
+  Each answer separately addressed and separately replayable.
+```
+
+The content addresses above are this estate's; re-run and they reproduce,
+because nothing in the path reads a clock and the graph a run attaches to is
+not part of a product's address.
+
 0. **Name what is in force.** `artifacts/manifest.yaml` enumerates every
    other document — its path, its Control Plane key, its artifact class and
    its `role`. `role: register` puts an artifact into the Control Plane and
@@ -169,10 +327,12 @@ everything the fabric needs; the code only interprets them.
 
 1. **`boot`.** One call reads the manifest, parses every document it names,
    registers the `role: register` ones and boots L2/L3 on the resulting
-   pins. The connection value arrives here, **from the caller** — the
-   manifest declares `backend: sqlite`, a kind and nothing more, because a
-   database path in a content-hashed artifact is persisted into the audit
-   plane forever.
+   pins. The connection values arrive here, **from the caller** — the
+   manifest declares `backend: fluree`, a kind and nothing more, because a
+   host, a path or a credential in a content-hashed artifact is persisted
+   into the audit plane forever. How that kind's settings are composed is
+   `artifacts/backends.yaml`'s job, and it holds an environment variable's
+   *name* and a per-run rule rather than a value.
 
 2. **`ingest`.** The L1 envelopes in `artifacts/events.yaml` are handed to
    `booted.handle.worker`, the only write handle to the graph that exists
@@ -300,13 +460,23 @@ arrive in Phase 17 (D-IMPL-94).
 yours. `spine.py` is not: every line in it is a call you would have to make
 anyway.
 
-**Start with the substrate, because it is one line and it is a value in a
-configuration document rather than a fact about this code.**
-`artifacts/manifest.yaml` says `backend: sqlite`. Change the document, not
-the code — neither `spine.py` nor `deployment.py` names a substrate
-anywhere, and no connection string, host or credential appears in any
-artifact. Plan 16-07 adds the per-backend siblings and the `backends.yaml`
-document that makes this one driver run across all six.
+**Start with the substrate, because it is two documents and no code.**
+`artifacts/manifest.yaml` says `backend: fluree` — that is the KIND, and it is
+one line. `artifacts/backends.yaml` says how that kind's connection settings are
+COMPOSED: which environment variable carries the server's location, and which
+settings are minted fresh per run so a shared server gives each run its own
+graph. Neither document holds a value; between them they hold a name and a rule.
+
+Change the documents, not the code. No Python module under this example names a
+substrate anywhere, and no connection string, host, path or credential appears
+in any artifact. To run on a different kind: add a profile to `backends.yaml`
+and change the one line in `manifest.yaml`. A deployment whose server needs a
+credential adds one `backend_secrets` entry to `manifest.yaml` naming the
+environment variable that carries it — the name is content-hashed, the value
+never is.
+
+Plan 16-07 adds the remaining four profiles and the equality matrix that runs
+this one driver across all six kinds.
 
 Then, in order:
 
