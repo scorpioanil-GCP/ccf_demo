@@ -1,905 +1,250 @@
 # Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument - Pattern Map
 
-**Mapped:** 2026-08-10
-**Files analyzed:** 29 new/modified file groups
-**Analogs found:** 26 / 29 (3 NO-ANALOG, 1 history-only)
-**Tree state:** `84f4501` + uncommitted `.planning/` edits
+**Mapped:** 2026-08-13 (rewrite; supersedes the 2026-08-10 map)
+**Tree state:** `main @ 6e95da0` — the `--no-ff` merge of `phase-15.6`
+**Files in scope:** 14 file groups for the narrowed phase, 9 carried to 16.1
+**Analogs found:** 13 / 14 in-scope (1 NO ANALOG); 0 dropped for absence
 
-> **What this file is for.** RESEARCH.md already established *what* Phase 16
-> builds and *what it must not break*. This file answers the one question it
-> does not: **"which existing file does an executor open, and what does it
-> copy?"** Every excerpt below was read out of the tree in this session. Where
-> nothing exists to copy, the entry says `NO ANALOG` and names the nearest
-> partial rather than inventing a shape.
+> **What this file is for.** `16-RESEARCH.md` (rewritten the same day) establishes
+> *what* the narrowed Phase 16 builds and what it must not break. This file answers
+> the one question it does not: **"which existing file does an executor open, and
+> what does it copy?"** Every excerpt below was read out of the tree at `6e95da0`
+> in this session. Nothing is carried forward unverified from the 2026-08-10
+> version. Where nothing exists to copy, the entry says `NO ANALOG`.
 
 ---
 
-## File Classification
+## 0. Why this file was rewritten, and what changed
 
-### Group 1 — the eight new test modules (RESEARCH § *Validation Architecture* → *Wave 0 Gaps*)
+The 2026-08-10 map was written against the pre-15.5 surface and against the
+full 21-plan Phase 16. Two things then happened: Phase 15.5 (2026-08-11) and
+15.6 (2026-08-13) landed, and Dave narrowed the phase on 2026-08-13.
 
-| New file | Role | Data flow | Closest analog | Match |
+### 0.1 The narrowing — LOCKED, and it is what this map is scoped to
+
+`16-RESEARCH.md` §*User Constraints*, R-1..R-4 (Dave, 2026-08-13):
+
+- **R-1** — Phase 16 = the five shipped infrastructure plans (`16-01`, `16-03`,
+  `16-04`, `16-06`, `16-21`) **plus one Hello CCF example**. Sections 2 and 3,
+  the six-backend matrix, the terminal retirement of `examples/00`–`08` and the
+  full adoption-argument treatment **defer to Phase 16.1** with criteria intact.
+- **R-2** — one backend, `sqlite`, no DGX legs.
+- **R-3** — the example ships with its Section-1 published pages.
+- **R-4** — `DI-15.6-01(b)` is discharged in this phase.
+
+**The ROADMAP entry (`.planning/ROADMAP.md:1155-1291`) still lists 21 plans and
+still names the six-backend matrix in criterion 4.** That is `16-RESEARCH.md`
+§7 Q-4, unresolved. This map is organized against the narrowing, with §5 holding
+verified analog pointers for the nine deferred groups so 16.1's planner does not
+re-derive them.
+
+### 0.2 A finding I was asked to record that does **not** reproduce — REJECTED
+
+I was told the previous map cited eleven `.py` paths that do not exist, eight of
+them spelled `tests/test_*.py` where the file actually lives under
+`tools/docs_tests/` or `tools/publish_scan_tests/`. **I grepped the file. It does
+not.** The 2026-08-10 map spells all eight with their correct `tools/…` prefixes
+at its lines 25-30, 243-245, 294, 341, 424, 463, 1211-1212 and 1281. There was no
+`tests/` → `tools/` path rot to correct.
+
+Recording it as rejected rather than silently dropping it, per CLAUDE.md §3.1:
+*"record the ones you reject as rejected."* This project has produced three
+reviews carrying confident false findings; an unverified finding acted on is
+worse than no review.
+
+**What was actually wrong with those eleven entries is different, and worse for a
+planner:** *six of the eight files the map described as "new files to be created"
+have since shipped.* An executor reading the old map would rebuild them.
+
+| Old map called it | Reality at `6e95da0` |
+|---|---|
+| `tools/docs_tests/test_no_stale_example_paths.py` — new | **SHIPPED**, 308 lines (`16-04`) |
+| `tools/docs_tests/test_gate_two_wording.py` — new, "composite, NO ANALOG" | **SHIPPED**, 304 lines (`16-04`) |
+| `tools/docs_tests/test_advisory_discharge.py` — new | **SHIPPED**, 533 lines (`16-06`) |
+| `tools/docs_tests/test_documented_commands_exist.py` — new | **SHIPPED**, 245 lines (`16-04`) |
+| `tests/examples/test_spine_separation.py` — new | **SHIPPED** (`16-05`) |
+| `tests/examples/test_section_one_is_agent_free.py` — new | **SHIPPED** (`16-05`) |
+| `tools/docs_tests/test_adoption_argument.py` — new | still absent — **deferred to 16.1 with the adoption page (R-1)** |
+| `tests/examples/test_backend_matrix.py` — new | still absent — **deferred to 16.1 with the matrix (R-1)** |
+
+The old map's § *No Analog Found* row for *"a paragraph-scoped assertion over
+`public/**/*.md`"* is likewise closed: `tools/docs_tests/_prose.py` (262 lines)
+was extracted for exactly that, and its module docstring at `:5-12` cites this
+document by name as the reason it exists. **That is now an analog, not a gap.**
+
+### 0.3 The `tools/` CI-reachability fact — verified, and it is load-bearing
+
+`pyproject.toml:142` is `testpaths = ["tests"]`. A bare `pytest` therefore never
+reaches `tools/`. `Makefile:70` is `ci-core: lint typecheck test` and
+`Makefile:81` is `ci: ci-core examples docs-strict` — **`make ci` reaches none of
+the three gate-checker suites.** GitHub Actions reaches two of them, as separate
+explicit steps:
+
+- `.github/workflows/ci.yml:35` — `pytest tools/lints/tests -q`
+- `.github/workflows/ci.yml:314` — `pytest tools/publish_scan_tests tools/docs_tests -q`
+
+Measured this session:
+
+```
+PYTHONPATH=.:src:runtime .venv/bin/python -m pytest tools/ -q
+→ 4 failed, 540 passed in 25.04s
+```
+
+**Every entry below that names a gate under `tools/` says so and says what it
+implies for CI reachability.** Dave named `testpaths = ["tests"]` explicitly at
+the 15.6 gate as *"the mechanism that let a red gate package survive a phase
+boundary"* (`DI-15.6-01(b)`), and Phase 16 owns discharging it.
+
+### 0.4 Surface changes confirmed against the code
+
+| Claim | Verified at | Verdict |
+|---|---|---|
+| `ContextProductContract` gained three top-level members | `src/ccf/products/contract.py:673-676` — `debt_evidence`, `source_refresh_recency`, `obligation_in_force` (plus `debt` at `:672` from 15.5) | ✅ |
+| `Observation` gained identity | `src/ccf/halflife/decay.py:188` — `subject: str = NO_SUBJECT_IDENTITY` | ✅ |
+| `DebtAssessment` evidence carries a sentinel and no pointers | `examples/s1-01-hello-context-product/deployment.py:305-340` returns `NO_DEBT_EVIDENCE`, docstring quotes `D-IMPL-119` limb 3(b) verbatim | ✅ |
+| Source refresh is a window publishing no source identity | `deployment.py:634-676` `_declared_refresh_window() -> SourceRefreshWindow` | ✅ |
+| `DeploymentBinding` was deleted at `6b87a8f` | `git grep DeploymentBinding -- src/ runtime/ examples/` → **no hits**; `spine.py:123` declares one Protocol, `Scenario` | ✅ — the old map never cited it, so nothing to drop |
+| The product content address has no in-tree literal in Phase-16 work | `examples/s1-01-hello-context-product/` pins none; `tests/examples/test_s1_01_output.py` computes both sides | ✅ — **no problem to manufacture** |
+| Backend registration seam + Fluree adapter shipped | `src/ccf/graph/registry.py:624` `declared_names()`; `src/ccf/graph/backends/fluree.py` exists; `tests/conftest.py:229/234/237`; `pyproject.toml:148`; `Makefile:146/152/166` | ✅ — but **deferred to 16.1 by R-2**; see §5 |
+
+### 0.5 Three claims in `16-RESEARCH.md` that do **not** reproduce
+
+Recorded so a planner does not build on them.
+
+1. **`ccf.deployment.__all__` has 16 names, not 17.** Research §2.4 says
+   *"exports 17 names"*. Measured: `len(ccf.deployment.__all__) == 16`
+   (`src/ccf/deployment/__init__.py:127-144`). The published page is **correct**
+   — `public/reference/artifacts/deployment-manifest.md:19` says *"sixteen
+   names"*. Do not "fix" the page to match the research.
+2. **`public/concepts/pillars/data-context.md` has no line 133.** Research §3.2
+   says it *"buries the SDK-ships-no-agents line at 133"*. The page is **105
+   lines**. The G-01 opening defect *is* real and verified — line 4 reads *"how
+   does an agent get at first-party records"* — but the buried-line evidence is
+   Phase-14-era and the sentence now lives at
+   `public/tutorial/adopters-guide.md:161` (*"It ships no agents at all"*) and
+   `public/concepts/pillars/agent-types.md:61`.
+3. **`tools/docs_tests/test_snippet_gate.py` is no longer mis-pointed.** The old
+   map's terminal warning said two of its three tests fail at HEAD against a
+   removed `[start:ontology]` marker. `test_snippet_gate.py:38-50` records that
+   the constants were repointed to `[start:boot]` and the whole module passes.
+
+---
+
+## 1. File Classification — the narrowed phase
+
+### Group A — new published pages (R-3)
+
+| File to create | Role | Data flow | Closest analog in the tree today | Match |
 |---|---|---|---|---|
-| `tests/examples/test_backend_matrix.py` | test | batch / parametrized-over-substrate | `tests/conformance/test_graphstore.py::graph_backend` (+ `tests/conftest.py::fabric_boot`) | **exact** |
-| `tests/examples/test_section_one_is_agent_free.py` | test | transform (AST over source) | `tests/agents/test_consumption_discipline.py` | **exact** |
-| `tests/examples/test_spine_separation.py` | test | file-I/O (marker parse over source) | `tools/docs_tests/test_diagram_coverage.py` (+ `test_snippet_gate.py` marker probe) | role-match |
-| `tools/docs_tests/test_no_stale_example_paths.py` | test (gate control) | file-I/O + path resolution over `public/**/*.md` | `tools/docs_tests/test_diagram_coverage.py` | **exact** |
-| `tools/docs_tests/test_gate_two_wording.py` | test (gate control) | transform (paragraph-scoped prose scan) | **composite** — `tools/lints/citations.py::citation_sentence` + `tools/publish_scan.py::normalize` | partial (see § *No Analog*) |
-| `tools/docs_tests/test_adoption_argument.py` | test (gate control) | file-I/O + presence assertion | `tools/docs_tests/test_diagram_coverage.py` | role-match |
-| `tools/docs_tests/test_advisory_discharge.py` | test (gate control) | file-I/O + presence assertion | `tools/docs_tests/test_diagram_coverage.py` | role-match |
-| `tools/docs_tests/test_documented_commands_exist.py` | test (gate control) | bijection (Makefile ↔ `public/**/*.md`) | `tools/docs_tests/test_diagram_coverage.py` | **exact shape** |
+| `public/tutorial/hello-ccf.md` | doc (tutorial) | snippet-include over a running example | `public/tutorial/adopters-guide.md` | **exact (form)** |
+| `public/how-to/assemble-a-context-product.md` | doc (how-to) | numbered steps, marker + whole-artifact include pairs | `public/how-to/grant-and-revoke-a-skill.md` | **exact** |
+| `public/concepts/context-graph-axes.md` | doc (concept) | promise / why / enforcement per axis | `public/concepts/invariants.md` (form only) | role-match — **content is NO ANALOG** |
 
-### Group 2 — the parameterized backend runner (D-06)
+### Group B — published pages to correct
 
-| New file | Role | Data flow | Closest analog | Match |
+| File to modify | Role | Why | Closest current-surface analog | Match |
 |---|---|---|---|---|
-| `examples/<sec1>/run.py` (`--backend`) | example driver | request-response | `examples/00-quickstart/run.py` (spine) + `examples/03-harness-portability/run.py:691-702` (argparse) | **exact** (two sources) |
-| `examples/<sec1>/artifacts/manifest-<backend>.yaml` ×6 | config artifact | CRUD | `examples/00-quickstart/artifacts/manifest.yaml` | **exact** |
-| the connection resolver (`--backend` → `connection=` mapping) | utility | transform | `tests/conftest.py::fabric_boot` inner `factory` (:314-390) | **exact** |
-| `examples/<sec1>/artifacts/backends.yaml` (opt-in DGX defaults) | config artifact | CRUD | `examples/03-harness-portability/artifacts/live.yaml` | **exact** |
-| the network-free proof (socket guard) | utility | event-driven | `examples/03-harness-portability/legs/deterministic.py::install_no_model_guard` | **exact** |
+| `public/concepts/pillars/data-context.md` | doc (concept) | G-01: opens agent-first at `:4` | `public/reference/artifacts/deployment-manifest.md` (the tree's most recent, post-15.4 reference prose) | role-match |
+| `public/reference/protocols/context-products.md` | doc (reference) | 29 lines; prose names three gates only, no request contract / payload schema / entitlement / debt | `public/reference/artifacts/deployment-manifest.md` | **exact** |
+| `public/reference/artifacts/product-registration.md` | doc (reference) | `RegisteredProductClass` gained eight fields in 15.5 | itself (structure is right, content is stale) | **exact** |
+| `public/reference/protocols/halflife-and-debt.md` | doc (reference) | 18 lines, six `:::` directives, no `DebtAssessment`, no `SourceRefreshWindow`, no worked example | `public/reference/artifacts/control-plane-artifacts.md` (`:::` + worked-example shape) | **exact** |
+| `public/reference/artifacts/control-plane-artifacts.md` | doc (reference) | needs `DebtProfile.signal_obligations` (15.6-08) | itself | **exact** |
+| `mkdocs.yml` `nav:` | config | three new pages must be enumerated | `mkdocs.yml:113-166` | **exact** |
 
-### Group 3 — a new example directory (Sections 1–3)
+### Group C — gate and CI work (DOCS-08, `DI-15.6-01(b)`, A-3 floor)
 
-| New file | Role | Data flow | Closest analog | Match |
+| File to modify | Role | Data flow | Analog | Match |
 |---|---|---|---|---|
-| `examples/<new>/spine.py` + `deployment.py` (D-11 split) | example code | request-response | `examples/external/00-hello-context/{run,serve}.py` split; `examples/03-harness-portability/legs/` | role-match |
-| `examples/<new>/artifacts/*.yaml` | artifact set | CRUD | `examples/00-quickstart/artifacts/` (16 docs); wording from `examples/05-workflow-hitl/artifacts/manifest.yaml` | **exact** (⚠ see F-1 flag) |
-| `examples/<new>/README.md` | doc | — | `examples/00-quickstart/README.md` (7 headings) | **exact** |
-| `tests/examples/test_<new>_output.py` | test | request-response | `tests/examples/test_quickstart_output.py` | **exact** |
-| `Makefile` `example-<new>` target | config | — | `Makefile:82-112` | **exact** |
-| `examples/<sec2>/client_adk.py` | client leg | request-response | `examples/external/00-hello-context/client_adk.py` | **exact** |
-| `examples/<sec2>/client_bare.py` | client leg | request-response | `examples/external/00-hello-context/client_bare.py` | **exact** |
-| `examples/<sec2>/client_claude_agent.py` | client leg | request-response | `client_anthropic.py` (raw `anthropic` SDK — **near, not same**) | partial |
-| `examples/<sec2>/client_langgraph.py` | client leg | request-response | — | **NO ANALOG** |
-| FIBO data extension (corp→corp edges) | fixture generator | batch | `examples/08-e2e-demo/generator.py` + `/home/parkave/fluree/examples/fibo/load_neo4j.py` | role-match |
+| `tools/docs_tests/test_advisory_discharge.py` `A3_REQUIRED_TOKENS` | test (gate control) **— under `tools/`, NOT in `make ci`** | tuple-of-strings floor | itself, `:96-105` | **exact** |
+| `Makefile` `ci:` composition | config | — | `Makefile:81` + `.github/workflows/ci.yml:35,314` | **exact** |
+| `src/ccf/{deployment/binder,halflife/assessment,halflife/debt,products/composition,products/request}.py` module docstrings | source (docs only) | transform | each other; the rule is in `tools/publish_scan_tests/test_docstring_leaks.py:9-12` | **exact** |
 
-### Group 4 — new published pages
+### Group D — the example, if `16-05` Task 3 is re-scoped (Q-3, Dave's)
 
-| New file | Role | Diátaxis | Closest analog | Match |
+| File | Role | Data flow | Analog | Match |
 |---|---|---|---|---|
-| Section-1 tutorial page | doc | tutorial | `public/tutorial/adopters-guide.md` | **exact** |
-| Section-1 how-to (deterministic assembly) | doc | how-to | `public/how-to/grant-and-revoke-a-skill.md` | **exact** |
-| Section-1 concept (six axes of `G`) | doc | concept | `public/concepts/invariants.md` (form only) | **NO ANALOG** (content) |
-| artifact reference page | doc | reference | `public/reference/artifacts/product-registration.md` | **exact** |
-| protocol reference page | doc | reference | `public/reference/protocols/context-products.md` | **exact** |
-| the adoption-argument page (D-10) | doc | concept/explanation | — | **NO ANALOG** |
-| `mkdocs.yml` nav entries | config | — | `mkdocs.yml` `nav:` block | **exact** |
-
-### Group 5 — CI additions
-
-| New file | Role | Data flow | Closest analog | Match |
-|---|---|---|---|---|
-| `.github/workflows/live-legs.yml` DGX job | config | — | `live-legs.yml::examples-live-anthropic` (:94-138) | **exact** |
-| `Makefile` `gate-16` target | config | — | `make gate-15.3` — **git history only**, `d364b65^` | history-only |
-| `tools/gates/gate_16.py` (if scripted) | utility | transform | `tools/gates/gate_15_3.py` at `d364b65^`; output contract from `tools/lints/__main__.py` | history-only |
-
-### Group 6 — the ruling
-
-| New file | Role | Closest analog | Match |
-|---|---|---|---|
-| `docs/DECISIONS.md` `D-IMPL-94` | record | `docs/DECISIONS.md` D-IMPL-63 (:187) / D-IMPL-93 (:318) | **exact** |
+| `examples/s1-01-hello-context-product/{spine,deployment}.py` | example code | request-response | **itself — it is the reference**; no better analog exists | n/a |
 
 ---
 
-## Pattern Assignments
+## 2. Pattern Assignments
 
-### 1. `tests/examples/test_backend_matrix.py` (test, parametrized-over-substrate)
+### A1. `public/tutorial/hello-ccf.md` (new, tutorial)
 
-**Analog:** `tests/conformance/test_graphstore.py` + `tests/conftest.py`
+**Analog:** `public/tutorial/adopters-guide.md:1-40`.
 
-**The parametrization shape** (`tests/conformance/test_graphstore.py:47-99`) — copy the
-param list *and* the marks; the marks are already registered in `pyproject.toml`
-and already gate the `make leg-*` targets:
+⚠ **Copy its form; do not edit the file.** It is 447 lines, includes from six
+examples that retire in 16.1, and is `16-18`'s terminal-wave property.
 
-```python
-@pytest.fixture(
-    params=[
-        pytest.param("sqlite"),
-        pytest.param("memory"),
-        pytest.param("demo"),
-        pytest.param("postgres", marks=pytest.mark.postgres),
-        pytest.param("neo4j", marks=pytest.mark.neo4j),
-        pytest.param("mongo", marks=pytest.mark.mongo),
-        pytest.param("fluree", marks=pytest.mark.fluree),
-    ]
-)
-def graph_backend(
-    request: pytest.FixtureRequest, fabric_boot: Callable[..., "FabricHandle"]
-) -> "FabricHandle":
-    """A booted fabric per backend under test.
-
-    ... not one test body below changed, and no test body knows which
-    substrate it is running on. That is what makes the suite evidence of
-    parity rather than two suites that happen to agree.
-    """
-```
-
-> **Carry that docstring sentence forward.** It is the exact claim D-06 asks the
-> example matrix to make, already written by the phase that earned it.
-
-**The connection resolver** (`tests/conftest.py:314-379`) — this is the shape the
-example's `--backend` → `connection=` mapping should take, keyed on each
-adapter's own config-model field names:
-
-```python
-    def factory(
-        *, database_path: Path | None = None, backend: str = "sqlite"
-    ) -> "FabricHandle":
-        # The keys are the field names on the adapter's own connection
-        # contract (plan 15.4-04), not `boot`'s — `boot` has no per-database
-        # parameter left to name.
-        location: dict[str, Any]
-        if backend == "postgres":
-            location = {
-                "dsn": request.getfixturevalue("postgres_dsn"),
-                "schema_name": f"ccf_test_{uuid.uuid4().hex}",
-            }
-        elif backend == "sqlite":
-            location = {"database_path": database_path or tmp_path / ...}
-        elif backend == "memory":
-            location = {}          # this adapter's contract has no fields
-        elif backend in ("neo4j", "mongo"):
-            location = {"uri": ..., "partition": f"ccf_test_{uuid.uuid4().hex}"}
-        elif backend == "fluree":
-            location = {"url": ..., "partition": f"ccf_test_{uuid.uuid4().hex}"}
-        else:
-            raise NotImplementedError(backend)
-```
-
-⚠ **`memory` is `{}`, not a flag.** Copy that branch verbatim in spirit — a
-selection flag there re-forks what 15.4 un-forked.
-
-⚠ **The `else: raise NotImplementedError(backend)` is load-bearing.** RESEARCH's
-*Don't Hand-Roll* forbids an `if backend == …` cascade *for selection*; this
-cascade selects **connection arguments**, not the adapter. Selection stays
-`DeploymentManifest.backend` → registry lookup. Keep the two distinguishable in
-the code, or a reviewer will read it as the forbidden cascade.
-
-**What to compare, and what NOT to compare** — from
-`tests/conformance/test_substrate_differential.py:1-58`:
-
-> *"**Comparisons happen on canonical bytes, never raw rows** — what keeps the
-> suite backend-neutral instead of backend-flaky."*
-
-Assert `content_hash(product_sqlite) == content_hash(product_<b>)` on the served
-`ContextProductContract`. **Do not assert byte-identical replay records**
-(RESEARCH P-3): `PolicyBindingsSnapshot.graph_adapter` / `graph_adapter_version` /
-`graph_secret_refs` are dimension-2 facts as of 15.4-08 and *should* differ.
-
----
-
-### 2. `tests/examples/test_section_one_is_agent_free.py` (test, AST over source)
-
-**Analog:** `tests/agents/test_consumption_discipline.py` — this is the tree's
-AST import-allowlist test, and its structure transfers whole.
-
-**The AST extractor** (`tests/agents/test_consumption_discipline.py:112-123`):
-
-```python
-def _ccf_imports(source: str) -> set[str]:
-    imported: set[str] = set()
-    for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.Import):
-            imported.update(
-                alias.name for alias in node.names
-                if alias.name.startswith("ccf")
-            )
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            if node.module.startswith("ccf"):
-                imported.add(node.module)
-    return imported
-```
-
-⚠ **Prefer the shared helpers over this local copy.** `tools/lints/__init__.py`
-ships `imported_module_names(node, *, package="")` (:122) and
-`submodule_import_names(node, *, package="")` (:137). The second exists because
-of Phase 15.4's **CR-02**: `from ccf.graph import _writer` binds
-`ccf.graph._writer` but `imported_module_names` reports only `ccf.graph`, and
-*both* the lint and the invariant test that mirrored it were blind to that form.
-The docstring says why it lives in the shared module:
-
-> *"Lives here rather than in one checker because every import rule needs it …
-> and a helper imported from a sibling checker is how one rule's edit silently
-> changes another's."*
-
-A Section-1 guard that hand-rolls `_ccf_imports` inherits the CR-02 hole for
-`from ccf import agents`.
-
-**The parametrized assertion** (`:126-140`) — copy the shape and the
-message-names-the-rule discipline:
-
-```python
-@pytest.mark.parametrize(
-    "module_path",
-    sorted(AGENTS_PACKAGE.glob("*.py")),
-    ids=lambda p: p.name,
-)
-def test_agents_modules_import_only_the_consumption_surface(
-    module_path: Path,
-) -> None:
-    for module in sorted(_ccf_imports(module_path.read_text())):
-        assert module.startswith(ALLOWED_CCF_PREFIXES), (
-            f"{module_path} imports {module!r}, which is outside the agents"
-            " package's permitted consumption surface — no path from Agent"
-            " to L1–L5 (AGNT-01; CLAUDE.md §10; DESIGN.md §3.1)"
-        )
-```
-
-For Section 1 the polarity inverts: a **denylist** (`ccf.agents`, `ccf.skills`,
-`ccf.workflow`, `ccf.hitl`, `ccf_runtime.adapters`) rather than an allowlist.
-Keep the allowlist-comment discipline anyway — the analog annotates *every*
-admitted prefix with the plan/finding that admitted it, which is what makes the
-list reviewable rather than accreted.
-
-**The negative control** — see § *Shared Patterns → Negative controls*. This
-module needs one: inject `from ccf.agents import AgentFactory` into a copy under
-`tmp_path` and assert the guard refuses.
-
----
-
-### 3. `tests/examples/test_spine_separation.py` (test, marker parse over source)
-
-**Analog (structure):** `tools/docs_tests/test_diagram_coverage.py` — the
-bijection + report-both-directions-by-name shape.
-**Analog (marker probe):** `tools/docs_tests/test_snippet_gate.py:39-40, 89-90`.
-
-The marker literal, verified in use (`test_snippet_gate.py:89-90`):
-
-```python
-    original = SNIPPET_SOURCE.read_text(encoding="utf-8")
-    assert f"[start:{SECTION}]" in original, "fixture drifted from its source"
-```
-
-Source-side marker form, verified in `examples/00-quickstart/run.py:156-165`:
-
-```python
-    # --8<-- [start:boot]
-    booted = load_and_boot(
-        MANIFEST,
-        registry=registry,
-        connection={"database_path": str(root / "quickstart.sqlite3")},
-    )
-    # --8<-- [end:boot]
-```
-
-**The canonical spine marker set** — verified as the seven names in
-`examples/00-quickstart/run.py` (:156, 186, 194, 222, 248, 327, 345):
-`boot`, `ingest`, `operators`, `project`, `gate`, `record`, `serve`.
-RESEARCH D.3 recommends these become the standard set every Section-1 example
-uses; the test should assert exactly that ordered set, every opened marker
-closed, and **no marker region spanning both the spine and deployment modules**.
-
-**The precondition test is mandatory** — copy `test_diagram_coverage.py:66-80`
-verbatim in spirit:
-
-```python
-# --------------------------------------------------------------------------
-# Preconditions — a vacuous pass is the failure this module exists to prevent.
-# --------------------------------------------------------------------------
-
-
-def test_fixture_trees_are_populated() -> None:
-    """Both sides of the bijection are non-empty.
-
-    Without this, a renamed `public/diagrams/` would make every assertion below
-    pass over empty sets.
-    """
-    assert DIAGRAM_DIR.is_dir(), f"missing diagram tree: {DIAGRAM_DIR}"
-    ...
-```
-
----
-
-### 4. `tools/docs_tests/test_no_stale_example_paths.py` (gate control, `public/**/*.md`)
-
-**Analog:** `tools/docs_tests/test_diagram_coverage.py` — this is the closest
-structural match in the tree, and the new module should be a near-clone with the
-regex and the resolution target swapped.
-
-**Path resolution and CWD discipline** (`:22-24, 33-44`):
-
-```python
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-
-#: The Phase D diagram sources — the artifacts whose publication is at stake.
-DIAGRAM_DIR = REPO_ROOT / "public" / "diagrams"
-
-#: A `pymdownx.snippets` include naming a diagram, e.g.
-#: `--8<-- "public/diagrams/pillar-hitl.mmd"`. The capture is the bare
-#: filename, which is what both sides of the bijection are keyed on.
-INCLUDE_RE = re.compile(r'-{2,}8<-{2,}\s*"[^"]*?/diagrams/([A-Za-z0-9_.-]+\.mmd)"')
-```
-
-> *"Paths resolve from this file's location, never from the process CWD"* — the
-> module docstring says it, and `test_docstring_leaks.py:25-28` records **WR-04**,
-> where a CWD-relative walk scanned zero files and the gate passed over nothing.
-
-**Do not hand-roll the include parser.** `tools/publish_scan.py::include_targets`
-(:190-215) already handles both forms and says why a one-form parser is useless:
-
-```python
-def include_targets(text: str) -> list[tuple[int, str]]:
-    """`(lineno, target)` for every snippet include in `text`.
-
-    `pymdownx.snippets` accepts two forms and the gate must see both: the
-    inline `--8<-- "target"`, and the block form, in which a bare `--8<--`
-    opens a list of one-per-line targets and a second bare `--8<--` closes it.
-    A gate that parses only the inline form is defeated by a two-line edit.
-    """
-```
-
-The **new** half this module owns is the *prose-only* path token — the seven
-pages in RESEARCH § A.2's second table that name `tests/examples/test_*.py` in
-running text, invisible to `check_paths`. That extraction must be
-paragraph-scoped (see § *Shared Patterns → Paragraph scoping*), because a wrapped
-Markdown sentence hides a path from a line-scoped regex — RESEARCH P-2 records
-Phase 15.1 under-counting the same sweep **six times** on exactly that.
-
----
-
-### 5. `tools/docs_tests/test_gate_two_wording.py` (gate control, paragraph-scoped prose)
-
-**No single analog.** Two halves exist; the module is their composition. See
-§ *No Analog Found* for the honest statement of the gap.
-
-**Half one — sentence scoping with offset→sentence mapping**
-(`tools/lints/citations.py:279-294, 491-503`). This is the tree's only working
-implementation of "match in a joined window, map back":
-
-```python
-#: How many lines either side of a citation are joined before the citation's
-#: own sentence is cut out of them. Two, because the convention's instance in
-#: ``ccf.deployment.binder`` wraps one sentence across three lines.
-#:
-#: The marker must then land in *the citation's own sentence*, not merely
-#: nearby. Nearness is not enough: one line of `.planning/REQUIREMENTS.md` is a
-#: four-thousand-character paragraph that opens by saying an *earlier* record's
-#: line numbers "have since moved" and then makes six present-tense citations
-#: of its own. A line-scoped marker exempts all six; a sentence-scoped marker
-#: exempts none, which is right.
-MARKER_WINDOW = 2
-
-#: What ends a sentence for marker scoping: terminal punctuation followed by
-#: whitespace. Deliberately crude — a mis-split truncates the window, which can
-#: only cost a marker, never invent one.
-_SENTENCE_BREAK = re.compile(r"[.!?]\s")
-```
-
-```python
-def citation_sentence(lines: list[str], lineno: int, column: int) -> str:
-    """The sentence carrying the citation at `lineno`/`column`."""
-    lo = max(0, lineno - 1 - MARKER_WINDOW)
-    before = lines[lo : lineno - 1]
-    window = " ".join(before + lines[lineno - 1 : lineno + MARKER_WINDOW])
-    offset = sum(len(line) + 1 for line in before) + column
-
-    start = 0
-    for match in _SENTENCE_BREAK.finditer(window, 0, offset):
-        start = match.end()
-    end_match = _SENTENCE_BREAK.search(window, offset)
-    end = end_match.end() if end_match else len(window)
-    return window[start:end]
-```
-
-`citations.py` already walks `public` (`GATED_TREES`, :153-164), so this helper
-runs over the target tree today.
-
-**Half two — markup-stripping normalization over published Markdown**
-(`tools/publish_scan.py:141-150`):
-
-```python
-def normalize(text: str) -> list[str]:
-    """Lowercased word sequence with markup and code spans removed.
-
-    HTML tags go first so an element boundary inside a quoted sentence cannot
-    split a shingle; backtick code spans go next so a rendered identifier does
-    not glue two unrelated words together.
-    """
-    stripped = _CODE_SPAN_RE.sub(" ", _TAG_RE.sub(" ", text))
-    return _NON_WORD_RE.sub(" ", stripped.lower()).split()
-```
-
-**The wording to assert against — copy it, do not paraphrase it.** RESEARCH P-4
-is explicit. The canonical sentence, verified at
-`src/ccf/deployment/__init__.py:72-79` and mirrored in
-`tests/examples/test_gate_two_divergence.py:8-20`:
-
-> *"Gate 2 verifies **assembly-path integrity**: the claim transcribed into the
-> Context Product Contract equals the projection engine's execution of the plan.
-> … It does **not** detect producer misdeclaration. The engine is a *faithful
-> transcriber of the plan*, not an independent witness of it: it builds
-> `operators_invoked` and `steps` in one loop over the same operator plan …"*
-
-**And the published form already in the tree** (`public/reference/artifacts/product-registration.md:23-28`):
-
-> *"Gate 2 sits downstream of both and verifies assembly-path integrity — the
-> engine transcribes the plan faithfully rather than witnessing it
-> independently, so it cannot catch a misdeclaration (`D-IMPL-86`)."*
-
----
-
-### 6–8. `test_adoption_argument.py`, `test_advisory_discharge.py`, `test_documented_commands_exist.py`
-
-**Analog for all three:** `tools/docs_tests/test_diagram_coverage.py`.
-
-`test_documented_commands_exist.py` is the closest of the three — it is literally
-a second bijection, `Makefile` targets ↔ command strings in `public/**/*.md`.
-Copy the both-directions-reported-by-name discipline (`:88-118`):
-
-```python
-def test_no_diagram_is_orphaned() -> None:
-    """Every diagram is embedded by at least one Concepts page."""
-    orphans = sorted(diagram_names() - set(embeds_by_diagram()))
-    assert not orphans, (
-        "Phase D diagrams exist but are published by no Concepts page — they "
-        "have silently stopped being part of the documentation: "
-        + ", ".join(orphans)
-    )
-```
-
-**The Makefile side is machine-readable and stable** — `.PHONY` at `Makefile:28-36`
-enumerates every target, and `examples:` at `:112` is the composition list:
-
-```make
-.PHONY: help install lint typecheck test ci-core ci examples \
-	example-00 example-01 example-02 example-03 example-04 example-05 \
-	example-06 example-07 example-08 example-ext-00 \
-	...
-
-examples: example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 example-ext-00 ## Run all ten examples in order, stopping on first failure
-```
-
-For `test_advisory_discharge.py`, the A-8 strings to assert both halves of are
-already written at `src/ccf/deployment/manifest.py:118-138`:
-
-> *"`role` governs registration and pinning, never visibility. A `role: load`
-> artifact appearing here is still absent from `pins`, still absent from the
-> Control Plane registry, and still absent from replay dimension 2."*
-
-For `test_adoption_argument.py`, the assertion set is the **exact inverse of
-G-01's zero-hit measurement** — see RESEARCH V-7. The nearest structural sibling
-for "assert this file contains these strings, and prove the check is not
-vacuous" is `tools/docs_tests/test_openapi_drift_control.py` (below).
-
----
-
-### 9. `examples/<sec1>/run.py` — the parameterized runner body
-
-**Analog (spine):** `examples/00-quickstart/run.py`
-**Analog (CLI):** `examples/03-harness-portability/run.py:691-702`
-
-**The module docstring is the template.** `examples/00-quickstart/run.py:1-23`
-states the four things every new example's header must state — what it is, that
-it asserts nothing, that its artifacts carry everything, and its one run command:
-
-```python
-"""examples/00-quickstart — "Hello, Context Product" (EXAM-01).
-
-The smallest possible fabric, end to end and in one process: load a deployment
-manifest, ingest a handful of events through L1, assemble into the graph, run
-the four-category operator chain, project, gate, record the decision, and serve
-one typed Context Product — keyless and model-free, on SQLite and the
-file-backed ArtifactStore (D-12/D-13).
-
-This file is the **call spine** an adopter would actually write, and nothing
-else. It asserts nothing and prints nothing: its assertions live in
-``tests/examples/test_quickstart_output.py``, where they are run by ``pytest``
-and can fail a build (D-09). ``make example-00`` running clean means the spine
-executed.
-
-Every domain value — entity classes, source systems, identifiers, thresholds,
-policy versions, MAX_TTL, the query, the boundary — is loaded from
-``artifacts/*.yaml`` and enumerated by ``artifacts/manifest.yaml``. Deleting
-the artifacts leaves this file with nothing meaningful to run (CLAUDE.md §6.4,
-the No-Hardcoding Rule).
-
-Run it: ``make example-00`` (or
-``PYTHONPATH=src:runtime python examples/00-quickstart/run.py``).
-"""
-```
-
-> **This example is No-Hardcoding-compliant** and is the safe one to copy. It is
-> also the file A-1's import convention should be demonstrated from — its import
-> block (`:49-53`) already uses `from ccf.deployment import …` and never a
-> submodule FQN.
-
-**The argparse precedent** (`examples/03-harness-portability/run.py:691-702`) —
-`--backend` should mirror `--mode`'s shape, including `required=True` and the
-explicit refusal on a bad combination:
-
-```python
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--mode", choices=("deterministic", "live"), required=True
-    )
-    parser.add_argument("--provider", choices=("ollama", "anthropic"))
-    arguments = parser.parse_args()
-```
-
-⚠ **`choices=` must come from `ccf.graph.registry.declared_names()`, not a
-literal tuple.** A literal six-name tuple in an example is the substrate-name
-hardcode 15.4 removed from `DeploymentManifest.backend`; `cinv04-substrate-name`
-scopes `src/` only, so nothing in CI would catch it in `examples/`.
-
----
-
-### 10. `examples/<sec1>/artifacts/manifest-<backend>.yaml` — thin per-backend manifests
-
-**Analog:** `examples/00-quickstart/artifacts/manifest.yaml`
-
-**The `[ADAPT]` / `[MECHANISM]` header** (`:26-34`) — reproduce it, and extend
-the same two-word vocabulary to the *code* file headers for D-11 (RESEARCH D.3
-option 3; costs no new marker vocabulary):
-
-```yaml
-# [ADAPT] domain vocabulary — safe to change for your domain
-# [MECHANISM] structural keys interpreted by the factory — do not rename
-#
-# In this file: `tenant_id`, every `key`, every `path`, and the
-# non-`ccf.`-prefixed `class_id` values are [ADAPT]; the keys `semver`,
-# `tenant_id`, `backend`, `resolution_spec_key`, `policy_bundle_key`,
-# `artifacts`, `path`, `key`, `class_id`, `role` and `registration`, the
-# `ccf.`-prefixed class ids, and the `role` and `registration` values are
-# [MECHANISM].
-
-semver: "1.0.0"
-
-tenant_id: meridian-bank
-backend: sqlite
-```
-
-**The connection-string prohibition, already written** (`:11-15`) — carry it
-verbatim in spirit, because it is exactly why D-06 splits the manifest from the
-`connection=` mapping:
-
-```yaml
-# The BACKEND is declared as a kind only (D-08). There is no DSN and no
-# database path here, deliberately: a connection string is a deployment
-# ENVIRONMENT value, and putting one in a versioned, content-hashed artifact
-# would persist it into the audit plane.
-```
-
-⚠ **`load_and_boot` preflights that every entry's document lies inside the
-deployment** (RESEARCH B.2). Six sibling `manifest-<backend>.yaml` files in one
-`artifacts/` directory, all naming the same relative artifact paths, satisfies
-this. Manifests in per-backend subdirectories do not.
-
----
-
-### 11. `examples/<sec1>/artifacts/backends.yaml` — the opt-in DGX config artifact
-
-**Analog:** `examples/03-harness-portability/artifacts/live.yaml` (64 lines)
-
-**The header is the whole pattern** (`:1-27`) — an env-overridable, credential-free,
-deliberately-not-in-the-manifest configuration document:
-
-```yaml
-# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
-# Live-mode provider and runner configuration for the portability drive
-# (plan 08-11; D-03/D-04). Everything here is a *deployment* value — endpoint
-# defaults, model identifiers, auth-token placeholders, timeout and budget
-# numbers, and the drive turn a live session is sent — which is why none of it
-# is a code constant (No-Hardcoding Rule, CLAUDE.md §6.4). Environment
-# variables override the defaults recorded here:
-#
-#   CCF_OLLAMA_BASE_URL       overrides providers.ollama.default_base_url
-#   CCF_OLLAMA_MODEL          overrides providers.ollama.default_model
-#   CCF_LIVE_TIMEOUT_SECONDS  overrides runner.default_timeout_seconds
-#   ANTHROPIC_API_KEY         required for --provider anthropic (never stored)
-#
-# **Not a manifest entry, deliberately.** This document configures the opt-in
-# live legs, which are excluded from `make ci` (D-11/D-12). Naming it in the
-# manifest would make the CI leg parse and hand back configuration for a mode
-# it never enters; `run.py` loads it in `_live` and nowhere else.
-```
-
-And the key-gating precedent (`:41-44`) — the exact posture the DGX creds need:
-
-```yaml
-    anthropic:
-      # Key-gated (D-03): the key comes from ANTHROPIC_API_KEY in the
-      # environment, is never written to an artifact, and its absence is a
-      # refusal, not a fallback.
-```
-
----
-
-### 12. The network-free proof (socket guard)
-
-**Analog:** `examples/03-harness-portability/legs/deterministic.py:93-123`
-
-```python
-def install_no_model_guard() -> Iterator[None]:
-    """Fail the run if anything opens a socket (D-02, T-08-25).
-
-    **A context manager, and the scoping is not cosmetic.** The guard patches
-    two module-level names, and the drive now runs inside ``pytest`` as well as
-    under ``make example-03`` (D-09). An unscoped patch would survive the drive
-    and refuse egress for every *later* test in the same process ...
-    """
-
-    def refuse(*args: Any, **kwargs: Any) -> Any:
-        raise AssertionError(
-            "the deterministic portability drive attempted network egress; it"
-            " must run real harness machinery in-process with no model (D-02)"
-        )
-
-    connect = socket.socket.connect
-    create_connection = socket.create_connection
-    socket.socket.connect = refuse  # type: ignore[method-assign, assignment]
-    socket.create_connection = refuse  # type: ignore[assignment]
-    try:
-        yield
-    finally:
-        socket.socket.connect = connect  # type: ignore[method-assign]
-        socket.create_connection = create_connection
-```
-
-**And the fire-check that makes it evidence** (`examples/03-harness-portability/run.py:515-525`):
-
-```python
-    with install_no_model_guard():
-        # The guard is only evidence if it fires. A guard that silently failed
-        # to install would leave every "no network" claim below unbacked, so
-        # the example refuses to proceed rather than reporting a property it
-        # did not establish.
-        try:
-            socket.create_connection(("127.0.0.1", 9))
-        except AssertionError:
-            pass
-        else:  # pragma: no cover - a broken guard is a broken example
-            raise RuntimeError("the no-model guard is not installed")
-```
-
-⚠ **The always-on backend matrix uses `sqlite` and `memory` only, so a
-non-loopback guard is right; a *total* socket refusal would break nothing today
-but would forbid the localhost container path forever.** RESEARCH R-5 warns the
-planner not to resolve the container question silently — mirror that here by
-guarding non-loopback egress specifically, and stating why in the docstring.
-
----
-
-### 13. `examples/<new>/README.md`
-
-**Analog:** `examples/00-quickstart/README.md` — seven `## ` headings, in order,
-verified at `:3, 26, 62, 149, 184, 198, 229`:
-
-```
-## What this demonstrates
-## Run it
-## The story
-## Artifact-by-artifact
-## Whitepaper / CLAUDE.md sections exercised
-## What to change first
-## What would fail
-```
-
-**The template is machine-asserted**, so it is a contract rather than a
-convention — `examples/external/00-hello-context/run.py:433-455`:
-
-```python
-def _assert_seven_heading_readme() -> None:
-    """D-17/D-08: the seven Phase-13 template headings, by name, in order."""
-    readme = (_EXAMPLE_ROOT / "README.md").read_text(encoding="utf-8")
-    headings = tuple(
-        line[len("## "):].strip()
-        for line in readme.splitlines()
-        if line.startswith("## ")
-    )
-    if len(headings) != len(README_HEADINGS):
-        raise AssertionError(
-            f"README.md has {len(headings)} '## ' headings; the template "
-            f"requires exactly {len(README_HEADINGS)}: {headings}"
-        )
-```
-
-⚠ `examples/06-decision-replay/README.md:189` carries the heading **"Gate 2
-independence (INV-CH7-47)"** — the exact framing criterion 8 forbids. It dies
-with the example; **do not carry that heading forward** when writing the new
-READMEs by reference to the old ones.
-
----
-
-### 14. `tests/examples/test_<new>_output.py`
-
-**Analog:** `tests/examples/test_quickstart_output.py`
-
-**The module loader** (`:101-116`) — every example test in the tree uses this,
-and the `sys.modules`-before-`exec_module` step is not optional:
-
-```python
-def _load_example() -> Any:
-    """Load the example module by file path (the example dir is no package).
-
-    The module is registered in ``sys.modules`` *before* execution: the example
-    uses ``from __future__ import annotations``, so ``@dataclass`` resolves its
-    field annotations by looking its own module up there, and a module absent
-    from the table fails with an opaque ``AttributeError`` at class-definition
-    time rather than anywhere near the cause.
-    """
-    name = "quickstart_under_test"
-    spec = importlib.util.spec_from_file_location(name, EXAMPLE)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-```
-
-**The two-categories-of-assertion docstring** (`:54-77`) — reproduce this section
-in every new `test_*_output.py`. It is what keeps A-4 honest by construction:
-
-> * **Independent expectations.** `expected.yaml` declares what the *served
->   product* should contain. Nothing in the pipeline derives those numbers from
->   that file … so changing either side alone makes the assertion fail.
-> * **Propagation checks.** The temporal boundary, the perspective role, the
->   product's schema name and its required operator set are each read from an
->   artifact by `run.py` *and* by this module, so the artifact is a single
->   source and editing it moves both ends together …
->
-> Both belong here. Only the first is a statement about whether the fabric
-> computed the right answer, and this module does not claim otherwise.
-
-**The A-4 site, with its own honest caveat already written** (`:187-208`) — this
-is the wording SURFACE-AUDIT A-4 says must **not** be promoted as an
-independence proof, and the disclaimer must travel with the assertion:
-
-```python
-def test_every_declared_operator_actually_ran(result: Any) -> None:
-    """...
-    Still not proven here: that the two were authored rather than copied. A
-    deployment that reads one document into the other collapses the binder, and
-    this assertion goes back to comparing one value against itself with nothing
-    in the output to show for it.
-    """
-    declared = result.artifacts["product-class"]
-    assert isinstance(declared, ProductClassDeclaration)
-    assert set(declared.required_operator_keys) == set(result.operators_invoked)
-```
-
-**The genuinely independent statements** are the consumer-side ones —
-`tests/examples/test_cross_process_output.py:268` and
-`tests/examples/test_ext00_serve_output.py:275`. Those are the two the new suite
-may cite as independence.
-
----
-
-### 15. Section 2 client legs
-
-**`client_adk.py` — exact analog exists:** `examples/external/00-hello-context/client_adk.py`.
-Its import block is the whole demonstration and must stay legible:
-
-```python
-from google.adk.agents import LlmAgent
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
-from google.adk.tools.mcp_tool import McpToolset, StreamableHTTPConnectionParams
-from google.genai import types
-```
-
-Its docstring states the claim in the form the new legs should restate
-(`client_adk.py:1-16`):
-
-> *"Zero CCF imports (D-06); the only CCF knowledge is `CCF_MCP_URL` and
-> `CCF_TOKEN`."* … *"Determinism in CI is transport-level only (D-09) …
-> No CI/live branch exists."*
-
-**`client_bare.py` — exact analog**, and it is the only client leg carrying
-snippet markers (`:27, 39, 63` → `mcp-connect`, `mcp-discover`, `mcp-resource`).
-Those three names are the published decomposition of an MCP client leg; reuse
-them.
-
-**`client_claude_agent.py` — partial only.** `client_anthropic.py` drives the
-**raw `anthropic` SDK + `mcp` client**, not `claude-agent-sdk`. It is the nearest
-in-tree shape (env-configured, zero-CCF, replay-server-determinized) but it is
-not the same harness binding. RESEARCH F-2 confirms this gap.
-
-**`client_langgraph.py` — NO ANALOG.** See § *No Analog Found*.
-
----
-
-### 16. The FIBO data extension (F-1)
-
-**Analog (in-tree, No-Hardcoding-compliant):** `examples/08-e2e-demo/generator.py:1-37`
-
-```python
-"""Deterministic synthetic source-system generator for the e2e demo (DEMO-01).
-
-This module is a **pure interpreter** of ``artifacts/scenario.yaml``
-(CLAUDE.md §6.4 No-Hardcoding Rule; Phase 12 CONTEXT D-05..D-08): it holds no
-vocabulary — no source names, table names, column names, aliases, amounts, or
-lexicon words. Everything domain-specific comes from the scenario artifact;
-this code knows only mechanism roles ...
-
-Structural constraints:
-
-- **Single-writer (CLAUDE.md §10):** this module never touches the Context
-  Graph. It writes standalone SQLite *source-system* files only; rows enter
-  the fabric exclusively through ``handle.worker.ingest`` in ``run.py``.
-- **Determinism (D-08 ...):** one ``random.Random(scenario["seed"] + offset)``
-  per generation stream ... every timestamp derives from the scenario's fixed
-  ``epoch`` plus offsets — never a clock read ...
-```
-
-> **This is the single most important pattern for the F-1 data extension.** The
-> extension writes an *enterprise source estate*, never CCF's graph — which is
-> D-04's read-side/write-side split expressed as code. `generator.py`'s
-> single-writer paragraph is the sentence to reproduce.
-
-**Analog (out-of-tree, the substrate shapes):**
-`/home/parkave/fluree/examples/fibo/load_neo4j.py:1-13` — the env-first,
-placeholder-fallback connection posture and the JSONL reader:
-
-```python
-# Prefer env vars; fall back to placeholders you can edit
-URI = os.getenv("NEO4J_URI", "bolt://192.168.4.76:7687")
-USER = os.getenv("NEO4J_USER", "neo4j")
-PASSWORD = os.getenv("NEO4J_PASSWORD", "CHANGE_ME")
-
-ENTITIES = Path("mongo-entities.json")
-RELS = Path("mongo-relationships.json")
-```
-
-⚠ **`192.168.4.76` must not enter the repo as a literal in a `.py` file.**
-RESEARCH V-4(d) makes `git grep -c "192.168.4.76" -- examples/ public/ src/
-runtime/` a gate returning 0 **except** in an env-defaulted, value-free artifact.
-The `live.yaml` pattern (entry 11) is where a default endpoint legitimately
-lives; a Python constant is not.
-
----
-
-### 17. New published pages
-
-**Front matter: there is none.** Every page under `public/` opens on an H1.
-The single exception is `public/tutorial/demo-walkthrough.md:1-6`, an HTML
-comment (not YAML front matter):
+The opening contract to restate — the *"nothing here is pasted"* promise is what
+makes a docs page a gate rather than a claim (`adopters-guide.md:9-18`):
 
 ```markdown
-<!--
-  Snippet configuration for every literal include below lives in
-  `mkdocs.yml` (pymdownx.snippets `base_path: ["."]`, repo root).
-  Nothing in this page pastes code — the doc always shows the exact
-  files that run in CI.
--->
+Every block of code and every artifact on this page is **literal-included
+from an example the CI pipeline runs**. Nothing here is pasted, so nothing
+here can drift: if one of these sources moves, this page fails to build. Each
+section names the one command that runs its example, so you can reproduce
+what you are reading as you read it.
 
-# How data folds into context
+The through-line to keep in view: the code you see is thin, generic
+machinery, and everything specific to a deployment lives in versioned
+definition artifacts.
 ```
 
-**Tutorial analog:** `public/tutorial/adopters-guide.md:1-40`. Its opening states
-the include contract and the through-line — both worth restating per new
-tutorial page:
+**The seven marker regions this page includes from are verified present** in
+`examples/s1-01-hello-context-product/spine.py`, in order:
 
-> *"Every block of code and every artifact on this page is **literal-included
-> from an example the CI pipeline runs**. Nothing here is pasted, so nothing
-> here can drift: if one of these sources moves, this page fails to build. Each
-> section names the one command that runs its example, so you can reproduce what
-> you are reading as you read it."*
+| marker | line |
+|---|---|
+| `boot` | `:295`–`:306` |
+| `ingest` | `:331`–`:338` |
+| `operators` | `:340`–`:359` |
+| `project` | `:361`–`:395` |
+| `gate` | `:397`–`:547` |
+| `record` | `:549`–`:575` |
+| `serve` | `:577`–`:603` |
 
-⚠ **This page is RESEARCH R-1** — 447 lines, 35 includes, six of ten examples.
-Copy its *form*, never edit the file itself before the terminal wave.
+`tests/examples/test_spine_separation.py` asserts both the ordering and the
+closure — seven names and no eighth. Include form is
+`--8<-- "examples/s1-01-hello-context-product/spine.py:boot"`;
+`mkdocs.yml:95` sets `check_paths: true`, so a mistyped marker fails the strict
+build rather than rendering an empty block.
 
-**How-to analog:** `public/how-to/grant-and-revoke-a-skill.md:1-53`. The shape
-is: intent paragraph → "the single assertion worth carrying away" → include
-provenance line → `## Before you start` → the run command in a fenced `sh`
-block → numbered `## Step N` sections, each pairing one YAML whole-file include
-with one marker include:
+**This page is the thing that turns two of the four red `tools/` tests green.**
+`test_documented_commands_exist.py::test_every_composed_example_target_is_documented`
+fails at HEAD with exactly one offender:
+
+```
+AssertionError: these example targets run in CI but no published page names them —
+they are maintained, tested, and unfindable: example-s1-01
+```
+
+The gate reads `make <target>` **only from inline code spans and fenced blocks**,
+never running prose (`test_documented_commands_exist.py:23-31` records the
+measurement: 24 candidates with 7 false positives → 17 targets with none). So the
+page must write the command as `` `make example-s1-01` `` or in a fenced `sh`
+block. A sentence saying "run the s1-01 example" does not discharge it.
+
+---
+
+### A2. `public/how-to/assemble-a-context-product.md` (new, how-to)
+
+**Analog:** `public/how-to/grant-and-revoke-a-skill.md` (126 lines) — the closest
+structural match in the published tree, and the shape transfers whole.
+
+The shape, verified section by section:
+
+1. Intent paragraph (`:3-6`).
+2. **"The single assertion worth carrying away"** (`:11-13`) — one sentence
+   naming the property the page exists to establish.
+3. Include-provenance line (`:15-16`): *"Everything below is literal-included
+   from `examples/02-skilling`, which runs in CI on every commit."*
+4. `## Before you start` (`:18`) with the run command in a fenced `sh` block
+   (`:28-30`) and what exit 0 means (`:32-33`).
+5. Numbered `## Step N — <verb>` sections, each pairing one whole-file YAML
+   include with one marker include:
 
 ````markdown
-Run the worked example at any point with:
-
-```sh
-make example-02
-```
-
-Exit 0 means every assertion held, including the refusal — the example fails
-if the governance check does not fire.
-
-## Step 1 — declare the catalog
-
-...
-
 ```yaml
 --8<-- "examples/02-skilling/artifacts/skill-catalog-enrollment-metrics.yaml"
 ```
@@ -912,31 +257,516 @@ nothing — a catalog entry is an offer, not a capability:
 ```
 ````
 
-**Reference (artifact) analog:** `public/reference/artifacts/product-registration.md:1-40`.
-Shape: intent paragraph → bare `:::` mkdocstrings directives → `## Worked
-example` → whole-file YAML includes with prose explaining *what the document
-does not declare and why*.
+6. `## What to change first` (`:109`) — naming the artifact an adopter edits
+   first and what happens when they do.
 
-**Reference (protocol) analog:** `public/reference/protocols/context-products.md:1-33`.
-Nearly all `:::` directives, plus the cross-link discipline that avoids the
-strict build's duplicate-identifier failure:
+**This is G-01's named gap** — the UAT found no how-to for deterministic Context
+Product assembly. The step sequence is the spine's seven markers; the artifact
+side is the nineteen documents under
+`examples/s1-01-hello-context-product/artifacts/` (verified: `manifest.yaml`,
+`product-class.yaml`, `product-governance.yaml`, `request-contract.yaml`,
+`questions.yaml`, `projection-requirements.yaml`, `perspective.yaml`,
+`policy-bundle.yaml`, `resolution-spec.yaml`, `half-life-table.yaml`,
+`debt-profile.yaml`, `events.yaml`, `source-estate.yaml`, `ubo-question.yaml`,
+`expected.yaml`, and four `operator-parameters-*.yaml`).
 
-> *"The registration surface a product class is served under … is generated
-> once, on [Context Product registration](../artifacts/product-registration.md),
-> because it is an authoring artifact rather than a runtime Protocol. Rendering
-> it twice would give the same identifier two primary URLs, which the strict
-> build refuses."*
+⚠ **Gate-2 wording is machine-enforced on this page.** See § *Shared Patterns →
+The Gate-2 gate*.
 
-**Concept analog:** `public/concepts/invariants.md:1-33`. The per-invariant
-triple — **The promise. / Why the architecture forces it. / How it is enforced.**
-— plus a mermaid include. That triple is the right template for a page teaching
-the six axes of `G`, with each axis mapped to its observable surface (RESEARCH
-C.1's table).
+---
 
-**Nav registration** — `mkdocs.yml` `nav:` enumerates every path explicitly with
-**no globs**, and under `validation.nav.omitted_files: warn` + `--strict`, a new
-page absent from nav *fails the build* and a nav entry whose file was deleted
-*fails the build*. Copy the existing indentation and the section grouping:
+### A3. `public/concepts/context-graph-axes.md` (new, concept)
+
+**Analog (form only):** `public/concepts/invariants.md`. **Content: NO ANALOG** —
+see § *No Analog Found*.
+
+The per-item triple to reproduce (`invariants.md:12-33`):
+
+```markdown
+## Single writer to the graph
+
+**The promise.** Exactly one component holds a write handle to the Context
+Graph: L2 Context Assembly. Nothing else can write, under any circumstance.
+
+**Why the architecture forces it.** Lineage is only trustworthy if every
+assertion in the graph passed through the one place that stamps policy bindings
+and resolves entities and time. ...
+
+**How it is enforced.** The reader and writer are separate protocols, and the
+writer handle is supplied by dependency injection at boot — a read-path
+constructor is never given one, so a direct write is not merely forbidden but
+unrepresentable. ...
+```
+
+Its framing sentence is the standard to hold each axis to (`:8-10`):
+
+> *"An invariant with no named enforcement is an aspiration, and the SDK does not
+> ship those."*
+
+For a six-axes page the analogous discipline is: **each axis names its observable
+surface in the shipped code**, not a definition. The spine gives six ready
+anchors — `E`/`R` at `spine.py:344` (`reader.as_of`), `T` at `:345`
+(`temporal_boundary`), `P` at `:449` (`booted.pins.version_for(policy_bundle_key)`),
+`Π` at `:372-394` (`plan_class` → `ProjectionEngine.execute`), `L` at `:463-467`
+(`ProductLineage`).
+
+The page may embed a mermaid diagram the same way `invariants.md:31-33` does;
+`public/diagrams/` sources are already allowlisted for include
+(`tools/publish_scan.py:104-108` permits `public/`).
+
+---
+
+### B1. `public/concepts/pillars/data-context.md` (modify — the G-01 fix)
+
+**The defect, verified at `:3-6`** — this is the page's *first sentence*:
+
+```markdown
+This pillar is where the fabric earns its name. It is the SDK's answer to a
+single question: *how does an agent get at first-party records, third-party
+feeds, and material produced by other agents — in a form that is typed, fresh
+enough to act on, governed, and reconstructible afterwards?*
+```
+
+`D-12` closes this **by construction**: Section 1 is agent-free, so the opening
+question becomes a question about *assembly*, not about an agent's access.
+
+**What is already correct on the page and must survive the edit** — `:20-30`
+already states derivation-not-storage, modelled decay, and single-writer, and
+`:38-45` carries the L1–L6 table. The mermaid include at `:58-60` and the
+artifact-store seam include at `:74-76` are live diagram couplings; moving them
+breaks `tools/docs_tests/test_diagram_coverage.py`'s bijection (that gate is
+**under `tools/`, so `make ci` will not catch it** — CI step `ci.yml:314` will).
+
+**Prose analog for the rewrite:** `public/reference/artifacts/deployment-manifest.md`
+is the tree's newest page written against the post-15.4 surface (created by
+`16-06`) and is the right register — declarative, mechanism-first, with the
+subtlety stated in full rather than gestured at. Its `:56-64` paragraph is the
+model for saying a hard thing completely:
+
+```markdown
+The subtlety that has to be stated in full, because half of it misleads: a
+`role: load` artifact **is** returned to the caller on `BootedFabric.artifacts`,
+keyed by its manifest key, exactly as a `role: register` one is — **and** it is
+still absent from `pins`, still absent from the Control Plane registry, and
+still absent from replay dimension 2.
+```
+
+---
+
+### B2. `public/reference/protocols/context-products.md` (modify — 29 lines, stale prose)
+
+**The stale prose, verbatim at `:3-7`** — it frames the whole product surface as
+the three gates and names nothing from 15.5/15.6:
+
+```markdown
+The Context Product Contract is the SDK's stable wire surface: everything that crosses a
+process, a harness or an organizational boundary crosses as one of these. `CCFContract` is the
+typed base every contract inherits. The gate surfaces below are the three validation gates a
+product must clear before the delivery layer will serve it — an empty operator plan, a lineage
+mismatch and a TTL breach are each a refusal, never a warning.
+```
+
+**What must be added, verified in the code** — `src/ccf/products/contract.py:664-676`:
+
+```python
+    schema_name: str
+    schema_version: str
+    plan_id: str
+    tenant_id: str
+    temporal_boundary: datetime
+    expires_at: datetime
+    ttl_anchor: TTLAnchor
+    lineage: ProductLineage
+    payload: Mapping[str, Any]
+    debt: DebtAssessment | None = None
+    debt_evidence: DebtEvidence = NO_DEBT_EVIDENCE
+    source_refresh_recency: SourceRefreshRecency = NO_SOURCE_REFRESH_RECENCY
+    obligation_in_force: ObligationInForce = NO_OBLIGATION_IN_FORCE
+```
+
+⚠ **Three prohibitions this page must respect, all ruled.**
+
+1. **`debt_evidence` is a carrier holding a sentinel, not a feature.**
+   `D-IMPL-119` limb 3(b) forbids populating it. The page must not describe a
+   surface in which debt points at named observations today. The reasoning to
+   cite is written in the tree at `deployment.py:305-340`.
+2. **`source_refresh_recency` publishes no source identity and no count**
+   (`D-IMPL-124` Shape B). The per-source map was deleted deliberately.
+3. **There is no fourth gate.** `run_gates` is untouched; payload-schema
+   conformity is checked at bind, not at a gate (`D-IMPL-102` limb 3).
+
+**Structural analog:** the page's own existing cross-link discipline at `:15-19`
+is correct and must be preserved verbatim in spirit — rendering
+`RegisteredProductClass` on two pages gives one identifier two primary URLs,
+which `strict: true` (`mkdocs.yml:22`) refuses.
+
+---
+
+### B3. `public/reference/protocols/halflife-and-debt.md` (modify — 18 lines)
+
+**Analog:** `public/reference/artifacts/control-plane-artifacts.md` — the
+`:::`-directives-then-`## Worked examples` shape, at `:11-43`:
+
+```markdown
+::: ccf.controlplane.artifacts.DeclaredArtifact
+
+::: ccf.controlplane.artifacts.HalfLifeTable
+
+## Worked examples
+
+Each artifact class is its own document. A file is not an artifact: the two
+calibrations below are separate classes with separate version lanes, so they
+are separate documents, each validated closed-world against its own contract.
+
+The half-life table:
+
+```yaml
+--8<-- "examples/00-quickstart/artifacts/half-life-table.yaml"
+```
+```
+
+⚠ **The include target is a live coupling.** Both this page and
+`product-registration.md` currently include from `examples/00-quickstart/artifacts/`.
+`examples/00-quickstart` does **not** retire this phase (terminal retirement is
+`16-18`, deferred to 16.1), so re-cutting at
+`examples/s1-01-hello-context-product/artifacts/` is a choice, not an obligation
+— but if a page is re-cut, `tools/docs_tests/test_no_stale_example_paths.py`
+verifies both the include half and the running-prose half, and it is **under
+`tools/`, not in `make ci`**.
+
+**What the current page omits, verified:** it renders six symbols
+(`Observation`, `effective_half_life`, `context_debt`, `DebtFactors`,
+`DebtSignal`, `DebtFactorScorerProtocol` at `:8-18`) and names none of
+`DebtAssessment`, `DebtEvidence`, `SourceRefreshWindow`, `ObligationInForce`, or
+`Observation.subject` (`src/ccf/halflife/decay.py:188`).
+
+---
+
+### C1. `tools/docs_tests/test_advisory_discharge.py` — widening the A-3 floor
+
+**Analog: itself.** The floor is one tuple, verified at `:96-105`:
+
+```python
+#: A-3's floor: the published tree must speak the vocabulary of the surface
+#: that shipped in Phases 15.2–15.4. Every one of these was measured at **zero**
+#: occurrences across `public/` when the audit was written.
+A3_REQUIRED_TOKENS: tuple[str, ...] = (
+    "load_and_boot",
+    "backend",
+    "ccf backends",
+    "GraphQuery",
+    "registry",
+)
+```
+
+Every token is 15.2–15.4 vocabulary. The gate passes today over a tree that says
+nothing about 15.5 or 15.6. **`16-06` discharged A-3 correctly against the surface
+at its own HEAD; the surface then moved.** Widening the tuple is the whole edit.
+
+**The measured vocabulary gap the widened floor should close** (research §3.3,
+occurrences across all 43 pages of `public/`): `ProductRequest` **0**,
+`refuse_request` **0**, `payload schema` **0**, `SourceRefreshWindow` **0**,
+`ContextAssembler` **0**, `entitlement` 1, `DebtAssessment` 1, `assembler` 1.
+
+**The module's own two shape conventions to preserve** (`:32-48`): a floor that
+would rot silently is refused in favour of a run-time comparison against
+`inspect.signature`, and non-vacuity is proven by an injecting control rather
+than by a corpus floor. A widened tuple inherits neither property, so the
+widening must come with its control — see § *Shared Patterns → Negative controls*.
+
+⚠ **CI reachability.** This file is under `tools/docs_tests/`. `pyproject.toml:142`
+(`testpaths = ["tests"]`) means `make ci` never runs it. Only
+`.github/workflows/ci.yml:314` does.
+
+---
+
+### C2. `Makefile` — the `ci:` composition (DOCS-08, the option-(b) remedy)
+
+**Analog:** the target as it stands, `Makefile:70` and `:81`:
+
+```make
+ci-core: lint typecheck test ## Mid-phase verification sweep — MUST stay green from Wave 1 onward
+
+ci: ci-core examples docs-strict ## Full local reproduction of the always-on pipeline (D-10)
+```
+
+**The command string to compose in** is the one CI already runs, so the two stay
+identical command-for-command (D-10). `.github/workflows/ci.yml:34-35`:
+
+```yaml
+      - name: Lint checker unit tests (CINV-01/02/03 + citations)
+        run: pytest tools/lints/tests -q
+```
+
+and `ci.yml:313-314`:
+
+```yaml
+      - name: Docs-gate checker unit tests (publish scan + docs gates)
+        run: pytest tools/publish_scan_tests tools/docs_tests -q
+```
+
+Both CI steps carry the same comment, and it is the sentence that documents the
+hole (`ci.yml:307-310`):
+
+```yaml
+      # The docs checkers are the enforcement mechanism for the publish gate,
+      # so they are themselves tested in CI. `pytest tests` in the test job does
+      # not reach them (testpaths is the shipped suite and stops at `tests`);
+      # run them here, before the gate they implement.
+```
+
+⚠ **The sequencing hazard, measured.** Composing all three suites into `make ci`
+turns the *other* failures red inside `make ci`. At `6e95da0` there are four:
+
+| Failing test | Owner |
+|---|---|
+| `tools/publish_scan_tests/test_docstring_leaks.py::test_no_docstring_reproduces_whitepaper_body_text` | **`DI-15.6-01(b)` — this phase (C3)** |
+| `tools/docs_tests/test_documented_commands_exist.py::test_every_composed_example_target_is_documented` | closes as a side effect of **A1** |
+| `tools/docs_tests/test_documented_commands_exist.py::test_the_gate_refuses_an_undocumented_composed_example` | same — it depends on the same corpus |
+| `tools/docs_tests/test_retirement_sweep.py::test_the_committed_report_is_current` | `DI-15.6-02`, deferred to 16.1 |
+
+So the residual after this phase's own work is **one row**, not three
+(research assumption A3, now measured). This is research §7 Q-1's decision.
+
+**Precedent for how a target legitimately joins `ci`** — `Makefile:76-80` records
+that `docs-strict` joined *"never as a half-armed or dead target"*, which is the
+standard the new composition must meet.
+
+---
+
+### C3. The five module-docstring leaks (`DI-15.6-01(b)`, the closure half)
+
+**The gate that finds them** — `tools/publish_scan_tests/test_docstring_leaks.py`,
+226 lines. Its rule is the one constraint on the fix (`:9-12`):
+
+```python
+Rewriting a docstring to pass this test must never mean deleting its
+whitepaper section citation — CLAUDE.md §11 requires the citation, and trading
+a leak for a fidelity defect is not a fix.
+```
+
+**Why it is not in a blocking gate, in the gate's own terms.** It walks *every*
+docstring under `src/` and `runtime/` (`:30-43`, `DOCUMENTED_TREES = ("src", "runtime")`)
+— module, class/function, PEP-258 attribute (`:46-53`) and `#:` runs. The three
+scanners that *are* blocking read the published tree, the 26 committed JSON
+schemas, and the built site (`Makefile:271-274`). **The two do not disagree about a
+shared surface; they cover different surfaces, and the wider one does not block.**
+
+**The five, reproduced this session:**
+
+| File | Node | Hits | Module docstring spans |
+|---|---|---|---|
+| `src/ccf/deployment/binder.py` | `<module>` | 7 | lines 1–153 |
+| `src/ccf/halflife/assessment.py` | `<module>` | 15 | lines 1–96 |
+| `src/ccf/halflife/debt.py` | `<module>` | 14 | lines 1–68 |
+| `src/ccf/products/composition.py` | `<module>` | 3 | lines 1–108 |
+| `src/ccf/products/request.py` | `<module>` | 1 | lines 1–93 |
+
+**What a leak actually looks like** — run through `scan_text` with
+`whitepaper_shingles()` this session:
+
+```
+src/ccf/products/request.py:1 pub01-whitepaper-shingle reproduces whitepaper body text:
+    'the difference between the verb aggregate and the verb assemble'
+src/ccf/products/composition.py:1 pub01-whitepaper-shingle reproduces whitepaper body text:
+    'refuses to assemble a product that silently mixes the two'
+src/ccf/products/composition.py:1 pub01-whitepaper-shingle reproduces whitepaper body text:
+    'temporal validation refuses to assemble a product that silently mixes'
+```
+
+⚠ **The `request.py` phrase is also in `spine.py:15`** — *"the difference between
+the verb aggregate and the verb assemble"*. The gate does not scan `examples/`,
+so it does not fire there, but a phase closing this leak in `src/` and leaving the
+identical sentence in an example is closing half of it. Verify before deciding; it
+may be in scope, it may be 16.1's.
+
+**`D-IMPL-96` (Dave, 2026-08-10) revoked the "no fabric changed" wording**, so a
+docstring rewrite in `src/` needs no carve-out and `D-13`'s exception is void
+along with it. ROADMAP criterion 10 now reads *"changes to the fabric itself are
+permitted and expected where this phase finds a defect."*
+
+---
+
+### D1. `examples/s1-01-hello-context-product/` (the reference; no better analog exists)
+
+If `16-05` Task 3's checkpoint is re-scoped (research §7 Q-3, Dave's call), the
+modules it reads are 615 + 811 lines and have changed under six plans since the
+checkpoint was written.
+
+**The `D-11` separation, stated in the file itself** — `spine.py:18-33`, and this
+is the sentence any published page describing the split should quote rather than
+paraphrase:
+
+```python
+**This file is the fabric's half of answering it.** [MECHANISM] The CCF call
+spine — every line here is a fabric call an adopter must make. Which company,
+at which instant, under which threshold, and which resolved class counts as a
+natural person are none of its business.
+
+[ADAPT] nothing. There is no domain vocabulary in this file: no entity class, no
+source system, no identifier, no threshold, no policy version, no query and no
+boundary. Everything specific to *this* deployment lives in ``deployment.py``
+beside it, and in ``artifacts/*.yaml`` beside that.
+
+That separation is the point of this example (phase 16 CONTEXT `D-11`). The
+complaint it answers is a reader's, in a reader's words: *"I can't tell from
+looking at the code which code is example code and which code is required by
+the CCF."*
+```
+
+**`Scenario` is the only Protocol** (`spine.py:123`) and the two modules are held
+together structurally (`:57-62`): *"``deployment.py`` imports nothing from this
+module and this module imports nothing from it."* The `16-05-SUMMARY.md` claim of
+two Protocols including `DeploymentBinding` is **false at HEAD** — that class was
+deleted at `6b87a8f`.
+
+**The assertion ban** (`spine.py:69-70`): *"This file asserts nothing and prints
+nothing. Its assertions live in ``tests/examples/test_s1_01_output.py``."*
+
+---
+
+## 3. Shared Patterns
+
+### The Gate-2 gate — applies to every page this phase writes
+
+**Source:** `tools/docs_tests/test_gate_two_wording.py` (304 lines, shipped by
+`16-04`). ⚠ **Under `tools/` — `make ci` does not run it; `ci.yml:314` does.**
+
+This is a **standing** gate whose subject is pages that do not exist yet
+(`:16-22`): *"A one-off sweep protects the tree it swept; a gate protects
+everything written afterwards."*
+
+Two assertions, deliberately different in shape (`:56-86`):
+
+```python
+GATE_TWO = re.compile(r"INV-CH7-47|lineage strict equality|\bGate 2\b", re.IGNORECASE)
+CORRECTION = re.compile(r"assembly-path integrity", re.IGNORECASE)
+CHARACTERIZES = re.compile(
+    r"\b(?:verif(?:y|ies|ying)|establish(?:es|ing)?|prove[sd]?|proving"
+    r"|witness(?:es|ing)?|confirm(?:s|ing)?|guarantee(?:s|ing)?"
+    r"|attest(?:s|ing)?|demonstrat(?:e|es|ing))\b", re.IGNORECASE)
+INDEPENDENCE = re.compile(r"\bindependent(?:ly)?\b", re.IGNORECASE)
+```
+
+**Practical rule for an author:** a paragraph that *characterizes* what Gate 2
+verifies must contain the literal phrase **"assembly-path integrity"**, or state
+the point in the negative with a word-bounded negation in the same *sentence*.
+A bare enumeration of the three gates is exempt by design (`:37-43`) — two
+paragraphs in `public/concepts/invariants.md` and
+`public/concepts/replay-anatomy.md` rely on that exemption today.
+
+**The canonical wording to copy, never paraphrase** — `spine.py:441-448`:
+
+```python
+        #    What Gate 2 then verifies is ASSEMBLY-PATH INTEGRITY: the claim
+        #    transcribed into this Contract equals the engine's execution of the
+        #    plan. The engine is a faithful TRANSCRIBER of the plan rather than
+        #    an independent witness of it — it builds `operators_invoked` and
+        #    `steps` in one loop over the same operator plan, so there is no
+        #    return path where invoked != planned. Gate 2 therefore does not
+        #    catch a producer misdeclaring. Authorable drift fails upstream
+        #    instead, at the binder call in step 5.
+```
+
+**The already-published form**, `public/reference/artifacts/product-registration.md:25-28`:
+
+> *"Gate 2 sits downstream of both and verifies assembly-path integrity — the
+> engine transcribes the plan faithfully rather than witnessing it independently,
+> so it cannot catch a misdeclaration (`D-IMPL-86`)."*
+
+---
+
+### Paragraph scoping — `_prose.py` is the shipped helper; do not re-derive it
+
+**Source:** `tools/docs_tests/_prose.py` (262 lines). **This closes the old map's
+`NO ANALOG` row.** Its docstring at `:5-12` cites that row by name.
+
+`REPO_ROOT` resolves from the file, never the CWD (`:64`) — the WR-04 failure.
+`PUBLIC_DIR` at `:68`. The API a new gate uses:
+
+| Symbol | Line | What it gives you |
+|---|---|---|
+| `Paragraph` | `:83` | `text` (markup-stripped, **casing preserved**), `lineno`, `raw` (nothing stripped), `fenced`, `info` |
+| `paragraphs(text)` | `:129` | every paragraph of one page, fences emitted whole |
+| `sentence_at(text, offset)` | `:209` | the sentence carrying a match — scoping a qualification to the claim's own sentence |
+| `published_pages(root=None)` | `:224` | every `.md` under `public/` |
+| `iter_paragraphs(pages, *, prose_only=True)` | `:235` | `(page, paragraph)`, skipping fences for a *wording* gate and not for a *command* gate |
+| `relative(path)` | `:252` | repo-relative POSIX for a failure message |
+
+Three properties a new gate must not accidentally undo:
+
+1. **Casing is preserved** (`:38-43`) — matching is case-insensitive at the call
+   site; lowercasing the corpus makes it impossible to report an offending phrase
+   as the page spells it.
+2. **Fenced blocks are marked, not dropped** (`:45-49`) — a wording gate skips
+   them, a command gate reads them.
+3. **`raw` vs `text`** — `test_no_stale_example_paths.py:50-53` records the one
+   gate that wants `raw`: a path in prose is almost always an inline code span,
+   and `text` strips code spans by design, so scanning `text` "would find
+   approximately nothing and report green forever."
+
+**The warning sign, in the module's own words** (`:33-36`): *"A plan step spelled
+``grep -rn "<phrase>" public/`` is the thing this module exists to remove."*
+
+---
+
+### Negative controls — apply to every gate this phase widens
+
+**Sources, both verified:**
+- `tools/docs_tests/test_openapi_drift_control.py:50-74` — both polarities on
+  every run, victim chosen as *whichever path sorts first, never a literal
+  endpoint name*, so route churn cannot turn the control into a no-op.
+- `tools/docs_tests/test_documented_commands_exist.py::test_the_gate_refuses_an_undocumented_composed_example`
+  — mutates the Makefile text **in memory rather than on disk**.
+
+**Apply to:** the widened `A3_REQUIRED_TOKENS`. A widened matcher with an
+unwidened control is a widening nobody proved.
+
+---
+
+### Vacuous-pass preconditions
+
+**Source:** `tools/publish_scan_tests/test_docstring_leaks.py:25-28`, and
+`tools/docs_tests/_prose.py:59-63` carries the same finding:
+
+```python
+#: The repo root, resolved from this file rather than from the process CWD:
+#: a CWD-relative walk yields zero files off-root and turns the gate below
+#: into a test that passes over nothing (WR-04).
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+```
+
+Any new gate module opens with that line and carries a
+`test_the_walk_does_not_depend_on_the_process_cwd` companion.
+
+---
+
+### Publication mechanics — the four facts every new page is subject to
+
+All verified in `mkdocs.yml` and `Makefile`:
+
+| Fact | Where |
+|---|---|
+| `docs_dir: public` — publication is **default-deny by existence** | `mkdocs.yml:17` |
+| `strict: true` — any warning is fatal, even without `--strict` on the CLI | `mkdocs.yml:22` |
+| `check_paths: true` — a mistyped snippet target fails the build instead of rendering empty | `mkdocs.yml:95` |
+| nav enumerates every path explicitly, **no globs**; `validation.nav.omitted_files: warn` + strict means a page absent from nav fails the build | `mkdocs.yml:38-39`, `:113-166` |
+
+`make docs-strict` is four steps (`Makefile:271-274`), and it is in `make ci`
+(`Makefile:81`) per `D-IMPL-72`:
+
+```make
+docs-strict: ## Blocking docs gate: pre-build scan + schema scan + strict build + site scan (D-IMPL-72, D-02, DCD-11)
+	$(ENV_DOCS) $(PYTHON) tools/publish_scan.py --pre-build
+	$(ENV_DOCS) $(PYTHON) tools/publish_scan.py docs/schemas
+	$(ENV_DOCS) $(PYTHON) -m mkdocs build --strict
+	$(ENV_DOCS) $(PYTHON) tools/publish_scan.py site
+```
+
+Snippet includes are a **positive allowlist** (`tools/publish_scan.py:104-112`) —
+`examples/`, `public/`, `perf/baselines/`, plus the single file `openapi.json`.
+
+**Nav entry form to copy** (`mkdocs.yml:118-121`):
 
 ```yaml
   - How-to:
@@ -946,448 +776,115 @@ page absent from nav *fails the build* and a nav entry whose file was deleted
       - Grant and revoke a skill: how-to/grant-and-revoke-a-skill.md
 ```
 
-**Citation form (`cite01/02/03`).** Verified: **`public/` carries zero
-`file.py:NNN` citations today.** Both greps returned empty. The in-use form for
-pointing at mechanism is (a) a backticked decision id — `` `D-IMPL-86` ``,
-`` `INV-CH7-47` `` — and (b) an mkdocstrings `:::` directive. The safest posture
-for new pages is to keep it that way; if a source citation is unavoidable, use
-`module.py::symbol`, never `module.py:NNN`.
+⚠ `mkdocs.yml:109-112` carries a **hand-maintained count** — *"it lists 42 pages
+… for the 43 markdown files under `public/`."* Three new pages make it 45 / 46.
+The comment is prose, so nothing fails if it is not updated; that is precisely
+why it rots.
 
-**Include-path allowlist.** `tools/publish_scan.py:104-112` is a **positive**
-allowlist — a new example directory outside `examples/` fires
-`pub04-include-escape`:
+---
+
+### The day-1 import convention (A-1), already gated
+
+**Source:** `public/reference/artifacts/deployment-manifest.md:11-25`; enforced by
+`tools/docs_tests/test_advisory_discharge.py:83-84`:
 
 ```python
-INCLUDE_ALLOWED_PREFIXES: tuple[str, ...] = (
-    "examples/",
-    "public/",
-    "perf/baselines/",
-)
-
-#: Individual repo-root files the published tree legitimately embeds. Kept
-#: separate from the prefixes so a root-level file cannot open a whole tree.
-INCLUDE_ALLOWED_FILES: frozenset[str] = frozenset({"openapi.json"})
+PREFERRED_IMPORT = "from ccf.deployment import"
+SUBMODULE_IMPORT = re.compile(r"from\s+ccf\.deployment\.[A-Za-z_][A-Za-z0-9_]*\s+import")
 ```
+
+Every new page writes `from ccf.deployment import X`. **No page anywhere may
+write `from ccf.deployment.<submodule> import`.** `spine.py:64-67` states the
+same rule for example code and `:90-95` obeys it.
 
 ---
 
-### 18. `.github/workflows/live-legs.yml` — the DGX opt-in job
+## 4. No Analog Found
 
-**Analog:** `live-legs.yml::examples-live-anthropic` (:94-138) — the two
-load-bearing parts are the dispatch-only guard and the fail-fast secret step:
+| File / pattern | Role | Nearest partial | Why it is not an analog |
+|---|---|---|---|
+| `public/concepts/context-graph-axes.md` — **the content** | doc (concept) | `public/concepts/invariants.md` (promise / why / enforcement triple, 175 lines) | The *form* transfers. The *content* does not exist anywhere: `public/concepts/whitepaper-index.md` carries the axes only as a table row, and a grep for "six axes" across `public/` returns hits about the six **specialization axes of an agent**, which is a different six. This is genuinely new writing. The observable-surface anchors in `spine.py` (entry A3) are the material to write from. |
 
-```yaml
-  examples-live-anthropic:
-    name: example 03 live leg (Anthropic, secret-gated — D-11)
-    runs-on: ubuntu-latest
-    # Dispatch only, same reason as the Ollama leg above — and one sharper: a
-    # scheduled run of this job spends real API credit weekly, and on a
-    # repository without the secret it would go red every Monday for a reason
-    # unrelated to anything anyone changed.
-    if: github.event_name == 'workflow_dispatch'
-    timeout-minutes: 15
-
-    steps:
-      - uses: actions/checkout@v4
-
-      # Fail fast with a clear message when the secret is absent, before any
-      # setup work. The key reaches only this job and is never echoed
-      # (T-08-28); the deterministic pipeline in ci.yml is keyless.
-      - name: Require ANTHROPIC_API_KEY secret
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          if [ -z "$ANTHROPIC_API_KEY" ]; then
-            echo "::error::ANTHROPIC_API_KEY secret is not configured for this" \
-              "repository. Add it under Settings > Secrets and variables >" \
-              "Actions, then re-dispatch this workflow."
-            exit 1
-          fi
-          echo "ANTHROPIC_API_KEY secret is present."
-```
-
-**The `.venv` provisioning step is mandatory** for any job invoking a `make`
-target — it is what makes the CI and local command strings identical (D-10),
-and it appears in every job in both workflows:
-
-```yaml
-      # The Makefile targets use .venv/bin/python; provide the venv the same
-      # editable install the job already has, so CI and local runs execute the
-      # identical `make examples` command string (D-10).
-      - name: Provision .venv for the Makefile command surface
-        run: |
-          python -m venv .venv
-          .venv/bin/pip install -e ".[dev]"
-```
-
-⚠ **Do not copy the `ci.yml` service-container credential pattern for the DGX.**
-RESEARCH B.3: `ccf_test_password` in the workflow file is acceptable only because
-the container is ephemeral and localhost-only. DGX credentials are real, and go
-through `${{ secrets.* }}` + `backend_secrets: [{field, env_var}]`.
-
-**The Makefile leg pattern to mirror** (`Makefile:138-155`) — env-overridable URI
-default, `CCF_REQUIRE_*=1` so a skip is a failure, `-rs` so skips are reported:
-
-```make
-leg-neo4j: ## Neo4j leg against a real server — Cypher pushdown byte-identical to the fallback (plan 15.2-12)
-	$(ENV) CCF_REQUIRE_NEO4J=1 CCF_TEST_NEO4J_URI=$(CCF_TEST_NEO4J_URI) \
-		$(PYTHON) -m pytest tests -q -m neo4j -rs
-```
+**That is the only one.** Everything else the previous map listed as NO ANALOG has
+either shipped (`_prose.py`, the Gate-2 gate) or deferred to 16.1 with the work
+it belonged to (the adoption-argument page, `client_langgraph.py`, `gate_16.py`).
 
 ---
 
-### 19. `make gate-16` — HISTORY-ONLY ANALOG
+## 5. Deferred to Phase 16.1 — verified analog pointers, so 16.1 need not re-derive
 
-**`make gate-15.3` does not exist in the tree.** It was retired by plan 15.4-07
-(commit `d364b65`, *"retire the D-IMPL-92 line-budget gate, replaced not
-removed"*). `Makefile:153-158` carries the retirement note in prose. The gate is
-recoverable, and `D-GATE-15.4` records the SHA deliberately so it stays
-retrievable.
+R-1 defers these. Pointers verified this session; excerpts deliberately omitted
+because the surface will move again before 16.1 plans.
 
-**Recover it with:**
-
-```
-git show 50e79e7:Makefile              # the target, lines 145-151
-git show d364b65^:tools/gates/gate_15_3.py
-```
-
-**The target** (`git show 50e79e7:Makefile:150-151`):
-
-```make
-gate-15.3: ## Phase 15.3 permitted-change-surface gate — D-IMPL-92 layer 2 (blocking, D-07)
-	$(ENV) $(PYTHON) -m tools.gates.gate_15_3
-```
-
-**The three disciplines to inherit** (from `gate_15_3.py`'s own docstring, at
-`d364b65^`):
-
-1. **Location.** `tools/gates/`, not `tools/lints/` — *"the check lives with the
-   phase rather than in `tools/lints`, because it asserts a fact about one
-   phase's diff, not a standing invariant."*
-2. **Output contract, copied from `tools/lints` and nothing else.** Findings as
-   `path:line rule message` on stdout, summary on stderr, `return 1` on any
-   finding, one named `RULE_*` constant per rule. **No report-only mode** —
-   *"the exit code is the only gate signal, because a non-blocking mode is how
-   an invariant quietly stops being one."*
-3. **Two visibly-distinct layers.** LAYER 1 NORMATIVE (the claim, quoted) and
-   LAYER 2 MECHANICAL (the approximation that runs). *"a reader must be able to
-   tell them apart."*
-
-⚠ **And inherit its failure mode as a warning.** `D-GATE-15.4` records that
-`gate_15_3.py` was pinned to one commit range and one adapter by construction
-(`PHASE_BASE`, `ADAPTER_MODULE`), and crashed with `KeyError: 'enum'` when run
-once before removal. A `gate_16.py` should state its own expected supersession.
-
-**Criterion 10's assertion, with D-13's carve-out** — RESEARCH V-10 plus
-CONTEXT D-13: `git diff --stat <base>..HEAD -- src/ runtime/` carries **one
-enumerated exception** (the `ProductClassDeclaration` docstring in
-`src/ccf/controlplane/artifacts.py`), not zero.
+| Deferred work | Analog verified to exist at `6e95da0` | Note |
+|---|---|---|
+| Six-backend matrix (`16-07`, criterion 4) | `tests/conftest.py` — `fluree_url` fixture at `:237`, `FLUREE_URL_ENV = "CCF_TEST_FLUREE_URL"` at `:229`, `FLUREE_REQUIRED_ENV = "CCF_REQUIRE_FLUREE"` at `:234`; `pyproject.toml:148` registers the `fluree` marker; `Makefile:146` `CCF_TEST_FLUREE_URL ?=`, `:152` `legs:`, `:166` `leg-fluree:` | The skip-vs-fail posture (`CCF_REQUIRE_*` turns an unreachable server from a skip into a failure) is the pattern; `conftest.py:232-234` states the reason |
+| Backend selection without a cascade | `src/ccf/graph/registry.py:624` `declared_names()` | Selection stays manifest → registry lookup. `examples/s1-01-…/artifacts/manifest.yaml` declares the backend as a **kind** only; the connection value is caller-supplied at boot |
+| `tools/docs_tests/test_adoption_argument.py` | `tools/docs_tests/test_openapi_drift_control.py` (74 lines) for the both-polarities control; `_prose.py` for the corpus | Depends on the adoption page, deferred with it |
+| `tests/examples/test_backend_matrix.py` | `tests/conformance/` + `tests/conftest.py` | ⚠ **`16-07`'s byte-identity claim now rests on `debt` (a 28-digit `Decimal` computed off `execution.view`) being substrate-stable. Nobody has measured it.** A task, not an assumption |
+| Terminal retirement of `examples/00`–`08` | `tools/retirement_sweep.py`; `tools/docs_tests/test_retirement_sweep.py` | `test_snippet_gate.py:50-52` records that plan `16-18` repoints **both** its constants at the Section-1 spine when `examples/00-quickstart` retires |
+| `client_langgraph.py`, Section-2 legs | `examples/external/00-hello-context/client_{bare,adk,anthropic}.py` | `client_langgraph.py` had NO ANALOG at the last mapping; the transport spike shipped as `tests/examples/test_s2_client_transport_spike.py` (`16-03`) and should be re-read before 16.1 concludes the gap stands |
+| `make gate-16` / `tools/gates/gate_16.py` | **git history only** — `git show 50e79e7:Makefile`, `git show d364b65^:tools/gates/gate_15_3.py` | `16-19`'s `gate_16.py` allowlist is **revoked machinery** — `D-IMPL-96` void'd the `git diff --stat -- src/ runtime/` assertions in `16-12`, `16-18` and `16-19` |
+| FIBO DGX loading (`16-02` Task 3) | `/home/parkave/fluree/examples/fibo/load_{neo4j,postgres,mongo}.py` (out of repo) | Not a Hello CCF dependency (research §0c). ⚠ `192.168.4.76` must not enter the repo as a `.py` literal |
+| `DI-15.6-02` retirement-report row | `tools/docs_tests/test_retirement_sweep.py::test_the_committed_report_is_current` (red at HEAD) | One data line plus a report regeneration |
 
 ---
 
-### 20. `docs/DECISIONS.md` — the `D-IMPL-94` entry
-
-**Next free id verified: `D-IMPL-94`.** Highest present is `D-IMPL-93` (line 318).
-
-**Two house shapes are in use. Pick by kind.**
-
-**Shape A — a resolved open question** (`docs/DECISIONS.md:187`, D-IMPL-63). Use
-this if D-02 is framed as answering an open item:
-
-```markdown
----
-
-**D-IMPL-63 — D-IMPL-21 reference identity-binding implementations.** RESOLVED — **deferred. 2026-07-30. Approver: Dave.** The two D-IMPL-21 reference identity-binding implementations … move to **explicit follow-up-phase scope** — a named deferral, not an indefinite posture. … Surfacing context, preserved: surfaced by the Phase I.4 gate review (Codex finding C-3). … Question for Dave: defer both reference impls to a named phase (with the caller-supplied posture stated as the v0 …
-```
-
-**Shape B — a standing ruling with measured evidence** (`:318`, D-IMPL-93). Use
-this for D-02, which is a structural ruling about where Mode 2 attaches:
-
-```markdown
-**D-IMPL-93 — The substrate-evolution standard: …** Date: 2026-08-09. Decided by: Dave, clarifying the criterion Phase 15.3's gate had been approximating. **Why this is recorded.** … **The standard, in three tests.** … **What the tree measured against it, 2026-08-09 at `773ed92`.** … **What is NOT relaxed.** … **Consequence.** … **Scope.** Standing. … Originates: Dave, 2026-08-09, in response to …; `src/ccf/boot.py`; `src/ccf/graph/_writer.py`; …
-```
-
-**House conventions, verified across both:** a `---` separator before each entry;
-the entry is **one paragraph** with bold sub-headers inline (never sub-headings);
-`**D-IMPL-NN — Title.**` opener; an explicit date and approver; a
-`Surfacing context, preserved:` or `Originates:` tail naming every source file
-and decision consulted; backticked path citations. **`docs/DECISIONS.md` is
-exempt from `cite01/02/03`** (`tools/lints/citations.py:173-178`), so `file:NNN`
-citations are permitted there and nowhere else in this phase's output.
-
-**The D-02 ruling's own evidence is already assembled** in RESEARCH D.4 — the
-`serve()` signature, the *"exactly two acts"* description, and the Phase 04
-decision (*"serve() is one expression because the replay append returns the
-delivery capability — there is no branch that reaches delivery without a
-recorded decision"*). Q-2 (what `assembly_mode` describes) folds into the same
-entry per RESEARCH's recommendation. D-13, D-14 and D-15 from CONTEXT ride in the
-same ruling package.
-
----
-
-## Shared Patterns
-
-### Negative controls — apply to every new guard
-
-**Source:** `tests/examples/test_ext00_serve_output.py:425-459`
-**Apply to:** `test_section_one_is_agent_free.py`, the AST-upgraded zero-import
-guard, `test_spine_separation.py`, `test_adoption_argument.py`
-
-This is the pattern RESEARCH names, and it is verified present and parametrized:
-
-```python
-def test_the_committed_client_legs_import_no_ccf(run_module: Any) -> None:
-    """The charter, over the shipped files (mirrors ``run.py`` PASS 3)."""
-    run_module._assert_zero_ccf_imports()
-
-
-@pytest.mark.parametrize(
-    "injected", ["from ccf.boot import boot\n", "import ccf_runtime\n"]
-)
-def test_the_zero_import_assertion_fails_when_a_leg_imports_ccf(
-    run_module: Any,
-    tmp_path: pathlib.Path,
-    monkeypatch: pytest.MonkeyPatch,
-    injected: str,
-) -> None:
-    """The assertion is verified to REFUSE, not merely to pass.
-
-    A grep that matched nothing would be green forever, and this example's
-    whole point rests on it. The legs are copied to ``tmp_path``, one is given
-    a CCF import, and ``_EXAMPLE_ROOT`` is pointed at the copies — so the real
-    function, its real glob and its real regex are exercised. Both import
-    forms are probed because the pattern must catch ``from ccf ...`` and
-    ``import ccf_runtime`` alike.
-    """
-    for leg in sorted(EXAMPLE_DIR.glob("client_*.py")):
-        shutil.copy(leg, tmp_path / leg.name)
-    monkeypatch.setattr(run_module, "_EXAMPLE_ROOT", tmp_path)
-
-    # The copies alone still pass — so the failure below is the injection.
-    run_module._assert_zero_ccf_imports()
-
-    target = tmp_path / "client_bare.py"
-    target.write_text(injected + target.read_text(encoding="utf-8"), "utf-8")
-    with pytest.raises(AssertionError) as excinfo:
-        run_module._assert_zero_ccf_imports()
-    assert "client_bare.py" in str(excinfo.value)
-```
-
-**The guard it controls** (`examples/external/00-hello-context/run.py:421-430`) —
-this is the function RESEARCH says to *upgrade to AST, not rebuild*:
-
-```python
-def _assert_zero_ccf_imports() -> None:
-    """D-06: static grep over the client legs — the charter, mechanically."""
-    pattern = re.compile(r"^(import|from) (ccf|ccf_runtime)", re.MULTILINE)
-    offenders = [
-        path.name
-        for path in sorted(_EXAMPLE_ROOT.glob("client_*.py"))
-        if pattern.search(path.read_text(encoding="utf-8"))
-    ]
-    if offenders:
-        raise AssertionError(f"CCF imports found in client legs: {offenders}")
-```
-
-⚠ **The known blind spot to close.** Line-anchored, so it misses
-`importlib.import_module("ccf")`, an indented import inside a function, and
-`__import__`. The AST upgrade must use `tools/lints/__init__.py`'s
-`imported_module_names` **and** `submodule_import_names` (CR-02), and the
-parametrized negative control must gain params for each newly-caught spelling —
-a widened matcher with an unwidened control is a widening nobody proved.
-
-**Two more negative-control precedents worth reading:**
-
-- `tools/docs_tests/test_snippet_gate.py` — three cases: two violating polarities
-  (deleted marker, missing file) exercised *separately on purpose* because
-  `pymdownx.snippets` guards them at two call sites, plus a clean control.
-- `tools/docs_tests/test_openapi_drift_control.py:50-74` — both polarities on
-  every run, and the drift-proof victim selection: *"Whichever path sorts first —
-  never a literal endpoint name, so route churn cannot turn this control into a
-  no-op."*
-
-### Vacuous-pass preconditions — apply to every new gate module
-
-**Source:** `tools/docs_tests/test_diagram_coverage.py:66-80`, echoed at
-`tools/publish_scan_tests/test_docstring_leaks.py:143-163`
-**Apply to:** all five new `tools/docs_tests/` modules and
-`tests/examples/test_spine_separation.py`
-
-```python
-# --------------------------------------------------------------------------
-# Preconditions — a vacuous pass is the failure this module exists to prevent.
-# WR-04: the walk was CWD-relative, so off-root it scanned zero files and the
-# gate below passed over nothing. `tools/docs_tests/test_diagram_coverage.py`
-# is the model.
-# --------------------------------------------------------------------------
-
-
-def test_documented_trees_are_populated() -> None:
-    for tree in DOCUMENTED_TREES:
-        root = REPO_ROOT / tree
-        assert root.is_dir(), f"missing documented tree: {root}"
-    assert _iter_python_files(), "no python sources scanned"
-
-
-def test_the_walk_does_not_depend_on_the_process_cwd(
-    tmp_path: pathlib.Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    assert _iter_python_files(), "the walk resolved against the CWD, not the repo"
-```
-
-Plus the invariant every one of these modules opens with:
-
-```python
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-```
-
-### Paragraph scoping — the anti-under-count discipline
-
-**Sources:** `tools/lints/citations.py:279-294, 491-503` (sentence window +
-offset mapping); `tools/publish_scan.py:141-150` (markup-stripping normalization).
-**Apply to:** `test_gate_two_wording.py`, `test_no_stale_example_paths.py`'s
-prose half, `test_adoption_argument.py`, and **every prose sweep in the phase**.
-
-RESEARCH P-2 is the reason: *"Phase 15.1 under-counted the same sweep six
-times; the fix that finally worked was paragraph-scoping."* A plan step spelled
-`grep -rn "<phrase>"` is the warning sign.
-
-### AST over source — always use the shared helpers
-
-**Source:** `tools/lints/__init__.py:122-162`
-**Apply to:** `test_section_one_is_agent_free.py`, the zero-import guard upgrade,
-`test_spine_separation.py`'s "no domain vocabulary in the spine" assertion.
-
-```python
-def submodule_import_names(node: ast.AST, *, package: str = "") -> list[str]:
-    """Dotted names an ``ImportFrom`` reaches by naming a *submodule*.
-
-    ``from ccf.graph import _writer`` binds ``ccf.graph._writer`` just as surely
-    as ``import ccf.graph._writer`` does, but :func:`imported_module_names`
-    reports only ``ccf.graph`` for it ...
-
-    Lives here rather than in one checker because every import rule needs it —
-    ``cinv02-harness``, ``cinv02-graph-writer``, ``cinv02-backend-import``,
-    ``cinv02-deployment-gates``, ``cinv03-algorithmic`` and
-    ``d06-orchestration-split`` — and a helper imported from a sibling checker
-    is how one rule's edit silently changes another's.
-    """
-```
-
-The richer AST-channel walk — module, class/function, PEP 258 attribute
-docstrings, **and `#:` comment runs** — is at
-`tools/publish_scan_tests/test_docstring_leaks.py:105-135`. Read it if the phase
-needs to scan documented text out of a source file rather than imports.
-
-### The corrected superseded-claim wording (R-8)
-
-**Source:** `examples/05-workflow-hitl/artifacts/manifest.yaml:26-63`
-**Apply to:** every new manifest and every artifact-explanation comment.
-
-⚠ **This is the wording to converge on.** RESEARCH R-8: the superseded-claim
-sweep is **still open in `examples/01`–`04`**, those directories retire under
-D-07 — *"but the same false claims may be copied forward into the new examples
-if anyone writes the new artifacts by reference to the old ones."*
-
-```yaml
-# **What is NOT here, and why.** Six documents in this directory are outside the
-# manifest. None of them is outside it because naming one would be *dangerous* —
-# that was true when plan 15-19 wrote this note, and the SDK has since closed it.
-# What the SDK now does, so an adopter reading this file learns the mechanism
-# rather than a convention:
-#
-#   * The `ccf.` prefix is RESERVED (D-IMPL-84). A manifest entry naming a
-#     `ccf.`-prefixed class id the SDK does not ship is REFUSED at load, before
-#     any document is read. ...
-#   * The registration PATH is fixed by the class, not by the deployment
-#     (D-IMPL-85). Declaring `registration: typed` for an author-versioned class
-#     is refused in the same preflight, because `register_typed` runs no D-05
-#     bump check and the author's `artifact_version` claim would go unheld.
-```
-
-**Do not copy** `examples/00`–`04` manifest prose asserting that a manifest
-*cannot* name an author-versioned class. RESEARCH § *State of the Art* records
-the correction: a manifest **may** name all six as `registration: versioned`;
-what is refused is `registration: typed` for such a class.
-
-### `[ADAPT]` / `[MECHANISM]` → the D-11 structural separation
-
-**Source:** `examples/00-quickstart/artifacts/manifest.yaml:26-34` (and
-`live.yaml:23-27`, `harnesses.yaml`)
-**Apply to:** every new artifact **and**, per RESEARCH D.3 option 3, the header
-of every new code file in the spine/deployment split.
-
-CONTEXT explicitly says this convention *"should inform"* D-11. Extending the
-same two words to code headers costs no new marker vocabulary — which is what
-D-11 forbids.
-
-### The example-code assertion ban (ERGO-16 / D-09)
-
-**Source:** `examples/00-quickstart/run.py:9-13`; `tests/examples/test_quickstart_output.py:1-11`
-**Apply to:** every new example.
-
-> *"This file is the **call spine** an adopter would actually write, and nothing
-> else. It asserts nothing and prints nothing: its assertions live in
-> `tests/examples/test_quickstart_output.py` … `make example-00` running clean
-> means the spine executed."*
-
-This is half the reason Phase 16 exists (~85 assertion/print lines inflating
-apparent integration cost). New examples must be **thinner** than today's, not
-richer (CLAUDE.md §6.4 / C-2).
-
----
-
-## No Analog Found
-
-Files with no close match in the tree. The planner should use RESEARCH.md
-patterns, or accept these as genuinely new work.
-
-| File / pattern | Role | Data flow | Nearest partial | Why it is not an analog |
-|---|---|---|---|---|
-| `examples/<sec2>/client_langgraph.py` | client leg | request-response | `runtime/ccf_runtime/adapters/langgraph/adapter.py` | **The adapter is not a client.** It imports `ccf` (it binds the four §7.3 seams inside nodes it constructs) and is the exact inverse of Section 2's zero-CCF-dependency claim. Nothing in the tree drives an MCP session from a LangGraph node. RESEARCH F-2 and R-4 both confirm; `langchain-mcp-adapters` is not installed and is **recommended against**. RESEARCH's recommended path — `mcp.ClientSession` + `streamablehttp_client` inside a node, tools bound by hand — has no in-tree precedent either. **Spike this in Wave 1 against the *existing* `examples/external` server.** |
-| The adoption-argument page (D-10) | doc | — | `public/concepts/invariants.md` (promise / why / enforcement triple) | **G-01 measured zero hits site-wide** for "why not just", "instead of building", "rather than building", "compared to". No published page in this project has ever made a comparative-rationale argument. The *page form* can be borrowed from `invariants.md`; the *genre* is new. Its evidence table is already assembled in RESEARCH § E, including the mandatory `passage_anchor` honesty caveat. |
-| A page teaching the six axes of `G(E, R, T, P, Π, L)` | doc | — | `public/concepts/whitepaper-index.md:19` (a bare table row) | RESEARCH C.1 verified: `grep "six axes"` over `public/` returns three hits, and all but one are about the **six specialization axes of an agent**. This is genuinely new content. The axis→observable-surface mapping is in RESEARCH C.1 and is the material to write from. |
-| A single paragraph-scoped assertion over `public/**/*.md` | test helper | transform | **two halves, both real** — `citations.py::citation_sentence` (offset→sentence, over a tree that includes `public`) and `publish_scan.py::normalize` (markup-stripping over published Markdown) | No existing module does paragraph-scoped matching over `public/**/*.md`. `test_diagram_coverage.py` walks the tree but matches a line-scoped regex; `publish_scan.py` normalizes whole files rather than paragraphs. `test_gate_two_wording.py` is the composition of the two halves and should extract a shared helper rather than inlining it three times across V-5/V-7/V-8. |
-| `make gate-16` / `tools/gates/gate_16.py` | config / utility | transform | `tools/gates/gate_15_3.py` at `d364b65^` — **retired, git history only** | Recoverable and worth reading (three disciplines listed in entry 19), but not in the working tree. Its output contract came from `tools/lints/__main__.py::main`, which *is* live. |
-
----
-
-## Retirement Map — analogs that die, and where their patterns must land first
-
-Per D-07 there is no partial state. These are the files an executor will be
-tempted to open as analogs *after* they are gone. Their patterns are captured
-above; the source files are not durable.
-
-| Retiring | Pattern captured in this file at |
-|---|---|
-| `examples/00-quickstart/` | entries 9, 10, 13; shared § *example-code assertion ban* |
-| `examples/03-harness-portability/` | entries 9, 11, 12 |
-| `examples/05-workflow-hitl/artifacts/manifest.yaml` | shared § *corrected superseded-claim wording* ⚠ **highest-value capture** |
-| `examples/08-e2e-demo/generator.py` | entry 16 |
-| `examples/external/00-hello-context/` | entries 13, 15; shared § *negative controls* |
-| `tests/examples/test_quickstart_output.py` | entry 14 |
-| `tests/examples/test_ext00_serve_output.py` | shared § *negative controls* |
-| `tests/examples/test_gate_two_divergence.py` (rewritten, not retired) | entry 5 |
-
-⚠ **`tools/docs_tests/test_snippet_gate.py:39-40` hard-points at
-`examples/00-quickstart/run.py` and its `[start:ontology]` marker** — which no
-longer exists, and which is why two of its three tests fail at HEAD. Repointing
-those two constants at a new example and marker is a Wave-0 prerequisite
-(RESEARCH § *Wave 0 Gaps*), not cleanup.
+## 6. Possible defects worth a ruling
+
+Surfaced by verification, not designed. None is acted on here.
+
+1. **The `pyproject.toml:142` coverage hole is wider than `docs_tests` +
+   `publish_scan_tests`.** `tools/lints/tests` (9 modules) is also outside
+   `make ci` and is the enforcement mechanism for three CI-named invariants
+   (`ci.yml:30-35` says so explicitly). Composing only two of the three suites
+   leaves the lint checkers in the same hole `DI-15.6-01(b)` names.
+2. **`spine.py:15` reproduces the same whitepaper shingle as
+   `src/ccf/products/request.py`** — *"the difference between the verb aggregate
+   and the verb assemble."* `test_docstring_leaks.py` scans only `src/` and
+   `runtime/` (`:31`), so `examples/` is unscanned. Closing the leak in `src/`
+   while an example ships the identical sentence, and while `docs-strict`'s site
+   scan may or may not reach it through a snippet include, is half a closure.
+   **Verify which pages include that region before deciding.**
+3. **`mkdocs.yml:109-112`'s page count is hand-maintained prose.** Three new pages
+   make it wrong and nothing fails. Same defect class as A-3.
+4. **`16-RESEARCH.md` §2.4 says `ccf.deployment` exports 17 names; it exports 16**
+   (`src/ccf/deployment/__init__.py:127-144`, confirmed by import). The published
+   page is right and the research is wrong. Worth correcting in the research
+   before a plan "fixes" the page.
+5. **`16-05-SUMMARY.md` states a fact that is false at HEAD** — that `spine.py`
+   and `deployment.py` are held together by two Protocols including
+   `DeploymentBinding`. That class was deleted at `6b87a8f`. A SUMMARY is a phase
+   record; someone should decide whether it is amended or annotated.
 
 ---
 
 ## Metadata
 
-**Analog search scope:** `tests/examples/`, `tests/conformance/`, `tests/agents/`,
-`tests/conftest.py`, `tools/docs_tests/`, `tools/publish_scan_tests/`,
-`tools/lints/`, `tools/publish_scan.py`, `examples/` (all 10 directories),
-`public/` (41 pages), `mkdocs.yml`, `Makefile`, `.github/workflows/`,
-`docs/DECISIONS.md`, plus `git show` against `50e79e7` and `d364b65^` for the
-retired gate, and `/home/parkave/fluree/examples/fibo/` (out of repo).
+**Analog search scope:** `public/` (43 pages, all enumerated),
+`tools/docs_tests/` (11 modules), `tools/publish_scan_tests/` (3),
+`tools/lints/`, `tools/publish_scan.py`, `tests/examples/` (21 modules),
+`tests/conftest.py`, `examples/s1-01-hello-context-product/` (4 modules,
+19 artifacts, README), `src/ccf/products/contract.py`,
+`src/ccf/halflife/decay.py`, `src/ccf/deployment/__init__.py`,
+`src/ccf/graph/registry.py`, `mkdocs.yml`, `Makefile`, `pyproject.toml`,
+`.github/workflows/ci.yml`, `docs/DECISIONS.md`, `.planning/ROADMAP.md`.
 
-**Files opened and excerpted:** 27
-**Pattern extraction date:** 2026-08-10
-**Tree state:** `84f4501`
+**Executed this session:** `pytest tools/ -q` (4 failed / 540 passed);
+`pytest tools/docs_tests/test_documented_commands_exist.py -q`;
+`python -c "import ccf.deployment; len(__all__)"`;
+`scan_text` + `whitepaper_shingles` over the five leaking module docstrings;
+`ast.parse` for each leaking docstring's extent;
+`git grep DeploymentBinding -- src/ runtime/ examples/` (no hits);
+`grep` over `16-PATTERNS.md` for the alleged `tests/test_*.py` citations (no hits).
+
+**Cited paths verified to exist:** 47.
+**Corrected:** 8 (six "to be created" files that had shipped; the `_prose.py`
+NO-ANALOG row; the `test_snippet_gate.py` mis-pointing warning).
+**Dropped as having no current analog:** 0 — the deferred entries moved to §5
+with verified pointers rather than being deleted.
+**Findings rejected as non-reproducing:** 1 (the `tests/` → `tools/` path rot),
+plus 3 corrections to `16-RESEARCH.md` recorded in §0.5.
+
+**Pattern extraction date:** 2026-08-13
+**Tree state:** `6e95da0`
