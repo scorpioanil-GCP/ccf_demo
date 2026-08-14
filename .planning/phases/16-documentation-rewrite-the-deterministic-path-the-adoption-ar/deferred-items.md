@@ -83,8 +83,16 @@ it.
 ## A product class declaring any required request parameter is unreachable through either parameterised door
 
 - **Found during:** plan 16-23, Task 1 (measured, not inferred).
-- **Status:** attaches to **`D-IMPL-113`**, which records the seam it is blocked
-  behind. Not a new question.
+- **Status:** **CORRECTED AND RULED — `D-IMPL-133`** (Dave, 2026-08-14):
+  *"We will need to support parameters in mcp from the Client. That was a miss."*
+  **The "blocked" reasoning below is WRONG and is left standing only as a
+  corrected entry, never silently deleted.** A door never validates, so a door
+  never needs the `RegisteredProductClass`: `ccf.products.request.refuse_request`
+  is *"called by the deployment's own resolver, not by any door"*
+  (`D-IMPL-121`, extending `D-IMPL-113`), and is called from **nowhere** in
+  `runtime/` — only three docstring cross-references. Both doors therefore carry
+  the mapping through to the resolver, which holds the class. Two lines, not a
+  seam widening.
 - **Owner:** **the HW-1 plan** (`D-IMPL-127`). It is a design constraint on that
   plan rather than a defect in 16-23.
 - **What:** both parameterised doors send `parameters={}`. Measured at
