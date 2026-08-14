@@ -377,7 +377,10 @@ class OverThresholdProjection:
                 {
                     "name": record.claim.attributes[ATTR_NAME],
                     "revenue": str(record.claim.attributes[ATTR_REVENUE]),
-                    "last_updated": record.claim.observed_at.isoformat(),
+                    # `valid_from`, not `observed_at` — the source's instant,
+                    # not this run's. Same bitemporal reading `debt()` uses,
+                    # and for the same reason.
+                    "last_updated": record.claim.valid_from.isoformat(),
                 }
                 for record in view.entities
                 if Decimal(record.claim.attributes[ATTR_REVENUE]) > threshold
