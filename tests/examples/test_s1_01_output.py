@@ -52,6 +52,21 @@ from an artifact; an **SDK mechanism claim** — that a keyless deployment recor
 hash — is asserted directly, because it is a claim about the SDK rather than
 about this deployment.
 
+**This module moved from the always-on leg to the Fluree leg** (plan 16-05).
+The example's ``artifacts/manifest.yaml`` now declares a networked substrate, so
+every fixture below that boots a fabric requests the session-scoped
+``fluree_url`` fixture: unset ``CCF_TEST_FLUREE_URL`` skips, and
+``CCF_REQUIRE_FLUREE`` turns the skip into a failure. ``make leg-fluree`` is
+what runs this module. Requesting the fixture IS the gate — ``pytestmark``
+marks and does not skip — and the variable it reads is the same one the
+deployment reads, so nothing here monkeypatches an environment.
+
+What still covers this example on the always-on, network-free leg is the three
+gates that need no substrate: ``test_section_one_is_agent_free.py`` (the AST
+denylist), ``test_spine_separation.py`` (the spine/deployment split) and
+``test_artifact_schema_headers.py`` (the artifact-header bijection) — plus the
+two tests below that read modules and documents rather than graphs.
+
 The example is not a package, so it is loaded by file path with
 ``importlib.util`` — the pattern ``test_quickstart_output.py`` established.
 """
@@ -72,6 +87,11 @@ import yaml
 
 from ccf.contracts.canonical import content_hash
 from ccf.replay.record import NO_GRAPH_QUERIES, DecisionReplayRecord
+
+#: The leg this module runs on. The marker selects it (`make leg-fluree`); the
+#: `fluree_url` fixture request on each fabric-booting fixture is what actually
+#: skips, so the two tests that need no substrate keep running everywhere.
+pytestmark = pytest.mark.fluree
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXAMPLE_DIR = REPO_ROOT / "examples" / "s1-01-hello-context-product"
@@ -175,13 +195,21 @@ def example() -> Any:
 
 
 @pytest.fixture(scope="module")
-def result(example: Any, tmp_path_factory: pytest.TempPathFactory) -> Any:
+def result(
+    example: Any, fluree_url: str, tmp_path_factory: pytest.TempPathFactory
+) -> Any:
     """One run of the spine, shared across the module.
 
     Module-scoped deliberately: the spine is the unit under test, and running it
     once per assertion would say nothing extra while paying for a full boot each
     time.
+
+    ``fluree_url`` is requested and not used: reaching this line is proof the
+    environment the deployment reads is populated, and the deployment reads it
+    itself through ``artifacts/backends.yaml``. Substituting a value here would
+    be this module configuring the run it is meant to be observing.
     """
+    del fluree_url
     return example.run(root=tmp_path_factory.mktemp("s1-01"))
 
 
@@ -581,9 +609,13 @@ def questions(example: Any) -> Any:
 
 @pytest.fixture(scope="module")
 def answers(
-    example: Any, questions: Any, tmp_path_factory: pytest.TempPathFactory
+    example: Any,
+    questions: Any,
+    fluree_url: str,
+    tmp_path_factory: pytest.TempPathFactory,
 ) -> Any:
     """One answered product per declared question, in declaration order."""
+    del fluree_url  # Requested as the gate; see `result` above.
     return example.ask_all(
         root=tmp_path_factory.mktemp("s1-01-questions"), requests=questions
     )
@@ -602,6 +634,45 @@ def test_the_declared_questions_are_a_controlled_experiment(questions: Any) -> N
     instants = {question.asked_at for question in questions}
     assert len(subjects) > 1, "no two questions differ in subject"
     assert len(instants) > 1, "no two questions differ in instant"
+
+
+def test_each_question_gets_its_own_graph(
+    example: Any, fluree_url: str, tmp_path: pathlib.Path
+) -> None:
+    """**SDK-adjacent mechanism claim.** ``ask_all``'s isolation survived the
+    substrate move.
+
+    Three calls, ONE root, three different composed connections. The root being
+    held constant is the whole assertion: it proves the isolating value is
+    minted per call rather than derived from the caller's directory, which is
+    what makes it work on a server two runs share. Before the move, a
+    per-question temp directory isolated the ArtifactStore *and* the graph; now
+    the directory isolates the store and the composed connection isolates the
+    graph, and this is the half that would otherwise fail silently — two runs
+    would answer correctly while having observed each other.
+    """
+    del fluree_url  # Requested as the gate; see `result` above.
+    composed = [
+        example.deployment.connection(root=tmp_path) for _ in range(3)
+    ]
+    distinct = {tuple(sorted(values.items())) for values in composed}
+    assert len(distinct) == len(composed), (
+        f"three connections composed for one root are not distinct: {composed}"
+    )
+
+
+def test_the_products_address_survives_a_different_graph_identity(
+    result: Any, answers: Any
+) -> None:
+    """**SDK mechanism claim.** The graph's identity is not in the address.
+
+    ``result`` and ``answers[0]`` are the same question asked twice, in two
+    whole runs, against two graphs with different identities. The content
+    address is byte-identical, which is what makes replay a property of the
+    question and the Control Plane rather than of where the bytes happened to
+    be stored. It would fail if a connection value leaked onto the product.
+    """
+    assert content_hash(result.product) == content_hash(answers[0].product)
 
 
 def test_a_different_company_gets_a_different_answer(

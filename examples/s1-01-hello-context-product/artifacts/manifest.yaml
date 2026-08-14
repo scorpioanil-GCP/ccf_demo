@@ -17,11 +17,31 @@
 # kind and the supplied connection argument disagree.
 #
 # WHICH SUBSTRATE THIS RUNS ON IS A VALUE IN THIS DOCUMENT, NOT A FACT ABOUT
-# THE CODE. `backend: sqlite` below is the whole of the choice; neither
-# `spine.py` nor `deployment.py` names a substrate anywhere. Plan 16-07 adds the
-# per-backend siblings and the `backends.yaml` configuration document that makes
-# this one driver parameterized across all six. Until then this is one line to
-# edit, and it is the line.
+# THE CODE. `backend: fluree` below is the whole of the CHOICE; no Python module
+# under this example names a substrate anywhere. The second half of the fact
+# lives in `backends.yaml` beside this file, which says how the chosen kind's
+# connection settings are COMPOSED — from an environment variable's name, or
+# from a per-run identifier, or from a path under the caller's run root, and
+# never from a value written down. Two documents, one fact each, and neither can
+# drift: the profile is looked up BY the kind this line declares.
+#
+# `backends.yaml` is deliberately not enumerated below. Connection material is
+# deployment environment rather than Control Plane state, and it has no business
+# in replay dimension 2 — the same read-side/write-side split `questions.yaml`
+# and `source-estate.yaml` already record (`D-04`).
+#
+# Plan 16-07 adds the remaining four profiles to `backends.yaml` and the
+# equality matrix that closes ROADMAP criterion 4 across all six kinds. It adds
+# profiles to that document and changes no Python.
+#
+# NO `backend_secrets` ENTRY HERE, because the reference server answers
+# unauthenticated and a declared environment reference that does not resolve is
+# a refusal rather than a fallback — declaring one would make this example
+# unrunnable against the container the README names. A deployment whose server
+# requires a bearer credential adds exactly one `backend_secrets` entry
+# (`field:` naming the adapter's credential field, `env_var:` naming the
+# variable that carries it) and changes nothing else in this directory. The
+# variable's NAME is content-hashed; its value never is.
 #
 # `tenant_id` lives here rather than in the resolution spec (D-03): the
 # resolution spec is closed-world over resolution rules only, and the manifest
@@ -52,7 +72,7 @@
 semver: "1.0.0"
 
 tenant_id: meridian-bank
-backend: sqlite
+backend: fluree
 
 resolution_spec_key: resolution-spec
 policy_bundle_key: policy-bundle

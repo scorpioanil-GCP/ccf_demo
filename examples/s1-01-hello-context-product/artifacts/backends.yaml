@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.declared-artifact.json
+# How this deployment's connection settings are COMPOSED, one profile per
+# backend kind (plan 16-05, seeding V-4).
+#
+# **This document is NOT in `manifest.yaml`, and that is deliberate.** The same
+# reason `questions.yaml` is not: connection material is deployment
+# *environment*, not Control Plane state. It is not registered, it is not
+# pinned, and it has no business in Decision Replay dimension 2 — dimension 2
+# records what the fabric was PERMITTED to do, and where a server happens to
+# live is not a permission. `manifest.yaml` declares the backend KIND; this
+# document says how that kind's connection settings are composed. Two
+# documents, one fact each, and neither can drift, because the profile below is
+# looked up BY the kind the manifest declares.
+#
+# **NO CONNECTION VALUE APPEARS HERE.** No host, no port, no path, no URL, no
+# credential. That is not a convention this file happens to keep — it is the
+# reason the three value sources below exist, so that none of them ever has to
+# be written down (threat `T-16-05-01`). A connection value in a versioned
+# document is a connection value persisted forever.
+#
+# **THE THREE VALUE SOURCES**, and they are mechanism rather than substrate:
+#
+#   from_env: NAME       the setting's value comes from the process
+#                        environment under that NAME. This document holds the
+#                        name and never the value — the precedent
+#                        `DeploymentManifest.backend_secrets` already sets for
+#                        a credential, applied here to a non-secret.
+#                        `remedy:` beside it is what a refusal tells an
+#                        operator to do when the variable does not resolve.
+#   per_run: identifier  the deployment mints a fresh identifier per run from
+#                        `prefix:`, so a SHARED server gives each run its own
+#                        graph. This is what a fresh temp file does on a
+#                        file-backed store.
+#   per_run: path        a path under the caller's own run root, named by
+#                        `filename:`.
+#
+# **TWO PROFILES SHIP, AND THE SECOND IS NOT DECORATION.** One profile would
+# be a hole shaped like one backend; two is what makes the reader below a
+# general interpreter of value sources rather than a driver for a particular
+# store. Plan 16-07 extends this block to all six kinds and adds the equality
+# matrix that closes ROADMAP criterion 4 — it adds profiles here and changes
+# no Python.
+#
+# **A deployment whose server needs a credential** adds one `backend_secrets`
+# entry to `manifest.yaml` naming an environment variable, and changes nothing
+# in this document: a credential value has no source kind here on purpose.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: `class_id`, every profile name, every setting name, every
+# `from_env` name, `prefix`, `filename` and `remedy` are [ADAPT]; the keys
+# `semver`, `class_id`, `declaration`, `profiles`, `settings`, `from_env`,
+# `per_run`, `prefix`, `filename` and `remedy`, and the two `per_run` values
+# `identifier` and `path`, are [MECHANISM].
+
+semver: "1.0.0"
+class_id: fibo-kyc.backend-profiles
+
+declaration:
+  profiles:
+    # The kind `manifest.yaml` declares today. Its settings are exactly the two
+    # the adapter accepts — a settings key the adapter does not declare is
+    # refused rather than ignored, so this profile cannot quietly grow one.
+    fluree:
+      settings:
+        # WHERE THE SERVER IS, from the environment. The same variable
+        # `tests/conftest.py` gates its own leg on, so an operator configures
+        # the example and the test suite once. Unset means REFUSE: there is no
+        # default here and no fallback to another kind, because a fabric that
+        # answered from a substrate other than the one its manifest names is
+        # the hazard the backend registry is written against.
+        url:
+          from_env: CCF_TEST_FLUREE_URL
+          remedy: >-
+            start a fluree/server:4.1.4 container and export the base URL
+        # WHICH GRAPH IN THE CCF-OWNED LEDGER this run attaches to. A fresh
+        # one per run, so a shared server does not let one run observe
+        # another's. `D-03` keeps one CCF-owned ledger, so repeated runs
+        # accumulate partitions in it — a deliberate trade, not a leak.
+        partition:
+          per_run: identifier
+          prefix: s1_01
+
+    # The kind this example ran on before plan 16-05, kept so the reader above
+    # stays a general interpreter. A file-backed store needs no environment at
+    # all: its whole connection is a path under the caller's run root.
+    sqlite:
+      settings:
+        database_path:
+          per_run: path
+          filename: ubo.sqlite3

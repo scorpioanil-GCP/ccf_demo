@@ -80,14 +80,6 @@ ci-core: lint typecheck test ## Mid-phase verification sweep — MUST stay green
 # joins `ci` here — never as a half-armed or dead target.
 ci: ci-core examples docs-strict ## Full local reproduction of the always-on pipeline (D-10)
 
-# Section 1's reference example. Its docstrings and `tests/examples/
-# test_s1_01_output.py` have referred to this target since phase 16; it did not
-# exist and the example therefore ran in no CI job (DI-15.5-02, closed by plan
-# 15.5-13). With no arguments it asks the three questions
-# `artifacts/questions.yaml` declares — two companies, two instants.
-example-s1-01: ## Run examples/s1-01-hello-context-product (three declared questions)
-	$(ENV) $(PYTHON) examples/s1-01-hello-context-product/run.py
-
 example-00: ## Run examples/00-quickstart (reference backends, D-13)
 	$(ENV) $(PYTHON) examples/00-quickstart/run.py
 
@@ -118,12 +110,18 @@ example-08: ## Run examples/08-e2e-demo (deterministic; --live is opt-in and nev
 example-ext-00: ## Run examples/external/00-hello-context — all legs deterministic via replay server
 	$(ENV) $(PYTHON) examples/external/00-hello-context/run.py
 
-# `s1-01` leads deliberately: it is the smallest and the fastest, so a break in
-# the reference example fails the aggregate before ten minutes of the rest.
-# Adding it here CHANGES WHAT `make ci` RUNS, which is the intended effect and
-# not a side effect — the example was documented as CI-covered and was not
-# (DI-15.5-02).
-examples: example-s1-01 example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 example-ext-00 ## Run all eleven examples in order, stopping on first failure
+# `s1-01` LED THIS LIST AND NO LONGER DOES (plan 16-05). Its
+# `artifacts/manifest.yaml` now declares a networked substrate, and ROADMAP
+# criterion 4 puts that substrate among the four opt-in databases while `D-06`
+# keeps always-on CI deterministic and network-free. An `examples` job that ran
+# the target would need a service container — a third option `D-06` did not
+# authorize — so the target moved down beside the container-gated legs.
+#
+# The example is still exercised in CI, by `make leg-fluree`:
+# `tests/examples/test_s1_01_output.py` boots it, and the three gates that need
+# no substrate (agent-free AST guard, spine separation, artifact headers) still
+# run on this leg.
+examples: example-00 example-01 example-02 example-03 example-04 example-05 example-06 example-07 example-08 example-ext-00 ## Run the ten network-free examples in order, stopping on first failure
 
 # Container-gated substrate legs (DI-15.2-04, D-GATE-15.2). These reproduce the
 # ci.yml service-container steps command-for-command, so a developer runs a leg
@@ -166,6 +164,15 @@ leg-mongo: ## MongoDB leg against a real server — staged aggregation pushdown 
 leg-fluree: ## Fluree leg against a real server — Cypher pushdown byte-identical to the fallback (plan 15.3)
 	$(ENV) CCF_REQUIRE_FLUREE=1 CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
 		$(PYTHON) -m pytest tests -q -m fluree -rs
+
+# Section 1's reference example, run as a program rather than as a test — which
+# is what a newcomer does first and what the phase's blocking checkpoint reads.
+# It lives here rather than in `examples:` above because its manifest declares a
+# networked substrate; see that target's comment. No new variable: the default
+# is the one the four legs already share.
+example-s1-01: ## Run examples/s1-01-hello-context-product (three declared questions; needs a Fluree server)
+	$(ENV) CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
+		$(PYTHON) examples/s1-01-hello-context-product/run.py
 
 # The Phase 15.3 permitted-change-surface gate and its `tools/gates/` package
 # were RETIRED by plan 15.4-07, in the same commit that registered the two
