@@ -2038,7 +2038,8 @@ def _binder_collapses(
     remain separate findings and R-3 remains open.
 
     **A body with no binder call at all is reported here as well as by the
-    coverage assertion, and that is deliberate** (IN-03).
+    coverage assertion, and that is deliberate** (IN-03) — *for a body the
+    demand applies to*.
     :func:`test_every_bound_body_has_a_readable_plan_source` takes an early exit
     for such a body and its docstring gives the reason as "reporting it twice
     would tell one story in two voices" — but the operative reason there is
@@ -2049,6 +2050,19 @@ def _binder_collapses(
     specific, and names the executing line. A true, specific second report costs
     a contributor nothing (one edit fixes both) and a vacuous one costs them a
     wrong lead, which is why the two assertions behave differently here.
+
+    **That double report does not hold for an exempt body, and the paragraph
+    above was unqualified until D-IMPL-137.** Where ``demanded`` is false the
+    ``if demanded:`` guards switch property (3) off, and
+    :func:`test_every_projecting_example_body_names_the_binder` takes its own
+    early return, so a one-document body with no binder call is reported by
+    **neither** — which is the ruling working rather than a gap in it: there is
+    no demand for either report to be made against. What still fires on such a
+    body is property (1), and only if it calls the binder anyway. The
+    qualification is recorded here rather than folded silently into the
+    sentences above, because the unqualified reading was true of this module
+    for four review rounds and a reader comparing revisions should be able to
+    see which way it moved.
     """
     bindings = _bindings(scope)
     sources = _plan_sources(scope, bindings, plan_classes)
@@ -2263,6 +2277,19 @@ def test_every_projecting_example_body_names_the_binder(
     (R4-WR-03). Source ordering is checkable from positions and is now checked;
     neither of those two is readable from an AST walk over one body, and both
     are left named rather than implied away.
+
+    And the one that is larger than either, because it is not a limit of what an
+    AST can read but a deliberate carve-out: **the D-IMPL-137 exemption
+    itself**. A body in a deployment registering no
+    ``ccf.projection-requirements`` whose plan's ``required=`` reads the product
+    class's own claim is not asserted against here **at all** — this assertion
+    returns before it runs, and :func:`_binder_collapses`'s properties (2) and
+    (3) are switched off for the same body, so nothing reports it. That is
+    intended: there is no second document for the binder to compare, so there is
+    no demand. What bounds how many such bodies exist is a **constant** —
+    :data:`MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS`, asserted by
+    :func:`test_the_one_document_exemption_has_not_spread` — and not anything
+    this assertion reads.
     """
     if _one_document(scope, path, _bindings(scope)):
         # D-IMPL-137, row B. The deployment registers no
