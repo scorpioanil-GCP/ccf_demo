@@ -567,10 +567,19 @@ TRANSPARENT_CAST = "cast"
 #: identifier can, so it can never collide with a real member name.
 CALL_MARKER = "()"
 
-#: The suite carries one gate call site per example that serves a product. A
-#: scan that silently matched zero call sites is the quietest way a tripwire
+#: One gate call site per example body that serves a product — eleven of them,
+#: counted from the tree: examples 00, 01, 02, 03,
+#: ``04-cross-process/producer_child.py``, 06, 07 and 08, plus
+#: ``examples/external/00-hello-context/serve.py`` and the two spine examples
+#: ``s1-00-companies-over-revenue/produce.py`` and
+#: ``s1-01-hello-context-product/spine.py``. **No headroom, on purpose.** The
+#: previous value of 9 was two sites short of the tree by the time it was
+#: re-measured, which is the literal shape
+#: :func:`test_the_binder_scan_is_not_vacuous`'s docstring names as a licence:
+#: two bodies could have stopped being scanned with nothing failing to say so.
+#: A scan that silently matched zero call sites is the quietest way a tripwire
 #: stops being one, so the floor is asserted rather than assumed.
-MINIMUM_GATE_CALL_SITES = 9
+MINIMUM_GATE_CALL_SITES = 11
 
 #: Eleven bodies that construct a plan and execute it, plus the two replay
 #: environments' ``resolve_plan`` methods, which construct one and return it —
@@ -588,7 +597,26 @@ MINIMUM_PROJECTING_BODIES = 13
 #: were found; this one says the argument checks were handed something to
 #: compare. A tripwire matching bodies it can say nothing about is the CR-03
 #: failure mode restated, so it is asserted rather than assumed.
-MINIMUM_RESOLVED_BINDER_SITES = 11
+#:
+#: **Twelve, counted from the tree**, against thirteen projecting bodies: one
+#: readable site per binder call, with ``examples/06-decision-replay/run.py``
+#: and ``examples/external/00-hello-context/`` each contributing two (a serving
+#: body and a ``resolve_plan``), and **zero** unreadable. The thirteenth
+#: projecting body, ``examples/s1-00-companies-over-revenue/produce.py``,
+#: makes no binder call at all: it authors ONE operator-set document and is
+#: exempt from the demand under D-IMPL-137. The previous value of 11 was one
+#: site short of the tree.
+#:
+#: **This floor now sits on the exemption's path, which it did not before
+#: D-IMPL-137.** A one-document deployment legitimately removes a binder call,
+#: so a *second* deployment claiming the exemption would take the readable
+#: sites 12 -> 11 and leave a floor of 11 green. What actually catches that
+#: case is :data:`MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS`, which is one with no
+#: headroom and is red at :func:`test_the_one_document_exemption_has_not_spread`
+#: on the second claimant. This floor is therefore redundant defence there
+#: rather than the primary control — but the adjacency is new, and is stated
+#: rather than left to be rediscovered by whoever next lowers this number.
+MINIMUM_RESOLVED_BINDER_SITES = 12
 
 #: Every floor here is the count observed in the tree, with **no headroom, on
 #: purpose** — see :func:`test_the_binder_scan_is_not_vacuous` for why headroom
@@ -2648,9 +2676,9 @@ def test_the_binder_argument_scan_is_not_vacuous() -> None:
 
     **This assertion is a total, and a total is not a per-site property** — the
     distinction WR-F3 drew, and the reason its companion below exists. The two
-    counts coincide today at eleven bodies and eleven readable sites, so any body
-    that gains a readable site while another loses one leaves this green. Keep
-    both: this one catches a site disappearing from the tree, and
+    counts stand today at thirteen projecting bodies and twelve readable sites,
+    so any body that gains a readable site while another loses one leaves this
+    green. Keep both: this one catches a site disappearing from the tree, and
     :func:`test_every_bound_body_has_a_readable_plan_source` catches a body
     whose own plan the checks cannot read. Neither statement implies the other.
     """
@@ -2678,7 +2706,7 @@ def test_every_bound_body_has_a_readable_plan_source(
     and hand the binder a plan whose ``required=`` this module cannot read, at
     which point property (1) runs and says nothing. The aggregate floor above
     does not see that: the new body contributes zero readable sites while the
-    existing eleven still contribute eleven, and ``11 >= 11`` holds. Both CR-F1
+    existing twelve still contribute twelve, and ``12 >= 12`` holds. Both CR-F1
     and WR-F1 exploit exactly that arithmetic.
 
     **Per call, not per body (WR-02).** The first version of this assertion was
@@ -2686,7 +2714,7 @@ def test_every_bound_body_has_a_readable_plan_source(
     one compliant readable site absorbs any number of unreadable ones beside it,
     so a plan class this module does not recognise routes around property (1)
     while this assertion stays green. Measured over the tree, ``all()`` costs
-    nothing today — eleven projecting bodies, eleven binder calls, **zero**
+    nothing today — thirteen projecting bodies, twelve binder calls, **zero**
     unreadable — and it is what makes the residual loud for the body that
     acquires it rather than for the body that acquires it *everywhere*.
 
@@ -2854,8 +2882,12 @@ def test_the_binder_argument_checks_reject_a_binder_that_cannot_fail() -> None:
         assert _binder_collapses(function, REPO_ROOT / "probe.py"), source
 
     benign = (
-        # the compliant shape at all nine executing sites: the plan reads the
-        # projection's own artifact, the binder reads the product class's claim
+        # the compliant shape at ten of the eleven executing sites — the plan
+        # reads the projection's own artifact, the binder reads the product
+        # class's claim. The eleventh,
+        # `examples/s1-00-companies-over-revenue/produce.py`, executes and makes
+        # no binder call: it is the D-IMPL-137 one-document deployment, so this
+        # shape is not what it is held to.
         "def serve(pid, r, declared, requirements):\n"
         f"    plan = {plan_of(from_artifact)}\n"
         f"    {bind}\n"
