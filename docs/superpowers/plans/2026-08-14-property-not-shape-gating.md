@@ -775,7 +775,8 @@ def _one_document(
     exemption; the exemption is claimable only by a deployment that HAS
     artifacts and demonstrably lacks that one.
     """
-    if _registers_requirements(_deployment_root(path)):
+    root = _deployment_root(path)
+    if root is None or _registers_requirements(root):
         return False
     claim = _class_claim(scope, bindings)
     if claim is None:
