@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**628 entries**, of which **399** name a public Python surface.
+**632 entries**, of which **403** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-282 entries — 249 public Python surface, 33 not public Python API.
+286 entries — 253 public Python surface, 33 not public Python API.
 
 ### Public Python surface
 
@@ -5171,6 +5171,76 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none. New surface
 
 *Recorded by `16-28-deployment-config-document.md`.*
+
+#### ccf.deployment.config.derive_deployment
+
+- Surface: ccf.deployment.config.derive_deployment
+- Public surface: true
+- Change type: added
+- Before: did not exist
+- After: `derive_deployment(config: DeploymentConfig, config_filename: str =
+  "ccf_config.yaml") -> DerivedDeployment`. A pure function: turns one parsed
+  `DeploymentConfig` into a `DeploymentManifest` plus one materialised
+  document per section, applying design spec §6's derivation table and the
+  five refusals design spec §6.1, §11.1 and §11.2 demand. Reads no file,
+  reads no environment variable, and produces equal results across two calls
+  on an equal input
+- Why: `D-IMPL-134` (the narrowing) and `D-IMPL-136` (the single-file form)
+  — the loader that turns `ccf_config.yaml`'s sections into the same typed
+  contracts the multi-file form authors by hand. `16-30` is what registers
+  and boots from this function's output; this function derives only
+- Migration: none. New surface; every existing multi-file deployment keeps
+  working unchanged
+
+*Recorded by `16-29-config-derivation.md`.*
+
+#### ccf.deployment.config.DerivedDeployment
+
+- Surface: ccf.deployment.config.DerivedDeployment
+- Public surface: true
+- Change type: added
+- Before: did not exist
+- After: a frozen `dataclass` — not a `CCFContract` — carrying `manifest:
+  DeploymentManifest` and `documents: Mapping[str, Mapping[str, Any]]`.
+  Not a `CCFContract` for the reason `BootedFabric` gives for itself: it is
+  a derivation result handed to a caller, not a content-hashable artifact —
+  the `manifest` field is the content-hashable thing
+- Why: the return type `derive_deployment` needs — a manifest plus its
+  documents, in one value, with no artifact class of its own to invent
+- Migration: none. New surface
+
+*Recorded by `16-29-config-derivation.md`.*
+
+#### ccf.deployment.derive_deployment
+
+- Surface: ccf.deployment.derive_deployment
+- Public surface: true
+- Change type: added
+- Before: did not exist
+- After: re-export of `ccf.deployment.config.derive_deployment` from
+  `ccf.deployment.__init__`'s `__all__`, exactly as every other
+  `ccf.deployment.*` submodule's public names are re-exported at the
+  package
+- Why: package-level ergonomics — an adopter imports `from ccf.deployment
+  import derive_deployment` alongside `load_and_boot`, `build_operator_registry`
+  and the rest of the wiring surface, rather than reaching into the
+  submodule
+- Migration: none. New surface
+
+*Recorded by `16-29-config-derivation.md`.*
+
+#### ccf.deployment.DerivedDeployment
+
+- Surface: ccf.deployment.DerivedDeployment
+- Public surface: true
+- Change type: added
+- Before: did not exist
+- After: re-export of `ccf.deployment.config.DerivedDeployment`, same
+  reasoning as the function's re-export above
+- Why: same as `ccf.deployment.derive_deployment`
+- Migration: none. New surface
+
+*Recorded by `16-29-config-derivation.md`.*
 
 ### Not public Python API
 
