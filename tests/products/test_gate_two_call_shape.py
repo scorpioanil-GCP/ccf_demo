@@ -352,6 +352,7 @@ from __future__ import annotations
 import ast
 import contextlib
 import pathlib
+import re
 import signal
 import types
 from collections.abc import Iterator
@@ -388,6 +389,29 @@ BINDER_CALL = "refuse_operator_set_divergence"
 #: (2) from a spelling check into a check.
 BINDER_DECLARED_KEYWORD = "declared"
 BINDER_PLAN_KEYWORD = "plan"
+
+#: The Control Plane class the binder's second operand comes from. Its
+#: registration is the premise the binder demand rests on: design E2 compares
+#: the product class's claim against the projection's OWN document, and a
+#: deployment that authors one document has no second operand for the
+#: comparison. Read from any manifest in the deployment's artifact tree —
+#: `examples/04-cross-process` declares it in `producer-manifest.yaml`, so a
+#: fixed filename would answer wrongly there (D-IMPL-137).
+REQUIREMENTS_CLASS_ID = "ccf.projection-requirements"
+
+#: How that registration is spelled in a manifest. The `class_id:` line is the
+#: Control Plane registration proper; the artifact file's own `$schema` comment
+#: names the same string and is deliberately NOT the signal, because a file
+#: present but unregistered is not in force.
+REQUIREMENTS_REGISTRATION_RE = re.compile(
+    r"^[ \t]*class_id:[ \t]*ccf\.projection-requirements[ \t]*$", re.MULTILINE
+)
+
+#: Deployments claiming the one-document exemption. **No headroom, on purpose**
+#: — the module's floors stop coverage shrinking silently and this stops the
+#: exemption spreading silently, which is the same instrument inverted. A
+#: second deployment claiming it cannot arrive without an edit here.
+MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1
 
 #: What :class:`ccf.projection.plan.ProjectionPlan` is structural **about**,
 #: quoted from its own docstring: *"Any type exposing ``required_operators()``
@@ -1146,6 +1170,94 @@ def _shares_a_source(
         return False
     shorter, longer = sorted((left, right), key=len)
     return longer[: len(shorter)] == shorter
+
+
+# --- the premise: does this deployment have two documents? --------------------
+
+
+def _deployment_root(path: pathlib.Path) -> pathlib.Path | None:
+    """The nearest ancestor of ``path`` under ``examples/`` holding artifacts.
+
+    Returns ``None`` for a body with no artifact tree — a synthesized fixture
+    under ``tmp_path``, or a tree outside ``examples/``. That answer is
+    load-bearing: see :func:`_one_document` for why it is fail-closed.
+    """
+    examples = REPO_ROOT / "examples"
+    for candidate in (path.parent, *path.parents):
+        if not candidate.is_relative_to(examples):
+            return None
+        if (candidate / "artifacts").is_dir():
+            return candidate
+    return None
+
+
+def _registers_requirements(root: pathlib.Path | None) -> bool:
+    """Whether this deployment registers a ``ccf.projection-requirements``.
+
+    Any YAML in the artifact tree, because the manifest's filename varies —
+    ``examples/04-cross-process`` declares it in ``producer-manifest.yaml``.
+    """
+    if root is None:
+        return False
+    return any(
+        REQUIREMENTS_REGISTRATION_RE.search(document.read_text(encoding="utf-8"))
+        for document in (root / "artifacts").rglob("*.yaml")
+    )
+
+
+def _class_claim(
+    scope: ast.AST, bindings: dict[str, tuple[_Binding, ...]]
+) -> tuple[str, ...] | None:
+    """Where this body's product-class operator claim reads.
+
+    Row A reads it from the binder's own ``declared=``. Rows B and C have no
+    binder call, so it comes from ``ProductLineage(operators_invoked=…)`` —
+    already this module's anchor for the product's side of Gate 2.
+
+    ``None`` where no lineage is assembled: the two replay environments'
+    ``resolve_plan`` methods construct a plan and return it. Those bodies are
+    subject to the demand (:func:`_one_document`), and both sit in
+    two-document deployments, so nothing about them moves.
+    """
+    for node in _scope_nodes(scope):
+        if not (isinstance(node, ast.Call) and _callee(node) == LINEAGE_CONSTRUCTOR):
+            continue
+        argument = _keyword(node, LINEAGE_DECLARED_KEYWORD)
+        if argument is not None:
+            return _resolve_at(_path(argument), _at(argument), bindings)
+    return None
+
+
+def _one_document(
+    scope: ast.AST,
+    path: pathlib.Path,
+    bindings: dict[str, tuple[_Binding, ...]],
+    plan_classes: frozenset[str] | None = None,
+) -> bool:
+    """Whether the binder demand's premise is false for this body (D-IMPL-137).
+
+    **A conjunction of two independent readings, and every other combination is
+    refused.** The artifact tree says whether a second document is registered;
+    the AST says whether the code actually reads one source. Row C — no
+    registration, and a ``required=`` reading somewhere unrelated — means a
+    second operator set was authored somewhere the Control Plane does not know
+    about, and it stays red because this returns ``False`` and the demand
+    applies unchanged.
+
+    Fail-closed in three places, each deliberate: no artifact tree, no readable
+    class claim, and no readable plan source. An absence of evidence is not the
+    exemption; the exemption is claimable only by a deployment that HAS
+    artifacts and demonstrably lacks that one.
+    """
+    if _registers_requirements(_deployment_root(path)):
+        return False
+    claim = _class_claim(scope, bindings)
+    if claim is None:
+        return False
+    sources = list(_plan_sources(scope, bindings, plan_classes).values())
+    if not sources or any(source is None for source in sources):
+        return False
+    return all(_shares_a_source(claim, source) for source in sources)
 
 
 # --- tripwire (1): both gate arguments from one source ------------------------
@@ -2073,6 +2185,40 @@ def test_the_binder_tripwire_detects_a_projection_that_skips_it() -> None:
         _is_plan_construction(node) or _is_plan_execution(node)
         for node in _scope_nodes(workflow)
     )
+
+
+def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
+    """Row B is pinned to its cause, not to HW-1 happening to pass.
+
+    Every projecting deployment registers `ccf.projection-requirements` except
+    HW-1, which authors one operator-set document and says so in its own
+    module docstring. Asserting the detector's answer on the real tree is what
+    stops the exemption drifting to mean something else later.
+    """
+    roots = {
+        _deployment_root(path)
+        for path, _ in _projecting_scopes()
+    }
+    roots.discard(None)
+    exempt = sorted(
+        str(root.relative_to(REPO_ROOT))
+        for root in roots
+        if not _registers_requirements(root)
+    )
+    assert exempt == ["examples/s1-00-companies-over-revenue"], exempt
+
+
+def test_a_body_with_no_artifact_tree_is_subject_to_the_demand() -> None:
+    """Fail-closed, and it keeps an existing control armed.
+
+    `test_the_binder_tripwire_detects_a_projection_that_skips_it` synthesizes
+    its violating body in `tmp_path`, which registers nothing. A default of
+    *exempt* would silence that control on the day the conditioning lands,
+    while it still reported green. Independently of the controls, a tree with
+    no Control Plane must not buy an exemption by having nothing registered.
+    """
+    assert _deployment_root(REPO_ROOT / "nowhere" / "run.py") is None
+    assert not _registers_requirements(None)
 
 
 # --- tripwire (2), the argument half: the binder is doing something -----------
