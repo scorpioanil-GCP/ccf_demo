@@ -31,9 +31,11 @@ it.
 the closure check is as load-bearing as the ordering one: a suite that grows an
 eighth marker per example has gone back to an editorial answer.
 
-**P5/P6 — the printing properties — are not in this module yet.** Which
-modules print and which stay silent is a separate contract that arrives in a
-follow-up change; nothing below is written to assert it until then.
+**P5/P6 — the printing properties.** Which modules print and which stay
+silent is a separate contract from P1–P4, scoped to fabric-facing modules
+only (see `CCF_IMPORT_RE`): exactly one fabric-facing module prints, the
+module carrying the canonical regions is not it, and the scope exclusion is
+itself controlled so it cannot silently swallow the whole check.
 """
 
 from __future__ import annotations
@@ -119,6 +121,60 @@ def region_modules(directory: pathlib.Path) -> list[pathlib.Path]:
         for module in modules_in(directory)
         if set(opened(module)) & set(CANONICAL_MARKERS)
     ]
+
+
+def printing_modules(directory: pathlib.Path) -> list[pathlib.Path]:
+    """Every fabric-facing module that writes to the terminal."""
+    return [
+        module
+        for module in fabric_facing(directory)
+        if PRINT_RE.search(module.read_text(encoding="utf-8"))
+    ]
+
+
+def print_problems(directory: pathlib.Path) -> list[str]:
+    """P5 and P6 — which side of the split writes to a terminal.
+
+    Always-on and substrate-free by construction: it reads files. Both
+    directions are needed. Without P5, printing creeps back into the spine and
+    the published snippets grow lines an adopter would never write; without
+    P6's lower bound, this passes just as happily against the silent example
+    the ruling of 2026-08-13 rejected.
+
+    Scoped to fabric-facing modules, which is what keeps a per-example
+    provisioning utility — printing, importing no `ccf`, and explicitly not CCF
+    — from counting as a second driver.
+    """
+    problems: list[str] = []
+    facing = fabric_facing(directory)
+    if not facing:
+        return [
+            f"{directory.name}: no module imports `ccf`, so the printing"
+            " properties would pass over an empty set"
+        ]
+
+    carriers = region_modules(directory)
+    if carriers and PRINT_RE.search(carriers[0].read_text(encoding="utf-8")):
+        problems.append(
+            f"{directory.name}/{carriers[0].name} carries the regions and"
+            " prints. Presentation belongs in the module that drives the run;"
+            " a printed line inside a published region is snippet surface an"
+            " adopter would never write."
+        )
+
+    printers = printing_modules(directory)
+    if not printers:
+        problems.append(
+            f"{directory.name} prints nothing — the example runs and shows a"
+            " reader nothing (Dave's ruling, 2026-08-13)"
+        )
+    elif len(printers) > 1:
+        problems.append(
+            f"{directory.name}: more than one fabric-facing module prints"
+            f" ({[module.name for module in printers]}). Exactly one drives"
+            " the run."
+        )
+    return problems
 
 
 def markers(path: pathlib.Path) -> list[tuple[str, str]]:
@@ -246,6 +302,10 @@ def test_the_section_one_tree_is_populated() -> None:
     )
     for directory in split_examples(EXAMPLES_ROOT):
         assert modules_in(directory), f"{directory.name} contains no Python module"
+        assert fabric_facing(directory), (
+            f"{directory.name} has no module importing `ccf` — the printing"
+            " properties would pass over an empty set"
+        )
 
 
 def test_the_marker_pattern_matches_the_shipped_form() -> None:
@@ -351,29 +411,12 @@ def test_the_shipped_example_satisfies_the_whole_contract(
     split_examples(EXAMPLES_ROOT),
     ids=lambda path: path.name,
 )
-def test_the_fabric_facing_modules_stay_silent_and_the_driver_prints(
+def test_the_spine_is_silent_and_exactly_one_module_prints(
     directory: pathlib.Path,
 ) -> None:
-    """Which side of the split writes to a terminal, asserted.
-
-    Always-on and substrate-free by construction — it reads files. Both halves
-    are needed: without the first, printing creeps back into the spine and the
-    published snippets grow lines an adopter would never write; without the
-    second, this passes just as happily against the silent example the ruling
-    of 2026-08-13 rejected.
-    """
-    for name in SILENT_MODULES:
-        module = directory / name
-        assert module.is_file(), module
-        assert not PRINT_RE.search(module.read_text(encoding="utf-8")), (
-            f"{directory.name}/{name} writes to the terminal; presentation"
-            f" belongs in {REPORT_MODULE} and printing in {PRINTING_MODULE}"
-        )
-    driver = directory / PRINTING_MODULE
-    assert PRINT_RE.search(driver.read_text(encoding="utf-8")), (
-        f"{directory.name}/{PRINTING_MODULE} prints nothing — the example"
-        " runs and shows a reader nothing (Dave's ruling, 2026-08-13)"
-    )
+    """P5 and P6, over the shipped tree, through the controls' own predicate."""
+    problems = print_problems(directory)
+    assert not problems, f"{directory.name}: " + "; ".join(problems)
 
 
 def test_discovery_is_independent_of_the_working_directory(
@@ -515,3 +558,93 @@ def test_the_gate_refuses_marker_vocabulary_outside_the_seven(
     )
 
     assert spine_problems(example)
+
+
+def test_the_gate_refuses_a_region_carrying_module_that_prints(
+    tmp_path: pathlib.Path,
+) -> None:
+    """P5 — this is what `D-11` is actually about.
+
+    The published snippets are the spine's regions. A print inside them is a
+    line an adopter would never write, inflating the example's apparent
+    integration cost — the Phase 14.1 finding, restated as a property of
+    whichever module carries the regions rather than of a module named
+    `spine.py`.
+    """
+    example = _copied_example(tmp_path)
+    spine = region_modules(example)[0]
+    spine.write_text(
+        spine.read_text(encoding="utf-8") + '\nprint("noise")\n', "utf-8"
+    )
+
+    problems = print_problems(example)
+    assert any("carries the regions and prints" in p for p in problems), problems
+
+
+def test_the_gate_refuses_an_example_that_prints_nothing(
+    tmp_path: pathlib.Path,
+) -> None:
+    """P6, zero direction — the shape Dave's ruling of 2026-08-13 rejected.
+
+    Without this the printing check passes just as happily against a silent
+    example: one that runs and shows a reader nothing.
+    """
+    example = _copied_example(tmp_path)
+    for module in printing_modules(example):
+        module.write_text(
+            PRINT_RE.sub("_muted(", module.read_text(encoding="utf-8")), "utf-8"
+        )
+
+    problems = print_problems(example)
+    assert any("prints nothing" in problem for problem in problems), problems
+
+
+def test_the_gate_refuses_two_fabric_facing_printers(
+    tmp_path: pathlib.Path,
+) -> None:
+    """P6, two direction — printing must not creep back across the split."""
+    example = _copied_example(tmp_path)
+    silent = next(
+        module
+        for module in fabric_facing(example)
+        if not PRINT_RE.search(module.read_text(encoding="utf-8"))
+    )
+    silent.write_text(
+        silent.read_text(encoding="utf-8") + '\nprint("noise")\n', "utf-8"
+    )
+
+    problems = print_problems(example)
+    assert any("more than one" in problem for problem in problems), problems
+
+
+def test_the_fabric_facing_scope_admits_and_excludes_on_the_import(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The control for the one new convention, both halves.
+
+    HW-1's `scenario/provision.py` prints and imports no `ccf`. If the scope
+    predicate did not exclude it, P6 would be false for a correct example; if
+    the predicate excluded everything, P5 and P6 would pass over an empty set.
+    One test asserts both directions against the same file.
+    """
+    example = _copied_example(tmp_path)
+    outsider = example / "scenario" / "provision.py"
+    # Asserted, not skipped. A skip here would silently disable the only
+    # control of the one convention this rewrite introduces, on the day
+    # somebody moved the file.
+    assert outsider.is_file(), (
+        f"{example.name} no longer ships scenario/provision.py — repoint this"
+        " control at whichever module prints and imports no `ccf`"
+    )
+
+    # (a) it prints, imports no `ccf`, and the example is still compliant.
+    assert PRINT_RE.search(outsider.read_text(encoding="utf-8"))
+    assert not CCF_IMPORT_RE.search(outsider.read_text(encoding="utf-8"))
+    assert not print_problems(example), print_problems(example)
+
+    # (b) the same file, now importing `ccf`, is a second printer and refused.
+    outsider.write_text(
+        "import ccf.deployment\n" + outsider.read_text(encoding="utf-8"), "utf-8"
+    )
+    problems = print_problems(example)
+    assert any("more than one" in problem for problem in problems), problems
