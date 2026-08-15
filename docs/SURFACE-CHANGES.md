@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**632 entries**, of which **403** name a public Python surface.
+**634 entries**, of which **405** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-286 entries — 253 public Python surface, 33 not public Python API.
+288 entries — 255 public Python surface, 33 not public Python API.
 
 ### Public Python surface
 
@@ -5241,6 +5241,57 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none. New surface
 
 *Recorded by `16-29-config-derivation.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: added
+- Before: did not exist
+- After: `load_config_and_boot(config_path: str | Path, *, registry:
+  ControlPlaneProtocol, connection: Mapping[str, object] | None = None,
+  tenant_id: str | None = None) -> BootedFabric`. Parses a `ccf_config.yaml`,
+  derives a `DeploymentManifest` plus its documents through
+  `derive_deployment`, runs the same preflight `load_and_boot` runs
+  (`_preflight_entries`, `_preflight_adapter`, `_resolve_secret_references`
+  — the same three functions, imported and called, never re-implemented),
+  validates every materialised document through `parse_artifact`, and calls
+  the same `_register_and_boot` `load_and_boot` calls to register the
+  `role: register` entries and boot. Returns the same `BootedFabric` shape:
+  `handle`, `pins`, `tenant_id`, `artifacts` (both roles), `survivor_cap`
+- Why: `D-IMPL-136` §10's compatibility commitment — *"existing multi-file
+  deployments work unchanged"* — closed by construction rather than by
+  convention: the register loop and the preflight are extracted, not
+  duplicated, so the two doors cannot drift on the D-05 bump-check dispatch,
+  the D-IMPL-80 role/pin distinction, or the containment check. Proved by
+  `tests/deployment/test_config_equivalence.py` (a synthetic deployment
+  authored both ways boots to an equal `ResolvedPins` and equal
+  `BootedFabric.artifacts`) and
+  `tests/examples/test_s1_00_config_equivalence.py` (HW-1's eight committed
+  documents and a hand-authored single-file fixture register at identical
+  content addresses, 8/8) — design spec §3's argument, now a regression test
+  rather than an argument
+- Migration: none. New surface; every existing multi-file deployment keeps
+  working with no edit, and the multi-file form carries no deprecation date
+
+*Recorded by `16-30-config-boot-equivalence.md`.*
+
+#### ccf.deployment.load_config_and_boot
+
+- Surface: ccf.deployment.load_config_and_boot
+- Public surface: true
+- Change type: added
+- Before: did not exist
+- After: re-export of `ccf.deployment.config.load_config_and_boot` from
+  `ccf.deployment.__init__`'s `__all__`, exactly as `load_and_boot` and
+  `derive_deployment` are re-exported at the package — an adopter imports
+  `from ccf.deployment import load_config_and_boot` alongside the rest of
+  the wiring surface
+- Why: package-level ergonomics, same reasoning as every other
+  `ccf.deployment.*` re-export
+- Migration: none. New surface
+
+*Recorded by `16-30-config-boot-equivalence.md`.*
 
 ### Not public Python API
 
