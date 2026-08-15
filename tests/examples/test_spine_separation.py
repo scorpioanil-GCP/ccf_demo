@@ -2,10 +2,13 @@
 
 Phase 16 CONTEXT `D-11` answers a reader's complaint in the reader's own words:
 *"I can't tell from looking at the code which code is example code and which
-code is required by the CCF."* The answer is two files rather than a docs-layer
-legend — ``spine.py`` holds every call the fabric requires and ``deployment.py``
-holds everything the adopter writes — and the seven Phase 14 `D-07` marker
-regions are how the spine's steps are named.
+code is required by the CCF."* The answer is a split between the module that
+carries the fabric's call spine and everything else the adopter writes, with
+the seven Phase 14 `D-07` marker regions naming the spine's steps. The split
+is discovered from content, not declared by a filename: the spine is
+whichever module opens the seven canonical regions, a property a rename
+cannot break. `D-11`'s complaint and the seven `D-07` names are unchanged by
+that — this module changed how the spine is *found*, not what it *is*.
 
 **What this module proves, and what it cannot.** It proves the markers are
 present, canonical, ordered, closed, and confined to one module. It does not
@@ -19,12 +22,18 @@ without an agent in front of it, and the split is Section 1's shape — every
 Section-1 example carries it, so plan 16-08's second example arms these
 assertions by existing rather than by being listed. Section 2 and 3 examples are
 out of scope here; ``examples/00-quickstart/run.py`` carries the same seven
-marker names in a single module, which is the pre-`D-11` shape this one replaces
-and deliberately not a violation of it.
+marker names in a single module, which is the pre-`D-11` shape this one
+replaces. It was never inside the `s1-*` glob these checks scan, so it is not a
+carve-out from a rule this module enforces — the checks below simply never see
+it.
 
 **`D-11` adds no marker vocabulary.** The seven names below are Phase 14's, and
 the closure check is as load-bearing as the ordering one: a suite that grows an
 eighth marker per example has gone back to an editorial answer.
+
+**P5/P6 — the printing properties — are not in this module yet.** Which
+modules print and which stay silent is a separate contract that arrives in a
+follow-up change; nothing below is written to assert it until then.
 """
 
 from __future__ import annotations
@@ -154,6 +163,23 @@ def unbalanced(path: pathlib.Path) -> list[str]:
     return problems
 
 
+def region_report(spine: pathlib.Path) -> tuple[tuple[str, ...], list[str], list[str]]:
+    """What the spine opens, and how it differs from the seven canonical names.
+
+    One derivation, two readers: `spine_problems` reports it as part of the
+    aggregate, and the P2 test reports each direction separately. Written twice
+    it drifted in wording before it shipped, which is the argument for a
+    predicate rather than a repetition — the same argument `opened`,
+    `unbalanced` and `spine_problems` already make in this module.
+    """
+    found = opened(spine)
+    return (
+        found,
+        [name for name in CANONICAL_MARKERS if name not in found],
+        [name for name in found if name not in CANONICAL_MARKERS],
+    )
+
+
 def spine_problems(directory: pathlib.Path) -> list[str]:
     """Every way one example directory fails the separation contract.
 
@@ -186,9 +212,7 @@ def spine_problems(directory: pathlib.Path) -> list[str]:
         )
 
     spine = carriers[0]
-    found = opened(spine)
-    missing = [name for name in CANONICAL_MARKERS if name not in found]
-    extra = [name for name in found if name not in CANONICAL_MARKERS]
+    found, missing, extra = region_report(spine)
     if missing:
         problems.append(f"{spine.name} opens no region for {missing}")
     if extra:
@@ -281,9 +305,7 @@ def test_the_spine_opens_the_seven_canonical_regions_in_order(
     spine that records before it gates reads as a different story.
     """
     spine = region_modules(directory)[0]
-    found = opened(spine)
-    missing = [name for name in CANONICAL_MARKERS if name not in found]
-    extra = [name for name in found if name not in CANONICAL_MARKERS]
+    found, missing, extra = region_report(spine)
     assert not missing, f"{directory.name}/{spine.name} opens no region for {missing}"
     assert not extra, (
         f"{directory.name}/{spine.name} opens {extra}, which is marker"
