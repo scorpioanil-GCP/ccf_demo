@@ -94,8 +94,15 @@ the role has no distinct property and disappears.
 | P6 | exactly one fabric-facing module prints | `consume.py` | `run.py` |
 
 P1 and P4 state one fact from both ends and both are kept: P1 fails when *zero*
-modules carry regions, P4 when *two* do. P6 uses the same fabric-facing
-predicate as P1–P5.
+modules carry regions, P4 when *two* do.
+
+**Correction, found while planning: regions and printing take different
+scopes.** P1–P4 scan **every** module in the example; P5–P6 scan the
+**fabric-facing** ones. A `--8<--` region in a module that imports no `ccf` is
+still published-snippet surface, so scoping the region properties would make a
+marker in `provision.py` invisible — and §3.1's rule was forced by a *print*,
+which is the only property it needs to govern. Neither example moves:
+`provision.py` carries zero regions.
 
 ### 3.4 What changes in the module
 
@@ -178,6 +185,16 @@ design** — the exemption is
 not *"no artifact → skip"*. It is earned by a positive assertion, read from the
 AST, that the code really does read one source, while the absence is read from
 the artifact tree. Two independent readings; disagreement is itself a finding.
+
+**Correction, found while planning: properties (2) and (3) are conditioned
+together; only (1) stays unconditional.** §7 note 4 originally conditioned the
+coverage assertion and property (3) alone. That leaves HW-1 red. Property (2) —
+*the plan bound is the plan run* — is implemented as
+`any(call.handed == execution.plan … for call in calls)`, and with **zero**
+binder calls `any([])` is `False`, so it fires on every execution. It is HW-1's
+second current failure verbatim. Property (1) stays unconditional deliberately:
+a row-B body that calls the binder anyway is still refused for the tautology,
+which is what makes the exemption an absence of demand rather than a licence.
 
 **Where "the class claim" is read from, in a body that does not call the
 binder.** Row A reads it from the binder's own `declared=`. Rows B and C have no
@@ -305,8 +322,9 @@ an author would actually write.
 3. Add the premise detector to `tests/products/test_gate_two_call_shape.py`:
    deployment root → artifact tree → any manifest declaring
    `class_id: ccf.projection-requirements`; absent tree ⇒ subject to the demand.
-4. Condition the coverage assertion and `_binder_collapses` property (3) on the
-   premise; leave properties (1) and (2) unconditional.
+4. Condition the coverage assertion and `_binder_collapses` properties **(2) and
+   (3)** on the premise; leave property (1) unconditional. See §4.3's second
+   correction for why (2) cannot be left out.
 5. Add `MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1` with the existing floor-removal
    instruction; re-measure `MINIMUM_PROJECTING_BODIES` and correct its comment.
 6. Rewrite the controls per §5.
