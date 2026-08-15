@@ -2485,6 +2485,68 @@ def test_hw1_claims_the_exemption_for_the_stated_reason() -> None:
     assert exempt, "HW-1's projecting body no longer reads one document"
 
 
+def test_an_exempt_body_that_calls_the_binder_is_still_refused() -> None:
+    """Property (1)'s unconditionality, watched rather than asserted (D-IMPL-137).
+
+    This is the sentence that makes the ruling defensible: the exemption is an
+    **absence of demand**, not a **licence**. A one-document deployment is not
+    asked to call the binder — but if it calls it anyway over a plan built from
+    the very claim it is about to be compared against, property (1) still
+    refuses it for the tautology. Nothing is bought by claiming the exemption
+    that could not be had without it.
+
+    Until this control landed, that sentence appeared in the module docstring,
+    in a comment inside :func:`_binder_collapses`, in
+    :func:`test_every_projecting_example_body_names_the_binder`'s docstring and
+    in `D-IMPL-137` itself — and **nothing tested it**. Folding property (1)
+    under the ``if demanded:`` guard changes no verdict anywhere on the shipped
+    tree and leaves every probe in this module passing, because every
+    ``_binder_collapses`` probe here is *demanded* and the one exempt body
+    makes no binder call. A future tidy-up doing exactly that would have been
+    invisible to the whole suite.
+
+    Run against HW-1's **real** ``produce.py`` path, the same way
+    :func:`test_a_second_operator_set_outside_the_control_plane_is_refused`
+    runs row C: a synthesized path resolves :func:`_deployment_root` to ``None``
+    and the fail-closed default would refuse the body whatever its AST said, so
+    the control would pass without ever reaching the exempt branch it exists to
+    exercise. Both halves are asserted, because either alone would keep passing
+    if the other silently changed — that the body IS exempt, and that it is
+    refused regardless.
+    """
+    produce = REPO_ROOT / "examples" / "s1-00-companies-over-revenue" / "produce.py"
+    assert _deployment_root(produce) is not None, (
+        "this control needs HW-1's REAL artifact tree; a synthesized path is"
+        " refused by the fail-closed default before the exempt branch is reached"
+    )
+
+    source = (
+        "def serve(pid, r, declared):\n"
+        f"    {LINEAGE_CONSTRUCTOR}({LINEAGE_DECLARED_KEYWORD}="
+        f"{BINDER_DECLARED_KEYWORD}.required_operator_keys)\n"
+        f"    plan = Fixture{PLAN_CLASS_SUFFIX}({PLAN_ID_KEYWORD}=pid,"
+        f" {PLAN_REQUIRED_KEYWORD}={BINDER_DECLARED_KEYWORD}"
+        ".required_operator_keys)\n"
+        f"    {BINDER_CALL}({BINDER_DECLARED_KEYWORD}=declared,"
+        f" {ENGINE_PLAN_KEYWORD}=plan)\n"
+        f"    return ProjectionEngine(reader=r).execute({ENGINE_PLAN_KEYWORD}=plan)\n"
+    )
+    function = ast.parse(source).body[0]
+    assert isinstance(function, ast.FunctionDef)
+
+    # exempt: HW-1 registers no requirements artifact, and this body's class
+    # claim and plan `required=` read one source — row B, exactly
+    assert _one_document(function, produce, _bindings(function)), source
+
+    # …and refused anyway, by property (1), which the `if demanded:` guards do
+    # not cover. This is the assertion the whole ruling rests on.
+    problems = _binder_collapses(function, produce)
+    assert problems, source
+    assert all(
+        "compares a value against itself" in problem for problem in problems
+    ), problems
+
+
 def test_a_second_operator_set_outside_the_control_plane_is_refused() -> None:
     """Row C — the shape the exemption must never admit (D-IMPL-137).
 
