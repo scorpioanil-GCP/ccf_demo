@@ -1163,6 +1163,15 @@ record is
 already recorded elsewhere in this roadmap. Requirement IDs (DOCS-07..NN) remain
 `/gsd:plan-phase 16`'s to mint.
 
+**STOPPED 2026-08-15 — example surface rejected by Dave; superseded by Phase
+17.** The first example reached 722 lines of Python with the consumer importing
+the producer's configuration (`.planning/HANDOFF-2026-08-15.md`). The remaining
+14 documentation plans (16-07…16-20) documented that surface and stay stopped.
+What survives: the SDK itself (3305 tests), the single-file `ccf_config.yaml`
+authoring form (`D-IMPL-136` + amendment), the property-based gates
+(`D-IMPL-137`/`-138`), and `backends.yaml` separation. The example-shape rulings
+are suspended per `docs/superpowers/specs/2026-08-15-ccf-client-design.md` §11.
+
 **Goal**: rebuild the adopter-facing **examples suite** and **published
 documentation** against the post-Phase-15 surface, organized as four sections of
 increasing depth. Phase 16 ships **Sections 1–3**, all against mechanism the SDK
@@ -1290,6 +1299,58 @@ Plans:
   9. The carried advisories this phase owns are discharged in the published tree: A-1 (`from ccf.deployment import …` as the single preferred day-1 import), A-2 (a maintainer page for the surface toolchain), A-3 (the pre-15 surface described in the shipped docs), A-8 (`role: load` artifacts reachable on `BootedFabric.artifacts` and absent from the replay pin set)
   10. Nothing leaks into the core: zero harness imports in `src/`, no LLM client in any `@algorithmic` module, no prompt/agent/task/threshold literal outside an artifact, and no substrate name outside the backend registry — all four CI-enforced — while changes to the fabric itself are permitted and expected where this phase finds a defect (`D-IMPL-96`, Dave, 2026-08-10, revoking the former "no fabric changed" wording and with it `D-13`'s docstring carve-out, `D-14`'s two-limb bound, and plan 16-19's `gate_16.py` allowlist; Mode 2 packaging still attaches **above** `serve()` per `D-IMPL-94`, and there is still no Mode 2 packaging stage, no Mode 3 coordinator, no `src/ccf/unstructured/`, and no tier-3 external sources)
 
+### Phase 17: Client Access — `ccf.client` and the Transport-Agnostic First Example
+
+**Status**: opened 2026-08-15. Brainstormed and converged with Dave the same
+day; the design is approved in full. **The authoritative input is
+`docs/superpowers/specs/2026-08-15-ccf-client-design.md`** — every commitment
+there is design-ruled; this entry is orientation, not a second specification.
+Branch: `phase-17` (cut from the `phase-16` tip so the SDK-keep work —
+single-file config loader, property gates — travels with it).
+
+**Goal**: CCF owns the client abstraction and the result contract; transports
+are official adapters that all return the same `Result` shape; the producer
+side stays completely invisible to the client. Ship, in order:
+
+1. **`ccf.client`** — `ProductClient.for_product()` + `ask()`; a four-name
+   public surface (`ProductClient`, `Result`/`Refusal`, `TransportError`,
+   `BindingError`); refusal is a value, negligence is an exception, wire
+   failure is an exception; fail-closed guards on post-assembly fields;
+   `CCF_BINDING` scheme-prefixed resolution, deliberately minimal.
+2. **In-process adapter** — a true degenerate wire: lazy boot behind the seam,
+   round-tripped through the same canonical codec every wire adapter uses
+   (`Result` constructed in exactly one place).
+3. **Adapter conformance suite** — the CI parity gate: identical `Result`
+   fields and content address across adapters, identical refusals, guard
+   behavior, wire-failure separation. An adapter is official when it passes.
+4. **First example** — `consume.py` (≤ 80 lines, imports `ccf.client` + stdlib
+   only, both CI-gated) beside an opaque `deployment/` dir; one command to run.
+5. **MCP adapter** — second, against the frozen contract, ships when it passes
+   the conformance suite. HTTP / A2A later, as adapters only.
+
+**Scope discipline** (Dave, at section-3 approval): this phase is the **client
+role only**. Examples for *constructing* context products are a separate,
+later body of work with a different audience.
+
+**Inheritances and consequences:**
+
+- The Phase 16 example-shape rulings are suspended (spec §11); the
+  producer/consumer separation of `D-IMPL-127` is strengthened — enforced now
+  by the purity gate and the codec seam rather than file layout. SDK rulings
+  `D-IMPL-132`/`-136`/`-137`/`-138` stand.
+- `tests/examples/test_spine_separation.py` enforces the suspended shape and
+  must be re-scoped or retired before it refuses the new examples.
+- Condemned example trees (`s1-00`, `s1-01`, `00`–`08`) are removed or
+  quarantined early in this phase (spec §12.2).
+- The "Section 4 — LLM packaging and agent swarms" work that Phase 16's entry
+  reserved under the *name* "Phase 17" is **not this phase**; it re-homes to a
+  later phase number when its enabling fabric arrives.
+- Open in the neighborhood, not gating: `D-IMPL-129` (`invoke_agent`
+  entitlement), 16-26 (client parameters on both doors, `D-IMPL-133`).
+
+**Requirements**: mints its own IDs at `/gsd:plan-phase 17`.
+**Plans**: none yet — planning is next.
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -1308,7 +1369,8 @@ Plans:
 | 15.3. Fluree Adapter (Tier-1 Substrate) | 6/5 | Complete    | 2026-08-09 |
 | 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 15/15 | Complete | 2026-08-11 |
 | 15.6 Decision-Completeness and Defect Closure | 13/13 | Complete | 2026-08-13 |
-| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Parked (resumes after 15.6) |  |
+| 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Stopped 2026-08-15 — example surface rejected; superseded by 17 |  |
+| 17. Client Access — `ccf.client` & Transport-Agnostic First Example | 0/— | Opened 2026-08-15 — design approved, planning next |  |
 
 ## Coverage
 

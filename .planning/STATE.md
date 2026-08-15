@@ -3,19 +3,40 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-15T11:50:00.000Z"
+last_updated: "2026-08-15T21:40:00.000Z"
 last_activity: >-
-  2026-08-15 -- Phase 16 executing at 16 of 30. Property-not-shape gating closed (18 gate failures
-  -> 0, D-IMPL-137); the ccf_config.yaml single-file authoring form shipped and HW-1 converted
-  (D-IMPL-136 AMENDMENT, D-IMPL-138, D-IMPL-139). `phase-16` is 90 commits ahead of `main` and 27
-  ahead of `origin/phase-16` -- NOT PUSHED
+  2026-08-15 PM -- Phase 16 STOPPED (example surface rejected by Dave; 14 doc plans stay unwritten).
+  Phase 17 OPENED: ccf.client transport-agnostic client access, design brainstormed with Dave and
+  approved same day. Spec committed on new branch `phase-17` at c709d5b:
+  docs/superpowers/specs/2026-08-15-ccf-client-design.md. Next: /gsd:plan-phase 17 (or discuss-phase
+  first if Dave wants; the spec already carries the converged decisions).
 progress:
-  total_phases: 17
+  total_phases: 18
   completed_phases: 16
   total_plans: 175
   completed_plans: 161
   percent: 92
 stopped_at: >-
+  PHASE 17 OPENED 2026-08-15, DESIGN APPROVED, PLANNING NOT STARTED. Branch `phase-17` cut from the
+  `phase-16` tip (d9f117b) so the SDK-keep work (single-file ccf_config loader D-IMPL-136, property
+  gates D-IMPL-137/-138) travels with it; spec committed at c709d5b. THE AUTHORITATIVE INPUT is
+  docs/superpowers/specs/2026-08-15-ccf-client-design.md -- read it before planning anything. In one
+  breath: CCF owns the client abstraction and the Result contract; transports are adapters
+  (in-process first, MCP second, HTTP/A2A later) that all return the same Result via ONE decode
+  path; refusal is a value, negligence is an exception, wire failure is an exception; fail-closed
+  guards on post-assembly fields; CCF_BINDING scheme-prefixed resolution, deliberately minimal;
+  in-process round-trips the canonical codec (ruled YES); adapter conformance suite is the CI parity
+  gate; first example is consume.py <= 80 lines importing only ccf.client + stdlib (purity + budget
+  gates in CI). Scope discipline: CLIENT ROLE ONLY -- producer-side construction examples are later
+  work. CONSEQUENCES RULED (spec section 11): Phase 16 example-shape rulings SUSPENDED (D-11 of
+  16-CONTEXT, D-IMPL-125, D-IMPL-127's file-shape aspect, D-IMPL-131, D-IMPL-139a); SDK rulings
+  STAND (D-IMPL-132/-136/-137/-138); tests/examples/test_spine_separation.py must be re-scoped or
+  retired before it refuses new examples; condemned example trees (s1-00, s1-01, 00-08) removed or
+  quarantined early in Phase 17. PHASE 16 IS STOPPED, NOT GATED -- its 14 remaining doc plans
+  (16-07..16-20) documented the rejected surface and stay unwritten; its ROADMAP entry carries the
+  stop note. The verdict, Dave verbatim: the first example "fails miserably" -- 722 lines of Python
+  with consume.py importing the producer's deployment config. Full post-mortem in
+  .planning/HANDOFF-2026-08-15.md. PRIOR POSITION (Phase 16 execution, retained):
   PHASE 16 EXECUTING AT 16 OF 30, two bodies of work closed 2026-08-15 and NOT YET PUSHED.
   `phase-16` is 27 commits ahead of `origin/phase-16` and 90 ahead of `main`. PHASE 15.6 IS
   COMPLETE, GATED **AND MERGED** — `main` is at 6e95da0; this field previously claimed that merge
@@ -67,23 +88,28 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 16 executing at **16 of 30** plans. Two bodies of work
-closed on 2026-08-15: the two universal example gates now gate on **properties,
-not filenames** (`D-IMPL-137`), and the **single-file `ccf_config.yaml` authoring
-form** shipped with HW-1 converted onto it (`D-IMPL-136` AMENDMENT, `D-IMPL-138`,
-`D-IMPL-139`). Fourteen plans remain, all in Phase 16.
+**Current focus:** Phase 17 — Client Access (`ccf.client`). Design brainstormed
+with Dave and **approved 2026-08-15**; the authoritative input is
+`docs/superpowers/specs/2026-08-15-ccf-client-design.md`. Phase 16 is **stopped**
+(example surface rejected; SDK-keep work survives on the branch lineage).
 
 ## Current Position
 
-Phase: 16 — Documentation Rewrite / The Deterministic Path EXECUTING at 16 of 30.
-  Phase 15.6 is COMPLETE, gated (D-GATE-15.6, Dave, 2026-08-13) **and MERGED** —
-  `main` is at 6e95da0, the merge this file previously called the NEXT ACTION.
-Plan: 16 of 30 complete. Remaining 14: 16-07 … 16-20, which is the documentation
-  block plus the examples that document the surface the last two days changed.
+Phase: 17 — Client Access: `ccf.client` and the transport-agnostic first example.
+  OPENED 2026-08-15; design approved; planning not started. Branch `phase-17`
+  (cut from `phase-16` tip d9f117b; spec committed at c709d5b).
+Phase 16: STOPPED 2026-08-15, not gated — first example rejected by Dave at 722
+  lines of Python with the consumer importing producer config. The 14 remaining
+  documentation plans (16-07…16-20) stay unwritten. Post-mortem:
+  `.planning/HANDOFF-2026-08-15.md`. ROADMAP entries for both phases updated by
+  hand this session.
 
-NEXT ACTION: **push `phase-16`** — it is 27 commits ahead of `origin/phase-16`
-  and 90 ahead of `main`, and the remote is still green at an older state. The
-  merge to `main` waits for the phase gate per CLAUDE.md §2.2, not for this push.
+NEXT ACTION: plan Phase 17 (`/gsd:plan-phase 17`, with the spec as input — the
+  design decisions are already converged and ruled; planning sequences them).
+  Early plans must cover: `ccf.client` core + Result contract, in-process
+  adapter + canonical codec, conformance suite, first example with purity/budget
+  gates, `test_spine_separation.py` re-scope/retire, condemned-tree disposition.
+  Push `phase-17` when Dave says push.
 
 WHAT CLOSED 2026-08-15, both verified by the orchestrator rather than relayed:
   (1) PROPERTY-NOT-SHAPE GATING — `phase-16` was red with 18 failures and no
