@@ -4,9 +4,12 @@
 
 ``produce.py`` beside this file is CCF's calls and names none of the vocabulary
 below. This file names all of it and makes no fabric call the spine does not.
-Delete ``artifacts/config/`` and nothing here has anything left to interpret —
+Delete ``ccf_config.yaml`` and nothing here has anything left to interpret —
 which is the No-Hardcoding Rule (CLAUDE.md §6.4) being structural rather than
-aspirational.
+aspirational. (Before `16-31`, this deployment authored the same claim across
+ten documents under ``artifacts/config/``; `D-IMPL-136`'s AMENDMENT of
+2026-08-15 converts HW-1 to the one-file form, and this sentence is still
+true of it.)
 
 **The structural difference from ``s1-01``: L1 comes from a database.** ``s1-01``
 authors 341 lines of ``events.yaml``; this deployment reads its source table and
@@ -55,22 +58,30 @@ from ccf.projection.plan import Perspective, ProjectionOutput
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
 HERE = Path(__file__).parent
-CONFIG = HERE / "artifacts" / "config"
 SCENARIO = HERE / "scenario"
-MANIFEST = CONFIG / "manifest.yaml"
+#: The single authored Control Plane document (`D-IMPL-136`'s AMENDMENT).
+#: Named `MANIFEST` still — not `CCF_CONFIG` — solely so `consume.py`'s
+#: `deployment.MANIFEST` reference needs no edit; the value is
+#: `ccf_config.yaml`, not a manifest, and every use below reads it as such.
+MANIFEST = HERE / "ccf_config.yaml"
 
-# --- This deployment's Control Plane vocabulary. These are the `key:` values in
-#     `manifest.yaml`, and this is the only place they are written down.
-KEY_PERSPECTIVE = "perspective"
-KEY_PRODUCT_CLASS = "product-class"
-KEY_REQUEST_CONTRACT = "request-contract"
-KEY_HALF_LIFE_TABLE = "half-life-table"
-KEY_DEBT_PROFILE = "debt-profile"
-KEY_POLICY_BUNDLE = "policy-bundle"
-KEY_TEMPORAL = "temporal"
+# --- This deployment's Control Plane vocabulary. These are the manifest `key:`
+#     values `derive_deployment` derives from `ccf_config.yaml`'s own section
+#     names, and this is the only place they are written down.
+KEY_PERSPECTIVE = "default_perspective"
+KEY_PRODUCT_CLASS = "product_class"
+KEY_REQUEST_CONTRACT = "request_contract"
+KEY_HALF_LIFE_TABLE = "half_life"
+KEY_DEBT_PROFILE = "debt_profile"
+KEY_POLICY_BUNDLE = "policy"
+#: An `operators:` entry's key is the operator id itself (`derive_deployment`
+#: derives no shorter alias) — never `"temporal"` alone, which was only ever
+#: the multi-file manifest's own `key:` override for the same artifact.
+KEY_TEMPORAL = "temporal.as-of-boundary"
 
 #: The declared request parameter the caller supplies. Declared REQUIRED in
-#: `artifacts/config/request-contract.yaml`; nothing in this tree defaults it.
+#: `ccf_config.yaml`'s `request_contract:` section; nothing in this tree
+#: defaults it.
 THRESHOLD_PARAMETER = "revenue_threshold"
 
 # --- THIS DEPLOYMENT'S SCENARIO VOCABULARY — the source system it reads. NOT
@@ -83,14 +94,14 @@ COLUMN_REVENUE = "revenue"
 COLUMN_UPDATED = "last_updated"
 
 #: How a row's fields are named once they are inside the fabric. These match
-#: `attribute_keys` in `artifacts/config/resolution-spec.yaml`.
+#: `attribute_keys` in `ccf_config.yaml`'s `resolution:` section.
 ATTR_REF = "company_ref"
 ATTR_NAME = "company_name"
 ATTR_REVENUE = "company_revenue"
 
-#: The λ_c entry in `artifacts/config/half-life-table.yaml` these rows decay by,
-#: and the entity class `resolution-spec.yaml` resolves them to. One class, one
-#: curve — which is why this example's debt story fits on one line.
+#: The λ_c entry in `ccf_config.yaml`'s `half_life:` section these rows decay
+#: by, and the entity class the `resolution:` section resolves them to. One
+#: class, one curve — which is why this example's debt story fits on one line.
 OBSERVATION_TYPE = "company"
 
 #: How long a served answer stays servable. The class's declared ceiling is a
@@ -120,12 +131,13 @@ def connection(*, root: Path) -> Mapping[str, str]:
     """Compose the declared backend kind's settings (threat ``T-16-25-01``).
 
     The only branch here is over the two value SOURCES this example uses, never
-    over a substrate name: ``manifest.yaml`` declares the KIND and
-    ``backends.yaml`` says how that kind's settings are composed. No host, port,
-    path or credential is read from any document — only a variable's NAME.
+    over a substrate name: ``ccf_config.yaml`` declares the KIND (its
+    top-level ``backend:``) and ``backends.yaml`` says how that kind's
+    settings are composed. No host, port, path or credential is read from any
+    document — only a variable's NAME.
     """
     kind = _document(MANIFEST)["backend"]
-    profiles = _document(CONFIG / "backends.yaml")[DECLARATION][PROFILES]
+    profiles = _document(HERE / "backends.yaml")[DECLARATION][PROFILES]
     settings: Mapping[str, Any] = profiles[kind][SETTINGS]
     composed: dict[str, str] = {}
     for setting, source in settings.items():
@@ -135,7 +147,7 @@ def connection(*, root: Path) -> Mapping[str, str]:
             if not value:
                 raise RuntimeError(
                     f"{variable} is unset; {source[REMEDY]}. It supplies"
-                    f" `{setting}`, which artifacts/config/backends.yaml"
+                    f" `{setting}`, which backends.yaml"
                     " declares this deployment reads from the environment."
                     " There is no default and no fallback to another backend."
                 )
@@ -155,11 +167,12 @@ def request(
     deployment's declared vocabulary.
 
     The three address tokens come from ``scenario/question.yaml`` and the class
-    identity from ``artifacts/config/product-class.yaml``. ``parameters`` is the
-    CALLER's — this function supplies no value for it and no default.
+    identity from ``ccf_config.yaml``'s ``product_class:`` section.
+    ``parameters`` is the CALLER's — this function supplies no value for it
+    and no default.
     """
     question = _document(SCENARIO / "question.yaml")[DECLARATION]
-    declared = _document(CONFIG / "product-class.yaml")
+    declared = _document(MANIFEST)["product_class"]
     return ProductRequest(
         schema_name=declared["schema_name"],
         schema_version=declared["schema_version"],

@@ -72,7 +72,7 @@ from ccf.controlplane.artifacts import (
     ProductClassDeclaration,
 )
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment import BootedFabric, build_operator_registry, load_and_boot
+from ccf.deployment import BootedFabric, build_operator_registry, load_config_and_boot
 from ccf.graph.protocols import GraphView
 from ccf.halflife.debt import DebtAssessment
 from ccf.products.contract import (
@@ -222,12 +222,13 @@ def assemble_and_serve(
     registry = ControlPlaneRegistry()
 
     # --8<-- [start:boot]
-    # 1. One call replaces the registration prologue and the boot: the manifest
-    #    names every artifact in force, `load_and_boot` parses all of them,
-    #    registers the `role: register` ones, and boots on the resulting pins.
+    # 1. One call replaces the registration prologue and the boot: the single
+    #    `ccf_config.yaml` names every section in force, `load_config_and_boot`
+    #    derives and parses all of them, registers the `role: register` ones,
+    #    and boots on the resulting pins (`D-IMPL-136`'s AMENDMENT).
     #    Connection values arrive HERE, from the caller — never from the
-    #    manifest, which declares the backend as a KIND only.
-    booted = load_and_boot(manifest, registry=registry, connection=connection)
+    #    config, which declares the backend as a KIND only.
+    booted = load_config_and_boot(manifest, registry=registry, connection=connection)
     # --8<-- [end:boot]
     try:
         # The one line that crosses the boundary this example is about: the
