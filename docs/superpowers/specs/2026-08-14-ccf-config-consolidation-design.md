@@ -221,6 +221,25 @@ required exactly as `D-IMPL-80` and `D-IMPL-85` specify. HW-1's two adopter
 sections (`policy`, `request_contract`) therefore each carry two lines, which is
 the whole cost of keeping both rulings intact.
 
+### 6.1 The `D-IMPL-80` / `D-IMPL-85` narrowing
+
+`role` and `registration` are today **required with no default**, by explicit
+ruling: `D-IMPL-80` (2026-08-04) because registering content-hashes an artifact
+into replay dimension 2, and `D-IMPL-85` (2026-08-05) because it selects between
+`register_typed` and `register_versioned` with its D-05 bump check.
+
+This design **narrows** both rather than revoking either. They stay mandatory
+for every class the SDK does not own — which is exactly where the hazard lives,
+since the risk is an adopter accidentally content-hashing event data into the
+audit plane. They become silent only for `ccf.*` classes, where there is exactly
+one correct answer and requiring the field is transcription rather than
+deliberation.
+
+**Consequence worth keeping:** after the narrowing, `role` appears only where it
+was actually chosen. In HW-1 exactly one entry is `role: load`
+(`request-contract`), and today it is camouflaged by seven lines of
+`role: register` transcription.
+
 ### 6.2 Override syntax
 
 "An explicit value always wins" needs an authoring form, so implementers and
@@ -254,25 +273,6 @@ key holds each. In the single-file form both are **derived from the section
 names** — `resolution:` and `policy:` — and are not authored. They remain
 overridable for a deployment that registers several and must name which is in
 force.
-
-### 6.1 The `D-IMPL-80` / `D-IMPL-85` narrowing
-
-`role` and `registration` are today **required with no default**, by explicit
-ruling: `D-IMPL-80` (2026-08-04) because registering content-hashes an artifact
-into replay dimension 2, and `D-IMPL-85` (2026-08-05) because it selects between
-`register_typed` and `register_versioned` with its D-05 bump check.
-
-This design **narrows** both rather than revoking either. They stay mandatory
-for every class the SDK does not own — which is exactly where the hazard lives,
-since the risk is an adopter accidentally content-hashing event data into the
-audit plane. They become silent only for `ccf.*` classes, where there is exactly
-one correct answer and requiring the field is transcription rather than
-deliberation.
-
-**Consequence worth keeping:** after the narrowing, `role` appears only where it
-was actually chosen. In HW-1 exactly one entry is `role: load`
-(`request-contract`), and today it is camouflaged by seven lines of
-`role: register` transcription.
 
 ## 7. The manifest
 
