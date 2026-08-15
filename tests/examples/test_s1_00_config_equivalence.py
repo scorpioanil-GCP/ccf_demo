@@ -45,19 +45,31 @@ implication).
 4. Exactly **one** `role: load` entry on each side.
 5. Non-vacuous: the comparison is asserted to have covered exactly **8**
    artifacts.
-6. The two `MEASUREMENT.md` recipes — 10 files, 99 non-comment YAML lines —
+6. The frozen fixture's own file count and non-comment YAML line total — **9
+   files, 89 lines** (the nine manifest-enumerated documents; `backends.yaml`
+   is excluded because it was never one of `manifest.yaml`'s eight entries) —
    are reproduced here as an assertion, so this module also stands as the
-   check that nothing under `examples/` moved while this plan set ran.
+   check that nothing under `tests/deployment/fixtures/s1-00-multifile/`
+   moved after it was frozen. `MEASUREMENT.md`'s own published figure — **10
+   files, 99 lines** — is the pre-conversion total over
+   `examples/s1-00-companies-over-revenue/artifacts/config/*.yaml`, which
+   included `backends.yaml`; that figure lives in `MEASUREMENT.md`, not here,
+   because this module reads the frozen fixture and `backends.yaml` was
+   never copied into it (`16-31` Task 1).
 
-**The repointing seam for `16-31`.** `16-31` converts HW-1 to the
-single-file form, which means `examples/s1-00-companies-over-revenue
-/artifacts/config/` stops holding the nine multi-file documents this module
-reads. `16-31`'s first task freezes those nine documents into
+**The repointing seam `16-31` used.** `16-31` converted HW-1 to the
+single-file form, which meant `examples/s1-00-companies-over-revenue
+/artifacts/config/` stopped holding the nine multi-file documents this
+module reads. `16-31`'s first task froze those nine documents into
 `tests/deployment/fixtures/s1-00-multifile/` before converting anything, and
-this module is written so that repointing at that fixture is a **one-line
+this module was written so that repointing at that fixture was a **one-line
 change**: every read in this module goes through the single named constant
 :data:`HW1_MULTIFILE_DIR` below, never a path threaded through a second
-helper.
+helper. The two `_EXPECTED_*` constants below changed alongside it, because
+they describe the directory `HW1_MULTIFILE_DIR` now names (9 files, 89
+lines) rather than the live example directory it used to name (10 files, 99
+lines, `backends.yaml` included) — the same fixture-vs-example distinction
+the module docstring's point 6 draws.
 """
 
 from __future__ import annotations
@@ -76,27 +88,32 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment.classes import resolve_artifact_class
 from ccf.deployment.config import derive_deployment
 
-#: The single named constant `16-31` must change to repoint this module at
-#: the frozen fixture (`tests/deployment/fixtures/s1-00-multifile/`) once
-#: HW-1 converts to the single-file form. Every other path in this module is
+#: The single named constant `16-31` changed to repoint this module at the
+#: frozen fixture (`tests/deployment/fixtures/s1-00-multifile/`) once HW-1
+#: converted to the single-file form. Every other path in this module is
 #: computed from this one — see the module docstring's "repointing seam".
 HW1_MULTIFILE_DIR = (
-    pathlib.Path(__file__).resolve().parents[2]
-    / "examples"
-    / "s1-00-companies-over-revenue"
-    / "artifacts"
-    / "config"
+    pathlib.Path(__file__).resolve().parents[1]
+    / "deployment"
+    / "fixtures"
+    / "s1-00-multifile"
 )
 
 #: The hand-authored single-file transcription, committed beside this test —
 #: never under `examples/` (see the module docstring).
 FIXTURE_PATH = pathlib.Path(__file__).parent / "fixtures" / "s1_00_ccf_config.yaml"
 
-#: The two `MEASUREMENT.md` recipes' committed figures — reproduced as an
-#: assertion so a change under `examples/s1-00-companies-over-revenue
-#: /artifacts/config/` cannot silently drift this module's premise.
-_EXPECTED_YAML_FILE_COUNT = 10
-_EXPECTED_NON_COMMENT_YAML_LINE_COUNT = 99
+#: The frozen fixture's own committed figures — reproduced as an assertion
+#: so a change under `tests/deployment/fixtures/s1-00-multifile/` cannot
+#: silently drift this module's premise. Nine files (not ten): `backends.yaml`
+#: was never one of `manifest.yaml`'s eight entries and was not copied into
+#: the fixture (`16-31` Task 1). Eighty-nine lines (not ninety-nine): the
+#: same nine-file total, with `backends.yaml`'s ten lines excluded.
+#: `MEASUREMENT.md`'s own published "10 files, 99 lines" figure is the
+#: pre-conversion total over the live example directory, `backends.yaml`
+#: included — a different, still-true number about a different directory.
+_EXPECTED_YAML_FILE_COUNT = 9
+_EXPECTED_NON_COMMENT_YAML_LINE_COUNT = 89
 
 
 def _non_comment_line_count(path: pathlib.Path) -> int:
@@ -114,12 +131,21 @@ def _non_comment_line_count(path: pathlib.Path) -> int:
     return count
 
 
-def test_examples_measurement_recipes_still_print_their_committed_figures() -> None:
-    """The floor `T-16-30-08` names: `examples/` is untouched by this plan set.
+def test_frozen_fixture_reproduces_its_own_committed_figures() -> None:
+    """The floor this module's own non-vacuity depends on: the frozen fixture
+    is still nine files and eighty-nine lines, not trusted from the directory
+    listing alone.
 
-    Reproduces `examples/s1-00-companies-over-revenue/MEASUREMENT.md`'s own
-    two recipes (10 files, 99 lines) rather than trusting the committed
-    document not to have drifted from the tree.
+    Before `16-31`, this reproduced `examples/s1-00-companies-over-revenue
+    /MEASUREMENT.md`'s two recipes (10 files, 99 lines) directly, because
+    `HW1_MULTIFILE_DIR` named that live example directory. `16-31` froze the
+    nine manifest-enumerated documents (not `backends.yaml`) into
+    `tests/deployment/fixtures/s1-00-multifile/` and repointed
+    `HW1_MULTIFILE_DIR` there — so this test now reproduces the frozen
+    fixture's own figures (9 files, 89 lines) instead. `MEASUREMENT.md`
+    still states 10/99 as the pre-conversion total over the live example
+    directory; that is a different, still-true number about a different
+    directory, not a contradiction of this one.
     """
     yaml_files = sorted(HW1_MULTIFILE_DIR.glob("*.yaml"))
     assert len(yaml_files) == _EXPECTED_YAML_FILE_COUNT

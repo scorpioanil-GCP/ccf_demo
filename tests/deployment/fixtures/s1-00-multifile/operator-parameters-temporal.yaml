@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../../../../docs/schemas/ccf.operator-parameters.temporal.json
+# The ONLY operator category this product declares (D-IMPL-132).
+#
+# Two lines, and they exist because Gate 1 refuses a product computed by
+# nothing (INV-CH7-46) — measured: with an empty set the gate returns
+# `EmptyOperatorRefusal`; with this one it returns a `ServableProduct`. One is
+# the floor. Nothing anywhere demanded a second, third or fourth category.
+semver: "1.0.0"
+require_valid_at_boundary: true
