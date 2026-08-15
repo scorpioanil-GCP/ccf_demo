@@ -30,6 +30,8 @@ Whitepaper §7.8 (the Control Plane declares what the fabric may do); CLAUDE.md
    transcribed by hand into one document, parses. The transcription is a
    module-level fixture, :data:`HW1_SINGLE_FILE_DOCUMENT`, exported so
    `16-29` and `16-30` reuse it rather than retyping it.
+9. No field of `DeploymentConfig` names a connection value — the negative
+   control the threat register commits to at T-16-28-02.
 
 **What these tests do not enforce.** Nothing here derives a section into the
 SDK artifact it names, registers anything, or boots a fabric — that is
@@ -164,6 +166,28 @@ def test_a_document_with_no_semver_is_refused() -> None:
     del document["semver"]
     with pytest.raises(ArtifactLoadError, match="ccf.deployment-config"):
         parse_artifact(document, DEPLOYMENT_CONFIG)
+
+
+# --- T-16-28-02: no connection value can enter this document at all -----------
+
+
+def test_no_field_name_names_a_connection_value() -> None:
+    """The negative control the threat register commits to (T-16-28-02).
+
+    `DeploymentConfig` carries `backend_secrets` — credential *references*,
+    never values (`SecretReference`) — and no field of any kind that could
+    hold a DSN, a URL, a password, or a live connection. D-08's rule is
+    that a connection string is deployment environment, never Control Plane
+    state; this is that rule asserted against the field list itself rather
+    than against one example document.
+    """
+    field_names = set(DeploymentConfig.model_fields)
+    for forbidden in ("dsn", "url", "password", "connection"):
+        offending = {name for name in field_names if forbidden in name.lower()}
+        assert not offending, (
+            f"a field name contains {forbidden!r}: {offending} — no field of"
+            " DeploymentConfig may name a connection value (D-08)"
+        )
 
 
 # --- 2. the named unknown-section refusal --------------------------------------
