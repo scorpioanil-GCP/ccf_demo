@@ -2442,6 +2442,94 @@ def test_a_body_with_no_artifact_tree_is_subject_to_the_demand() -> None:
     assert not _one_document(scope, no_tree, bindings)
 
 
+def test_hw1_claims_the_exemption_for_the_stated_reason() -> None:
+    """Row B, pinned to its cause rather than to HW-1 happening to pass.
+
+    Both halves asserted separately, because either alone would keep passing if
+    the other silently changed: the deployment registers no requirements
+    artifact, and the body's plan reads the product class's own claim.
+    """
+    produce = (
+        REPO_ROOT / "examples" / "s1-00-companies-over-revenue" / "produce.py"
+    )
+    root = _deployment_root(produce)
+    assert root is not None and not _registers_requirements(root)
+
+    tree = _parse(produce)
+    assert tree is not None
+    exempt = [
+        scope
+        for scope in _scopes(tree)
+        if _one_document(scope, produce, _bindings(scope))
+    ]
+    assert exempt, "HW-1's projecting body no longer reads one document"
+
+
+def test_a_second_operator_set_outside_the_control_plane_is_refused() -> None:
+    """Row C — the shape the exemption must never admit (D-IMPL-137).
+
+    The exemption is not "no artifact, no demand". It is earned by a positive
+    reading: the deployment registers no `ccf.projection-requirements` AND its
+    code demonstrably reads one source. A deployment that registers nothing
+    while its plan's `required=` reads somewhere unrelated has authored a
+    second operator set the Control Plane does not know about — the two
+    readings disagree, and that disagreement is the finding.
+
+    **Mutated in memory against the REAL deployment path, and that is
+    load-bearing rather than tidy.** Copying the example under `tmp_path` and
+    reading the copy resolves :func:`_deployment_root` to ``None``, so the
+    fail-closed default refuses the body whatever its AST says — the control
+    would pass without ever exercising row C, and would go on passing if row C
+    broke. Parsing mutated source while passing HW-1's real path is what puts a
+    real artifact tree, one that registers nothing, behind an AST that reads
+    two sources.
+    """
+    produce = REPO_ROOT / "examples" / "s1-00-companies-over-revenue" / "produce.py"
+    root = _deployment_root(produce)
+    assert root is not None, "row C needs a REAL artifact tree, not a copy"
+    assert not _registers_requirements(root), "HW-1 registers no requirements"
+
+    text = produce.read_text(encoding="utf-8")
+    baseline = ast.parse(text)
+    assert not [
+        problem
+        for scope in _scopes(baseline)
+        for problem in _binder_collapses(scope, produce)
+    ], "unmutated HW-1 must be exempt, or this control proves nothing"
+
+    mutated = text.replace(
+        "required=tuple(scenario.product_class.required_operator_keys),",
+        "required=tuple(scenario.operator_parameters),",
+        1,
+    )
+    assert mutated != text, "the plan construction moved; update this control"
+
+    problems = [
+        problem
+        for scope in _scopes(ast.parse(mutated))
+        for problem in _binder_collapses(scope, produce)
+    ]
+    assert any(
+        "with no `refuse_operator_set_divergence`" in problem for problem in problems
+    ), problems
+
+
+def test_the_exemption_ceiling_refuses_a_second_claimant() -> None:
+    """The ceiling fires at two, watched rather than assumed.
+
+    A constant nothing has been seen to trip is a constant nobody has tested.
+    Exercised through `_exemption_problems`, the same predicate
+    `test_the_one_document_exemption_has_not_spread` judges the tree by, against
+    a synthesized second claimant — standing a real one up on disk would mean
+    shipping it.
+    """
+    assert not _exemption_problems(["examples/s1-00-companies-over-revenue"])
+    problems = _exemption_problems(
+        ["examples/s1-00-companies-over-revenue", "examples/s1-02-invented"]
+    )
+    assert problems and "s1-02-invented" in problems[0], problems
+
+
 # --- tripwire (2), the argument half: the binder is doing something -----------
 
 
