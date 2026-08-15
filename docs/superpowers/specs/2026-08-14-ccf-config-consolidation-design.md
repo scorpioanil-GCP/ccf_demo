@@ -209,7 +209,7 @@ These fields are **derived-with-override** — an explicit value always wins.
 |---|---|
 | `path` | Literally `ccf_config.yaml`. **Not a synthetic placeholder** — see §11.1. |
 | `key` | The section name |
-| `class_id` | `ccf.<stem>` when it resolves to an SDK class; otherwise the adopter-owned class the section maps to |
+| `class_id` | `ccf.<stem>` when it resolves to an SDK class. **Adopter-owned classes: must be stated. There is no default** — deriving one would require the SDK to invent an adopter namespace, which `D-IMPL-84` forbids by reserving exactly one prefix (`ccf.`). Corrected 2026-08-15 per `D-IMPL-138`(a); the row previously read *"otherwise the adopter-owned class the section maps to"*, which is not derivable. |
 | `role` | `ccf.*` classes → `register`. **Adopter-owned classes: must be stated. There is no default.** |
 | `registration` | `ccf.*` classes → `typed`. **Adopter-owned classes: must be stated. There is no default.** |
 
@@ -217,9 +217,16 @@ An earlier draft of this table said adopter-owned classes could be *"stated, or
 defaulted by documented convention"*. That is ambiguous enough to produce two
 incompatible implementations, and it weakens the very rulings §6.1 claims to
 preserve. Corrected: for any class the SDK does not own, both fields remain
-required exactly as `D-IMPL-80` and `D-IMPL-85` specify. HW-1's two adopter
-sections (`policy`, `request_contract`) therefore each carry two lines, which is
-the whole cost of keeping both rulings intact.
+required exactly as `D-IMPL-80` and `D-IMPL-85` specify.
+
+**Corrected 2026-08-15 per `D-IMPL-138`(a): the count is three, not two.** This
+paragraph previously said HW-1's two adopter sections (`policy`,
+`request_contract`) *"each carry two lines"*. They carry **three** — `class_id`
+alongside `role` and `registration` — because `class_id` is no more derivable
+for an adopter-owned class than the other two are, for the same `D-IMPL-84`
+reason. Three lines per adopter section is the whole cost of keeping
+`D-IMPL-80`, `D-IMPL-85` and `D-IMPL-84` intact together, and it is strictly
+more explicit than the form this corrects.
 
 ### 6.1 The `D-IMPL-80` / `D-IMPL-85` narrowing
 
