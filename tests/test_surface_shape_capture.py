@@ -469,6 +469,23 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf_runtime.mcp.experience.build_experience_server": (
         "16-24-experience-door-entitlement.md"
     ),
+    # D-IMPL-135: `ProductDiscovery` gained a fourth axis, `audiences`,
+    # defaulted and additive. `ProductDiscovery` is itself a `contract`-kind
+    # export, so its own shape move is invisible to this check (the loop
+    # above skips every entry whose kind is not `class` or `function`) — but
+    # `register_product_class`'s keyword-only `discovery` parameter defaults
+    # to `NOT_DISCOVERABLE`, and this function's captured shape is
+    # `str(inspect.signature(obj))`, which renders a default argument's own
+    # `repr()` inline. The axis's move therefore surfaces transitively, here,
+    # on the one function whose default carries the sentinel — every
+    # existing call site that does not pass `discovery=` still receives the
+    # same value, unchanged; only the sentinel's printed representation grew
+    # a field. Measured rather than assumed (`D-IMPL-138`(c)): `pytest -k
+    # surface` was the arbiter, and it caught the move here, not on
+    # `ProductDiscovery`.
+    "ccf.products.contract.register_product_class": (
+        "16-27-discovery-audiences.md"
+    ),
 }
 
 

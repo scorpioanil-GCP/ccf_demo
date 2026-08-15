@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**624 entries**, of which **395** name a public Python surface.
+**626 entries**, of which **397** name a public Python surface.
 
 ## Added
 
@@ -5662,7 +5662,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-286 entries — 103 public Python surface, 183 not public Python API.
+288 entries — 105 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -7919,6 +7919,61 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: add `perspective: Perspective` to your provider's signature — and **use it**. Compare its `role` against the capacity your product was assembled under and refuse a mismatch; a provider that accepts the conditioning and serves regardless has moved the defect one layer down rather than closing it. `LineageProviderProtocol` is unchanged and needs no edit
 
 *Recorded by `16-24-experience-door-entitlement.md`.*
+
+#### ccf.products.contract.ProductDiscovery
+
+- Surface: ccf.products.contract.ProductDiscovery
+- Public surface: true
+- Change type: reshaped
+- Before: three axes — `domain: str`, `intents: frozenset[str]`,
+  `capabilities: frozenset[str]`
+- After: a fourth axis — `audiences: frozenset[str] = frozenset()` — on the
+  same footing as the other three: opaque, deployment-declared, uninterpreted
+- Why: `D-IMPL-135` (Dave, 2026-08-14) — a product's intended audience
+  (`analyst`, `investment_banker`) maps onto none of the existing three axes;
+  calling a role an *intent* or a *capability* corrupts both meanings, and
+  the two come apart the moment one role serves several intents
+- Migration: none. Every existing `ProductDiscovery` construction, every
+  committed `ccf.product-class` document, and `NOT_DISCOVERABLE` itself keep
+  working unedited. A deployment that wants an audience declares
+  `audiences=frozenset({...})`, or an `audiences:` list on its
+  `ccf.product-class` document's `discovery:` block
+
+*Recorded by `16-27-discovery-audiences.md`.*
+
+#### ccf.products.contract.register_product_class
+
+- Surface: ccf.products.contract.register_product_class
+- Public surface: true
+- Change type: reshaped
+- Before: `discovery: ProductDiscovery = NOT_DISCOVERABLE`, a keyword-only
+  parameter defaulting to the three-axis
+  `ProductDiscovery(domain='not-discoverable', intents=frozenset(),
+  capabilities=frozenset())`
+- After: the same keyword-only parameter, at the same type, with the same
+  default name `NOT_DISCOVERABLE` — but the sentinel's own printed
+  representation now carries `audiences=frozenset()`, so the function's
+  captured shape moves even though no parameter was added, removed,
+  retyped, or reordered
+- Why: `ProductDiscovery` is a `contract`-kind export, and
+  `tests/test_surface_shape_capture.py`'s committed-manifest disturbance
+  check (`test_no_committed_plain_class_or_function_shape_is_disturbed`)
+  only walks `class`- and `function`-kind entries — so `ProductDiscovery`'s
+  own shape move is structurally invisible to that check. Measured rather
+  than assumed, per `D-IMPL-138`(c): `pytest -k surface` is the arbiter, and
+  it caught the move **here**, not on `ProductDiscovery`.
+  `register_product_class` is a `function`-kind entry whose keyword-only
+  `discovery` parameter defaults to `NOT_DISCOVERABLE`, and a
+  `function`-kind entry's captured shape is `str(inspect.signature(obj))`,
+  which renders a default argument's own `repr()` inline — so the fourth
+  axis's move surfaces transitively, on the one function that carries the
+  sentinel as a default, rather than on `ProductDiscovery` directly
+- Migration: none. Every call site that does not pass `discovery=` continues
+  to receive `NOT_DISCOVERABLE`, whose *value* is unchanged (still the class
+  not offered for lookup on any axis) — only the sentinel's own printed
+  representation grew a field
+
+*Recorded by `16-27-discovery-audiences.md`.*
 
 ### Not public Python API
 
