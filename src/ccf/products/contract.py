@@ -378,21 +378,42 @@ class ProductDiscovery(CCFContract):
     belong to, and the capability they offer, and an agent turns a name into
     an endpoint at run time rather than at wiring time. The three fields below
     are those three axes. ``capabilities`` is the declared manifest §6.3's
-    worked registry entry carries.
+    worked registry entry carries. ``audiences`` is a fourth, SDK-defined axis
+    per ``docs/DECISIONS.md`` D-IMPL-135 — see that field's own docstring.
 
     Every value is a deployment-declared opaque identifier. The SDK matches
     them structurally and interprets none, so no intent vocabulary, domain
-    taxonomy or capability list exists in this module (CLAUDE.md §11).
+    taxonomy, capability list or audience vocabulary exists in this module
+    (CLAUDE.md §11).
 
     Attributes:
         domain: The domain the class belongs to.
         intents: The decision intents the class is registered as serving.
         capabilities: The class's declared capability manifest.
+        audiences: The audiences the class is declared for — e.g.
+            ``{"analyst", "investment_banker"}``. **Not**
+            :class:`~ccf.projection.plan.Perspective`: ``Perspective``
+            conditions Π's view of the graph under a caller's grant at run
+            time; ``audiences`` advertises an intended readership to a
+            registry and conditions nothing. D-IMPL-135 (Dave, 2026-08-14)
+            ruled the axis on exactly this distinction — a role maps onto
+            none of ``domain``, ``intents`` or ``capabilities``, and the two
+            come apart the moment one role serves several intents.
+
+            Defaults to the empty frozenset, the honest reading of an absent
+            ``audiences:`` block — *this class declares no audience* — on
+            the same footing as :data:`NOT_DISCOVERABLE`'s reading of an
+            absent registry entry. The rejected alternative was a required
+            field with every one of the tree's ``ProductDiscovery``
+            construction sites moved to supply it, which D-IMPL-136 §10's
+            compatibility posture forbids by analogy for a shipped §6.3
+            element with no migration path.
     """
 
     domain: str
     intents: frozenset[str]
     capabilities: frozenset[str]
+    audiences: frozenset[str] = frozenset()
 
 
 class ProductAddress(CCFContract):
@@ -452,6 +473,7 @@ NOT_DISCOVERABLE = ProductDiscovery(
     domain="not-discoverable",
     intents=frozenset(),
     capabilities=frozenset(),
+    audiences=frozenset(),
 )
 
 #: A class with no declared external address.
