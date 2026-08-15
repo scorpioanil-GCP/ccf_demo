@@ -258,9 +258,19 @@ The reserved override keys are `key`, `class_id`, `role` and `registration`.
 
 Two consequences an implementer must get right. First, **the override keys sit
 in the same mapping as adopter content**, so a section whose adopter-owned
-schema legitimately contains a field named `role` cannot express it — a
-collision this design accepts, and which an adopter resolves by nesting their
-own content or by using the multi-file form. Second, for adopter-owned sections
+schema legitimately contains a field named `role`, `key`, `class_id` or
+`registration` cannot express it — a collision this design accepts rather than
+engineering around.
+
+**The recommended escape, in order of preference:** nest the adopter content
+under a single key — `body:` or `declaration:` — so the reserved names and the
+adopter's own vocabulary occupy different mappings; or use the multi-file form
+for that one section, which the design keeps working indefinitely (§10). Neither
+is required for the first implementation: the collision is rare, it fails loudly
+at parse time rather than silently, and a deployment that hits it has two
+documented ways out.
+
+Second, for adopter-owned sections
 `role` and `registration` are **not overrides at all** — they are required
 (§6.1), and the example above shows the mandatory form rather than an optional
 one.
