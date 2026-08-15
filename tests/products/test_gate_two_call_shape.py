@@ -404,7 +404,7 @@ REQUIREMENTS_CLASS_ID = "ccf.projection-requirements"
 #: names the same string and is deliberately NOT the signal, because a file
 #: present but unregistered is not in force.
 REQUIREMENTS_REGISTRATION_RE = re.compile(
-    r"^[ \t]*class_id:[ \t]*ccf\.projection-requirements[ \t]*$", re.MULTILINE
+    rf"^[ \t]*class_id:[ \t]*{re.escape(REQUIREMENTS_CLASS_ID)}[ \t]*$", re.MULTILINE
 )
 
 #: Deployments claiming the one-document exemption. **No headroom, on purpose**
@@ -1247,9 +1247,20 @@ def _one_document(
     Fail-closed in three places, each deliberate: no artifact tree, no readable
     class claim, and no readable plan source. An absence of evidence is not the
     exemption; the exemption is claimable only by a deployment that HAS
-    artifacts and demonstrably lacks that one.
+    artifacts and demonstrably lacks that one. The first of the three is
+    checked explicitly rather than folded into the registration read: a body
+    with no artifact tree — a synthesized ``tmp_path`` fixture, most
+    concretely — has ``_deployment_root`` return ``None``, and
+    ``_registers_requirements(None)`` also answers ``False``, so a body with
+    no artifact tree and one that HAS a tree but demonstrably lacks the
+    registration would collapse into the same answer if this only tested the
+    registration call's result. That collapse is exactly the gap it must not
+    have: a body with no artifact tree must never reach the AST checks below,
+    no matter what they would say, because it has made no claim to have
+    checked anything against a Control Plane at all.
     """
-    if _registers_requirements(_deployment_root(path)):
+    root = _deployment_root(path)
+    if root is None or _registers_requirements(root):
         return False
     claim = _class_claim(scope, bindings)
     if claim is None:
@@ -2216,9 +2227,41 @@ def test_a_body_with_no_artifact_tree_is_subject_to_the_demand() -> None:
     *exempt* would silence that control on the day the conditioning lands,
     while it still reported green. Independently of the controls, a tree with
     no Control Plane must not buy an exemption by having nothing registered.
+
+    The two helper assertions below are still worth pinning on their own, but
+    they are not the whole test: the composition matters, and this synthesizes
+    a body whose class claim and plan `required=` read the identical path —
+    the AST agreement that WOULD grant the exemption once the artifact-tree
+    check is out of the way. Asserting `_one_document` directly on that body
+    is what proves the artifact-tree check overrides the agreement rather
+    than the two happening not to interact.
     """
-    assert _deployment_root(REPO_ROOT / "nowhere" / "run.py") is None
+    no_tree = REPO_ROOT / "nowhere" / "run.py"
+    assert _deployment_root(no_tree) is None
     assert not _registers_requirements(None)
+
+    lineage = f"{LINEAGE_CONSTRUCTOR}({LINEAGE_DECLARED_KEYWORD}="
+    plan = f"Fixture{PLAN_CLASS_SUFFIX}(plan_id=pid, {PLAN_REQUIRED_KEYWORD}="
+    source = (
+        "def resolve_plan(pid, declared):\n"
+        f"    {lineage}declared.required_operator_keys)\n"
+        f"    plan = {plan}declared.required_operator_keys)\n"
+        "    return plan\n"
+    )
+    tree = ast.parse(source)
+    scope = next(s for s in _scopes(tree) if isinstance(s, ast.FunctionDef))
+    bindings = _bindings(scope)
+
+    # The agreement itself, pinned: the class claim and the plan's lone
+    # `required=` resolve to the exact same path, not merely a shared prefix.
+    # Under the pre-fix code this is what made `_one_document` return `True`
+    # for a body with no artifact tree at all.
+    claim = _class_claim(scope, bindings)
+    sources = list(_plan_sources(scope, bindings).values())
+    assert claim is not None
+    assert sources == [claim], (claim, sources)
+
+    assert not _one_document(scope, no_tree, bindings)
 
 
 # --- tripwire (2), the argument half: the binder is doing something -----------
