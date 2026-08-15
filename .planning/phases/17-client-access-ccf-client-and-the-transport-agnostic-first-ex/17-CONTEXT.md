@@ -238,6 +238,25 @@ were really design gaps. Dave ruled all four. Full text: spec **Amendment 1**.
   untrustworthy inventory is how a partial retirement ships, which is the
   failure D-27's no-partial-state rule exists to prevent.
 
+- **D-32 — There is no demo-data mechanism in this phase.** The deployment the
+  client points at is **already populated** — the backend stores hold a sample
+  of FIBO data, loaded for this purpose, living outside the repository. This
+  is the literal reading of D-17's premise ("ask a question of an
+  already-running Context Product"), not a compromise on it. Consequences:
+  nothing is committed to `examples/` (no store file, no seed artifact, no
+  fixture data); **no ingest goes anywhere near `ccf.client`**, so D-16 is
+  satisfied by construction rather than discipline; D-17 stands untouched
+  (`deployment/` is `ccf_config.yaml` plus connection material, with
+  `backends.yaml` staying separate); and `config.py:82-91`'s refusal to carry
+  a signal batch is **not** reversed. Data production is producer-side work
+  and belongs to the later producer-examples effort. **The consequence to plan
+  around, stated not papered over:** an example needing a reachable backend
+  **cannot run in always-on CI** (network-free, no credentials). The project's
+  established shape applies — `.github/workflows/live-legs.yml` runs the DGX
+  databases opt-in while `sqlite`/`memory` stay always-on (Phase 16 `D-06`,
+  Phase 8 `D-11`). Planning places the example and states which pipeline
+  proves it.
+
 ### Claude's Discretion
 
 These are sequencing and mechanism choices the spec deliberately left to
@@ -366,15 +385,8 @@ gaps; each has a constraint attached):
 *Updated after research + Amendment 1. Two of these were design gaps, not
 sequencing; those are now ruled (D-28..D-31) and have left this list.*
 
-1. **Form of the demo data inside `deployment/` — STILL OPEN, and sharper than
-   originally stated.** `ccf_config.yaml` cannot carry a `signal_batch` (an
-   explicit decision at `src/ccf/deployment/config.py:82-91`) and
-   `load_and_boot` does not ingest, so **D-17's single-file requirement and
-   "boot-consumed seed artifact" are mutually exclusive as the tree stands.**
-   Four options with measured costs: `17-RESEARCH.md` §4.6. Constraints: D-17
-   mandates the single-file form; D-16 forbids provisioning inside a client
-   call. **Resolve before the example plan is written** — option (d) would
-   need a new `D-IMPL-140+` ruling.
+1. ~~Form of the demo data~~ — **CLOSED** by Dave, 2026-08-15. See **D-32**
+   below. There is no demo-data mechanism to build.
 2. Disposition of the condemned example trees — governed by **D-31**: repair
    the sweep machinery first, then remove or quarantine with no partial state
    (D-27). *Sequencing only; the ordering is ruled.*

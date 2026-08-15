@@ -395,10 +395,44 @@ to prevent.
 
 | §12 item | Status after this amendment |
 |---|---|
-| 1 — demo-data form | **Still open**, and sharper than stated: `ccf_config.yaml` cannot carry a signal batch (an explicit decision at `src/ccf/deployment/config.py:82-91`) and `load_and_boot` does not ingest, so §7's single-file requirement and "boot-consumed seed artifact" are mutually exclusive as the tree stands. Options and measured costs are in `17-RESEARCH.md` §4.6. Resolve before the example plan is written. |
+| 1 — demo-data form | **CLOSED** by Dave, 2026-08-15 — see *Amendment 1 addendum* below. There is no demo-data mechanism to build: the deployment points at stores already populated with FIBO data. |
 | 2 — condemned trees | Governed by **D** above: repair the sweep machinery first. |
 | 3 — MCP adapter specifics | Open as stated, plus: the shipped egress tool hard-wires `parameters={}`, so a class with any required parameter is unreachable over MCP. Deliverable 5 cannot pass §6 conformance or §8's two-thresholds property without that fix. |
 | 4 — `WireOutcome` schema | **Half-answered.** The served half is a transcription (freeze it). The refusal half, `replay_ref`, and the echoed request identity are new surface governed by **A**. Plan design budget accordingly. |
+
+## Amendment 1 addendum — demo data (Dave, 2026-08-15)
+
+**Ruled: there is no demo-data mechanism in this phase.** The deployment the
+client points at is **already populated** — the backend stores were loaded
+with a sample of FIBO data for exactly this purpose, and they live outside
+the repository.
+
+This is the literal reading of §7's premise, not a compromise on it: *"ask a
+question of an already-running Context Product."* The client never seeds,
+never ingests, and never knows how the data got there. Consequences:
+
+- **Nothing to commit.** No store file, no seed artifact, no fixture data in
+  `examples/`.
+- **No ingest anywhere near `ccf.client`.** D-16's prohibition on provisioning
+  inside a client call is satisfied by construction rather than by discipline.
+- **D-17 stands untouched.** `deployment/` is `ccf_config.yaml` plus
+  connection material (`backends.yaml`, which stays separate — a DSN inside a
+  content-hashed artifact is a DSN persisted into the audit plane forever).
+- **`src/ccf/deployment/config.py:82-91` is not reversed.** The refusal to put
+  a signal batch in `ccf_config.yaml` stands; nothing in this phase needs it.
+
+**Scope note:** data production is a *producer-side* concern and belongs to
+the later body of work on context-producer examples. The next several examples
+are client-side only — the revenue-threshold question first, then FIBO context
+products.
+
+**The one consequence to plan around, stated rather than papered over:** an
+example that needs a reachable backend **cannot run in always-on CI**, which
+is network-free and holds no credentials. The project already has the shape
+for this — `.github/workflows/live-legs.yml` runs the DGX databases as an
+opt-in job while `sqlite`/`memory` stay in the always-on pipeline (Phase 16
+`D-06`, Phase 8 `D-11`). Planning places the example accordingly and states
+plainly which pipeline proves it.
 
 ## What did not change
 
