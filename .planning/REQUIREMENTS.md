@@ -44,7 +44,7 @@
 - [ ] **DOCS-19**: The four `D-IMPL-126` consumption papercuts are closed in the fabric — a `ProductRequestContract` is reachable from a manifest-returned `DeclaredArtifact` by one named call, `ServableProduct` states why it is unconstructible on both attribute channels while leaving `hasattr` returning `False`, a product-only deployment constructs `ApiDependencies` with three handles and gets a typed 503 naming the absent field on every route it did not wire, and every canonical HTTP body publishes its own content address under `X-CCF-Content-Address`
 - [ ] **DOCS-20**: The MCP egress door carries a parameterised tool alongside its unchanged resource
 - [ ] **DOCS-21**: The Experience MCP server's client-parameterised handlers are gated, or their ungated status is pinned
-- [ ] **DOCS-22**: `ProductDiscovery` carries a fourth axis, `audiences`, and the full surface obligation for a shipped §6.3 element is discharged (`D-IMPL-135`)
+- [x] **DOCS-22**: `ProductDiscovery` carries a fourth axis, `audiences`, and the full surface obligation for a shipped §6.3 element is discharged (`D-IMPL-135`)
 - [ ] **DOCS-23**: A single `ccf_config.yaml` is a typed, schema-exported authoring document whose unknown top-level keys are refused by name (`D-IMPL-136`)
 - [ ] **DOCS-24**: Reserved sections derive `path`, `key`, `class_id`, `role` and `registration` for `ccf.*` classes, while adopter-owned sections still state `class_id`, `role` and `registration` (`D-IMPL-134`, `D-IMPL-136`)
 - [ ] **DOCS-25**: A deployment authored in the single-file form registers artifacts at identical content addresses to the same deployment authored across files, and every existing multi-file deployment is unchanged (`D-IMPL-136` §10)
@@ -235,7 +235,7 @@ by omission.
 | DOCS-19 | Phase 16 | Pending |
 | DOCS-20 | Phase 16 | Pending |
 | DOCS-21 | Phase 16 | Pending |
-| DOCS-22 | Phase 16 | Pending |
+| DOCS-22 | Phase 16 | Complete |
 | DOCS-23 | Phase 16 | Pending |
 | DOCS-24 | Phase 16 | Pending |
 | DOCS-25 | Phase 16 | Pending |
