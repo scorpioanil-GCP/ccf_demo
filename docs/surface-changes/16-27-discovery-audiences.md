@@ -91,6 +91,7 @@ it reports as newly, unclaimably differing is
 `ccf.products.contract.ProductDiscovery`. `ProductDiscovery` itself never
 appears in that test's `differing` set, because it is `contract`-kind and the
 test's own loop skips every entry whose `kind` is not `class` or `function`
-(`tests/test_surface_shape_capture.py:506`). The allowance entered into
+(`tests/test_surface_shape_capture.py::test_no_committed_plain_class_or_function_shape_is_disturbed`).
+The allowance entered into
 `_SHAPE_MOVED_BY_FRAGMENT` is therefore keyed to
 `ccf.products.contract.register_product_class`, citing this fragment.
