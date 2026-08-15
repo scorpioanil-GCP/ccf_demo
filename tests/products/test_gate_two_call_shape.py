@@ -3729,16 +3729,24 @@ def test_the_plan_recognition_refuses_an_unrelated_required_keyword() -> None:
     call ever leaves ``examples/``, this fails loudly and can be retired
     deliberately — which is the right way round.
 
-    **The evidence base is n = 1, stated rather than left to be discovered**
+    **The evidence base was n = 1 when this was written; it is n = 2 today**
     (IN-02). Measured 2026-08-06: twelve calls under ``examples/`` pass
     ``required=``, eleven of them are plan constructions, and the twelfth is
     ``examples/03-harness-portability/run.py::main``'s ``--mode``
-    ``add_argument``. So making
-    that one CLI flag optional, or retiring example 03, turns a
-    ``tests/products/`` Gate-2 test red for a reason with nothing to do with
-    Gate 2. That is the deliberate trade above — a loud, self-explaining failure
-    is preferable to the rule quietly ceasing to be demonstrated — but a reader
-    is entitled to know the count is one and not many.
+    ``add_argument``. On that count, making that one CLI flag optional — or
+    retiring example 03 — turned a ``tests/products/`` Gate-2 test red for a
+    reason with nothing to do with Gate 2.
+
+    **Re-measured 2026-08-15:** fifteen calls pass ``required=``, thirteen are
+    plan constructions, and **two** are not — example 03's ``--mode`` and
+    ``examples/s1-00-companies-over-revenue/consume.py::main``'s
+    ``--min-revenue``, both ``argparse``. Retiring example 03 alone therefore no
+    longer turns this red; the second site carries it. The trade above is
+    unchanged and still deliberate — a loud, self-explaining failure beats the
+    rule quietly ceasing to be demonstrated — but the count a reader is entitled
+    to know is two, and the single-point-of-failure warning the original
+    paragraph carried no longer holds. The dated measurement is kept rather than
+    overwritten, per this module's practice of recording what changed.
     """
     unrelated: list[str] = []
     for path in _python_sources(BINDER_SCANNED_TREES):
