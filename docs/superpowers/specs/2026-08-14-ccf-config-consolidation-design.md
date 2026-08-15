@@ -49,20 +49,20 @@ The obvious objection is that collapsing artifacts into one file collapses their
 version identities, breaking `D-IMPL-26`'s promise that replay resolves *exact*
 artifact versions. **Measured against the tree, that objection fails**:
 
-- `src/ccf/deployment/pins.py:66-68` — `ArtifactPin.version` is *"The content
+- `src/ccf/deployment/pins.py::ArtifactPin` — `ArtifactPin.version` is *"The content
   version `register_typed` returned. **A content hash (D-IMPL-26), so pin
   identity *is* content identity.**"*
-- `src/ccf/contracts/canonical.py:194` — `canonical_bytes(obj)` addresses the
+- `src/ccf/contracts/canonical.py::canonical_bytes` — `canonical_bytes(obj)` addresses the
   **parsed object**: *"Semantically equal inputs produce identical bytes."*
-- `src/ccf/deployment/manifest.py:617` — the loader reads a document per entry
+- `src/ccf/deployment/manifest.py::load_and_boot` — the loader reads a document per entry
   and calls `load_artifact(document, artifact_class)`; **registration
   content-addresses the parsed contract, not the file bytes.**
 
 So the file boundary is a *loading convention*, not an addressing requirement.
 Sections parsed from one file yield **byte-identical content addresses** to the
 same content in separate files. The declared `semver` is a human label used for
-pinned resolution by declared version (`registry.py:550`), and
-`register_typed` carries **no D-05 bump check** (`registry.py:128-135`), so a
+pinned resolution by declared version (`src/ccf/controlplane/registry.py::ControlPlaneRegistry`), and
+`register_typed` carries **no D-05 bump check** (`src/ccf/controlplane/registry.py::ControlPlaneRegistry`), so a
 single top-level `semver` is coherent: it versions the deployment's config, and
 per-artifact identity remains the content hash.
 
@@ -297,8 +297,8 @@ These are two different things and the design keeps them apart.
 ### 8.1 Runtime perspective
 
 Derived from the caller's grant at the door — `entitled_perspective(grant=...)`
-at `runtime/ccf_runtime/mcp/egress.py:451-454`. A principal's grant carries a
-**set** of `permitted_roles` (`src/ccf/products/entitlement.py:136`) and asserts
+at `runtime/ccf_runtime/mcp/egress.py::context_product`. A principal's grant carries a
+**set** of `permitted_roles` (`src/ccf/products/entitlement.py::ProductEntitlementGrant`) and asserts
 one per call. No file is required.
 
 For in-process deployments with no door, one optional top-level key:
@@ -316,7 +316,7 @@ so there is no grant to derive from.
 
 Who a product is *aimed at* is discovery metadata, not runtime conditioning. It
 lives on `product_class.discovery` and maps to the shipped §6.3 element
-`ProductDiscovery` (`src/ccf/products/contract.py:373-395`), which today carries
+`ProductDiscovery` (`src/ccf/products/contract.py::ProductDiscovery`), which today carries
 three axes: `domain: str`, `intents: frozenset[str]`,
 `capabilities: frozenset[str]`.
 
@@ -333,7 +333,7 @@ This is a surface change to a shipped element and requires a
 **Out of scope:** the product-catalog *door*. `ProductDiscovery` is the schema and
 `RegisteredProductClass` the registry entry, but nothing in `runtime/` serves a
 catalog — `discovery` defaults to `NOT_DISCOVERABLE`
-(`contract.py:569`). Deferred deliberately.
+(`src/ccf/products/contract.py::RegisteredProductClass`). Deferred deliberately.
 
 ## 9. Backends stay out
 
@@ -357,7 +357,7 @@ resolved here rather than left for implementation to discover.
 ### 11.1 `path` is validated even when derived
 
 `ManifestEntry.path` carries two validators
-(`src/ccf/controlplane/artifacts.py:983`, `:995`): it rejects glob characters —
+(`src/ccf/controlplane/artifacts.py::ManifestEntry`): it rejects glob characters —
 *"a manifest enumerates … Name the file"* — and rejects paths leaving the
 manifest's own directory.
 
@@ -369,7 +369,7 @@ form.
 **The uniqueness contract, stated exactly.** Every derived entry shares one
 `path`, and that is already legal — deliberately. `DeploymentManifest`
 enforces uniqueness on `key` alone
-(`src/ccf/controlplane/artifacts.py:1195::_keys_are_unique`), because two
+(`src/ccf/controlplane/artifacts.py::ManifestEntry`), because two
 entries sharing a key make `ResolvedPins.version_for(key)` ambiguous and the
 boot result's `artifacts[key]` order-dependent, *"and both of those feed
 replay"*. That validator's own docstring records the asymmetry as a decision:
