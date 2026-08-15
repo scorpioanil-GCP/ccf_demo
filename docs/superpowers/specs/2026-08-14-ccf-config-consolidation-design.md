@@ -221,7 +221,32 @@ required exactly as `D-IMPL-80` and `D-IMPL-85` specify. HW-1's two adopter
 sections (`policy`, `request_contract`) therefore each carry two lines, which is
 the whole cost of keeping both rulings intact.
 
-### 6.2 The two top-level key pointers
+### 6.2 Override syntax
+
+"An explicit value always wins" needs an authoring form, so implementers and
+adopters see the same shape. A derived field is overridden by writing it as a
+sibling of the section's own content:
+
+```yaml
+policy:
+  regime: published-annual-revenue-disclosure   # adopter-owned content
+  role: register                                # explicit override
+  registration: typed                           # explicit override
+```
+
+The reserved override keys are `key`, `class_id`, `role` and `registration`.
+`path` is not overridable — it is always the authoring file (§11.1).
+
+Two consequences an implementer must get right. First, **the override keys sit
+in the same mapping as adopter content**, so a section whose adopter-owned
+schema legitimately contains a field named `role` cannot express it — a
+collision this design accepts, and which an adopter resolves by nesting their
+own content or by using the multi-file form. Second, for adopter-owned sections
+`role` and `registration` are **not overrides at all** — they are required
+(§6.1), and the example above shows the mandatory form rather than an optional
+one.
+
+### 6.3 The two top-level key pointers
 
 Today's manifest carries `resolution_spec_key: resolution-spec` and
 `policy_bundle_key: policy-bundle` as top-level fields, naming which registered
@@ -327,9 +352,29 @@ resolved here rather than left for implementation to discover.
 manifest's own directory.
 
 **Resolution:** every derived entry's `path` is literally `ccf_config.yaml`.
-Truthful, since that is where the section came from; passes both validators;
-uniqueness comes from `key`, not `path`. An implementer must not invent
-`<memory>`, an empty string, or a `section#name` form.
+Truthful, since that is where the section came from; passes both validators. An
+implementer must not invent `<memory>`, an empty string, or a `section#name`
+form.
+
+**The uniqueness contract, stated exactly.** Every derived entry shares one
+`path`, and that is already legal — deliberately. `DeploymentManifest`
+enforces uniqueness on `key` alone
+(`src/ccf/controlplane/artifacts.py:1195::_keys_are_unique`), because two
+entries sharing a key make `ResolvedPins.version_for(key)` ambiguous and the
+boot result's `artifacts[key]` order-dependent, *"and both of those feed
+replay"*. That validator's own docstring records the asymmetry as a decision:
+
+> *"Duplicate **paths** under different keys are permitted, deliberately: one
+> document may legitimately be in force under two names, and nothing about that
+> is ambiguous. The asymmetry is a decision, not an oversight."*
+
+The single-file form is exactly the case that decision anticipated. **The
+loader's contract is therefore: section names — and so derived keys — must be
+unique within the file; paths deliberately are not required to be.** An earlier
+sharpening of this spec proposed requiring `(path, key)` to be unique; that pair
+is trivially unique whenever keys are, and stating it would imply to an
+implementer that paths must vary, which the validator explicitly permits them
+not to.
 
 ### 11.2 The operator set is enumerated twice
 
@@ -374,10 +419,48 @@ seven-line transcription blocks.
 
 ## 14. Rulings this design needs
 
-None of these are settled by this document.
+All three were **approved by Dave on 2026-08-14** during the design review. They
+are recorded here as distinct `D-IMPL` entries to be written before
+implementation — none is settled by this document, and **none may be folded into
+another**.
 
-1. The `D-IMPL-80` / `D-IMPL-85` narrowing (§6.1).
-2. `audiences` as a fourth `ProductDiscovery` axis (§8.2).
-3. Reserved-section semantics for `policy` and `request_contract` — the SDK owns
-   the *slot*, the adopter owns the *schema* (§5.3, §5.7), which must be stated
-   as compatible with `D-IMPL-84` rather than assumed.
+### 14.1 Narrow `D-IMPL-80` / `D-IMPL-85` for `ccf.*` classes
+
+**Approved.** `role` and `registration` become derivable **only** for classes the
+SDK owns, where exactly one answer exists. Both stay required, with no default,
+for every adopter-owned class — which is where the hazard the rulings guard
+actually lives. See §6.1.
+
+### 14.2 Add `audiences` to `ProductDiscovery` — a surface change, and its own entry
+
+**Approved.** `ProductDiscovery` gains `audiences: frozenset[str]`, an opaque
+deployment-declared set the SDK matches structurally and interprets none of, on
+the same footing as `domain`, `intents` and `capabilities`.
+
+**This is a change to a shipped §6.3 element and carries the full surface
+obligation**, which is why it is a distinct entry and must not be absorbed into
+§14.1:
+
+- a `docs/surface-changes/` fragment claiming exactly the names that move —
+  the readers glob `[0-9]*-*.md` since plan `16-22`, so a `16-NN-*.md` fragment
+  is read;
+- a `_SHAPE_MOVED_BY_FRAGMENT` claim per `D-IMPL-130`, since adding a field
+  moves `ProductDiscovery`'s class shape and
+  `tests/test_surface_shape_capture.py` refuses an unclaimed move;
+- regeneration of `docs/SURFACE-CHANGES.md`, whose currency gate compares it on
+  bytes.
+
+Folding this into the narrowing entry would put a surface change on the record
+under a ruling about manifest bookkeeping, and a later reader tracing why
+`ProductDiscovery` moved would find nothing.
+
+### 14.3 Reserved-section semantics for `policy` and `request_contract`
+
+**Approved, and to be stated explicitly rather than inferred:** the **SDK owns
+the slot name**; the **adopter owns the schema and contents**. CCF recognises
+`policy:` and `request_contract:` by name — it knows where to find them and what
+artifact each becomes — and does not validate or interpret what is inside.
+
+This is compatible with `D-IMPL-84` and the entry must say so in those terms:
+the SDK still claims exactly one prefix, `ccf.`, and a reserved *section name*
+is not a claim on an adopter's *namespace*. See §5.3 and §5.7.
