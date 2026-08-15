@@ -449,8 +449,13 @@ def test_the_fabric_facing_scope_admits_and_excludes_on_the_import(
     """
     example = _copied_example(tmp_path)
     outsider = example / "scenario" / "provision.py"
-    if not outsider.is_file():  # pragma: no cover - HW-1 is the copied example
-        pytest.skip("the copied example ships no non-fabric-facing module")
+    # Asserted, not skipped. A skip here would silently disable the only
+    # control of the one convention this rewrite introduces, on the day
+    # somebody moved the file.
+    assert outsider.is_file(), (
+        f"{example.name} no longer ships scenario/provision.py — repoint this"
+        " control at whichever module prints and imports no `ccf`"
+    )
 
     # (a) it prints, imports no `ccf`, and the example is still compliant.
     assert PRINT_RE.search(outsider.read_text(encoding="utf-8"))
@@ -1032,15 +1037,52 @@ def test_hw1_claims_the_exemption_for_the_stated_reason() -> None:
 
 ```python
 def test_the_exemption_ceiling_refuses_a_second_claimant() -> None:
-    """The ceiling fires at two, asserted rather than assumed.
+    """The ceiling fires at two, watched rather than assumed.
 
-    A constant nothing has been watched to trip is a constant nobody has
-    tested. Counted against a list rather than the tree, because standing up a
-    second exempt deployment on disk would mean shipping one.
+    A constant nothing has been seen to trip is a constant nobody has tested.
+    Exercised through `_exemption_problems`, the same predicate
+    `test_the_one_document_exemption_has_not_spread` judges the tree by, against
+    a synthesized second claimant — standing a real one up on disk would mean
+    shipping it.
     """
-    claimed = ["examples/s1-00-companies-over-revenue", "examples/s1-02-invented"]
-    assert len(claimed) > MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS
-    assert len(_one_document_deployments()) <= MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS
+    assert not _exemption_problems(["examples/s1-00-companies-over-revenue"])
+    problems = _exemption_problems(
+        ["examples/s1-00-companies-over-revenue", "examples/s1-02-invented"]
+    )
+    assert problems and "s1-02-invented" in problems[0], problems
+```
+
+This requires Task 4 Step 3 to expose the comparison as a predicate rather than
+inline it in the assertion. Task 4's `test_the_one_document_exemption_has_not_spread`
+therefore reads:
+
+```python
+def _exemption_problems(claimed: list[str]) -> list[str]:
+    """Whether this set of claimants exceeds the ceiling.
+
+    A predicate rather than an inline comparison, so the ceiling test and its
+    control judge by the same code — the same reason `spine_problems` and
+    `_binder_collapses` are predicates.
+    """
+    if len(claimed) <= MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS:
+        return []
+    return [
+        f"{len(claimed)} deployments claim the D-IMPL-137 one-document"
+        f" exemption, {MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS} permitted."
+        f" {FLOOR_REMOVAL_INSTRUCTION} Claimed: {claimed}"
+    ]
+
+
+def test_the_one_document_exemption_has_not_spread() -> None:
+    """The ceiling, which is the module's floor discipline inverted.
+
+    A floor stops coverage shrinking silently. Nothing stopped the *exemption*
+    spreading silently, and an exemption that spreads quietly is how a
+    conditioned demand becomes no demand. `MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS`
+    has no headroom for the same reason the floors have none.
+    """
+    problems = _exemption_problems(_one_document_deployments())
+    assert not problems, "; ".join(problems)
 ```
 
 - [ ] **Step 4: Run the three controls**
