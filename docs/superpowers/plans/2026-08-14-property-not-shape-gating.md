@@ -1177,5 +1177,8 @@ The phase is done when all four hold:
 
 1. `.venv/bin/python -m pytest tests/examples/test_spine_separation.py tests/products/test_gate_two_call_shape.py -q` — zero failures (was 18).
 2. `git status --short examples/` — empty. No example was modified.
-3. `git diff --stat main...HEAD -- src/ runtime/` — empty.
+3. `git diff --stat 8169b56..HEAD -- src/ runtime/ examples/` — empty. **Scoped to
+   this plan's base, not `main...HEAD`:** `phase-16` already carries HW-1 and
+   plans 16-22/23/24, which legitimately changed `src/` and `examples/`, so a
+   branch-wide diff answers a different question and never comes back empty.
 4. `make ci-core` — green but for the four accepted `tools/` residuals.
