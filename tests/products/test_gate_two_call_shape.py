@@ -240,15 +240,20 @@ lineage and reads one source: without it, such a tree would buy the exemption
 by having no Control Plane at all, which is the inverse of what the exemption
 is earned by.
 
-**Two controls the first guard does *not* protect, both of which earlier
-revisions of this paragraph claimed it did.** They are recorded as retracted
-rather than deleted, on the same discipline the two lists above keep: the
-reader who most needs this paragraph is the one checking whether it is still
+**Two controls the first guard is not *needed* for, both of which earlier
+revisions of this paragraph claimed it protected.** They are recorded as
+retracted rather than deleted, on the same discipline the two lists above keep:
+the reader who most needs this paragraph is the one checking whether it is still
 true. (a) :func:`test_the_binder_argument_checks_reject_a_binder_that_cannot_fail`
-synthesizes its bodies against ``REPO_ROOT / "probe.py"``, and **none of them
-assembles a lineage** — so :func:`_class_claim` answers ``None`` and the
-*second* fail-closed guard is what holds them demanded. Removing the first
-guard changes not one of their verdicts, measured body by body; and under the
+synthesizes its bodies against ``REPO_ROOT / "probe.py"``. **Both fail-closed
+guards are independently sufficient for those bodies**: ``probe.py`` is outside
+``examples/``, so :func:`_deployment_root` answers ``None``, and **none of them
+assembles a lineage**, so :func:`_class_claim` answers ``None`` too. **The first
+guard is the one that executes** — the two are spelled ``root is None or
+_registers_requirements(root)``, so the ``or`` short-circuits and the class
+claim is never read for these bodies at all. That redundancy is precisely why
+removing the first guard alone changes **not one** of their verdicts, measured
+body by body — the fact that retired the original attribution. And under the
 strongest reading of a default of *exempt* the tautology body still reports,
 because property (1) is unconditional, so that control would have gone **red**
 rather than silently green. (b)
