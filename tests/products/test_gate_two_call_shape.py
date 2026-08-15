@@ -226,20 +226,38 @@ reads one source for both sides.
 **Fail-closed in three places** — no artifact tree, no readable class claim, no
 readable plan source — each of which means the demand applies. An absence of
 evidence is not the exemption; the exemption is claimable only by a deployment
-that HAS artifacts and demonstrably lacks that one registration. The first of
-the three is not a convenience, and the two controls it protects are protected
-differently, which is worth stating exactly rather than as one claim:
-:func:`test_the_binder_argument_checks_reject_a_binder_that_cannot_fail`
-synthesizes its violating bodies against ``REPO_ROOT / "probe.py"``, which
-:func:`_deployment_root` answers ``None`` for, so a default of *exempt* would
-have made :func:`_binder_collapses` return **no problems for every one of
-them** — the control silenced on the day the conditioning landed while it still
-reported green, which is the worst way for a control to stop being one.
-:func:`test_the_binder_tripwire_detects_a_projection_that_skips_it` reads
-:func:`_names_the_binder` directly and so is not routed through the
-conditioning at all; what the same default protects there is the *demand* that
-control stands for, which still applies to every body outside a registered
-one-document deployment.
+that HAS artifacts and demonstrably lacks that one registration.
+
+**The first guard's control is
+:func:`test_a_body_with_no_artifact_tree_is_subject_to_the_demand`, and naming
+it correctly matters because this paragraph has now been wrong twice.** That
+test's synthesized body *does* assemble a ``ProductLineage``, and its plan's
+lone ``required=`` resolves to the identical path — the AST agreement that
+would otherwise grant the exemption — so it reaches the artifact-tree guard and
+is refused *by that guard* rather than by anything downstream of it. The hazard
+the guard closes is an adopter tree **outside** ``examples/`` that assembles a
+lineage and reads one source: without it, such a tree would buy the exemption
+by having no Control Plane at all, which is the inverse of what the exemption
+is earned by.
+
+**Two controls the first guard does *not* protect, both of which earlier
+revisions of this paragraph claimed it did.** They are recorded as retracted
+rather than deleted, on the same discipline the two lists above keep: the
+reader who most needs this paragraph is the one checking whether it is still
+true. (a) :func:`test_the_binder_argument_checks_reject_a_binder_that_cannot_fail`
+synthesizes its bodies against ``REPO_ROOT / "probe.py"``, and **none of them
+assembles a lineage** — so :func:`_class_claim` answers ``None`` and the
+*second* fail-closed guard is what holds them demanded. Removing the first
+guard changes not one of their verdicts, measured body by body; and under the
+strongest reading of a default of *exempt* the tautology body still reports,
+because property (1) is unconditional, so that control would have gone **red**
+rather than silently green. (b)
+:func:`test_the_binder_tripwire_detects_a_projection_that_skips_it` calls
+:func:`_names_the_binder`, :func:`_is_plan_construction` and
+:func:`_is_plan_execution`, passes **no path at all**, and never reaches
+:func:`_one_document` — the conditioning cannot silence it in either direction.
+The policy is unchanged by either retraction; only the argument for it was
+wrong.
 
 **Arguments.** Naming it is not enough, and for one wave it was all that was
 asked. A body can name the binder and route around it completely::
@@ -2398,13 +2416,15 @@ def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
 
 
 def test_a_body_with_no_artifact_tree_is_subject_to_the_demand() -> None:
-    """Fail-closed, and it keeps an existing control armed.
+    """Fail-closed, and **this test is that guard's own control**.
 
-    `test_the_binder_tripwire_detects_a_projection_that_skips_it` synthesizes
-    its violating body in `tmp_path`, which registers nothing. A default of
-    *exempt* would silence that control on the day the conditioning lands,
-    while it still reported green. Independently of the controls, a tree with
-    no Control Plane must not buy an exemption by having nothing registered.
+    It stands in for no other test, and an earlier revision of this docstring
+    said it did: the body synthesized below *does* assemble a `ProductLineage`,
+    so `_class_claim` reads it and the second fail-closed guard does not answer
+    first — the artifact-tree guard is what refuses it, and a regression in
+    that guard is what this catches. The hazard it closes is an adopter tree
+    outside `examples/` that assembles a lineage and reads one source, and
+    would otherwise buy an exemption by having no Control Plane at all.
 
     The two helper assertions below are still worth pinning on their own, but
     they are not the whole test: the composition matters, and this synthesizes
