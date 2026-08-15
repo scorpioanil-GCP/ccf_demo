@@ -76,6 +76,20 @@ class's Control Plane claim and the *projection plan's* own requirements at
 plan-build time, a different comparison at a different moment. Conflating
 the two would leave one of them uncovered.
 
+What a `ccf_config.yaml` cannot express, named rather than discovered (`16-30`)
+--------------------------------------------------------------------------------
+
+There is no `signal_batch` section among the eight reserved names, and that is
+a decision, not a gap. Registering one would content-hash raw event data into
+Control Plane state and therefore into Decision Replay dimension 2
+(`D-IMPL-80`) — events are what the fabric *observed*, not what it was
+*permitted to do*. `16-30`'s `load_config_and_boot` is scoped by this
+exclusion too: its equivalence test compares the artifact set the config form
+can express, and a `ccf.signal-batch` entry is outside that set by
+construction, not by omission. A deployment that needs one keeps a manifest —
+which the dual model supports indefinitely (Dave's ruling, 2026-08-14) — and
+boots it through `~ccf.deployment.manifest.load_and_boot` instead.
+
 Algorithmic module (CINV-03).
 """
 
@@ -83,23 +97,37 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, get_args
 
+from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
+    DEPLOYMENT_CONFIG,
     DeploymentConfig,
     DeploymentManifest,
     ManifestEntry,
+    load_artifact,
+    parse_artifact,
 )
+from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.deployment.classes import (
     refuse_registration_the_sdk_fixes,
     refuse_role_the_sdk_fixes,
     resolve_artifact_class,
 )
+from ccf.deployment.manifest import (
+    BootedFabric,
+    _preflight_adapter,
+    _preflight_entries,
+    _register_and_boot,
+    _resolve_secret_references,
+    _resolve_tenant,
+)
 from ccf.operators.base import OperatorCategory
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["DerivedDeployment", "derive_deployment"]
+__all__ = ["DerivedDeployment", "derive_deployment", "load_config_and_boot"]
 
 
 #: The four keys `design spec §6.2` reserves as override syntax. Stripped
@@ -581,3 +609,128 @@ def derive_deployment(
         survivor_cap=config.survivor_cap,
     )
     return DerivedDeployment(manifest=manifest, documents=documents)
+
+
+def load_config_and_boot(
+    config_path: str | Path,
+    *,
+    registry: ControlPlaneProtocol,
+    connection: Mapping[str, object] | None = None,
+    tenant_id: str | None = None,
+) -> BootedFabric:
+    """Load a `ccf_config.yaml`, derive what a manifest would have named, and boot.
+
+    The single-file front door `D-IMPL-136` commits to. `load_and_boot`'s
+    sibling — same signature shape, same `BootedFabric` shape, same
+    preflight, and the **same register loop**, reached through
+    :func:`~ccf.deployment.manifest._register_and_boot` rather than a second
+    copy of it (`16-30`; see that function's own docstring for why a copy
+    would be a hazard rather than a convenience).
+
+    What this call does, in order:
+
+    1. Parses the config through :func:`~ccf.controlplane.artifacts.load_artifact`
+       against :data:`~ccf.controlplane.artifacts.DEPLOYMENT_CONFIG` — the same
+       loader `load_and_boot` uses for a manifest, so the same float and
+       naive-timestamp refusals apply.
+    2. **Derives** a `DeploymentManifest` and one materialised document per
+       section through :func:`derive_deployment` — pure over the parsed
+       config, no file read, no environment read.
+    3. **Preflights** the tenant, the D-IMPL-80 role and the D-IMPL-85
+       registration path of every derived entry, and the declared adapter
+       against what this deployment has installed and against ``connection``
+       — through :func:`~ccf.deployment.manifest._preflight_entries` and
+       :func:`~ccf.deployment.manifest._preflight_adapter`, the same
+       functions `load_and_boot` calls. **The derived path resolves to a
+       real file, and that is the point:** every derived entry's ``path`` is
+       the config's own filename, so the preflight resolves all of them to
+       the config document itself — inside the deployment, passing both
+       `ManifestEntry` validators and the symlink check. The key → path
+       mapping this returns is therefore total and constant; this function
+       does not read it back, because the derived documents are already in
+       memory. Running the preflight anyway is what holds a derived manifest
+       to the same refusal surface an authored one gets — a check skipped
+       for this door would be a door the audit plane knows less about.
+    4. Validates **every** materialised document through
+       :func:`~ccf.controlplane.artifacts.parse_artifact` against the class
+       its own derived entry names, then calls
+       :func:`~ccf.deployment.manifest._register_and_boot` — the same
+       function `load_and_boot` calls — to register the ``role: register``
+       ones and boot.
+
+    **What this call does not do — the abstraction line, inherited rather
+    than re-decided.** Exactly the boundary `load_and_boot`'s own docstring
+    states in the negative, for the same reason (the module docstring's
+    *"boundary this module must not cross"*): it does not execute operators,
+    does not project, does not build a Context Product, does not run the
+    three validation gates, and does not construct a product's lineage
+    record.
+
+    **No `config_path` parameter on `load_and_boot`, and no auto-detection by
+    filename, considered and rejected.** Two names, two doors, one shared
+    spine (`_register_and_boot`). Auto-detection would make *which loader
+    ran* a function of a filename, and the loader in force is a fact replay
+    should be able to read off the call site — a `Union[manifest, config]`
+    argument, or a `load_and_boot` that peeks at the document's shape, would
+    both hide that fact behind a guess.
+
+    **What a `ccf_config.yaml` cannot express, by design.** There is no
+    `signal_batch` section — see the module docstring's own paragraph on
+    this. A deployment that puts a signal batch in its manifest keeps its
+    manifest, which the dual model supports indefinitely (Dave's ruling,
+    2026-08-14); a config-form deployment that needs one authors a manifest
+    alongside it and calls `load_and_boot` instead, which is out of scope
+    here and not half-built toward.
+
+    Args:
+        config_path: The single-file authoring document. Every derived
+            entry's ``path`` is this file's own name, resolved relative to
+            **this file's own directory** — never the process's working
+            directory, and never able to leave it, for the same two-check
+            reason `load_and_boot`'s own `manifest_path` cannot.
+        registry: The Control Plane to register into. A caller argument,
+            never constructed here — see `load_and_boot`'s own docstring.
+        connection: The declared adapter's connection settings. See
+            `load_and_boot`'s own docstring; nothing here widens it. No
+            field of `DeploymentConfig` may name a connection value either
+            (D-08, T-16-28-02).
+        tenant_id: The deployment's tenant, when the config does not name it.
+
+    Raises:
+        See `load_and_boot`'s own `Raises:` block — every refusal there
+        applies here identically, because both doors run the same preflight
+        and the same register loop. `derive_deployment` additionally raises
+        the five refusals its own docstring names, before any of those run.
+    """
+    config_file = Path(config_path)
+    config = load_artifact(
+        config_file.read_text(encoding="utf-8"), DEPLOYMENT_CONFIG
+    )
+    assert isinstance(config, DeploymentConfig)  # DEPLOYMENT_CONFIG's contract
+
+    derived = derive_deployment(config, config_filename=config_file.name)
+    manifest = derived.manifest
+
+    resolved_tenant = _resolve_tenant(manifest, tenant_id)
+    root = config_file.parent
+    # The returned mapping is deliberately unused: the derived documents are
+    # already in memory (`derived.documents`), so only the preflight's
+    # refusals matter here. See this function's own docstring, "The derived
+    # path resolves to a real file, and that is the point."
+    _preflight_entries(manifest, root)
+    adapter = _preflight_adapter(manifest, connection or {})
+    secrets = _resolve_secret_references(manifest, adapter)
+
+    parsed: dict[str, CCFContract] = {}
+    for entry in manifest.artifacts:
+        artifact_class = resolve_artifact_class(entry.class_id)
+        parsed[entry.key] = parse_artifact(derived.documents[entry.key], artifact_class)
+
+    return _register_and_boot(
+        manifest,
+        parsed,
+        registry=registry,
+        connection=connection,
+        secrets=secrets,
+        resolved_tenant=resolved_tenant,
+    )

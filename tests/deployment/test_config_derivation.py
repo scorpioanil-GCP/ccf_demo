@@ -384,10 +384,38 @@ def test_derive_deployment_reads_no_file_and_no_environment() -> None:
     private helpers must not call `open`, touch `os.environ`, or construct
     a `pathlib.Path` — any of those would make this module's `derives, does
     not read` boundary a docstring claim rather than a fact.
+
+    Scoped to `derive_deployment` itself plus every private (``_``-prefixed)
+    function the module declares — read dynamically off the module rather
+    than hand-listed, so a new private helper is covered automatically and
+    the scope cannot silently narrow. **Not** a whole-module scan as of
+    `16-30`: `ccf.deployment.config` also carries `load_config_and_boot`,
+    the front door that reads a real `ccf_config.yaml` off disk and is
+    documented as doing exactly that (`D-IMPL-136`) — the same relationship
+    `~ccf.deployment.manifest.load_and_boot` (I/O) has to
+    `~ccf.deployment.config.derive_deployment` (pure), one module over. A
+    whole-module scan would refuse the loader this plan exists to add;
+    this scan still refuses the derivation reading a file or an environment
+    variable, which is the property the docstring actually claims.
     """
-    source = inspect.getsource(config_module)
+    sources = [inspect.getsource(config_module.derive_deployment)]
+    for name, obj in vars(config_module).items():
+        if (
+            name.startswith("_")
+            and inspect.isfunction(obj)
+            # Excludes `_preflight_entries` / `_preflight_adapter` /
+            # `_register_and_boot` / `_resolve_secret_references` /
+            # `_resolve_tenant` — imported from `~ccf.deployment.manifest`
+            # for `load_config_and_boot` (`16-30`) to call, not defined here.
+            # `derive_deployment`'s purity claim is about this module's own
+            # derivation code; the manifest module's own I/O is covered by
+            # `~ccf.deployment.manifest`'s own tests, not this one.
+            and obj.__module__ == config_module.__name__
+        ):
+            sources.append(inspect.getsource(obj))
+    source = "\n".join(sources)
     for forbidden in ("open(", "os.environ", "pathlib.Path(", "Path("):
         assert forbidden not in source, (
-            f"{forbidden!r} appears in ccf/deployment/config.py — derive_deployment"
-            " must be pure over its argument"
+            f"{forbidden!r} appears in derive_deployment or one of its private"
+            " helpers — derive_deployment must be pure over its argument"
         )
