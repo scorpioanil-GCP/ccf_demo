@@ -178,12 +178,16 @@ example-s1-01: ## Run examples/s1-01-hello-context-product (three declared quest
 # above for why it is NOT in the `examples:` aggregate: it declares a networked
 # substrate. It needs no server of its own, though — `scenario/provision.py`
 # starts a postgres:16 container when CCF_TEST_POSTGRES_DSN is unset, so the
-# default path needs Docker and nothing else. MIN_REVENUE is the caller's
-# question and has no default here, because the example declares none either.
-example-s1-00: ## Run examples/s1-00-companies-over-revenue (MIN_REVENUE=<n>; needs Docker or CCF_TEST_POSTGRES_DSN)
+# default path needs Docker and nothing else. MIN_REVENUE is OPTIONAL: the
+# threshold is a REQUEST parameter, not deployment configuration, and a build
+# tool is not a request channel. Omitted, `consume.py` asks the demonstration
+# question in `scenario/question.yaml`. The contract still requires the
+# parameter — a request without one is refused with `missing-required-parameter`
+# below this CLI (test_a_missing_threshold_is_refused_not_defaulted).
+example-s1-00: ## Run examples/s1-00-companies-over-revenue (MIN_REVENUE=<n> optional; needs Docker or CCF_TEST_POSTGRES_DSN)
 	$(ENV) CCF_TEST_POSTGRES_DSN=$(CCF_TEST_POSTGRES_DSN) \
 		$(PYTHON) examples/s1-00-companies-over-revenue/consume.py \
-		--min-revenue $(MIN_REVENUE)
+		$(if $(MIN_REVENUE),--min-revenue $(MIN_REVENUE))
 
 # The Phase 15.3 permitted-change-surface gate and its `tools/gates/` package
 # were RETIRED by plan 15.4-07, in the same commit that registered the two
