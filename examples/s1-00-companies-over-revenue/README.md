@@ -59,22 +59,32 @@ with the answer rather than in a log.
 
 ## 3. What you author
 
-**Ten documents, ninety-nine non-comment lines.** Every one is here because a
-refusal demanded it — see [`MEASUREMENT.md`](MEASUREMENT.md) for the refusal
-beside each, and the commands that reproduce every figure.
+**Two documents, fifty-eight non-comment lines.** `D-IMPL-136`'s AMENDMENT
+(Dave, 2026-08-15) converts this deployment's Control Plane configuration to
+one file — `ccf_config.yaml` — plus `backends.yaml`, which stays separate by
+design. Before this conversion HW-1 authored the same commitments across ten
+documents, ninety-nine lines; see [`MEASUREMENT.md`](MEASUREMENT.md) for the
+before/after in full, the refusal that demanded each section, and the
+commands that reproduce every figure.
 
-| `artifacts/config/` | What it says |
+| Document | What it says |
 | --- | --- |
-| `manifest.yaml` | What this deployment puts in force. Everything else is listed here. |
+| `ccf_config.yaml` | Everything CCF requires: what this deployment puts in force, one section per concern (`product_class`, `operators`, `request_contract`, `resolution`, `half_life`, `debt_profile`, `policy`, `default_perspective`). The section name **is** the class — no file, key and class id restated three times over. |
 | `backends.yaml` | How the backend's connection settings are composed — a variable's **name**, never a value. |
-| `resolution-spec.yaml` | How a source row becomes an entity. |
-| `policy-bundle.yaml` | The regime in force. Its *version* rides the answer. |
-| `half-life-table.yaml` | λ_c — how fast this data goes stale. |
-| `debt-profile.yaml` | Where the D_c bands sit. |
-| `perspective.yaml` | Whose view the product is served under. |
-| `product-class.yaml` | What the product is, and the operator set it claims. |
-| `request-contract.yaml` | Which questions it answers. `revenue_threshold` lives here. |
-| `operator-parameters-temporal.yaml` | The one operator category, two lines. |
+
+Inside `ccf_config.yaml`, each section carries what its equivalent document
+used to:
+
+| Section | What it says |
+| --- | --- |
+| `resolution:` | How a source row becomes an entity. |
+| `policy:` | The regime in force. Its *version* rides the answer. |
+| `half_life:` | λ_c — how fast this data goes stale. |
+| `debt_profile:` | Where the D_c bands sit. |
+| `default_perspective:` | Whose view the product is served under. |
+| `product_class:` | What the product is, and the operator set it claims. |
+| `request_contract:` | Which questions it answers. `revenue_threshold` lives here. |
+| `operators:` | The one operator category, two lines. |
 
 `scenario/` — **this is not CCF.** It fabricates the demonstration: the table
 DDL, ten seed rows, the caller's question vocabulary, and a provisioner that

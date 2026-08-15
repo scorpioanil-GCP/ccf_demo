@@ -1315,8 +1315,17 @@ def _shares_a_source(
 # --- the premise: does this deployment have two documents? --------------------
 
 
+#: The single-file authoring document's canonical name (`D-IMPL-136`;
+#: `~ccf.deployment.config.derive_deployment`'s own default `config_filename`).
+#: `16-31` converts HW-1 to this form, so a deployment root can hold this file
+#: directly with no ``artifacts/`` subdirectory at all — the second shape
+#: :func:`_deployment_root` must recognise, alongside the multi-file one.
+SINGLE_FILE_CONFIG_NAME = "ccf_config.yaml"
+
+
 def _deployment_root(path: pathlib.Path) -> pathlib.Path | None:
-    """The nearest ancestor of ``path`` under ``examples/`` holding artifacts.
+    """The nearest ancestor of ``path`` under ``examples/`` holding a Control
+    Plane authoring surface — either shape `D-IMPL-136`'s dual model permits.
 
     Returns ``None`` for a body with no artifact tree — a synthesized fixture
     under ``tmp_path``, or a tree outside ``examples/``. That answer is
@@ -1328,6 +1337,8 @@ def _deployment_root(path: pathlib.Path) -> pathlib.Path | None:
             return None
         if (candidate / "artifacts").is_dir():
             return candidate
+        if (candidate / SINGLE_FILE_CONFIG_NAME).is_file():
+            return candidate
     return None
 
 
@@ -1336,12 +1347,24 @@ def _registers_requirements(root: pathlib.Path | None) -> bool:
 
     Any YAML in the artifact tree, because the manifest's filename varies —
     ``examples/04-cross-process`` declares it in ``producer-manifest.yaml``.
+    A single-file deployment's ``ccf_config.yaml`` is scanned the same way:
+    it can never actually carry this registration (`ccf.projection-requirements`
+    is not one of `D-IMPL-136`'s eight reserved section names — see
+    `~ccf.deployment.config`'s own module docstring, *"there is no
+    `signal_batch` section, and that is a decision, not a gap"*, the same
+    reasoning that applies here), so this always answers `False` for one —
+    scanned rather than assumed, on the same discipline every other reading
+    in this module reads the tree instead of trusting a claim about its shape.
     """
     if root is None:
         return False
+    documents = list((root / "artifacts").rglob("*.yaml"))
+    single_file = root / SINGLE_FILE_CONFIG_NAME
+    if single_file.is_file():
+        documents.append(single_file)
     return any(
         REQUIREMENTS_REGISTRATION_RE.search(document.read_text(encoding="utf-8"))
-        for document in (root / "artifacts").rglob("*.yaml")
+        for document in documents
     )
 
 
