@@ -105,6 +105,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "DEBT_PROFILE",
+    "DEPLOYMENT_CONFIG",
     "DEPLOYMENT_MANIFEST",
     "HALF_LIFE_TABLE",
     "OPERATOR_PARAMETERS_POLICY",
@@ -121,6 +122,7 @@ __all__ = [
     "ArtifactRole",
     "DebtProfile",
     "DeclaredArtifact",
+    "DeploymentConfig",
     "DeploymentManifest",
     "HalfLifeEntry",
     "HalfLifeTable",
@@ -1242,6 +1244,196 @@ class DeploymentManifest(VersionedArtifact):
         return self
 
 
+class DeploymentConfig(VersionedArtifact):
+    """One authoring document for what `DeploymentManifest` and its ten
+    artifacts put in force (`D-IMPL-136`; CLAUDE.md §6.4 and §10).
+
+    SDK-defined mechanism, not whitepaper-derived: the whitepaper fixes that
+    Control Plane artifacts are typed and versioned (§7.8) and says nothing
+    about how many files an adopter writes to declare them. `D-IMPL-136`
+    rules that *"the section name **is** the class"* — a deployment names its
+    sections in the vocabulary it already uses (`product_class`, `policy`,
+    ...) instead of naming a file, a manifest key and a class id three times
+    over — and that *"unknown top-level keys are an error"*, so a typo is
+    refused by name rather than three layers down as a missing key.
+
+    **This document parses. It does not derive, materialise, register, or
+    boot anything** — that is the loader `16-29` builds over this contract.
+    A `DeploymentConfig` instance is the typed, closed-world proof that an
+    adopter's `ccf_config.yaml` says exactly what it claims to say; turning
+    each section into the SDK artifact it names is a separate concern with
+    its own module.
+
+    **The eight reserved section names — `product_class`, `operators`,
+    `request_contract`, `resolution`, `half_life`, `debt_profile`, `policy`,
+    `default_perspective` — are the SDK's slots and nothing more.**
+    Reserving a section *name* is not a claim on an adopter's class-id
+    *namespace*: the SDK still claims exactly one prefix, `ccf.`
+    (`D-IMPL-84`), and `src/ccf/deployment/classes.py::resolve_artifact_class`
+    — which owns that reservation — is untouched by this class.
+
+    **Two of the eight sections are reserved and uninterpreted
+    (`D-IMPL-136` §14.3).** `policy` and `request_contract` bodies are
+    adopter-owned: the SDK knows the slot exists and which artifact it
+    becomes, and validates none of what is written under it. Typing either
+    body against a real contract here would be the SDK validating what it
+    has ruled it does not interpret.
+
+    **The other six SDK-owned sections are typed as open mappings here too,
+    for a different reason — do not "tighten" this.** `product_class`,
+    `resolution`, `half_life`, `debt_profile`, `default_perspective`, and
+    each `operators` entry's body are eventually validated against the SDK's
+    own contracts (:class:`ProductClassDeclaration`, the resolution spec,
+    :class:`HalfLifeTable`, :class:`DebtProfile`, :class:`PerspectiveArtifact`,
+    the operator-parameter classes) — but not by *this* class. A section body
+    is *materialised* into a document that also carries a derived `semver`
+    and, for `half_life`, is wrapped under an `entries:` key the section
+    itself elides — so a field typed as the eventual contract here would
+    demand a `semver` the adopter never writes and an `entries:` key the
+    section deliberately omits. `16-29`'s loader validates each materialised
+    document through :func:`parse_artifact`, the same seam every other
+    artifact class validates through, and that is where a malformed section
+    produces an `ArtifactLoadError` naming the class.
+
+    **Deployment-level fields mirror `DeploymentManifest`'s fields of the
+    same name, so the two documents cannot drift.** `tenant_id`, `backend`,
+    `backend_secrets` and `survivor_cap` carry the same types, the same
+    defaults and the same rationale as their `DeploymentManifest` twins —
+    see that class's own `Attributes:` block, `D-06`, `D-08` and D-IMPL-05.
+    `backend_secrets` carries :class:`SecretReference` entries unchanged: a
+    credential never enters this document either.
+
+    **`resolution_spec_key` and `policy_bundle_key` are additional fields
+    beyond design spec §4.1's top-level list, ruled onto this contract by
+    `D-IMPL-138`(b) (Dave, 2026-08-15).** The measured basis, not a case this
+    docstring re-argues: `DeploymentManifest` carries exactly `semver`,
+    `artifacts`, `backend`, `backend_secrets`, `resolution_spec_key`,
+    `policy_bundle_key`, `tenant_id`, `survivor_cap` — the four fields design
+    spec §4.1 omitted are the manifest's own fields, which is field parity
+    rather than an added judgement call. `resolution_spec_key` and
+    `policy_bundle_key` are **required with no default** on
+    `DeploymentManifest`, and HW-1's own manifest sets both, so without them
+    on this contract the single-file form cannot construct a valid manifest
+    at all and `16-30`'s HW-1 equivalence fixture would be unwritable.
+    Design spec §6.3 derives both from the section names (`resolution:` and
+    `policy:`) and keeps both **overridable** for a deployment that registers
+    several and must name which is in force — `None`, the default, means
+    *derive from the section name*, and `16-29` reads them. `backend_secrets`
+    and `survivor_cap` are unused by HW-1 and are not load-bearing for that
+    fixture, but design spec §10 commits that *"compatibility is absolute"*
+    and that the single-file form is an *additional* authoring surface —
+    without these two, a deployment whose adapter takes a credential, or
+    which has configured a D-10 survivor cap, cannot be expressed in the new
+    form. Both carry names, never values (:class:`SecretReference`), so
+    neither widens what design spec §9 keeps out: the **connection** stays a
+    caller-supplied argument to `load_and_boot`, never a field of either
+    document.
+
+    Attributes:
+        tenant_id: The deployment's tenant, when this document names it —
+            optional for the reason `DeploymentManifest.tenant_id` is
+            optional (D-IMPL-05: tenancy is a first-class runtime axis, and a
+            document-pinned tenant would stop one document serving a
+            multi-tenant deployment).
+        backend: The graph adapter's name — a shape rule
+            (`^[a-z][a-z0-9_]*$`) naming no adapter, exactly as
+            `DeploymentManifest.backend` is. Required: an authoring document
+            naming no backend describes no deployment.
+        backend_secrets: Credential references this deployment supplies to
+            its adapter, by name only. Empty — the default — is the ordinary
+            case.
+        survivor_cap: The D-10 survivor-set size cap in force
+            deployment-wide, or `None` — the default — for "no cap
+            configured".
+        resolution_spec_key: Which registered key holds the entity-resolution
+            spec in force. `None` — the default — means *derive from the
+            `resolution:` section name*.
+        policy_bundle_key: Which registered key holds the policy bundle in
+            force. `None` — the default — means *derive from the `policy:`
+            section name*.
+        product_class: The `ccf.product-class` section body. **Required** —
+            every other section is optional and absent by default,
+            distinguishably from an adopter who wrote the heading and
+            nothing under it: an absent `policy:` is a deployment declaring
+            no regime, an empty one is authored and empty, and `16-29`
+            refuses the second.
+        operators: Operator-category bodies, keyed by the operator id
+            appearing in `product_class`'s `required_operator_keys`. Each
+            value is itself an open mapping — the operator's own parameter
+            fields — validated in `16-29` against the matching
+            `ccf.operator-parameters.*` contract, never here.
+        request_contract: The `hw1.request-contract`-shaped reserved section.
+            Adopter-owned and uninterpreted (`D-IMPL-136` §14.3): the SDK
+            knows the slot exists and supplies the class id and registration
+            metadata; it does not own the argument vocabulary.
+        resolution: The `ccf.resolution-spec` section body.
+        half_life: The `ccf.half-life-table` section body, unwrapped — see
+            the class docstring's materialisation note for why this is not
+            typed as :class:`HalfLifeTable` here.
+        debt_profile: The `ccf.debt-profile` section body.
+        policy: Adopter-owned and uninterpreted (`D-IMPL-136` §14.3), exactly
+            as `request_contract` is. A body whose adopter content includes a
+            key literally named `role` — design spec §6.2's override
+            collision — parses here without complaint; resolving the
+            collision is `16-29`'s concern, not this contract's.
+        default_perspective: The `ccf.perspective` section body, for an
+            in-process deployment with no door to derive a grant from
+            (design spec §8.1).
+    """
+
+    tenant_id: str | None = None
+    backend: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    backend_secrets: tuple[SecretReference, ...] = ()
+    survivor_cap: int | None = None
+    resolution_spec_key: str | None = None
+    policy_bundle_key: str | None = None
+
+    product_class: Mapping[str, Any]
+    operators: Mapping[str, Mapping[str, Any]] | None = None
+    request_contract: Mapping[str, Any] | None = None
+    resolution: Mapping[str, Any] | None = None
+    half_life: Mapping[str, Any] | None = None
+    debt_profile: Mapping[str, Any] | None = None
+    policy: Mapping[str, Any] | None = None
+    default_perspective: Mapping[str, Any] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _no_unrecognised_sections(cls, data: object) -> object:
+        """Refuse every unreserved top-level key, named, together, at once.
+
+        `extra="forbid"` (inherited via `CCFContract`) already refuses an
+        unreserved key, but its own message is Pydantic's generic *"Extra
+        inputs are not permitted"* — precisely the *"refusal about a missing
+        key three layers down"* `D-IMPL-136` exists to delete. This collects
+        **every** offending key in one document and raises one message naming
+        all of them plus every name the SDK does recognise, so `resolutoin`
+        (the worked typo in design spec §4.1) is refused as *"I don't
+        recognise this section"* rather than as a validation internals leak.
+
+        `mode="before"`, not `mode="after"`: `extra="forbid"` fires during
+        field validation, so an `after` validator never runs on the document
+        this one exists to catch.
+
+        The reserved-name list is read from `cls.model_fields` rather than
+        restated, so the set this refusal checks against and the set
+        `model_fields` actually declares cannot drift apart.
+        """
+        if not isinstance(data, Mapping):
+            return data
+        reserved = set(cls.model_fields)
+        unknown = sorted(set(data) - reserved)
+        if unknown:
+            offending = ", ".join(repr(key) for key in unknown)
+            recognised = ", ".join(sorted(reserved))
+            raise ValueError(
+                f"ccf_config.yaml names {offending}, which the SDK does not"
+                f" recognise as a section or a deployment-level key; the"
+                f" names it does recognise are: {recognised}"
+            )
+        return data
+
+
 #: The λ_c table class (whitepaper §7.7).
 HALF_LIFE_TABLE = ArtifactClass(class_id="ccf.half-life-table", contract=HalfLifeTable)
 #: The decision-class debt profile class (whitepaper §7.7 CAR).
@@ -1304,6 +1496,13 @@ PROJECTION_REQUIREMENTS = ArtifactClass(
 #: content-hashable answer rather than a directory listing.
 DEPLOYMENT_MANIFEST = ArtifactClass(
     class_id="ccf.deployment-manifest", contract=DeploymentManifest
+)
+#: The single-file deployment authoring document class (`D-IMPL-136`). A
+#: parse-only sibling of :data:`DEPLOYMENT_MANIFEST`: this class validates
+#: that a `ccf_config.yaml` says what it claims to say; deriving each section
+#: into the artifact it names is `16-29`'s loader, not this class.
+DEPLOYMENT_CONFIG = ArtifactClass(
+    class_id="ccf.deployment-config", contract=DeploymentConfig
 )
 
 
