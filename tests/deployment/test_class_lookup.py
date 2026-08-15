@@ -53,6 +53,7 @@ import ccf
 
 from ccf.controlplane import artifacts
 from ccf.controlplane.artifacts import (
+    DEPLOYMENT_CONFIG,
     ArtifactClass,
     DeclaredArtifact,
     parse_artifact,
@@ -108,6 +109,16 @@ def test_an_sdk_class_id_resolves_to_the_constant_itself(class_id: str) -> None:
     resolved = resolve_artifact_class(class_id)
     assert resolved is SDK_ARTIFACT_CLASSES[class_id]
     assert resolved.class_id == class_id
+
+
+def test_ccf_deployment_config_resolves_to_deployment_config_by_identity() -> None:
+    """This plan's own class, named explicitly rather than left to the
+    parametrised scan above (`D-IMPL-136`). Identity, not equality — an
+    equal-looking copy of :data:`~ccf.controlplane.artifacts.DEPLOYMENT_CONFIG`
+    must not pass."""
+    resolved = resolve_artifact_class("ccf.deployment-config")
+    assert resolved is DEPLOYMENT_CONFIG
+    assert resolved.class_id == "ccf.deployment-config"
 
 
 def test_every_mapping_entry_is_the_module_constant() -> None:

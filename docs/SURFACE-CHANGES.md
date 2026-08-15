@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**626 entries**, of which **397** name a public Python surface.
+**628 entries**, of which **399** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-280 entries — 247 public Python surface, 33 not public Python API.
+282 entries — 249 public Python surface, 33 not public Python API.
 
 ### Public Python surface
 
@@ -5126,6 +5126,51 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   malformed instant from an entitlement refusal
 
 *Recorded by `16-23-mcp-product-tool.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: added
+- Before: did not exist
+- After: `VersionedArtifact` subclass — fifteen fields: the inherited
+  `semver` (no default); the six deployment-level fields mirroring
+  `DeploymentManifest`'s fields of the same name (`tenant_id`, `backend`,
+  `backend_secrets`, `survivor_cap`, `resolution_spec_key`,
+  `policy_bundle_key`); and the eight reserved sections (`product_class`
+  required; `operators`, `request_contract`, `resolution`, `half_life`,
+  `debt_profile`, `policy`, `default_perspective` optional, defaulting to
+  `None`). A `model_validator(mode="before")` refuses every unreserved
+  top-level key by name, listing every reserved name, built from
+  `cls.model_fields` rather than a second hand-maintained list
+- Why: `D-IMPL-136` (Dave, 2026-08-14) — the single-file `ccf_config.yaml`
+  authoring form. This is the document half only: parsing, closed-world
+  refusal, and holding adopter-owned section bodies uninterpreted.
+  Deriving each section into the SDK artifact it names, registering, and
+  booting are `16-29`'s and `16-30`'s scope, not this class's
+- Migration: none. New surface; the multi-file `DeploymentManifest` form is
+  unaffected and stays supported indefinitely (`D-IMPL-136`)
+
+*Recorded by `16-28-deployment-config-document.md`.*
+
+#### ccf.controlplane.artifacts.DEPLOYMENT_CONFIG
+
+- Surface: ccf.controlplane.artifacts.DEPLOYMENT_CONFIG
+- Public surface: true
+- Change type: added
+- Before: did not exist
+- After: `ArtifactClass(class_id="ccf.deployment-config", contract=DeploymentConfig)`,
+  registered in `src/ccf/deployment/classes.py::SDK_ARTIFACT_CLASSES` so
+  `resolve_artifact_class("ccf.deployment-config")` returns this constant
+  by identity, and enumerated by `tools/dump_schemas.py` into the committed
+  `docs/schemas/ccf.deployment-config.json` (fifteen properties,
+  `additionalProperties: false`)
+- Why: `D-IMPL-136` — the class identity a manifest, `resolve_artifact_class`,
+  and the schema exporter all address by the same `class_id`, exactly as
+  every other SDK artifact class is
+- Migration: none. New surface
+
+*Recorded by `16-28-deployment-config-document.md`.*
 
 ### Not public Python API
 
