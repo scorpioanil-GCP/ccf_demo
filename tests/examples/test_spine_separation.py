@@ -44,27 +44,20 @@ EXAMPLES_ROOT = REPO_ROOT / "examples"
 #: Section 1 by directory-name convention, and a glob rather than a list.
 SECTION_ONE_GLOB = "s1-*"
 
-#: The module that must carry the spine. Named, because "the file with the
-#: markers in it" would let a rename pass silently — and a renamed spine is
-#: exactly the drift criterion 6 is about.
-SPINE_MODULE = "spine.py"
-
-#: The presentation module (plan 16-05). A THIRD category beside the spine and
-#: the deployment: what the run prints. Named for the same reason the spine is
-#: — a reader looks for it by name — and gated separately, because the property
-#: that matters about it is the opposite one: it must carry no canonical
-#: region, so that not one printed line is publication surface.
-REPORT_MODULE = "report.py"
-
-#: The modules that print, and the modules that must not. `spine.py` is the CCF
-#: call spine and `deployment.py` is the adopter's own fabric-facing code;
-#: neither writes to a terminal. The driver does, which is what makes the
-#: example's output a property of the deployment rather than of the fabric.
-SILENT_MODULES = (SPINE_MODULE, "deployment.py")
-PRINTING_MODULE = "run.py"
-
 #: How a module writes to the terminal, in the two forms this repository uses.
 PRINT_RE = re.compile(r"print\(|sys\.stdout\.write")
+
+#: How a module declares itself part of the fabric. The taxonomy applies to
+#: modules that make CCF calls, because this gate is about how fabric calls
+#: separate from adopter code — a module making none is not party to that
+#: separation. `examples/s1-00/scenario/provision.py` fabricates a Postgres
+#: source system, imports no `ccf`, prints, and says `THIS IS NOT CCF` in its
+#: own docstring; it is out of scope by that principle rather than by name.
+#:
+#: **This governs the PRINTING properties only.** The region properties scan
+#: every module: a `--8<--` region in a module importing no `ccf` is still
+#: published-snippet surface, and scoping it would make such a marker invisible.
+CCF_IMPORT_RE = re.compile(r"^[ \t]*(?:from|import)[ \t]+ccf\b", re.MULTILINE)
 
 #: The seven `D-07` names, in the order the fabric is called in. Ordered, so
 #: this is a sequence rather than a set: a spine that gates before it projects
@@ -96,6 +89,27 @@ def split_examples(root: pathlib.Path) -> list[pathlib.Path]:
 def modules_in(directory: pathlib.Path) -> list[pathlib.Path]:
     """Every Python module in one example directory, at any depth."""
     return sorted(directory.rglob("*.py"))
+
+
+def fabric_facing(directory: pathlib.Path) -> list[pathlib.Path]:
+    """Every module in the example that makes CCF calls."""
+    return [
+        module
+        for module in modules_in(directory)
+        if CCF_IMPORT_RE.search(module.read_text(encoding="utf-8"))
+    ]
+
+
+def region_modules(directory: pathlib.Path) -> list[pathlib.Path]:
+    """Every module opening at least one of the seven canonical regions.
+
+    Over ALL modules, not the fabric-facing ones — see `CCF_IMPORT_RE`.
+    """
+    return [
+        module
+        for module in modules_in(directory)
+        if set(opened(module)) & set(CANONICAL_MARKERS)
+    ]
 
 
 def markers(path: pathlib.Path) -> list[tuple[str, str]]:
@@ -145,28 +159,50 @@ def spine_problems(directory: pathlib.Path) -> list[str]:
 
     A single predicate over a directory, so the shipped tree and the injected
     copies below are judged by the same code rather than by two descriptions of
-    the same intent.
+    the same intent. The properties, and which modules each scans:
+
+    * P1/P4 — exactly one module opens canonical regions (ALL modules)
+    * P2 — that module opens the seven `D-07` names, in order (that module)
+    * P3 — every region it opens, it closes; none interleave (ALL modules)
+
+    P5 and P6 are the printing properties and live in `print_problems`.
     """
     problems: list[str] = []
-    spine = directory / SPINE_MODULE
-    if not spine.is_file():
-        return [f"no {SPINE_MODULE} in {directory.name}"]
-
-    if opened(spine) != CANONICAL_MARKERS:
+    carriers = region_modules(directory)
+    if not carriers:
+        return [
+            f"{directory.name}: no module opens any of the seven canonical"
+            f" regions {CANONICAL_MARKERS}. Section 1's shape is the CCF call"
+            " spine in one module and the adopter's own code in another"
+            " (phase 16 CONTEXT D-11, criterion 6) — the spine is whichever"
+            " module carries the regions, and this example has none."
+        ]
+    if len(carriers) > 1:
         problems.append(
-            f"{SPINE_MODULE} opens {opened(spine)}, expected {CANONICAL_MARKERS}"
+            f"{directory.name}: more than one module opens canonical regions"
+            f" ({[module.name for module in carriers]}). A canonical region"
+            " belongs to exactly one module; a region spanning two publishes a"
+            " snippet straddling the boundary this example exists to draw."
         )
-    problems.extend(f"{SPINE_MODULE}: {problem}" for problem in unbalanced(spine))
+
+    spine = carriers[0]
+    found = opened(spine)
+    missing = [name for name in CANONICAL_MARKERS if name not in found]
+    extra = [name for name in found if name not in CANONICAL_MARKERS]
+    if missing:
+        problems.append(f"{spine.name} opens no region for {missing}")
+    if extra:
+        problems.append(
+            f"{spine.name} opens {extra}, which is marker vocabulary outside"
+            " the seven D-07 names — D-11 adds none"
+        )
+    if not missing and not extra and found != CANONICAL_MARKERS:
+        problems.append(
+            f"{spine.name} opens the seven regions in order {found},"
+            f" expected {CANONICAL_MARKERS}"
+        )
 
     for module in modules_in(directory):
-        if module == spine:
-            continue
-        shared = sorted(set(opened(module)) & set(CANONICAL_MARKERS))
-        if shared:
-            problems.append(
-                f"{module.name} also opens canonical region(s) {shared} —"
-                f" a region spanning {SPINE_MODULE} and a sibling"
-            )
         problems.extend(f"{module.name}: {problem}" for problem in unbalanced(module))
     return problems
 
@@ -195,7 +231,7 @@ def test_the_marker_pattern_matches_the_shipped_form() -> None:
     and the probe form is the one ``tools/docs_tests/test_snippet_gate.py``
     uses: look for the literal a source file contains.
     """
-    spine = split_examples(EXAMPLES_ROOT)[0] / SPINE_MODULE
+    spine = region_modules(split_examples(EXAMPLES_ROOT)[0])[0]
     assert f"[start:{CANONICAL_MARKERS[0]}]" in spine.read_text(encoding="utf-8")
     assert markers(spine), f"{spine} contains markers the pattern does not match"
 
@@ -210,14 +246,23 @@ def test_the_marker_pattern_matches_the_shipped_form() -> None:
     split_examples(EXAMPLES_ROOT),
     ids=lambda path: path.name,
 )
-def test_every_section_one_example_ships_a_spine_module(
+def test_exactly_one_module_carries_the_canonical_regions(
     directory: pathlib.Path,
 ) -> None:
-    """The spine is a named file, not "whichever file has the markers"."""
-    assert (directory / SPINE_MODULE).is_file(), (
-        f"{directory.name} has no {SPINE_MODULE}. Section 1's shape is the CCF"
-        " call spine in one module and the adopter's own code in another"
-        " (phase 16 CONTEXT D-11, criterion 6)."
+    """P1 and P4, stated from both ends.
+
+    The spine is whichever module carries the seven regions — a property a
+    reader can check by opening the files, and one a rename cannot break. The
+    previous form named `spine.py`, which made `D-IMPL-127`'s `produce.py` a
+    failure while every property it claimed to prove held.
+    """
+    carriers = region_modules(directory)
+    assert carriers, (
+        f"{directory.name}: no module opens any canonical region"
+    )
+    assert len(carriers) == 1, (
+        f"{directory.name}: {[module.name for module in carriers]} each open"
+        " canonical regions; exactly one module must"
     )
 
 
@@ -229,22 +274,23 @@ def test_every_section_one_example_ships_a_spine_module(
 def test_the_spine_opens_the_seven_canonical_regions_in_order(
     directory: pathlib.Path,
 ) -> None:
-    """Both directions reported by name: what is missing and what is extra.
+    """P2 — both directions reported by name: what is missing and what is extra.
 
     Ordering is asserted as well as membership. The seven names are a
     decomposition a beginner is meant to be able to follow top to bottom, and a
     spine that records before it gates reads as a different story.
     """
-    found = opened(directory / SPINE_MODULE)
+    spine = region_modules(directory)[0]
+    found = opened(spine)
     missing = [name for name in CANONICAL_MARKERS if name not in found]
     extra = [name for name in found if name not in CANONICAL_MARKERS]
-    assert not missing, f"{directory.name}/{SPINE_MODULE} opens no region for {missing}"
+    assert not missing, f"{directory.name}/{spine.name} opens no region for {missing}"
     assert not extra, (
-        f"{directory.name}/{SPINE_MODULE} opens {extra}, which is marker"
+        f"{directory.name}/{spine.name} opens {extra}, which is marker"
         " vocabulary outside the seven D-07 names — D-11 adds none"
     )
     assert found == CANONICAL_MARKERS, (
-        f"{directory.name}/{SPINE_MODULE} opens the seven regions in order"
+        f"{directory.name}/{spine.name} opens the seven regions in order"
         f" {found}, expected {CANONICAL_MARKERS}"
     )
 
@@ -254,35 +300,9 @@ def test_the_spine_opens_the_seven_canonical_regions_in_order(
     split_examples(EXAMPLES_ROOT),
     ids=lambda path: path.name,
 )
-def test_every_region_the_spine_opens_it_closes(directory: pathlib.Path) -> None:
-    """Opened, closed, and never interleaved."""
-    problems = unbalanced(directory / SPINE_MODULE)
-    assert not problems, f"{directory.name}/{SPINE_MODULE}: " + "; ".join(problems)
-
-
-@pytest.mark.parametrize(
-    "directory",
-    split_examples(EXAMPLES_ROOT),
-    ids=lambda path: path.name,
-)
-def test_no_region_spans_the_spine_and_a_sibling_module(
-    directory: pathlib.Path,
-) -> None:
-    """A canonical region belongs to exactly one module.
-
-    A region opened in ``spine.py`` and closed in ``deployment.py`` would
-    publish a snippet straddling the boundary this example exists to draw — and
-    would mean the boundary is not where the markers say it is.
-    """
-    spine = directory / SPINE_MODULE
+def test_every_region_opened_anywhere_is_closed(directory: pathlib.Path) -> None:
+    """P3 — opened, closed, and never interleaved, in every module."""
     for module in modules_in(directory):
-        if module == spine:
-            continue
-        shared = sorted(set(opened(module)) & set(CANONICAL_MARKERS))
-        assert not shared, (
-            f"{directory.name}/{module.name} opens canonical region(s)"
-            f" {shared}, which belong to {SPINE_MODULE}"
-        )
         problems = unbalanced(module)
         assert not problems, f"{directory.name}/{module.name}: " + "; ".join(problems)
 
@@ -302,49 +322,6 @@ def test_the_shipped_example_satisfies_the_whole_contract(
     """
     problems = spine_problems(directory)
     assert not problems, f"{directory.name}: " + "; ".join(problems)
-
-
-@pytest.mark.parametrize(
-    "directory",
-    split_examples(EXAMPLES_ROOT),
-    ids=lambda path: path.name,
-)
-def test_every_section_one_example_ships_a_report_module(
-    directory: pathlib.Path,
-) -> None:
-    """Presentation is a named third file, not a habit of the driver.
-
-    Dave's ruling of 2026-08-13 is that the example prints its work. Where the
-    printing LIVES is what keeps that compatible with the Phase 14.1 finding
-    that print lines inside published snippets inflate an example's apparent
-    integration cost: a separate module, carrying no region, is not snippet
-    surface. A report folded back into the driver or the spine would be.
-    """
-    assert (directory / REPORT_MODULE).is_file(), (
-        f"{directory.name} has no {REPORT_MODULE}. Section 1's shape is three"
-        " files: the fabric's calls, the adopter's code, and what the run"
-        " prints."
-    )
-
-
-@pytest.mark.parametrize(
-    "directory",
-    split_examples(EXAMPLES_ROOT),
-    ids=lambda path: path.name,
-)
-def test_the_report_module_opens_no_canonical_region(
-    directory: pathlib.Path,
-) -> None:
-    """Not one printed line is publication surface.
-
-    The sibling rule already refuses a canonical region outside the spine; this
-    states the property for the module it exists to protect, so the reason is
-    on the record beside the assertion rather than only in a plan.
-    """
-    report = directory / REPORT_MODULE
-    shared = sorted(set(opened(report)) & set(CANONICAL_MARKERS))
-    assert not shared, f"{directory.name}/{REPORT_MODULE} opens {shared}"
-    assert not unbalanced(report), unbalanced(report)
 
 
 @pytest.mark.parametrize(
@@ -414,18 +391,55 @@ def _copied_example(tmp_path: pathlib.Path) -> pathlib.Path:
     return destination
 
 
-def test_the_gate_refuses_a_renamed_spine(tmp_path: pathlib.Path) -> None:
-    """Renaming ``spine.py`` away is a failure, not a vacuous pass.
+def test_the_gate_refuses_an_example_with_no_region_carrying_module(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Zero carriers is a refusal, not a vacuous pass.
 
-    The obvious implementation — "check whichever module carries the markers" —
-    would go quiet here, because the renamed file still carries them. The
-    contract is that the spine has a name a reader can look for.
+    This is the direction the deleted rename control used to cover. Renaming a
+    module is now legal by design, so the property that replaces it is that
+    SOME module carries the seven regions — which a rename cannot break and a
+    deletion can.
     """
     example = _copied_example(tmp_path)
-    (example / SPINE_MODULE).rename(example / "assembly.py")
+    spine = region_modules(example)[0]
+    text = spine.read_text(encoding="utf-8")
+    for name in CANONICAL_MARKERS:
+        text = text.replace(f"[start:{name}]", "").replace(f"[end:{name}]", "")
+    spine.write_text(text, "utf-8")
 
     problems = spine_problems(example)
-    assert problems and SPINE_MODULE in problems[0], problems
+    assert any("no module opens" in problem for problem in problems), problems
+
+
+def test_the_gate_refuses_a_second_module_carrying_canonical_regions(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A canonical region belongs to exactly one module, whatever it is called.
+
+    Injected into a module that is NOT fabric-facing, because the region
+    properties scan every module: a marker in a module importing no `ccf` still
+    publishes a snippet, and scoping the region check would make it invisible.
+    """
+    example = _copied_example(tmp_path)
+    carrier = region_modules(example)[0]
+    outsiders = [
+        module for module in modules_in(example) if module not in fabric_facing(example)
+    ]
+    # A non-fabric-facing module when the example has one, because that is the
+    # case the scope rule could hide; any sibling otherwise.
+    sibling = outsiders[0] if outsiders else next(
+        module for module in modules_in(example) if module != carrier
+    )
+    name = CANONICAL_MARKERS[-1]
+    sibling.write_text(
+        sibling.read_text(encoding="utf-8")
+        + f"\n# --8<-- [start:{name}]\n# --8<-- [end:{name}]\n",
+        "utf-8",
+    )
+
+    problems = spine_problems(example)
+    assert any("more than one module" in problem for problem in problems), problems
 
 
 def test_the_gate_refuses_a_spine_whose_regions_are_out_of_order(
@@ -433,7 +447,7 @@ def test_the_gate_refuses_a_spine_whose_regions_are_out_of_order(
 ) -> None:
     """Membership alone is not the contract; the reading order is."""
     example = _copied_example(tmp_path)
-    spine = example / SPINE_MODULE
+    spine = region_modules(example)[0]
     text = spine.read_text(encoding="utf-8")
     first, last = CANONICAL_MARKERS[0], CANONICAL_MARKERS[-1]
     swapped = (
@@ -458,7 +472,7 @@ def test_the_gate_refuses_an_unclosed_region(tmp_path: pathlib.Path) -> None:
     nothing after it to notice.
     """
     example = _copied_example(tmp_path)
-    spine = example / SPINE_MODULE
+    spine = region_modules(example)[0]
     text = spine.read_text(encoding="utf-8")
     spine.write_text(text.replace(f"[end:{CANONICAL_MARKERS[-1]}]", "", 1), "utf-8")
 
@@ -472,57 +486,10 @@ def test_the_gate_refuses_marker_vocabulary_outside_the_seven(
 ) -> None:
     """`D-11` adds no marker names, and an eighth is how that erodes."""
     example = _copied_example(tmp_path)
-    spine = example / SPINE_MODULE
+    spine = region_modules(example)[0]
     text = spine.read_text(encoding="utf-8")
     spine.write_text(
         text + "\n# --8<-- [start:extra]\n# --8<-- [end:extra]\n", "utf-8"
     )
 
     assert spine_problems(example)
-
-
-def test_the_gate_refuses_a_canonical_marker_in_the_report_module(
-    tmp_path: pathlib.Path,
-) -> None:
-    """The control for the property ``report.py`` exists to hold.
-
-    A canonical region injected into the presentation module would publish a
-    printed line as a snippet — the exact cost the Phase 14.1 finding measured.
-    The scan root is repointed at the copy so the real predicate runs against a
-    real spine and a real report.
-    """
-    example = _copied_example(tmp_path)
-    report = example / REPORT_MODULE
-    assert report.is_file(), report
-    name = CANONICAL_MARKERS[0]
-    report.write_text(
-        report.read_text(encoding="utf-8")
-        + f"\n# --8<-- [start:{name}]\n# --8<-- [end:{name}]\n",
-        "utf-8",
-    )
-
-    problems = spine_problems(example)
-    assert any(REPORT_MODULE in problem for problem in problems), problems
-
-
-def test_the_gate_refuses_a_region_that_spans_both_modules(
-    tmp_path: pathlib.Path,
-) -> None:
-    """The spanning case, injected: the spine opens ``serve`` and a sibling
-    opens it too, so the region is no longer confined to one side of the
-    boundary this example draws."""
-    example = _copied_example(tmp_path)
-    sibling = next(
-        module
-        for module in modules_in(example)
-        if module.name != SPINE_MODULE
-    )
-    name = CANONICAL_MARKERS[-1]
-    sibling.write_text(
-        sibling.read_text(encoding="utf-8")
-        + f"\n# --8<-- [start:{name}]\n# --8<-- [end:{name}]\n",
-        "utf-8",
-    )
-
-    problems = spine_problems(example)
-    assert any("spanning" in problem for problem in problems), problems
