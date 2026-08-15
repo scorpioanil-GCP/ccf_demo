@@ -184,9 +184,62 @@ What tripwire (2) catches, and what it can only assert
 Tripwire (2) is **two checks, deliberately kept apart**, because collapsing
 them is what CR-03 found.
 
-**Coverage.** Every lexical body under ``examples/`` that constructs a
-projection plan, or runs one through ``ProjectionEngine(...).execute(...)``,
-must **name** :func:`ccf.deployment.refuse_operator_set_divergence`.
+**Coverage, conditioned on its own premise.** Every lexical body under
+``examples/`` that constructs a projection plan, or runs one through
+``ProjectionEngine(...).execute(...)``, must **name**
+:func:`ccf.deployment.refuse_operator_set_divergence` — *where the deployment
+that body sits in has two independently authored operator-set documents for
+the binder to compare*.
+The qualifier is D-IMPL-137 (2026-08-14), which narrows D-IMPL-86 without
+revoking it, and it is here because without it the demand had **no compliant
+state** for a one-document deployment: the coverage assertion demanded the
+call, and had that deployment made it, property (1) below would have refused
+the same call as a tautology. The only exit property (1)'s own message names —
+*"build the plan's ``required=`` from the projection's OWN document"* — is not
+a code edit but the authoring of a second artifact. So the demand was not
+*call the binder*; it was *adopt the two-document design*, which is a design
+mandate wearing a call-site check's clothing.
+
+**The premise is a fact about the Control Plane, and is read there.** A
+deployment has a second operator-set document when its artifact tree
+**registers** one: any manifest under it declaring ``class_id:
+ccf.projection-requirements`` (:data:`REQUIREMENTS_CLASS_ID`). *Any* manifest,
+because the filename varies — ``examples/04-cross-process`` declares it in
+``producer-manifest.yaml``, so a fixed filename would answer wrongly there. A
+deployment that authors **one** document has no second operand for the binder
+to compare, and there is nothing for the call to do.
+
+**The detector is a conjunction of two independent readings, and every other
+combination is refused** (:func:`_one_document`). The artifact tree says
+whether a second document is registered; the AST says whether the code in fact
+reads one source for both sides.
+
+* Registration **absent** AND the plan's ``required=`` **sharing** a source
+  with the product class's claim ⇒ one document, and the demand does not fire.
+* Registration **present** AND sharing ⇒ refused by property (1), unchanged.
+* Registration **absent** AND **not** sharing ⇒ **refused**. A second operator
+  set was authored somewhere the Control Plane does not know about, and the two
+  readings disagreeing is itself the finding. This is the row the exemption
+  must never admit, and it stays red because :func:`_one_document` returns
+  ``False`` for it.
+
+**Fail-closed in three places** — no artifact tree, no readable class claim, no
+readable plan source — each of which means the demand applies. An absence of
+evidence is not the exemption; the exemption is claimable only by a deployment
+that HAS artifacts and demonstrably lacks that one registration. The first of
+the three is not a convenience, and the two controls it protects are protected
+differently, which is worth stating exactly rather than as one claim:
+:func:`test_the_binder_argument_checks_reject_a_binder_that_cannot_fail`
+synthesizes its violating bodies against ``REPO_ROOT / "probe.py"``, which
+:func:`_deployment_root` answers ``None`` for, so a default of *exempt* would
+have made :func:`_binder_collapses` return **no problems for every one of
+them** — the control silenced on the day the conditioning landed while it still
+reported green, which is the worst way for a control to stop being one.
+:func:`test_the_binder_tripwire_detects_a_projection_that_skips_it` reads
+:func:`_names_the_binder` directly and so is not routed through the
+conditioning at all; what the same default protects there is the *demand* that
+control stands for, which still applies to every body outside a registered
+one-document deployment.
 
 **Arguments.** Naming it is not enough, and for one wave it was all that was
 asked. A body can name the binder and route around it completely::
@@ -209,6 +262,24 @@ properties (:func:`_binder_collapses`):
    requires the **hoist**, since a plan constructed inline as ``execute``'s own
    ``plan=`` argument is not an object any binder could have been handed; and
 3. the binder call precedes the engine call, per D-IMPL-86's correction.
+
+**Properties (2) and (3) are conditioned on the premise above; property (1) is
+not.** (2) and (3) ask whether the binder was called on the right object at the
+right time, and where the deployment authors one document there is no call for
+them to ask about — property (2), spelled ``any(… for call in calls)``, would
+otherwise fire on **every** execution merely because ``calls`` is empty, which
+is red on a deployment D-IMPL-137 declares correct. Property (1) stays
+unconditional, and that is precisely what makes this an **absence of demand**
+rather than a **licence**: a one-document body that calls the binder anyway is
+still refused for the tautology, so the exemption buys nobody the collapsed
+shape.
+
+Two things the conditioning does **not** touch, since both are easy to assume
+it does. Gate 2 proper is unmoved — the L6 comparison of
+``lineage.operators_invoked`` against ``engine_resolved`` still does real work
+in a one-document deployment, because those two sides are the *declaration* and
+the *engine's resolution*, which are two sources whatever the upstream document
+count is. And tripwire (1) is not conditioned at all.
 
 ``refuse_operator_set_divergence`` returns ``None`` by contract — deliberately,
 so it can never grow into a helper that supplies one of Gate 2's arguments. The
@@ -281,6 +352,19 @@ one looking for what is missing from it.
   is ``examples/`` alone, which the scope note below states as the honest
   bound; and nothing holds an adopter's deployment to calling the binder at all
   (D-IMPL-86 correction, 2026-08-05 — Phase 16's).
+* **A deployment leaving the demand by collapsing into one document.** The
+  D-IMPL-137 conditioning is read from the tree at test time, so a deployment
+  that deletes its ``ccf.projection-requirements`` registration and repoints its
+  plan's ``required=`` at the product class's own claim stops being demanded of,
+  and this module reports nothing — it has become the shape the ruling declares
+  correct. What bounds that is **a constant, not a structure**:
+  :data:`MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS` is one with no headroom, so the
+  *second* deployment to do it is red at
+  :func:`test_the_one_document_exemption_has_not_spread`, and the first is
+  visible in a diff, where the deleted artifact and the changed ``required=``
+  are both on the page. **Visible and bounded is not prevented**, and the
+  distinction is the one the floors already carry: nothing at the failure site
+  tells a deliberate collapse from an accidental one, only ``git log`` does.
 
 Two shapes that WERE on this list and are not any more, so a reader comparing
 revisions can see which way each moved:
@@ -465,10 +549,15 @@ CALL_MARKER = "()"
 #: stops being one, so the floor is asserted rather than assumed.
 MINIMUM_GATE_CALL_SITES = 9
 
-#: Nine bodies that construct a plan and execute it, plus the two replay
-#: environments' ``resolve_plan`` methods, which construct one and return it.
-#: Counted from the tree, not carried over from the plan text.
-MINIMUM_PROJECTING_BODIES = 11
+#: Eleven bodies that construct a plan and execute it, plus the two replay
+#: environments' ``resolve_plan`` methods, which construct one and return it —
+#: ``examples/06-decision-replay/run.py`` and
+#: ``examples/external/00-hello-context/run.py``. Counted from the tree, not
+#: carried over from the plan text: the previous comment read *nine* and *plus
+#: two*, which had been true of a smaller suite and was two bodies short of the
+#: tree by the time it was re-measured. A floor whose comment describes a tree
+#: that no longer exists is the quiet form of headroom this module refuses.
+MINIMUM_PROJECTING_BODIES = 13
 
 #: Binder call sites where this module can actually **read** which document the
 #: handed plan's ``required=`` came from — the input the argument checks in
@@ -1968,6 +2057,17 @@ def _binder_collapses(
     where = path.relative_to(REPO_ROOT)
     problems: list[str] = []
 
+    # D-IMPL-137: properties (2) and (3) ask whether the binder was called on
+    # the right object at the right time. Where the deployment authors ONE
+    # operator-set document there is no second operand for the binder to
+    # compare, so there is no call for them to ask about — and property (2),
+    # spelled as `any(... for call in calls)`, would otherwise fire on every
+    # execution merely because `calls` is empty. Property (1) stays
+    # unconditional: a body that calls the binder anyway is still refused for
+    # the tautology, which is what makes this an absence of demand rather than
+    # a licence.
+    demanded = not _one_document(scope, path, bindings, plan_classes)
+
     # (1) the binder's two sides must be two documents
     for call in calls:
         required = _handed_plan_source(call, sources, bindings, plan_classes)
@@ -1991,58 +2091,60 @@ def _binder_collapses(
     # (3) ordering, for the case (2) cannot read. Positions and not lines: a
     # `plan = P(); bind(plan=plan); run(plan=plan)` written on one physical line
     # is correct code that a line comparison reported red here and at (2).
-    first_position = min(
-        (execution.position for execution in executions), default=None
-    )
-    if first_position is not None and not any(
-        call.position < first_position for call in calls
-    ):
-        first_execution = first_position[0]
-        problems.append(
-            f"{where}:{first_execution}: a projection is executed here with no"
-            f" `{BINDER_CALL}` call before it. The binder belongs BETWEEN plan"
-            " construction and `ProjectionEngine.execute` (D-IMPL-86"
-            " correction, 2026-08-05); after the engine has run, a product has"
-            " already been assembled from a set the deployment's own claim may"
-            " contradict."
+    if demanded:
+        first_position = min(
+            (execution.position for execution in executions), default=None
         )
+        if first_position is not None and not any(
+            call.position < first_position for call in calls
+        ):
+            first_execution = first_position[0]
+            problems.append(
+                f"{where}:{first_execution}: a projection is executed here with"
+                f" no `{BINDER_CALL}` call before it. The binder belongs BETWEEN"
+                " plan construction and `ProjectionEngine.execute` (D-IMPL-86"
+                " correction, 2026-08-05); after the engine has run, a product"
+                " has already been assembled from a set the deployment's own"
+                " claim may contradict."
+            )
 
     # (2) the plan bound is the plan run
-    for execution in executions:
-        if execution.plan_node is not None and _is_plan_construction(
-            execution.plan_node, plan_classes
-        ):
-            # The plan comes into being INSIDE the call expression that
-            # consumes it, so it is not an object any binder could have been
-            # handed — whatever the binder above was given, it was something
-            # else. This is why 15.1-04 recorded the hoist as required rather
-            # than cosmetic: until the plan is a named local there is no
-            # statement the binder call can occupy.
+    if demanded:
+        for execution in executions:
+            if execution.plan_node is not None and _is_plan_construction(
+                execution.plan_node, plan_classes
+            ):
+                # The plan comes into being INSIDE the call expression that
+                # consumes it, so it is not an object any binder could have been
+                # handed — whatever the binder above was given, it was something
+                # else. This is why 15.1-04 recorded the hoist as required rather
+                # than cosmetic: until the plan is a named local there is no
+                # statement the binder call can occupy.
+                problems.append(
+                    f"{where}:{execution.lineno}: `ProjectionEngine.execute` is"
+                    " handed a plan constructed inline as its own `"
+                    f"{ENGINE_PLAN_KEYWORD}=` argument, so no `{BINDER_CALL}`"
+                    " call can have been handed that object. Hoist the plan into"
+                    " a local and call the binder on the line between (D-IMPL-86"
+                    " correction, 2026-08-05)."
+                )
+                continue
+            if execution.plan is None:
+                continue  # an unreadable plan expression — a stated limit, not a pass
+            if any(
+                call.handed == execution.plan and call.position < execution.position
+                for call in calls
+            ):
+                continue
             problems.append(
-                f"{where}:{execution.lineno}: `ProjectionEngine.execute` is"
-                " handed a plan constructed inline as its own `"
-                f"{ENGINE_PLAN_KEYWORD}=` argument, so no `{BINDER_CALL}` call"
-                " can have been handed that object. Hoist the plan into a"
-                " local and call the binder on the line between (D-IMPL-86"
-                " correction, 2026-08-05)."
+                f"{where}:{execution.lineno}: `ProjectionEngine.execute` runs"
+                f" `{_render(execution.plan)}`, which no `{BINDER_CALL}` call in"
+                " this body was handed beforehand. Naming the binder over some"
+                " OTHER plan leaves the plan that actually assembles the product"
+                f" unbound. Hand `{BINDER_CALL}` the same object"
+                " `ProjectionEngine.execute` will run (D-IMPL-86 correction,"
+                " 2026-08-05)."
             )
-            continue
-        if execution.plan is None:
-            continue  # an unreadable plan expression — a stated limit, not a pass
-        if any(
-            call.handed == execution.plan and call.position < execution.position
-            for call in calls
-        ):
-            continue
-        problems.append(
-            f"{where}:{execution.lineno}: `ProjectionEngine.execute` runs"
-            f" `{_render(execution.plan)}`, which no `{BINDER_CALL}` call in"
-            " this body was handed beforehand. Naming the binder over some"
-            " OTHER plan leaves the plan that actually assembles the product"
-            f" unbound. Hand `{BINDER_CALL}` the same object"
-            " `ProjectionEngine.execute` will run (D-IMPL-86 correction,"
-            " 2026-08-05)."
-        )
 
     return problems
 
@@ -2095,6 +2197,45 @@ def test_the_binder_scan_is_not_vacuous() -> None:
     )
 
 
+def _one_document_deployments() -> list[str]:
+    """Every deployment claiming the D-IMPL-137 exemption, by root."""
+    claimed: set[str] = set()
+    for path, scope in _projecting_scopes():
+        if _one_document(scope, path, _bindings(scope)):
+            root = _deployment_root(path)
+            if root is not None:
+                claimed.add(str(root.relative_to(REPO_ROOT)))
+    return sorted(claimed)
+
+
+def _exemption_problems(claimed: list[str]) -> list[str]:
+    """Whether this set of claimants exceeds the ceiling.
+
+    A predicate rather than an inline comparison, so the ceiling test and its
+    control judge by the same code — the same reason :func:`_gate_collapses`
+    and :func:`_binder_collapses` are predicates.
+    """
+    if len(claimed) <= MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS:
+        return []
+    return [
+        f"{len(claimed)} deployments claim the D-IMPL-137 one-document"
+        f" exemption, {MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS} permitted."
+        f" {FLOOR_REMOVAL_INSTRUCTION} Claimed: {claimed}"
+    ]
+
+
+def test_the_one_document_exemption_has_not_spread() -> None:
+    """The ceiling, which is the module's floor discipline inverted.
+
+    A floor stops coverage shrinking silently. Nothing stopped the *exemption*
+    spreading silently, and an exemption that spreads quietly is how a
+    conditioned demand becomes no demand. ``MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS``
+    has no headroom for the same reason the floors have none.
+    """
+    problems = _exemption_problems(_one_document_deployments())
+    assert not problems, "; ".join(problems)
+
+
 @pytest.mark.parametrize(
     ("path", "scope"),
     _projecting_scopes(),
@@ -2123,6 +2264,16 @@ def test_every_projecting_example_body_names_the_binder(
     neither of those two is readable from an AST walk over one body, and both
     are left named rather than implied away.
     """
+    if _one_document(scope, path, _bindings(scope)):
+        # D-IMPL-137, row B. The deployment registers no
+        # `ccf.projection-requirements` AND its plan's `required=` reads the
+        # product class's own claim, so the binder would compare a value
+        # against itself — the shape `_binder_collapses` property (1) refuses.
+        # The exemption is bounded by
+        # `test_the_one_document_exemption_has_not_spread`, not by this early
+        # return, and row C is refused by this assertion because
+        # `_one_document` returns False for it.
+        return
     assert _names_the_binder(scope), (
         f"{path.relative_to(REPO_ROOT)}:{_scope_line(scope)}:"
         f" {_scope_label(scope)} constructs or runs a projection plan without"
