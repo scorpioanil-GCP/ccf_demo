@@ -280,3 +280,131 @@ contract is unaffected either way.
 4. Exact `WireOutcome` schema — name and freeze the shape MCP egress / HTTP
    routes already emit; divergences found there are defects to fix, not
    shapes to standardize around.
+
+---
+
+# Amendment 1 — 2026-08-15 (post-research)
+
+**Status:** ruled by Dave, 2026-08-15, after Phase 17 research
+(`.planning/phases/17-*/17-RESEARCH.md`).
+**Effect:** this amendment is part of the approved design. Where it speaks,
+it governs; §§1–11 above are otherwise unchanged.
+
+## Why this amendment exists
+
+§12 framed four items as *sequencing* questions. Research measured the tree
+and found that two of them are **design gaps**, not sequencing — the spec
+assumed surfaces that do not exist. Rather than let planning discover this,
+the gaps are closed here.
+
+What research measured, and what it changed:
+
+| Measured | Consequence |
+|---|---|
+| For a **served** product, all doors emit `canonical_bytes(product)` and nothing else — one documented transport-level divergence | §12.4's "freeze what exists" holds for this half. Unchanged. |
+| For a **refusal**, no door emits anything. The resolver seam is typed `-> ServableProduct` with no refusal in the union; every fabric refusal type reaches no wire. `replay_ref` and the request's `parameters` likewise reach no wire | §12.4 does **not** hold for this half. It is new design surface → **A** below. |
+| No `src/`-resident seam yields a gate-admitted product; zero `src` modules import `ccf_runtime` | The spec's §5 seam had no implementable path → **B** below. |
+| A second `load_and_boot` against the same graph raises `SingleWriterViolation` | Boot caching is **required**, not an optimization → **C** below. |
+| Three `tools/` tests fail today; two are the retirement-sweep machinery, and `RETIREMENT-COUPLINGS.md` is 85 rows stale | The §12.2 retirement inventory cannot be trusted until fixed → **D** below. |
+
+## A — The canonical refusal envelope
+
+**Ruled:** define **one canonical refusal envelope in `src/`**, beside the
+served-product serialization, *before* any door is changed. There is nothing
+for a door to emit until the shape exists.
+
+Two constraints on the envelope, both derived from what the fabric already
+produces rather than invented:
+
+1. **It carries every existing refusal kind without flattening** — the
+   request-level reasons, the `GateRefusal` family, `PayloadSchemaViolation`,
+   `MixingRefusal`, and any sibling. If the envelope loses *which kind* a
+   refusal was, `Result.refusal.reason` becomes mush and §4's
+   auditable-refusal guarantee dies at the seam.
+2. **It carries the pre-assembly request identity** — product id, parameters,
+   temporal boundary — per §4.1's field split. This is also why `replay_ref`
+   and `parameters` reaching no wire today is a **defect to fix**, not a
+   separate feature request.
+
+**Rollout:** in-process produces the envelope in this phase. **The MCP door is
+fixed to produce it in this phase**, as part of deliverable 5 — an MCP adapter
+that cannot carry a refusal cannot pass the §6 conformance suite. HTTP follows
+when its adapter lands (§10 not-list, unchanged).
+
+`Result` / `Refusal` as approved in §4 are **unchanged**. This amendment
+concerns only how that information crosses the seam.
+
+## B — The resolver seam: Protocol *and* reference implementation, both in `src/`
+
+**Ruled:** `ccf.client` reaches a gate-admitted product through a narrow
+**resolver Protocol declared in `src/`**, and the SDK ships its **reference
+implementation in `src/` as well**.
+
+This is implementable with no new boundary crossing because the composition
+touches nothing outside `src/`: `run_gates` is `src/ccf/products/gates.py`,
+`serve` is `src/ccf/replay/serve.py`, and the rejected example's 357-line
+`produce.py::assemble_and_serve` imports **only** from `ccf` — zero
+`ccf_runtime` imports.
+
+Consequences, all of them load-bearing:
+
+- **The `src ↛ runtime` boundary stays intact and CI-enforceable.** No
+  exception is documented, because none is needed. §5's "in-process adapter
+  imports only core boot/deployment machinery" (D-14) survives as written.
+- **`ccf.client` gets its seam** — the in-process adapter boots the deployment
+  and calls the resolver.
+- **Assemble → gate → serve stops being every deployment's problem.** The SDK
+  ships all the *parts* of that composition today but never the composition,
+  which is why the rejected example had to write 357 lines of it in front of a
+  reader who wanted to ask one question. The missing resolver and the
+  oversized example are the same defect seen from two directions.
+- **The runtime doors gain a reference resolver they lack today.** They
+  currently *require* the deployment to supply one. Not this phase's work; it
+  simply stops being a gap.
+
+**Hard constraint:** the composition is **pure mechanism**. Thresholds,
+product classes, policy bundles, and every domain value continue to come from
+Control Plane artifacts. A resolver that bakes in a decision is the
+No-Hardcoding Rule (CLAUDE.md §6.4) firing.
+
+## C — Boot caching is required
+
+**Ruled:** the in-process adapter caches the booted fabric per binding
+address, as a hard implementation constraint.
+
+The reason is recorded because it is not the obvious one: **this is not a
+performance optimization.** A second `load_and_boot` against the same graph
+raises `SingleWriterViolation`. Caching is what makes a second `ask()` legal
+at all. (Measured cold boot 74.2 ms, confirming STATE.md's 74.3 ms figure.)
+
+No change at the client surface. Planning resolves cache lifetime, whether a
+`close()` exists, and the two-clients-one-binding case.
+
+## D — The retirement inventory goes first
+
+**Ruled:** the retirement inventory and its sweep machinery are repaired
+**before** any example-tree removal lands — first, not merely in parallel.
+
+Two of the three currently-failing `tools/` tests *are* the sweep machinery
+`D-27` depends on, and `RETIREMENT-COUPLINGS.md` is 85 rows stale (163
+committed vs 248 live). An untrustworthy inventory is precisely how a partial
+retirement ships, which is the failure mode §11's no-partial-state rule exists
+to prevent.
+
+## Effect on §12's open items
+
+| §12 item | Status after this amendment |
+|---|---|
+| 1 — demo-data form | **Still open**, and sharper than stated: `ccf_config.yaml` cannot carry a signal batch (an explicit decision at `src/ccf/deployment/config.py:82-91`) and `load_and_boot` does not ingest, so §7's single-file requirement and "boot-consumed seed artifact" are mutually exclusive as the tree stands. Options and measured costs are in `17-RESEARCH.md` §4.6. Resolve before the example plan is written. |
+| 2 — condemned trees | Governed by **D** above: repair the sweep machinery first. |
+| 3 — MCP adapter specifics | Open as stated, plus: the shipped egress tool hard-wires `parameters={}`, so a class with any required parameter is unreachable over MCP. Deliverable 5 cannot pass §6 conformance or §8's two-thresholds property without that fix. |
+| 4 — `WireOutcome` schema | **Half-answered.** The served half is a transcription (freeze it). The refusal half, `replay_ref`, and the echoed request identity are new surface governed by **A**. Plan design budget accordingly. |
+
+## What did not change
+
+The client surface (§2), binding resolution (§3), `Result`/refusal semantics
+and the fail-closed guard (§4), `Result` constructed in exactly one place and
+the in-process codec round-trip (§5), the conformance suite as the parity gate
+(§6), the ≤80-line example with its purity and budget gates (§7), the testing
+strategy including sabotage discipline (§8), sync-only v0 (§9), the not-list
+(§10), and the ruling consequences (§11).

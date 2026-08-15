@@ -198,6 +198,46 @@ rebuilt.
   make target, CI job, and published snippet that references them handled in
   the same change — there is no partial state.
 
+### Amendment 1 rulings (Dave, 2026-08-15, post-research)
+
+Research measured the tree and found that two of spec §12's "sequencing" items
+were really design gaps. Dave ruled all four. Full text: spec **Amendment 1**.
+
+- **D-28 — The canonical refusal envelope is defined in `src/` first, before
+  any door changes.** There is nothing for a door to emit until the shape
+  exists. Two derived constraints: (a) it carries every existing refusal kind
+  **without flattening** — request-level reasons, the `GateRefusal` family,
+  `PayloadSchemaViolation`, `MixingRefusal` and siblings; losing *which kind*
+  a refusal was makes `Result.refusal.reason` mush and kills D-09's auditable
+  refusal at the seam; (b) it carries the pre-assembly request identity
+  (product id, parameters, temporal boundary). Rollout: in-process now; **the
+  MCP door is fixed to produce it in this phase** (an MCP adapter that cannot
+  carry a refusal cannot pass D-15); HTTP follows its adapter. `Result` and
+  `Refusal` (D-07..D-10) are unchanged — this is only how the information
+  crosses the seam.
+- **D-29 — The resolver Protocol AND its reference implementation both live
+  in `src/`.** No `src → runtime` import, no documented exception, D-14
+  survives as written. This is implementable because the composition touches
+  nothing outside `src/`: `run_gates` is `src/ccf/products/gates.py`, `serve`
+  is `src/ccf/replay/serve.py`, and the rejected `produce.py::assemble_and_serve`
+  imports only from `ccf`. Consequence: assemble → gate → serve stops being
+  every deployment's problem — the SDK ships the parts today but never the
+  composition, which is why the rejected example wrote 357 lines of it in
+  front of a reader who wanted to ask one question. **Hard constraint:** the
+  composition is pure mechanism; thresholds, product classes and policy stay
+  in Control Plane artifacts, or the No-Hardcoding Rule is firing.
+- **D-30 — The in-process adapter caches the booted fabric per binding
+  address.** Not performance: a second `load_and_boot` against the same graph
+  raises `SingleWriterViolation`, so caching is what makes a second `ask()`
+  legal at all. Cache lifetime, `close()`, and two-clients-one-binding are
+  planning's to resolve.
+- **D-31 — The retirement inventory and its sweep machinery are repaired
+  FIRST**, before any example-tree removal lands — not merely in parallel.
+  Two of the three failing `tools/` tests *are* that machinery, and
+  `RETIREMENT-COUPLINGS.md` is 85 rows stale (163 committed vs 248 live). An
+  untrustworthy inventory is how a partial retirement ships, which is the
+  failure D-27's no-partial-state rule exists to prevent.
+
 ### Claude's Discretion
 
 These are sequencing and mechanism choices the spec deliberately left to
@@ -323,16 +363,42 @@ argument CLAUDE.md §7.3 makes for adapters.
 **Open sequencing questions for planning** (spec §12 — these are *not* design
 gaps; each has a constraint attached):
 
-1. Form of the demo data inside `deployment/` — either satisfies D-17; the
-   constraint is D-16 (no client call triggers provisioning semantics).
-2. Disposition of the condemned example trees — remove or quarantine, early,
-   with no partial state (D-27).
+*Updated after research + Amendment 1. Two of these were design gaps, not
+sequencing; those are now ruled (D-28..D-31) and have left this list.*
+
+1. **Form of the demo data inside `deployment/` — STILL OPEN, and sharper than
+   originally stated.** `ccf_config.yaml` cannot carry a `signal_batch` (an
+   explicit decision at `src/ccf/deployment/config.py:82-91`) and
+   `load_and_boot` does not ingest, so **D-17's single-file requirement and
+   "boot-consumed seed artifact" are mutually exclusive as the tree stands.**
+   Four options with measured costs: `17-RESEARCH.md` §4.6. Constraints: D-17
+   mandates the single-file form; D-16 forbids provisioning inside a client
+   call. **Resolve before the example plan is written** — option (d) would
+   need a new `D-IMPL-140+` ruling.
+2. Disposition of the condemned example trees — governed by **D-31**: repair
+   the sweep machinery first, then remove or quarantine with no partial state
+   (D-27). *Sequencing only; the ordering is ruled.*
 3. MCP adapter specifics (stdio vs HTTP transport, tool shape) — designed when
-   reached, against the frozen contract and the conformance suite.
-4. **Exact `WireOutcome` schema** — name and freeze the shape MCP egress and
-   the HTTP product routes *already* emit. **Divergences found between those
-   two are defects to fix, not shapes to standardize around.** This is a
-   measurement task for research, not a design task for planning.
+   reached, against the frozen contract and the conformance suite. **Plus a
+   measured blocker:** the shipped egress tool hard-wires `parameters={}`
+   (`egress.py:588`), so a class with any required parameter is unreachable
+   over MCP. Deliverable 5 cannot pass D-15 conformance or D-23's
+   two-thresholds property without that fix (`16-26` / `D-IMPL-133`).
+4. **Exact `WireOutcome` schema — HALF-ANSWERED.** The **served** half is a
+   transcription: all doors emit `canonical_bytes(product)` and nothing else,
+   with one documented transport-level divergence. Freeze it. The **refusal**
+   half, `replay_ref`, and the echoed request identity reach no wire at any
+   door — that is new design surface governed by **D-28**, and planning must
+   allocate design budget for it rather than treating it as a naming exercise.
+
+**Also open, and it is a planning decision rather than a design one:** the
+example's directory name and entry-file name interact with four existing
+gates. `hw1-*` makes the example *invisible* to `test_spine_separation.py`
+and `test_section_one_is_agent_free.py` (they glob `s1-*`); `s1-*` makes it
+*refused* by both. `consume.py` rather than `run.py` means
+`test_artifact_schema_headers.py` does not recognise the example as an example
+root (`EXAMPLE_ROOT_MARKER = "run.py"`). D-26 requires the gates be handled
+either way; D-27 forbids partial state. See `17-RESEARCH.md` §5.1–§5.3.
 
 **Neighboring open items, explicitly not gating this phase:** `D-IMPL-129`
 (`invoke_agent` dispatches a skill with authentication and no entitlement,
