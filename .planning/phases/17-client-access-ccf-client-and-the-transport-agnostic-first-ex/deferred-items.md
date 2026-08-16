@@ -163,3 +163,85 @@ find src -name "__pycache__" -type d -exec rm -rf {} +
 
 Any future sabotage control that reorders or substitutes equal-length source
 should clear bytecode as part of its revert, not rely on mtime invalidation.
+
+---
+
+## DEF-17-04 — the citation-coverage ratchets pass **vacuously** in the main checkout, and `DEF-17-01` was closed on that reading
+
+**Found during:** plan `17-03`, before any of its own work, while measuring the
+baseline. **Out of scope for `17-03`** — the two offending sites are Phase 16
+artifacts and the sweep defect is in `tools/`, none of them in that plan's
+declared files. Recorded here rather than fixed.
+
+### The measurement
+
+On `phase-17` at the branch tip, in a clean worktree:
+
+```
+2 failed, 3339 passed, 118 skipped
+```
+
+Both failures are in `tests/invariants/test_citation_coverage.py`. In the main
+checkout the identical commit reports `5 passed`. The two trees are the same
+commit, so one of the two readings is wrong.
+
+### Why the readings differ, and which one is right
+
+The sweep resolves a cited **basename** against an index of every file in the
+repository, and drops the site when the basename resolves ambiguously. The
+index builder walks the entire repo root and its skip-list — `__pycache__`,
+`.git`, `.venv`, `venv`, `build`, `dist`, `site`, `.mypy_cache`,
+`.pytest_cache`, `node_modules` — **does not contain `.claude`**.
+
+The main checkout carries six agent worktrees under `.claude/worktrees/`, each
+a full copy of the tree. So in the main checkout a cited basename resolves to
+**seven** paths, is ambiguous, and is dropped from the sweep. In a worktree it
+resolves to one and is measured.
+
+Measured, in the main checkout, for the basename the first failure names: seven
+index entries, six of them under `.claude/worktrees/`, one real.
+
+**The worktree reading is the correct one.** The main checkout's green is a
+guard that stops measuring the moment a parallel wave is running — which is
+precisely when the most code is landing.
+
+### The two genuine defects it was hiding
+
+Both are Phase 16 artifacts, neither is a quotation artifact:
+
+1. A `tests/products/` module added in `16-27` carries, in a docstring, a
+   line-anchored citation of another test module. `D-IMPL-114` rules that prose
+   cites the symbol form. The string appears nowhere in this file, so the
+   quotation effect `DEF-17-01` documents does not explain it.
+2. A `docs/surface-changes/` fragment from `16-24` carries a line-anchored
+   citation of the experience door module, which is the fourteenth held-back
+   site against a pinned thirteen.
+
+### What this means for `DEF-17-01`
+
+That entry is marked **RESOLVED**, and its closing paragraph states that *"the
+second site the executors named — a phase-16 test file citing another test file
+with a line anchor — was an artifact of exactly this effect, not an independent
+defect."* That reading is **false**, and disproving it took one grep. `17-01`
+and `17-02` were right that there were two sites; the third executor to measure
+the tree found the same two.
+
+The generalisable point, and it is the sharper one: the reason a defect could be
+closed on a wrong reading is that the **verification machinery** was reporting a
+green it had not earned. This project's ledger already says defects land in
+verification code rather than in mechanism. Here the ratchet, the entry closing
+it, and the count reconciliation were all downstream of one unskipped directory.
+
+### The three repairs, for whoever owns them
+
+- Add `.claude` to the sweep's skip set, so the ratchet measures the repository
+  rather than the repository times the number of live agents. This alone turns
+  the main checkout red, which is correct.
+- Convert the `16-27` docstring citation to the symbol form.
+- Rule on the fourteenth held-back site — convert it, or raise the pinned count
+  in a decision entry, which is what the gate's own text demands.
+
+**None was done in `17-03`:** the first is `tools/` and the other two are Phase
+16 files, all outside that plan's declared `files_modified`, and the third needs
+a ruling rather than an edit. `17-03` measured its own delta against the
+2-failing baseline and added no new failure.
