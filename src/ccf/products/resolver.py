@@ -64,6 +64,47 @@ in scope for this phase, is not ruled, and would be a door's worth of work;
 stating the divergence here is what keeps it a known cost rather than a
 surprise for whoever reads the three seams side by side.
 
+Where the debt scorer's default lives, and what the choice cost
+----------------------------------------------------------------
+The 2026-08-16 spec §6 requires the reference debt scorer to be selected
+automatically *"when the caller does not pass one"*, so that **a deployment
+providing only data never has to know the Protocol exists** — and it leaves the
+location open: :class:`GovernedResolver` itself, or *"a thin*
+``build_governed_resolver(...)`` *helper"*.
+
+**It is the helper**, and the choice was forced by two measurements rather than
+settled by taste:
+
+1. **The default is not a value; it is a construction that needs four inputs
+   this class does not hold.** :class:`~ccf.products.debt_scorer.AssemblyDebtScorer`
+   takes a ``λ_c`` table, a debt profile, and a
+   :class:`~ccf.halflife.debt.DebtFactorScorerProtocol` for each of ``C`` and
+   ``S``. Only the first two are resolvable from the booted fabric, and only
+   given the *keys* that name them; ``C`` and ``S`` have **no** SDK
+   measurement at all (:class:`~ccf.halflife.assessment.DebtFactors` records
+   that position in its own words). Defaulting on the class would therefore
+   have grown it from thirteen arguments to seventeen — four of them dead
+   whenever an explicit scorer *is* supplied — in order to give one argument a
+   default. A default that enlarges its own seam is not a default.
+2. **A shipped assertion already forbids it, and weakening a shipped assertion
+   to admit a feature is this phase's signature defect.**
+   ``tests/products/test_resolver_seam.py::test_no_constructor_argument_carries_a_default``
+   reads every field off the dataclass and requires ``default`` and
+   ``default_factory`` to be ``MISSING``. Defaulting here would have required
+   deleting or narrowing that test.
+
+So :class:`GovernedResolver` keeps the property its docstring claims —
+*"nothing has a default"* — verbatim and under test, and
+:func:`build_governed_resolver` is the seam where the SDK selects its own
+reference implementation. **What that costs, stated rather than glossed:** there
+are now two ways to obtain a resolver, and a reader who finds only the class
+will not learn that the SDK ships a scorer. That cost is paid down here, at the
+class's own ``debt_scorer`` attribute, and in the helper's docstring — not left
+for a reader to discover from a support ticket. **A second default should not be
+added without re-reading both measurements above**, because the argument that
+selected a helper is about *this* Protocol's shape and does not transfer for
+free.
+
 Dependency direction
 --------------------
 This module lives in :mod:`ccf.products`, beside :mod:`ccf.products.gates` and
@@ -89,12 +130,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Protocol, TypeVar, runtime_checkable
+from decimal import Decimal
+from typing import Final, Protocol, TypeVar, runtime_checkable
 
 from ccf.artifacts.protocol import ArtifactStoreProtocol
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
+    DebtProfile,
     DeclaredArtifact,
+    HalfLifeTable,
     OperatorParametersArtifact,
     ProductClassDeclaration,
 )
@@ -109,6 +153,7 @@ from ccf.products.contract import (
     RegisteredProductClass,
     register_product_class,
 )
+from ccf.products.debt_scorer import AssemblyDebtScorer, DeclaredFactor
 from ccf.products.gates import ServableProduct, run_gates
 from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
 from ccf.products.request import (
@@ -124,15 +169,35 @@ from ccf.replay.serve import QueryPinWriter, ReplayWriter, ServedProduct, serve
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "DEBT_SCORER_INPUTS",
     "AssemblyDebtScorerProtocol",
     "GovernedResolver",
     "ProductNotResolvable",
     "ProjectionPlanFactoryProtocol",
     "ResolverOutcome",
     "ServedProductResolverProtocol",
+    "build_governed_resolver",
 ]
 
 _Artifact = TypeVar("_Artifact", bound=CCFContract)
+
+#: The four values :func:`build_governed_resolver` needs to construct the SDK's
+#: reference debt scorer, named once so the refusals below enumerate them from
+#: one place rather than from three hand-written lists.
+#:
+#: **Why the reference needs four inputs at all**, when "the SDK ships a
+#: default" sounds like it should need none: two of ``D_c``'s three factors have
+#: no SDK measurement, and the two that name Control Plane artifacts cannot be
+#: discovered — the 2026-08-16 spec §6 rules out *"discovery or registration
+#: machinery"* in this change, so a key is named or it is not resolvable. What
+#: the default supplies is the **machinery** (the ``GraphView`` → ``DebtFactors``
+#: adapter, the decay computation, the pinning) and never the **values**.
+DEBT_SCORER_INPUTS: Final[tuple[str, ...]] = (
+    "half_life_key",
+    "debt_profile_key",
+    "declared_completeness",
+    "declared_semantic_consistency",
+)
 
 
 #: What a resolver returns: a served product, or the refusal that stands
@@ -359,6 +424,42 @@ class AssemblyDebtScorerProtocol(Protocol):
         ...
 
 
+def _artifact_on(
+    fabric: BootedFabric, *, key: str, expected: type[_Artifact]
+) -> _Artifact:
+    """One parsed artifact off ``fabric``, or a wiring refusal naming both sides.
+
+    The narrowing is not ceremony. A manifest key is a string, and a resolver
+    handed the wrong one would otherwise fail somewhere further down with a
+    message about a field, at which point the actual defect — this key names
+    that artifact — is two layers away from what is reported.
+
+    Module-level rather than a method because
+    :func:`build_governed_resolver` needs the identical check *before* a
+    resolver exists, and the manifest read staying in **one** place is what
+    ``17-11`` deferred to this plan.
+
+    Raises:
+        ProductNotResolvable: the key names no artifact, or names one of
+            another class. A broken deployment, so an exception rather than a
+            governed "no" — the distinction :class:`ProductNotResolvable` draws
+            for itself.
+    """
+    try:
+        artifact = fabric.artifacts[key]
+    except KeyError as absent:
+        raise ProductNotResolvable(
+            f"manifest key {key!r} names no artifact on the booted fabric;"
+            f" the manifest declares {sorted(fabric.artifacts)}"
+        ) from absent
+    if not isinstance(artifact, expected):
+        raise ProductNotResolvable(
+            f"manifest key {key!r} holds {type(artifact).__name__}, and this"
+            f" resolver reads it as {expected.__name__}"
+        )
+    return artifact
+
+
 @dataclass(frozen=True, kw_only=True)
 class GovernedResolver:
     """The SDK's reference composition: assemble → gate → record → serve.
@@ -397,7 +498,9 @@ class GovernedResolver:
 
     **What deliberately stays a constructor argument.** The projection factory
     and the debt scorer are behavior rather than declaration and have no
-    artifact form — so they are *supplied*, and neither is defaulted here. The
+    artifact form — so they are *supplied*, and neither is defaulted here; a
+    deployment that wants the SDK to choose its scorer calls
+    :func:`build_governed_resolver`, which is where the choosing lives. The
     two differ in what a deployment can supply: the SDK ships
     :class:`~ccf.products.debt_scorer.AssemblyDebtScorer` for the second and
     ships nothing for the first, because Amendment A.1 of the 2026-08-16 spec
@@ -454,8 +557,14 @@ class GovernedResolver:
         plan_factory: How this deployment builds Π for one question.
         debt_scorer: How this deployment measures ``D_c`` over an assembly.
             :class:`~ccf.products.debt_scorer.AssemblyDebtScorer` is the shipped
-            reference; supplying it is the deployment's act, never this class's,
-            which is why the field has no default.
+            reference, and **it is what** :func:`build_governed_resolver`
+            **selects when no scorer is passed** — a deployment reaching the
+            fabric through that helper never names it and never has to know the
+            Protocol exists. Supplying it *here* is the deployment's act, never
+            this class's, which is why the field has no default: this class is
+            the auditable, defaultless composition, and the helper is where the
+            SDK's own reference is chosen. See the module docstring for the
+            measurement that split them.
         artifact_store: Where the replay record and the executed queries' bytes
             land. A substrate reached *through* this mechanism, never a second
             writer to the graph (CLAUDE.md §7.4).
@@ -666,25 +775,13 @@ class GovernedResolver:
     def _artifact(self, key: str, expected: type[_Artifact]) -> _Artifact:
         """One parsed artifact, or a wiring refusal naming both sides.
 
-        The narrowing is not ceremony. A manifest key is a string, and a
-        resolver handed the wrong one would otherwise fail somewhere further
-        down with a message about a field, at which point the actual defect —
-        this key names that artifact — is two layers away from what is
-        reported.
+        Delegates to :func:`_artifact_on` rather than repeating it, so the
+        narrowing a resolver performs at call time and the one
+        :func:`build_governed_resolver` performs at construction time are the
+        same check with the same message. Two copies would drift, and the
+        adopter would be told two different things about one mistake.
         """
-        try:
-            artifact = self.fabric.artifacts[key]
-        except KeyError as absent:
-            raise ProductNotResolvable(
-                f"manifest key {key!r} names no artifact on the booted fabric;"
-                f" the manifest declares {sorted(self.fabric.artifacts)}"
-            ) from absent
-        if not isinstance(artifact, expected):
-            raise ProductNotResolvable(
-                f"manifest key {key!r} holds {type(artifact).__name__}, and this"
-                f" resolver reads it as {expected.__name__}"
-            )
-        return artifact
+        return _artifact_on(self.fabric, key=key, expected=expected)
 
     def _declaration(self) -> ProductClassDeclaration:
         """The Control Plane claim: what this product says produced it."""
@@ -755,3 +852,220 @@ class GovernedResolver:
             request_contract_key=self.request_contract_key,
             request_contract_version=request_contract_version,
         )
+
+
+def build_governed_resolver(
+    *,
+    fabric: BootedFabric,
+    control_plane: ControlPlaneProtocol,
+    product_class_key: str,
+    request_contract_key: str,
+    operator_parameter_keys: tuple[str, ...],
+    policy_bundle_key: str,
+    plan_factory: ProjectionPlanFactoryProtocol,
+    artifact_store: ArtifactStoreProtocol,
+    replay_record_class: str,
+    query_pin_class: str,
+    max_ttl_seconds: int,
+    product_ttl_seconds: int,
+    half_life_key: str | None = None,
+    debt_profile_key: str | None = None,
+    declared_completeness: Decimal | None = None,
+    declared_semantic_consistency: Decimal | None = None,
+    debt_scorer: AssemblyDebtScorerProtocol | None = None,
+) -> GovernedResolver:
+    """Build a :class:`GovernedResolver`, selecting the SDK's reference scorer.
+
+    **SDK-defined** (CLAUDE.md §11); the ruling of record is
+    ``docs/superpowers/specs/2026-08-16-reference-plan-factory-and-debt-scorer.md``
+    §6 and **Amendment A.3** (Dave, 2026-08-16). This is the *"thin*
+    ``build_governed_resolver(...)`` *helper"* §6 names, and the module
+    docstring records the two measurements that put the default here rather
+    than on the class.
+
+    What this helper is for
+    -----------------------
+    **A deployment that provides only data never has to know
+    :class:`AssemblyDebtScorerProtocol` exists.** Everything below is plain
+    data plus the three fabric objects plus the single permitted projection
+    reference (Amendment A.3) — and the debt scorer arrives from the SDK. A
+    deployment reaching the fabric through this seam imports no scorer, writes
+    no ``GraphView`` → :class:`~ccf.halflife.assessment.DebtFactors` adapter,
+    and makes no row-selection choice in its own tree.
+
+    What "the default" can and cannot mean here
+    --------------------------------------------
+    It means the **machinery**, and it can never mean the **values**. The
+    reference scorer needs four inputs (:data:`DEBT_SCORER_INPUTS`), and none of
+    the four is something the SDK may invent:
+
+    * ``half_life_key`` / ``debt_profile_key`` name **Control Plane artifacts**.
+      They are keys rather than discovered artifacts because §6 rules out *"new
+      discovery or registration machinery in this change"* — a fabric holding
+      two ``λ_c`` tables has no SDK-knowable right answer, and picking the only
+      one present would be a rule that silently changes behaviour the day a
+      second is registered.
+    * ``declared_completeness`` / ``declared_semantic_consistency`` are the two
+      factors with **no SDK measurement at all**.
+      :class:`~ccf.halflife.assessment.DebtFactors` states that position in its
+      own docstring, and ``17-11`` rejected each candidate default in turn
+      (``C = 1`` is a number the SDK chose inside a delivered product's content
+      address; ``C = 0`` fail-closes every deployment; deriving ``C`` from the
+      table's breadth couples completeness to how many observation types a
+      deployment happens to calibrate). They travel through
+      :class:`~ccf.products.debt_scorer.DeclaredFactor`, so each lands in the
+      Decision Replay record under its own :class:`~ccf.halflife.assessment.ScorerPin`
+      (``D-IMPL-47``) and an examiner can tell an assertion from a measurement.
+
+    So this helper defaults the *adapter*, the *decay computation* and the
+    *pinning* — the parts that were mechanism the SDK declined to ship — and
+    defaults nothing a deployment is entitled to decide.
+
+    The two argument shapes, and why supplying neither or both is refused
+    ---------------------------------------------------------------------
+    Exactly one of these is a valid call:
+
+    * **the data-only path** — the four :data:`DEBT_SCORER_INPUTS`, no
+      ``debt_scorer``. The SDK builds
+      :class:`~ccf.products.debt_scorer.AssemblyDebtScorer`.
+    * **the override path** — ``debt_scorer``, none of the four. A deployment
+      whose product means something the reference does not measure supplies its
+      own conforming callable, exactly as the Protocol intends.
+
+    Neither is refused rather than defaulted, because a resolver built with no
+    scorer and no material would be a resolver with **no way to measure debt**,
+    and the only thing left for it to do is serve an unscored product — the
+    failure Risk 3 of the spec names: *"a default that nothing exercises is a
+    check that stops checking without going red."* Both are refused because
+    silently ignoring four supplied arguments is how a deployment comes to
+    believe a ``λ_c`` key is in force when it is not.
+
+    Args:
+        fabric: The booted deployment, as :func:`~ccf.deployment.load_and_boot`
+            returned it.
+        control_plane: The Control Plane the fabric booted against.
+        product_class_key: Manifest key of the served class declaration.
+        request_contract_key: Manifest key of its request surface.
+        operator_parameter_keys: Manifest keys of the operator parameters —
+            however many (``D-IMPL-132``).
+        policy_bundle_key: Manifest key of the policy regime in force.
+        plan_factory: The deployment's Π factory. The **one** thing measurement
+            said cannot be data (Amendment A.2), and therefore the one thing
+            this helper cannot default.
+        artifact_store: Where replay records and executed-query bytes land. A
+            substrate reached *through* mechanism, never a second writer
+            (CLAUDE.md §7.4). Taken as an object rather than a path so this
+            seam stays substrate-agnostic — selecting a file-backed store from
+            a declared path is the calling surface's act, not this one's.
+        replay_record_class: Artifact class replay records are filed under.
+        query_pin_class: Artifact class executed-query bytes are filed under.
+        max_ttl_seconds: The class's TTL ceiling.
+        product_ttl_seconds: A served product's own lifetime. Two figures, and
+            they stay two.
+        half_life_key: Manifest key of this deployment's ``λ_c`` table.
+        debt_profile_key: Manifest key of its ``D_c`` bands.
+        declared_completeness: The ``C`` this deployment asserts, in ``[0, 1]``.
+        declared_semantic_consistency: The ``S`` it asserts, in ``[0, 1]``.
+        debt_scorer: A conforming scorer that **overrides** the reference.
+
+    Returns:
+        The composed resolver, ready to be handed to a delivery surface.
+
+    Raises:
+        TypeError: both a scorer and the material to build one were supplied,
+            or neither was. An argument-shape mistake, so the exception Python
+            already reserves for one — and never a governed refusal, because
+            nobody asked a question yet.
+        ProductNotResolvable: ``half_life_key`` or ``debt_profile_key`` names no
+            artifact on the booted fabric, or names one of another class.
+        ValueError: a declared factor lies outside ``[0, 1]``. Raised by
+            :class:`~ccf.products.debt_scorer.DeclaredFactor`, where the value
+            was authored, rather than three frames later.
+    """
+    supplied = tuple(
+        name
+        for name, value in zip(
+            DEBT_SCORER_INPUTS,
+            (
+                half_life_key,
+                debt_profile_key,
+                declared_completeness,
+                declared_semantic_consistency,
+            ),
+            strict=True,
+        )
+        if value is not None
+    )
+
+    if debt_scorer is not None:
+        if supplied:
+            raise TypeError(
+                "this call supplies both `debt_scorer` and"
+                f" {', '.join(repr(name) for name in supplied)}, and the two are"
+                " alternatives rather than layers: an explicit scorer replaces"
+                " the SDK's reference entirely, so the material for building the"
+                " reference would be read by nothing. Pass the scorer, or pass"
+                f" {', '.join(repr(name) for name in DEBT_SCORER_INPUTS)} and let"
+                " this helper select"
+                " `ccf.products.debt_scorer.AssemblyDebtScorer`"
+            )
+        return GovernedResolver(
+            fabric=fabric,
+            control_plane=control_plane,
+            product_class_key=product_class_key,
+            request_contract_key=request_contract_key,
+            operator_parameter_keys=operator_parameter_keys,
+            policy_bundle_key=policy_bundle_key,
+            plan_factory=plan_factory,
+            debt_scorer=debt_scorer,
+            artifact_store=artifact_store,
+            replay_record_class=replay_record_class,
+            query_pin_class=query_pin_class,
+            max_ttl_seconds=max_ttl_seconds,
+            product_ttl_seconds=product_ttl_seconds,
+        )
+
+    if (
+        half_life_key is None
+        or debt_profile_key is None
+        or declared_completeness is None
+        or declared_semantic_consistency is None
+    ):
+        missing = tuple(
+            name for name in DEBT_SCORER_INPUTS if name not in supplied
+        )
+        raise TypeError(
+            "this call supplies no `debt_scorer` and omits"
+            f" {', '.join(repr(name) for name in missing)}, so there is nothing"
+            " to measure `D_c` with. The SDK's reference scorer is the default"
+            " and it is a construction rather than a value: it needs the two"
+            " Control Plane keys naming this deployment's λ_c table and D_c"
+            " bands, and the two factors the SDK has no measurement for. A"
+            " resolver built without them could only serve an unscored product,"
+            " which is why this is refused rather than defaulted"
+        )
+
+    return GovernedResolver(
+        fabric=fabric,
+        control_plane=control_plane,
+        product_class_key=product_class_key,
+        request_contract_key=request_contract_key,
+        operator_parameter_keys=operator_parameter_keys,
+        policy_bundle_key=policy_bundle_key,
+        plan_factory=plan_factory,
+        debt_scorer=AssemblyDebtScorer(
+            table=_artifact_on(fabric, key=half_life_key, expected=HalfLifeTable),
+            profile=_artifact_on(
+                fabric, key=debt_profile_key, expected=DebtProfile
+            ),
+            completeness=DeclaredFactor(value=declared_completeness),
+            semantic_consistency=DeclaredFactor(
+                value=declared_semantic_consistency
+            ),
+        ),
+        artifact_store=artifact_store,
+        replay_record_class=replay_record_class,
+        query_pin_class=query_pin_class,
+        max_ttl_seconds=max_ttl_seconds,
+        product_ttl_seconds=product_ttl_seconds,
+    )
