@@ -982,19 +982,19 @@ def build_governed_resolver(
             :class:`~ccf.products.debt_scorer.DeclaredFactor`, where the value
             was authored, rather than three frames later.
     """
+    # Keyed by name rather than zipped against :data:`DEBT_SCORER_INPUTS`
+    # positionally: a positional pairing goes on running after somebody reorders
+    # the constant, and reports the wrong argument in both refusals below.
+    # `tests/products/test_resolver_defaults.py::test_the_named_inputs_are_this_helper_s_own_optional_parameters`
+    # holds the constant and this signature to each other in both directions.
+    declared: dict[str, object | None] = {
+        "half_life_key": half_life_key,
+        "debt_profile_key": debt_profile_key,
+        "declared_completeness": declared_completeness,
+        "declared_semantic_consistency": declared_semantic_consistency,
+    }
     supplied = tuple(
-        name
-        for name, value in zip(
-            DEBT_SCORER_INPUTS,
-            (
-                half_life_key,
-                debt_profile_key,
-                declared_completeness,
-                declared_semantic_consistency,
-            ),
-            strict=True,
-        )
-        if value is not None
+        name for name in DEBT_SCORER_INPUTS if declared[name] is not None
     )
 
     if debt_scorer is not None:

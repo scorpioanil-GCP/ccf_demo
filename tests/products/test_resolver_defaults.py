@@ -865,6 +865,38 @@ def test_supplying_both_a_scorer_and_the_material_is_refused(
     )
 
 
+def test_the_named_inputs_are_this_helper_s_own_optional_parameters() -> None:
+    """`DEBT_SCORER_INPUTS` and the signature are held to each other, both ways.
+
+    The constant is what both refusal messages enumerate and what the controls
+    above parameterize over, and the helper indexes a name-keyed mapping with
+    it. A name added to the signature and not to the constant would be a value
+    no refusal mentions and no control covers; a name in the constant and not in
+    the signature would raise a ``KeyError`` inside the helper. Neither is
+    something a reader would notice, so it is asserted rather than intended.
+
+    ``Ellipsis`` is not used as the sentinel: the check is *"defaults to
+    ``None``"*, which is exactly the property that makes an argument optional
+    here, and ``debt_scorer`` is excluded by name because it is the alternative
+    to the four rather than one of them.
+    """
+    import inspect
+
+    optional = tuple(
+        name
+        for name, parameter in inspect.signature(
+            build_governed_resolver
+        ).parameters.items()
+        if parameter.default is None and name != "debt_scorer"
+    )
+
+    assert optional == DEBT_SCORER_INPUTS, (
+        "`DEBT_SCORER_INPUTS` and `build_governed_resolver`'s optional"
+        f" parameters have come apart — the signature offers {optional} and the"
+        f" constant names {DEBT_SCORER_INPUTS}"
+    )
+
+
 def test_the_refusal_control_fires_on_a_construction_that_succeeds(
     booted: _Booted,
 ) -> None:
