@@ -274,6 +274,25 @@ class ProjectionPlanFactoryProtocol(Protocol):
     The SDK ships no implementation of this, and could not: which operator
     outputs mean what, and what the payload of an answer looks like, is the
     deployment's whole contribution.
+
+    **That is now a ruling rather than an assumption.** CLAUDE.md §11 asks for a
+    reference implementation beside every Protocol, so the absence was put to
+    Dave and measured:
+    ``docs/superpowers/specs/2026-08-16-reference-plan-factory-and-debt-scorer.md``
+    **Amendment A.2** records that
+    :class:`~ccf.projection.plan.ProjectionPlan` is itself a Protocol — code,
+    not data — that no declarative plan artifact exists in the tree, and that a
+    reference factory would therefore have to *invent* the mapping from a
+    :class:`~ccf.graph.protocols.GraphView` of entities onto a payload schema's
+    declared fields. A "pass-through" reference plan was proposed and withdrawn
+    for doing the same invention less visibly. The ruling, in substance: *§11
+    does not require the impossible; it requires a reference implementation
+    when one can be pure mechanism, and here it cannot.* A declarative plan
+    surface is named there as future work, and it is what would close this.
+
+    The sibling seam :class:`AssemblyDebtScorerProtocol` was measured the other
+    way in the same amendment and **does** carry a shipped reference; the two
+    Protocols look symmetrical and are not.
     """
 
     def __call__(
@@ -301,8 +320,35 @@ class AssemblyDebtScorerProtocol(Protocol):
     the choice this seam hides is bigger than a threshold: measuring freshness
     over the rows a question **read** rather than over the rows that **survived
     being read** gives a different number, and which one is right depends on
-    what the product means. A resolver that scored debt itself would be
-    choosing for every deployment, which is CLAUDE.md §6.4 firing.
+    what the product means.
+
+    **That reasoning stands; the conclusion this docstring used to draw from it
+    does not.** It previously asserted that the SDK ships no implementation and
+    that scoring debt here would be *"choosing for every deployment, which is
+    CLAUDE.md §6.4 firing."* The ruling of record is
+    ``docs/superpowers/specs/2026-08-16-reference-plan-factory-and-debt-scorer.md``
+    **Amendment A.1** (Dave, 2026-08-16): that **overstates the objection**. A
+    documented, overridable default is not a choice imposed on every
+    deployment; it is what a reference implementation *is*, and CLAUDE.md §11 —
+    *"Reference implementations ship alongside Protocols"* — requires a default
+    here rather than an absence. Shipping none did not spare any deployment the
+    choice; it made every deployment write the adapter *and* make the choice,
+    unstated, in its own tree.
+
+    **The shipped reference is**
+    :class:`~ccf.products.debt_scorer.AssemblyDebtScorer`, and it makes the
+    choice explicitly rather than avoiding it: it measures over **the rows that
+    survived being read** — exactly the entity records of the view it is handed,
+    which under :class:`GovernedResolver` is the composed post-operator view —
+    because the seam carries one view and recovering the rows the question
+    *read* would need a second graph consultation at a second boundary, which
+    the Decision Replay record does not describe. Its own docstring carries the
+    statement in full, with the observable consequence and the override path.
+
+    **The Protocol's real point is unchanged.** A deployment whose product
+    means something different — one measuring how fresh the *consulted source
+    data* was, or one counting edges as observations — supplies its own
+    conforming callable, and the SDK invokes the reference one never.
 
     It takes the *view* rather than the payload because debt is measured
     against the assembly, not declared beside it.
@@ -350,7 +396,15 @@ class GovernedResolver:
     wiring defect and is refused on the first call, naming both sides.
 
     **What deliberately stays a constructor argument.** The projection factory
-    and the debt scorer are deployment code and have no artifact form. The
+    and the debt scorer are behavior rather than declaration and have no
+    artifact form — so they are *supplied*, and neither is defaulted here. The
+    two differ in what a deployment can supply: the SDK ships
+    :class:`~ccf.products.debt_scorer.AssemblyDebtScorer` for the second and
+    ships nothing for the first, because Amendment A.1 of the 2026-08-16 spec
+    ruled a reference plan factory impossible as scoped — a
+    :class:`~ccf.projection.plan.ProjectionPlan` is itself a Protocol, no
+    declarative plan artifact exists, and mapping operator outputs onto a
+    declared payload shape is invention rather than mapping. The
     artifact store is a substrate, not Control Plane state. The two
     artifact-class tokens are deployment vocabulary, exactly as
     :class:`~ccf.replay.serve.ReplayWriter` already treats its own. And the two
@@ -399,6 +453,9 @@ class GovernedResolver:
             bundle version and the product's policy binding.
         plan_factory: How this deployment builds Π for one question.
         debt_scorer: How this deployment measures ``D_c`` over an assembly.
+            :class:`~ccf.products.debt_scorer.AssemblyDebtScorer` is the shipped
+            reference; supplying it is the deployment's act, never this class's,
+            which is why the field has no default.
         artifact_store: Where the replay record and the executed queries' bytes
             land. A substrate reached *through* this mechanism, never a second
             writer to the graph (CLAUDE.md §7.4).
