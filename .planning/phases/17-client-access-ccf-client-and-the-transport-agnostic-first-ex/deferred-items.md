@@ -1,74 +1,139 @@
 # Phase 17 — deferred items
 
-Out-of-scope discoveries logged rather than fixed, per the executor scope
-boundary (only defects *caused by* the current task are auto-fixed).
+Out-of-scope discoveries. Logged, not fixed, per the scope boundary: only
+issues directly caused by the current plan's changes are auto-fixed.
 
 ---
 
-## DEF-17-01 — `tests/invariants/test_citation_coverage.py` is red on `phase-17` HEAD
+## DEF-17-01 — citation-coverage ratchets red on the branch tip — **RESOLVED**
 
-**Found during:** plan `17-01`, Task 3 verification (`make ci-core`).
-**Status:** pre-existing, **not** caused by `17-01`. Blocks the phase gate.
+**Found during:** plans `17-01` and `17-02` **independently**, both before any
+of their own work. Both executors refused to touch the ratchet constants.
+**Status: CLOSED** by the orchestrator at `phase-17`, commit
+`fix(17): cite a symbol, not a line range, per D-IMPL-114`.
 
-### The measurement
+### What was wrong
 
-`make ci-core` on `phase-17` @ `f1969c5`, worktree clean, **before any `17-01`
-commit** — extracted with `git archive f1969c5` into a scratch tree so the
-measurement could not be contaminated by working-tree state:
+`make ci-core` was red on `phase-17` @ `f1969c5` with two failures in
+`tests/invariants/test_citation_coverage.py`:
 
 ```
-2 failed, 3 passed in 5.46s
-FAILED tests/invariants/test_citation_coverage.py::test_the_unanchored_python_citation_population_cannot_regrow
-FAILED tests/invariants/test_citation_coverage.py::test_the_held_back_thirteen_are_out_of_scope_by_ruling_not_by_accident
+test_the_unanchored_python_citation_population_cannot_regrow
+test_the_held_back_thirteen_are_out_of_scope_by_ruling_not_by_accident
 ```
 
-The identical two failures are present after `17-01`'s three commits. Full
-suite: **3303 passed / 2 failed / 118 skipped**, unchanged by this plan.
+The offending site was in the **approved Phase 17 design spec** — an artifact
+written during this session:
 
-`17-01-PLAN.md` states a baseline of *3305 passed / 118 skipped / 0 failed*
-measured at `543eda0`. That commit predates the three commits that introduced
-the offending citations, so the plan's baseline was correct when taken and is
-stale now.
+```
+docs/superpowers/specs/2026-08-15-ccf-client-design.md:421
+  cites src/ccf/deployment/config.py:82-91
+```
 
-### The two failures
+`D-IMPL-114` ruled that prose cites `path.py::Symbol`, because **a line anchor
+is wrong the moment code moves**. Amendment 1 cited a line range.
 
-1. **`test_the_unanchored_python_citation_population_cannot_regrow`** — ceiling
-   0, found 2:
-   - `tests/products/test_discovery_audiences.py:59` cites
-     `test_class_governance.py:127` — added by `190d51b`
-     (`feat(16-27): ProductDiscovery gains audiences, opaque and additive`)
-   - `docs/superpowers/specs/2026-08-15-ccf-client-design.md:421` cites
-     `src/ccf/deployment/config.py:82-91` — added by `f0467c1`
-     (`docs(17): close the demo-data question`)
+### Why both executors were right to refuse
 
-2. **`test_the_held_back_thirteen_are_out_of_scope_by_ruling_not_by_accident`**
-   — expects 13 held-back citations, finds 14. The additional host is
-   `docs/surface-changes/16-24-experience-door-entitlement.md`, added by
-   `0125c04` (`docs(16-24): satisfy the two ratchets this change tripped`).
+Both correctly identified that the two remedies visible at the failure site —
+raising `MAXIMUM_UNANCHORED_PY_CITATIONS`, or changing the pinned held-back
+count — are ruling-scope by the gate's own text (*"belongs in a decision entry,
+not in this constant"*). Taking either unilaterally is precisely the
+ratchet-weakening those tests exist to prevent. Refusing was correct executor
+behaviour and is recorded here as such.
 
-None of these files is touched by `17-01`
-(`git diff f1969c5..HEAD --name-only` lists only `tools/retirement_sweep.py`,
-`docs/surface/examples/RETIREMENT-COUPLINGS.md` and the five `src/ccf/**`
-docstring modules).
+### How it was closed
 
-### Why `17-01` did not fix it
+Neither ruling-scope remedy was needed: the gate's failure text names a third
+option it *prefers* — **convert the citation**. The spec now cites
+`src/ccf/deployment/config.py::_RESERVED_SECTIONS` and states the reasoning
+inline (no `signal_batch` among the eight reserved names; registering one would
+content-hash raw event data into Decision Replay dimension 2, `D-IMPL-80`).
+The same defect in `17-CONTEXT.md` was fixed in the same commit — that file is
+unswept, so it was not failing, but it carried the identical error.
 
-Both failures are **ruling-scope questions, not defects with a mechanical
-fix** — the gate's own failure text says so. Closing (1) means either
-converting each citation to the `path.py::Symbol` form `D-IMPL-114` ruled, or
-raising a ceiling constant and naming the citation in the commit message;
-closing (2) means changing a pinned count, which the gate says *"belongs in a
-decision entry, not in this constant."* Choosing either without a ruling is
-exactly the ratchet-weakening these tests exist to prevent, so this is a
-Rule 4 / `D-IMPL-NN` matter for Dave rather than executor discretion.
+**No ratchet constant was changed. No ruling was required.**
 
-### Consequence for the phase
+### The lesson, recorded because it generalises
 
-`make ci` cannot go green until this is closed, and because `ci-core` is the
-first prerequisite of `ci`, a red `ci-core` **aborts `make ci` before
-`gate-tools` runs**. That directly shaped how `17-01` Task 3's sabotage control
-had to be observed — see `17-01-SUMMARY.md`.
+The defect was in **an artifact authored this session**, and it reached the
+branch because documentation commits are not run through `make ci-core` before
+being pushed. Every `17-NN` plan carries the baseline *3305 passed / 0 failed*
+measured at `543eda0`; three doc commits after that point made it stale.
+**A plan's baseline is a measurement with a timestamp, not a fact.**
 
-**Recommendation:** close before the Phase 17 gate, as its own plan or ruling.
-Whichever plan closes it should state which of the two remedies each of the
-three citations takes.
+### Note on the count discrepancy
+
+`17-01` and `17-02` each reported **2** unanchored citations; the main checkout
+reported **1** (the spec site alone), and the gate went fully green — 5 passed —
+after that single conversion. The second site both executors named
+(`tests/products/test_discovery_audiences.py:59`) is not reproducible on the
+main checkout at the same commit. Recorded rather than explained; if it
+resurfaces, it is a real sweep-scope question.
+
+---
+
+## DEF-17-02 — `import ccf.products.payload` raises `ImportError` when it is the first entry into the tree
+
+**Found during:** plan `17-02`, Task 1.
+**Status:** pre-existing; independent of anything `17-02` added. **OPEN.**
+
+```
+PYTHONPATH=src:runtime .venv/bin/python -c "import ccf.products.payload"
+→ ImportError: cannot import name 'PayloadSchemaViolation' from partially
+  initialized module 'ccf.products.payload' (most likely due to a circular import)
+```
+
+The cycle:
+
+```
+ccf.products.payload:78  → ccf.skills.catalog
+ccf.skills.catalog:703   → ccf.agents.definitions
+ccf.agents.agent:62      → ccf.replay.record
+ccf.replay.record:851    → ccf.products.request
+ccf.products.request:710 → ccf.products.payload   (partially initialized → boom)
+```
+
+`import ccf.products.request` first succeeds, because it completes the far side
+of the cycle before re-entering. So the defect is **invisible to the test
+suite** — something always imports `request` (or a module that does) before
+`payload`.
+
+**Why `17-02` did not fix it.** The fix belongs in `payload.py`, `catalog.py`
+or `record.py`, all existing modules, and `17-02`'s charter is explicit that it
+modifies no existing module. It is worked around instead, and the workaround is
+**pinned rather than trusted**: `src/ccf/products/refusal.py` orders its
+`request` import before its `payload` import with the reason at the import
+site, and
+`tests/products/test_refusal_envelope.py::test_the_cold_and_warm_runs_agree_on_the_enumeration`
+imports the module in a cold subprocess. Reversing those two lines fails that
+test — verified by deliberate sabotage.
+
+**Why it should still be fixed.** An adopter whose first line is
+`from ccf.products.payload import refuse_payload` hits it immediately, and the
+error names a circular import rather than anything they did. **This is an
+adoption defect in a phase whose entire subject is the adopter's first
+experience** — it deserves an owner before the phase gate.
+
+---
+
+## DEF-17-03 — measurement hazard: `.pyc` staleness can survive a `git checkout` revert
+
+**Found during:** plan `17-02`, Task 3 guard sabotage. **Not a code defect** —
+recorded because it produced a convincing false failure and cost time.
+
+Sabotaging `src/ccf/products/refusal.py` by **swapping two adjacent import
+lines** leaves the file byte-count identical. Reverting with
+`git checkout -- <file>` within the same wall-clock second therefore restores a
+file whose `(mtime, size)` pair matches the cached `__pycache__/*.pyc` compiled
+from the *sabotaged* source — so Python keeps serving the sabotaged bytecode and
+the tree looks broken while `git status` is clean.
+
+**Remedy when a revert appears not to take:**
+
+```
+find src -name "__pycache__" -type d -exec rm -rf {} +
+```
+
+Any future sabotage control that reorders or substitutes equal-length source
+should clear bytecode as part of its revert, not rely on mtime invalidation.
