@@ -497,6 +497,59 @@ as *surfacing not required*. Nothing below this line was changed by `17-07`.
 
 ---
 
+## DEF-17-08 — `make gate-tools` is outside `make ci-core`, so mid-phase waves never see it go red
+
+**Found:** plan `17-07` execution, 2026-08-16. **Severity:** advisory for this
+plan (its symptom was fixed in-plan); blocking for the phase's own gate
+discipline.
+
+**What was measured.** `make gate-tools` was **already red on the branch tip**
+`9cb502e` before this plan wrote a line:
+
+```
+FAILED tools/docs_tests/test_retirement_sweep.py::test_the_committed_report_is_current
+```
+
+`docs/surface/examples/RETIREMENT-COUPLINGS.md` was last regenerated in `17-03`
+(`448e51b chore(17-03): re-measure the retirement couplings the resolver
+moved`), while `src/ccf/client/adapters/binding_document.py` — which contributes
+two coupling rows — landed in `17-06` (`05c2db7`). Five of the eight rows the
+regeneration added belong to waves 3 and 4, not to this plan:
+
+| File | Wave that added it |
+| --- | --- |
+| `src/ccf/client/adapters/binding_document.py` (×2) | `17-06` |
+| `src/ccf/products/request.py` (×2) | earlier |
+| `tests/client/fixtures/deployment/resolver.py` | `17-06` |
+| `tests/client/fixtures/deployment/scenario.yaml` | `17-06` |
+| `tests/client/conformance/suite.py` (×2), `test_the_suite_fires.py` | `17-07` |
+
+**Why nobody saw it.** `gate-tools` joined `ci` in plan `17-01` — but `ci`, not
+`ci-core`. Every wave's verification block runs `make ci-core`, which is
+`lint typecheck test`, and `[tool.pytest] testpaths = ["tests"]` stops
+collection before `tools/`. So the suite that catches a stale retirement report
+runs in Actions on every push and in **no** wave's local gate. Three waves shipped
+past a red gate.
+
+**This is `17-01`'s own lesson landing one level up.** That plan's Makefile
+comment says it plainly: *"a measurement nobody is looking at protects
+nothing"* — and it fixed the case where `make ci` did not reach `tools/`. The
+remaining hole is that the *mid-phase* command does not either, which is the
+command waves actually run.
+
+**What `17-07` did about it.** Regenerated the report
+(`python tools/retirement_sweep.py --report`), which is the remedy the failure
+message itself names, and which cleared all eight rows — its own three and the
+five it inherited. `make gate-tools` now exits 0.
+
+**The fix, when someone owns it.** Either make `gate-tools` a prerequisite of
+`ci-core`, or state in the phase's verification block that `make ci-core` is not
+the whole gate. Not taken here: `ci-core` is the composition every plan in the
+phase names in its `<verification>` block, and changing what it means mid-phase
+is a decision above this plan.
+
+---
+
 ## DEF-17-06 — the surface-manifest walk fails **silently** inside a worktree
 
 **Found:** plan `17-06` execution, 2026-08-15. **Severity:** advisory for the
