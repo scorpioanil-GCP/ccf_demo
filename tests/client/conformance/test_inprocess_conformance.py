@@ -54,12 +54,12 @@ PARAMETER = str(_CONFIG["request_contract"]["arguments"]["required"][0])
 _SCORES = sorted(int(score) for _, score in SEEDED_ROWS)
 
 
-def _in_process(root: Path) -> InProcessAdapter:
+def connect_in_process(root: Path) -> InProcessAdapter:
     """A healthy in-process adapter pointed at ``root``."""
     return InProcessAdapter(str(root))
 
 
-def _break_in_process(root: Path) -> InProcessAdapter:
+def break_in_process(root: Path) -> InProcessAdapter:
     """Damage ``root`` so it names no deployment, and point an adapter at it.
 
     The hook owns this root — the healthy leg is handed its own — and it raises
@@ -74,7 +74,9 @@ def _break_in_process(root: Path) -> InProcessAdapter:
 #: The collection every leg compares over. One subject today; ``17-10`` appends.
 SUBJECTS = (
     AdapterSubject(
-        name=SCHEME, connect=_in_process, break_transport=_break_in_process
+        name=SCHEME,
+        connect=connect_in_process,
+        break_transport=break_in_process,
     ),
 )
 

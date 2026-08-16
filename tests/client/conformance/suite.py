@@ -412,9 +412,15 @@ def assert_two_parameters_are_two_addresses(
     address.* Plan ``17-08`` removes that module with its tree, so the property
     lands here first and is never unasserted in between.
 
-    The payloads are required to differ as well, and that is not decoration: it
-    is what makes the differing address attributable to the question rather
-    than to anything incidental about the two calls.
+    The address is checked **first** and the payloads second, and the ordering
+    is load-bearing rather than stylistic. Two different payloads cannot share
+    an address — the codec recomputes the address from the vessel's own bytes
+    and refuses a wire that disagrees — so a payload check placed first would
+    make the address check unreachable, which is a check that cannot fail
+    dressed as a check. Second, the payload comparison is a live check of the
+    remaining case: addresses that differ while the payloads are identical,
+    which is what a deployment folding the caller's number into the vessel but
+    not into the answer would produce.
 
     Both questions are asked through the **same** subject against the **same**
     deployment, so the only thing that moved is the caller's number.
@@ -443,13 +449,6 @@ def assert_two_parameters_are_two_addresses(
                 f"`{subject.name}` refused one of the two questions, so this"
                 " leg has fewer than two products to compare"
             )
-        if first.payload == second.payload:
-            raise AssertionError(
-                f"`{subject.name}` answered two different parameter values with"
-                " the same payload, so any address difference below would not"
-                " be attributable to the question — the two values chosen do"
-                " not partition this deployment's data differently"
-            )
         if first.content_address == second.content_address:
             raise AssertionError(
                 f"`{subject.name}` gave two different parameter values one"
@@ -457,6 +456,13 @@ def assert_two_parameters_are_two_addresses(
                 " number is part of the question and therefore part of the"
                 " product's address, and a transport where it is not is"
                 " serving a precalculated object"
+            )
+        if first.payload == second.payload:
+            raise AssertionError(
+                f"`{subject.name}` gave two different parameter values two"
+                " addresses and one payload — the caller's number reached the"
+                " vessel without reaching the answer, so the address moved for"
+                " a reason the caller cannot see in what it was handed"
             )
 
 

@@ -36,23 +36,23 @@ def provision(tmp_path: Path) -> Provision:
     client reaches it, and a client call that ingested would make asking a
     question a producer-side act.
 
-    A repeated name is refused rather than served the same directory twice. A
-    leg that provisioned one root for two subjects would compare a transport
-    against itself and report parity it never measured — the defect this whole
-    package exists to be immune to.
+    **Every call gets a distinct directory**, counter first, so two subjects
+    sharing one graph is impossible rather than merely refused. The name is
+    carried into the path so a failure names a directory a reader can go and
+    look at, and the counter is what lets a single test run two legs without
+    the second one inheriting the first one's deployments.
+
+    Two subjects answering to the *same name* is a different hazard and is
+    refused where it belongs — in
+    :func:`~tests.client.conformance.suite._ask_each`, which is the thing that
+    would otherwise report one transport's answer under another's name.
     """
-    handed_out: set[str] = set()
+    handed_out = 0
 
     def make(name: str) -> Path:
-        if name in handed_out:
-            raise AssertionError(
-                f"a deployment root was already provisioned under the name"
-                f" `{name}` — handing the same root to two subjects would have"
-                " them compare one graph against itself and report parity that"
-                " was never measured"
-            )
-        handed_out.add(name)
-        root = tmp_path / name / "deployment"
+        nonlocal handed_out
+        root = tmp_path / f"{handed_out:02d}-{name}" / "deployment"
+        handed_out += 1
         shutil.copytree(FIXTURE_DEPLOYMENT, root)
         seed(root)
         return root
