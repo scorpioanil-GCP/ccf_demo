@@ -1,7 +1,9 @@
 # Reference `ProjectionPlanFactory` and `AssemblyDebtScorer` — honouring §11 so a deployment can be pure configuration
 
 - **Date:** 2026-08-16
-- **Status:** Approved by Dave, 2026-08-16
+- **Status:** Approved by Dave, 2026-08-16 — **amended the same day, see
+  Amendment A. Half of the original scope proved impossible and was replaced by
+  a narrow written exception.**
 - **Supersedes:** the `D-IMPL-141` proposal as written (`module:attribute`
   factories in `binding.yaml`) — **rejected**, see §2
 - **Blocks:** Phase 17 waves 6 and 7. The first example cannot land until this
@@ -189,3 +191,101 @@ Control Plane artifact (unregistered, not content-hashed, no `semver`, never
 reaching Decision Replay dimension 2), a strict loader that refuses an unknown
 key by name, and path containment that refuses absolute paths, `..` segments,
 and plain names resolving outside the root.
+
+---
+
+# Amendment A — 2026-08-16, same day
+
+**Ruled by Dave after measurement against the tree.** The two Protocols looked
+symmetrical and are not. One reference implementation ships; the other cannot,
+and the difference is principled rather than a matter of effort.
+
+## A.1 — `AssemblyDebtScorer`: PROCEED, as specified
+
+The Protocol's docstring argues the SDK *"would be choosing for every
+deployment, which is CLAUDE.md §6.4 firing."* **That overstates the
+objection.** Measured: the SDK already ships the scoring machinery —
+`~ccf.halflife.debt.FreshnessScorer` (a reference `DebtFactorScorer` under
+`D-IMPL-47`), `assess_debt`, `basic_debt`, `context_debt`. What is missing is
+only the thin **`GraphView` → `DebtFactors` adapter**.
+
+The choice that adapter must make is real — measuring freshness over the rows a
+question *read* versus the rows that *survived* being read gives a different
+number. But **a documented, overridable default is not a choice imposed on
+every deployment; it is the definition of a reference implementation**, and
+§11 contemplates exactly that. Ship it.
+
+## A.2 — `ProjectionPlanFactory`: BLOCKED as originally scoped
+
+**Measured:** `~ccf.projection.plan.ProjectionPlan` is **itself a Protocol** —
+`required_operators()` plus `invoke()`. It is code, not data. **There is no
+declarative plan artifact in the tree.** The product class declares a
+`payload_schema_key`, so the payload's *shape* is declared — but the **mapping
+from operator outputs to that shape is code**, and nothing declares it.
+
+A reference factory would have to invent that mapping. Operator outputs are a
+`GraphView` of entities and claims; a payload schema declares fields. Deciding
+*which* entities become which field, and what a count counts, is **invention,
+not mapping** — the No-Hardcoding violation the Protocol's docstring warns
+about, and the docstring is right.
+
+A "pass-through" reference plan was proposed during this exchange and
+**withdrawn**: it would have had to invent the same mapping, one layer less
+visibly.
+
+**Dave's ruling, verbatim in substance:** *"§11 does not require the
+impossible. It requires a reference implementation when one can be pure
+mechanism. Here it cannot."*
+
+## A.3 — The resolution: a narrow, written exception for the plan only
+
+**Option 1 of three, ruled.** The deployment may supply **one** Python module
+implementing the projection plan (or its factory). **Everything else stays
+data:** the debt scorer becomes an SDK default, and the request vocabulary
+(`subject`, `intent`, `freshness`), the perspective (`principal_id`, `role`),
+the eight resolver data keys, and the config path are all declared in
+`binding.yaml`.
+
+**What this costs, stated rather than glossed:** the first example's
+`deployment/` is **not** pure configuration. The claim in §4 does not survive
+in full, and success criterion 3 ("no Python files remain under the first
+example's `deployment/`") is **replaced** by criterion 3′ below.
+
+**What it still buys, measured against where this started:** today's fixture
+carries a 295-line `resolver.py` holding a projection, a plan factory, a debt
+scorer, a connection factory and a question factory. After this work the
+deployment carries **one projection** and nothing else. The reader is told to
+ignore one file that does one thing, rather than a module that does five.
+
+**A declarative plan surface is future work**, named here so it is not
+forgotten: it is the thing that would close this exception, and it is a design
+effort in its own right — not a side-quest inside this pause.
+
+## A.4 — Amended success criteria
+
+Criteria 1, 2, 4 and 5 stand. Criterion 3 is replaced:
+
+> **3′.** The first example's `deployment/` contains `ccf_config.yaml`,
+> a data-only `binding.yaml`, and **exactly one Python module — the
+> projection**. The `binding.yaml` loader refuses any other `module:attribute`
+> reference **by name**, so the exception cannot widen silently into the
+> `D-IMPL-141` shape that was rejected.
+
+That last clause is the load-bearing part. An exception with no mechanism
+holding it narrow is not an exception; it is a precedent.
+
+## A.5 — Amended plan shape
+
+- **`17-11`** — reference `AssemblyDebtScorer`: the `GraphView` → `DebtFactors`
+  adapter over the shipped machinery, with its row-selection choice documented
+  at the seam.
+- **`17-12`** — `binding.yaml` as a data-only document: `config`, `question`
+  (`subject`/`intent`/`freshness`), `perspective` (`principal_id`/`role`), the
+  eight resolver data keys, and the **single** permitted `plan:` reference.
+  Strict loader, path containment, and a gate that refuses a second reference.
+- **`17-13`** — wire the debt scorer as the default into `GovernedResolver` (or
+  a `build_governed_resolver(...)` helper); prove end-to-end that a deployment
+  which is data-only **except one projection module** produces a gated,
+  content-addressed product.
+
+Waves 6 and 7 resume after `17-13` is green.
