@@ -346,3 +346,45 @@ symlinked the interpreter before it could begin.
 The cost is real but bounded and self-correcting. Recorded so the next executor
 recognises it in one step instead of three, and so it is not mistaken for a
 defect in the branch.
+
+---
+
+## DEF-17-06 — the `.claude` skip makes the citation coverage ratchet fail inside every worktree
+
+**Found during:** plan `17-05`, while measuring the baseline. **Out of scope for
+that plan** — the file is `tools/`, and the defect predates it.
+
+`DEF-17-03`'s repair (add `.claude` to `SKIP_DIRS`) is correct in the main
+checkout and **inverts inside a worktree**. `tools/lints/citations.py` filters on
+`path.parts` — the parts of an *absolute* path — so every file in a worktree
+rooted at `…/.claude/worktrees/agent-…/` carries `.claude` among its parts and is
+skipped. The walk therefore reads **zero** files.
+
+Measured on `phase-17` @ `c742e07`, in a worktree, with no `17-05` file on disk:
+
+```
+3 failed, 3421 passed, 118 skipped in 375.26s
+
+FAILED tests/invariants/test_citation_coverage.py::test_the_citation_walk_is_not_vacuous
+FAILED tests/invariants/test_citation_coverage.py::test_the_citation_scan_matched_something
+FAILED tests/invariants/test_citation_coverage.py::test_the_held_back_thirteen_are_out_of_scope_by_ruling_not_by_accident
+```
+
+with `The citation walk read 0 gated files, 953 expected.` The same three pass in
+the main checkout, where the orchestrator measured 3424 passed / 0 failed / 118
+skipped — the same 3424 total, partitioned differently.
+
+**The direction is the safe one, and that is why it is deferred rather than
+urgent.** It fails *closed*: the ratchet fires loudly rather than reporting a
+green it did not earn. `python3 -m tools.lints --citations` itself is unaffected
+and exits 0 in both places, because the ratchet is a coverage floor rather than
+a finding count.
+
+**The repair is one line** — filter on `path.relative_to(base).parts` in both
+`iter_scanned_files` and `repo_index`, so the skip set describes the repository
+rather than wherever the repository happens to be checked out. That makes the
+gate correct in both places instead of correct in one.
+
+**Consequence for anyone reading a worktree executor's numbers:** a `make
+ci-core` run inside a worktree cannot be green until this lands, and every
+`17-05`-era delta is stated against a 3-failing baseline for that reason.
