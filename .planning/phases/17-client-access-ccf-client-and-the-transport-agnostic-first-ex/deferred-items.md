@@ -163,3 +163,84 @@ find src -name "__pycache__" -type d -exec rm -rf {} +
 
 Any future sabotage control that reorders or substitutes equal-length source
 should clear bytecode as part of its revert, not rely on mtime invalidation.
+
+---
+
+## DEF-17-04 — the citation-coverage ratchets are red again, and it is **not** DEF-17-01
+
+**Found during:** plan `17-04`, before writing a line of its own code.
+**Status:** pre-existing on the branch tip. Not fixed — the two visible
+remedies are ruling-scope by the gate's own text, exactly as `17-01` and
+`17-02` correctly refused for DEF-17-01.
+
+> **No `path.py:line` string appears in this entry**, per the writing
+> constraint DEF-17-01 established: the sweep cannot distinguish a citation
+> from a quotation of one, so documenting the defect that way reproduces it.
+
+### The measurement
+
+Measured on a **pristine detached worktree** of `phase-17` @ `7d76205` — no
+`17-04` file present, nothing of mine on disk:
+
+```
+2 failed, 3339 passed, 118 skipped   (396.86s)
+
+FAILED tests/invariants/test_citation_coverage.py::test_the_unanchored_python_citation_population_cannot_regrow
+FAILED tests/invariants/test_citation_coverage.py::test_the_held_back_thirteen_are_out_of_scope_by_ruling_not_by_accident
+```
+
+Both assert `14 == 13`.
+
+**This contradicts the baseline `17-04` was handed** (*"3341 passed / 0 failed
+… Citation ratchets green"*). The plan's own written baseline was staler still
+(*3305 / 0*). A plan's baseline is a measurement with a timestamp, not a fact —
+the DEF-17-01 lesson, recurring.
+
+### Why it is a different defect from DEF-17-01
+
+DEF-17-01's offending site was in the Phase 17 design spec under
+`docs/superpowers/specs/`, and it was genuinely converted to the symbol form.
+That site is gone; the fix held.
+
+The present population is entirely different. All fourteen held-back sites are
+in `docs/surface-changes/` fragments and in the assembled `docs/SURFACE-CHANGES.md`.
+`HELD_BACK_HOSTS` holds a **glob** over that fragment directory, so every
+fragment carrying a line-anchored Python citation counts. The pinned total is
+thirteen — described in the gate's own failure text as *eleven across five
+landed fragments plus two in the assembled file*. The tree now holds **twelve
+across six fragments** plus the same two. The sixth is a **Phase 16** fragment
+(the experience-door entitlement one, whose own commit message says it
+*"satisfied the two ratchets this change tripped"*).
+
+So the count moved when Phase 16 landed a sixth fragment, and the constant was
+not moved with it.
+
+### Why `17-04` did not fix it
+
+1. **Out of scope by the scope boundary.** `17-04` touches
+   `src/ccf/client/`, `tests/client/`, and its own surface-change fragment.
+   It modified no fragment in the counted population and no ratchet constant.
+   Verified: `17-04`'s own fragment contributes **zero** sites to the
+   held-back list, and `docs/SURFACE-CHANGES.md` has the **same seven** raw
+   Python line-anchored citations before and after `17-04`'s regeneration.
+2. **Both visible remedies are ruling-scope**, by the gate's own words —
+   *"that is a ruling-scope change and belongs in a decision entry, not in
+   this constant."* Raising the ceiling or re-pinning the held-back count
+   unilaterally is the ratchet-weakening these tests exist to prevent.
+3. **The third remedy the gate prefers — convert the citation — is not
+   available here.** DEF-17-01 was closable that way because its site was in a
+   spec being actively authored. These sites are in **landed plan fragments**,
+   and the held-back list exists precisely because *"a later editor should not
+   silently revise one to chase a line number."* Converting them is the one
+   thing the ruling forbids.
+
+### What a ruling would decide
+
+Whether the pinned count moves to fourteen (recording that a sixth landed
+fragment joined the held-back population, which is the ruling's own logic
+applied to a new fragment), or whether landed fragments stop being globbed and
+are enumerated instead so a new one cannot silently join.
+
+**Recommend surfacing at the Phase 17 gate**, not later: the phase closes on
+`make ci-core` being green, and this makes it red for a reason no plan in the
+phase caused.
