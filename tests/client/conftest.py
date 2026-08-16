@@ -35,6 +35,7 @@ from typing import Any, cast
 import pytest
 import yaml
 
+from ccf.client.adapters.binding_document import load_binding_document
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment.config import load_config_and_boot
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
@@ -112,17 +113,19 @@ def seed(root: Path, rows: tuple[tuple[str, str], ...] = SEEDED_ROWS) -> None:
     client.
 
     The attribute names come from the deployment's ``scenario.yaml`` and the
-    entity class from its ``ccf_config.yaml``, so this function names no
-    vocabulary of its own.
+    **connection from its own ``binding.yaml``**, read through the shipped
+    loader rather than recomposed here. That is deliberate: a seeder composing
+    its own connection would be a second place the graph's location is decided,
+    and the two would drift silently — the seeded graph and the graph the client
+    boots would be different files and every assertion would measure an empty
+    fabric.
     """
-    scenario = scenario_document(root)
-    attributes = scenario["attributes"]
-    storage = scenario["storage"]
+    attributes = scenario_document(root)["attributes"]
     registry = ControlPlaneRegistry()
     booted = load_config_and_boot(
         root / "ccf_config.yaml",
         registry=registry,
-        connection={"database_path": str(root / storage["graph_filename"])},
+        connection=load_binding_document(root).connection,
     )
     try:
         for index, (name, score) in enumerate(rows):

@@ -1,22 +1,79 @@
 # How this deployment root tells an in-process client its wiring.
 #
-# `D-IMPL-141` (PROPOSED — awaiting Dave's ruling). Deployment-environment
-# material, never a Control Plane artifact: not registered, not content-hashed,
-# no `semver`, and it never reaches Decision Replay dimension 2.
+# `D-IMPL-141` (RESOLVED, Dave, 2026-08-16). Deployment-environment material,
+# never a Control Plane artifact: not registered, not content-hashed, no
+# `semver`, and it never reaches Decision Replay dimension 2.
 #
-# Three required keys and one optional. Every path is relative to this
-# directory and cannot leave it.
+# **This document is DATA, with exactly one exception.** `plan:` is the single
+# permitted `<module>:<attribute>` reference — Amendment A.3 of
+# `docs/superpowers/specs/2026-08-16-reference-plan-factory-and-debt-scorer.md`
+# grants the deployment one Python module, the projection, because
+# `ProjectionPlan` is itself a Protocol and no declarative plan artifact exists.
+# Every other key below is data, and the loader refuses a reference-shaped value
+# in any of them.
+#
+# Every path is relative to this directory and cannot leave it.
 
 # This deployment's Control Plane document.
 config: ccf_config.yaml
 
-# The factory returning this deployment's `ServedProductResolverProtocol`.
-resolver: resolver.py:build_resolver
+# THE ONE PERMITTED REFERENCE. Adding a second is refused by name.
+plan: projection.py:build_projection
 
-# The factory turning a client's question into the two things the SDK cannot
-# invent — the typed `ProductRequest` and the `Perspective` it is served under.
-question: resolver.py:build_question
+# The request vocabulary. Measured to be data (spec §3): `subject`, `intent`
+# and `freshness` are plain `str` on `ProductRequest`. `asked_at` is this
+# deployment's answer to `D-04`'s "`as_of=None` means the server's decision
+# instant" — a fixed instant, so every assertion in the client suite reproduces.
+question:
+  subject: fixture-widgets
+  intent: fixture-intent
+  freshness: fixture-freshness
+  asked_at: "2026-03-02T12:00:00+00:00"
 
-# How this deployment's connection settings are composed. Deployment CODE, not
-# a document the SDK would have to learn a vocabulary for.
-connection: resolver.py:connection
+# Π role-conditioning. Two plain strings (spec §3). The client surface exposes
+# no principal in v0 (`D-IMPL-129`), so this deployment names the one its
+# questions are served under.
+perspective:
+  principal_id: fixture-principal
+  role: fixture-role
+
+# The Control Plane keys `derive_deployment` derives from `ccf_config.yaml`'s
+# own section names — this deployment's vocabulary, written down once.
+product_class_key: product_class
+request_contract_key: request_contract
+operator_parameter_keys: [temporal.as-of-boundary]
+policy_bundle_key: policy
+
+# The artifact classes replay records and executed-query bytes are filed under.
+replay_record_class: fixture.replay-record
+query_pin_class: fixture.graph-query
+
+# The two TTL figures, which must stay TWO. The class's ceiling is registered to
+# mint `max_ttl_version`; the product's own lifetime is authored separately,
+# because one figure serving as both would have Gate 3 compare a ceiling
+# against itself.
+max_ttl_seconds: 3600
+product_ttl_seconds: 600
+
+# Where this deployment files artifacts, relative to this directory.
+artifact_store: artifact-store
+
+# D_c's inputs. `half_life_key` and `debt_profile_key` name Control Plane
+# sections; `completeness` and `semantic_consistency` are DECLARED, because the
+# SDK ships no reference measurement for either (`17-11`) and a library default
+# would be the SDK choosing a debt figure for every deployment. A declared value
+# lands in replay under `DeclaredFactor`'s own scorer pin, so an examiner can
+# tell an assertion from a measurement.
+debt:
+  half_life_key: half_life
+  debt_profile_key: debt_profile
+  completeness: "1"
+  semantic_consistency: "1"
+
+# The declared adapter's own settings. A path, never a credential — which is
+# what keeps this fixture runnable with every substrate environment variable
+# unset. `{path: …}` is resolved against this directory, because the deployment
+# root is not known until a client names it.
+connection:
+  database_path:
+    path: graph.sqlite3
