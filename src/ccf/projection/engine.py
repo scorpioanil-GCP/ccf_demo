@@ -9,7 +9,7 @@ against the registry and imposes the canonical dependency order — then splits
 that sequence at its non-pushable boundaries
 (:func:`ccf.projection.segmentation.segment_plan`) and issues **one
 ``reader.query()`` per pushable segment** (`GQ-14` at
-docs/GRAPH_QUERY_SEMANTICS.md:289; the `D-IMPL-87` at docs/DECISIONS.md:294
+docs/GRAPH_QUERY_SEMANTICS.md:289; the `D-IMPL-87` at docs/DECISIONS.md
 resolution). Each pushed segment's operators are then **re-applied** over the
 segment's answer through the per-execution
 :class:`~ccf.operators.planner.IntermediateCache` — sound because the answer
