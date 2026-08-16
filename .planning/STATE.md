@@ -3,14 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-16T00:40:00.000Z"
+last_updated: "2026-08-16T15:10:00.000Z"
 last_activity: >-
-  2026-08-15 PM -- Phase 16 STOPPED (example surface rejected by Dave). Phase 17 OPENED, DESIGNED
-  and PLANNED in one session: ccf.client transport-agnostic client access. Spec c709d5b; Amendment 1
-  ab48d9a (research closed two design gaps -- no door emits a refusal, and no src-resident seam
-  yields a gated product); demo-data ruling f0467c1; 10 plans 725aaf4; revisions 376400c and 64f5e6a.
-  Plan-checker round 1: 4 blockers + 10 warnings, all fixed. Round 2: VERIFICATION PASSED, 5
-  warnings, all folded in. READY TO EXECUTE.
+  2026-08-16 -- Phase 17 EXECUTING, waves 1-5 merged and green (make ci-core exit 0: 3642 passed /
+  0 failed / 118 skipped, plus 400 lint and 144 tools tests). Waves 6-7 HELD BY RULING behind a
+  three-plan pause: 17-11/-12/-13, written and committed, not yet run. Read
+  .planning/HANDOFF-2026-08-16.md first -- it is written for a cold start.
 progress:
   total_phases: 18
   completed_phases: 16
@@ -18,87 +16,37 @@ progress:
   completed_plans: 161
   percent: 92
 stopped_at: >-
-  PHASE 17 PLANNED AND READY TO EXECUTE (2026-08-15). 10 plans in 8 waves, HEAD 64f5e6a, tree clean,
-  NOT PUSHED. Waves: 1 = 17-01 (retirement sweep + tools/ repair, D-31) || 17-02 (refusal envelope,
-  D-28); 2 = 17-03 (resolver seam, D-29) || 17-04 (wire + codec); 3 = 17-05 client surface; 4 =
-  17-06 in-process adapter; 5 = 17-07 conformance suite; 6 = 17-08 tree disposition (autonomous
-  FALSE); 7 = 17-09 the example (autonomous FALSE); 8 = 17-10 MCP door + adapter. TWO RULINGS WAIT
-  FOR DAVE MID-EXECUTION: (a) D-IMPL-140, a `binding.yaml` document in the backends.yaml posture --
-  proposed not ruled, because a folder binding cannot say HOW to serve a product and DeploymentConfig
-  is closed-world; isolated behind a loader in 17-06 Task 1 so a different ruling rewrites one task.
-  (b) 17-08's checkpoint on examples/00-08 -- cited 111 times across 15 published pages, so deletion
-  strands them and the repair is Phase 16's stopped DOCS-17 inside a client-only phase; the plan
-  QUARANTINES with a regenerated inventory and refuses to delete on an executor's authority.
-  PLAN-CHECKER HISTORY, and it is the phase's best evidence: round 1 found 4 blockers, NONE in the
-  design, ALL in proof machinery -- a refusal table listing 9 of 17 kinds behind an import-order-
-  dependent gate (5 subclasses one way, 12 the other); a door-detector keyed on two hard-coded
-  protocol names that would have discovered ZERO doors while its sabotage control passed (the Phase
-  15.1 Gate 2 shape); a whole CLASS of sabotage controls specified as copy-to-tmp_path against
-  assertions that read imported modules; and a wire field typed `bytes` when canonical_bytes refuses
-  bytes outright. Round 2 PASSED with the widened detector empirically proven not to change the
-  runtime discovery set. The five round-2 warnings included a real gate hole: the *Violation half of
-  the refusal vocabulary was enumerated by three HARD-CODED names, so a new one would ship
-  untranslated with the gate green -- now closed by a second named allowlist and set equality.
-  PRIOR POSITION (pre-planning, retained): PHASE 17 OPENED 2026-08-15, DESIGN APPROVED, PLANNING NOT
-  STARTED. Branch `phase-17` cut from the
-  `phase-16` tip (d9f117b) so the SDK-keep work (single-file ccf_config loader D-IMPL-136, property
-  gates D-IMPL-137/-138) travels with it; spec committed at c709d5b. THE AUTHORITATIVE INPUT is
-  docs/superpowers/specs/2026-08-15-ccf-client-design.md -- read it before planning anything. In one
-  breath: CCF owns the client abstraction and the Result contract; transports are adapters
-  (in-process first, MCP second, HTTP/A2A later) that all return the same Result via ONE decode
-  path; refusal is a value, negligence is an exception, wire failure is an exception; fail-closed
-  guards on post-assembly fields; CCF_BINDING scheme-prefixed resolution, deliberately minimal;
-  in-process round-trips the canonical codec (ruled YES); adapter conformance suite is the CI parity
-  gate; first example is consume.py <= 80 lines importing only ccf.client + stdlib (purity + budget
-  gates in CI). Scope discipline: CLIENT ROLE ONLY -- producer-side construction examples are later
-  work. CONSEQUENCES RULED (spec section 11): Phase 16 example-shape rulings SUSPENDED (D-11 of
-  16-CONTEXT, D-IMPL-125, D-IMPL-127's file-shape aspect, D-IMPL-131, D-IMPL-139a); SDK rulings
-  STAND (D-IMPL-132/-136/-137/-138); tests/examples/test_spine_separation.py must be re-scoped or
-  retired before it refuses new examples; condemned example trees (s1-00, s1-01, 00-08) removed or
-  quarantined early in Phase 17. PHASE 16 IS STOPPED, NOT GATED -- its 14 remaining doc plans
-  (16-07..16-20) documented the rejected surface and stay unwritten; its ROADMAP entry carries the
-  stop note. The verdict, Dave verbatim: the first example "fails miserably" -- 722 lines of Python
-  with consume.py importing the producer's deployment config. Full post-mortem in
-  .planning/HANDOFF-2026-08-15.md. PRIOR POSITION (Phase 16 execution, retained):
-  PHASE 16 EXECUTING AT 16 OF 30, two bodies of work closed 2026-08-15 and NOT YET PUSHED.
-  `phase-16` is 27 commits ahead of `origin/phase-16` and 90 ahead of `main`. PHASE 15.6 IS
-  COMPLETE, GATED **AND MERGED** — `main` is at 6e95da0; this field previously claimed that merge
-  was the NEXT ACTION and had not happened, which was wrong for two days. (1) PROPERTY-NOT-SHAPE
-  GATING: the branch was red with 18 failures and no defective example. Both universal gates encoded
-  "every example must look like THIS" — the rigidity D-IMPL-132 forbade for operators, applied to
-  examples. test_spine_separation.py hard-coded four filenames; test_gate_two_call_shape.py demanded
-  a binder call whose premise HW-1 does not satisfy and had NO COMPLIANT STATE for it, since
-  property (1) would have refused the very call it demanded. Rewritten to assert the properties
-  their docstrings claim: 18 -> 0 with NO EXAMPLE MODIFIED, which was the thesis — HW-1 already held
-  every property both gates claimed to prove. D-IMPL-137 conditions the demand on its premise,
-  detected as a CONJUNCTION of the Control Plane (is `ccf.projection-requirements` registered) and
-  the AST (does the code read one source); fail-closed in three places; ceiling of ONE exempt
-  deployment, no headroom. (2) THE SINGLE-FILE FORM, plans 16-27..16-31: `ccf_config.yaml` is the
-  SOLE DOCUMENTED authoring surface (D-IMPL-136 AMENDMENT, 2026-08-15). The multi-file loader is
-  RETAINED INDEFINITELY, no other example converts, NO BULK MIGRATION. HW-1: 10 config files / 99
-  non-comment lines -> 2 files / 48 lines, manifest.yaml's 46-line index of itself deleted. THE
-  CONTENT ADDRESS DID NOT MOVE (5cfee793e5fb686a82becac08cddf2ca187c3ef9ae26bd9a8fd41030656a6d36
-  before and after) — pin identity IS content identity, so that is the proof the conversion changed
-  nothing but the file count. D-IMPL-138 ruled the four plan escalations; D-IMPL-139 accepts 48
-  lines against the spec's ~30 with the gap accounted line by line, and records that D-IMPL-137's
-  _deployment_root was extended to the single-file shape ADDITIVELY — exempt list unchanged, ceiling
-  still 1, fail-closed still answers None, conjunction intact, verified not argued. REMAINING: 14
-  plans, 16-07..16-20 — the documentation block, which documents the surface these two days changed,
-  which is why 16-14 was rewired to depend on 16-31 rather than 16-30. THE LESSON, and it held
-  across both bodies of work: EVERY defect found was in the VERIFICATION or in the PLANS, never in
-  the mechanism. The gate work shipped five of its own — a guard that never fired, a test asserting
-  its helpers instead of its subject, a control that could not reach its own case, a property
-  asserted in four places and controlled in none, and one sentence wrong three distinct ways across
-  five attempts. The config plans carried a stale 19-failure baseline FOUR consecutive executors
-  disputed correctly, two file inventories omitting files their own gates then demanded, and two
-  defects in a plan the orchestrator wrote — an unverified "tenant_id absent" claim that was false,
-  and "do not touch produce.py" when produce.py holds the boot call. STATE-HANDLER WARNING STANDS:
-  every state.* and roadmap.* writer has corrupted this file, FIVE confirmed instances, whether they
-  report success or failure. This entry was hand-edited after an audit; SUMMARY count is the
-  reliable completed signal (161) and a PLAN with no SUMMARY the outstanding one (14) — note
-  SUMMARYs can EXCEED PLANs, as 15.1 has 20 against 10. OPERATIONAL, UNCHANGED: mongo on port 27019
-  (wrong port HANGS — use CCF_TEST_MONGO_URI); NEO4J_PASSWORD and PGPASSWORD for the DGX are not in
-  this environment; the FIBO harness is at /home/parkave/fluree/examples/fibo/ (192.168.4.76).
+  PHASE 17 AT WAVE 5 OF 8, PAUSED BY RULING. START AT .planning/HANDOFF-2026-08-16.md -- it carries
+  the cold-start brief, the git state, every ruling, and the standing hazards. NEXT ACTION: launch
+  17-11 (reference AssemblyDebtScorer, autonomous), then 17-12, then 17-13, sequentially. When
+  17-13 is green, waves 6 and 7 unblock. TWO THINGS NEED DAVE, NOT THE SESSION: (1) the phase-17 CI
+  check -- the branch was pushed at 8e95139 and has never been looked at; there is no gh CLI and no
+  GitHub token here, so this CANNOT be done from the session. Green -> proceed; red -> diagnose
+  before further waves. (2) Waves 6 and 7 stay held. WHY THE PAUSE EXISTS: GovernedResolver takes 13
+  constructor arguments -- 3 from the booted fabric, 8 plain data, 2 BEHAVIORAL -- and neither
+  behavioral Protocol had a reference implementation, violating CLAUDE.md §11 in its own words and
+  forcing every deployment to write both in Python (the fixture's resolver.py is 295 lines of
+  exactly that). That is the 722-line example wearing a smaller suit. RULED (2026-08-16 spec +
+  Amendment A): the debt scorer PROCEEDS -- the SDK already ships FreshnessScorer/assess_debt under
+  D-IMPL-47 and only the GraphView -> DebtFactors adapter is missing, and a documented overridable
+  default IS a reference implementation. The plan factory is IMPOSSIBLE as scoped -- ProjectionPlan
+  is itself a Protocol, no declarative plan artifact exists, and mapping a GraphView onto declared
+  payload fields is INVENTION not mapping. Resolution: a narrow written exception, ONE Python module
+  (the projection) in deployment/, everything else data, and the loader must refuse a second
+  module:attribute reference BY NAME -- because an exception with no mechanism holding it narrow is
+  a precedent, not an exception. THE PHASE'S LESSON, unchanged and still true: every defect found
+  has been in VERIFICATION MACHINERY, never in mechanism -- five instances of one shape, a check
+  that stops checking without going red (the citation sweep dropping ambiguous targets and passing
+  vacuously for a full wave; its repair then walking zero files; a gate-call-site floor at zero
+  headroom with every witness in a retiring tree; the surface walk swallowing ImportError; and
+  gate-tools added to `ci` but never to `ci-core`, which is what everyone runs, so three waves
+  shipped past a red gate). Root cause worth carrying: Python's discovery primitives default to
+  LENIENT, so a gate built on one inherits its leniency unless you override it explicitly. The
+  instruction that keeps earning its keep: tell every executor to expect its plan to be wrong and to
+  dispute with a MEASUREMENT -- seven for seven this phase, including two plans whose central design
+  element was impossible, and three executors who correctly disputed a baseline the orchestrator
+  defended twice.
+
 ---
 
 # STATE — CCF SDK
@@ -111,28 +59,35 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 17 — Client Access (`ccf.client`). Design brainstormed
-with Dave and **approved 2026-08-15**; the authoritative input is
-`docs/superpowers/specs/2026-08-15-ccf-client-design.md`. Phase 16 is **stopped**
-(example surface rejected; SDK-keep work survives on the branch lineage).
+**Current focus:** Phase 17 — Client Access (`ccf.client`), EXECUTING at wave 5
+of 8 and paused by ruling. **Read `.planning/HANDOFF-2026-08-16.md` first** — it
+is written for a cold start and carries everything below in fuller form. The
+design is `docs/superpowers/specs/2026-08-15-ccf-client-design.md` plus its
+Amendment 1; the current pause is
+`docs/superpowers/specs/2026-08-16-reference-plan-factory-and-debt-scorer.md`
+plus its Amendment A.
 
 ## Current Position
 
-Phase: 17 — Client Access: `ccf.client` and the transport-agnostic first example.
-  OPENED 2026-08-15; design approved; planning not started. Branch `phase-17`
-  (cut from `phase-16` tip d9f117b; spec committed at c709d5b).
-Phase 16: STOPPED 2026-08-15, not gated — first example rejected by Dave at 722
-  lines of Python with the consumer importing producer config. The 14 remaining
-  documentation plans (16-07…16-20) stay unwritten. Post-mortem:
-  `.planning/HANDOFF-2026-08-15.md`. ROADMAP entries for both phases updated by
-  hand this session.
+Phase: 17 — Client Access. Waves 1–5 MERGED AND GREEN (8 plans: 17-01…17-07 plus
+  the mid-phase 17-03b Dave ruled in). `make ci-core` exit 0 — 3642 passed /
+  0 failed / 118 skipped, 400 lint checks, 144 tools tests.
+Waves 6–7: HELD BY RULING behind the three-plan pause below.
+Wave 8 (17-10, MCP door + adapter): follows 6 and 7.
+Phase 16: STOPPED 2026-08-15, not gated. Post-mortem
+  `.planning/HANDOFF-2026-08-15.md`. Its CI has been red for some time — the
+  docs-gate half is diagnosed (stale retirement report, already fixed on
+  phase-17); the tests half (exit 2 in ~45s, collection-error territory) is NOT.
 
-NEXT ACTION: plan Phase 17 (`/gsd:plan-phase 17`, with the spec as input — the
-  design decisions are already converged and ruled; planning sequences them).
-  Early plans must cover: `ccf.client` core + Result contract, in-process
-  adapter + canonical codec, conformance suite, first example with purity/budget
-  gates, `test_spine_separation.py` re-scope/retire, condemned-tree disposition.
-  Push `phase-17` when Dave says push.
+NEXT ACTION: launch 17-11 (reference AssemblyDebtScorer — autonomous), then
+  17-12, then 17-13, SEQUENTIALLY. All three are written and committed. When
+  17-13 is green, waves 6 and 7 unblock.
+
+NEEDS DAVE, NOT THE SESSION:
+  (1) THE phase-17 CI CHECK, highest-priority unknown. Pushed at 8e95139 and
+      never looked at. No gh CLI, no GitHub token here — this cannot be done
+      from the session. Green -> proceed. Red -> diagnose before further waves.
+  (2) Waves 6 and 7 stay held until 17-13 lands.
 
 WHAT CLOSED 2026-08-15, both verified by the orchestrator rather than relayed:
   (1) PROPERTY-NOT-SHAPE GATING — `phase-16` was red with 18 failures and no
