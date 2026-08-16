@@ -90,7 +90,19 @@ independent defect.
 ## DEF-17-02 — `import ccf.products.payload` raises `ImportError` when it is the first entry into the tree
 
 **Found during:** plan `17-02`, Task 1.
-**Status:** pre-existing; independent of anything `17-02` added. **OPEN.**
+**Status:** pre-existing; independent of anything `17-02` added.
+**RULED (Dave, 2026-08-15): this gets an owner NOW — plan `17-03b`, wave 2.**
+
+> *"In a phase whose explicit goal is the adopter's first experience, an import
+> that fails when it is the first import into the tree is a real defect, not an
+> internal curiosity. The workaround may stay only until the real fix lands; it
+> must not become permanent."*
+
+**Consequence for `17-02`'s workaround:** the import-order line in
+`src/ccf/products/refusal.py` and its cold-subprocess pin are **temporary**.
+`17-03b` removes the need for them; the cold-subprocess test **stays** (it is
+the regression pin for the real fix), but its passing must no longer depend on
+import ordering inside `refusal.py`.
 
 ```
 PYTHONPATH=src:runtime .venv/bin/python -c "import ccf.products.payload"
