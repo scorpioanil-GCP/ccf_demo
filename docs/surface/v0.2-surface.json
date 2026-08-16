@@ -798,13 +798,91 @@
       }
     }
   },
+  "ccf.client": {
+    "__all__": [
+      "BindingError",
+      "ProductClient",
+      "Result",
+      "TransportError"
+    ],
+    "exports": {
+      "BindingError": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ProductClient": {
+        "kind": "class",
+        "shape": "(*, product_id: 'str', adapter: 'TransportAdapter') -> 'None'"
+      },
+      "Result": {
+        "kind": "class",
+        "shape": "(*, product_id: 'str', parameters: 'Mapping[str, Any]', temporal_boundary: 'datetime | None', vessel: 'ContextProductContract | None', content_address: 'str | None', replay_ref: 'str | None', refusal: 'Refusal | None') -> 'None'"
+      },
+      "TransportError": {
+        "kind": "class",
+        "shape": "type"
+      }
+    }
+  },
+  "ccf.client.binding": {
+    "__all__": [
+      "AdapterFactory",
+      "BINDING_ENV_VAR",
+      "SCHEME_REGISTRY",
+      "adapter_for_binding",
+      "resolve_binding",
+      "split_binding"
+    ],
+    "exports": {
+      "AdapterFactory": {
+        "kind": "function",
+        "shape": "collections.abc.Callable[[str], ccf.client.wire.TransportAdapter]"
+      },
+      "BINDING_ENV_VAR": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "SCHEME_REGISTRY": {
+        "kind": "constant",
+        "shape": "dict"
+      },
+      "adapter_for_binding": {
+        "kind": "function",
+        "shape": "(binding: 'str | None' = None, *, environ: 'Mapping[str, str] | None' = None) -> 'TransportAdapter'"
+      },
+      "resolve_binding": {
+        "kind": "function",
+        "shape": "(binding: 'str | None' = None, *, environ: 'Mapping[str, str] | None' = None) -> 'str'"
+      },
+      "split_binding": {
+        "kind": "function",
+        "shape": "(binding: 'str') -> 'tuple[str, str]'"
+      }
+    }
+  },
+  "ccf.client.client": {
+    "__all__": [
+      "ProductClient"
+    ],
+    "exports": {
+      "ProductClient": {
+        "kind": "class",
+        "shape": "(*, product_id: 'str', adapter: 'TransportAdapter') -> 'None'"
+      }
+    }
+  },
   "ccf.client.codec": {
     "__all__": [
+      "check_outcome",
       "decode_outcome",
       "encode_outcome",
       "verify_content_address"
     ],
     "exports": {
+      "check_outcome": {
+        "kind": "function",
+        "shape": "(outcome: 'WireOutcome', *, sent: 'WireRequest') -> 'ContextProductContract | None'"
+      },
       "decode_outcome": {
         "kind": "function",
         "shape": "(raw: 'bytes', *, sent: 'WireRequest') -> 'WireOutcome'"
@@ -821,12 +899,56 @@
   },
   "ccf.client.errors": {
     "__all__": [
+      "BindingError",
+      "RefusedResultError",
       "TransportError"
     ],
     "exports": {
+      "BindingError": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "RefusedResultError": {
+        "kind": "class",
+        "shape": "type"
+      },
       "TransportError": {
         "kind": "class",
         "shape": "type"
+      }
+    }
+  },
+  "ccf.client.result": {
+    "__all__": [
+      "GUARDED_FIELDS",
+      "PRE_ASSEMBLY_FIELDS",
+      "Refusal",
+      "Result"
+    ],
+    "exports": {
+      "GUARDED_FIELDS": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "PRE_ASSEMBLY_FIELDS": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "Refusal": {
+        "kind": "contract",
+        "shape": {
+          "detail": "<class 'str'>",
+          "fields": "collections.abc.Mapping[str, str]",
+          "key": "str | None",
+          "kind": "<class 'str'>",
+          "pre_assembly_lineage": "ccf.products.contract.ProductLineage | None",
+          "reason": "<class 'str'>",
+          "request": "<class 'ccf.products.refusal.RequestIdentity'>"
+        }
+      },
+      "Result": {
+        "kind": "class",
+        "shape": "(*, product_id: 'str', parameters: 'Mapping[str, Any]', temporal_boundary: 'datetime | None', vessel: 'ContextProductContract | None', content_address: 'str | None', replay_ref: 'str | None', refusal: 'Refusal | None') -> 'None'"
       }
     }
   },
@@ -4729,6 +4851,42 @@
       "request_seeds": {
         "kind": "function",
         "shape": "(request: 'ProductRequest | None') -> 'frozenset[str] | None'"
+      }
+    }
+  },
+  "ccf.products.resolver": {
+    "__all__": [
+      "AssemblyDebtScorerProtocol",
+      "GovernedResolver",
+      "ProductNotResolvable",
+      "ProjectionPlanFactoryProtocol",
+      "ResolverOutcome",
+      "ServedProductResolverProtocol"
+    ],
+    "exports": {
+      "AssemblyDebtScorerProtocol": {
+        "kind": "class",
+        "shape": "(*, view: 'GraphView') -> 'DebtAssessment'"
+      },
+      "GovernedResolver": {
+        "kind": "class",
+        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', debt_scorer: 'AssemblyDebtScorerProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int') -> None"
+      },
+      "ProductNotResolvable": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ProjectionPlanFactoryProtocol": {
+        "kind": "class",
+        "shape": "(*, required: 'tuple[str, ...]', request: 'ProductRequest') -> 'ProjectionPlan'"
+      },
+      "ResolverOutcome": {
+        "kind": "constant",
+        "shape": "ccf.replay.serve.ServedProduct | ccf.products.refusal.RefusalEnvelope"
+      },
+      "ServedProductResolverProtocol": {
+        "kind": "class",
+        "shape": "(*, tenant: 'str', product_class: 'str', version: 'str', perspective: 'Perspective', request: 'ProductRequest | None') -> 'ResolverOutcome'"
       }
     }
   },
