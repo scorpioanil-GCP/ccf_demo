@@ -63,27 +63,46 @@ being pushed. Every `17-NN` plan carries the baseline *3305 passed / 0 failed*
 measured at `543eda0`; three doc commits after that point made it stale.
 **A plan's baseline is a measurement with a timestamp, not a fact.**
 
-### The count discrepancy, explained — and it is a real property of the sweep
+### The count discrepancy — the orchestrator's first explanation was WRONG
 
-`17-01` and `17-02` each reported **2** unanchored citations; the main checkout
-reported **1**. The difference was **each executor's own `deferred-items.md`**,
-which quoted the offending citation strings verbatim while documenting them.
+**Superseded by `DEF-17-04`. Read that entry; this section records the error so
+the reasoning that produced it is visible.**
 
-**The sweep cannot distinguish a citation from a quotation of one.** Writing
-*"file X cites module Y at lines N–M"* in prose, using the literal
-`module.py:N-M` form, registers as a citation from the documenting file. So a
-faithful write-up of a citation defect *reproduces* that defect — and this
-entry re-tripped the ratchet on its first draft, at which point the mechanism
-became obvious.
+The orchestrator explained the executors' 2-vs-1 discrepancy as a
+self-reference effect: each executor's own `deferred-items.md` quoted the
+offending citation strings while documenting them, and the sweep cannot
+distinguish a citation from a quotation of one. That effect **is real** — this
+entry did re-trip the ratchet on its first draft, which is why no
+`path.py:line` string appears above, and the writing constraint stands.
 
-This is not a bug to fix; a sweep that parsed intent would be a worse sweep.
-It is a **writing constraint** on anything that documents a citation defect:
-describe the location in words, or cite the symbol form. This file now does the
-former deliberately, which is why no `path.py:line` string appears above.
+**But it was the wrong diagnosis for the second site, and it was used to
+dismiss a correct executor finding.** Three executors reported the branch as
+2-red; the orchestrator measured green three times, including a full-suite run,
+and concluded the worktree measurements were the unreliable ones.
 
-The second site the executors named — a phase-16 test file citing another test
-file with a line anchor — was an artifact of exactly this effect, not an
-independent defect.
+The truth is the reverse. `17-03` measured the mechanism:
+`tools/lints/citations.py::repo_index` walks the whole repo root and its
+`SKIP_DIRS` omitted `.claude`. With six agent worktrees live, one basename
+resolved to **seven** paths; an ambiguous basename is **dropped from the sweep
+rather than checked**. So the main checkout passed *vacuously* — and the
+orchestrator's "3375 passed / 0 failed" was itself a vacuous measurement.
+
+**The executors were right, and right for the right reason.** They measured in
+trees with no worktrees inside them, where the sweep resolves basenames
+uniquely and actually checks the sites.
+
+### What this cost, and the rule it produces
+
+Two genuine Phase 16 citation defects sat behind a green run for the length of
+a wave, and a correct finding was talked down three times.
+
+**The rule: when a gate and an executor disagree, the gate is a suspect too.**
+This project's standing lesson is that defects land in verification machinery
+rather than mechanism. A green run is a claim, not a fact — and a green run
+that contradicts three independent measurements is a claim with evidence
+against it. The orchestrator re-measuring on the main checkout was the right
+instinct applied to the wrong question: it established *that* the results
+differed, and stopped before asking *why*.
 
 ---
 
@@ -231,62 +250,85 @@ should clear bytecode as part of its revert, not rely on mtime invalidation.
 
 ---
 
-## DEF-17-04 — worktree measurements of tree-walking gates disagree with the branch
+## DEF-17-04 — the citation-coverage ratchets pass **vacuously** in the main checkout, and `DEF-17-01` was closed on that reading
 
-**Found during:** plans `17-04` and `17-03b`, **independently**. Both reported
-the branch tip as 2 red on the citation-coverage ratchets and disputed the
-baseline they were briefed with. **Status: the branch is GREEN; the disagreement
-is real and is recorded here rather than dismissed.**
+**Found during:** plan `17-03`, before any of its own work, while measuring the
+baseline. **Out of scope for `17-03`** — the two offending sites are Phase 16
+artifacts and the sweep defect is in `tools/`, none of them in that plan's
+declared files. Recorded here rather than fixed.
 
-### The disagreement, stated fairly
+### The measurement
 
-Both executors measured, from inside their worktrees, a pristine `phase-17`
-@ `7d76205` as **3339 passed / 2 failed**. `17-03b` went further and removed
-all four of its own files before measuring, on a clean `git status`.
+On `phase-17` at the branch tip, in a clean worktree:
 
-The orchestrator measured the same commit on the **main checkout** three times:
-the citation module reports **5 passed**, and the full suite after the `17-04`
-merge reports **3375 passed / 0 failed / 118 skipped**.
+```
+2 failed, 3339 passed, 118 skipped
+```
 
-Both measurements are honest. They are taken in different trees.
+Both failures are in `tests/invariants/test_citation_coverage.py`. In the main
+checkout the identical commit reports `5 passed`. The two trees are the same
+commit, so one of the two readings is wrong.
 
-### What is true in the branch
+### Why the readings differ, and which one is right
 
-`tests/products/test_discovery_audiences.py` does carry a docstring citing
-another test module with a line anchor — `17-03b` is right that the site exists,
-and right that `DEF-17-01`'s self-reference explanation does not account for it.
-That explanation covered the *executors'* second site (their own write-ups) and
-was over-extended to this one.
+The sweep resolves a cited **basename** against an index of every file in the
+repository, and drops the site when the basename resolves ambiguously. The
+index builder walks the entire repo root and its skip-list — `__pycache__`,
+`.git`, `.venv`, `venv`, `build`, `dist`, `site`, `.mypy_cache`,
+`.pytest_cache`, `node_modules` — **does not contain `.claude`**.
 
-But the site does not fail the gate on the branch. The sweep does not count it
-there, across three separate runs including a full-suite run. So the correct
-statement is: **the citation ratchets are green on `phase-17`, and a citation
-that looks like it should trip them does not.**
+The main checkout carries six agent worktrees under `.claude/worktrees/`, each
+a full copy of the tree. So in the main checkout a cited basename resolves to
+**seven** paths, is ambiguous, and is dropped from the sweep. In a worktree it
+resolves to one and is measured.
 
-### The operational rule this produces
+Measured, in the main checkout, for the basename the first failure names: seven
+index entries, six of them under `.claude/worktrees/`, one real.
 
-**A tree-walking gate measured inside a worktree is not evidence about the
-branch.** The citation sweep, the retirement sweep, the surface manifest and the
-public-door discovery walk all read the filesystem rather than the index, so
-their results depend on what is physically present — including an executor's own
-in-progress artifacts, and any file the worktree carries that the branch does
-not.
+**The worktree reading is the correct one.** The main checkout's green is a
+guard that stops measuring the moment a parallel wave is running — which is
+precisely when the most code is landing.
 
-Executors were right to report the disagreement rather than silently adopt the
-briefed number; that is the intended behaviour and it worked three times today.
-The resolution is that **the orchestrator re-measures on the main checkout
-before treating a gate result as a fact about the branch**, which is what
-happened here.
+### The two genuine defects it was hiding
 
-### What still deserves an owner
+Both are Phase 16 artifacts, neither is a quotation artifact:
 
-Why the sweep declines to count `test_discovery_audiences.py`'s docstring
-citation is unexplained. It is not currently a failure, so it is not blocking —
-but an unexplained *pass* on a ratchet is worth exactly as much scrutiny as an
-unexplained failure, and this one should be understood before the Phase 17 gate
-rather than after. Do not "fix" it by editing the citation: first establish why
-the sweep's scope excludes it, because that scope is the thing the ratchet
-actually protects.
+1. A `tests/products/` module added in `16-27` carries, in a docstring, a
+   line-anchored citation of another test module. `D-IMPL-114` rules that prose
+   cites the symbol form. The string appears nowhere in this file, so the
+   quotation effect `DEF-17-01` documents does not explain it.
+2. A `docs/surface-changes/` fragment from `16-24` carries a line-anchored
+   citation of the experience door module, which is the fourteenth held-back
+   site against a pinned thirteen.
+
+### What this means for `DEF-17-01`
+
+That entry is marked **RESOLVED**, and its closing paragraph states that *"the
+second site the executors named — a phase-16 test file citing another test file
+with a line anchor — was an artifact of exactly this effect, not an independent
+defect."* That reading is **false**, and disproving it took one grep. `17-01`
+and `17-02` were right that there were two sites; the third executor to measure
+the tree found the same two.
+
+The generalisable point, and it is the sharper one: the reason a defect could be
+closed on a wrong reading is that the **verification machinery** was reporting a
+green it had not earned. This project's ledger already says defects land in
+verification code rather than in mechanism. Here the ratchet, the entry closing
+it, and the count reconciliation were all downstream of one unskipped directory.
+
+### The three repairs, for whoever owns them
+
+- Add `.claude` to the sweep's skip set, so the ratchet measures the repository
+  rather than the repository times the number of live agents. This alone turns
+  the main checkout red, which is correct.
+- Convert the `16-27` docstring citation to the symbol form.
+- Rule on the fourteenth held-back site — convert it, or raise the pinned count
+  in a decision entry, which is what the gate's own text demands.
+
+**None was done in `17-03`:** the first is `tools/` and the other two are Phase
+16 files, all outside that plan's declared `files_modified`, and the third needs
+a ruling rather than an edit. `17-03` measured its own delta against the
+2-failing baseline and added no new failure.
 
 ---
 
