@@ -44,14 +44,20 @@ statement, both of which an AST walk cannot see.
 from __future__ import annotations
 
 import ast
+import builtins
+import importlib
+import json
+import os
 import shutil
 import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import pytest
+
+from ccf.contracts.base import CCFContract
 
 from ccf.products.refusal import (
     NON_PRODUCT_REFUSALS,
@@ -660,3 +666,494 @@ def test_no_aggregate_assertion_stands_in_for_a_per_kind_one() -> None:
             ):
                 offenders.append(node.name)
     assert not offenders, f"aggregate assertion inside a per-kind test: {offenders}"
+
+
+# --- the exhaustiveness gate ------------------------------------------------
+#
+# Everything below answers one question: does REFUSAL_KINDS still describe the
+# tree? It must answer the same thing regardless of what the importer happened
+# to touch, which is why the enumeration is an AST walk over a source root
+# taken as a parameter rather than a ``__subclasses__()`` reading.
+
+
+def discover_refusal_types(root: Path) -> dict[str, tuple[str, str]]:
+    """Every ``…Refusal``/``…Violation`` class under ``root``, by resolved base.
+
+    Reads no imports and executes no module, so it answers the same thing under
+    a narrow ``pytest`` invocation as under the full suite.
+    ``type.__subclasses__`` cannot: it reports only classes the interpreter has
+    already executed, so a gate built on it is green in the narrow run and
+    differently-coloured in the wide one.
+
+    Base names are resolved **transitively within the walk**, which is what
+    reaches ``PayloadTooLargeRefusal`` — whose immediate base is
+    ``AdmissionRefusal``, not ``GateRefusal``. Both family roots are taken from
+    the imported classes' own ``__name__`` rather than written as literals, so
+    nothing here can drift from the classes it discriminates on, and no member
+    of the vocabulary is ever named.
+
+    Args:
+        root: A source tree to read. The shipped assertions pass the real
+            ``src/``; the sabotage controls pass a widened copy, which is the
+            entire reason this is a parameter.
+
+    Returns:
+        ``{class name: (family, "path:lineno")}``. Family is ``gate`` when the
+        class is or reaches the gate base, ``contract`` when it reaches the
+        contract base without passing through the gate base, ``exception``
+        when it reaches a built-in exception, and ``unresolved`` when it
+        reaches none of the three — a state asserted empty rather than
+        ignored, since a class in no family would otherwise fall through every
+        comparison below.
+    """
+    gate_base = GateRefusal.__name__
+    contract_base = CCFContract.__name__
+
+    bases_by_name: dict[str, set[str]] = {}
+    located: dict[str, str] = {}
+    for path in sorted(root.rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            # A dotted base (``ccf.products.gates.GateRefusal``) contributes
+            # its last component. Duplicate class names across modules union
+            # their bases rather than overwrite: a resolution then reaches
+            # every possible ancestor, which can only place a class in a
+            # family, never silently drop it out of one.
+            bases_by_name.setdefault(node.name, set()).update(
+                ast.unparse(base).rsplit(".", 1)[-1] for base in node.bases
+            )
+            if node.name.endswith(("Refusal", "Violation")):
+                located[node.name] = f"{path.relative_to(root)}:{node.lineno}"
+
+    def ancestors_of(name: str) -> set[str]:
+        seen: set[str] = set()
+        pending = list(bases_by_name.get(name, ()))
+        while pending:
+            current = pending.pop()
+            if current in seen:
+                continue
+            seen.add(current)
+            pending.extend(bases_by_name.get(current, ()))
+        return seen
+
+    def family_of(name: str) -> str:
+        if name == gate_base:
+            return "gate"
+        forebears = ancestors_of(name)
+        if gate_base in forebears:
+            return "gate"
+        if contract_base in forebears:
+            return "contract"
+        # Structural rather than a hand-kept list of exception names: ask the
+        # builtins module whether an ancestor really is an exception type.
+        for forebear in forebears:
+            candidate = getattr(builtins, forebear, None)
+            if isinstance(candidate, type) and issubclass(candidate, BaseException):
+                return "exception"
+        return "unresolved"
+
+    return {name: (family_of(name), where) for name, where in located.items()}
+
+
+def vocabulary_comparisons(
+    discovered: dict[str, tuple[str, str]],
+    *,
+    kinds: Any,
+    non_product: Any,
+    non_value: Any,
+) -> dict[str, tuple[set[str], set[str]]]:
+    """The four closures, each as an ``(actual, expected)`` pair.
+
+    Returned rather than asserted, so the sabotage controls run the very same
+    comparisons the shipped gate runs. A control that re-derived the comparison
+    would prove only that the control's own copy of the logic fires.
+
+    The vocabulary and both allowlists are parameters for the same reason:
+    control 4 narrows ``REFUSAL_KINDS`` to check the other direction — a kind
+    declared but no longer shipped — and must do that without editing ``src/``.
+    """
+    kind_names = {kind.__name__ for kind in kinds}
+    by_family = {
+        family: {n for n, (f, _) in discovered.items() if f == family}
+        for family in ("gate", "contract", "exception", "unresolved")
+    }
+    return {
+        # Nothing may sit outside the partition. Without this, a class whose
+        # base the walk could not resolve would appear in no comparison at all
+        # and would ship untranslated with the gate green.
+        "totality": (by_family["unresolved"], set()),
+        # The vocabulary is exactly what the tree declares. Equality, not
+        # containment: a kind declared but no longer shipped is as much a
+        # defect as a type shipped but untranslated.
+        "vocabulary": (
+            (by_family["gate"] | by_family["contract"]) - set(non_product),
+            kind_names,
+        ),
+        # The ``*Refusal``-side allowlist is exact. A fourth contract-based
+        # class outside the vocabulary fails here and demands a ruling.
+        "non-product-allowlist": (
+            by_family["contract"] - kind_names,
+            set(non_product),
+        ),
+        # The ``*Violation``-side allowlist is exact. This is the comparison
+        # that closes the half a ``*Refusal``-only walk cannot reach.
+        "non-value-allowlist": (by_family["exception"], set(non_value)),
+    }
+
+
+def failing_comparisons(
+    discovered: dict[str, tuple[str, str]],
+    *,
+    kinds: Any = REFUSAL_KINDS,
+    non_product: Any = NON_PRODUCT_REFUSALS,
+    non_value: Any = NON_VALUE_VIOLATIONS,
+) -> dict[str, tuple[set[str], set[str]]]:
+    """Which comparisons do not hold. Empty means the gate is green."""
+    comparisons = vocabulary_comparisons(
+        discovered, kinds=kinds, non_product=non_product, non_value=non_value
+    )
+    return {name: pair for name, pair in comparisons.items() if pair[0] != pair[1]}
+
+
+def sabotaged_root(tmp_path: Path, addition: str) -> Path:
+    """A copy of ``src/`` with one class statement appended, for a control.
+
+    The controls read a copy and never ``src/`` itself. A control that edited
+    and reverted the real tree would leave nothing behind to show it had ever
+    fired, and an assertion pinned to ``SRC_ROOT`` could not be sabotaged
+    without editing ``src/`` — which is why ``discover_refusal_types`` takes a
+    root at all.
+
+    The appended text is parsed, never imported, so it need not resolve at run
+    time.
+    """
+    root = tmp_path / "src"
+    shutil.copytree(
+        SRC_ROOT, root, ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
+    )
+    target = root / "ccf" / "products" / "gates.py"
+    target.write_text(target.read_text(encoding="utf-8") + addition, encoding="utf-8")
+    return root
+
+
+def test_the_refusal_vocabulary_is_closed_by_set_equality() -> None:
+    """The gate. Four equalities over a structural walk of the real ``src/``."""
+    comparisons = vocabulary_comparisons(
+        discover_refusal_types(SRC_ROOT),
+        kinds=REFUSAL_KINDS,
+        non_product=NON_PRODUCT_REFUSALS,
+        non_value=NON_VALUE_VIOLATIONS,
+    )
+    assert comparisons["totality"][0] == comparisons["totality"][1]
+    assert comparisons["vocabulary"][0] == comparisons["vocabulary"][1]
+    assert (
+        comparisons["non-product-allowlist"][0]
+        == comparisons["non-product-allowlist"][1]
+    )
+    assert (
+        comparisons["non-value-allowlist"][0] == comparisons["non-value-allowlist"][1]
+    )
+
+
+def test_the_ast_walk_and_the_runtime_hierarchy_agree() -> None:
+    """Leg 4 — the cross-check, and the only ``__subclasses__`` read here.
+
+    It catches a class the AST walk mis-parsed, and it is deterministic because
+    the module list comes from the walk's own output rather than from whatever
+    pytest happened to import: every module the walk found a refusal in is
+    imported explicitly, by name, before the hierarchy is read.
+
+    ``__subclasses__`` **excludes the class itself**, so the gate base is added
+    back explicitly. That one-line asymmetry silently costs a kind if it is not
+    handled.
+
+    The runtime side is scoped to ``ccf.*`` because the AST side reads ``src/``
+    alone — and because a ``GateRefusal`` subclass declared inside a test
+    function elsewhere in this file would otherwise leak into the answer and
+    make the verdict depend on test order, which is exactly the flakiness this
+    gate exists to avoid.
+    """
+    discovered = discover_refusal_types(SRC_ROOT)
+    for _, where in discovered.values():
+        module_path = where.rsplit(":", 1)[0]
+        importlib.import_module(module_path.removesuffix(".py").replace("/", "."))
+
+    seen: set[type[Any]] = set()
+    pending = list(GateRefusal.__subclasses__())
+    while pending:
+        current = pending.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        pending.extend(current.__subclasses__())
+
+    runtime_gate_family = {GateRefusal.__name__} | {
+        cls.__name__ for cls in seen if cls.__module__.startswith("ccf.")
+    }
+    ast_gate_family = {n for n, (f, _) in discovered.items() if f == "gate"}
+    assert runtime_gate_family == ast_gate_family
+
+
+# --- the sabotage controls (D-22) -------------------------------------------
+#
+# Each widens or narrows a copy of the tree and asserts the gate goes red. A
+# guard nobody has watched fail is a guard nobody knows works.
+
+
+def test_control_1_a_new_direct_gate_subclass_fails_the_gate(tmp_path: Path) -> None:
+    """Widen the gate family by one, directly under the base."""
+    root = sabotaged_root(tmp_path, "\n\nclass WidgetRefusal(GateRefusal):\n    pass\n")
+    discovered = discover_refusal_types(root)
+
+    assert discovered["WidgetRefusal"][0] == "gate"
+    failing = failing_comparisons(discovered)
+    assert "vocabulary" in failing
+    assert "WidgetRefusal" in failing["vocabulary"][0]
+
+
+def test_control_2_a_two_level_gate_subclass_fails_the_gate(tmp_path: Path) -> None:
+    """Widen it two levels down — the control proving transitive resolution.
+
+    ``WidgetRefusal(AdmissionRefusal)`` never names ``GateRefusal``. A walk
+    matching a literal ``(GateRefusal)`` base would miss it, exactly as this
+    plan's first draft missed the seven types whose immediate base is
+    ``AdmissionRefusal``.
+    """
+    root = sabotaged_root(
+        tmp_path, "\n\nclass WidgetRefusal(AdmissionRefusal):\n    pass\n"
+    )
+    discovered = discover_refusal_types(root)
+
+    assert discovered["WidgetRefusal"][0] == "gate"
+    failing = failing_comparisons(discovered)
+    assert "vocabulary" in failing
+    assert "WidgetRefusal" in failing["vocabulary"][0]
+
+
+def test_control_3_a_new_contract_refusal_fails_two_comparisons(
+    tmp_path: Path,
+) -> None:
+    """A contract-based ``…Refusal`` trips the vocabulary *and* the allowlist.
+
+    Both fire, and that is the intended shape: the class is claimed as
+    vocabulary it is not in, and the ``*Refusal`` allowlist is no longer exact.
+    The only two ways to make the gate green again are deliberate acts —
+    translate it into ``REFUSAL_KINDS``, or record it in
+    ``NON_PRODUCT_REFUSALS`` with its reason. That is what "demands a ruling"
+    means operationally.
+    """
+    root = sabotaged_root(tmp_path, "\n\nclass WidgetRefusal(CCFContract):\n    pass\n")
+    discovered = discover_refusal_types(root)
+
+    assert discovered["WidgetRefusal"][0] == "contract"
+    failing = failing_comparisons(discovered)
+    assert set(failing) == {"vocabulary", "non-product-allowlist"}
+    assert "WidgetRefusal" in failing["non-product-allowlist"][0]
+
+
+def test_control_4_a_declared_but_unshipped_kind_fails_the_gate() -> None:
+    """The other direction: a kind in the mapping the tree no longer has.
+
+    Narrows a *copy* of ``REFUSAL_KINDS`` rather than deleting a class from
+    ``src/``, which is why ``vocabulary_comparisons`` takes the vocabulary as a
+    parameter. Containment would pass here; equality is what catches it.
+    """
+    narrowed = {
+        kind: token for kind, token in REFUSAL_KINDS.items() if kind is not TTLRefusal
+    }
+    failing = failing_comparisons(discover_refusal_types(SRC_ROOT), kinds=narrowed)
+
+    assert "vocabulary" in failing
+    actual, expected = failing["vocabulary"]
+    assert "TTLRefusal" in actual - expected
+
+
+def test_control_5_a_new_contract_violation_fails_the_gate(tmp_path: Path) -> None:
+    """The control a hand-enumerated ``*Violation`` list could not have.
+
+    Under a three-names-by-hand design this class is invisible to every
+    assertion: neither discovered nor excluded, with the gate staying green
+    while it ships untranslated. Because the walk reads both name families and
+    partitions by resolved base, it is discovered instead.
+    """
+    root = sabotaged_root(
+        tmp_path, "\n\nclass WidgetViolation(CCFContract):\n    pass\n"
+    )
+    discovered = discover_refusal_types(root)
+
+    assert discovered["WidgetViolation"][0] == "contract"
+    failing = failing_comparisons(discovered)
+    assert "vocabulary" in failing
+    assert "WidgetViolation" in failing["vocabulary"][0]
+
+
+def test_control_6_a_new_exception_violation_trips_the_other_allowlist(
+    tmp_path: Path,
+) -> None:
+    """An exception-based ``…Violation`` trips allowlist 3, not the vocabulary.
+
+    The two halves of the ``…Violation`` name family stay distinguishable by
+    resolved base rather than by convention: this one lands in ``exception``
+    and the vocabulary comparison is untouched.
+    """
+    root = sabotaged_root(
+        tmp_path, "\n\nclass WidgetViolation(LookupError):\n    pass\n"
+    )
+    discovered = discover_refusal_types(root)
+
+    assert discovered["WidgetViolation"][0] == "exception"
+    failing = failing_comparisons(discovered)
+    assert set(failing) == {"non-value-allowlist"}
+    assert "WidgetViolation" in failing["non-value-allowlist"][0]
+
+
+def test_control_7_a_refusal_in_no_family_fails_the_totality_check(
+    tmp_path: Path,
+) -> None:
+    """A seventh control, closing a hole the six numbered ones leave open.
+
+    A refusal whose base resolves to none of the three roots sits in no family.
+    Without the totality comparison it would appear in no assertion and pass
+    silently — the same shape of hole as a hand-enumerated ``*Violation`` half,
+    one level further out.
+    """
+    root = sabotaged_root(
+        tmp_path, "\n\nclass WidgetRefusal(SomeForeignBase):\n    pass\n"
+    )
+    discovered = discover_refusal_types(root)
+
+    assert discovered["WidgetRefusal"][0] == "unresolved"
+    failing = failing_comparisons(discovered)
+    assert "totality" in failing
+    assert "WidgetRefusal" in failing["totality"][0]
+
+
+def test_no_control_edits_the_real_source_tree() -> None:
+    """``src/`` is untouched by every control above.
+
+    The controls copy; they do not edit and revert. Asserted rather than
+    trusted, because an edit-and-revert control that crashed halfway would
+    leave the tree modified and this suite green.
+    """
+    modified = subprocess.run(
+        ["git", "status", "--porcelain", "--", "src/"],
+        cwd=SRC_ROOT.parent,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.splitlines()
+    assert not modified, f"controls disturbed src/: {modified}"
+
+
+# --- properties of the gate itself ------------------------------------------
+
+
+def test_subclasses_is_confined_to_the_cross_check() -> None:
+    """``__subclasses__`` appears only inside leg 4.
+
+    The enumeration must not acquire an import-order dependency by absorbing a
+    second ``__subclasses__`` reading elsewhere in this file. A property, so it
+    stays true after an edit rather than only today.
+    """
+    permitted = "test_the_ast_walk_and_the_runtime_hierarchy_agree"
+    sites: list[str] = []
+    for node in ast.walk(ast.parse(SELF_SOURCE)):
+        if not isinstance(node, ast.FunctionDef) or node.name == permitted:
+            continue
+        for inner in ast.walk(node):
+            if isinstance(inner, ast.Attribute) and inner.attr == "__subclasses__":
+                sites.append(node.name)
+    assert not sites, f"__subclasses__ read outside the cross-check: {sites}"
+
+
+def test_nothing_enters_the_vocabulary_by_name() -> None:
+    """No kind's class name is a string constant inside the walk.
+
+    A by-name collection is the hole this gate exists to close, and it must be
+    structurally impossible rather than merely absent today. Both family roots
+    are read from the imported classes' own ``__name__``, so even
+    ``GateRefusal`` — which is both a family root and a vocabulary member — is
+    never written as a literal.
+    """
+    walk = next(
+        node
+        for node in ast.walk(ast.parse(SELF_SOURCE))
+        if isinstance(node, ast.FunctionDef) and node.name == "discover_refusal_types"
+    )
+    kind_names = {kind.__name__ for kind in REFUSAL_KINDS}
+    literals = {
+        node.value
+        for node in ast.walk(walk)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+    assert not literals & kind_names, (
+        "discover_refusal_types names a vocabulary member as a literal: "
+        f"{sorted(literals & kind_names)}"
+    )
+
+
+def test_the_gate_assertions_are_equalities() -> None:
+    """Every comparison in the gate and its cross-check is ``==``.
+
+    Checked by AST rather than by grep: ``grep -n "=="`` cannot tell an ``==``
+    inside a message string from one in a comparison. Containment would pass
+    where equality must not — a kind declared but no longer shipped is a defect
+    a ``>=`` reading would wave through.
+    """
+    gated = {
+        "test_the_refusal_vocabulary_is_closed_by_set_equality",
+        "test_the_ast_walk_and_the_runtime_hierarchy_agree",
+    }
+    offenders: list[str] = []
+    for node in ast.walk(ast.parse(SELF_SOURCE)):
+        if not isinstance(node, ast.FunctionDef) or node.name not in gated:
+            continue
+        # Scoped to `assert` statements, not to every comparison in the body:
+        # a loop's `if current in seen` is control flow and says nothing about
+        # how strictly the gate compares. Every assertion these two functions
+        # make must still be an equality.
+        asserts = [n for n in ast.walk(node) if isinstance(n, ast.Assert)]
+        assert asserts, f"{node.name} asserts nothing at all"
+        for statement in asserts:
+            for inner in ast.walk(statement):
+                if isinstance(inner, ast.Compare) and not all(
+                    isinstance(op, ast.Eq) for op in inner.ops
+                ):
+                    offenders.append(node.name)
+    assert not offenders, f"a gate assertion is not an equality: {offenders}"
+
+
+def test_the_cold_and_warm_runs_agree_on_the_enumeration() -> None:
+    """The import-order property, checked rather than argued.
+
+    Runs the enumeration in a **cold subprocess** and asserts it reports the
+    same families as the in-process run, which by now has had the whole suite
+    importing modules around it. A ``__subclasses__``-based enumeration fails
+    this; the AST walk cannot.
+
+    It also pins the load-bearing import order inside ``ccf.products.refusal``:
+    the subprocess imports that module cold, which is the condition under which
+    the tree's pre-existing ``payload``/``request`` cycle bites.
+    """
+    warm = {name: family for name, (family, _) in discover_refusal_types(SRC_ROOT).items()}
+    program = (
+        "import json, sys\n"
+        "sys.path.insert(0, 'tests')\n"
+        "import ccf.products.refusal\n"
+        "from products.test_refusal_envelope import discover_refusal_types, SRC_ROOT\n"
+        "print(json.dumps({k: v[0] for k, v in"
+        " discover_refusal_types(SRC_ROOT).items()}, sort_keys=True))\n"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", program],
+        cwd=SRC_ROOT.parent,
+        capture_output=True,
+        text=True,
+        env={"PYTHONPATH": "src:runtime", "PATH": os.environ.get("PATH", "")},
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout) == warm
