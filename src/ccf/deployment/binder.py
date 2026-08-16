@@ -43,9 +43,10 @@ What this module binds — 2: the freshness promises
 --------------------------------------------------
 
 A product class assembled from constituent classes declares its own
-:class:`~ccf.products.contract.FreshnessSLA` — *"how current the underlying
-signals must be for the product to be valid at decision time"* (whitepaper
-§6.3, ``docs/CCF_Whitepaper_1-2.md:1453``). Its constituents declare theirs.
+:class:`~ccf.products.contract.FreshnessSLA` — the currency bound its
+constituent signals have to meet before the product may be treated as sound at
+the moment a decision is taken (whitepaper §6.3,
+``docs/CCF_Whitepaper_1-2.md:1453``). Its constituents declare theirs.
 The two are authored independently and can disagree, and when they do the
 composite has promised a currency it cannot keep.
 

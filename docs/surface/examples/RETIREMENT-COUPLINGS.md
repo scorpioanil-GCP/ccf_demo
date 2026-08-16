@@ -8,36 +8,37 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **163** across **47** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **80** across **25** files
-- References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **195**
+- Coupling rows: **227** across **69** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **140** across **44** files
+- References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **235**
 
 Rows by owning plan:
 
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 8 |
-| 16-15 | 22 |
-| 16-17 | 31 |
-| 16-18 | 102 |
+| 16-15 | 23 |
+| 16-17 | 39 |
+| 16-18 | 103 |
+| 17-08 | 54 |
 
 Rows by coupling shape:
 
 | Shape | Rows |
 | --- | --- |
-| `comment` | 14 |
+| `comment` | 19 |
 | `count-constant` | 4 |
 | `count-scan-function` | 4 |
-| `docstring` | 32 |
+| `docstring` | 51 |
 | `indirect-execution` | 1 |
 | `inline-tree-witness` | 1 |
 | `literal-set-member` | 3 |
-| `makefile-recipe` | 14 |
+| `makefile-recipe` | 16 |
 | `markdown-link` | 8 |
-| `path-construction` | 6 |
-| `prose` | 15 |
+| `path-construction` | 12 |
+| `prose` | 43 |
 | `snippet-include` | 53 |
-| `string-literal` | 4 |
+| `string-literal` | 8 |
 | `tmp_path-synthetic` | 4 |
 
 ## Reading the columns
@@ -52,30 +53,35 @@ Rows by coupling shape:
 | File | Line | Retiring path | Shape | Liveness | Witnesses | Intermediate | Owner | Note |
 | --- | ---: | --- | --- | --- | ---: | --- | --- | --- |
 | `.github/workflows/live-legs.yml` | 6 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 |  |
-| `Makefile` | 91 | `examples/00-quickstart` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 92 | `examples/00-quickstart` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 94 | `examples/01-agent-basics` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 95 | `examples/01-agent-basics` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 97 | `examples/02-skilling` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 98 | `examples/02-skilling` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 100 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 |  |
-| `Makefile` | 101 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
-| `Makefile` | 103 | `examples/04-cross-process` | `comment` | documentary | - | - | 16-17 |  |
-| `Makefile` | 104 | `examples/04-cross-process` | `makefile-recipe` | live | - | - | 16-17 |  |
-| `Makefile` | 106 | `examples/05-workflow-hitl` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 107 | `examples/05-workflow-hitl` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 109 | `examples/06-decision-replay` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 110 | `examples/06-decision-replay` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 112 | `examples/07-artifact-store-mcp` | `comment` | documentary | - | - | 16-17 |  |
-| `Makefile` | 113 | `examples/07-artifact-store-mcp` | `makefile-recipe` | live | - | - | 16-17 |  |
-| `Makefile` | 115 | `examples/08-e2e-demo` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 116 | `examples/08-e2e-demo` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 118 | `examples/external/00-hello-context` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 119 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 221 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
-| `Makefile` | 224 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
-| `Makefile` | 227 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 230 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 109 | `examples/00-quickstart` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 110 | `examples/00-quickstart` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 112 | `examples/01-agent-basics` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 113 | `examples/01-agent-basics` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 115 | `examples/02-skilling` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 116 | `examples/02-skilling` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 118 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 |  |
+| `Makefile` | 119 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
+| `Makefile` | 121 | `examples/04-cross-process` | `comment` | documentary | - | - | 16-17 |  |
+| `Makefile` | 122 | `examples/04-cross-process` | `makefile-recipe` | live | - | - | 16-17 |  |
+| `Makefile` | 124 | `examples/05-workflow-hitl` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 125 | `examples/05-workflow-hitl` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 127 | `examples/06-decision-replay` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 128 | `examples/06-decision-replay` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 130 | `examples/07-artifact-store-mcp` | `comment` | documentary | - | - | 16-17 |  |
+| `Makefile` | 131 | `examples/07-artifact-store-mcp` | `makefile-recipe` | live | - | - | 16-17 |  |
+| `Makefile` | 133 | `examples/08-e2e-demo` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 134 | `examples/08-e2e-demo` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 136 | `examples/external/00-hello-context` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 137 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 147 | `tests/examples/test_s1_01_output.py` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 199 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 201 | `examples/s1-01-hello-context-product` | `makefile-recipe` | live | - | - | 17-08 |  |
+| `Makefile` | 213 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 215 | `examples/s1-00-companies-over-revenue` | `makefile-recipe` | live | - | - | 17-08 |  |
+| `Makefile` | 269 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
+| `Makefile` | 272 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
+| `Makefile` | 275 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 278 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
 | `README.md` | 45 | `examples/00-quickstart` | `prose` | documentary | - | - | 16-18 |  |
 | `README.md` | 58 | `examples/00-quickstart` | `markdown-link` | live | - | - | 16-18 |  |
 | `README.md` | 59 | `examples/01-agent-basics` | `markdown-link` | live | - | - | 16-18 |  |
@@ -85,13 +91,39 @@ Rows by coupling shape:
 | `README.md` | 63 | `examples/05-workflow-hitl` | `markdown-link` | live | - | - | 16-18 |  |
 | `README.md` | 64 | `examples/06-decision-replay` | `markdown-link` | live | - | - | 16-18 |  |
 | `README.md` | 65 | `examples/07-artifact-store-mcp` | `markdown-link` | live | - | - | 16-17 |  |
+| `docs/CONTEXT_PRODUCT_REVISION.md` | 4 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/CONTEXT_PRODUCT_REVISION.md` | 342 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` | 162 | `examples/06-decision-replay` | `prose` | documentary | - | - | 16-18 |  |
 | `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` | 162 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` | 229 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 159 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 163 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 221 | `examples/00-quickstart` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 222 | `examples/01-agent-basics` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 223 | `examples/08-e2e-demo` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 246 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 291 | `examples/08-e2e-demo` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 310 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 311 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 312 | `examples/08-e2e-demo` | `prose` | documentary | - | - | 16-18 |  |
+| `docs/superpowers/plans/2026-08-14-property-not-shape-gating.md` | 643 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/superpowers/plans/2026-08-14-property-not-shape-gating.md` | 675 | `examples/04-cross-process` | `prose` | documentary | - | - | 16-17 |  |
+| `docs/superpowers/plans/2026-08-14-property-not-shape-gating.md` | 724 | `examples/04-cross-process` | `prose` | documentary | - | - | 16-17 |  |
+| `docs/superpowers/plans/2026-08-14-property-not-shape-gating.md` | 1049 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/superpowers/plans/2026-08-14-property-not-shape-gating.md` | 1051 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/superpowers/plans/2026-08-14-property-not-shape-gating.md` | 1130 | `examples/04-cross-process` | `prose` | documentary | - | - | 16-17 |  |
+| `docs/superpowers/plans/2026-08-14-property-not-shape-gating.md` | 1130 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/superpowers/specs/2026-08-14-ccf-config-consolidation-design.md` | 12 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/superpowers/specs/2026-08-14-ccf-config-consolidation-design.md` | 18 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/superpowers/specs/2026-08-14-property-not-shape-gating-design.md` | 21 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/surface/examples/FIBO-EXTENSION.md` | 4 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/surface/examples/FIBO-EXTENSION.md` | 13 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 6 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 112 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 208 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 16-18 |  |
 | `examples/external/README.md` | 61 | `examples/03-harness-portability` | `prose` | documentary | - | - | 16-15 |  |
-| `examples/s1-01-hello-context-product/artifacts/source-estate.yaml` | 23 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 |  |
+| `examples/s1-01-hello-context-product/artifacts/source-estate.yaml` | 23 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 | cross-wave: this file retires at wave 12, the path it names at wave 8 |
+| `examples/s1-01-hello-context-product/report.py` | 12 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 | cross-wave: this file retires at wave 12, the path it names at wave 11 |
 | `examples/s2-01-external-consumers/client_claude_agent.py` | 44 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `examples/s2-01-external-consumers/client_langgraph.py` | 35 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
 | `perf/suites/common.py` | 140 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
@@ -160,12 +192,29 @@ Rows by coupling shape:
 | `public/reference/artifacts/task-definitions.md` | 16 | `examples/05-workflow-hitl` | `snippet-include` | live | - | - | 16-18 |  |
 | `public/reference/artifacts/workflow-definitions.md` | 18 | `examples/05-workflow-hitl` | `snippet-include` | live | - | - | 16-18 |  |
 | `pyproject.toml` | 83 | `tests/examples/test_ext00_fixture_schemas.py` | `comment` | documentary | - | - | 16-18 |  |
+| `runtime/ccf_runtime/mcp/egress.py` | 242 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `runtime/ccf_runtime/mcp/egress.py` | 244 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 332 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 334 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 483 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `src/ccf/products/bind.py` | 74 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
+| `src/ccf/products/bind.py` | 76 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/request.py` | 349 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/request.py` | 542 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/cli/test_schema_export.py` | 60 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/artifacts` |
 | `tests/conformance/test_a3_discharge.py` | 31 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
 | `tests/conformance/test_harness_portability.py` | 58 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
 | `tests/conformance/test_harness_portability.py` | 76 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
+| `tests/deployment/fixtures/s1-00-multifile/README.md` | 3 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `tests/deployment/fixtures/s1-00-multifile/README.md` | 10 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
+| `tests/deployment/fixtures/s1-00-multifile/README.md` | 27 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `tests/deployment/test_config_derivation.py` | 33 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/deployment/test_config_document.py` | 29 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/deployment/test_config_equivalence.py` | 42 | `tests/examples/test_s1_00_config_equivalence.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/deployment/test_manifest.py` | 930 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/deployment/test_operator_builder.py` | 479 | `examples/02-skilling` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/fixtures/s1_00_ccf_config.yaml` | 2 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
+| `tests/examples/fixtures/s1_00_ccf_config.yaml` | 7 | `tests/examples/test_s1_00_config_equivalence.py` | `comment` | documentary | - | - | 17-08 |  |
 | `tests/examples/test_artifact_schema_headers.py` | 3 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-02 |  |
 | `tests/examples/test_artifact_schema_headers.py` | 55 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
 | `tests/examples/test_artifact_schema_headers.py` | 61 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-02 |  |
@@ -183,30 +232,46 @@ Rows by coupling shape:
 | `tests/examples/test_s2_client_transport_spike.py` | 71 | `examples/external/00-hello-context` | `path-construction` | live | - | - | 16-18 | constructed as `examples/external/00-hello-context` |
 | `tests/examples/test_s2_client_transport_spike.py` | 271 | `tests/examples/test_ext00_serve_output.py` | `docstring` | documentary | - | - | 16-18 |  |
 | `tests/examples/test_s2_client_transport_spike.py` | 666 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/examples/test_spine_separation.py` | 21 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/examples/test_source_estate.py` | 50 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
+| `tests/examples/test_spine_separation.py` | 24 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/halflife/test_debt.py` | 707 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/integration/test_proto_quickstart.py` | 3 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/invariants/test_citation_coverage.py` | 45 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
 | `tests/lints/test_examples_scope.py` | 41 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 16-18 |  |
 | `tests/lints/test_examples_scope.py` | 55 | `examples/03-harness-portability` | `tmp_path-synthetic` | survives | - | - | 16-15 |  |
 | `tests/perf_smoke/test_smoke.py` | 71 | `examples/04-cross-process` | `indirect-execution` | live | - | `perf/suites/crossproc/conftest.py` | 16-17 | runs `perf/suites` out of process; `perf/suites/crossproc/conftest.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
-| `tests/products/test_gate_two_call_shape.py` | 318 | `examples/06-decision-replay` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/products/test_gate_two_call_shape.py` | 319 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/products/test_gate_two_call_shape.py` | 441 | `examples/00-quickstart` | `count-constant` | live | 9 | - | 16-18 | `MINIMUM_GATE_CALL_SITES` — floor 9, 10 witnesses, headroom 1; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=1, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=1; first break: wave 10 (16-17) |
-| `tests/products/test_gate_two_call_shape.py` | 446 | `examples/00-quickstart` | `count-constant` | live | 11 | - | 16-18 | `MINIMUM_PROJECTING_BODIES` — floor 11, 12 witnesses, headroom 1; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=2, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=2; first break: wave 10 (16-17) |
-| `tests/products/test_gate_two_call_shape.py` | 454 | `examples/00-quickstart` | `count-constant` | live | 11 | - | 16-18 | `MINIMUM_RESOLVED_BINDER_SITES` — floor 11, 12 witnesses, headroom 1; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=2, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=2; first break: wave 10 (16-17) |
-| `tests/products/test_gate_two_call_shape.py` | 1220 | `examples/00-quickstart` | `count-scan-function` | live | 9 | - | 16-18 | `_gate_scopes()` feeds `MINIMUM_GATE_CALL_SITES` — floor 9, 10 witnesses, headroom 1; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=1, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=1; first break: wave 10 (16-17) |
-| `tests/products/test_gate_two_call_shape.py` | 1926 | `examples/00-quickstart` | `count-scan-function` | live | 11 | - | 16-18 | `_projecting_scopes()` feeds `MINIMUM_PROJECTING_BODIES` — floor 11, 12 witnesses, headroom 1; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=2, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=2; first break: wave 10 (16-17) |
-| `tests/products/test_gate_two_call_shape.py` | 2080 | `examples/00-quickstart` | `count-scan-function` | live | 11 | - | 16-18 | `_resolved_binder_sites()` feeds `MINIMUM_RESOLVED_BINDER_SITES` — floor 11, 12 witnesses, headroom 1; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=2, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=2; first break: wave 10 (16-17) |
-| `tests/products/test_gate_two_call_shape.py` | 3139 | `examples/03-harness-portability` | `inline-tree-witness` | live | 1 | - | 16-15 | `test_the_plan_recognition_refuses_an_unrelated_required_keyword` scans `BINDER_SCANNED_TREES` inline via `_python_sources()`; no floor constant and no module-level scan function. Sustained only by: examples/03-harness-portability. Measured by execution — the witness appears in this module only inside a docstring. |
-| `tests/products/test_gate_two_call_shape.py` | 3160 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
+| `tests/products/test_gate_two_call_shape.py` | 207 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
+| `tests/products/test_gate_two_call_shape.py` | 425 | `examples/06-decision-replay` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/products/test_gate_two_call_shape.py` | 426 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/products/test_gate_two_call_shape.py` | 582 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 11 | - | 17-08 | `MINIMUM_GATE_CALL_SITES` — floor 11, 11 witnesses, headroom 0; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=1, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 8 (16-15) |
+| `tests/products/test_gate_two_call_shape.py` | 592 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 13 | - | 17-08 | `MINIMUM_PROJECTING_BODIES` — floor 13, 13 witnesses, headroom 0; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=2, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=2, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 8 (16-15) |
+| `tests/products/test_gate_two_call_shape.py` | 619 | `examples/s1-01-hello-context-product` | `count-constant` | live | 12 | - | 17-08 | `MINIMUM_RESOLVED_BINDER_SITES` — floor 12, 12 witnesses, headroom 0; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=2, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=2, examples/s1-01-hello-context-product=1; first break: wave 8 (16-15) |
+| `tests/products/test_gate_two_call_shape.py` | 1349 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
+| `tests/products/test_gate_two_call_shape.py` | 1507 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 11 | - | 17-08 | `_gate_scopes()` feeds `MINIMUM_GATE_CALL_SITES` — floor 11, 11 witnesses, headroom 0; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=1, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 8 (16-15) |
+| `tests/products/test_gate_two_call_shape.py` | 2240 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 13 | - | 17-08 | `_projecting_scopes()` feeds `MINIMUM_PROJECTING_BODIES` — floor 13, 13 witnesses, headroom 0; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=2, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=2, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 8 (16-15) |
+| `tests/products/test_gate_two_call_shape.py` | 2471 | `examples/s1-00-companies-over-revenue` | `string-literal` | live | - | - | 17-08 |  |
+| `tests/products/test_gate_two_call_shape.py` | 2529 | `examples/s1-00-companies-over-revenue` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-00-companies-over-revenue/produce.py` |
+| `tests/products/test_gate_two_call_shape.py` | 2573 | `examples/s1-00-companies-over-revenue` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-00-companies-over-revenue/produce.py` |
+| `tests/products/test_gate_two_call_shape.py` | 2625 | `examples/s1-00-companies-over-revenue` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-00-companies-over-revenue/produce.py` |
+| `tests/products/test_gate_two_call_shape.py` | 2664 | `examples/s1-00-companies-over-revenue` | `string-literal` | live | - | - | 17-08 |  |
+| `tests/products/test_gate_two_call_shape.py` | 2666 | `examples/s1-00-companies-over-revenue` | `string-literal` | live | - | - | 17-08 |  |
+| `tests/products/test_gate_two_call_shape.py` | 2674 | `examples/s1-01-hello-context-product` | `count-scan-function` | live | 12 | - | 17-08 | `_resolved_binder_sites()` feeds `MINIMUM_RESOLVED_BINDER_SITES` — floor 12, 12 witnesses, headroom 0; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=2, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=2, examples/s1-01-hello-context-product=1; first break: wave 8 (16-15) |
+| `tests/products/test_gate_two_call_shape.py` | 3737 | `examples/03-harness-portability` | `inline-tree-witness` | live | 1 | - | 16-15 | `test_the_plan_recognition_refuses_an_unrelated_required_keyword` scans `BINDER_SCANNED_TREES` inline via `_python_sources()`; no floor constant and no module-level scan function. Sustained only by: examples/03-harness-portability. Measured by execution — the witness appears in this module only inside a docstring. |
+| `tests/products/test_gate_two_call_shape.py` | 3758 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
+| `tests/products/test_gate_two_call_shape.py` | 3765 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/products/test_request_contract.py` | 699 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/request-contract.yaml` |
+| `tests/products/test_request_contract.py` | 740 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/products/test_required_operators_guard.py` | 3 | `examples/00-quickstart` | `docstring` | documentary | - | - | 16-18 |  |
-| `tests/products/test_required_operators_guard.py` | 94 | `examples/00-quickstart` | `count-constant` | live | 9 | - | 16-18 | `MINIMUM_IMPLEMENTATIONS` — floor 9, 12 witnesses, headroom 3; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=1, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=1; first break: wave 11 (16-18) |
-| `tests/products/test_required_operators_guard.py` | 217 | `examples/00-quickstart` | `count-scan-function` | live | 9 | - | 16-18 | `_implementations()` feeds `MINIMUM_IMPLEMENTATIONS` — floor 9, 12 witnesses, headroom 3; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=1, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=1; first break: wave 11 (16-18) |
-| `tools/docs_tests/test_gate_two_wording.py` | 161 | `public/tutorial/adopters-guide.md` | `docstring` | documentary | - | - | 16-18 |  |
+| `tests/products/test_required_operators_guard.py` | 94 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 11 | - | 17-08 | `MINIMUM_IMPLEMENTATIONS` — floor 9, 13 witnesses, headroom 4; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=1, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 11 (16-18) |
+| `tests/products/test_required_operators_guard.py` | 217 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 11 | - | 17-08 | `_implementations()` feeds `MINIMUM_IMPLEMENTATIONS` — floor 9, 13 witnesses, headroom 4; under retiring paths: examples/00-quickstart=1, examples/01-agent-basics=1, examples/02-skilling=1, examples/03-harness-portability=1, examples/04-cross-process=1, examples/06-decision-replay=1, examples/07-artifact-store-mcp=1, examples/08-e2e-demo=1, examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: wave 11 (16-18) |
+| `tests/replay/test_engine_rehydration.py` | 1138 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/product-governance.yaml` |
+| `tools/docs_tests/test_gate_two_wording.py` | 162 | `public/tutorial/adopters-guide.md` | `docstring` | documentary | - | - | 16-18 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 17 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 18 | `tests/examples/test_workflow_hitl_output.py` | `docstring` | documentary | - | - | 16-18 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 42 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
 | `tools/docs_tests/test_no_stale_example_paths.py` | 45 | `examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-18 |  |
-| `tools/docs_tests/test_snippet_gate.py` | 51 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/run.py` |
+| `tools/docs_tests/test_resolver_seam_obligations.py` | 328 | `examples/s1-01-hello-context-product` | `string-literal` | live | - | - | 17-08 |  |
+| `tools/docs_tests/test_snippet_gate.py` | 52 | `examples/00-quickstart` | `path-construction` | live | - | - | 16-18 | constructed as `examples/00-quickstart/run.py` |
 | `tools/lints/tests/test_citations.py` | 350 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 16-18 |  |
 | `tools/measure_examples.py` | 261 | `examples/01-agent-basics` | `docstring` | documentary | - | - | 16-18 |  |
 | `tools/measure_examples.py` | 308 | `examples/01-agent-basics` | `string-literal` | live | - | - | 16-18 |  |
@@ -221,10 +286,14 @@ Append-only records and documents no plan in this phase may edit. They name reti
 
 | File | Hits | Reason |
 | --- | ---: | --- |
+| `.planning/HANDOFF-2026-08-14.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/HANDOFF-2026-08-15.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/PROJECT.md` | 1 | the phase's own planning tree — not shipped, not published |
-| `.planning/REQUIREMENTS.md` | 8 | the phase's own planning tree — not shipped, not published |
-| `.planning/ROADMAP.md` | 5 | the phase's own planning tree — not shipped, not published |
-| `.planning/STATE.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/REQUIREMENTS.md` | 14 | the phase's own planning tree — not shipped, not published |
+| `.planning/ROADMAP.md` | 8 | the phase's own planning tree — not shipped, not published |
+| `.planning/STATE.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/ledgers/16-config-consolidation.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/ledgers/2026-08-14-property-not-shape-gating.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/milestones/v0.1-ROADMAP.md` | 6 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/09-hardening-defect-fixes-ruling-batch/09-01-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/09-hardening-defect-fixes-ruling-batch/09-PATTERNS.md` | 1 | the phase's own planning tree — not shipped, not published |
@@ -403,7 +472,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/15.1-ergonomics-gap-closure/15.1-REVIEW.md` | 45 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.1-ergonomics-gap-closure/15.1-REVIEWS.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.1-ergonomics-gap-closure/15.1-VERIFICATION.md` | 17 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/15.1-ergonomics-gap-closure/deferred-items.md` | 58 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.1-ergonomics-gap-closure/deferred-items.md` | 59 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.2-substrate-adapters-and-query-pushdown/15.2-05-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.2-substrate-adapters-and-query-pushdown/15.2-08-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.2-substrate-adapters-and-query-pushdown/15.2-09-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
@@ -418,58 +487,111 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/15.4-backend-registration-seam-the-substrate-stops-naming-its-ada/15.4-08-SUMMARY.md` | 10 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.4-backend-registration-seam-the-substrate-stops-naming-its-ada/15.4-RESEARCH.md` | 12 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.4-backend-registration-seam-the-substrate-stops-naming-its-ada/15.4-SECURITY.md` | 1 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-04-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-04-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-01-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-04-PLAN.md` | 25 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-04-SUMMARY.md` | 22 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-05-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-06-SUMMARY.md` | 10 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-10-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-11-SUMMARY.md` | 3 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-13-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-13-SUMMARY.md` | 6 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-13-PLAN.md` | 34 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-13-SUMMARY.md` | 22 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-14-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-15-SUMMARY.md` | 6 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-CLOSE-REVIEWS.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-CLOSE-REVIEWS.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-CONTEXT.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-PATTERNS.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-PERF-D-IMPL-107.md` | 3 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-RESEARCH.md` | 1 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/deferred-items.md` | 2 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-01-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-RESEARCH.md` | 7 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/15.5-VALIDATION.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.5-the-context-product-surface-vessel-assembler-debt-entitlem/deferred-items.md` | 8 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-01-PLAN.md` | 7 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-01-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-02-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-02-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-04-SUMMARY.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-05-PLAN.md` | 30 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-05-SUMMARY.md` | 8 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-06-PLAN.md` | 11 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-06-SUMMARY.md` | 10 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-07-PLAN.md` | 13 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-07-SUMMARY.md` | 14 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-08-PLAN.md` | 13 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-08-SUMMARY.md` | 20 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-09-PLAN.md` | 9 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-09-SUMMARY.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-11-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-11-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-13-PLAN.md` | 26 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-13-SUMMARY.md` | 8 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-PATTERNS.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-RESEARCH.md` | 36 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/15.6-REVIEW.md` | 4 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/15.6-decision-completeness-and-defect-closure/deferred-items.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-01-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-01-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-02-PLAN.md` | 12 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-02-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-02-PLAN.md` | 33 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-02-SUMMARY.md` | 14 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-03-PLAN.md` | 18 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-03-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-04-PLAN.md` | 6 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-04-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-05-PLAN.md` | 11 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-05-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-06-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-06-SUMMARY.md` | 8 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-07-PLAN.md` | 5 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-08-PLAN.md` | 7 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-09-PLAN.md` | 12 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-10-PLAN.md` | 13 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-11-PLAN.md` | 10 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-12-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-13-PLAN.md` | 6 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-05-PLAN.md` | 85 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-05-SUMMARY.md` | 29 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-06-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-06-SUMMARY.md` | 10 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-07-PLAN.md` | 21 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-08-PLAN.md` | 10 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-09-PLAN.md` | 13 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-10-PLAN.md` | 15 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-11-PLAN.md` | 12 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-12-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-13-PLAN.md` | 12 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-14-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-15-PLAN.md` | 26 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-16-PLAN.md` | 19 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-17-PLAN.md` | 32 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-18-PLAN.md` | 59 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-20-PLAN.md` | 5 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-18-PLAN.md` | 63 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-20-PLAN.md` | 6 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-21-PLAN.md` | 21 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-21-SUMMARY.md` | 4 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-22-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-23-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-24-PLAN.md` | 7 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-24-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-25-PLAN.md` | 86 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-25-SUMMARY.md` | 14 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-27-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-28-PLAN.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-29-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-29-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-30-PLAN.md` | 16 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-30-SUMMARY.md` | 11 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-31-PLAN.md` | 27 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-31-SUMMARY.md` | 40 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-CONTEXT.md` | 5 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-DISCUSSION-LOG.md` | 2 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-PATTERNS.md` | 55 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-RESEARCH.md` | 59 | the phase's own planning tree — not shipped, not published |
-| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-VALIDATION.md` | 13 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-PATTERNS.md` | 22 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-RESEARCH.md` | 15 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/16-documentation-rewrite-the-deterministic-path-the-adoption-ar/16-VALIDATION.md` | 18 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-01-PLAN.md` | 8 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-03-PLAN.md` | 3 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-06-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-07-PLAN.md` | 6 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-08-PLAN.md` | 19 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-09-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-CONTEXT.md` | 1 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-RESEARCH.md` | 9 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
-| `docs/DECISIONS.md` | 22 | append-only decision log |
+| `docs/DECISIONS.md` | 45 | append-only decision log |
+| `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
 | `docs/PHASE_I1_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I3_GATE.md` | 5 | append-only per-phase gate records |
 | `docs/PHASE_I4_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I5_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/ROADMAP.md` | 5 | append-only phase record |
 | `docs/SURFACE-AUDIT.md` | 43 | append-only audit record |
-| `docs/SURFACE-CHANGES.md` | 413 | append-only surface-change index |
+| `docs/SURFACE-CHANGES.md` | 427 | append-only surface-change index |
 | `docs/surface-changes/15-10-manifest.md` | 1 | append-only per-plan surface-change records |
 | `docs/surface-changes/15-11-operator-builder.md` | 2 | append-only per-plan surface-change records |
 | `docs/surface-changes/15-12-schema-export.md` | 2 | append-only per-plan surface-change records |
@@ -483,10 +605,23 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `docs/surface-changes/15-20-external.md` | 44 | append-only per-plan surface-change records |
 | `docs/surface-changes/15.1-03-namespace-reservation.md` | 1 | append-only per-plan surface-change records |
 | `docs/surface-changes/15.5-06-egress-entitlement.md` | 3 | append-only per-plan surface-change records |
+| `docs/surface-changes/15.5-07-contract-elements.md` | 1 | append-only per-plan surface-change records |
 | `docs/surface-changes/15.5-10-assembler.md` | 3 | append-only per-plan surface-change records |
 | `docs/surface-changes/15.5-11-debt-delivery.md` | 3 | append-only per-plan surface-change records |
 | `docs/surface-changes/15.5-13-request-in-replay.md` | 1 | append-only per-plan surface-change records |
 | `docs/surface-changes/15.5-15-resolver-seam.md` | 2 | append-only per-plan surface-change records |
+| `docs/surface-changes/15.6-05-observation-identity.md` | 5 | append-only per-plan surface-change records |
+| `docs/surface-changes/15.6-06-debt-evidence.md` | 6 | append-only per-plan surface-change records |
+| `docs/surface-changes/15.6-07-source-refresh-recency.md` | 7 | append-only per-plan surface-change records |
+| `docs/surface-changes/15.6-08-obligation-binding.md` | 8 | append-only per-plan surface-change records |
+| `docs/surface-changes/15.6-12-close-panel-refusals.md` | 1 | append-only per-plan surface-change records |
+| `docs/surface-changes/15.6-12-single-agent-review-fixes.md` | 1 | append-only per-plan surface-change records |
+| `docs/surface-changes/15.6-13-source-refresh-window.md` | 2 | append-only per-plan surface-change records |
+| `docs/surface-changes/16-22-consumption-papercuts.md` | 1 | append-only per-plan surface-change records |
+| `docs/surface-changes/16-24-experience-door-entitlement.md` | 1 | append-only per-plan surface-change records |
+| `docs/surface-changes/16-28-deployment-config-document.md` | 1 | append-only per-plan surface-change records |
+| `docs/surface-changes/16-29-config-derivation.md` | 1 | append-only per-plan surface-change records |
+| `docs/surface-changes/16-30-config-boot-equivalence.md` | 2 | append-only per-plan surface-change records |
 | `docs/surface-changes/README.md` | 1 | append-only per-plan surface-change records |
 | `docs/surface/examples/ERGO-03-FROZEN.md` | 27 | the frozen ERGO-03 record (D-15) |
 | `docs/surface/examples/after/examples__00-quickstart__run.json` | 1 | frozen ERGO-03 measurement (D-15) |
@@ -537,7 +672,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `docs/surface/examples/before/examples__external__00-hello-context__replay_server.json` | 1 | frozen ERGO-03 baseline (D-15) |
 | `docs/surface/examples/before/examples__external__00-hello-context__run.json` | 1 | frozen ERGO-03 baseline (D-15) |
 | `docs/surface/examples/before/examples__external__00-hello-context__serve.json` | 1 | frozen ERGO-03 baseline (D-15) |
-| `tools/retirement_sweep.py` | 26 | the sweep's own schedule — it names every retiring path by construction, and must go on naming them after the deletions or the re-runs waves 8, 10 and 11 depend on stop being possible |
+| `tools/retirement_sweep.py` | 31 | the sweep's own schedule — it names every retiring path by construction, and must go on naming them after the deletions or the re-runs waves 8, 10 and 11 depend on stop being possible |
 
 ## Re-running
 
