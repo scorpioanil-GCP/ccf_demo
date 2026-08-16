@@ -1153,9 +1153,20 @@ def test_the_cold_and_warm_runs_agree_on_the_enumeration() -> None:
     importing modules around it. A ``__subclasses__``-based enumeration fails
     this; the AST walk cannot.
 
-    It also pins the load-bearing import order inside ``ccf.products.refusal``:
-    the subprocess imports that module cold, which is the condition under which
-    the tree's pre-existing ``payload``/``request`` cycle bites.
+    It also imports ``ccf.products.refusal`` cold, which is what makes the
+    subprocess a genuine first entry into the tree rather than a re-run of an
+    already-warm one.
+
+    **This no longer pins an import order.** When it was written it did: a cycle
+    through ``ccf.products.payload`` made that module unimportable as the first
+    import, so ``refusal`` ordered its two ``ccf.products`` imports around the
+    defect and this test held the order in place (``DEF-17-02``). Plan ``17-03b``
+    removed the edge that closed the cycle, so the ordering constraint and its
+    comment are gone and the two imports sit in their sorted position —
+    ``payload`` first, the order that used to fail. What is asserted here is
+    unchanged, and the property it depended on is now guarded at the source by
+    ``tests/invariants/test_cold_import.py``, which walks every ``ccf.*`` module
+    in its own cold subprocess.
     """
     warm = {name: family for name, (family, _) in discover_refusal_types(SRC_ROOT).items()}
     program = (

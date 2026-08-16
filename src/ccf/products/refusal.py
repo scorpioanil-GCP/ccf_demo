@@ -99,21 +99,8 @@ from ccf.products.gates import (
     LineageMismatchRefusal,
     TTLRefusal,
 )
-
-# These two imports are ordered ``request`` before ``payload`` deliberately,
-# and the order is load-bearing. A pre-existing cycle in the tree —
-# ``ccf.products.payload`` → ``ccf.skills.catalog`` → ``ccf.agents`` →
-# ``ccf.replay.record`` → ``ccf.products.request`` → ``ccf.products.payload``
-# — makes ``import ccf.products.payload`` raise ``ImportError`` when it is the
-# first entry into that cycle, on the tree as it stands and with or without
-# this module. Entering through ``ccf.products.request`` completes the cycle's
-# far side first and both modules then load. The defect is not this module's to
-# fix (nothing here may modify an existing module), so it is pinned instead:
-# ``tests/products/test_refusal_envelope.py`` imports this module in a cold
-# subprocess, and a reordering of these two lines fails that test rather than
-# breaking an adopter's first import.
-from ccf.products.request import ProductRequestViolation
 from ccf.products.payload import PayloadSchemaViolation
+from ccf.products.request import ProductRequestViolation
 
 __ccf_mode__ = "algorithmic"
 
