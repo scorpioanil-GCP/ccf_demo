@@ -121,11 +121,19 @@ as it was for `D-29`'s composition: a reference implementation that bakes in a
 threshold, a role, or a product class is the defect this work exists to remove,
 reappearing one layer down.
 
+**No new discovery or registration machinery in this change.** Simple defaults
+are sufficient for v0. Optional override keys in `binding.yaml` may be added
+later if a real need appears; they are out of scope now.
+
+**`binding.yaml` remains data-only.** This work is what *makes* the data-only
+path viable; it does not itself introduce `module:attribute` factories.
+
 ## 7. Out of scope for this pause
 
-- Multiple alternative implementations
+- Multiple alternative implementations, or a general plugin registry
 - Pluggable registration / entry-point discovery
-- Any change to the client surface or `WireOutcome`
+- Any change to the client surface, `WireOutcome`, or the refusal envelope
+- Perspective / request vocabulary — already confirmed declarable as data (§3)
 - Example work — **wave 7 stays blocked until this lands**
 
 ## 8. Success criteria
@@ -148,7 +156,27 @@ reappearing one layer down.
 - **`17-13`** — wire both as defaults into `GovernedResolver` (or the helper),
   plus tests proving a data-only deployment works end to end
 
-Then return to wave 6, and wave 7 after it.
+After `17-13` is green, waves 6 and 7 may resume.
+
+## 9a. Risks and watch items
+
+Three, each of which has a precedent in this phase rather than being
+hypothetical:
+
+1. **The reference plan factory must not hard-code any domain plan shape.** It
+   stays driven by Control Plane artifacts plus the request. This is the same
+   exposure `D-29`'s composition carried, one layer down — and the reason that
+   plan required a per-constant justification.
+2. **The reference debt scorer must use the existing half-life / debt-profile
+   machinery**, not invent new scoring rules. `D-IMPL-47` already rules the
+   scorer surface (versioned scorers, Control-Plane-updatable class bindings,
+   replay pinning the scorer version in force); a reference implementation
+   *implements* that, it does not re-decide it.
+3. **Defaulting must be explicit and testable**, so a future override path does
+   not silently break. This is the phase's signature defect waiting to happen:
+   a default that nothing exercises is a check that stops checking without
+   going red. Success criterion 4 exists for exactly this — the tests must
+   prove the defaults are *selected and used*, not merely that they exist.
 
 ## 10. Consequence for `D-IMPL-141`
 
