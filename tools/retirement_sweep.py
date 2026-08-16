@@ -81,6 +81,7 @@ import io
 import os
 import pathlib
 import re
+import subprocess
 import sys
 import tokenize
 import types
@@ -153,6 +154,20 @@ RETIREMENT_SCHEDULE: tuple[Retirement, ...] = (
     Retirement("tests/examples/test_ext00_serve_output.py", "16-18", 11),
     Retirement("public/tutorial/adopters-guide.md", "16-18", 11),
     Retirement("public/tutorial/demo-walkthrough.md", "16-18", 11),
+    # --- wave 12 (17-08) ---
+    # Phase 17's condemned trees (D-27, D-31). The wave integer continues the
+    # existing sequence rather than restarting at Phase 17's own wave 6: `wave`
+    # orders retirements against each other for `_first_break` and the
+    # cross-wave check, and Phase 17 disposes of these *after* every Phase 16
+    # wave, so 12 is the ordering the field actually encodes. Existing entries
+    # are not renumbered. Each path was confirmed to exist before being listed
+    # — the unowned-row gate is fail-closed, and a schedule naming a path that
+    # is not there is the same class of defect as one that omits a path.
+    Retirement("examples/s1-00-companies-over-revenue", "17-08", 12),
+    Retirement("examples/s1-01-hello-context-product", "17-08", 12),
+    Retirement("tests/examples/test_s1_00_output.py", "17-08", 12),
+    Retirement("tests/examples/test_s1_01_output.py", "17-08", 12),
+    Retirement("tests/examples/test_s1_00_config_equivalence.py", "17-08", 12),
 )
 
 #: The disposition for a row whose owner the schedule cannot supply. It is a
@@ -219,13 +234,25 @@ BINARY_SUFFIXES: frozenset[str] = frozenset(
 #: shared `publish_scan.SKIP_DIRS` is deliberately not widened: it is another
 #: phase's surface and the publish scan has its own reasons for what it reads.
 #:
-#: The set is every gitignored directory that exists at the repo root, so the
-#: rule is "the inventory measures the tracked tree" rather than a list of
-#: names someone remembered. `test_no_gitignored_path_reaches_the_report`
-#: fails if a new one appears.
+#: The set is a hand-maintained fast prune and a fallback for a non-git
+#: checkout. It is **no longer the authority**: `git_ignored_entries()` asks
+#: git directly, so the rule is "the inventory measures the tracked tree"
+#: rather than a list of names someone remembered.
+#:
+#: The hand-maintained list drifting from `.gitignore` is measured, not
+#: hypothetical. Plan 17-01 found five gitignored trees absent from this set —
+#: `.mypy_cache/`, `build/`, `dist/`, `perf/results/` and `__pycache__/` — and
+#: reproduced the consequence: a single file written to `perf/results/`, a
+#: directory `.gitignore:18` ignores and the perf battery writes on every run,
+#: put a row in the inventory and made `--report && git diff` a function of
+#: whether a developer had run the battery. That is precisely the
+#: non-reproducibility `test_no_gitignored_path_reaches_the_report` exists to
+#: catch, and a second hand-list is a second thing that can drift, so the walk
+#: now asks git and keeps this set only as the fallback.
 ARTIFACT_DIRS: frozenset[str] = frozenset(
     {".pytest_cache", ".hypothesis", ".ruff_cache", "ccf.egg-info", "site",
-     "htmlcov", ".tox", "node_modules", ".claude"}
+     "htmlcov", ".tox", "node_modules", ".claude", ".mypy_cache", "build",
+     "dist", "__pycache__"}
 )
 
 
@@ -335,23 +362,67 @@ def resolve_owner(relative_file: str, retiring_path: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def git_ignored_entries() -> frozenset[str]:
+    """Every repo-relative path git ignores, as POSIX strings without a slash.
+
+    Asked of git rather than parsed out of `.gitignore`, because a second
+    pattern parser is a second thing that can drift from the first — and the
+    drift is what `test_no_gitignored_path_reaches_the_report` measures, so the
+    walk and the gate must consult the same authority. `--directory` collapses
+    a wholly-ignored directory to one entry, which is what makes this a prune
+    rather than a per-file filter.
+
+    Returns an empty set when git is unavailable or `REPO_ROOT` is not a
+    checkout; the walk then falls back to `ARTIFACT_DIRS` alone. Failing open
+    is deliberate: this is a reporting sweep, and a missing git binary should
+    widen the report rather than abort it.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "ls-files", "-o", "-i", "--directory", "--exclude-standard"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            check=False,
+        )
+    except OSError:
+        return frozenset()
+    if proc.returncode != 0:
+        return frozenset()
+    return frozenset(
+        line.strip().rstrip("/")
+        for line in proc.stdout.splitlines()
+        if line.strip()
+    )
+
+
 def iter_source_files() -> list[pathlib.Path]:
     """Every readable file under `REPO_ROOT`, minus the skip set and the report.
 
-    Rooted at `REPO_ROOT`, never `Path.cwd()`. The skip set is
-    `publish_scan.SKIP_DIRS` widened by `ARTIFACT_DIRS`, so the walk reads the
-    tracked tree and not build output — see `ARTIFACT_DIRS` for the measured
-    failure that motivates the widening.
+    Rooted at `REPO_ROOT`, never `Path.cwd()`. Three prunes compose: git's own
+    ignore rules (`git_ignored_entries()`, the authority),
+    `publish_scan.SKIP_DIRS`, and `ARTIFACT_DIRS` as a fast pre-prune and a
+    non-git fallback. The result is that the walk reads the tracked tree and
+    not build output — see `ARTIFACT_DIRS` for the measured failure that
+    motivates asking git rather than maintaining a list.
     """
     found: list[pathlib.Path] = []
     pruned = SKIP_DIRS | ARTIFACT_DIRS
+    ignored = git_ignored_entries()
     for dirpath, dirnames, filenames in os.walk(REPO_ROOT):
-        dirnames[:] = sorted(name for name in dirnames if name not in pruned)
+        dirnames[:] = sorted(
+            name
+            for name in dirnames
+            if name not in pruned
+            and relative(pathlib.Path(dirpath) / name) not in ignored
+        )
         for name in sorted(filenames):
             path = pathlib.Path(dirpath) / name
             if path == REPORT_PATH:
                 continue
             if path.suffix.lower() in BINARY_SUFFIXES:
+                continue
+            if relative(path) in ignored:
                 continue
             found.append(path)
     return sorted(found)
