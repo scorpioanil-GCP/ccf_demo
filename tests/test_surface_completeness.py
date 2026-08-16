@@ -460,6 +460,32 @@ def test_the_frozen_baseline_was_written_only_by_plan_15_01() -> None:
     """
     if shutil.which("git") is None:  # pragma: no cover - environment dependent
         return
+    # Ask git whether the history is shallow rather than INFERRING it from an
+    # empty log. A shallow clone does not return zero subjects — its grafted
+    # root appears to introduce every file in the tree, so `git log -- <path>`
+    # returns exactly ONE subject: HEAD's. The `if not subjects` guard below
+    # therefore never fired, and this assertion compared HEAD's own subject
+    # against "(15-01)" — unsatisfiable for every commit since that plan.
+    #
+    # It failed that way in CI on the first run that ever reached it
+    # (31970398090, 2026-08-16): `actions/checkout@v4` defaults to
+    # `fetch-depth: 1`, and the tests job had been dying at collection long
+    # before this test, so a check that could never pass stayed invisible.
+    # Reproduced with `git clone --depth 1`, which returns HEAD's subject here.
+    #
+    # The docstring's intent was already correct — skip where the history is
+    # shallow. Only the detection was a guess; this is git's own answer.
+    shallow = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if shallow.returncode != 0:  # pragma: no cover - environment dependent
+        return
+    if shallow.stdout.strip() == "true":  # pragma: no cover - shallow clone
+        return
     result = subprocess.run(
         [
             "git",
@@ -476,7 +502,7 @@ def test_the_frozen_baseline_was_written_only_by_plan_15_01() -> None:
     if result.returncode != 0:  # pragma: no cover - environment dependent
         return
     subjects = [line for line in result.stdout.splitlines() if line.strip()]
-    if not subjects:  # pragma: no cover - shallow clone
+    if not subjects:  # pragma: no cover - unborn or path-less history
         return
     foreign = [subject for subject in subjects if "(15-01)" not in subject]
     assert not foreign, (
