@@ -25,7 +25,7 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint typecheck test ci-core ci examples \
+.PHONY: help install lint typecheck test ci-core ci examples gate-tools \
 	example-s1-01 example-s1-00 \
 	example-00 example-01 example-02 example-03 example-04 example-05 \
 	example-06 example-07 example-08 example-ext-00 \
@@ -78,7 +78,33 @@ ci-core: lint typecheck test ## Mid-phase verification sweep — MUST stay green
 # composition, effective at the plan that creates the docs build target. That
 # gate is now complete (strict build + publish scan, D-02), so `docs-strict`
 # joins `ci` here — never as a half-armed or dead target.
-ci: ci-core examples docs-strict ## Full local reproduction of the always-on pipeline (D-10)
+# Amended in plan 17-01: `gate-tools` joins the composition. The claim on the
+# line below was false until it did — `[tool.pytest] testpaths = ["tests"]`
+# (pyproject.toml:142) stops collection at `tests/`, so the three suites under
+# `tools/` were invisible to every local gate while two Actions jobs ran them
+# on every push. Two of their tests were failing when Phase 17 opened, and the
+# phase would have closed green locally and red in Actions. This is the Phase
+# 16 lesson applied to the gate itself: a measurement nobody is looking at
+# protects nothing.
+ci: ci-core examples docs-strict gate-tools ## Full local reproduction of the always-on pipeline (D-10)
+
+# The two commands are `.github/workflows/ci.yml:35` and `:314` verbatim, so
+# this target reproduces what CI already runs rather than inventing a third
+# command for the same suites. `$(ENV_DOCS)`, not `$(ENV)`: these suites do
+# `from tools.publish_scan import ...` and `from tools.lints import ...`, so
+# the repo root must be on PYTHONPATH — the same reason `docs-strict` uses it.
+#
+# Who reads the number and what fails when it moves: `make ci` reads it on
+# every local run and the two named Actions jobs read it on every push, so a
+# regression in any of the three suites now fails the local gate instead of
+# surfacing after the phase has been presented.
+#
+# Scope: `DOCS-08` (Phase 16) owns the full "`make ci` composes the three
+# suites" requirement. This target discharges the part Phase 17 needs to make
+# its own gate honest and does not claim `DOCS-08`.
+gate-tools: ## Run the tools/ suites CI runs that `testpaths` excludes from `make test`
+	$(ENV_DOCS) $(PYTHON) -m pytest tools/lints/tests -q
+	$(ENV_DOCS) $(PYTHON) -m pytest tools/publish_scan_tests tools/docs_tests -q
 
 example-00: ## Run examples/00-quickstart (reference backends, D-13)
 	$(ENV) $(PYTHON) examples/00-quickstart/run.py
