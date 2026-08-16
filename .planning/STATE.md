@@ -3,26 +3,39 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-16T15:10:00.000Z"
+last_updated: "2026-08-16T18:00:00.000Z"
 last_activity: >-
-  2026-08-16 -- Phase 17 EXECUTING, waves 1-5 merged and green (make ci-core exit 0: 3642 passed /
-  0 failed / 118 skipped, plus 400 lint and 144 tools tests). Waves 6-7 HELD BY RULING behind a
-  three-plan pause: 17-11/-12/-13, written and committed, not yet run. Read
-  .planning/HANDOFF-2026-08-16.md first -- it is written for a cold start.
+  2026-08-16 -- THE THREE-PLAN PAUSE IS CLOSED. 17-11, 17-12 and 17-13 all executed, merged and
+  verified green on the MAIN CHECKOUT at f84d11c: make ci-core MAKE_EXIT=0, 3751 passed / 0 failed
+  / 118 skipped, 400 lint, 144 tools. The 2026-08-16 spec is discharged, all five success criteria
+  with 3' in place of 3. CLAUDE.md §11 no longer violated for AssemblyDebtScorerProtocol.
+  BY THE PHASE'S OWN RULING WAVES 6 AND 7 ARE NOW UNBLOCKED -- but they are NOT started; that is
+  Dave's call, together with the still-unlooked-at phase-17 CI result.
 progress:
   total_phases: 18
   completed_phases: 16
   total_plans: 175
-  completed_plans: 161
-  percent: 92
+  completed_plans: 164
+  percent: 94
 stopped_at: >-
-  PHASE 17 AT WAVE 5 OF 8, PAUSED BY RULING. START AT .planning/HANDOFF-2026-08-16.md -- it carries
-  the cold-start brief, the git state, every ruling, and the standing hazards. NEXT ACTION: launch
-  17-11 (reference AssemblyDebtScorer, autonomous), then 17-12, then 17-13, sequentially. When
-  17-13 is green, waves 6 and 7 unblock. TWO THINGS NEED DAVE, NOT THE SESSION: (1) the phase-17 CI
-  check -- the branch was pushed at 8e95139 and has never been looked at; there is no gh CLI and no
-  GitHub token here, so this CANNOT be done from the session. Green -> proceed; red -> diagnose
-  before further waves. (2) Waves 6 and 7 stay held. WHY THE PAUSE EXISTS: GovernedResolver takes 13
+  PHASE 17 AT WAVE 5.7 OF 8. THE PAUSE IS CLOSED AND THE TREE IS VERIFIED GREEN at f84d11c
+  (make ci-core MAKE_EXIT=0, 3751 passed / 0 failed / 118 skipped, 400 lint, 144 tools -- exit code
+  captured directly, NOT through a pipe; see the measurement hazard below). 17-11, 17-12, 17-13 are
+  all merged with SUMMARYs committed. NEXT ACTION IS DAVE'S, NOT THE SESSION'S: (1) THE phase-17 CI
+  CHECK, still the highest-priority unknown -- pushed at 8e95139, never looked at, and the branch is
+  now ~180 commits ahead of main with NOTHING SINCE 8e95139 PUSHED. No gh CLI and no GitHub token
+  here, so this CANNOT be done from the session. (2) WAVES 6 AND 7 ARE UNBLOCKED BY THE RULING but
+  were deliberately NOT started -- 17-08 and 17-09 are both autonomous:false (checkpoint plans) and
+  wave 8 (17-10) follows them. THREE NEW MEASUREMENT HAZARDS, all found 2026-08-16 and all of the
+  same family -- machinery that reports confidently wrong rather than failing: (a) `make ... | tail
+  -N` REPORTS TAIL'S EXIT CODE, not make's; the orchestrator made this exact mistake twice and
+  reported a green tree that was red (gate-tools was failing). Always `make X > log 2>&1; echo $?`.
+  (b) THE VENV'S EDITABLE INSTALL RESOLVES `ccf` TO THE MAIN CHECKOUT, so any worktree measurement
+  without PYTHONPATH=src:runtime reads code the executor did not write; make targets set it, ad-hoc
+  pytest and python -c DO NOT. (c) RETIREMENT-COUPLINGS.md SWEEPS THE PLANNING TREE, so a plan's own
+  SUMMARY.md is swept -- 17-12 regenerated the report and then wrote its SUMMARY, adding a row and
+  leaving gate-tools red on merge (fixed at f7c01c5). Re-sweep AFTER the SUMMARY, never before.
+  WHY THE PAUSE EXISTED: GovernedResolver takes 13
   constructor arguments -- 3 from the booted fabric, 8 plain data, 2 BEHAVIORAL -- and neither
   behavioral Protocol had a reference implementation, violating CLAUDE.md §11 in its own words and
   forcing every deployment to write both in Python (the fixture's resolver.py is 295 lines of
@@ -43,9 +56,15 @@ stopped_at: >-
   shipped past a red gate). Root cause worth carrying: Python's discovery primitives default to
   LENIENT, so a gate built on one inherits its leniency unless you override it explicitly. The
   instruction that keeps earning its keep: tell every executor to expect its plan to be wrong and to
-  dispute with a MEASUREMENT -- seven for seven this phase, including two plans whose central design
-  element was impossible, and three executors who correctly disputed a baseline the orchestrator
-  defended twice.
+  dispute with a MEASUREMENT -- now TEN FOR TEN this phase. 17-11 found its own plan's premise false
+  (the SDK cannot supply C or S at all, so both arrive as scorers with no defaults and DeclaredFactor
+  ships so a deployment can STATE an assumption that pins into replay); 17-12 found the SPEC wrong
+  twice (artifact_store is not on BootedFabric; asked_at is not SDK-owned at this seam) and its own
+  key list short by two; 17-13 found its plan's fabric-object count wrong AND found its own fixture
+  could not exercise debt at all -- an unpopulated graph took the empty-assembly branch and reported
+  freshness 0 on BOTH sides of a comparison, presenting as a GREEN-LOOKING ZERO rather than an error.
+  That is the sixth instance of the phase's shape and it was caught only because the test demanded a
+  number that MOVES rather than a number that exists.
 
 ---
 
@@ -59,35 +78,73 @@ and composition properties. Priority order: fidelity → general-purposeness →
 harness neutrality → adoptability. `/home/parkave/ccf_code/CLAUDE.md` (rev 4)
 is canonical for phases, review protocol, invariants, and decision log.
 
-**Current focus:** Phase 17 — Client Access (`ccf.client`), EXECUTING at wave 5
-of 8 and paused by ruling. **Read `.planning/HANDOFF-2026-08-16.md` first** — it
-is written for a cold start and carries everything below in fuller form. The
-design is `docs/superpowers/specs/2026-08-15-ccf-client-design.md` plus its
-Amendment 1; the current pause is
+**Current focus:** Phase 17 — Client Access (`ccf.client`), EXECUTING at wave
+5.7 of 8. **The three-plan pause is CLOSED and the tree is verified green.**
+`.planning/HANDOFF-2026-08-16.md` is the cold-start brief but is now STALE in
+its "RESUME HERE" section — 17-11/-12/-13 have all run. The design is
+`docs/superpowers/specs/2026-08-15-ccf-client-design.md` plus its Amendment 1;
+the pause spec is
 `docs/superpowers/specs/2026-08-16-reference-plan-factory-and-debt-scorer.md`
-plus its Amendment A.
+plus its Amendment A, and it is now DISCHARGED.
 
 ## Current Position
 
-Phase: 17 — Client Access. Waves 1–5 MERGED AND GREEN (8 plans: 17-01…17-07 plus
-  the mid-phase 17-03b Dave ruled in). `make ci-core` exit 0 — 3642 passed /
-  0 failed / 118 skipped, 400 lint checks, 144 tools tests.
-Waves 6–7: HELD BY RULING behind the three-plan pause below.
-Wave 8 (17-10, MCP door + adapter): follows 6 and 7.
+Phase: 17 — Client Access. Waves 1–5.7 MERGED AND GREEN (11 plans: 17-01…17-07,
+  the mid-phase 17-03b Dave ruled in, plus 17-11, 17-12, 17-13).
+  VERIFIED ON THE MAIN CHECKOUT at `f84d11c`: `make ci-core` MAKE_EXIT=0 —
+  3751 passed / 0 failed / 118 skipped, 400 lint checks, 144 tools tests.
+  Exit code captured directly, never through a pipe.
+Waves 6–7 (17-08, 17-09): UNBLOCKED BY THE RULING, DELIBERATELY NOT STARTED.
+  Both are `autonomous: false` — checkpoint plans needing Dave in the loop.
+Wave 8 (17-10, MCP door + adapter): follows 6 and 7. Autonomous.
 Phase 16: STOPPED 2026-08-15, not gated. Post-mortem
   `.planning/HANDOFF-2026-08-15.md`. Its CI has been red for some time — the
   docs-gate half is diagnosed (stale retirement report, already fixed on
   phase-17); the tests half (exit 2 in ~45s, collection-error territory) is NOT.
 
-NEXT ACTION: launch 17-11 (reference AssemblyDebtScorer — autonomous), then
-  17-12, then 17-13, SEQUENTIALLY. All three are written and committed. When
-  17-13 is green, waves 6 and 7 unblock.
+WHAT THE PAUSE DELIVERED (2026-08-16, all three merged with SUMMARYs committed):
+  17-11 `~ccf.products.debt_scorer.AssemblyDebtScorer` — the reference
+    GraphView -> DebtAssessment adapter, row-selection choice STATED at the seam
+    (rows that SURVIVED being read, with reason, consequence and override path).
+    Plus `DeclaredFactor`, because the SDK has no measurement for C or S and a
+    declared assumption must be distinguishable from a measurement in replay.
+    11 sabotage controls, all observed failing.
+  17-12 `binding.yaml` is DATA plus exactly ONE `module:attribute` reference.
+    TWO refusal checks, because one would have been a precedent: `RULED_OUT_KEYS`
+    refuses `resolver:`/`connection_factory:` BY NAME, and `looks_like_a_reference`
+    refuses a reference-shaped value in ANY data position (key-name refusal cannot
+    see one smuggled through `question.subject`). `REFERENCE_KEYS` is a
+    one-element tuple ASSERTED to be one element. The fixture's 295-line
+    `resolver.py` (five responsibilities) became a 127-line `projection.py` (one).
+    D-IMPL-141 rewritten as RESOLVED.
+  17-13 The reference scorer is the DEFAULT — in a HELPER,
+    `~ccf.products.resolver.build_governed_resolver`, NOT on the class. Two
+    measurements decided it: defaulting on the class would have grown
+    GovernedResolver from 13 arguments to 17 (a default that enlarges its own
+    seam is not a default), and a SHIPPED assertion
+    (`test_no_constructor_argument_carries_a_default`) would have had to be
+    weakened — this phase's signature defect, in the plan whose subject is
+    inert defaults. Proven USED by EFFECT twice: the ScorerPins on a SERVED
+    product, and two deployments differing in NOTHING but their λ_c table
+    producing different freshness figures. A pin is a claim; a number that moves
+    with its input is a measurement.
+  THE ANSWER TO "what does defaulting mean when two of three factors are
+    irreducibly the deployment's": THE DEFAULT IS THE MACHINERY, NEVER THE
+    VALUES. 17-12's `debt:` block survives intact, all four fields, because none
+    of the four is something a default may supply.
 
 NEEDS DAVE, NOT THE SESSION:
-  (1) THE phase-17 CI CHECK, highest-priority unknown. Pushed at 8e95139 and
-      never looked at. No gh CLI, no GitHub token here — this cannot be done
-      from the session. Green -> proceed. Red -> diagnose before further waves.
-  (2) Waves 6 and 7 stay held until 17-13 lands.
+  (1) THE phase-17 CI CHECK, still the highest-priority unknown and now more so.
+      Pushed at 8e95139 and never looked at; the branch is ~180 commits ahead of
+      main and NOTHING SINCE 8e95139 IS PUSHED. No gh CLI, no GitHub token here —
+      this cannot be done from the session. Green -> proceed. Red -> diagnose.
+  (2) WHETHER TO START WAVES 6 AND 7. The ruling unblocks them; the session did
+      not start them. 17-08 and 17-09 are both checkpoint plans (autonomous:
+      false), so they need Dave in the loop by construction.
+  (3) TWO SDK SURFACE ADDITIONS made inside the pause that are Dave's to keep or
+      reverse at the gate: `DeclaredFactor` (17-11) and `build_governed_resolver`
+      + `DEBT_SCORER_INPUTS` (17-13). All three are claimed in surface-change
+      fragments rather than shipped silently.
 
 WHAT CLOSED 2026-08-15, both verified by the orchestrator rather than relayed:
   (1) PROPERTY-NOT-SHAPE GATING — `phase-16` was red with 18 failures and no
