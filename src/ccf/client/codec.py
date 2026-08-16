@@ -66,7 +66,12 @@ from ccf.products.contract import ContextProductContract
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["decode_outcome", "encode_outcome", "verify_content_address"]
+__all__ = [
+    "check_outcome",
+    "decode_outcome",
+    "encode_outcome",
+    "verify_content_address",
+]
 
 
 def encode_outcome(outcome: WireOutcome) -> bytes:
@@ -118,6 +123,74 @@ def verify_content_address(product_json: str, claimed: str) -> str:
     return recomputed
 
 
+def check_outcome(
+    outcome: WireOutcome, *, sent: WireRequest
+) -> ContextProductContract | None:
+    """Check an outcome against the question it answers, and parse its vessel.
+
+    The three checks a *client* needs on anything an adapter hands it: the
+    outcome answers the question that was asked, the vessel hashes to the
+    address claimed for it, and the vessel is a valid contract.
+
+    Named and separated from :func:`decode_outcome` so the two paths that must
+    perform it can share one definition. :func:`decode_outcome` calls it after
+    parsing bytes, and :class:`~ccf.client.client.ProductClient` calls it on
+    whatever an adapter returned — because ``D-11`` types the adapter seam as
+    returning a :class:`~ccf.client.wire.WireOutcome` rather than bytes, so an
+    adapter that never went near this module can still produce a well-formed
+    outcome object. Making the client run these checks itself is what turns
+    ``D-12``'s *"a code path adapters cannot avoid"* into a property of the
+    checks as well as of ``Result`` construction. The cost is one SHA-256 over
+    text the client already holds; the alternative is trusting every adapter
+    author to have remembered.
+
+    The served vessel is **returned rather than discarded** so the caller that
+    needs it does not parse the same text a second time.
+
+    Args:
+        outcome: What an adapter produced, or what was just parsed from bytes.
+        sent: The request that was actually sent. Required rather than optional
+            so the echo cross-check cannot be forgotten — see the module
+            docstring for why an echo rather than a reconstruction.
+
+    Returns:
+        The parsed vessel on a served outcome, and ``None`` on a refusal. A
+        refusal is a governed answer with no vessel, not a failure.
+
+    Raises:
+        TransportError: the echoed request names a different question than the
+            one sent, the vessel does not hash to its claimed address, or the
+            vessel is not a valid contract. Never raised for a governed
+            refusal.
+    """
+    if outcome.request != sent:
+        raise TransportError(
+            "the outcome echoes a different question than the one that was"
+            f" asked — sent `{sent.product_id}` and received"
+            f" `{outcome.request.product_id}`, or their parameters or temporal"
+            " boundaries differ. A transport that crosses two in-flight"
+            " questions produces a well-formed answer to the wrong one"
+        )
+
+    if outcome.product_json is None:
+        return None
+
+    if outcome.content_address is None:  # pragma: no cover - validator forbids
+        raise TransportError(
+            "a served outcome arrived with no content address, which the"
+            " outcome's own validator forbids"
+        )
+    verify_content_address(outcome.product_json, outcome.content_address)
+    try:
+        return ContextProductContract.model_validate_json(outcome.product_json)
+    except ValidationError as invalid:
+        raise TransportError(
+            "the received vessel is not a valid product contract — the"
+            " producer and this client disagree about the contract, which"
+            " is the one condition replay cannot survive silently"
+        ) from invalid
+
+
 def decode_outcome(raw: bytes, *, sent: WireRequest) -> WireOutcome:
     """Turn received bytes into the one outcome shape, or refuse to.
 
@@ -125,7 +198,8 @@ def decode_outcome(raw: bytes, *, sent: WireRequest) -> WireOutcome:
     order in which failing early is most informative: the bytes are a
     well-formed outcome, the outcome answers the question that was asked, the
     vessel hashes to the address claimed for it, and the vessel is a valid
-    contract.
+    contract. The last three are :func:`check_outcome`, which the client runs
+    again on whatever an adapter returns.
 
     Args:
         raw: The bytes an adapter received.
@@ -152,29 +226,5 @@ def decode_outcome(raw: bytes, *, sent: WireRequest) -> WireOutcome:
             " wire and never a refusal"
         ) from malformed
 
-    if outcome.request != sent:
-        raise TransportError(
-            "the outcome echoes a different question than the one that was"
-            f" asked — sent `{sent.product_id}` and received"
-            f" `{outcome.request.product_id}`, or their parameters or temporal"
-            " boundaries differ. A transport that crosses two in-flight"
-            " questions produces a well-formed answer to the wrong one"
-        )
-
-    if outcome.product_json is not None:
-        if outcome.content_address is None:  # pragma: no cover - validator forbids
-            raise TransportError(
-                "a served outcome arrived with no content address, which the"
-                " outcome's own validator forbids"
-            )
-        verify_content_address(outcome.product_json, outcome.content_address)
-        try:
-            ContextProductContract.model_validate_json(outcome.product_json)
-        except ValidationError as invalid:
-            raise TransportError(
-                "the received vessel is not a valid product contract — the"
-                " producer and this client disagree about the contract, which"
-                " is the one condition replay cannot survive silently"
-            ) from invalid
-
+    check_outcome(outcome, sent=sent)
     return outcome
