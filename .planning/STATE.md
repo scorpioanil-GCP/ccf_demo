@@ -141,10 +141,37 @@ NEEDS DAVE, NOT THE SESSION:
   (2) WHETHER TO START WAVES 6 AND 7. The ruling unblocks them; the session did
       not start them. 17-08 and 17-09 are both checkpoint plans (autonomous:
       false), so they need Dave in the loop by construction.
-  (3) TWO SDK SURFACE ADDITIONS made inside the pause that are Dave's to keep or
-      reverse at the gate: `DeclaredFactor` (17-11) and `build_governed_resolver`
-      + `DEBT_SCORER_INPUTS` (17-13). All three are claimed in surface-change
-      fragments rather than shipped silently.
+  (3) RULED 2026-08-16 — D-IMPL-142. The three new public names are KEPT, all
+      three, with reasons recorded: `DeclaredFactor` (mechanism that makes a
+      declared factor auditable in replay), `build_governed_resolver` (the
+      helper is the right place for defaults, not the class) and
+      `DEBT_SCORER_INPUTS` (naming required inputs beats leaving them implicit).
+      Dave also ratified the discipline: claiming them in surface-change
+      fragments rather than shipping them silently is correct. NO REVERSALS.
+
+RULED 2026-08-16 ON SEQUENCING (D-IMPL-142): waves 6 and 7 are unblocked by the
+  spec's closure but HELD pending a clear phase-17 CI signal — "starting the
+  deletion/quarantine waves while we still don't know whether the always-on
+  pipeline agrees with the local gate is the wrong order." Once CI reports
+  (green, or a concrete failure log), wave 6 starts.
+
+CI STATE, corrected and current. An earlier claim in this session that the
+  branch was "~180 commits ahead of the last push Actions saw" and that
+  "nothing since 8e95139 is pushed" WAS WRONG — origin/phase-17 was at a11d097,
+  which is 5 commits AHEAD of 8e95139, and only 24 commits were unpushed.
+  `phase-17` HAS NOW BEEN PUSHED at `5e6f55e` (a11d097..5e6f55e, exit 0, zero
+  unpushed) under Dave's authorization, so Actions is running against the tree
+  that contains all three plans rather than one that predates them. main
+  untouched. WHAT THE SESSION CANNOT DO, measured rather than assumed: no `gh`
+  CLI, no token in the environment, none in homecams' .env. SSH auth to GitHub
+  WORKS (so push and fetch are available) but SSH speaks only the git protocol —
+  Actions status is a REST API needing a token. `~/ci_diag.py` exists, is
+  read-only stdlib, and takes a token as argv[1]; the token needs TWO separate
+  grants (repository access -> ccf_code, AND Repository permissions -> Actions:
+  Read-only) and granting the first does not imply the second. SECURITY: do NOT
+  paste a PAT into a session transcript — three were pasted on 2026-08-10 and
+  still need revoking at github.com/settings/personal-access-tokens. Run
+  ci_diag.py in a shell outside the session and paste only its OUTPUT.
 
 WHAT CLOSED 2026-08-15, both verified by the orchestrator rather than relayed:
   (1) PROPERTY-NOT-SHAPE GATING — `phase-16` was red with 18 failures and no
