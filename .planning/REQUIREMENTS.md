@@ -213,6 +213,9 @@ the requirement against the decision rather than against a memory of it.
 - [ ] **CLNT-17**: The condemned example trees are dispositioned with every gate, make target, CI job, floor constant and published snippet that references them handled in the same change — no partial state — and the suspended example-shape rulings are discharged by retiring the gates that enforce them rather than by leaving those gates blind (`D-25`, `D-26`, `D-27`)
 - [ ] **CLNT-18**: No demo data is committed to `examples/` — no store file, no seed artifact, no fixture data — and the example's README and its CI placement state plainly which pipeline proves it, given that an example needing a reachable backend cannot run in the always-on, network-free, credential-free pipeline (`D-32`)
 - [ ] **CLNT-19**: The product-door exhaustiveness gate sees the in-process client seam, with the absent client-seam entitlement check recorded as a named, asserted exemption rather than as a gate that stays green because it cannot reach the door (`17-RESEARCH.md` §5.4, v0 not-list)
+- [ ] **CLNT-20**: `AssemblyDebtScorerProtocol` has a shipped reference implementation in `src/` that reads every figure from a Control Plane artifact, states its row-selection choice at the seam with its reason and override path, and fails closed on an empty assembly (CLAUDE.md §11; 2026-08-16 spec Amendment A.1)
+- [ ] **CLNT-21**: `binding.yaml` is a data-only document carrying exactly one `module:attribute` reference — the projection — and the loader refuses a second **by name**, so the narrow exception cannot widen into the rejected `D-IMPL-141` shape (2026-08-16 spec Amendment A.3/A.4 criterion 3′)
+- [ ] **CLNT-22**: The reference debt scorer is the default, proven through its effect on a produced `DebtAssessment` rather than by attribute inspection, and a deployment of config + data-only binding + one projection module produces a gated, content-addressed product (2026-08-16 spec §8, criteria 1/2/4/5)
 
 
 ## Future Requirements (deferred)
@@ -354,6 +357,9 @@ the requirement against the decision rather than against a memory of it.
 | CLNT-17 | Phase 17 | Pending |
 | CLNT-18 | Phase 17 | Pending |
 | CLNT-19 | Phase 17 | Pending |
+| CLNT-20 | Phase 17 | Pending |
+| CLNT-21 | Phase 17 | Pending |
+| CLNT-22 | Phase 17 | Pending |
 
 **The CPS lane was verified clause by clause against the tree at Phase 15.5's
 close (plan `15.5-14`), not against any SUMMARY.** Phase 15.1's re-approval had
