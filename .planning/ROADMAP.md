@@ -1354,16 +1354,52 @@ free before minting.
 **Plans**: 10 plans in 8 waves.
 
 Plans:
+**Wave 1**
+
 - [ ] 17-01-PLAN.md — Retirement sweep repaired and the `tools/` gate reachable (`D-31`)
 - [ ] 17-02-PLAN.md — The canonical refusal envelope in `src/`, before any door emits it (`D-28`)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 17-03-PLAN.md — The resolver seam: Protocol and reference implementation, both in `src/` (`D-29`)
 - [ ] 17-04-PLAN.md — The wire: `WireRequest`, `WireOutcome`, one codec (`D-11`, `D-20`)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 17-05-PLAN.md — The client surface: four names, the guard, three-step binding (`D-03`..`D-12`)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 17-06-PLAN.md — The in-process adapter: lazy cached boot through the resolver (`D-13`, `D-16`, `D-30`)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 17-07-PLAN.md — The conformance suite and its sabotage controls (`D-15`, `D-22`, `D-23`)
-- [ ] 17-08-PLAN.md — Condemned-tree disposition and the example gates re-scoped (`D-25`..`D-27`)
-- [ ] 17-09-PLAN.md — The first example: `consume.py`, opaque `deployment/`, purity + budget gates (`D-17`..`D-19`, `D-32`)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 17-08-PLAN.md — Condemned-tree disposition and the example gates re-scoped (`D-25`..`D-27`) — **checkpoint, not autonomous**
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 17-09-PLAN.md — The first example: `consume.py`, opaque `deployment/`, purity + budget gates (`D-17`..`D-19`, `D-32`) — **human-verify, not autonomous**
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
 - [ ] 17-10-PLAN.md — The MCP door carries parameters and refusals; the MCP adapter passes the suite (`D-15`, `D-28`, `D-IMPL-133`)
+
+**Cross-cutting constraints:**
+
+- `D-31` precedes any example-tree removal; `D-28` precedes any door work; `D-29` precedes the
+  adapter; the conformance suite precedes the MCP adapter being called done
+- Exactly one `Result` construction site across all ten plans (`D-12`); no plan introduces a
+  `src → runtime` import (`D-29`)
+- Every gate this phase adds carries a sabotage control that passes a divergent subject into the
+  real assertion function — the single exception (a make-target composition) is named as such in 17-01
+
+**Two rulings wait for Dave mid-execution:** `D-IMPL-140` (a `binding.yaml` document — proposed,
+isolated behind a loader in 17-06 Task 1 so a different ruling rewrites one task), and 17-08's
+checkpoint on `examples/00`–`08`, cited 111 times across 15 published pages.
 
 ## Progress
 
@@ -1384,7 +1420,7 @@ Plans:
 | 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 15/15 | Complete | 2026-08-11 |
 | 15.6 Decision-Completeness and Defect Closure | 13/13 | Complete | 2026-08-13 |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Stopped 2026-08-15 — example surface rejected; superseded by 17 |  |
-| 17. Client Access — `ccf.client` & Transport-Agnostic First Example | 0/— | Opened 2026-08-15 — design approved, planning next |  |
+| 17. Client Access — `ccf.client` & Transport-Agnostic First Example | 0/10 | Planned 2026-08-15 — checker passed, ready to execute |  |
 
 ## Coverage
 

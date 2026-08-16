@@ -3,13 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
 status: executing
-last_updated: "2026-08-15T21:40:00.000Z"
+last_updated: "2026-08-16T00:40:00.000Z"
 last_activity: >-
-  2026-08-15 PM -- Phase 16 STOPPED (example surface rejected by Dave; 14 doc plans stay unwritten).
-  Phase 17 OPENED: ccf.client transport-agnostic client access, design brainstormed with Dave and
-  approved same day. Spec committed on new branch `phase-17` at c709d5b:
-  docs/superpowers/specs/2026-08-15-ccf-client-design.md. Next: /gsd:plan-phase 17 (or discuss-phase
-  first if Dave wants; the spec already carries the converged decisions).
+  2026-08-15 PM -- Phase 16 STOPPED (example surface rejected by Dave). Phase 17 OPENED, DESIGNED
+  and PLANNED in one session: ccf.client transport-agnostic client access. Spec c709d5b; Amendment 1
+  ab48d9a (research closed two design gaps -- no door emits a refusal, and no src-resident seam
+  yields a gated product); demo-data ruling f0467c1; 10 plans 725aaf4; revisions 376400c and 64f5e6a.
+  Plan-checker round 1: 4 blockers + 10 warnings, all fixed. Round 2: VERIFICATION PASSED, 5
+  warnings, all folded in. READY TO EXECUTE.
 progress:
   total_phases: 18
   completed_phases: 16
@@ -17,7 +18,29 @@ progress:
   completed_plans: 161
   percent: 92
 stopped_at: >-
-  PHASE 17 OPENED 2026-08-15, DESIGN APPROVED, PLANNING NOT STARTED. Branch `phase-17` cut from the
+  PHASE 17 PLANNED AND READY TO EXECUTE (2026-08-15). 10 plans in 8 waves, HEAD 64f5e6a, tree clean,
+  NOT PUSHED. Waves: 1 = 17-01 (retirement sweep + tools/ repair, D-31) || 17-02 (refusal envelope,
+  D-28); 2 = 17-03 (resolver seam, D-29) || 17-04 (wire + codec); 3 = 17-05 client surface; 4 =
+  17-06 in-process adapter; 5 = 17-07 conformance suite; 6 = 17-08 tree disposition (autonomous
+  FALSE); 7 = 17-09 the example (autonomous FALSE); 8 = 17-10 MCP door + adapter. TWO RULINGS WAIT
+  FOR DAVE MID-EXECUTION: (a) D-IMPL-140, a `binding.yaml` document in the backends.yaml posture --
+  proposed not ruled, because a folder binding cannot say HOW to serve a product and DeploymentConfig
+  is closed-world; isolated behind a loader in 17-06 Task 1 so a different ruling rewrites one task.
+  (b) 17-08's checkpoint on examples/00-08 -- cited 111 times across 15 published pages, so deletion
+  strands them and the repair is Phase 16's stopped DOCS-17 inside a client-only phase; the plan
+  QUARANTINES with a regenerated inventory and refuses to delete on an executor's authority.
+  PLAN-CHECKER HISTORY, and it is the phase's best evidence: round 1 found 4 blockers, NONE in the
+  design, ALL in proof machinery -- a refusal table listing 9 of 17 kinds behind an import-order-
+  dependent gate (5 subclasses one way, 12 the other); a door-detector keyed on two hard-coded
+  protocol names that would have discovered ZERO doors while its sabotage control passed (the Phase
+  15.1 Gate 2 shape); a whole CLASS of sabotage controls specified as copy-to-tmp_path against
+  assertions that read imported modules; and a wire field typed `bytes` when canonical_bytes refuses
+  bytes outright. Round 2 PASSED with the widened detector empirically proven not to change the
+  runtime discovery set. The five round-2 warnings included a real gate hole: the *Violation half of
+  the refusal vocabulary was enumerated by three HARD-CODED names, so a new one would ship
+  untranslated with the gate green -- now closed by a second named allowlist and set equality.
+  PRIOR POSITION (pre-planning, retained): PHASE 17 OPENED 2026-08-15, DESIGN APPROVED, PLANNING NOT
+  STARTED. Branch `phase-17` cut from the
   `phase-16` tip (d9f117b) so the SDK-keep work (single-file ccf_config loader D-IMPL-136, property
   gates D-IMPL-137/-138) travels with it; spec committed at c709d5b. THE AUTHORITATIVE INPUT is
   docs/superpowers/specs/2026-08-15-ccf-client-design.md -- read it before planning anything. In one
