@@ -27,7 +27,7 @@ fail for a reason belonging to it.
 from __future__ import annotations
 
 import shutil
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -72,6 +72,24 @@ def config_document(root: Path) -> Mapping[str, Any]:
         Mapping[str, Any],
         yaml.safe_load((root / "ccf_config.yaml").read_text(encoding="utf-8")),
     )
+
+
+@pytest.fixture(autouse=True)
+def _empty_boot_cache() -> Iterator[None]:
+    """Leave no booted fabric behind, in either direction.
+
+    Before, so a test never inherits a cache entry another test booted; after,
+    so a live writer never outlives the test that created it. Both matter:
+    ``ccf.client.adapters.inprocess::_BOOT_CACHE`` is module-level and
+    process-lifetime by design (``D-30``), so without this the suite's boot
+    counts would depend on execution order — and a boot count that depends on
+    execution order is exactly the measurement these tests exist to make.
+    """
+    from ccf.client.adapters.inprocess import reset_boot_cache
+
+    reset_boot_cache()
+    yield
+    reset_boot_cache()
 
 
 @pytest.fixture()

@@ -172,3 +172,62 @@ adapter.
   surface is handed a resolver, rather than a shape mismatch discovered inside
   a call that has already been accepted
 - Migration: none — new surface
+
+## ccf.client.adapters.inprocess.SCHEME
+
+- Surface: ccf.client.adapters.inprocess.SCHEME
+- Public surface: true
+- Change type: added
+- Before: absent — `SCHEME_REGISTRY` shipped empty in `17-05`, deliberately, so
+  every lookup refused and a client with no transport installed said so loudly
+- After: the constant `"inprocess"`, and the key this module registers itself
+  under at import
+- Why: written once so the registry entry, the refusal messages and the tests
+  all say the same string. `D-05` — a scheme reaches the registry by its
+  adapter module being imported, and there is still no plugin lookup and no
+  discovery chain behind it
+- Migration: none — new surface. `CCF_BINDING="inprocess:<root>"` is the whole
+  configuration change a deployment makes
+
+## ccf.client.adapters.inprocess.InProcessAdapter
+
+- Surface: ccf.client.adapters.inprocess.InProcessAdapter
+- Public surface: true
+- Change type: added
+- Before: absent — no `TransportAdapter` existed, so `ProductClient` had a seam
+  and nothing to put behind it
+- After: the first transport. Boots the deployment its address names **lazily**
+  on the first `ask()`, caches the booted fabric on the **resolved absolute**
+  root, calls the deployment's resolver, and encodes the answer through the
+  canonical serializer
+- Why: three rulings at once. `D-16` — the boot is invisible, so a developer
+  types one command and nothing about a manifest or an artifact key reaches
+  them. `D-13` — the adapter holds a live product and serializes it **anyway**,
+  with no fast path, which makes in-process a true degenerate wire, gives a
+  parity bug exactly one place to live, and *physically* prevents a live
+  producer-side object from crossing the seam. `D-30` — the cache is not an
+  optimization: a second `load_config_and_boot` against one graph raises
+  `SingleWriterViolation`, measured, so caching is what makes a second `ask()`
+  and a second client legal at all, and keying on the resolved root is what
+  keeps `./deployment` and its absolute spelling one entry
+- Migration: none — new surface. Nothing in `ccf.client`'s four-name package
+  surface changed, and a client developer never names this class
+
+## ccf.client.adapters.inprocess.reset_boot_cache
+
+- Surface: ccf.client.adapters.inprocess.reset_boot_cache
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: closes every cached fabric and empties the cache. **For tests only**,
+  and deliberately not re-exported from `ccf.client`
+- Why: `D-03` fixes that package's surface at four names, and a fifth for a test
+  affordance would put a lifecycle control in a client developer's namespace to
+  buy a test something the test can reach directly. It **closes** rather than
+  clearing, and that is the whole reason it is a function: a cleared cache whose
+  handles were never closed leaves the writers live, so the next boot against
+  the same graph raises `SingleWriterViolation` — a helper that made the next
+  test fail for a reason belonging to the previous one
+- Migration: none — new surface, and no `close()` was added to `ProductClient`
+  (`D-30`): two clients on one binding **share** the cached fabric, so a
+  per-client close would retire a handle the other is still using

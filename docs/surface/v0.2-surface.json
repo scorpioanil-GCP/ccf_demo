@@ -875,6 +875,27 @@
       }
     }
   },
+  "ccf.client.adapters.inprocess": {
+    "__all__": [
+      "InProcessAdapter",
+      "SCHEME",
+      "reset_boot_cache"
+    ],
+    "exports": {
+      "InProcessAdapter": {
+        "kind": "class",
+        "shape": "(address: 'str') -> 'None'"
+      },
+      "SCHEME": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "reset_boot_cache": {
+        "kind": "function",
+        "shape": "() -> 'None'"
+      }
+    }
+  },
   "ccf.client.binding": {
     "__all__": [
       "AdapterFactory",

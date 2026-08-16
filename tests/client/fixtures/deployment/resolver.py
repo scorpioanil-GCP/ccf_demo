@@ -212,6 +212,23 @@ def _debt_scorer(fabric: BootedFabric) -> Any:
 
     def score(*, view: GraphView) -> DebtAssessment:
         records = list(view.entities)
+        if not records:
+            # An assembly with no rows, which a temporal boundary before every
+            # observation produces. Both factors are ZERO rather than absent:
+            # nothing is known, so D_c = 1 − (0 · 0 · 1) = 1 and the deployment
+            # fail-closes. Scoring it any other way would report a confident
+            # answer about a graph that said nothing, which is the precise
+            # failure the fail-closed posture exists to prevent — and
+            # `FreshnessScorer.score` refuses an empty sequence by design, so
+            # there is no "just call it anyway" branch to take.
+            return assess_debt(
+                DebtFactors(
+                    freshness=Decimal(0),
+                    completeness=Decimal(0),
+                    semantic_consistency=Decimal(1),
+                ),
+                profile=profile,
+            )
         observations = tuple(
             Observation(
                 observation_type=observation_type,
