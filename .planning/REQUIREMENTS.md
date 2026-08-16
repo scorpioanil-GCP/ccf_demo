@@ -178,6 +178,43 @@ discover: `DCD-09` descopes 39 multi-method Protocols, `DCD-10` holds back the
 known coverage hole (`DI-15.6-01`(b)) that Phase 16 owns. No DCD row is Pending
 by omission.
 
+### Client Access (CLNT)
+
+Minted at Phase 17 planning (2026-08-15) under the inserted-phase precedent
+already stated in `.planning/ROADMAP.md` §Coverage — a phase mints its own
+requirement IDs at planning rather than borrowing a predecessor's. The
+`CLNT-` lane was verified free before minting (`command grep -rn "CLNT"
+.planning/REQUIREMENTS.md docs/` returned nothing, `17-RESEARCH.md` §8). One
+phase, one prefix: the inherited-discharge rows (CLNT-16..CLNT-19) carry
+`CLNT-` too rather than opening a second lane for cleanup.
+
+Every row is derived from a `D-NN` already ruled in
+`.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-CONTEXT.md`
+and from `docs/superpowers/specs/2026-08-15-ccf-client-design.md` including its
+Amendment 1. The ruling ids are named in each row so a later reader can check
+the requirement against the decision rather than against a memory of it.
+
+- [ ] **CLNT-01**: `ccf.client` exports exactly four names — `ProductClient`, `Result`, `TransportError`, `BindingError` — reached through `ProductClient.for_product(product_id, binding=None)` and `client.ask(parameters, as_of=None)`, synchronous only, with the `as_of=None` rule documented on `ask()` and the four-name surface asserted by an equality on `__all__` rather than a membership check (`D-03`, `D-04`, `D-24`)
+- [ ] **CLNT-02**: `Result` carries either the answer or the refusal as a value — the fabric refusing is the fabric working — and accessing any post-assembly field (`payload`, `debt`, `content_address`, `replay_ref`, post-assembly `lineage`, `expires_at`) on a refused result **raises**, asserted once per guarded field rather than by one `pytest.raises` standing for six, while a refused result still carries `refused`, `refusal.reason`, `refusal.key`, the refused request identity and any pre-assembly lineage (`D-07`, `D-08`, `D-09`)
+- [ ] **CLNT-03**: Exceptions are reserved for the wire failing and for caller negligence — `TransportError` for connection, timeout and auth, `BindingError` subclassing it so `except TransportError` remains the one catch-all, and no code path converts a refusal into an exception or an exception into a refusal (`D-10`)
+- [ ] **CLNT-04**: Binding resolution is exactly three steps — explicit `binding=` kwarg, else the `CCF_BINDING` env var carrying a scheme-prefixed address, else `BindingError` whose message names the literal `CCF_BINDING` and the call that overrides it — over a plain-dict scheme registry, with no bindings file, no per-product env-var naming and no discovery chain, and the kwarg's precedence proven by which adapter ran rather than by a stored attribute (`D-05`, `D-06`, `D-21`)
+- [ ] **CLNT-05**: One transport seam — `TransportAdapter.ask(WireRequest) -> WireOutcome` — where `WireRequest` carries product id, parameters and temporal boundary, `WireOutcome` is the canonical serialized form of either a served product or a refusal, and a transport failure has no `WireOutcome` at all because the adapter raises (`D-11`)
+- [ ] **CLNT-06**: `Result` is constructed in exactly one decoder inside `ProductClient`, proven by a source assertion that no second construction site exists anywhere in `src/`, `runtime/` or `examples/` — shape identity across transports is a code path an adapter cannot avoid rather than a convention it follows (`D-12`)
+- [ ] **CLNT-07**: One canonical refusal envelope lives in `src/`, defined before any door emits it, carrying every shipped refusal kind without flattening — the request-level reasons, the `GateRefusal` family, `PayloadSchemaViolation`, `MixingRefusal` and any sibling — plus the pre-assembly request identity, with an exhaustiveness assertion that fails the day a new refusal type ships untranslated (`D-28`)
+- [ ] **CLNT-08**: `decode(encode(x)) == x` holds for served products and for refusals, and the in-process adapter round-trips through that same codec so it is a true degenerate wire rather than a privileged fast path and cannot leak a live producer-side object across the seam (`D-13`, `D-20`)
+- [ ] **CLNT-09**: The resolver Protocol **and** its reference implementation both live in `src/`, composing assemble → gate → serve as pure mechanism with every threshold, product class and policy value arriving from Control Plane artifacts, adding no `src → runtime` import — asserted, not asserted-about — so the composition stops being every deployment's problem (`D-29`)
+- [ ] **CLNT-10**: The in-process adapter boots the fabric lazily on first `ask()` from the deployment root the binding names, caches the booted fabric per binding address for the process lifetime so a second `ask()` is legal at all rather than merely fast, and triggers no producer provisioning — proven positively by a second `ask()` that does not re-boot, and negatively by a gate over `src/ccf/client/` (`D-14`, `D-16`, `D-30`)
+- [ ] **CLNT-11**: One adapter conformance suite, written once and parameterized over adapters, asserting identical `Result` fields and identical content address for the same question at the same instant, identical refusal identity, the guard on every adapter, and that a wire failure never masquerades as a refusal — an adapter is official when it passes — and re-asserting through the client seam that two thresholds are two content addresses (`D-15`, `D-23`)
+- [ ] **CLNT-12**: Every parity, guard and example gate this phase adds carries a named sabotage control demonstrating the check fails when its property is deliberately broken, written in the same plan as the assertion rather than deferred (`D-22`)
+- [ ] **CLNT-13**: The first example is `consume.py` beside an opaque `deployment/` directory and a README — the client knows the product identity and the question parameters, imports `ccf.client` and stdlib only, prints the answer and then what a `SELECT` would not have told you, with governance detail behind `--explain` — run by one documented command carrying a fixed `--as-of` that the make target runs verbatim with no parameter smuggling (`D-01`, `D-02`, `D-17`, `D-18`)
+- [ ] **CLNT-14**: Two CI gates carry the Phase 16 lesson that a measurement nobody is looking at protects nothing — an AST purity gate proving `consume.py` imports only `ccf.client` and stdlib, catching `import`, `from`-import and function-body-deferred forms alike, and a budget gate holding reader-visible Python to its declared budget so the 722-line failure mode is a red check rather than a retrospective (`D-19`)
+- [ ] **CLNT-15**: The MCP product door carries client-supplied parameters and emits the canonical refusal envelope, and the MCP adapter ships on passing the same conformance suite as in-process rather than on demoing (`D-15`, `D-28`, `D-IMPL-133`)
+- [ ] **CLNT-16**: The retirement sweep machinery is green and its committed inventory current **before** any example tree moves — an untrustworthy inventory is how a partial retirement ships — and the `tools/` suites the always-on pipeline runs are reachable from the local gate so "all green" is a true claim rather than a claim about the subset `make ci` reaches (`D-31`)
+- [ ] **CLNT-17**: The condemned example trees are dispositioned with every gate, make target, CI job, floor constant and published snippet that references them handled in the same change — no partial state — and the suspended example-shape rulings are discharged by retiring the gates that enforce them rather than by leaving those gates blind (`D-25`, `D-26`, `D-27`)
+- [ ] **CLNT-18**: No demo data is committed to `examples/` — no store file, no seed artifact, no fixture data — and the example's README and its CI placement state plainly which pipeline proves it, given that an example needing a reachable backend cannot run in the always-on, network-free, credential-free pipeline (`D-32`)
+- [ ] **CLNT-19**: The product-door exhaustiveness gate sees the in-process client seam, with the absent client-seam entitlement check recorded as a named, asserted exemption rather than as a gate that stays green because it cannot reach the door (`17-RESEARCH.md` §5.4, v0 not-list)
+
+
 ## Future Requirements (deferred)
 
 - Perf SaaS/dashboarding integration
@@ -298,6 +335,25 @@ by omission.
 | DCD-10 | Phase 15.6 | **Complete over the ruled scope** (plan `15.6-11`, `D-IMPL-123`) — 101 of 114; the 13 `D-IMPL-114` names are held back by ruling |
 | DCD-11 | Phase 15.6 | **Complete** (plan `15.6-03`) — with `DI-15.6-01`(b), the schema-description channel, recorded as a known coverage hole owned by Phase 16 |
 | DCD-12 | Phase 15.6 | **Complete** (plan `15.6-12`, `D-GATE-15.6`, Dave 2026-08-13) |
+| CLNT-01 | Phase 17 | Pending |
+| CLNT-02 | Phase 17 | Pending |
+| CLNT-03 | Phase 17 | Pending |
+| CLNT-04 | Phase 17 | Pending |
+| CLNT-05 | Phase 17 | Pending |
+| CLNT-06 | Phase 17 | Pending |
+| CLNT-07 | Phase 17 | Pending |
+| CLNT-08 | Phase 17 | Pending |
+| CLNT-09 | Phase 17 | Pending |
+| CLNT-10 | Phase 17 | Pending |
+| CLNT-11 | Phase 17 | Pending |
+| CLNT-12 | Phase 17 | Pending |
+| CLNT-13 | Phase 17 | Pending |
+| CLNT-14 | Phase 17 | Pending |
+| CLNT-15 | Phase 17 | Pending |
+| CLNT-16 | Phase 17 | Pending |
+| CLNT-17 | Phase 17 | Pending |
+| CLNT-18 | Phase 17 | Pending |
+| CLNT-19 | Phase 17 | Pending |
 
 **The CPS lane was verified clause by clause against the tree at Phase 15.5's
 close (plan `15.5-14`), not against any SUMMARY.** Phase 15.1's re-approval had

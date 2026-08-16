@@ -1348,8 +1348,22 @@ later body of work with a different audience.
 - Open in the neighborhood, not gating: `D-IMPL-129` (`invoke_agent`
   entitlement), 16-26 (client parameters on both doors, `D-IMPL-133`).
 
-**Requirements**: mints its own IDs at `/gsd:plan-phase 17`.
-**Plans**: none yet — planning is next.
+**Requirements**: `CLNT-01`..`CLNT-19`, minted at planning 2026-08-15 and written
+into `.planning/REQUIREMENTS.md` with the traceability rows. The lane was verified
+free before minting.
+**Plans**: 10 plans in 8 waves.
+
+Plans:
+- [ ] 17-01-PLAN.md — Retirement sweep repaired and the `tools/` gate reachable (`D-31`)
+- [ ] 17-02-PLAN.md — The canonical refusal envelope in `src/`, before any door emits it (`D-28`)
+- [ ] 17-03-PLAN.md — The resolver seam: Protocol and reference implementation, both in `src/` (`D-29`)
+- [ ] 17-04-PLAN.md — The wire: `WireRequest`, `WireOutcome`, one codec (`D-11`, `D-20`)
+- [ ] 17-05-PLAN.md — The client surface: four names, the guard, three-step binding (`D-03`..`D-12`)
+- [ ] 17-06-PLAN.md — The in-process adapter: lazy cached boot through the resolver (`D-13`, `D-16`, `D-30`)
+- [ ] 17-07-PLAN.md — The conformance suite and its sabotage controls (`D-15`, `D-22`, `D-23`)
+- [ ] 17-08-PLAN.md — Condemned-tree disposition and the example gates re-scoped (`D-25`..`D-27`)
+- [ ] 17-09-PLAN.md — The first example: `consume.py`, opaque `deployment/`, purity + budget gates (`D-17`..`D-19`, `D-32`)
+- [ ] 17-10-PLAN.md — The MCP door carries parameters and refusals; the MCP adapter passes the suite (`D-15`, `D-28`, `D-IMPL-133`)
 
 ## Progress
 
