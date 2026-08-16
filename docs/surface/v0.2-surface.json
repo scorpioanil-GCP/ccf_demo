@@ -798,6 +798,48 @@
       }
     }
   },
+  "ccf.client.errors": {
+    "__all__": [
+      "TransportError"
+    ],
+    "exports": {
+      "TransportError": {
+        "kind": "class",
+        "shape": "type"
+      }
+    }
+  },
+  "ccf.client.wire": {
+    "__all__": [
+      "TransportAdapter",
+      "WireOutcome",
+      "WireRequest"
+    ],
+    "exports": {
+      "TransportAdapter": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "WireOutcome": {
+        "kind": "contract",
+        "shape": {
+          "content_address": "str | None",
+          "product_json": "str | None",
+          "refusal": "ccf.products.refusal.RefusalEnvelope | None",
+          "replay_ref": "str | None",
+          "request": "<class 'ccf.client.wire.WireRequest'>"
+        }
+      },
+      "WireRequest": {
+        "kind": "contract",
+        "shape": {
+          "parameters": "collections.abc.Mapping[str, typing.Any]",
+          "product_id": "<class 'str'>",
+          "temporal_boundary": "datetime.datetime | None"
+        }
+      }
+    }
+  },
   "ccf.contracts": {
     "__all__": [
       "base",
@@ -969,9 +1011,11 @@
       "ArtifactLoadError",
       "ArtifactRole",
       "DEBT_PROFILE",
+      "DEPLOYMENT_CONFIG",
       "DEPLOYMENT_MANIFEST",
       "DebtProfile",
       "DeclaredArtifact",
+      "DeploymentConfig",
       "DeploymentManifest",
       "HALF_LIFE_TABLE",
       "HalfLifeEntry",
@@ -1020,6 +1064,10 @@
         "kind": "constant",
         "shape": "ArtifactClass"
       },
+      "DEPLOYMENT_CONFIG": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
       "DEPLOYMENT_MANIFEST": {
         "kind": "constant",
         "shape": "ArtifactClass"
@@ -1040,6 +1088,26 @@
           "class_id": "<class 'str'>",
           "declaration": "collections.abc.Mapping[str, typing.Any]",
           "semver": "<class 'str'>"
+        }
+      },
+      "DeploymentConfig": {
+        "kind": "contract",
+        "shape": {
+          "backend": "<class 'str'>",
+          "backend_secrets": "tuple[ccf.controlplane.artifacts.SecretReference, ...]",
+          "debt_profile": "collections.abc.Mapping[str, typing.Any] | None",
+          "default_perspective": "collections.abc.Mapping[str, typing.Any] | None",
+          "half_life": "collections.abc.Mapping[str, typing.Any] | None",
+          "operators": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
+          "policy": "collections.abc.Mapping[str, typing.Any] | None",
+          "policy_bundle_key": "str | None",
+          "product_class": "collections.abc.Mapping[str, typing.Any]",
+          "request_contract": "collections.abc.Mapping[str, typing.Any] | None",
+          "resolution": "collections.abc.Mapping[str, typing.Any] | None",
+          "resolution_spec_key": "str | None",
+          "semver": "<class 'str'>",
+          "survivor_cap": "int | None",
+          "tenant_id": "str | None"
         }
       },
       "DeploymentManifest": {
@@ -1413,6 +1481,7 @@
       "ArtifactPin",
       "BootedFabric",
       "DeploymentManifest",
+      "DerivedDeployment",
       "ManifestEntry",
       "ResolvedPins",
       "SDK_ARTIFACT_CLASSES",
@@ -1421,7 +1490,9 @@
       "SimilarityCorpusAttributeError",
       "UnpinnedArtifactError",
       "build_operator_registry",
+      "derive_deployment",
       "load_and_boot",
+      "load_config_and_boot",
       "refuse_operator_set_divergence",
       "refuse_registration_the_sdk_fixes",
       "refuse_role_the_sdk_fixes",
@@ -1453,6 +1524,10 @@
           "survivor_cap": "int | None",
           "tenant_id": "str | None"
         }
+      },
+      "DerivedDeployment": {
+        "kind": "class",
+        "shape": "(manifest: 'DeploymentManifest', documents: 'Mapping[str, Mapping[str, Any]]') -> None"
       },
       "ManifestEntry": {
         "kind": "contract",
@@ -1494,9 +1569,17 @@
         "kind": "function",
         "shape": "(*, parameters: 'Mapping[str, OperatorParametersArtifact]', view: 'GraphView', pins: 'ResolvedPins', policy_bundle_key: 'str', similarity_index_version: 'str | None' = None) -> 'OperatorRegistry'"
       },
+      "derive_deployment": {
+        "kind": "function",
+        "shape": "(config: 'DeploymentConfig', config_filename: 'str' = 'ccf_config.yaml') -> 'DerivedDeployment'"
+      },
       "load_and_boot": {
         "kind": "function",
         "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
+      },
+      "load_config_and_boot": {
+        "kind": "function",
+        "shape": "(config_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
       },
       "refuse_operator_set_divergence": {
         "kind": "function",
@@ -1565,6 +1648,27 @@
       "resolve_artifact_class": {
         "kind": "function",
         "shape": "(class_id: 'str') -> 'ArtifactClass'"
+      }
+    }
+  },
+  "ccf.deployment.config": {
+    "__all__": [
+      "DerivedDeployment",
+      "derive_deployment",
+      "load_config_and_boot"
+    ],
+    "exports": {
+      "DerivedDeployment": {
+        "kind": "class",
+        "shape": "(manifest: 'DeploymentManifest', documents: 'Mapping[str, Mapping[str, Any]]') -> None"
+      },
+      "derive_deployment": {
+        "kind": "function",
+        "shape": "(config: 'DeploymentConfig', config_filename: 'str' = 'ccf_config.yaml') -> 'DerivedDeployment'"
+      },
+      "load_config_and_boot": {
+        "kind": "function",
+        "shape": "(config_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
       }
     }
   },
@@ -4232,6 +4336,7 @@
       "ProductDiscovery": {
         "kind": "contract",
         "shape": {
+          "audiences": "frozenset[str]",
           "capabilities": "frozenset[str]",
           "domain": "<class 'str'>",
           "intents": "frozenset[str]"
@@ -4276,7 +4381,7 @@
       },
       "register_product_class": {
         "kind": "function",
-        "shape": "(*, registry: 'ControlPlaneProtocol', schema_name: 'str', schema_version: 'str', ttl_anchor: 'TTLAnchor', assembly_mode: 'AssemblyMode', max_ttl_key: 'str', max_ttl_version: 'str', accepted_policy_binding_modes: 'frozenset[PolicyBindingMode]' = frozenset({'assembly-stamped'}), accepted_lineage_modes: 'frozenset[LineageMode]' = frozenset({'graph-supplied'}), freshness_sla: 'FreshnessSLA' = FreshnessSLA(max_age_seconds_by_signal={}), discovery: 'ProductDiscovery' = ProductDiscovery(domain='not-discoverable', intents=frozenset(), capabilities=frozenset()), addressability: 'ProductAddress' = ProductAddress(address_template='not-addressable'), constituent_validity_floors: 'ConstituentValidityFloors' = ConstituentValidityFloors(min_validity_seconds_by_signal={}), payload_schema_key: 'str' = 'no-payload-schema', payload_schema_version: 'str' = 'no-payload-schema', request_contract_key: 'str' = 'no-request-contract', request_contract_version: 'str' = 'no-request-contract') -> 'RegisteredProductClass'"
+        "shape": "(*, registry: 'ControlPlaneProtocol', schema_name: 'str', schema_version: 'str', ttl_anchor: 'TTLAnchor', assembly_mode: 'AssemblyMode', max_ttl_key: 'str', max_ttl_version: 'str', accepted_policy_binding_modes: 'frozenset[PolicyBindingMode]' = frozenset({'assembly-stamped'}), accepted_lineage_modes: 'frozenset[LineageMode]' = frozenset({'graph-supplied'}), freshness_sla: 'FreshnessSLA' = FreshnessSLA(max_age_seconds_by_signal={}), discovery: 'ProductDiscovery' = ProductDiscovery(domain='not-discoverable', intents=frozenset(), capabilities=frozenset(), audiences=frozenset()), addressability: 'ProductAddress' = ProductAddress(address_template='not-addressable'), constituent_validity_floors: 'ConstituentValidityFloors' = ConstituentValidityFloors(min_validity_seconds_by_signal={}), payload_schema_key: 'str' = 'no-payload-schema', payload_schema_version: 'str' = 'no-payload-schema', request_contract_key: 'str' = 'no-request-contract', request_contract_version: 'str' = 'no-request-contract') -> 'RegisteredProductClass'"
       }
     }
   },
@@ -4336,7 +4441,9 @@
       "GateRefusal",
       "LineageAttributionRefusal",
       "LineageMismatchRefusal",
+      "PYDANTIC_MODEL_FORMS",
       "ServableProduct",
+      "ServableProductNotAModel",
       "TTLRefusal",
       "refuse_attestation",
       "run_federated_gates",
@@ -4410,9 +4517,17 @@
           "resolved": "frozenset[str]"
         }
       },
+      "PYDANTIC_MODEL_FORMS": {
+        "kind": "constant",
+        "shape": "frozenset"
+      },
       "ServableProduct": {
         "kind": "class",
         "shape": "(product: 'ContextProductContract', token: 'object') -> 'None'"
+      },
+      "ServableProductNotAModel": {
+        "kind": "class",
+        "shape": "type"
       },
       "TTLRefusal": {
         "kind": "contract",
@@ -4472,6 +4587,55 @@
       "refuse_payload": {
         "kind": "function",
         "shape": "(*, payload: 'Mapping[str, Any]', declared: 'ProductPayloadSchema') -> 'PayloadSchemaViolation | None'"
+      }
+    }
+  },
+  "ccf.products.refusal": {
+    "__all__": [
+      "NON_PRODUCT_REFUSALS",
+      "NON_VALUE_VIOLATIONS",
+      "REFUSAL_KINDS",
+      "RefusalEnvelope",
+      "RequestIdentity",
+      "envelope_for"
+    ],
+    "exports": {
+      "NON_PRODUCT_REFUSALS": {
+        "kind": "constant",
+        "shape": "frozenset"
+      },
+      "NON_VALUE_VIOLATIONS": {
+        "kind": "constant",
+        "shape": "frozenset"
+      },
+      "REFUSAL_KINDS": {
+        "kind": "constant",
+        "shape": "dict"
+      },
+      "RefusalEnvelope": {
+        "kind": "contract",
+        "shape": {
+          "detail": "<class 'str'>",
+          "fields": "collections.abc.Mapping[str, str]",
+          "key": "str | None",
+          "kind": "<class 'str'>",
+          "pre_assembly_lineage": "ccf.products.contract.ProductLineage | None",
+          "reason": "<class 'str'>",
+          "request": "<class 'ccf.products.refusal.RequestIdentity'>"
+        }
+      },
+      "RequestIdentity": {
+        "kind": "contract",
+        "shape": {
+          "parameters": "collections.abc.Mapping[str, typing.Any]",
+          "product_id": "<class 'str'>",
+          "product_version": "str | None",
+          "temporal_boundary": "datetime.datetime | None"
+        }
+      },
+      "envelope_for": {
+        "kind": "function",
+        "shape": "(refusal: 'object', *, request: 'RequestIdentity', pre_assembly_lineage: 'ProductLineage | None' = None) -> 'RefusalEnvelope'"
       }
     }
   },
@@ -6653,7 +6817,7 @@
     "exports": {
       "ApiDependencies": {
         "kind": "class",
-        "shape": "(*, control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', product_resolver: 'ProductResolverProtocol', workflow_factory: 'WorkflowFactory', workflow_engine: 'WorkflowEngine', hitl_transport: 'HITLTransportProtocol', skill_catalog: 'SkillCatalog', grant_ledger: 'GrantLedger') -> None"
+        "shape": "(*, control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', product_resolver: 'ProductResolverProtocol', workflow_factory: 'WorkflowFactory | None' = None, workflow_engine: 'WorkflowEngine | None' = None, hitl_transport: 'HITLTransportProtocol | None' = None, skill_catalog: 'SkillCatalog | None' = None, grant_ledger: 'GrantLedger | None' = None) -> None"
       }
     }
   },
@@ -6666,6 +6830,7 @@
       "ERROR_PRODUCT_POLICY_ABSENT",
       "ERROR_PRODUCT_REQUEST_INCOMPLETE",
       "ERROR_PRODUCT_ROLE_UNGRANTED",
+      "ERROR_ROUTE_HANDLE_ABSENT",
       "ERROR_SIGNED_BINDING_INVALID",
       "ERROR_SIGNED_BINDING_REQUIRED",
       "ERROR_SUBJECT_CONFLICT",
@@ -6699,6 +6864,10 @@
         "shape": "str"
       },
       "ERROR_PRODUCT_ROLE_UNGRANTED": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERROR_ROUTE_HANDLE_ABSENT": {
         "kind": "constant",
         "shape": "str"
       },
@@ -6741,10 +6910,15 @@
   },
   "ccf_runtime.http_api.routes": {
     "__all__": [
+      "CONTENT_ADDRESS_HEADER",
       "canonical_response",
       "refusal_response"
     ],
     "exports": {
+      "CONTENT_ADDRESS_HEADER": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "canonical_response": {
         "kind": "function",
         "shape": "(payload: 'object') -> 'Response'"
@@ -7065,6 +7239,8 @@
   },
   "ccf_runtime.mcp.egress": {
     "__all__": [
+      "NaiveAskedAtRefused",
+      "PRODUCT_REQUEST_TOOL",
       "PRODUCT_URI_SCHEME",
       "PRODUCT_URI_TEMPLATE",
       "ProductNotServable",
@@ -7073,6 +7249,14 @@
       "product_uri"
     ],
     "exports": {
+      "NaiveAskedAtRefused": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "PRODUCT_REQUEST_TOOL": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "PRODUCT_URI_SCHEME": {
         "kind": "constant",
         "shape": "str"
@@ -7091,7 +7275,7 @@
       },
       "build_egress_server": {
         "kind": "function",
-        "shape": "(*, server_name: 'str', resolver: 'ProductResolverProtocol', token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol') -> 'FastMCP'"
+        "shape": "(*, server_name: 'str', resolver: 'ProductResolverProtocol', token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', expose_product_tool: 'bool' = False, product_tool_description: 'str | None' = None) -> 'FastMCP'"
       },
       "product_uri": {
         "kind": "function",
@@ -7165,7 +7349,7 @@
       },
       "ContextProviderProtocol": {
         "kind": "class",
-        "shape": "(*, tenant: 'str', entity: 'str') -> 'str'"
+        "shape": "(*, tenant: 'str', entity: 'str', perspective: 'Perspective') -> 'str'"
       },
       "DEFAULT_INVOKE_AGENT_DESCRIPTION": {
         "kind": "constant",
@@ -7244,7 +7428,7 @@
       },
       "build_experience_server": {
         "kind": "function",
-        "shape": "(*, server_name: 'str', product_resolver: 'ExperienceProductResolverProtocol', agent_directory: 'AgentDirectoryProtocol | None' = None, agent_invoker: 'AgentInvokerProtocol | None' = None, context_provider: 'ContextProviderProtocol | None' = None, lineage_provider: 'LineageProviderProtocol | None' = None, replay_record_reader: 'ReplayRecordReaderProtocol | None' = None, get_context_description: 'str | None' = None, get_lineage_description: 'str | None' = None, get_replay_record_description: 'str | None' = None, list_agents_description: 'str | None' = None, invoke_agent_description: 'str | None' = None, product_resource_description: 'str | None' = None, token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', tool_allowlist: 'frozenset[str] | None' = None) -> 'FastMCP'"
+        "shape": "(*, server_name: 'str', product_resolver: 'ExperienceProductResolverProtocol', agent_directory: 'AgentDirectoryProtocol | None' = None, agent_invoker: 'AgentInvokerProtocol | None' = None, context_provider: 'ContextProviderProtocol | None' = None, lineage_provider: 'LineageProviderProtocol | None' = None, replay_record_reader: 'ReplayRecordReaderProtocol | None' = None, get_context_description: 'str | None' = None, get_lineage_description: 'str | None' = None, get_replay_record_description: 'str | None' = None, list_agents_description: 'str | None' = None, invoke_agent_description: 'str | None' = None, product_resource_description: 'str | None' = None, token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', entitled_product_class: 'str | None' = None, lineage_tenant: 'str | None' = None, tool_allowlist: 'frozenset[str] | None' = None) -> 'FastMCP'"
       },
       "experience_product_uri": {
         "kind": "function",
