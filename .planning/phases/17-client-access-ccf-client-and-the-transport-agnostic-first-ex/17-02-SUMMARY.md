@@ -122,7 +122,7 @@ The three name sets are pairwise disjoint, asserted rather than assumed.
 | `make typecheck` (`mypy --strict`) | **Success: no issues found in 197 source files** |
 | `.venv/bin/python -m tools.lints --all` | **exit 0** |
 | `command grep -n "sqlite\|postgres\|neo4j\|mongo\|fluree" src/ccf/products/refusal.py` | **no match** (CINV-04 clean) |
-| `make ci-core` | **3339 passed / 2 failed / 118 skipped** |
+| `make ci-core` | **3339 passed / 2 failed / 118 skipped** (run twice, identical both times; the 2 are pre-existing — see the dispute below) |
 
 **Narrow and wide agree.** Both were run; both report the enumeration tests
 green. This is the import-order property, checked rather than argued — and it is
@@ -364,6 +364,8 @@ was found that the inventory omitted or wrongly included.
 | `705d579` | `docs(17-02)` — the public-surface fragment + regenerated log (deviation 2) |
 | `b6c52eb` | `test(17-02)` — the exhaustiveness gate and seven controls |
 | `e961b07` | `docs(17-02)` — `deferred-items.md`, three out-of-scope findings |
+| `cda947d` | `docs(17-02)` — this SUMMARY |
+| `737b0fe` | `test(17-02)` — self-review fix: the control-leak guard is scoped to the marker, not to a dirty `src/` |
 
 `git diff --stat src/` for this plan shows **one new file only**; no existing
 module was modified. `src/ccf/products/request.py` — owned by `17-01` in this
