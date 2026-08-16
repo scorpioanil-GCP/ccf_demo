@@ -106,16 +106,23 @@ from ccf.products.contract import (
     ProductClassRegistrationError,
 )
 
-# `ccf.products.payload` and `ccf.skills.catalog` are imported at the BOTTOM of
-# this module, on the D-IMPL-56 pattern `ccf.skills.catalog` itself documents.
-# The reason is D-IMPL-111 limb (b): `ccf.replay.record` now names
-# :class:`ProductRequest` in dimension 5, and `ccf.skills.catalog` reaches
-# `ccf.agents.agent`, which reads two names out of `ccf.replay.record` — so
-# with those two imports at the top, first-import order would decide whether
-# the SDK imports at all. Deferring them makes :class:`ProductRequest` exist
-# before anything here can reach the replay plane, which closes the cycle in
-# both directions; the deferred annotations are resolved explicitly at the
-# bottom.
+# `ccf.skills.catalog` is imported at the BOTTOM of this module, on the
+# D-IMPL-56 pattern `ccf.skills.catalog` itself documents. The reason is
+# D-IMPL-111 limb (b): `ccf.replay.record` now names :class:`ProductRequest` in
+# dimension 5, and `ccf.skills.catalog` reaches `ccf.agents.agent`, which reads
+# two names out of `ccf.replay.record` — so with that import at the top,
+# first-import order would decide whether the SDK imports at all. Deferring it
+# makes :class:`ProductRequest` exist before anything here can reach the replay
+# plane; the deferred annotation is resolved explicitly at the bottom.
+#
+# `ccf.products.payload` is **not** imported at module scope at all — see the
+# TYPE_CHECKING block and :func:`refuse_request` below. That module reaches
+# `ccf.skills.catalog` at *its* top, so a module-scope edge from here back to
+# it closed a five-module cycle whose only safe entry point was this module:
+# `import ccf.products.payload` as the first import into the tree raised
+# ``ImportError`` (DEF-17-02). The edge is genuinely gone rather than reordered,
+# and `tests/invariants/test_cold_import.py` walks every `ccf.*` module in its
+# own cold subprocess to keep it gone.
 
 if TYPE_CHECKING:  # pragma: no cover - typing-only, and deliberately so
     # *** THE IMPORT EDGE ALREADY RUNS THE OTHER WAY. ***
@@ -127,6 +134,15 @@ if TYPE_CHECKING:  # pragma: no cover - typing-only, and deliberately so
     # import never executes. `tests/products/test_request_contract.py` imports
     # the two modules in both orders to keep that true.
     from ccf.controlplane.artifacts import DeclaredArtifact
+
+    # Typing-only for the same structural reason, and this one closed a cycle.
+    # :func:`_translate` names :class:`
+    # ~ccf.products.payload.PayloadSchemaViolation` in a parameter annotation
+    # and nowhere else; the module's `from __future__ import annotations` makes
+    # that a string, and `_translate` is a plain function rather than a
+    # contract, so nothing ever resolves it at runtime. The comparison itself
+    # is a *value*, so :func:`refuse_request` imports it at call time instead.
+    from ccf.products.payload import PayloadSchemaViolation
 
 __ccf_mode__ = "algorithmic"
 
@@ -563,6 +579,17 @@ def refuse_request(
         :func:`~ccf.products.payload.refuse_payload` imposes over sorted names
         — carrying both sides of the comparison that failed.
     """
+    # Imported at call time, not at module scope (DEF-17-02). `ccf.products.
+    # payload` reaches `ccf.skills.catalog` at its own top, and that reaches
+    # `ccf.agents.agent` → `ccf.replay.record` → *this* module: a module-scope
+    # edge from here back to `payload` therefore closed a cycle that made
+    # `import ccf.products.payload` fail whenever it was the first import into
+    # the tree. The comparison is needed once this function runs and never
+    # before, so binding the name here removes the edge outright rather than
+    # ordering around it. The annotation-only half lives under TYPE_CHECKING at
+    # the head of this module.
+    from ccf.products.payload import refuse_payload
+
     address = _refuse_address(request=request, declared=declared)
     if address is not None:
         return address
@@ -706,11 +733,11 @@ def refuse_request_contract_pin(
 # limb (b) that module names :class:`ProductRequest` in dimension 5. By the
 # time this line runs every name the replay plane needs from *this* module
 # already exists, so the cycle closes safely in both import orders; the
-# deferred annotations above are then resolved explicitly.
-from ccf.products.payload import (  # noqa: E402
-    PayloadSchemaViolation,
-    refuse_payload,
-)
+# deferred annotation above is then resolved explicitly.
+#
+# :class:`SkillArgumentSchema` is a *field type* of
+# :class:`ProductRequestContract`, so the rebuild below needs the class itself
+# — TYPE_CHECKING cannot serve it and the deferral has to stay.
 from ccf.skills.catalog import SkillArgumentSchema  # noqa: E402
 
 ProductRequestContract.model_rebuild()

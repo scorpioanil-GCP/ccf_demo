@@ -87,11 +87,14 @@ independent defect.
 
 ---
 
-## DEF-17-02 — `import ccf.products.payload` raises `ImportError` when it is the first entry into the tree
+## DEF-17-02 — `import ccf.products.payload` raises `ImportError` when it is the first entry into the tree — **RESOLVED**
 
 **Found during:** plan `17-02`, Task 1.
 **Status:** pre-existing; independent of anything `17-02` added.
 **RULED (Dave, 2026-08-15): this gets an owner NOW — plan `17-03b`, wave 2.**
+**CLOSED by plan `17-03b`, 2026-08-15.** The original write-up is preserved
+below unchanged; what `17-03b` did, and how it was proven, is at the end of
+this entry under *Resolution*.
 
 > *"In a phase whose explicit goal is the adopter's first experience, an import
 > that fails when it is the first import into the tree is a real defect, not an
@@ -141,6 +144,68 @@ error names a circular import rather than anything they did. **This is an
 adoption defect in a phase whose entire subject is the adopter's first
 experience** — it deserves an owner before the phase gate.
 
+### Resolution — plan `17-03b`, 2026-08-15
+
+**The cycle was re-derived before it was touched**, on `phase-17` @ `7d76205`,
+and it stood exactly as reported above — same five edges, same modules.
+
+**What changed: one edge, in one module.** `ccf.products.request` needed two
+names from `ccf.products.payload`, and on inspection neither justified a
+module-scope import:
+
+| Name | How it was used | Where it went |
+|---|---|---|
+| `PayloadSchemaViolation` | one parameter annotation on `request.py::_translate`, a plain function, under `from __future__ import annotations` | `TYPE_CHECKING` — nothing resolves it at runtime |
+| `refuse_payload` | a *value*, called once inside `request.py::refuse_request` | a call-time import in that function |
+
+The bottom-of-module import of `ccf.skills.catalog` stays, and has to:
+`SkillArgumentSchema` is a **field type** of `ProductRequestContract`, so
+`model_rebuild()` needs the class itself and `TYPE_CHECKING` cannot serve it.
+That is the D-IMPL-56 pattern working as ruled, and it was left alone.
+
+**The edge is gone rather than reordered.** No entry point loses, which is the
+difference between this and the workaround it replaces.
+
+**The workaround is removed.** `ccf.products.refusal` now imports `payload`
+before `request` — sorted order, and the exact order that used to raise — with
+the fourteen-line comment deleted.
+
+#### How it was proven
+
+| Measurement | Before | After |
+|---|---|---|
+| `ccf.*` modules failing as a **cold first import** (126 walked, one subprocess each) | **2** — `ccf.products.payload`, `ccf.products.bind` | **0** |
+| `ccf_runtime.*` modules failing (69 walked) | 0 | 0 |
+| The pin `tests/products/test_refusal_envelope.py::test_the_cold_and_warm_runs_agree_on_the_enumeration` with the two `refusal` imports **deliberately reversed** | fails (`17-02` verified this by sabotage) | **passes** — 36/36 in the module, and `import ccf.products.payload` still clean |
+| The same pin, imports in sorted order | n/a | passes |
+
+The third row is the one that matters: the pin stays, and it now passes for a
+reason that has nothing to do with which line comes first.
+
+**Sabotage control on the new guard.** The module-scope edge was restored in
+`ccf.products.request`, bytecode cleared, and
+`tests/invariants/test_cold_import.py` run: it failed naming **three** modules
+(`payload`, `bind`, and now `refusal`, since `refusal` no longer orders around
+the defect). Reverted from a byte-for-byte copy rather than with
+`git checkout --`, per **DEF-17-03**.
+
+#### The guard that replaces the workaround
+
+`tests/invariants/test_cold_import.py` — a **module walk**, not a list of five,
+because a list pins the cycle that was found rather than the property that
+matters. It carries four guards on itself: the walk is cross-checked
+file-for-file against a filesystem glob; a broken sub-package must propagate
+out of the walk instead of truncating it; a planted two-module cycle must be
+reported by the real probe; and its cycle-free twin must be clean.
+
+It is scoped to `src/ccf`. CLAUDE.md §7.3's *zero harness imports in core* is
+what makes an unconditional probe there sound — nothing in `src/` can fail for
+want of an optional extra. The runtime's adapter and orchestration modules
+import their harness at module scope, correctly, so the same probe over
+`runtime/` would make the optional `adk` and `langgraph` extras a hard
+dependency of an always-on invariant test. `ccf_runtime` was measured clean
+anyway; covering it belongs behind the `harness` marker.
+
 ---
 
 ## DEF-17-03 — measurement hazard: `.pyc` staleness can survive a `git checkout` revert
@@ -166,81 +231,76 @@ should clear bytecode as part of its revert, not rely on mtime invalidation.
 
 ---
 
-## DEF-17-04 — the citation-coverage ratchets are red again, and it is **not** DEF-17-01
+## DEF-17-04 — worktree measurements of tree-walking gates disagree with the branch
 
-**Found during:** plan `17-04`, before writing a line of its own code.
-**Status:** pre-existing on the branch tip. Not fixed — the two visible
-remedies are ruling-scope by the gate's own text, exactly as `17-01` and
-`17-02` correctly refused for DEF-17-01.
+**Found during:** plans `17-04` and `17-03b`, **independently**. Both reported
+the branch tip as 2 red on the citation-coverage ratchets and disputed the
+baseline they were briefed with. **Status: the branch is GREEN; the disagreement
+is real and is recorded here rather than dismissed.**
 
-> **No `path.py:line` string appears in this entry**, per the writing
-> constraint DEF-17-01 established: the sweep cannot distinguish a citation
-> from a quotation of one, so documenting the defect that way reproduces it.
+### The disagreement, stated fairly
 
-### The measurement
+Both executors measured, from inside their worktrees, a pristine `phase-17`
+@ `7d76205` as **3339 passed / 2 failed**. `17-03b` went further and removed
+all four of its own files before measuring, on a clean `git status`.
 
-Measured on a **pristine detached worktree** of `phase-17` @ `7d76205` — no
-`17-04` file present, nothing of mine on disk:
+The orchestrator measured the same commit on the **main checkout** three times:
+the citation module reports **5 passed**, and the full suite after the `17-04`
+merge reports **3375 passed / 0 failed / 118 skipped**.
 
-```
-2 failed, 3339 passed, 118 skipped   (396.86s)
+Both measurements are honest. They are taken in different trees.
 
-FAILED tests/invariants/test_citation_coverage.py::test_the_unanchored_python_citation_population_cannot_regrow
-FAILED tests/invariants/test_citation_coverage.py::test_the_held_back_thirteen_are_out_of_scope_by_ruling_not_by_accident
-```
+### What is true in the branch
 
-Both assert `14 == 13`.
+`tests/products/test_discovery_audiences.py` does carry a docstring citing
+another test module with a line anchor — `17-03b` is right that the site exists,
+and right that `DEF-17-01`'s self-reference explanation does not account for it.
+That explanation covered the *executors'* second site (their own write-ups) and
+was over-extended to this one.
 
-**This contradicts the baseline `17-04` was handed** (*"3341 passed / 0 failed
-… Citation ratchets green"*). The plan's own written baseline was staler still
-(*3305 / 0*). A plan's baseline is a measurement with a timestamp, not a fact —
-the DEF-17-01 lesson, recurring.
+But the site does not fail the gate on the branch. The sweep does not count it
+there, across three separate runs including a full-suite run. So the correct
+statement is: **the citation ratchets are green on `phase-17`, and a citation
+that looks like it should trip them does not.**
 
-### Why it is a different defect from DEF-17-01
+### The operational rule this produces
 
-DEF-17-01's offending site was in the Phase 17 design spec under
-`docs/superpowers/specs/`, and it was genuinely converted to the symbol form.
-That site is gone; the fix held.
+**A tree-walking gate measured inside a worktree is not evidence about the
+branch.** The citation sweep, the retirement sweep, the surface manifest and the
+public-door discovery walk all read the filesystem rather than the index, so
+their results depend on what is physically present — including an executor's own
+in-progress artifacts, and any file the worktree carries that the branch does
+not.
 
-The present population is entirely different. All fourteen held-back sites are
-in `docs/surface-changes/` fragments and in the assembled `docs/SURFACE-CHANGES.md`.
-`HELD_BACK_HOSTS` holds a **glob** over that fragment directory, so every
-fragment carrying a line-anchored Python citation counts. The pinned total is
-thirteen — described in the gate's own failure text as *eleven across five
-landed fragments plus two in the assembled file*. The tree now holds **twelve
-across six fragments** plus the same two. The sixth is a **Phase 16** fragment
-(the experience-door entitlement one, whose own commit message says it
-*"satisfied the two ratchets this change tripped"*).
+Executors were right to report the disagreement rather than silently adopt the
+briefed number; that is the intended behaviour and it worked three times today.
+The resolution is that **the orchestrator re-measures on the main checkout
+before treating a gate result as a fact about the branch**, which is what
+happened here.
 
-So the count moved when Phase 16 landed a sixth fragment, and the constant was
-not moved with it.
+### What still deserves an owner
 
-### Why `17-04` did not fix it
+Why the sweep declines to count `test_discovery_audiences.py`'s docstring
+citation is unexplained. It is not currently a failure, so it is not blocking —
+but an unexplained *pass* on a ratchet is worth exactly as much scrutiny as an
+unexplained failure, and this one should be understood before the Phase 17 gate
+rather than after. Do not "fix" it by editing the citation: first establish why
+the sweep's scope excludes it, because that scope is the thing the ratchet
+actually protects.
 
-1. **Out of scope by the scope boundary.** `17-04` touches
-   `src/ccf/client/`, `tests/client/`, and its own surface-change fragment.
-   It modified no fragment in the counted population and no ratchet constant.
-   Verified: `17-04`'s own fragment contributes **zero** sites to the
-   held-back list, and `docs/SURFACE-CHANGES.md` has the **same seven** raw
-   Python line-anchored citations before and after `17-04`'s regeneration.
-2. **Both visible remedies are ruling-scope**, by the gate's own words —
-   *"that is a ruling-scope change and belongs in a decision entry, not in
-   this constant."* Raising the ceiling or re-pinning the held-back count
-   unilaterally is the ratchet-weakening these tests exist to prevent.
-3. **The third remedy the gate prefers — convert the citation — is not
-   available here.** DEF-17-01 was closable that way because its site was in a
-   spec being actively authored. These sites are in **landed plan fragments**,
-   and the held-back list exists precisely because *"a later editor should not
-   silently revise one to chase a line number."* Converting them is the one
-   thing the ruling forbids.
+---
 
-### What a ruling would decide
+## DEF-17-05 — worktrees spawn stale, and every executor pays the same opening cost
 
-Whether the pinned count moves to fourteen (recording that a sixth landed
-fragment joined the held-back population, which is the ruling's own logic
-applied to a new fragment), or whether landed fragments stop being globbed and
-are enumerated instead so a new one cannot silently join.
+**Found during:** plans `17-02`, `17-03b` (and noted by `17-01`). **Three
+confirmed instances.** Not a code defect; an execution-environment property.
 
-**Recommend surfacing at the Phase 17 gate**, not later: the phase closes on
-`make ci-core` being green, and this makes it red for a reason no plan in the
-phase caused.
+Each `isolation: "worktree"` agent spawned at an ancestor commit rather than the
+branch tip — one at 103 commits behind, one at the phase 15.6 merge with no
+Phase 17 files at all — and none had a `.venv`. Every executor independently
+diagnosed it, fast-forwarded (strict ancestor, clean tree, no local commits) and
+symlinked the interpreter before it could begin.
+
+The cost is real but bounded and self-correcting. Recorded so the next executor
+recognises it in one step instead of three, and so it is not mistaken for a
+defect in the branch.
