@@ -117,9 +117,10 @@ def assert_the_module_defines_only_the_named_reference(root: Path) -> None:
         raise AssertionError(
             f"{root / module_path.strip()} defines the public names {public},"
             f" not exactly [{attribute.strip()!r}] — the one module a deployment"
-            " may write exposes the one attribute `plan:` names, and a second"
-            " public name is a second responsibility arriving where the ruling"
-            " granted one"
+            " may write exposes exactly the one attribute `plan:` names: no"
+            " fewer, no more, and no other. A second public name is a second"
+            " responsibility arriving where the ruling granted one; none at all"
+            " is a `plan:` reference that resolves to nothing"
         )
 
 
