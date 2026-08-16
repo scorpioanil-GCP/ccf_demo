@@ -123,6 +123,7 @@ __all__ = [
     "REFUSAL_KINDS",
     "RefusalEnvelope",
     "RequestIdentity",
+    "envelope_for",
 ]
 
 
@@ -301,6 +302,20 @@ NON_VALUE_VIOLATIONS: Final[frozenset[str]] = frozenset(
 )
 
 
+#: Refusal types reached **before** the graph is touched, and which therefore
+#: cannot have a pre-assembly lineage. Offering one alongside such a refusal is
+#: a category error rather than extra information, so :func:`envelope_for`
+#: refuses it — which is what makes D-09's assembly-boundary split structural
+#: instead of conventional. A payload verdict and every gate refusal have a
+#: candidate contract behind them and are deliberately absent from this set.
+#:
+#: Private: it is a statement about *when* the fabric reaches a refusal, not a
+#: second vocabulary, and it is not part of this module's exported surface.
+_PRE_ASSEMBLY_REFUSALS: Final[frozenset[type[CCFContract]]] = frozenset(
+    {ProductRequestViolation}
+)
+
+
 def _render(value: object) -> str:
     """One field value in the SDK's one canonical form.
 
@@ -310,3 +325,109 @@ def _render(value: object) -> str:
     the SDK's single answer to both, so this module defines no second one.
     """
     return canonical_bytes(value).decode("utf-8")
+
+
+def envelope_for(
+    refusal: object,
+    *,
+    request: RequestIdentity,
+    pre_assembly_lineage: ProductLineage | None = None,
+) -> RefusalEnvelope:
+    """Translate any shipped refusal into the one envelope, losing nothing.
+
+    Total over :data:`REFUSAL_KINDS` and defined nowhere else: a type this
+    mapping does not name raises rather than receiving a best-effort envelope.
+
+    **Dispatch is on the exact type, never ``isinstance``.** An ``isinstance``
+    chain would translate an unknown subclass as its nearest known ancestor and
+    report that ancestor's kind — a flattening that produces a perfectly
+    well-formed envelope carrying the wrong answer, which is the failure mode
+    hardest to notice and exactly the one constraint (a) forbids.
+
+    **The promoted members are found by reflection over the refusal's declared
+    fields**, so a field added to a refusal type appears in the envelope with no
+    edit here, and the exhaustiveness gate has live structure to check rather
+    than a transcription to agree with. See :class:`RefusalEnvelope` for the
+    three promotion rules.
+
+    Args:
+        refusal: A value of any type named in :data:`REFUSAL_KINDS`.
+        request: The question this refusal answers, which the refusal itself
+            does not carry — the caller holding the request supplies it.
+        pre_assembly_lineage: The partial lineage that existed at the point of
+            refusal, when one did. Must be ``None`` for a refusal the fabric
+            reaches before touching the graph.
+
+    Returns:
+        The envelope, carrying the kind, the promoted members, every remaining
+        declared field canonically rendered, the request, and the lineage or
+        its explicit absence.
+
+    Raises:
+        TypeError: ``refusal`` is not an instance of a type this module
+            translates. The message names the type, because the two ways to
+            resolve it are both deliberate acts — translate it in
+            ``src/ccf/products/refusal.py``, or record it in one of the two
+            allowlists with its reason.
+        ValueError: a lineage was offered alongside a refusal reached before
+            assembly began.
+    """
+    # One guard for both ways of not being a refusal — not a contract at all,
+    # or a contract this module does not translate. They are the same defect
+    # from the caller's side and get the same message.
+    if not isinstance(refusal, CCFContract) or type(refusal) not in REFUSAL_KINDS:
+        raise TypeError(
+            f"{type(refusal).__name__} is not a refusal type this envelope"
+            " translates; add it to REFUSAL_KINDS in"
+            " `src/ccf/products/refusal.py`, or to NON_PRODUCT_REFUSALS or"
+            " NON_VALUE_VIOLATIONS with its reason"
+        )
+    kind = REFUSAL_KINDS[type(refusal)]
+
+    if pre_assembly_lineage is not None and type(refusal) in _PRE_ASSEMBLY_REFUSALS:
+        raise ValueError(
+            f"{type(refusal).__name__} is reached before the graph is touched,"
+            " so it has no pre-assembly lineage; pass None"
+        )
+
+    declared = tuple(type(refusal).model_fields)
+    consumed: set[str] = set()
+
+    if isinstance(refusal, GateRefusal):
+        # The gate token is what the whole family was designed to be read by,
+        # so it wins even on the one type that also declares a `reason`.
+        reason = refusal.gate
+        consumed.add("gate")
+    elif "reason" in declared:
+        reason = str(getattr(refusal, "reason"))
+        consumed.add("reason")
+    else:
+        # A refusal declaring neither is still a refusal; its kind is the most
+        # specific true thing that can be said about why.
+        reason = kind
+
+    key: str | None = None
+    if "key" in declared:
+        key = str(getattr(refusal, "key"))
+        consumed.add("key")
+
+    detail = ""
+    if "detail" in declared:
+        detail = str(getattr(refusal, "detail"))
+        consumed.add("detail")
+
+    fields = {
+        name: _render(getattr(refusal, name))
+        for name in declared
+        if name not in consumed
+    }
+
+    return RefusalEnvelope(
+        kind=kind,
+        reason=reason,
+        key=key,
+        detail=detail,
+        fields=fields,
+        request=request,
+        pre_assembly_lineage=pre_assembly_lineage,
+    )
