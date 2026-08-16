@@ -100,3 +100,61 @@
   codec must raise it and the codec ships first; `BindingError` joins it there
   and subclasses it, so `except TransportError` stays the one catch-all
 - Migration: none — new exception type
+
+## ccf.client.codec.encode_outcome
+
+- Surface: ccf.client.codec.encode_outcome
+- Public surface: true
+- Change type: added
+- Before: absent — each door serialized for itself, so "every transport returns
+  the same shape" was a convention with no code path enforcing it
+- After: `encode_outcome(outcome: WireOutcome) -> bytes`, which is
+  `canonical_bytes` of the outcome and defines no second canonical form
+- Why: `D-12` puts `Result` construction in exactly one place, and `D-13` sends
+  the in-process adapter through this same codec rather than past it — so
+  in-process is a true degenerate wire and a parity bug has exactly one place to
+  live
+- Migration: none — new callable
+
+## ccf.client.codec.decode_outcome
+
+- Surface: ccf.client.codec.decode_outcome
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `decode_outcome(raw, *, sent)`, taking the received bytes **and** the
+  request that was sent, returning a `WireOutcome` and raising `TransportError`
+  on anything malformed, on a content address that disagrees with the
+  recomputation, or on an echoed request that disagrees with the one sent
+- Why: `D-20` makes the codec the single point of parity failure. The sent
+  request is a required parameter rather than an optional extra so the echo
+  cross-check cannot be forgotten: reconstruction alone is cheaper but cannot
+  detect a transport that answered a *different question* than the one asked,
+  and only comparing what came back against what was asked turns that into a
+  detectable failure. The address is always recomputed and never trusted from
+  the wire
+- Migration: none — new callable
+
+## ccf.client.codec.verify_content_address
+
+- Surface: ccf.client.codec.verify_content_address
+- Public surface: true
+- Change type: added
+- Before: absent. The HTTP door published a content address in a header and the
+  MCP doors published none, but no shipped code *checked* a received address
+  against the bytes it described — the header existed so a consumer could
+  perform that check itself
+- After: `verify_content_address(product_json, claimed) -> str`, which recomputes
+  `sha256` over the received text, raises `TransportError` on disagreement, and
+  returns the recomputed value
+- Why: two reasons, both load-bearing. The check has to exist somewhere on the
+  decode path, and naming it makes it a function the round-trip path and its
+  `D-22` sabotage control can *both* reach — a control that re-implements the
+  comparison proves only that the copy fires. It is exported rather than
+  private because an adapter author verifying a wire, and a consumer holding
+  canonical bytes and an address, both want exactly this one line, and a second
+  hand-rolled spelling of it is how two canonical forms start
+- Migration: none — new callable. Note that it is not part of
+  `ccf.client.__all__`: `D-03` fixes the *package's* public surface at four
+  names, and this is the adapter author's surface, reached by importing
+  `ccf.client.codec` directly

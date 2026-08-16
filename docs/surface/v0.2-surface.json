@@ -798,6 +798,27 @@
       }
     }
   },
+  "ccf.client.codec": {
+    "__all__": [
+      "decode_outcome",
+      "encode_outcome",
+      "verify_content_address"
+    ],
+    "exports": {
+      "decode_outcome": {
+        "kind": "function",
+        "shape": "(raw: 'bytes', *, sent: 'WireRequest') -> 'WireOutcome'"
+      },
+      "encode_outcome": {
+        "kind": "function",
+        "shape": "(outcome: 'WireOutcome') -> 'bytes'"
+      },
+      "verify_content_address": {
+        "kind": "function",
+        "shape": "(product_json: 'str', claimed: 'str') -> 'str'"
+      }
+    }
+  },
   "ccf.client.errors": {
     "__all__": [
       "TransportError"
