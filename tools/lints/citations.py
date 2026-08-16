@@ -221,6 +221,13 @@ SKIP_DIRS: frozenset[str] = frozenset(
     {
         "__pycache__",
         ".git",
+        # Agent worktrees hold a full copy of the tree. Walking them makes
+        # every basename resolve to N+1 paths, and an ambiguous basename is
+        # DROPPED from the sweep rather than checked -- so a live worktree
+        # silently turns this gate vacuous. Measured 2026-08-15 (DEF-17-04):
+        # six worktrees put seven entries under one basename and hid two real
+        # unanchored citations behind a green run.
+        ".claude",
         ".venv",
         "venv",
         "build",

@@ -56,7 +56,9 @@ class TestTheAxisIsAdditive:
     """Every pre-existing construction reads identically."""
 
     def test_the_three_axis_construction_still_constructs(self) -> None:
-        """The exact shape `test_class_governance.py:127` uses, unedited."""
+        """The exact shape
+        ``test_class_governance.py::test_discovery_carries_intent_domain_and_capability``
+        uses, unedited."""
         discovery = ProductDiscovery(
             domain="fixture.domain",
             intents=frozenset({"fixture.intent"}),
