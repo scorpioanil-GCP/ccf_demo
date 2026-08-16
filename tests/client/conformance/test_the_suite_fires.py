@@ -508,8 +508,17 @@ def _ignore_the_threshold(root: Path) -> Path:
 
     Idempotent, because a leg asks the same subject twice against one root and
     the second call must not mistake its own earlier edit for a moved fixture.
+
+    **The module is resolved through the deployment's own ``binding.yaml``**,
+    not spelled here. ``D-IMPL-141`` made ``plan:`` the one thing that names a
+    deployment's Python, so a control naming a filename instead would silently
+    stop matching the day a deployment renamed its projection — and would fail
+    by editing nothing, which is the failure mode the count assertion below
+    exists to catch.
     """
-    module = root / "resolver.py"
+    from ccf.client.adapters.binding_document import load_binding_document
+
+    module = root / load_binding_document(root).plan.partition(":")[0].strip()
     source = module.read_text(encoding="utf-8")
     if source.count(_IGNORING_LINE) == 1:
         return root

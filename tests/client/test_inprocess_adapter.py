@@ -43,6 +43,7 @@ from ccf.client.result import Result
 from ccf.contracts.canonical import canonical_bytes
 from ccf.deployment import BootedFabric
 from ccf.products.gates import ServableProduct
+from ccf.products.request import ProductRequest
 from ccf.replay.serve import ServedProduct
 
 from tests.client.conftest import SEEDED_ROWS, config_document
@@ -295,20 +296,21 @@ def test_the_wire_carries_exactly_the_canonical_bytes_of_the_vessel(
     outcome = adapter.ask(request)
 
     booted = inprocess._BOOT_CACHE[seeded_root.resolve()]
+    declared = booted.document.question
     served = booted.resolver(
         tenant=booted.fabric.tenant_id,
         product_class=request.product_id,
         version=config_document(seeded_root)["product_class"]["schema_version"],
-        perspective=booted.question(
-            product_id=request.product_id,
+        perspective=booted.document.perspective,
+        request=ProductRequest(
+            schema_name=request.product_id,
+            schema_version=booted.schema_version,
+            subject=declared.subject,
+            intent=declared.intent,
+            freshness=declared.freshness,
+            asked_at=declared.asked_at,
             parameters={THRESHOLD: 20},
-            temporal_boundary=None,
-        ).perspective,
-        request=booted.question(
-            product_id=request.product_id,
-            parameters={THRESHOLD: 20},
-            temporal_boundary=None,
-        ).request,
+        ),
     )
     assert isinstance(served, ServedProduct)
 
@@ -528,27 +530,23 @@ def test_the_fixture_deployment_needs_no_credential_and_no_network(
     A conformance suite that only runs when someone exports a DSN is an opt-in
     gate, and an opt-in parity gate protects nothing. So this asserts the
     property directly and **positively**: every setting the deployment's own
-    connection factory composes is a path *inside the deployment root*, which
-    is a claim that cannot be satisfied by a host, a port or a credential.
+    ``connection:`` block composes to is a path *inside the deployment root*,
+    which is a claim that cannot be satisfied by a host, a port or a credential.
 
     Stated as a property of the composed value rather than as "no environment
     variable is read", because the second is unobservable from here and the
     first is exactly what makes the suite runnable anywhere.
+
+    ``D-IMPL-141``'s ruling made ``connection:`` **data** rather than a factory
+    the loader imports and calls, so the composed mapping is read off the
+    document. The property asserted is unchanged.
     """
-    from ccf.client.adapters.binding_document import (
-        load_binding_document,
-        load_reference,
-    )
+    from ccf.client.adapters.binding_document import load_binding_document
 
     document = load_binding_document(deployment_root)
-    assert document.connection is not None, "the fixture declares a connection"
+    composed = document.connection
+    assert composed, "the fixture declares a connection and it composed to nothing"
 
-    composer = load_reference(
-        document.connection, root=document.root, key="connection"
-    )
-    composed = composer(root=document.root)
-
-    assert composed, "the connection factory composed nothing at all"
     for setting, value in composed.items():
         resolved = Path(str(value)).resolve()
         assert document.root in resolved.parents, (

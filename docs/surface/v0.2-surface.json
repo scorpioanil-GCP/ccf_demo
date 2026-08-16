@@ -828,13 +828,16 @@
     "__all__": [
       "BINDING_DOCUMENT_NAME",
       "BindingDocument",
+      "DATA_KEYS",
+      "DebtDeclaration",
       "OPTIONAL_KEYS",
-      "QuestionFactoryProtocol",
-      "REQUIRED_KEYS",
-      "ResolverCall",
-      "conforming_resolver",
+      "QuestionDeclaration",
+      "REFERENCE_KEYS",
+      "RULED_OUT_KEYS",
+      "conforming_plan_factory",
       "load_binding_document",
-      "load_reference"
+      "load_reference",
+      "looks_like_a_reference"
     ],
     "exports": {
       "BINDING_DOCUMENT_NAME": {
@@ -843,27 +846,35 @@
       },
       "BindingDocument": {
         "kind": "class",
-        "shape": "(*, root: 'Path', config: 'Path', resolver: 'str', question: 'str', connection: 'str | None') -> None"
+        "shape": "(*, root: 'Path', config: 'Path', plan: 'str', question: 'QuestionDeclaration', perspective: 'Perspective', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int', artifact_store: 'Path', debt: 'DebtDeclaration', connection: 'Mapping[str, object] | None') -> None"
+      },
+      "DATA_KEYS": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "DebtDeclaration": {
+        "kind": "class",
+        "shape": "(*, half_life_key: 'str', debt_profile_key: 'str', completeness: 'Decimal', semantic_consistency: 'Decimal') -> None"
       },
       "OPTIONAL_KEYS": {
         "kind": "constant",
         "shape": "tuple"
       },
-      "QuestionFactoryProtocol": {
+      "QuestionDeclaration": {
         "kind": "class",
-        "shape": "(*, product_id: 'str', parameters: 'Mapping[str, Any]', temporal_boundary: 'Any') -> 'ResolverCall'"
+        "shape": "(*, subject: 'str', intent: 'str', freshness: 'str', asked_at: 'datetime') -> None"
       },
-      "REQUIRED_KEYS": {
+      "REFERENCE_KEYS": {
         "kind": "constant",
         "shape": "tuple"
       },
-      "ResolverCall": {
-        "kind": "class",
-        "shape": "(*, perspective: 'Perspective', request: 'ProductRequest') -> None"
+      "RULED_OUT_KEYS": {
+        "kind": "constant",
+        "shape": "dict"
       },
-      "conforming_resolver": {
+      "conforming_plan_factory": {
         "kind": "function",
-        "shape": "(candidate: 'Any', *, reference: 'str', root: 'Path') -> 'ServedProductResolverProtocol'"
+        "shape": "(candidate: 'Any', *, reference: 'str', root: 'Path') -> 'ProjectionPlanFactoryProtocol'"
       },
       "load_binding_document": {
         "kind": "function",
@@ -872,6 +883,10 @@
       "load_reference": {
         "kind": "function",
         "shape": "(reference: 'str', *, root: 'Path', key: 'str') -> 'Any'"
+      },
+      "looks_like_a_reference": {
+        "kind": "function",
+        "shape": "(value: 'object') -> 'bool'"
       }
     }
   },
@@ -4597,6 +4612,32 @@
       "register_product_class": {
         "kind": "function",
         "shape": "(*, registry: 'ControlPlaneProtocol', schema_name: 'str', schema_version: 'str', ttl_anchor: 'TTLAnchor', assembly_mode: 'AssemblyMode', max_ttl_key: 'str', max_ttl_version: 'str', accepted_policy_binding_modes: 'frozenset[PolicyBindingMode]' = frozenset({'assembly-stamped'}), accepted_lineage_modes: 'frozenset[LineageMode]' = frozenset({'graph-supplied'}), freshness_sla: 'FreshnessSLA' = FreshnessSLA(max_age_seconds_by_signal={}), discovery: 'ProductDiscovery' = ProductDiscovery(domain='not-discoverable', intents=frozenset(), capabilities=frozenset(), audiences=frozenset()), addressability: 'ProductAddress' = ProductAddress(address_template='not-addressable'), constituent_validity_floors: 'ConstituentValidityFloors' = ConstituentValidityFloors(min_validity_seconds_by_signal={}), payload_schema_key: 'str' = 'no-payload-schema', payload_schema_version: 'str' = 'no-payload-schema', request_contract_key: 'str' = 'no-request-contract', request_contract_version: 'str' = 'no-request-contract') -> 'RegisteredProductClass'"
+      }
+    }
+  },
+  "ccf.products.debt_scorer": {
+    "__all__": [
+      "AssemblyDebtScorer",
+      "DECLARED_FACTOR_SCORER_ID",
+      "DECLARED_FACTOR_SCORER_VERSION",
+      "DeclaredFactor"
+    ],
+    "exports": {
+      "AssemblyDebtScorer": {
+        "kind": "class",
+        "shape": "(*, table: 'HalfLifeTable', profile: 'DebtProfile', completeness: 'DebtFactorScorerProtocol', semantic_consistency: 'DebtFactorScorerProtocol') -> None"
+      },
+      "DECLARED_FACTOR_SCORER_ID": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "DECLARED_FACTOR_SCORER_VERSION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "DeclaredFactor": {
+        "kind": "class",
+        "shape": "(value: 'Decimal') -> None"
       }
     }
   },

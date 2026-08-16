@@ -79,15 +79,15 @@ from __future__ import annotations
 import atexit
 import hashlib
 import threading
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TypeVar
 
+from ccf.artifacts.file_store import FileArtifactStore
 from ccf.client.adapters.binding_document import (
+    BINDING_DOCUMENT_NAME,
     BindingDocument,
-    ResolverCall,
-    conforming_resolver,
+    conforming_plan_factory,
     load_binding_document,
     load_reference,
 )
@@ -95,11 +95,18 @@ from ccf.client.binding import SCHEME_REGISTRY
 from ccf.client.errors import BindingError, TransportError
 from ccf.client.wire import WireOutcome, WireRequest
 from ccf.contracts.canonical import canonical_bytes
+from ccf.controlplane.artifacts import (
+    DebtProfile,
+    HalfLifeTable,
+    ProductClassDeclaration,
+)
 from ccf.controlplane.registry import ControlPlaneProtocol, ControlPlaneRegistry
 from ccf.deployment import BootedFabric
 from ccf.deployment.config import load_config_and_boot
+from ccf.products.debt_scorer import AssemblyDebtScorer, DeclaredFactor
 from ccf.products.refusal import RefusalEnvelope
-from ccf.products.resolver import ServedProductResolverProtocol
+from ccf.products.request import ProductRequest
+from ccf.products.resolver import GovernedResolver, ServedProductResolverProtocol
 from ccf.replay.serve import ServedProduct
 
 __ccf_mode__ = "algorithmic"
@@ -111,6 +118,9 @@ __all__ = ["SCHEME", "InProcessAdapter", "reset_boot_cache"]
 #: refusal messages and the tests all say the same string.
 SCHEME = "inprocess"
 
+#: One Control Plane artifact class, for :func:`_artifact`'s narrowing refusal.
+_A = TypeVar("_A")
+
 
 @dataclass(frozen=True)
 class _BootedDeployment:
@@ -119,12 +129,18 @@ class _BootedDeployment:
     Frozen and handle-carrying for the reason
     :class:`~ccf.deployment.BootedFabric` gives for its own shape: a live
     handle has no canonical serialization and never belongs in a content hash.
+
+    ``document`` rides along because the question vocabulary is now **data**
+    (``D-IMPL-141``): the request this adapter builds is assembled from the
+    binding document rather than produced by a deployment factory, so the
+    document has to outlive the boot.
     """
 
     fabric: BootedFabric
     control_plane: ControlPlaneProtocol
     resolver: ServedProductResolverProtocol
-    question: Any
+    document: BindingDocument
+    schema_version: str
 
 
 #: Resolved absolute deployment root → the fabric booted from it. Process
@@ -182,47 +198,100 @@ def _close_cached_fabrics() -> None:
     _BOOT_CACHE.clear()
 
 
-def _boot(document: BindingDocument) -> _BootedDeployment:
-    """Boot one deployment and wire its resolver. Called at most once per root.
+def _artifact(fabric: BootedFabric, *, key: str, expected: type[_A]) -> _A:
+    """One parsed artifact off the booted fabric, narrowed by name.
 
-    Every value this needs comes from the deployment: the Control Plane
-    document ``binding.yaml`` names, the connection its own factory composes,
-    and the resolver and question factories it declares. This function supplies
-    no default for any of them, which is why it has nothing domain-specific to
-    hold.
+    A refusal rather than a ``cast``: ``binding.yaml`` is hand-authored, so a
+    key naming the *wrong section* of ``ccf_config.yaml`` is an ordinary
+    authoring mistake. Told here it names the key and the class; discovered
+    later it is an ``AttributeError`` inside a scorer.
     """
-    connection: Mapping[str, object] | None = None
-    if document.connection is not None:
-        composer = load_reference(
-            document.connection, root=document.root, key="connection"
+    try:
+        artifact = fabric.artifacts[key]
+    except KeyError as absent:
+        raise BindingError(
+            f"`{key}` in {BINDING_DOCUMENT_NAME} names a Control Plane key this"
+            " deployment does not have — it holds"
+            f" {', '.join(f'`{name}`' for name in sorted(fabric.artifacts))}"
+        ) from absent
+    if not isinstance(artifact, expected):
+        raise BindingError(
+            f"`{key}` in {BINDING_DOCUMENT_NAME} names a"
+            f" `{type(artifact).__name__}`, not a `{expected.__name__}`"
         )
-        composed = composer(root=document.root)
-        if not isinstance(composed, Mapping):
-            raise BindingError(
-                f"`connection: {document.connection}` in"
-                f" {document.root}/binding.yaml names a factory that returned"
-                f" `{type(composed).__name__}` — a connection factory returns a"
-                " mapping of the declared adapter's own setting names to their"
-                " values"
-            )
-        connection = composed
+    return artifact
 
+
+def _boot(document: BindingDocument) -> _BootedDeployment:
+    """Boot one deployment and build its resolver. Called at most once per root.
+
+    **The SDK builds the resolver here** — that is what ``D-IMPL-141``'s ruling
+    changed. Every value the composition needs is data the deployment declared,
+    except the one thing measurement said cannot be data: the projection, which
+    arrives through the single permitted ``plan:`` reference (Amendment A.3).
+
+    Two SDK reference implementations are selected here rather than named by the
+    deployment, and both are stated rather than assumed:
+
+    * :class:`~ccf.products.debt_scorer.AssemblyDebtScorer` — ``17-11``'s
+      reference ``GraphView`` → ``DebtAssessment`` adapter, with ``C`` and ``S``
+      carried by :class:`~ccf.products.debt_scorer.DeclaredFactor` at the values
+      the document declared. The SDK has no reference measurement for either
+      factor, so the *values* stay the deployment's and only the *machinery* is
+      the SDK's.
+    * :class:`~ccf.artifacts.file_store.FileArtifactStore` — the shipped
+      file-backed reference (CLAUDE.md §7.4), selected because
+      ``artifact_store:`` declares a **path** and a path is what a file-backed
+      store takes. A deployment on another substrate is ``17-13``'s
+      ``build_governed_resolver(...)`` seam, not this adapter's.
+
+    This function is the composition ``17-13`` is expected to lift into that
+    helper, so a second transport does not grow a second copy of it.
+    """
     control_plane = ControlPlaneRegistry()
     fabric = load_config_and_boot(
-        document.config, registry=control_plane, connection=connection
+        document.config, registry=control_plane, connection=document.connection
     )
-    factory = load_reference(document.resolver, root=document.root, key="resolver")
-    resolver = conforming_resolver(
-        factory(fabric=fabric, control_plane=control_plane),
-        reference=document.resolver,
+    plan_factory = conforming_plan_factory(
+        load_reference(document.plan, root=document.root, key="plan"),
+        reference=document.plan,
         root=document.root,
     )
-    question = load_reference(document.question, root=document.root, key="question")
+    declaration = _artifact(
+        fabric, key=document.product_class_key, expected=ProductClassDeclaration
+    )
+    resolver = GovernedResolver(
+        fabric=fabric,
+        control_plane=control_plane,
+        product_class_key=document.product_class_key,
+        request_contract_key=document.request_contract_key,
+        operator_parameter_keys=document.operator_parameter_keys,
+        policy_bundle_key=document.policy_bundle_key,
+        plan_factory=plan_factory,
+        debt_scorer=AssemblyDebtScorer(
+            table=_artifact(
+                fabric, key=document.debt.half_life_key, expected=HalfLifeTable
+            ),
+            profile=_artifact(
+                fabric, key=document.debt.debt_profile_key, expected=DebtProfile
+            ),
+            completeness=DeclaredFactor(value=document.debt.completeness),
+            semantic_consistency=DeclaredFactor(
+                value=document.debt.semantic_consistency
+            ),
+        ),
+        artifact_store=FileArtifactStore(root=document.artifact_store),
+        replay_record_class=document.replay_record_class,
+        query_pin_class=document.query_pin_class,
+        max_ttl_seconds=document.max_ttl_seconds,
+        product_ttl_seconds=document.product_ttl_seconds,
+    )
     return _BootedDeployment(
         fabric=fabric,
         control_plane=control_plane,
         resolver=resolver,
-        question=question,
+        document=document,
+        schema_version=declaration.schema_version,
     )
 
 
@@ -255,7 +324,7 @@ class InProcessAdapter:
     #: nothing, which is the failure mode that suite was built to be immune to.
     _resolver: ServedProductResolverProtocol
 
-    __slots__ = ("_address", "_question", "_resolver", "_tenant")
+    __slots__ = ("_address", "_resolver")
 
     def __init__(self, address: str) -> None:
         self._address = address
@@ -269,8 +338,12 @@ class InProcessAdapter:
                 :class:`~ccf.client.errors.TransportError` by inheritance, so
                 one ``except`` clause still covers every way the wire never
                 spoke.
-            ccf.client.errors.TransportError: the deployment's question factory
-                did not produce a :class:`ResolverCall`.
+            ccf.products.request.ProductRequestViolation: the question the
+                binding document declared is not a well-formed request. Raised
+                at :class:`~ccf.products.request.ProductRequest` construction
+                rather than caught and re-wrapped, because a malformed declared
+                question is deployment wiring being wrong and not the wire
+                failing to speak.
             ccf.products.resolver.ProductNotResolvable: the deployment is
                 wired to serve a different class than the one asked for.
                 Deliberately **not** converted into a refusal: a mis-wiring
@@ -278,25 +351,22 @@ class InProcessAdapter:
                 audited refusal the fabric never made.
         """
         booted = self._ensure_booted()
-        call = self._question(
-            product_id=request.product_id,
+        document = booted.document
+        typed = ProductRequest(
+            schema_name=request.product_id,
+            schema_version=booted.schema_version,
+            subject=document.question.subject,
+            intent=document.question.intent,
+            freshness=document.question.freshness,
+            asked_at=request.temporal_boundary or document.question.asked_at,
             parameters=request.parameters,
-            temporal_boundary=request.temporal_boundary,
         )
-        if not isinstance(call, ResolverCall):
-            raise TransportError(
-                f"the deployment at {self._address} answered its question"
-                f" factory with `{type(call).__name__}` rather than a"
-                " `ResolverCall`, so there is no typed question to ask and no"
-                " perspective to ask it under"
-            )
-
         outcome = self._resolver(
             tenant=booted.fabric.tenant_id,
-            product_class=call.request.schema_name,
-            version=call.request.schema_version,
-            perspective=call.perspective,
-            request=call.request,
+            product_class=typed.schema_name,
+            version=typed.schema_version,
+            perspective=document.perspective,
+            request=typed,
         )
         return self._encode(outcome, request=request)
 
@@ -315,8 +385,6 @@ class InProcessAdapter:
                 booted = _boot(document)
                 _BOOT_CACHE[document.root] = booted
         self._resolver = booted.resolver
-        self._question = booted.question
-        self._tenant = booted.fabric.tenant_id
         return booted
 
     @staticmethod

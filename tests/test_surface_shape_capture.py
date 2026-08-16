@@ -486,6 +486,18 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf.products.contract.register_product_class": (
         "16-27-discovery-audiences.md"
     ),
+    # `D-IMPL-141` (RESOLVED, Dave, 2026-08-16). `BindingDocument` went from
+    # four fields — three of them `<module>:<attribute>` reference strings — to
+    # the data the SDK builds a resolver from plus **one** reference, `plan:`.
+    # This is not an additive widening like its neighbours above and the entry
+    # does not pretend otherwise: fields were removed, and every consumer of
+    # `document.resolver` or `document.question` had to change. It is listed
+    # here because the shape genuinely moved and the fragment records why, in
+    # full, under `reshaped` — the allowance's contract is *claimed by name in
+    # the fragment it cites*, not *changed only additively*.
+    "ccf.client.adapters.binding_document.BindingDocument": (
+        "17-12-binding-document-data-only.md"
+    ),
 }
 
 

@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **234** across **74** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **147** across **49** files
+- Coupling rows: **230** across **71** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **143** across **46** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **235**
 
 Rows by owning plan:
@@ -20,16 +20,16 @@ Rows by owning plan:
 | 16-15 | 23 |
 | 16-17 | 39 |
 | 16-18 | 103 |
-| 17-08 | 61 |
+| 17-08 | 57 |
 
 Rows by coupling shape:
 
 | Shape | Rows |
 | --- | --- |
-| `comment` | 20 |
+| `comment` | 19 |
 | `count-constant` | 4 |
 | `count-scan-function` | 4 |
-| `docstring` | 57 |
+| `docstring` | 54 |
 | `indirect-execution` | 1 |
 | `inline-tree-witness` | 1 |
 | `literal-set-member` | 3 |
@@ -197,8 +197,6 @@ Rows by coupling shape:
 | `runtime/ccf_runtime/mcp/experience.py` | 332 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `runtime/ccf_runtime/mcp/experience.py` | 334 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `runtime/ccf_runtime/mcp/experience.py` | 483 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
-| `src/ccf/client/adapters/binding_document.py` | 50 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/client/adapters/binding_document.py` | 161 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/bind.py` | 74 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `src/ccf/products/bind.py` | 76 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 365 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
@@ -207,8 +205,6 @@ Rows by coupling shape:
 | `tests/client/conformance/suite.py` | 376 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/suite.py` | 409 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/test_the_suite_fires.py` | 155 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/client/fixtures/deployment/resolver.py` | 4 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/client/fixtures/deployment/scenario.yaml` | 4 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
 | `tests/conformance/test_a3_discharge.py` | 31 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
 | `tests/conformance/test_harness_portability.py` | 58 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
 | `tests/conformance/test_harness_portability.py` | 76 | `examples/03-harness-portability` | `docstring` | documentary | - | - | 16-15 |  |
@@ -592,7 +588,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-CONTEXT.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-RESEARCH.md` | 9 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
-| `docs/DECISIONS.md` | 46 | append-only decision log |
+| `docs/DECISIONS.md` | 45 | append-only decision log |
 | `docs/PHASE_15_5_GATE.md` | 2 | append-only per-phase gate records |
 | `docs/PHASE_I1_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/PHASE_I3_GATE.md` | 5 | append-only per-phase gate records |
