@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**701 entries**, of which **471** name a public Python surface.
+**705 entries**, of which **473** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-348 entries — 315 public Python surface, 33 not public Python API.
+350 entries — 317 public Python surface, 33 not public Python API.
 
 ### Public Python surface
 
@@ -6482,6 +6482,64 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `17-12-binding-document-data-only.md`.*
 
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: added
+- Before: absent. `GovernedResolver` took `debt_scorer` as a required argument
+  with no default, so **every** deployment supplied one — and since the SDK
+  shipped no implementation until `17-11`, every deployment also *wrote* one.
+  `17-12` moved the composition into
+  `ccf.client.adapters.inprocess::_boot`, where it was one transport's private
+  wiring rather than a seam a second transport could reach
+- After: a keyword-only function taking the three fabric objects, the ten data
+  values and the single permitted `plan:` factory, and returning a
+  `GovernedResolver`. When no `debt_scorer` is passed it composes
+  `ccf.products.debt_scorer.AssemblyDebtScorer` from the two Control Plane keys
+  the caller named plus the two declared factors, each wrapped in
+  `DeclaredFactor` so it lands in the Decision Replay record under its own
+  `ScorerPin` (`D-IMPL-47`). Passing an explicit scorer overrides the reference
+  entirely. Supplying **both**, or **neither**, is refused with a `TypeError`
+  naming what is missing
+- Why: §6 of
+  `docs/superpowers/specs/2026-08-16-reference-plan-factory-and-debt-scorer.md`
+  requires that *"a deployment that provides only data never has to know the
+  Protocols exist"*, and CLAUDE.md §11 requires a reference implementation
+  beside every Protocol. Shipping `AssemblyDebtScorer` without selecting it
+  satisfied neither: a deployment still had to name it. **The helper rather
+  than the class** because the default is not a value but a *construction*
+  needing four further inputs — defaulting on the class would have grown it
+  from thirteen arguments to seventeen, four of them dead whenever an explicit
+  scorer is supplied, in order to give one argument a default
+- Migration: none — new name, no prior shape. A deployment that constructs
+  `GovernedResolver` directly keeps working unchanged and keeps supplying its
+  own scorer. A deployment that wants the SDK's reference switches its
+  construction call to this function and supplies `half_life_key`,
+  `debt_profile_key`, `declared_completeness` and `declared_semantic_consistency`
+  instead of a scorer
+
+*Recorded by `17-13-resolver-defaults.md`.*
+
+#### ccf.products.resolver.DEBT_SCORER_INPUTS
+
+- Surface: ccf.products.resolver.DEBT_SCORER_INPUTS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `("half_life_key", "debt_profile_key", "declared_completeness",
+  "declared_semantic_consistency")` — the four values
+  `build_governed_resolver` needs to construct the reference scorer
+- Why: exported for the reason `ccf.client.result.GUARDED_FIELDS` is exported —
+  the helper's two refusal messages enumerate it, and the tests parameterize
+  over it, so a fifth input added to the reference scorer gets its own control
+  on the day it is declared rather than the day somebody remembers. A
+  hand-written list beside each of three call sites is three lists that rot
+  independently
+- Migration: none
+
+*Recorded by `17-13-resolver-defaults.md`.*
+
 ### Not public Python API
 
 #### src/ccf/deployment/\_\_init\_\_.py
@@ -11721,7 +11779,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-59 entries — 45 public Python surface, 14 not public Python API.
+61 entries — 45 public Python surface, 16 not public Python API.
 
 ### Public Python surface
 
@@ -13163,3 +13221,58 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none — no signature moved
 
 *Recorded by `17-11-reference-debt-scorer.md`.*
+
+#### src/ccf/client/adapters/inprocess.py
+
+- Surface: src/ccf/client/adapters/inprocess.py
+- Public surface: false
+- Change type: behavior
+- Before: `_boot` constructed `GovernedResolver` itself, composing
+  `AssemblyDebtScorer` inline from two `_artifact` lookups and two
+  `DeclaredFactor` wraps. `17-12`'s own docstring named this *"the composition
+  `17-13` is expected to lift into `build_governed_resolver(...)`"*
+- After: `_boot` calls `build_governed_resolver` with the document's data and
+  selects only the artifact **store** itself — `FileArtifactStore`, because
+  `artifact_store:` declares a path and a path is what a file-backed store
+  takes. `ProductNotResolvable` raised while resolving the two debt keys is
+  translated into a `BindingError` naming `binding.yaml`, because at boot every
+  key the helper could miss was written there; the original is chained, so
+  nothing about the manifest is lost
+- Why: a second transport must not grow a second copy of a thirteen-argument
+  composition, and the *"never has to know the Protocol exists"* property
+  belongs to the seam rather than to one adapter. Classified
+  `Public surface: false` because no exported Python name changed shape — the
+  adapter's exports are `SCHEME`, `InProcessAdapter` and `reset_boot_cache`,
+  all untouched
+- Migration: none. The refusal an adopter sees for a mistyped `debt:` key is
+  still a `BindingError` and therefore still a `TransportError`, so one
+  `except` clause covers it exactly as before
+
+*Recorded by `17-13-resolver-defaults.md`.*
+
+#### binding.yaml (debt:)
+
+- Surface: binding.yaml
+- Public surface: false
+- Change type: behavior
+- Before: `17-12` added the `debt:` block — `half_life_key`,
+  `debt_profile_key`, `completeness`, `semantic_consistency` — and flagged it
+  as possibly relocatable once `17-13` shipped a default
+- After: **unchanged, all four fields, and deliberately so.** What changed is
+  what the deployment must *know*: the block declares `D_c`'s **inputs**, and
+  the SDK now selects the **machinery** that consumes them. A deployment names
+  no scorer, imports nothing from `ccf.products.debt_scorer`, and writes no
+  `GraphView` → `DebtFactors` adapter
+- Why: none of the four is something a default may supply. The two keys name
+  **Control Plane artifacts**, and §6 of the ruling forbids *"new discovery or
+  registration machinery in this change"* — a fabric holding two λ_c tables has
+  no SDK-knowable right answer, and picking the only one present is a rule that
+  silently changes behaviour the day a second is registered. The two factors
+  have **no SDK measurement at all**: `DebtFactors` records that position in its
+  own docstring, and `17-11` rejected each candidate default in turn (`C = 1` is
+  a number the SDK chose inside a delivered product's content address; `C = 0`
+  fail-closes every deployment; deriving `C` from the table's breadth couples
+  completeness to how many observation types a deployment happens to calibrate)
+- Migration: none — no key was added, removed or renamed
+
+*Recorded by `17-13-resolver-defaults.md`.*
