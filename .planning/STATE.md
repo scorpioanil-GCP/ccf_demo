@@ -133,14 +133,39 @@ WHAT THE PAUSE DELIVERED (2026-08-16, all three merged with SUMMARYs committed):
     VALUES. 17-12's `debt:` block survives intact, all four fields, because none
     of the four is something a default may supply.
 
+CI IS GREEN — CLOSED 2026-08-16. Run 31974549984 @ `763c846`:
+  **completed / success, ALL FOUR JOBS** (examples suite, docs gate, lint +
+  strict types, tests python 3.12). This is the FIRST fully green run this
+  branch has ever had, and the first time the tests job ran to completion at
+  all. What executed for the first time in the project's history: the quick
+  suite (3695 tests), harness adapter conformance, and the FOUR SUBSTRATE LEGS
+  (Postgres, Neo4j, Mongo, Fluree) plus coverage. They genuinely RAN rather
+  than skipping — the job sets CCF_REQUIRE_POSTGRES/NEO4J/MONGO/FLUREE/
+  HARNESSES, each of which turns a skip into a failure, so a green job with
+  those set is positive evidence the legs hit real substrates.
+  THE PIPELINE AND THE LOCAL GATE NOW AGREE, which is the property the
+  hold-waves-6-7 ordering rule existed to protect.
+
+  HOW IT GOT THERE, two fixes on top of the pause work:
+  (a) D-IMPL-143 — `ci.yml` invoked a bare `pytest` while every Makefile target
+      invokes `python -m pytest`; the `-m` form puts the cwd on sys.path and the
+      console script does not. `tests/` has no top-level __init__.py, so pytest
+      inserted each test file's own directory rather than the repo root and 13
+      modules failed to collect. Red since at least 2026-08-10, never diagnosed,
+      because every local reproduction ran through `make`. All seven pytest
+      steps now CALL Makefile targets instead of restating them.
+  (b) `763c846` — the frozen-baseline provenance test could NEVER pass in CI:
+      actions/checkout defaults to fetch-depth 1, and a shallow clone's grafted
+      root appears to introduce every file, so `git log -- <baseline>` returns
+      HEAD's own subject. It now asks `git rev-parse --is-shallow-repository`.
+      Latent for months, invisible because the job died at collection first.
+
 NEEDS DAVE, NOT THE SESSION:
-  (1) THE phase-17 CI CHECK, still the highest-priority unknown and now more so.
-      Pushed at 8e95139 and never looked at; the branch is ~180 commits ahead of
-      main and NOTHING SINCE 8e95139 IS PUSHED. No gh CLI, no GitHub token here —
-      this cannot be done from the session. Green -> proceed. Red -> diagnose.
-  (2) WHETHER TO START WAVES 6 AND 7. The ruling unblocks them; the session did
-      not start them. 17-08 and 17-09 are both checkpoint plans (autonomous:
-      false), so they need Dave in the loop by construction.
+  (1) WHETHER TO START WAVES 6 AND 7. The 2026-08-16 spec closure unblocked
+      them and the CI condition Dave set ("once we have a clear CI signal,
+      green or a concrete failure log, we start wave 6") is now MET. The
+      session did not start them. 17-08 and 17-09 are both checkpoint plans
+      (autonomous: false), so they need Dave in the loop by construction.
   (3) RULED 2026-08-16 — D-IMPL-142. The three new public names are KEPT, all
       three, with reasons recorded: `DeclaredFactor` (mechanism that makes a
       declared factor auditable in replay), `build_governed_resolver` (the
