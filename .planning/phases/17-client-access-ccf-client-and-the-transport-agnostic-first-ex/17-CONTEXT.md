@@ -247,8 +247,9 @@ were really design gaps. Dave ruled all four. Full text: spec **Amendment 1**.
   fixture data); **no ingest goes anywhere near `ccf.client`**, so D-16 is
   satisfied by construction rather than discipline; D-17 stands untouched
   (`deployment/` is `ccf_config.yaml` plus connection material, with
-  `backends.yaml` staying separate); and `config.py:82-91`'s refusal to carry
-  a signal batch is **not** reversed. Data production is producer-side work
+  `backends.yaml` staying separate); and the reserved-section exclusion in
+  `src/ccf/deployment/config.py::_RESERVED_SECTIONS` — no `signal_batch` among
+  the eight reserved names — is **not** reversed. Data production is producer-side work
   and belongs to the later producer-examples effort. **The consequence to plan
   around, stated not papered over:** an example needing a reachable backend
   **cannot run in always-on CI** (network-free, no credentials). The project's

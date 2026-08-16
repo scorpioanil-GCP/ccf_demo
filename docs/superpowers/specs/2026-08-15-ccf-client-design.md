@@ -418,8 +418,12 @@ never ingests, and never knows how the data got there. Consequences:
 - **D-17 stands untouched.** `deployment/` is `ccf_config.yaml` plus
   connection material (`backends.yaml`, which stays separate — a DSN inside a
   content-hashed artifact is a DSN persisted into the audit plane forever).
-- **`src/ccf/deployment/config.py:82-91` is not reversed.** The refusal to put
-  a signal batch in `ccf_config.yaml` stands; nothing in this phase needs it.
+- **The reserved-section exclusion is not reversed.** `ccf_config.yaml` has no
+  `signal_batch` among the eight names in
+  `src/ccf/deployment/config.py::_RESERVED_SECTIONS`, and that is a decision
+  rather than a gap — registering one would content-hash raw event data into
+  Control Plane state and therefore into Decision Replay dimension 2
+  (`D-IMPL-80`). The refusal stands; nothing in this phase needs it.
 
 **Scope note:** data production is a *producer-side* concern and belongs to
 the later body of work on context-producer examples. The next several examples
