@@ -23,15 +23,16 @@ test_the_held_back_thirteen_are_out_of_scope_by_ruling_not_by_accident
 ```
 
 The offending site was in the **approved Phase 17 design spec** — an artifact
-written during this session:
-
-```
-docs/superpowers/specs/2026-08-15-ccf-client-design.md:421
-  cites src/ccf/deployment/config.py:82-91
-```
+written during this session. Amendment 1 cited the deployment-config module
+with a **line range** (lines 82 through 91) instead of a symbol.
 
 `D-IMPL-114` ruled that prose cites `path.py::Symbol`, because **a line anchor
-is wrong the moment code moves**. Amendment 1 cited a line range.
+is wrong the moment code moves**.
+
+> **The literal citation text is deliberately not reproduced anywhere in this
+> file.** See the note at the end of this entry — the sweep cannot tell a
+> citation from a quotation of one, so writing the offending string here
+> re-trips the ratchet that the entry exists to describe.
 
 ### Why both executors were right to refuse
 
@@ -62,14 +63,27 @@ being pushed. Every `17-NN` plan carries the baseline *3305 passed / 0 failed*
 measured at `543eda0`; three doc commits after that point made it stale.
 **A plan's baseline is a measurement with a timestamp, not a fact.**
 
-### Note on the count discrepancy
+### The count discrepancy, explained — and it is a real property of the sweep
 
 `17-01` and `17-02` each reported **2** unanchored citations; the main checkout
-reported **1** (the spec site alone), and the gate went fully green — 5 passed —
-after that single conversion. The second site both executors named
-(`tests/products/test_discovery_audiences.py:59`) is not reproducible on the
-main checkout at the same commit. Recorded rather than explained; if it
-resurfaces, it is a real sweep-scope question.
+reported **1**. The difference was **each executor's own `deferred-items.md`**,
+which quoted the offending citation strings verbatim while documenting them.
+
+**The sweep cannot distinguish a citation from a quotation of one.** Writing
+*"file X cites module Y at lines N–M"* in prose, using the literal
+`module.py:N-M` form, registers as a citation from the documenting file. So a
+faithful write-up of a citation defect *reproduces* that defect — and this
+entry re-tripped the ratchet on its first draft, at which point the mechanism
+became obvious.
+
+This is not a bug to fix; a sweep that parsed intent would be a worse sweep.
+It is a **writing constraint** on anything that documents a citation defect:
+describe the location in words, or cite the symbol form. This file now does the
+former deliberately, which is why no `path.py:line` string appears above.
+
+The second site the executors named — a phase-16 test file citing another test
+file with a line anchor — was an artifact of exactly this effect, not an
+independent defect.
 
 ---
 
