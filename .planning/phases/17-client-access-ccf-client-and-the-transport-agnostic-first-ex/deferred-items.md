@@ -429,3 +429,46 @@ So wave 5 must actively answer one question and record the answer either way:
 **can a caller audit which clock answered, using only what a `Result` already
 exposes?** If yes, this entry closes as "surfacing not required." If no, it
 reopens with the measurement as its evidence.
+
+---
+
+## DEF-17-06 — the surface-manifest walk fails **silently** inside a worktree
+
+**Found:** plan `17-06` execution, 2026-08-15. **Severity:** advisory for the
+shipped tool, blocking for anyone measuring surface drift from a worktree.
+**Status:** recorded, not fixed — the fix is a one-line `onerror=` and it is a
+change to shared tooling that no plan in this phase owns.
+
+**What was measured.** `tools/dump_surface.py --report` reported `added (0)`
+in this worktree while two new `__all__`-bearing modules
+(`ccf.client.adapters.binding_document`, `ccf.client.adapters.inprocess`) sat
+in the tree. Forcing `PYTHONPATH=src:runtime` on the same command reported
+`added (12)`.
+
+**Why.** `iter_public_modules()` walks with
+`pkgutil.walk_packages(search_path, prefix=...)` and **no `onerror`
+callback**, so an `ImportError` raised while recursing into a subpackage is
+**swallowed and the entire subtree is dropped**. The venv's editable install
+resolves `ccf` to `/home/parkave/ccf_code/src/ccf` — the **main checkout** —
+so from a worktree, `importlib.import_module("ccf.client.adapters")` fails for
+any package the main checkout does not yet have. The walk finds the directory
+on disk, cannot import it, and silently reports a smaller surface.
+
+**Why it matters beyond convenience.** This is the phase's recurring defect
+class in a new place: *a walk that skips what it cannot resolve, and goes quiet
+exactly when the tree gets complicated.* `test_surface_drift.py` and
+`test_surface_completeness.py` both consume this walk, so in a worktree they
+pass **vacuously** over any newly added subpackage. Three surface gates
+reported green in this worktree against a tree that had 12 undocumented public
+names in it.
+
+**What `17-06` did about it.** Measured with `PYTHONPATH` forced for every
+surface operation, wrote the fragment against the 12 real names, and
+regenerated `docs/surface/v0.2-surface.json` the same way — so the committed
+manifest is correct in the main checkout, which is where it is read.
+
+**The fix, when someone owns it.** Pass an `onerror` to `walk_packages` that
+**raises**. A surface tool that cannot import a module in its own tree should
+fail loudly; there is no case where "silently publish a smaller surface" is the
+right answer. A control would plant an unimportable module under a `tmp_path`
+package root and assert the walk raises rather than returning a short list.
