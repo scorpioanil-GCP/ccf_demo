@@ -87,11 +87,14 @@ independent defect.
 
 ---
 
-## DEF-17-02 — `import ccf.products.payload` raises `ImportError` when it is the first entry into the tree
+## DEF-17-02 — `import ccf.products.payload` raises `ImportError` when it is the first entry into the tree — **RESOLVED**
 
 **Found during:** plan `17-02`, Task 1.
 **Status:** pre-existing; independent of anything `17-02` added.
 **RULED (Dave, 2026-08-15): this gets an owner NOW — plan `17-03b`, wave 2.**
+**CLOSED by plan `17-03b`, 2026-08-15.** The original write-up is preserved
+below unchanged; what `17-03b` did, and how it was proven, is at the end of
+this entry under *Resolution*.
 
 > *"In a phase whose explicit goal is the adopter's first experience, an import
 > that fails when it is the first import into the tree is a real defect, not an
@@ -141,6 +144,68 @@ error names a circular import rather than anything they did. **This is an
 adoption defect in a phase whose entire subject is the adopter's first
 experience** — it deserves an owner before the phase gate.
 
+### Resolution — plan `17-03b`, 2026-08-15
+
+**The cycle was re-derived before it was touched**, on `phase-17` @ `7d76205`,
+and it stood exactly as reported above — same five edges, same modules.
+
+**What changed: one edge, in one module.** `ccf.products.request` needed two
+names from `ccf.products.payload`, and on inspection neither justified a
+module-scope import:
+
+| Name | How it was used | Where it went |
+|---|---|---|
+| `PayloadSchemaViolation` | one parameter annotation on `request.py::_translate`, a plain function, under `from __future__ import annotations` | `TYPE_CHECKING` — nothing resolves it at runtime |
+| `refuse_payload` | a *value*, called once inside `request.py::refuse_request` | a call-time import in that function |
+
+The bottom-of-module import of `ccf.skills.catalog` stays, and has to:
+`SkillArgumentSchema` is a **field type** of `ProductRequestContract`, so
+`model_rebuild()` needs the class itself and `TYPE_CHECKING` cannot serve it.
+That is the D-IMPL-56 pattern working as ruled, and it was left alone.
+
+**The edge is gone rather than reordered.** No entry point loses, which is the
+difference between this and the workaround it replaces.
+
+**The workaround is removed.** `ccf.products.refusal` now imports `payload`
+before `request` — sorted order, and the exact order that used to raise — with
+the fourteen-line comment deleted.
+
+#### How it was proven
+
+| Measurement | Before | After |
+|---|---|---|
+| `ccf.*` modules failing as a **cold first import** (126 walked, one subprocess each) | **2** — `ccf.products.payload`, `ccf.products.bind` | **0** |
+| `ccf_runtime.*` modules failing (69 walked) | 0 | 0 |
+| The pin `tests/products/test_refusal_envelope.py::test_the_cold_and_warm_runs_agree_on_the_enumeration` with the two `refusal` imports **deliberately reversed** | fails (`17-02` verified this by sabotage) | **passes** — 36/36 in the module, and `import ccf.products.payload` still clean |
+| The same pin, imports in sorted order | n/a | passes |
+
+The third row is the one that matters: the pin stays, and it now passes for a
+reason that has nothing to do with which line comes first.
+
+**Sabotage control on the new guard.** The module-scope edge was restored in
+`ccf.products.request`, bytecode cleared, and
+`tests/invariants/test_cold_import.py` run: it failed naming **three** modules
+(`payload`, `bind`, and now `refusal`, since `refusal` no longer orders around
+the defect). Reverted from a byte-for-byte copy rather than with
+`git checkout --`, per **DEF-17-03**.
+
+#### The guard that replaces the workaround
+
+`tests/invariants/test_cold_import.py` — a **module walk**, not a list of five,
+because a list pins the cycle that was found rather than the property that
+matters. It carries four guards on itself: the walk is cross-checked
+file-for-file against a filesystem glob; a broken sub-package must propagate
+out of the walk instead of truncating it; a planted two-module cycle must be
+reported by the real probe; and its cycle-free twin must be clean.
+
+It is scoped to `src/ccf`. CLAUDE.md §7.3's *zero harness imports in core* is
+what makes an unconditional probe there sound — nothing in `src/` can fail for
+want of an optional extra. The runtime's adapter and orchestration modules
+import their harness at module scope, correctly, so the same probe over
+`runtime/` would make the optional `adk` and `langgraph` extras a hard
+dependency of an always-on invariant test. `ccf_runtime` was measured clean
+anyway; covering it belongs behind the `harness` marker.
+
 ---
 
 ## DEF-17-03 — measurement hazard: `.pyc` staleness can survive a `git checkout` revert
@@ -163,3 +228,56 @@ find src -name "__pycache__" -type d -exec rm -rf {} +
 
 Any future sabotage control that reorders or substitutes equal-length source
 should clear bytecode as part of its revert, not rely on mtime invalidation.
+
+---
+
+## DEF-17-04 — DEF-17-01 is closed but the branch tip is still 2 red, and every wave's baseline is wrong
+
+**Found during:** plan `17-03b`, final verification.
+**Status:** pre-existing at `phase-17` @ `7d76205`; **not** caused by `17-03b`.
+**Ruling-scope. Not fixed here.**
+
+`17-03b` was briefed with a baseline of *3341 passed / 0 failed / 118 skipped*.
+The tree does not agree, and the difference was measured rather than argued —
+**all four of this plan's files were removed from the working tree** (the three
+tracked ones reverted, the new one moved out) and the full suite re-run on a
+clean `git status`:
+
+```
+2 failed, 3339 passed, 118 skipped     <- pristine phase-17 @ 7d76205
+2 failed, 3345 passed, 118 skipped     <- with 17-03b (+6 = its 6 test functions)
+```
+
+The two failures are the same two `tests/invariants/test_citation_coverage.py`
+ratchets `17-01` and `17-02` both reported, and **neither names a file this plan
+touched**:
+
+- `test_the_unanchored_python_citation_population_cannot_regrow` — `assert 1 <= 0`,
+  the one finding being a phase-16 test file citing another phase-16 test file
+  with a line anchor. Described in words here deliberately, per DEF-17-01's own
+  writing constraint.
+- `test_the_held_back_thirteen_are_out_of_scope_by_ruling_not_by_accident` —
+  `assert 14 == 13`, across seven files under `docs/surface-changes/` plus the
+  assembled log.
+
+**Why this needs recording rather than fixing.** DEF-17-01 above is marked
+RESOLVED, and one of its two claims did not hold. It closed the design-spec
+citation correctly, but attributed the *second* finding to the sweep counting
+each executor's own `deferred-items.md` quoting the offending string. That
+explanation predicts the finding disappears on a tree where nobody is
+documenting it. It does not: the pristine measurement above has no such file in
+play and still reports it. The phase-16 test file carries a real unanchored
+citation.
+
+**Both remaining remedies are ruling-scope by the gates' own failure text** —
+raising `MAXIMUM_UNANCHORED_PY_CITATIONS`, or moving the pinned held-back count
+(*"belongs in a decision entry, not in this constant"*). The third option the
+gate prefers — convert the citation to the `path.py::Symbol` form D-IMPL-114
+ruled — is a one-line docstring edit, but it lands in a phase-16 test file that
+this plan has no charter over and no wave owns.
+
+**What every remaining `17-NN` plan should do:** measure against
+**3339 / 2 / 118**, not 3341 / 0 / 118, and treat those two named failures as
+the floor until they are ruled on. A plan's baseline is a measurement with a
+timestamp, not a fact — DEF-17-01 said exactly this, and it went stale again
+within the day.
