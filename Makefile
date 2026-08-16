@@ -23,10 +23,36 @@ CCF_PERF_RUNNER_CLASS ?= local
 ENV_DOCS := PYTHONPATH=.:src:runtime
 ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_CLASS)
 
+# Test-suite environment. The repo root joins the path EXPLICITLY because test
+# modules import their siblings (`from tests.deployment.conftest import ...`)
+# and the surface tooling (`from tools.dump_surface import ...`), and neither
+# `tests` nor `tools` is an installed package.
+#
+# `$(PYTHON) -m pytest` also puts the cwd on sys.path, so `$(ENV)` alone works
+# today — but that is a property of the `-m` FORM, not of the environment, and
+# relying on it is what broke the remote gate. `.github/workflows/ci.yml`
+# spelled the same steps as a bare `pytest` console script, which does NOT add
+# the cwd; `tests/` has no top-level `__init__.py`, so pytest inserted each
+# test file's own directory instead of the repo root. Result: 13 collection
+# ImportErrors, 144 deselected, ZERO tests executed — and the job had been red
+# that way since at least 2026-08-10 while every local `make` run stayed green,
+# because the two gates were never running the same command
+# (run 31967852661, diagnosed 2026-08-16).
+#
+# Stating the root explicitly makes these targets correct under EITHER
+# invocation, so the next person to spell it differently does not reopen this.
+ENV_TESTS := PYTHONPATH=.:src:runtime
+
+# The no-external-substrate marker expression, defined ONCE. It appears in two
+# CI steps (the quick suite and coverage); two hand-copied spellings is one
+# edit away from a filter that silently selects a different set.
+NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not fluree
+
 .DEFAULT_GOAL := help
 
 .PHONY: help install lint typecheck test ci-core ci examples gate-tools \
 	conformance \
+	ci-quick-suite ci-harness-conformance ci-coverage \
 	example-s1-01 example-s1-00 \
 	example-00 example-01 example-02 example-03 example-04 example-05 \
 	example-06 example-07 example-08 example-ext-00 \
@@ -67,6 +93,38 @@ typecheck: ## mypy --strict over src + runtime ([tool.mypy] files is authoritati
 
 test: ## Full pytest suite with harness legs required (CCF_REQUIRE_HARNESSES=1)
 	$(ENV) CCF_REQUIRE_HARNESSES=1 $(PYTHON) -m pytest -q
+
+# ---------------------------------------------------------------------------
+# The CI test steps, as targets rather than as command strings in ci.yml.
+#
+# This file's header states that "the Makefile mirrors .github/workflows/ci.yml
+# command-for-command". That invariant was FALSE for every pytest step in the
+# tests job: ci.yml spelled them as a bare `pytest`, the Makefile as
+# `$(PYTHON) -m pytest`, and the difference decided whether the repo root was
+# on sys.path (see ENV_TESTS above). A mirror asserted in a comment is not a
+# mirror. These targets make it structural — ci.yml now CALLS the command
+# instead of restating it, so the two gates cannot drift apart again.
+#
+# CI has no `.venv`, so it overrides the interpreter on the command line:
+#     make PYTHON=python ci-quick-suite
+# A command-line assignment beats the `PYTHON :=` above, which is why that
+# works without a second variable.
+#
+# The four substrate legs are NOT restated here — `leg-postgres`, `leg-neo4j`,
+# `leg-mongo` and `leg-fluree` already existed, already used the `-m` form, and
+# already set their own CCF_REQUIRE_*; ci.yml now calls those. Their `?=` URI
+# defaults match the values ci.yml puts in the job env, and an environment
+# value wins over `?=`, so the two agree by construction rather than by luck.
+# ---------------------------------------------------------------------------
+
+ci-quick-suite: ## CI: the no-external-substrate suite (mirrors the ci.yml step by calling it)
+	$(ENV_TESTS) $(PYTHON) -m pytest tests -q -m "$(NO_SUBSTRATE)" -rs
+
+ci-harness-conformance: ## CI: harness adapter conformance — all three legs must RUN, not skip
+	$(ENV_TESTS) $(PYTHON) -m pytest tests/conformance -q -rs
+
+ci-coverage: ## CI: informational coverage over the no-substrate suite (D-17 sets no numeric gate)
+	$(ENV_TESTS) $(PYTHON) -m pytest tests -q -m "$(NO_SUBSTRATE)" --cov=ccf --cov-report=term
 
 # `gate-tools` belongs here, not only in `ci`. Plan 17-01 added it to `ci`
 # alone — but `ci-core` is what every wave actually runs, so the tools/ suites

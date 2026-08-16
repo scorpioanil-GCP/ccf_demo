@@ -1,6 +1,6 @@
 """The segmented engine, pinned: split, threading, equivalence, cap, telemetry.
 
-Plan 15.2-07's regression surface for the `D-IMPL-87` at docs/DECISIONS.md:290
+Plan 15.2-07's regression surface for the `D-IMPL-87` at docs/DECISIONS.md:294
 resolution, executed at the engine tier:
 
 * **structure-is-plan-static** — ``segment_plan`` is a pure function of the

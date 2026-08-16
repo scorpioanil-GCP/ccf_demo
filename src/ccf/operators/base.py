@@ -166,7 +166,7 @@ class PushableOperator(Protocol):
     whitepaper commits to operators as typed, pure computations (§7.4); the
     convention by which an operator *declares* the substrate question its
     ``apply()`` renders is Phase 15.2 mechanism — the `D-IMPL-87` at
-    docs/DECISIONS.md:290 resolution's operator seam.
+    docs/DECISIONS.md:294 resolution's operator seam.
 
     This is deliberately a *separate* Protocol rather than a new member of
     :class:`Operator`: an existing third-party operator that never heard of
