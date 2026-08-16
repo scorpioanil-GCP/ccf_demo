@@ -1,0 +1,58 @@
+# This deployment's own vocabulary — everything `ccf_config.yaml` cannot hold.
+#
+# NOT a Control Plane artifact and NOT registered: it is the fixture's
+# equivalent of `examples/s1-00-companies-over-revenue/scenario/question.yaml`,
+# and it exists so `resolver.py` is an interpreter over documents rather than a
+# module carrying values. The No-Hardcoding Rule (CLAUDE.md §6.4) scopes to
+# `tests/` — `tools/lints/__main__.py::RULE_TREE_SCOPE` gives `no-hardcoding`
+# the tree tuple `("src", "runtime", "examples", "tests")` — so a threshold or
+# a TTL spelled as a Python constant next door would be that rule firing here
+# exactly as it would in `src/`.
+
+# The three address tokens a `ProductRequest` needs and the SDK cannot invent.
+question:
+  subject: fixture-widgets
+  intent: fixture-intent
+  freshness: fixture-freshness
+  # What `as_of=None` resolves to here. `D-04` says `None` means "the server's
+  # decision instant"; WHOSE clock and WHAT default is the producer's decision,
+  # and this deployment answers it with a fixed instant so every assertion in
+  # the client suite reproduces exactly.
+  default_asked_at: "2026-03-02T12:00:00+00:00"
+
+# The two TTL figures, which must stay TWO. The class's ceiling is registered
+# to mint `max_ttl_version`; the product's own lifetime is authored separately,
+# because one figure serving as both would have Gate 3 compare a ceiling
+# against itself.
+ttl:
+  max_seconds: 3600
+  product_seconds: 600
+
+# The artifact classes this deployment files replay records and executed-query
+# bytes under. Deployment vocabulary; the SDK enumerates none of it.
+artifact_classes:
+  replay_record: fixture.replay-record
+  query_pin: fixture.graph-query
+
+# The manifest keys `derive_deployment` derives from `ccf_config.yaml`'s own
+# section names — this deployment's Control Plane vocabulary, written down once.
+keys:
+  product_class: product_class
+  request_contract: request_contract
+  policy: policy
+  perspective: default_perspective
+  operator_parameters: [temporal.as-of-boundary]
+
+# Where this deployment's graph and its artifact store live, relative to the
+# deployment root. A path, never a credential — which is what keeps this
+# fixture runnable with every substrate environment variable unset.
+storage:
+  graph_filename: graph.sqlite3
+  artifact_store_dirname: artifact-store
+
+# How a row's fields are named once inside the fabric. These match
+# `attribute_keys` in `ccf_config.yaml`'s `resolution:` section.
+attributes:
+  reference: widget_ref
+  name: widget_name
+  score: widget_score

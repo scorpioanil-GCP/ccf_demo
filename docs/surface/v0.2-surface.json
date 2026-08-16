@@ -824,6 +824,57 @@
       }
     }
   },
+  "ccf.client.adapters.binding_document": {
+    "__all__": [
+      "BINDING_DOCUMENT_NAME",
+      "BindingDocument",
+      "OPTIONAL_KEYS",
+      "QuestionFactoryProtocol",
+      "REQUIRED_KEYS",
+      "ResolverCall",
+      "conforming_resolver",
+      "load_binding_document",
+      "load_reference"
+    ],
+    "exports": {
+      "BINDING_DOCUMENT_NAME": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "BindingDocument": {
+        "kind": "class",
+        "shape": "(*, root: 'Path', config: 'Path', resolver: 'str', question: 'str', connection: 'str | None') -> None"
+      },
+      "OPTIONAL_KEYS": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "QuestionFactoryProtocol": {
+        "kind": "class",
+        "shape": "(*, product_id: 'str', parameters: 'Mapping[str, Any]', temporal_boundary: 'Any') -> 'ResolverCall'"
+      },
+      "REQUIRED_KEYS": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "ResolverCall": {
+        "kind": "class",
+        "shape": "(*, perspective: 'Perspective', request: 'ProductRequest') -> None"
+      },
+      "conforming_resolver": {
+        "kind": "function",
+        "shape": "(candidate: 'Any', *, reference: 'str', root: 'Path') -> 'ServedProductResolverProtocol'"
+      },
+      "load_binding_document": {
+        "kind": "function",
+        "shape": "(root: 'str | Path') -> 'BindingDocument'"
+      },
+      "load_reference": {
+        "kind": "function",
+        "shape": "(reference: 'str', *, root: 'Path', key: 'str') -> 'Any'"
+      }
+    }
+  },
   "ccf.client.binding": {
     "__all__": [
       "AdapterFactory",

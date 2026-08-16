@@ -1,0 +1,22 @@
+# How this deployment root tells an in-process client its wiring.
+#
+# `D-IMPL-141` (PROPOSED — awaiting Dave's ruling). Deployment-environment
+# material, never a Control Plane artifact: not registered, not content-hashed,
+# no `semver`, and it never reaches Decision Replay dimension 2.
+#
+# Three required keys and one optional. Every path is relative to this
+# directory and cannot leave it.
+
+# This deployment's Control Plane document.
+config: ccf_config.yaml
+
+# The factory returning this deployment's `ServedProductResolverProtocol`.
+resolver: resolver.py:build_resolver
+
+# The factory turning a client's question into the two things the SDK cannot
+# invent — the typed `ProductRequest` and the `Perspective` it is served under.
+question: resolver.py:build_question
+
+# How this deployment's connection settings are composed. Deployment CODE, not
+# a document the SDK would have to learn a vocabulary for.
+connection: resolver.py:connection
