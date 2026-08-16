@@ -454,14 +454,23 @@ surface-changes: ## Assemble docs/SURFACE-CHANGES.md from the per-plan fragments
 # under docs/surface/examples/before/. Criterion 1's report is a re-measurement
 # by this same tool, never a re-estimate. `removable` (mechanical wiring) and
 # `relocatable` (assertions/prints D-09 moves to tests/) are separate figures
-# and are never summed. The audit assertion lives in the always-on `test` job
-# (tests/examples/test_surface_audit.py).
+# and are never summed. **There is no standing audit assertion over this
+# measurement any more.** This comment named
+# `tests/examples/test_surface_audit.py` in the always-on `test` job. That
+# module shipped in plan 15-03 and was deleted in commit 2c52b5f (plan 16-01)
+# without this sentence being updated, so the comment has been pointing a
+# reader at a gate that has not existed since. Corrected rather than deleted
+# so the absence is legible: the only standing gate over the examples tree's
+# retirement surface is `tools/docs_tests/test_retirement_sweep.py`, which
+# asserts coupling ownership, not surface line counts. Measured by plan 17-08.
 #
 # `measure-examples` writes the after/ side, which is what the eight example
 # rewrite plans need. The before/ baseline is deliberately NOT reachable from
 # a make target: it is written once at phase start and rewriting it mid-phase
-# destroys the comparison. Use `python tools/measure_examples.py --baseline`
-# if you genuinely mean to re-freeze it. Pass ONLY=<path prefix> to restrict a
+# destroys the comparison. Use `$(PYTHON) tools/measure_examples.py --baseline`
+# if you genuinely mean to re-freeze it — there is no bare `python` on PATH,
+# so the previously-written spelling exits non-zero unconditionally
+# (`D-IMPL-143`, `docs/DECISIONS.md`). Pass ONLY=<path prefix> to restrict a
 # run to one example so parallel worktrees do not overwrite each other.
 measure-examples: ## Re-measure examples/ mechanical surface into after/ (ONLY=<prefix> to narrow)
 	$(ENV) $(PYTHON) tools/measure_examples.py $(if $(ONLY),--only $(ONLY),)
