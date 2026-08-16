@@ -42,6 +42,19 @@ debt**: D-IMPL-104 ruled aggregate debt to be the per-factor maximum across
 constituents and deferred implementing it until an aggregate-product surface
 exists, so the meaning is on record and the combinator is not.
 
+:mod:`ccf.products.debt_scorer` holds the SDK's reference
+:class:`~ccf.products.resolver.AssemblyDebtScorerProtocol` — the thin
+``GraphView`` → :class:`~ccf.halflife.assessment.DebtFactors` adapter over the
+scoring machinery :mod:`ccf.halflife.debt` already ships. It is here rather than
+in :mod:`ccf.halflife` because the Protocol it conforms to is declared beside
+:class:`~ccf.products.resolver.GovernedResolver`, and a reference
+implementation living apart from its Protocol is the seam a reader has to
+discover twice. The ruling of record is
+``docs/superpowers/specs/2026-08-16-reference-plan-factory-and-debt-scorer.md``
+**Amendment A.1**, which also rules the *plan* factory's reference
+implementation impossible as scoped — so this package ships one of the two and
+says why it does not ship the other.
+
 The three validation gates remain three. Nothing in
 :mod:`ccf.products.payload` is reachable from :func:`ccf.products.gates.run_gates`,
 and :class:`~ccf.products.payload.PayloadSchemaViolation` deliberately does not
