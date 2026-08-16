@@ -53,35 +53,35 @@ Rows by coupling shape:
 | File | Line | Retiring path | Shape | Liveness | Witnesses | Intermediate | Owner | Note |
 | --- | ---: | --- | --- | --- | ---: | --- | --- | --- |
 | `.github/workflows/live-legs.yml` | 6 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 |  |
-| `Makefile` | 125 | `examples/00-quickstart` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 126 | `examples/00-quickstart` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 128 | `examples/01-agent-basics` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 129 | `examples/01-agent-basics` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 131 | `examples/02-skilling` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 132 | `examples/02-skilling` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 134 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 |  |
-| `Makefile` | 135 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
-| `Makefile` | 137 | `examples/04-cross-process` | `comment` | documentary | - | - | 16-17 |  |
-| `Makefile` | 138 | `examples/04-cross-process` | `makefile-recipe` | live | - | - | 16-17 |  |
-| `Makefile` | 140 | `examples/05-workflow-hitl` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 141 | `examples/05-workflow-hitl` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 143 | `examples/06-decision-replay` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 144 | `examples/06-decision-replay` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 146 | `examples/07-artifact-store-mcp` | `comment` | documentary | - | - | 16-17 |  |
-| `Makefile` | 147 | `examples/07-artifact-store-mcp` | `makefile-recipe` | live | - | - | 16-17 |  |
-| `Makefile` | 149 | `examples/08-e2e-demo` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 150 | `examples/08-e2e-demo` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 152 | `examples/external/00-hello-context` | `comment` | documentary | - | - | 16-18 |  |
-| `Makefile` | 153 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 163 | `tests/examples/test_s1_01_output.py` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 215 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 217 | `examples/s1-01-hello-context-product` | `makefile-recipe` | live | - | - | 17-08 |  |
-| `Makefile` | 229 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 231 | `examples/s1-00-companies-over-revenue` | `makefile-recipe` | live | - | - | 17-08 |  |
-| `Makefile` | 285 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
-| `Makefile` | 288 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
-| `Makefile` | 291 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
-| `Makefile` | 294 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 131 | `examples/00-quickstart` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 132 | `examples/00-quickstart` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 134 | `examples/01-agent-basics` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 135 | `examples/01-agent-basics` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 137 | `examples/02-skilling` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 138 | `examples/02-skilling` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 140 | `examples/03-harness-portability` | `comment` | documentary | - | - | 16-15 |  |
+| `Makefile` | 141 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
+| `Makefile` | 143 | `examples/04-cross-process` | `comment` | documentary | - | - | 16-17 |  |
+| `Makefile` | 144 | `examples/04-cross-process` | `makefile-recipe` | live | - | - | 16-17 |  |
+| `Makefile` | 146 | `examples/05-workflow-hitl` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 147 | `examples/05-workflow-hitl` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 149 | `examples/06-decision-replay` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 150 | `examples/06-decision-replay` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 152 | `examples/07-artifact-store-mcp` | `comment` | documentary | - | - | 16-17 |  |
+| `Makefile` | 153 | `examples/07-artifact-store-mcp` | `makefile-recipe` | live | - | - | 16-17 |  |
+| `Makefile` | 155 | `examples/08-e2e-demo` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 156 | `examples/08-e2e-demo` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 158 | `examples/external/00-hello-context` | `comment` | documentary | - | - | 16-18 |  |
+| `Makefile` | 159 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 169 | `tests/examples/test_s1_01_output.py` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 221 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 223 | `examples/s1-01-hello-context-product` | `makefile-recipe` | live | - | - | 17-08 |  |
+| `Makefile` | 235 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 237 | `examples/s1-00-companies-over-revenue` | `makefile-recipe` | live | - | - | 17-08 |  |
+| `Makefile` | 291 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
+| `Makefile` | 294 | `examples/03-harness-portability` | `makefile-recipe` | live | - | - | 16-15 |  |
+| `Makefile` | 297 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
+| `Makefile` | 300 | `examples/external/00-hello-context` | `makefile-recipe` | live | - | - | 16-18 |  |
 | `README.md` | 45 | `examples/00-quickstart` | `prose` | documentary | - | - | 16-18 |  |
 | `README.md` | 58 | `examples/00-quickstart` | `markdown-link` | live | - | - | 16-18 |  |
 | `README.md` | 59 | `examples/01-agent-basics` | `markdown-link` | live | - | - | 16-18 |  |
@@ -586,6 +586,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-06-PLAN.md` | 4 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-06-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-07-PLAN.md` | 6 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-07-SUMMARY.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-08-PLAN.md` | 19 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-09-PLAN.md` | 2 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-CONTEXT.md` | 1 | the phase's own planning tree — not shipped, not published |

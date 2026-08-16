@@ -68,7 +68,13 @@ typecheck: ## mypy --strict over src + runtime ([tool.mypy] files is authoritati
 test: ## Full pytest suite with harness legs required (CCF_REQUIRE_HARNESSES=1)
 	$(ENV) CCF_REQUIRE_HARNESSES=1 $(PYTHON) -m pytest -q
 
-ci-core: lint typecheck test ## Mid-phase verification sweep — MUST stay green from Wave 1 onward
+# `gate-tools` belongs here, not only in `ci`. Plan 17-01 added it to `ci`
+# alone — but `ci-core` is what every wave actually runs, so the tools/ suites
+# stayed invisible in practice and THREE WAVES SHIPPED PAST A RED GATE
+# (DEF-17-08, measured 2026-08-16). A gate the working command does not reach
+# is not a gate. This is the fifth instance in Phase 17 of a check that stops
+# checking without going red.
+ci-core: lint typecheck test gate-tools ## Mid-phase verification sweep — MUST stay green from Wave 1 onward
 
 # The client adapter parity gate (D-15, plan 17-07). A NAME, not a second
 # collection path: `[tool.pytest] testpaths = ["tests"]` (pyproject.toml:142)
