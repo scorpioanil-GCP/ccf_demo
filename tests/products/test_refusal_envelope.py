@@ -1033,20 +1033,38 @@ def test_control_7_a_refusal_in_no_family_fails_the_totality_check(
 
 
 def test_no_control_edits_the_real_source_tree() -> None:
-    """``src/`` is untouched by every control above.
+    """``src/`` carries none of the controls' marker classes.
 
     The controls copy; they do not edit and revert. Asserted rather than
     trusted, because an edit-and-revert control that crashed halfway would
     leave the tree modified and this suite green.
+
+    Scoped to the marker name rather than to "is ``src/`` dirty at all". A
+    blanket ``git status`` check would go red for a developer with any
+    unrelated uncommitted edit under ``src/`` — a guard that fails on correct
+    work teaches people to ignore it, and the thing actually worth catching is
+    narrower and exactly nameable: every control appends a ``Widget``-prefixed
+    class, so a leak is a ``Widget`` in the real tree.
     """
-    modified = subprocess.run(
-        ["git", "status", "--porcelain", "--", "src/"],
+    marker = "Widget"
+    leaked = sorted(n for n in discover_refusal_types(SRC_ROOT) if marker in n)
+    assert not leaked, f"a control leaked into src/: {leaked}"
+
+    # Second leg, against the diff rather than the parse, so a leak in a file
+    # the walk does not reach is still caught. Tolerant of unrelated edits.
+    diff = subprocess.run(
+        ["git", "diff", "--", "src/"],
         cwd=SRC_ROOT.parent,
         capture_output=True,
         text=True,
         check=True,
-    ).stdout.splitlines()
-    assert not modified, f"controls disturbed src/: {modified}"
+    ).stdout
+    offending = [
+        line
+        for line in diff.splitlines()
+        if line.startswith("+") and marker in line
+    ]
+    assert not offending, f"a control leaked into the src/ diff: {offending}"
 
 
 # --- properties of the gate itself ------------------------------------------
