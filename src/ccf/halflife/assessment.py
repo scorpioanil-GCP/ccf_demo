@@ -1,9 +1,10 @@
 """The debt shape that travels: D_c, its three factors, and the scorers in force.
 
 Whitepaper §7.7 (D_c as the assembly-time shortfall) and
-``docs/CCF_Whitepaper_1-2.md:2696`` — debt *"is a runtime signal the agent must
-consume as a first-class decision input, not a log-line to be read after the
-fact"*. :mod:`ccf.halflife.debt` owns the *computation*; this module owns the
+``docs/CCF_Whitepaper_1-2.md:2696``, which places debt in the agent's hands
+*while* it decides rather than in an audit trail somebody reads afterwards:
+debt conditions the decision, it does not merely record one.
+:mod:`ccf.halflife.debt` owns the *computation*; this module owns the
 *shape that reaches a consumer*.
 
 **Why this is its own module, and not simply part of** :mod:`ccf.halflife.debt`.

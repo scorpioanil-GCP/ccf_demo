@@ -19,8 +19,8 @@ decision, and under what temporal requirement.
 Product was *configurable* rather than *callable*: its subject and its instant
 were literals authored in an artifact, so one product class answered one
 question about one company as of one frozen moment. That is the thing Chapter 1
-names CCF as replacing — the difference between the verb *aggregate* and the
-verb *assemble*. But the mechanism underneath it is correct and must not be
+names CCF as replacing — the distinction it draws between *aggregating* and
+*assembling*. But the mechanism underneath it is correct and must not be
 "fixed": **the caller supplying the instant is the design; the instant being a
 literal in a YAML file is the defect.**
 :meth:`~ccf.projection.engine.ProjectionEngine.execute` reads no clock

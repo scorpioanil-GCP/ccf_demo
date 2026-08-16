@@ -1,8 +1,9 @@
 """How an aggregate product's lineage, expiry and mixing legality compose.
 
-Whitepaper §6.4 Lifecycle Step 4 (``docs/CCF_Whitepaper_1-2.md:1483``):
-*"Temporal Validation refuses to assemble a product that silently mixes the
-two"* — the ninety-day filing and the fifteen-minute blotter entry. The ruling
+Whitepaper §6.4 Lifecycle Step 4 (``docs/CCF_Whitepaper_1-2.md:1483``): where
+constituents of incompatible currency would be combined without saying so,
+Temporal Validation declines to build the product at all — the ninety-day
+filing and the fifteen-minute blotter entry. The ruling
 of record is ``docs/DECISIONS.md`` **D-IMPL-31** (Dave, 2026-07-25), which
 resolved TTL granularity as two granularities with a declared derivation rule:
 
