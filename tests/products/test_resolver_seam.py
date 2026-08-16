@@ -76,11 +76,11 @@ from ccf.projection.plan import Perspective, ProjectionOutput
 from ccf.replay.serve import ServedProduct
 
 from tests.deployment.conftest import (
+    ARTIFACT_SET,
     POLICY_BUNDLE_KEY,
     PRODUCT_CLASS_KEY,
     TENANT,
     TRAVERSAL_KEY,
-    Deployment,
     manifest_document,
     write_artifact,
 )
@@ -228,9 +228,13 @@ class _RecordingReader:
         self.calls.append("as_of")
         return self._inner.as_of(tenant_id=tenant_id, at=at)
 
-    def query(self, *, query: GraphQuery) -> Any:
+    def query(self, q: GraphQuery) -> GraphView:
         self.calls.append("query")
-        return self._inner.query(query=query)
+        return self._inner.query(q)
+
+    def attestation(self, *args: Any, **kwargs: Any) -> Any:
+        self.calls.append("attestation")
+        return self._inner.attestation(*args, **kwargs)
 
     def __getattr__(self, name: str) -> Any:
         self.calls.append(name)
@@ -280,19 +284,26 @@ class _Booted:
 
 
 @pytest.fixture()
-def booted(deployment: Deployment, tmp_path: pathlib.Path) -> Iterator[_Booted]:
-    """Boot the fixture deployment, with a request contract added to it.
+def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """Boot the ``tests/deployment`` fixture deployment, plus a request surface.
 
-    The stock fixture manifest declares no request surface, because nothing in
-    ``tests/deployment`` needed one. This adds a ``role: load`` entry for it —
-    an adopter namespace, so the manifest resolves it to a declared artifact
-    and the resolver reads it with the shipped constructor rather than a
-    hand-build.
+    The artifact set and the manifest body are imported rather than restated —
+    a second copy of a fixture deployment is a second thing to keep in step,
+    and the point here is the resolver, not the documents. The stock manifest
+    declares no request surface, because nothing in ``tests/deployment`` needed
+    one; this adds a ``role: load`` entry for it in an **adopter** namespace,
+    so the manifest resolves it to a declared artifact and the resolver reads
+    it with the shipped constructor rather than a hand-build — the ordinary
+    authoring shape, not a convenience.
     """
-    write_artifact(deployment.root, "request-contract.yaml", REQUEST_CONTRACT_DOCUMENT)
-    document = manifest_document()
-    document["artifacts"] = [
-        *document["artifacts"],
+    root = tmp_path / "deployment"
+    root.mkdir()
+    for _key, filename, _class_id, _role, _registration, document in ARTIFACT_SET:
+        write_artifact(root, filename, document)
+    write_artifact(root, "request-contract.yaml", REQUEST_CONTRACT_DOCUMENT)
+    body = manifest_document()
+    body["artifacts"] = [
+        *body["artifacts"],
         {
             "path": "request-contract.yaml",
             "key": REQUEST_CONTRACT_KEY,
@@ -301,7 +312,7 @@ def booted(deployment: Deployment, tmp_path: pathlib.Path) -> Iterator[_Booted]:
             "registration": "typed",
         },
     ]
-    manifest = deployment.rewrite_manifest(document)
+    manifest = write_artifact(root, "manifest.yaml", body)
     control_plane = ControlPlaneRegistry()
     fabric = load_and_boot(
         manifest,
@@ -403,8 +414,8 @@ def test_the_refused_question_travels_with_its_own_identity(
 def test_the_request_refusal_leg_never_reads_the_graph(booted: _Booted) -> None:
     """Asserted by observing the reader, never by timing."""
     reader = _RecordingReader(booted.fabric.handle.reader)
-    fabric = booted.fabric.model_copy(
-        update={"handle": _HandleWithReader(booted.fabric.handle, reader)}
+    fabric = dataclasses.replace(
+        booted.fabric, handle=_HandleWithReader(booted.fabric.handle, reader)
     )
 
     outcome = _ask(_resolver(booted, fabric=fabric), _request(parameters={}))
@@ -424,8 +435,8 @@ def test_the_success_leg_does_read_the_graph(booted: _Booted) -> None:
     the refusal-leg assertion, and the assertion would be measuring nothing.
     """
     reader = _RecordingReader(booted.fabric.handle.reader)
-    fabric = booted.fabric.model_copy(
-        update={"handle": _HandleWithReader(booted.fabric.handle, reader)}
+    fabric = dataclasses.replace(
+        booted.fabric, handle=_HandleWithReader(booted.fabric.handle, reader)
     )
 
     outcome = _ask(_resolver(booted, fabric=fabric), _request())

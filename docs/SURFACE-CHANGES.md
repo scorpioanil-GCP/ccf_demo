@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**643 entries**, of which **414** name a public Python surface.
+**646 entries**, of which **417** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-297 entries — 264 public Python surface, 33 not public Python API.
+300 entries — 267 public Python surface, 33 not public Python API.
 
 ### Public Python surface
 
@@ -5469,6 +5469,70 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   broken deployment and comes back as an exception
 - Migration: none — a deployment catching `ProductNotServable` at a door is
   unaffected; this type is raised only by an in-process resolver
+
+*Recorded by `17-03-served-product-resolver.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: added
+- Before: absent. The SDK shipped every *part* of assemble → gate → record →
+  serve and never the composition, so every deployment wrote it — which is why
+  the rejected first example wrote it in front of a reader who wanted to ask
+  one question
+- After: a frozen, keyword-only dataclass conforming to
+  `ServedProductResolverProtocol`, composing `refuse_request` → graph view at
+  the boundary → `build_operator_registry` → `ProjectionEngine.execute` →
+  `register_product_class` → `run_gates` → `build_replay_record` → `serve`
+- Why: `D-29` ruled the reference implementation ships in `src/` beside the
+  Protocol. The hard constraint attached to that ruling is that the
+  composition is **pure mechanism**: thirteen constructor arguments, none with
+  a default, four of them manifest keys read off the booted fabric's own
+  artifacts — so every threshold, class name, policy key, TTL figure and
+  artifact-class token stays a Control Plane artifact or a value the
+  deployment authored
+- Migration: none — a deployment keeps its own resolver if it has one. This is
+  a reference implementation carrying no privileged status: the SDK invokes it
+  never, and a deployment substituting its own loses no capability
+
+*Recorded by `17-03-served-product-resolver.md`.*
+
+#### ccf.products.resolver.ProjectionPlanFactoryProtocol
+
+- Surface: ccf.products.resolver.ProjectionPlanFactoryProtocol
+- Public surface: true
+- Change type: added
+- Before: absent — a deployment composing assemble → gate → serve by hand
+  constructed its plan inline, so there was no named seam for "how this
+  deployment builds Π for one question"
+- After: a `@runtime_checkable` Protocol with one keyword-only `__call__`
+  taking `required` and `request` and returning a `ProjectionPlan`
+- Why: a *factory* rather than a plan, because a plan that interprets a
+  caller's parameters has to see them. Handing the resolver one long-lived
+  plan would freeze the parameters at wiring time — the *configurable rather
+  than callable* defect the request surface was built to correct — or force
+  every plan to be mutable, which replay cannot tolerate
+- Migration: none — new seam, no prior shape
+
+*Recorded by `17-03-served-product-resolver.md`.*
+
+#### ccf.products.resolver.AssemblyDebtScorerProtocol
+
+- Surface: ccf.products.resolver.AssemblyDebtScorerProtocol
+- Public surface: true
+- Change type: added
+- Before: absent — debt was assessed by deployment code at whatever call site
+  the deployment's own spine chose, with no named seam at the resolver
+- After: a `@runtime_checkable` Protocol with one keyword-only `__call__`
+  taking `view` and returning a `DebtAssessment`
+- Why: the SDK ships the machinery for debt and never the values, and the
+  choice this seam hides is larger than a threshold — measuring freshness over
+  the rows a question *read* rather than over the rows that *survived being
+  read* yields a different number, and which is right depends on what the
+  product means. It takes the view rather than the payload because debt is
+  measured against the assembly, not declared beside it
+- Migration: none — new seam, no prior shape
 
 *Recorded by `17-03-served-product-resolver.md`.*
 
