@@ -169,7 +169,7 @@ def assert_guard_holds(result: Result, field: str) -> None:
     raised: BaseException | None = None
     try:
         getattr(result, field)
-    except BaseException as failure:  # noqa: BLE001 - the subject under test
+    except BaseException as failure:  # the subject under test may raise anything
         raised = failure
     if raised is None:
         raise AssertionError(
@@ -220,7 +220,7 @@ def observe_failure(assertion: Any, *args: Any) -> BaseException:
     """
     try:
         assertion(*args)
-    except BaseException as failure:  # noqa: BLE001 - that is the observation
+    except BaseException as failure:  # catching everything IS the observation
         return failure
     raise AssertionError(
         "the shipped assertion passed on a deliberately broken subject, so it"
