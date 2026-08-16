@@ -29,6 +29,7 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.products.refusal import REFUSAL_KINDS, RequestIdentity, envelope_for
+from ccf.products.request import ProductRequestViolation
 
 _INSTANT: Final = datetime(2026, 8, 15, 12, 0, 0, tzinfo=UTC)
 
@@ -254,5 +255,150 @@ def test_a_served_outcome_is_itself_canonically_serializable() -> None:
 
 
 # --------------------------------------------------------------------------
-# Sabotage controls (D-22) — added in task 3
+# Sabotage controls (D-22)
+#
+# Each constructs a deliberately broken subject and passes it into the SHIPPED
+# assertion. A control that re-implements the check proves the copy fires. None
+# is performed by editing a `src/` file and reverting — an edit that gets
+# reverted leaves nothing in the tree, while a control implemented as a test
+# runs on every CI run forever.
 # --------------------------------------------------------------------------
+
+
+def _encode_dropping_replay_ref(outcome: WireOutcome) -> bytes:
+    """A saboteur encoder that drops one member's value on the way out.
+
+    Control 1's subject. Deliberately a member the outcome's own validator
+    permits to be absent, so the bytes still decode — a saboteur producing
+    undecodable bytes would prove the *parser* fires, not the comparison.
+    """
+    return encode_outcome(outcome.model_copy(update={"replay_ref": None}))
+
+
+def test_control_a_field_dropped_from_the_encoder_fails_the_round_trip() -> None:
+    """Control 1 — the round-trip assertion is not vacuous."""
+    original = a_served_outcome(replay_ref="replay-1")
+    decoded = decode_outcome(_encode_dropping_replay_ref(original), sent=a_request())
+    with pytest.raises(AssertionError):
+        assert_round_trip(original, decoded)
+
+
+def test_control_a_narrowed_comparison_passes_where_the_shipped_one_fails() -> None:
+    """Control 2 — the projection trap, decided by behaviour not by inspection.
+
+    One divergent pair, two assertions about it. A deliberately narrowed
+    comparison — only the parsed ``payload`` — **passes** on the pair, while the
+    shipped :func:`assert_round_trip` **fails** on it. Together those prove the
+    shipped comparison is over the whole value and not a projection of it,
+    without the test needing to read its own assertion's source.
+    """
+    original = a_served_outcome(vessel=a_vessel())
+    divergent = a_served_outcome(
+        vessel=a_vessel(expires_at=datetime(2027, 1, 1, tzinfo=UTC))
+    )
+    assert original.product_json is not None
+    assert divergent.product_json is not None
+
+    # The narrowed comparison a lazy round-trip test would have written.
+    left = ContextProductContract.model_validate_json(original.product_json)
+    right = ContextProductContract.model_validate_json(divergent.product_json)
+    assert left.payload == right.payload  # the projection is blind to the change
+
+    with pytest.raises(AssertionError):
+        assert_round_trip(original, divergent)  # the shipped comparison sees it
+
+
+def test_control_a_refusal_with_its_key_stripped_fails_the_round_trip() -> None:
+    """Control 3 — a refusal that loses what it named is not equal to itself.
+
+    ``D-28``(a): losing which parameter a refusal named is exactly the
+    flattening the envelope exists to prevent.
+    """
+    original = a_refusal_outcome(ProductRequestViolation)
+    assert original.refusal is not None
+    assert original.refusal.key is not None
+    stripped = original.model_copy(
+        update={"refusal": original.refusal.model_copy(update={"key": None})}
+    )
+    with pytest.raises(AssertionError):
+        assert_round_trip(original, stripped)
+
+
+def test_control_a_permissive_address_check_tolerates_what_the_shipped_one_refuses() -> (
+    None
+):
+    """Control 4 — the address check is the thing doing the work.
+
+    The shipped :func:`~ccf.client.codec.verify_content_address` raises on a
+    mismatched pair. A permissive stand-in with the same signature returns
+    instead, and the address leg built on the stand-in then passes on that very
+    pair — which is what proves the shipped check, and not something else on the
+    decode path, is what makes the address test meaningful.
+    """
+    text = '{"a": 1}'
+    wrong = "0" * 64
+
+    def address_leg(verifier: Any) -> None:
+        verifier(text, wrong)
+
+    with pytest.raises(TransportError):
+        address_leg(verify_content_address)
+
+    def permissive(product_json: str, claimed: str) -> str:
+        return claimed
+
+    address_leg(permissive)  # passes on the identical pair — no assertion fires
+
+
+def test_control_an_adapter_swallowing_its_wire_failure_is_detected() -> None:
+    """Control 5 — ``except Exception: return refusal`` does not pass silently.
+
+    Without this control the inversion ``D-07``/``D-10`` exist to prevent is
+    invisible: the swallowing adapter returns a well-formed refusal, every
+    round-trip test still passes, and a caller records an audited "no" the
+    fabric never said. The detection is that the honest contract — asking a dead
+    transport raises — stops holding.
+    """
+
+    class SwallowingAdapter:
+        """A transport reporting a governed "no" when nothing was ever asked."""
+
+        def ask(self, request: WireRequest) -> WireOutcome:
+            try:
+                raise ConnectionRefusedError("the producer is not listening")
+            except OSError:
+                return a_refusal_outcome(ProductRequestViolation)
+
+    adapter = SwallowingAdapter()
+    # The assertion every conforming adapter must satisfy (D-15, leg four).
+    # It FAILS against the swallowing adapter, which is the whole control.
+    with pytest.raises(pytest.fail.Exception):
+        with pytest.raises(TransportError):
+            adapter.ask(a_request())
+
+
+@pytest.mark.parametrize(
+    ("label", "product_json", "content_address", "carries_refusal"),
+    [
+        ("both halves", '{"a": 1}', "0" * 64, True),
+        ("neither half", None, None, False),
+    ],
+)
+def test_control_a_wire_outcome_with_both_halves_or_neither_is_refused(
+    label: str,
+    product_json: str | None,
+    content_address: str | None,
+    carries_refusal: bool,
+) -> None:
+    """Control 6 — the two-state invariant is enforced, not documented."""
+    envelope = (
+        a_refusal_outcome(ProductRequestViolation).refusal if carries_refusal else None
+    )
+    with pytest.raises(ValidationError):
+        WireOutcome(
+            request=a_request(),
+            product_json=product_json,
+            content_address=content_address,
+            replay_ref=None,
+            refusal=envelope,
+        )
