@@ -26,6 +26,7 @@ ENV_PERF := PYTHONPATH=src:runtime:perf CCF_PERF_RUNNER_CLASS=$(CCF_PERF_RUNNER_
 .DEFAULT_GOAL := help
 
 .PHONY: help install lint typecheck test ci-core ci examples gate-tools \
+	conformance \
 	example-s1-01 example-s1-00 \
 	example-00 example-01 example-02 example-03 example-04 example-05 \
 	example-06 example-07 example-08 example-ext-00 \
@@ -68,6 +69,21 @@ test: ## Full pytest suite with harness legs required (CCF_REQUIRE_HARNESSES=1)
 	$(ENV) CCF_REQUIRE_HARNESSES=1 $(PYTHON) -m pytest -q
 
 ci-core: lint typecheck test ## Mid-phase verification sweep — MUST stay green from Wave 1 onward
+
+# The client adapter parity gate (D-15, plan 17-07). A NAME, not a second
+# collection path: `[tool.pytest] testpaths = ["tests"]` (pyproject.toml:142)
+# already collects `tests/client/conformance` on every `make test`, so this
+# target is deliberately NOT a prerequisite of `ci` — adding it would run the
+# whole suite twice per `make ci`, which is harmless right up until somebody
+# "optimizes" it by deleting the wrong one.
+#
+# What it buys is that the gate is nameable in a CI job, a review and a SUMMARY.
+# A parity gate nobody can name is a parity gate nobody is looking at (Phase 16).
+# The reachability it depends on is asserted rather than assumed —
+# `tests/client/conformance/test_the_suite_fires.py::test_the_conformance_suite_is_inside_the_default_collection`
+# holds this target's path and `testpaths` to each other.
+conformance: ## Client adapter conformance suite — the D-15 parity gate, by name
+	$(ENV) $(PYTHON) -m pytest tests/client/conformance -q
 
 # Finalized in plan 08-12: `ci` = ci-core + examples is the phase gate
 # command, reproducing the always-on Actions pipeline (ci.yml lint + test +

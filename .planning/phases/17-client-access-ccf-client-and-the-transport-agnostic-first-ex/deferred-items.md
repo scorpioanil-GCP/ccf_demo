@@ -391,11 +391,73 @@ ci-core` run inside a worktree cannot be green until this lands, and every
 
 ---
 
-## DEF-17-07 — a served `Result` does not expose the server's resolved instant — **DEFERRED TO WAVE 5 BY RULING**
+## DEF-17-07 — a served `Result` does not expose the server's resolved instant — **CLOSED: surfacing not required**
 
 **Found during:** plan `17-05`, raised as a deviation rather than decided.
-**Status: OPEN, deliberately. Ruled by Dave 2026-08-15 to be settled in wave 5
-(the conformance suite), not before.**
+**Deferred to wave 5 by Dave's ruling, 2026-08-15.**
+**Status: CLOSED by plan `17-07` with the measurement below. The ruled boundary
+stays closed — no seventh guarded field, and none is needed.**
+
+### The answer, measured 2026-08-16 (plan `17-07`)
+
+**Yes. A caller can audit which instant the server resolved, on both halves of
+`Result`, using only what it already exposes — and can *prove* the recovered
+instant is the one that answered.**
+
+The access path, on each half:
+
+| Half | Path | Measured value with `as_of=None` |
+| --- | --- | --- |
+| served | `result.lineage.graph_snapshot_at` | `2026-03-02T12:00:00+00:00` |
+| refused | `result.refusal.request.temporal_boundary` | `2026-03-02T12:00:00+00:00` |
+| either | `result.temporal_boundary` | `None` — **the echo of the question** |
+
+`Result.temporal_boundary` being `None` is correct and is the whole reason the
+audit path is one level in: it is the *question's* boundary, echoed back and
+cross-checked in transit, and a client filling it in with the server's answer
+would be reporting a question the caller did not ask.
+
+**Where the instant comes from, in mechanism.**
+`ccf.products.resolver::GovernedResolver.__call__` derives the decision instant
+once, from `request.asked_at`, and writes it to the vessel's
+`temporal_boundary`, to `ProductLineage.graph_snapshot_at`, and to the
+`RequestIdentity` a refusal carries. The vessel's own `temporal_boundary` is
+not a `Result` member; `lineage` is (it is one of `D-08`'s six), so the served
+half already carries the value under a name whose docstring says what it is:
+*"the temporal anchor of the graph state read."*
+
+**Why recovering it is not the same as auditing it, and what closes the gap.**
+A well-formed, timezone-aware datetime in the right field proves nothing on its
+own — a transport could report an instant it did not answer at. So the
+conformance suite does not read the value, it **verifies** it:
+`tests/client/conformance/suite.py::assert_decision_instant_is_auditable` asks
+with `as_of=None`, recovers the instant, asks the same question again pinned to
+it, and requires the **identical content address**. Measured:
+`pinned reproduces address: True`. Its sabotage control moves the reported
+anchor by one second and the leg goes red:
+
+> `misreports-its-instant` reported answering at `2026-03-02T12:00:01+00:00`,
+> but asking the same question pinned to that instant produced
+> `99acbc33…` rather than `0d051339…` — the reported instant is not the instant
+> that answered, so a caller cannot audit the decision from the result.
+
+**Why this satisfies the ruling rather than sidestepping it.** Dave's reasoning
+was that *"the conformance suite is exactly where 'what every adapter must
+expose identically' gets mechanized"*. It now is: the recoverability **and** the
+verifiability of the decision instant are a conformance requirement every
+transport is held to, not a property of one reference resolver. The MCP adapter
+in `17-10` ships on passing that leg like any other.
+
+**What would reopen it.** A deployment whose `graph_snapshot_at` legitimately
+differs from its decision instant — a resolver that reads the graph at one
+instant and decides at another. No such deployment exists in the tree, and the
+conformance leg would catch one the day it appeared, because its pinned re-ask
+would stop reproducing. That is a reopening with evidence, which is the bar
+Dave set.
+
+---
+
+## DEF-17-07 — original entry, retained for the record
 
 ### The observation
 
@@ -429,6 +491,62 @@ So wave 5 must actively answer one question and record the answer either way:
 **can a caller audit which clock answered, using only what a `Result` already
 exposes?** If yes, this entry closes as "surfacing not required." If no, it
 reopens with the measurement as its evidence.
+
+**Answered — yes.** The measurement is at the head of this entry, and it closed
+as *surfacing not required*. Nothing below this line was changed by `17-07`.
+
+---
+
+## DEF-17-08 — `make gate-tools` is outside `make ci-core`, so mid-phase waves never see it go red
+
+**Found:** plan `17-07` execution, 2026-08-16. **Severity:** advisory for this
+plan (its symptom was fixed in-plan); blocking for the phase's own gate
+discipline.
+
+**What was measured.** `make gate-tools` was **already red on the branch tip**
+`9cb502e` before this plan wrote a line:
+
+```
+FAILED tools/docs_tests/test_retirement_sweep.py::test_the_committed_report_is_current
+```
+
+`docs/surface/examples/RETIREMENT-COUPLINGS.md` was last regenerated in `17-03`
+(`448e51b chore(17-03): re-measure the retirement couplings the resolver
+moved`), while `src/ccf/client/adapters/binding_document.py` — which contributes
+two coupling rows — landed in `17-06` (`05c2db7`). Five of the eight rows the
+regeneration added belong to waves 3 and 4, not to this plan:
+
+| File | Wave that added it |
+| --- | --- |
+| `src/ccf/client/adapters/binding_document.py` (×2) | `17-06` |
+| `src/ccf/products/request.py` (×2) | earlier |
+| `tests/client/fixtures/deployment/resolver.py` | `17-06` |
+| `tests/client/fixtures/deployment/scenario.yaml` | `17-06` |
+| `tests/client/conformance/suite.py` (×2), `test_the_suite_fires.py` | `17-07` |
+
+**Why nobody saw it.** `gate-tools` joined `ci` in plan `17-01` — but `ci`, not
+`ci-core`. Every wave's verification block runs `make ci-core`, which is
+`lint typecheck test`, and `[tool.pytest] testpaths = ["tests"]` stops
+collection before `tools/`. So the suite that catches a stale retirement report
+runs in Actions on every push and in **no** wave's local gate. Three waves shipped
+past a red gate.
+
+**This is `17-01`'s own lesson landing one level up.** That plan's Makefile
+comment says it plainly: *"a measurement nobody is looking at protects
+nothing"* — and it fixed the case where `make ci` did not reach `tools/`. The
+remaining hole is that the *mid-phase* command does not either, which is the
+command waves actually run.
+
+**What `17-07` did about it.** Regenerated the report
+(`python tools/retirement_sweep.py --report`), which is the remedy the failure
+message itself names, and which cleared all eight rows — its own three and the
+five it inherited. `make gate-tools` now exits 0.
+
+**The fix, when someone owns it.** Either make `gate-tools` a prerequisite of
+`ci-core`, or state in the phase's verification block that `make ci-core` is not
+the whole gate. Not taken here: `ci-core` is the composition every plan in the
+phase names in its `<verification>` block, and changing what it means mid-phase
+is a decision above this plan.
 
 ---
 
