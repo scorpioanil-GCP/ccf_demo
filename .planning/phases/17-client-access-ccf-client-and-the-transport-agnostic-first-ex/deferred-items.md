@@ -388,3 +388,44 @@ gate correct in both places instead of correct in one.
 **Consequence for anyone reading a worktree executor's numbers:** a `make
 ci-core` run inside a worktree cannot be green until this lands, and every
 `17-05`-era delta is stated against a 3-failing baseline for that reason.
+
+---
+
+## DEF-17-07 — a served `Result` does not expose the server's resolved instant — **DEFERRED TO WAVE 5 BY RULING**
+
+**Found during:** plan `17-05`, raised as a deviation rather than decided.
+**Status: OPEN, deliberately. Ruled by Dave 2026-08-15 to be settled in wave 5
+(the conformance suite), not before.**
+
+### The observation
+
+A caller who passes `as_of=None` receives an answer but cannot read, from the
+top level of `Result`, which instant the server actually resolved. `17-05` left
+it out rather than adding it, because `D-08` enumerates **exactly six** guarded
+post-assembly fields and a seventh would move a ruled boundary.
+
+### Dave's ruling, and the reasoning
+
+> *"Defer to Wave 5. Do not expand the ruled field set now."*
+
+1. The six guarded fields are **a ruled boundary**. Adding a seventh is a design
+   change, not a gap fill.
+2. **The information is not missing.** The temporal boundary the product was
+   assembled against is already carried inside the result the client receives.
+   The open question is whether it needs a *first-class top-level field* — a
+   question of surfacing, not of carrying.
+3. The conformance suite is exactly where *"what every adapter must expose
+   identically"* gets mechanized. Deciding it there keeps the decision tied to
+   the **parity invariant** rather than adding an ad-hoc field under time
+   pressure.
+
+### The bar for reopening it
+
+> *"If, during Wave 5, the suite (or real adapter work) shows that callers
+> cannot reliably audit the decision instant without a dedicated field, we
+> reopen it then with evidence. Until then the ruled boundary stays closed."*
+
+So wave 5 must actively answer one question and record the answer either way:
+**can a caller audit which clock answered, using only what a `Result` already
+exposes?** If yes, this entry closes as "surfacing not required." If no, it
+reopens with the measurement as its evidence.
