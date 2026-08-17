@@ -157,8 +157,14 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
-Phase: **18 — MCP Transport.** EXECUTION COMPLETE (plan `17-10`, 4/4 tasks) but
-  **NOT GATED — there is no `D-GATE-18` and the phase is NOT closed.** The
+Phase: **18 — MCP Transport.** EXECUTION COMPLETE (plan `17-10`, 4/4 tasks), §3.1
+  CLOSE PROTOCOL DISCHARGED (cross-AI panel + depth pass in `18-CLOSE-REVIEWS.md`
+  and `18-REVIEW.md`, every finding verified against the tree, four blocking
+  findings closed in-phase, one — `B0` — deferred to Phase 19 as an OPEN BLOCKING
+  DEFECT under `D-IMPL-151`). All four gates green at `a7264e3`: `ci-core` 3871
+  passed / 118 skipped / 0 failed, `conformance` 67, `docs-strict` 0,
+  `gate-tools` 400+154. **AWAITING DAVE'S `D-GATE-18` RULING — NOT GATED, and
+  there is no `D-GATE-18` entry.** The
   ROADMAP checkbox reads `[x]` and its row reads `1/1 — Complete`; that is
   accurate about PLANS ONLY and must not be read as a gate. Dave ruled the
   checkbox may stay (2026-08-17) provided this not-gated state stays explicit
