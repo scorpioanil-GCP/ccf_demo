@@ -203,14 +203,21 @@ class WireOutcome(CCFContract):
         request: The question, echoed back. The decoder cross-checks it against
             the request that was actually sent — see
             :func:`ccf.client.codec.decode_outcome` for why an echo rather than
-            a reconstruction.
+            a reconstruction, **and for the measured fact that both shipped
+            adapters fill this member from the request they were handed rather
+            than from the wire, which makes that cross-check inert on every
+            shipped transport today** (``D-IMPL-151`` finding ``B0``, an open
+            blocking defect deferred to its own phase).
         product_json: The UTF-8 text of the served vessel's canonical bytes, or
             ``None`` on a refusal. Text and never a byte string; the module
             docstring records why at length.
         content_address: The vessel's content address on a served outcome, and
             ``None`` on a refusal — a refusal is not a content-addressed
             artifact. Always recomputed by the decoder and never trusted from
-            the wire.
+            the wire — though on both shipped adapters the value recomputed
+            against is one the adapter itself derived from the same
+            ``product_json``, so the comparison cannot currently disagree. Same
+            deferred defect as ``request`` above.
         replay_ref: The replay record's artifact reference in string form, when
             one exists. No shipped door emits this today, which is a defect the
             client seam exists to fix rather than a feature request.
