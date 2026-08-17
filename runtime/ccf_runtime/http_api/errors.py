@@ -29,6 +29,7 @@ __all__ = [
     "ERROR_PRINCIPAL_NOT_ENTITLED",
     "ERROR_PRODUCT_CLASS_UNENTITLED",
     "ERROR_PRODUCT_DOOR_UNGOVERNED",
+    "ERROR_PRODUCT_PARAMETERS_MALFORMED",
     "ERROR_PRODUCT_POLICY_ABSENT",
     "ERROR_PRODUCT_REQUEST_INCOMPLETE",
     "ERROR_PRODUCT_ROLE_UNGRANTED",
@@ -114,6 +115,22 @@ ERROR_PRODUCT_DOOR_UNGOVERNED: Final[str] = "product-door-ungoverned"
 #: asked, answered anyway, so the door refuses the partial address rather than
 #: filling one in.
 ERROR_PRODUCT_REQUEST_INCOMPLETE: Final[str] = "product-request-incomplete"
+
+#: ``?parameters=`` did not parse as a JSON **object** (400; ``D-IMPL-133``).
+#:
+#: The declared remainder of a question travels on this door as one JSON
+#: object rather than as flattened query keys, because JSON is self-describing:
+#: a presented ``3`` and a presented ``"3"`` stay distinguishable, and
+#: ``D-IMPL-103``'s one level of declared nesting crosses intact. A flat,
+#: string-valued query surface could carry neither without the door guessing at
+#: a coercion, which is the constraint this door's own ``_asked`` records.
+#:
+#: Refused rather than repaired: text that is not a JSON object is a malformed
+#: argument, and a door that fell back to the empty mapping would answer a
+#: question the caller did not ask while reporting success. The door renders no
+#: verdict on the parameters *inside* a well-formed object — that comparison
+#: belongs to the resolver, against the class it holds (D-IMPL-121).
+ERROR_PRODUCT_PARAMETERS_MALFORMED: Final[str] = "product-parameters-malformed"
 
 #: This deployment did not wire the handle this route needs, so the route
 #: refuses rather than serving half-wired (503; ``D-IMPL-126`` item (3)).

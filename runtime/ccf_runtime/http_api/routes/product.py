@@ -56,7 +56,10 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
@@ -73,6 +76,7 @@ from ccf_runtime.authz.product_entitlement import (
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import (
     ERROR_PRODUCT_DOOR_UNGOVERNED,
+    ERROR_PRODUCT_PARAMETERS_MALFORMED,
     ERROR_PRODUCT_REQUEST_INCOMPLETE,
     refusal_detail,
 )
@@ -129,6 +133,7 @@ def build_router(
         intent: str | None = None,
         freshness: str | None = None,
         asked_at: datetime | None = None,
+        parameters: str | None = None,
     ) -> Response:
         perspective = _authorized_perspective(
             request, tenant=tenant, product_class=product_class, role=role
@@ -140,6 +145,7 @@ def build_router(
             intent=intent,
             freshness=freshness,
             asked_at=asked_at,
+            parameters=parameters,
         )
         try:
             servable = deps.product_resolver(
@@ -250,6 +256,7 @@ def build_router(
         intent: str | None,
         freshness: str | None,
         asked_at: datetime | None,
+        parameters: str | None,
     ) -> ProductRequest | None:
         """The caller's typed question, or the honest absence of one.
 
@@ -270,14 +277,45 @@ def build_router(
           nobody asked, answered anyway;
         * all four → the typed request, ``parameters`` empty.
 
-        ``parameters`` is the empty mapping rather than something read off the
-        query string: the class-declared remainder is a *typed* surface whose
-        declared types (``D-IMPL-103``'s one level of nested objects and
-        lists-of-objects) a flat string-valued query cannot carry without the
-        door guessing at coercions. An empty mapping is expressible and says
-        *this question needs nothing beyond its four axes*, which is a
-        statement rather than an omission; a caller needing declared parameters
-        reaches the fabric in process or through a deployment's own surface.
+        **``parameters`` is carried, and the reason it once was not is kept
+        rather than deleted.** This paragraph used to read: *"``parameters`` is
+        the empty mapping rather than something read off the query string: the
+        class-declared remainder is a typed surface whose declared types
+        (``D-IMPL-103``'s one level of nested objects and lists-of-objects) a
+        flat string-valued query cannot carry without the door guessing at
+        coercions ... a caller needing declared parameters reaches the fabric
+        in process or through a deployment's own surface."* ``D-IMPL-133``
+        (Dave, 2026-08-14) ruled that consequence a defect rather than a
+        boundary: a product class declaring **any** required parameter was
+        unreachable through this door, and *"both doors carry ``parameters``.
+        Both, not one."*
+
+        **The recorded objection is honoured rather than overridden, because
+        what it objects to is a *flat, string-valued* query.** That is exactly
+        what is not used here. The mapping arrives as **one JSON object** in a
+        single query parameter, and JSON is self-describing: a presented ``3``
+        stays an ``int``, a presented ``"3"`` stays a ``str``, and one level of
+        declared nesting crosses intact. There is nothing left for the door to
+        guess at, so it guesses at nothing. This is the same shape the MCP tool
+        carries, where the argument map was already JSON — which is what keeps
+        the two doors exactly as wide as each other, the property
+        ``D-IMPL-133`` names as the reason for repairing both.
+
+        **The door does not validate what is inside the object**, and that is
+        the whole of why this is a two-line repair rather than a seam widening:
+        the declared world is closed at the resolver, against the
+        :class:`~ccf.products.contract.RegisteredProductClass` this door never
+        holds (``D-IMPL-121``). The door refuses only text that is not a JSON
+        object at all — a malformed *argument*, on the same line
+        :class:`~ccf_runtime.mcp.egress.NaiveAskedAtRefused` sits on — and
+        falls back to nothing, because a door that quietly read malformed text
+        as the empty mapping would answer a question the caller did not ask
+        while reporting success.
+
+        Omitting the parameter is the empty mapping, which says *this question
+        needs nothing beyond its four axes*. Supplying it **without** the four
+        axes is refused as an incomplete address: the declared remainder
+        qualifies a question, and there is no question here to qualify.
 
         No clock is read here, and that is structural rather than incidental:
         ``asked_at`` is the caller's instant at serve time and the *recorded*
@@ -287,7 +325,9 @@ def build_router(
         Raises:
             HTTPException: 400 with
                 :data:`~ccf_runtime.http_api.errors.ERROR_PRODUCT_REQUEST_INCOMPLETE`
-                when the address is partial.
+                when the address is partial, or with
+                :data:`~ccf_runtime.http_api.errors.ERROR_PRODUCT_PARAMETERS_MALFORMED`
+                when ``parameters`` is not a JSON object.
         """
         supplied = [
             name
@@ -300,7 +340,22 @@ def build_router(
             if axis is not None
         ]
         if not supplied:
-            return None
+            if parameters is None:
+                return None
+            raise HTTPException(
+                status_code=400,
+                detail=refusal_detail(
+                    error_code=ERROR_PRODUCT_REQUEST_INCOMPLETE,
+                    message=(
+                        "`parameters` was supplied with none of the four §6.3"
+                        " axes. The class-declared remainder qualifies a"
+                        " question; with no subject, intent, freshness or"
+                        " asked_at there is no question here for it to"
+                        " qualify, and the door fills none of them in"
+                        " (D-IMPL-98, D-IMPL-133)"
+                    ),
+                ),
+            )
         if (
             subject is None
             or intent is None
@@ -327,7 +382,57 @@ def build_router(
             intent=intent,
             freshness=freshness,
             asked_at=asked_at,
-            parameters={},
+            # Verbatim, exactly as the MCP tool forwards its argument map: the
+            # door parses the JSON and carries what it found. It coerces
+            # nothing and inspects nothing inside the object, because the
+            # comparison against the declared surface belongs to the resolver,
+            # which holds the class (D-IMPL-121, D-IMPL-133).
+            parameters=_parameters(parameters),
         )
+
+    def _parameters(supplied: str | None) -> Mapping[str, Any]:
+        """One JSON object, parsed and carried — or refused as malformed.
+
+        Refusal rather than a fallback: reading unparseable text as the empty
+        mapping would answer a question the caller did not ask and report
+        success, which is ``D-08``'s *the fabric never silently degrades a
+        caller's value* on the request side of the same seam.
+        """
+        if supplied is None:
+            return {}
+        try:
+            decoded = json.loads(supplied)
+        except ValueError as malformed:
+            raise HTTPException(
+                status_code=400,
+                detail=refusal_detail(
+                    error_code=ERROR_PRODUCT_PARAMETERS_MALFORMED,
+                    message=(
+                        "`parameters` is one JSON object carrying the"
+                        " class-declared remainder of the question, and this"
+                        f" call supplied text that is not JSON: {malformed}."
+                        " JSON rather than flattened query keys because it is"
+                        " self-describing — a presented 3 and a presented"
+                        ' "3" stay distinguishable, so the door never guesses'
+                        " at a coercion (D-IMPL-103, D-IMPL-133)"
+                    ),
+                ),
+            ) from malformed
+        if not isinstance(decoded, dict):
+            raise HTTPException(
+                status_code=400,
+                detail=refusal_detail(
+                    error_code=ERROR_PRODUCT_PARAMETERS_MALFORMED,
+                    message=(
+                        "`parameters` parsed as a"
+                        f" {type(decoded).__name__} rather than a JSON object;"
+                        " the class-declared remainder is a mapping of"
+                        " parameter names to values, and a door that coerced"
+                        " some other shape into one would be inventing a"
+                        " question (D-IMPL-133)"
+                    ),
+                ),
+            )
+        return decoded
 
     return router

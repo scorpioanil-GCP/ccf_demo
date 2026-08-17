@@ -107,7 +107,7 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
@@ -477,6 +477,7 @@ def build_egress_server(
             intent: str,
             freshness: str,
             asked_at: datetime,
+            parameters: dict[str, Any] | None = None,
         ) -> str:
             """Serve the product that answers **this** question, as canonical JSON.
 
@@ -537,16 +538,61 @@ def build_egress_server(
             this surface at all — the ``http_api/routes/product.py``
             property, transplanted.
 
-            ``parameters`` is the empty mapping for that route's recorded
-            reason: a flat tool-argument map cannot carry ``D-IMPL-103``'s
-            declared nested types without the door guessing at coercions, and
-            a declared-parameter surface here would make this tool wider than
-            the HTTP door. The measured consequence is worth stating plainly:
-            a product class whose request contract declares **any** required
-            parameter is not reachable through this tool, and a resolver
-            discharging its :func:`~ccf.products.request.refuse_request`
-            obligation will say so by name
-            (``missing-required-parameter``).
+            **``parameters`` is now carried, and the reason it once was not is
+            kept rather than deleted, because half of it is still binding.**
+            This paragraph used to read: *"``parameters`` is the empty mapping
+            for that route's recorded reason: a flat tool-argument map cannot
+            carry ``D-IMPL-103``'s declared nested types without the door
+            guessing at coercions, and a declared-parameter surface here would
+            make this tool wider than the HTTP door."* Its measured
+            consequence was that *a product class whose request contract
+            declares **any** required parameter is not reachable through this
+            tool* — the door defect ``D-IMPL-133`` (Dave, 2026-08-14) ruled
+            must be repaired: *"both doors carry ``parameters``."*
+
+            The two halves of that reason resolved differently, and both
+            resolutions are constraints on what this handler may do.
+
+            *The coercion half is false as measured, and is why no coercion
+            happens here.* A tool-argument map is **not** flat and not
+            string-valued: MCP carries arguments as JSON, so a presented ``3``
+            arrives an ``int``, a presented ``"3"`` arrives a ``str``, and a
+            nested object arrives nested — ``D-IMPL-103``'s one level of
+            declared nesting crosses intact with nothing to guess at. This
+            handler therefore forwards the mapping **verbatim**. It coerces
+            nothing, defaults nothing and inspects nothing; a wrong-typed value
+            stays wrong-typed so that
+            :func:`~ccf.products.request.refuse_request` can refuse it
+            ``type-mismatch`` at the resolver, which is where ``D-IMPL-121``
+            put every request verdict.
+
+            *The width half is still binding, and is honoured by repairing
+            both doors rather than neither.* ``D-IMPL-133`` is explicit that
+            *"both, not one"* is the point — the HTTP route carried the
+            identical hard-wiring in
+            ``http_api/routes/product.py::build_router`` and now carries a
+            mapping on the same terms, as self-describing JSON. Neither door is
+            wider than the other, and
+            ``tests/mcp/test_egress_parameters.py::assert_same_verdicts`` holds
+            them to one shared case table so they cannot drift apart again.
+
+            **The door still never validates**, which is why this is a repair
+            of two lines rather than a seam widening: the declared world is
+            closed at the resolver, against the
+            :class:`~ccf.products.contract.RegisteredProductClass` this door
+            never holds. An undeclared parameter is refused there
+            (``undeclared-parameter``), and an omitted required one still
+            reads ``missing-required-parameter`` — the difference being that
+            it now names a caller who genuinely omitted it rather than every
+            caller alike.
+
+            Omitting the argument entirely is the empty mapping, which is the
+            positive statement *this question needs nothing beyond its four
+            axes*. It is optional rather than required because the four §6.3
+            axes are the **address** and are required together, while the
+            declared remainder is not part of the address — and because a
+            deployment that adopted this tool before ``D-IMPL-133`` keeps
+            working unchanged.
 
             Nothing is added to the body's return: it is the *identical*
             expression the resource returns, over the same vessel, so this
@@ -585,7 +631,11 @@ def build_egress_server(
                 intent=intent,
                 freshness=freshness,
                 asked_at=asked_at,
-                parameters={},
+                # Verbatim: no coercion, no defaulting, no inspection. The
+                # declared world is closed at the resolver (D-IMPL-121), and a
+                # door that touched these values would be rendering a verdict
+                # it is not the one holding the class to compare against.
+                parameters=dict(parameters or {}),
             )
             servable = resolver(
                 tenant=tenant,
