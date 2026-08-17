@@ -41,6 +41,48 @@ against what was asked turns that into a detectable failure. Making it a
 parameter of the operation rather than an optional extra is what stops the check
 from being forgotten at a call site.
 
+…and the shipped adapters reconstruct, so both checks are inert today
+----------------------------------------------------------------------
+**Every word of the argument above stands. What follows is the measured state
+of the code beside it**, recorded rather than implied, per ``D-IMPL-151``
+(Dave, 2026-08-17) finding ``B0``. The correction is deliberately an addition:
+the design this seam is meant to have is not wrong, and deleting the reasoning
+would lose why the follow-on is worth doing.
+
+:class:`~ccf.products.door.DoorOutcome` carries **no request identity**, so an
+adapter has nothing from the wire to echo. Both shipped adapters therefore set
+:attr:`~ccf.client.wire.WireOutcome.request` from the request object they were
+*handed*, and :class:`~ccf.client.client.ProductClient` passes that same object
+as ``sent`` — so :func:`check_outcome`'s ``outcome.request != sent`` is an
+object compared with itself and **cannot fail**. For the same reason the
+"claimed" address an adapter supplies is computed by that adapter from the
+identical ``product_json`` it emits, so :func:`verify_content_address` is
+``sha256(x) != sha256(x)`` and **cannot fail either**.
+
+Consequently, **until the follow-on phase lands, this SDK must not be described
+as detecting a transport that answered a different question, or as detecting a
+vessel altered in transit.** Both are open blocking defects against the
+client-seam integrity claim rather than accepted risk. Making the checks able to
+fail requires ``DoorOutcome`` — or the wire form — to carry request identity, a
+wire-shape change across both doors, the adapter and this module; that is the
+follow-on's sole job, and ``D-IMPL-151`` deferred it rather than expanding a
+phase already declared execution-complete.
+
+:func:`decode_outcome` is the path on which these checks *would* be
+load-bearing, because it parses ``request`` and ``content_address`` out of bytes
+the sender produced rather than taking them from the receiver's own state. **No
+shipped adapter calls it.** Both build a :class:`~ccf.client.wire.WireOutcome`
+object directly, which ``D-11`` permits — the adapter seam is typed as returning
+the object, not bytes — and it is exactly that permission that lets the
+reconstruction in. So the function is reached today only by this package's own
+tests. That is the measurement, and it is recorded here because "the codec
+checks it" reads as a live guarantee and is not one.
+
+The **third** check in this module is unaffected and is not part of the defect:
+the vessel's contract validation runs over text the *producer* serialized, so a
+producer and a consumer that disagree about the contract fail on every
+transport.
+
 What is a value and what is an exception
 -----------------------------------------
 A refusal is a value and is returned; a malformed wire is a
@@ -100,6 +142,14 @@ def verify_content_address(product_json: str, claimed: str) -> str:
     let a client verify without owning a CCF canonicalizer, and it is why the
     MCP doors publishing no address is harmless.
 
+    **On every shipped adapter, ``claimed`` is not a claim that travelled.** It
+    is computed by the adapter from the identical ``product_json`` it passes
+    here, so this comparison is ``sha256(x) != sha256(x)`` and cannot fail —
+    ``D-IMPL-151`` finding ``B0``, an open blocking defect deferred to its own
+    phase. The reasoning above is why the function takes the claim as a
+    parameter and is unchanged; what is corrected is the impression that the
+    claim is currently checkable end to end. See this module's docstring.
+
     Args:
         product_json: The UTF-8 text of the served vessel's canonical bytes.
         claimed: The address the wire carried alongside it.
@@ -110,7 +160,11 @@ def verify_content_address(product_json: str, claimed: str) -> str:
     Raises:
         TransportError: the bytes do not hash to the address claimed for them,
             so the vessel was altered in transit or the producer and the
-            consumer disagree about the canonical form.
+            consumer disagree about the canonical form. **Not reachable from any
+            shipped adapter today**, for the reason recorded above; a caller who
+            handed this function an independently-obtained address — which is
+            what a client verifying the HTTP door's header does — gets the
+            failure the paragraph describes.
     """
     recomputed = hashlib.sha256(product_json.encode("utf-8")).hexdigest()
     if recomputed != claimed:
@@ -147,6 +201,18 @@ def check_outcome(
     The served vessel is **returned rather than discarded** so the caller that
     needs it does not parse the same text a second time.
 
+    **Two of the three checks are inert on every shipped adapter, and the third
+    is not.** Both adapters set ``outcome.request`` from the request object they
+    were handed — the one the client also passes as ``sent`` — so
+    ``outcome.request != sent`` compares an object with itself, and the address
+    they claim is computed from the text they pass, so the recomputation
+    compares a digest with itself. That is ``D-IMPL-151`` finding ``B0``, an
+    open blocking defect deferred to its own phase and **not** an accepted risk;
+    the module docstring records why, and what the follow-on has to change.
+    **The contract-validity check is unaffected** and does real work on both
+    transports: the vessel is text the *producer* serialized, so a producer and
+    a consumer that disagree about the contract fail here today.
+
     Args:
         outcome: What an adapter produced, or what was just parsed from bytes.
         sent: The request that was actually sent. Required rather than optional
@@ -160,8 +226,12 @@ def check_outcome(
     Raises:
         TransportError: the echoed request names a different question than the
             one sent, the vessel does not hash to its claimed address, or the
-            vessel is not a valid contract. Never raised for a governed
-            refusal.
+            vessel is not a valid contract. Never raised for a governed refusal.
+            **Only the last of the three is reachable from a shipped adapter**;
+            the first two are reachable from an outcome whose ``request`` and
+            ``content_address`` came from the wire rather than from the
+            receiver, which today means :func:`decode_outcome` and this
+            package's own tests.
     """
     if outcome.request != sent:
         raise TransportError(
@@ -215,7 +285,11 @@ def decode_outcome(raw: bytes, *, sent: WireRequest) -> WireOutcome:
             request names a different question than the one sent, the vessel
             does not hash to its claimed address, or the vessel is not a valid
             contract. Never raised for a governed refusal, which is a value and
-            is returned.
+            is returned. **All four are reachable here**, because ``request``
+            and ``content_address`` are parsed out of ``raw`` rather than taken
+            from the receiver — which is exactly what makes this the path the
+            follow-on phase for ``D-IMPL-151`` finding ``B0`` has to bring the
+            shipped adapters onto, or bring the identity onto their wire.
     """
     try:
         outcome = WireOutcome.model_validate_json(raw)

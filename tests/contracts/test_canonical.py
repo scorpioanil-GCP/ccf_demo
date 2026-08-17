@@ -38,6 +38,7 @@ import os
 import pathlib
 import subprocess
 import sys
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -54,6 +55,55 @@ from ccf.contracts.canonical import (
 #: Everything a child spawned from this module may be told. Closed, and asserted
 #: closed: a variable added here is a decision somebody makes on purpose.
 PERMITTED_CHILD_VARIABLES = frozenset({"PYTHONHASHSEED", "PATH", "PYTHONPATH"})
+
+#: What the set is when the parent carries no ``PYTHONPATH`` to propagate. Named
+#: rather than spelled inline so the two halves of
+#: :func:`test_the_child_environment_states_only_what_it_needs` are two
+#: *expectations* rather than one expectation and one subtraction.
+PERMITTED_WITHOUT_PYTHONPATH = PERMITTED_CHILD_VARIABLES - {"PYTHONPATH"}
+
+
+def assert_child_environment_is_exactly(
+    carried: Mapping[str, str], expected: frozenset[str], *, when: str
+) -> None:
+    """The child was told exactly ``expected`` — no more, and **no fewer**.
+
+    ``D-IMPL-151`` finding ``B3``. This read ``set(carried) <= expected``, which
+    is one-sided: it fires on a variable that was added and cannot fire on one
+    that went missing. The claim the module docstring makes is *"holds the set
+    closed"*, and a subset test holds only half of it — a
+    :func:`child_environment` that stopped propagating ``PYTHONPATH`` would
+    reintroduce the ``D-IMPL-150`` defect this very module exists to have fixed,
+    and the assertion watching for it would have stayed green. That is this
+    repository's recurring defect class — a check that stops checking without
+    going red — so the comparison is now equality in both directions.
+
+    Written as a function taking its subject as a parameter (``D-22``) so the
+    control below can hand it a divergent environment and watch **this** code
+    fail, rather than a copy of it.
+
+    Args:
+        carried: The environment a child would be launched with.
+        expected: Exactly the variable names that environment must carry.
+        when: The condition this expectation holds under, for the message.
+
+    Raises:
+        AssertionError: the environment carries a variable that is not expected,
+            or is missing one that is.
+    """
+    names = set(carried)
+    if names == set(expected):
+        return
+    extra = sorted(names - set(expected))
+    missing = sorted(set(expected) - names)
+    raise AssertionError(
+        f"the child environment {when} is not the closed set it claims to be —"
+        f" unexpected {extra}, missing {missing}. An unexpected variable lets a"
+        " child inherit a decision the parent happened to carry; a missing one"
+        " is `D-IMPL-150` reintroduced, where a child resolves `ccf` through"
+        " whatever editable install its interpreter finds and answers"
+        " correctly from code nobody is testing"
+    )
 
 
 def child_environment(seed: str) -> dict[str, str]:
@@ -269,17 +319,69 @@ def test_the_child_environment_states_only_what_it_needs(
     :func:`test_hash_is_stable_across_processes` is varying. So the repair adds
     one variable, propagates it only when there is one to propagate, and this
     holds both halves.
+
+    **Both halves compare the set exactly** (``D-IMPL-151`` finding ``B3``).
+    They read ``set(...) <= PERMITTED_CHILD_VARIABLES``, which could fail only
+    on an *added* variable — so the half of the claim that matters most, that
+    ``PYTHONPATH`` is still being propagated, was carried by the one-line
+    membership check beside it and by nothing else in the absent case.
     """
     monkeypatch.setenv("PYTHONPATH", "/somewhere")
     carried = child_environment("12345")
     assert carried["PYTHONHASHSEED"] == "12345"
     assert carried["PYTHONPATH"] == "/somewhere"
-    assert set(carried) <= PERMITTED_CHILD_VARIABLES
+    assert_child_environment_is_exactly(
+        carried, PERMITTED_CHILD_VARIABLES, when="with a `PYTHONPATH` to carry"
+    )
 
     monkeypatch.delenv("PYTHONPATH")
     absent = child_environment("0")
     assert "PYTHONPATH" not in absent
-    assert set(absent) <= PERMITTED_CHILD_VARIABLES
+    assert_child_environment_is_exactly(
+        absent, PERMITTED_WITHOUT_PYTHONPATH, when="with no `PYTHONPATH` to carry"
+    )
+
+
+def test_control_a_child_environment_missing_a_variable_is_refused() -> None:
+    """**The control.** The repaired assertion fires on an *omission*.
+
+    The divergent subject is the environment ``child_environment`` built before
+    ``D-IMPL-150`` — seed and ``PATH``, no ``PYTHONPATH`` — handed to the same
+    function the test above calls, under the expectation that holds when the
+    parent has one to propagate. Against the one-sided ``<=`` comparison this
+    case passed, which is precisely why it is the control.
+    """
+    regressed = {"PYTHONHASHSEED": "0", "PATH": "/usr/bin:/bin"}
+
+    assert set(regressed) <= PERMITTED_CHILD_VARIABLES, (
+        "the pre-`D-IMPL-150` environment satisfies the subset comparison this"
+        " control exists to show is insufficient — if it did not, the control"
+        " would be proving something else"
+    )
+    with pytest.raises(AssertionError, match="missing"):
+        assert_child_environment_is_exactly(
+            regressed, PERMITTED_CHILD_VARIABLES, when="under the control"
+        )
+
+
+def test_control_a_child_environment_carrying_an_extra_variable_is_refused() -> None:
+    """The other side of the same comparison, kept explicitly.
+
+    Equality replaced a subset test, so the case the subset test *could*
+    already catch is asserted here rather than assumed to have survived the
+    change.
+    """
+    leaked = {
+        "PYTHONHASHSEED": "0",
+        "PATH": "/usr/bin:/bin",
+        "PYTHONPATH": "/somewhere",
+        "AWS_SECRET_ACCESS_KEY": "inherited-from-the-parent",
+    }
+
+    with pytest.raises(AssertionError, match="unexpected"):
+        assert_child_environment_is_exactly(
+            leaked, PERMITTED_CHILD_VARIABLES, when="under the control"
+        )
 
 
 def test_modules_are_tagged_algorithmic() -> None:

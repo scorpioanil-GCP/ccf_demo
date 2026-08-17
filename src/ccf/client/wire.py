@@ -127,10 +127,12 @@ class WireRequest(CCFContract):
         parameters: The class-declared remainder of the question. An empty
             mapping is a question that needed nothing beyond its axes — a
             positive statement, not a missing value.
-        temporal_boundary: The instant to answer against. ``None`` is the
-            positive assertion *defer to the server's decision instant*, which
-            is the rule ``D-04`` documents on ``ask()``; it is not an unset
-            field.
+        temporal_boundary: The instant to answer against, **timezone-aware or
+            absent**. ``None`` is the positive assertion *defer to the server's
+            decision instant*, which is the rule ``D-04`` documents on
+            ``ask()``; it is not an unset field. A naive instant is refused at
+            construction — see
+            :meth:`_temporal_boundary_survives_the_wire`.
     """
 
     product_id: str
@@ -174,6 +176,58 @@ class WireRequest(CCFContract):
             " `ccf.contracts.canonical.canonical_timestamp`"
         )
 
+    @field_validator("temporal_boundary")
+    @classmethod
+    def _temporal_boundary_survives_the_wire(
+        cls, value: datetime | None
+    ) -> datetime | None:
+        """Refuse a naive instant, at the seam, before any transport sees it.
+
+        ``D-IMPL-151`` finding ``B0b``. The sibling of
+        :meth:`_parameters_survive_the_wire`, one field over and for the same
+        reason: a value that cannot cross is refused where the message can name
+        the spelling that can, rather than surfacing as whatever each transport
+        happens to make of it.
+
+        **The defect this repairs, as measured.** With a naive ``--as-of``, the
+        two shipped transports answered the same question with two different
+        exception classes — ``inprocess:`` raised
+        :class:`~ccf.contracts.canonical.CanonicalizationError` out of the graph
+        backend, and ``mcp+stdio:`` raised
+        :class:`~ccf.client.errors.TransportError` because the far door refused
+        an ``asked_at`` with no offset and a raised door refusal reaches a client
+        as a wire error. So the same caller mistake was two different failures,
+        and on one transport it was reported as *the wire never spoke*. That is
+        ``D-10``'s inversion running backwards: an exception reserved for "no
+        governed answer arrived" used to report a caller's malformed argument,
+        at a point where nothing downstream can tell the two apart.
+
+        **Why a naive instant cannot cross.** ``D-IMPL-38`` admits no implicit
+        UTC anywhere in the fabric: the canonical serializer refuses a naive
+        datetime outright rather than guessing an offset, and both product doors
+        refuse a naive ``asked_at`` by name. The instant a question is asked
+        as-of is the boundary a replay resolves against, and a boundary whose
+        offset is the producing host's local configuration is a boundary that
+        replays differently on a different host.
+
+        ``None`` is admitted unchanged and is not the same fact: it is the
+        positive assertion *defer to the server's decision instant* (``D-04``),
+        which is a question the fabric can answer.
+        """
+        if value is None or value.utcoffset() is not None:
+            return value
+        raise ValueError(
+            f"temporal_boundary {value.isoformat()!r} carries no UTC offset,"
+            " and a naive instant cannot cross this seam — the canonical"
+            " serializer refuses it rather than guessing an offset, and both"
+            " product doors refuse a naive `asked_at` by name, so the same"
+            " question would fail differently on every transport (D-IMPL-38)."
+            " Attach an explicit timezone: `datetime(..., tzinfo=UTC)`, or"
+            " `value.replace(tzinfo=UTC)` if the instant is already UTC, or"
+            " `datetime.fromisoformat('2026-08-01T00:00:00+00:00')`. Pass"
+            " `None` to ask against the server's own decision instant"
+        )
+
 
 class WireOutcome(CCFContract):
     """What came back — a served product or a refusal, and exactly one of them.
@@ -203,14 +257,21 @@ class WireOutcome(CCFContract):
         request: The question, echoed back. The decoder cross-checks it against
             the request that was actually sent — see
             :func:`ccf.client.codec.decode_outcome` for why an echo rather than
-            a reconstruction.
+            a reconstruction, **and for the measured fact that both shipped
+            adapters fill this member from the request they were handed rather
+            than from the wire, which makes that cross-check inert on every
+            shipped transport today** (``D-IMPL-151`` finding ``B0``, an open
+            blocking defect deferred to its own phase).
         product_json: The UTF-8 text of the served vessel's canonical bytes, or
             ``None`` on a refusal. Text and never a byte string; the module
             docstring records why at length.
         content_address: The vessel's content address on a served outcome, and
             ``None`` on a refusal — a refusal is not a content-addressed
             artifact. Always recomputed by the decoder and never trusted from
-            the wire.
+            the wire — though on both shipped adapters the value recomputed
+            against is one the adapter itself derived from the same
+            ``product_json``, so the comparison cannot currently disagree. Same
+            deferred defect as ``request`` above.
         replay_ref: The replay record's artifact reference in string form, when
             one exists. No shipped door emits this today, which is a defect the
             client seam exists to fix rather than a feature request.

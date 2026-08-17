@@ -194,8 +194,8 @@ Rows by coupling shape:
 | `public/reference/artifacts/task-definitions.md` | 16 | `examples/05-workflow-hitl` | `snippet-include` | live | - | - | 16-18 |  |
 | `public/reference/artifacts/workflow-definitions.md` | 18 | `examples/05-workflow-hitl` | `snippet-include` | live | - | - | 16-18 |  |
 | `pyproject.toml` | 83 | `tests/examples/test_ext00_fixture_schemas.py` | `comment` | documentary | - | - | 16-18 |  |
-| `runtime/ccf_runtime/mcp/egress.py` | 285 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `runtime/ccf_runtime/mcp/egress.py` | 287 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
+| `runtime/ccf_runtime/mcp/egress.py` | 305 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `runtime/ccf_runtime/mcp/egress.py` | 307 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `runtime/ccf_runtime/mcp/experience.py` | 332 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `runtime/ccf_runtime/mcp/experience.py` | 334 | `examples/04-cross-process` | `docstring` | documentary | - | - | 16-17 |  |
 | `runtime/ccf_runtime/mcp/experience.py` | 483 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-18 |  |
@@ -596,6 +596,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-CONTEXT.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-RESEARCH.md` | 9 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/17-client-access-ccf-client-and-the-transport-agnostic-first-ex/17-REVIEW.md` | 2 | the phase's own planning tree — not shipped, not published |
+| `.planning/phases/18-mcp-transport-the-second-door-and-the-portability-proof/18-CLOSE-REVIEWS.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `.planning/phases/18-mcp-transport-the-second-door-and-the-portability-proof/18-D-IMPL-150-SUMMARY.md` | 1 | the phase's own planning tree — not shipped, not published |
 | `CLAUDE.md` | 9 | the project charter; revised by Dave, by no plan (CLAUDE.md §2) |
 | `docs/DECISIONS.md` | 51 | append-only decision log |

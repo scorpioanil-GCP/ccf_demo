@@ -69,6 +69,14 @@ twice and the address is the same string. Drop the flag and you get today's
 answer, which is the right default for a caller and the wrong one for a
 document that quotes an address.
 
+The offset in `+00:00` is required, not decoration. `D-IMPL-38` admits no
+implicit UTC anywhere in the fabric, so `--as-of 2026-08-01T00:00:00` is
+refused by `ProductClient.ask` before any transport is reached — identically
+on both bindings above, which is `D-IMPL-151` finding `B0b`. Before that
+repair the same flag produced a `CanonicalizationError` on `inprocess:` and a
+`TransportError` on `mcp+stdio:`, and the second was the wrong report: nothing
+was wrong with the wire.
+
 ### Expected output
 
 ```
