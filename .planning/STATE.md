@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.2
 milestone_name: Performance, Documentation & Demonstration
-status: planned
-last_updated: "2026-08-17T13:44:00.000Z"
+status: executing
+last_updated: "2026-08-17T14:30:00.000Z"
 last_activity: >-
   2026-08-17 -- PHASE 18 OPENED on the MCP transport (D-IMPL-147, Dave). Phase 17 remains CLOSED,
   GATED AND MERGED (D-GATE-17; `phase-17` merged --no-ff at b32348f after a green Actions run on
@@ -157,7 +157,8 @@ are in `D-IMPL-147`.
 
 ## Current Position
 
-Phase: **18 — MCP Transport.** OPEN, ready to execute. Branch `phase-18`, cut
+Phase: **18 — MCP Transport.** EXECUTING (plan 1 of 1, started 2026-08-17).
+  Branch `phase-18`, cut
   from `main` @ `b32348f`. Plan:
   `.planning/phases/18-mcp-transport-the-second-door-and-the-portability-proof/17-10-PLAN.md`
   — the `17-10` name inside the phase-18 directory is **deliberate**; see
