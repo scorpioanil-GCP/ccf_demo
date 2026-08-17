@@ -84,11 +84,31 @@ from ccf.replay.serve import ServedProduct
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "PRODUCT_REQUEST_TOOL",
     "DoorOutcome",
     "ServedAnswer",
     "door_refusal",
     "served_answer",
 ]
+
+
+#: The name of the parameterised MCP Tool a deployment may expose over its
+#: egress server (``ccf_runtime.mcp.egress::build_egress_server``).
+#:
+#: **Declared here rather than in the door that registers it, for this
+#: module's own stated reason.** The emitting side is
+#: ``ccf_runtime.mcp.egress`` and the calling side is
+#: :mod:`ccf.client.adapters.mcp_stdio`, and ``src/`` cannot import
+#: ``runtime/`` — so a name spelled in both places would be two implementations
+#: written to the same paragraph rather than one fact. ``egress.py`` imports it
+#: from here and re-exports it, so every existing citation of
+#: ``ccf_runtime.mcp.egress.PRODUCT_REQUEST_TOOL`` resolves unchanged.
+#:
+#: It is **mechanism, not a deployment value** (CINV-01): a deployment chooses
+#: *whether* to expose the tool and what prose it advertises, and the SDK
+#: chooses what the tool is called — exactly as it chooses the shape of what
+#: the tool returns.
+PRODUCT_REQUEST_TOOL = "request_context_product"
 
 
 class DoorOutcome(CCFContract):
