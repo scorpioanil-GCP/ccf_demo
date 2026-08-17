@@ -1,0 +1,52 @@
+# HW-1's egress door — the values `serve.py` interprets and never spells.
+#
+# `build_egress_server` requires four governance seams and has no inert
+# configuration: a bearer-token verifier, its auth settings, a per-principal
+# entitlement source, and a perspective resolver. Every VALUE those seams need
+# is here rather than in `serve.py`, which is the No-Hardcoding Rule
+# (CLAUDE.md §6.4) applied to a security surface. `examples/04-cross-process`
+# declares the same four in `artifacts/egress-door.yaml`; this is that pattern,
+# one example over.
+#
+# **This is deployment-environment material, not a Control Plane artifact** —
+# the same posture `../deployment/binding.yaml` carries and for the same reason
+# (`D-IMPL-141`): endpoints and a scope are wiring, they are not registered,
+# not content-hashed, and they never reach Decision Replay dimension 2. So this
+# file has no `semver:` and no `class_id:`; a document that carried them would
+# be claiming an audit-plane identity it does not have.
+#
+# **What is deliberately NOT declared here.**
+#
+# * The *principal* and the *role*. Both are in `../deployment/binding.yaml`'s
+#   `perspective:` already — the document that says who this fabric assembles
+#   for and in what capacity. Restating them here would be two declarations of
+#   one fact, and the copy that drifted would be the one nobody was watching.
+# * The *product class* and its version lane. Both come off the class this
+#   deployment actually registered, so an entitlement cannot name a class this
+#   deployment does not serve, and the entitlement policy's version cannot
+#   drift from the class it governs.
+# * Any token VALUE. `serve.py` mints a throwaway credential per boot into a
+#   temporary directory that is deleted on exit. A token in a repository is a
+#   token in every clone of it.
+#
+# Every URL below is OBVIOUSLY SYNTHETIC — `.invalid` is reserved by RFC 2606
+# and resolves nowhere. Over stdio they are inert (see `serve.py`'s docstring);
+# they are stated because the builder requires them together (`D-03`) and
+# because the same deployment is reachable over HTTP with them in force.
+
+# The prose this deployment's product tool advertises to a client that lists
+# it. A domain value the SDK holds no default for.
+tool_description: >-
+  Answer HW-1's declared question — which companies have revenue over a
+  threshold — as a governed, content-addressed Context Product.
+
+# The scope this door requires of a presented token. FastMCP intersects it with
+# the scopes the token grant carries, so both halves of the coarse
+# authorization decision stay with the deployment.
+required_scope: ccf:egress
+
+# The resource-server identity this door advertises, and the issuer it names as
+# the authority for tokens. Deployment values in their entirety — the SDK ships
+# no issuer and would be picking an identity provider if it did.
+issuer_url: https://issuer.hw1.invalid
+resource_server_url: https://egress.hw1.invalid/mcp

@@ -101,6 +101,7 @@ from ccf.controlplane.audit import AuthzDecisionAuditEvent
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.mcp.client import McpResourceClient, SyncMcpBridge, run_with_session
 from ccf.mcp.errors import McpServerUnreachable
+from ccf.products.door import DoorOutcome
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
     ProductEntitlementGrant,
@@ -369,10 +370,11 @@ LOCAL_INTENT = "local-intent"
 LOCAL_FRESHNESS = "local-freshness"
 LOCAL_ASKED_AT = datetime(2026, 8, 13, 9, 30, tzinfo=UTC)
 
-#: The seven names the tool's input schema advertises, asserted by **equality**
+#: The seven **required** names the tool's input schema advertises — the three
+#: address segments and whitepaper §6.3's four axes. Asserted by **equality**
 #: rather than containment: containment would pass against a tool that also
 #: accepted ``role``, which is precisely the widening the tool must not have.
-EXPECTED_TOOL_ARGUMENTS = frozenset(
+REQUIRED_TOOL_ARGUMENTS = frozenset(
     {
         "tenant",
         "product_class",
@@ -383,6 +385,27 @@ EXPECTED_TOOL_ARGUMENTS = frozenset(
         "asked_at",
     }
 )
+
+#: The eighth name, optional, added by ``D-IMPL-133`` (Dave, 2026-08-14):
+#: *"both doors carry ``parameters``."*
+#:
+#: **Optional rather than required, and the distinction is the surface.** The
+#: seven above are the *address* and are required together, so a partial
+#: address stays unrepresentable rather than merely refused. The declared
+#: remainder is not part of the address: omitting it is the empty mapping,
+#: which says *this question needs nothing beyond its four axes*.
+#:
+#: This is **not** the widening ``role`` would have been. A ``role`` argument
+#: would let a caller ask for a capacity the resource beside it cannot ask for;
+#: ``parameters`` is carried verbatim to the resolver and compared there against
+#: the class's own declared surface, so an undeclared parameter is refused
+#: rather than forwarded and the tool reaches nothing the class did not declare.
+#: The HTTP door carries the identical mapping on the identical terms, which is
+#: what keeps the two exactly as wide as each other.
+OPTIONAL_TOOL_ARGUMENTS = frozenset({"parameters"})
+
+#: Every name the tool's input schema advertises at all.
+EXPECTED_TOOL_ARGUMENTS = REQUIRED_TOOL_ARGUMENTS | OPTIONAL_TOOL_ARGUMENTS
 
 
 def _tool_arguments(
@@ -1111,7 +1134,12 @@ def test_the_tool_is_never_the_weaker_path(
     if plan.marker is None:
         expected = canonical_bytes(assembled.servable.product).decode("utf-8")
         assert resource_text == expected
-        assert tool_text == expected
+        # `D-IMPL-148` Addendum A: the tool answers in a `DoorOutcome`, because
+        # a refusal cannot be raised over FastMCP without prose and the replay
+        # reference has nowhere to ride on a bare body. The **vessel's bytes**
+        # are compared, and they are still the resource's byte for byte; what
+        # moved is the frame around them, deliberately.
+        assert DoorOutcome.model_validate_json(tool_text).product_json == expected
     else:
         assert plan.marker in resource_text, resource_text
         assert plan.marker in tool_text, tool_text
@@ -1233,10 +1261,19 @@ def test_the_tool_advertises_exactly_the_seven_argument_names(
     """What a *client* sees — the wire contract, not the Python signature.
 
     ``required`` is the only place "all four axes together" is observable to a
-    client, and ``properties`` the only place "no ``role``, no ``schema_name``,
-    no ``parameters``" is. Both are compared by **equality**: containment would
-    pass against a tool that also accepted ``role``, which is exactly the
-    widening a second door must not have (T-16-23-04).
+    client, and ``properties`` the only place "no ``role``, no ``schema_name``"
+    is. Both are compared by **equality**: containment would pass against a tool
+    that also accepted ``role``, which is exactly the widening a second door
+    must not have (T-16-23-04).
+
+    **The two sets are now different, and that difference is the assertion.**
+    ``D-IMPL-133`` added ``parameters`` as an eighth *property* and deliberately
+    not as an eighth *requirement* — see :data:`OPTIONAL_TOOL_ARGUMENTS` for why
+    the address and the declared remainder are on opposite sides of that line.
+    Asserting ``required`` against the seven is what keeps the address whole: a
+    ``parameters`` that drifted into ``required`` would make every caller
+    wanting the standing remainder send an empty object, and a §6.3 axis that
+    drifted out of it would make a partial address representable again.
     """
     server, _entitlement, _registry = _open_world(
         tmp_path, servable=assembled.servable, address=assembled.address
@@ -1247,7 +1284,8 @@ def test_the_tool_advertises_exactly_the_seven_argument_names(
     assert [tool.name for tool in tools] == [PRODUCT_REQUEST_TOOL]
     schema = tools[0].inputSchema
     assert set(schema["properties"]) == set(EXPECTED_TOOL_ARGUMENTS)
-    assert set(schema["required"]) == set(EXPECTED_TOOL_ARGUMENTS)
+    assert set(schema["required"]) == set(REQUIRED_TOOL_ARGUMENTS)
+    assert "role" not in schema["properties"]
     # A required, zone-carrying instant, advertised as such rather than as a
     # bare string a client has to guess the shape of.
     assert schema["properties"]["asked_at"]["format"] == "date-time"
@@ -1260,9 +1298,18 @@ def test_the_tool_handler_takes_no_role_and_no_caller_supplied_address(
     """Asserted by signature, deliberately, and not by grepping the source.
 
     The handler's docstring legitimately contains the words ``schema_name`` and
-    ``parameters`` — it has to, because it explains where they come from — so a
-    grep would pass or fail for reasons unrelated to the surface. The registered
+    ``role`` — it has to, because it explains where they come from — so a grep
+    would pass or fail for reasons unrelated to the surface. The registered
     function's signature is the falsifiable form.
+
+    **The three names that must stay absent are the address-claiming ones.**
+    ``role`` would let the tool ask for a capacity the resource cannot; a
+    caller-supplied ``schema_name`` or ``schema_version`` would let a request be
+    addressed to a class other than the one this handler resolved and entitled,
+    which is unrepresentable here rather than merely refused (T-16-23-04).
+    ``D-IMPL-133``'s ``parameters`` claims no address and is therefore not on
+    that list: it is the *remainder* of the question, closed at the resolver
+    against the class's own declaration.
     """
     server, _entitlement, _registry = _open_world(
         tmp_path, servable=assembled.servable, address=assembled.address
@@ -1274,7 +1321,7 @@ def test_the_tool_handler_takes_no_role_and_no_caller_supplied_address(
     parameters = set(inspect.signature(registered.fn).parameters)
 
     assert parameters == set(EXPECTED_TOOL_ARGUMENTS)
-    for absent in ("role", "schema_name", "schema_version", "parameters"):
+    for absent in ("role", "schema_name", "schema_version"):
         assert absent not in parameters
 
 
@@ -1447,17 +1494,24 @@ def test_two_questions_reach_two_content_addresses(
 
     assert first_error is False, first
     assert second_error is False, second
-    assert hashlib.sha256(first.encode("utf-8")).hexdigest() != hashlib.sha256(
-        second.encode("utf-8")
-    ).hexdigest(), (
+    # `D-IMPL-148` Addendum A moved the frame, and this test is **stronger**
+    # for it rather than weaker: the digests below are now taken over the
+    # vessel the envelope carries, which is the product's actual content
+    # address, where before they were taken over whatever the tool returned.
+    first_vessel = DoorOutcome.model_validate_json(first).product_json
+    second_vessel = DoorOutcome.model_validate_json(second).product_json
+    assert first_vessel is not None and second_vessel is not None
+    assert hashlib.sha256(
+        first_vessel.encode("utf-8")
+    ).hexdigest() != hashlib.sha256(second_vessel.encode("utf-8")).hexdigest(), (
         f"two calls differing only in {axis} returned the same content"
         " address; the door is not carrying the caller's question through to"
         " the resolver (D-IMPL-126)"
     )
     # And neither is the class's standing answer: the tool answered the
     # question rather than re-serving what the resource serves.
-    assert first != _canonical
-    assert second != _canonical
+    assert first_vessel != _canonical
+    assert second_vessel != _canonical
 
 
 # --- the fixture's own failure mode ----------------------------------------

@@ -33,6 +33,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "CONTENT_ADDRESS_HEADER",
+    "REPLAY_REF_HEADER",
     "canonical_response",
     "refusal_response",
 ]
@@ -45,6 +46,25 @@ _JSON = "application/json"
 #: Named here rather than spelled at the one site that sets it, so a test and an
 #: adopter's client reach for the same constant and a rename is one edit.
 CONTENT_ADDRESS_HEADER: Final[str] = "X-CCF-Content-Address"
+
+#: The response header a served product publishes its **replay reference**
+#: under — the versioned URI of the record whose successful append authorized
+#: the delivery (``D-IMPL-148`` Addendum A, Dave, 2026-08-17; the reference is
+#: :attr:`~ccf.artifacts.protocol.ArtifactRef.uri`).
+#:
+#: **A sibling of the vessel, on the identical argument**
+#: :data:`CONTENT_ADDRESS_HEADER` **is one.** The body *is* the product, so a
+#: reference carried inside it would change the bytes and therefore change the
+#: address they claim. The four reasons :func:`canonical_response` gives for
+#: choosing an ``X-CCF-*`` name over a standard header apply here unchanged and
+#: are not restated.
+#:
+#: **Set only when there is one to publish**, and its absence is meaningful:
+#: this deployment's resolver answered with the narrower
+#: :class:`~ccf.products.gates.ServableProduct`, which carries no reference.
+#: Stamping an empty header would make "no record was named" and "the record is
+#: named by nothing" the same observation.
+REPLAY_REF_HEADER: Final[str] = "X-CCF-Replay-Ref"
 
 _Handle = TypeVar("_Handle")
 
@@ -108,7 +128,7 @@ def _required_handle(
     )
 
 
-def canonical_response(payload: object) -> Response:
+def canonical_response(payload: object, *, replay_ref: str | None = None) -> Response:
     """Serve ``payload`` as its canonical bytes, and publish their address.
 
     The bytes are the same serialization the content address and the A2A
@@ -157,24 +177,40 @@ def canonical_response(payload: object) -> Response:
     Both were not shipped: two headers carrying the same hex string, one of
     which a proxy may rewrite, is a guarantee that fails silently.
 
-    **The MCP doors are deliberately untouched.** They have no header channel,
-    and their bodies *are* the product — so carrying the address inside the body
-    would change the body and therefore change the address it claims. The
-    asymmetry is a property of the transports, not an oversight.
+    **The MCP resource is deliberately untouched, and the MCP tool now carries
+    the sibling in an envelope instead** (``D-IMPL-148`` Addendum A). The
+    resource has no header channel and no envelope — its body *is* the product,
+    so carrying anything inside it would change the body and therefore change
+    the address it claims. The tool's return became a
+    :class:`~ccf.products.door.DoorOutcome` because a refusal cannot be raised
+    over FastMCP without prose, and a structure has room for siblings that a
+    bare body does not. **The asymmetry is a property of the transports, not a
+    difference in what the doors carry**: each surface publishes the same
+    sibling values through whatever channel it actually has.
 
     All five call sites — ``agent.py:74``, ``config.py:98``, ``replay.py:47``,
-    ``replay.py:65`` and ``product.py:154`` — pass a
+    ``replay.py:65`` and ``product.py``'s ``retrieve`` — pass a
     :class:`~ccf.contracts.base.CCFContract`, so the claim is uniformly true at
     every one. :func:`refusal_response` sets no such header: a refusal is not a
     content-addressed artifact and stamping every response would make the
     header meaningless.
+
+    Args:
+        payload: The contract to serve. Serialized exactly once.
+        replay_ref: The versioned URI of the replay record that authorized this
+            delivery, published under :data:`REPLAY_REF_HEADER`. ``None`` — the
+            default, and what the four non-product call sites pass — means
+            **there is no reference to publish**, and the header is then absent
+            rather than empty: those four serve Control Plane and replay
+            artifacts rather than a delivered Context Product, and the product
+            door itself passes ``None`` when its resolver answered with the
+            narrower vessel that carries no reference.
     """
     body = canonical_bytes(payload)
-    return Response(
-        content=body,
-        media_type=_JSON,
-        headers={CONTENT_ADDRESS_HEADER: hashlib.sha256(body).hexdigest()},
-    )
+    headers = {CONTENT_ADDRESS_HEADER: hashlib.sha256(body).hexdigest()}
+    if replay_ref is not None:
+        headers[REPLAY_REF_HEADER] = replay_ref
+    return Response(content=body, media_type=_JSON, headers=headers)
 
 
 def refusal_response(refusal: CCFContract, *, status_code: int) -> JSONResponse:

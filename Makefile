@@ -316,6 +316,24 @@ example-s1-00: ## Run examples/s1-00-companies-over-revenue (MIN_REVENUE=<n> opt
 example-hw1: ## Run examples/hw1-companies-over-revenue (needs a populated deployment; never CI)
 	CCF_BINDING="inprocess:examples/hw1-companies-over-revenue/deployment" .venv/bin/python examples/hw1-companies-over-revenue/consume.py --min-revenue 1000000000 --as-of 2026-08-01T00:00:00+00:00
 
+# THE SAME `consume.py`, THE SAME DEPLOYMENT, THE OTHER TRANSPORT. `D-IMPL-150`
+# (Dave, 2026-08-17): plan `17-10` claimed this invocation and it did not run,
+# because `D-05` requires a scheme to reach the registry by its adapter module
+# being imported and `consume.py` imported one. Both are imported now, so the
+# only difference between this target and the one above is the value of
+# `CCF_BINDING` — which is the client abstraction's entire claim, demonstrated
+# rather than asserted.
+#
+# The address is TWO tokens: the deployment's own MCP server program, and the
+# deployment root it serves. Neither is inferable from the other — the SDK ships
+# no server program (CINV-01) and a deployment root holds exactly one Python
+# module by `D-IMPL-141` Amendment A.3, which is its projection.
+#
+# The same interpreter rule applies as above, for the same reason.
+.PHONY: example-hw1-mcp
+example-hw1-mcp: ## Run examples/hw1-companies-over-revenue over MCP stdio (same consume.py)
+	CCF_BINDING="mcp+stdio:examples/hw1-companies-over-revenue/server/serve.py examples/hw1-companies-over-revenue/deployment" .venv/bin/python examples/hw1-companies-over-revenue/consume.py --min-revenue 1000000000 --as-of 2026-08-01T00:00:00+00:00
+
 # The Phase 15.3 permitted-change-surface gate and its `tools/gates/` package
 # were RETIRED by plan 15.4-07, in the same commit that registered the two
 # structural rules replacing them. D-IMPL-93: the per-file added-line budgets

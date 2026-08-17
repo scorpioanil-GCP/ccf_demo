@@ -78,11 +78,13 @@ AdapterFactory = Callable[[str], TransportAdapter]
 #: fake with ``monkeypatch.setitem`` against this very object rather than
 #: against a parallel copy of it.
 #:
-#: **Empty here, and that is the current truth rather than a placeholder.** The
-#: in-process adapter is built by a later plan in this phase and registers
-#: ``inprocess`` when it lands; ``mcp+stdio`` follows with the MCP adapter.
-#: Until then every lookup refuses, which is the correct behaviour for a client
-#: with no transport installed and is asserted as such.
+#: **Empty here, and that is the current truth rather than a placeholder.**
+#: :mod:`ccf.client.adapters.inprocess` registers ``inprocess`` and
+#: :mod:`ccf.client.adapters.mcp_stdio` registers ``mcp+stdio``, each at import
+#: of its own module and each in one statement — a scheme reaches this dict by
+#: an adapter module being imported and by nothing else. In a process that has
+#: imported neither, every lookup refuses, which is the correct behaviour for a
+#: client with no transport installed and is asserted as such.
 SCHEME_REGISTRY: dict[str, AdapterFactory] = {}
 
 

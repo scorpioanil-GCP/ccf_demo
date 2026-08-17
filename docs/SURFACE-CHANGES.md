@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**705 entries**, of which **473** name a public Python surface.
+**723 entries**, of which **488** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-350 entries — 317 public Python surface, 33 not public Python API.
+361 entries — 326 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -6260,6 +6260,202 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `17-06-inprocess-adapter.md`.*
 
+#### ccf_runtime.http_api.errors.ERROR_PRODUCT_PARAMETERS_MALFORMED
+
+- Surface: ccf_runtime.http_api.errors.ERROR_PRODUCT_PARAMETERS_MALFORMED
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"product-parameters-malformed"` — the typed code the product route
+  refuses a non-JSON-object `?parameters=` with
+- Why: `D-08`, one vocabulary and two renderings: the code is the contract and
+  the prose is human context, so no client parses refusal text. Refusal rather
+  than a fallback to the empty mapping, because a door that quietly read
+  malformed text as *no parameters* would answer a question the caller did not
+  ask while reporting success
+- Migration: none — a new constant, reachable only from a call that supplies the
+  new parameter
+
+*Recorded by `17-10-both-doors-carry-parameters.md`.*
+
+#### ccf.products.door.DoorOutcome
+
+- Surface: ccf.products.door.DoorOutcome
+- Public surface: true
+- Change type: added
+- Before: absent. A door had exactly one thing it could say — the vessel's
+  canonical bytes — so a refusal had no wire shape and a replay reference had
+  nowhere to ride. `WireOutcome.replay_ref` had already named that absence:
+  *"No shipped door emits this today, which is a defect the client seam exists
+  to fix rather than a feature request"*
+- After: a frozen, `extra=forbid` contract carrying `product_json`,
+  `replay_ref` and `refusal`, with a model validator refusing an outcome that is
+  both halves or neither. The MCP tool returns its canonical JSON
+- Why: `D-IMPL-148`. It lives in `src/` beside the types it carries, for the
+  reason `ccf.products.refusal` gives for its own placement: it is emitted by a
+  door in `runtime/` and decoded by a client in `src/ccf/client`, and `src/`
+  cannot import `runtime/` — so the emission and the decode agree by
+  construction rather than by two implementations being written to the same
+  paragraph. The two halves are discriminated **structurally**: exclusive named
+  members, and underneath them `RefusalEnvelope` and `ContextProductContract`
+  are both `extra=forbid` with disjoint required fields, so neither can validate
+  as the other
+- Migration: a client reading the MCP product **tool** parses
+  `DoorOutcome.model_validate_json(text)` and reads `product_json` where it
+  previously read the whole return. The MCP **resource** is unchanged and needs
+  no client change. There is no shipped adapter for this tool yet — the
+  `mcp+stdio` adapter is plan `17-10` Task 3 — so no SDK consumer is affected
+
+*Recorded by `17-10-both-doors-carry-the-replay-reference.md`.*
+
+#### ccf.products.door.ServedAnswer
+
+- Surface: ccf.products.door.ServedAnswer
+- Public surface: true
+- Change type: added
+- Before: absent. Each door read `.product` off whatever its resolver returned
+  and discarded everything beside it
+- After: a frozen dataclass carrying the vessel and the replay reference, or the
+  reference's honest absence. Not a contract, deliberately: it never crosses a
+  wire
+- Why: two served shapes reach a door — the narrower `ServableProduct` the
+  `runtime/` seams declare, and the `ServedProduct` that
+  `ccf.products.resolver.GovernedResolver` returns — and only the second carries
+  a reference. One function reading both is what stops three doors growing three
+  `isinstance` ladders and then disagreeing about what "served" means
+- Migration: none — a new type, reachable only from the new function below
+
+*Recorded by `17-10-both-doors-carry-the-replay-reference.md`.*
+
+#### ccf.products.door.served_answer
+
+- Surface: ccf.products.door.served_answer
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `served_answer(resolved) -> ServedAnswer`. Total over the two served
+  shapes; raises `TypeError` naming the type on anything else
+- Why: `replay_ref=None` must mean *this deployment's resolver produced no
+  reference* — which is the honest report for the narrower vessel — and never
+  *a reference was dropped at the door*. Concentrating that read in one place is
+  what makes the distinction checkable
+- Migration: none — additive
+
+*Recorded by `17-10-both-doors-carry-the-replay-reference.md`.*
+
+#### ccf.products.door.door_refusal
+
+- Surface: ccf.products.door.door_refusal
+- Public surface: true
+- Change type: added
+- Before: absent. A refusal returned by a deployment's resolver reached
+  `canonical_bytes(x.product)` and produced an `AttributeError` — an opaque 500
+  on HTTP and an `isError` with pydantic's wording on MCP
+- After: `door_refusal(resolved, *, asked, product_class, version) ->
+  RefusalEnvelope | None`. A ready-made `RefusalEnvelope` passes through
+  **untouched**, so the pre-assembly lineage a gate refusal genuinely had is
+  preserved rather than re-enveloped away; a bare refusal value that
+  `REFUSAL_KINDS` names is translated against the question the door carried;
+  anything else returns `None`
+- Why: `D-IMPL-148`, and the *"handle both"* the plan asks for. **No third
+  channel exists, and that is a measurement rather than an omission**: every
+  type in `REFUSAL_KINDS` is a `CCFContract` — a value — so none of them can be
+  raised, and no shipped exception in the tree carries one. A door has nothing
+  to catch and translate
+- Migration: none — additive. A deployment whose resolver already returns
+  `ServableProduct` sees no behavioural change at all
+
+*Recorded by `17-10-both-doors-carry-the-replay-reference.md`.*
+
+#### ccf_runtime.http_api.routes.REPLAY_REF_HEADER
+
+- Surface: ccf_runtime.http_api.routes.REPLAY_REF_HEADER
+- Public surface: true
+- Change type: added
+- Before: absent — the HTTP product door discarded the replay reference exactly
+  as the MCP door did. `grep replay_ref runtime/ccf_runtime/http_api/routes/product.py`
+  returned nothing
+- After: `"X-CCF-Replay-Ref"`, the header a served product publishes the
+  versioned URI of its replay record under
+- Why: `D-IMPL-148` Addendum A's *"both, not one"*. A **header** rather than a
+  body member, on the identical argument `CONTENT_ADDRESS_HEADER` is one: the
+  body *is* the product, so a reference carried inside it would change the bytes
+  and therefore change the address they claim. The MCP tool publishes the same
+  string in an envelope because it has no header channel — the asymmetry is a
+  property of the transports, not a difference in what the doors carry
+- Migration: none — a new response header. Existing clients ignore it. It is
+  **absent rather than empty** when the resolver produced no reference, so that
+  "no record was named" and "the record is named by nothing" stay distinguishable
+
+*Recorded by `17-10-both-doors-carry-the-replay-reference.md`.*
+
+#### ccf.products.door.PRODUCT_REQUEST_TOOL
+
+- Surface: ccf.products.door.PRODUCT_REQUEST_TOOL
+- Public surface: true
+- Change type: added
+- Before: the name was bound in `ccf_runtime.mcp.egress` and only there. Nothing
+  in `src/` could refer to the tool it names, because `src/` cannot import
+  `runtime/`
+- After: the string is bound in `ccf.products.door` and
+  `ccf_runtime.mcp.egress` imports it and re-exports it under the same name, so
+  every existing `ccf_runtime.mcp.egress.PRODUCT_REQUEST_TOOL` citation and
+  import resolves unchanged
+- Why: the *emitting* side is a door in `runtime/` and the *calling* side is
+  `ccf.client.adapters.mcp_stdio` in `src/`. This is precisely the argument
+  `ccf.products.door` already makes for holding `DoorOutcome` — a fact spelled on
+  both sides of a boundary neither can cross is two implementations written to
+  the same paragraph rather than one fact. The tool's *name* is SDK mechanism and
+  not a deployment value (CINV-01): a deployment chooses whether to expose the
+  tool and what prose it advertises, and the SDK chooses what it is called,
+  exactly as it chooses the shape of what the tool returns
+- Migration: none. The name is still exported from `ccf_runtime.mcp.egress` and
+  still holds the identical string, so no import, citation or wire call moves
+
+*Recorded by `17-10-the-mcp-stdio-adapter.md`.*
+
+#### ccf.client.adapters.mcp_stdio.McpStdioAdapter
+
+- Surface: ccf.client.adapters.mcp_stdio.McpStdioAdapter
+- Public surface: true
+- Change type: added
+- Before: absent. `inprocess` was the only shipped transport, so every
+  cross-adapter comparison in the conformance suite degenerated to a
+  self-comparison and the phrase *"same `consume.py`, different `CCF_BINDING`,
+  identical `Result`"* had one binding to be true of
+- After: a `TransportAdapter` that launches the deployment's own MCP server
+  program as a child process, calls the parameterised product tool over stdio,
+  and re-shapes the door's `DoorOutcome` as a `WireOutcome`. The address form is
+  `mcp+stdio:<program>` and the deployment is the program's own directory —
+  stdio means the client launches the server, so a client that starts a
+  deployment necessarily knows where it is
+- Why: `D-06` and `D-15`. A conformance suite parameterised over adapters is
+  worth nothing with one adapter bound, and CLAUDE.md §7.3's portability
+  commitment is *demonstrated, not asserted*. With this adapter bound, one
+  question at one instant is shown to produce a byte-identical content address
+  and the identical replay reference through two genuinely different transports
+- Migration: none — additive. A deployment reaches it by setting `CCF_BINDING`
+  to an `mcp+stdio:` address and importing
+  `ccf.client.adapters.mcp_stdio`, the same way `inprocess` is reached. It ships
+  **no** server program and cannot: `build_egress_server` requires five
+  deployment values, so the program is the deployment's to write
+
+*Recorded by `17-10-the-mcp-stdio-adapter.md`.*
+
+#### ccf.client.adapters.mcp_stdio.SCHEME
+
+- Surface: ccf.client.adapters.mcp_stdio.SCHEME
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the string `mcp+stdio`, bound once so the registry entry, the adapter's
+  refusal messages and the tests all say the same thing
+- Why: the sibling of `ccf.client.adapters.inprocess.SCHEME` and for its stated
+  reason — a scheme spelled at each use site is a scheme two of them can drift on
+- Migration: none — additive
+
+*Recorded by `17-10-the-mcp-stdio-adapter.md`.*
+
 #### ccf.products.debt_scorer.AssemblyDebtScorer
 
 - Surface: ccf.products.debt_scorer.AssemblyDebtScorer
@@ -7071,11 +7267,50 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `15.6-10-protocol-call-capture.md`.*
 
+#### The width ceiling, mechanized
+
+- Surface: tests/mcp/test_egress_parameters.py::assert_same_verdicts
+- Public surface: false
+- Change type: added
+- Before: nothing held the two doors' parameter surfaces to each other. They
+  drifted into identical hard-wirings independently and were repaired
+  independently in plan `16-23` and `D-IMPL-108`
+- After: `assert_same_verdicts(cases, ask_mcp, ask_http)` runs **one shared
+  case table** against both real doors and requires identical verdicts, where a
+  verdict is what `refuse_request` says about the request the door actually
+  carried. Five cases: served, served-with-optional, empty, undeclared, and
+  wrong-typed. The assertion **refuses a table in which no case is served** —
+  without that guard the table would have passed against the two unrepaired
+  doors, which carried `{}` and therefore agreed perfectly while carrying
+  nothing
+- Why: a per-door table lets the two drift, which is how the doors got here.
+  `D-22`: the two controls pass a deliberately-wider fake door and a coercing
+  fake door into the **real** assertions rather than into copies of them
+- Migration: none
+
+*Recorded by `17-10-both-doors-carry-parameters.md`.*
+
+#### ccf_runtime.mcp.egress.EMPTY_PARAMETERS
+
+- Surface: ccf_runtime.mcp.egress.EMPTY_PARAMETERS
+- Public surface: false
+- Change type: added
+- Before: absent
+- After: the product tool's `parameters` default, named so the argument model's
+  schema, the handler and the reason for the non-nullable spelling live in one
+  place. Pydantic copies a model's default on every validation, so no call
+  receives this instance
+- Why: a literal `{}` in the signature would carry the same schema and none of
+  the reasoning, and a later reader would "fix" it back to `| None = None`
+- Migration: none — a module-level constant, not exported
+
+*Recorded by `18-99-close-review-blocking-fixes.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-290 entries — 107 public Python surface, 183 not public Python API.
+291 entries — 108 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -9387,6 +9622,27 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   representation grew a field
 
 *Recorded by `16-27-discovery-audiences.md`.*
+
+#### ccf_runtime.http_api.routes.canonical_response
+
+- Surface: ccf_runtime.http_api.routes.canonical_response
+- Public surface: true
+- Change type: reshaped
+- Before: `canonical_response(payload) -> Response` — the canonical body plus
+  the content-address header, and nothing else
+- After: `canonical_response(payload, *, replay_ref: str | None = None) ->
+  Response`. One keyword-only parameter, defaulting to `None`, which publishes
+  `REPLAY_REF_HEADER` when supplied and sets no header when not
+- Why: the product door is the one call site with a replay reference to publish;
+  the other four serve Control Plane and replay artifacts rather than a
+  delivered Context Product and pass nothing. A sibling channel on the response
+  is the only place the reference can go without changing the bytes the body
+  claims an address for
+- Migration: none. Additive and defaulted — all five existing call sites read
+  identically and behave identically, and the response is byte-for-byte
+  unchanged when the argument is omitted
+
+*Recorded by `17-10-both-doors-carry-the-replay-reference.md`.*
 
 #### ccf.client.adapters.binding_document.BindingDocument
 
@@ -11779,7 +12035,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-61 entries — 45 public Python surface, 16 not public Python API.
+67 entries — 50 public Python surface, 17 not public Python API.
 
 ### Public Python surface
 
@@ -12893,6 +13149,165 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `15.6-13-source-refresh-window.md`.*
 
+#### ccf_runtime.mcp.egress — the `request_context_product` tool
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: behavior
+- Before: the handler took seven arguments — three address segments plus
+  whitepaper §6.3's four axes — and hard-wired `parameters={}` at
+  `mcp/egress.py::build_egress_server`. The measured consequence, recorded in
+  the handler's own
+  docstring: *a product class whose request contract declares **any** required
+  parameter is not reachable through this tool*, and a resolver discharging its
+  `refuse_request` obligation refused every such call
+  `missing-required-parameter`
+- After: an eighth argument, `parameters: dict[str, Any] | None = None`,
+  forwarded verbatim to `ProductRequest.parameters`. **Optional, not required** —
+  the seven above are the *address* and stay required together so a partial
+  address remains unrepresentable, while the declared remainder is not part of
+  the address. Omitting it is the empty mapping, which says *this question needs
+  nothing beyond its four axes*
+- Why: `D-IMPL-133`. The half of the recorded objection that said a *"flat
+  tool-argument map cannot carry `D-IMPL-103`'s declared nested types without
+  the door guessing at coercions"* is **false as measured** — an MCP tool
+  argument map is JSON, not flat text, so a presented `3` arrives an `int`, a
+  presented `"3"` arrives a `str`, and one level of declared nesting crosses
+  intact. Nothing is left to guess at. The half that said a declared-parameter
+  surface *"would make this tool wider than the HTTP door"* is still binding and
+  is honoured by repairing **both** doors, not neither
+- Migration: none. The argument is optional and omitting it reproduces the
+  previous behaviour exactly. A deployment whose product class declares no
+  required parameter is unaffected; one whose class declares a required
+  parameter becomes reachable through this tool for the first time
+
+*Recorded by `17-10-both-doors-carry-parameters.md`.*
+
+#### GET /product/{tenant}/{product_class}/{version} — `?parameters=`
+
+- Surface: ccf_runtime.http_api.routes.product.build_router
+- Public surface: true
+- Change type: behavior
+- Before: the route took `role`, `subject`, `intent`, `freshness` and
+  `asked_at`, and hard-wired `parameters={}` in
+  `http_api/routes/product.py::build_router` for the
+  identical recorded reason. Those two sites were the **only** two in `runtime/`
+  constructing a `ProductRequest` for a door
+- After: an optional `parameters` query parameter carrying **one JSON object**.
+  The door parses it and carries what it found; it inspects nothing inside it.
+  Text that is not JSON, or JSON that is not an object, is refused 400 with the
+  new `ERROR_PRODUCT_PARAMETERS_MALFORMED` code. Supplying `parameters` with
+  none of the four §6.3 axes is refused 400 with the existing
+  `ERROR_PRODUCT_REQUEST_INCOMPLETE`: the declared remainder qualifies a
+  question, and there is no question to qualify
+- Why: `D-IMPL-133`'s *"both, not one"*. **JSON text in one parameter rather
+  than flattened query keys**, and that shape is the whole of how the recorded
+  objection is honoured rather than overridden: a flat, string-valued query
+  genuinely cannot carry declared types or nesting without the door guessing at
+  a coercion, whereas JSON is self-describing and carries both. It is also what
+  makes the two doors exactly as wide as each other, which is the property
+  `D-IMPL-133` gives as the reason for repairing both
+- Migration: none — a new optional query parameter. Existing callers are
+  byte-identical in behaviour. `openapi.json` regains one parameter entry and
+  is regenerated under the committed-drift gate
+
+*Recorded by `17-10-both-doors-carry-parameters.md`.*
+
+#### ccf.client.wire.WireRequest — `temporal_boundary` must be timezone-aware
+
+- Surface: ccf.client.wire.WireRequest
+- Public surface: true
+- Change type: behavior
+- Before: any `datetime` was accepted, naive included, and the failure surfaced
+  differently on every transport. Measured on the two commands
+  `examples/hw1-companies-over-revenue/README.md` documents, with the offset
+  stripped off `--as-of`: `inprocess:` raised
+  `ccf.contracts.canonical.CanonicalizationError` out of the SQLite graph
+  backend, and `mcp+stdio:` raised `ccf.client.errors.TransportError` because the
+  far door refused the naive `asked_at` by name and a *raised* door refusal
+  reaches a client as a wire error
+- After: a field validator refuses a naive instant at construction, so
+  `ProductClient.ask` raises `pydantic.ValidationError` before any transport is
+  reached and the failure is identical on every binding. `None` is unchanged and
+  still means *defer to the server's decision instant* (`D-04`); any UTC offset
+  is accepted, not only `+00:00` — `D-IMPL-38` refuses an *ambiguous* instant,
+  not a non-UTC one
+- Why: `D-IMPL-151` finding `B0b`. The `mcp+stdio` path reported a **transport
+  failure for a caller's malformed argument**, which is `D-10`'s inversion: the
+  natural response to a `TransportError` is a retry, and this question can never
+  succeed. The guard for the hazard already existed one field over at
+  `WireRequest._parameters_survive_the_wire`; `temporal_boundary` had no
+  equivalent
+- Migration: pass an aware instant — `datetime(..., tzinfo=UTC)`,
+  `value.replace(tzinfo=UTC)`, or an ISO 8601 string carrying an offset. The
+  refusal message names all three. A caller already passing an aware instant or
+  `None` is unaffected; a caller passing a naive one was already failing, and now
+  fails at the seam with a message that names the repair
+
+*Recorded by `18-99-close-review-blocking-fixes.md`.*
+
+#### ccf_runtime.mcp.egress — the product tool refuses `"parameters": null`
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: behavior
+- Before: the tool argument was `parameters: dict[str, Any] | None = None` and
+  the handler read `dict(parameters or {})`, so a supplied JSON `null` arrived as
+  `None`, was defaulted to the empty mapping and reached the resolver — while the
+  HTTP route refused the identical payload `400
+  ERROR_PRODUCT_PARAMETERS_MALFORMED`
+- After: the argument is `parameters: dict[str, Any] = EMPTY_PARAMETERS` and the
+  handler reads `dict(parameters)`. The generated tool schema is `{"type":
+  "object", "default": {}}`, so an **omitted** argument still arrives as the
+  empty mapping and a supplied `null` is refused by the argument model before the
+  handler runs — the same place a supplied array or string was already refused
+- Why: `D-IMPL-151` finding `B2`. `or {}` was a default under a docstring
+  stating the handler *"coerces nothing, defaults nothing and inspects
+  nothing"*, and the result was a width difference `D-IMPL-133` forbids. The
+  HTTP route's refusal is the correct half: the empty mapping is the *positive*
+  statement `this question needs nothing beyond its four axes`, so reading a
+  supplied `null` as that statement invents an assertion the caller never made
+  — `D-08` — on the argument the resolver selects a plan from. Narrowing MCP
+  satisfies "no wider than the other door" in the direction that does not add a
+  silent default
+- Migration: a client that omitted `parameters` is unaffected. A client that
+  sent `"parameters": null` explicitly must omit the argument or send `{}`; both
+  reproduce the previous behaviour exactly. The shipped
+  `ccf.client.adapters.mcp_stdio` adapter always sends a mapping and is
+  unaffected
+
+*Recorded by `18-99-close-review-blocking-fixes.md`.*
+
+#### ccf.client.codec — the integrity checks' claims corrected, not their behaviour
+
+- Surface: ccf.client.codec
+- Public surface: true
+- Change type: behavior
+- Before: the module docstring argued that the echo is *cross-checked, never
+  reconstructed*, and both `verify_content_address` and `check_outcome`
+  documented a `TransportError` for a transport that answered a different
+  question or altered a vessel in transit
+- After: the argument is kept whole and the measured state of the code is
+  recorded beside it: `DoorOutcome` carries no request identity, so both shipped
+  adapters fill `WireOutcome.request` from the request object the client also
+  passes as `sent`, making `check_outcome`'s comparison an object against itself;
+  and the "claimed" address is computed by the adapter from the same
+  `product_json` it emits, making `verify_content_address` `sha256(x) !=
+  sha256(x)`. Both `Raises:` blocks now say which failures are reachable from a
+  shipped adapter and which are not. **No behaviour changed.** The same
+  correction is carried on `WireOutcome.request` and `.content_address`, which
+  point a reader at exactly this argument
+- Why: `D-IMPL-151` finding `B0`, and Dave's instruction — *"Do not claim the
+  current checks provide that protection."* The fix requires a wire-shape change
+  across both doors, the adapter and the codec, and is deferred to its own phase;
+  the false claim is not deferred with it
+- Migration: **until that phase lands, this SDK must not be described as
+  detecting a transport that answered a different question, or as detecting a
+  vessel altered in transit.** No code change is required of an adopter; what
+  changes is what may be claimed of the seam
+
+*Recorded by `18-99-close-review-blocking-fixes.md`.*
+
 ### Not public Python API
 
 #### tools/check_schema_headers.py
@@ -13276,3 +13691,52 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none — no key was added, removed or renamed
 
 *Recorded by `17-13-resolver-defaults.md`.*
+
+#### The two vacuous assertions, repaired
+
+- Surface: tests/client/conformance/test_the_fixture_serves_a_replay_reference.py
+- Public surface: false
+- Change type: added
+- Before: `assert_served_parity` compares every declared `Result` field,
+  `replay_ref` among them — so two subjects both answering `None` agreed
+  perfectly while carrying nothing, and **no conformance leg asserted that a
+  served delivery carries a replay reference at all**. Plan `17-10` Task 2
+  recorded the precondition in prose and nothing enforced it
+- After: a per-subject precondition, run over both real transports, requiring a
+  served delivery to carry a reference. It lives at the **binding** rather than
+  in `suite.py` because both-`None` is a legitimate deployment shape —
+  `served_answer()` returns `None` for the narrower `ServableProduct` and
+  `door.py` records that as the honest report — so a suite demanding a reference
+  would reject a legitimate deployment on grounds unrelated to the transport.
+  What must be true is a fact about *this package's fixture*
+- Why: `D-IMPL-151` finding `B1`, the vacuity class surviving inside
+  `D-IMPL-148`'s own fix. `D-22`: three controls, including an adapter that
+  blanks the reference on the way back, passed into the **real** assertion
+- Migration: none — test-tree only
+- Surface: tests/mcp/test_egress_parameters.py::assert_same_verdicts
+- Public surface: false
+- Change type: behavior
+- Before: five cases, all well-formed JSON objects, and the two door callables
+  **raised** when a door refused before the resolver — so a disagreement of the
+  form *one door refuses this payload, the other serves it* was outside what the
+  shared table could represent, which is why it could not see `B2`
+- After: `REFUSED_AT_DOOR` is a verdict like any other and `EXPLICIT_NULL` is a
+  case like any other, giving six. The non-vacuity guard is unchanged and still
+  demands a **served** case rather than merely a non-empty table, so a pair of
+  doors refusing everything is still refused
+- Why: a disagreement the table cannot represent is the table's defect too
+- Migration: none — test-tree only
+- Surface: tests/contracts/test_canonical.py
+- Public surface: false
+- Change type: behavior
+- Before: `set(carried) <= PERMITTED_CHILD_VARIABLES` — one-sided, so the
+  `D-IMPL-150` `PYTHONPATH` repair going missing could not turn it red, while
+  the module docstring claimed it *"holds the set closed"*
+- After: `assert_child_environment_is_exactly` compares in both directions and
+  names extra and missing separately, with two controls — the pre-`D-IMPL-150`
+  environment (asserted to satisfy the old `<=`, so the control cannot silently
+  stop being the control) and a leaked parent variable
+- Why: `D-IMPL-151` finding `B3`, the same class as the leg `D-IMPL-149` split
+- Migration: none — test-tree only
+
+*Recorded by `18-99-close-review-blocking-fixes.md`.*

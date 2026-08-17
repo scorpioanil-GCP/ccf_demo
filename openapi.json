@@ -1958,6 +1958,22 @@
               ],
               "title": "Asked At"
             }
+          },
+          {
+            "in": "query",
+            "name": "parameters",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Parameters"
+            }
           }
         ],
         "responses": {

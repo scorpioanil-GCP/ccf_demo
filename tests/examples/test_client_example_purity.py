@@ -50,6 +50,7 @@ from __future__ import annotations
 import ast
 import pathlib
 import re
+import shlex
 import shutil
 import sys
 
@@ -298,34 +299,48 @@ def test_the_gate_refuses_a_root_that_does_not_exist(
 
 
 # ---------------------------------------------------------------------------
-# T-17-35 — the documented command and the run command are one string.
+# T-17-35 — the documented commands and the run commands are the same strings.
 #
 # It lives in this module rather than its own because it is the same claim the
 # rest of the file makes, one level out: *the example is what it says it is*. A
 # documented command nobody runs and a run command nobody documents are the
 # same defect seen from two sides.
+#
+# `D-IMPL-150` (Dave, 2026-08-17) made this a claim about a SET rather than a
+# single string. Plan `17-10` documented an `mcp+stdio:` invocation that could
+# not run — `consume.py` imported one adapter module and `D-05` ships no
+# discovery chain — and a gate holding the README to *exactly one* command was
+# structurally unable to notice, because the un-runnable one was in prose the
+# gate did not read. Both transports are now documented, both have a `make`
+# target, and the pairing is what is asserted. A third transport joins by being
+# added to :data:`MAKE_TARGETS` and to the README, and the day only one of those
+# two happens, this goes red.
 # ---------------------------------------------------------------------------
 
-#: The example's declared command, in the README's fenced block. Matched by its
-#: leading environment assignment rather than by position, so re-ordering the
-#: README's sections cannot silently select a different block.
+#: The example's declared commands, in the README's fenced blocks. Matched by
+#: their leading environment assignment rather than by position, so re-ordering
+#: the README's sections cannot silently select a different block.
 README_COMMAND = re.compile(r"^(CCF_BINDING=.*)$", re.MULTILINE)
 
-#: The recipe line under the example's `make` target. Tab-indented, which is
-#: what makes it a recipe rather than prose.
-MAKE_TARGET = "example-hw1:"
+#: The example's `make` targets, in the order their commands appear in the
+#: README. Tab-indented recipe lines, which is what makes them recipes rather
+#: than prose. The order is asserted, not merely assumed: pairing by set would
+#: pass on a README that documented the MCP command under the in-process
+#: heading, which is a documentation defect this gate is well placed to see.
+MAKE_TARGETS: tuple[str, ...] = ("example-hw1:", "example-hw1-mcp:")
 
 
-def documented_command(root: pathlib.Path) -> str:
-    """The one command the example's README tells a reader to type."""
+def documented_commands(root: pathlib.Path) -> tuple[str, ...]:
+    """Every command the example's README tells a reader to type, in order."""
     readme = (root / "README.md").read_text(encoding="utf-8")
     matches = README_COMMAND.findall(readme)
-    assert len(matches) == 1, (
+    assert len(matches) == len(MAKE_TARGETS), (
         f"{root.name}/README.md states {len(matches)} commands beginning"
-        " `CCF_BINDING=`; the character-identity criterion exists to keep it"
-        f" at exactly one: {matches}"
+        f" `CCF_BINDING=` and the Makefile carries {len(MAKE_TARGETS)} targets"
+        " for them. Every documented command runs from a target and every"
+        f" target is documented, so the two counts are one number: {matches}"
     )
-    return matches[0].strip()
+    return tuple(match.strip() for match in matches)
 
 
 def make_recipe(target: str) -> str:
@@ -379,12 +394,42 @@ def command_identity_violations(documented: str, recipe: str) -> list[str]:
     return violations
 
 
-def test_the_make_target_runs_the_readmes_documented_command() -> None:
+@pytest.mark.parametrize("index", range(len(MAKE_TARGETS)), ids=MAKE_TARGETS)
+def test_the_make_target_runs_the_readmes_documented_command(index: int) -> None:
     """``T-17-35``. A divergence makes the documented command untested."""
     violations = command_identity_violations(
-        documented_command(CLIENT_EXAMPLE_ROOTS[0]), make_recipe(MAKE_TARGET)
+        documented_commands(CLIENT_EXAMPLE_ROOTS[0])[index],
+        make_recipe(MAKE_TARGETS[index]),
     )
     assert not violations, "\n".join(violations)
+
+
+def test_every_documented_command_names_a_distinct_binding_scheme() -> None:
+    """``D-IMPL-150``: the two commands differ in ``CCF_BINDING`` and nowhere else.
+
+    The portability claim is *"the same* ``consume.py``\\ *, a different*
+    ``CCF_BINDING``\\ *"*, and a README that documented the same binding twice —
+    or that quietly changed the threshold alongside the transport — would be
+    demonstrating something weaker while reading the same. So the schemes must
+    be distinct and everything after the assignment must be identical.
+    """
+    # `shlex.split`, because an `mcp+stdio:` address is two whitespace-separated
+    # tokens inside one quoted value — the very shape a naive `split(" ", 1)`
+    # would tear in half, reporting the deployment root as part of the command.
+    tokens = [shlex.split(command) for command in documented_commands(
+        CLIENT_EXAMPLE_ROOTS[0]
+    )]
+    bindings = [parts[0] for parts in tokens]
+    remainders = {tuple(parts[1:]) for parts in tokens}
+
+    assert len(set(bindings)) == len(bindings), (
+        f"two documented commands carry the same binding: {bindings}"
+    )
+    assert len(remainders) == 1, (
+        "the documented commands differ in more than `CCF_BINDING` — the claim"
+        " is that only the binding changes, and these change"
+        f" {sorted(remainders)}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -400,7 +445,7 @@ def test_the_identity_check_refuses_a_divergent_pair(
     label: str, mutate: object
 ) -> None:
     """Control: the shipped comparison, fed a pair that differs."""
-    documented = documented_command(CLIENT_EXAMPLE_ROOTS[0])
+    documented = documented_commands(CLIENT_EXAMPLE_ROOTS[0])[0]
     recipe = mutate(documented)  # type: ignore[operator]
     assert recipe != documented, f"the {label} control did not change anything"
     assert command_identity_violations(documented, recipe), label

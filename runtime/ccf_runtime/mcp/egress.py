@@ -15,8 +15,13 @@ whole job is to put an already-servable product on the wire under a stable URI.
 **What this server cannot do.** It cannot write: it holds no graph write handle
 and no graph read handle, and it imports nothing from the L3 graph package at
 all. There is no field on it that could hold either — the resolver seam trades
-in :class:`~ccf.products.gates.ServableProduct` and nothing else, and a
-``ServableProduct`` is a read result someone else already produced. The honest
+only in **values someone else already produced**: a
+:class:`~ccf.products.gates.ServableProduct`, the
+:class:`~ccf.replay.serve.ServedProduct` that carries one alongside its replay
+reference, or the :class:`~ccf.products.refusal.RefusalEnvelope` that stands
+instead of one (``D-IMPL-148`` Addendum A; the translation lives in
+:mod:`ccf.products.door`, and the seam's *declared* type is unchanged — see
+:class:`ProductResolverProtocol`). None of the three is a handle. The honest
 claim (D-21) is the structural one: nothing on this module's shape offers a
 route into L2 or L3, and the lints plus the source assertion in
 ``tests/crossproc/test_mcp_egress.py`` — which greps this very source for those
@@ -107,13 +112,19 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 
 from ccf.contracts.canonical import canonical_bytes
+from ccf.products.door import (
+    PRODUCT_REQUEST_TOOL,
+    DoorOutcome,
+    door_refusal,
+    served_answer,
+)
 from ccf.products.gates import ServableProduct
 from ccf.products.request import ProductRequest
 from ccf.projection.plan import Perspective
@@ -152,12 +163,41 @@ PRODUCT_URI_TEMPLATE = (
 #: is what lets a consumer parse it without sniffing.
 PRODUCT_MIME_TYPE = "application/json"
 
-#: The one parameterised Tool this server can expose, named here rather than
-#: at each use site for the reason :func:`product_uri` exists: the server, the
+#: The one parameterised Tool this server can expose, named once rather than at
+#: each use site for the reason :func:`product_uri` exists: the server, the
 #: tests and the docs must agree what the surface *is* rather than each
 #: spelling it, which is how two of them drift. Registered only when a
 #: deployment opts in (:func:`build_egress_server`).
-PRODUCT_REQUEST_TOOL = "request_context_product"
+#:
+#: **Re-exported from** :data:`ccf.products.door.PRODUCT_REQUEST_TOOL` **rather
+#: than defined here**, and the move is the same argument
+#: :mod:`ccf.products.door` makes for holding :class:`~ccf.products.door
+#: .DoorOutcome`: the *calling* side is
+#: :mod:`ccf.client.adapters.mcp_stdio` in ``src/``, ``src/`` cannot import
+#: ``runtime/``, and a tool name spelled on both sides of that boundary is two
+#: implementations written to the same paragraph. The name binding stays here
+#: and stays exported, so every existing
+#: ``ccf_runtime.mcp.egress.PRODUCT_REQUEST_TOOL`` citation resolves unchanged.
+
+#: The product tool's ``parameters`` default — *this question needs nothing
+#: beyond its four axes*, which is a positive statement and not an unset field.
+#:
+#: **A named default rather than** ``| None = None`` (``D-IMPL-151`` finding
+#: ``B2``). The nullable spelling made the argument model admit JSON ``null``,
+#: the handler read it as the empty mapping through an ``or {}``, and the HTTP
+#: route beside it refused the identical payload with
+#: ``400 ERROR_PRODUCT_PARAMETERS_MALFORMED`` — a width difference
+#: ``D-IMPL-133`` forbids, and a silent default on the argument the resolver
+#: selects a plan from, which is ``D-08`` inverted. Typed non-nullable, the
+#: generated tool schema is ``{"type": "object", "default": {}}``: an omitted
+#: argument still arrives as the empty mapping, and a supplied ``null`` is
+#: refused by the argument model before this handler runs — the same place, and
+#: for the same reason, that a supplied array or string is already refused.
+#:
+#: Shared object rather than a literal in the signature: pydantic copies a
+#: model's default on every validation, so no call receives this instance, and
+#: the handler copies again on the way into the request.
+EMPTY_PARAMETERS: dict[str, Any] = {}
 
 
 class NaiveAskedAtRefused(ValueError):
@@ -209,6 +249,29 @@ class ProductResolverProtocol(Protocol):
     undeliverable *"the request surface is validated where it crosses the
     door"*. Both were blocked on the same missing parameters, so both were
     added together rather than reshaping the same call sites twice.
+
+    **THE DECLARED RETURN TYPE IS UNCHANGED, AND THE TOOL NOW TOLERATES TWO
+    MORE SHAPES** (``D-IMPL-148`` Addendum A). Widening this Protocol's return
+    type would reshape all three product doors and is a fourth door's worth of
+    work that nothing has ruled — :mod:`ccf.products.resolver` records the same
+    divergence from its own side. So the annotation below still says
+    :class:`~ccf.products.gates.ServableProduct`, while the *tool* handler
+    accepts, through :mod:`ccf.products.door`, whichever of these a deployment's
+    resolver actually returns:
+
+    * :class:`~ccf.products.gates.ServableProduct` — served, and **no replay
+      reference**, because this vessel carries none;
+    * :class:`~ccf.replay.serve.ServedProduct` — served, with the reference,
+      which is what :class:`~ccf.products.resolver.GovernedResolver` returns and
+      what makes the reference reach a consumer at all;
+    * :class:`~ccf.products.refusal.RefusalEnvelope`, or any bare refusal value
+      :data:`~ccf.products.refusal.REFUSAL_KINDS` names — the governed "no",
+      returned rather than raised.
+
+    Anything else is a wiring defect and raises ``TypeError``; it is never
+    reported to a caller as a refusal the fabric made. The **resource** handler
+    is unchanged and reads ``.product`` off what it was handed, as it always
+    has.
 
     **TWO REFUSALS THIS DOOR DOES NOT CALL, AND YOUR RESOLVER MUST.** The SDK
     ships both comparisons complete and tested, and no shipped door invokes
@@ -477,6 +540,7 @@ def build_egress_server(
             intent: str,
             freshness: str,
             asked_at: datetime,
+            parameters: dict[str, Any] = EMPTY_PARAMETERS,
         ) -> str:
             """Serve the product that answers **this** question, as canonical JSON.
 
@@ -537,28 +601,137 @@ def build_egress_server(
             this surface at all — the ``http_api/routes/product.py``
             property, transplanted.
 
-            ``parameters`` is the empty mapping for that route's recorded
-            reason: a flat tool-argument map cannot carry ``D-IMPL-103``'s
-            declared nested types without the door guessing at coercions, and
-            a declared-parameter surface here would make this tool wider than
-            the HTTP door. The measured consequence is worth stating plainly:
-            a product class whose request contract declares **any** required
-            parameter is not reachable through this tool, and a resolver
-            discharging its :func:`~ccf.products.request.refuse_request`
-            obligation will say so by name
-            (``missing-required-parameter``).
+            **``parameters`` is now carried, and the reason it once was not is
+            kept rather than deleted, because half of it is still binding.**
+            This paragraph used to read: *"``parameters`` is the empty mapping
+            for that route's recorded reason: a flat tool-argument map cannot
+            carry ``D-IMPL-103``'s declared nested types without the door
+            guessing at coercions, and a declared-parameter surface here would
+            make this tool wider than the HTTP door."* Its measured
+            consequence was that *a product class whose request contract
+            declares **any** required parameter is not reachable through this
+            tool* — the door defect ``D-IMPL-133`` (Dave, 2026-08-14) ruled
+            must be repaired: *"both doors carry ``parameters``."*
 
-            Nothing is added to the body's return: it is the *identical*
-            expression the resource returns, over the same vessel, so this
-            surface is not a second serialization and cannot surface anything
-            ``D-IMPL-119`` limb 3(b) or ``D-IMPL-124`` Shape B took off the
-            vessel — it inherits both by construction.
+            The two halves of that reason resolved differently, and both
+            resolutions are constraints on what this handler may do.
+
+            *The coercion half is false as measured, and is why no coercion
+            happens here.* A tool-argument map is **not** flat and not
+            string-valued: MCP carries arguments as JSON, so a presented ``3``
+            arrives an ``int``, a presented ``"3"`` arrives a ``str``, and a
+            nested object arrives nested — ``D-IMPL-103``'s one level of
+            declared nesting crosses intact with nothing to guess at. This
+            handler therefore forwards the mapping **verbatim**. It coerces
+            nothing, defaults nothing and inspects nothing; a wrong-typed value
+            stays wrong-typed so that
+            :func:`~ccf.products.request.refuse_request` can refuse it
+            ``type-mismatch`` at the resolver, which is where ``D-IMPL-121``
+            put every request verdict.
+
+            **That claim was false for one input until ``D-IMPL-151`` finding
+            ``B2``, and the correction is in the signature rather than here.**
+            The argument read ``dict[str, Any] | None = None`` and the body read
+            ``dict(parameters or {})`` — so a supplied JSON ``null`` arrived as
+            ``None`` and was defaulted to the empty mapping, while the HTTP
+            route refused the identical payload ``400
+            ERROR_PRODUCT_PARAMETERS_MALFORMED``. Both halves are now what the
+            paragraph says: the argument is typed non-nullable with
+            :data:`EMPTY_PARAMETERS` as its default, so ``null`` is refused by
+            the argument model exactly as an array or a string already was, and
+            the body forwards what it was handed. Omission is unchanged, because
+            omission is the one case that genuinely *is* the empty mapping.
+
+            *The width half is still binding, and is honoured by repairing
+            both doors rather than neither.* ``D-IMPL-133`` is explicit that
+            *"both, not one"* is the point — the HTTP route carried the
+            identical hard-wiring in
+            ``http_api/routes/product.py::build_router`` and now carries a
+            mapping on the same terms, as self-describing JSON. Neither door is
+            wider than the other, and
+            ``tests/mcp/test_egress_parameters.py::assert_same_verdicts`` holds
+            them to one shared case table so they cannot drift apart again.
+
+            **The door still never validates**, which is why this is a repair
+            of two lines rather than a seam widening: the declared world is
+            closed at the resolver, against the
+            :class:`~ccf.products.contract.RegisteredProductClass` this door
+            never holds. An undeclared parameter is refused there
+            (``undeclared-parameter``), and an omitted required one still
+            reads ``missing-required-parameter`` — the difference being that
+            it now names a caller who genuinely omitted it rather than every
+            caller alike.
+
+            Omitting the argument entirely is the empty mapping, which is the
+            positive statement *this question needs nothing beyond its four
+            axes*. It is optional rather than required because the four §6.3
+            axes are the **address** and are required together, while the
+            declared remainder is not part of the address — and because a
+            deployment that adopted this tool before ``D-IMPL-133`` keeps
+            working unchanged.
+
+            **What this tool returns is a** :class:`~ccf.products.door.DoorOutcome`
+            **and no longer the bare vessel** (``D-IMPL-148`` and its
+            **Addendum A**, Dave, 2026-08-17). Two things ride the envelope that
+            had nowhere to go while the return was the product's bytes alone:
+
+            1. **A refusal, as the return value rather than a raise.** Measured
+               against ``mcp==1.28.1``, FastMCP wraps a raised tool exception as
+               ``ToolError: Error executing tool <name>: <message>`` and
+               delivers it ``isError=True`` with that prose prefix, so a client
+               wanting the governed answer would have to string-parse a server's
+               wording. :func:`~ccf.products.door.door_refusal` renders what the
+               resolver answered with — a ready-made
+               :class:`~ccf.products.refusal.RefusalEnvelope` passes through
+               untouched, a bare refusal value is translated against the
+               question this handler carried.
+            2. **The replay reference.** ``ServedProduct`` carries it and every
+               shipped door discarded it, which
+               :class:`~ccf.client.wire.WireOutcome` had already named *"a
+               defect the client seam exists to fix rather than a feature
+               request"*. It rides as a **sibling** of the vessel, never inside
+               it: the vessel's bytes *are* the product, so anything carried
+               within them changes the address they claim. The HTTP door
+               publishes the identical string under
+               :data:`~ccf_runtime.http_api.routes.REPLAY_REF_HEADER` because it
+               has a header channel and this surface does not — the asymmetry is
+               a property of the transports, exactly as
+               :func:`~ccf_runtime.http_api.routes.canonical_response` already
+               records for the content address.
+
+            **The vessel is still not re-serialized, and that claim is now
+            stated at the level it is true.** ``product_json`` carries the
+            *identical* expression the resource returns —
+            ``canonical_bytes(...).decode("utf-8")`` over the same vessel — as
+            **text**, so ``sha256`` of it is the producer's content address with
+            no second rendering anywhere on the path. What moved is the frame
+            around those bytes, not the bytes; ``D-IMPL-119`` limb 3(b) and
+            ``D-IMPL-124`` Shape B are still inherited by construction, because
+            the whole vessel is still what gets serialized.
+
+            **The resource beside this tool is deliberately unchanged.** It has
+            no envelope and no header, its body *is* the vessel, and it carries
+            no request — so it has no sibling channel for a reference and no
+            question for a refusal envelope to name. Giving it one means making
+            it a different resource, which is not what either ruling asked for.
+
+            **A governance refusal is still raised and never enveloped.**
+            ``ProductEntitlementRefused`` is decided *before* the resolver is
+            reached, and entitlement at the client seam is on the v0 not-list;
+            rendering it as a fabric refusal would say "the fabric answered no"
+            about a caller the fabric never answered at all. The line is drawn
+            here and asserted in
+            ``tests/mcp/test_egress_refusal_envelope.py``.
 
             Raises:
                 NaiveAskedAtRefused: ``asked_at`` carries no UTC offset.
                 ProductEntitlementRefused: the caller is not entitled to this
-                    class, or not to the resolved role.
+                    class, or not to the resolved role. Deliberately raised
+                    rather than enveloped — see above.
                 ProductNotServable: the resolver has no product there.
+                TypeError: the resolver answered with neither a served shape nor
+                    a refusal this envelope translates — a wiring defect, and
+                    never reported to a caller as a governed "no".
             """
             if (
                 asked_at.tzinfo is None
@@ -585,15 +758,46 @@ def build_egress_server(
                 intent=intent,
                 freshness=freshness,
                 asked_at=asked_at,
-                parameters={},
+                # Verbatim: no coercion, no defaulting, no inspection. The
+                # declared world is closed at the resolver (D-IMPL-121), and a
+                # door that touched these values would be rendering a verdict
+                # it is not the one holding the class to compare against.
+                #
+                # This read `dict(parameters or {})` until D-IMPL-151 finding
+                # B2. The `or {}` was a default the docstring above says this
+                # handler does not apply, and it turned a supplied JSON `null`
+                # into the empty mapping — which the HTTP route refuses with
+                # `400 ERROR_PRODUCT_PARAMETERS_MALFORMED`. The copy stays: the
+                # argument model hands over a fresh dict per call, and copying
+                # keeps that true if it ever stops being.
+                parameters=dict(parameters),
             )
-            servable = resolver(
+            resolved = resolver(
                 tenant=tenant,
                 product_class=product_class,
                 version=version,
                 perspective=perspective,
                 request=asked,
             )
-            return canonical_bytes(servable.product).decode("utf-8")
+            refusal = door_refusal(
+                resolved,
+                asked=asked,
+                product_class=product_class,
+                version=version,
+            )
+            if refusal is not None:
+                return canonical_bytes(
+                    DoorOutcome(
+                        product_json=None, replay_ref=None, refusal=refusal
+                    )
+                ).decode("utf-8")
+            answer = served_answer(resolved)
+            return canonical_bytes(
+                DoorOutcome(
+                    product_json=canonical_bytes(answer.product).decode("utf-8"),
+                    replay_ref=answer.replay_ref,
+                    refusal=None,
+                )
+            ).decode("utf-8")
 
     return server

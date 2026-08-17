@@ -51,17 +51,47 @@ form of "validated where it crosses the door, not downstream", and the reason
 this route needs no address cross-check. The tenant is likewise not on the
 request at all: it is a thing the door establishes.
 
+**This door carries the replay reference, and it is one of two that do**
+(``D-IMPL-148`` **Addendum A**, Dave, 2026-08-17). The base ruling scoped the
+fix to the MCP door and recorded the identical gap here as *deferred, not
+fixed*, on the ground that no shared assertion spanned both. Dave superseded
+that: *both doors carry the reference*, on the same *"both, not one"* principle
+``D-IMPL-133`` applied to ``parameters`` — and for the same reason it turned out
+to matter there, namely that a gap left on one door is a gap the next assertion
+to span both discovers the hard way.
+
+It travels as a **response header** (:data:`~ccf_runtime.http_api.routes.REPLAY_REF_HEADER`),
+never in the body, because the body *is* the vessel and anything carried inside
+it changes the address it claims — the argument
+:func:`~ccf_runtime.http_api.routes.canonical_response` already records for the
+content address, applied unchanged. The MCP tool publishes the same string in an
+envelope because it has no header channel; the asymmetry is a property of the
+transports rather than a difference in what the doors carry.
+
+**What is still deferred here, stated so it is found rather than rediscovered:
+this door has no refusal channel** (DIV-4). A resolver that answers with a
+:class:`~ccf.products.refusal.RefusalEnvelope` reaches
+:func:`~ccf.products.door.served_answer`, which raises ``TypeError`` naming the
+shape — an opaque 500, exactly as the pre-existing ``AttributeError`` produced,
+but now saying what went wrong. Rendering a fabric refusal over HTTP is a
+status-code and body-shape decision nobody has ruled, and inventing one here
+would put an unruled contract on a shipped door.
+
 Algorithmic module (CINV-03).
 """
 
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from starlette.requests import Request
 
+from ccf.products.door import served_answer
 from ccf.products.request import ProductRequest
 from ccf.projection.plan import Perspective
 from ccf_runtime.authz.product_entitlement import (
@@ -73,6 +103,7 @@ from ccf_runtime.authz.product_entitlement import (
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import (
     ERROR_PRODUCT_DOOR_UNGOVERNED,
+    ERROR_PRODUCT_PARAMETERS_MALFORMED,
     ERROR_PRODUCT_REQUEST_INCOMPLETE,
     refusal_detail,
 )
@@ -129,6 +160,7 @@ def build_router(
         intent: str | None = None,
         freshness: str | None = None,
         asked_at: datetime | None = None,
+        parameters: str | None = None,
     ) -> Response:
         perspective = _authorized_perspective(
             request, tenant=tenant, product_class=product_class, role=role
@@ -140,9 +172,10 @@ def build_router(
             intent=intent,
             freshness=freshness,
             asked_at=asked_at,
+            parameters=parameters,
         )
         try:
-            servable = deps.product_resolver(
+            resolved = deps.product_resolver(
                 tenant=tenant,
                 product_class=product_class,
                 version=version,
@@ -151,7 +184,12 @@ def build_router(
             )
         except ProductNotServable as absent:
             raise HTTPException(status_code=404, detail=str(absent)) from absent
-        return canonical_response(servable.product)
+        # `D-IMPL-148` Addendum A: the reference the resolver produced reaches
+        # the consumer, on the sibling channel this transport has. `None` is the
+        # honest report that this deployment's resolver returned the narrower
+        # vessel, which carries none — never a reference dropped at the door.
+        answer = served_answer(resolved)
+        return canonical_response(answer.product, replay_ref=answer.replay_ref)
 
     def _authorized_perspective(
         request: Request, *, tenant: str, product_class: str, role: str | None
@@ -250,6 +288,7 @@ def build_router(
         intent: str | None,
         freshness: str | None,
         asked_at: datetime | None,
+        parameters: str | None,
     ) -> ProductRequest | None:
         """The caller's typed question, or the honest absence of one.
 
@@ -270,14 +309,45 @@ def build_router(
           nobody asked, answered anyway;
         * all four → the typed request, ``parameters`` empty.
 
-        ``parameters`` is the empty mapping rather than something read off the
-        query string: the class-declared remainder is a *typed* surface whose
-        declared types (``D-IMPL-103``'s one level of nested objects and
-        lists-of-objects) a flat string-valued query cannot carry without the
-        door guessing at coercions. An empty mapping is expressible and says
-        *this question needs nothing beyond its four axes*, which is a
-        statement rather than an omission; a caller needing declared parameters
-        reaches the fabric in process or through a deployment's own surface.
+        **``parameters`` is carried, and the reason it once was not is kept
+        rather than deleted.** This paragraph used to read: *"``parameters`` is
+        the empty mapping rather than something read off the query string: the
+        class-declared remainder is a typed surface whose declared types
+        (``D-IMPL-103``'s one level of nested objects and lists-of-objects) a
+        flat string-valued query cannot carry without the door guessing at
+        coercions ... a caller needing declared parameters reaches the fabric
+        in process or through a deployment's own surface."* ``D-IMPL-133``
+        (Dave, 2026-08-14) ruled that consequence a defect rather than a
+        boundary: a product class declaring **any** required parameter was
+        unreachable through this door, and *"both doors carry ``parameters``.
+        Both, not one."*
+
+        **The recorded objection is honoured rather than overridden, because
+        what it objects to is a *flat, string-valued* query.** That is exactly
+        what is not used here. The mapping arrives as **one JSON object** in a
+        single query parameter, and JSON is self-describing: a presented ``3``
+        stays an ``int``, a presented ``"3"`` stays a ``str``, and one level of
+        declared nesting crosses intact. There is nothing left for the door to
+        guess at, so it guesses at nothing. This is the same shape the MCP tool
+        carries, where the argument map was already JSON — which is what keeps
+        the two doors exactly as wide as each other, the property
+        ``D-IMPL-133`` names as the reason for repairing both.
+
+        **The door does not validate what is inside the object**, and that is
+        the whole of why this is a two-line repair rather than a seam widening:
+        the declared world is closed at the resolver, against the
+        :class:`~ccf.products.contract.RegisteredProductClass` this door never
+        holds (``D-IMPL-121``). The door refuses only text that is not a JSON
+        object at all — a malformed *argument*, on the same line
+        :class:`~ccf_runtime.mcp.egress.NaiveAskedAtRefused` sits on — and
+        falls back to nothing, because a door that quietly read malformed text
+        as the empty mapping would answer a question the caller did not ask
+        while reporting success.
+
+        Omitting the parameter is the empty mapping, which says *this question
+        needs nothing beyond its four axes*. Supplying it **without** the four
+        axes is refused as an incomplete address: the declared remainder
+        qualifies a question, and there is no question here to qualify.
 
         No clock is read here, and that is structural rather than incidental:
         ``asked_at`` is the caller's instant at serve time and the *recorded*
@@ -287,7 +357,9 @@ def build_router(
         Raises:
             HTTPException: 400 with
                 :data:`~ccf_runtime.http_api.errors.ERROR_PRODUCT_REQUEST_INCOMPLETE`
-                when the address is partial.
+                when the address is partial, or with
+                :data:`~ccf_runtime.http_api.errors.ERROR_PRODUCT_PARAMETERS_MALFORMED`
+                when ``parameters`` is not a JSON object.
         """
         supplied = [
             name
@@ -300,7 +372,22 @@ def build_router(
             if axis is not None
         ]
         if not supplied:
-            return None
+            if parameters is None:
+                return None
+            raise HTTPException(
+                status_code=400,
+                detail=refusal_detail(
+                    error_code=ERROR_PRODUCT_REQUEST_INCOMPLETE,
+                    message=(
+                        "`parameters` was supplied with none of the four §6.3"
+                        " axes. The class-declared remainder qualifies a"
+                        " question; with no subject, intent, freshness or"
+                        " asked_at there is no question here for it to"
+                        " qualify, and the door fills none of them in"
+                        " (D-IMPL-98, D-IMPL-133)"
+                    ),
+                ),
+            )
         if (
             subject is None
             or intent is None
@@ -327,7 +414,57 @@ def build_router(
             intent=intent,
             freshness=freshness,
             asked_at=asked_at,
-            parameters={},
+            # Verbatim, exactly as the MCP tool forwards its argument map: the
+            # door parses the JSON and carries what it found. It coerces
+            # nothing and inspects nothing inside the object, because the
+            # comparison against the declared surface belongs to the resolver,
+            # which holds the class (D-IMPL-121, D-IMPL-133).
+            parameters=_parameters(parameters),
         )
+
+    def _parameters(supplied: str | None) -> Mapping[str, Any]:
+        """One JSON object, parsed and carried — or refused as malformed.
+
+        Refusal rather than a fallback: reading unparseable text as the empty
+        mapping would answer a question the caller did not ask and report
+        success, which is ``D-08``'s *the fabric never silently degrades a
+        caller's value* on the request side of the same seam.
+        """
+        if supplied is None:
+            return {}
+        try:
+            decoded = json.loads(supplied)
+        except ValueError as malformed:
+            raise HTTPException(
+                status_code=400,
+                detail=refusal_detail(
+                    error_code=ERROR_PRODUCT_PARAMETERS_MALFORMED,
+                    message=(
+                        "`parameters` is one JSON object carrying the"
+                        " class-declared remainder of the question, and this"
+                        f" call supplied text that is not JSON: {malformed}."
+                        " JSON rather than flattened query keys because it is"
+                        " self-describing — a presented 3 and a presented"
+                        ' "3" stay distinguishable, so the door never guesses'
+                        " at a coercion (D-IMPL-103, D-IMPL-133)"
+                    ),
+                ),
+            ) from malformed
+        if not isinstance(decoded, dict):
+            raise HTTPException(
+                status_code=400,
+                detail=refusal_detail(
+                    error_code=ERROR_PRODUCT_PARAMETERS_MALFORMED,
+                    message=(
+                        "`parameters` parsed as a"
+                        f" {type(decoded).__name__} rather than a JSON object;"
+                        " the class-declared remainder is a mapping of"
+                        " parameter names to values, and a door that coerced"
+                        " some other shape into one would be inventing a"
+                        " question (D-IMPL-133)"
+                    ),
+                ),
+            )
+        return decoded
 
     return router

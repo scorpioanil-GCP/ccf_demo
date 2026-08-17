@@ -38,6 +38,9 @@ and the upgraded examples.
 - [x] **Phase 15.5: The Context Product Surface — Vessel, Assembler, Debt, Entitlement** (INSERTED) - Commissioned by Dave 2026-08-10, mid-Phase-16, on reading `examples/s1-01-hello-context-product`: *"today I would put an MCP server in front of the fluree database and run a query and return the results. What is the benefit of using CCF?"* The example precomputed one answer to one design-time question at one fixed instant — which Chapter 1 names as the thing CCF replaces, *"the difference between the verb aggregate and the verb assemble."* Measured behind that reaction: three of §6.3's eight committed contract elements (freshness SLA, discovery, addressability) are unimplemented while `contract.py` states they live on `RegisteredProductClass`, where only `assembly_mode` of the four actually is; `register_product_class` takes no payload schema so `payload` is an unchecked dict; `DebtAssessment` is computed by `ccf.halflife.debt`, exercised in five examples, and appears on neither the product nor the replay record; and `Perspective` is passed into `execute()` by the caller with nothing deriving it from the verified grant, so the whole content-shaping layer sits downstream of an unverified claim. Rulings in force: `D-IMPL-96` revokes the "no fabric changed" constraint that concealed this, `D-IMPL-97` rules the Context Product a single standardised vessel whose uniqueness is in how it was assembled and whose assembler is a Protocol implemented by a declared agent, and Dave ruled entitlement requires a fabric change. Phase 16 is parked at 6/21 and resumes against the corrected surface — documenting it first would have documented the defect (completed 2026-08-12)
 - [x] **Phase 15.6: Decision-Completeness and Defect Closure** (INSERTED, COMPLETE 2026-08-13, D-GATE-15.6) - Commissioned by `D-IMPL-116`/`D-IMPL-117` (Dave, 2026-08-11), before Phase 16 resumes. Two explicit tracks that must not be planned as one: **Track A** closes the five carried, API-neutral defects (`DI-15.5-01`, `-04`, `-05`, `-06`, `-08`); **Track B** closes `D-IMPL-112`'s three named gaps — which observations contributed the decay, when the underlying sources were last refreshed, and what `forced_llm` obliges — shipping **carrying mechanism, not judgement**, with the surface impact and the third product-content-address move accepted as authorized costs. Gap 1 gets a research spike first, in the `15.5-01` shape. Requirements `DCD-01..DCD-12`, **minted at execution in plan `15.6-03` task 1** (no `DCD-` row exists in `REQUIREMENTS.md` until that plan lands; the IDs are claimed across the plans' `requirements:` frontmatter meanwhile). Verification is `make ci`, not `make ci-core`
 - [ ] **Phase 16: Documentation Rewrite — The Deterministic Path & The Adoption Argument** - One document, two sections (deterministic + external MCP consumption; CCF-agent assembly + MCP/A2A consumption), banking scenarios from the whitepaper, re-cut snippet markers so a reader can see which code is CCF and which is theirs
+- [x] **Phase 17: Client Access — `ccf.client` and the Transport-Agnostic First Example** (INSERTED) - CCF owns the client abstraction and the result contract: `~ccf.client` at exactly four exported names, one decode path every transport returns through, the in-process adapter, the adapter conformance suite as a named CI gate, `~ccf.products.resolver.GovernedResolver`, the reference `~ccf.products.debt_scorer.AssemblyDebtScorer`, a data-only `binding.yaml`, and `examples/hw1-companies-over-revenue` whose `consume.py` is 78 lines importing only stdlib, `~ccf.client` and the adapter — against Phase 16's rejected 722-line example. **12 of 14 plans executed**; `17-08` and `17-10` deferred out under `D-IMPL-146` (completed 2026-08-16, `D-GATE-17`). *(This bullet was missing from the list until 2026-08-17 — the phase was planned, executed and gated with a detail section and a progress row but no entry here. Added at the Phase 18 lift, because an unchecked-or-absent box is what routed auto-advance into a never-planned phase once before; see the Phase 14.1 note.)*
+- [x] **Phase 18: MCP Transport — The Second Door and the Portability Proof** (INSERTED) - Turns "transport-agnostic" from a design property into a demonstrated one. The MCP egress tool stops hard-wiring `parameters={}` so a product class declaring a required parameter becomes reachable over MCP — no coercion guessing, and no wider than the HTTP door, proven by one shared case table run against both; the MCP door learns to emit the canonical refusal envelope while a **governance** refusal still raises; and `mcp+stdio` ships as the second official adapter, sync at the surface with the async client bridged internally, registered by one dict entry and constructing no `Result`. It is official when it passes the conformance suite written before it existed — and **`suite.py` must not move to let it in**, which is the acceptance test for `17-07`'s adapter-agnostic claim. The phase's discharge is the same question at the same instant yielding the same content address in-process and over MCP (completed 2026-08-17)
+- [ ] **Phase 19: The Client-Seam Integrity Checks Must Be Able to Fail** (INSERTED) - Closes `B0`, the open blocking defect deferred out of Phase 18's close review by `D-IMPL-151`. `src/ccf/client/codec.py` argues — correctly — that the request echo is *cross-checked, never reconstructed*, because reconstruction "cannot detect a transport that answered a *different question*". Both shipped adapters reconstruct: `DoorOutcome` carries no request identity, so `_decode` sets `request` from its own argument and `client.py` passes that same object as `sent`, making `check_outcome`'s comparison an object against itself. `verify_content_address` is inert for the same reason — the claimed address is computed by the adapter from the bytes the codec then re-hashes. **Both integrity checks are structurally unable to fail, on the one transport where a crossed-question wire is physically possible.** The phase's job is to make them able to fail: the wire form carries request identity, the address is claimed by the producer rather than recomputed by the consumer, and a control that answers a different question is caught by a single-transport client rather than only by the cross-adapter parity diff. Note `decode_outcome`/`encode_outcome` have no call site outside tests — both adapters build `WireOutcome` directly under `D-11`, and that permission is what admits the reconstruction, so the seam's enforceability is part of the scope. **Until this lands, the SDK must not be described as detecting a transport that answered a different question, or a vessel altered in transit** (`D-IMPL-151`)
 
 ## Phase Details
 
@@ -1386,7 +1389,18 @@ Plans:
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [ ] 17-10-PLAN.md — The MCP door carries parameters and refusals; the MCP adapter passes the suite (`D-15`, `D-28`, `D-IMPL-133`)
+- [→] 17-10-PLAN.md — **DEFERRED out of Phase 17 by `D-IMPL-146`, then LIFTED INTO PHASE 18 by
+  `D-IMPL-147`** (Dave, 2026-08-17) as that phase's first plan. The file now lives at
+  `.planning/phases/18-mcp-transport-the-second-door-and-the-portability-proof/17-10-PLAN.md`
+  and **keeps its `17-10` ID on purpose** — three shipped test docstrings and two immutable
+  decision entries cite it as a stable identifier per `D-IMPL-144`. Not executed in Phase 17.
+
+**Also deferred, and NOT yet lifted:** `17-08` (condemned-tree disposition) remains in this
+phase's directory under its `D-IMPL-146` banner. It is **blocked on real work, not sequencing**:
+deleting the `s1` trees would leave `refuse_request` with no surviving demonstration anywhere in
+`examples/`, and `tools/docs_tests/test_resolver_seam_obligations.py::test_both_seams_cite_both_call_sites`
+requires two *distinct* cited examples per seam with the cite-it-twice escape closed by design.
+The remedy is to write a producer-side example, not to relax the gate.
 
 **Cross-cutting constraints:**
 
@@ -1400,6 +1414,94 @@ Plans:
 **Two rulings wait for Dave mid-execution:** `D-IMPL-140` (a `binding.yaml` document — proposed,
 isolated behind a loader in 17-06 Task 1 so a different ruling rewrites one task), and 17-08's
 checkpoint on `examples/00`–`08`, cited 111 times across 15 published pages.
+
+### Phase 18: MCP Transport — The Second Door and the Portability Proof (INSERTED)
+
+**Status**: opened 2026-08-17 by `D-IMPL-147` (Dave), immediately after `D-GATE-17` merged
+Phase 17 to `main` at `b32348f`. Branch: `phase-18`, cut from `main` — not from `phase-17`,
+because Phase 17's work is already merged and there is nothing in-flight to carry.
+
+**The authoritative input is unchanged**: `docs/superpowers/specs/2026-08-15-ccf-client-design.md`
+plus its Amendment 1. This phase adds no new design; it executes the transport half of a design
+that was already ruled. In particular §6 (*"an adapter is official when it passes"*), §9 (the
+sync-only ruling and its named revisit trigger, which is this adapter) and Amendment 1 §A (the
+`D-28` rollout: *"the MCP door is fixed to produce it in this phase"*) are the governing text.
+
+**Goal**: make the portability claim *mechanized* rather than asserted. Phase 17 shipped one
+transport and a decode path that every transport must return through; a single adapter cannot
+falsify a claim about adapters, so the conformance suite's cross-adapter comparisons currently
+degenerate to self-comparisons. A second real adapter is what makes them comparisons.
+
+**Why this phase and not something else** — the candidates were weighed with Dave on 2026-08-17
+and recorded so the ordering is not re-derived: `17-08` (deleting the condemned `s1` trees) is
+blocked on writing a producer example first; Phase 16's 14 remaining documentation plans describe
+a surface that no longer exists; and the carried advisory findings are hardening rather than
+surface. The second transport was chosen because the conformance suite was **already written to
+take a second subject** and says so in its own docstring — *"Plan 17-10 adds a second module
+exactly like this one and changes nothing in suite.py."*
+
+**Plans**
+
+**Wave 1**
+
+- [x] 17-10-PLAN.md — The MCP door carries parameters and refusals; the MCP adapter passes the
+  suite (`D-15`, `D-28`, `D-IMPL-133`). **Lifted from Phase 17 by `D-IMPL-147` and keeping its
+  `17-10` ID deliberately** — see that entry and the banner in the plan file. Four tasks:
+  the egress tool's parameter surface; the refusal envelope at the door; the `mcp+stdio` adapter;
+  the conformance binding. Requirements `CLNT-12`, `CLNT-15`.
+
+**Premises re-measured on `main` @ `b32348f` before the lift, so the phase starts on facts:**
+
+- `mcp==1.28.1` is **already a declared, pinned dependency** and installed. `T-17-SC`'s blocking
+  human checkpoint for an `[ASSUMED]` package therefore does **not** fire; no install is needed.
+- All seven artifacts the plan reads or extends exist: the conformance suite (759 L), the
+  in-process adapter (445 L), `~ccf.client.binding`, `~ccf.client.codec`,
+  `~ccf.products.refusal`, and `~ccf_runtime.mcp.egress` (599 L).
+- **Task 3's harness-lint boundary question is answered NEGATIVE.** `src/` already imports `mcp`
+  in four modules (`~ccf.mcp.client`, `~ccf.artifacts.mcp_store`, `~ccf.signal.mcp_source`,
+  `~ccf.signal.mcp_envelope_map`) and `tools/lints/harness_imports.py` denies a frozenset of
+  *harness* packages that does not contain MCP — MCP is CCF's own integration surface
+  (`CLAUDE.md` §7.1), not a harness. The lint is green today with those imports in place, so the
+  adapter's import is permitted and no `D-IMPL` ruling is owed.
+- `17-09`, the plan's former `depends_on`, is merged; the dependency is discharged and cleared.
+
+**Cross-cutting constraints, inherited and still binding:**
+
+- Exactly **one** `Result` construction site (`D-12`) — the adapter builds none, and `17-05`'s
+  single-construction-site scan is the enforcement, so a `Result` built here fails a test rather
+  than merely violating a convention.
+- **Sync-only at the client surface** (`D-24`). No async `ask()`, and `~ccf.client.__all__` stays
+  at exactly the four ruled names. If the internal bridge is genuinely unworkable — *measured,
+  not felt* — that is a stop-and-report for Dave, and it is precisely the revisit trigger §9
+  anticipated.
+- A transport failure **never** becomes a refusal (`D-07`/`D-10`); it raises `TransportError`, and
+  `17-07`'s control 5 is watching for a swallowing adapter.
+- No `src → runtime` import (`D-29`).
+- Every gate carries a sabotage control that **passes a divergent subject into the real assertion
+  function**. For this phase the subject is a *callable*, not a source root — a control that
+  copies a module to `tmp_path` and breaks it cannot fire, because the copy is never what the
+  shipped assertion reads. That defect class spans `17-05`, `17-06` and this plan, and the rule
+  is stated once in the plan's `<context>` rather than per-task.
+
+**Two things this phase must be willing to falsify rather than satisfy:**
+
+1. **`suite.py` must not change.** If binding a real second adapter requires editing the suite,
+   the suite was not adapter-agnostic and that is a **finding to report against `17-07`**, not an
+   edit to make quietly. `git diff tests/client/conformance/suite.py` being empty is the claim.
+2. **The `16-26` absorption is a measurement, not a preference.** The egress tool's
+   `parameters={}` has a *recorded reason* — a flat tool-argument map cannot carry `D-IMPL-103`'s
+   declared nested types without guessing coercions, and a declared-parameter surface would make
+   the tool wider than the HTTP door. That reason is a **constraint on the fix, not an obstacle
+   to it**: amend the docstring paragraph, never delete it, so the constraint survives as a
+   constraint after the limitation it caused is lifted.
+
+**Carried into this phase from `D-GATE-17`, unfixed and non-blocking:** the per-module budget
+gate, the client exception taxonomy leaking past `TransportError`, `_parse` swallowing
+`SyntaxError` under a `# pragma: no cover`, the documentation-only credential posture on
+`connection:`, the purity gate admitting any `ccf.client.*` submodule, the `projection.py`
+docstring overclaim, the `required[0]` positional assumption, `load_reference` mutating
+`sys.path`, and `question.asked_at` optional and read by nothing. **A process disposition also
+carried:** *a plan should not ship an artifact and the gate that judges it* — `17-09` did both.
 
 ## Progress
 
@@ -1420,7 +1522,9 @@ checkpoint on `examples/00`–`08`, cited 111 times across 15 published pages.
 | 15.5 Context Product Surface — Vessel, Assembler, Debt, Entitlement | 15/15 | Complete | 2026-08-11 |
 | 15.6 Decision-Completeness and Defect Closure | 13/13 | Complete | 2026-08-13 |
 | 16. Documentation Rewrite — Deterministic Path & Adoption Argument | 6/21 | Stopped 2026-08-15 — example surface rejected; superseded by 17 |  |
-| 17. Client Access — `ccf.client` & Transport-Agnostic First Example | 0/10 | Planned 2026-08-15 — checker passed, ready to execute |  |
+| 17. Client Access — `ccf.client` & Transport-Agnostic First Example | 12/14 | Complete | 2026-08-16 (`D-GATE-17`; `17-08` deferred and still in-phase, `17-10` lifted to 18 by `D-IMPL-147`. Row corrected 2026-08-17 — it read `0/10 — Planned 2026-08-15` through the phase's entire execution, gate and merge) |
+| 18. MCP Transport — The Second Door and the Portability Proof | 1/1 | Plans complete, close fixes merged — **AWAITING `D-GATE-18`** | 2026-08-17 |
+| 19. The Client-Seam Integrity Checks Must Be Able to Fail | 0/0 | Planned 2026-08-17 (`D-IMPL-151` — carries Phase 18's deferred `B0`, an open blocking defect) |  |
 
 ## Coverage
 

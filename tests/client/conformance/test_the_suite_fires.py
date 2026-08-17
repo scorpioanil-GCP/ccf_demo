@@ -654,6 +654,87 @@ def test_the_decision_instant_leg_refuses_a_question_that_pins_its_own_instant(
 
 
 # ---------------------------------------------------------------------------
+# Control 7b — DEF-17-07's cross-adapter half, split out by D-IMPL-149.
+# ---------------------------------------------------------------------------
+
+
+def test_one_instant_refuses_a_question_that_names_no_instant(
+    provision: Provision,
+) -> None:
+    """The mirror refusal, and the whole reason the split is safe.
+
+    ``D-IMPL-149``: a comparison across subjects means something exactly when
+    the instant is an **input**. Handed ``UNPINNED_QUESTION`` this leg would
+    compare two clocks — the defect it was created to repair — so it refuses the
+    question rather than running and reporting the difference as a transport
+    disagreement.
+
+    Without this control the split would be a convention: nothing but habit
+    would stop a future binding from passing the unpinned question here, and
+    the leg would then be green whenever two subjects happened to be asked
+    inside the same millisecond and red otherwise.
+    """
+    with _fails("names no instant"):
+        suite.assert_one_instant_is_one_decision(
+            SUBJECTS, provision=provision, question=UNPINNED_QUESTION
+        )
+
+
+def test_one_instant_fires_on_one_subject_that_answered_at_another_instant(
+    provision: Provision,
+) -> None:
+    """Non-vacuous with a single subject: the anchor is held to the *input*.
+
+    One subject, so nothing is compared to anything — and the leg still fails,
+    because the pinned instant is a value it can check against rather than a
+    value it has to borrow from a second transport. This is the half
+    :func:`~tests.client.conformance.suite.assert_served_parity` cannot supply:
+    that leg requires transports to *agree*, and two transports both answering
+    as of the wrong moment agree perfectly.
+    """
+    misreporting = AdapterSubject(
+        name="answers-at-another-instant",
+        connect=lambda root: _Divergent(connect_in_process(root), _misreport_the_anchor),
+        break_transport=break_in_process,
+    )
+
+    with _fails("graph state anchored at") as observed:
+        suite.assert_one_instant_is_one_decision(
+            (misreporting,), provision=provision, question=QUESTION
+        )
+
+    assert misreporting.name in str(observed.value)
+
+
+def test_one_instant_fires_when_two_transports_disagree_at_one_instant(
+    provision: Provision,
+) -> None:
+    """Non-vacuous with two: same instant, same anchor, different decision.
+
+    ``_move_only_the_address`` edits ``plan_id`` — a member of the vessel that
+    is not a field either check above reads — so the divergent subject echoes
+    the pinned instant, anchors to it, and still reaches a different product
+    there. The per-subject half passes and the cross-subject half is what goes
+    red, which is how this control establishes that the comparison across
+    subjects is doing work rather than restating the per-subject checks.
+    """
+    subjects = _pair("decides-otherwise", _move_only_the_address)
+
+    with _fails("one instant") as observed:
+        suite.assert_one_instant_is_one_decision(
+            subjects, provision=provision, question=QUESTION
+        )
+
+    message = str(observed.value)
+    assert "content_address" in message
+    assert "graph state anchored at" not in message, (
+        "the divergent subject moved its anchor too, so this control fired on"
+        " the per-subject check and proves nothing about the comparison across"
+        " subjects"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Control 8 — the empty and the unresolvable cases go red, never quiet.
 # ---------------------------------------------------------------------------
 
@@ -678,6 +759,7 @@ LEG_CALLS: Mapping[str, Mapping[str, Any]] = {
         "question": QUESTION,
         "refusing_question": REFUSING_QUESTION,
     },
+    "assert_one_instant_is_one_decision": {"question": QUESTION},
 }
 
 
