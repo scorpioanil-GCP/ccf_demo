@@ -109,6 +109,12 @@ QUESTION = Question(
 #: prove nothing about what the server resolved. It is therefore the only leg
 #: that may consume this, and the split is deliberate: every other leg wants a
 #: question whose answer is reproducible, and this one wants the opposite.
+#:
+#: ``suite.assert_one_instant_is_one_decision`` — the cross-adapter half, split
+#: out by ``D-IMPL-149`` — refuses this question for the mirror reason: it
+#: compares subjects to each other, which means something only when the instant
+#: is an input. So the two legs take the two questions, and neither can be
+#: handed the other's by accident without going red.
 UNPINNED_QUESTION = Question(
     product_id=PRODUCT_ID, parameters={PARAMETER: _SCORES[0] + 1}
 )
@@ -179,10 +185,22 @@ def test_one_question_is_one_content_address(provision: Provision) -> None:
 
 
 def test_the_decision_instant_is_auditable(provision: Provision) -> None:
-    """`DEF-17-07`: which instant answered is recoverable *and* verifiable."""
+    """`DEF-17-07`, per subject: which instant answered is recoverable *and* verifiable."""
     suite.assert_decision_instant_is_auditable(
         SUBJECTS,
         provision=provision,
         question=UNPINNED_QUESTION,
         refusing_question=REFUSING_QUESTION,
+    )
+
+
+def test_one_instant_is_one_decision(provision: Provision) -> None:
+    """`DEF-17-07`'s cross-adapter half, under the instant `QUESTION` pins.
+
+    The pinned question, not `UNPINNED_QUESTION`: `D-IMPL-149` splits the
+    property so that the comparison across subjects happens only where the
+    instant is an input. The leg refuses the unpinned one by name.
+    """
+    suite.assert_one_instant_is_one_decision(
+        SUBJECTS, provision=provision, question=QUESTION
     )

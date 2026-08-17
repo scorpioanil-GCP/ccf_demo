@@ -6,20 +6,25 @@ binding a real second transport is what makes that claim non-trivial. A factory,
 a break hook and one call per property were the whole of it —
 ``git diff tests/client/conformance/suite.py`` is empty.
 
-Every leg but the last compares **both** subjects, so the cross-adapter
-comparisons stop degenerating to self-comparisons. The questions are imported
-from the in-process binding rather than restated, so *the same question* is
-literally the same object and cannot drift into two.
+Every leg compares **both** subjects, so the cross-adapter comparisons stop
+degenerating to self-comparisons. The questions are imported from the in-process
+binding rather than restated, so *the same question* is literally the same
+object and cannot drift into two.
 
-**The last leg takes the MCP subject alone, and that is a finding rather than a
-dodge.** ``assert_decision_instant_is_auditable`` refuses a question that names
-its own instant and then compares the recovered ``graph_snapshot_at`` *across*
-subjects — but with ``as_of=None`` each subject reads a clock, so two of them
-recover two instants milliseconds apart (measured: 116 ms). The leg is therefore
-unsatisfiable for **any** two subjects, MCP or not. Its per-subject property is
-real and is asserted here; the plan's SUMMARY records the cross-subject half as
-a defect in ``17-07``. Narrowing the assertion was not open — ``D-IMPL-148``
-rules that the suite is not weakened to admit an adapter.
+**One leg used to take the MCP subject alone, and no longer does.** When this
+module was written, ``assert_decision_instant_is_auditable`` refused a question
+that named its own instant and then compared the recovered ``graph_snapshot_at``
+*across* subjects — but with ``as_of=None`` each subject reads a clock, so two
+of them recover two instants milliseconds apart (measured: 116 ms). That made
+the leg unsatisfiable for **any** two subjects, MCP or not, and this module
+called it with one subject while recording the contradiction as a finding
+against ``17-07`` — narrowing the assertion was not open, ``D-IMPL-148`` having
+ruled that the suite is not weakened to admit an adapter. ``D-IMPL-149`` (Dave,
+2026-08-17) split the leg instead: the per-subject recovery property keeps its
+unpinned question and now takes **both** subjects, and the cross-adapter half
+became :func:`~tests.client.conformance.suite.assert_one_instant_is_one_decision`,
+which runs under an instant the test pins and refuses an unpinned one. Both are
+called below with the full pair.
 """
 
 from __future__ import annotations
@@ -66,7 +71,8 @@ def break_over_stdio(root: Path) -> McpStdioAdapter:
     return McpStdioAdapter(shlex.join([str(broken), str(root)]))
 
 
-#: This transport alone, for the one leg that cannot compare two.
+#: This transport, as one subject. Named on its own because the controls in
+#: ``test_the_mcp_binding_fires.py`` build divergent twins of it.
 MCP = AdapterSubject(
     name=SCHEME, connect=connect_over_stdio, break_transport=break_over_stdio
 )
@@ -122,10 +128,17 @@ def test_one_question_is_one_content_address(provision: Provision) -> None:
 
 
 def test_the_decision_instant_is_auditable(provision: Provision) -> None:
-    """`DEF-17-07`, per-subject — see the module docstring for why not both."""
+    """`DEF-17-07`, per subject and now over both — each recovers its own instant."""
     suite.assert_decision_instant_is_auditable(
-        (MCP,),
+        SUBJECTS,
         provision=provision,
         question=UNPINNED_QUESTION,
         refusing_question=REFUSING_QUESTION,
+    )
+
+
+def test_one_instant_is_one_decision(provision: Provision) -> None:
+    """`DEF-17-07`'s cross-adapter half, across two real transports at one instant."""
+    suite.assert_one_instant_is_one_decision(
+        SUBJECTS, provision=provision, question=QUESTION
     )
