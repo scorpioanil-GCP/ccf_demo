@@ -862,7 +862,7 @@
       },
       "QuestionDeclaration": {
         "kind": "class",
-        "shape": "(*, subject: 'str', intent: 'str', freshness: 'str', asked_at: 'datetime') -> None"
+        "shape": "(*, subject: 'str', intent: 'str', freshness: 'str', asked_at: 'datetime | None') -> None"
       },
       "REFERENCE_KEYS": {
         "kind": "constant",
@@ -4970,16 +4970,22 @@
   "ccf.products.resolver": {
     "__all__": [
       "AssemblyDebtScorerProtocol",
+      "DEBT_SCORER_INPUTS",
       "GovernedResolver",
       "ProductNotResolvable",
       "ProjectionPlanFactoryProtocol",
       "ResolverOutcome",
-      "ServedProductResolverProtocol"
+      "ServedProductResolverProtocol",
+      "build_governed_resolver"
     ],
     "exports": {
       "AssemblyDebtScorerProtocol": {
         "kind": "class",
         "shape": "(*, view: 'GraphView') -> 'DebtAssessment'"
+      },
+      "DEBT_SCORER_INPUTS": {
+        "kind": "constant",
+        "shape": "tuple"
       },
       "GovernedResolver": {
         "kind": "class",
@@ -5000,6 +5006,10 @@
       "ServedProductResolverProtocol": {
         "kind": "class",
         "shape": "(*, tenant: 'str', product_class: 'str', version: 'str', perspective: 'Perspective', request: 'ProductRequest | None') -> 'ResolverOutcome'"
+      },
+      "build_governed_resolver": {
+        "kind": "function",
+        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int', half_life_key: 'str | None' = None, debt_profile_key: 'str | None' = None, declared_completeness: 'Decimal | None' = None, declared_semantic_consistency: 'Decimal | None' = None, debt_scorer: 'AssemblyDebtScorerProtocol | None' = None) -> 'GovernedResolver'"
       }
     }
   },

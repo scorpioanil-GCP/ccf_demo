@@ -24,6 +24,7 @@ parameter name spelled here as a constant would be that rule firing.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -80,8 +81,35 @@ SUBJECTS = (
     ),
 )
 
-#: The question, at the deployment's own decision instant (``as_of=None``).
+#: The question, **at a pinned instant**.
+#:
+#: This used to ask with ``as_of=None`` and describe itself as "at the
+#: deployment's own decision instant". That was deterministic only by accident:
+#: ``as_of=None`` resolved to a literal declared in ``binding.yaml``, so every
+#: address-stability leg below inherited its determinism from a config value
+#: rather than testing it. The Phase 17 close review found the literal made the
+#: default path answer as of a fixed past moment (``BL-02``), and Dave ruled on
+#: 2026-08-16 that ``None`` means *now*.
+#:
+#: Under a real clock two transports answer milliseconds apart, so a parity leg
+#: handed an unpinned question compares clocks rather than answers — the
+#: ``served parity`` leg caught exactly that and failed, correctly. Pinning the
+#: instant here is what makes "one question, one address" a claim about
+#: assembly instead of about scheduling.
 QUESTION = Question(
+    product_id=PRODUCT_ID,
+    parameters={PARAMETER: _SCORES[0] + 1},
+    as_of=datetime(2026, 3, 2, 12, 0, tzinfo=UTC),
+)
+
+#: The same question with **no** instant, for the one leg that requires it.
+#:
+#: ``suite.assert_decision_instant_is_auditable`` refuses a question that names
+#: its own instant — handed one it would recover the value it was given and
+#: prove nothing about what the server resolved. It is therefore the only leg
+#: that may consume this, and the split is deliberate: every other leg wants a
+#: question whose answer is reproducible, and this one wants the opposite.
+UNPINNED_QUESTION = Question(
     product_id=PRODUCT_ID, parameters={PARAMETER: _SCORES[0] + 1}
 )
 
@@ -91,7 +119,17 @@ OTHER_PARAMETERS = {PARAMETER: _SCORES[1] + 1}
 
 #: A question this class does not answer: the required parameter is absent, so
 #: the request is refused at the door before the graph is touched.
-REFUSING_QUESTION = Question(product_id=PRODUCT_ID, parameters={})
+#:
+#: **Pinned for the same reason** ``QUESTION`` is. A refusal carries the request
+#: identity that produced it, ``temporal_boundary`` included, so under a real
+#: clock two transports refuse the same question with two different identities
+#: and the ``refusal parity`` leg reports a disagreement about scheduling. The
+#: leg is right to fail on that; the question was wrong to be unpinned.
+REFUSING_QUESTION = Question(
+    product_id=PRODUCT_ID,
+    parameters={},
+    as_of=datetime(2026, 3, 2, 12, 0, tzinfo=UTC),
+)
 
 
 def test_served_parity(provision: Provision) -> None:
@@ -145,6 +183,6 @@ def test_the_decision_instant_is_auditable(provision: Provision) -> None:
     suite.assert_decision_instant_is_auditable(
         SUBJECTS,
         provision=provision,
-        question=QUESTION,
+        question=UNPINNED_QUESTION,
         refusing_question=REFUSING_QUESTION,
     )

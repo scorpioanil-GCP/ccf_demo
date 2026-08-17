@@ -56,6 +56,7 @@ from tests.client.conformance.test_inprocess_conformance import (
     OTHER_PARAMETERS,
     QUESTION,
     REFUSING_QUESTION,
+    UNPINNED_QUESTION,
     SUBJECTS,
     break_in_process,
     connect_in_process,
@@ -622,7 +623,13 @@ def test_the_decision_instant_leg_fires_on_a_misreported_instant(
         suite.assert_decision_instant_is_auditable(
             (misreporting,),
             provision=provision,
-            question=QUESTION,
+            # UNPINNED, because this leg refuses a question that names its own
+            # instant. `QUESTION` gained a pinned `as_of` when `BL-02` made
+            # `as_of=None` mean *now*, so handing it here would trip the
+            # "on purpose" refusal and this control would pass for the wrong
+            # reason — proving the leg rejects pinned questions rather than
+            # that it catches a misreported instant.
+            question=UNPINNED_QUESTION,
             refusing_question=REFUSING_QUESTION,
         )
 

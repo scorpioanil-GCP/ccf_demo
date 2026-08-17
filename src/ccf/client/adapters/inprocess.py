@@ -80,6 +80,7 @@ import atexit
 import hashlib
 import threading
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypeVar
 
@@ -359,7 +360,21 @@ class InProcessAdapter:
             subject=document.question.subject,
             intent=document.question.intent,
             freshness=document.question.freshness,
-            asked_at=request.temporal_boundary or document.question.asked_at,
+            # `D-04` says `as_of=None` means *the server's decision instant*,
+            # and `~ccf.client.client.ProductClient.ask` spells that out as the
+            # producing deployment answering "against its own clock". This read
+            # the DECLARED `question.asked_at` instead, so the default path
+            # answered as of a literal in `binding.yaml` — and a deployment
+            # whose declared instant had passed printed an answer that had
+            # already expired. Measured at the Phase 17 close review: with no
+            # `--as-of`, the shipped example reported `answer expires
+            # 2026-03-02 12:10:00+00:00` on 2026-08-16, five and a half months
+            # stale, while its README promised "today's answer".
+            #
+            # Ruled by Dave 2026-08-16: `None` means NOW. A caller who needs a
+            # reproducible address passes an explicit boundary, which is what
+            # the documented command does and why its content address is stable.
+            asked_at=request.temporal_boundary or datetime.now(UTC),
             parameters=request.parameters,
         )
         outcome = self._resolver(

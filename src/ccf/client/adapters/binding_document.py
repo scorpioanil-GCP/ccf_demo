@@ -184,24 +184,37 @@ class QuestionDeclaration:
     :class:`~ccf.products.request.ProductRequest`, so a factory to produce them
     would be a factory producing constants.
 
-    ``asked_at`` is the deployment's answer to ``D-04``'s *"``as_of=None`` means
-    the server's decision instant"* — whose clock and what default belongs to
-    the producer. It is declared rather than read from a clock so a deployment's
-    answers reproduce; a deployment wanting wall-clock behaviour states an
-    instant here and its callers pass their own boundary.
+    ``asked_at`` **is not the fallback for** ``as_of=None``, and this docstring
+    used to say it was. ``D-04`` rules that ``as_of=None`` means *the server's
+    decision instant*, and ``~ccf.client.client.ProductClient.ask`` spells that
+    out as the producing deployment answering against its own **clock**. Reading
+    a declared literal instead made the default path answer as of a fixed moment
+    in the document: the Phase 17 close review measured the shipped example
+    printing ``answer expires 2026-03-02 12:10:00+00:00`` on 2026-08-16 with no
+    ``--as-of``, five and a half months expired, against a README promising
+    "today's answer". Ruled by Dave 2026-08-16 — ``None`` resolves to now, in
+    ``~ccf.client.adapters.inprocess.InProcessAdapter.ask``.
+
+    The field remains declared, validated as a **zoned** ISO 8601 instant, and
+    is retained as an explicit demonstration value per that same ruling. **No
+    code path reads it.** Whether a required-but-unread field should stay
+    required, become optional, or be removed is an open question surfaced with
+    the Phase 17 gate package rather than decided here — widening a ruled
+    closed-world schema (``D-IMPL-141``) is not an in-phase fix.
 
     Attributes:
         subject: What the question is about.
         intent: Why it is being asked.
         freshness: How current the answer must be.
-        asked_at: The instant a question carrying no temporal boundary is
-            asked as of.
+        asked_at: An OPTIONAL declared, zone-bearing instant, or ``None`` when
+            the document states none. Demonstration only — it is **not**
+            consulted when a caller passes no temporal boundary.
     """
 
     subject: str
     intent: str
     freshness: str
-    asked_at: datetime
+    asked_at: datetime | None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -616,23 +629,33 @@ def load_binding_document(root: str | Path) -> BindingDocument:
     question = _mapping(parsed, key="question", document=document)
     perspective = _mapping(parsed, key="perspective", document=document)
     debt = _mapping(parsed, key="debt", document=document)
-    asked_at_raw = _field(
-        question, key="question", field="asked_at", document=document
-    )
-    try:
-        asked_at = datetime.fromisoformat(asked_at_raw)
-    except ValueError as malformed:
-        raise BindingError(
-            f"`question.asked_at: {asked_at_raw}` in {document} is not an ISO"
-            " 8601 instant"
-        ) from malformed
-    if asked_at.tzinfo is None:
-        raise BindingError(
-            f"`question.asked_at: {asked_at_raw}` in {document} states no time"
-            " zone — a zone-less instant is a silent default (`D-IMPL-38`), and"
-            " which zone it silently meant is the difference between two"
-            " different answers"
-        )
+    # `asked_at` is OPTIONAL, and was required until 2026-08-16. It stopped
+    # being read when `BL-02` made `as_of=None` resolve to the server's clock
+    # rather than to this literal, and Dave ruled the same day: *"a required
+    # field that no code path reads is a latent defect... keeping it required
+    # solely because the schema was closed earlier is the wrong reason."*
+    # Dropping the requirement is the narrow amendment to `D-IMPL-141`'s data
+    # shape that records why — the field became unread, therefore it stopped
+    # being mandatory. It may still be declared, and when declared it is held to
+    # exactly the same standard as before, because a value stated wrongly is
+    # worse than a value not stated.
+    asked_at_raw = question.get("asked_at")
+    asked_at: datetime | None = None
+    if asked_at_raw is not None and str(asked_at_raw).strip():
+        try:
+            asked_at = datetime.fromisoformat(str(asked_at_raw))
+        except ValueError as malformed:
+            raise BindingError(
+                f"`question.asked_at: {asked_at_raw}` in {document} is not an"
+                " ISO 8601 instant"
+            ) from malformed
+        if asked_at.tzinfo is None:
+            raise BindingError(
+                f"`question.asked_at: {asked_at_raw}` in {document} states no"
+                " time zone — a zone-less instant is a silent default"
+                " (`D-IMPL-38`), and which zone it silently meant is the"
+                " difference between two different answers"
+            )
 
     operator_keys = parsed["operator_parameter_keys"]
     if isinstance(operator_keys, str) or not isinstance(operator_keys, Sequence):

@@ -51,6 +51,20 @@ from tests.client.conftest import SEEDED_ROWS, config_document
 #: The one declared parameter the fixture's request contract requires.
 THRESHOLD = "minimum_score"
 
+#: A pinned instant for the legs that assert a *stable* answer.
+#:
+#: `BL-02` (Phase 17 close review, ruled by Dave 2026-08-16) made `as_of=None`
+#: mean **now** instead of a literal declared in `binding.yaml`. Every test
+#: below that compares two content addresses, or asserts a debt signal, was
+#: reproducible only because the declared literal happened to be fixed — it was
+#: measuring assembly while inheriting determinism from config. Under a real
+#: clock those legs compare clocks, and the fixture's seeded observations sit
+#: near this instant, so asking "now" reports them five months stale and the
+#: debt signal moves. Pinning is what makes each assertion about its own
+#: subject again. The `as_of=None` path has its own coverage below.
+_PINNED = datetime(2026, 3, 2, 12, 0, tzinfo=UTC)
+
+
 
 class _BootCounter:
     """Counts the boots the adapter actually performs.
@@ -104,7 +118,7 @@ def test_a_first_ask_boots_the_fabric_and_returns_a_result(
     carried a payload and no content address would satisfy a narrower test
     while being useless for exactly the audit story the client exists to serve.
     """
-    result = _client(seeded_root).ask(parameters={THRESHOLD: 20})
+    result = _client(seeded_root).ask(parameters={THRESHOLD: 20}, as_of=_PINNED)
 
     assert boots.count == 1
     assert not result.refused
@@ -159,8 +173,8 @@ def test_two_clients_on_one_binding_share_one_fabric(
     first = _client(seeded_root)
     second = _client(seeded_root)
 
-    first_result = first.ask(parameters={THRESHOLD: 20})
-    second_result = second.ask(parameters={THRESHOLD: 20})
+    first_result = first.ask(parameters={THRESHOLD: 20}, as_of=_PINNED)
+    second_result = second.ask(parameters={THRESHOLD: 20}, as_of=_PINNED)
 
     assert boots.count == 1, "the second client booted its own fabric"
     assert first_result.content_address == second_result.content_address
@@ -214,8 +228,8 @@ def test_a_relative_and_absolute_root_are_one_cache_entry(
     monkeypatch.chdir(seeded_root.parent)
     relative = f"./{seeded_root.name}"
 
-    first = _client(relative).ask(parameters={THRESHOLD: 20})
-    second = _client(seeded_root).ask(parameters={THRESHOLD: 20})
+    first = _client(relative).ask(parameters={THRESHOLD: 20}, as_of=_PINNED)
+    second = _client(seeded_root).ask(parameters={THRESHOLD: 20}, as_of=_PINNED)
 
     assert boots.count == 1, (
         "the relative and absolute spellings of one deployment root booted"
@@ -291,7 +305,7 @@ def test_the_wire_carries_exactly_the_canonical_bytes_of_the_vessel(
     request = WireRequest(
         product_id=_product_id(seeded_root),
         parameters={THRESHOLD: 20},
-        temporal_boundary=None,
+        temporal_boundary=_PINNED,
     )
     outcome = adapter.ask(request)
 
@@ -308,7 +322,7 @@ def test_the_wire_carries_exactly_the_canonical_bytes_of_the_vessel(
             subject=declared.subject,
             intent=declared.intent,
             freshness=declared.freshness,
-            asked_at=declared.asked_at,
+            asked_at=_PINNED,
             parameters={THRESHOLD: 20},
         ),
     )

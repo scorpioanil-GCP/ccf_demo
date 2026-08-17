@@ -441,7 +441,12 @@ def test_binding_document_refuses_an_empty_required_value(
     assert "`plan`" in str(refused.value)
 
 
-@pytest.mark.parametrize("field", ["subject", "intent", "freshness", "asked_at"])
+# `asked_at` left this list on 2026-08-16: it became OPTIONAL when `BL-02`
+# stopped any code path reading it (Dave's ruling, the narrow amendment to
+# `D-IMPL-141`'s data shape). The three that remain are still required, and
+# `test_binding_document_refuses_a_zone_less_asked_at` below still holds a
+# DECLARED instant to the same standard — optional is not unvalidated.
+@pytest.mark.parametrize("field", ["subject", "intent", "freshness"])
 def test_binding_document_refuses_an_incomplete_question(
     deployment_root: Path, field: str
 ) -> None:
@@ -471,6 +476,33 @@ def test_binding_document_refuses_a_zone_less_asked_at(deployment_root: Path) ->
         load_binding_document(deployment_root)
 
     assert "no time" in str(refused.value)
+
+
+def test_binding_document_accepts_a_question_that_omits_asked_at(
+    deployment_root: Path,
+) -> None:
+    """``asked_at`` is OPTIONAL, and a document omitting it loads.
+
+    It was required until 2026-08-16 and stopped being read when ``BL-02`` made
+    ``as_of=None`` resolve to the server's clock rather than to this literal.
+    Dave ruled the same day that a required field no code path reads is a latent
+    defect, so the requirement was dropped — the narrow amendment to
+    ``D-IMPL-141``'s data shape.
+
+    This asserts the *absence* path specifically. The optionality is otherwise
+    invisible: every fixture in the tree declares the field, so a loader that
+    had gone on requiring it would pass the whole suite, and the change Dave
+    ruled would have been recorded in prose and not in behaviour.
+    """
+    body = _document(deployment_root)
+    removed = body["question"].pop("asked_at")
+    assert removed, "the fixture must declare it, or this proves nothing"
+    _rewrite(deployment_root, body)
+
+    document = load_binding_document(deployment_root)
+
+    assert document.question.asked_at is None
+    assert document.question.subject, "the rest of the question still loads"
 
 
 def test_binding_document_refuses_a_float_ttl(deployment_root: Path) -> None:

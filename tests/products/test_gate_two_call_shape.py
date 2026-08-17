@@ -593,29 +593,48 @@ TRANSPARENT_CAST = "cast"
 #: identifier can, so it can never collide with a real member name.
 CALL_MARKER = "()"
 
-#: One gate call site per example body that serves a product — eleven of them,
-#: counted from the tree: examples 00, 01, 02, 03,
+#: One gate call site per body that serves a product — **twelve**, counted from
+#: the tree by executing :func:`_gate_scopes`: examples 00, 01, 02, 03,
 #: ``04-cross-process/producer_child.py``, 06, 07 and 08, plus
-#: ``examples/external/00-hello-context/serve.py`` and the two spine examples
+#: ``examples/external/00-hello-context/serve.py``, the two spine examples
 #: ``s1-00-companies-over-revenue/produce.py`` and
-#: ``s1-01-hello-context-product/spine.py``. **No headroom, on purpose.** The
-#: previous value of 9 was two sites short of the tree by the time it was
-#: re-measured, which is the literal shape
-#: :func:`test_the_binder_scan_is_not_vacuous`'s docstring names as a licence:
-#: two bodies could have stopped being scanned with nothing failing to say so.
-#: A scan that silently matched zero call sites is the quietest way a tripwire
-#: stops being one, so the floor is asserted rather than assumed.
-MINIMUM_GATE_CALL_SITES = 11
+#: ``s1-01-hello-context-product/spine.py``, and — added in Phase 17 —
+#: ``src/ccf/products/resolver.py::GovernedResolver.__call__``, the first
+#: in-SDK site, which exists because ``17-03`` moved the assemble→gate→serve
+#: composition into the library.
+#:
+#: **No headroom, on purpose**, and this constant has now been two sites short
+#: TWICE. The first time it read 9 against a tree of 11. The second was Phase
+#: 17 itself: ``GovernedResolver.__call__`` arrived and the floor stayed at 11,
+#: so the phase that documented this failure mode re-opened it. Measured at the
+#: close review — 12 sites against a floor of 11, one site of headroom, in a
+#: constant whose own comment calls headroom "the quiet form" this module
+#: refuses. Raised to 12 under Dave's ruling of 2026-08-16.
+#:
+#: The lesson the two misses share: **a floor is only a floor while it equals
+#: the count.** Adding a witness without raising it converts an assertion into
+#: a formality, and nothing goes red to say so.
+MINIMUM_GATE_CALL_SITES = 12
 
-#: Eleven bodies that construct a plan and execute it, plus the two replay
-#: environments' ``resolve_plan`` methods, which construct one and return it —
-#: ``examples/06-decision-replay/run.py`` and
-#: ``examples/external/00-hello-context/run.py``. Counted from the tree, not
-#: carried over from the plan text: the previous comment read *nine* and *plus
-#: two*, which had been true of a smaller suite and was two bodies short of the
-#: tree by the time it was re-measured. A floor whose comment describes a tree
-#: that no longer exists is the quiet form of headroom this module refuses.
-MINIMUM_PROJECTING_BODIES = 13
+#: Bodies that construct a plan and execute it — **fourteen**, counted from the
+#: tree by executing :func:`_projecting_scopes`, including the two replay
+#: environments' ``resolve_plan`` methods which construct one and return it
+#: (``examples/06-decision-replay/run.py``, which contributes two bodies, and
+#: ``examples/external/00-hello-context/run.py``), and — added in Phase 17 —
+#: ``examples/hw1-companies-over-revenue/deployment/projection.py::build_projection``,
+#: the client example's one permitted Python module.
+#:
+#: This comment's previous revision ended: *"A floor whose comment describes a
+#: tree that no longer exists is the quiet form of headroom this module
+#: refuses."* It then described exactly such a tree. ``build_projection`` landed
+#: in ``17-09`` and the floor stayed at 13, leaving one body of headroom — a
+#: regression could have deleted a projecting body and stayed green. Measured at
+#: the Phase 17 close review; raised to 14 under Dave's ruling of 2026-08-16.
+#:
+#: The failure is not that the number was wrong. It is that **the plan which
+#: adds a witness is the plan that must raise the floor**, and neither this one
+#: nor the gate-site floor above was raised by the work that moved it.
+MINIMUM_PROJECTING_BODIES = 14
 
 #: Binder call sites where this module can actually **read** which document the
 #: handed plan's ``required=`` came from — the input the argument checks in
