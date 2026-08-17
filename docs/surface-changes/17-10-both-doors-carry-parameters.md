@@ -17,9 +17,14 @@ mapping and pass it through unvalidated to the resolver. **Both**, not one."*
   moved either; `parameters` was already a required field of it.
 - **The MCP resource is untouched.** It still passes `request=None`, because
   `ccf-product://` still has three path segments and no query surface. The
-  tool's served body is still byte-identical to the resource's for the same
-  question, asserted at
-  `tests/mcp/test_egress_parameters.py::test_the_tool_body_is_byte_identical_to_the_resources`.
+  tool's served **vessel** is still byte-identical to the resource's body for
+  the same question, asserted at
+  `tests/mcp/test_egress_parameters.py::test_the_tool_carries_the_resources_bytes_without_re_serializing_them`.
+  (That assertion was restated by `D-IMPL-148` Addendum A when the tool's return
+  became a `DoorOutcome`; the vessel's bytes are compared at full strength, and
+  what is no longer claimed is that the return has no frame around them — which
+  is exactly and only what the ruling changed. See
+  `17-10-both-doors-carry-the-replay-reference.md`.)
 - **Neither door gained an address-claiming argument.** No `role`, no
   caller-supplied `schema_name`, no caller-supplied `schema_version`. A request
   addressed to another class stays unrepresentable on both surfaces rather than

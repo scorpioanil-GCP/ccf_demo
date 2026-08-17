@@ -101,6 +101,7 @@ from ccf.controlplane.audit import AuthzDecisionAuditEvent
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.mcp.client import McpResourceClient, SyncMcpBridge, run_with_session
 from ccf.mcp.errors import McpServerUnreachable
+from ccf.products.door import DoorOutcome
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
     ProductEntitlementGrant,
@@ -1133,7 +1134,12 @@ def test_the_tool_is_never_the_weaker_path(
     if plan.marker is None:
         expected = canonical_bytes(assembled.servable.product).decode("utf-8")
         assert resource_text == expected
-        assert tool_text == expected
+        # `D-IMPL-148` Addendum A: the tool answers in a `DoorOutcome`, because
+        # a refusal cannot be raised over FastMCP without prose and the replay
+        # reference has nowhere to ride on a bare body. The **vessel's bytes**
+        # are compared, and they are still the resource's byte for byte; what
+        # moved is the frame around them, deliberately.
+        assert DoorOutcome.model_validate_json(tool_text).product_json == expected
     else:
         assert plan.marker in resource_text, resource_text
         assert plan.marker in tool_text, tool_text
@@ -1488,17 +1494,24 @@ def test_two_questions_reach_two_content_addresses(
 
     assert first_error is False, first
     assert second_error is False, second
-    assert hashlib.sha256(first.encode("utf-8")).hexdigest() != hashlib.sha256(
-        second.encode("utf-8")
-    ).hexdigest(), (
+    # `D-IMPL-148` Addendum A moved the frame, and this test is **stronger**
+    # for it rather than weaker: the digests below are now taken over the
+    # vessel the envelope carries, which is the product's actual content
+    # address, where before they were taken over whatever the tool returned.
+    first_vessel = DoorOutcome.model_validate_json(first).product_json
+    second_vessel = DoorOutcome.model_validate_json(second).product_json
+    assert first_vessel is not None and second_vessel is not None
+    assert hashlib.sha256(
+        first_vessel.encode("utf-8")
+    ).hexdigest() != hashlib.sha256(second_vessel.encode("utf-8")).hexdigest(), (
         f"two calls differing only in {axis} returned the same content"
         " address; the door is not carrying the caller's question through to"
         " the resolver (D-IMPL-126)"
     )
     # And neither is the class's standing answer: the tool answered the
     # question rather than re-serving what the resource serves.
-    assert first != _canonical
-    assert second != _canonical
+    assert first_vessel != _canonical
+    assert second_vessel != _canonical
 
 
 # --- the fixture's own failure mode ----------------------------------------

@@ -51,6 +51,32 @@ form of "validated where it crosses the door, not downstream", and the reason
 this route needs no address cross-check. The tenant is likewise not on the
 request at all: it is a thing the door establishes.
 
+**This door carries the replay reference, and it is one of two that do**
+(``D-IMPL-148`` **Addendum A**, Dave, 2026-08-17). The base ruling scoped the
+fix to the MCP door and recorded the identical gap here as *deferred, not
+fixed*, on the ground that no shared assertion spanned both. Dave superseded
+that: *both doors carry the reference*, on the same *"both, not one"* principle
+``D-IMPL-133`` applied to ``parameters`` — and for the same reason it turned out
+to matter there, namely that a gap left on one door is a gap the next assertion
+to span both discovers the hard way.
+
+It travels as a **response header** (:data:`~ccf_runtime.http_api.routes.REPLAY_REF_HEADER`),
+never in the body, because the body *is* the vessel and anything carried inside
+it changes the address it claims — the argument
+:func:`~ccf_runtime.http_api.routes.canonical_response` already records for the
+content address, applied unchanged. The MCP tool publishes the same string in an
+envelope because it has no header channel; the asymmetry is a property of the
+transports rather than a difference in what the doors carry.
+
+**What is still deferred here, stated so it is found rather than rediscovered:
+this door has no refusal channel** (DIV-4). A resolver that answers with a
+:class:`~ccf.products.refusal.RefusalEnvelope` reaches
+:func:`~ccf.products.door.served_answer`, which raises ``TypeError`` naming the
+shape — an opaque 500, exactly as the pre-existing ``AttributeError`` produced,
+but now saying what went wrong. Rendering a fabric refusal over HTTP is a
+status-code and body-shape decision nobody has ruled, and inventing one here
+would put an unruled contract on a shipped door.
+
 Algorithmic module (CINV-03).
 """
 
@@ -65,6 +91,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from starlette.requests import Request
 
+from ccf.products.door import served_answer
 from ccf.products.request import ProductRequest
 from ccf.projection.plan import Perspective
 from ccf_runtime.authz.product_entitlement import (
@@ -148,7 +175,7 @@ def build_router(
             parameters=parameters,
         )
         try:
-            servable = deps.product_resolver(
+            resolved = deps.product_resolver(
                 tenant=tenant,
                 product_class=product_class,
                 version=version,
@@ -157,7 +184,12 @@ def build_router(
             )
         except ProductNotServable as absent:
             raise HTTPException(status_code=404, detail=str(absent)) from absent
-        return canonical_response(servable.product)
+        # `D-IMPL-148` Addendum A: the reference the resolver produced reaches
+        # the consumer, on the sibling channel this transport has. `None` is the
+        # honest report that this deployment's resolver returned the narrower
+        # vessel, which carries none — never a reference dropped at the door.
+        answer = served_answer(resolved)
+        return canonical_response(answer.product, replay_ref=answer.replay_ref)
 
     def _authorized_perspective(
         request: Request, *, tenant: str, product_class: str, role: str | None

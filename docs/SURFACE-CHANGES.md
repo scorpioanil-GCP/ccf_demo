@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**709 entries**, of which **476** name a public Python surface.
+**715 entries**, of which **482** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-352 entries — 318 public Python surface, 34 not public Python API.
+357 entries — 323 public Python surface, 34 not public Python API.
 
 ### Public Python surface
 
@@ -6278,6 +6278,117 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `17-10-both-doors-carry-parameters.md`.*
 
+#### ccf.products.door.DoorOutcome
+
+- Surface: ccf.products.door.DoorOutcome
+- Public surface: true
+- Change type: added
+- Before: absent. A door had exactly one thing it could say — the vessel's
+  canonical bytes — so a refusal had no wire shape and a replay reference had
+  nowhere to ride. `WireOutcome.replay_ref` had already named that absence:
+  *"No shipped door emits this today, which is a defect the client seam exists
+  to fix rather than a feature request"*
+- After: a frozen, `extra=forbid` contract carrying `product_json`,
+  `replay_ref` and `refusal`, with a model validator refusing an outcome that is
+  both halves or neither. The MCP tool returns its canonical JSON
+- Why: `D-IMPL-148`. It lives in `src/` beside the types it carries, for the
+  reason `ccf.products.refusal` gives for its own placement: it is emitted by a
+  door in `runtime/` and decoded by a client in `src/ccf/client`, and `src/`
+  cannot import `runtime/` — so the emission and the decode agree by
+  construction rather than by two implementations being written to the same
+  paragraph. The two halves are discriminated **structurally**: exclusive named
+  members, and underneath them `RefusalEnvelope` and `ContextProductContract`
+  are both `extra=forbid` with disjoint required fields, so neither can validate
+  as the other
+- Migration: a client reading the MCP product **tool** parses
+  `DoorOutcome.model_validate_json(text)` and reads `product_json` where it
+  previously read the whole return. The MCP **resource** is unchanged and needs
+  no client change. There is no shipped adapter for this tool yet — the
+  `mcp+stdio` adapter is plan `17-10` Task 3 — so no SDK consumer is affected
+
+*Recorded by `17-10-both-doors-carry-the-replay-reference.md`.*
+
+#### ccf.products.door.ServedAnswer
+
+- Surface: ccf.products.door.ServedAnswer
+- Public surface: true
+- Change type: added
+- Before: absent. Each door read `.product` off whatever its resolver returned
+  and discarded everything beside it
+- After: a frozen dataclass carrying the vessel and the replay reference, or the
+  reference's honest absence. Not a contract, deliberately: it never crosses a
+  wire
+- Why: two served shapes reach a door — the narrower `ServableProduct` the
+  `runtime/` seams declare, and the `ServedProduct` that
+  `ccf.products.resolver.GovernedResolver` returns — and only the second carries
+  a reference. One function reading both is what stops three doors growing three
+  `isinstance` ladders and then disagreeing about what "served" means
+- Migration: none — a new type, reachable only from the new function below
+
+*Recorded by `17-10-both-doors-carry-the-replay-reference.md`.*
+
+#### ccf.products.door.served_answer
+
+- Surface: ccf.products.door.served_answer
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `served_answer(resolved) -> ServedAnswer`. Total over the two served
+  shapes; raises `TypeError` naming the type on anything else
+- Why: `replay_ref=None` must mean *this deployment's resolver produced no
+  reference* — which is the honest report for the narrower vessel — and never
+  *a reference was dropped at the door*. Concentrating that read in one place is
+  what makes the distinction checkable
+- Migration: none — additive
+
+*Recorded by `17-10-both-doors-carry-the-replay-reference.md`.*
+
+#### ccf.products.door.door_refusal
+
+- Surface: ccf.products.door.door_refusal
+- Public surface: true
+- Change type: added
+- Before: absent. A refusal returned by a deployment's resolver reached
+  `canonical_bytes(x.product)` and produced an `AttributeError` — an opaque 500
+  on HTTP and an `isError` with pydantic's wording on MCP
+- After: `door_refusal(resolved, *, asked, product_class, version) ->
+  RefusalEnvelope | None`. A ready-made `RefusalEnvelope` passes through
+  **untouched**, so the pre-assembly lineage a gate refusal genuinely had is
+  preserved rather than re-enveloped away; a bare refusal value that
+  `REFUSAL_KINDS` names is translated against the question the door carried;
+  anything else returns `None`
+- Why: `D-IMPL-148`, and the *"handle both"* the plan asks for. **No third
+  channel exists, and that is a measurement rather than an omission**: every
+  type in `REFUSAL_KINDS` is a `CCFContract` — a value — so none of them can be
+  raised, and no shipped exception in the tree carries one. A door has nothing
+  to catch and translate
+- Migration: none — additive. A deployment whose resolver already returns
+  `ServableProduct` sees no behavioural change at all
+
+*Recorded by `17-10-both-doors-carry-the-replay-reference.md`.*
+
+#### ccf_runtime.http_api.routes.REPLAY_REF_HEADER
+
+- Surface: ccf_runtime.http_api.routes.REPLAY_REF_HEADER
+- Public surface: true
+- Change type: added
+- Before: absent — the HTTP product door discarded the replay reference exactly
+  as the MCP door did. `grep replay_ref runtime/ccf_runtime/http_api/routes/product.py`
+  returned nothing
+- After: `"X-CCF-Replay-Ref"`, the header a served product publishes the
+  versioned URI of its replay record under
+- Why: `D-IMPL-148` Addendum A's *"both, not one"*. A **header** rather than a
+  body member, on the identical argument `CONTENT_ADDRESS_HEADER` is one: the
+  body *is* the product, so a reference carried inside it would change the bytes
+  and therefore change the address they claim. The MCP tool publishes the same
+  string in an envelope because it has no header channel — the asymmetry is a
+  property of the transports, not a difference in what the doors carry
+- Migration: none — a new response header. Existing clients ignore it. It is
+  **absent rather than empty** when the resolver produced no reference, so that
+  "no record was named" and "the record is named by nothing" stay distinguishable
+
+*Recorded by `17-10-both-doors-carry-the-replay-reference.md`.*
+
 #### ccf.products.debt_scorer.AssemblyDebtScorer
 
 - Surface: ccf.products.debt_scorer.AssemblyDebtScorer
@@ -7116,7 +7227,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-290 entries — 107 public Python surface, 183 not public Python API.
+291 entries — 108 public Python surface, 183 not public Python API.
 
 ### Public Python surface
 
@@ -9428,6 +9539,27 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   representation grew a field
 
 *Recorded by `16-27-discovery-audiences.md`.*
+
+#### ccf_runtime.http_api.routes.canonical_response
+
+- Surface: ccf_runtime.http_api.routes.canonical_response
+- Public surface: true
+- Change type: reshaped
+- Before: `canonical_response(payload) -> Response` — the canonical body plus
+  the content-address header, and nothing else
+- After: `canonical_response(payload, *, replay_ref: str | None = None) ->
+  Response`. One keyword-only parameter, defaulting to `None`, which publishes
+  `REPLAY_REF_HEADER` when supplied and sets no header when not
+- Why: the product door is the one call site with a replay reference to publish;
+  the other four serve Control Plane and replay artifacts rather than a
+  delivered Context Product and pass nothing. A sibling channel on the response
+  is the only place the reference can go without changing the bytes the body
+  claims an address for
+- Migration: none. Additive and defaulted — all five existing call sites read
+  identically and behave identically, and the response is byte-for-byte
+  unchanged when the argument is omitted
+
+*Recorded by `17-10-both-doors-carry-the-replay-reference.md`.*
 
 #### ccf.client.adapters.binding_document.BindingDocument
 
