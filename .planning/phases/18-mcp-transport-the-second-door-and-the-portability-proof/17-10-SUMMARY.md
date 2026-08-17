@@ -2,25 +2,31 @@
 phase: 18-mcp-transport-the-second-door-and-the-portability-proof
 plan: 10
 subsystem: mcp-egress-door
-status: partial
-tags: [mcp, http-api, product-request, refusal-envelope, replay-ref, d-impl-133, d-impl-148]
+status: complete
+tags: [mcp, http-api, product-request, refusal-envelope, replay-ref, mcp-stdio, conformance, portability, d-impl-133, d-impl-148]
 requires:
   - D-IMPL-133 (both doors carry parameters — the ruling Task 1 implements)
   - D-IMPL-148 + Addendum A (the refusal envelope, and both doors carry the replay reference)
   - D-IMPL-121 (validation stays at the resolver, never at a door)
   - D-IMPL-103 (one level of declared nested types)
   - D-IMPL-126 (the content-address header whose argument the replay-ref header reuses)
+  - D-IMPL-141 Amendment A.3 (a deployment root holds exactly one Python module)
 provides:
   - the MCP egress tool's `parameters` argument
   - the HTTP product route's `?parameters=` JSON-object query surface
   - ERROR_PRODUCT_PARAMETERS_MALFORMED
   - assert_same_verdicts / assert_type_mismatch_refused (the width ceiling, mechanized)
-  - ccf.products.door — DoorOutcome, ServedAnswer, served_answer, door_refusal
+  - ccf.products.door — DoorOutcome, ServedAnswer, served_answer, door_refusal, PRODUCT_REQUEST_TOOL
   - the MCP tool's canonical refusal envelope, as a return value
   - X-CCF-Replay-Ref on the HTTP product door
   - assert_refusals_identical / assert_governance_stays_a_raise / assert_both_doors_carry_the_replay_ref
+  - ccf.client.adapters.mcp_stdio — the second official transport adapter
+  - the `mcp+stdio` scheme in SCHEME_REGISTRY
+  - the MCP leg of the client conformance suite
 affects:
   - src/ccf/products/door.py
+  - src/ccf/client/adapters/mcp_stdio.py
+  - src/ccf/client/binding.py
   - runtime/ccf_runtime/mcp/egress.py
   - runtime/ccf_runtime/http_api/routes/product.py
   - runtime/ccf_runtime/http_api/routes/__init__.py
@@ -33,50 +39,81 @@ tech-stack:
     - "non-vacuity guard: an assertion refuses a table, or a pair of answers, that cannot fail for the reason it exists"
     - "reflection-over-transcription: field comparison derived from the contract's `model_fields`, never a written-down list"
     - "sibling-channel-per-transport: outcome-level values ride a header on HTTP and an envelope on MCP; the vessel's bytes are never touched"
+    - "wire-vocabulary-in-src: a name both a runtime door and a src client must agree on is bound in src, and the door re-exports it"
+    - "divergent-subject-into-the-real-leg: a control passes a deliberately-wrong adapter into the shipped suite assertion rather than re-implementing it"
+    - "child-inherits-the-caller's-environment: a spawned deployment program must resolve the same SDK the client is running, and a filtered environment fails silently"
 key-files:
   created:
     - src/ccf/products/door.py
+    - src/ccf/client/adapters/mcp_stdio.py
     - tests/mcp/test_egress_parameters.py
     - tests/mcp/test_egress_refusal_envelope.py
+    - tests/client/test_mcp_stdio_adapter.py
+    - tests/client/fixtures/__init__.py
+    - tests/client/fixtures/stdio_server.py
+    - tests/client/conformance/test_mcp_conformance.py
+    - tests/client/conformance/test_the_mcp_binding_fires.py
     - docs/surface-changes/17-10-both-doors-carry-parameters.md
     - docs/surface-changes/17-10-both-doors-carry-the-replay-reference.md
+    - docs/surface-changes/17-10-the-mcp-stdio-adapter.md
   modified:
     - runtime/ccf_runtime/mcp/egress.py
     - runtime/ccf_runtime/http_api/routes/product.py
     - runtime/ccf_runtime/http_api/routes/__init__.py
     - runtime/ccf_runtime/http_api/errors.py
+    - src/ccf/client/binding.py
     - tests/crossproc/test_mcp_egress.py
     - tests/test_surface_shape_capture.py
     - docs/DECISIONS.md
     - docs/SURFACE-CHANGES.md
+    - docs/surface/examples/RETIREMENT-COUPLINGS.md
     - openapi.json
 decisions:
   - "D-IMPL-133 Addendum A — the recorded `parameters={}` objection is half false, half honoured"
   - "D-IMPL-148 Addendum A — both doors carry the replay reference; Task 4 is gated on both"
+  - "the `mcp+stdio` address is TWO tokens — the server program and the deployment root — because a deployment root holds one Python module and the SDK ships no server"
+  - "`PRODUCT_REQUEST_TOOL` moves to `ccf.products.door`; `egress.py` re-exports it, because `src/` cannot import `runtime/`"
 metrics:
-  tasks_completed: 2
+  tasks_completed: 4
   tasks_total: 4
-  duration: ~2 sessions
+  duration: ~3 sessions
   completed: 2026-08-17
 ---
 
-# Phase 18 Plan 17-10: MCP Transport — Partial Summary
+# Phase 18 Plan 17-10: MCP Transport — Summary
 
-Tasks 1 and 2 shipped. **Both parameterised product doors carry a client's
-parameters, the MCP door now refuses in the canonical envelope rather than in a
-raised exception, and both doors name the replay record that authorized a
-delivery.** Tasks 3 and 4 were **not executed** — deliberately, because
-`D-IMPL-148` Addendum A gates Task 4 on exactly what Task 2 just shipped and a
-separate executor takes them from here.
+All four tasks shipped. **Both parameterised product doors carry a client's
+parameters; the MCP door refuses in the canonical envelope rather than in a
+raised exception; both doors name the replay record that authorized a delivery;
+and `mcp+stdio` is now a second official adapter that passed the conformance
+suite without the suite moving to let it.**
 
-## Status: 2 of 4 tasks
+The phase's claim is discharged rather than asserted. One question, one pinned
+instant, two genuinely different transports — one in-process, one across a real
+process boundary with a spawned child and real pipes:
+
+| Transport | Content address |
+| --- | --- |
+| `inprocess` | `4113d988a3836a0c7a75ecb933c95b09fc9a7a263ed3477a65d325f31eccec50` |
+| `mcp+stdio` | `4113d988a3836a0c7a75ecb933c95b09fc9a7a263ed3477a65d325f31eccec50` |
+
+…and the identical replay reference on both:
+
+```
+ccf-artifact://tenant-client-fixture/fixture.replay-record/5b1bce07965497083f11d1d2340cd2d56996041652783da8d3aad265f0edb5ad@7001225c0a052e9d7477bdc426e5af3f149b6f55ea5bc6ddd13b98ce7ae3fefb
+```
+
+`replay_ref` was neither exempted nor special-cased anywhere, which was Dave's
+explicit condition.
+
+## Status: 4 of 4 tasks
 
 | Task | Name | Status | Commit |
 | --- | --- | --- | --- |
 | 1 | The egress tool carries a client's parameters | **complete** | `74a4224` |
 | 2 | The MCP door emits the canonical refusal envelope (+ both doors carry the replay ref) | **complete** | `36c78fb` |
-| 3 | The `mcp+stdio` adapter, sync at the surface | **not started** | — |
-| 4 | Bind MCP into the conformance suite | **not started** | — |
+| 3 | The `mcp+stdio` adapter, sync at the surface | **complete** | `f0d7670` |
+| 4 | Bind MCP into the conformance suite | **complete** | `671835f` |
 
 ---
 
@@ -407,6 +444,247 @@ nothing. Updated, with a pointer to the restatement and its reason.
 
 ---
 
+# Task 3 — what shipped
+
+`src/ccf/client/adapters/mcp_stdio.py` (415 lines), registered by **one dict
+entry** at the bottom of its own module, exactly as `inprocess.py` ends.
+`SCHEME_REGISTRY` now holds `['inprocess', 'mcp+stdio']`.
+
+## What was missing, as the plan asked to be told
+
+`src/ccf/mcp/client.py` **speaks streamable HTTP only and reads resources
+only** — it has no stdio transport and no tool-call surface. Both were built
+here. What *was* reused is its recorded reasoning rather than its code: the
+**session-per-call** rule, which exists because a held `ClientSession` driven
+from a blocking bridge was measured to deadlock.
+
+`SyncMcpBridge` was deliberately **not** reused, and the reason is a value the
+SDK may not choose. It requires `call_timeout_seconds` with no default
+(`D-IMPL-38`), and an `AdapterFactory` receives one string with no deadline in
+it. The plan's own threat register dispositions `T-17-41` (a stdio server that
+never responds) as **accept** for v0 — no timeout, no retry, no backoff — so the
+adapter invents none and runs one `asyncio.run` per call instead.
+
+## The address form, and why it is two tokens
+
+**`mcp+stdio:<program> <root>`**, `shlex`-split so either half can be quoted.
+
+The one-token form — *the deployment is the program's own directory* — was
+written first, and **a shipped gate caught it**. `D-IMPL-141` Amendment A.3
+grants a deployment root exactly **one** Python module, its projection, and
+`tests/client/test_data_only_deployment.py` refuses a second by name. Nine tests
+went red on a `server.py` placed in the fixture root. The gate is right; the
+address form changed.
+
+So both halves are named because neither is inferable from the other:
+
+- **the program** — because the SDK ships no server entry point and cannot.
+  `build_egress_server` requires a server name, a token verifier, auth settings,
+  an entitlement source and a perspective resolver: five deployment values in
+  their entirety (CINV-01);
+- **the root** — because the deployment cannot hold the program, and because
+  stdio means *the client launches the server*, so a client that starts a
+  deployment necessarily already knows where it is.
+
+`ccf.client.binding` and `ccf.client.client` have spelled this scheme
+`mcp+stdio:./server.py` since `D-06`; the program still leads the address.
+
+## Where the tool's eight arguments come from
+
+`PRODUCT_REQUEST_TOOL` takes eight and a `WireRequest` carries three. That gap
+is the `D-04` boundary showing through, not something to paper over: the
+client's question is *what class, which parameters, as of when*, and the rest is
+the deployment's vocabulary — read from the **same two documents the in-process
+adapter reads**. `tenant` and `version` come from `ccf_config.yaml`;
+`subject`/`intent`/`freshness` from `binding.yaml`. `version` is emphatically
+**not** the caller's: `WireRequest` carries none by ruling, because a client
+pinning a schema version is a client maintaining a copy of the deployment's
+registry.
+
+## `PRODUCT_REQUEST_TOOL` moved to `src/`, and `egress.py` re-exports it
+
+The adapter must name the tool it calls, and `src/` cannot import `runtime/`.
+The constant is now bound in `ccf.products.door` — which exists for precisely
+this reason, in its own words, *"the shape is emitted by a door in `runtime/`
+and decoded by a client in `src/ccf/client`… so the emission and the decode
+agree by construction rather than by two implementations being written to the
+same paragraph."* A tool **name** spelled on both sides of that boundary is the
+same hazard. `egress.py` imports it and keeps it in `__all__`, so every existing
+`ccf_runtime.mcp.egress.PRODUCT_REQUEST_TOOL` import and citation resolves
+unchanged.
+
+The alternative considered and rejected was **discovering** the tool by calling
+`list_tools()` and requiring exactly one. It needs no surface change, and it
+buys that by making the adapter unable to say which door it is calling — it
+would break the moment a deployment mounted a second tool on the same server.
+
+## The environment hazard, measured rather than imagined
+
+**`mcp.client.stdio.get_default_environment()` hands a child six variables** —
+`HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM`, `USER` — and `PYTHONPATH` is not
+among them. A child launched with that default resolves `ccf` through the
+interpreter's editable install, which **in this worktree is the main checkout**.
+
+This was not theoretical. The first end-to-end smoke run passed with identical
+content addresses and identical replay references *while the server process was
+running a different checkout's code*. It reported a perfect result about
+software the client under test was not running — the exact defect class this
+repository's own hazard notes warn about, reproduced from the inside.
+
+The adapter now passes `env=dict(os.environ)` explicitly, with the reasoning in
+its docstring: MCP's filtered default is right for a server you did not write,
+and a deployment's own program is not one of those.
+`test_the_child_resolves_the_same_ccf_this_client_is_running` asserts the child's
+`ccf.__file__` equals the parent's, and **was observed failing** with the
+inheritance removed — reporting
+`/home/parkave/ccf_code/src/ccf/__init__.py` against the worktree's path.
+
+## Transport failures — four modes, four places
+
+Every one raises `TransportError` and produces **no** `Result`:
+
+| Leg | Where it fails |
+| --- | --- |
+| `test_an_address_naming_no_program_raises_before_anything_is_launched` | before launch — `BindingError`, a `TransportError` by inheritance |
+| `test_a_server_that_exits_at_once_raises_rather_than_refusing` | at the pipe — the child dies mid-handshake |
+| `test_a_door_that_raises_arrives_as_a_broken_wire_and_not_as_a_no` | at the door — `isError` with the server's prose in front of it |
+| `test_a_server_answering_something_other_than_an_outcome_raises` | in the bytes — not a `DoorOutcome` |
+
+Plus `test_a_one_token_address_is_refused_rather_than_half_resolved`, and the
+**non-vacuity leg**: a question the real deployment refuses comes back as a
+*value* — a refused `Result`, no exception. Without it, "everything raises"
+would have passed all four above.
+
+**A governance refusal arrives on this wire as `isError`, and is reported as a
+broken wire rather than as a "no".** That is not a narrowing:
+`ccf.client.errors` already places *an authentication failure* under *the wire
+never spoke*, because from where the caller stands no governed answer arrived.
+String-parsing FastMCP's `ToolError: Error executing tool …` prefix for an
+audited verdict is not a channel — the same measurement Task 2 made.
+
+## `git diff src/ccf/client/binding.py` — no new mechanism
+
+Seven insertions, five deletions, **all inside one comment block**: the note
+saying the registry is empty *"until"* the adapters land now names both adapters
+and says each registers in one statement. No code changed in that module.
+
+---
+
+# Task 4 — what shipped
+
+**`git diff tests/client/conformance/suite.py` is EMPTY.** A factory, a break
+hook, and one call per property were the whole of the binding.
+
+**And this time that is not the trivial truth.** Task 1's executor was careful
+to say an empty diff proved nothing while Tasks 3 and 4 had not run. It is
+evidence now, and the specific thing it is evidence of is this: binding a real
+second transport — a different process, a different lifecycle, a different
+failure vocabulary, a question assembled from different sources — required
+**adding a subject and nothing else**. What made it possible is that `suite.py`
+reaches every transport through `AdapterSubject` (a name, a way to connect, a
+way to break) and derives its compared fields from `Result` rather than writing
+them down.
+
+## What is now compared, and against what
+
+Six legs take **both** subjects, so the cross-adapter comparisons stop
+degenerating to self-comparisons:
+
+| Leg | What it now proves across two transports |
+| --- | --- |
+| `assert_served_parity` | every declared `Result` field identical — `payload`, `content_address`, `replay_ref`, `lineage`, `debt`, the request identity |
+| `assert_one_question_is_one_address` | one question, one content address, whichever transport carried it |
+| `assert_refusal_parity` | the same governed no — reason, key, unflattened kind, request identity |
+| `assert_guard_parity` | the fail-closed guard holds per **field**, on both |
+| `assert_wire_failure_parity` | a killed transport raises on both; a refusal through the healthy one does not |
+| `assert_two_parameters_are_two_addresses` | `D-23` on the new path — the caller's number is in the address |
+
+The break hook is transport-specific and genuinely damages the substrate: it
+writes a program that exits immediately **beside** the deployment root (never
+inside it — Amendment A.3 again) and points the binding at it, so the pipe
+closes on the client. The hook raises nothing itself, and returns the same class
+the healthy factory returns, so `suite.py`'s own same-type check is satisfied
+rather than worked around.
+
+## The deployment's server program
+
+`tests/client/fixtures/stdio_server.py`, beside the deployment and not in it.
+It **boots through `ccf.client.adapters.inprocess::_boot`** — the same function
+the in-process adapter boots through — and that is load-bearing rather than
+tidy: if it composed its own resolver, a passing parity leg would only show that
+two *compositions* happened to agree. This is also how the `GovernedResolver`
+precondition Task 2 recorded is satisfied by construction rather than by
+inspection, and it was checked **before** the server was written, as instructed.
+
+**One thing the deployment had to state that no shipped code could state for
+it.** MCP stdio carries no authentication channel — FastMCP installs its bearer
+middleware on the HTTP app, and there is no HTTP app — so `get_access_token()`
+inside the door's handler finds nothing and the door refuses every caller as
+unverified. The transport's own boundary is process ownership. The fixture
+deployment therefore establishes its stdio caller's identity once, in **its own
+program**, which is the only place such a decision may be written (CINV-01).
+This is recorded as FINDING 6 below, because it is a real gap in the shipped
+door's governance story and not merely a fixture detail.
+
+## D-22 controls — a binding that could not fail would prove nothing
+
+`test_the_suite_fires.py` proves the suite's *assertions* fire. It cannot prove
+that **this binding** puts a real second transport where those assertions can
+see it: a factory returning an adapter that agreed with in-process by
+construction would pass every leg while comparing nothing. So two controls pass
+a **divergent `mcp+stdio` subject** into the **real** `assert_served_parity`,
+alongside the **real** in-process subject. Both still spawn a real child over
+real pipes; each diverges in exactly one way, downstream of the transport.
+
+| Control | Divergence | Observed |
+| --- | --- | --- |
+| `test_served_parity_fires_on_an_mcp_door_that_drops_the_replay_reference` | `replay_ref` discarded on the way back | raises — *"`replay_ref`: inprocess answered 'ccf-artifact://…' and mcp+stdio answered None"* |
+| `test_served_parity_fires_on_an_mcp_transport_answering_another_question` | asks one question, echoes another | raises — *"`payload`: … `count`: 2 vs 1 …; `content_address`: …"* |
+
+The first is the one this plan exists for. `replay_ref` is compared through
+`result_fields()`, which **derives** its list from `Result` — so nobody can see
+that comparison by reading the suite. The control makes it visible, which is
+what turns *"both doors carry the reference"* from a claim into a measurement.
+
+Neither control edits `src/` or `runtime/`, and neither re-implements an
+assertion.
+
+## Which pipeline runs the MCP conformance leg, and why
+
+**The always-on one.** `make conformance` runs `tests/client/conformance`, and
+`make test` already collects that directory, so the MCP leg runs on every
+`ci-core` with no opt-in. It is entitled to be there: it is **network-free and
+credential-free** — a child process on the same host, a file-backed store, a
+SQLite graph composed from a path — so it passes with every substrate
+environment variable unset. `D-32`'s opt-in discipline applies to a deployment
+pointed at stores outside the repository, and this is not one.
+
+Cost measured: `make conformance` 54 passed in **13.9 s** (was 47 tests); the
+MCP legs spawn roughly a dozen short-lived children.
+
+## The binding file is 131 lines, not 80 — and where they went
+
+The plan budgeted 80 and said an overage means *"the suite is carrying
+adapter-specific weight and the SUMMARY says where."* Measured, by AST:
+
+| | `test_mcp_conformance.py` | `test_inprocess_conformance.py` (the model) |
+| --- | --- | --- |
+| total | 131 | 188 |
+| blank | 32 | 38 |
+| comment | 4 | 41 |
+| docstring | 47 | 48 |
+| **code** | **48** | **61** |
+
+**None of the overage is adapter-specific weight.** The adapter-specific part is
+two functions — `connect_over_stdio` and `break_over_stdio` — totalling four
+statements. The rest is 20 lines of imports, seven one-line delegations to
+`suite.py`, and prose. The module carries *less* code than the single-subject
+module it mirrors, for one more subject and the same seven legs. Seven legs with
+a docstring each cannot fit in 80 lines, and cutting legs to reach a line count
+would have traded coverage for a number.
+
+---
+
 ## Findings — verified against the tree, not asserted
 
 ### FINDING 1 (was blocking for Task 4): **CLOSED.** Served parity's `replay_ref` leg can now pass
@@ -425,12 +703,15 @@ The remaining Task 4 dependency is Task 3, not this.
 Recorded in full above and in `D-IMPL-148` Addendum A. `mcp==1.28.1` was
 re-confirmed as the installed version.
 
-### FINDING 3 (advisory, still open): the plan's Task 3 verification command names a symbol that does not exist
+### FINDING 3 (advisory): **CONSUMED.** The plan's Task 3 verification command names a symbol that does not exist
 
 The plan's automated check is `from ccf.client.binding import SCHEMES`. The
-registry is named **`SCHEME_REGISTRY`** (`src/ccf/client/binding.py`, confirmed
-again at this commit). A later executor running that command verbatim gets an
-`ImportError` rather than a verdict.
+registry is named **`SCHEME_REGISTRY`**. Task 3 ran the corrected command:
+
+```
+$ PYTHONPATH=src:runtime .venv/bin/python -c "…; print(sorted(SCHEME_REGISTRY))"
+['inprocess', 'mcp+stdio']
+```
 
 ### FINDING 4 (new, advisory): the HTTP door still has no refusal channel
 
@@ -455,13 +736,86 @@ which is correct — but a bare `.venv/bin/python` invocation without that
 editable install points there. Verified at this commit:
 `PYTHONPATH=<worktree>/src:<worktree>/runtime` resolves `ccf` to the worktree.
 
+**Tasks 3 and 4 found the sharper half of this.** The `PYTHONPATH` that fixes
+the *parent* does not reach a **child process** launched over MCP stdio, because
+`mcp.client.stdio` filters the environment down to six variables. The child then
+resolves `ccf` through the venv's editable install — the main checkout — and
+answers correctly from code nobody is testing. See Task 3 above; the adapter now
+passes the environment explicitly and a test holds it there.
+
+---
+
+## Findings raised by Tasks 3 and 4
+
+### FINDING 6 (new, blocking-for-nobody-yet, but real): `assert_decision_instant_is_auditable` cannot take two subjects
+
+**A defect in plan `17-07`'s suite, reported rather than worked around.**
+
+The leg refuses a question that names its own instant — correctly, since handed
+one it would recover the value it was given. It then compares the recovered
+`served.lineage.graph_snapshot_at` **across subjects** via `_assert_views_agree`.
+But with `as_of=None` each subject resolves the instant by reading a clock, so
+any two subjects recover two different instants. Measured with two *in-process*
+deployments: `2026-08-17 17:35:45.603222+00:00` against
+`2026-08-17 17:35:45.719308+00:00` — 116 ms apart.
+
+So the leg is unsatisfiable for **any** two subjects, and this is **not
+MCP-specific**: two in-process subjects would fail it identically. It is
+vacuously green today only because one subject is bound.
+
+**Three things were not done about it**, per Dave's ruling that the suite is not
+weakened to admit an adapter: `replay_ref` was not dropped, MCP was not
+special-cased, and `suite.py` was not edited. The MCP binding calls this leg with
+**the MCP subject alone**, which is a per-module argument choice and not a suite
+change; its per-subject property — *a caller can recover the instant that
+answered, and prove it by re-asking pinned to it* — is real and is asserted for
+this transport.
+
+The fix, when someone rules on it, is a suite change: either split the leg into a
+per-subject property and a separate cross-subject one over a *pinned* question,
+or compare only the per-subject re-ask invariant. Both are `17-07`'s to make.
+
+### FINDING 7 (new, advisory): the shipped egress door has no identity story over stdio
+
+`build_egress_server` requires `token_verifier` and `auth_settings` together
+(`D-03`), and FastMCP installs that middleware **only on the HTTP app**. Over
+stdio there is no HTTP app, so `verified_grant()` finds no access token and the
+door refuses every caller `UnverifiedProductCallerRefused` — before any
+deployment gets a say.
+
+MCP stdio has no authentication channel by design; its boundary is process
+ownership, and the server is a child of the client that spawned it. So a
+deployment serving over stdio must establish its caller's identity itself, and
+the fixture deployment does exactly that in its own program — which is the right
+place (CINV-01: an identity provider is never the SDK's to choose).
+
+What is **not** settled is whether the SDK should offer a supported seam for it,
+or say in `build_egress_server`'s docstring that the auth pair is inert over
+stdio and identity is the deployment's to establish. Today a deployment
+discovers this by having every call refused. Worth a `D-IMPL` entry; not raised
+as one here because Tasks 3 and 4 were not chartered to change that door, and
+the fixture's own program is a legitimate resolution for the conformance leg.
+
+### FINDING 8 (new, advisory): `D-24`'s revisit trigger fired and the answer did not change
+
+`docs/superpowers/specs/2026-08-15-ccf-client-design.md` §9 names *this adapter*
+as the trigger for revisiting the sync-only client surface. It was built and the
+ruling holds unchanged: `ask` is synchronous, the async client is bridged inside
+it with one `asyncio.run` per call, and no asynchronous twin was added. Recorded
+because a named trigger that fires silently is a decision nobody knows was made.
+
 ---
 
 ## Requirements
 
-`CLNT-15` is **partially** satisfied — its parameters clause and its
-refusal-envelope clause are discharged; its conformance clause is not.
-`CLNT-12` is untouched by the shipped half. Neither is marked complete.
+`CLNT-15` is **satisfied**: its parameters clause (Task 1), its
+refusal-envelope clause (Task 2) and its conformance clause (Task 4) are all
+discharged. `CLNT-12` is **satisfied** by Task 3 — a second registered transport
+adapter exists, builds no `Result`, and is sync at the surface.
+
+Requirement IDs are **not** marked complete here: the orchestrator owns
+`STATE.md`, `ROADMAP.md` and `REQUIREMENTS.md` for this plan, and neither was
+touched.
 
 ## Verification
 
@@ -505,8 +859,54 @@ only correct if the working tree is clean of scratch files when it is
 regenerated.** Every log this task produced was written outside the repository
 after that was discovered.
 
-`make conformance` and `make docs-strict` were **not** run — they belong to
-Tasks 3 and 4, which were not executed.
+`make conformance` and `make docs-strict` were **not** run at Task 2 — they
+belong to Tasks 3 and 4. Both are run and green below.
+
+### Tasks 3 and 4 — the phase's final sweep
+
+Same discipline: `PYTHONPATH=src:runtime` on every invocation, every log written
+**outside** the repository, `ci-core` and `docs-strict` run **detached** with a
+`REAL_EXIT` sentinel and branched on rather than echoed.
+
+| Command | Exit | Result |
+| --- | --- | --- |
+| `make ci-core` | **`REAL_EXIT=0`** | **3832 passed, 118 skipped, 0 failed** in 573.96 s; `lint` 0; `typecheck` `Success: no issues found in 211 source files`; `gate-tools` `400 passed` + `154 passed` |
+| `make conformance` | 0 | **54 passed** in 13.89 s (was 47 — the seven MCP legs) |
+| `make docs-strict` | **`REAL_EXIT=0`** | strict mkdocs build + publish scan clean |
+| `make gate-tools` (first run) | **2** | one stale generated report — see below |
+| `make gate-tools` (after regeneration) | 0 | `400 passed`, `154 passed` |
+| `make lint` | 0 | clean |
+| `make typecheck` | 0 | `Success: no issues found in 211 source files` |
+| surface gates (drift, completeness, shape capture) | 0 | 39 passed |
+| `pytest tests/client/test_mcp_stdio_adapter.py` | 0 | 7 passed |
+| `pytest tests/client/conformance/test_mcp_conformance.py` | 0 | 7 passed |
+| `pytest tests/client/conformance/test_the_mcp_binding_fires.py` | 0 | 2 passed |
+
+**The pass count moved 3816 → 3832: exactly +16**, which is 7 adapter tests + 7
+conformance legs + 2 controls. **No test was removed to get there**, and the
+skip count is unchanged at 118 — nothing was quietly turned off.
+
+**`gate-tools` went red first, and reporting it is again the point.** The same
+failure class Task 2 hit: `docs/surface/examples/RETIREMENT-COUPLINGS.md` stale
+by two lines of line-number drift, from docstring paragraphs added to
+`egress.py` and `binding.py`. Regenerated with the working tree clean of scratch
+files, and the sweep reported **`232 coupling rows across 73 files`** — the same
+figure Task 2 established as the true one, which is the check that no scratch
+file inflated it. It was re-swept again after this SUMMARY was written, because
+the sweep reads the planning tree including this file.
+
+### Three surface names were added, and the gates caught all three
+
+`ccf.products.door.PRODUCT_REQUEST_TOOL`,
+`ccf.client.adapters.mcp_stdio.McpStdioAdapter` and
+`ccf.client.adapters.mcp_stdio.SCHEME` each failed
+`test_surface_completeness.py` with *"NO ENTRY"* until
+`docs/surface-changes/17-10-the-mcp-stdio-adapter.md` claimed them.
+`docs/SURFACE-CHANGES.md` was reassembled with `make surface-changes`.
+
+**`docs/surface/v0.2-surface.json` was NOT regenerated** — single-owner rule,
+only `15-01` and `15-21` write it. `git status` confirms it untouched.
+`openapi.json` was likewise not touched: Tasks 3 and 4 added no HTTP surface.
 
 ### `openapi.json` — measured, not assumed
 
@@ -517,26 +917,80 @@ OpenAPI document. `make openapi` was run and `git status` showed `openapi.json`
 unmodified. The precedent is `D-IMPL-126`'s content-address header, which is
 likewise absent from the document.
 
+## Deviations from Plan (Tasks 3 and 4)
+
+### 1. `[Rule 3 — blocking]` the address form is two tokens, not one
+
+The plan says *"the address form is `mcp+stdio:<command>` — decide the exact
+spelling by reading how the existing MCP tooling in the tree spells a stdio
+server command."* **There is no existing stdio tooling in the tree** — measured;
+`grep -rn stdio` over `src/`, `runtime/`, `tests/` and `examples/` returned eight
+hits before this plan, every one of them prose about the scheme name (five in
+`binding.py`, one in `client.py`) or the one `split_binding` test asserting
+`mcp+stdio:./server.py` splits into two. No transport, no command, no launcher.
+So the spelling was decided against
+the constraints instead, and the one-token form was blocked by a shipped gate
+(`D-IMPL-141` Amendment A.3). Recorded in full under Task 3.
+
+### 2. `[Rule 3 — blocking]` `PRODUCT_REQUEST_TOOL` moved from `runtime/` to `src/`
+
+Not in the plan's Task 3 `<files>`. It is forced: the adapter must name the tool
+it calls and `src/` cannot import `runtime/`. `egress.py` re-exports the name, so
+nothing that cited it moves. Surface fragment written; gates green.
+
+### 3. `[Rule 2 — missing critical functionality]` the child inherits the caller's environment
+
+Not in the plan. Without it the spawned server resolves a **different checkout's**
+`ccf` and reports correct-looking answers about untested code — observed, not
+theorised. A test now asserts the child's `ccf.__file__` matches the parent's and
+was observed failing without the fix.
+
+### 4. `[Rule 2]` the D-22 controls are new tests, not a plan requirement
+
+Tasks 3 and 4 carry no `<acceptance_criteria>` sabotage clause of their own.
+Two were written anyway, because a conformance *binding* that could not fail
+proves nothing about the transport it binds — the same argument Tasks 1 and 2
+made about their assertions.
+
+### 5. `[Rule 1 — bug]` `tests/client/fixtures/` gained an `__init__.py`
+
+Needed so both the adapter tests and the conformance binding import one
+`STDIO_SERVER` constant rather than each spelling the path. Note the contrast
+with `tests/mcp/`, which must **not** gain one: `tests/` is on `sys.path`, so an
+`__init__.py` there would shadow the `mcp` distribution. `tests/client/fixtures`
+shadows nothing, and `make ci-core` confirms collection is unaffected.
+
 ## Not done, and what it would take
 
-- **Task 3** — `mcp+stdio` adapter. `src/ccf/mcp/client.py` speaks
-  **streamable HTTP only and reads resources only**: it has no stdio transport
-  and no tool-call surface, so the adapter needs both added. The
-  harness-import lint permits the `mcp` import in `src/` — confirmed green,
-  and `src/` already imports it in four modules. The adapter parses the tool's
-  text as a `DoorOutcome` and maps it onto a `WireOutcome`: `product_json`
-  straight across, `content_address` recomputed by the decoder,
-  `replay_ref` straight across, `refusal` straight across. **It builds no
-  `Result`** (`D-12`). Note `SCHEME_REGISTRY`, not `SCHEMES` (FINDING 3).
-- **Task 4** — conformance binding. Needs a stdio server entry point that boots
-  a deployment root the way `inprocess::_boot` does. FINDING 1 is now closed,
-  so the `replay_ref` parity leg is satisfiable — **provided the deployment's
-  resolver is a `GovernedResolver`**, which returns `ServedProduct` and
-  therefore carries a reference. A fixture resolver returning the narrower
-  `ServableProduct` would emit `replay_ref=None` over MCP and disagree with the
-  in-process leg. That is the first thing to check when wiring the fixture.
+- **FINDING 6** — `assert_decision_instant_is_auditable`'s cross-subject
+  comparison. A `17-07` suite change, deliberately not made here.
+- **FINDING 7** — a supported identity seam (or at minimum a docstring) for the
+  egress door over stdio. Worth a `D-IMPL` entry; out of charter for this plan.
+- **`ccf.mcp.client` was not refactored.** The `mcp+stdio` adapter carries its
+  own stdio transport and tool call rather than growing them onto
+  `McpResourceClient`, whose surface is *resources over streamable HTTP*. If a
+  second stdio consumer ever appears, that is the moment to lift the transport
+  into the shared module — one consumer is not yet evidence of a shared concern.
 
-**`tests/client/conformance/` was not touched.** `git diff` against the
-directory is empty — but that is the trivial truth, since Tasks 3 and 4 never
-ran. It is **not** evidence for the phase's adapter-agnostic claim, and should
-not be reported as though it were.
+**`tests/client/conformance/suite.py` was not touched, and this time that
+means something.** `git diff` against it is empty *with a real second adapter
+bound and passing all seven legs* — which is the claim plan `17-07` wrote itself
+to make and could not test. What it took: an eight-line factory pair and seven
+one-line delegations. What it did **not** take: an assertion added, an assertion
+narrowed, a field exempted, or MCP named anywhere inside the suite.
+
+## Self-Check: PASSED
+
+Every file this plan claims to have created exists on disk, and every commit
+hash it cites resolves in `git log`:
+
+- `src/ccf/client/adapters/mcp_stdio.py`, `src/ccf/products/door.py`
+- `tests/client/test_mcp_stdio_adapter.py`, `tests/client/fixtures/__init__.py`,
+  `tests/client/fixtures/stdio_server.py`
+- `tests/client/conformance/test_mcp_conformance.py`,
+  `tests/client/conformance/test_the_mcp_binding_fires.py`
+- `docs/surface-changes/17-10-the-mcp-stdio-adapter.md`
+- commits `74a4224`, `36c78fb`, `f0d7670`, `671835f`
+
+`.planning/STATE.md`, `.planning/ROADMAP.md` and `.planning/REQUIREMENTS.md` are
+**unmodified** — the orchestrator owns them for this plan.

@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**715 entries**, of which **482** name a public Python surface.
+**718 entries**, of which **485** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-357 entries — 323 public Python surface, 34 not public Python API.
+360 entries — 326 public Python surface, 34 not public Python API.
 
 ### Public Python surface
 
@@ -6388,6 +6388,73 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   "no record was named" and "the record is named by nothing" stay distinguishable
 
 *Recorded by `17-10-both-doors-carry-the-replay-reference.md`.*
+
+#### ccf.products.door.PRODUCT_REQUEST_TOOL
+
+- Surface: ccf.products.door.PRODUCT_REQUEST_TOOL
+- Public surface: true
+- Change type: added
+- Before: the name was bound in `ccf_runtime.mcp.egress` and only there. Nothing
+  in `src/` could refer to the tool it names, because `src/` cannot import
+  `runtime/`
+- After: the string is bound in `ccf.products.door` and
+  `ccf_runtime.mcp.egress` imports it and re-exports it under the same name, so
+  every existing `ccf_runtime.mcp.egress.PRODUCT_REQUEST_TOOL` citation and
+  import resolves unchanged
+- Why: the *emitting* side is a door in `runtime/` and the *calling* side is
+  `ccf.client.adapters.mcp_stdio` in `src/`. This is precisely the argument
+  `ccf.products.door` already makes for holding `DoorOutcome` — a fact spelled on
+  both sides of a boundary neither can cross is two implementations written to
+  the same paragraph rather than one fact. The tool's *name* is SDK mechanism and
+  not a deployment value (CINV-01): a deployment chooses whether to expose the
+  tool and what prose it advertises, and the SDK chooses what it is called,
+  exactly as it chooses the shape of what the tool returns
+- Migration: none. The name is still exported from `ccf_runtime.mcp.egress` and
+  still holds the identical string, so no import, citation or wire call moves
+
+*Recorded by `17-10-the-mcp-stdio-adapter.md`.*
+
+#### ccf.client.adapters.mcp_stdio.McpStdioAdapter
+
+- Surface: ccf.client.adapters.mcp_stdio.McpStdioAdapter
+- Public surface: true
+- Change type: added
+- Before: absent. `inprocess` was the only shipped transport, so every
+  cross-adapter comparison in the conformance suite degenerated to a
+  self-comparison and the phrase *"same `consume.py`, different `CCF_BINDING`,
+  identical `Result`"* had one binding to be true of
+- After: a `TransportAdapter` that launches the deployment's own MCP server
+  program as a child process, calls the parameterised product tool over stdio,
+  and re-shapes the door's `DoorOutcome` as a `WireOutcome`. The address form is
+  `mcp+stdio:<program>` and the deployment is the program's own directory —
+  stdio means the client launches the server, so a client that starts a
+  deployment necessarily knows where it is
+- Why: `D-06` and `D-15`. A conformance suite parameterised over adapters is
+  worth nothing with one adapter bound, and CLAUDE.md §7.3's portability
+  commitment is *demonstrated, not asserted*. With this adapter bound, one
+  question at one instant is shown to produce a byte-identical content address
+  and the identical replay reference through two genuinely different transports
+- Migration: none — additive. A deployment reaches it by setting `CCF_BINDING`
+  to an `mcp+stdio:` address and importing
+  `ccf.client.adapters.mcp_stdio`, the same way `inprocess` is reached. It ships
+  **no** server program and cannot: `build_egress_server` requires five
+  deployment values, so the program is the deployment's to write
+
+*Recorded by `17-10-the-mcp-stdio-adapter.md`.*
+
+#### ccf.client.adapters.mcp_stdio.SCHEME
+
+- Surface: ccf.client.adapters.mcp_stdio.SCHEME
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the string `mcp+stdio`, bound once so the registry entry, the adapter's
+  refusal messages and the tests all say the same thing
+- Why: the sibling of `ccf.client.adapters.inprocess.SCHEME` and for its stated
+  reason — a scheme spelled at each use site is a scheme two of them can drift on
+- Migration: none — additive
+
+*Recorded by `17-10-the-mcp-stdio-adapter.md`.*
 
 #### ccf.products.debt_scorer.AssemblyDebtScorer
 

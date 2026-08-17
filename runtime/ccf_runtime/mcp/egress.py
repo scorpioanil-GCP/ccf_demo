@@ -119,7 +119,12 @@ from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 
 from ccf.contracts.canonical import canonical_bytes
-from ccf.products.door import DoorOutcome, door_refusal, served_answer
+from ccf.products.door import (
+    PRODUCT_REQUEST_TOOL,
+    DoorOutcome,
+    door_refusal,
+    served_answer,
+)
 from ccf.products.gates import ServableProduct
 from ccf.products.request import ProductRequest
 from ccf.projection.plan import Perspective
@@ -158,12 +163,21 @@ PRODUCT_URI_TEMPLATE = (
 #: is what lets a consumer parse it without sniffing.
 PRODUCT_MIME_TYPE = "application/json"
 
-#: The one parameterised Tool this server can expose, named here rather than
-#: at each use site for the reason :func:`product_uri` exists: the server, the
+#: The one parameterised Tool this server can expose, named once rather than at
+#: each use site for the reason :func:`product_uri` exists: the server, the
 #: tests and the docs must agree what the surface *is* rather than each
 #: spelling it, which is how two of them drift. Registered only when a
 #: deployment opts in (:func:`build_egress_server`).
-PRODUCT_REQUEST_TOOL = "request_context_product"
+#:
+#: **Re-exported from** :data:`ccf.products.door.PRODUCT_REQUEST_TOOL` **rather
+#: than defined here**, and the move is the same argument
+#: :mod:`ccf.products.door` makes for holding :class:`~ccf.products.door
+#: .DoorOutcome`: the *calling* side is
+#: :mod:`ccf.client.adapters.mcp_stdio` in ``src/``, ``src/`` cannot import
+#: ``runtime/``, and a tool name spelled on both sides of that boundary is two
+#: implementations written to the same paragraph. The name binding stays here
+#: and stays exported, so every existing
+#: ``ccf_runtime.mcp.egress.PRODUCT_REQUEST_TOOL`` citation resolves unchanged.
 
 
 class NaiveAskedAtRefused(ValueError):
