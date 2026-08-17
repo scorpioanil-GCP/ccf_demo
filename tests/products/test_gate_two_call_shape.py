@@ -466,6 +466,19 @@ from collections.abc import Iterator
 from typing import NamedTuple
 
 import pytest
+import yaml
+
+#: The binding document's own vocabulary, imported from the SDK rather than
+#: respelled here. This gate has to read the **same** key
+#: :func:`~ccf.client.adapters.inprocess._boot` reads, and two spellings of one
+#: vocabulary drift silently — the defect class this module already guards
+#: against with :func:`test_this_module_gates_the_same_set_the_tool_checks`.
+#: :func:`test_the_binding_documents_reference_surface_is_still_one_key` refuses
+#: to let the import go stale.
+from ccf.client.adapters.binding_document import (
+    BINDING_DOCUMENT_NAME,
+    REFERENCE_KEYS,
+)
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -519,6 +532,19 @@ REQUIREMENTS_REGISTRATION_RE = re.compile(
 #: exemption spreading silently, which is the same instrument inverted. A
 #: second deployment claiming it cannot arrive without an edit here.
 MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS = 1
+
+#: Deployments claiming the `D-IMPL-141` **SDK-supplied** exemption — the
+#: deployment authors no operator set at all, because
+#: :func:`~ccf.products.resolver.build_governed_resolver` hands its projection
+#: factory one derived from the registered product class.
+#:
+#: **A separate ceiling from** :data:`MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS`, and the
+#: separation is the point rather than bookkeeping. The two exemptions are
+#: different claims — *one document where two were possible* versus *no document
+#: at all* — and one shared counter would let either population grow into the
+#: other's headroom while both ceilings read green. No headroom here either: the
+#: second claimant is red, and a human rules on it.
+MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS = 1
 
 #: What :class:`ccf.projection.plan.ProjectionPlan` is structural **about**,
 #: quoted from its own docstring: *"Any type exposing ``required_operators()``
@@ -1434,6 +1460,210 @@ def _one_document(
     return all(_shares_a_source(claim, source) for source in sources)
 
 
+# --- the SECOND way the premise can be false: the SDK supplies the set --------
+#
+# `D-IMPL-141` (Dave, 2026-08-16) changed the shape a deployment ships. Under
+# the shape `_one_document` was written for, a deployment's own spine computed
+# `required=` and could therefore be caught reading the product class's claim.
+# Under the shape that ships now, the deployment writes ONE Python module — its
+# projection — and `~ccf.products.resolver.build_governed_resolver` hands that
+# module its operator set as a PARAMETER, already derived from the registered
+# product class. There is no in-body read for `_class_claim` to find, and the
+# construction is typically `return Plan(required=required, ...)` rather than an
+# assignment, so `_plan_sources` records nothing either. Both fail-closed
+# branches fire and the demand applies to a body that cannot satisfy it.
+#
+# It cannot satisfy it, and that is the finding rather than an inconvenience:
+# adding the binder call here would hand `refuse_operator_set_divergence` the
+# SDK-derived set on BOTH sides, which is exactly the tautology
+# `_binder_collapses` property (1) refuses. The coverage assertion would be
+# demanding a call the collapse assertion rejects.
+#
+# The real comparison did not disappear; it moved. For a `D-IMPL-136`
+# single-file deployment it runs at boot, in
+# `~ccf.deployment.config.derive_deployment`, which calls
+# `~ccf.deployment.config._refuse_operator_set_divergence` over the product
+# class's `required_operator_keys` and the `operators:` section's own keys.
+
+
+#: The keyword :class:`~ccf.products.resolver.ProjectionPlanFactoryProtocol`
+#: hands the operator set through, which is also the constructor keyword the
+#: plan is then built with. They coincide by the Protocol's own signature rather
+#: than by convention, and
+#: :func:`test_the_factory_seam_still_names_its_operator_set_parameter` refuses
+#: to let that coincidence rot into an assumption.
+FACTORY_REQUIRED_PARAMETER = PLAN_REQUIRED_KEYWORD
+
+
+def _scope_parameters(scope: ast.AST) -> frozenset[str]:
+    """Every parameter name ``scope`` declares. Empty for a non-function body.
+
+    Positional-only, ordinary and keyword-only alike: the seam is keyword-only
+    today, and a gate that read only ``args.args`` would answer ``False`` for
+    the very shape it exists to recognise.
+    """
+    if not isinstance(scope, ast.FunctionDef | ast.AsyncFunctionDef):
+        return frozenset()
+    arguments = scope.args
+    return frozenset(
+        argument.arg
+        for argument in (
+            *arguments.posonlyargs,
+            *arguments.args,
+            *arguments.kwonlyargs,
+        )
+    )
+
+
+def _binding_plan_reference(root: pathlib.Path) -> tuple[str, str] | None:
+    """``binding.yaml``'s ``plan:``, as ``(module path, attribute)``.
+
+    ``None`` where the deployment carries no binding document, where the
+    document does not parse, or where ``plan:`` is absent or not
+    ``<module>:<attribute>`` shaped. Every one of those is fail-closed for the
+    same reason :func:`_one_document`'s three are: a deployment that has made no
+    readable claim has not claimed anything.
+
+    Parsed plainly rather than through
+    :func:`~ccf.client.adapters.binding_document.load_binding_document`,
+    deliberately. That loader validates the **whole** document, so a deployment
+    with an unrelated authoring mistake would raise here and take this gate down
+    with it — a gate that reports a wiring typo as a binder-coverage failure.
+    Only the one key is read; its *name* still comes from the SDK.
+    """
+    document = root / BINDING_DOCUMENT_NAME
+    if not document.is_file():
+        return None
+    try:
+        parsed = yaml.safe_load(document.read_text(encoding="utf-8"))
+    except yaml.YAMLError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    reference = parsed.get(REFERENCE_KEYS[0])
+    if not isinstance(reference, str):
+        return None
+    module_path, separator, attribute = reference.partition(":")
+    if not separator or not module_path.strip() or not attribute.strip():
+        return None
+    return module_path.strip(), attribute.strip()
+
+
+def _constructed_plan_sources(
+    scope: ast.AST, plan_classes: frozenset[str] | None = None
+) -> tuple[tuple[str, ...] | None, ...]:
+    """Where every plan construction in ``scope`` reads its ``required=``.
+
+    The same question :func:`_plan_sources` answers, over a **wider** set of
+    statement forms: that function only sees constructions that are *assigned*,
+    because tripwire (2) needs to pair a binding with a later use. A factory
+    whose whole body is ``return Plan(required=required, …)`` assigns nothing,
+    so it is invisible there — and its invisibility is not evidence of anything.
+
+    Built from the same primitives — :func:`_is_plan_construction`,
+    :func:`_keyword`, :func:`_path` — rather than from a second idea of what a
+    plan construction is, so the two functions cannot disagree about *what* they
+    are looking at, only about which statement forms carry it.
+    """
+    sources: list[tuple[str, ...] | None] = []
+    for node in _scope_nodes(scope):
+        if not isinstance(node, ast.Call):
+            continue
+        if not _is_plan_construction(node, plan_classes):
+            continue
+        required = _keyword(node, PLAN_REQUIRED_KEYWORD)
+        sources.append(None if required is None else _path(required))
+    return tuple(sources)
+
+
+def _sdk_supplied_operator_set(
+    scope: ast.AST,
+    path: pathlib.Path,
+    plan_classes: frozenset[str] | None = None,
+) -> bool:
+    """Whether the SDK — not this body — supplied the operator set.
+
+    **Positively signalled, never inferred from absence.** Five conditions, and
+    each one is a fact readable from the tree rather than a gap in it:
+
+    1. The body sits in a deployment with a Control Plane authoring surface
+       (:func:`_deployment_root`), so a synthesized ``tmp_path`` fixture is
+       refused exactly as :func:`_one_document` refuses it.
+    2. That deployment registers **no** ``ccf.projection-requirements``. If it
+       registers one, a second operator set was authored and the demand stands
+       unchanged — this is the same first reading :func:`_one_document` makes,
+       and it is made here too rather than shared, because sharing it would
+       make one route's answer depend on the other's.
+    3. The deployment's ``binding.yaml`` names **this module and this function**
+       through its single permitted ``plan:`` reference. This is the load-bearing
+       condition: it is the Control Plane saying, on disk, *the SDK reaches this
+       function and constructs the resolver around it*. A module the binding
+       document does not name is a module the SDK never calls, and it gets no
+       exemption.
+    4. The function declares the seam's operator-set parameter.
+    5. Every plan it constructs is built from **that parameter** — at least one
+       construction, and no construction from anywhere else. A factory that
+       builds its plan from some other source has authored a second operator set
+       the Control Plane does not know about, which is `D-IMPL-137` row C, and
+       row C stays red.
+
+    **This is a different exemption from** :func:`_one_document`\\ **'s, and it
+    is counted separately on purpose.** Row B is a deployment that authors one
+    document where it could have authored two. This is a deployment that authors
+    **none** — it has no operator set of its own to author. Folding the two
+    together would let either ceiling absorb the other's growth, and each
+    ceiling exists so that the *next* claimant is red and a human rules on it.
+    :data:`MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS` bounds this one.
+    """
+    root = _deployment_root(path)
+    if root is None or _registers_requirements(root):
+        return False
+    if not isinstance(scope, ast.FunctionDef | ast.AsyncFunctionDef):
+        return False
+
+    reference = _binding_plan_reference(root)
+    if reference is None:
+        return False
+    module_path, attribute = reference
+    if attribute != scope.name:
+        return False
+    named = (root / module_path).resolve()
+    if named != path.resolve():
+        return False
+
+    if FACTORY_REQUIRED_PARAMETER not in _scope_parameters(scope):
+        return False
+
+    sources = _constructed_plan_sources(scope, plan_classes)
+    if not sources:
+        return False
+    return all(
+        _shares_a_source(source, (FACTORY_REQUIRED_PARAMETER,)) for source in sources
+    )
+
+
+def _premise_is_false(
+    scope: ast.AST,
+    path: pathlib.Path,
+    bindings: dict[str, tuple[_Binding, ...]],
+    plan_classes: frozenset[str] | None = None,
+) -> bool:
+    """Either route by which the binder demand has nothing to demand.
+
+    One predicate rather than two conditions spelled at each call site, for the
+    reason :func:`_exemption_problems` gives for its own existence: the demand
+    site, the collapse properties and their controls must judge by the same
+    code, or a third route added later reaches one of them and not the others.
+
+    The two ceilings stay separate behind it —
+    :func:`_one_document_deployments` and :func:`_sdk_supplied_deployments` each
+    read their own route — so this union bounds nothing and is not asked to.
+    """
+    return _one_document(scope, path, bindings, plan_classes) or (
+        _sdk_supplied_operator_set(scope, path, plan_classes)
+    )
+
+
 # --- tripwire (1): both gate arguments from one source ------------------------
 
 
@@ -2154,7 +2384,10 @@ def _binder_collapses(
     # unconditional: a body that calls the binder anyway is still refused for
     # the tautology, which is what makes this an absence of demand rather than
     # a licence.
-    demanded = not _one_document(scope, path, bindings, plan_classes)
+    # Both routes, through `_premise_is_false`: row B (the deployment authored
+    # one document) and the `D-IMPL-141` shape (the SDK supplied the set, so the
+    # deployment authored none). Property (1) stays unconditional under either.
+    demanded = not _premise_is_false(scope, path, bindings, plan_classes)
 
     # (1) the binder's two sides must be two documents
     for call in calls:
@@ -2296,20 +2529,51 @@ def _one_document_deployments() -> list[str]:
     return sorted(claimed)
 
 
-def _exemption_problems(claimed: list[str]) -> list[str]:
-    """Whether this set of claimants exceeds the ceiling.
+def _sdk_supplied_deployments() -> list[str]:
+    """Every deployment claiming the `D-IMPL-141` SDK-supplied exemption, by root."""
+    claimed: set[str] = set()
+    for path, scope in _projecting_scopes():
+        if _sdk_supplied_operator_set(scope, path):
+            root = _deployment_root(path)
+            if root is not None:
+                claimed.add(str(root.relative_to(REPO_ROOT)))
+    return sorted(claimed)
 
-    A predicate rather than an inline comparison, so the ceiling test and its
+
+def _ceiling_problems(claimed: list[str], *, ceiling: int, label: str) -> list[str]:
+    """Whether ``claimed`` exceeds ``ceiling``, named by ``label``.
+
+    A predicate rather than an inline comparison, so each ceiling test and its
     control judge by the same code — the same reason :func:`_gate_collapses`
-    and :func:`_binder_collapses` are predicates.
+    and :func:`_binder_collapses` are predicates. Parameterised on the ceiling
+    so the second exemption gets the identical instrument rather than a second
+    copy of it that drifts.
     """
-    if len(claimed) <= MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS:
+    if len(claimed) <= ceiling:
         return []
     return [
-        f"{len(claimed)} deployments claim the D-IMPL-137 one-document"
-        f" exemption, {MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS} permitted."
+        f"{len(claimed)} deployments claim the {label} exemption,"
+        f" {ceiling} permitted."
         f" {FLOOR_REMOVAL_INSTRUCTION} Claimed: {claimed}"
     ]
+
+
+def _exemption_problems(claimed: list[str]) -> list[str]:
+    """Whether this set of D-IMPL-137 claimants exceeds its ceiling."""
+    return _ceiling_problems(
+        claimed,
+        ceiling=MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS,
+        label="D-IMPL-137 one-document",
+    )
+
+
+def _sdk_supplied_problems(claimed: list[str]) -> list[str]:
+    """Whether this set of D-IMPL-141 claimants exceeds its ceiling."""
+    return _ceiling_problems(
+        claimed,
+        ceiling=MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS,
+        label="D-IMPL-141 SDK-supplied",
+    )
 
 
 def test_the_one_document_exemption_has_not_spread() -> None:
@@ -2322,6 +2586,33 @@ def test_the_one_document_exemption_has_not_spread() -> None:
     """
     problems = _exemption_problems(_one_document_deployments())
     assert not problems, "; ".join(problems)
+
+
+def test_the_sdk_supplied_exemption_has_not_spread() -> None:
+    """The second ceiling, held to the identical discipline as the first.
+
+    ``D-IMPL-141``'s shape is the one that ships now, so this is the exemption
+    the *next* example is most likely to want. Its ceiling has no headroom for
+    the same reason the other has none: a deployment that authors no operator
+    set is a deployment nothing in ``examples/`` holds to the binder demand, and
+    a population of those that can grow quietly is a demand that quietly ends.
+    """
+    problems = _sdk_supplied_problems(_sdk_supplied_deployments())
+    assert not problems, "; ".join(problems)
+
+
+def test_the_two_exemptions_are_disjoint() -> None:
+    """No deployment claims both, so neither ceiling is counting the other's.
+
+    Two ceilings of one only bound two populations if the populations are two.
+    A deployment satisfying both predicates would be counted once in each and
+    the pair would silently permit two claimants where each constant says one.
+    """
+    overlap = set(_one_document_deployments()) & set(_sdk_supplied_deployments())
+    assert not overlap, (
+        "these deployments claim BOTH exemptions, so the two ceilings are not"
+        f" bounding disjoint populations: {sorted(overlap)}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -2364,16 +2655,28 @@ def test_every_projecting_example_body_names_the_binder(
     :data:`MAXIMUM_ONE_DOCUMENT_DEPLOYMENTS`, asserted by
     :func:`test_the_one_document_exemption_has_not_spread` — and not anything
     this assertion reads.
+
+    **The same carve-out now has a second route**, and it is bounded the same
+    way rather than folded into the first:
+    :func:`_sdk_supplied_operator_set`, the `D-IMPL-141` shape where the
+    deployment authors no operator set at all because
+    :func:`~ccf.products.resolver.build_governed_resolver` hands it one.
+    Its ceiling is :data:`MAXIMUM_SDK_SUPPLIED_DEPLOYMENTS`, asserted by
+    :func:`test_the_sdk_supplied_exemption_has_not_spread`.
     """
-    if _one_document(scope, path, _bindings(scope)):
-        # D-IMPL-137, row B. The deployment registers no
+    if _premise_is_false(scope, path, _bindings(scope)):
+        # Either route. Row B: the deployment registers no
         # `ccf.projection-requirements` AND its plan's `required=` reads the
         # product class's own claim, so the binder would compare a value
         # against itself — the shape `_binder_collapses` property (1) refuses.
-        # The exemption is bounded by
-        # `test_the_one_document_exemption_has_not_spread`, not by this early
-        # return, and row C is refused by this assertion because
-        # `_one_document` returns False for it.
+        # `D-IMPL-141`: the deployment's `binding.yaml` names this function
+        # through `plan:`, and every plan it builds is built from the operator
+        # set the SDK handed it — so the binder would compare that same
+        # SDK-derived set against itself, which property (1) refuses for
+        # exactly the same reason.
+        #
+        # Each route is bounded by its own ceiling test, not by this early
+        # return, and row C is refused by both predicates.
         return
     assert _names_the_binder(scope), (
         f"{path.relative_to(REPO_ROOT)}:{_scope_line(scope)}:"
@@ -2451,24 +2754,284 @@ def test_the_binder_tripwire_detects_a_projection_that_skips_it() -> None:
 
 
 def test_the_premise_detector_reads_the_shipped_tree_correctly() -> None:
-    """Row B is pinned to its cause, not to HW-1 happening to pass.
+    """Every exemption is pinned to its cause, not to a deployment passing.
 
-    Every projecting deployment registers `ccf.projection-requirements` except
-    HW-1, which authors one operator-set document and says so in its own
-    module docstring. Asserting the detector's answer on the real tree is what
-    stops the exemption drifting to mean something else later.
+    **The substantive assertion is the first one, and it is stronger than the
+    named list it used to be.** A projecting deployment that registers no
+    ``ccf.projection-requirements`` has *some* explanation, and there are
+    exactly two the module accepts: it authored one document where two were
+    possible (row B), or it authored none because the SDK supplied the set
+    (``D-IMPL-141``). A root in neither list is `D-IMPL-137` **row C** — a
+    second operator set authored somewhere the Control Plane does not know
+    about — and row C is precisely what must not appear quietly. Asserting
+    set equality says *no root escapes registration unexplained*, which the
+    previous single-name list could only say for as long as there was one.
+
+    The two named assertions that follow keep each route pinned to the
+    deployment that actually exercises it, so a route that silently stopped
+    matching its own subject — and started matching something else — is red
+    rather than merely differently-green.
     """
     roots = {
         _deployment_root(path)
         for path, _ in _projecting_scopes()
     }
     roots.discard(None)
-    exempt = sorted(
+    unregistered = sorted(
         str(root.relative_to(REPO_ROOT))
         for root in roots
         if not _registers_requirements(root)
     )
-    assert exempt == ["examples/s1-00-companies-over-revenue"], exempt
+    row_b = _one_document_deployments()
+    sdk_supplied = _sdk_supplied_deployments()
+
+    assert unregistered == sorted({*row_b, *sdk_supplied}), (
+        "a projecting deployment registers no `ccf.projection-requirements` and"
+        " claims NEITHER exemption — that is D-IMPL-137 row C, a second"
+        " operator set authored where the Control Plane cannot see it."
+        f" unregistered={unregistered} row_b={row_b} sdk_supplied={sdk_supplied}"
+    )
+    assert row_b == ["examples/s1-00-companies-over-revenue"], row_b
+    assert sdk_supplied == ["examples/hw1-companies-over-revenue/deployment"], (
+        sdk_supplied
+    )
+
+
+# --------------------------------------------------------------------------
+# Controls for the D-IMPL-141 route. A detector taught to recognise a shape can
+# just as easily be taught to recognise nothing, so each condition it rests on
+# is broken in turn against a `tmp_path` deployment and watched to refuse.
+# --------------------------------------------------------------------------
+
+
+#: The shipped shape, reduced to its skeleton: a projection class satisfying the
+#: Protocol structurally, and a factory that returns one built from the operator
+#: set it was handed. Built from the module's own constants so a rename of
+#: either keyword reaches this fixture rather than leaving it stale.
+_FACTORY_MODULE = (
+    "class _Projection:\n"
+    f"    def __init__(self, *, {PLAN_REQUIRED_KEYWORD}):\n"
+    f"        self._required = {PLAN_REQUIRED_KEYWORD}\n"
+    "    def required_operators(self):\n"
+    "        return self._required\n"
+    "    def invoke(self, **kwargs):\n"
+    "        return None\n"
+    "\n"
+    f"def build_projection(*, {FACTORY_REQUIRED_PARAMETER}, request):\n"
+    f"    return _Projection({PLAN_REQUIRED_KEYWORD}={FACTORY_REQUIRED_PARAMETER})\n"
+)
+
+
+def _factory_deployment(
+    root: pathlib.Path,
+    *,
+    module: str = _FACTORY_MODULE,
+    binding: str | None = f"{REFERENCE_KEYS[0]}: projection.py:build_projection\n",
+    config: bool = True,
+) -> tuple[pathlib.Path, ast.AST]:
+    """Synthesize a `D-IMPL-141`-shaped deployment and return its factory scope.
+
+    Returns ``(module path, the factory's scope)``. Every control below builds
+    one of these and breaks exactly one condition, so a refusal names the
+    condition that produced it rather than the composition.
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    if config:
+        (root / SINGLE_FILE_CONFIG_NAME).write_text("semver: '1.0.0'\n", encoding="utf-8")
+    if binding is not None:
+        (root / BINDING_DOCUMENT_NAME).write_text(binding, encoding="utf-8")
+    path = root / "projection.py"
+    path.write_text(module, encoding="utf-8")
+    tree = ast.parse(module)
+    scope = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "build_projection"
+    )
+    return path, scope
+
+
+def test_the_binding_documents_reference_surface_is_still_one_key() -> None:
+    """The import above must keep naming the key the SDK actually reads.
+
+    :data:`REFERENCE_KEYS` is a **one-element** tuple by ruling (Amendment A.3),
+    and this module indexes ``[0]`` to get the plan key. If the SDK ever widens
+    it, indexing zero silently reads whichever key happens to sort first — so
+    the widening turns this red instead.
+    """
+    assert REFERENCE_KEYS == ("plan",), REFERENCE_KEYS
+    assert BINDING_DOCUMENT_NAME == "binding.yaml", BINDING_DOCUMENT_NAME
+
+
+def test_the_factory_seam_still_names_its_operator_set_parameter() -> None:
+    """The parameter this route keys on is the one the Protocol declares.
+
+    :data:`FACTORY_REQUIRED_PARAMETER` is an assumption about someone else's
+    signature. Asserted against the shipped Protocol rather than believed, so a
+    rename there turns this red rather than making the detector match nothing
+    and hand out no exemptions — which would look like the gate tightening.
+    """
+    import inspect
+
+    from ccf.products.resolver import ProjectionPlanFactoryProtocol
+
+    parameters = inspect.signature(ProjectionPlanFactoryProtocol.__call__).parameters
+    assert FACTORY_REQUIRED_PARAMETER in parameters, sorted(parameters)
+
+
+def test_the_sdk_supplied_route_recognises_the_shipped_shape(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The controls' baseline: refusals below must come from the breakage."""
+    path, scope = _factory_deployment(tmp_path / "examples" / "zz-demo")
+    # The synthesized tree is not under the real `examples/`, so the artifact
+    # root check would refuse it for the right reason at the wrong moment.
+    # Exercised against the SHIPPED example instead, which is the subject.
+    shipped = (
+        REPO_ROOT / "examples" / "hw1-companies-over-revenue" / "deployment"
+        / "projection.py"
+    )
+    tree = _parse(shipped)
+    assert tree is not None
+    factory = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "build_projection"
+    )
+    assert _sdk_supplied_operator_set(factory, shipped), (
+        "the D-IMPL-141 route no longer recognises the shipped example, so the"
+        " exemption it grants is granted to nothing and the controls below"
+        " would all pass over a detector that matches zero bodies"
+    )
+    assert path.is_file()  # the synthesized fixture is used by the controls
+
+
+@pytest.mark.parametrize(
+    ("label", "kwargs"),
+    [
+        (
+            "no binding document at all",
+            {"binding": None},
+        ),
+        (
+            "a binding document naming a different module",
+            {"binding": f"{REFERENCE_KEYS[0]}: elsewhere.py:build_projection\n"},
+        ),
+        (
+            "a binding document naming a different attribute",
+            {"binding": f"{REFERENCE_KEYS[0]}: projection.py:build_something_else\n"},
+        ),
+        (
+            "a binding document with no plan reference",
+            {"binding": "config: ccf_config.yaml\n"},
+        ),
+        (
+            "no Control Plane authoring surface at all",
+            {"config": False, "binding": None},
+        ),
+    ],
+)
+def test_the_sdk_supplied_route_refuses_a_broken_condition(
+    tmp_path: pathlib.Path, label: str, kwargs: dict[str, object]
+) -> None:
+    """Each condition broken in turn, against a real `examples/` subtree.
+
+    Written under ``REPO_ROOT / "examples"`` is impossible for a fixture, so the
+    detector is exercised on a synthesized root and the artifact-root condition
+    is asserted separately below. What these prove is that the *binding-document*
+    conditions each refuse on their own — the load-bearing one, because it is
+    the Control Plane's own statement that the SDK reaches this function.
+    """
+    root = tmp_path / "deployment"
+    path, scope = _factory_deployment(root, **kwargs)  # type: ignore[arg-type]
+    assert not _sdk_supplied_operator_set(scope, path), label
+
+
+def test_the_sdk_supplied_route_refuses_a_plan_built_from_another_source(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Row C, in the new shape: an operator set authored somewhere else.
+
+    The factory takes the SDK's set and then builds its plan from a different
+    value. That is a second authored operator set the Control Plane cannot see,
+    and it must stay subject to the demand — otherwise this route would launder
+    exactly what `D-IMPL-137` row C exists to keep red.
+    """
+    module = _FACTORY_MODULE.replace(
+        f"    return _Projection({PLAN_REQUIRED_KEYWORD}={FACTORY_REQUIRED_PARAMETER})",
+        f"    return _Projection({PLAN_REQUIRED_KEYWORD}=request.my_own_keys)",
+    )
+    root = tmp_path / "deployment"
+    path, scope = _factory_deployment(root, module=module)
+    assert f"{PLAN_REQUIRED_KEYWORD}=request.my_own_keys" in module
+    assert not _sdk_supplied_operator_set(scope, path)
+
+
+def test_the_sdk_supplied_route_refuses_a_factory_that_builds_no_plan(
+    tmp_path: pathlib.Path,
+) -> None:
+    """**The zero-match control.** Matching nothing is not satisfying anything.
+
+    A body constructing no plan at all yields an empty source tuple, and
+    ``all(...)`` over an empty tuple is ``True`` — so without the explicit
+    emptiness guard this route would hand the exemption to every function the
+    binding document happens to name, including one that does nothing. That is
+    the vacuous-pass shape this whole phase has been finding.
+    """
+    module = (
+        f"def build_projection(*, {FACTORY_REQUIRED_PARAMETER}, request):\n"
+        "    return None\n"
+    )
+    root = tmp_path / "deployment"
+    path, scope = _factory_deployment(root, module=module)
+    assert _constructed_plan_sources(scope) == ()
+    assert not _sdk_supplied_operator_set(scope, path)
+
+
+def test_the_sdk_supplied_route_refuses_a_body_with_no_artifact_tree() -> None:
+    """Fail-closed, the same way :func:`_one_document` is.
+
+    A tree outside ``examples/`` has made no claim to have a Control Plane at
+    all, so it cannot buy an exemption by having nothing to check against.
+    """
+    nowhere = REPO_ROOT / "nowhere" / "projection.py"
+    scope = next(
+        node
+        for node in ast.walk(ast.parse(_FACTORY_MODULE))
+        if isinstance(node, ast.FunctionDef) and node.name == "build_projection"
+    )
+    assert _deployment_root(nowhere) is None
+    assert not _sdk_supplied_operator_set(scope, nowhere)
+
+
+def test_the_sdk_supplied_route_refuses_a_deployment_that_registers_requirements(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Two documents means two documents, whatever shape the code is in.
+
+    A deployment that registers a ``ccf.projection-requirements`` HAS authored a
+    second operator set. The demand stands even if its factory looks exactly
+    like the exempt one — which is the condition that stops this route becoming
+    a way to opt out of the binder by adopting a file layout.
+    """
+    root = tmp_path / "deployment"
+    path, scope = _factory_deployment(root)
+    (root / SINGLE_FILE_CONFIG_NAME).write_text(
+        f"class_id: {REQUIREMENTS_CLASS_ID}\n", encoding="utf-8"
+    )
+    assert _registers_requirements(root)
+    assert not _sdk_supplied_operator_set(scope, path)
+
+
+def test_each_ceiling_refuses_a_second_claimant() -> None:
+    """Both ceilings, watched failing. Neither has headroom, and both say so."""
+    two = ["examples/first-deployment", "examples/second-deployment"]
+    row_b = _exemption_problems(two)
+    sdk = _sdk_supplied_problems(two)
+    assert row_b and "D-IMPL-137 one-document" in row_b[0], row_b
+    assert sdk and "D-IMPL-141 SDK-supplied" in sdk[0], sdk
+    assert _exemption_problems(two[:1]) == []
+    assert _sdk_supplied_problems(two[:1]) == []
 
 
 def test_a_body_with_no_artifact_tree_is_subject_to_the_demand() -> None:
