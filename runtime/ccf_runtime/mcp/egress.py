@@ -179,6 +179,26 @@ PRODUCT_MIME_TYPE = "application/json"
 #: and stays exported, so every existing
 #: ``ccf_runtime.mcp.egress.PRODUCT_REQUEST_TOOL`` citation resolves unchanged.
 
+#: The product tool's ``parameters`` default — *this question needs nothing
+#: beyond its four axes*, which is a positive statement and not an unset field.
+#:
+#: **A named default rather than** ``| None = None`` (``D-IMPL-151`` finding
+#: ``B2``). The nullable spelling made the argument model admit JSON ``null``,
+#: the handler read it as the empty mapping through an ``or {}``, and the HTTP
+#: route beside it refused the identical payload with
+#: ``400 ERROR_PRODUCT_PARAMETERS_MALFORMED`` — a width difference
+#: ``D-IMPL-133`` forbids, and a silent default on the argument the resolver
+#: selects a plan from, which is ``D-08`` inverted. Typed non-nullable, the
+#: generated tool schema is ``{"type": "object", "default": {}}``: an omitted
+#: argument still arrives as the empty mapping, and a supplied ``null`` is
+#: refused by the argument model before this handler runs — the same place, and
+#: for the same reason, that a supplied array or string is already refused.
+#:
+#: Shared object rather than a literal in the signature: pydantic copies a
+#: model's default on every validation, so no call receives this instance, and
+#: the handler copies again on the way into the request.
+EMPTY_PARAMETERS: dict[str, Any] = {}
+
 
 class NaiveAskedAtRefused(ValueError):
     """``asked_at`` was presented to the product tool without a UTC offset.
@@ -520,7 +540,7 @@ def build_egress_server(
             intent: str,
             freshness: str,
             asked_at: datetime,
-            parameters: dict[str, Any] | None = None,
+            parameters: dict[str, Any] = EMPTY_PARAMETERS,
         ) -> str:
             """Serve the product that answers **this** question, as canonical JSON.
 
@@ -608,6 +628,19 @@ def build_egress_server(
             :func:`~ccf.products.request.refuse_request` can refuse it
             ``type-mismatch`` at the resolver, which is where ``D-IMPL-121``
             put every request verdict.
+
+            **That claim was false for one input until ``D-IMPL-151`` finding
+            ``B2``, and the correction is in the signature rather than here.**
+            The argument read ``dict[str, Any] | None = None`` and the body read
+            ``dict(parameters or {})`` — so a supplied JSON ``null`` arrived as
+            ``None`` and was defaulted to the empty mapping, while the HTTP
+            route refused the identical payload ``400
+            ERROR_PRODUCT_PARAMETERS_MALFORMED``. Both halves are now what the
+            paragraph says: the argument is typed non-nullable with
+            :data:`EMPTY_PARAMETERS` as its default, so ``null`` is refused by
+            the argument model exactly as an array or a string already was, and
+            the body forwards what it was handed. Omission is unchanged, because
+            omission is the one case that genuinely *is* the empty mapping.
 
             *The width half is still binding, and is honoured by repairing
             both doors rather than neither.* ``D-IMPL-133`` is explicit that
@@ -729,7 +762,15 @@ def build_egress_server(
                 # declared world is closed at the resolver (D-IMPL-121), and a
                 # door that touched these values would be rendering a verdict
                 # it is not the one holding the class to compare against.
-                parameters=dict(parameters or {}),
+                #
+                # This read `dict(parameters or {})` until D-IMPL-151 finding
+                # B2. The `or {}` was a default the docstring above says this
+                # handler does not apply, and it turned a supplied JSON `null`
+                # into the empty mapping — which the HTTP route refuses with
+                # `400 ERROR_PRODUCT_PARAMETERS_MALFORMED`. The copy stays: the
+                # argument model hands over a fresh dict per call, and copying
+                # keeps that true if it ever stops being.
+                parameters=dict(parameters),
             )
             resolved = resolver(
                 tenant=tenant,

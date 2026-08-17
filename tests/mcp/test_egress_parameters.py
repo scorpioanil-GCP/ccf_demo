@@ -44,6 +44,45 @@ going red — so :func:`assert_same_verdicts` **refuses a table in which no case
 is served**. The guard is what makes the leg fail against the unrepaired doors
 rather than pass vacuously.
 
+A refusal *at the door* is a verdict, because a table that cannot say so is blind
+--------------------------------------------------------------------------------
+``D-IMPL-151`` finding ``B2``. Until it was found, the two door callables below
+**raised** when a door refused before reaching the resolver, and every case in
+the table was a well-formed JSON object — so a door disagreement that took the
+form *one door refuses this payload and the other serves it* was outside what
+the table could represent. That is exactly what ``"parameters": null`` was: the
+MCP tool read it as the empty mapping and served, while the HTTP route returned
+``400 ERROR_PRODUCT_PARAMETERS_MALFORMED``. A width table that cannot express a
+width difference is the table's defect as much as the door's, so
+:data:`REFUSED_AT_DOOR` is now a verdict like any other and
+:data:`EXPLICIT_NULL` is a case like any other.
+
+Nothing is weakened by that. A door that began refusing a well-formed case would
+now disagree with the door beside it and fail the width leg by name, where
+before it failed only its own callable; and a pair of doors refusing *everything*
+is still refused, by the non-vacuity guard, which asks for a **served** case
+rather than merely a non-empty table.
+
+**Which door was right, and why.** The HTTP route's refusal. ``D-08`` is that the
+fabric never silently degrades a caller's value, and the empty mapping is not a
+neutral zero here — both doors' own docstrings record it as the *positive*
+statement ``this question needs nothing beyond its four axes``. Reading a
+supplied ``null`` as that statement invents an assertion the caller never made,
+and does it on the argument the resolver selects a plan from. Omission remains
+the empty mapping on both doors, which is the case that genuinely *is* that
+statement. So the MCP tool narrowed to match rather than the HTTP route widening
+to match, and ``D-IMPL-133``'s *"no wider than the other door"* is satisfied in
+the direction that does not add a silent default.
+
+**A JSON array was never reachable**, and is now asserted never to be. The
+finding raised the possibility that ``dict(parameters)`` over a sequence of pairs
+would coerce ``[["a", 1]]`` into a mapping the HTTP door would have refused.
+Measured: pydantic refuses a list for a ``dict[str, Any]``-annotated tool
+argument under both the old annotation and the new one, so the coercion is
+unreachable through FastMCP. It was unreachable by accident of the argument
+model, not by anything this door did, which is why
+:func:`test_neither_door_accepts_a_json_array_as_parameters` now holds it there.
+
 The controls (``D-22``)
 ------------------------
 Every assertion here is a function taking its subject as a parameter, and each
@@ -134,16 +173,45 @@ UNDECLARED_PARAMETER = "not_declared_by_this_class"
 #: ``127.0.0.1:*`` even over ASGI, where no socket exists. Nothing binds it.
 IN_PROCESS_BASE_URL = "http://127.0.0.1:8126"
 
-#: ``"served"``, or a :data:`~ccf.products.request.ProductRequestViolationReason`.
+#: ``"served"``, a :data:`~ccf.products.request.ProductRequestViolationReason`,
+#: or :data:`REFUSED_AT_DOOR`.
 Verdict = str
+
+
+class ExplicitNull:
+    """The caller supplied ``parameters`` and supplied JSON ``null`` for it.
+
+    A distinct case from *omitted*, and the distinction is the whole of
+    ``D-IMPL-151`` finding ``B2``: omission is the positive statement *this
+    question needs nothing beyond its four axes*, and a supplied ``null`` is a
+    value the caller sent. A sentinel rather than ``None``, because ``None``
+    already means "omit the argument" inside :func:`_tool_arguments` and one
+    spelling for two meanings is how a table stops saying what it means.
+    """
+
+    def __repr__(self) -> str:
+        return "parameters=null"
+
+
+#: The one instance. Compared by identity, never by value.
+EXPLICIT_NULL = ExplicitNull()
+
+#: One row of the shared table: a caller's mapping, or the supplied ``null``.
+ParameterCase = Mapping[str, Any] | ExplicitNull
 
 #: Answer one parameter case with a verdict. The unit both doors are compared
 #: as, and the unit a control substitutes a divergent implementation of.
-AskDoor = Callable[[Mapping[str, Any]], Verdict]
+AskDoor = Callable[[ParameterCase], Verdict]
 
 #: The verdict a conforming request produces. Named so the non-vacuity guard,
 #: the case table and the controls all say the same string.
 SERVED: Verdict = "served"
+
+#: The verdict for a door that refused before the resolver was reached — the
+#: MCP tool answering ``isError``, or the HTTP route answering non-``200``. A
+#: verdict rather than a raise, so a door disagreement of the form *one refuses,
+#: the other serves* is representable in the shared table (``D-IMPL-151`` ``B2``).
+REFUSED_AT_DOOR: Verdict = "refused-at-door"
 
 
 # ---------------------------------------------------------------------------
@@ -151,8 +219,14 @@ SERVED: Verdict = "served"
 # ---------------------------------------------------------------------------
 
 
+def _spell(case: ParameterCase) -> str:
+    """How a case is named in a failure — a mapping as itself, the sentinel as
+    the wire spelling a reader would have typed."""
+    return repr(case) if isinstance(case, ExplicitNull) else repr(dict(case))
+
+
 def assert_same_verdicts(
-    cases: Sequence[Mapping[str, Any]],
+    cases: Sequence[ParameterCase],
     ask_mcp: AskDoor,
     ask_http: AskDoor,
 ) -> None:
@@ -193,7 +267,7 @@ def assert_same_verdicts(
             " served case cannot fail for the reason it exists"
         )
     differences = [
-        f"{dict(case)!r}: the MCP tool said {mcp!r} and the HTTP route"
+        f"{_spell(case)}: the MCP tool said {mcp!r} and the HTTP route"
         f" said {http!r}"
         for case, mcp, http in verdicts
         if mcp != http
@@ -397,9 +471,14 @@ def _mcp_server(
 
 
 def _tool_arguments(
-    address: ProductAddress, parameters: Mapping[str, Any] | None
+    address: ProductAddress, parameters: ParameterCase | None
 ) -> dict[str, Any]:
-    """The three address segments, the four axes, and the caller's parameters."""
+    """The three address segments, the four axes, and the caller's parameters.
+
+    Three spellings, and they are three: ``None`` omits the argument,
+    :data:`EXPLICIT_NULL` supplies it as JSON ``null``, and a mapping supplies
+    itself. Collapsing the first two is what let ``B2`` through.
+    """
     arguments: dict[str, Any] = {
         "tenant": address.tenant,
         "product_class": address.product_class,
@@ -409,7 +488,9 @@ def _tool_arguments(
         "freshness": FRESHNESS,
         "asked_at": ASKED_AT.isoformat(),
     }
-    if parameters is not None:
+    if isinstance(parameters, ExplicitNull):
+        arguments["parameters"] = None
+    elif parameters is not None:
         arguments["parameters"] = dict(parameters)
     return arguments
 
@@ -472,10 +553,15 @@ def _resource_operation(
 
 
 def _ask_mcp(assembled: Any, tmp_path: Path) -> AskDoor:
-    """The real MCP tool, as a callable answering one parameter case."""
+    """The real MCP tool, as a callable answering one parameter case.
+
+    A door refusal is :data:`REFUSED_AT_DOOR` rather than a raise, so the shared
+    table can hold a case one door refuses and the other serves — the shape
+    ``D-IMPL-151`` finding ``B2`` took and the table could not express.
+    """
     declared = _contract(assembled.address)
 
-    def ask(parameters: Mapping[str, Any]) -> Verdict:
+    def ask(parameters: ParameterCase) -> Verdict:
         carried: list[ProductRequest | None] = []
         server = _mcp_server(
             tmp_path,
@@ -483,14 +569,11 @@ def _ask_mcp(assembled: Any, tmp_path: Path) -> AskDoor:
             address=assembled.address,
             carried=carried,
         )
-        is_error, detail = _drive_mcp(
+        is_error, _detail = _drive_mcp(
             server, _tool_operation(_tool_arguments(assembled.address, parameters))
         )
         if is_error:
-            raise AssertionError(
-                f"the MCP tool refused the parameter case {dict(parameters)!r}"
-                f" at the door rather than carrying it: {detail}"
-            )
+            return REFUSED_AT_DOOR
         return _verdict(carried[-1] if carried else None, declared=declared)
 
     return ask
@@ -553,13 +636,18 @@ def _ask_http(assembled: Any, tmp_path: Path) -> AskDoor:
     root = tmp_path / "http"
     root.mkdir(exist_ok=True)
 
-    def ask(parameters: Mapping[str, Any]) -> Verdict:
+    def ask(parameters: ParameterCase) -> Verdict:
         carried: list[ProductRequest | None] = []
         app = _http_app(
             root,
             servable=assembled.servable,
             address=address,
             carried=carried,
+        )
+        supplied = (
+            "null"
+            if isinstance(parameters, ExplicitNull)
+            else json.dumps(dict(parameters))
         )
         response = _http_call(
             app,
@@ -569,15 +657,11 @@ def _ask_http(assembled: Any, tmp_path: Path) -> AskDoor:
                 "intent": INTENT,
                 "freshness": FRESHNESS,
                 "asked_at": ASKED_AT.isoformat(),
-                "parameters": json.dumps(dict(parameters)),
+                "parameters": supplied,
             },
         )
         if response.status_code != 200:
-            raise AssertionError(
-                f"the HTTP route refused the parameter case"
-                f" {dict(parameters)!r} at the door rather than carrying it:"
-                f" {response.status_code} {response.text}"
-            )
+            return REFUSED_AT_DOOR
         return _verdict(carried[-1] if carried else None, declared=declared)
 
     return ask
@@ -587,16 +671,23 @@ def _ask_http(assembled: Any, tmp_path: Path) -> AskDoor:
 # The shared case table.
 # ---------------------------------------------------------------------------
 
-#: Every parameter case both doors are held to, in one place. Five, spanning
-#: the four verdicts the declared world can produce plus the empty mapping —
-#: the case that says *this question needs nothing beyond its four axes* and
-#: which, against a class declaring a required parameter, is a refusal.
-PARAMETER_CASES: tuple[Mapping[str, Any], ...] = (
+#: Every parameter case both doors are held to, in one place. Six, spanning the
+#: four verdicts the declared world can produce, the empty mapping — the case
+#: that says *this question needs nothing beyond its four axes* and which,
+#: against a class declaring a required parameter, is a refusal — and, since
+#: ``D-IMPL-151`` finding ``B2``, a supplied JSON ``null``.
+#:
+#: The sixth is the one every earlier case was blind to: the five before it are
+#: all well-formed JSON objects, so a door reading some *other* JSON value as
+#: the empty mapping was outside what this table could see. It was measured
+#: doing exactly that — served on MCP, ``400`` on HTTP.
+PARAMETER_CASES: tuple[ParameterCase, ...] = (
     {REQUIRED_PARAMETER: 11},
     {REQUIRED_PARAMETER: 11, OPTIONAL_PARAMETER: "north"},
     {},
     {REQUIRED_PARAMETER: 11, UNDECLARED_PARAMETER: "smuggled"},
     {REQUIRED_PARAMETER: "11"},
+    EXPLICIT_NULL,
 )
 
 #: The wrong-typed cases the coercion leg runs. A string where an integer was
@@ -724,6 +815,70 @@ def test_neither_door_is_wider_than_the_other(
     )
 
 
+def test_a_supplied_null_is_refused_and_an_omission_is_the_empty_mapping(
+    assembled: Any, tmp_path: Path
+) -> None:
+    """Behaviour 7: the two spellings the MCP tool used to collapse into one.
+
+    ``D-IMPL-151`` finding ``B2``, stated on the door directly rather than only
+    through the width table, because the two facts are different: the table says
+    *the doors agree*, and this says *what they agree on*. Two doors could agree
+    by both reading ``null`` as the empty mapping, and that is the outcome
+    ``D-08`` forbids — the empty mapping is the positive statement *this question
+    needs nothing beyond its four axes*, and inventing it from a supplied value
+    is degrading a caller's value silently on the argument the resolver selects
+    a plan from.
+
+    Omission keeps meaning the empty mapping, which is what makes this a
+    narrowing rather than a breaking change for a deployment that adopted the
+    tool before ``D-IMPL-133``.
+    """
+    ask = _ask_mcp(assembled, tmp_path)
+
+    assert ask(EXPLICIT_NULL) == REFUSED_AT_DOOR
+    assert ask({}) == "missing-required-parameter"
+
+
+def test_neither_door_accepts_a_json_array_as_parameters(
+    assembled: Any, tmp_path: Path
+) -> None:
+    """Behaviour 8: the coercion the close review asked about is unreachable.
+
+    ``dict([["a", 1]])`` is a mapping in Python, so a door spelling its forward
+    as ``dict(parameters)`` *reads* as though a JSON array could be coerced into
+    one while the HTTP route would refuse it. Measured: pydantic refuses a list
+    for the tool's ``dict[str, Any]``-annotated argument, so the array never
+    reaches the handler body at all — under the old annotation as well as the
+    new one. Unreachable by the argument model rather than by anything the door
+    does, which is why it is asserted here instead of assumed.
+
+    Asked at the door rather than through :func:`_ask_mcp` because a raw
+    argument map is the only way to present a shape the case table's type does
+    not admit.
+    """
+    carried: list[ProductRequest | None] = []
+    server = _mcp_server(
+        tmp_path,
+        servable=assembled.servable,
+        address=assembled.address,
+        carried=carried,
+    )
+    arguments = _tool_arguments(assembled.address, {REQUIRED_PARAMETER: 11})
+    arguments["parameters"] = [[REQUIRED_PARAMETER, 11]]
+
+    is_error, detail = _drive_mcp(server, _tool_operation(arguments))
+
+    assert is_error is True, (
+        "a JSON array reached the MCP tool — if the handler coerced it into a"
+        f" mapping the HTTP route would have refused, that is a width"
+        f" difference `D-IMPL-133` forbids. Detail: {detail}"
+    )
+    assert carried == [], (
+        "the array was refused but the handler ran anyway, so the refusal is"
+        " not the argument model's and this test is measuring something else"
+    )
+
+
 def test_the_tool_carries_the_resources_bytes_without_re_serializing_them(
     assembled: Any, tmp_path: Path
 ) -> None:
@@ -812,8 +967,11 @@ def test_the_width_assertion_fires_on_a_wider_mcp_door(
     """
     honest = _ask_http(assembled, tmp_path)
 
-    def wider(parameters: Mapping[str, Any]) -> Verdict:
-        if UNDECLARED_PARAMETER in parameters:
+    def wider(parameters: ParameterCase) -> Verdict:
+        if (
+            not isinstance(parameters, ExplicitNull)
+            and UNDECLARED_PARAMETER in parameters
+        ):
             return SERVED
         return honest(parameters)
 
@@ -830,7 +988,7 @@ def test_the_width_assertion_fires_on_a_table_that_never_serves() -> None:
     than reported green.
     """
 
-    def never_serves(parameters: Mapping[str, Any]) -> Verdict:
+    def never_serves(parameters: ParameterCase) -> Verdict:
         return "missing-required-parameter"
 
     with pytest.raises(AssertionError, match="no served case"):
@@ -845,7 +1003,7 @@ def test_the_coercion_assertion_fires_on_a_coercing_door() -> None:
     served response would tell the caller their value was rewritten.
     """
 
-    def coercing(parameters: Mapping[str, Any]) -> Verdict:
+    def coercing(parameters: ParameterCase) -> Verdict:
         return SERVED
 
     with pytest.raises(AssertionError, match="type-mismatch"):
