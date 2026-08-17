@@ -457,6 +457,73 @@ def test_the_predicate_excludes_fixtures_directories_as_a_shape() -> None:
 
 
 # ---------------------------------------------------------------------------
+# The single-file-config boundary, stated rather than left to look like a gap.
+# ---------------------------------------------------------------------------
+
+#: Examples whose whole Control Plane configuration is ONE document
+#: (``D-IMPL-136``'s AMENDMENT: the section name IS the class), so they carry no
+#: ``artifacts/`` directory and are deliberately outside the bijection above.
+SINGLE_FILE_CONFIG_EXAMPLES: tuple[str, ...] = (
+    "examples/hw1-companies-over-revenue",
+)
+
+
+@pytest.mark.parametrize("relative", SINGLE_FILE_CONFIG_EXAMPLES)
+def test_a_single_file_config_example_is_outside_the_bijection(
+    relative: str,
+) -> None:
+    """The boundary is a decision, and this is where it is written down.
+
+    Plan ``17-09`` was written to widen :data:`EXAMPLE_ROOT_MARKER` from the
+    ``run.py`` filename to a property — "a directory directly under
+    ``examples/`` holding a module with an ``if __name__`` guard" — so that the
+    client example became visible here. **Measured, that widening cannot hold**,
+    and the measurement is recorded rather than the widening:
+
+    * The bijection's left side requires every example root to own a covered
+      ``artifacts/`` directory. A ``D-IMPL-136`` example has none *by design*:
+      its whole Control Plane configuration is one ``ccf_config.yaml``.
+      Collecting it would therefore fail
+      :func:`test_every_example_root_has_a_covered_artifact_directory`
+      immediately — a red check bought by a widening, not a defect found.
+    * Redirecting the covered set at ``deployment/*.yaml`` instead is worse.
+      Running ``tools.check_schema_headers.check_directory`` over this
+      example's ``deployment/`` reports ``binding.yaml`` and ``scenario.yaml``
+      as unannotated artifact documents. **Neither is an artifact.**
+      ``binding.yaml`` is deployment-environment material that is never
+      registered and never content-hashed (``D-IMPL-141``), and
+      ``scenario.yaml`` is the deployment's own vocabulary. Giving either an
+      artifact schema header would make the document assert something false to
+      satisfy a checker.
+    * ``examples/s1-00-companies-over-revenue`` — the same shape, and the
+      document this example's config was recovered from — is **already**
+      outside this gate today for exactly this reason. The exclusion is the
+      shipped precedent, not a new hole.
+
+    So this test asserts the boundary instead of hiding it: the example exists,
+    it carries a single-file config, and it owns no ``artifacts/`` directory.
+    The day somebody gives it one, this turns red and the decision above gets
+    re-made on purpose.
+    """
+    root = REPO_ROOT / relative
+    assert root.is_dir(), f"{relative} is missing"
+    assert (root / "deployment" / "ccf_config.yaml").is_file(), (
+        f"{relative} no longer carries a single-file Control Plane config, so"
+        " the reason it sits outside this gate no longer applies"
+    )
+    assert not (root / ARTIFACTS_DIRNAME).exists(), (
+        f"{relative} has grown an `{ARTIFACTS_DIRNAME}/` directory. It was"
+        " excluded from the bijection because a `D-IMPL-136` single-file"
+        " config has none; now that it has one, widen the example-root"
+        " predicate to collect it and delete this test"
+    )
+    assert root not in example_roots(EXAMPLES_ROOT), (
+        f"{relative} is now collected as an example root but owns no"
+        f" `{ARTIFACTS_DIRNAME}/`, so the bijection's left side cannot hold"
+    )
+
+
+# ---------------------------------------------------------------------------
 # The exemption set, which stays named.
 # ---------------------------------------------------------------------------
 
