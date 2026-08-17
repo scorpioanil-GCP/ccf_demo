@@ -106,3 +106,35 @@ def test_served_parity_fires_on_an_mcp_transport_answering_another_question(
             question=QUESTION,
         )
     assert "content_address" in str(fired.value)
+
+
+def test_one_instant_fires_on_an_mcp_door_deciding_otherwise_at_that_instant(
+    provision: Provision,
+) -> None:
+    """The `D-IMPL-149` leg, with a real second door inside the comparison.
+
+    ``assert_one_instant_is_one_decision`` is new, and a new cross-adapter leg
+    is exactly where this phase's recurring defect lands: it would be green
+    against these two subjects whether or not the MCP door were really in the
+    comparison. So the divergent door is put *into* the shipped leg here, the
+    same way the two controls above do it for served parity.
+
+    ``_AnswersAnotherQuestion`` is the right divergence for this leg because it
+    moves the *answer* and not the *instant*: the door answers a different
+    threshold, so it still echoes the pinned instant and still anchors to it,
+    and the only thing left to catch it is the comparison across subjects.
+    """
+    with pytest.raises(AssertionError) as fired:
+        suite.assert_one_instant_is_one_decision(
+            (*IN_PROCESS, _subject(_AnswersAnotherQuestion)),
+            provision=provision,
+            question=QUESTION,
+        )
+
+    message = str(fired.value)
+    assert "content_address" in message
+    assert "graph state anchored at" not in message, (
+        "the divergent door moved its anchor as well, so this control fired on"
+        " the per-subject check and says nothing about whether the MCP door is"
+        " inside the cross-adapter comparison"
+    )

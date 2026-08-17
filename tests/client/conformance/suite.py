@@ -72,6 +72,7 @@ __all__ = [
     "assert_decision_instant_is_auditable",
     "assert_guard_holds",
     "assert_guard_parity",
+    "assert_one_instant_is_one_decision",
     "assert_one_question_is_one_address",
     "assert_refusal_parity",
     "assert_served_parity",
@@ -679,11 +680,26 @@ def assert_decision_instant_is_auditable(
     it did not answer at fails that, and no amount of a well-formed datetime
     saves it.
 
+    **This leg is per-subject, and a cross-subject comparison was removed from
+    it** (``D-IMPL-149``, Dave, 2026-08-17). It used to end at
+    ``_assert_views_agree(recovered, leg="decision instant")``, holding every
+    subject's *recovered* instant to the first subject's. That demand and the
+    refusal above contradict each other: asking with ``as_of=None`` is what
+    makes the recovery non-trivial, and it is also what makes each subject read
+    **its own clock**. Two in-process deployments — no MCP, no process boundary
+    — were measured recovering instants **116 ms apart**, so the demand was not
+    hard to satisfy under load; it was unsatisfiable in principle for any two
+    subjects whatsoever. It was green only while a single subject was bound,
+    which made it a comparison of one thing with itself. The cross-adapter half
+    of ``DEF-17-07`` now lives in
+    :func:`assert_one_instant_is_one_decision`, where the instant is an
+    **input** and a comparison across subjects therefore means something.
+
     Raises:
         AssertionError: the question already pinned an instant (which would make
             the recovery trivial), a recovered instant was absent or naive, the
-            pinned re-ask produced a different address, or two transports
-            recovered different instants.
+            pinned re-ask produced a different address, or a refusal named no
+            instant it was reached at.
     """
     _require_subjects(subjects, leg="decision instant")
     if question.as_of is not None:
@@ -692,7 +708,6 @@ def assert_decision_instant_is_auditable(
             " that already names its instant, it would recover the value it"
             " was given and prove nothing about what the server resolved"
         )
-    recovered: dict[str, Mapping[str, Any]] = {}
     for subject in subjects:
         root = provision(subject.name)
         served = _ask(subject, root, question)
@@ -750,10 +765,103 @@ def assert_decision_instant_is_auditable(
                 " survives a refusal by `D-09`, so a caller auditing a governed"
                 " no has nothing to place it in time with"
             )
-        recovered[subject.name] = {
-            "served.lineage.graph_snapshot_at": instant,
-            "refusal.request.temporal_boundary": (
-                refused.refusal.request.temporal_boundary
-            ),
+
+
+# ---------------------------------------------------------------------------
+# DEF-17-07, cross-adapter — one pinned instant, one decision, every transport.
+# ---------------------------------------------------------------------------
+
+
+def assert_one_instant_is_one_decision(
+    subjects: Sequence[AdapterSubject],
+    *,
+    provision: Provision,
+    question: Question,
+) -> None:
+    """One instant the **test** pins is one decision, whichever transport asked.
+
+    ``DEF-17-07``'s cross-adapter half, split out of
+    :func:`assert_decision_instant_is_auditable` by ``D-IMPL-149`` (Dave,
+    2026-08-17). That leg asks with ``as_of=None`` on purpose, so each subject
+    resolves an instant from its own clock; holding those recovered instants to
+    each other was unsatisfiable for any two subjects and is gone. Here the
+    instant is an **input**, identical for every subject by construction, and a
+    comparison across subjects is therefore a claim about the transports rather
+    than about when they were scheduled.
+
+    **The precondition is the mechanism, so it is enforced rather than
+    documented.** Handed a question that names no instant, this leg *refuses* —
+    the mirror image of the refusal in
+    :func:`assert_decision_instant_is_auditable`, and for the same reason: a
+    comparison whose premise does not hold reports a difference that belongs to
+    the clock. The two refusals together are what keep the split from collapsing
+    back into the defect it repairs.
+
+    Two things are asserted, and the first is what makes the leg non-vacuous
+    with a single subject:
+
+    * **per subject, against the input** — the answer echoes the pinned instant
+      in ``temporal_boundary`` and is anchored to it in
+      ``lineage.graph_snapshot_at``. This is *correctness*, not agreement: a
+      transport that quietly answered as of some other moment fails here even if
+      every other subject did the same thing. No other leg checks it, because
+      every other leg compares subjects to each other rather than to what was
+      asked.
+    * **across subjects** — the audit view (the echoed instant, the graph
+      anchor, and the address answered at that instant) is identical. Two
+      transports can pass the per-subject half and still disagree here, by
+      answering the pinned instant with different products; that case is
+      controlled for in ``test_the_suite_fires.py`` and, through a real second
+      door, in ``test_the_mcp_binding_fires.py``.
+
+    The address is in the compared view deliberately, and it overlaps with
+    :func:`assert_served_parity`, which compares every declared field including
+    this one. The overlap is stated rather than avoided: without the address
+    this leg would compare two values that both had to equal ``question.as_of``
+    to get here, which is a cross-subject comparison that cannot fail — the
+    exact shape of defect ``D-IMPL-149`` was raised about.
+
+    Raises:
+        AssertionError: the question named no instant, a subject refused, a
+            subject echoed or anchored to an instant other than the one pinned,
+            or two transports disagreed about the decision they reached at it.
+    """
+    _require_subjects(subjects, leg="one instant")
+    if question.as_of is None:
+        raise AssertionError(
+            "this leg requires a question whose `as_of` the test pinned —"
+            " handed one that names no instant, every subject would resolve"
+            " its own from its own clock and the comparison below would report"
+            " two transports disagreeing about when they were scheduled"
+            " (`D-IMPL-149`)"
+        )
+    answers = _ask_each(subjects, provision=provision, question=question)
+    views: dict[str, Mapping[str, Any]] = {}
+    for name, result in answers.items():
+        if result.refused:
+            reason = result.refusal.reason if result.refusal is not None else "?"
+            raise AssertionError(
+                f"`{name}` refused the pinned question with `{reason}`, so this"
+                " leg has no decision to place at the instant it named"
+            )
+        if result.temporal_boundary != question.as_of:
+            raise AssertionError(
+                f"`{name}` was asked at {question.as_of!r} and echoed"
+                f" {result.temporal_boundary!r} — the caller named the instant,"
+                " so a result reporting a different one has answered a question"
+                " nobody asked and says so in the field an auditor reads first"
+            )
+        anchor = result.lineage.graph_snapshot_at
+        if anchor != question.as_of:
+            raise AssertionError(
+                f"`{name}` was asked at {question.as_of!r} and read graph state"
+                f" anchored at {anchor!r} — the echo can be honest while the"
+                " answer is not, so the anchor is checked against the input"
+                " rather than against the echo"
+            )
+        views[name] = {
+            "temporal_boundary": result.temporal_boundary,
+            "lineage.graph_snapshot_at": anchor,
+            CONTENT_ADDRESS: result.content_address,
         }
-    _assert_views_agree(recovered, leg="decision instant")
+    _assert_views_agree(views, leg="one instant")
