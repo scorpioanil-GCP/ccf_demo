@@ -15,8 +15,13 @@ whole job is to put an already-servable product on the wire under a stable URI.
 **What this server cannot do.** It cannot write: it holds no graph write handle
 and no graph read handle, and it imports nothing from the L3 graph package at
 all. There is no field on it that could hold either — the resolver seam trades
-in :class:`~ccf.products.gates.ServableProduct` and nothing else, and a
-``ServableProduct`` is a read result someone else already produced. The honest
+only in **values someone else already produced**: a
+:class:`~ccf.products.gates.ServableProduct`, the
+:class:`~ccf.replay.serve.ServedProduct` that carries one alongside its replay
+reference, or the :class:`~ccf.products.refusal.RefusalEnvelope` that stands
+instead of one (``D-IMPL-148`` Addendum A; the translation lives in
+:mod:`ccf.products.door`, and the seam's *declared* type is unchanged — see
+:class:`ProductResolverProtocol`). None of the three is a handle. The honest
 claim (D-21) is the structural one: nothing on this module's shape offers a
 route into L2 or L3, and the lints plus the source assertion in
 ``tests/crossproc/test_mcp_egress.py`` — which greps this very source for those
@@ -114,6 +119,7 @@ from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 
 from ccf.contracts.canonical import canonical_bytes
+from ccf.products.door import DoorOutcome, door_refusal, served_answer
 from ccf.products.gates import ServableProduct
 from ccf.products.request import ProductRequest
 from ccf.projection.plan import Perspective
@@ -209,6 +215,29 @@ class ProductResolverProtocol(Protocol):
     undeliverable *"the request surface is validated where it crosses the
     door"*. Both were blocked on the same missing parameters, so both were
     added together rather than reshaping the same call sites twice.
+
+    **THE DECLARED RETURN TYPE IS UNCHANGED, AND THE TOOL NOW TOLERATES TWO
+    MORE SHAPES** (``D-IMPL-148`` Addendum A). Widening this Protocol's return
+    type would reshape all three product doors and is a fourth door's worth of
+    work that nothing has ruled — :mod:`ccf.products.resolver` records the same
+    divergence from its own side. So the annotation below still says
+    :class:`~ccf.products.gates.ServableProduct`, while the *tool* handler
+    accepts, through :mod:`ccf.products.door`, whichever of these a deployment's
+    resolver actually returns:
+
+    * :class:`~ccf.products.gates.ServableProduct` — served, and **no replay
+      reference**, because this vessel carries none;
+    * :class:`~ccf.replay.serve.ServedProduct` — served, with the reference,
+      which is what :class:`~ccf.products.resolver.GovernedResolver` returns and
+      what makes the reference reach a consumer at all;
+    * :class:`~ccf.products.refusal.RefusalEnvelope`, or any bare refusal value
+      :data:`~ccf.products.refusal.REFUSAL_KINDS` names — the governed "no",
+      returned rather than raised.
+
+    Anything else is a wiring defect and raises ``TypeError``; it is never
+    reported to a caller as a refusal the fabric made. The **resource** handler
+    is unchanged and reads ``.product`` off what it was handed, as it always
+    has.
 
     **TWO REFUSALS THIS DOOR DOES NOT CALL, AND YOUR RESOLVER MUST.** The SDK
     ships both comparisons complete and tested, and no shipped door invokes
@@ -594,17 +623,68 @@ def build_egress_server(
             deployment that adopted this tool before ``D-IMPL-133`` keeps
             working unchanged.
 
-            Nothing is added to the body's return: it is the *identical*
-            expression the resource returns, over the same vessel, so this
-            surface is not a second serialization and cannot surface anything
-            ``D-IMPL-119`` limb 3(b) or ``D-IMPL-124`` Shape B took off the
-            vessel — it inherits both by construction.
+            **What this tool returns is a** :class:`~ccf.products.door.DoorOutcome`
+            **and no longer the bare vessel** (``D-IMPL-148`` and its
+            **Addendum A**, Dave, 2026-08-17). Two things ride the envelope that
+            had nowhere to go while the return was the product's bytes alone:
+
+            1. **A refusal, as the return value rather than a raise.** Measured
+               against ``mcp==1.28.1``, FastMCP wraps a raised tool exception as
+               ``ToolError: Error executing tool <name>: <message>`` and
+               delivers it ``isError=True`` with that prose prefix, so a client
+               wanting the governed answer would have to string-parse a server's
+               wording. :func:`~ccf.products.door.door_refusal` renders what the
+               resolver answered with — a ready-made
+               :class:`~ccf.products.refusal.RefusalEnvelope` passes through
+               untouched, a bare refusal value is translated against the
+               question this handler carried.
+            2. **The replay reference.** ``ServedProduct`` carries it and every
+               shipped door discarded it, which
+               :class:`~ccf.client.wire.WireOutcome` had already named *"a
+               defect the client seam exists to fix rather than a feature
+               request"*. It rides as a **sibling** of the vessel, never inside
+               it: the vessel's bytes *are* the product, so anything carried
+               within them changes the address they claim. The HTTP door
+               publishes the identical string under
+               :data:`~ccf_runtime.http_api.routes.REPLAY_REF_HEADER` because it
+               has a header channel and this surface does not — the asymmetry is
+               a property of the transports, exactly as
+               :func:`~ccf_runtime.http_api.routes.canonical_response` already
+               records for the content address.
+
+            **The vessel is still not re-serialized, and that claim is now
+            stated at the level it is true.** ``product_json`` carries the
+            *identical* expression the resource returns —
+            ``canonical_bytes(...).decode("utf-8")`` over the same vessel — as
+            **text**, so ``sha256`` of it is the producer's content address with
+            no second rendering anywhere on the path. What moved is the frame
+            around those bytes, not the bytes; ``D-IMPL-119`` limb 3(b) and
+            ``D-IMPL-124`` Shape B are still inherited by construction, because
+            the whole vessel is still what gets serialized.
+
+            **The resource beside this tool is deliberately unchanged.** It has
+            no envelope and no header, its body *is* the vessel, and it carries
+            no request — so it has no sibling channel for a reference and no
+            question for a refusal envelope to name. Giving it one means making
+            it a different resource, which is not what either ruling asked for.
+
+            **A governance refusal is still raised and never enveloped.**
+            ``ProductEntitlementRefused`` is decided *before* the resolver is
+            reached, and entitlement at the client seam is on the v0 not-list;
+            rendering it as a fabric refusal would say "the fabric answered no"
+            about a caller the fabric never answered at all. The line is drawn
+            here and asserted in
+            ``tests/mcp/test_egress_refusal_envelope.py``.
 
             Raises:
                 NaiveAskedAtRefused: ``asked_at`` carries no UTC offset.
                 ProductEntitlementRefused: the caller is not entitled to this
-                    class, or not to the resolved role.
+                    class, or not to the resolved role. Deliberately raised
+                    rather than enveloped — see above.
                 ProductNotServable: the resolver has no product there.
+                TypeError: the resolver answered with neither a served shape nor
+                    a refusal this envelope translates — a wiring defect, and
+                    never reported to a caller as a governed "no".
             """
             if (
                 asked_at.tzinfo is None
@@ -637,13 +717,32 @@ def build_egress_server(
                 # it is not the one holding the class to compare against.
                 parameters=dict(parameters or {}),
             )
-            servable = resolver(
+            resolved = resolver(
                 tenant=tenant,
                 product_class=product_class,
                 version=version,
                 perspective=perspective,
                 request=asked,
             )
-            return canonical_bytes(servable.product).decode("utf-8")
+            refusal = door_refusal(
+                resolved,
+                asked=asked,
+                product_class=product_class,
+                version=version,
+            )
+            if refusal is not None:
+                return canonical_bytes(
+                    DoorOutcome(
+                        product_json=None, replay_ref=None, refusal=refusal
+                    )
+                ).decode("utf-8")
+            answer = served_answer(resolved)
+            return canonical_bytes(
+                DoorOutcome(
+                    product_json=canonical_bytes(answer.product).decode("utf-8"),
+                    replay_ref=answer.replay_ref,
+                    refusal=None,
+                )
+            ).decode("utf-8")
 
     return server

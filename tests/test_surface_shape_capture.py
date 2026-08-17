@@ -498,6 +498,16 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf.client.adapters.binding_document.BindingDocument": (
         "17-12-binding-document-data-only.md"
     ),
+    # `D-IMPL-148` Addendum A (Dave, 2026-08-17): the one canonical-body
+    # renderer gained a single keyword-only `replay_ref`, defaulting to `None`,
+    # which publishes `REPLAY_REF_HEADER` when supplied and sets no header when
+    # not. The additive-and-defaulted case this allowance was written for — all
+    # five existing call sites read identically and the response is
+    # byte-for-byte unchanged when the argument is omitted — and the fragment
+    # claims the name as `reshaped`.
+    "ccf_runtime.http_api.routes.canonical_response": (
+        "17-10-both-doors-carry-the-replay-reference.md"
+    ),
 }
 
 

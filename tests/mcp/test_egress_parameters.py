@@ -77,6 +77,7 @@ from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.mcp.client import run_with_session
 from ccf.mcp.errors import McpServerUnreachable
+from ccf.products.door import DoorOutcome
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
     ProductEntitlementGrant,
@@ -723,15 +724,33 @@ def test_neither_door_is_wider_than_the_other(
     )
 
 
-def test_the_tool_body_is_byte_identical_to_the_resources(
+def test_the_tool_carries_the_resources_bytes_without_re_serializing_them(
     assembled: Any, tmp_path: Path
 ) -> None:
     """Behaviour 6: the tool is still not a second serialization.
 
-    Compared on raw bytes rather than parsed JSON: a comparison of parsed
-    objects would be blind to a re-encode, and a re-encode is exactly how a
-    parameterised surface silently changes the content address of the one
-    beside it.
+    **This assertion was restated by ``D-IMPL-148`` Addendum A, and the
+    restatement is recorded rather than quietly applied.** It read
+    ``tool_text == resource_text`` — the tool's *whole return* was the vessel,
+    byte for byte. The tool now answers in a
+    :class:`~ccf.products.door.DoorOutcome`, because a refusal cannot be raised
+    over FastMCP without a prose prefix and because the replay reference has no
+    sibling channel on a bare body. So the comparison moved to the member that
+    carries the vessel.
+
+    **Why the new claim is not weaker.** The claim this test exists to make is
+    *the parameterised surface is not a second serialization of the product* —
+    a re-encode there would silently change the content address of the resource
+    beside it. That claim is asserted here at full strength and on raw text: the
+    carried bytes are the resource's bytes and the canonical serializer's
+    output, character for character. What is no longer asserted is that the
+    tool's return has *no frame around* those bytes, which is exactly and only
+    what the ruling changed. The test is also **stronger** in one respect it was
+    not before: the text must validate as a ``DoorOutcome``, so a door emitting
+    an ad-hoc shape fails here rather than being read as a vessel.
+
+    Compared on raw text rather than parsed JSON, for the original reason: a
+    comparison of parsed objects would be blind to a re-encode.
     """
     carried: list[ProductRequest | None] = []
     server = _mcp_server(
@@ -771,8 +790,9 @@ def test_the_tool_body_is_byte_identical_to_the_resources(
 
     resource_text, tool_text = asyncio.run(both())
 
-    assert tool_text == resource_text
-    assert tool_text == canonical_bytes(assembled.servable.product).decode("utf-8")
+    carried = DoorOutcome.model_validate_json(tool_text).product_json
+    assert carried == resource_text
+    assert carried == canonical_bytes(assembled.servable.product).decode("utf-8")
 
 
 # ---------------------------------------------------------------------------
